@@ -688,8 +688,13 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 }
 
 // Identities extracts the set of identities corresponding to selectors.
+// If the filter has a wildcard selector, only the wildcard identity (0) is yielded.
 func (l4 *L4Filter) Identities(txn SelectorSnapshot) iter.Seq[identity.NumericIdentity] {
 	return func(yield func(identity.NumericIdentity) bool) {
+		if l4.wildcard != nil {
+			yield(0)
+			return
+		}
 		for cs := range l4.PerSelectorPolicies {
 			if cs == nil {
 				continue

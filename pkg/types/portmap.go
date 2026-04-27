@@ -4,10 +4,14 @@
 package types
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"iter"
+	"slices"
 	"strings"
+	"unique"
+	"unsafe"
 
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/iana"
@@ -83,11 +87,21 @@ func (pps PortProtoSet) Delete(pp PortProto, nid identity.NumericIdentity) bool 
 	return deleted
 }
 
+type NidPortSeq iter.Seq2[identity.NumericIdentity, uint16]
+
+func emptyNidPortSeq(func(identity.NumericIdentity, uint16) bool) {}
+
 // NamedPortMultiMap may have multiple entries for a name if multiple PODs
 // define the same name with different values.
 type NamedPortMultiMap interface {
 	// GetNamedPort returns the port number for the named port, if any.
+	// Wildcard identity gets the named port defined for any other identity.
 	GetNamedPort(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) (uint16, error)
+
+	// GetNamedPorts returns the port numbers for the named port, if any, by
+	// numeric identity.
+	// Wildcard identity gets the named ports defined for all other identities.
+	GetNamedPorts(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) NidPortSeq
 
 	// Len returns the number of Name->PortProtoSet mappings known.
 	Len() int
@@ -95,7 +109,8 @@ type NamedPortMultiMap interface {
 
 func NewNamedPortMultiMap() *namedPortMultiMap {
 	return &namedPortMultiMap{
-		m: make(map[string]PortProtoSet),
+		m:     make(map[string]PortProtoSet),
+		ports: make(map[namedPortCacheKey]map[identity.NumericIdentity]unique.Handle[namedPortSet]),
 	}
 }
 
@@ -104,7 +119,21 @@ func NewNamedPortMultiMap() *namedPortMultiMap {
 type namedPortMultiMap struct {
 	lock.RWMutex
 	m map[string]PortProtoSet
+	// ports caches the port set by numeric identity, nid 0 caches ports for all identities.
+	ports map[namedPortCacheKey]map[identity.NumericIdentity]unique.Handle[namedPortSet]
 }
+
+type namedPortCacheKey struct {
+	name  string
+	proto u8proto.U8proto
+}
+
+// namedPortSet is an interned, sorted, deduplicated set of uint16 ports encoded
+// as native-endian bytes. It must only be constructed from sorted []uint16 via
+// makeNamedPortSet(), and its bytes must be treated as immutable.
+type namedPortSet string
+
+var zeroNamedPortSet unique.Handle[namedPortSet]
 
 func (npm *namedPortMultiMap) Len() int {
 	npm.RLock()
@@ -117,6 +146,8 @@ func (npm *namedPortMultiMap) Update(nid identity.NumericIdentity, old, new Name
 	npm.Lock()
 	defer npm.Unlock()
 
+	touchedNames := map[string]struct{}{}
+
 	// Handle removals: Ports in old but not in new, or changed.
 	for name, oldPP := range old {
 		newPP, exists := new[name]
@@ -124,6 +155,7 @@ func (npm *namedPortMultiMap) Update(nid identity.NumericIdentity, old, new Name
 			if pps, ok := npm.m[name]; ok {
 				if deleted := pps.Delete(oldPP, nid); deleted {
 					namedPortsChanged = true
+					touchedNames[name] = struct{}{}
 				}
 			}
 		}
@@ -147,10 +179,27 @@ func (npm *namedPortMultiMap) Update(nid identity.NumericIdentity, old, new Name
 			}
 			if pps.Add(newPP, nid) {
 				namedPortsChanged = true
+				touchedNames[name] = struct{}{}
 			}
 		}
 	}
+	for name := range touchedNames {
+		npm.invalidateNamedPorts(name, nid)
+	}
 	return namedPortsChanged
+}
+
+// invalidateNamedPorts invalidates cached portsets for the given identity and the wildcard identity
+func (npm *namedPortMultiMap) invalidateNamedPorts(name string, nid identity.NumericIdentity) {
+	for key, byNID := range npm.ports {
+		if key.name == name {
+			delete(byNID, 0)
+			delete(byNID, nid)
+			if len(byNID) == 0 {
+				delete(npm.ports, key)
+			}
+		}
+	}
 }
 
 // ValidatePortName checks that the port name conforms to the IANA Service Names spec
@@ -218,6 +267,9 @@ func (npm NamedPortMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16
 }
 
 // GetNamedPort returns the port number for the named port, if any.
+// Numeric identities that have no named port mapping are skipped.
+// Wildcard identity gets the named port defined for any other identity.
+// Callers that need stricter per-identity semantics can fall back to GetNamedPorts().
 func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
@@ -234,37 +286,152 @@ func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, n
 		return 0, ErrUnknownNamedPort
 	}
 	// Find if there is a single port that has no proto conflict and no zero port value.
-	// Numeric identities that have no named port mapping are skipped.
-	port := uint16(0)
-	err := ErrUnknownNamedPort
-	for pp, nidSet := range pps {
-		// Check if this PortProto is defined by any of the target numeric identities
-		validNID := false
-		for nid := range nids {
-			if _, exists := nidSet[nid]; exists {
-				validNID = true
-				break
-			}
-		}
-		if !validNID {
-			continue // Skip if PortProto is not from the target identities
-		}
-
-		if pp.Proto != 0 && proto != pp.Proto {
-			err = ErrIncompatibleProtocol
-			continue // conflicting proto
-		}
-		if pp.Port == 0 {
-			err = ErrNamedPortIsZero
-			continue // zero port
-		}
-		if port != 0 && pp.Port != port {
+	var ports []uint16
+	for nid := range nids {
+		ports = collectNamedPorts(pps, proto, nid, ports)
+		if len(ports) > 1 {
 			return 0, ErrDuplicateNamedPorts
 		}
-		port = pp.Port
 	}
-	if port == 0 {
-		return 0, err
+	if len(ports) == 0 {
+		return 0, ErrUnknownNamedPort
 	}
-	return port, nil
+	return ports[0], nil
+}
+
+// GetNamedPorts returns the port numbers for the named port, if any.
+func (npm *namedPortMultiMap) GetNamedPorts(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) NidPortSeq {
+	if npm == nil {
+		return emptyNidPortSeq
+	}
+	npm.Lock()
+	if npm.m == nil {
+		npm.Unlock()
+		return emptyNidPortSeq
+	}
+	if npm.ports == nil {
+		npm.ports = make(map[namedPortCacheKey]map[identity.NumericIdentity]unique.Handle[namedPortSet])
+	}
+	key := namedPortCacheKey{name: name, proto: proto}
+	byNID, ok := npm.ports[key]
+	if !ok || byNID == nil {
+		byNID = make(map[identity.NumericIdentity]unique.Handle[namedPortSet])
+		npm.ports[key] = byNID
+	}
+	pps := npm.m[name]
+	var resultNIDs []identity.NumericIdentity
+	var resultPorts []uint16
+	for nid := range nids {
+		if portSet, ok := byNID[nid]; ok {
+			if portSet != zeroNamedPortSet {
+				resultNIDs, resultPorts = appendNamedPorts(resultNIDs, resultPorts, nid, portSet)
+			}
+			continue
+		}
+
+		// cache miss, collect the ports for this numeric identity
+		ports := collectNamedPorts(pps, proto, nid, nil)
+		if len(ports) == 0 {
+			byNID[nid] = zeroNamedPortSet
+			continue
+		}
+		slices.Sort(ports)
+		portSet := makeNamedPortSet(ports)
+		byNID[nid] = portSet
+		resultNIDs, resultPorts = appendNamedPorts(resultNIDs, resultPorts, nid, portSet)
+	}
+	npm.Unlock()
+
+	return func(yield func(identity.NumericIdentity, uint16) bool) {
+		for i, nid := range resultNIDs {
+			if !yield(nid, resultPorts[i]) {
+				return
+			}
+		}
+	}
+}
+
+func (s NidPortSeq) Ports() []uint16 {
+	portSet := map[uint16]struct{}{}
+	var port uint16
+	for _, port = range s {
+		portSet[port] = struct{}{}
+	}
+	if len(portSet) == 0 {
+		return nil
+	}
+	if len(portSet) == 1 {
+		return []uint16{port}
+	}
+
+	ports := make([]uint16, 0, len(portSet))
+	for port := range portSet {
+		ports = append(ports, port)
+	}
+	slices.Sort(ports)
+	return ports
+}
+
+// collectNamedPorts collects named ports registered for the given numeric identity.
+// For a wildcard identity (0) named ports registered for all identities are returned.
+func collectNamedPorts(pps PortProtoSet, proto u8proto.U8proto, nid identity.NumericIdentity, ports []uint16) []uint16 {
+	for pp, nidCounts := range pps {
+		if nid != 0 {
+			if _, exists := nidCounts[nid]; !exists {
+				continue
+			}
+		}
+		if pp.Proto != 0 && proto != pp.Proto {
+			continue
+		}
+		if pp.Port == 0 {
+			continue
+		}
+		if !slices.Contains(ports, pp.Port) {
+			ports = append(ports, pp.Port)
+		}
+	}
+	return ports
+}
+
+func makeNamedPortSet(ports []uint16) unique.Handle[namedPortSet] {
+	if len(ports) == 0 {
+		return zeroNamedPortSet
+	}
+	// SAFETY: ports is sorted, deduplicated, and not mutated after this point.
+	// unsafe.String aliases ports only for the duration of unique.Make(). The
+	// unique package clones string values before retaining new canonical values;
+	// if the value is already interned, the temporary string is not retained.
+	portSet := namedPortSet(unsafe.String(
+		(*byte)(unsafe.Pointer(unsafe.SliceData(ports))),
+		len(ports)*2,
+	))
+	return unique.Make(portSet)
+}
+
+func appendNamedPorts(resultNIDs []identity.NumericIdentity, resultPorts []uint16, nid identity.NumericIdentity, portSet unique.Handle[namedPortSet]) ([]identity.NumericIdentity, []uint16) {
+	portSet.Value().forEachPort(func(port uint16) bool {
+		resultNIDs = append(resultNIDs, nid)
+		resultPorts = append(resultPorts, port)
+		return true
+	})
+	return resultNIDs, resultPorts
+}
+
+func (ps namedPortSet) forEachPort(yield func(uint16) bool) bool {
+	if len(ps) == 0 {
+		return true
+	}
+	// SAFETY: namedPortSet values are created from []uint16 native-endian bytes
+	// and are immutable after interning. We read as bytes rather than casting
+	// back to []uint16 because unique.Make clones strings, so the cloned string
+	// backing storage is not guaranteed to have uint16 alignment.
+	portBytes := unsafe.Slice(unsafe.StringData(string(ps)), len(ps))
+	for len(portBytes) >= 2 {
+		if !yield(binary.NativeEndian.Uint16(portBytes[:2])) {
+			return false
+		}
+		portBytes = portBytes[2:]
+	}
+	return true
 }
