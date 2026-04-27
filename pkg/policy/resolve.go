@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
+	pkgTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -269,7 +270,8 @@ func (p *EndpointPolicy) CopyMapStateFrom(m MapStateMap) {
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
-	GetNamedPort(ingress bool, name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) uint16
+	GetNamedPort(ingress bool, name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) uint16
+	GetEgressNamedPorts(name string, proto u8proto.U8proto, destIdents iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq
 	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
 	PreviousMapState() *MapState

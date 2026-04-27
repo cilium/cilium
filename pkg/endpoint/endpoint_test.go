@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1024,6 +1025,56 @@ func TestProxyID(t *testing.T) {
 	require.Empty(t, id)
 	require.Equal(t, uint16(0), port)
 	require.Equal(t, u8proto.ANY, proto)
+}
+
+type testNamedPortsGetter struct {
+	npm ciliumTypes.NamedPortMultiMap
+}
+
+func (g testNamedPortsGetter) GetNamedPorts() ciliumTypes.NamedPortMultiMap {
+	return g.npm
+}
+
+func TestGetEgressNamedPorts(t *testing.T) {
+	namedPorts := ciliumTypes.NewNamedPortMultiMap()
+	nid1 := identity.NumericIdentity(101)
+	nid2 := identity.NumericIdentity(102)
+	require.True(t, namedPorts.Update(nid1, nil, ciliumTypes.NamedPortMap{
+		"http": ciliumTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
+	}))
+	require.True(t, namedPorts.Update(nid1, nil, ciliumTypes.NamedPortMap{
+		"http": ciliumTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
+	}))
+	require.True(t, namedPorts.Update(nid2, nil, ciliumTypes.NamedPortMap{
+		"http": ciliumTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
+	}))
+
+	e := &Endpoint{
+		namedPortsGetter: testNamedPortsGetter{npm: namedPorts},
+	}
+
+	portsByNID := map[identity.NumericIdentity]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identity.NumericIdentity{nid1, nid2, 103})) {
+		require.NotContains(t, portsByNID, destID)
+		portsByNID[destID] = port
+	}
+	require.Equal(t, map[identity.NumericIdentity]uint16{
+		nid2: 9090,
+	}, portsByNID)
+
+	portsByNID = map[identity.NumericIdentity]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.UDP, slices.Values([]identity.NumericIdentity{nid1, nid2})) {
+		require.NotContains(t, portsByNID, destID)
+		portsByNID[destID] = port
+	}
+	require.Empty(t, portsByNID)
+
+	portsByNID = map[identity.NumericIdentity]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identity.NumericIdentity{103})) {
+		require.NotContains(t, portsByNID, destID)
+		portsByNID[destID] = port
+	}
+	require.Empty(t, portsByNID)
 }
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {
