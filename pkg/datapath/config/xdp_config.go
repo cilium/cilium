@@ -43,6 +43,10 @@ type BPFXDP struct {
 	TunnelPort uint16 `config:"tunnel_port"`
 	// The identifier of the tunnel protocol used for the overlay network.
 	TunnelProtocol uint8 `config:"tunnel_protocol"`
+	// Index of the WireGuard interface.
+	WGIfIndex uint32 `config:"wg_ifindex"`
+	// Port for the WireGuard interface.
+	WGPort uint16 `config:"wg_port"`
 
 	Node
 }
@@ -52,5 +56,5 @@ func NewBPFXDP(node Node) *BPFXDP {
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		false, 0x0, 0x0, node}
+		false, 0x0, 0x0, 0x0, 0x0, node}
 }

@@ -24,6 +24,7 @@
 #include "stubs.h"
 #include "trace.h"
 #include "aux.h"
+#include "wg_config.h"
 
 /* Nodeport NAT minimum port value */
 #define NODEPORT_PORT_MIN_NAT CONFIG(nodeport_port_max) + 1
@@ -60,6 +61,15 @@ nat_min_egress()
 	return CONFIG(ephemeral_min);
 }
 
+static __always_inline bool __nat_excluded_port(__maybe_unused __u16 port)
+{
+	if (is_defined(ENABLE_WIREGUARD) && port == CONFIG(wg_port))
+		return true;
+	if (is_defined(TUNNEL_MODE) && port == CONFIG(tunnel_port))
+		return true;
+	return false;
+}
+
 /* Clamp a port to the range [start, end].
  *
  * Introduces a slight bias.
@@ -83,7 +93,7 @@ static __always_inline __u16 __snat_clamp_port_range(__u16 start, __u16 end,
 static __always_inline __maybe_unused __u16
 __snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 {
-	return val >= start && val <= end ? val :
+	return val >= start && val <= end && !__nat_excluded_port(val) ? val :
 	       __snat_clamp_port_range(start, end, (__u16)get_prandom_u32());
 }
 
@@ -257,7 +267,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 		rtuple.dport = bpf_htons(port);
 
 		/* Try to create a RevSNAT entry. */
-		if (__snat_create(map, &rtuple, &rstate, true) == 0)
+		if (!__nat_excluded_port(port) && (__snat_create(map, &rtuple, &rstate, true) == 0))
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -1376,7 +1386,8 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple.dport = bpf_htons(port);
 
-		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate, true) == 0)
+		if (!__nat_excluded_port(port) &&
+		    __snat_create(&cilium_snat_v6_external, &rtuple, &rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,

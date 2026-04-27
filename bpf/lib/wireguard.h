@@ -15,8 +15,7 @@
 
 #include "linux/icmpv6.h"
 
-DECLARE_CONFIG(__u32, wg_ifindex, "Index of the WireGuard interface.")
-DECLARE_CONFIG(__u16, wg_port, "Port for the WireGuard interface.")
+#include "wg_config.h"
 
 #ifdef ENABLE_WIREGUARD
 
