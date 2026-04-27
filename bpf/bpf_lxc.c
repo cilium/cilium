@@ -536,7 +536,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;			\
 	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;			\
 										\
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))			\
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))			\
 		return drop_for_direction(ctx, DIR, DROP_INVALID, ext_err);	\
 										\
 	tuple->nexthdr = ip4->protocol;						\
@@ -608,7 +608,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;			\
 	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;			\
 										\
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))			\
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))			\
 		return drop_for_direction(ctx, DIR, DROP_INVALID, ext_err);	\
 										\
 	tuple->nexthdr = ip6->nexthdr;						\
@@ -1093,7 +1093,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	struct ipv6hdr *ip6;
 	bool from_l7lb = false;
 
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	if (!CONFIG(enable_ipv6_fragments)) {
@@ -1687,7 +1687,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	struct iphdr *ip4;
 	bool from_l7lb = false;
 
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	/* If IPv4 fragmentation is disabled AND an IPv4 fragmented packet is
@@ -1788,6 +1788,10 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 __section_entry
 int cil_from_container(struct __ctx_buff *ctx)
 {
+	void __maybe_unused *data, *data_end;
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
+	struct arp_eth __maybe_unused *arp;
 	__be16 proto = 0;
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
@@ -1821,16 +1825,28 @@ int cil_from_container(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV6;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV4;
 		break;
 	case bpf_htons(ETH_P_ARP):
+		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		if (CONFIG(enable_arp_responder))
 			ret = tail_call_internal(ctx, CILIUM_CALL_ARP, &ext_err);
 		else
@@ -2485,6 +2501,9 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
 __section_entry
 int cil_lxc_policy(struct __ctx_buff *ctx)
 {
+	void __maybe_unused *data, *data_end;
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
@@ -2499,6 +2518,10 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
 						 &ext_err);
@@ -2509,6 +2532,10 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
 						 &ext_err);
@@ -2541,6 +2568,9 @@ __section_entry
 int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 {
 #if defined(ENABLE_L7_LB)
+	void __maybe_unused *data, *data_end;
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
 	__be16 proto;
 	int ret;
 	__u32 sec_label = SECLABEL;
@@ -2561,12 +2591,20 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV6;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV4;
 		break;
@@ -2594,6 +2632,9 @@ out:
 __section_entry
 int cil_to_container(struct __ctx_buff *ctx)
 {
+	void __maybe_unused *data, *data_end;
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
 	enum trace_point trace = TRACE_FROM_STACK;
 	__u32 magic, identity = 0;
 	__u32 sec_label = SECLABEL;
@@ -2651,6 +2692,10 @@ int cil_to_container(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		sec_label = SECLABEL_IPV6;
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS, &ext_err);
@@ -2658,6 +2703,10 @@ int cil_to_container(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 		sec_label = SECLABEL_IPV4;
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS, &ext_err);
