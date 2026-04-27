@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -38,6 +39,10 @@ func (m *ProxyUpdaterMock) GetIPv6Address() string { return m.Ipv6 }
 
 func (m *ProxyUpdaterMock) GetNamedPort(bool, string, u8proto.U8proto, iter.Seq[identity.NumericIdentity]) uint16 {
 	return 0
+}
+
+func (m *ProxyUpdaterMock) GetEgressNamedPorts(string, u8proto.U8proto, iter.Seq[identity.NumericIdentity]) types.NidPortSeq {
+	return func(func(identity.NumericIdentity, uint16) bool) {}
 }
 
 func (m *ProxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}

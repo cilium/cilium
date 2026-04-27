@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	pkgTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -183,6 +184,16 @@ func (d DummyOwner) CreateRedirects(*L4Filter) {
 
 func (d DummyOwner) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) uint16 {
 	return 80
+}
+
+func (d DummyOwner) GetEgressNamedPorts(name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq {
+	return func(yield func(identity.NumericIdentity, uint16) bool) {
+		for destID := range destIdentities {
+			if !yield(destID, 80) {
+				return
+			}
+		}
+	}
 }
 
 func (d DummyOwner) GetID() uint64 {
