@@ -240,40 +240,40 @@ func TestPolicyNamedPortMultiMap(t *testing.T) {
 
 func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 	npm := NewNamedPortMultiMap()
-	id1 := slices.Values([]identity.NumericIdentity{1})
-	id2 := slices.Values([]identity.NumericIdentity{2})
+	nid1 := identity.NumericIdentity(1)
+	nid2 := identity.NumericIdentity(2)
+	nids1 := slices.Values([]identity.NumericIdentity{nid1})
+	nids2 := slices.Values([]identity.NumericIdentity{nid2})
 
+	// Insert http=80/TCP from pod1 with nid1
 	pod1PortsOld := map[string]PortProto{}
 	pod1PortsNew := map[string]PortProto{
 		"http": {u8proto.TCP, 80},
 	}
-
-	// Insert http=80/TCP from pod1
-	changed := npm.Update(identity.NumericIdentity(1), pod1PortsOld, pod1PortsNew)
+	changed := npm.Update(nid1, pod1PortsOld, pod1PortsNew)
 	require.True(t, changed)
 
 	// No changes
-	changed = npm.Update(identity.NumericIdentity(1), pod1PortsNew, pod1PortsNew)
+	changed = npm.Update(nid1, pod1PortsNew, pod1PortsNew)
 	require.False(t, changed)
 
 	// Assert http=80/TCP
-	port, err := npm.GetNamedPort("http", u8proto.TCP, id1)
+	port, err := npm.GetNamedPort("http", u8proto.TCP, nids1)
 	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
 
+	// Insert http=8080/UDP from pod2 with nid2
 	pod2PortsOld := map[string]PortProto{}
 	pod2PortsNew := map[string]PortProto{
 		"http": {u8proto.UDP, 8080},
 	}
-
-	// Insert http=8080/UDP from pod2, retain http=80/TCP from pod1
-	changed = npm.Update(identity.NumericIdentity(2), pod2PortsOld, pod2PortsNew)
+	changed = npm.Update(nid2, pod2PortsOld, pod2PortsNew)
 	require.True(t, changed)
 
-	port, err = npm.GetNamedPort("http", u8proto.TCP, id1)
+	port, err = npm.GetNamedPort("http", u8proto.TCP, nids1)
 	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
-	port, err = npm.GetNamedPort("http", u8proto.UDP, id2)
+	port, err = npm.GetNamedPort("http", u8proto.UDP, nids2)
 	require.NoError(t, err)
 	require.Equal(t, uint16(8080), port)
 
@@ -282,10 +282,10 @@ func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 	pod1PortsNew = map[string]PortProto{}
 
 	// Delete http=80/TCP from pod1
-	changed = npm.Update(identity.NumericIdentity(1), pod1PortsOld, pod1PortsNew)
+	changed = npm.Update(nid1, pod1PortsOld, pod1PortsNew)
 	require.True(t, changed)
 
-	port, err = npm.GetNamedPort("http", u8proto.UDP, id2)
+	port, err = npm.GetNamedPort("http", u8proto.UDP, nids2)
 	require.NoError(t, err)
 	require.Equal(t, uint16(8080), port)
 }
