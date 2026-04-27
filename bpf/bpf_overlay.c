@@ -118,6 +118,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		if (egress_gw_snat_needed_hook_v6((union v6addr *)&ip6->saddr,
 						  &daddr, &snat_addr,
 						  &egress_ifindex)) {
+			__u32 tbid = EGRESS_GATEWAY_RT_TBID;
+
 			if (ipv6_addr_equals(&snat_addr, &EGRESS_GATEWAY_NO_EGRESS_IP_V6))
 				return DROP_NO_EGRESS_IP;
 
@@ -130,7 +132,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
 			return egress_gw_fib_lookup_and_redirect_v6(ctx, &snat_addr,
 								    &daddr, egress_ifindex,
-								    ext_err);
+								    tbid, ext_err);
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
@@ -358,6 +360,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		daddr = ip4->daddr;
 		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr,
 					       &egress_ifindex)) {
+			__u32 tbid = EGRESS_GATEWAY_RT_TBID;
+
 			if (snat_addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 				return DROP_NO_EGRESS_IP;
 
@@ -370,7 +374,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
 			return egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
 								 daddr, egress_ifindex,
-								 ext_err);
+								 tbid, ext_err);
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */

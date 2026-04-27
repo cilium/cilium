@@ -160,7 +160,6 @@ func dumpReadOnlyConfigs(cfgStatus *models.DaemonConfigurationStatus) {
 		fmt.Printf("%-34s: %v\n", k, v)
 	}
 	fmt.Printf("%-34s: %s\n", "k8s-configuration", cfgStatus.K8sConfiguration)
-	fmt.Printf("%-34s: %s\n", "k8s-endpoint", cfgStatus.K8sEndpoint)
 	dumpConfig(cfgStatus.Immutable, false)
 }
 

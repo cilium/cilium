@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@b782452ab683b087ff1d521bad71e81010524b63 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@354584b6acb8b1d0203ab1001815fc50916979be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -264,7 +264,7 @@ jobs:
 
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@b782452ab683b087ff1d521bad71e81010524b63 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@354584b6acb8b1d0203ab1001815fc50916979be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -353,11 +353,14 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
           fi
 
+          if [[ "${{ matrix.bpf-masq-v4 }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
+              --helm-set enableIPv4Masquerade=true"
+          fi
+
           ADV_FEAT=$(echo "${EXTRA_ARGS}" | jq -r '.["advanced-features"] // false')
           if [[ "$ADV_FEAT" == "true" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
-              --helm-set enableIPv4Masquerade=true \
-              --helm-set localRedirectPolicies.enabled=true \
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set localRedirectPolicies.enabled=true \
               --helm-set egressGateway.enabled=true"
           fi
 

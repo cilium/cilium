@@ -97,7 +97,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		/* Send packet to the correct egress interface, and SNAT it there. */
 		ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &args->target.addr,
 							   &args->tuple.daddr, args->target.ifindex,
-							   ext_err);
+							   args->target.tbid, ext_err);
 		if (ret != CTX_ACT_OK)
 			return ret;
 	}
@@ -385,7 +385,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		/* Send packet to the correct egress interface, and SNAT it there. */
 		ret = egress_gw_fib_lookup_and_redirect(ctx, target.addr,
 							tuple.daddr, target.ifindex,
-							ext_err);
+							target.tbid, ext_err);
 		if (ret != CTX_ACT_OK)
 			return ret;
 

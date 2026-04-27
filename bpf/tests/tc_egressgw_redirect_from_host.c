@@ -15,12 +15,120 @@
 #define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX 0
 
+#define RT_TBID				3
+
+#define fib_lookup mock_fib_lookup
+static __always_inline __maybe_unused long
+mock_fib_lookup(void *ctx __maybe_unused,
+		const struct bpf_fib_lookup *params __maybe_unused,
+		int plen __maybe_unused, __u32 flags __maybe_unused);
+
 #include "lib/bpf_host.h"
 
 #include "lib/egressgw.h"
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/metrics.h"
+
+struct fib_lookup_settings {
+	__u32 tbid;
+	bool fib_lookup_called;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof(struct fib_lookup_settings));
+	__uint(max_entries, 1);
+} fib_lookup_settings_map __section_maps_btf;
+
+static __always_inline __maybe_unused long
+mock_fib_lookup(void *ctx __maybe_unused,
+		const struct bpf_fib_lookup *params __maybe_unused,
+		int plen __maybe_unused, __u32 flags __maybe_unused)
+{
+	__u32 key = 0;
+	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
+
+	if (settings) {
+		settings->fib_lookup_called = true;
+
+		if (settings->tbid) {
+			if (flags != (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID))
+				return -1;
+
+			if (params->tbid != settings->tbid)
+				return -2;
+		}
+	}
+
+	return 0;
+}
+
+/* Test that a packet matching an egress gateway policy on the to-netdev
+ * program egresses locally, using the endpoint's rt_info.
+ */
+PKTGEN("tc", "tc_egressgw_egress1_rt_info")
+int egressgw_egress1_rt_info_pktgen(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+		});
+}
+
+SETUP("tc", "tc_egressgw_egress1_rt_info")
+int egressgw_egress1_rt_info_setup(struct __ctx_buff *ctx)
+{
+	__u32 key = 0;
+	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
+
+	if (!settings)
+		return TEST_ERROR;
+
+	settings->fib_lookup_called = false;
+	settings->tbid = RT_TBID;
+
+	endpoint_v4_add_entry_with_rt_info(CLIENT_IP, 0, 0, 0, 0, 0, RT_TBID,
+					   NULL, NULL);
+	endpoint_v4_add_entry(GATEWAY_NODE_IP, 0, 0, ENDPOINT_F_HOST,
+			      0, 0, NULL, NULL);
+	endpoint_v4_add_entry(EGRESS_IP, 0, 0, ENDPOINT_F_HOST,
+			      0, 0, NULL, NULL);
+
+	create_ct_entry(ctx, client_port(TEST_SNAT1));
+
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
+	ipcache_v4_add_world_entry();
+
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
+				  EGRESS_IP);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "tc_egressgw_egress1_rt_info")
+int egressgw_egress1_rt_info_check(const struct __ctx_buff *ctx)
+{
+	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+			.status_code = CTX_ACT_OK,
+	});
+	__u32 key = 0;
+
+	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
+
+	if (!settings || !settings->fib_lookup_called)
+		return TEST_ERROR;
+
+	settings->tbid = 0;
+
+	endpoint_v4_del_entry(CLIENT_IP);
+	endpoint_v4_del_entry(GATEWAY_NODE_IP);
+	endpoint_v4_del_entry(EGRESS_IP);
+
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
+
+	return ret;
+}
 
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program gets redirected to the gateway node.
@@ -200,6 +308,77 @@ int egressgw_drop_no_egress_ip_check(const struct __ctx_buff *ctx)
 	endpoint_v4_del_entry(GATEWAY_NODE_IP);
 
 	test_finish();
+}
+
+/* Test that a packet matching an egress gateway policy on the to-netdev
+ * program egresses locally, using the endpoint's rt_info.
+ */
+PKTGEN("tc", "tc_egressgw_egress1_rt_info_v6")
+int egressgw_egress1_rt_info_v6_pktgen(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+		});
+}
+
+SETUP("tc", "tc_egressgw_egress1_rt_info_v6")
+int egressgw_egress1_rt_info_v6_setup(struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+	__u32 key = 0;
+	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
+
+	if (!settings)
+		return TEST_ERROR;
+
+	settings->fib_lookup_called = false;
+	settings->tbid = RT_TBID;
+
+	endpoint_v6_add_entry_with_rt_info(&client_ip, 0, 0, 0, 0, RT_TBID,
+					   NULL, NULL);
+	endpoint_v4_add_entry(GATEWAY_NODE_IP, 0, 0, ENDPOINT_F_HOST,
+			      0, 0, NULL, NULL);
+	endpoint_v6_add_entry(&egress_ip, 0, 0, ENDPOINT_F_HOST,
+			      0, NULL, NULL);
+
+	create_ct_entry_v6(ctx, client_port(TEST_SNAT1));
+
+	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
+	ipcache_v6_add_world_entry();
+
+	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
+				     &egress_ip, 0);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "tc_egressgw_egress1_rt_info_v6")
+int egressgw_egress1_rt_info_v6_check(const struct __ctx_buff *ctx)
+{
+	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
+	union v6addr client_ip = CLIENT_IP_V6;
+	union v6addr egress_ip = EGRESS_IP_V6;
+	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+			.status_code = CTX_ACT_OK,
+	});
+	__u32 key = 0;
+
+	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
+
+	if (!settings || !settings->fib_lookup_called)
+		return TEST_ERROR;
+
+	settings->tbid = 0;
+
+	endpoint_v6_del_entry(&client_ip);
+	endpoint_v4_del_entry(GATEWAY_NODE_IP);
+	endpoint_v6_del_entry(&egress_ip);
+
+	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
+
+	return ret;
 }
 
 /* Test that a packet matching an egress gateway policy on the to-netdev

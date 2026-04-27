@@ -26,8 +26,12 @@ type FakeRecorder struct {
 func objectString(object runtime.Object, includeObject bool) string {
 	var uid string
 	uo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
-	if err != nil && uo["metadata"] != nil && uo["metadata"].(map[string]any)["uid"] != nil {
-		uid = uo["metadata"].(map[string]any)["uid"].(string)
+	if err == nil {
+		if meta, ok := uo["metadata"].(map[string]any); ok {
+			if u, ok := meta["uid"].(string); ok {
+				uid = u
+			}
+		}
 	}
 	if !includeObject {
 		return ""

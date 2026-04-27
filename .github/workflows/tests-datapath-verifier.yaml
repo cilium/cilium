@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@b782452ab683b087ff1d521bad71e81010524b63 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@354584b6acb8b1d0203ab1001815fc50916979be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -106,7 +106,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@b782452ab683b087ff1d521bad71e81010524b63 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@354584b6acb8b1d0203ab1001815fc50916979be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -234,6 +234,7 @@ jobs:
   merge-and-diff:
     name: Merge & Diff
     needs: setup-and-test
+    if: ${{ always() }}
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout pull request branch (NOT TRUSTED)
@@ -256,7 +257,12 @@ jobs:
       if: ${{ github.event_name == 'workflow_dispatch' }}
       run: |
         cat ./artifacts/*/verifier-complexity-pull.json | jq -s 'add' > ./artifacts/verifier-complexity-pull.json
-        go run ./tools/complexity-diff ./artifacts/verifier-complexity-base.json ./artifacts/verifier-complexity-pull.json ./artifacts/complexity-diff.json >> $GITHUB_STEP_SUMMARY
+        go run ./tools/complexity-diff -diff-file ./artifacts/complexity-diff.json ./artifacts/verifier-complexity-base.json ./artifacts/verifier-complexity-pull.json >> $GITHUB_STEP_SUMMARY
+
+    - name: Display current state
+      if: ${{ github.event_name != 'workflow_dispatch' }}
+      run: |
+        go run ./tools/complexity-diff ./artifacts/verifier-complexity-base.json >> $GITHUB_STEP_SUMMARY
 
     - name: Remove per-kernel results from workspace
       run: |
@@ -276,7 +282,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@b782452ab683b087ff1d521bad71e81010524b63 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@354584b6acb8b1d0203ab1001815fc50916979be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}

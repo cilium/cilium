@@ -162,14 +162,9 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 			return ret;
 	}
 
-	if (info->flag_ipv6_tunnel_ep)
-		return __encap_with_nodeid6(ctx, &info->tunnel_endpoint.ip6,
-					    src_sec_identity, info->sec_identity,
-					    opt, opt_len, ct_reason, monitor,
-					    ifindex, proto);
-	return __encap_with_nodeid4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4.be32,
-				    src_sec_identity, info->sec_identity, NOT_VTEP_DST,
-				    opt, opt_len, ct_reason, monitor, ifindex, proto);
+	return __encap_with_nodeid(ctx, src_ip, src_port, info,
+				   src_sec_identity, info->sec_identity, NOT_VTEP_DST,
+				   opt, opt_len, ct_reason, monitor, ifindex, proto);
 }
 
 static __always_inline int

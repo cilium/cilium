@@ -140,9 +140,7 @@ func (r *restConfigManager) createConfig(cfg Config, userAgent string) (*rest.Co
 		err          error
 		apiServerURL string
 	)
-	if cfg.K8sAPIServer != "" {
-		apiServerURL = cfg.K8sAPIServer
-	} else if len(r.apiServerURLs) > 0 {
+	if len(r.apiServerURLs) > 0 {
 		apiServerURL = r.apiServerURLs[0].String()
 	}
 	kubeCfgPath := cfg.K8sKubeConfigPath
@@ -179,26 +177,6 @@ func (r *restConfigManager) createConfig(cfg Config, userAgent string) (*rest.Co
 }
 
 func (r *restConfigManager) parseConfig(cfg Config) {
-	if cfg.K8sAPIServer != "" {
-		var (
-			serverURL *url.URL
-			err       error
-		)
-		s := cfg.K8sAPIServer
-		if !strings.HasPrefix(s, "http") {
-			s = fmt.Sprintf("http://%s", s) // default to HTTP
-		}
-		serverURL, err = url.Parse(s)
-		if err != nil {
-			r.log.Error("Failed to parse APIServerURL, skipping",
-				logfields.Error, err,
-				logfields.URL, serverURL,
-			)
-			return
-		}
-		r.apiServerURLs = append(r.apiServerURLs, serverURL)
-		return
-	}
 	for _, apiServerURL := range cfg.K8sAPIServerURLs {
 		if apiServerURL == "" {
 			continue

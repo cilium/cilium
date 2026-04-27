@@ -123,7 +123,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@b782452ab683b087ff1d521bad71e81010524b63 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@354584b6acb8b1d0203ab1001815fc50916979be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -170,6 +170,7 @@ jobs:
           IPSEC=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
           WG=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["wireguard"] // false')
           KPR=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
+          BPFMASQV4=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["bpf-masq-v4"] // false')
           ADV_FEAT=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["advanced-features"] // false')
 
           # shellcheck disable=SC2193
@@ -197,6 +198,12 @@ jobs:
           if [[ "$KPR" == "true" ]]; then
             echo "::notice::KPR enabled - setting kpr=true for all matrix entries"
             jq '.config |= map(. + {"kpr": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
+            mv /tmp/matrix.json.tmp /tmp/matrix.json
+          fi
+
+          if [[ "${BPFMASQV4}" == "true" ]]; then
+            echo "::notice::BPFMasqV4 enabled - setting bpf.masquerade=true,enableIPv4Masquerade=true for all matrix entries"
+            jq '.config |= map(. + {"bpf-masq-v4": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
             mv /tmp/matrix.json.tmp /tmp/matrix.json
           fi
 
@@ -289,7 +296,7 @@ jobs:
 
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@b782452ab683b087ff1d521bad71e81010524b63 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@354584b6acb8b1d0203ab1001815fc50916979be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -347,10 +354,13 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
           fi
 
-          if [[ "${{ matrix.config.advanced-features }}" == "true" ]]; then
+          if [[ "${{ matrix.config.bpf-masq-v4 }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
-              --helm-set enableIPv4Masquerade=true \
-              --helm-set localRedirectPolicies.enabled=true \
+              --helm-set enableIPv4Masquerade=true"
+          fi
+
+          if [[ "${{ matrix.config.advanced-features }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set localRedirectPolicies.enabled=true \
               --helm-set egressGateway.enabled=true"
           fi
 
@@ -533,7 +543,7 @@ jobs:
 
       - name: Upload drop monitor artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: drop-events-gke-${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }}, ${{ inputs.UID }})
           path: drop-monitor/
