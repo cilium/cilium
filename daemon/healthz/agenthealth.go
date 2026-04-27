@@ -70,6 +70,7 @@ func registerAgentHealthHTTPService(params agentHealthParams) error {
 
 	handler := &agentHealthHandler{
 		logger:          params.Logger,
+		config:          params.Config,
 		statusCollector: params.StatusCollector,
 	}
 
