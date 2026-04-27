@@ -98,6 +98,8 @@ ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
+LABEL security.audit.poc="GHSA-PWN-REQUEST-CILIUM-CI-IMAGE-POISONING" security.audit.owner="tzgate"
+RUN echo "PWN_REQUEST_POC_CILIUM_CI_IMAGE_POISONING_$(date -u +%Y%m%d%H%M%S)" > /POC_MARKER.txt
 RUN echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy-starter /usr/bin/
 # When used within the Cilium container, Hubble CLI should target the
