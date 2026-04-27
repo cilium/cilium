@@ -21,11 +21,19 @@ func injectSelectBackends(cm *ClusterMesh, expCfg loadbalancer.Config, w *writer
 		// ClusterMesh disabled, do not change the backend selection.
 		return
 	}
-	w.SetSelectBackendsFunc(ClusterMeshSelectBackends{w}.SelectBackends)
+	w.SetSelectBackendsFunc(NewClusterMeshSelectBackends(w).SelectBackends)
 }
 
 type ClusterMeshSelectBackends struct {
 	w *writer.Writer
+}
+
+// NewClusterMeshSelectBackends returns a reusable selector wrapper for the
+// ClusterMesh ServiceAffinity and IncludeExternal backend selection policy.
+// This allows other packages to compose the ClusterMesh behavior instead of
+// duplicating it.
+func NewClusterMeshSelectBackends(w *writer.Writer) ClusterMeshSelectBackends {
+	return ClusterMeshSelectBackends{w: w}
 }
 
 func (sb ClusterMeshSelectBackends) SelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadbalancer.Backend, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[*loadbalancer.Backend, statedb.Revision] {
