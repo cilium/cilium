@@ -34,7 +34,7 @@ type PortProto struct {
 // NamedPortMap maps port names to port numbers and protocols.
 type NamedPortMap map[string]PortProto
 
-// PortProtoSet maps PortProto to a map of endpoint IDs to their reference counts.
+// PortProtoSet maps PortProto to a map of numeric identities to their reference counts.
 type PortProtoSet map[PortProto]map[identity.NumericIdentity]int
 
 // Equal returns true if the PortProtoSets are equal.
@@ -48,8 +48,8 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 		if !exists || len(epCounts) != len(otherEpCounts) {
 			return false
 		}
-		for epID, count := range epCounts {
-			otherCount, epExists := otherEpCounts[epID]
+		for nid, count := range epCounts {
+			otherCount, epExists := otherEpCounts[nid]
 			if !epExists || count != otherCount {
 				return false
 			}
@@ -58,25 +58,25 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 	return true
 }
 
-// Add increments the reference count for the epID associated with the PortProto.
-// Returns true if the epID was not previously in the map (count was 0).
-func (pps PortProtoSet) Add(pp PortProto, epID identity.NumericIdentity) bool {
+// Add increments the reference count for the numeric identity associated with the PortProto.
+// Returns true if the numeric identity was not previously in the map (count was 0).
+func (pps PortProtoSet) Add(pp PortProto, nid identity.NumericIdentity) bool {
 	epCounts, ok := pps[pp]
 	if !ok {
 		epCounts = make(map[identity.NumericIdentity]int)
 		pps[pp] = epCounts
 	}
-	return counter.Counter[identity.NumericIdentity](epCounts).Add(epID)
+	return counter.Counter[identity.NumericIdentity](epCounts).Add(nid)
 }
 
-// Delete decrements the reference count for the epID associated with the PortProto.
-// It returns true if the epID was deleted.
-func (pps PortProtoSet) Delete(pp PortProto, epID identity.NumericIdentity) bool {
+// Delete decrements the reference count for the numeric identity associated with the PortProto.
+// It returns true if the numeric identity was deleted.
+func (pps PortProtoSet) Delete(pp PortProto, nid identity.NumericIdentity) bool {
 	epCounts, ok := pps[pp]
 	if !ok {
 		return false
 	}
-	deleted := counter.Counter[identity.NumericIdentity](epCounts).Delete(epID)
+	deleted := counter.Counter[identity.NumericIdentity](epCounts).Delete(nid)
 	if deleted && len(epCounts) == 0 {
 		delete(pps, pp)
 	}
@@ -87,7 +87,7 @@ func (pps PortProtoSet) Delete(pp PortProto, epID identity.NumericIdentity) bool
 // define the same name with different values.
 type NamedPortMultiMap interface {
 	// GetNamedPort returns the port number for the named port, if any.
-	GetNamedPort(name string, proto u8proto.U8proto, epIDs iter.Seq[identity.NumericIdentity]) (uint16, error)
+	GetNamedPort(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) (uint16, error)
 
 	// Len returns the number of Name->PortProtoSet mappings known.
 	Len() int
@@ -113,7 +113,7 @@ func (npm *namedPortMultiMap) Len() int {
 }
 
 // Update applies potential changes in named ports, and returns whether there were any.
-func (npm *namedPortMultiMap) Update(epID identity.NumericIdentity, old, new NamedPortMap) (namedPortsChanged bool) {
+func (npm *namedPortMultiMap) Update(nid identity.NumericIdentity, old, new NamedPortMap) (namedPortsChanged bool) {
 	npm.Lock()
 	defer npm.Unlock()
 
@@ -122,7 +122,7 @@ func (npm *namedPortMultiMap) Update(epID identity.NumericIdentity, old, new Nam
 		newPP, exists := new[name]
 		if !exists || oldPP != newPP {
 			if pps, ok := npm.m[name]; ok {
-				if deleted := pps.Delete(oldPP, epID); deleted {
+				if deleted := pps.Delete(oldPP, nid); deleted {
 					namedPortsChanged = true
 				}
 			}
@@ -145,7 +145,7 @@ func (npm *namedPortMultiMap) Update(epID identity.NumericIdentity, old, new Nam
 				pps = make(PortProtoSet)
 				npm.m[name] = pps
 			}
-			if pps.Add(newPP, epID) {
+			if pps.Add(newPP, nid) {
 				namedPortsChanged = true
 			}
 		}
@@ -218,7 +218,7 @@ func (npm NamedPortMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16
 }
 
 // GetNamedPort returns the port number for the named port, if any.
-func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, epIDs iter.Seq[identity.NumericIdentity]) (uint16, error) {
+func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
 	}
@@ -233,20 +233,21 @@ func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, e
 		// and it is likely the destination POD with the port name is simply not scheduled yet.
 		return 0, ErrUnknownNamedPort
 	}
-	// Find if there is a single port that has no proto conflict and no zero port value
+	// Find if there is a single port that has no proto conflict and no zero port value.
+	// Numeric identities that have no named port mapping are skipped.
 	port := uint16(0)
 	err := ErrUnknownNamedPort
-	for pp, epSet := range pps {
-		// Check if this PortProto is defined by any of the target endpoint IDs
-		validEp := false
-		for epID := range epIDs {
-			if _, exists := epSet[epID]; exists {
-				validEp = true
+	for pp, nidSet := range pps {
+		// Check if this PortProto is defined by any of the target numeric identities
+		validNID := false
+		for nid := range nids {
+			if _, exists := nidSet[nid]; exists {
+				validNID = true
 				break
 			}
 		}
-		if !validEp {
-			continue // Skip if PortProto is not from the target endpoints
+		if !validNID {
+			continue // Skip if PortProto is not from the target identities
 		}
 
 		if pp.Proto != 0 && proto != pp.Proto {
