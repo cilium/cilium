@@ -38,16 +38,19 @@ type verifierComplexityRecord struct {
 	Load       string `json:"load"`
 	Program    string `json:"program"`
 
-	InsnsProcessed   int `json:"insns_processed"`
-	MaxStatesPerInsn int `json:"max_states_per_insn"`
-	TotalStates      int `json:"total_states"`
-	PeakStates       int `json:"peak_states"`
-	MarkRead         int `json:"mark_read"`
+	InsnsProcessed     int `json:"insns_processed"`
+	OrigInsnsProcessed int `json:"orig_insns_processed"`
+	MaxStatesPerInsn   int `json:"max_states_per_insn"`
+	TotalStates        int `json:"total_states"`
+	PeakStates         int `json:"peak_states"`
+	MarkRead           int `json:"mark_read"`
 
 	VerificationTimeMicroseconds int `json:"verification_time_microseconds"`
 	StackDepth                   int `json:"stack_depth"`
+	OrigStackDepth               int `json:"orig_stack_depth"`
 
-	MapCount int `json:"map_count"`
+	MapCount     int `json:"map_count"`
+	OrigMapCount int `json:"orig_map_count"`
 }
 
 func main() {
@@ -100,20 +103,20 @@ func main() {
 func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord) {
 	diffRecords := calcDiffRecords(oldRecords, newRecords, true)
 
-	minMaxInsnsProcessed := calcMinMax(diffRecords, func(r verifierComplexityRecord) int {
-		return r.InsnsProcessed
+	minMaxInsnsProcessed := calcMinMax(diffRecords, func(r verifierComplexityRecord) (int, int) {
+		return r.InsnsProcessed, r.OrigInsnsProcessed
 	})
-	printTopMinMax("largest differences by instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorRelativeChange)
+	printTopMinMax("largest differences by instructions processed", minMaxInsnsProcessed, percentInsnsProcessedDiff, colorRelativeChange)
 
-	minMaxStackDepth := calcMinMax(diffRecords, func(r verifierComplexityRecord) int {
-		return r.StackDepth
+	minMaxStackDepth := calcMinMax(diffRecords, func(r verifierComplexityRecord) (int, int) {
+		return r.StackDepth, r.OrigStackDepth
 	})
-	printTopMinMax("largest differences by stack depth", minMaxStackDepth, percentStackDepth, colorRelativeChange)
+	printTopMinMax("largest differences by stack depth", minMaxStackDepth, percentStackDepthDiff, colorRelativeChange)
 
-	minMaxMapCount := calcMinMax(diffRecords, func(r verifierComplexityRecord) int {
-		return r.MapCount
+	minMaxMapCount := calcMinMax(diffRecords, func(r verifierComplexityRecord) (int, int) {
+		return r.MapCount, r.OrigMapCount
 	})
-	printTopMinMax("largest differences by map count", minMaxMapCount, percentMapCount, colorRelativeChange)
+	printTopMinMax("largest differences by map count", minMaxMapCount, percentMapCountDiff, colorRelativeChange)
 }
 
 func printCurrentState(newRecords map[string]verifierComplexityRecord) []error {
@@ -124,24 +127,24 @@ func printCurrentState(newRecords map[string]verifierComplexityRecord) []error {
 		sortedNewRecords = append(sortedNewRecords, newRecords[key])
 	}
 
-	minMaxInsnsProcessed := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
-		return r.InsnsProcessed
+	minMaxInsnsProcessed := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) (int, int) {
+		return r.InsnsProcessed, r.OrigInsnsProcessed
 	})
 	err := printTopMinMax("largest instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorAbsoluteValueExponential)
 	if len(err) > 0 {
 		errors = append(errors, err...)
 	}
 
-	minMaxStackDepth := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
-		return r.StackDepth
+	minMaxStackDepth := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) (int, int) {
+		return r.StackDepth, r.OrigStackDepth
 	})
 	err = printTopMinMax("largest stack depth", minMaxStackDepth, percentStackDepth, colorAbsoluteValue)
 	if len(err) > 0 {
 		errors = append(errors, err...)
 	}
 
-	minMaxMapCount := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
-		return r.MapCount
+	minMaxMapCount := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) (int, int) {
+		return r.MapCount, r.OrigMapCount
 	})
 	err = printTopMinMax("largest map count", minMaxMapCount, percentMapCount, colorAbsoluteValue)
 	if len(err) > 0 {
@@ -188,7 +191,7 @@ func dumpDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord,
 	}
 }
 
-func printTopMinMax(title string, minMaxes map[string]minMax, percentFn func(i int) float64,
+func printTopMinMax(title string, minMaxes map[string]minMax, percentFn func(i, o int) float64,
 	fmtFn func(s string, i int, p float64) (string, error)) []error {
 	fmt.Printf("## Top %d %s\n", NumberTopValues, title)
 	fmt.Println("Collection/Program | Min | Max")
@@ -200,10 +203,10 @@ func printTopMinMax(title string, minMaxes map[string]minMax, percentFn func(i i
 		}
 
 		mm := minMaxes[key]
-		minPercent := percentFn(mm.min)
+		minPercent := percentFn(mm.min, mm.origMin)
 		min, _ := fmtFn(mm.minKey, mm.min, minPercent)
 
-		maxPercent := percentFn(mm.max)
+		maxPercent := percentFn(mm.max, mm.origMax)
 		max, err := fmtFn(mm.maxKey, mm.max, maxPercent)
 
 		fmt.Printf("%s | %s | %s\n", key, min, max)
@@ -215,16 +218,28 @@ func printTopMinMax(title string, minMaxes map[string]minMax, percentFn func(i i
 	return errors
 }
 
-func percentInsnsProcessed(i int) float64 {
+func percentInsnsProcessed(i, _ int) float64 {
 	return float64(i) / float64(MaxInsnsProcessed) * 100
 }
 
-func percentStackDepth(i int) float64 {
+func percentInsnsProcessedDiff(diff, orig int) float64 {
+	return float64(diff) / float64(orig) * 100
+}
+
+func percentStackDepth(i, _ int) float64 {
 	return float64(i) / float64(MaxStackDepth) * 100
 }
 
-func percentMapCount(i int) float64 {
+func percentStackDepthDiff(diff, orig int) float64 {
+	return float64(diff) / float64(orig) * 100
+}
+
+func percentMapCount(i, _ int) float64 {
 	return float64(i) / float64(MaxMapCount) * 100
+}
+
+func percentMapCountDiff(diff, orig int) float64 {
+	return float64(diff) / float64(orig) * 100
 }
 
 func colorRelativeChange(program string, i int, p float64) (string, error) {
@@ -281,31 +296,38 @@ func texOrange(s string) string {
 }
 
 type minMax struct {
-	minKey string
-	min    int
-	maxKey string
-	max    int
+	minKey  string
+	origMin int
+	min     int
+	maxKey  string
+	origMax int
+	max     int
 }
 
-func calcMinMax(records []verifierComplexityRecord, metric func(r verifierComplexityRecord) int) map[string]minMax {
+func calcMinMax(records []verifierComplexityRecord, metric func(r verifierComplexityRecord) (int, int)) map[string]minMax {
 	minMaxRecords := map[string]minMax{}
 	for _, r := range records {
+		val, origVal := metric(r)
 		mm, ok := minMaxRecords[collectionProgramKey(r)]
 		if !ok {
 			mm = minMax{
-				min:    metric(r),
-				minKey: kernelBuildLoadKey(r),
-				max:    metric(r),
-				maxKey: kernelBuildLoadKey(r),
+				origMin: origVal,
+				min:     val,
+				minKey:  kernelBuildLoadKey(r),
+				origMax: origVal,
+				max:     val,
+				maxKey:  kernelBuildLoadKey(r),
 			}
 		}
-		if metric(r) < mm.min {
+		if val < mm.min {
 			mm.minKey = kernelBuildLoadKey(r)
-			mm.min = metric(r)
+			mm.origMin = origVal
+			mm.min = val
 		}
-		if metric(r) > mm.max {
+		if val > mm.max {
 			mm.maxKey = kernelBuildLoadKey(r)
-			mm.max = metric(r)
+			mm.origMax = origVal
+			mm.max = val
 		}
 		minMaxRecords[collectionProgramKey(r)] = mm
 	}
@@ -362,16 +384,19 @@ func calcDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord,
 			Load:       newRecord.Load,
 			Program:    newRecord.Program,
 
-			InsnsProcessed:   newRecord.InsnsProcessed - oldRecord.InsnsProcessed,
-			MaxStatesPerInsn: newRecord.MaxStatesPerInsn - oldRecord.MaxStatesPerInsn,
-			TotalStates:      newRecord.TotalStates - oldRecord.TotalStates,
-			PeakStates:       newRecord.PeakStates - oldRecord.PeakStates,
-			MarkRead:         newRecord.MarkRead - oldRecord.MarkRead,
+			InsnsProcessed:     newRecord.InsnsProcessed - oldRecord.InsnsProcessed,
+			OrigInsnsProcessed: oldRecord.InsnsProcessed,
+			MaxStatesPerInsn:   newRecord.MaxStatesPerInsn - oldRecord.MaxStatesPerInsn,
+			TotalStates:        newRecord.TotalStates - oldRecord.TotalStates,
+			PeakStates:         newRecord.PeakStates - oldRecord.PeakStates,
+			MarkRead:           newRecord.MarkRead - oldRecord.MarkRead,
 
 			VerificationTimeMicroseconds: newRecord.VerificationTimeMicroseconds - oldRecord.VerificationTimeMicroseconds,
 			StackDepth:                   newRecord.StackDepth - oldRecord.StackDepth,
+			OrigStackDepth:               oldRecord.StackDepth,
 
-			MapCount: newRecord.MapCount - oldRecord.MapCount,
+			MapCount:     newRecord.MapCount - oldRecord.MapCount,
+			OrigMapCount: oldRecord.MapCount,
 		})
 	}
 
