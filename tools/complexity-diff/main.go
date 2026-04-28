@@ -14,6 +14,23 @@ import (
 	"sort"
 )
 
+const (
+	// Verifier limits, for use when computing percentages associated with absolute values.
+	MaxInsnsProcessed = 1_000_000
+	MaxStackDepth     = 512
+	MaxMapCount       = 64
+
+	// Error and warning thresholds used for the linear (stack depth & map count) and exponential
+	// (insns processed) metrics.
+	ErrorThresholdLinearMetrics        = 90
+	WarningThresholdLinearMetrics      = 75
+	ErrorThresholdExponentialMetrics   = 70
+	WarningThresholdExponentialMetrics = 50
+
+	// Number of top values to display.
+	NumberTopValues = 15
+)
+
 type verifierComplexityRecord struct {
 	Kernel     string `json:"kernel"`
 	Collection string `json:"collection"`
@@ -79,17 +96,17 @@ func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord
 	minMaxInsnsProcessed := calcMinMax(diffRecords, func(r verifierComplexityRecord) int {
 		return r.InsnsProcessed
 	})
-	printTop15MinMax("largest differences by instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorRelativeChange)
+	printTopMinMax("largest differences by instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorRelativeChange)
 
 	minMaxStackDepth := calcMinMax(diffRecords, func(r verifierComplexityRecord) int {
 		return r.StackDepth
 	})
-	printTop15MinMax("largest differences by stack depth", minMaxStackDepth, percentStackDepth, colorRelativeChange)
+	printTopMinMax("largest differences by stack depth", minMaxStackDepth, percentStackDepth, colorRelativeChange)
 
 	minMaxMapCount := calcMinMax(diffRecords, func(r verifierComplexityRecord) int {
 		return r.MapCount
 	})
-	printTop15MinMax("largest differences by map count", minMaxMapCount, percentMapCount, colorRelativeChange)
+	printTopMinMax("largest differences by map count", minMaxMapCount, percentMapCount, colorRelativeChange)
 }
 
 func printCurrentState(newRecords map[string]verifierComplexityRecord) {
@@ -101,17 +118,17 @@ func printCurrentState(newRecords map[string]verifierComplexityRecord) {
 	minMaxInsnsProcessed := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.InsnsProcessed
 	})
-	printTop15MinMax("largest instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorAbsoluteValueExponential)
+	printTopMinMax("largest instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorAbsoluteValueExponential)
 
 	minMaxStackDepth := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.StackDepth
 	})
-	printTop15MinMax("largest stack depth", minMaxStackDepth, percentStackDepth, colorAbsoluteValue)
+	printTopMinMax("largest stack depth", minMaxStackDepth, percentStackDepth, colorAbsoluteValue)
 
 	minMaxMapCount := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.MapCount
 	})
-	printTop15MinMax("largest map count", minMaxMapCount, percentMapCount, colorAbsoluteValue)
+	printTopMinMax("largest map count", minMaxMapCount, percentMapCount, colorAbsoluteValue)
 }
 
 func dumpDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord, diffFile string) {
@@ -151,12 +168,12 @@ func dumpDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord,
 	}
 }
 
-func printTop15MinMax(title string, minMaxes map[string]minMax, percentFn func(i int) float64, fmtFn func(s string, i int, p float64) string) {
-	fmt.Printf("## Top 15 %s\n", title)
+func printTopMinMax(title string, minMaxes map[string]minMax, percentFn func(i int) float64, fmtFn func(s string, i int, p float64) string) {
+	fmt.Printf("## Top %d %s\n", NumberTopValues, title)
 	fmt.Println("Collection/Program | Min | Max")
 	fmt.Println("-------------------|-----|----")
 	for i, key := range minMaxKeysSortAbs(minMaxes) {
-		if i >= 15 {
+		if i >= NumberTopValues {
 			break
 		}
 
@@ -173,15 +190,15 @@ func printTop15MinMax(title string, minMaxes map[string]minMax, percentFn func(i
 }
 
 func percentInsnsProcessed(i int) float64 {
-	return float64(i) / float64(1_000_000) * 100
+	return float64(i) / float64(MaxInsnsProcessed) * 100
 }
 
 func percentStackDepth(i int) float64 {
-	return float64(i) / float64(512) * 100
+	return float64(i) / float64(MaxStackDepth) * 100
 }
 
 func percentMapCount(i int) float64 {
-	return float64(i) / float64(64) * 100
+	return float64(i) / float64(MaxMapCount) * 100
 }
 
 func colorRelativeChange(program string, i int, p float64) string {
@@ -199,10 +216,10 @@ func colorRelativeChange(program string, i int, p float64) string {
 
 func colorAbsoluteValue(program string, i int, p float64) string {
 	s := fmt.Sprintf("%d (%.2f\\\\%%) for %s", i, p, program)
-	if p > 90 {
+	if p > ErrorThresholdLinearMetrics {
 		return texRed(s)
 	}
-	if p > 75 {
+	if p > WarningThresholdLinearMetrics {
 		return texOrange(s)
 	}
 
@@ -211,10 +228,10 @@ func colorAbsoluteValue(program string, i int, p float64) string {
 
 func colorAbsoluteValueExponential(program string, i int, p float64) string {
 	s := fmt.Sprintf("%d (%.2f\\\\%%) for %s", i, p, program)
-	if p > 70 {
+	if p > ErrorThresholdExponentialMetrics {
 		return texRed(s)
 	}
-	if p > 50 {
+	if p > WarningThresholdExponentialMetrics {
 		return texOrange(s)
 	}
 
