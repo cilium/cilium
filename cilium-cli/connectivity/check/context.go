@@ -20,7 +20,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/cilium-cli/connectivity/perf/common"
@@ -974,22 +976,36 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 	return nil
 }
 
-// initCiliumPods fetches the Cilium agent pod information from all clients
+// initCiliumPods fetches Running Cilium agent pods from all clients. Each
+// cluster must contribute at least one Running, non-terminating pod.
 func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
+	runningPhase := fields.OneTermEqualSelector("status.phase", string(corev1.PodRunning)).String()
 	for _, client := range ct.clients.clients() {
-		ciliumPods, err := client.ListPods(ctx, ct.params.CiliumNamespace, metav1.ListOptions{LabelSelector: ct.params.AgentPodSelector})
+		ciliumPods, err := client.ListPods(ctx, ct.params.CiliumNamespace, metav1.ListOptions{
+			LabelSelector: ct.params.AgentPodSelector,
+			FieldSelector: runningPhase,
+		})
 		if err != nil {
 			return fmt.Errorf("unable to list Cilium pods: %w", err)
 		}
-		if len(ciliumPods.Items) == 0 {
-			return fmt.Errorf("no cilium agent pods found in -n %s -l %s", ct.params.CiliumNamespace, ct.params.AgentPodSelector)
-		}
+
+		clusterRunning := 0
 		for _, ciliumPod := range ciliumPods.Items {
+			// FieldSelector cannot match DeletionTimestamp, recheck locally.
+			if ciliumPod.DeletionTimestamp != nil {
+				ct.Warnf("Skipping Cilium pod %q: terminating", ciliumPod.Name)
+				continue
+			}
 			// TODO: Can Cilium pod names collide across clusters?
 			ct.ciliumPods[ciliumPod.Name] = Pod{
 				K8sClient: client,
 				Pod:       ciliumPod.DeepCopy(),
 			}
+			clusterRunning++
+		}
+		if clusterRunning == 0 {
+			return fmt.Errorf("no Running cilium agent pods available in cluster %q (namespace %s, selector %s)",
+				client.ClusterName(), ct.params.CiliumNamespace, ct.params.AgentPodSelector)
 		}
 	}
 
@@ -1035,11 +1051,26 @@ func (ct *ConnectivityTest) getCiliumNodes(ctx context.Context) error {
 }
 
 // DetectMinimumCiliumVersion returns the smallest Cilium version running in
-// the cluster(s)
+// the cluster(s). Pods are re-fetched before exec to skip ones that have
+// transitioned out of Running since initCiliumPods.
 func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*semver.Version, error) {
 	var minVersion *semver.Version
 	for name, ciliumPod := range ct.ciliumPods {
-		podVersion, err := ciliumPod.K8sClient.GetCiliumVersion(ctx, ciliumPod.Pod)
+		fresh, err := ciliumPod.K8sClient.GetPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				ct.Warnf("Skipping Cilium pod %q for version detection: pod no longer exists", name)
+				continue
+			}
+			return nil, fmt.Errorf("unable to refresh Cilium pod %q: %w", name, err)
+		}
+		if fresh.Status.Phase != corev1.PodRunning || fresh.DeletionTimestamp != nil {
+			ct.Warnf("Skipping Cilium pod %q for version detection: phase=%q terminating=%v",
+				name, fresh.Status.Phase, fresh.DeletionTimestamp != nil)
+			continue
+		}
+
+		podVersion, err := ciliumPod.K8sClient.GetCiliumVersion(ctx, fresh)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse Cilium version on pod %q: %w", name, err)
 		}
