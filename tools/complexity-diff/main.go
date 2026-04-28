@@ -39,7 +39,6 @@ type verifierComplexityRecord struct {
 	Program    string `json:"program"`
 
 	InsnsProcessed   int `json:"insns_processed"`
-	InsnsLimit       int `json:"insns_limit"`
 	MaxStatesPerInsn int `json:"max_states_per_insn"`
 	TotalStates      int `json:"total_states"`
 	PeakStates       int `json:"peak_states"`
@@ -364,7 +363,6 @@ func calcDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord,
 			Program:    newRecord.Program,
 
 			InsnsProcessed:   newRecord.InsnsProcessed - oldRecord.InsnsProcessed,
-			InsnsLimit:       newRecord.InsnsLimit - oldRecord.InsnsLimit,
 			MaxStatesPerInsn: newRecord.MaxStatesPerInsn - oldRecord.MaxStatesPerInsn,
 			TotalStates:      newRecord.TotalStates - oldRecord.TotalStates,
 			PeakStates:       newRecord.PeakStates - oldRecord.PeakStates,
@@ -389,7 +387,6 @@ func calcDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord,
 					Program:    oldRecord.Program,
 
 					InsnsProcessed:   -oldRecord.InsnsProcessed,
-					InsnsLimit:       -oldRecord.InsnsLimit,
 					MaxStatesPerInsn: -oldRecord.MaxStatesPerInsn,
 					TotalStates:      -oldRecord.TotalStates,
 					PeakStates:       -oldRecord.PeakStates,
