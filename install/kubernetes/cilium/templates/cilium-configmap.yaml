@@ -218,6 +218,14 @@ data:
   # NOTE that this will open the port on ALL nodes where Cilium pods are
   # scheduled.
   prometheus-serve-addr: ":{{ .Values.prometheus.port }}"
+  {{- if .Values.prometheus.tls.enabled }}
+  prometheus-enable-tls: "true"
+  prometheus-tls-cert-file: /var/lib/cilium/tls/agent-metrics/server.crt
+  prometheus-tls-key-file: /var/lib/cilium/tls/agent-metrics/server.key
+  {{- if .Values.prometheus.tls.server.mtls.enabled }}
+  prometheus-tls-client-ca-files: /var/lib/cilium/tls/agent-metrics/client-ca.crt
+  {{- end }}
+  {{- end }}
   {{- if .Values.prometheus.metrics }}
   # Metrics that should be enabled or disabled from the default metric
   # list. (+metric_foo to enable metric_foo , -metric_bar to disable

@@ -2636,6 +2636,51 @@ prometheus:
     - write-cni-file
     - sync-host-ips
     - sync-lb-maps-with-k8s-services
+  # -- TLS configuration for the agent prometheus metrics server.
+  tls:
+    # -- Enable TLS for the agent prometheus metrics server.
+    enabled: false
+    # -- Configure automatic certificate generation for the agent prometheus metrics server.
+    auto:
+      # -- Enable automatic certificate generation.
+      enabled: false
+      # -- Certificate generation method. Supported values: "helm" and "certmanager".
+      # "helm" uses Helm's genSignedCert to generate certificates.
+      # "certmanager" uses cert-manager to generate and manage certificates.
+      method: helm
+      # -- Validity duration of the certificates in days.
+      certValidityDuration: 1095
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- certmanager issuer reference for the agent prometheus metrics server certificate.
+      certManagerIssuerRef: {}
+    server:
+      # -- Name of the Secret containing the certificate and key for the agent prometheus metrics server.
+      # When set, the Secret is used directly and automatic certificate generation is not used.
+      existingSecret: ""
+      # -- base64 encoded PEM values for the agent prometheus metrics server certificate (deprecated, use existingSecret).
+      cert: ""
+      # -- base64 encoded PEM values for the agent prometheus metrics server key (deprecated, use existingSecret).
+      key: ""
+      # -- Additional DNS names added to the certificate when it's auto-generated.
+      extraDnsNames: []
+      # -- Additional IP addresses added to the certificate when it's auto-generated.
+      extraIpAddresses: []
+      # -- Configure mTLS for the agent prometheus metrics server.
+      mtls:
+        # -- Enable mTLS for the agent prometheus metrics server.
+        # When enabled, clients must present a certificate signed by one of the client CA certificates.
+        enabled: false
+        # -- Use a Secret (true) or a ConfigMap (false) for the client CA certificate.
+        useSecret: false
+        # -- Name of the ConfigMap/Secret containing the client CA certificate.
+        # @schema
+        # type: [null, string]
+        # @schema
+        name: ~
+        # -- Key within the ConfigMap/Secret containing the client CA certificate.
+        key: ca.crt
 # -- Grafana dashboards for cilium-agent
 # grafana can import dashboards based on the label and value
 # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards

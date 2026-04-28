@@ -58,6 +58,8 @@ type RegistryParams struct {
 	AutoMetrics []metricpkg.WithMetadata `group:"hive-metrics"`
 	Config      RegistryConfig
 
+	TLSConfigPromise TLSConfigPromise `optional:"true"`
+
 	DaemonConfig *option.DaemonConfig
 }
 
@@ -156,7 +158,7 @@ func NewAgentRegistry(params RegistryParams) *Registry {
 	// Resolve the global registry variable for as long as we still have global functions
 	registryResolver.Resolve(reg)
 
-	reg.AddServerRuntimeHooks("agent-prometheus-server", nil, net.ListenConfig{})
+	reg.AddServerRuntimeHooks("agent-prometheus-server", reg.params.TLSConfigPromise, net.ListenConfig{})
 
 	return reg
 }
