@@ -87,7 +87,6 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 {
 	struct bpf_fib_lookup_padded fib_params = {};
 	int flags = 0;
-	__u32 oif;
 	int ret;
 
 	/* Immediate redirect to egress_ifindex requires L2 resolution.
@@ -112,13 +111,15 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 		return DROP_NO_FIB;
 	}
 
-	oif = fib_params.l.ifindex;
+	if (!egress_ifindex)
+		egress_ifindex = fib_params.l.ifindex;
 
 	/* Skip redirect in to-netdev if we stay on the same iface: */
-	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
+	if (is_defined(IS_BPF_HOST) && egress_ifindex == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
+	return fib_do_redirect(ctx, true, &fib_params, false, ret,
+			       egress_ifindex, ext_err);
 }
 
 # ifdef ENABLE_EGRESS_GATEWAY
@@ -411,7 +412,6 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	struct bpf_fib_lookup_padded *fib_params;
 	int ret, zero = 0;
 	int flags = 0;
-	__u32 oif;
 
 	if (egress_ifindex && !tbid && neigh_resolver_without_nh_available())
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
@@ -438,12 +438,14 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 		return DROP_NO_FIB;
 	}
 
-	oif = fib_params->l.ifindex;
+	if (!egress_ifindex)
+		egress_ifindex = fib_params->l.ifindex;
 
-	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
+	if (is_defined(IS_BPF_HOST) && egress_ifindex == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, fib_params, false, ret, oif, ext_err);
+	return fib_do_redirect(ctx, true, fib_params, false, ret,
+			       egress_ifindex, ext_err);
 }
 
 static __always_inline
