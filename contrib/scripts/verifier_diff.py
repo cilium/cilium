@@ -206,7 +206,7 @@ def _store_stats_group(df: pd.DataFrame, output_file: str, fmt: str, key: str, g
     if groupby:
         output_file = os.path.join(output_file, f"groupby_{'_'.join(groupby)}.{fmt}")
         df = df.groupby(groupby)['diff'].describe(percentiles=[])
-        df_nonzero = df[(df[y] != 0).any(axis=1)]
+        df_nonzero = df[(df[y] >= 0).any(axis=1)]
         df_nonzero.plot(kind='barh', y=y, figsize=(10, 0.15*len(df)), xlabel=key,
                 title=f"Difference in {key} grouped by {tuple(groupby)}")
     else:
