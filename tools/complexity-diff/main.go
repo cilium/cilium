@@ -87,7 +87,15 @@ func main() {
 		// with the new records.
 		oldRecords = newRecords
 	}
-	printCurrentState(oldRecords)
+
+	errors := printCurrentState(oldRecords)
+	if len(errors) > 0 {
+		fmt.Fprintf(os.Stderr, "Some programs are very close to the verifier limits:\n")
+		for _, err := range errors {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+		}
+		os.Exit(1)
+	}
 }
 
 func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord) {
@@ -109,8 +117,10 @@ func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord
 	printTopMinMax("largest differences by map count", minMaxMapCount, percentMapCount, colorRelativeChange)
 }
 
-func printCurrentState(newRecords map[string]verifierComplexityRecord) {
+func printCurrentState(newRecords map[string]verifierComplexityRecord) []error {
 	var sortedNewRecords []verifierComplexityRecord
+	errors := make([]error, 0, len(newRecords)*3)
+
 	for _, key := range slices.Sorted(maps.Keys(newRecords)) {
 		sortedNewRecords = append(sortedNewRecords, newRecords[key])
 	}
@@ -118,17 +128,28 @@ func printCurrentState(newRecords map[string]verifierComplexityRecord) {
 	minMaxInsnsProcessed := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.InsnsProcessed
 	})
-	printTopMinMax("largest instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorAbsoluteValueExponential)
+	err := printTopMinMax("largest instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorAbsoluteValueExponential)
+	if len(err) > 0 {
+		errors = append(errors, err...)
+	}
 
 	minMaxStackDepth := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.StackDepth
 	})
-	printTopMinMax("largest stack depth", minMaxStackDepth, percentStackDepth, colorAbsoluteValue)
+	err = printTopMinMax("largest stack depth", minMaxStackDepth, percentStackDepth, colorAbsoluteValue)
+	if len(err) > 0 {
+		errors = append(errors, err...)
+	}
 
 	minMaxMapCount := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.MapCount
 	})
-	printTopMinMax("largest map count", minMaxMapCount, percentMapCount, colorAbsoluteValue)
+	err = printTopMinMax("largest map count", minMaxMapCount, percentMapCount, colorAbsoluteValue)
+	if len(err) > 0 {
+		errors = append(errors, err...)
+	}
+
+	return errors
 }
 
 func dumpDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord, diffFile string) {
@@ -168,10 +189,12 @@ func dumpDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord,
 	}
 }
 
-func printTopMinMax(title string, minMaxes map[string]minMax, percentFn func(i int) float64, fmtFn func(s string, i int, p float64) string) {
+func printTopMinMax(title string, minMaxes map[string]minMax, percentFn func(i int) float64,
+	fmtFn func(s string, i int, p float64) (string, error)) []error {
 	fmt.Printf("## Top %d %s\n", NumberTopValues, title)
 	fmt.Println("Collection/Program | Min | Max")
 	fmt.Println("-------------------|-----|----")
+	errors := make([]error, 0, len(minMaxes))
 	for i, key := range minMaxKeysSortAbs(minMaxes) {
 		if i >= NumberTopValues {
 			break
@@ -179,14 +202,18 @@ func printTopMinMax(title string, minMaxes map[string]minMax, percentFn func(i i
 
 		mm := minMaxes[key]
 		minPercent := percentFn(mm.min)
-		min := fmtFn(mm.minKey, mm.min, minPercent)
+		min, _ := fmtFn(mm.minKey, mm.min, minPercent)
 
 		maxPercent := percentFn(mm.max)
-		max := fmtFn(mm.maxKey, mm.max, maxPercent)
+		max, err := fmtFn(mm.maxKey, mm.max, maxPercent)
 
 		fmt.Printf("%s | %s | %s\n", key, min, max)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("%s for program %s: %w", title, key, err))
+		}
 	}
 	fmt.Println()
+	return errors
 }
 
 func percentInsnsProcessed(i int) float64 {
@@ -201,41 +228,41 @@ func percentMapCount(i int) float64 {
 	return float64(i) / float64(MaxMapCount) * 100
 }
 
-func colorRelativeChange(program string, i int, p float64) string {
+func colorRelativeChange(program string, i int, p float64) (string, error) {
 	s := fmt.Sprintf("%+d (%.2f\\\\%%) for %s", i, p, program)
 	if p == 0 {
-		return texNoColor(s)
+		return texNoColor(s), nil
 	}
 
 	if p < 0 {
-		return texGreen(s)
+		return texGreen(s), nil
 	}
 
-	return texRed(s)
+	return texRed(s), nil
 }
 
-func colorAbsoluteValue(program string, i int, p float64) string {
+func colorAbsoluteValue(program string, i int, p float64) (string, error) {
 	s := fmt.Sprintf("%d (%.2f\\\\%%) for %s", i, p, program)
 	if p > ErrorThresholdLinearMetrics {
-		return texRed(s)
+		return texRed(s), fmt.Errorf("%s: %.2f%%", program, p)
 	}
 	if p > WarningThresholdLinearMetrics {
-		return texOrange(s)
+		return texOrange(s), nil
 	}
 
-	return texNoColor(s)
+	return texNoColor(s), nil
 }
 
-func colorAbsoluteValueExponential(program string, i int, p float64) string {
+func colorAbsoluteValueExponential(program string, i int, p float64) (string, error) {
 	s := fmt.Sprintf("%d (%.2f\\\\%%) for %s", i, p, program)
 	if p > ErrorThresholdExponentialMetrics {
-		return texRed(s)
+		return texRed(s), fmt.Errorf("%s: %.2f%%", program, p)
 	}
 	if p > WarningThresholdExponentialMetrics {
-		return texOrange(s)
+		return texOrange(s), nil
 	}
 
-	return texNoColor(s)
+	return texNoColor(s), nil
 }
 
 func texNoColor(s string) string {
