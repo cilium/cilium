@@ -267,39 +267,41 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			continue
 		}
 
-		pp := newProxyPolicy(l4, policySelectorTuple.Policy.L7Parser, listener, dstPort, dstProto)
-		proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
-		if err != nil {
-			// Skip redirects that can not be created or updated.  This
-			// can happen when a listener is missing, for example when
-			// restarting and k8s delivers the CNP before the related
-			// CEC.
-			// Policy is regenerated when listeners are added or removed
-			// to fix this condition when the listener is available.
-			if listener != "" {
-				e.getLogger().Debug(
-					"Redirect rule with missing listener skipped, will be applied once the listener is available",
-					logfields.Error, err,
-					logfields.Listener, listener,
-				)
-			} else {
-				e.getLogger().Error(
-					"Redirect rule with missing listener skipped, policy will drop",
-					logfields.Error, err,
-				)
+		if true {
+			pp := newProxyPolicy(l4, policySelectorTuple.Policy.L7Parser, listener, dstPort, dstProto)
+			proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
+			if err != nil {
+				// Skip redirects that can not be created or updated.  This
+				// can happen when a listener is missing, for example when
+				// restarting and k8s delivers the CNP before the related
+				// CEC.
+				// Policy is regenerated when listeners are added or removed
+				// to fix this condition when the listener is available.
+				if listener != "" {
+					e.getLogger().Debug(
+						"Redirect rule with missing listener skipped, will be applied once the listener is available",
+						logfields.Error, err,
+						logfields.Listener, listener,
+					)
+				} else {
+					e.getLogger().Error(
+						"Redirect rule with missing listener skipped, policy will drop",
+						logfields.Error, err,
+					)
 
+				}
+				skipped++
+				continue
 			}
-			skipped++
-			continue
-		}
-		revertStack.Push(revertFunc)
-		desiredRedirects[proxyID] = proxyPort
+			revertStack.Push(revertFunc)
+			desiredRedirects[proxyID] = proxyPort
 
-		// Update the endpoint API model to report that Cilium manages a
-		// redirect for that port.
-		statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, proxyPort)
-		proxyStats := e.getProxyStatistics(statsKey, string(policySelectorTuple.Policy.L7Parser), dstPort, l4.Ingress, proxyPort)
-		updatedStats = append(updatedStats, proxyStats)
+			// Update the endpoint API model to report that Cilium manages a
+			// redirect for that port.
+			statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, proxyPort)
+			proxyStats := e.getProxyStatistics(statsKey, string(policySelectorTuple.Policy.L7Parser), dstPort, l4.Ingress, proxyPort)
+			updatedStats = append(updatedStats, proxyStats)
+		}
 	}
 
 	// revert function is called with endpoint mutex held
