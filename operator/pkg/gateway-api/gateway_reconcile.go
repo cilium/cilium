@@ -96,7 +96,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Success()
 	}
 
-	if string(gwc.Spec.ControllerName) != controllerName {
+	if string(gwc.Spec.ControllerName) != helpers.CiliumDefaultControllerName {
 		scopedLog.InfoContext(ctx, "GatewayClass does not have matching controller name, cleaning up previously managed resources",
 			gatewayClass, gw.Spec.GatewayClassName,
 			logfields.Controller, gwc.Spec.ControllerName)
@@ -879,7 +879,7 @@ func (r *gatewayReconciler) runCommonRouteChecks(input routechecks.Input, parent
 }
 
 func (r *gatewayReconciler) parentIsMatchingGateway(parent gatewayv1.ParentReference, namespace string) bool {
-	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, controllerName, r.logger)
+	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.Client, helpers.CiliumDefaultControllerName, r.logger)
 	if !helpers.IsGateway(parent) {
 		return false
 	}
