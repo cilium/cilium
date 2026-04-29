@@ -162,6 +162,11 @@ type DescribeNetworkInterfacesInput struct {
 	//   - vpc-id - The ID of the VPC for the network interface.
 	Filters []types.Filter
 
+	// Indicates whether to include managed resources in the output. If this parameter
+	// is set to true , the output includes resources that are managed by Amazon Web
+	// Services services, even if managed resource visibility is set to hidden.
+	IncludeManagedResources *bool
+
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. You cannot
 	// specify this parameter and the network interface IDs parameter in the same

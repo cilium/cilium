@@ -153,6 +153,11 @@ type CreateClientVpnEndpointInput struct {
 	// access both IPv4 and IPv6 resources through the VPN .
 	TrafficIpAddressType types.TrafficIpAddressType
 
+	// The Transit Gateway configuration for the Client VPN endpoint. Use this
+	// parameter to associate the endpoint with a Transit Gateway instead of a VPC. You
+	// cannot specify both TransitGatewayConfiguration and VpcId / SecurityGroupIds .
+	TransitGatewayConfiguration *types.TransitGatewayConfigurationInputStructure
+
 	// The transport protocol to be used by the VPN session.
 	//
 	// Default value: udp

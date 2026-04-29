@@ -70,6 +70,26 @@ func (m *validateOpAcceptReservedInstancesExchangeQuote) HandleInitialize(ctx co
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpAcceptTransitGatewayClientVpnAttachment struct {
+}
+
+func (*validateOpAcceptTransitGatewayClientVpnAttachment) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAcceptTransitGatewayClientVpnAttachment) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AcceptTransitGatewayClientVpnAttachmentInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAcceptTransitGatewayClientVpnAttachmentInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpAcceptTransitGatewayPeeringAttachment struct {
 }
 
@@ -4065,6 +4085,26 @@ func (m *validateOpDeleteTrafficMirrorTarget) HandleInitialize(ctx context.Conte
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDeleteTrafficMirrorTargetInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDeleteTransitGatewayClientVpnAttachment struct {
+}
+
+func (*validateOpDeleteTransitGatewayClientVpnAttachment) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteTransitGatewayClientVpnAttachment) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteTransitGatewayClientVpnAttachmentInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteTransitGatewayClientVpnAttachmentInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -9550,6 +9590,26 @@ func (m *validateOpRejectCapacityReservationBillingOwnership) HandleInitialize(c
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpRejectTransitGatewayClientVpnAttachment struct {
+}
+
+func (*validateOpRejectTransitGatewayClientVpnAttachment) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpRejectTransitGatewayClientVpnAttachment) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*RejectTransitGatewayClientVpnAttachmentInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpRejectTransitGatewayClientVpnAttachmentInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpRejectTransitGatewayPeeringAttachment struct {
 }
 
@@ -10602,6 +10662,10 @@ func addOpAcceptReservedInstancesExchangeQuoteValidationMiddleware(stack *middle
 	return stack.Initialize.Add(&validateOpAcceptReservedInstancesExchangeQuote{}, middleware.After)
 }
 
+func addOpAcceptTransitGatewayClientVpnAttachmentValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAcceptTransitGatewayClientVpnAttachment{}, middleware.After)
+}
+
 func addOpAcceptTransitGatewayPeeringAttachmentValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAcceptTransitGatewayPeeringAttachment{}, middleware.After)
 }
@@ -11400,6 +11464,10 @@ func addOpDeleteTrafficMirrorSessionValidationMiddleware(stack *middleware.Stack
 
 func addOpDeleteTrafficMirrorTargetValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteTrafficMirrorTarget{}, middleware.After)
+}
+
+func addOpDeleteTransitGatewayClientVpnAttachmentValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteTransitGatewayClientVpnAttachment{}, middleware.After)
 }
 
 func addOpDeleteTransitGatewayConnectValidationMiddleware(stack *middleware.Stack) error {
@@ -12496,6 +12564,10 @@ func addOpRegisterTransitGatewayMulticastGroupSourcesValidationMiddleware(stack 
 
 func addOpRejectCapacityReservationBillingOwnershipValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpRejectCapacityReservationBillingOwnership{}, middleware.After)
+}
+
+func addOpRejectTransitGatewayClientVpnAttachmentValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpRejectTransitGatewayClientVpnAttachment{}, middleware.After)
 }
 
 func addOpRejectTransitGatewayPeeringAttachmentValidationMiddleware(stack *middleware.Stack) error {
@@ -13810,6 +13882,21 @@ func validateOpAcceptReservedInstancesExchangeQuoteInput(v *AcceptReservedInstan
 	}
 }
 
+func validateOpAcceptTransitGatewayClientVpnAttachmentInput(v *AcceptTransitGatewayClientVpnAttachmentInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AcceptTransitGatewayClientVpnAttachmentInput"}
+	if v.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpAcceptTransitGatewayPeeringAttachmentInput(v *AcceptTransitGatewayPeeringAttachmentInput) error {
 	if v == nil {
 		return nil
@@ -13994,9 +14081,6 @@ func validateOpAssociateClientVpnTargetNetworkInput(v *AssociateClientVpnTargetN
 	invalidParams := smithy.InvalidParamsError{Context: "AssociateClientVpnTargetNetworkInput"}
 	if v.ClientVpnEndpointId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("ClientVpnEndpointId"))
-	}
-	if v.SubnetId == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("SubnetId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -14822,9 +14906,6 @@ func validateOpCreateClientVpnRouteInput(v *CreateClientVpnRouteInput) error {
 	}
 	if v.DestinationCidrBlock == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("DestinationCidrBlock"))
-	}
-	if v.TargetVpcSubnetId == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("TargetVpcSubnetId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -17211,6 +17292,21 @@ func validateOpDeleteTrafficMirrorTargetInput(v *DeleteTrafficMirrorTargetInput)
 	invalidParams := smithy.InvalidParamsError{Context: "DeleteTrafficMirrorTargetInput"}
 	if v.TrafficMirrorTargetId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TrafficMirrorTargetId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDeleteTransitGatewayClientVpnAttachmentInput(v *DeleteTransitGatewayClientVpnAttachmentInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteTransitGatewayClientVpnAttachmentInput"}
+	if v.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -21733,6 +21829,21 @@ func validateOpRejectCapacityReservationBillingOwnershipInput(v *RejectCapacityR
 	invalidParams := smithy.InvalidParamsError{Context: "RejectCapacityReservationBillingOwnershipInput"}
 	if v.CapacityReservationId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpRejectTransitGatewayClientVpnAttachmentInput(v *RejectTransitGatewayClientVpnAttachmentInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "RejectTransitGatewayClientVpnAttachmentInput"}
+	if v.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

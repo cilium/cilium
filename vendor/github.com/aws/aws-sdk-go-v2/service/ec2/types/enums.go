@@ -1596,6 +1596,7 @@ const (
 	ClientVpnEndpointStatusCodeAvailable        ClientVpnEndpointStatusCode = "available"
 	ClientVpnEndpointStatusCodeDeleting         ClientVpnEndpointStatusCode = "deleting"
 	ClientVpnEndpointStatusCodeDeleted          ClientVpnEndpointStatusCode = "deleted"
+	ClientVpnEndpointStatusCodePending          ClientVpnEndpointStatusCode = "pending"
 )
 
 // Values returns all known values for ClientVpnEndpointStatusCode. Note that this
@@ -1608,6 +1609,7 @@ func (ClientVpnEndpointStatusCode) Values() []ClientVpnEndpointStatusCode {
 		"available",
 		"deleting",
 		"deleted",
+		"pending",
 	}
 }
 
@@ -8142,6 +8144,26 @@ func (ManagedBy) Values() []ManagedBy {
 	}
 }
 
+type ManagedResourceDefaultVisibility string
+
+// Enum values for ManagedResourceDefaultVisibility
+const (
+	ManagedResourceDefaultVisibilityHidden  ManagedResourceDefaultVisibility = "hidden"
+	ManagedResourceDefaultVisibilityVisible ManagedResourceDefaultVisibility = "visible"
+)
+
+// Values returns all known values for ManagedResourceDefaultVisibility. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ManagedResourceDefaultVisibility) Values() []ManagedResourceDefaultVisibility {
+	return []ManagedResourceDefaultVisibility{
+		"hidden",
+		"visible",
+	}
+}
+
 type MarketType string
 
 // Enum values for MarketType
@@ -11402,6 +11424,7 @@ const (
 	TransitGatewayAttachmentResourceTypePeering              TransitGatewayAttachmentResourceType = "peering"
 	TransitGatewayAttachmentResourceTypeTgwPeering           TransitGatewayAttachmentResourceType = "tgw-peering"
 	TransitGatewayAttachmentResourceTypeNetworkFunction      TransitGatewayAttachmentResourceType = "network-function"
+	TransitGatewayAttachmentResourceTypeClientVpn            TransitGatewayAttachmentResourceType = "client-vpn"
 )
 
 // Values returns all known values for TransitGatewayAttachmentResourceType. Note
@@ -11419,6 +11442,7 @@ func (TransitGatewayAttachmentResourceType) Values() []TransitGatewayAttachmentR
 		"peering",
 		"tgw-peering",
 		"network-function",
+		"client-vpn",
 	}
 }
 
@@ -11461,6 +11485,34 @@ func (TransitGatewayAttachmentState) Values() []TransitGatewayAttachmentState {
 		"rejected",
 		"rejecting",
 		"failing",
+	}
+}
+
+type TransitGatewayAttachmentStatusType string
+
+// Enum values for TransitGatewayAttachmentStatusType
+const (
+	TransitGatewayAttachmentStatusTypePendingAcceptance TransitGatewayAttachmentStatusType = "pending-acceptance"
+	TransitGatewayAttachmentStatusTypePending           TransitGatewayAttachmentStatusType = "pending"
+	TransitGatewayAttachmentStatusTypeRejected          TransitGatewayAttachmentStatusType = "rejected"
+	TransitGatewayAttachmentStatusTypeAvailable         TransitGatewayAttachmentStatusType = "available"
+	TransitGatewayAttachmentStatusTypeDeleting          TransitGatewayAttachmentStatusType = "deleting"
+	TransitGatewayAttachmentStatusTypeDeleted           TransitGatewayAttachmentStatusType = "deleted"
+)
+
+// Values returns all known values for TransitGatewayAttachmentStatusType. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransitGatewayAttachmentStatusType) Values() []TransitGatewayAttachmentStatusType {
+	return []TransitGatewayAttachmentStatusType{
+		"pending-acceptance",
+		"pending",
+		"rejected",
+		"available",
+		"deleting",
+		"deleted",
 	}
 }
 

@@ -51,14 +51,6 @@ type CreateClientVpnRouteInput struct {
 	// This member is required.
 	DestinationCidrBlock *string
 
-	// The ID of the subnet through which you want to route traffic. The specified
-	// subnet must be an existing target network of the Client VPN endpoint.
-	//
-	// Alternatively, if you're adding a route for the local network, specify local .
-	//
-	// This member is required.
-	TargetVpcSubnetId *string
-
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensuring idempotency].
 	//
@@ -73,6 +65,15 @@ type CreateClientVpnRouteInput struct {
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
+
+	// The ID of the subnet through which you want to route traffic. The specified
+	// subnet must be an existing target network of the Client VPN endpoint.
+	//
+	// Alternatively, if you're adding a route for the local network, specify local .
+	//
+	// This parameter is required for VPC-based Client VPN endpoints. For Transit
+	// Gateway-based endpoints, this parameter is not required.
+	TargetVpcSubnetId *string
 
 	noSmithyDocumentSerde
 }

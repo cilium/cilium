@@ -112,6 +112,10 @@ type ModifyClientVpnEndpointInput struct {
 	// [Split-tunnel Client VPN endpoint]: https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html
 	SplitTunnel *bool
 
+	// The Transit Gateway configuration for the Client VPN endpoint. This option is
+	// currently not supported.
+	TransitGatewayConfiguration *types.TransitGatewayConfigurationInputStructure
+
 	// The ID of the VPC to associate with the Client VPN endpoint.
 	VpcId *string
 
