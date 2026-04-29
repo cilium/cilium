@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -150,7 +151,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(r.Client, r.logger)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
-		Owns(&corev1.Service{})
+		Owns(&corev1.Service{}).
+		Owns(&discoveryv1.EndpointSlice{})
 
 	if tlsRouteEnabled {
 		// Watch TLSRoute linked to Gateway
