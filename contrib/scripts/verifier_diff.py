@@ -143,8 +143,6 @@ def plot_comparison(file1: str, file2: str, outdir: str, key: str, jobs: int):
     groups = set((c, b, l) for c, b, l, _ in data1.keys()) | set(
         (c, b, l) for c, b, l, _ in data2.keys())
 
-    logging.info(f"Generating plots, handling {len(groups)} combinations ({jobs=}).")
-
     tasks = []
     for collection, build, load in groups:
         # Collect all programs for this collection/build/load
@@ -173,18 +171,24 @@ def plot_comparison(file1: str, file2: str, outdir: str, key: str, jobs: int):
                     f"Program {prog} unchanged ({v1}) for "
                     f"collection {collection}, build {build}, "
                     f"load {load}, skipping.")
-                continue  # skip unchanged values
+                continue
             filtered_programs.append(prog)
             vals1.append(v1)
             vals2.append(v2)
 
-        if not filtered_programs:  # skip if all values unchanged
+        if not filtered_programs:
             logging.debug(
                 f"All programs unchanged for collection {collection} "
                 f"build {build} load {load}, skipping.")
             continue
 
         tasks.append((collection, build, load, filtered_programs, vals1, vals2, key, outdir))
+
+    if not tasks:
+        logging.info(f"Skipping plots generation, all programs unchanged with {key=}.")
+        return
+
+    logging.info(f"Generating {len(tasks)} plots with {key=} ({jobs=}).")
 
     with multiprocessing.Pool(processes=jobs) as pool:
         pool.starmap(_plot_group, tasks)
@@ -228,7 +232,7 @@ def _store_stats_group(df: pd.DataFrame, output_file: str, fmt: str, key: str, g
     logging.debug(f"Saved statistics {output_file} ({groupby=})")
 
 
-def store_stats(file1: str, file2: str, outdir: str, key: str, fmt: str, parallel: int):
+def store_stats(file1: str, file2: str, outdir: str, key: str, fmt: str, jobs: int):
     """Store statistics of the differences between two sets of eBPF verifier logs.
 
     Args:
@@ -237,7 +241,7 @@ def store_stats(file1: str, file2: str, outdir: str, key: str, fmt: str, paralle
         outdir (str): Output directory for the statistics.
         key (str): Key in the JSON to compare.
         fmt (str): Output format for the statistics.
-        parallel (int): Number of parallel processes to use.
+        jobs (int): Number of jobs processes to use.
     """
     outdir = os.path.join(outdir, "stats")
     os.makedirs(outdir, exist_ok=True)
@@ -249,6 +253,12 @@ def store_stats(file1: str, file2: str, outdir: str, key: str, fmt: str, paralle
     for collection, build, load, program in sorted(set(data1.keys()) | set(data2.keys())):
         v1 = data1.get((collection, build, load, program), 0)
         v2 = data2.get((collection, build, load, program), 0)
+        if v1 == v2:
+                logging.debug(
+                    f"Program {program} unchanged for "
+                    f"collection {collection}, build {build}, "
+                    f"load {load}, skipping.")
+                continue
         rows.append({
             "collection": collection,
             "build": build,
@@ -258,15 +268,19 @@ def store_stats(file1: str, file2: str, outdir: str, key: str, fmt: str, paralle
             "file2": v2,
         })
 
+    if not rows:
+        logging.info(f"Skipping statistics generation, all programs unchanged with {key=}.")
+        return
+
     df = pd.DataFrame(rows)
     tasks = [
         (df, outdir, fmt, key, []),
         (df, outdir, fmt, key, ["program"]),
         (df, outdir, fmt, key, ["program", "collection"])]
     
-    logging.info(f"Saving {len(tasks)} statistics files with different granularities ({parallel=})")
+    logging.info(f"Generating {len(tasks)} statistics files with {key=} and different granularities ({jobs=})")
     
-    with multiprocessing.Pool(processes=parallel) as pool:
+    with multiprocessing.Pool(processes=jobs) as pool:
         pool.starmap(_store_stats_group, tasks)
 
 
