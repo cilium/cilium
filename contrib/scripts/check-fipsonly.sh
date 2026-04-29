@@ -16,6 +16,7 @@ EXCLUDED_DIRS=(
     "tools/alignchecker"
     "tools/api-flaggen"
     "tools/complexity-diff"
+    "tools/cloud-dep-check"
     "tools/crdcheck"
     "tools/crdlistgen"
     "tools/dev-doctor"
