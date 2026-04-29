@@ -236,6 +236,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		return nil, 0, nil
 	}
 
+	selectors := selectorPolicy.GetSelectorSnapshot()
 	desiredRedirects = make(map[string]uint16)
 
 	var (
@@ -248,27 +249,15 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		// Possible listener name for both the proxy ID and the proxyPolicy below.
 		listener := policySelectorTuple.Policy.GetListener()
 
-		// proxyID() returns also the destination port for the policy,
-		// which may be resolved from a named port
-		proxyID, dstPort, dstProto := e.proxyID(l4, listener, selectorPolicy.GetSelectorSnapshot())
-		if proxyID == "" {
-			// Skip redirects for which a proxyID cannot be created.
-			// This may happen due to the named port mapping not
-			// existing or multiple PODs defining the same port name
-			// with different port values. The redirect will be created
-			// when the mapping is available or when the port name
-			// conflicts have been resolved in POD specs.
-			skipped++
-			continue
-		}
-		// desiredRedirects starts out empty, so we can use it check
-		// if the redirect has already been updated on this round.
-		if desiredRedirects[proxyID] != 0 {
-			continue
-		}
-
-		if true {
-			pp := newProxyPolicy(l4, policySelectorTuple.Policy.L7Parser, listener, dstPort, dstProto)
+		n := 0
+		for proxyID, dstPort := range e.proxyIDs(l4, listener, selectors) {
+			n++
+			// desiredRedirects starts out empty, so we can use it to check if this
+			// redirect has already been updated on this round.
+			if desiredRedirects[proxyID] != 0 {
+				continue
+			}
+			pp := newProxyPolicy(l4, policySelectorTuple.Policy.L7Parser, listener, dstPort, l4.U8Proto)
 			proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
 			if err != nil {
 				// Skip redirects that can not be created or updated.  This
@@ -301,6 +290,10 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, proxyPort)
 			proxyStats := e.getProxyStatistics(statsKey, string(policySelectorTuple.Policy.L7Parser), dstPort, l4.Ingress, proxyPort)
 			updatedStats = append(updatedStats, proxyStats)
+		}
+		// count missing proxy port mapping as skipped
+		if n == 0 {
+			skipped++
 		}
 	}
 
