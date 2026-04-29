@@ -2655,13 +2655,16 @@ prometheus:
       # @schema
       # -- certmanager issuer reference for the agent prometheus metrics server certificate.
       certManagerIssuerRef: {}
+    # -- Server certificate and private key for the agent prometheus metrics server.
     server:
       # -- Name of the Secret containing the certificate and key for the agent prometheus metrics server.
-      # When set, the Secret is used directly and automatic certificate generation is not used.
+      # If specified, cert and key are ignored.
       existingSecret: ""
-      # -- base64 encoded PEM values for the agent prometheus metrics server certificate (deprecated, use existingSecret).
+      # -- base64 encoded PEM values for the agent prometheus metrics server certificate (deprecated).
+      # Use existingSecret instead.
       cert: ""
-      # -- base64 encoded PEM values for the agent prometheus metrics server key (deprecated, use existingSecret).
+      # -- base64 encoded PEM values for the agent prometheus metrics server key (deprecated).
+      # Use existingSecret instead.
       key: ""
       # -- Additional DNS names added to the certificate when it's auto-generated.
       extraDnsNames: []
@@ -2674,10 +2677,10 @@ prometheus:
         enabled: false
         # -- Use a Secret (true) or a ConfigMap (false) for the client CA certificate.
         useSecret: false
-        # -- Name of the ConfigMap/Secret containing the client CA certificate.
         # @schema
         # type: [null, string]
         # @schema
+        # -- Name of the ConfigMap/Secret containing the client CA certificate.
         name: ~
         # -- Key within the ConfigMap/Secret containing the client CA certificate.
         key: ca.crt
