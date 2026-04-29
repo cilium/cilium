@@ -1,8 +1,0 @@
-apiVersion: "cilium.io/v2"
-kind: CiliumClusterwideNetworkPolicy
-metadata:
-  name: "ccnp-default-deny-ingress"
-spec:
-  endpointSelector: {}
-  ingress:
-  - {}

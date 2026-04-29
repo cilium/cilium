@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{.Name}}
-data:
-  all-queries: |
-{{ range $dnsIndex := Loop .NumberOfBuckets }}
-      my-bucket-test-{{$dnsIndex}}.s3.us-west-2.amazonaws.com
-{{ end }}

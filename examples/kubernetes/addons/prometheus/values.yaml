@@ -1,5 +1,0 @@
-image:
-  prometheus:
-    version: v2.42.0
-  grafana:
-    version: 9.3.6

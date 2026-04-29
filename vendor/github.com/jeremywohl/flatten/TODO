@@ -1,4 +1,0 @@
-test: all Go scalar types
-todo: initial list vs map
-todo: fail properly with alternate types
-todo: support structs and pointers?

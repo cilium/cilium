@@ -1,9 +1,0 @@
-            GNU LESSER GENERAL PUBLIC LICENSE
-
- The Qt Toolkit is Copyright (C) 2015 Digia Plc and/or its subsidiary(-ies).
- Contact: http://www.qt-project.org/legal
-
- You may use, distribute and copy the Qt GUI Toolkit under the terms of
- GNU Lesser General Public License version 2.1, which is displayed below.
-
--------------------------------------------------------------------------

@@ -1,7 +1,0 @@
-k8s: list(include('k8sVersionItem'))
----
-k8sVersionItem:
-  version: str()
-  zone: str()
-  default: bool(required=False)
-  vmIndex: int()

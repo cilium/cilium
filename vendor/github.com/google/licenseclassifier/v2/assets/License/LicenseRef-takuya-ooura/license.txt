@@ -1,3 +1,0 @@
-You may use, copy, modify and distribute this code for any purpose (include
-commercial use) and without fee. Please refer to this package when you modify
-this code.

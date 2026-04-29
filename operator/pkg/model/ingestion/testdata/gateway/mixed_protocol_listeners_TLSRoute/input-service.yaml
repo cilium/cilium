@@ -1,7 +1,0 @@
-- metadata:
-    creationTimestamp: null
-    name: argocd-server
-    namespace: default
-  spec: {}
-  status:
-    loadBalancer: {}

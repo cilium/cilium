@@ -1,4 +1,0 @@
-The AOP Alliance project is a joint open-source project between several 
-software engineering people who are interested in AOP and Java.
-
-LICENCE: all the source code provided by AOP Alliance is Public Domain

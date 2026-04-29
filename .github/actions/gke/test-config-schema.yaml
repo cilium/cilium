@@ -1,7 +1,0 @@
-config: list(include('testConfigItem'))
----
-testConfigItem:
-  type: str()
-  index: int()
-  cilium-install-opts: str()
-  nodes: int(required=False)

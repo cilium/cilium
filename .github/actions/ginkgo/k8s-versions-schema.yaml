@@ -1,8 +1,0 @@
-include: list(include('includeItem'))
----
-includeItem:
-  k8s-version: str()
-  ip-family: str()
-  kube-image: str()
-  kernel: str()
-  kernel-type: str()

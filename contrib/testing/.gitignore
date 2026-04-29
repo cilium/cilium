@@ -1,4 +1,0 @@
-# May contain additional custom Helm values that are taken into account when
-# installing cilium via Make target `kind-install-cilium`.
-kind-custom.yaml
-

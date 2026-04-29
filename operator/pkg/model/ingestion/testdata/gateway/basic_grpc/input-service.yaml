@@ -1,7 +1,0 @@
-- metadata:
-    creationTimestamp: null
-    name: grp-service
-    namespace: default
-  spec: {}
-  status:
-    loadBalancer: {}

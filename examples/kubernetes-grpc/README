@@ -1,3 +1,0 @@
-To build the container image:
-
-docker build -t cilium/cc-grpc-demo .
