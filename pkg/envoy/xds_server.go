@@ -1613,10 +1613,8 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 		}
 
 		for l4 := range l4Policy[tier].Filters() {
-			var protocol envoy_config_core.SocketAddress_Protocol
 			switch l4.U8Proto {
 			case u8proto.TCP, u8proto.ANY:
-				protocol = envoy_config_core.SocketAddress_TCP
 			default:
 				// Other protocol rules not sent to Envoy for now.
 				continue
@@ -1749,7 +1747,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 			portPolicy := &cilium.PortNetworkPolicy{
 				Port:     uint32(port),
 				EndPort:  uint32(l4.EndPort),
-				Protocol: protocol,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules:    rules,
 			}
 			PerPortPolicies = append(PerPortPolicies, portPolicy)
