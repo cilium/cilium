@@ -201,9 +201,11 @@ func (a *PerSelectorPolicy) EnvoyHTTPRules() *cilium.HttpNetworkPolicyRules {
 	return a.envoyHTTPRules
 }
 
-// Equal returns true if 'a' and 'b' represent the same L7 Rules
+// Equal returns true if 'a' and 'b' represent the same per-selector policy for
+// merge purposes.
 func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 	return a == nil && b == nil || a != nil && b != nil &&
+		a.Priority == b.Priority &&
 		a.L7Parser == b.L7Parser &&
 		a.TerminatingTLS.Equal(b.TerminatingTLS) &&
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
