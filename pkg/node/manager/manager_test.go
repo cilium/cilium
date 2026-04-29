@@ -106,16 +106,8 @@ func (i *ipcacheMock) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.So
 	i.Upsert(prefix.String(), nil, 0, nil, ipcache.Identity{}, aux...)
 }
 
-func (i *ipcacheMock) OverrideIdentity(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
-	i.UpsertMetadata(prefix, src, resource)
-}
-
 func (i *ipcacheMock) RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
 	i.Delete(prefix.String(), source.CustomResource, aux...)
-}
-
-func (i *ipcacheMock) RemoveIdentityOverride(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
-	i.Delete(prefix.String(), source.CustomResource)
 }
 
 func (i *ipcacheMock) UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64) {
@@ -414,7 +406,7 @@ func TestNodeLabels(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			option.Config.EnableNodeSelectorLabels = tt.nodeSelectorLabels
 			option.Config.ClusterName = "default"
-			got, _ := mngr.nodeIdentityLabels(tt.node)
+			got := mngr.nodeIdentityLabels(tt.node)
 			want := tt.setupWanted()
 			assert.True(t, want.Equals(got), "Mismatched labels: want=%v got=%v", want, got)
 		})
