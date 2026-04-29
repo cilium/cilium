@@ -849,9 +849,9 @@ func Test_getFlowType(t *testing.T) {
 				f: &flowpb.Flow{
 					Verdict: flowpb.Verdict_TRACED,
 					EventType: &flowpb.CiliumEventType{
-						Type: monitorAPI.MessageTypeTraceSock,
+						Type:    monitorAPI.MessageTypeTraceSock,
+						SubType: int32(flowpb.SocketTranslationPoint_SOCK_XLATE_POINT_PRE_DIRECTION_FWD),
 					},
-					SockXlatePoint: flowpb.SocketTranslationPoint_SOCK_XLATE_POINT_PRE_DIRECTION_FWD,
 				},
 			},
 			want: "pre-xlate-fwd",
@@ -862,9 +862,9 @@ func Test_getFlowType(t *testing.T) {
 				f: &flowpb.Flow{
 					Verdict: flowpb.Verdict_TRANSLATED,
 					EventType: &flowpb.CiliumEventType{
-						Type: monitorAPI.MessageTypeTraceSock,
+						Type:    monitorAPI.MessageTypeTraceSock,
+						SubType: int32(flowpb.SocketTranslationPoint_SOCK_XLATE_POINT_POST_DIRECTION_FWD),
 					},
-					SockXlatePoint: flowpb.SocketTranslationPoint_SOCK_XLATE_POINT_POST_DIRECTION_FWD,
 				},
 			},
 			want: "post-xlate-fwd",
