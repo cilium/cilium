@@ -51,33 +51,17 @@ func (e *Endpoint) PreviousMapState() *policy.MapState {
 	return e.desiredPolicy.GetMapState()
 }
 
-// GetNamedPort returns one port for the given name.
-func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) uint16 {
-	var port uint16
-	var err error
-	var dir string
-
-	if ingress {
-		dir = "ingress"
-		// Ingress only needs the ports of the POD itself
-		port, err = e.GetK8sPorts().GetNamedPort(name, proto)
-	} else {
-		dir = "egress"
-		// egress needs named ports of the destination security identities
-		port, err = e.namedPortsGetter.GetNamedPorts().GetNamedPort(name, proto, idents)
-		// Skip logging for ErrUnknownNamedPort on egress, as the destination POD with the
-		// port name is likely not scheduled yet.
-		if err != nil && errors.Is(err, types.ErrUnknownNamedPort) {
-			err = nil
-		}
-	}
+// GetIngressNamedPort returns one port for the given name.
+func (e *Endpoint) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
+	// Ingress only needs the ports of the POD itself
+	port, err := e.GetK8sPorts().GetNamedPort(name, proto)
 	if err != nil && e.logLimiter.Allow() {
 		e.getLogger().Warn(
 			"Skipping named port",
 			logfields.Error, err,
 			logfields.PortName, name,
 			logfields.Protocol, proto,
-			logfields.TrafficDirection, dir,
+			logfields.TrafficDirection, "ingress",
 		)
 	}
 	return port
@@ -88,28 +72,37 @@ func (e *Endpoint) GetEgressNamedPorts(name string, proto u8proto.U8proto, destI
 	return e.namedPortsGetter.GetNamedPorts().GetNamedPorts(name, proto, destIdentities)
 }
 
-// proxyID returns a unique string to identify a proxy mapping,
-// and the resolved destination port number, if any.
-// For port ranges the proxy is identified by the first port in
-// the range, as overlapping proxy port ranges are not supported.
-// Must be called with e.mutex held.
-func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string, scSnapshot policy.SelectorSnapshot) (string, uint16, u8proto.U8proto) {
+// proxyIDs returns unique strings to identify proxy mappings, and the resolved
+// destination port numbers, if any. For port ranges the proxy is identified by
+// the first port in the range, as overlapping proxy port ranges are not
+// supported. Must be called with e.mutex held.
+func (e *Endpoint) proxyIDs(l4 *policy.L4Filter, listener string, scSnapshot policy.SelectorSnapshot) iter.Seq2[string, uint16] {
 	port := l4.Port
-	protocol := l4.U8Proto
-	// Calculate protocol if it is 0 (default) and
-	// is not "ANY" (that is, it was not calculated).
-	if protocol == 0 && !l4.Protocol.IsAny() {
-		proto, _ := u8proto.ParseProtocol(string(l4.Protocol))
-		protocol = proto
-	}
-	if port == 0 && l4.PortName != "" {
-		port = e.GetNamedPort(l4.Ingress, l4.PortName, protocol, l4.Identities(scSnapshot))
-		if port == 0 {
-			return "", 0, 0
+
+	if port == 0 {
+		if l4.PortName == "" {
+			return func(func(string, uint16) bool) {}
+		}
+		if l4.Ingress {
+			port = e.GetIngressNamedPort(l4.PortName, l4.U8Proto)
+			if port == 0 {
+				return func(func(string, uint16) bool) {}
+			}
+		} else {
+			// Egress named port with different ports for different identities.
+			return func(yield func(string, uint16) bool) {
+				for _, port := range e.GetEgressNamedPorts(l4.PortName, l4.U8Proto, l4.Identities(scSnapshot)) {
+					if !yield(policy.ProxyID(e.ID, false, string(l4.Protocol), port, listener), port) {
+						return
+					}
+				}
+			}
 		}
 	}
 
-	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port, protocol
+	return func(yield func(string, uint16) bool) {
+		yield(policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port)
+	}
 }
 
 // setNextPolicyRevision updates the desired policy revision field

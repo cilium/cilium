@@ -182,7 +182,7 @@ type DummyOwner struct {
 func (d DummyOwner) CreateRedirects(*L4Filter) {
 }
 
-func (d DummyOwner) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) uint16 {
+func (d DummyOwner) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
 	return 80
 }
 

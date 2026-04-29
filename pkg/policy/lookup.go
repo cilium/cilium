@@ -131,14 +131,8 @@ func (ei *endpointInfo) getNamedPort(name string, proto u8proto.U8proto) uint16 
 	return 0
 }
 
-func (ei *endpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, _ iter.Seq[identity.NumericIdentity]) uint16 {
-	if ingress {
-		return ei.getNamedPort(name, proto)
-	}
-	if ei.remoteEndpoint == nil {
-		return 0
-	}
-	return ei.remoteEndpoint.getNamedPort(name, proto)
+func (ei *endpointInfo) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
+	return ei.getNamedPort(name, proto)
 }
 
 func (ei *endpointInfo) GetEgressNamedPorts(name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq {

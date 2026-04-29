@@ -37,7 +37,7 @@ func (m *ProxyUpdaterMock) GetIPv4Address() string { return m.Ipv4 }
 
 func (m *ProxyUpdaterMock) GetIPv6Address() string { return m.Ipv6 }
 
-func (m *ProxyUpdaterMock) GetNamedPort(bool, string, u8proto.U8proto, iter.Seq[identity.NumericIdentity]) uint16 {
+func (m *ProxyUpdaterMock) GetIngressNamedPort(string, u8proto.U8proto) uint16 {
 	return 0
 }
 

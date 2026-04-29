@@ -715,6 +715,16 @@ func (l4 *L4Filter) Identities(txn SelectorSnapshot) iter.Seq[identity.NumericId
 	}
 }
 
+func keysForRange(key Key, port, endPort uint16) (keys []Key) {
+	if port == 0 || endPort <= port {
+		return []Key{key}
+	}
+	for _, mp := range PortRangeToMaskedPorts(port, endPort) {
+		keys = append(keys, key.WithPortPrefix(mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+	}
+	return keys
+}
+
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
@@ -742,11 +752,17 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 		)
 	}
 
-	// resolve named port if any
+	// resolve ingress named port if any
+	egressNamedPort := false
 	if port == 0 && l4.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto, l4.Identities(p.selectors))
-		if port == 0 {
-			return // nothing to be done for undefined named port
+		if l4.Ingress {
+			port = p.PolicyOwner.GetIngressNamedPort(l4.PortName, proto)
+			if port == 0 {
+				return // nothing to be done for undefined ingress named port
+			}
+		} else {
+			// egress named port is resolved separately for each selector
+			egressNamedPort = true
 		}
 	}
 
@@ -755,13 +771,9 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 	// compute keys to insert, identities will be filled in later
 	key := KeyForDirection(direction).WithPortProto(proto, port)
 	var keysToAdd []Key
-	if port != 0 && l4.EndPort > port {
-		for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
-			keysToAdd = append(keysToAdd, key.WithPortPrefix(mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
-		}
-	} else {
-		// single key for singular (named) port
-		keysToAdd = []Key{key}
+	// keysToAdd is only used if egress named port resolution is not needed
+	if !egressNamedPort {
+		keysToAdd = keysForRange(key, port, l4.EndPort)
 	}
 
 	logEntry := func(entry *mapStateEntry, cs CachedSelector, idents identity.NumericIdentitySlice) {
@@ -783,19 +795,38 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 	}
 
 	for cs, currentRule := range l4.PerSelectorPolicies {
-		var idents identity.NumericIdentitySlice
-
-		if cs == l4.wildcard {
-			idents = identity.NumericIdentitySlice{0}
-		} else {
-			wildcardPort := port == 0 && l4.PortName == ""
-			if l4.selectorCoveredByWildcard(cs, currentRule, wildcardPort) {
+		if cs != l4.wildcard {
+			isWildcardPort := port == 0 && !egressNamedPort
+			if l4.selectorCoveredByWildcard(cs, currentRule, isWildcardPort) {
 				scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
 				continue
 			}
-			idents = cs.GetSelectionsAt(p.selectors)
 		}
 
+		idents := cs.GetSelectionsAt(p.selectors)
+		if egressNamedPort {
+			// Egress named ports can map to multiple ports that can be different for
+			// each selector.
+			// Port ranges are not supported with named ports.
+			for id, port := range p.PolicyOwner.GetEgressNamedPorts(l4.PortName, proto, slices.Values(idents)) {
+				entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule, tierPriority, nextTierPriority)
+				if !entry.IsValid() && !entry.IsPassEntry() {
+					continue // Skip unrealized redirects
+				}
+				if option.Config.Debug {
+					logEntry(&entry, cs, idents)
+				}
+				keyToAdd := key.WithIdentity(id).WithPort(port)
+				p.policyMapState.insertWithChanges(tierMaxPrecedence, keyToAdd, entry, features, changes)
+			}
+			continue
+		}
+
+		if cs == l4.wildcard {
+			idents = identity.NumericIdentitySlice{0}
+		}
+
+		// single port case, may be wildcard port
 		entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule, tierPriority, nextTierPriority)
 		if !entry.IsValid() && !entry.IsPassEntry() {
 			continue // Skip unrealized redirects
@@ -835,10 +866,11 @@ func (l4 *L4Filter) IdentitySelectionUpdated(logger *slog.Logger, cs types.Cache
 		logfields.DeletedPolicyID, deleted,
 	)
 
-	// Skip updates on wildcard selectors, as datapath and L7
-	// proxies do not need enumeration of all ids for L3 wildcard.
+	// Skip updates on wildcard selectors on specific ports, as datapath does not need
+	// enumeration of all ids for L3 wildcard.
+	// Updates with a named port may be needed, as a new identity may map to a different port.
 	// This mirrors the per-selector logic in toMapState().
-	if cs.IsWildcard() {
+	if cs.IsWildcard() && l4.PortName == "" {
 		return
 	}
 
@@ -1728,26 +1760,52 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 				continue // nothing more to do
 			}
 
-			idents := slices.Values(adds)
-			resolvedPort := epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto, idents)
-			if resolvedPort == 0 {
-				continue // skip unresolved or conflicting ports
-			}
-
-			var proxyPort uint16
-			if redirect {
-				proxyPort = lookupProxyPort(epPolicy, resolvedPort)
-				if proxyPort == 0 {
-					continue
+			var resolvedPort uint16
+			if l4.Ingress {
+				resolvedPort = epPolicy.PolicyOwner.GetIngressNamedPort(l4.PortName, proto)
+				if resolvedPort == 0 {
+					continue // skip unresolved ingress port
 				}
+				var proxyPort uint16
+				if redirect {
+					proxyPort = lookupProxyPort(epPolicy, resolvedPort)
+					if proxyPort == 0 {
+						continue
+					}
+				}
+				key := KeyForDirection(direction).WithPortProto(proto, resolvedPort)
+				value := newMapStateEntry(priority, tierPriority, nextTierPriority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)
+				debugLog(resolvedPort)
+				epPolicy.policyMapChanges.AccumulateMapChanges(tier, tierPriority, adds, nil, key, value)
+				continue
 			}
-			key := KeyForDirection(direction).WithPortProto(proto, resolvedPort)
-			value := newMapStateEntry(priority, tierPriority, nextTierPriority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)
-			debugLog(resolvedPort)
-
-			epPolicy.policyMapChanges.AccumulateMapChanges(tier, tierPriority, adds, nil, key, value)
+			// egress can have multiple different ports
+			for nid, port := range epPolicy.PolicyOwner.GetEgressNamedPorts(l4.PortName, proto, slices.Values(adds)) {
+				var proxyPort uint16
+				if redirect {
+					proxyPort = lookupProxyPort(epPolicy, port)
+					if proxyPort == 0 {
+						continue
+					}
+				}
+				key := KeyForDirection(direction).WithPortProto(proto, port)
+				value := newMapStateEntry(priority, tierPriority, nextTierPriority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)
+				debugLog(port)
+				epPolicy.policyMapChanges.AccumulateMapChanges(tier, tierPriority, identity.NumericIdentitySlice{nid}, nil, key, value)
+			}
 		}
 		return
+	}
+
+	var keysToAdd []Key
+	if port != 0 && l4.EndPort > port {
+		for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
+			keysToAdd = append(keysToAdd,
+				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+		}
+	} else {
+		// single key for singular (named) port
+		keysToAdd = []Key{KeyForDirection(direction).WithPortProto(proto, port)}
 	}
 
 	for epPolicy := range l4Policy.users {
@@ -1757,12 +1815,6 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 			if proxyPort == 0 {
 				continue
 			}
-		}
-
-		var keysToAdd []Key
-		for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
-			keysToAdd = append(keysToAdd,
-				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
 
 		value := newMapStateEntry(priority, tierPriority, nextTierPriority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)

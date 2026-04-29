@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"slices"
 	"strings"
 	"testing"
@@ -989,16 +990,30 @@ func TestDeleteRemovesNetworkPolicyWhenIdentityReleaseIsSkipped(t *testing.T) {
 	require.Equal(t, uint64(ep.ID), proxy.lastEndpointID)
 }
 
+type proxyIDResult struct {
+	id   string
+	port uint16
+}
+
+func collectProxyIDs(seq iter.Seq2[string, uint16]) []proxyIDResult {
+	var results []proxyIDResult
+	for id, port := range seq {
+		results = append(results, proxyIDResult{id: id, port: port})
+	}
+	return results
+}
+
 func TestProxyID(t *testing.T) {
 	setupEndpointSuite(t)
 
 	e := &Endpoint{ID: 123, policyRevision: 0}
 	e.UpdateLogger(nil)
 
-	id, port, proto := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "", policy.SelectorSnapshot{})
+	resolved := collectProxyIDs(e.proxyIDs(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	require.Len(t, resolved, 1)
+	id, port := resolved[0].id, resolved[0].port
 	require.NotEmpty(t, id)
 	require.Equal(t, uint16(8080), port)
-	require.Equal(t, u8proto.TCP, proto)
 
 	endpointID, ingress, protocol, port, listener, err := policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
@@ -1008,10 +1023,11 @@ func TestProxyID(t *testing.T) {
 	require.Empty(t, listener)
 	require.NoError(t, err)
 
-	id, port, proto = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "test-listener", policy.SelectorSnapshot{})
+	resolved = collectProxyIDs(e.proxyIDs(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "test-listener", policy.SelectorSnapshot{}))
+	require.Len(t, resolved, 1)
+	id, port = resolved[0].id, resolved[0].port
 	require.NotEmpty(t, id)
 	require.Equal(t, uint16(8080), port)
-	require.Equal(t, u8proto.TCP, proto)
 	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
 	require.True(t, ingress)
@@ -1021,10 +1037,47 @@ func TestProxyID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Undefined named port
-	id, port, proto = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "", policy.SelectorSnapshot{})
-	require.Empty(t, id)
-	require.Equal(t, uint16(0), port)
-	require.Equal(t, u8proto.ANY, proto)
+	resolved = collectProxyIDs(e.proxyIDs(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	require.Empty(t, resolved)
+
+	resolved = collectProxyIDs(e.proxyIDs(&policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	require.Empty(t, resolved)
+
+	npm := ciliumTypes.NewNamedPortMultiMap()
+	require.True(t, npm.Update(identity.NumericIdentity(101), nil, ciliumTypes.NamedPortMap{
+		"http": {Proto: u8proto.TCP, Port: 8080},
+	}))
+	require.True(t, npm.Update(identity.NumericIdentity(102), nil, ciliumTypes.NamedPortMap{
+		"http": {Proto: u8proto.TCP, Port: 9090},
+	}))
+	e.namedPortsGetter = testNamedPortsGetter{npm: npm}
+	e.SetK8sMetadata(ciliumTypes.NamedPortMap{
+		"http": {Proto: u8proto.TCP, Port: 7070},
+	})
+	backendSelector, selectorSnapshot := endpointCachedSelectorForIdentities(t, "id=backend", 101, 102)
+	defer selectorSnapshot.Invalidate()
+	resolved = collectProxyIDs(e.proxyIDs(&policy.L4Filter{
+		PortName: "http",
+		Protocol: api.ProtoTCP,
+		U8Proto:  u8proto.TCP,
+		PerSelectorPolicies: policy.L7DataMap{
+			backendSelector: nil,
+		},
+	}, "", selectorSnapshot))
+	require.Len(t, resolved, 2)
+	require.Equal(t, uint16(8080), resolved[0].port)
+	require.Equal(t, uint16(9090), resolved[1].port)
+}
+
+func endpointCachedSelectorForIdentities(t testing.TB, selectorLabel string, identities ...identity.NumericIdentity) (policy.CachedSelector, policy.SelectorSnapshot) {
+	identityMap := make(identity.IdentityMap, len(identities))
+	for _, nid := range identities {
+		identityMap[nid] = labels.ParseLabelArray(selectorLabel)
+	}
+
+	selectorCache := policy.NewSelectorCache(hivetest.Logger(t), identityMap)
+	selector, _ := selectorCache.AddIdentitySelectorForTest(&testpolicy.DummySelectorCacheUser{}, api.NewESFromLabels(labels.ParseSelectLabel(selectorLabel)))
+	return selector, selectorCache.GetSelectorSnapshot()
 }
 
 type testNamedPortsGetter struct {

@@ -4,6 +4,7 @@
 package envoy
 
 import (
+	"iter"
 	"strconv"
 	"testing"
 
@@ -32,6 +33,7 @@ import (
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -64,6 +66,57 @@ func (m *listenerProxyUpdaterMock) RegenerateIfAlive(*regeneration.ExternalRegen
 	ch := make(chan bool)
 	close(ch)
 	return ch
+}
+
+type namedPortProxyUpdaterMock struct {
+	*test.ProxyUpdaterMock
+	t          testing.TB
+	namedPorts map[identity.NumericIdentity]uint16
+}
+
+func newNamedPortProxyUpdaterMock(t testing.TB, namedPorts map[identity.NumericIdentity]uint16) *namedPortProxyUpdaterMock {
+	t.Helper()
+	return &namedPortProxyUpdaterMock{
+		ProxyUpdaterMock: &test.ProxyUpdaterMock{Id: 1000, Ipv4: "10.0.0.1", Ipv6: "f00d::1"},
+		t:                t,
+		namedPorts:       namedPorts,
+	}
+}
+
+func (m *namedPortProxyUpdaterMock) requireHTTPNamedPort(name string) {
+	m.t.Helper()
+	require.Equal(m.t, "http", name)
+}
+
+func (m *namedPortProxyUpdaterMock) GetIngressNamedPort(name string, _ u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) uint16 {
+	m.requireHTTPNamedPort(name)
+
+	var result uint16
+	for id := range nids {
+		port := m.namedPorts[id]
+		if port == 0 {
+			continue
+		}
+		if result != 0 && result != port {
+			return 0
+		}
+		result = port
+	}
+	return result
+}
+
+func (m *namedPortProxyUpdaterMock) GetEgressNamedPorts(name string, _ u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) ciliumTypes.NidPortSeq {
+	m.requireHTTPNamedPort(name)
+
+	return func(yield func(identity.NumericIdentity, uint16) bool) {
+		for id := range nids {
+			if port := m.namedPorts[id]; port != 0 {
+				if !yield(id, port) {
+					return
+				}
+			}
+		}
+	}
 }
 
 type dummyPolicyStats struct {
@@ -924,6 +977,225 @@ func TestGetDirectionNetworkPolicy(t *testing.T) {
 	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4PassPolicy.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesPass, obtained)
 
+}
+
+func TestGetDirectionNetworkPolicyCoalescesFiltersByResolvedPort(t *testing.T) {
+	xds := testXdsServer(t)
+	selectors := testSelectorCache.GetSelectorSnapshot()
+
+	t.Run("merges numeric and named port rules", func(t *testing.T) {
+		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+			1001: 80,
+			1002: 80,
+		})
+		l4DirectionPolicy := &policy.L4DirectionPolicy{
+			PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+				"80/TCP": {
+					Port:     80,
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						cachedSelector2: nil,
+					},
+				},
+				"http/TCP": {
+					PortName: "http",
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						cachedSelector1: L7Rules12,
+					},
+				},
+			}),
+		}
+
+		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		require.Len(t, obtained, 1)
+		require.Equal(t, uint32(80), obtained[0].Port)
+		require.Equal(t, envoy_config_core.SocketAddress_TCP, obtained[0].Protocol)
+		require.Len(t, obtained[0].Rules, 2)
+		require.Contains(t, obtained[0].Rules, &cilium.PortNetworkPolicyRule{
+			Precedence:     uint32(policyTypes.MaxAllowPrecedence),
+			RemotePolicies: []uint32{1001, 1003},
+		})
+		require.Contains(t, obtained[0].Rules, ExpectedPortNetworkPolicyRule12)
+	})
+
+	t.Run("prunes wildcard rules across filters", func(t *testing.T) {
+		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+			1001: 80,
+			1002: 80,
+		})
+		l4DirectionPolicy := &policy.L4DirectionPolicy{
+			PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+				"80/TCP": {
+					Port:     80,
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						wildcardCachedSelector: nil,
+					},
+				},
+				"http/TCP": {
+					PortName: "http",
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						cachedSelector1: nil,
+					},
+				},
+			}),
+		}
+
+		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		require.Equal(t, []*cilium.PortNetworkPolicy{{
+			Port:     80,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence: uint32(policyTypes.MaxAllowPrecedence),
+			}},
+		}}, obtained)
+	})
+
+	t.Run("keeps named port header mutation rules across wildcard pruning", func(t *testing.T) {
+		ep := newProxyUpdaterMock(t, 0)
+		egressPortFunc := getEgressNamedPortsFunc(map[identity.NumericIdentity]uint16{
+			1001: 80,
+			1002: 80,
+		})
+		l4DirectionPolicy := &policy.L4DirectionPolicy{
+			PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+				"80/TCP": {
+					Port:     80,
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						wildcardCachedSelector: &policy.PerSelectorPolicy{
+							L7Parser: policy.ParserTypeHTTP,
+						},
+					},
+				},
+				"http/TCP": {
+					PortName: "http",
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						cachedSelector1: L7Rules12HeaderMatch,
+					},
+				},
+			}),
+		}
+
+		obtained := xds.getDirectionNetworkPolicy(ep, egressPortFunc, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		require.Equal(t, []*cilium.PortNetworkPolicy{{
+			Port:     80,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence: uint32(policyTypes.MaxAllowPrecedence + 1),
+			}, ExpectedPortNetworkPolicyRule122HeaderMatch},
+		}}, obtained)
+	})
+}
+
+func TestGetDirectionNetworkPolicyEgressNamedPorts(t *testing.T) {
+	xds := testXdsServer(t)
+	selectors := testSelectorCache.GetSelectorSnapshot()
+
+	t.Run("multi port filters remote policies per named port", func(t *testing.T) {
+		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+			1001: 8080,
+			1002: 9090,
+		})
+		l4DirectionPolicy := &policy.L4DirectionPolicy{
+			PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+				"http/TCP": {
+					PortName: "http",
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						cachedSelector1: L7Rules12,
+					},
+				},
+			}),
+		}
+
+		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		require.Equal(t, []*cilium.PortNetworkPolicy{{
+			Port:     8080,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+				RemotePolicies: []uint32{1001},
+				L7:             ExpectedHttpRule12,
+			}},
+		}, {
+			Port:     9090,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+				RemotePolicies: []uint32{1002},
+				L7:             ExpectedHttpRule12,
+			}},
+		}}, obtained)
+	})
+
+	t.Run("multi port wildcard selector becomes identity scoped", func(t *testing.T) {
+		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+			1001: 8080,
+			1002: 9090,
+		})
+		l4DirectionPolicy := &policy.L4DirectionPolicy{
+			PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+				"http/TCP": {
+					PortName: "http",
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						wildcardCachedSelector: L7Rules12,
+					},
+				},
+			}),
+		}
+
+		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		require.Equal(t, []*cilium.PortNetworkPolicy{{
+			Port:     8080,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+				RemotePolicies: []uint32{1001},
+				L7:             ExpectedHttpRule12,
+			}},
+		}, {
+			Port:     9090,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+				RemotePolicies: []uint32{1002},
+				L7:             ExpectedHttpRule12,
+			}},
+		}}, obtained)
+	})
+
+	t.Run("single port keeps selected identities without mappings", func(t *testing.T) {
+		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+			1001: 8080,
+		})
+		l4DirectionPolicy := &policy.L4DirectionPolicy{
+			PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+				"http/TCP": {
+					PortName: "http",
+					Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+					PerSelectorPolicies: policy.L7DataMap{
+						cachedSelector2: L7Rules1,
+					},
+				},
+			}),
+		}
+
+		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		require.Equal(t, []*cilium.PortNetworkPolicy{{
+			Port:     8080,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+				RemotePolicies: []uint32{1001, 1003},
+				L7:             ExpectedHttpRule1,
+			}},
+		}}, obtained)
+	})
 }
 
 func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
