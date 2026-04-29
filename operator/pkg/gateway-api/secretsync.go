@@ -32,7 +32,7 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 		}
 
 		// Check whether Gateway is managed by Cilium
-		if !hasMatchingController(ctx, c, controllerName, logger)(gw) {
+		if !helpers.GatewayHasMatchingControllerFn(ctx, c, helpers.CiliumDefaultControllerName, logger)(gw) {
 			return nil
 		}
 
@@ -60,7 +60,7 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 func IsReferencedByCiliumGateway(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
 	gateways := helpers.GetGatewaysForSecret(ctx, c, obj, logger)
 	for _, gw := range gateways {
-		if hasMatchingController(ctx, c, controllerName, logger)(gw) {
+		if helpers.GatewayHasMatchingControllerFn(ctx, c, helpers.CiliumDefaultControllerName, logger)(gw) {
 			return true
 		}
 	}
@@ -121,7 +121,7 @@ func ConfigMapIsReferencedInCiliumGateway(ctx context.Context, c client.Client, 
 		for _, ancestorStatus := range btlsp.Status.Ancestors {
 			// An Ancestor Status with the Cilium controller name and Accepted: True is only added by Cilium if
 			// everything is good, so we are covered.
-			if ancestorStatus.ControllerName == controllerName && helpers.IsAccepted(ancestorStatus.Conditions) {
+			if ancestorStatus.ControllerName == helpers.CiliumDefaultControllerName && helpers.IsAccepted(ancestorStatus.Conditions) {
 				return true
 			}
 		}
