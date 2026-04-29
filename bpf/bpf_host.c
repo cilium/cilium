@@ -1024,6 +1024,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 	__u8 __maybe_unused next_proto = 0;
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
+	int __maybe_unused l3_off;
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
@@ -1088,7 +1089,8 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		 * Make sure that we don't legitimately drop the packet if the skb
 		 * arrived with the header not being not in the linear data.
 		 */
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+		if (!revalidate_data_ipv4_l3_pull(ctx, &data, &data_end, &ip4,
+					      &l3_off)) {
 			ret = DROP_INVALID;
 			goto drop_err_ingress;
 		}
