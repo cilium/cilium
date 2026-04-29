@@ -116,11 +116,9 @@ runs:
             --set-string=hubble.relay.extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
             --set-string=hubble.relay.extraEnv[1].value=true \
             --set-string=hubble.relay.extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
-            --set-string=hubble.relay.extraEnv[2].value=true"
-
-          if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
-            DEFAULTS+=" --values=${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml"
-          fi
+            --set-string=hubble.relay.extraEnv[2].value=true \
+            --helm-set-string=operator.extraArgs[0]=--leader-election-lease-duration=30s \
+            --helm-set-string=operator.extraArgs[1]=--leader-election-renew-deadline=20s"
 
           IMAGE=""
           if [ "${{ inputs.image-tag }}" != "" ]; then
