@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -19,6 +20,7 @@ type EndpointInfoSource interface {
 	GetIPv4Address() string
 	GetIPv6Address() string
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) uint16
+	GetEgressNamedPorts(name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) types.NidPortSeq
 }
 
 // EndpointUpdater returns information about an endpoint being proxied and

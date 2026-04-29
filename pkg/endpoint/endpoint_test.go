@@ -25,7 +25,7 @@ import (
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
-	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -784,7 +784,9 @@ func TestProxyID(t *testing.T) {
 	e := &Endpoint{ID: 123, policyRevision: 0}
 	e.UpdateLogger(nil)
 
-	id, port, proto := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "", policy.SelectorSnapshot{})
+	resolved := e.proxyIDs(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "", policy.SelectorSnapshot{})
+	require.Len(t, resolved, 1)
+	id, port, proto := resolved[0].id, resolved[0].port, resolved[0].proto
 	require.NotEmpty(t, id)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, u8proto.TCP, proto)
@@ -797,7 +799,9 @@ func TestProxyID(t *testing.T) {
 	require.Empty(t, listener)
 	require.NoError(t, err)
 
-	id, port, proto = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "test-listener", policy.SelectorSnapshot{})
+	resolved = e.proxyIDs(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "test-listener", policy.SelectorSnapshot{})
+	require.Len(t, resolved, 1)
+	id, port, proto = resolved[0].id, resolved[0].port, resolved[0].proto
 	require.NotEmpty(t, id)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, u8proto.TCP, proto)
@@ -810,10 +814,49 @@ func TestProxyID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Undefined named port
-	id, port, proto = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "", policy.SelectorSnapshot{})
-	require.Empty(t, id)
-	require.Equal(t, uint16(0), port)
-	require.Equal(t, u8proto.ANY, proto)
+	resolved = e.proxyIDs(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "", policy.SelectorSnapshot{})
+	require.Empty(t, resolved)
+
+	resolved = e.proxyIDs(&policy.L4Filter{Protocol: api.ProtoTCP, Ingress: true}, "", policy.SelectorSnapshot{})
+	require.Empty(t, resolved)
+
+	npm := ciliumTypes.NewNamedPortMultiMap()
+	require.True(t, npm.Update(identity.NumericIdentity(101), nil, ciliumTypes.NamedPortMap{
+		"http": {Proto: u8proto.TCP, Port: 8080},
+	}))
+	require.True(t, npm.Update(identity.NumericIdentity(102), nil, ciliumTypes.NamedPortMap{
+		"http": {Proto: u8proto.TCP, Port: 9090},
+	}))
+	e.namedPortsGetter = testNamedPortsGetter{npm: npm}
+	e.SetK8sMetadata([]corev1.ContainerPort{{
+		Name:          "http",
+		ContainerPort: 7070,
+		Protocol:      corev1.ProtocolTCP,
+	}})
+	backendSelector, selectorSnapshot := endpointCachedSelectorForIdentities(t, "id=backend", 101, 102)
+	defer selectorSnapshot.Invalidate()
+	resolved = e.proxyIDs(&policy.L4Filter{
+		PortName: "http",
+		Protocol: api.ProtoTCP,
+		U8Proto:  u8proto.TCP,
+		PerSelectorPolicies: policy.L7DataMap{
+			backendSelector: nil,
+		},
+	}, "", selectorSnapshot)
+	require.Len(t, resolved, 2)
+	require.Equal(t, uint16(8080), resolved[0].port)
+	require.Equal(t, uint16(9090), resolved[1].port)
+}
+
+func endpointCachedSelectorForIdentities(t testing.TB, selectorLabel string, identities ...identity.NumericIdentity) (policy.CachedSelector, policy.SelectorSnapshot) {
+	identityMap := make(identity.IdentityMap, len(identities))
+	for _, nid := range identities {
+		identityMap[nid] = labels.ParseLabelArray(selectorLabel)
+	}
+
+	selectorCache := policy.NewSelectorCache(hivetest.Logger(t), identityMap)
+	selector, _ := selectorCache.AddIdentitySelectorForTest(&testpolicy.DummySelectorCacheUser{}, api.NewESFromLabels(labels.ParseSelectLabel(selectorLabel)))
+	return selector, selectorCache.GetSelectorSnapshot()
 }
 
 type testNamedPortsGetter struct {
@@ -826,7 +869,7 @@ func (g testNamedPortsGetter) GetNamedPorts() ciliumTypes.NamedPortMultiMap {
 
 func TestGetEgressNamedPorts(t *testing.T) {
 	namedPorts := ciliumTypes.NewNamedPortMultiMap()
-	nid := identityPkg.NumericIdentity(101)
+	nid := identity.NumericIdentity(101)
 	require.True(t, namedPorts.Update(nid, nil, ciliumTypes.NamedPortMap{
 		"http": ciliumTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
 	}))
@@ -838,22 +881,22 @@ func TestGetEgressNamedPorts(t *testing.T) {
 		namedPortsGetter: testNamedPortsGetter{npm: namedPorts},
 	}
 
-	portsByNID := map[identityPkg.NumericIdentity][]uint16{}
-	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identityPkg.NumericIdentity{nid, 102})) {
+	portsByNID := map[identity.NumericIdentity][]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identity.NumericIdentity{nid, 102})) {
 		portsByNID[destID] = append(portsByNID[destID], port)
 	}
-	require.Equal(t, map[identityPkg.NumericIdentity][]uint16{
+	require.Equal(t, map[identity.NumericIdentity][]uint16{
 		nid: {8080, 9090},
 	}, portsByNID)
 
-	portsByNID = map[identityPkg.NumericIdentity][]uint16{}
-	for destID, port := range e.GetEgressNamedPorts("http", u8proto.UDP, slices.Values([]identityPkg.NumericIdentity{nid})) {
+	portsByNID = map[identity.NumericIdentity][]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.UDP, slices.Values([]identity.NumericIdentity{nid})) {
 		portsByNID[destID] = append(portsByNID[destID], port)
 	}
 	require.Empty(t, portsByNID)
 
-	portsByNID = map[identityPkg.NumericIdentity][]uint16{}
-	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identityPkg.NumericIdentity{102})) {
+	portsByNID = map[identity.NumericIdentity][]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identity.NumericIdentity{102})) {
 		portsByNID[destID] = append(portsByNID[destID], port)
 	}
 	require.Empty(t, portsByNID)

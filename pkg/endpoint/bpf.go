@@ -247,26 +247,32 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		// Possible listener name for both the proxy ID and the proxyPolicy below.
 		listener := policySelectorTuple.Policy.GetListener()
 
-		// proxyID() returns also the destination port for the policy,
-		// which may be resolved from a named port
-		proxyID, dstPort, dstProto := e.proxyID(l4, listener, selectorPolicy.GetSelectorSnapshot())
-		if proxyID == "" {
+		// proxyIDs() returns also the destination ports for the policy,
+		// which may be resolved from a named port.
+		proxyIDs := e.proxyIDs(l4, listener, selectorPolicy.GetSelectorSnapshot())
+		if len(proxyIDs) == 0 {
 			// Skip redirects for which a proxyID cannot be created.
 			// This may happen due to the named port mapping not
-			// existing or multiple PODs defining the same port name
-			// with different port values. The redirect will be created
-			// when the mapping is available or when the port name
-			// conflicts have been resolved in POD specs.
+			// existing. The redirect will be created when the mapping is
+			// available.
 			skipped++
 			continue
 		}
-		// desiredRedirects starts out empty, so we can use it check
-		// if the redirect has already been updated on this round.
-		if desiredRedirects[proxyID] != 0 {
+		allRedirectsDesired := true
+		for _, resolved := range proxyIDs {
+			if desiredRedirects[resolved.id] == 0 {
+				allRedirectsDesired = false
+				break
+			}
+		}
+		// desiredRedirects starts out empty, so we can use it to check if all
+		// redirects for this filter have already been updated on this round.
+		if allRedirectsDesired {
 			continue
 		}
+		for _, resolved := range proxyIDs {
+			proxyID, dstPort, dstProto := resolved.id, resolved.port, resolved.proto
 
-		if true {
 			pp := newProxyPolicy(l4, policySelectorTuple.Policy.L7Parser, listener, dstPort, dstProto)
 			proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
 			if err != nil {

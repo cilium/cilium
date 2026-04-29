@@ -87,12 +87,17 @@ func (e *Endpoint) GetEgressNamedPorts(name string, proto u8proto.U8proto, destI
 	return e.namedPortsGetter.GetNamedPorts().GetNamedPorts(name, proto, destIdentities)
 }
 
-// proxyID returns a unique string to identify a proxy mapping,
-// and the resolved destination port number, if any.
-// For port ranges the proxy is identified by the first port in
-// the range, as overlapping proxy port ranges are not supported.
-// Must be called with e.mutex held.
-func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string, scSnapshot policy.SelectorSnapshot) (string, uint16, u8proto.U8proto) {
+type resolvedProxyID struct {
+	id    string
+	port  uint16
+	proto u8proto.U8proto
+}
+
+// proxyIDs returns unique strings to identify proxy mappings, and the resolved
+// destination port numbers, if any. For port ranges the proxy is identified by
+// the first port in the range, as overlapping proxy port ranges are not
+// supported. Must be called with e.mutex held.
+func (e *Endpoint) proxyIDs(l4 *policy.L4Filter, listener string, scSnapshot policy.SelectorSnapshot) []resolvedProxyID {
 	port := l4.Port
 	protocol := l4.U8Proto
 	// Calculate protocol if it is 0 (default) and
@@ -101,14 +106,35 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string, scSnapshot poli
 		proto, _ := u8proto.ParseProtocol(string(l4.Protocol))
 		protocol = proto
 	}
-	if port == 0 && l4.PortName != "" {
-		port = e.GetNamedPort(l4.Ingress, l4.PortName, protocol, l4.Identities(scSnapshot))
-		if port == 0 {
-			return "", 0, 0
+
+	proxyIDForPort := func(port uint16) resolvedProxyID {
+		return resolvedProxyID{
+			id:    policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener),
+			port:  port,
+			proto: protocol,
 		}
 	}
 
-	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port, protocol
+	if port == 0 {
+		if l4.PortName == "" {
+			return nil
+		}
+		port = e.GetNamedPort(l4.Ingress, l4.PortName, protocol, l4.Identities(scSnapshot))
+	}
+	if port != 0 {
+		return []resolvedProxyID{proxyIDForPort(port)}
+	}
+	if l4.Ingress {
+		return nil
+	}
+
+	// egress named port with possibly many ports
+	ports := e.GetEgressNamedPorts(l4.PortName, protocol, l4.Identities(scSnapshot)).Ports()
+	proxyIDs := make([]resolvedProxyID, 0, len(ports))
+	for _, port := range ports {
+		proxyIDs = append(proxyIDs, proxyIDForPort(port))
+	}
+	return proxyIDs
 }
 
 // setNextPolicyRevision updates the desired policy revision field

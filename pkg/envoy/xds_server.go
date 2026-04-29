@@ -1629,9 +1629,10 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 			ports := []uint16{l4.Port}
 			if l4.Port == 0 && l4.PortName != "" {
 				ports = nil
-				port := ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto, l4.Identities(selectors))
-				if port != 0 {
+				if port := ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto, l4.Identities(selectors)); port != 0 {
 					ports = []uint16{port}
+				} else if !l4.Ingress {
+					ports = ep.GetEgressNamedPorts(l4.PortName, l4.U8Proto, l4.Identities(selectors)).Ports()
 				}
 			}
 

@@ -713,7 +713,7 @@ func newMapState(logger *slog.Logger, old *mapState, features policyFeatures) ma
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
 
-	if features&passRules != 0 {
+	if features&(passRules|namedPortRules) != 0 {
 		if old == nil {
 			ms.byId = make(map[identity.NumericIdentity]LPMKeys)
 		} else {
@@ -850,10 +850,15 @@ func (ms mapState) String() (res string) {
 	return res
 }
 
-// Equal returns true of two entries are equal.
-// This is used for testing only via mapState.Equal and mapState.Diff.
+// Equal returns true if two entries are fully equal, including rule origin
+// metadata used for labels and logging.
 func (e mapStateEntry) Equal(o mapStateEntry) bool {
-	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules == o.derivedFromRules &&
+	return e.VerdictEqual(o) && e.derivedFromRules == o.derivedFromRules
+}
+
+// VerdictEqual returns true if two entries have equal datapath and PASS semantics.
+func (e mapStateEntry) VerdictEqual(o mapStateEntry) bool {
+	return e.MapStateEntry == o.MapStateEntry &&
 		(e.passes == o.passes || (e.passes != nil && o.passes != nil &&
 			slices.Equal(*e.passes, *o.passes)))
 }
@@ -1609,6 +1614,23 @@ type mapChange struct {
 	TierMaxPrecedence types.Precedence
 	Key               Key
 	Value             mapStateEntry
+}
+
+// AccumulateMapDeletesByID accumulates identity-wide deletes. This is used when
+// the exact keys are intentionally not reconstructed, such as egress named port
+// deletes whose concrete ports may no longer be available.
+func (mc *MapChanges) AccumulateMapDeletesByID(tier types.Tier, basePriority types.Priority, deletes []identity.NumericIdentity) {
+	tierMaxPrecedence := basePriority.ToDenyPrecedence()
+	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
+	for _, id := range deletes {
+		mc.changes = append(mc.changes, mapChange{
+			Add:               false,
+			Tier:              tier,
+			TierMaxPrecedence: tierMaxPrecedence,
+			Key:               Key{Identity: id},
+		})
+	}
 }
 
 type MapChange struct {

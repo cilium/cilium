@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"math/rand/v2"
+	"slices"
 	"sort"
 	"strconv"
 	"testing"
@@ -16,10 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	pkgTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -29,6 +33,194 @@ func perSelectorPolicyToString(psp *PerSelectorPolicy) string {
 		return err.Error()
 	}
 	return string(b)
+}
+
+type namedPortPolicyOwner struct {
+	DummyOwner
+	egressPorts map[identity.NumericIdentity][]uint16
+}
+
+func (o namedPortPolicyOwner) egressPortsFor(destID identity.NumericIdentity) []uint16 {
+	if destID != 0 {
+		return o.egressPorts[destID]
+	}
+
+	portSet := map[uint16]struct{}{}
+	for _, ports := range o.egressPorts {
+		for _, port := range ports {
+			portSet[port] = struct{}{}
+		}
+	}
+	ports := make([]uint16, 0, len(portSet))
+	for port := range portSet {
+		ports = append(ports, port)
+	}
+	slices.Sort(ports)
+	return ports
+}
+
+func (o namedPortPolicyOwner) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, destIDs iter.Seq[identity.NumericIdentity]) uint16 {
+	if ingress {
+		return o.DummyOwner.GetNamedPort(ingress, name, proto, destIDs)
+	}
+	var port uint16
+	for destID := range destIDs {
+		for _, destPort := range o.egressPortsFor(destID) {
+			if port != 0 && port != destPort {
+				return 0
+			}
+			port = destPort
+		}
+	}
+	return port
+}
+
+func (o namedPortPolicyOwner) GetEgressNamedPorts(name string, proto u8proto.U8proto, destIDs iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq {
+	return func(yield func(identity.NumericIdentity, uint16) bool) {
+		for destID := range destIDs {
+			for _, port := range o.egressPortsFor(destID) {
+				if !yield(destID, port) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func TestEgressNamedPortToMapStateUnion(t *testing.T) {
+	logger := hivetest.Logger(t)
+	cs := newTestCachedSelector("backend", false, 101, 102)
+	owner := namedPortPolicyOwner{
+		DummyOwner: DummyOwner{logger: logger},
+		egressPorts: map[identity.NumericIdentity][]uint16{
+			101: {8080, 9090},
+			102: {9090},
+		},
+	}
+	epPolicy := &EndpointPolicy{
+		PolicyOwner:    owner,
+		policyMapState: newMapState(logger, nil, namedPortRules),
+		selectors:      types.MockSelectorSnapshot(),
+	}
+	filter := &L4Filter{
+		PortName: "http",
+		Protocol: api.ProtoTCP,
+		U8Proto:  u8proto.TCP,
+		PerSelectorPolicies: L7DataMap{
+			cs: nil,
+		},
+	}
+
+	filter.toMapState(logger, types.HighestPriority, types.LowestPriority, epPolicy, namedPortRules, ChangeState{})
+
+	for _, key := range []Key{
+		EgressKey().WithIdentity(101).WithTCPPort(8080),
+		EgressKey().WithIdentity(101).WithTCPPort(9090),
+		EgressKey().WithIdentity(102).WithTCPPort(9090),
+	} {
+		_, ok := epPolicy.policyMapState.Get(key)
+		require.True(t, ok, "missing key %s", key)
+	}
+	_, ok := epPolicy.policyMapState.Get(EgressKey().WithIdentity(102).WithTCPPort(8080))
+	require.False(t, ok)
+}
+
+func TestEgressNamedPortWildcardOptimization(t *testing.T) {
+	logger := hivetest.Logger(t)
+	ws := newTestCachedSelector("wildcard", true, 101, 102)
+	filter := &L4Filter{
+		PortName: "http",
+		Protocol: api.ProtoTCP,
+		U8Proto:  u8proto.TCP,
+		wildcard: ws,
+		PerSelectorPolicies: L7DataMap{
+			ws: nil,
+		},
+	}
+
+	t.Run("agreed ports use wildcard identity", func(t *testing.T) {
+		owner := namedPortPolicyOwner{
+			DummyOwner: DummyOwner{logger: logger},
+			egressPorts: map[identity.NumericIdentity][]uint16{
+				101: {8080},
+				102: {8080},
+			},
+		}
+		epPolicy := &EndpointPolicy{
+			PolicyOwner:    owner,
+			policyMapState: newMapState(logger, nil, namedPortRules),
+			selectors:      types.MockSelectorSnapshot(),
+		}
+
+		filter.toMapState(logger, types.HighestPriority, types.LowestPriority, epPolicy, namedPortRules, ChangeState{})
+
+		_, ok := epPolicy.policyMapState.Get(EgressKey().WithIdentity(0).WithTCPPort(8080))
+		require.True(t, ok)
+		_, ok = epPolicy.policyMapState.Get(EgressKey().WithIdentity(101).WithTCPPort(8080))
+		require.False(t, ok)
+	})
+
+	t.Run("disagreed ports use wildcard identity for all ports", func(t *testing.T) {
+		owner := namedPortPolicyOwner{
+			DummyOwner: DummyOwner{logger: logger},
+			egressPorts: map[identity.NumericIdentity][]uint16{
+				101: {8080, 9090},
+				102: {9090},
+			},
+		}
+		epPolicy := &EndpointPolicy{
+			PolicyOwner:    owner,
+			policyMapState: newMapState(logger, nil, namedPortRules),
+			selectors:      types.MockSelectorSnapshot(),
+		}
+
+		filter.toMapState(logger, types.HighestPriority, types.LowestPriority, epPolicy, namedPortRules, ChangeState{})
+
+		_, ok := epPolicy.policyMapState.Get(EgressKey().WithIdentity(0).WithTCPPort(8080))
+		require.True(t, ok)
+		_, ok = epPolicy.policyMapState.Get(EgressKey().WithIdentity(0).WithTCPPort(9090))
+		require.True(t, ok)
+		for _, key := range []Key{
+			EgressKey().WithIdentity(101).WithTCPPort(8080),
+			EgressKey().WithIdentity(101).WithTCPPort(9090),
+			EgressKey().WithIdentity(102).WithTCPPort(9090),
+		} {
+			_, ok := epPolicy.policyMapState.Get(key)
+			require.False(t, ok, "unexpected key %s", key)
+		}
+	})
+}
+
+func TestNamedPortRulesDeleteByID(t *testing.T) {
+	logger := hivetest.Logger(t)
+	epPolicy := &EndpointPolicy{
+		PolicyOwner:    DummyOwner{logger: logger},
+		policyMapState: newMapState(logger, nil, namedPortRules),
+	}
+	require.NotNil(t, epPolicy.policyMapState.byId)
+
+	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow, NoAuthRequirement)
+	for _, key := range []Key{
+		EgressKey().WithIdentity(101).WithTCPPort(8080),
+		EgressKey().WithIdentity(101).WithTCPPort(9090),
+		EgressKey().WithIdentity(102).WithTCPPort(9090),
+	} {
+		epPolicy.policyMapState.insertWithChanges(types.HighestPriority.ToDenyPrecedence(), key, entry, namedPortRules, ChangeState{})
+	}
+
+	changes := MapChanges{logger: logger}
+	changes.AccumulateMapDeletesByID(0, types.HighestPriority, []identity.NumericIdentity{101})
+	changes.SyncMapChanges(types.MockSelectorSnapshot())
+	_, changeState := changes.consumeMapChanges(epPolicy, namedPortRules)
+
+	_, ok := epPolicy.policyMapState.Get(EgressKey().WithIdentity(101).WithTCPPort(8080))
+	require.False(t, ok)
+	_, ok = epPolicy.policyMapState.Get(EgressKey().WithIdentity(101).WithTCPPort(9090))
+	require.False(t, ok)
+	_, ok = epPolicy.policyMapState.Get(EgressKey().WithIdentity(102).WithTCPPort(9090))
+	require.True(t, ok)
+	require.Contains(t, changeState.Deletes, EgressKey().WithIdentity(101).WithTCPPort(8080))
+	require.Contains(t, changeState.Deletes, EgressKey().WithIdentity(101).WithTCPPort(9090))
 }
 
 func TestRedirectType(t *testing.T) {
