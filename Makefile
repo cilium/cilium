@@ -410,6 +410,9 @@ custom-lint: ## Run extra local linters
 	$(ECHO_CHECK) metricslint
 	$(QUIET)$(MAKE) -C tools/metricslint
 	$(QUIET)tools/metricslint/metricslint ./...
+	$(ECHO_CHECK) cloud-dep-check
+	$(QUIET)$(MAKE) -C tools/cloud-dep-check
+	$(QUIET)tools/cloud-dep-check/cilium-cloud-dep-check -root .
 
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION:v%=%),$(GOLANGCILINT_VERSION)))

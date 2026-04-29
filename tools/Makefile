@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-SUBDIRS := alignchecker mount slogloggercheck metricslint feature-helm-generator
+SUBDIRS := alignchecker mount slogloggercheck metricslint feature-helm-generator cloud-dep-check
 
 .PHONY: all $(SUBDIRS) clean install
 
