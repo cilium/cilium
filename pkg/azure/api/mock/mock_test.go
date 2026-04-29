@@ -11,6 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/azure/types"
+	// Register the Azure resource-ID parser so AzureInterface.SetID() can
+	// populate VMSS/VM/RG fields used by AssignPrivateIpAddressesVMSS lookup.
+	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 

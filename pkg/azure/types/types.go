@@ -4,10 +4,6 @@
 package types
 
 import (
-	"strings"
-
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
-
 	"github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -25,10 +21,6 @@ const (
 
 	// StateSucceeded is the address state for a successfully provisioned address
 	StateSucceeded = "succeeded"
-
-	// Resource type names for Azure resources
-	resourceTypeVirtualMachines         = "virtualMachines"
-	resourceTypeVirtualMachineScaleSets = "virtualMachineScaleSets"
 )
 
 // AzureSpec is the Azure specification of a node running via the Azure IPAM
@@ -141,40 +133,12 @@ func (a *AzureInterface) InterfaceID() string {
 	return a.ID
 }
 
-// extractIDs extracts resource group name, VMSS name, and VM ID from the network interface Azure resource ID
+// extractIDs extracts resource group name, VMSS name, and VM ID from the
+// network interface Azure resource ID. The actual implementation is build-tag
+// gated so the Azure SDK is only pulled in by builds that need it (see
+// extract_ids.go).
 func (a *AzureInterface) extractIDs() {
-	resourceID, err := arm.ParseResourceID(a.ID)
-	if err != nil {
-		// If parsing fails, leave fields empty
-		return
-	}
-
-	// Extract resource group name directly from the parsed ID
-	a.resourceGroup = resourceID.ResourceGroupName
-
-	// For VMSS instances, walk up the parent chain to extract VMSS name and VM ID
-	// Resource ID structure for VMSS VM interfaces:
-	// /subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Compute/virtualMachineScaleSets/ssss/virtualMachines/vvv/networkInterfaces/iii
-	current := resourceID
-	for current != nil {
-		resourceType := current.ResourceType
-		if len(resourceType.Types) == 0 {
-			current = current.Parent
-			continue
-		}
-
-		lastType := resourceType.Types[len(resourceType.Types)-1]
-
-		if strings.EqualFold(lastType, resourceTypeVirtualMachines) {
-			a.vmID = current.Name
-		}
-
-		if strings.EqualFold(lastType, resourceTypeVirtualMachineScaleSets) {
-			a.vmssName = current.Name
-		}
-
-		current = current.Parent
-	}
+	a.resourceGroup, a.vmssName, a.vmID = parseAzureResourceID(a.ID)
 }
 
 // GetResourceGroup returns the resource group the interface belongs to

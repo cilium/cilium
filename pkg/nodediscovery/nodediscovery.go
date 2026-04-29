@@ -6,10 +6,8 @@ package nodediscovery
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 
 	"github.com/cilium/stream"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +16,6 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	alibabaCloudMetadata "github.com/cilium/cilium/pkg/alibabacloud/metadata"
-	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -394,35 +391,7 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		return n.mutateENINodeResource(ctx, nodeResource)
 
 	case ipamOption.IPAMAzure:
-		if ln.Local.ProviderID == "" {
-			logging.Fatal(n.logger, "Spec.ProviderID in k8s node resource must be set for Azure IPAM")
-		}
-		if !strings.HasPrefix(ln.Local.ProviderID, azureTypes.ProviderPrefix) {
-			logging.Fatal(n.logger, fmt.Sprintf("Spec.ProviderID in k8s node resource must have prefix %s", azureTypes.ProviderPrefix))
-		}
-		// The Azure controller in Kubernetes creates a mix of upper
-		// and lower case when filling in the ProviderID and is
-		// therefore not providing the exact representation of what is
-		// returned by the Azure API. Convert it to lower case for
-		// consistent results.
-		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(ln.Local.ProviderID, azureTypes.ProviderPrefix))
-
-		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
-		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
-		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
-		nodeResource.Spec.Azure.InterfaceName = n.config.AzureInterfaceName
-
-		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
-			if c.IPAM.MinAllocate != 0 {
-				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
-			}
-			if c.IPAM.PreAllocate != 0 {
-				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			}
-			if c.Azure.InterfaceName != "" {
-				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
-			}
-		}
+		return n.mutateAzureNodeResource(ctx, nodeResource, ln)
 
 	case ipamOption.IPAMAlibabaCloud:
 		nodeResource.Spec.AlibabaCloud = alibabaCloudTypes.Spec{}

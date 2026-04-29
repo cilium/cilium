@@ -1,23 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package types
+package types_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	azuretypes "github.com/cilium/cilium/pkg/azure/types"
+	// Register the Azure resource-ID parser so SetID()/extractIDs() populate
+	// the VMSS/VM/RG fields exercised by TestExtractIDs.
+	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
 	"github.com/cilium/cilium/pkg/ipam/types"
 )
 
 func TestForeachAddresses(t *testing.T) {
 	m := types.NewInstanceMap()
-	m.Update("i-1", &AzureInterface{ID: "1", Addresses: []AzureAddress{
+	m.Update("i-1", &azuretypes.AzureInterface{ID: "1", Addresses: []azuretypes.AzureAddress{
 		{IP: "1.1.1.1"},
 		{IP: "2.2.2.2"},
 	}})
-	m.Update("i-2", &AzureInterface{ID: "1", Addresses: []AzureAddress{
+	m.Update("i-2", &azuretypes.AzureInterface{ID: "1", Addresses: []azuretypes.AzureAddress{
 		{IP: "3.3.3.3"},
 		{IP: "4.4.4.4"},
 	}})
@@ -73,7 +77,7 @@ func TestExtractIDs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			intf := AzureInterface{}
+			intf := azuretypes.AzureInterface{}
 			intf.SetID(tt.resourceID)
 
 			require.Equal(t, tt.expectedRG, intf.GetResourceGroup())
