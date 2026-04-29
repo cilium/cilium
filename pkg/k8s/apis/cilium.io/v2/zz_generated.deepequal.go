@@ -2326,10 +2326,6 @@ func (in *NodeSpec) DeepEqual(other *NodeSpec) bool {
 		return false
 	}
 
-	if in.NodeIdentity != other.NodeIdentity {
-		return false
-	}
-
 	return true
 }
 

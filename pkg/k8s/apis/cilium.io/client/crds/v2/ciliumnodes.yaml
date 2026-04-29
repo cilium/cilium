@@ -424,11 +424,6 @@ spec:
                       filter Elastic IP Addresses.
                     type: object
                 type: object
-              nodeidentity:
-                description: NodeIdentity is the Cilium numeric identity allocated
-                  for the node, if any.
-                format: int64
-                type: integer
             type: object
           status:
             description: |-

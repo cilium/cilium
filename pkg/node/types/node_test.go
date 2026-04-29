@@ -140,7 +140,6 @@ func TestParseCiliumNode(t *testing.T) {
 				IPV4: "1.1.1.2",
 				IPV6: "c0de::2",
 			},
-			NodeIdentity: uint64(12345),
 		},
 	}
 
@@ -163,7 +162,6 @@ func TestParseCiliumNode(t *testing.T) {
 		IPv6HealthIP:            net.ParseIP("c0de::1"),
 		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
 		IPv6IngressIP:           net.ParseIP("c0de::2"),
-		NodeIdentity:            uint32(12345),
 	}, n)
 }
 
@@ -186,7 +184,6 @@ func TestNode_ToCiliumNode(t *testing.T) {
 		IPv6HealthIP:            net.ParseIP("c0de::1"),
 		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
 		IPv6IngressIP:           net.ParseIP("c0de::2"),
-		NodeIdentity:            uint32(12345),
 		WireguardPubKey:         "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
 		Annotations: map[string]string{
 			annotation.BGPVRouterAnnoPrefix + "64512": "router-id=172.0.0.3",
@@ -228,7 +225,6 @@ func TestNode_ToCiliumNode(t *testing.T) {
 				IPV4: "1.1.1.2",
 				IPV6: "c0de::2",
 			},
-			NodeIdentity: uint64(12345),
 		},
 	}, n)
 }

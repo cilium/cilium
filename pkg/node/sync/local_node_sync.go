@@ -15,7 +15,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -61,7 +60,6 @@ type localNodeSynchronizer struct {
 
 func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.LocalNode) error {
 	n.Source = source.Local
-	n.NodeIdentity = uint32(identity.ReservedIdentityHost)
 
 	if err := ini.initFromConfig(n); err != nil {
 		return err

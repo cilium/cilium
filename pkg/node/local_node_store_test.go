@@ -21,13 +21,13 @@ import (
 type testSynchronizer struct{ identity chan uint32 }
 
 func (testSynchronizer) InitLocalNode(ctx context.Context, n *LocalNode) error {
-	n.NodeIdentity = 1
+	n.ClusterID = 1
 	return nil
 }
 
 func (ts testSynchronizer) SyncLocalNode(ctx context.Context, lns *LocalNodeStore) {
 	id := <-ts.identity
-	lns.Update(func(n *LocalNode) { n.NodeIdentity = id })
+	lns.Update(func(n *LocalNode) { n.ClusterID = id })
 	<-ctx.Done()
 }
 
@@ -49,9 +49,9 @@ func TestLocalNodeStore(t *testing.T) {
 	observe := func(store *LocalNodeStore) {
 		store.Observe(context.TODO(),
 			func(n LocalNode) {
-				observed = append(observed, n.NodeIdentity)
+				observed = append(observed, n.ClusterID)
 
-				if n.NodeIdentity == expected[len(expected)-1] {
+				if n.ClusterID == expected[len(expected)-1] {
 					waitObserve.Done()
 				}
 			},
@@ -72,7 +72,7 @@ func TestLocalNodeStore(t *testing.T) {
 					}
 
 					store.Update(func(n *LocalNode) {
-						n.NodeIdentity = i
+						n.ClusterID = i
 					})
 				}
 				return nil

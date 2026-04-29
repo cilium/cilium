@@ -136,7 +136,6 @@ spec:
   "Annotations": {
     "network.cilium.io/wg-pub-key": "VRksOB6ZNds4oXWIGfSVpvc0gBhcOWFmzvTDcyvULlI="
   },
-  "NodeIdentity": 0,
   "WireguardPubKey": "VRksOB6ZNds4oXWIGfSVpvc0gBhcOWFmzvTDcyvULlI=",
   "BootID": "570d3fd1-93db-4862-ba99-6a3c2c10c38f"
 }
@@ -184,7 +183,6 @@ spec:
     "kubernetes.io/hostname": "test-node-2"
   },
   "Annotations": null,
-  "NodeIdentity": 0,
   "WireguardPubKey": "",
   "BootID": "c1d2cda2-aca0-4033-abca-3843298860b9"
 }
