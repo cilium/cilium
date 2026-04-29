@@ -207,9 +207,6 @@ func (in *Node) DeepEqual(other *Node) bool {
 		}
 	}
 
-	if in.NodeIdentity != other.NodeIdentity {
-		return false
-	}
 	if in.WireguardPubKey != other.WireguardPubKey {
 		return false
 	}

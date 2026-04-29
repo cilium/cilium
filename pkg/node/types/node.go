@@ -69,7 +69,6 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		Source:          source.CustomResource,
 		Labels:          n.ObjectMeta.Labels,
 		Annotations:     n.ObjectMeta.Annotations,
-		NodeIdentity:    uint32(n.Spec.NodeIdentity),
 		WireguardPubKey: wireguardPubKey,
 		BootID:          n.Spec.BootID,
 	}
@@ -168,8 +167,7 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 			IPAM: ipamTypes.IPAMSpec{
 				PodCIDRs: podCIDRs,
 			},
-			NodeIdentity: uint64(n.NodeIdentity),
-			BootID:       n.BootID,
+			BootID: n.BootID,
 		},
 	}
 }
@@ -233,9 +231,6 @@ type Node struct {
 
 	// Node annotations
 	Annotations map[string]string
-
-	// NodeIdentity is the numeric identity allocated for the node
-	NodeIdentity uint32
 
 	// WireguardPubKey is the WireGuard public key of this node
 	WireguardPubKey string
