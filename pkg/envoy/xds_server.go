@@ -1626,40 +1626,121 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 				continue
 			}
 
-			port := l4.Port
-			if port == 0 && l4.PortName != "" {
-				port = ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto, l4.Identities(selectors))
+			ports := []uint16{l4.Port}
+			if l4.Port == 0 && l4.PortName != "" {
+				ports = nil
+				port := ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto, l4.Identities(selectors))
+				if port != 0 {
+					ports = []uint16{port}
+				}
 			}
 
-			// Skip if a named port can not be resolved (yet)
-			// wildcard port already taken care of above
-			if port == 0 {
-				continue
-			}
+			for _, port := range ports {
+				// Skip if a named port can not be resolved (yet)
+				// wildcard port already taken care of above
+				if port == 0 {
+					continue
+				}
 
-			rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
+				rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
 
-			// Assume none of the rules have side-effects so that rule evaluation can be
-			// stopped as soon as the first allowing rule is found. Values are added to
-			// 'cantShortCircuit' for each precedence for which this is not true.
-			cantShortCircuit := make(map[uint32]struct{})
+				// Assume none of the rules have side-effects so that rule evaluation can be
+				// stopped as soon as the first allowing rule is found. Values are added to
+				// 'cantShortCircuit' for each precedence for which this is not true.
+				cantShortCircuit := make(map[uint32]struct{})
 
-			// port-specific wildcard selector rules, if any, only for the highest
-			// precedence rules.
-			var allowAllPrecedence uint32
-			var allowAllRule *cilium.PortNetworkPolicyRule
-			var denyAllPrecedence uint32
-			var denyAllRule *cilium.PortNetworkPolicyRule
+				// port-specific wildcard selector rules, if any, only for the highest
+				// precedence rules.
+				var allowAllPrecedence uint32
+				var allowAllRule *cilium.PortNetworkPolicyRule
+				var denyAllPrecedence uint32
+				var denyAllRule *cilium.PortNetworkPolicyRule
 
-			for sel, psp := range l4.PerSelectorPolicies {
-				precedence := psp.GetPrecedence()
+				for sel, psp := range l4.PerSelectorPolicies {
+					precedence := psp.GetPrecedence()
 
-				if precedence < wildcardSelectorPrecedence ||
-					wildcardSelectorPrecedence.IsDeny() && precedence == wildcardSelectorPrecedence {
+					if precedence < wildcardSelectorPrecedence ||
+						wildcardSelectorPrecedence.IsDeny() && precedence == wildcardSelectorPrecedence {
+						if debugEnabled {
+							s.logger.Debug("PortNetworkPolicyRule skipping rule due to higher precedence wildcard port rule",
+								logfields.EndpointID, ep.GetID(),
+								logfields.Version, selectors,
+								logfields.TrafficDirection, dir,
+								logfields.Port, port,
+							)
+						}
+						continue
+					}
+
+					rule, csc := s.getPortNetworkPolicyRule(ep, selectors, sel, psp,
+						tierBasePriority, tierLastPriority,
+						useFullTLSContext, useSDS, policySecretsNamespace)
+					if rule == nil {
+						continue
+					}
+					if !csc {
+						cantShortCircuit[rule.Precedence] = struct{}{}
+					}
+
 					if debugEnabled {
-						s.logger.Debug("PortNetworkPolicyRule skipping rule due to higher precedence wildcard port rule",
+						s.logger.Debug("PortNetworkPolicyRule matching remote IDs",
 							logfields.EndpointID, ep.GetID(),
 							logfields.Version, selectors,
+							logfields.TrafficDirection, dir,
+							logfields.Port, port,
+							logfields.ProxyPort, rule.ProxyId,
+							logfields.PolicyID, rule.RemotePolicies,
+							logfields.ServerNames, rule.ServerNames,
+						)
+					}
+
+					if len(rule.RemotePolicies) == 0 {
+						if rule.GetDeny() {
+							if rule.Precedence > denyAllPrecedence {
+								denyAllRule = rule
+								denyAllPrecedence = rule.Precedence
+							}
+						} else if isEmptyRuleButPrecedence(rule) {
+							if rule.Precedence > allowAllPrecedence {
+								allowAllRule = rule
+								allowAllPrecedence = rule.Precedence
+							}
+						}
+					}
+
+					rules = append(rules, rule)
+				}
+
+				// prune out rules due to wildcard rules on this port, if any
+				if denyAllRule != nil || allowAllRule != nil {
+					nRules := len(rules)
+					rules = slices.DeleteFunc(rules, func(rule *cilium.PortNetworkPolicyRule) bool {
+						_, found := cantShortCircuit[rule.Precedence]
+						canShortCircuit := !found
+
+						return denyAllRule != nil && rule != denyAllRule && rule.Precedence <= denyAllRule.Precedence ||
+							allowAllRule != nil && rule != allowAllRule &&
+								(rule.Precedence < allowAllRule.Precedence ||
+									canShortCircuit && rule.Precedence == allowAllRule.Precedence)
+					})
+
+					if len(rules) < nRules && debugEnabled {
+						s.logger.Debug("Pruned rules due to wildcard rules on the port ",
+							logfields.EndpointID, ep.GetID(),
+							logfields.TrafficDirection, dir,
+							logfields.Port, port,
+							logfields.Count, nRules-len(rules),
+						)
+					}
+				}
+
+				// No rule for this port matches any remote identity.
+				// In this case, just don't generate any PortNetworkPolicy for this
+				// port.
+				if len(rules) == 0 {
+					if debugEnabled {
+						s.logger.Debug("Skipping PortNetworkPolicy due to no matching remote identities",
+							logfields.EndpointID, ep.GetID(),
 							logfields.TrafficDirection, dir,
 							logfields.Port, port,
 						)
@@ -1667,96 +1748,21 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 					continue
 				}
 
-				rule, csc := s.getPortNetworkPolicyRule(ep, selectors, sel, psp,
-					tierBasePriority, tierLastPriority,
-					useFullTLSContext, useSDS, policySecretsNamespace)
-				if rule == nil {
-					continue
-				}
-				if !csc {
-					cantShortCircuit[rule.Precedence] = struct{}{}
+				if len(rules) > 1 {
+					envoypolicy.SortPortNetworkPolicyRules(rules)
+				} else if len(rules) == 1 && isEmptyRule(rules[0]) {
+					rules = nil
 				}
 
-				if debugEnabled {
-					s.logger.Debug("PortNetworkPolicyRule matching remote IDs",
-						logfields.EndpointID, ep.GetID(),
-						logfields.Version, selectors,
-						logfields.TrafficDirection, dir,
-						logfields.Port, port,
-						logfields.ProxyPort, rule.ProxyId,
-						logfields.PolicyID, rule.RemotePolicies,
-						logfields.ServerNames, rule.ServerNames,
-					)
+				// NPDS supports port ranges.
+				portPolicy := &cilium.PortNetworkPolicy{
+					Port:     uint32(port),
+					EndPort:  uint32(l4.EndPort),
+					Protocol: protocol,
+					Rules:    rules,
 				}
-
-				if len(rule.RemotePolicies) == 0 {
-					if rule.GetDeny() {
-						if rule.Precedence > denyAllPrecedence {
-							denyAllRule = rule
-							denyAllPrecedence = rule.Precedence
-						}
-					} else if isEmptyRuleButPrecedence(rule) {
-						if rule.Precedence > allowAllPrecedence {
-							allowAllRule = rule
-							allowAllPrecedence = rule.Precedence
-						}
-					}
-				}
-
-				rules = append(rules, rule)
+				PerPortPolicies = append(PerPortPolicies, portPolicy)
 			}
-
-			// prune out rules due to wildcard rules on this port, if any
-			if denyAllRule != nil || allowAllRule != nil {
-				nRules := len(rules)
-				rules = slices.DeleteFunc(rules, func(rule *cilium.PortNetworkPolicyRule) bool {
-					_, found := cantShortCircuit[rule.Precedence]
-					canShortCircuit := !found
-
-					return denyAllRule != nil && rule != denyAllRule && rule.Precedence <= denyAllRule.Precedence ||
-						allowAllRule != nil && rule != allowAllRule &&
-							(rule.Precedence < allowAllRule.Precedence ||
-								canShortCircuit && rule.Precedence == allowAllRule.Precedence)
-				})
-
-				if len(rules) < nRules && debugEnabled {
-					s.logger.Debug("Pruned rules due to wildcard rules on the port ",
-						logfields.EndpointID, ep.GetID(),
-						logfields.TrafficDirection, dir,
-						logfields.Port, port,
-						logfields.Count, nRules-len(rules),
-					)
-				}
-			}
-
-			// No rule for this port matches any remote identity.
-			// In this case, just don't generate any PortNetworkPolicy for this
-			// port.
-			if len(rules) == 0 {
-				if debugEnabled {
-					s.logger.Debug("Skipping PortNetworkPolicy due to no matching remote identities",
-						logfields.EndpointID, ep.GetID(),
-						logfields.TrafficDirection, dir,
-						logfields.Port, port,
-					)
-				}
-				continue
-			}
-
-			if len(rules) > 1 {
-				envoypolicy.SortPortNetworkPolicyRules(rules)
-			} else if len(rules) == 1 && isEmptyRule(rules[0]) {
-				rules = nil
-			}
-
-			// NPDS supports port ranges.
-			portPolicy := &cilium.PortNetworkPolicy{
-				Port:     uint32(port),
-				EndPort:  uint32(l4.EndPort),
-				Protocol: protocol,
-				Rules:    rules,
-			}
-			PerPortPolicies = append(PerPortPolicies, portPolicy)
 		}
 
 		// Skip remaining tiers if there is a wildcard port/selector rule and no pass
