@@ -353,7 +353,8 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
           fi
 
-          if [[ "${{ matrix.bpf-masq-v4 }}" == "true" ]]; then
+          BPFMASQV4=$(echo "${EXTRA_ARGS}" | jq -r '.["bpf-masq-v4"] // false')
+          if [[ "${BPFMASQV4}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true"
           fi
