@@ -53,9 +53,9 @@ BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
 BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$$ -benchtime=10s
 BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
-SKIP_KVSTORES ?= "false"
-SKIP_K8S_CODE_GEN_CHECK ?= "true"
-SKIP_CUSTOMVET_CHECK ?= "false"
+SKIP_KVSTORES ?= false
+SKIP_K8S_CODE_GEN_CHECK ?= true
+SKIP_CUSTOMVET_CHECK ?= false
 
 JOB_BASE_NAME ?= cilium_test
 
@@ -108,7 +108,7 @@ tests-privileged: ## Run Go tests including ones that require elevated privilege
 	$(MAKE) generate-cov
 
 start-kvstores: ## Start running kvstores (etcd container) for integration tests.
-ifeq ($(SKIP_KVSTORES),"false")
+ifeq ($(SKIP_KVSTORES),false)
 	@echo Starting key-value store container...
 	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container" 2> /dev/null
 	$(QUIET)$(CONTAINER_ENGINE) run -d \
@@ -125,7 +125,7 @@ ifeq ($(SKIP_KVSTORES),"false")
 endif
 
 stop-kvstores: ## Forcefully removes running kvstore components (etcd container) for integration tests.
-ifeq ($(SKIP_KVSTORES),"false")
+ifeq ($(SKIP_KVSTORES),false)
 	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container"
 endif
 
@@ -500,7 +500,7 @@ fuzz: check-fuzz # Run fuzzer tests briefly for FUZZ_TIME seconds
 	./test/fuzzing/go-fuzz.sh | $(GOTEST_FORMATTER)
 
 precheck: ## Peform build precheck for the source code.
-ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
+ifeq ($(SKIP_K8S_CODE_GEN_CHECK),false)
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh
 endif
@@ -512,7 +512,7 @@ endif
 	$(QUIET) contrib/scripts/lock-check.sh
 	@$(ECHO_CHECK) contrib/scripts/check-viper.sh
 	$(QUIET) contrib/scripts/check-viper.sh
-ifeq ($(SKIP_CUSTOMVET_CHECK),"false")
+ifeq ($(SKIP_CUSTOMVET_CHECK),false)
 	@$(ECHO_CHECK) contrib/scripts/custom-vet-check.sh
 	$(QUIET) contrib/scripts/custom-vet-check.sh
 endif
