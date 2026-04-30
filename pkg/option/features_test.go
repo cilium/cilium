@@ -17,6 +17,7 @@ func TestNetworkPolicyEnabled(t *testing.T) {
 		enableCNP       bool
 		enableCCNP      bool
 		disableCEP      bool
+		enableCES       bool
 		idAllocMode     string
 	}
 
@@ -84,6 +85,22 @@ func TestNetworkPolicyEnabled(t *testing.T) {
 			idAllocMode: "test",
 			disableCEP:  false,
 		},
+		{
+			description:  "enabled_slim_mode",
+			want:         true,
+			enablePolicy: NeverEnforce,
+			disableCEP:   true,
+			enableCES:    true,
+			idAllocMode:  IdentityAllocationModeCRD,
+		},
+		{
+			description:  "enabled_traditional_slicing",
+			want:         true,
+			enablePolicy: NeverEnforce,
+			disableCEP:   false,
+			enableCES:    true,
+			idAllocMode:  IdentityAllocationModeCRD,
+		},
 	}
 
 	for _, tc := range tcs {
@@ -93,6 +110,7 @@ func TestNetworkPolicyEnabled(t *testing.T) {
 			EnableCiliumNetworkPolicy:            tc.enableCNP,
 			EnableCiliumClusterwideNetworkPolicy: tc.enableCCNP,
 			DisableCiliumEndpointCRD:             tc.disableCEP,
+			EnableCiliumEndpointSlice:            tc.enableCES,
 			IdentityAllocationMode:               tc.idAllocMode,
 		}
 

@@ -574,7 +574,8 @@ const (
 	LogSystemLoadConfigName = "log-system-load"
 
 	// DisableCiliumEndpointCRDName is the name of the option to disable
-	// use of the CEP CRD
+	// use of the CEP CRD. Can be used along with operator's 'ces-controller-mode=slim'
+	// mode to distribute endpoints without creating them.
 	DisableCiliumEndpointCRDName = "disable-endpoint-crd"
 
 	// MaxCtrlIntervalName and MaxCtrlIntervalNameEnv allow configuration
@@ -2771,12 +2772,10 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "Unable to parse excluded local addresses", logfields.Error, err)
 	}
 
-	// Ensure CiliumEndpointSlice is enabled only if CiliumEndpointCRD is enabled too.
+	// Relaxed: In operator-driven slim mode configurations, both CiliumEndpointSlices
+	// and DisableCiliumEndpointCRD can be true concurrently. The synchronization
+	// components skip standalone CEP creation in agent while leveraging CEPs.
 	c.EnableCiliumEndpointSlice = vp.GetBool(EnableCiliumEndpointSlice)
-	if c.EnableCiliumEndpointSlice && c.DisableCiliumEndpointCRD {
-		logging.Fatal(logger, fmt.Sprintf("Running Cilium with %s=%t requires %s set to false to enable CiliumEndpoint CRDs.",
-			EnableCiliumEndpointSlice, c.EnableCiliumEndpointSlice, DisableCiliumEndpointCRDName))
-	}
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
@@ -2805,7 +2804,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 			logger.Warn(fmt.Sprintf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", KVStore, theKVStore, IdentityAllocationMode, IdentityAllocationModeCRD))
 			c.IdentityAllocationMode = IdentityAllocationModeCRD
 		}
-		if c.DisableCiliumEndpointCRD && NetworkPolicyEnabled(c) {
+		if c.DisableCiliumEndpointCRD && NetworkPolicyEnabled(c) && !c.EnableCiliumEndpointSlice {
 			logger.Warn(fmt.Sprintf("Running Cilium with %q=%q requires endpoint CRDs when network policy enforcement system is enabled. Changing %s to %t", KVStore, theKVStore, DisableCiliumEndpointCRDName, false))
 			c.DisableCiliumEndpointCRD = false
 		}

@@ -14,7 +14,7 @@ func NetworkPolicyEnabled(cfg *DaemonConfig) bool {
 		cfg.EnableK8sClusterNetworkPolicy,
 		cfg.EnableCiliumNetworkPolicy,
 		cfg.EnableCiliumClusterwideNetworkPolicy,
-		!cfg.DisableCiliumEndpointCRD,
+		(!cfg.DisableCiliumEndpointCRD || cfg.EnableCiliumEndpointSlice),
 		cfg.IdentityAllocationMode != IdentityAllocationModeCRD,
 	)
 }
