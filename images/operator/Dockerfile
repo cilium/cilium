@@ -87,7 +87,6 @@ WORKDIR /
 # issues depending on the UID configured to run the entrypoint.
 COPY --chmod=777 --from=scratch / /home/gops
 ENV GOPS_CONFIG_DIR=/home/gops
-CMD ["/usr/bin/cilium-${OPERATOR_VARIANT}"]
 
 FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} AS debug-tools
 
