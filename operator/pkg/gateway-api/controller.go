@@ -4,46 +4,13 @@
 package gateway_api
 
 import (
-	"context"
-	"log/slog"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-const (
-	// controllerName is the gateway controller name used in cilium.
-	controllerName = "io.cilium/gateway-controller"
-)
-
-func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
-	return func(obj client.Object) bool {
-		scopedLog := logger.With(
-			logfields.Resource, obj.GetName(),
-		)
-		gw, ok := obj.(*gatewayv1.Gateway)
-		if !ok {
-			return false
-		}
-
-		gwc := &gatewayv1.GatewayClass{}
-		key := types.NamespacedName{Name: string(gw.Spec.GatewayClassName)}
-		if err := c.Get(ctx, key, gwc); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to get GatewayClass", logfields.Error, err)
-			return false
-		}
-
-		return string(gwc.Spec.ControllerName) == controllerName
-	}
-}
 
 // onlyStatusChanged returns true if and only if there is status change for underlying objects.
 // Supported objects are GatewayClass, Gateway, HTTPRoute and GRPCRoute
