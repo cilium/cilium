@@ -92,8 +92,14 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	/* Immediate redirect to egress_ifindex requires L2 resolution.
 	 * Fall back to FIB lookup on older kernels.
 	 */
-	if (egress_ifindex && !tbid && neigh_resolver_without_nh_available())
-		return redirect_neigh(egress_ifindex, NULL, 0, 0);
+	if (egress_ifindex && neigh_resolver_without_nh_available()) {
+		/* Can't use redirect_neigh() when
+		 * - custom routing table is needed, or
+		 * - packet has no L2 header
+		 */
+		if (!tbid && !THIS_IS_L3_DEV)
+			return redirect_neigh(egress_ifindex, NULL, 0, 0);
+	}
 
 	if (tbid) {
 		fib_params.l.tbid = tbid;
@@ -413,8 +419,14 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	int ret, zero = 0;
 	int flags = 0;
 
-	if (egress_ifindex && !tbid && neigh_resolver_without_nh_available())
-		return redirect_neigh(egress_ifindex, NULL, 0, 0);
+	if (egress_ifindex && neigh_resolver_without_nh_available()) {
+		/* Can't use redirect_neigh() when
+		 * - custom routing table is needed, or
+		 * - packet has no L2 header
+		 */
+		if (!tbid && !THIS_IS_L3_DEV)
+			return redirect_neigh(egress_ifindex, NULL, 0, 0);
+	}
 
 	fib_params = map_lookup_elem(&fib_params_storage, &zero);
 	if (!fib_params)
