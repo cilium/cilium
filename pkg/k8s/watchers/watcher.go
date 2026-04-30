@@ -287,7 +287,9 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx)
 			}
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
-			// no-op; handled in k8sAPIGroupCiliumEndpointV2
+			if !k.kcfg.IsEnabled() && option.Config.DisableCiliumEndpointCRD {
+				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx)
+			}
 		default:
 			logging.Fatal(k.logger,
 				"Not listening for Kubernetes resource updates for unhandled type",
