@@ -11,6 +11,11 @@ on:
         description: 'Image tag to use for the images in the chart.'
         type: string
         required: true
+      extra_values_file_changes:
+        description: 'Additional values_file_changes JSON entries to merge into the default chart overrides.'
+        type: string
+        required: false
+        default: "{}"
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -91,40 +96,54 @@ jobs:
         ref: ${{ inputs.checkout_ref }}
         sparse-checkout: install/kubernetes/cilium
 
+    - name: Merge chart value overrides
+      id: values
+      shell: bash
+      run: |
+        base_changes=$(cat <<EOF
+        {
+          "image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci",
+          "image.tag": "${{ inputs.image_tag }}",
+          "image.digest": "",
+          "image.useDigest": false,
+          "preflight.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci",
+          "preflight.image.tag": "${{ inputs.image_tag }}",
+          "preflight.image.digest": "",
+          "preflight.image.useDigest": false,
+          "operator.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/operator",
+          "operator.image.suffix": "-ci",
+          "operator.image.genericDigest": "",
+          "operator.image.azureDigest": "",
+          "operator.image.awsDigest": "",
+          "operator.image.alibabacloudDigest": "",
+          "operator.image.useDigest": false,
+          "operator.image.tag": "${{ inputs.image_tag }}",
+          "hubble.relay.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci",
+          "hubble.relay.image.tag": "${{ inputs.image_tag }}",
+          "hubble.relay.image.digest": "",
+          "hubble.relay.image.useDigest": false,
+          "clustermesh.apiserver.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/clustermesh-apiserver-ci",
+          "clustermesh.apiserver.image.tag": "${{ inputs.image_tag }}",
+          "clustermesh.apiserver.image.digest": "",
+          "clustermesh.apiserver.image.useDigest": false
+        }
+        EOF
+        )
+
+        merged_changes=$(jq -cn \
+          --argjson base "${base_changes}" \
+          --argjson extra '${{ inputs.extra_values_file_changes }}' \
+          '$base + $extra')
+
+        echo "json=${merged_changes}" >> "${GITHUB_OUTPUT}"
+
     - name: Push charts
       uses: cilium/reusable-workflows/.github/actions/push-helm-chart@6ae27958f2f37545bf48e44106b73df05b1f6d12 # v0.1.0
       with:
         name: cilium
         path: install/kubernetes/cilium
         version: ${{ needs.setup-charts.outputs.chart-version }}
-        values_file_changes: |
-          {
-
-            "image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci",
-            "image.tag": "${{ inputs.image_tag }}",
-            "image.digest": "",
-            "image.useDigest": false,
-            "preflight.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci",
-            "preflight.image.tag": "${{ inputs.image_tag }}",
-            "preflight.image.digest": "",
-            "preflight.image.useDigest": false,
-            "operator.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/operator",
-            "operator.image.suffix": "-ci",
-            "operator.image.genericDigest": "",
-            "operator.image.azureDigest": "",
-            "operator.image.awsDigest": "",
-            "operator.image.alibabacloudDigest": "",
-            "operator.image.useDigest": false,
-            "operator.image.tag": "${{ inputs.image_tag }}",
-            "hubble.relay.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci",
-            "hubble.relay.image.tag": "${{ inputs.image_tag }}",
-            "hubble.relay.image.digest": "",
-            "hubble.relay.image.useDigest": false,
-            "clustermesh.apiserver.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/clustermesh-apiserver-ci",
-            "clustermesh.apiserver.image.tag": "${{ inputs.image_tag }}",
-            "clustermesh.apiserver.image.digest": "",
-            "clustermesh.apiserver.image.useDigest": false
-          }
+        values_file_changes: ${{ steps.values.outputs.json }}
         registry: ${{ env.REGISTRY_DEV }}
         registry_namespace: ${{ env.CHARTS_ORGANIZATION_DEV }}
         registry_username: ${{ secrets.QUAY_CHARTS_DEV_USERNAME }}
