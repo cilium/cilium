@@ -134,7 +134,7 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 		}
 		var filtered []types.Device
 		for devs := range maps.Values(driver.devices) {
-			filtered = filterDevices(devs, *p.Filter)
+			filtered = append(filtered, filterDevices(devs, *p.Filter)...)
 		}
 
 		var devices []resourceapi.Device
