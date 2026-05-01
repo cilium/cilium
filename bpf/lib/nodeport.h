@@ -791,6 +791,9 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 
 		fib_params.l.ipv4_src = ip4->saddr;
 		fib_params.l.ipv4_dst = ip4->daddr;
+		ret = fib_set_l4_v4(ctx, ETH_HLEN, ip4, &fib_params);
+		if (ret < 0)
+			goto drop_err;
 	} else {
 		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 			ret = DROP_INVALID;
@@ -801,6 +804,9 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			       (union v6addr *)&ip6->saddr);
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
+		ret = fib_set_l4_v6(ctx, ETH_HLEN, ip6, &fib_params);
+		if (ret < 0)
+			goto drop_err;
 	}
 
 	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
@@ -1054,6 +1060,7 @@ fib_lookup:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
+	fib_set_l4_from_tuple(&fib_params, tuple.nexthdr, tuple.dport, tuple.sport);
 
 fib_redirect:
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
@@ -1333,11 +1340,17 @@ fib_ipv4:
 		fib_params->l.ipv4_src = ip4->saddr;
 		fib_params->l.ipv4_dst = ip4->daddr;
 		fib_params->l.family = AF_INET;
+		ret = fib_set_l4_v4(ctx, ETH_HLEN, ip4, fib_params);
+		if (ret < 0)
+			goto drop_err;
 	} else {
 		ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_src,
 			       (union v6addr *)&ip6->saddr);
 		ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
+		ret = fib_set_l4_v6(ctx, ETH_HLEN, ip6, fib_params);
+		if (ret < 0)
+			goto drop_err;
 		fib_params->l.family = AF_INET6;
 	}
 
@@ -2381,6 +2394,7 @@ redirect:
 
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
+	fib_set_l4_from_tuple(&fib_params, tuple.nexthdr, tuple.dport, tuple.sport);
 
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
@@ -2684,6 +2698,13 @@ skip_source_lookup:
 
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
+	/* Populate L4 flow fields for ECMP multipath hashing. Use
+	 * post-SNAT addresses and ports for consistent hashing with
+	 * the return path.
+	 */
+	ret = fib_set_l4_v4(ctx, ETH_HLEN, ip4, &fib_params);
+	if (ret < 0)
+		goto drop_err;
 
 	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret))
