@@ -14,7 +14,7 @@ runs:
         echo "ORGANIZATION=matmerr" >> $GITHUB_ENV
         echo "ORGANIZATION_DEV=matmerr" >> $GITHUB_ENV
         # no prod yet
-        echo "CHARTS_ORGANIZATION_DEV=cilium-charts-dev" >> $GITHUB_ENV
+        echo "CHARTS_ORGANIZATION_DEV=matmerr" >> $GITHUB_ENV
         echo "EGRESS_GATEWAY_HELM_VALUES=--helm-set=egressGateway.enabled=true" >> $GITHUB_ENV
         echo "CONN_DISRUPT_EXTRA_ARG=" >> $GITHUB_ENV
         echo "CONN_DISRUPT_EXTRA_TEST=" >> $GITHUB_ENV
