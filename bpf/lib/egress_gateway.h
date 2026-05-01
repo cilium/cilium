@@ -103,7 +103,6 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 				      __u32 egress_ifindex, __u32 tbid, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
-	int flags = 0;
 	int ret;
 
 	/* Immediate redirect to egress_ifindex requires L2 resolution.
@@ -118,12 +117,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 			return redirect_neigh(egress_ifindex, NULL, 0, 0);
 	}
 
-	if (tbid) {
-		fib_params.l.tbid = tbid;
-		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
-	}
-
-	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, flags);
+	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, tbid, 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
@@ -468,7 +462,6 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 {
 	struct bpf_fib_lookup_padded *fib_params;
 	int ret, zero = 0;
-	int flags = 0;
 
 	if (egress_ifindex && neigh_resolver_without_nh_available()) {
 		/* Can't use redirect_neigh() when
@@ -483,14 +476,9 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	if (!fib_params)
 		return DROP_INVALID;
 
-	if (tbid) {
-		fib_params->l.tbid = tbid;
-		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
-	}
-
 	ret = (__s8)fib_lookup_v6(ctx, fib_params,
 				  (struct in6_addr *)egress_ip,
-				  (struct in6_addr *)daddr, flags);
+				  (struct in6_addr *)daddr, tbid, 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
