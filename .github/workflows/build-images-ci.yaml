@@ -49,6 +49,7 @@ jobs:
     timeout-minutes: 45
     name: Build and Push Images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    environment: Quay
     needs: wait-for-base-images
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
