@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	MaxEntries = 8192
+	MaxEntries  = 8192
 	CrapMapName = "cilium_crap_map"
 )
 

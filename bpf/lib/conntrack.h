@@ -783,7 +783,7 @@ ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 	tuple->saddr = ip4->saddr;
 
 	return ipv4_load_l4_ports(ctx, ip4, fraginfo, ETH_HLEN + ipv4_hdrlen(ip4),
-				  CT_EGRESS, &tuple->dport);
+				  CT_EGRESS, &tuple->dport, &tuple->sip_call_id_hash);
 }
 
 static __always_inline void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
@@ -904,7 +904,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
 		return ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
-					  dir, &tuple->dport);
+					  dir, &tuple->dport, &tuple->sip_call_id_hash);
 	default:
 		/* Traffic is allowed/dropped based on user-defined policies. */
 		if (CONFIG(enable_extended_ip_protocols)) {

@@ -107,8 +107,9 @@ type FragmentKey4 struct {
 
 // FragmentValue4 must match 'struct ipv4_frag_l4ports' in "bpf/lib/ipv4.h".
 type FragmentValue4 struct {
-	SourcePort uint16 `align:"sport"`
-	DestPort   uint16 `align:"dport"`
+	SourcePort    uint16 `align:"sport"`
+	DestPort      uint16 `align:"dport"`
+	SipCallIdHash uint32 `align:"sip_call_id_hash"`
 }
 
 // String converts the key into a human-readable string format.

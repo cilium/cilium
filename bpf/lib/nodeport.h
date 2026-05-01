@@ -2950,6 +2950,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
+  tuple.sip_call_id_hash = sip_inspect(ctx);
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
@@ -2970,8 +2971,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	if (svc)
   {
     if (svc->sip_inspect) {
-      tuple.sip_call_id_hash = sip_inspect(ctx);
-
 #ifdef ENABLE_MASQUERADE_IPV4
       if (tuple.sip_call_id_hash) {
         struct ipv4_nat_entry *state = NULL;

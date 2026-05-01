@@ -24,6 +24,7 @@ struct ipv4_frag_id {
 struct ipv4_frag_l4ports {
 	__be16	sport;
 	__be16	dport;
+  __u32 sip_call_id_hash;
 } __packed;
 
 struct {
@@ -88,7 +89,7 @@ static __always_inline bool ipv4_is_in_subnet(__be32 addr,
 #ifdef ENABLE_IPV4_FRAGMENTS
 static __always_inline int
 ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
-		      struct ipv4_frag_l4ports *ports)
+		      struct ipv4_frag_l4ports *ports, __u32 *sip_call_id_hash)
 {
 	struct ipv4_frag_l4ports *tmp;
 
@@ -97,7 +98,9 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 		return DROP_FRAG_NOT_FOUND;
 
 	/* Do not make ports a pointer to map data, copy from map */
-	memcpy(ports, tmp, sizeof(*ports));
+	memcpy(ports, tmp, 2 * sizeof(__u16));
+  if (sip_call_id_hash)
+    *sip_call_id_hash = tmp->sip_call_id_hash;
 	return 0;
 }
 
@@ -107,7 +110,8 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 			  fraginfo_t fraginfo,
 			  int l4_off,
 			  enum ct_dir ct_dir,
-			  struct ipv4_frag_l4ports *ports)
+			  struct ipv4_frag_l4ports *ports,
+        __u32 *sip_call_id_hash)
 {
 	struct ipv4_frag_id frag_id = {
 		.daddr = ip4->daddr,
@@ -115,19 +119,24 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 		.id = (__be16)ipfrag_get_id(fraginfo),
 		.proto = ipfrag_get_protocol(fraginfo),
 	};
+  struct ipv4_frag_l4ports tmp;
 
 	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
-		return ipv4_frag_get_l4ports(&frag_id, ports);
+		return ipv4_frag_get_l4ports(&frag_id, ports, sip_call_id_hash);
 
 	/* load sport + dport into tuple */
 	if (l4_load_ports(ctx, l4_off, (__be16 *)ports) < 0)
 		return DROP_CT_INVALID_HDR;
 
+  memcpy(&tmp, ports, 2 * sizeof(__u16));
+  if (sip_call_id_hash)
+    tmp.sip_call_id_hash = *sip_call_id_hash;
+
 	if (unlikely(ipfrag_is_fragment(fraginfo))) {
 		/* First logical fragment for this datagram (not necessarily the first
 		 * we receive). Fragment has L4 header, create an entry in datagrams map.
 		 */
-		if (map_update_elem(&cilium_ipv4_frag_datagrams, &frag_id, ports, BPF_ANY))
+		if (map_update_elem(&cilium_ipv4_frag_datagrams, &frag_id, &tmp, BPF_ANY))
 			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
 				       REASON_FRAG_PACKET_UPDATE);
 
@@ -143,11 +152,11 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 static __always_inline int
 ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
 		   fraginfo_t fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
-		   __be16 *ports)
+		   __be16 *ports, __u32 *sip_call_id_hash __maybe_unused)
 {
 #ifdef ENABLE_IPV4_FRAGMENTS
 	return ipv4_handle_fragmentation(ctx, ip4, fraginfo, l4_off, dir,
-					 (struct ipv4_frag_l4ports *)ports);
+					 (struct ipv4_frag_l4ports *)ports, sip_call_id_hash);
 #else
 	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
 		return DROP_FRAG_NOSUPPORT;

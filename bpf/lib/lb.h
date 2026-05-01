@@ -1595,7 +1595,7 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
 		return ipv4_load_l4_ports(ctx, ip4, fraginfo, l4_off,
-					  CT_EGRESS, &tuple->dport);
+					  CT_EGRESS, &tuple->dport, &tuple->sip_call_id_hash);
 	case IPPROTO_ICMP:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:

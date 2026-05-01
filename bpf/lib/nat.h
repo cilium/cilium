@@ -941,7 +941,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			return DROP_FRAG_NOSUPPORT;
 
 		ret = ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
-					 CT_EGRESS, &tuple->dport);
+					 CT_EGRESS, &tuple->dport, &tuple->sip_call_id_hash);
 		if (ret < 0)
 			return ret;
 
@@ -1131,7 +1131,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
 		ret = ipv4_load_l4_ports(ctx, ip4, fraginfo, (int)off,
-					 CT_INGRESS, &tuple.dport);
+					 CT_INGRESS, &tuple.dport, &tuple.sip_call_id_hash);
 		if (ret < 0)
 			return ret;
 

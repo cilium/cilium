@@ -23,6 +23,7 @@ type bpfFragmentEntry struct {
 	Proto         u8proto.U8proto
 	SourceAddress string
 	DestAddress   string
+	SipCallIdHash uint32
 }
 
 var bpfFragListCmd = &cobra.Command{
@@ -89,6 +90,7 @@ func dumpFragmentsIPv4(fragMap4 *bpf.Map) []bpfFragmentEntry {
 			Proto:         u8proto.U8proto(key.Proto),
 			SourceAddress: fmt.Sprintf("%s:%d", key.SourceAddr, value.SourcePort),
 			DestAddress:   fmt.Sprintf("%s:%d", key.DestAddr, value.DestPort),
+			SipCallIdHash: value.SipCallIdHash,
 		})
 	}); err != nil {
 		Fatalf("failed to dump contents of IPv4 map: %s\n", err)
@@ -108,6 +110,7 @@ func dumpFragmentsIPv6(fragMap6 *bpf.Map) []bpfFragmentEntry {
 			Proto:         u8proto.U8proto(key.Proto),
 			SourceAddress: fmt.Sprintf("%s:%d", key.SourceAddr, value.SourcePort),
 			DestAddress:   fmt.Sprintf("[%s]:%d", key.DestAddr, value.DestPort),
+			SipCallIdHash: 0,
 		})
 	}); err != nil {
 		Fatalf("failed to dump contents of IPv6 map: %s\n", err)
@@ -119,15 +122,16 @@ func dumpFragmentsIPv6(fragMap6 *bpf.Map) []bpfFragmentEntry {
 func printBPFFragmentEntries(entries []bpfFragmentEntry) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
-	headers := []string{"ID", "PROTO", "SOURCE ADDRESS:PORT", "DEST ADDRESS:PORT"}
+	headers := []string{"ID", "PROTO", "SOURCE ADDRESS:PORT", "DEST ADDRESS:PORT", "SIP CALL-ID HASH"}
 	fmt.Fprintln(w, strings.Join(headers, "\t"))
 
 	for _, entry := range entries {
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%x\n",
 			entry.ID,
 			entry.Proto,
 			entry.SourceAddress,
 			entry.DestAddress,
+			entry.SipCallIdHash,
 		)
 	}
 
