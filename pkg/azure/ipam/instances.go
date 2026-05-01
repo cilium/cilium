@@ -141,7 +141,10 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.UpdateInstance(instanceID, instance)
-	m.subnets = subnets
+	if m.subnets == nil {
+		m.subnets = ipamTypes.SubnetMap{}
+	}
+	maps.Copy(m.subnets, subnets)
 
 	return resyncStart, nil
 }
