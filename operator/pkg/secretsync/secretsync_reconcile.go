@@ -167,6 +167,13 @@ func (r *secretSyncer) ensureSyncedSecret(ctx context.Context, desired *corev1.S
 		return err
 	}
 
+	if existing.Type != desired.Type {
+		if err := r.client.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
+			return err
+		}
+		return r.client.Create(ctx, desired)
+	}
+
 	temp := existing.DeepCopy()
 	temp.SetAnnotations(desired.GetAnnotations())
 	temp.SetLabels(desired.GetLabels())
