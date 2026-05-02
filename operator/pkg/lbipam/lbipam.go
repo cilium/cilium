@@ -931,7 +931,10 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 			cluster.Services = append(cluster.Services, sv)
 		} else {
 			ipam.logger.Debug(fmt.Sprintf("Allocate '%s' for '%s'", reqIP, sv.Key))
-			sharingCluster := &sharingCluster{Services: []*ServiceView{sv}}
+			sharingCluster := &sharingCluster{
+				SVIP:     ServiceViewIP{IP: reqIP, Origin: lbRange},
+				Services: []*ServiceView{sv},
+			}
 			err = lbRange.alloc.Alloc(reqIP, sharingCluster)
 			if err != nil {
 				if errors.Is(err, ipalloc.ErrInUse) {
@@ -942,7 +945,9 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 				continue
 			}
 
-			ipam.sharingIndex.Add(sv.SharingKey, sharingCluster)
+			if sv.SharingKey != "" {
+				ipam.sharingIndex.Add(sv.SharingKey, sharingCluster)
+			}
 		}
 
 		sv.AllocatedIPs = append(sv.AllocatedIPs, ServiceViewIP{

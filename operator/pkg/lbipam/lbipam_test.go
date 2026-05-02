@@ -1661,6 +1661,57 @@ func TestSharedServicesUpdateSharingKeyAndRequestedIP(t *testing.T) {
 	}
 }
 
+func TestSharedSpecificIPThenGenericService(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(t, true, false)
+	fixture.UpsertPool(t, poolA)
+
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMIPsKey:     "10.0.10.22",
+				annotation.LBIPAMSharingKey: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+
+	svcB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-b",
+			Namespace: "default",
+			UID:       serviceBUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKey: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcB)
+
+	svcA = fixture.GetSvc("default", "service-a")
+	svcB = fixture.GetSvc("default", "service-b")
+
+	require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+	require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+	require.Equal(t, "10.0.10.22", svcA.Status.LoadBalancer.Ingress[0].IP)
+	require.Equal(t, svcA.Status.LoadBalancer.Ingress[0].IP, svcB.Status.LoadBalancer.Ingress[0].IP)
+}
+
 // TestSharingClusters tests that when there are 4 services with the same sharing key (A, B, C and D) where A and B
 // are compatible and C and D are compatible but not with A and B, we end up with 2 IPs assigned.
 func TestSharingClusters(t *testing.T) {
