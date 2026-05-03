@@ -1241,7 +1241,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 	ret = tcx_early_hook(ctx, proto);
 	if (ret != CTX_ACT_OK)
-		return ret;
+		goto drop_err;
 
 	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
 drop_err:
