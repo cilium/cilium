@@ -976,8 +976,8 @@ google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55/go.mod h1:DMBHOl98
 google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013/go.mod h1:NbSheEEYHJ7i3ixzK3sjbqSGDJWnxyFXZblF3eUsNvo=
 google.golang.org/genproto/googleapis/api v0.0.0-20260319201613-d00831a3d3e7 h1:41r6JMbpzBMen0R/4TZeeAmGXSJC7DftGINUodzTkPI=
 google.golang.org/genproto/googleapis/api v0.0.0-20260319201613-d00831a3d3e7/go.mod h1:EIQZ5bFCfRQDV4MhRle7+OgjNtZ6P1PiZBgAKuxXu/Y=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d h1:wT2n40TBqFY6wiwazVK9/iTWbsQrgk5ZfCSVFLO9LQA=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d/go.mod h1:4Hqkh8ycfw05ld/3BWL7rJOSfebL2Q+DVDeRgYgxUU8=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20260427160629-7cedc36a6bc4 h1:tEkOQcXgF6dH1G+MVKZrfpYvozGrzb91k6ha7jireSM=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20260427160629-7cedc36a6bc4/go.mod h1:4Hqkh8ycfw05ld/3BWL7rJOSfebL2Q+DVDeRgYgxUU8=
 google.golang.org/grpc v1.19.0/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZiDr8c=
 google.golang.org/grpc v1.23.0/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyacEbxg=
 google.golang.org/grpc v1.25.1/go.mod h1:c3i+UQWmh7LiEpx4sFZnkU36qjEYZ0imhYfXVyQciAY=
@@ -1076,8 +1076,8 @@ sigs.k8s.io/kustomize/api v0.21.1 h1:lzqbzvz2CSvsjIUZUBNFKtIMsEw7hVLJp0JeSIVmuJs
 sigs.k8s.io/kustomize/api v0.21.1/go.mod h1:f3wkKByTrgpgltLgySCntrYoq5d3q7aaxveSagwTlwI=
 sigs.k8s.io/kustomize/kyaml v0.21.1 h1:IVlbmhC076nf6foyL6Taw4BkrLuEsXUXNpsE+ScX7fI=
 sigs.k8s.io/kustomize/kyaml v0.21.1/go.mod h1:hmxADesM3yUN2vbA5z1/YTBnzLJ1dajdqpQonwBL1FQ=
-sigs.k8s.io/mcs-api v0.4.2-0.20260429083924-5705abe7792b h1:rJ4gwxRIKoA6A2EvJbRZpLmCeVfIgtPPtKNk/Kv0QAM=
-sigs.k8s.io/mcs-api v0.4.2-0.20260429083924-5705abe7792b/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
+sigs.k8s.io/mcs-api v0.4.2-0.20260429160526-4546fabf7251 h1:dNGFc/fQ06WrHOWck6fwEOLW84eais+OlIoRaKXQId0=
+sigs.k8s.io/mcs-api v0.4.2-0.20260429160526-4546fabf7251/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
 sigs.k8s.io/mcs-api/conformance v0.0.0-20260415161103-2525ee33f2a4 h1:1L4MbmkgK6an97MNH0/6xoU4MiLVVBhg5JZIe00C9U4=
 sigs.k8s.io/mcs-api/conformance v0.0.0-20260415161103-2525ee33f2a4/go.mod h1:60am2zg0nc5I1AMLtOPaKTESVdi9/E8SrLK09JN0md8=
 sigs.k8s.io/mcs-api/controllers v0.0.0-20260415161103-2525ee33f2a4 h1:PflLDRUmlRD9v0vM75k8QtwxI0XeeqMC6V/6bLe5LN4=

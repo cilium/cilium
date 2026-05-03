@@ -120,7 +120,7 @@ require (
 	golang.org/x/time v0.15.0
 	golang.org/x/tools v0.44.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260427160629-7cedc36a6bc4
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 	helm.sh/helm/v4 v4.1.4
@@ -138,7 +138,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/gateway-api v1.5.1
 	sigs.k8s.io/gateway-api/conformance v1.5.1
-	sigs.k8s.io/mcs-api v0.4.2-0.20260429083924-5705abe7792b
+	sigs.k8s.io/mcs-api v0.4.2-0.20260429160526-4546fabf7251
 	sigs.k8s.io/mcs-api/conformance v0.0.0-20260415161103-2525ee33f2a4
 	sigs.k8s.io/mcs-api/controllers v0.0.0-20260415161103-2525ee33f2a4
 	sigs.k8s.io/network-policy-api v0.2.0
