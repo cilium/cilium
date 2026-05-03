@@ -1121,6 +1121,69 @@ func TestReconcile(t *testing.T) {
 		assert.Len(t, dedicatedIngressTranslator.model.HTTP, 1)
 		assert.Equal(t, uint32(55555), dedicatedIngressTranslator.model.HTTP[0].Port)
 	})
+
+	t.Run("Reconcile of dedicated TLS passthrough Ingress with a non-root path skips invalid rules without panicking", func(t *testing.T) {
+		pathType := networkingv1.PathTypePrefix
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(testScheme()).
+			WithObjects(
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test",
+						Name:      "test",
+						Annotations: map[string]string{
+							"ingress.cilium.io/loadbalancer-mode": "dedicated",
+							"ingress.cilium.io/tls-passthrough":   "true",
+						},
+					},
+					Spec: networkingv1.IngressSpec{
+						IngressClassName: ptr.To("cilium"),
+						Rules: []networkingv1.IngressRule{
+							{
+								Host: "example.com",
+								IngressRuleValue: networkingv1.IngressRuleValue{
+									HTTP: &networkingv1.HTTPIngressRuleValue{
+										Paths: []networkingv1.HTTPIngressPath{
+											{
+												Path:     "/api/webhook",
+												PathType: &pathType,
+												Backend: networkingv1.IngressBackend{
+													Service: &networkingv1.IngressServiceBackend{
+														Name: "test",
+														Port: networkingv1.ServiceBackendPort{
+															Number: 8080,
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			).
+			Build()
+
+		cecTranslator := &fakeCECTranslator{}
+		dedicatedIngressTranslator := &fakeDedicatedIngressTranslator{}
+
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0, 0, 0, 0)
+
+		result, err := reconciler.Reconcile(t.Context(), reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "test",
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		assert.Empty(t, dedicatedIngressTranslator.model.TLSPassthrough)
+		assert.Empty(t, dedicatedIngressTranslator.model.HTTP)
+	})
 }
 
 var _ translation.CECTranslator = &fakeCECTranslator{}
