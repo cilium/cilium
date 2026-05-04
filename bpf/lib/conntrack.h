@@ -481,13 +481,17 @@ static __always_inline bool							\
 ct_is_reply ## FAMILY(const void *map,						\
 		      struct ipv ## FAMILY ## _ct_tuple *tuple)			\
 {										\
+  struct ct_entry *entry = NULL; \
 	__u8 flags = tuple->flags;						\
 	bool is_reply = false;							\
 										\
 	tuple->flags = TUPLE_F_IN;						\
 										\
-	if (map_lookup_elem(map, tuple))					\
+  entry = map_lookup_elem(map, tuple); \
+	if (entry) {					\
+    if (!entry->from_tunnel) \
 		is_reply = true;						\
+  } \
 										\
 	/* restore initial flags */						\
 	tuple->flags = flags;							\
