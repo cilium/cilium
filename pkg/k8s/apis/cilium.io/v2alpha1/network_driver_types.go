@@ -370,7 +370,7 @@ type IPv4StaticRouteSpec struct {
 
 	// Gateway specifies the route gateway address
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Format=ipv4
 	Gateway string `json:"gateway"`
 }
@@ -384,7 +384,7 @@ type IPv6StaticRouteSpec struct {
 
 	// Gateway specifies the route gateway address
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Format=ipv6
 	Gateway string `json:"gateway"`
 }

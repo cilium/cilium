@@ -67,8 +67,10 @@ func (c resourceNetworkConfig) TableRow() []string {
 			route := routes[i]
 			b.WriteRune('[')
 			b.WriteString(route.Destination.String())
-			b.WriteString(" via ")
-			b.WriteString(route.Gateway.String())
+			if route.Gateway.IsValid() {
+				b.WriteString(" via ")
+				b.WriteString(route.Gateway.String())
+			}
 			b.WriteRune(']')
 			if i != len(routes)-1 {
 				b.WriteString(", ")
@@ -195,15 +197,11 @@ func resourceNetworkConfigReflectorConfig(cs client.Clientset, crdSync promise.P
 					s.IPv4NetMask = int(sp.IPv4.NetMask)
 					s.IPv4Routes = make([]route, 0, len(sp.IPv4.StaticRoutes))
 					for _, r := range sp.IPv4.StaticRoutes {
-						dst, err := netip.ParsePrefix(r.Destination)
+						r, err := parseRoute(r.Destination, r.Gateway)
 						if err != nil {
 							return resourceNetworkConfig{}, false
 						}
-						gw, err := netip.ParseAddr(r.Gateway)
-						if err != nil {
-							return resourceNetworkConfig{}, false
-						}
-						s.IPv4Routes = append(s.IPv4Routes, route{Destination: dst, Gateway: gw})
+						s.IPv4Routes = append(s.IPv4Routes, r)
 					}
 				}
 
@@ -211,15 +209,11 @@ func resourceNetworkConfigReflectorConfig(cs client.Clientset, crdSync promise.P
 					s.IPv6NetMask = int(sp.IPv6.NetMask)
 					s.IPv6Routes = make([]route, 0, len(sp.IPv6.StaticRoutes))
 					for _, r := range sp.IPv6.StaticRoutes {
-						dst, err := netip.ParsePrefix(r.Destination)
+						r, err := parseRoute(r.Destination, r.Gateway)
 						if err != nil {
 							return resourceNetworkConfig{}, false
 						}
-						gw, err := netip.ParseAddr(r.Gateway)
-						if err != nil {
-							return resourceNetworkConfig{}, false
-						}
-						s.IPv6Routes = append(s.IPv6Routes, route{Destination: dst, Gateway: gw})
+						s.IPv4Routes = append(s.IPv4Routes, r)
 					}
 				}
 
@@ -234,4 +228,21 @@ func resourceNetworkConfigReflectorConfig(cs client.Clientset, crdSync promise.P
 		},
 		CRDSync: crdSync,
 	}
+}
+
+func parseRoute(destination, gateway string) (route, error) {
+	dst, err := netip.ParsePrefix(destination)
+	if err != nil {
+		return route{}, err
+	}
+
+	var gw netip.Addr
+	if gateway != "" {
+		gw, err = netip.ParseAddr(gateway)
+		if err != nil {
+			return route{}, err
+		}
+	}
+
+	return route{Destination: dst, Gateway: gw}, nil
 }

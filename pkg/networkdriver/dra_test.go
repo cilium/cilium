@@ -254,11 +254,13 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		networkConfigName = "test-network-config"
 		vlan              = uint16(1001)
 		v4NetMask         = 24
-		v4RouteDst        = "10.10.100.0/24"
-		v4RouteGw         = "10.10.100.254"
+		v4Route1Dst       = "10.10.100.0/24"
+		v4Route1Gw        = "10.10.100.254"
+		v4Route2Dst       = "10.10.200.0/24"
 		v6NetMask         = 96
-		v6RouteDst        = "fd00:200:1::/96"
-		v6RouteGw         = "fd00:200:1::1"
+		v6Route1Dst       = "fd00:200:1::/96"
+		v6Route1Gw        = "fd00:200:1::1"
+		v6Route2Dst       = "fd00:200:2::/96"
 	)
 
 	rawParam, err := json.Marshal(map[string]string{"networkConfig": networkConfigName})
@@ -346,8 +348,11 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 					NetMask: uint8(v4NetMask),
 					StaticRoutes: []v2alpha1.IPv4StaticRouteSpec{
 						{
-							Destination: v4RouteDst,
-							Gateway:     v4RouteGw,
+							Destination: v4Route1Dst,
+							Gateway:     v4Route1Gw,
+						},
+						{
+							Destination: v4Route2Dst,
 						},
 					},
 				},
@@ -355,8 +360,11 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 					NetMask: uint8(v6NetMask),
 					StaticRoutes: []v2alpha1.IPv6StaticRouteSpec{
 						{
-							Destination: v6RouteDst,
-							Gateway:     v6RouteGw,
+							Destination: v6Route1Dst,
+							Gateway:     v6Route1Gw,
+						},
+						{
+							Destination: v6Route2Dst,
 						},
 					},
 				},
@@ -538,11 +546,12 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 	assert.True(t, v6PoolCIDR.Contains(alloc.Config.IPv6Addr.Masked().Addr()))
 	assert.True(t, v6NodeCIDR.Contains(alloc.Config.IPv6Addr.Masked().Addr()))
 
-	assert.Len(t, alloc.Config.Routes, 2)
 	assert.ElementsMatch(t,
 		[]types.Route{
-			{Destination: netip.MustParsePrefix(v4RouteDst), Gateway: netip.MustParseAddr(v4RouteGw)},
-			{Destination: netip.MustParsePrefix(v6RouteDst), Gateway: netip.MustParseAddr(v6RouteGw)},
+			{Destination: netip.MustParsePrefix(v4Route1Dst), Gateway: netip.MustParseAddr(v4Route1Gw)},
+			{Destination: netip.MustParsePrefix(v4Route2Dst)},
+			{Destination: netip.MustParsePrefix(v6Route1Dst), Gateway: netip.MustParseAddr(v6Route1Gw)},
+			{Destination: netip.MustParsePrefix(v6Route2Dst)},
 		},
 		alloc.Config.Routes,
 	)
