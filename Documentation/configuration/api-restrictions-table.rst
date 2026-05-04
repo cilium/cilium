@@ -27,10 +27,13 @@ DeleteIPAMIP              -
 DeletePrefilter           -
 GetBGPPeers               Retrieves current operational state of BGP peers created by
                           Cilium BGP virtual router. This includes session state,
-                          uptime, information per address family, etc.
-GetBGPRoutePolicies       Retrieves route policies from BGP Control Plane.
+                          uptime, information per address family, etc. Deprecated:
+                          This will be removed in the future.
+GetBGPRoutePolicies       Retrieves route policies from BGP Control Plane. Deprecated:
+                          This will be removed in the future.
 GetBGPRoutes              Retrieves routes from BGP Control Plane RIB filtered by
-                          parameters you specify
+                          parameters you specify. Deprecated: This will be removed in
+                          the future.
 GetCgroupDumpMetadata     -
 GetClusterNodes           -
 GetConfig                 Returns the configuration of the Cilium daemon.

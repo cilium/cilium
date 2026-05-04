@@ -72,6 +72,7 @@ type ClientService interface {
 
 Cilium BGP virtual router. This includes session state, uptime,
 information per address family, etc.
+Deprecated: This will be removed in the future.
 */
 func (a *Client) GetBgpPeers(params *GetBgpPeersParams, opts ...ClientOption) (*GetBgpPeersOK, error) {
 	// NOTE: parameters are not validated before sending
@@ -114,9 +115,11 @@ func (a *Client) GetBgpPeers(params *GetBgpPeersParams, opts ...ClientOption) (*
 }
 
 /*
-GetBgpRoutePolicies lists b g p route policies configured in b g p control plane
+	GetBgpRoutePolicies lists b g p route policies configured in b g p control plane
 
-Retrieves route policies from BGP Control Plane.
+	Retrieves route policies from BGP Control Plane.
+
+Deprecated: This will be removed in the future.
 */
 func (a *Client) GetBgpRoutePolicies(params *GetBgpRoutePoliciesParams, opts ...ClientOption) (*GetBgpRoutePoliciesOK, error) {
 	// NOTE: parameters are not validated before sending
@@ -159,9 +162,11 @@ func (a *Client) GetBgpRoutePolicies(params *GetBgpRoutePoliciesParams, opts ...
 }
 
 /*
-GetBgpRoutes lists b g p routes from b g p control plane r i b
+	GetBgpRoutes lists b g p routes from b g p control plane r i b
 
-Retrieves routes from BGP Control Plane RIB filtered by parameters you specify
+	Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
+
+Deprecated: This will be removed in the future.
 */
 func (a *Client) GetBgpRoutes(params *GetBgpRoutesParams, opts ...ClientOption) (*GetBgpRoutesOK, error) {
 	// NOTE: parameters are not validated before sending

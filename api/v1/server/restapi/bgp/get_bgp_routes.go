@@ -34,7 +34,8 @@ func NewGetBgpRoutes(ctx *middleware.Context, handler GetBgpRoutesHandler) *GetB
 
 Lists BGP routes from BGP Control Plane RIB.
 
-Retrieves routes from BGP Control Plane RIB filtered by parameters you specify
+Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
+Deprecated: This will be removed in the future.
 */
 type GetBgpRoutes struct {
 	Context *middleware.Context

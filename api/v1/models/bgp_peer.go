@@ -17,6 +17,7 @@ import (
 )
 
 // BgpPeer State of a BGP Peer
+// Deprecated: This will be removed in the future.
 //
 // +k8s:deepcopy-gen=true
 //

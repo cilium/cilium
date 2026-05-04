@@ -18,6 +18,7 @@ import (
 )
 
 // BgpRoutePolicy Single BGP route policy retrieved from the underlying router
+// Deprecated: This will be removed in the future.
 //
 // swagger:model BgpRoutePolicy
 type BgpRoutePolicy struct {

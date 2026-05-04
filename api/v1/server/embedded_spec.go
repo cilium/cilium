@@ -34,11 +34,12 @@ func init() {
   "paths": {
     "/bgp/peers": {
       "get": {
-        "description": "Retrieves current operational state of BGP peers created by\nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
+        "description": "Retrieves current operational state of BGP peers created by\nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\nDeprecated: This will be removed in the future.\n",
         "tags": [
           "bgp"
         ],
         "summary": "Lists operational state of BGP peers",
+        "deprecated": true,
         "responses": {
           "200": {
             "description": "Success",
@@ -67,11 +68,12 @@ func init() {
     },
     "/bgp/route-policies": {
       "get": {
-        "description": "Retrieves route policies from BGP Control Plane.",
+        "description": "Retrieves route policies from BGP Control Plane.\nDeprecated: This will be removed in the future.\n",
         "tags": [
           "bgp"
         ],
         "summary": "Lists BGP route policies configured in BGP Control Plane.",
+        "deprecated": true,
         "parameters": [
           {
             "$ref": "#/parameters/bgp-router-asn"
@@ -105,11 +107,12 @@ func init() {
     },
     "/bgp/routes": {
       "get": {
-        "description": "Retrieves routes from BGP Control Plane RIB filtered by parameters you specify",
+        "description": "Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.\nDeprecated: This will be removed in the future.\n",
         "tags": [
           "bgp"
         ],
         "summary": "Lists BGP routes from BGP Control Plane RIB.",
+        "deprecated": true,
         "parameters": [
           {
             "$ref": "#/parameters/bgp-table-type"
@@ -1735,7 +1738,7 @@ func init() {
       }
     },
     "BgpPeer": {
-      "description": "State of a BGP Peer\n\n+k8s:deepcopy-gen=true",
+      "description": "State of a BGP Peer\nDeprecated: This will be removed in the future.\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "applied-hold-time-seconds": {
           "description": "Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
@@ -1848,7 +1851,7 @@ func init() {
       }
     },
     "BgpRoute": {
-      "description": "Single BGP route retrieved from the RIB of underlying router",
+      "description": "Single BGP route retrieved from the RIB of underlying router\nDeprecated: This will be removed in the future.\n",
       "properties": {
         "neighbor": {
           "description": "IP address specifying a BGP neighbor if the source table type is adj-rib-in or adj-rib-out",
@@ -1872,7 +1875,7 @@ func init() {
       }
     },
     "BgpRoutePolicy": {
-      "description": "Single BGP route policy retrieved from the underlying router",
+      "description": "Single BGP route policy retrieved from the underlying router\nDeprecated: This will be removed in the future.\n",
       "properties": {
         "name": {
           "description": "Name of the route policy",
@@ -5198,11 +5201,12 @@ func init() {
   "paths": {
     "/bgp/peers": {
       "get": {
-        "description": "Retrieves current operational state of BGP peers created by\nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
+        "description": "Retrieves current operational state of BGP peers created by\nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\nDeprecated: This will be removed in the future.\n",
         "tags": [
           "bgp"
         ],
         "summary": "Lists operational state of BGP peers",
+        "deprecated": true,
         "responses": {
           "200": {
             "description": "Success",
@@ -5231,11 +5235,12 @@ func init() {
     },
     "/bgp/route-policies": {
       "get": {
-        "description": "Retrieves route policies from BGP Control Plane.",
+        "description": "Retrieves route policies from BGP Control Plane.\nDeprecated: This will be removed in the future.\n",
         "tags": [
           "bgp"
         ],
         "summary": "Lists BGP route policies configured in BGP Control Plane.",
+        "deprecated": true,
         "parameters": [
           {
             "type": "integer",
@@ -5272,11 +5277,12 @@ func init() {
     },
     "/bgp/routes": {
       "get": {
-        "description": "Retrieves routes from BGP Control Plane RIB filtered by parameters you specify",
+        "description": "Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.\nDeprecated: This will be removed in the future.\n",
         "tags": [
           "bgp"
         ],
         "summary": "Lists BGP routes from BGP Control Plane RIB.",
+        "deprecated": true,
         "parameters": [
           {
             "enum": [
@@ -7076,7 +7082,7 @@ func init() {
       }
     },
     "BgpPeer": {
-      "description": "State of a BGP Peer\n\n+k8s:deepcopy-gen=true",
+      "description": "State of a BGP Peer\nDeprecated: This will be removed in the future.\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "applied-hold-time-seconds": {
           "description": "Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
@@ -7189,7 +7195,7 @@ func init() {
       }
     },
     "BgpRoute": {
-      "description": "Single BGP route retrieved from the RIB of underlying router",
+      "description": "Single BGP route retrieved from the RIB of underlying router\nDeprecated: This will be removed in the future.\n",
       "properties": {
         "neighbor": {
           "description": "IP address specifying a BGP neighbor if the source table type is adj-rib-in or adj-rib-out",
@@ -7213,7 +7219,7 @@ func init() {
       }
     },
     "BgpRoutePolicy": {
-      "description": "Single BGP route policy retrieved from the underlying router",
+      "description": "Single BGP route policy retrieved from the underlying router\nDeprecated: This will be removed in the future.\n",
       "properties": {
         "name": {
           "description": "Name of the route policy",
