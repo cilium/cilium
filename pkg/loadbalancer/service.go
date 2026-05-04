@@ -117,6 +117,13 @@ const (
 	TrafficDistributionPreferSameNode = TrafficDistribution("PreferSameNode")
 )
 
+// RequiresZoneUpdate returns true if the traffic distribution policy
+// depends on node topology zone changes.
+func (td TrafficDistribution) RequiresZoneUpdate() bool {
+	return td == TrafficDistributionPreferSameZone ||
+		td == TrafficDistributionPreferClose
+}
+
 func (svc *Service) DeepEqual(other *Service) bool {
 	return svc.deepEqual(other) &&
 		svc.ProxyRedirect.Equal(other.ProxyRedirect) &&

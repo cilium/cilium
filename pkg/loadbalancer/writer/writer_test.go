@@ -44,6 +44,7 @@ type testParams struct {
 	ServiceTable  statedb.Table[*loadbalancer.Service]
 	FrontendTable statedb.Table[*loadbalancer.Frontend]
 	BackendTable  statedb.Table[*loadbalancer.Backend]
+	Nodes         statedb.Table[*node.LocalNode]
 }
 
 func fixture(t testing.TB) (p testParams) {
