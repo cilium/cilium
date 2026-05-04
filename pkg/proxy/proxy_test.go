@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
+	"github.com/cilium/cilium/pkg/proxy/types"
+	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -211,3 +213,53 @@ func (*fakeXdsServer) SetPolicySecretSyncNamespace(string) {
 }
 
 var _ envoy.XDSServer = &fakeXdsServer{}
+
+type fakeDrainableRedirect struct {
+	Redirect
+	closed  bool
+	drained bool
+}
+
+func (r *fakeDrainableRedirect) GetRedirect() *Redirect {
+	return &r.Redirect
+}
+
+func (r *fakeDrainableRedirect) UpdateRules(rules policy.L7DataMap) (revert.RevertFunc, error) {
+	return nil, nil
+}
+
+func (r *fakeDrainableRedirect) Close() {
+	r.closed = true
+}
+
+// WaitForDrain marks the redirect as drained for test assertions.
+func (r *fakeDrainableRedirect) WaitForDrain(timeout time.Duration) error {
+	r.drained = true
+	return nil
+}
+
+func TestDrainRedirectsWaitsForDrainableRedirects(t *testing.T) {
+	p := proxyForTest(t, nil)
+
+	const redirectName = "test-listener"
+
+	err := p.proxyPorts.SetProxyPort(redirectName, types.ProxyTypeCRD, 12345, false)
+	require.NoError(t, err)
+	name, pp := p.proxyPorts.FindByTypeWithReference(types.ProxyTypeCRD, redirectName, false)
+	require.Equal(t, redirectName, name)
+	require.NotNil(t, pp)
+
+	impl := &fakeDrainableRedirect{
+		Redirect: Redirect{
+			name:      redirectName,
+			proxyPort: pp,
+		},
+	}
+	p.redirects[redirectName] = impl
+
+	err = p.DrainRedirects([]string{redirectName})
+	require.NoError(t, err)
+	require.True(t, impl.closed)
+	require.True(t, impl.drained)
+	require.Empty(t, p.redirects)
+}

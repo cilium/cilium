@@ -17,6 +17,7 @@ import (
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -98,6 +99,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 type RedirectSuiteProxy struct {
 	parserProxyPortMap map[string]uint16
 	redirects          map[string]uint16
+	callOrder          []string
 }
 
 // CreateOrUpdateRedirect returns the proxy port for the given L7Parser from the
@@ -110,7 +112,17 @@ func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 poli
 
 // RemoveRedirect removes a redirect from the map
 func (r *RedirectSuiteProxy) RemoveRedirect(id string) {
+	r.callOrder = append(r.callOrder, "remove-redirect")
 	delete(r.redirects, id)
+}
+
+// DrainRedirects removes redirects from the map and records the drain call.
+func (r *RedirectSuiteProxy) DrainRedirects(ids []string) error {
+	r.callOrder = append(r.callOrder, "drain-redirects")
+	for _, id := range ids {
+		delete(r.redirects, id)
+	}
+	return nil
 }
 
 // UpdateNetworkPolicy does nothing.
@@ -119,7 +131,9 @@ func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, po
 }
 
 // RemoveNetworkPolicy does nothing.
-func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {}
+func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
+	r.callOrder = append(r.callOrder, "remove-network-policy")
+}
 
 // UpdateSDP does nothing.
 func (r *RedirectSuiteProxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
@@ -140,6 +154,12 @@ type DummyOwner struct {
 	repo  policy.PolicyRepository
 	idmgr identitymanager.IDManager
 }
+
+type fakeDNSRulesAPI struct{}
+
+func (fakeDNSRulesAPI) GetDNSRules(epID uint16) restore.DNSRules { return nil }
+
+func (fakeDNSRulesAPI) RemoveRestoredDNSRules(epID uint16) {}
 
 // GetNodeSuffix does nothing.
 func (d *DummyOwner) GetNodeSuffix() string {
@@ -185,7 +205,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
 	p := s.createTestEndpointParams(t)
 	p.KVStoreSynchronizer = kvstoreSync
-	ep, err := NewEndpointFromChangeModel(p, nil, s.rsp, model, nil)
+	ep, err := NewEndpointFromChangeModel(p, fakeDNSRulesAPI{}, s.rsp, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -209,6 +229,24 @@ func (s *RedirectSuite) TearDownTest(t *testing.T) {
 	s.do.idmgr.RemoveAll()
 	s.mgr.Close()
 	policy.SetPolicyEnabled(s.oldPolicyEnable)
+}
+
+func TestLeaveLockedDrainsRedirectsBeforeRemovingNetworkPolicy(t *testing.T) {
+	s := setupRedirectSuite(t)
+	ep := s.NewTestEndpoint(t)
+
+	redirectID := policy.ProxyID(ep.ID, false, "TCP", 80, "")
+	ep.desiredPolicy.Redirects = map[string]uint16{redirectID: httpPort}
+	s.rsp.redirects[redirectID] = httpPort
+
+	ep.unconditionalLock()
+	ep.buildMutex.Lock()
+	errs := ep.leaveLocked(DeleteConfig{})
+	ep.buildMutex.Unlock()
+	ep.unlock()
+
+	require.Empty(t, errs)
+	require.Equal(t, []string{"drain-redirects", "remove-network-policy"}, s.rsp.callOrder)
 }
 
 var (
