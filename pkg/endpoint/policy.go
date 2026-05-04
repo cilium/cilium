@@ -274,7 +274,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 			// At the point of this call, traffic is no longer redirected to the proxy
 			// for now-obsolete redirects, since we synced the updated policy map above.
 			// It's now safe to remove the redirects from the proxy's configuration.
-			e.removeOldRedirects(desiredRedirects, previousRedirects)
+			e.removeOldRedirects(desiredRedirects, previousRedirects, false)
 		})
 	}
 	e.runlock()

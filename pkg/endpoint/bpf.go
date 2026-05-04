@@ -317,13 +317,15 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 	return desiredRedirects, skipped, revertStack.Revert
 }
 
+// removeOldRedirects removes redirects that are no longer required by policy.
 // Must be called with endpoint.mutex locked for writing, as this calls back to
 // 'e.OnDNSPolicyUpdateLocked()'.
-func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[string]uint16) {
+func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[string]uint16, waitForDrain bool) {
 	if e.isProperty(endpointtypes.PropertyFakeEndpoint) || e.IsProxyDisabled() {
 		return
 	}
 
+	staleRedirects := make([]string, 0, len(realizedRedirects))
 	for id, redirectPort := range realizedRedirects {
 		// Remove only the redirects that are not required.
 		if desiredRedirects[id] != 0 {
@@ -331,7 +333,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[st
 		}
 
 		if redirectPort != 0 {
-			e.proxy.RemoveRedirect(id)
+			staleRedirects = append(staleRedirects, id)
 		}
 
 		// Update the endpoint API model to report that no redirect is
@@ -350,6 +352,21 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[st
 			)
 		}
 		e.proxyStatisticsMutex.Unlock()
+	}
+
+	if len(staleRedirects) == 0 {
+		return
+	}
+
+	if waitForDrain {
+		if err := e.proxy.DrainRedirects(staleRedirects); err != nil {
+			e.getLogger().Warn("Failed to fully drain proxy redirects during endpoint teardown", logfields.Error, err)
+		}
+		return
+	}
+
+	for _, id := range staleRedirects {
+		e.proxy.RemoveRedirect(id)
 	}
 }
 

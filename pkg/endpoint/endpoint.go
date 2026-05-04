@@ -1250,12 +1250,12 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	e.desiredPolicy.Ready()
 	e.desiredPolicy.Detach(e.getLogger())
 	// Passing a new map of nil will purge all redirects
-	e.removeOldRedirects(nil, e.desiredPolicy.Redirects)
+	e.removeOldRedirects(nil, e.desiredPolicy.Redirects, true)
 
 	if e.realizedPolicy != e.desiredPolicy {
 		e.realizedPolicy.Detach(e.getLogger())
 		// Passing a new map of nil will purge all redirects
-		e.removeOldRedirects(nil, e.realizedPolicy.Redirects)
+		e.removeOldRedirects(nil, e.realizedPolicy.Redirects, true)
 	}
 
 	// Remove restored rules of cleaned endpoint
