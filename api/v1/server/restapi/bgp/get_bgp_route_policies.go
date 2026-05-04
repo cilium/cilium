@@ -35,6 +35,7 @@ func NewGetBgpRoutePolicies(ctx *middleware.Context, handler GetBgpRoutePolicies
 Lists BGP route policies configured in BGP Control Plane.
 
 Retrieves route policies from BGP Control Plane.
+Deprecated: This will be removed in the future.
 */
 type GetBgpRoutePolicies struct {
 	Context *middleware.Context

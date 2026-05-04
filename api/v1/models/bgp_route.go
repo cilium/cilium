@@ -16,6 +16,7 @@ import (
 )
 
 // BgpRoute Single BGP route retrieved from the RIB of underlying router
+// Deprecated: This will be removed in the future.
 //
 // swagger:model BgpRoute
 type BgpRoute struct {
