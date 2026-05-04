@@ -3,7 +3,7 @@
 
 // Copyright 2017 Lyft, Inc.
 
-package ipam
+package nodemanager
 
 import (
 	"context"
@@ -47,6 +47,8 @@ const (
 	// operator status
 	success = "success"
 	failed  = "failed"
+
+	fieldName = "name"
 )
 
 func (n *Node) SetOpts(ops NodeOperations) {
@@ -478,9 +480,7 @@ func (n *Node) recalculate(ctx context.Context) {
 	defer n.mutex.Unlock()
 
 	if err != nil {
-		var limitsNotFound LimitsNotFound
-		ok := errors.As(err, &limitsNotFound)
-		if ok {
+		if errors.Is(err, ErrLimitsNotFound) {
 			scopedLog.Warn("Instance limits not found.", logfields.Error, err)
 		} else {
 			scopedLog.Warn("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.", logfields.Error, err)
@@ -764,6 +764,9 @@ type ReleaseAction struct {
 	// IPPrefixes is the list of prefixes to release
 	IPPrefixesToRelease []string
 }
+
+// ErrLimitsNotFound signals lack of limits for given instance type.
+var ErrLimitsNotFound = errors.New("Limits not found")
 
 // maintenanceAction represents the resources available for allocation for a
 // particular ciliumNode. If an existing interface has IP allocation capacity
@@ -1283,7 +1286,7 @@ func (n *Node) syncToAPIServer() error {
 		// The PreAllocate value is added here rather than where the CiliumNode
 		// resource is created ((*NodeDiscovery).mutateNodeResource() inside
 		// pkg/nodediscovery), because mutateNodeResource() does not have
-		// access to the ipam.Node object. Since we are in the CiliumNode
+		// access to the nodemanager.Node object. Since we are in the CiliumNode
 		// update sync loop, we can compute the value.
 		if node.Spec.IPAM.PreAllocate == 0 {
 			node.Spec.IPAM.PreAllocate = n.ops.GetMinimumAllocatableIPv4()

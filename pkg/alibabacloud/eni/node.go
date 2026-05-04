@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
+	"github.com/cilium/cilium/operator/pkg/ipam/stats"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/utils"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/operator/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -94,7 +94,7 @@ func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
 // attaches it to the instance as specified by the CiliumNode. neededAddresses
 // of secondary IPs are assigned to the interface up to the maximum number of
 // addresses as allowed by the instance.
-func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *slog.Logger) (int, string, error) {
+func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.AllocationAction, scopedLog *slog.Logger) (int, string, error) {
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return 0, unableToDetermineLimits, errors.New(errUnableToDetermineLimits)
@@ -200,7 +200,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logger) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, stats, ipam.LimitsNotFound{}
+		return nil, stats, nodemanager.ErrLimitsNotFound
 	}
 
 	// During preparation of IP allocations, the primary NIC is not considered
@@ -258,12 +258,12 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
 // allocated/created.
-func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (*ipam.AllocationAction, error) {
+func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (*nodemanager.AllocationAction, error) {
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return nil, errors.New(errUnableToDetermineLimits)
 	}
-	a := &ipam.AllocationAction{}
+	a := &nodemanager.AllocationAction{}
 
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -312,7 +312,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (*ipam.AllocationActi
 }
 
 // AllocateIPs performs the ENI allocation operation
-func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
+func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) error {
 	_, err := n.manager.api.AssignPrivateIPAddresses(ctx, a.InterfaceID, a.IPv4.AvailableForAllocation)
 	return err
 }
@@ -323,8 +323,8 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
-	r := &ipam.ReleaseAction{}
+func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemanager.ReleaseAction {
+	r := &nodemanager.ReleaseAction{}
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -378,13 +378,13 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 
 // ReleaseIPPrefixes is a no-op on AlibabaCloud since Alibaba ENIs don't
 // support prefix delegation.
-func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	// nothing to do
 	return nil
 }
 
 // ReleaseIPs performs the ENI IP release operation
-func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
+func (n *Node) ReleaseIPs(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	return n.manager.api.UnassignPrivateIPAddresses(ctx, r.InterfaceID, r.IPsToRelease)
 }
 

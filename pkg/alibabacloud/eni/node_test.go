@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/utils"
-	"github.com/cilium/cilium/pkg/ipam"
-	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -69,7 +69,7 @@ func TestCreateInterface(t *testing.T) {
 	_, err := instances.Resync(t.Context())
 	require.NoError(t, err)
 
-	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -97,8 +97,8 @@ func TestCreateInterface(t *testing.T) {
 		return nil
 	})
 
-	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(t.Context(), &ipam.AllocationAction{
-		IPv4: ipam.IPAllocationAction{
+	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(t.Context(), &nodemanager.AllocationAction{
+		IPv4: nodemanager.IPAllocationAction{
 			MaxIPsToAllocate: 10,
 		},
 		EmptyInterfaceSlots: 2,
@@ -106,8 +106,8 @@ func TestCreateInterface(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, toAlloc)
 
-	toAlloc, _, err = mngr.Get("node1").Ops().CreateInterface(t.Context(), &ipam.AllocationAction{
-		IPv4: ipam.IPAllocationAction{
+	toAlloc, _, err = mngr.Get("node1").Ops().CreateInterface(t.Context(), &nodemanager.AllocationAction{
+		IPv4: nodemanager.IPAllocationAction{
 			MaxIPsToAllocate: 11,
 		},
 		EmptyInterfaceSlots: 1,
@@ -124,7 +124,7 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	_, err := instances.Resync(t.Context())
 	require.NoError(t, err)
 
-	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 	// Set PreAllocate as 1
@@ -157,7 +157,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	_, err := instances.Resync(t.Context())
 	require.NoError(t, err)
 
-	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 	mngr.SetInstancesAPIReadiness(false) // to avoid the manager background jobs starting and racing us.
@@ -168,8 +168,8 @@ func TestPrepareIPAllocation(t *testing.T) {
 	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 
 	// create one eni
-	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(t.Context(), &ipam.AllocationAction{
-		IPv4: ipam.IPAllocationAction{
+	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(t.Context(), &nodemanager.AllocationAction{
+		IPv4: nodemanager.IPAllocationAction{
 			MaxIPsToAllocate: 10,
 		},
 		EmptyInterfaceSlots: 2,
@@ -274,7 +274,7 @@ func newCiliumNodeWithIpamParams(node, instanceID, instanceType, az, vpcID strin
 	return cn
 }
 
-func reachedAddressesNeeded(mngr *ipam.NodeManager, nodeName string, needed int) (success bool) {
+func reachedAddressesNeeded(mngr *nodemanager.NodeManager, nodeName string, needed int) (success bool) {
 	if node := mngr.Get(nodeName); node != nil {
 		success = node.GetNeededAddresses() == needed
 	}

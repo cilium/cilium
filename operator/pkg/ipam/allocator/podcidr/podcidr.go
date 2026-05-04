@@ -14,9 +14,9 @@ import (
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/ipam"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -191,7 +191,7 @@ type NodesPodCIDRManager struct {
 func NewNodesPodCIDRManager(
 	logger *slog.Logger,
 	v4Allocators, v6Allocators []cidralloc.CIDRAllocator,
-	nodeGetter ipam.CiliumNodeGetterUpdater,
+	nodeGetter allocator.CiliumNodeGetterUpdater,
 	triggerMetrics trigger.MetricsObserver) *NodesPodCIDRManager {
 
 	n := &NodesPodCIDRManager{
@@ -242,7 +242,7 @@ func NewNodesPodCIDRManager(
 // In case any of the nodes failed to be synced with kubernetes the returned
 // error is for one of those nodes. Remaining nodes will still be synced with
 // kubernetes.
-func syncToK8s(logger *slog.Logger, nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s map[string]*ciliumNodeK8sOp) (retErr error) {
+func syncToK8s(logger *slog.Logger, nodeGetterUpdater allocator.CiliumNodeGetterUpdater, ciliumNodesToK8s map[string]*ciliumNodeK8sOp) (retErr error) {
 	for nodeName, nodeToK8s := range ciliumNodesToK8s {
 		var (
 			err, err2     error

@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
+	"github.com/cilium/cilium/operator/pkg/ipam/stats"
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/operator/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -58,25 +58,25 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 }
 
 // PrepareIPRelease prepares the release of IPs
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
-	return &ipam.ReleaseAction{}
+func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemanager.ReleaseAction {
+	return &nodemanager.ReleaseAction{}
 }
 
 // ReleaseIPPrefixes is a no-op on Azure since Azure ENIs don't
 // support prefix delegation.
-func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	// nothing to do
 	return nil
 }
 
 // ReleaseIPs performs the IP release operation
-func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
+func (n *Node) ReleaseIPs(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	return fmt.Errorf("not implemented")
 }
 
 // PrepareIPAllocation returns the number of IPs that can be allocated/created.
-func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *ipam.AllocationAction, err error) {
-	a = &ipam.AllocationAction{}
+func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.AllocationAction, err error) {
+	a = &nodemanager.AllocationAction{}
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
@@ -128,7 +128,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *ipam.AllocationAc
 }
 
 // AllocateIPs performs the Azure IP allocation operation
-func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
+func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) error {
 	iface, ok := a.Interface.(*types.AzureInterface)
 	if !ok {
 		return fmt.Errorf("invalid interface object")
@@ -150,7 +150,7 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 
 // CreateInterface is called to create a new interface. This operation is
 // currently not supported on Azure.
-func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *slog.Logger) (int, string, error) {
+func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.AllocationAction, scopedLog *slog.Logger) (int, string, error) {
 	return 0, "", fmt.Errorf("not implemented")
 }
 

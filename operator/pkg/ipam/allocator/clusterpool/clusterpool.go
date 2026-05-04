@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/podcidr"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -77,7 +76,7 @@ func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger) error
 }
 
 // Start kicks of Operator allocation.
-func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater, iMetrics trigger.MetricsObserver) (allocator.NodeEventHandler, error) {
+func (a *AllocatorOperator) Start(ctx context.Context, updater allocator.CiliumNodeGetterUpdater, iMetrics trigger.MetricsObserver) (allocator.NodeEventHandler, error) {
 	a.logger.Info(
 		"Starting ClusterPool IP allocator",
 		logfields.IPv4CIDRs, a.ClusterPoolIPv4CIDR,

@@ -9,9 +9,9 @@ import (
 	"log/slog"
 	"maps"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
-	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -62,7 +62,7 @@ func NewInstancesManager(logger *slog.Logger, api AlibabaCloudAPI) *InstancesMan
 }
 
 // CreateNode
-func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, node *ipam.Node) ipam.NodeOperations {
+func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, node *nodemanager.Node) nodemanager.NodeOperations {
 	return &Node{logger: m.logger, k8sObj: obj, manager: m, node: node, instanceID: node.InstanceID()}
 }
 

@@ -196,7 +196,7 @@ func NewMetrics() *Metrics {
 	}
 }
 
-// ipam.MetricsAPI implementation
+// nodemanager.MetricsAPI implementation
 
 func (m *Metrics) SetIPAvailable(node string, cap int) {
 	m.AvailableIPs.WithLabelValues(node).Set(float64(cap))

@@ -13,11 +13,11 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	alibabacloudAPI "github.com/cilium/cilium/pkg/alibabacloud/api"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
 	"github.com/cilium/cilium/pkg/alibabacloud/metadata"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -89,11 +89,11 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger, a
 // Start kicks off ENI allocation, the initial connection to AlibabaCloud
 // APIs is done in a blocking manner. Provided this is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, iMetrics ipam.MetricsAPI) (allocator.NodeEventHandler, error) {
+func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater allocator.CiliumNodeGetterUpdater, iMetrics nodemanager.MetricsAPI) (allocator.NodeEventHandler, error) {
 	a.logger.Info("Starting AlibabaCloud ENI allocator...")
 
 	instances := eni.NewInstancesManager(a.rootLogger, a.client)
-	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
+	nodeManager, err := nodemanager.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
 		a.ParallelAllocWorkers, a.AlibabaCloudReleaseExcessIPs, 0, false)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize AlibabaCloud node manager: %w", err)

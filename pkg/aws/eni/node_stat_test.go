@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
-	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -109,14 +109,14 @@ type mockIPAMNode struct {
 	prefixDelegation bool
 }
 
-func (m *mockIPAMNode) SetOpts(ipam.NodeOperations)           {}
-func (m *mockIPAMNode) SetPoolMaintainer(ipam.PoolMaintainer) {}
-func (m *mockIPAMNode) UpdatedResource(*v2.CiliumNode) bool   { panic("not impl") }
-func (m *mockIPAMNode) Update(*v2.CiliumNode)                 {}
-func (m *mockIPAMNode) InstanceID() string                    { return m.instanceID }
-func (m *mockIPAMNode) IsPrefixDelegationEnabled() bool       { return m.prefixDelegation }
-func (m *mockIPAMNode) Ops() ipam.NodeOperations              { panic("not impl") }
-func (m *mockIPAMNode) SetRunning(_ bool)                     { panic("not impl") }
+func (m *mockIPAMNode) SetOpts(nodemanager.NodeOperations)           {}
+func (m *mockIPAMNode) SetPoolMaintainer(nodemanager.PoolMaintainer) {}
+func (m *mockIPAMNode) UpdatedResource(*v2.CiliumNode) bool          { panic("not impl") }
+func (m *mockIPAMNode) Update(*v2.CiliumNode)                        {}
+func (m *mockIPAMNode) InstanceID() string                           { return m.instanceID }
+func (m *mockIPAMNode) IsPrefixDelegationEnabled() bool              { return m.prefixDelegation }
+func (m *mockIPAMNode) Ops() nodemanager.NodeOperations              { panic("not impl") }
+func (m *mockIPAMNode) SetRunning(_ bool)                            { panic("not impl") }
 
 var _ ipamNodeActions = (*mockIPAMNode)(nil)
 

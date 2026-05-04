@@ -9,9 +9,9 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	azureAPI "github.com/cilium/cilium/pkg/azure/api"
 	azureIPAM "github.com/cilium/cilium/pkg/azure/ipam"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -37,7 +37,7 @@ func (a *AllocatorAzure) Init(ctx context.Context, logger *slog.Logger) error {
 }
 
 // Start kicks of the Azure IP allocation
-func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, azMetrics azureAPI.MetricsAPI, iMetrics ipam.MetricsAPI) (allocator.NodeEventHandler, error) {
+func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater allocator.CiliumNodeGetterUpdater, azMetrics azureAPI.MetricsAPI, iMetrics nodemanager.MetricsAPI) (allocator.NodeEventHandler, error) {
 	a.logger.Info("Starting Azure IP allocator...")
 
 	a.logger.Debug("Retrieving Azure cloud name via Azure IMS")
@@ -73,7 +73,7 @@ func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNod
 		return nil, fmt.Errorf("unable to create Azure client: %w", err)
 	}
 	instances := azureIPAM.NewInstancesManager(a.rootLogger, azureClient)
-	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics, a.ParallelAllocWorkers, false, 0, false)
+	nodeManager, err := nodemanager.NewNodeManager(a.logger, instances, getterUpdater, iMetrics, a.ParallelAllocWorkers, false, 0, false)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize Azure node manager: %w", err)
 	}

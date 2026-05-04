@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
-	"github.com/cilium/cilium/pkg/ipam"
-	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -133,7 +133,7 @@ func updateCiliumNode(logger *slog.Logger, cn *v2.CiliumNode, used int) *v2.Cili
 	return cn
 }
 
-func reachedAddressesNeeded(mngr *ipam.NodeManager, nodeName string, needed int) (success bool) {
+func reachedAddressesNeeded(mngr *nodemanager.NodeManager, nodeName string, needed int) (success bool) {
 	if node := mngr.Get(nodeName); node != nil {
 		success = node.GetNeededAddresses() == needed
 	}
@@ -173,7 +173,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 	require.NoError(t, err)
 
 	k8sapi := newK8sMock()
-	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -235,7 +235,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 	require.NoError(t, err)
 
 	k8sapi := newK8sMock()
-	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -298,7 +298,7 @@ func TestIpamManyNodes(t *testing.T) {
 
 			k8sapi := newK8sMock()
 			metrics := metricsmock.NewMockMetrics()
-			mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metrics, int64(test.concurrency), false, 0, false)
+			mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metrics, int64(test.concurrency), false, 0, false)
 			require.NoError(t, err)
 			require.NotNil(t, mngr)
 
@@ -373,7 +373,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 
 	k8sapi := newK8sMock()
 	metrics := metricsmock.NewMockMetrics()
-	mngr, err := ipam.NewNodeManager(hivetest.Logger(b), instances, k8sapi, metrics, workers, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(b), instances, k8sapi, metrics, workers, false, 0, false)
 	require.NoError(b, err)
 	require.NotNil(b, mngr)
 

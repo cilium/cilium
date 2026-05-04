@@ -12,7 +12,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 
-	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -61,7 +61,7 @@ func NewInstancesManager(logger *slog.Logger, api AzureAPI) *InstancesManager {
 }
 
 // CreateNode is called on discovery of a new node
-func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.NodeOperations {
+func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *nodemanager.Node) nodemanager.NodeOperations {
 	return &Node{manager: m, node: n}
 }
 

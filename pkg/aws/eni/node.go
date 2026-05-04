@@ -20,13 +20,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/smithy-go"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
+	"github.com/cilium/cilium/operator/pkg/ipam/stats"
 	"github.com/cilium/cilium/pkg/aws/ec2"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/operator/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -44,7 +44,7 @@ const (
 type ipamNodeActions interface {
 	IsPrefixDelegationEnabled() bool
 	InstanceID() string
-	Ops() ipam.NodeOperations
+	Ops() nodemanager.NodeOperations
 	SetRunning(bool)
 	UpdatedResource(*v2.CiliumNode) bool
 }
@@ -75,7 +75,7 @@ type Node struct {
 }
 
 // NewNode returns a new Node
-func NewNode(node *ipam.Node, k8sObj *v2.CiliumNode, manager *InstancesManager) *Node {
+func NewNode(node *nodemanager.Node, k8sObj *v2.CiliumNode, manager *InstancesManager) *Node {
 	n := &Node{
 		rootLogger: manager.logger,
 		node:       node,
@@ -141,8 +141,8 @@ func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
-	r := &ipam.ReleaseAction{}
+func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemanager.ReleaseAction {
+	r := &nodemanager.ReleaseAction{}
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -269,7 +269,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 }
 
 // ReleaseIPPrefixes performs the ENI IPPrefixes release operation
-func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	if err := n.manager.ec2api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
 		return err
 	}
@@ -312,7 +312,7 @@ func getIndividualIPs(ipPrefixes, ipAddresses []string) (individualIPs []string)
 }
 
 // ReleaseIPs performs the ENI IP release operation
-func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
+func (n *Node) ReleaseIPs(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	// Filter IPs that do not belong to any IPPrefix
 	if len(r.IPPrefixesToRelease) > 0 {
 		r.IPsToRelease = getIndividualIPs(r.IPPrefixesToRelease, r.IPsToRelease)
@@ -332,13 +332,13 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
 // allocated/created.
-func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *ipam.AllocationAction, err error) {
+func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.AllocationAction, err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return nil, errors.New(errUnableToDetermineLimits)
 	}
 
-	a = &ipam.AllocationAction{}
+	a = &nodemanager.AllocationAction{}
 
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -406,7 +406,7 @@ func isSubnetAtPrefixCapacity(err error) bool {
 }
 
 // AllocateIPs performs the ENI allocation operation
-func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
+func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) error {
 	// Check if the interface to allocate on is prefix delegated
 	n.mutex.RLock()
 	isPrefixDelegated := n.node.Ops().IsPrefixDelegated()
@@ -558,7 +558,7 @@ const (
 // attaches it to the instance as specified by the CiliumNode. neededAddresses
 // of secondary IPs are assigned to the interface up to the maximum number of
 // addresses as allowed by the instance.
-func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *slog.Logger) (int, string, error) {
+func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.AllocationAction, scopedLog *slog.Logger) (int, string, error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return 0, unableToDetermineLimits, errors.New(errUnableToDetermineLimits)
@@ -720,7 +720,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, stats, ipam.LimitsNotFound{}
+		return nil, stats, nodemanager.ErrLimitsNotFound
 	}
 
 	// n.node does not need to be protected by n.mutex as it is only written to

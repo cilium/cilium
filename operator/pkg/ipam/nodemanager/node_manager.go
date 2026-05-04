@@ -3,7 +3,7 @@
 
 // Copyright 2017 Lyft, Inc.
 
-package ipam
+package nodemanager
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	ipamStats "github.com/cilium/cilium/operator/pkg/ipam/stats"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
@@ -26,15 +27,6 @@ import (
 )
 
 var ipamNodeIntervalControllerGroup = controller.NewGroup("ipam-node-interval-refresh")
-
-// CiliumNodeGetterUpdater defines the interface used to interact with the k8s
-// apiserver to retrieve and update the CiliumNode custom resource
-type CiliumNodeGetterUpdater interface {
-	Create(node *v2.CiliumNode) (*v2.CiliumNode, error)
-	Update(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
-	UpdateStatus(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
-	Get(name string) (*v2.CiliumNode, error)
-}
 
 // NodeOperations is the interface an IPAM implementation must provide in order
 // to provide IP allocation for a node. The structure implementing this API
@@ -171,7 +163,7 @@ type NodeManager struct {
 	mutex                lock.RWMutex
 	nodes                nodeMap
 	instancesAPI         AllocationImplementation
-	k8sAPI               CiliumNodeGetterUpdater
+	k8sAPI               allocator.CiliumNodeGetterUpdater
 	metricsAPI           MetricsAPI
 	parallelWorkers      int64
 	releaseExcessIPs     bool
@@ -189,7 +181,7 @@ func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) t
 }
 
 // NewNodeManager returns a new NodeManager
-func NewNodeManager(logger *slog.Logger, instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI,
+func NewNodeManager(logger *slog.Logger, instancesAPI AllocationImplementation, k8sAPI allocator.CiliumNodeGetterUpdater, metrics MetricsAPI,
 	parallelWorkers int64, releaseExcessIPs bool, excessIPReleaseDelay int, prefixDelegation bool) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1

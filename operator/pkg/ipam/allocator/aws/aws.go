@@ -13,11 +13,11 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -125,7 +125,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, aMetrics e
 // Start kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, iMetrics ipam.MetricsAPI) (allocator.NodeEventHandler, error) {
+func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater allocator.CiliumNodeGetterUpdater, iMetrics nodemanager.MetricsAPI) (allocator.NodeEventHandler, error) {
 	a.logger.Info("Starting ENI allocator...")
 
 	imds, err := metadata.NewClient(ctx)
@@ -136,7 +136,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI instances manager: %w", err)
 	}
-	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
+	nodeManager, err := nodemanager.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
 		a.ParallelAllocWorkers, a.AWSReleaseExcessIPs, a.ExcessIPReleaseDelay,
 		a.AWSEnablePrefixDelegation)
 	if err != nil {
