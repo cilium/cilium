@@ -214,8 +214,10 @@ func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
 }
 
 // verifyMasqueradeRules checks that rules are consistent with the masquerading configuration:
-// - If masquerading is enabled, rules need to have the 'to' field (example: 'from 10.194.0.56 to 10.0.0.0/8 lookup 3')
-// - If masquerading is disabled or if ri.CIDRs has 0.0.0.0/0, the 'to' field should not be there
+//   - If masquerading is enabled, rules should include both CIDR-specific rules (with 'to' field)
+//     and an unconditional rule (without 'to' field) for correct external traffic routing.
+//   - If masquerading is disabled, only the unconditional rule (no 'to' field) should be present.
+//   - If ri.CIDRs has 0.0.0.0/0, only the unconditional rule should be present (zero CIDR normalizes to nil).
 func verifyMasqueradeRules(t *testing.T, rules []netlink.Rule, ri RoutingInfo, ip netip.Addr) {
 	t.Helper()
 
@@ -227,16 +229,31 @@ func verifyMasqueradeRules(t *testing.T, rules []netlink.Rule, ri RoutingInfo, i
 		}
 	}
 
+	var hasUnconditionalRule bool
+	var hasCIDRRule bool
 	for _, rule := range rules {
 		if rule.Src != nil && rule.Src.IP.Equal(ip.AsSlice()) {
-			if ri.Masquerade && !hasZeroCidr && rule.Dst == nil {
-				require.Fail(t, "rule is missing the 'to' field with masquerading enabled")
-			} else if ri.Masquerade && hasZeroCidr && rule.Dst != nil {
-				require.Fail(t, "rule has the 'to' field with a 0.0.0.0/0 CIDR")
-			} else if !ri.Masquerade && rule.Dst != nil {
+			if rule.Dst == nil {
+				hasUnconditionalRule = true
+			} else {
+				hasCIDRRule = true
+			}
+
+			if !ri.Masquerade && rule.Dst != nil {
 				require.Fail(t, "rule has the 'to' field despite masquerading being disabled")
 			}
+			if ri.Masquerade && hasZeroCidr && rule.Dst != nil {
+				require.Fail(t, "rule has the 'to' field with a 0.0.0.0/0 CIDR")
+			}
 		}
+	}
+
+	// The unconditional rule must always be present for correct ENI routing.
+	require.True(t, hasUnconditionalRule, "unconditional egress rule (from <IP> lookup <table>) must be present")
+
+	// When masquerade is enabled with non-zero CIDRs, CIDR-specific rules should also be present.
+	if ri.Masquerade && !hasZeroCidr && len(ri.CIDRs) > 0 {
+		require.True(t, hasCIDRRule, "CIDR-specific egress rules must be present when masquerade is enabled")
 	}
 }
 
