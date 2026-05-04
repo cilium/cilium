@@ -245,7 +245,7 @@ Configuration
 
 The AWS ENI datapath is enabled by setting the following option:
 
-.. code-block: yaml
+.. code-block:: yaml
 
         ipam: eni
         enable-endpoint-routes: "true"
