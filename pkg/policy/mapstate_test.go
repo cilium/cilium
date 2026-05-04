@@ -1434,7 +1434,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 				verdict = types.Deny
 			}
 			value := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, NoAuthRequirement)
-			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
+			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, key, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
 		_, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
@@ -1982,7 +1982,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 				verdict = types.Deny
 			}
 			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
-			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
+			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, key, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
 		_, changes := policyMaps.consumeMapChanges(epPolicy, authRules|denyRules|redirectRules)
@@ -2025,7 +2025,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 				verdict = types.Deny
 			}
 			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
-			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
+			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, key, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
 		features := denyRules | redirectRules
@@ -3330,8 +3330,7 @@ func TestMapState_passValidation(t *testing.T) {
 					}
 
 					adds := identity.NumericIdentitySlice{key.Identity}
-					keys := []Key{key}
-					epPolicy.policyMapChanges.AccumulateMapChanges(types.Tier(tier), basePriority, adds, nil, keys, entry)
+					epPolicy.policyMapChanges.AccumulateMapChanges(types.Tier(tier), basePriority, adds, nil, key, entry)
 				}
 			}
 			epPolicy.policyMapChanges.SyncMapChanges(types.MockSelectorSnapshot())

@@ -175,7 +175,7 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 				features |= authRules
 			}
 			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, 0, verdict, x.authReq)
-			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
+			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, key, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
 		policyMaps.consumeMapChanges(epPolicy, features)
