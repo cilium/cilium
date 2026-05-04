@@ -22,7 +22,7 @@ runs:
         echo "CILIUM_CLI_RELEASE_REPO=cilium/cilium-cli" >> $GITHUB_ENV
         CILIUM_CLI_VERSION=""
         echo "CILIUM_CLI_VERSION=$CILIUM_CLI_VERSION" >> $GITHUB_ENV
-        echo "CILIUM_CLI_IMAGE_REPO=${REGISTRY_DEV}/cilium/cilium-cli-ci" >> $GITHUB_ENV
+        echo "CILIUM_CLI_IMAGE_REPO=${REGISTRY_DEV}/${ORGANIZATION_DEV}/cilium-cli-ci" >> $GITHUB_ENV
         echo "CILIUM_CLI_SKIP_BUILD=true" >> $GITHUB_ENV
 
         # Use TESTOWNERS file if it exists, otherwise fall back to CODEOWNERS only
