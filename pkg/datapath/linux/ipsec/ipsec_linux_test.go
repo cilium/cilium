@@ -219,8 +219,7 @@ func testUpsertIPSecEquals(t *testing.T, family string) {
 	}
 
 	a := NewTestIPsecAgent(t)
-	a.ipSecKeysGlobal[remote.IP.String()] = key
-	a.ipSecKeysGlobal[""] = key
+	a.key = key
 
 	params := &types.Parameters{
 		LocalBootID:    localBootID,
@@ -242,19 +241,6 @@ func testUpsertIPSecEquals(t *testing.T, family string) {
 	// Let's check that state was not added as source and destination are the same
 	result := tnl.MustXfrmStateList(t, ns, netlink.FAMILY_ALL)
 	require.Empty(t, result)
-
-	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
-	require.NoError(t, err)
-	key = &ipSecKey{
-		Spi:   1,
-		ReqID: 1,
-		Aead:  &netlink.XfrmStateAlgo{Name: "rfc4106(gcm(aes))", Key: aeadKey, ICVLen: 128},
-		Crypt: nil,
-		Auth:  nil,
-	}
-
-	a.ipSecKeysGlobal[remote.IP.String()] = key
-	a.ipSecKeysGlobal[""] = key
 
 	mustUpsertIPSecEndpoint(t, ns, a, params)
 
@@ -298,9 +284,7 @@ func testUpsertIPSecEndpointOut(t *testing.T, family string) {
 	}
 
 	a := NewTestIPsecAgent(t)
-	a.ipSecKeysGlobal[local.IP.String()] = key
-	a.ipSecKeysGlobal[remote.IP.String()] = key
-	a.ipSecKeysGlobal[""] = key
+	a.key = key
 
 	params := &types.Parameters{
 		LocalBootID:    localBootID,
@@ -406,7 +390,7 @@ func TestPrivilegedUpsertIPSecEndpointFwd(t *testing.T) {
 //     the traffic.
 //   - A ReqID of 1
 func testUpsertIPSecEndpointFwd(t *testing.T, family string) {
-	local, remote := setup(t, family)
+	local, _ := setup(t, family)
 
 	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -420,9 +404,7 @@ func testUpsertIPSecEndpointFwd(t *testing.T, family string) {
 	}
 
 	a := NewTestIPsecAgent(t)
-	a.ipSecKeysGlobal[local.IP.String()] = key
-	a.ipSecKeysGlobal[remote.IP.String()] = key
-	a.ipSecKeysGlobal[""] = key
+	a.key = key
 
 	params := &types.Parameters{
 		LocalBootID:    localBootID,
@@ -522,9 +504,7 @@ func testUpsertIPSecEndpointIn(t *testing.T, family string) {
 	}
 
 	a := NewTestIPsecAgent(t)
-	a.ipSecKeysGlobal[local.IP.String()] = key
-	a.ipSecKeysGlobal[remote.IP.String()] = key
-	a.ipSecKeysGlobal[""] = key
+	a.key = key
 
 	params := &types.Parameters{
 		LocalBootID:    localBootID,
@@ -660,9 +640,7 @@ func testUpdateExistingIPSecEndpoint(t *testing.T, family string) {
 	}
 
 	a := NewTestIPsecAgent(t)
-	a.ipSecKeysGlobal[local.IP.String()] = key
-	a.ipSecKeysGlobal[remote.IP.String()] = key
-	a.ipSecKeysGlobal[""] = key
+	a.key = key
 
 	params := &types.Parameters{
 		LocalBootID:    localBootID,
