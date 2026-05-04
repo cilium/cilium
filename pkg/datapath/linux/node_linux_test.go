@@ -690,7 +690,7 @@ func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.
 	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
 
 	a := ipsec.NewTestIPsecAgent(t)
-	_, _, err := a.LoadIPSecKeys(keys)
+	_, err := a.LoadIPSecKeys(keys)
 	require.NoError(t, err)
 
 	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
@@ -1173,7 +1173,7 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
 
 	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
-	_, _, err := a.LoadIPSecKeys(keys)
+	_, err := a.LoadIPSecKeys(keys)
 	require.NoError(t, err)
 
 	// set "local_node" as the local node name

@@ -248,7 +248,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 4. Ensure the MTU returns the correct value.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				overhead := mtu.EncryptionIPsecOverhead + (ipsecAgent.authKeySize - mtu.EncryptionDefaultAuthKeyLength)
+				overhead := mtu.EncryptionIPsecOverhead + (ipsecAgent.AuthKeySize() - mtu.EncryptionDefaultAuthKeyLength)
 				assert.Equal(c, mtuConfig.GetDeviceMTU(), mtuConfig.GetRouteMTU()+overhead)
 			}, TestTimeout, 50*time.Millisecond)
 

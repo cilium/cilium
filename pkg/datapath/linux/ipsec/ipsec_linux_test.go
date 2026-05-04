@@ -86,7 +86,7 @@ func mustUpsertIPSecEndpoint(tb testing.TB, ns *netns.NetNS, a *agent, params *t
 
 func TestLoadKeysNoFile(t *testing.T) {
 	a := NewTestIPsecAgent(t)
-	_, _, err := a.loadIPSecKeysFile(path)
+	_, err := a.loadIPSecKeysFile(path)
 	require.True(t, os.IsNotExist(err))
 }
 
@@ -114,7 +114,7 @@ func testInvalidLoadKeys(t *testing.T, family string) {
 		t.Run(tc.name, func(t *testing.T) {
 			a := NewTestIPsecAgent(t)
 			keys := bytes.NewReader(tc.input)
-			_, _, err := a.LoadIPSecKeys(keys)
+			_, err := a.LoadIPSecKeys(keys)
 			require.ErrorContains(t, err, tc.expError)
 		})
 	}
@@ -143,7 +143,7 @@ func TestLoadKeys(t *testing.T) {
 	for _, testCase := range testCases {
 		keys := bytes.NewReader(testCase)
 		a := NewTestIPsecAgent(t)
-		_, spi, err := a.LoadIPSecKeys(keys)
+		spi, err := a.LoadIPSecKeys(keys)
 		require.NoError(t, err)
 		err = a.setIPSecSPI(spi)
 		require.NoError(t, err)
@@ -154,14 +154,14 @@ func TestLoadKeys(t *testing.T) {
 func TestLoadKeysLenChange(t *testing.T) {
 	a := NewTestIPsecAgent(t)
 	keys := bytes.NewReader(append(keysDat, keysNullDat...))
-	_, _, err := a.LoadIPSecKeys(keys)
+	_, err := a.LoadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid key rotation: key length must not change")
 }
 
 func TestLoadKeysSameSPI(t *testing.T) {
 	a := NewTestIPsecAgent(t)
 	keys := bytes.NewReader(keysSameSpiDat)
-	_, _, err := a.LoadIPSecKeys(keys)
+	_, err := a.LoadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid SPI: changing IPSec keys requires incrementing the key id")
 }
 
