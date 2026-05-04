@@ -10,7 +10,7 @@ import (
 
 	"github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
-	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
+	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 

@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/aws"
-	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
+	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/metrics"

@@ -17,10 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
+	ipamStats "github.com/cilium/cilium/operator/pkg/ipam/stats"
 	"github.com/cilium/cilium/pkg/defaults"
-	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	ipamStats "github.com/cilium/cilium/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
