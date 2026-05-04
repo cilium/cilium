@@ -27,16 +27,16 @@ var (
 // PortProto is a pair of port number and protocol and is used as the
 // value type in named port maps.
 type PortProto struct {
-	Proto u8proto.U8proto // 0 for any
+	Proto u8proto.U8proto // concrete protocol; u8proto.ANY is invalid
 	Port  uint16          // non-0
 }
 
 // NamedPortMap maps port names to port numbers and protocols.
 type NamedPortMap map[string]PortProto
 
-// PortProtoSet maps numeric identity and protocol to the resolved port for one
+// portProtoSet maps numeric identity and protocol to the resolved port for one
 // named port.
-type PortProtoSet map[nidProtoKey]namedPortRef
+type portProtoSet map[nidProtoKey]namedPortRef
 
 type nidProtoKey struct {
 	nid   identity.NumericIdentity
@@ -54,7 +54,7 @@ type namedPortRef struct {
 }
 
 // Equal returns true if the PortProtoSets are equal.
-func (pps PortProtoSet) Equal(other PortProtoSet) bool {
+func (pps portProtoSet) Equal(other portProtoSet) bool {
 	if len(pps) != len(other) {
 		return false
 	}
@@ -70,7 +70,7 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 
 // Add increments the reference count for the numeric identity associated with the PortProto.
 // Returns true if the named port mapping changed for the numeric identity.
-func (pps PortProtoSet) Add(pp PortProto, nid identity.NumericIdentity) bool {
+func (pps portProtoSet) Add(pp PortProto, nid identity.NumericIdentity) bool {
 	if pp.Port == 0 {
 		return false
 	}
@@ -97,7 +97,7 @@ func (pps PortProtoSet) Add(pp PortProto, nid identity.NumericIdentity) bool {
 // Delete decrements the reference count for the numeric identity associated
 // with the PortProto. Returns true if the set of ports for the numeric
 // identity changed.
-func (pps PortProtoSet) Delete(pp PortProto, nid identity.NumericIdentity) bool {
+func (pps portProtoSet) Delete(pp PortProto, nid identity.NumericIdentity) bool {
 	key := nidProtoKey{nid: nid, proto: pp.Proto}
 	ref, ok := pps[key]
 	if !ok {
@@ -181,7 +181,7 @@ type NamedPortMultiMap interface {
 
 func NewNamedPortMultiMap() *namedPortMultiMap {
 	return &namedPortMultiMap{
-		m: make(map[string]PortProtoSet),
+		m: make(map[string]portProtoSet),
 	}
 }
 
@@ -189,7 +189,7 @@ func NewNamedPortMultiMap() *namedPortMultiMap {
 // must be protected by its RW mutex.
 type namedPortMultiMap struct {
 	lock.RWMutex
-	m map[string]PortProtoSet
+	m map[string]portProtoSet
 }
 
 func (npm *namedPortMultiMap) Len() int {
@@ -220,14 +220,14 @@ func (npm *namedPortMultiMap) Update(nid identity.NumericIdentity, old, new Name
 
 	// Handle additions: Ports in new but not in old, or changed.
 	for name, newPP := range new {
-		if newPP.Port == 0 {
+		if newPP.Port == 0 || newPP.Proto == u8proto.ANY {
 			continue
 		}
 		oldPP, exists := old[name]
 		if !exists || newPP != oldPP {
 			pps, ok := npm.m[name]
 			if !ok {
-				pps = make(PortProtoSet)
+				pps = make(portProtoSet)
 				npm.m[name] = pps
 			}
 			if pps.Add(newPP, nid) {
@@ -258,6 +258,9 @@ func newPortProto(port int, protocol string) (pp PortProto, err error) {
 			return pp, err
 		}
 	}
+	if u8p == u8proto.ANY {
+		return pp, ErrIncompatibleProtocol
+	}
 	if port < 1 || port > 65535 {
 		if port == 0 {
 			return pp, ErrNamedPortIsZero
@@ -284,7 +287,8 @@ func (npm NamedPortMap) AddPort(name string, port int, protocol string) error {
 	return nil
 }
 
-// GetNamedPort returns the port number for the named port, if any.
+// GetNamedPort returns the port number for the named port, if any. proto must
+// be a concrete protocol; u8proto.ANY does not match named ports.
 func (npm NamedPortMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
@@ -293,7 +297,7 @@ func (npm NamedPortMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16
 	if !ok {
 		return 0, ErrUnknownNamedPort
 	}
-	if pp.Proto != 0 && proto != pp.Proto {
+	if proto == u8proto.ANY || pp.Proto == u8proto.ANY || proto != pp.Proto {
 		return 0, ErrIncompatibleProtocol
 	}
 	if pp.Port == 0 {
@@ -407,7 +411,7 @@ func (s NidPortSeq) Ports() []uint16 {
 	return ports
 }
 
-func (pps PortProtoSet) lookupNamedPort(proto u8proto.U8proto, nid identity.NumericIdentity) (port uint16, ok, duplicate bool) {
+func (pps portProtoSet) lookupNamedPort(proto u8proto.U8proto, nid identity.NumericIdentity) (port uint16, ok, duplicate bool) {
 	if nid == 0 {
 		return 0, false, false
 	}

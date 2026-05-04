@@ -55,7 +55,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
-	"github.com/cilium/cilium/pkg/u8proto"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -666,16 +665,11 @@ func (k *K8sPodWatcher) updatePodHostData(ctx context.Context, oldPod, newPod *s
 			if port.Name == "" {
 				continue
 			}
-			p, err := u8proto.ParseProtocol(string(port.Protocol))
-			if err != nil {
-				return fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
-			}
 			if k8sMeta.NamedPorts == nil {
 				k8sMeta.NamedPorts = make(ciliumTypes.NamedPortMap)
 			}
-			k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
-				Port:  uint16(port.ContainerPort),
-				Proto: p,
+			if err := k8sMeta.NamedPorts.AddPort(port.Name, int(port.ContainerPort), string(port.Protocol)); err != nil {
+				return fmt.Errorf("ContainerPort: invalid named port: %w", err)
 			}
 		}
 	}
