@@ -826,7 +826,7 @@ github.com/fatih/color
 # github.com/felixge/httpsnoop v1.0.4
 ## explicit; go 1.13
 github.com/felixge/httpsnoop
-# github.com/fluxcd/cli-utils v0.37.1-flux.1
+# github.com/fluxcd/cli-utils v0.37.2-flux.1
 ## explicit; go 1.25.0
 github.com/fluxcd/cli-utils/pkg/kstatus/polling/aggregator
 github.com/fluxcd/cli-utils/pkg/kstatus/polling/clusterreader
@@ -972,6 +972,9 @@ github.com/gobwas/glob/util/strings
 # github.com/godbus/dbus/v5 v5.2.0
 ## explicit; go 1.20
 github.com/godbus/dbus/v5
+# github.com/gofrs/flock v0.13.0
+## explicit; go 1.24.0
+github.com/gofrs/flock
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/gogoproto
@@ -2068,7 +2071,7 @@ gopkg.in/yaml.v2
 gopkg.in/yaml.v3
 # gotest.tools/v3 v3.5.2
 ## explicit; go 1.17
-# helm.sh/helm/v4 v4.1.1
+# helm.sh/helm/v4 v4.1.4
 ## explicit; go 1.25.0
 helm.sh/helm/v4/internal/chart/v3
 helm.sh/helm/v4/internal/chart/v3/loader
