@@ -37,6 +37,7 @@ func NewGetBgpPeers(ctx *middleware.Context, handler GetBgpPeersHandler) *GetBgp
 Retrieves current operational state of BGP peers created by
 Cilium BGP virtual router. This includes session state, uptime,
 information per address family, etc.
+Deprecated: This will be removed in the future.
 */
 type GetBgpPeers struct {
 	Context *middleware.Context

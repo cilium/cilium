@@ -877,6 +877,8 @@ paths:
         Retrieves current operational state of BGP peers created by
         Cilium BGP virtual router. This includes session state, uptime,
         information per address family, etc.
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
         - bgp
       responses:
@@ -898,7 +900,10 @@ paths:
   "/bgp/routes":
     get:
       summary: Lists BGP routes from BGP Control Plane RIB.
-      description: Retrieves routes from BGP Control Plane RIB filtered by parameters you specify
+      description: |
+        Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
         - bgp
       parameters:
@@ -926,7 +931,10 @@ paths:
   "/bgp/route-policies":
     get:
       summary: Lists BGP route policies configured in BGP Control Plane.
-      description: Retrieves route policies from BGP Control Plane.
+      description: |
+        Retrieves route policies from BGP Control Plane.
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
         - bgp
       parameters:
@@ -3618,6 +3626,7 @@ definitions:
   BgpPeer:
     description: |-
       State of a BGP Peer
+      Deprecated: This will be removed in the future.
 
       +k8s:deepcopy-gen=true
     properties:
@@ -3730,7 +3739,9 @@ definitions:
           (RFC 4724 section 4.2)
         type: integer
   BgpRoute:
-    description: Single BGP route retrieved from the RIB of underlying router
+    description: |
+      Single BGP route retrieved from the RIB of underlying router
+      Deprecated: This will be removed in the future.
     properties:
       router-asn:
         description: Autonomous System Number (ASN) identifying a BGP virtual router instance
@@ -3791,7 +3802,9 @@ definitions:
         description: Base64-encoded BGP path attribute in the BGP UPDATE message format
         type: string
   BgpRoutePolicy:
-    description: Single BGP route policy retrieved from the underlying router
+    description: |
+      Single BGP route policy retrieved from the underlying router
+      Deprecated: This will be removed in the future.
     properties:
       router-asn:
         description: Autonomous System Number (ASN) identifying a BGP virtual router instance
