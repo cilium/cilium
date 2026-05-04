@@ -274,7 +274,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 				activeSPI, err = ipsecAgent.getActiveSPI()
 				assert.NoError(c, err)
 				assert.Equal(c, ipsecAgent.getCurrentSPI(), activeSPI)
-				assert.NotEmpty(c, ipsecAgent.ipSecKeysRemovalTime)
+				assert.NotEmpty(c, ipsecAgent.keysRemovalTime)
 			}, TestTimeout, 50*time.Millisecond)
 
 			// 10. Dump an invalid IPSec key to file.

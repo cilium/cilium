@@ -62,8 +62,7 @@ const (
 	offsetEncKey   = 4
 	maxOffset      = offsetEncKey
 
-	defaultDropPriority      = 100
-	oldXFRMOutPolicyPriority = 50
+	defaultDropPriority = 100
 
 	// The request ID which signifies all Cilium managed policies and states.
 	AllReqID = 0
@@ -140,7 +139,7 @@ var (
 // detected, the SPI update is deferred in StartBackgroundJobs(), after ensuring
 // XFRM states are configured for all known peers.
 type agent struct {
-	ipSecLock lock.RWMutex
+	lock.RWMutex
 
 	// These are provided in [newAgent].
 	log        *slog.Logger
@@ -152,17 +151,17 @@ type agent struct {
 	// These are initialized in [newAgent].
 	// key is the global key in use.
 	key *ipSecKey
-	// ipSecKeysRemovalTime is used to track at which time a given key is
+	// keysRemovalTime is used to track at which time a given key is
 	// replaced with a newer one, allowing to reclaim old keys only after
 	// enough time has passed since their replacement
-	ipSecKeysRemovalTime map[uint8]time.Time
+	keysRemovalTime map[uint8]time.Time
 	// xfrmStateCache is a cache of XFRM states to avoid querying each time.
 	// This is especially important for backgroundSync that is used to validate
-	// if the XFRM state is correct, without usually modyfing anything.
+	// if the XFRM state is correct, without usually modifying anything.
 	// The cache is invalidated whenever a new XFRM state is added/updated/removed,
 	// but also in case of TTL expiration.
 	// It provides XfrmStateAdd/Update/Del wrappers that ensure cache
-	// is correctly invalidate.
+	// is correctly invalidated.
 	xfrmStateCache *xfrmStateListCache
 }
 
@@ -175,9 +174,9 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 		config:     c,
 		encryptMap: em,
 
-		key:                  nil,
-		ipSecKeysRemovalTime: map[uint8]time.Time{},
-		xfrmStateCache:       NewXfrmStateListCache(time.Minute, c.EnableIPsecXfrmStateCaching),
+		key:             nil,
+		keysRemovalTime: map[uint8]time.Time{},
+		xfrmStateCache:  NewXfrmStateListCache(time.Minute, c.EnableIPsecXfrmStateCaching),
 	}
 	lc.Append(ipsec)
 	return ipsec
@@ -231,8 +230,8 @@ func (a *agent) StartBackgroundJobs(handler node.Handler, dpInitialized <-chan s
 		return nil
 	}
 
-	a.ipSecLock.RLock()
-	defer a.ipSecLock.RUnlock()
+	a.RLock()
+	defer a.RUnlock()
 
 	currentSPI := a.getCurrentSPI()
 	activeSPI, err := a.getActiveSPI()
@@ -275,8 +274,8 @@ func (a *agent) Stop(cell.HookContext) error {
 }
 
 func (a *agent) AuthKeySize() int {
-	a.ipSecLock.RLock()
-	defer a.ipSecLock.RUnlock()
+	a.RLock()
+	defer a.RUnlock()
 
 	if a.key != nil {
 		return a.key.KeyLen
@@ -321,39 +320,8 @@ func canonicalIP(ip net.IP) net.IP {
 	return ip
 }
 
-// deriveNodeIPsecKey builds a per-node-pair ipSecKey object from the global
+// getNodeIPsecKey builds a per-node-pair ipSecKey object from the global
 // ipSecKey object.
-func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBootID, dstBootID []byte) *ipSecKey {
-	nodeKey := &ipSecKey{
-		Spi:    globalKey.Spi,
-		KeyLen: globalKey.KeyLen,
-		ReqID:  globalKey.ReqID,
-	}
-
-	srcNodeIP = canonicalIP(srcNodeIP)
-	dstNodeIP = canonicalIP(dstNodeIP)
-
-	if globalKey.Aead != nil {
-		nodeKey.Aead = &netlink.XfrmStateAlgo{
-			Name:   globalKey.Aead.Name,
-			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
-			ICVLen: globalKey.Aead.ICVLen,
-		}
-	} else {
-		nodeKey.Auth = &netlink.XfrmStateAlgo{
-			Name: globalKey.Auth.Name,
-			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
-		}
-
-		nodeKey.Crypt = &netlink.XfrmStateAlgo{
-			Name: globalKey.Crypt.Name,
-			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, srcBootID, dstBootID),
-		}
-	}
-
-	return nodeKey
-}
-
 // We want one IPsec key per node pair. For a pair of nodes A and B with IP
 // addresses a and b, and boot ids x and y respectively, we will therefore
 // install two different keys:
@@ -374,7 +342,34 @@ func (a *agent) getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dst
 		return nil, fmt.Errorf("incorrect size for boot ID, should be at least 36 characters long")
 	}
 
-	return deriveNodeIPsecKey(a.key, localNodeIP, remoteNodeIP, srcBootIDBytes, dstBootIDBytes), nil
+	nodeKey := &ipSecKey{
+		Spi:    a.key.Spi,
+		KeyLen: a.key.KeyLen,
+		ReqID:  a.key.ReqID,
+	}
+
+	srcNodeIP := canonicalIP(localNodeIP)
+	dstNodeIP := canonicalIP(remoteNodeIP)
+
+	if a.key.Aead != nil {
+		nodeKey.Aead = &netlink.XfrmStateAlgo{
+			Name:   a.key.Aead.Name,
+			Key:    computeNodeIPsecKey(a.key.Aead.Key, srcNodeIP, dstNodeIP, srcBootIDBytes, dstBootIDBytes),
+			ICVLen: a.key.Aead.ICVLen,
+		}
+	} else {
+		nodeKey.Auth = &netlink.XfrmStateAlgo{
+			Name: a.key.Auth.Name,
+			Key:  computeNodeIPsecKey(a.key.Auth.Key, srcNodeIP, dstNodeIP, srcBootIDBytes, dstBootIDBytes),
+		}
+
+		nodeKey.Crypt = &netlink.XfrmStateAlgo{
+			Name: a.key.Crypt.Name,
+			Key:  computeNodeIPsecKey(a.key.Crypt.Key, srcNodeIP, dstNodeIP, srcBootIDBytes, dstBootIDBytes),
+		}
+	}
+
+	return nodeKey, nil
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
@@ -393,11 +388,6 @@ func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 		state.Auth = keys.Auth
 	}
 	return &state
-}
-
-func ipSecNewPolicy() *netlink.XfrmPolicy {
-	policy := netlink.XfrmPolicy{}
-	return &policy
 }
 
 func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, reqID int, spi uint8, srcIP, dstIP net.IP, optional bool) {
@@ -636,7 +626,7 @@ func (a *agent) ipSecReplacePolicyIn(params *types.Parameters) error {
 		return fmt.Errorf("IPSec key missing")
 	}
 
-	policy := ipSecNewPolicy()
+	policy := &netlink.XfrmPolicy{}
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_IN
@@ -651,7 +641,7 @@ func (a *agent) ipsecReplacePolicyFwd(params *types.Parameters) error {
 		return fmt.Errorf("IPSec key missing")
 	}
 
-	policy := ipSecNewPolicy()
+	policy := &netlink.XfrmPolicy{}
 	policy.Dir = netlink.XFRM_DIR_FWD
 	policy.Priority = linux_defaults.IPsecFwdPriority
 
@@ -734,7 +724,7 @@ func (a *agent) ipSecReplacePolicyOut(params *types.Parameters) error {
 		return fmt.Errorf("IPSec key missing")
 	}
 
-	policy := ipSecNewPolicy()
+	policy := &netlink.XfrmPolicy{}
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
@@ -903,8 +893,8 @@ func (a *agent) UpsertIPsecEndpoint(params *types.Parameters) (uint8, error) {
 	var spi uint8
 	var err error
 
-	a.ipSecLock.RLock()
-	defer a.ipSecLock.RUnlock()
+	a.RLock()
+	defer a.RUnlock()
 
 	/* TODO: state reference ID is (dip,spi) which can be duplicated in the current global
 	 * mode. The duplication is on _all_ ingress states because dst_ip == host_ip in this
@@ -1102,8 +1092,8 @@ func (a *agent) loadIPSecKeysFile(path string) (uint8, error) {
 func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 	var spi uint8
 
-	a.ipSecLock.Lock()
-	defer a.ipSecLock.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
@@ -1115,7 +1105,7 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 			offsetBase int
 		)
 
-		ipSecKey := &ipSecKey{
+		newKey := &ipSecKey{
 			ReqID: DefaultReqID,
 		}
 
@@ -1129,7 +1119,7 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 			return 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spi, offsetBase, err = parseSPI(s[offsetSPI])
+		newKey.Spi, offsetBase, err = parseSPI(s[offsetSPI])
 		if err != nil {
 			return 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
@@ -1157,16 +1147,16 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 				return 0, fmt.Errorf("only ICV lengths 96, 128, and 256 are accepted")
 			}
 
-			ipSecKey.Aead = &netlink.XfrmStateAlgo{
+			newKey.Aead = &netlink.XfrmStateAlgo{
 				Name:   aeadName,
 				Key:    aeadKey,
 				ICVLen: icvLen,
 			}
-			ipSecKey.KeyLen = icvLen / 8
+			newKey.KeyLen = icvLen / 8
 		} else {
 			// We're in the second case, with "[spi] auth-algo auth-key enc-algo enc-key [IP]".
 			authAlgo := s[offsetBase+offsetAuthAlgo]
-			ipSecKey.KeyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
+			newKey.KeyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
 			if err != nil {
 				return 0, fmt.Errorf("unable to decode authentication key string %q", s[offsetBase+offsetAuthKey])
 			}
@@ -1177,28 +1167,27 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 				return 0, fmt.Errorf("unable to decode encryption key string %q", s[offsetBase+offsetEncKey])
 			}
 
-			ipSecKey.Auth = &netlink.XfrmStateAlgo{
+			newKey.Auth = &netlink.XfrmStateAlgo{
 				Name: authAlgo,
 				Key:  authKey,
 			}
-			ipSecKey.Crypt = &netlink.XfrmStateAlgo{
+			newKey.Crypt = &netlink.XfrmStateAlgo{
 				Name: encAlgo,
 				Key:  encKey,
 			}
 		}
 
-		ipSecKey.Spi = spi
-
 		if a.key != nil {
-			if a.key.Spi == ipSecKey.Spi {
+			if a.key.Spi == newKey.Spi {
 				return 0, fmt.Errorf("invalid SPI: changing IPSec keys requires incrementing the key id")
 			}
-			if a.key.KeyLen != ipSecKey.KeyLen {
+			if a.key.KeyLen != newKey.KeyLen {
 				return 0, fmt.Errorf("invalid key rotation: key length must not change")
 			}
-			a.ipSecKeysRemovalTime[a.key.Spi] = time.Now()
+			a.keysRemovalTime[a.key.Spi] = time.Now()
 		}
-		a.key = ipSecKey
+		a.key = newKey
+		spi = newKey.Spi
 	}
 	if err := scanner.Err(); err != nil {
 		return 0, fmt.Errorf("error scanning IPsec key: %w", err)
@@ -1413,14 +1402,14 @@ func (a *agent) ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bo
 	}
 
 	// Otherwise retrieve the time at which the key for the given SPI was removed
-	keyRemovalTime, ok := a.ipSecKeysRemovalTime[spi]
+	keyRemovalTime, ok := a.keysRemovalTime[spi]
 	if !ok {
 		// If not found in the keyRemovalTime map, assume the key was
 		// deleted just now.
 		// In this way if the agent gets restarted before an old key is
 		// removed we will always wait at least IPsecKeyRotationDuration time
 		// before reclaiming it
-		a.ipSecKeysRemovalTime[spi] = time.Now()
+		a.keysRemovalTime[spi] = time.Now()
 
 		return false
 	}
@@ -1507,8 +1496,8 @@ func equalDefaultDropPolicy(defaultDropPolicy, p *netlink.XfrmPolicy) bool {
 }
 
 func (a *agent) onTimer(ctx context.Context) error {
-	a.ipSecLock.Lock()
-	defer a.ipSecLock.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	// In case no IPSec key has been loaded yet, don't try to reclaim any
 	// old key
@@ -1547,9 +1536,9 @@ func NewTestIPsecAgent(tb testing.TB, keys io.Reader) (*agent, error) {
 		jobs:       nil,
 		encryptMap: fakeencryptmap.NewFakeEncryptMap(),
 
-		key:                  nil,
-		ipSecKeysRemovalTime: map[uint8]time.Time{},
-		xfrmStateCache:       NewXfrmStateListCache(time.Minute, true),
+		key:             nil,
+		keysRemovalTime: map[uint8]time.Time{},
+		xfrmStateCache:  NewXfrmStateListCache(time.Minute, true),
 	}
 
 	var err error
