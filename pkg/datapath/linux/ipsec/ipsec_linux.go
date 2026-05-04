@@ -1090,10 +1090,10 @@ func (a *agent) loadIPSecKeysFile(path string) (uint8, error) {
 		return 0, err
 	}
 	defer file.Close()
-	return a.LoadIPSecKeys(file)
+	return a.loadIPSecKeys(file)
 }
 
-func (a *agent) LoadIPSecKeys(r io.Reader) (uint8, error) {
+func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 	var spi uint8
 
 	a.ipSecLock.Lock()
@@ -1510,7 +1510,11 @@ func (a *agent) onTimer(ctx context.Context) error {
 	return nil
 }
 
-func NewTestIPsecAgent(tb testing.TB) *agent {
+// NewTestIPsecAgent creates a new IPsec agent for testing purposes.
+// A non-nil keys parameter can be used to load IPsec keys into the agent when
+// using the test agent in tests that require IPsec keys to be loaded and testing
+// from a different package.
+func NewTestIPsecAgent(tb testing.TB, keys io.Reader) (*agent, error) {
 	tb.Helper()
 
 	agent := &agent{
@@ -1525,5 +1529,10 @@ func NewTestIPsecAgent(tb testing.TB) *agent {
 		xfrmStateCache:       NewXfrmStateListCache(time.Minute, true),
 	}
 
-	return agent
+	var err error
+	if keys != nil {
+		_, err = agent.loadIPSecKeys(keys)
+	}
+
+	return agent, err
 }

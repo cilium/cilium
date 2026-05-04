@@ -85,8 +85,9 @@ func mustUpsertIPSecEndpoint(tb testing.TB, ns *netns.NetNS, a *agent, params *t
 }
 
 func TestLoadKeysNoFile(t *testing.T) {
-	a := NewTestIPsecAgent(t)
-	_, err := a.loadIPSecKeysFile(path)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
+	_, err = a.loadIPSecKeysFile(path)
 	require.True(t, os.IsNotExist(err))
 }
 
@@ -112,14 +113,16 @@ func testInvalidLoadKeys(t *testing.T, family string) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			a := NewTestIPsecAgent(t)
+			a, err := NewTestIPsecAgent(t, nil)
+			require.NoError(t, err)
 			keys := bytes.NewReader(tc.input)
-			_, err := a.LoadIPSecKeys(keys)
+			_, err = a.loadIPSecKeys(keys)
 			require.ErrorContains(t, err, tc.expError)
 		})
 	}
 
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	params := &types.Parameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
@@ -134,7 +137,7 @@ func testInvalidLoadKeys(t *testing.T, family string) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err := a.UpsertIPsecEndpoint(params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.Error(t, err)
 }
 
@@ -142,8 +145,9 @@ func TestLoadKeys(t *testing.T) {
 	testCases := [][]byte{keysDat, keysNullDat, keysAeadDat, keysAeadDat256}
 	for _, testCase := range testCases {
 		keys := bytes.NewReader(testCase)
-		a := NewTestIPsecAgent(t)
-		spi, err := a.LoadIPSecKeys(keys)
+		a, err := NewTestIPsecAgent(t, nil)
+		require.NoError(t, err)
+		spi, err := a.loadIPSecKeys(keys)
 		require.NoError(t, err)
 		err = a.setIPSecSPI(spi)
 		require.NoError(t, err)
@@ -152,16 +156,18 @@ func TestLoadKeys(t *testing.T) {
 }
 
 func TestLoadKeysLenChange(t *testing.T) {
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	keys := bytes.NewReader(append(keysDat, keysNullDat...))
-	_, err := a.LoadIPSecKeys(keys)
+	_, err = a.loadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid key rotation: key length must not change")
 }
 
 func TestLoadKeysSameSPI(t *testing.T) {
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	keys := bytes.NewReader(keysSameSpiDat)
-	_, err := a.LoadIPSecKeys(keys)
+	_, err = a.loadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid SPI: changing IPSec keys requires incrementing the key id")
 }
 
@@ -218,7 +224,8 @@ func testUpsertIPSecEquals(t *testing.T, family string) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	a.key = key
 
 	params := &types.Parameters{
@@ -283,7 +290,8 @@ func testUpsertIPSecEndpointOut(t *testing.T, family string) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	a.key = key
 
 	params := &types.Parameters{
@@ -403,7 +411,8 @@ func testUpsertIPSecEndpointFwd(t *testing.T, family string) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	a.key = key
 
 	params := &types.Parameters{
@@ -503,7 +512,8 @@ func testUpsertIPSecEndpointIn(t *testing.T, family string) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	a.key = key
 
 	params := &types.Parameters{
@@ -610,9 +620,10 @@ func testUpsertIPSecKeyMissing(t *testing.T, family string) {
 		ReqID:          DefaultReqID,
 	}
 
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	ns := netns.NewNetNS(t)
-	err := ns.Do(func() error {
+	err = ns.Do(func() error {
 		_, err := a.UpsertIPsecEndpoint(params)
 		return err
 	})
@@ -639,7 +650,8 @@ func testUpdateExistingIPSecEndpoint(t *testing.T, family string) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	a := NewTestIPsecAgent(t)
+	a, err := NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
 	a.key = key
 
 	params := &types.Parameters{
