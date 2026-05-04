@@ -330,8 +330,9 @@ func canonicalIP(ip net.IP) net.IP {
 // ipSecKey object.
 func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBootID, dstBootID []byte) *ipSecKey {
 	nodeKey := &ipSecKey{
-		Spi:   globalKey.Spi,
-		ReqID: globalKey.ReqID,
+		Spi:    globalKey.Spi,
+		KeyLen: globalKey.KeyLen,
+		ReqID:  globalKey.ReqID,
 	}
 
 	srcNodeIP = canonicalIP(srcNodeIP)
@@ -405,13 +406,14 @@ func ipSecNewPolicy() *netlink.XfrmPolicy {
 	return &policy
 }
 
-func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool, optional bool) {
+func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, reqID int, spi uint8, srcIP, dstIP net.IP, optional bool) {
 	tmpl := netlink.XfrmPolicyTmpl{
 		Proto: netlink.XFRM_PROTO_ESP,
 		Mode:  netlink.XFRM_MODE_TUNNEL,
 		Dst:   dstIP,
 		Src:   srcIP,
-		Reqid: keys.ReqID,
+		Reqid: reqID,
+		Spi:   int(spi),
 	}
 
 	if optional {
@@ -419,13 +421,9 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, d
 		// If the template is optional, we might as well make it accept
 		// everything it can.
 		tmpl.Reqid = 0
+		tmpl.Spi = 0
 		tmpl.Src = nil
 		tmpl.Dst = nil
-		spi = false
-	}
-
-	if spi {
-		tmpl.Spi = int(keys.Spi)
 	}
 
 	policy.Tmpls = append(policy.Tmpls, tmpl)
@@ -597,8 +595,8 @@ func (a *agent) ipSecReplaceStateIn(params *types.Parameters) (uint8, error) {
 	if err != nil {
 		return 0, err
 	}
-	key.ReqID = params.ReqID
 	state := ipSecNewState(key)
+	state.Reqid = params.ReqID
 	state.Src = *params.SourceTunnelIP
 	state.Dst = *params.DestTunnelIP
 	state.Mark = generateDecryptMark(linux_defaults.RouteMarkDecrypt, params.RemoteNodeID)
@@ -625,8 +623,8 @@ func (a *agent) ipSecReplaceStateOut(params *types.Parameters) (uint8, error) {
 	if err != nil {
 		return 0, err
 	}
-	key.ReqID = params.ReqID
 	state := ipSecNewState(key)
+	state.Reqid = params.ReqID
 	state.Src = *params.SourceTunnelIP
 	state.Dst = *params.DestTunnelIP
 	state.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
@@ -644,13 +642,12 @@ func (a *agent) ipSecReplacePolicyIn(params *types.Parameters) error {
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = params.ReqID
 
 	policy := ipSecNewPolicy()
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_IN
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, true)
+	ipSecAttachPolicyTempl(policy, params.ReqID, key.Spi, *params.SourceTunnelIP, *params.DestTunnelIP, true)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -664,7 +661,6 @@ func (a *agent) ipsecReplacePolicyFwd(params *types.Parameters) error {
 
 	policy := ipSecNewPolicy()
 	policy.Dir = netlink.XFRM_DIR_FWD
-	key.ReqID = params.ReqID
 	policy.Priority = linux_defaults.IPsecFwdPriority
 
 	// In case of fwd policies, we should tell the kernel the tmpl src
@@ -672,7 +668,7 @@ func (a *agent) ipsecReplacePolicyFwd(params *types.Parameters) error {
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, true)
+	ipSecAttachPolicyTempl(policy, params.ReqID, key.Spi, *params.SourceTunnelIP, *params.DestTunnelIP, true)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -746,14 +742,13 @@ func (a *agent) ipSecReplacePolicyOut(params *types.Parameters) error {
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = params.ReqID
 
 	policy := ipSecNewPolicy()
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, false)
+	ipSecAttachPolicyTempl(policy, params.ReqID, key.Spi, *params.SourceTunnelIP, *params.DestTunnelIP, false)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
