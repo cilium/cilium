@@ -274,10 +274,6 @@ func (a *agent) AuthKeySize() int {
 	return a.authKeySize
 }
 
-func (a *agent) SPI() uint8 {
-	return a.spi
-}
-
 func (a *agent) Enabled() bool {
 	return a.config.Enabled()
 }

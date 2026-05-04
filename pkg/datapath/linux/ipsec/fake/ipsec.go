@@ -23,10 +23,6 @@ func (*Agent) AuthKeySize() int {
 	return 16
 }
 
-func (*Agent) SPI() uint8 {
-	return 4
-}
-
 func (*Agent) StartBackgroundJobs(node.Handler, <-chan struct{}) error {
 	return nil
 }
