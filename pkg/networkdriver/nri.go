@@ -31,6 +31,12 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+var (
+	// Overridden by privileged tests to keep namespace moves isolated.
+	podNetNSPath  = defaults.NetNsPath
+	rootNetNSPath = "/proc/1/ns/net"
+)
+
 func getNetworkNamespace(pod *api.PodSandbox) string {
 	// get the pod network namespace
 	for _, namespace := range pod.Linux.GetNamespaces() {
@@ -70,7 +76,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 			return nil
 		}
 
-		nsPath := path.Join(defaults.NetNsPath, path.Base(networkNamespace))
+		nsPath := path.Join(podNetNSPath, path.Base(networkNamespace))
 
 		podNs, err := netns.OpenPinned(nsPath)
 		if err != nil {
@@ -162,7 +168,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 			return nil
 		}
 
-		nsPath := path.Join(defaults.NetNsPath, path.Base(networkNamespace))
+		nsPath := path.Join(podNetNSPath, path.Base(networkNamespace))
 
 		podNs, err := netns.OpenPinned(nsPath)
 		if err != nil {
@@ -172,7 +178,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 		defer podNs.Close()
 
 		// Get the root network namespace to move interfaces back to it
-		rootNs, err := netns.OpenPinned("/proc/1/ns/net")
+		rootNs, err := netns.OpenPinned(rootNetNSPath)
 		if err != nil {
 			return fmt.Errorf("failed to open root netns: %w", err)
 		}
