@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/netip"
 	"path"
+	"syscall"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -290,11 +291,12 @@ func (driver *Driver) configureRoutes(logger *slog.Logger, l netlink.Link, act a
 				errs = append(errs, fmt.Errorf("failed to add static route [%s via %s dev %s]: %w", r.Destination, r.Gateway, l.Attrs().Name, err))
 			}
 		case del:
-			if err := linuxRoute.Delete(route); err != nil {
+			if err := linuxRoute.Delete(route); err != nil && !errors.Is(err, syscall.ESRCH) {
 				errs = append(errs, fmt.Errorf("failed to delete static route [%s via %s dev %s]: %w", r.Destination, r.Gateway, l.Attrs().Name, err))
 			}
 		}
 	}
+
 	return errors.Join(errs...)
 }
 
