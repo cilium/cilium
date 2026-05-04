@@ -14,6 +14,7 @@ metadata:
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: standalone-dns-proxy
     name: standalone-dns-proxy
+    helm.sh/chart: {{ include "cilium.chart" . }}
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -39,6 +40,7 @@ spec:
         name: standalone-dns-proxy
         app.kubernetes.io/name: standalone-dns-proxy
         app.kubernetes.io/part-of: cilium
+        helm.sh/chart: {{ include "cilium.chart" . }}
         {{- with .Values.commonLabels }}
           {{- toYaml . | nindent 8 }}
         {{- end }}

@@ -13,6 +13,7 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -41,6 +42,7 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
 rules:
 - apiGroups:
   - ""
@@ -65,6 +67,7 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
 rules:
 - apiGroups:
   - ""
@@ -89,6 +92,7 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
 rules:
 - apiGroups:
   - ""
@@ -109,6 +113,7 @@ metadata:
   namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
   labels:
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
 rules:
 - apiGroups:
   - ""
@@ -133,6 +138,7 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
 rules:
 - apiGroups:
   - ""

@@ -7,6 +7,7 @@ metadata:
   labels:
     cilium.io/ingress: "true"
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
     {{- if .Values.ingressController.service.labels }}
     {{- toYaml .Values.ingressController.service.labels | nindent 4 }}
     {{- end }}
