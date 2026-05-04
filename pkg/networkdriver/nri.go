@@ -272,13 +272,16 @@ func (driver *Driver) configureIPs(l netlink.Link, act action, ipv4, ipv6 netip.
 func (driver *Driver) configureRoutes(logger *slog.Logger, l netlink.Link, act action, routes []types.Route) error {
 	var errs []error
 	for _, r := range routes {
-		nextHop := net.IP(r.Gateway.AsSlice())
 		route := linuxRoute.Route{
-			Prefix:  *netipx.PrefixIPNet(r.Destination),
-			Nexthop: &nextHop,
-			Device:  l.Attrs().Name,
-			Table:   unix.RT_TABLE_MAIN,
-			Proto:   unix.RTPROT_STATIC,
+			Prefix: *netipx.PrefixIPNet(r.Destination),
+			Device: l.Attrs().Name,
+			Table:  unix.RT_TABLE_MAIN,
+			Proto:  unix.RTPROT_STATIC,
+		}
+
+		if r.Gateway.IsValid() {
+			nextHop := net.IP(r.Gateway.AsSlice())
+			route.Nexthop = &nextHop
 		}
 
 		switch act {
