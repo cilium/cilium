@@ -51,47 +51,57 @@ type CachedConverter[T runtime.Object] struct {
 	mapper func(T) iter.Seq[store.Key]
 	// cache remembers the kvstore keys associated with any Kubernetes resource.
 	cache map[resource.Key]sets.Set[string]
+	// refCount tracks the number of resources referencing each kvstore key.
+	refCount map[string]int
 }
 
 func NewCachedCoverter[T runtime.Object](mapper func(T) iter.Seq[store.Key]) *CachedConverter[T] {
 	return &CachedConverter[T]{
-		mapper: mapper,
-		cache:  make(map[resource.Key]sets.Set[string]),
+		mapper:   mapper,
+		cache:    make(map[resource.Key]sets.Set[string]),
+		refCount: make(map[string]int),
 	}
 }
 
 func (ec *CachedConverter[T]) Convert(event resource.Event[T]) (upserts iter.Seq[store.Key], deletes iter.Seq[store.NamedKey]) {
-	if event.Kind == resource.Delete {
-		toDelete := maps.Keys(ec.cache[event.Key])
+	toDelete := ec.cache[event.Key]
+	if toDelete == nil {
+		toDelete = sets.New[string]()
+	}
+	var toAdd []store.Key
+
+	if event.Kind != resource.Delete {
+		var current = sets.New[string]()
+		for entry := range ec.mapper(event.Object) {
+			key := entry.GetKeyName()
+			toAdd = append(toAdd, entry)
+
+			if !current.Has(key) {
+				if !toDelete.Has(key) {
+					ec.refCount[key]++
+				}
+				current.Insert(key)
+			}
+			toDelete.Delete(key)
+		}
+		ec.cache[event.Key] = current
+	} else {
 		delete(ec.cache, event.Key)
-		return noneIter[store.Key], ec.deletesIter(toDelete)
 	}
 
-	var (
-		toAdd    []store.Key
-		toDelete = ec.cache[event.Key]
-		current  = sets.New[string]()
-	)
-
-	for entry := range ec.mapper(event.Object) {
-		key := entry.GetKeyName()
-		toAdd = append(toAdd, entry)
-		current.Insert(key)
-		toDelete.Delete(key)
-	}
-
-	ec.cache[event.Key] = current
-	return slices.Values(toAdd), ec.deletesIter(maps.Keys(toDelete))
-}
-
-func (ec *CachedConverter[T]) deletesIter(keys iter.Seq[string]) iter.Seq[store.NamedKey] {
-	return func(yield func(store.NamedKey) bool) {
-		for key := range keys {
-			if !yield(store.NewKVPair(key, "")) {
-				return
+	deleteIter := func(yield func(store.NamedKey) bool) {
+		for entry := range maps.Keys(toDelete) {
+			ec.refCount[entry]--
+			if ec.refCount[entry] == 0 {
+				delete(ec.refCount, entry)
+				if !yield(store.NewKVPair(entry, "")) {
+					return
+				}
 			}
 		}
 	}
+
+	return slices.Values(toAdd), deleteIter
 }
 
 // ----- CiliumNodes ----- //
