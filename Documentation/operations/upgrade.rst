@@ -317,6 +317,8 @@ Informational Notes
   upgrade should be fully transparent. You are still encouraged to update
   your ``ServiceExport`` resources to ``v1beta1`` to benefit from future
   improvements and prepare for the eventual deprecation of ``v1alpha1``.
+* Listing BGP peers, routes and route-policies via the local REST API and ``cilium-dbg bgp`` commands is deprecated.
+  Use the BGP hive shell commands instead: ``cilium shell -- bgp/*``.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
