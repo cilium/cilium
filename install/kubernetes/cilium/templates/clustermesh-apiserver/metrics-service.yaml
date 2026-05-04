@@ -16,6 +16,7 @@ metadata:
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: clustermesh-apiserver
     app.kubernetes.io/component: metrics
+    helm.sh/chart: {{ include "cilium.chart" . }}
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

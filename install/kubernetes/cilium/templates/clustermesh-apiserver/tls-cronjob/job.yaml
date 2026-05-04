@@ -20,6 +20,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
   {{- if or .Values.certgen.annotations.job .Values.clustermesh.annotations }}
   annotations:
     {{- with .Values.certgen.annotations.job }}

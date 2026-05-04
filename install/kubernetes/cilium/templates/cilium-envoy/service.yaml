@@ -19,6 +19,7 @@ metadata:
     k8s-app: cilium-envoy
     app.kubernetes.io/name: cilium-envoy
     app.kubernetes.io/part-of: cilium
+    helm.sh/chart: {{ include "cilium.chart" . }}
     io.cilium/app: proxy
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
