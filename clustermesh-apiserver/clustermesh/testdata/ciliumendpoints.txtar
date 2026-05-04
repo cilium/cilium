@@ -41,6 +41,27 @@ k8s/delete endpoint-2.yaml
 kvstore/list -o json cilium/state/ip ips-1+3.actual
 * cmp ips-1+3.actual ips-1+3.expected
 
+# Add one more CiliumEndpoint; the IPv4 address overlaps with that of endpoint-3
+k8s/add endpoint-4.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/ip ips-1+3+4.actual
+* cmp ips-1+3+4.actual ips-1+3+4.expected
+
+# Delete endpoint-3. The entry for endpoint-4 should be preserved
+k8s/delete endpoint-3.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/ip ips-1+4.actual
+* cmp ips-1+4.actual ips-1+4.expected
+
+# Delete endpoint-4. No entry for the ip should exist anymore
+k8s/delete endpoint-4.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/ip ips-1.actual
+* cmp ips-1.actual ips-1.expected
+
 # Annotate namespace-1 as non-global
 k8s/update namespace-1-annotated.yaml
 
@@ -129,6 +150,26 @@ status:
     - ipv4: 10.244.2.91
       ipv6: fd00:10:244:2::e4b4
     node: 172.18.0.2
+  service-account: default
+  state: ready
+
+-- endpoint-4.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  name: cep-004
+  namespace: foo
+status:
+  id: 1484
+  identity:
+    id: 199479
+    labels:
+    - k8s:app=foo
+  networking:
+    addressing:
+    - ipv4: 10.244.2.91
+      ipv6: fd00:10:244:2::e4b5
+    node: 172.18.0.3
   service-account: default
   state: ready
 
@@ -314,5 +355,153 @@ status:
   "Metadata": "",
   "K8sNamespace": "foo",
   "K8sPodName": "cep-002",
+  "K8sServiceAccount": "default"
+}
+-- ips-1+3+4.expected --
+# cilium/state/ip/v1/default/10.244.1.80
+{
+  "IP": "10.244.1.80",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-001",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/10.244.2.91
+{
+  "IP": "10.244.2.91",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199479,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-004",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b4
+{
+  "IP": "fd00:10:244:2::e4b4",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-002",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b5
+{
+  "IP": "fd00:10:244:2::e4b5",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199479,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-004",
+  "K8sServiceAccount": "default"
+}
+-- ips-1+3+4-bis.expected --
+# cilium/state/ip/v1/default/10.244.1.80
+{
+  "IP": "10.244.1.80",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-001",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/10.244.2.91
+{
+  "IP": "10.244.2.91",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-002",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b4
+{
+  "IP": "fd00:10:244:2::e4b4",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-002",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b5
+{
+  "IP": "fd00:10:244:2::e4b5",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199479,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-004",
+  "K8sServiceAccount": "default"
+}
+-- ips-1+4.expected --
+# cilium/state/ip/v1/default/10.244.1.80
+{
+  "IP": "10.244.1.80",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-001",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/10.244.2.91
+{
+  "IP": "10.244.2.91",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199479,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-004",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b5
+{
+  "IP": "fd00:10:244:2::e4b5",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199479,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-004",
+  "K8sServiceAccount": "default"
+}
+-- ips-1.expected --
+# cilium/state/ip/v1/default/10.244.1.80
+{
+  "IP": "10.244.1.80",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "foo",
+  "K8sPodName": "cep-001",
   "K8sServiceAccount": "default"
 }
