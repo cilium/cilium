@@ -12,12 +12,12 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	alibabacloudAPI "github.com/cilium/cilium/pkg/alibabacloud/api"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
 	"github.com/cilium/cilium/pkg/alibabacloud/metadata"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 

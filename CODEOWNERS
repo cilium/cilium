@@ -522,6 +522,10 @@ Makefile* @cilium/build
 /operator/pkg/ipam/alibabacloud.go @cilium/sig-ipam @cilium/alibabacloud
 /operator/pkg/ipam/aws.go @cilium/sig-ipam @cilium/aws
 /operator/pkg/ipam/azure.go @cilium/sig-ipam @cilium/azure
+/operator/pkg/ipam/allocator/alibabacloud/ @cilium/sig-ipam @cilium/alibabacloud
+/operator/pkg/ipam/allocator/aws/ @cilium/sig-ipam @cilium/aws
+/operator/pkg/ipam/allocator/azure/ @cilium/sig-ipam @cilium/azure
+/operator/pkg/ipam/allocator/clusterpool/ @cilium/sig-ipam @cilium/operator
 /operator/pkg/kvstore @cilium/kvstore
 /operator/pkg/lbipam @cilium/sig-lb
 /operator/pkg/model @cilium/sig-servicemesh
@@ -607,10 +611,6 @@ Makefile* @cilium/build
 /pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
 /pkg/ipam/ @cilium/sig-ipam
-/pkg/ipam/allocator/alibabacloud/ @cilium/sig-ipam @cilium/alibabacloud
-/pkg/ipam/allocator/aws/ @cilium/sig-ipam @cilium/aws
-/pkg/ipam/allocator/azure/ @cilium/sig-ipam @cilium/azure
-/pkg/ipam/allocator/clusterpool/ @cilium/sig-ipam @cilium/operator
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipcache/restore @cilium/sig-policy @cilium/ipcache
 /pkg/ipmasq @cilium/sig-agent

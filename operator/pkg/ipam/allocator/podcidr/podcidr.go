@@ -14,9 +14,9 @@ import (
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"

@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/ipam/allocator/aws"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator/aws"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"

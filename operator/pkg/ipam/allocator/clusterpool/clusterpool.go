@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator/podcidr"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
-	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
-	"github.com/cilium/cilium/pkg/ipam/allocator/podcidr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"

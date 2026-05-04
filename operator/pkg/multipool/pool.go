@@ -9,7 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 )
 
 var (

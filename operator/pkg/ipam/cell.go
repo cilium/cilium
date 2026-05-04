@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/metrics"
 )

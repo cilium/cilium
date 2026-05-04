@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	azureAPI "github.com/cilium/cilium/pkg/azure/api"
 	azureIPAM "github.com/cilium/cilium/pkg/azure/ipam"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 

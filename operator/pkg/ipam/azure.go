@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/ipam/allocator/azure"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator/azure"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
