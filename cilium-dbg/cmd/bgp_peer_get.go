@@ -22,8 +22,8 @@ var (
 	BgpPeersCmd = &cobra.Command{
 		Use:     "peers",
 		Aliases: []string{"neighbors"},
-		Short:   "List current state of all peers",
-		Long:    "List state of all peers defined in Cilium BGP configuration",
+		Short:   "List current state of all peers (deprecated)",
+		Long:    "List state of all peers defined in Cilium BGP configuration (deprecated)",
 		Run: func(cmd *cobra.Command, args []string) {
 			res, err := client.Bgp.GetBgpPeers(nil)
 			if err != nil {

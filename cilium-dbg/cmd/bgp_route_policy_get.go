@@ -18,8 +18,8 @@ import (
 var BgpRoutePoliciesCmd = &cobra.Command{
 	Use:     "route-policies [vrouter <asn>]",
 	Aliases: []string{"rps"},
-	Short:   "List configured route policies",
-	Long:    "List route policies configured in the underlying routing daemon",
+	Short:   "List configured route policies (deprecated)",
+	Long:    "List route policies configured in the underlying routing daemon (deprecated)",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 		params := bgp.NewGetBgpRoutePoliciesParams()

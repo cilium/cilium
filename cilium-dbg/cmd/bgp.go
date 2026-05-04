@@ -8,7 +8,7 @@ import "github.com/spf13/cobra"
 // BgpCmd represents the bgp command
 var BgpCmd = &cobra.Command{
 	Use:   "bgp",
-	Short: "Access to BGP control plane",
+	Short: "Access to BGP control plane (deprecated)",
 }
 
 func init() {

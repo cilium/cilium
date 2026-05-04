@@ -21,7 +21,7 @@ CLI for interacting with the local Cilium Agent
 
 ### SEE ALSO
 
-* [cilium-dbg bgp](cilium-dbg_bgp.md)	 - Access to BGP control plane
+* [cilium-dbg bgp](cilium-dbg_bgp.md)	 - Access to BGP control plane (deprecated)
 * [cilium-dbg bpf](cilium-dbg_bpf.md)	 - Direct access to local BPF maps
 * [cilium-dbg build-config](cilium-dbg_build-config.md)	 - Resolve all of the configuration sources that apply to this node
 * [cilium-dbg cgroups](cilium-dbg_cgroups.md)	 - Cgroup metadata
