@@ -284,9 +284,6 @@ func (a *agent) Enabled() bool {
 }
 
 func (a *agent) getGlobalIPsecKey(ip net.IP) *ipSecKey {
-	a.ipSecLock.RLock()
-	defer a.ipSecLock.RUnlock()
-
 	key, scoped := a.ipSecKeysGlobal[ip.String()]
 	if !scoped {
 		key = a.ipSecKeysGlobal[""]
@@ -911,6 +908,9 @@ func (a *agent) ipsecDeleteXfrmPolicy(nodeID uint16) error {
 func (a *agent) UpsertIPsecEndpoint(params *types.Parameters) (uint8, error) {
 	var spi uint8
 	var err error
+
+	a.ipSecLock.RLock()
+	defer a.ipSecLock.RUnlock()
 
 	/* TODO: state reference ID is (dip,spi) which can be duplicated in the current global
 	 * mode. The duplication is on _all_ ingress states because dst_ip == host_ip in this
