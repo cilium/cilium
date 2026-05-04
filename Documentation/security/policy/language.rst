@@ -444,6 +444,14 @@ but not CIDR prefix ``10.96.0.0/12``
 .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.yaml
   :language: yaml
 
+
+Scalability
+~~~~~~~~~~~
+
+Policies that select large numbers of distinct CIDRs can cause agents to allocate
+large numbers of :ref:`security identities <arch_id_security>`. In this scenario,
+use a :ref:`CiliumCIDRGroup` to reduce identity usage.
+
 .. _cidr_select_nodes:
 
 Selecting nodes with CIDR / ipBlock
@@ -1297,5 +1305,5 @@ Host Policies known issues
   Policies on service addresses rather than the service endpoints. For details,
   refer to :gh-issue:`12545`.
 
-- Host Firewall and thus Host Policies do not work together with IPsec. 
+- Host Firewall and thus Host Policies do not work together with IPsec.
   For details, refer to :gh-issue:`41854`.
