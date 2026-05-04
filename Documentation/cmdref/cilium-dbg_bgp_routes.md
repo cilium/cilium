@@ -2,11 +2,11 @@
 
 ## cilium-dbg bgp routes
 
-List routes in the BGP Control Plane's RIBs
+List routes in the BGP Control Plane's RIBs (deprecated)
 
 ### Synopsis
 
-List routes in the BGP Control Plane's Routing Information Bases (RIBs)
+List routes in the BGP Control Plane's Routing Information Bases (RIBs) (deprecated)
 
 ```
 cilium-dbg bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|neighbor <address>] [flags]
@@ -44,5 +44,5 @@ cilium-dbg bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [pee
 
 ### SEE ALSO
 
-* [cilium-dbg bgp](cilium-dbg_bgp.md)	 - Access to BGP control plane
+* [cilium-dbg bgp](cilium-dbg_bgp.md)	 - Access to BGP control plane (deprecated)
 

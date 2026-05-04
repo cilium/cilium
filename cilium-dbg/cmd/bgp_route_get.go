@@ -34,8 +34,8 @@ const (
 
 var BgpRoutesCmd = &cobra.Command{
 	Use:   "routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|neighbor <address>]",
-	Short: "List routes in the BGP Control Plane's RIBs",
-	Long:  "List routes in the BGP Control Plane's Routing Information Bases (RIBs)",
+	Short: "List routes in the BGP Control Plane's RIBs (deprecated)",
+	Long:  "List routes in the BGP Control Plane's Routing Information Bases (RIBs) (deprecated)",
 	Example: `  Get all IPv4 unicast routes available:
     cilium-dbg bgp routes available ipv4 unicast
 

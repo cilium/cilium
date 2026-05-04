@@ -2,11 +2,11 @@
 
 ## cilium-dbg bgp peers
 
-List current state of all peers
+List current state of all peers (deprecated)
 
 ### Synopsis
 
-List state of all peers defined in Cilium BGP configuration
+List state of all peers defined in Cilium BGP configuration (deprecated)
 
 ```
 cilium-dbg bgp peers [flags]
@@ -32,5 +32,5 @@ cilium-dbg bgp peers [flags]
 
 ### SEE ALSO
 
-* [cilium-dbg bgp](cilium-dbg_bgp.md)	 - Access to BGP control plane
+* [cilium-dbg bgp](cilium-dbg_bgp.md)	 - Access to BGP control plane (deprecated)
 
