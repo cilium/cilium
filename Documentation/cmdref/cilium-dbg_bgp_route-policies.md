@@ -2,11 +2,11 @@
 
 ## cilium-dbg bgp route-policies
 
-List configured route policies
+List configured route policies (deprecated)
 
 ### Synopsis
 
-List route policies configured in the underlying routing daemon
+List route policies configured in the underlying routing daemon (deprecated)
 
 ```
 cilium-dbg bgp route-policies [vrouter <asn>] [flags]
@@ -31,5 +31,5 @@ cilium-dbg bgp route-policies [vrouter <asn>] [flags]
 
 ### SEE ALSO
 
-* [cilium-dbg bgp](cilium-dbg_bgp.md)	 - Access to BGP control plane
+* [cilium-dbg bgp](cilium-dbg_bgp.md)	 - Access to BGP control plane (deprecated)
 

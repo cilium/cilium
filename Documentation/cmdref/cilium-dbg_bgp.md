@@ -2,7 +2,7 @@
 
 ## cilium-dbg bgp
 
-Access to BGP control plane
+Access to BGP control plane (deprecated)
 
 ### Options
 
@@ -23,7 +23,7 @@ Access to BGP control plane
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
-* [cilium-dbg bgp peers](cilium-dbg_bgp_peers.md)	 - List current state of all peers
-* [cilium-dbg bgp route-policies](cilium-dbg_bgp_route-policies.md)	 - List configured route policies
-* [cilium-dbg bgp routes](cilium-dbg_bgp_routes.md)	 - List routes in the BGP Control Plane's RIBs
+* [cilium-dbg bgp peers](cilium-dbg_bgp_peers.md)	 - List current state of all peers (deprecated)
+* [cilium-dbg bgp route-policies](cilium-dbg_bgp_route-policies.md)	 - List configured route policies (deprecated)
+* [cilium-dbg bgp routes](cilium-dbg_bgp_routes.md)	 - List routes in the BGP Control Plane's RIBs (deprecated)
 
