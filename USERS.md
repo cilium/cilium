@@ -581,6 +581,11 @@ Users (Alphabetically)
       U: CNI
       L: https://mobilabsolutions.com/2019/01/why-we-switched-to-cilium/
 
+    * N: mogenius
+      D: mogenius is using Cilium for the mogenius platform
+      U: CNI, network-policy and network-observability
+      L: https://mogenius.com
+
     * N: MyFitnessPal
       D: MyFitnessPal trusts Cilium with high volume user traffic in AWS on self-hosted k8s clusters as the CNI plugin and in GKE with Dataplane V2
       U: Networking (CNI, Maglev, kube-proxy replacement, local redirect policy),  Observability (Network metrics with Hubble, DNS proxy, service maps, policy troubleshooting) and Security (Network Policy)
