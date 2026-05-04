@@ -5,6 +5,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -33,7 +34,8 @@ const (
 	fieldProxyRedirectID = "id"
 
 	// redirectCreationAttempts is the number of attempts to create a redirect
-	redirectCreationAttempts = 5
+	redirectCreationAttempts  = 5
+	proxyRedirectDrainTimeout = 10 * time.Second
 )
 
 // Proxy maintains state about redirects
@@ -301,6 +303,41 @@ func (p *Proxy) RemoveRedirect(id string) {
 		p.mutex.Unlock()
 	}()
 	p.removeRedirect(id)
+}
+
+// DrainRedirects removes existing redirects and waits for Envoy listeners to drain
+// before returning. Missing redirects are ignored.
+func (p *Proxy) DrainRedirects(ids []string) error {
+	p.mutex.Lock()
+	impls := make([]RedirectImplementation, 0, len(ids))
+	for _, id := range ids {
+		impl, ok := p.redirects[id]
+		if !ok {
+			continue
+		}
+		delete(p.redirects, id)
+		impls = append(impls, impl)
+	}
+	p.updateRedirectMetrics()
+	p.mutex.Unlock()
+
+	var errs []error
+	for _, impl := range impls {
+		r := impl.GetRedirect()
+		impl.Close()
+
+		if drainer, ok := impl.(drainableRedirect); ok {
+			if err := drainer.WaitForDrain(proxyRedirectDrainTimeout); err != nil {
+				errs = append(errs, fmt.Errorf("draining proxy redirect %s failed: %w", r.name, err))
+			}
+		}
+
+		if err := p.proxyPorts.ReleaseProxyPort(r.name); err != nil {
+			errs = append(errs, fmt.Errorf("releasing proxy port for redirect %s failed: %w", r.name, err))
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 // removeRedirect removes an existing redirect. p.mutex must be held

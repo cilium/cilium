@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // envoyRedirect implements the RedirectImplementation interface for an l7 proxy.
@@ -83,4 +84,12 @@ func (k *envoyRedirect) UpdateRules(rules policy.L7DataMap) (revert.RevertFunc, 
 // Close the redirect.
 func (r *envoyRedirect) Close() {
 	r.xdsServer.RemoveListener(r.listenerName, nil)
+}
+
+// WaitForDrain waits for the Envoy listener backing this redirect to drain.
+func (r *envoyRedirect) WaitForDrain(timeout time.Duration) error {
+	if r.adminClient == nil {
+		return nil
+	}
+	return r.adminClient.WaitForListenerDrain(r.listenerName, timeout)
 }

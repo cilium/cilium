@@ -18,6 +18,7 @@ import (
 type EndpointProxy interface {
 	CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc)
 	RemoveRedirect(id string)
+	DrainRedirects(ids []string) error
 	UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy)
 	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error)
 	RemoveNetworkPolicy(ep endpoint.EndpointInfoSource)
@@ -46,6 +47,11 @@ func (f *FakeEndpointProxy) CreateOrUpdateRedirect(ctx context.Context, l4 polic
 
 // RemoveRedirect does nothing.
 func (f *FakeEndpointProxy) RemoveRedirect(id string) {
+}
+
+// DrainRedirects does nothing.
+func (f *FakeEndpointProxy) DrainRedirects(ids []string) error {
+	return nil
 }
 
 // UpdateNetworkPolicy does nothing.

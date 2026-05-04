@@ -11,11 +11,17 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
+	"github.com/cilium/cilium/pkg/time"
 )
+
+const listenerDrainPollInterval = 100 * time.Millisecond
 
 type EnvoyAdminClient struct {
 	logger          *slog.Logger
@@ -36,8 +42,7 @@ func NewEnvoyAdminClientForSocket(logger *slog.Logger, envoySocketDir string, de
 	}
 }
 
-// Post sends a POST request with the given query to the Envoy Admin API.
-func (a *EnvoyAdminClient) Post(query string) (string, error) {
+func (a *EnvoyAdminClient) do(method, query string) (string, error) {
 	// Use a custom dialer to use a Unix domain socket for an HTTP connection.
 	var conn net.Conn
 	var err error
@@ -50,7 +55,12 @@ func (a *EnvoyAdminClient) Post(query string) (string, error) {
 		},
 	}
 
-	resp, err := client.Post(a.adminURL+query, "", nil)
+	req, err := http.NewRequestWithContext(context.Background(), method, a.adminURL+query, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +80,17 @@ func (a *EnvoyAdminClient) Post(query string) (string, error) {
 	return string(body), nil
 }
 
-// ChangeLogLevel changes Envoy log level to correspond to the specified 'level'.
+// Get sends a GET request with the given query to the Envoy Admin API.
+func (a *EnvoyAdminClient) Get(query string) (string, error) {
+	return a.do(http.MethodGet, query)
+}
+
+// Post sends a POST request with the given query to the Envoy Admin API.
+func (a *EnvoyAdminClient) Post(query string) (string, error) {
+	return a.do(http.MethodPost, query)
+}
+
+// ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.
 func (a *EnvoyAdminClient) ChangeLogLevel(agentLogLevel slog.Level) error {
 	envoyLevel := mapLogLevel(agentLogLevel, a.defaultLogLevel)
 
@@ -136,4 +156,94 @@ func (a *EnvoyAdminClient) GetEnvoyVersion() (string, error) {
 	}
 
 	return fmt.Sprintf("%s", version), nil
+}
+
+// WaitForListenerDrain waits until the named listener disappears from Envoy's listener list,
+// which indicates that the listener has fully drained and been removed.
+func (a *EnvoyAdminClient) WaitForListenerDrain(listenerName string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+
+	for {
+		body, err := a.Get("listeners?format=json")
+		if err != nil {
+			return fmt.Errorf("failed to query listener state for %q: %w", listenerName, err)
+		}
+
+		active, err := listenerPresent(body, listenerName)
+		if err != nil {
+			return fmt.Errorf("failed to parse listener state for %q: %w", listenerName, err)
+		}
+		if !active {
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			activeDownstream, err := a.getListenerDownstreamCxActive(listenerName)
+			if err != nil {
+				return fmt.Errorf("timed out waiting for listener %q to drain", listenerName)
+			}
+			return fmt.Errorf("timed out waiting for listener %q to drain: %d downstream connections still active", listenerName, activeDownstream)
+		}
+
+		time.Sleep(listenerDrainPollInterval)
+	}
+}
+
+// listenerPresent reports whether the named listener exists in Envoy's JSON
+// listener response.
+func listenerPresent(body string, listenerName string) (bool, error) {
+	var payload any
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		return false, err
+	}
+	return containsListenerName(payload, listenerName), nil
+}
+
+// containsListenerName recursively searches a decoded Envoy admin payload for a
+// matching listener name.
+func containsListenerName(v any, listenerName string) bool {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, child := range x {
+			if k == "name" {
+				if name, ok := child.(string); ok && name == listenerName {
+					return true
+				}
+			}
+			if containsListenerName(child, listenerName) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range x {
+			if containsListenerName(child, listenerName) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *EnvoyAdminClient) getListenerDownstreamCxActive(listenerName string) (int, error) {
+	filter := "^listener\\." + regexp.QuoteMeta(listenerName) + "\\.downstream_cx_active$"
+	body, err := a.Get("stats?usedonly&filter=" + url.QueryEscape(filter))
+	if err != nil {
+		return 0, err
+	}
+
+	total := 0
+	for line := range strings.SplitSeq(body, "\n") {
+		line = strings.TrimSpace(line)
+		_, value, found := strings.Cut(line, ":")
+		if !found {
+			continue
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse downstream connection count %q: %w", line, err)
+		}
+		total += n
+	}
+
+	return total, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -28,6 +29,12 @@ type RedirectImplementation interface {
 	// update is asynchronous and the update should not return until it is
 	// complete.
 	Close()
+}
+
+// drainableRedirect is an optional redirect capability for implementations
+// that can wait for in-flight proxy traffic to fully drain after Close.
+type drainableRedirect interface {
+	WaitForDrain(timeout time.Duration) error
 }
 
 // Redirect is the common static config for each RedirectImplementation
