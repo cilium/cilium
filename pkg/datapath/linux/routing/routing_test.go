@@ -123,9 +123,16 @@ func TestPrivilegedConfigureDualStackCIDRs(t *testing.T) {
 						From:     &net.IPNet{IP: ip.AsSlice(), Mask: net.CIDRMask(ip.BitLen(), ip.BitLen())},
 					})
 					require.NoError(t, err)
-					require.Len(t, rules, 1)
-					require.NotNil(t, rules[0].Dst)
-					require.Equal(t, tt.cidr, rules[0].Dst.String())
+					require.Len(t, rules, 2)
+					var dsts []string
+					for _, r := range rules {
+						if r.Dst == nil {
+							dsts = append(dsts, "")
+						} else {
+							dsts = append(dsts, r.Dst.String())
+						}
+					}
+					require.ElementsMatch(t, []string{"", tt.cidr}, dsts)
 
 					if !host {
 						runDelete(t, ip)
@@ -158,12 +165,13 @@ func TestPrivilegedConfigureMasqueradeReconciliation(t *testing.T) {
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
 
-		// Masquerading enabled: only CIDR-specific rules should be present.
+		// Masquerading enabled: the catch-all rule and the CIDR-specific
+		// rules should be present.
 		runConfigure(t, ri, ip, 1500)
 		rules, _ := listRulesAndRoutes(t, netlink.FAMILY_V4)
 		verifyMasqueradeRules(t, rules, ri, ip)
 		catchAll, cidrSpecific := countEgressRulesForIP(rules, ip)
-		require.Zero(t, catchAll, "no catch-all rule should be present with masquerading enabled")
+		require.Equal(t, 1, catchAll)
 		require.Equal(t, len(ri.CIDRs), cidrSpecific)
 
 		// Masquerading gets disabled and Configure is re-run (e.g. during
@@ -178,14 +186,15 @@ func TestPrivilegedConfigureMasqueradeReconciliation(t *testing.T) {
 		require.Equal(t, 1, catchAll)
 		require.Zero(t, cidrSpecific)
 
-		// Re-enabling masquerading must clean up the catch-all rule again.
+		// Re-enabling masquerading must keep the catch-all rule and
+		// re-install the CIDR-specific rules.
 		ri.Masquerade = true
 		option.Config.EnableIPv4Masquerade = true
 		runConfigure(t, ri, ip, 1500)
 		rules, _ = listRulesAndRoutes(t, netlink.FAMILY_V4)
 		verifyMasqueradeRules(t, rules, ri, ip)
 		catchAll, cidrSpecific = countEgressRulesForIP(rules, ip)
-		require.Zero(t, catchAll)
+		require.Equal(t, 1, catchAll)
 		require.Equal(t, len(ri.CIDRs), cidrSpecific)
 
 		runDelete(t, ip)
@@ -341,8 +350,10 @@ func countEgressRulesForIP(rules []netlink.Rule, ip netip.Addr) (catchAll, cidrS
 }
 
 // verifyMasqueradeRules checks that rules are consistent with the masquerading configuration:
-// - If masquerading is enabled, rules need to have the 'to' field (example: 'from 10.194.0.56 to 10.0.0.0/8 lookup 3')
-// - If masquerading is disabled or if ri.CIDRs has 0.0.0.0/0, the 'to' field should not be there
+//   - If masquerading is enabled, rules should include both CIDR-specific rules (with 'to' field)
+//     and an unconditional rule (without 'to' field) for correct external traffic routing.
+//   - If masquerading is disabled, only the unconditional rule (no 'to' field) should be present.
+//   - If ri.CIDRs has 0.0.0.0/0, only the unconditional rule should be present (zero CIDR normalizes to nil).
 func verifyMasqueradeRules(t *testing.T, rules []netlink.Rule, ri RoutingInfo, ip netip.Addr) {
 	t.Helper()
 
@@ -354,16 +365,31 @@ func verifyMasqueradeRules(t *testing.T, rules []netlink.Rule, ri RoutingInfo, i
 		}
 	}
 
+	var hasUnconditionalRule bool
+	var hasCIDRRule bool
 	for _, rule := range rules {
 		if rule.Src != nil && rule.Src.IP.Equal(ip.AsSlice()) {
-			if ri.Masquerade && !hasZeroCidr && rule.Dst == nil {
-				require.Fail(t, "rule is missing the 'to' field with masquerading enabled")
-			} else if ri.Masquerade && hasZeroCidr && rule.Dst != nil {
-				require.Fail(t, "rule has the 'to' field with a 0.0.0.0/0 CIDR")
-			} else if !ri.Masquerade && rule.Dst != nil {
+			if rule.Dst == nil {
+				hasUnconditionalRule = true
+			} else {
+				hasCIDRRule = true
+			}
+
+			if !ri.Masquerade && rule.Dst != nil {
 				require.Fail(t, "rule has the 'to' field despite masquerading being disabled")
 			}
+			if ri.Masquerade && hasZeroCidr && rule.Dst != nil {
+				require.Fail(t, "rule has the 'to' field with a 0.0.0.0/0 CIDR")
+			}
 		}
+	}
+
+	// The unconditional rule must always be present for correct ENI routing.
+	require.True(t, hasUnconditionalRule, "unconditional egress rule (from <IP> lookup <table>) must be present")
+
+	// When masquerade is enabled with non-zero CIDRs, CIDR-specific rules should also be present.
+	if ri.Masquerade && !hasZeroCidr && len(ri.CIDRs) > 0 {
+		require.True(t, hasCIDRRule, "CIDR-specific egress rules must be present when masquerade is enabled")
 	}
 }
 
