@@ -11,10 +11,15 @@ image_full=${1}
 image="${image_full%%:*}"
 root_dir="$(git rev-parse --show-toplevel)"
 
+usage_globs=(
+    ".github/workflows/"
+    "Documentation/Makefile"
+)
+
 cd "${root_dir}"
 
 # shellcheck disable=SC2207
-used_by=($(git grep -l "${image}:" .github/workflows/))
+used_by=($(git grep -l "${image}:" -- "${usage_globs[@]}"))
 
 for i in "${used_by[@]}" ; do
   sed -E "s#${image}:.*#${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
