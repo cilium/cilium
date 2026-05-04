@@ -163,6 +163,7 @@ type netDevConfig struct {
 	ipv4   netip.Prefix
 	ipv6   netip.Prefix
 	routes []route
+	vlan   uint16
 }
 
 func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg types.DeviceConfig) (netDevConfig, error) {
@@ -170,6 +171,7 @@ func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg
 
 	devCfg.ipv4 = cfg.IPv4Addr
 	devCfg.ipv6 = cfg.IPv6Addr
+	devCfg.vlan = cfg.Vlan
 
 	if cfg.NetworkConfig == "" {
 		return devCfg, nil
@@ -195,6 +197,11 @@ func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg
 
 	devCfg.routes = make([]route, 0, len(targetCfg.IPv4Routes)+len(targetCfg.IPv6Routes))
 	devCfg.routes = append(targetCfg.IPv4Routes, targetCfg.IPv6Routes...)
+
+	// Overwrite VLAN only when it is not configured directly in the DeviceConfiga
+	if devCfg.vlan == 0 {
+		devCfg.vlan = targetCfg.Vlan
+	}
 
 	// just like the static IP addresses, if a pool is configured in the claim
 	// itself it takes precedence over the one in the CiliumResourceNetworkConfig
@@ -325,6 +332,7 @@ func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string,
 	alloc.Config.IPv4Addr = devCfg.ipv4
 	alloc.Config.IPv6Addr = devCfg.ipv6
 	alloc.Config.IPPool = devCfg.ipPool
+	alloc.Config.Vlan = devCfg.vlan
 	alloc.Config.Routes = make([]types.Route, 0, len(devCfg.routes))
 	for _, r := range devCfg.routes {
 		alloc.Config.Routes = append(alloc.Config.Routes, types.Route{

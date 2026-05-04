@@ -314,6 +314,14 @@ type CiliumResourceNetworkConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	IPPool string `json:"ipPool"`
 
+	// VLAN is the VLAN ID to configure on devices using this network config.
+	// A value of 0 means no VLAN is configured.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=4094
+	VLAN uint16 `json:"vlan,omitempty"`
+
 	// IPv4 specifies the network configuration for allocated IPv4 addresses
 	//
 	// +kubebuilder:validation:Optional

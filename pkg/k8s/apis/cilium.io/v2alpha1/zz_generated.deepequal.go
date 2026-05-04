@@ -1693,6 +1693,9 @@ func (in *CiliumResourceNetworkConfigSpec) DeepEqual(other *CiliumResourceNetwor
 	if in.IPPool != other.IPPool {
 		return false
 	}
+	if in.VLAN != other.VLAN {
+		return false
+	}
 	if (in.IPv4 == nil) != (other.IPv4 == nil) {
 		return false
 	} else if in.IPv4 != nil {
