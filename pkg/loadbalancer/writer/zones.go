@@ -36,6 +36,7 @@ type zoneWatcher struct {
 }
 
 func (zw zoneWatcher) run(ctx context.Context, health cell.Health) error {
+	health.OK("Watching local node zone topology changes")
 	var oldZone string
 	for {
 		txn := zw.Writer.WriteTxn()
@@ -43,17 +44,24 @@ func (zw zoneWatcher) run(ctx context.Context, health cell.Health) error {
 		updated := false
 		if found {
 			newZone := node.Labels[corev1.LabelTopologyZone]
+			// The zone changed if the label value shifted, or if the node newly
+			// acquired or completely lost its zone label (e.g., label deleted,
+			// where newZone becomes ""). We must trigger a refresh in all these
+			// cases to allow topology fallback safeguards to re-evaluate.
 			if newZone != oldZone {
 				// Refresh all frontends associated with topology-aware services
-				// as the backend selection might change.
+				// as the backend selection might change based on the new zone.
 				for fe := range zw.Writer.fes.All(txn) {
-					if fe.Service.TrafficDistribution != loadbalancer.TrafficDistributionDefault {
+					if fe.Service.TrafficDistribution.RequiresZoneUpdate() {
 						fe = fe.Clone()
 						zw.Writer.refreshFrontend(txn, fe)
 						zw.Writer.fes.Insert(txn, fe)
 						updated = true
 					}
 				}
+				// Track the previous zone to avoid infinite refresh churn on unrelated
+				// node updates (e.g., annotation changes, pod CIDR updates).
+				oldZone = newZone
 			}
 		}
 		if updated {
