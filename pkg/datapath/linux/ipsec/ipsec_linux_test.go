@@ -149,9 +149,12 @@ func TestLoadKeys(t *testing.T) {
 		require.NoError(t, err)
 		spi, err := a.loadIPSecKeys(keys)
 		require.NoError(t, err)
-		err = a.setIPSecSPI(spi)
+		require.Equal(t, a.key.Spi, spi)
+		err = a.setActiveSPI(spi)
 		require.NoError(t, err)
-		require.Equal(t, spi, a.spi)
+		activeSPI, err := a.getActiveSPI()
+		require.NoError(t, err)
+		require.Equal(t, a.key.Spi, activeSPI)
 	}
 }
 

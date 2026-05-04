@@ -123,8 +123,6 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 		validKeySPI6   = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 		invalidKeySPI6 = []byte("6 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
 		keyFile        = filepath.Join(testRunDir, "cilium_ipsec.key")
-
-		zeroKey = encrypt.EncryptKey{Key: 0}
 	)
 
 	// getHive returns a new hive with IPSec enabled/disabled.
@@ -245,6 +243,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 3. Ensure the ipsec agent is enabled.
 			require.True(t, ipsecAgent.Enabled())
+			require.Equal(t, uint8(4), ipsecAgent.getCurrentSPI())
 
 			// 4. Ensure the MTU returns the correct value.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -258,22 +257,23 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			// 6. Ensure local node has been updated.
 			localNode, err := nodeStore.Get(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, localNode.EncryptionKey, ipsecAgent.spi)
+			require.Equal(t, localNode.EncryptionKey, ipsecAgent.getCurrentSPI())
 
 			// 7. Ensure encrypt map is updated accordingly.
-			v, err := encryptMap.Lookup(zeroKey)
+			require.Equal(t, encryptMap, ipsecAgent.encryptMap)
+			activeSPI, err := ipsecAgent.getActiveSPI()
 			require.NoError(t, err)
-			assert.Equal(t, ipsecAgent.spi, v.KeyID)
+			assert.Equal(t, ipsecAgent.getCurrentSPI(), activeSPI)
 
 			// 8. Dump another valid IPSec key to file.
 			require.NoError(t, os.WriteFile(keyFile, validKeySPI5, 0644))
 
 			// 9. Ensure the ipsec agent updated the spi accordingly.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, uint8(5), ipsecAgent.spi)
-				v, err := encryptMap.Lookup(zeroKey)
+				assert.Equal(c, uint8(5), ipsecAgent.getCurrentSPI())
+				activeSPI, err = ipsecAgent.getActiveSPI()
 				assert.NoError(c, err)
-				assert.Equal(c, ipsecAgent.spi, v.KeyID)
+				assert.Equal(c, ipsecAgent.getCurrentSPI(), activeSPI)
 				assert.NotEmpty(c, ipsecAgent.ipSecKeysRemovalTime)
 			}, TestTimeout, 50*time.Millisecond)
 
@@ -282,10 +282,10 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 11. Ensure the ipsec agent rejected the new key.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, uint8(5), ipsecAgent.spi)
-				v, err := encryptMap.Lookup(zeroKey)
+				assert.Equal(c, uint8(5), ipsecAgent.getCurrentSPI())
+				activeSPI, err = ipsecAgent.getActiveSPI()
 				assert.NoError(c, err)
-				assert.Equal(c, ipsecAgent.spi, v.KeyID)
+				assert.Equal(c, ipsecAgent.getCurrentSPI(), activeSPI)
 			}, TestTimeout, 50*time.Millisecond)
 
 			// 12. Stop the hive.
@@ -308,38 +308,34 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 2. Verify rotation detected: agent keeps old SPI from BPF map,
 			// defers new SPI publication.
-			assert.Equal(t, uint8(5), ipsecAgent.spi)
-			assert.Equal(t, uint8(6), ipsecAgent.pendingSPI)
-
-			// 3. Verify BPF encrypt map was NOT updated (still old SPI=5).
-			v, err := encryptMap.Lookup(zeroKey)
+			activeSPI, err := ipsecAgent.getActiveSPI()
 			require.NoError(t, err)
-			assert.Equal(t, uint8(5), v.KeyID)
+			require.Equal(t, uint8(5), activeSPI)
+			require.Equal(t, uint8(6), ipsecAgent.getCurrentSPI())
 
-			// 4. Verify localNode has old SPI.
+			// 3. Verify localNode has old SPI.
 			localNode, err := nodeStore.Get(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, uint8(5), localNode.EncryptionKey)
+			require.Equal(t, uint8(5), localNode.EncryptionKey)
 
-			// 5. Start background jobs. The deferred-spi-update OneShot job
+			// 4. Start background jobs. The deferred-spi-update OneShot job
 			// waits for dpInitialized, then publishes the new SPI.
 			dpInitialized := make(chan struct{})
 			close(dpInitialized)
 			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeHandler, dpInitialized))
 
-			// 6. Verify that after dpInitialized, the new SPI is published everywhere.
+			// 5. Verify that after dpInitialized, the new SPI is published everywhere.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, uint8(6), ipsecAgent.spi)
-				assert.Equal(c, uint8(0), ipsecAgent.pendingSPI)
-				v, err := encryptMap.Lookup(zeroKey)
+				assert.Equal(c, uint8(6), ipsecAgent.getCurrentSPI())
+				activeSPI, err = ipsecAgent.getActiveSPI()
 				assert.NoError(c, err)
-				assert.Equal(c, uint8(6), v.KeyID)
+				assert.Equal(c, uint8(6), activeSPI)
 				localNode, err := nodeStore.Get(ctx)
 				assert.NoError(c, err)
 				assert.Equal(c, uint8(6), localNode.EncryptionKey)
 			}, TestTimeout, 50*time.Millisecond)
 
-			// 7. Stop the hive.
+			// 6. Stop the hive.
 			require.NoError(t, hive.Stop(log, ctx))
 
 			return nil
@@ -368,16 +364,10 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			// 5. Ensure local node has not been updated.
 			localNode, err := nodeStore.Get(ctx)
 			require.NoError(t, err)
-			assert.Zero(t, localNode.EncryptionKey)
+			require.Zero(t, localNode.EncryptionKey)
 
-			// 6. Ensure the ipsec agent did not update the key.
-			//    Current key SPI would've been 4, but encryptMap still has 6 from previous test.
-			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, uint8(0), ipsecAgent.spi)
-				v, err := encryptMap.Lookup(zeroKey)
-				assert.NoError(c, err)
-				assert.NotEqual(c, uint8(4), v.KeyID)
-			}, TestTimeout, 50*time.Millisecond)
+			// 6. Ensure the ipsec agent did not update the key (new encrypt map is empty).
+			require.NotEqual(t, ipsecAgent.encryptMap, encryptMap)
 
 			// 7. Stop the hive.
 			require.NoError(t, hive.Stop(log, ctx))
@@ -417,7 +407,7 @@ func TestMaxKeyRotationJitter(t *testing.T) {
 					IPsecKeyRotationDuration: tc.rotationDuration,
 				},
 			}
-			assert.Equal(t, tc.expectedJitter, config.MaxKeyRotationJitter())
+			require.Equal(t, tc.expectedJitter, config.MaxKeyRotationJitter())
 		})
 	}
 }

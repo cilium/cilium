@@ -150,12 +150,8 @@ type agent struct {
 	encryptMap encrypt.EncryptMap
 
 	// These are initialized in [newAgent].
-	spi        uint8
-	pendingSPI uint8
 	// key is the global key in use.
 	key *ipSecKey
-	// ipSecCurrentKeySPI is the SPI of the IPSec currently in use
-	ipSecCurrentKeySPI uint8
 	// ipSecKeysRemovalTime is used to track at which time a given key is
 	// replaced with a newer one, allowing to reclaim old keys only after
 	// enough time has passed since their replacement
@@ -179,8 +175,6 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 		config:     c,
 		encryptMap: em,
 
-		spi:                  0,
-		pendingSPI:           0,
 		key:                  nil,
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
 		xfrmStateCache:       NewXfrmStateListCache(time.Minute, c.EnableIPsecXfrmStateCaching),
@@ -202,25 +196,28 @@ func (a *agent) Start(cell.HookContext) error {
 		return nil
 	}
 
-	v, err := a.encryptMap.Lookup(encrypt.EncryptKey{Key: 0})
-	if err != nil {
-		return err
-	}
-	a.spi = v.KeyID
-
-	a.pendingSPI, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
+	activeSPI, err := a.getActiveSPI()
 	if err != nil {
 		return err
 	}
 
-	if !a.ongoingRotation() {
-		if err := a.setIPSecSPI(a.pendingSPI); err != nil {
+	currentSPI, err := a.loadIPSecKeysFile(a.config.IPsecKeyFile)
+	if err != nil {
+		return err
+	}
+
+	var advertisedSPI uint8
+	if !ongoingRotation(activeSPI, currentSPI) {
+		if err := a.setActiveSPI(currentSPI); err != nil {
 			return err
 		}
+		advertisedSPI = currentSPI
+	} else {
+		advertisedSPI = activeSPI
 	}
 
 	a.localNode.Update(func(n *node.LocalNode) {
-		n.EncryptionKey = a.spi
+		n.EncryptionKey = advertisedSPI
 	})
 
 	return nil
@@ -234,7 +231,16 @@ func (a *agent) StartBackgroundJobs(handler node.Handler, dpInitialized <-chan s
 		return nil
 	}
 
-	if a.ongoingRotation() {
+	a.ipSecLock.RLock()
+	defer a.ipSecLock.RUnlock()
+
+	currentSPI := a.getCurrentSPI()
+	activeSPI, err := a.getActiveSPI()
+	if err != nil {
+		return err
+	}
+
+	if ongoingRotation(activeSPI, currentSPI) {
 		a.jobs.Add(job.OneShot("deferred-spi-update", func(ctx context.Context, _ cell.Health) error {
 			select {
 			case <-dpInitialized:
@@ -243,10 +249,10 @@ func (a *agent) StartBackgroundJobs(handler node.Handler, dpInitialized <-chan s
 			}
 
 			a.log.Info("Datapath initialized, publishing updated SPI",
-				logfields.OldSPI, a.spi,
-				logfields.SPI, a.pendingSPI,
+				logfields.OldSPI, activeSPI,
+				logfields.SPI, currentSPI,
 			)
-			if err := a.publishPendingSPI(handler); err != nil {
+			if err := a.publishCurrentSPI(handler, currentSPI); err != nil {
 				return err
 			}
 			if err := a.startKeyfileWatcher(handler); err != nil {
@@ -1193,7 +1199,6 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 			a.ipSecKeysRemovalTime[a.key.Spi] = time.Now()
 		}
 		a.key = ipSecKey
-		a.ipSecCurrentKeySPI = spi
 	}
 	if err := scanner.Err(); err != nil {
 		return 0, fmt.Errorf("error scanning IPsec key: %w", err)
@@ -1221,29 +1226,49 @@ func parseSPI(spiStr string) (uint8, int, error) {
 	return uint8(spi), 0, nil
 }
 
-func (a *agent) setIPSecSPI(spi uint8) error {
+// getCurrentSPI returns the SPI of the currently loaded key, or zero if there is no key.
+// The caller must hold the agent lock.
+func (a *agent) getCurrentSPI() uint8 {
+	if a.key == nil {
+		return 0
+	}
+
+	return a.key.Spi
+}
+
+// getActiveSPI returns the SPI of the currently active key in the BPF map.
+// This may be different from the SPI of the currently loaded key if there is
+// an ongoing key rotation.
+func (a *agent) getActiveSPI() (uint8, error) {
+	v, err := a.encryptMap.Lookup(encrypt.EncryptKey{Key: 0})
+	if err != nil {
+		return 0, err
+	}
+	return v.KeyID, nil
+}
+
+// setActiveSPI sets the given SPI as the active SPI in the BPF map.
+func (a *agent) setActiveSPI(spi uint8) error {
 	k := encrypt.EncryptKey{Key: 0}
 	v := encrypt.EncryptValue{KeyID: spi}
 	if err := a.encryptMap.Update(k, v); err != nil {
 		a.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
 		return err
 	}
-	a.spi = spi
 	a.log.Debug("Updated BPF encrypt map with new SPI", logfields.SPI, spi)
 	return nil
 }
 
 // ongoingRotation returns true if there is an ongoing key rotation, which is the
-// case when both the current [*agent.spi] and pending [*agent.pendingSPI] are valid,
-// and the pending SPI is the next one.
-func (a *agent) ongoingRotation() bool {
-	if a.spi == 0 || a.pendingSPI == 0 {
+// case when the loaded key currentSPI is the successor of the activeSPI in the BPF map.
+func ongoingRotation(activeSPI, currentSPI uint8) bool {
+	if activeSPI == 0 || currentSPI == 0 {
 		return false
 	}
-	return a.pendingSPI == a.spi%linux_defaults.IPsecMaxKeyVersion+1
+	return currentSPI == (activeSPI%linux_defaults.IPsecMaxKeyVersion)+1
 }
 
-// publishPendingSPI publishes the pending SPI to the datapath and CiliumNode.
+// publishCurrentSPI publishes the current key SPI to the datapath and CiliumNode.
 //
 //  1. AllNodeValidateImplementation will eventually call nodeUpdate(), which is
 //     responsible for updating the IPSec policies and states for all the different
@@ -1256,18 +1281,17 @@ func (a *agent) ongoingRotation() bool {
 //     update to publish the updated information to k8s/kvstore.
 //
 //  3. Push SPI update into BPF datapath now that XFRM state is configured.
-func (a *agent) publishPendingSPI(handler node.Handler) error {
+func (a *agent) publishCurrentSPI(handler node.Handler, currentSPI uint8) error {
 	handler.AllNodeValidateImplementation()
 
 	a.localNode.Update(func(n *node.LocalNode) {
-		n.EncryptionKey = a.pendingSPI
+		n.EncryptionKey = currentSPI
 	})
 
-	if err := a.setIPSecSPI(a.pendingSPI); err != nil {
+	if err := a.setActiveSPI(currentSPI); err != nil {
 		return fmt.Errorf("failed to set IPsec SPI: %w", err)
 	}
 
-	a.pendingSPI = 0
 	return nil
 }
 
@@ -1323,20 +1347,20 @@ func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				}
 			}
 
-			a.pendingSPI, err = a.loadIPSecKeysFile(keyfilePath)
+			currentSPI, err := a.loadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
 				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
 				continue
 			}
 			a.log.Info("Loaded IPsec keyfile",
-				logfields.SPI, a.pendingSPI,
+				logfields.SPI, currentSPI,
 				logfields.Path, keyfilePath,
 			)
 
-			if err := a.publishPendingSPI(nodeHandler); err != nil {
-				health.Degraded("Failed to publish pending SPI", err)
-				a.log.Error("Failed to publish pending SPI", logfields.Error, err)
+			if err := a.publishCurrentSPI(nodeHandler, currentSPI); err != nil {
+				health.Degraded("Failed to publish current SPI", err)
+				a.log.Error("Failed to publish current SPI", logfields.Error, err)
 				continue
 			}
 			health.OK("Watching keyfiles")
@@ -1384,7 +1408,7 @@ func (a *agent) startKeyfileWatcher(nodeHandler node.Handler) error {
 // directly in this function.
 func (a *agent) ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 	// The SPI associated with the key currently in use should not be reclaimed
-	if spi == a.ipSecCurrentKeySPI {
+	if spi == a.getCurrentSPI() {
 		return false
 	}
 
@@ -1453,7 +1477,7 @@ func (a *agent) deleteStaleXfrmPolicies(reclaimTimestamp time.Time) error {
 		}
 
 		a.log.Info("Deleting stale XFRM policy",
-			logfields.SPI, a.ipSecCurrentKeySPI,
+			logfields.SPI, a.getCurrentSPI(),
 			logfields.OldSPI, policySPI,
 			logfields.SourceIP, p.Src,
 			logfields.DestinationIP, p.Dst,
@@ -1488,7 +1512,7 @@ func (a *agent) onTimer(ctx context.Context) error {
 
 	// In case no IPSec key has been loaded yet, don't try to reclaim any
 	// old key
-	if a.ipSecCurrentKeySPI == 0 {
+	if a.key == nil {
 		return nil
 	}
 
@@ -1496,13 +1520,13 @@ func (a *agent) onTimer(ctx context.Context) error {
 
 	if err := a.deleteStaleXfrmStates(reclaimTimestamp); err != nil {
 		a.log.Warn("Failed to delete stale XFRM states",
-			logfields.SPI, a.ipSecCurrentKeySPI,
+			logfields.SPI, a.getCurrentSPI(),
 			logfields.Error, err)
 		return err
 	}
 	if err := a.deleteStaleXfrmPolicies(reclaimTimestamp); err != nil {
 		a.log.Warn("Failed to delete stale XFRM policies",
-			logfields.SPI, a.ipSecCurrentKeySPI,
+			logfields.SPI, a.getCurrentSPI(),
 			logfields.Error, err)
 		return err
 	}
@@ -1523,7 +1547,6 @@ func NewTestIPsecAgent(tb testing.TB, keys io.Reader) (*agent, error) {
 		jobs:       nil,
 		encryptMap: fakeencryptmap.NewFakeEncryptMap(),
 
-		spi:                  0,
 		key:                  nil,
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
 		xfrmStateCache:       NewXfrmStateListCache(time.Minute, true),
