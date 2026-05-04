@@ -89,7 +89,7 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		}
 		value := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, 0, verdict, NoAuthRequirement)
 		policyMaps := MapChanges{logger: slog.New(slog.DiscardHandler)}
-		policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
+		policyMaps.AccumulateMapChanges(0, 0, adds, deletes, key, value)
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
 	})
 }

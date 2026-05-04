@@ -713,7 +713,7 @@ func newMapState(logger *slog.Logger, old *mapState, features policyFeatures) ma
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
 
-	if features&passRules != 0 {
+	if features&(passRules|namedPortRules) != 0 {
 		if old == nil {
 			ms.byId = make(map[identity.NumericIdentity]LPMKeys)
 		} else {
@@ -1610,6 +1610,23 @@ type mapChange struct {
 	Value             mapStateEntry
 }
 
+// AccumulateMapDeletesByID accumulates identity-wide deletes. This is used when
+// the exact keys are intentionally not reconstructed, such as egress named port
+// deletes whose concrete ports may no longer be available.
+func (mc *MapChanges) AccumulateMapDeletesByID(tier types.Tier, basePriority types.Priority, deletes []identity.NumericIdentity) {
+	tierMaxPrecedence := basePriority.ToDenyPrecedence()
+	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
+	for _, id := range deletes {
+		mc.changes = append(mc.changes, mapChange{
+			Add:               false,
+			Tier:              tier,
+			TierMaxPrecedence: tierMaxPrecedence,
+			Key:               Key{Identity: id},
+		})
+	}
+}
+
 type MapChange struct {
 	Add   bool // false deletes
 	Key   Key
@@ -1625,33 +1642,27 @@ type MapChange struct {
 // If an identity is present in 'adds' or 'deletes', then the caller must make sure all keys that
 // need to be added/deleted for that identity are accumulated before 'SyncMapChanges' is called, so
 // that when the changes are applied, all keys for that identity are applied at the same time.
-func (mc *MapChanges) AccumulateMapChanges(tier types.Tier, basePriority types.Priority, adds, deletes []identity.NumericIdentity, keys []Key, value mapStateEntry) {
+func (mc *MapChanges) AccumulateMapChanges(tier types.Tier, basePriority types.Priority, adds, deletes identity.NumericIdentitySlice, k Key, value mapStateEntry) {
 	tierMaxPrecedence := basePriority.ToDenyPrecedence()
 	mc.mutex.Lock()
 	defer mc.mutex.Unlock()
-	for _, id := range adds {
-		for _, k := range keys {
-			k.Identity = id
-			mc.changes = append(mc.changes, mapChange{
-				Add:               true,
-				Tier:              tier,
-				TierMaxPrecedence: tierMaxPrecedence,
-				Key:               k,
-				Value:             value,
-			})
-		}
+	for _, nid := range adds {
+		mc.changes = append(mc.changes, mapChange{
+			Add:               true,
+			Tier:              tier,
+			TierMaxPrecedence: tierMaxPrecedence,
+			Key:               k.WithIdentity(nid),
+			Value:             value,
+		})
 	}
-	for _, id := range deletes {
-		for _, k := range keys {
-			k.Identity = id
-			mc.changes = append(mc.changes, mapChange{
-				Add:               false,
-				Tier:              tier,
-				TierMaxPrecedence: tierMaxPrecedence,
-				Key:               k,
-				Value:             value,
-			})
-		}
+	for _, nid := range deletes {
+		mc.changes = append(mc.changes, mapChange{
+			Add:               false,
+			Tier:              tier,
+			TierMaxPrecedence: tierMaxPrecedence,
+			Key:               k.WithIdentity(nid),
+			Value:             value,
+		})
 	}
 }
 
