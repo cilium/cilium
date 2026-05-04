@@ -37,6 +37,7 @@ type resourceNetworkConfig struct {
 type spec struct {
 	NodeSelector labels.Selector `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`
 	IPPool       string          `json:"resourcePool" yaml:"resourcePool"`
+	Vlan         uint16          `json:"vlan,omitempty" yaml:"vlan,omitempty"`
 	IPv4NetMask  int             `json:"ipv4NetMask" yaml:"ipv4NetMask"`
 	IPv4Routes   []route         `json:"ipv4Routes" yaml:"ipv4Routes"`
 	IPv6NetMask  int             `json:"ipv6NetMask" yaml:"ipv6NetMask"`
@@ -82,6 +83,10 @@ func (c resourceNetworkConfig) TableRow() []string {
 		b.WriteString(s.NodeSelector.String())
 		b.WriteString(": ")
 		b.WriteString(s.IPPool)
+		if s.Vlan != 0 {
+			b.WriteString(", vlan ")
+			b.WriteString(strconv.Itoa(int(s.Vlan)))
+		}
 		b.WriteString(", /")
 		b.WriteString(strconv.Itoa(s.IPv4NetMask))
 		b.WriteString(", ")
@@ -183,6 +188,7 @@ func resourceNetworkConfigReflectorConfig(cs client.Clientset, crdSync promise.P
 				s := spec{
 					NodeSelector: nodeSel,
 					IPPool:       sp.IPPool,
+					Vlan:         sp.VLAN,
 				}
 
 				if sp.IPv4 != nil {

@@ -168,6 +168,13 @@ spec:
                       type: object
                   type: object
                   x-kubernetes-map-type: atomic
+                vlan:
+                  description: |-
+                    VLAN is the VLAN ID to configure on devices using this network config.
+                    A value of 0 means no VLAN is configured.
+                  maximum: 4094
+                  minimum: 0
+                  type: integer
               type: object
             minItems: 1
             type: array

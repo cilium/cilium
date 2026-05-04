@@ -27,6 +27,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
@@ -251,6 +252,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		ipv6MaskSize = 64
 
 		networkConfigName = "test-network-config"
+		vlan              = uint16(1001)
 		v4NetMask         = 24
 		v4RouteDst        = "10.10.100.0/24"
 		v4RouteGw         = "10.10.100.254"
@@ -339,6 +341,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 					},
 				},
 				IPPool: ipPoolName,
+				VLAN:   vlan,
 				IPv4: &v2alpha1.IPv4NetworkConfigSpec{
 					NetMask: uint8(v4NetMask),
 					StaticRoutes: []v2alpha1.IPv4StaticRouteSpec{
@@ -527,6 +530,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 	var alloc allocation
 	assert.NoError(t, json.Unmarshal(claim.Status.Devices[0].Data.Raw, &alloc))
 	assert.Equal(t, ipPoolName, alloc.Config.IPPool)
+	assert.Equal(t, vlan, alloc.Config.Vlan)
 
 	assert.Equal(t, v4NetMask, alloc.Config.IPv4Addr.Bits())
 	assert.True(t, v4PoolCIDR.Contains(alloc.Config.IPv4Addr.Masked().Addr()))
@@ -573,4 +577,66 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 	}, 10*time.Second, 100*time.Millisecond)
 
 	assert.NoError(t, hive.Stop(tlog, t.Context()))
+}
+
+func TestNetConfigForDeviceVLANPrecedence(t *testing.T) {
+	db := statedb.New()
+	resourceNetCfgs, err := NewResourceNetworkConfigTable(db)
+	assert.NoError(t, err)
+
+	const networkConfigName = "test-network-config"
+	const networkConfigVLAN = uint16(1001)
+	const deviceConfigVLAN = uint16(1002)
+
+	wtxn := db.WriteTxn(resourceNetCfgs)
+	_, _, err = resourceNetCfgs.Insert(wtxn, resourceNetworkConfig{
+		Name: networkConfigName,
+		Specs: []spec{
+			{
+				NodeSelector: labels.Everything(),
+				Vlan:         networkConfigVLAN,
+			},
+		},
+		UpdatedAt: time.Now(),
+	})
+	assert.NoError(t, err)
+	wtxn.Commit()
+
+	driver := &Driver{
+		db:                     db,
+		resourceNetworkConfigs: resourceNetCfgs,
+		localNodeStore: node.NewTestLocalNodeStore(node.LocalNode{
+			Node: nodetypes.Node{},
+		}),
+	}
+
+	tests := []struct {
+		name string
+		cfg  types.DeviceConfig
+		want uint16
+	}{
+		{
+			name: "network config vlan is used when device config vlan is unset",
+			cfg: types.DeviceConfig{
+				NetworkConfig: networkConfigName,
+			},
+			want: networkConfigVLAN,
+		},
+		{
+			name: "device config vlan takes precedence when set",
+			cfg: types.DeviceConfig{
+				NetworkConfig: networkConfigName,
+				Vlan:          deviceConfigVLAN,
+			},
+			want: deviceConfigVLAN,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			devCfg, err := driver.netConfigForDevice(t.Context(), "test-device", tt.cfg)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, devCfg.vlan)
+		})
+	}
 }
