@@ -445,6 +445,14 @@ but not CIDR prefix ``10.96.0.0/12``
 .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.yaml
   :language: yaml
 
+
+Scalability
+~~~~~~~~~~~
+
+Policies that select large numbers of distinct CIDRs can cause agents to allocate
+large numbers of :ref:`security identities <arch_id_security>`. In this scenario,
+use a :ref:`CiliumCIDRGroup` to reduce identity usage.
+
 .. _cidr_select_nodes:
 
 Selecting nodes with CIDR / ipBlock
