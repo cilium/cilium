@@ -851,7 +851,6 @@ func (ms mapState) String() (res string) {
 }
 
 // Equal returns true of two entries are equal.
-// This is used for testing only via mapState.Equal and mapState.Diff.
 func (e mapStateEntry) Equal(o mapStateEntry) bool {
 	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules == o.derivedFromRules &&
 		(e.passes == o.passes || (e.passes != nil && o.passes != nil &&
