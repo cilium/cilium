@@ -593,7 +593,7 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 		PodName:   "app",
 		NamedPorts: types.NamedPortMap{
 			"http": types.PortProto{Port: 80, Proto: u8proto.TCP},
-			"dns":  types.PortProto{Port: 53},
+			"dns":  types.PortProto{Port: 53, Proto: u8proto.UDP},
 		},
 	}
 

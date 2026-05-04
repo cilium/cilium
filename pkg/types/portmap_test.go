@@ -13,8 +13,8 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func testPortProtoSet(entries map[PortProto]map[identity.NumericIdentity]int) PortProtoSet {
-	pps := make(PortProtoSet)
+func testPortProtoSet(entries map[PortProto]map[identity.NumericIdentity]int) portProtoSet {
+	pps := make(portProtoSet)
 	for pp, nidCounts := range entries {
 		for nid, count := range nidCounts {
 			for range count {
@@ -26,11 +26,11 @@ func testPortProtoSet(entries map[PortProto]map[identity.NumericIdentity]int) Po
 }
 
 func testNamedPortMultiMap(entries map[string]map[PortProto]map[identity.NumericIdentity]int) *namedPortMultiMap {
-	npm := &namedPortMultiMap{m: map[string]PortProtoSet{}}
+	npm := &namedPortMultiMap{m: map[string]portProtoSet{}}
 	for name, portEntries := range entries {
 		pps, ok := npm.m[name]
 		if !ok {
-			pps = make(PortProtoSet)
+			pps = make(portProtoSet)
 			npm.m[name] = pps
 		}
 		for pp, nidCounts := range portEntries {
@@ -80,6 +80,9 @@ func TestPolicyNewPortProto(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, "unknown protocol 'cccp'", err.Error())
 
+	_, err = newPortProto(80, "ANY")
+	require.ErrorIs(t, err, ErrIncompatibleProtocol)
+
 	np, err = newPortProto(88, "")
 	require.NoError(t, err)
 	require.Equal(t, PortProto{Port: uint16(88), Proto: u8proto.TCP}, np)
@@ -100,6 +103,10 @@ func TestPolicyNamedPortMap(t *testing.T) {
 	require.Equal(t, ErrNamedPortIsZero, err)
 	require.Len(t, npm, 2)
 
+	err = npm.AddPort("any", 80, "ANY")
+	require.ErrorIs(t, err, ErrIncompatibleProtocol)
+	require.Len(t, npm, 2)
+
 	proto, err := u8proto.ParseProtocol("UDP")
 	require.NoError(t, err)
 	require.Equal(t, uint8(17), uint8(proto))
@@ -109,6 +116,15 @@ func TestPolicyNamedPortMap(t *testing.T) {
 	require.Equal(t, uint16(53), port)
 
 	port, err = npm.GetNamedPort("dns", u8proto.TCP)
+	require.Equal(t, ErrIncompatibleProtocol, err)
+	require.Equal(t, uint16(0), port)
+
+	port, err = npm.GetNamedPort("dns", u8proto.ANY)
+	require.Equal(t, ErrIncompatibleProtocol, err)
+	require.Equal(t, uint16(0), port)
+
+	npm["direct-any"] = PortProto{Port: 80, Proto: u8proto.ANY}
+	port, err = npm.GetNamedPort("direct-any", u8proto.TCP)
 	require.Equal(t, ErrIncompatibleProtocol, err)
 	require.Equal(t, uint16(0), port)
 
@@ -133,7 +149,7 @@ func TestPolicyPortProtoSet(t *testing.T) {
 	require.True(t, b.Equal(b))
 
 	// Test reference counting
-	pps := make(PortProtoSet)
+	pps := make(portProtoSet)
 	pp := PortProto{Port: 80, Proto: u8proto.TCP}
 	id1 := identity.NumericIdentity(1)
 	id2 := identity.NumericIdentity(2)
@@ -503,6 +519,13 @@ func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 		"zero": {u8proto.TCP, 0},
 	}
 	changed := npm.Update(nid1, zeroPortsOld, zeroPortsNew)
+	require.False(t, changed)
+	require.Equal(t, 0, npm.Len())
+
+	anyPortsNew := map[string]PortProto{
+		"any": {u8proto.ANY, 80},
+	}
+	changed = npm.Update(nid1, nil, anyPortsNew)
 	require.False(t, changed)
 	require.Equal(t, 0, npm.Len())
 

@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
-	"github.com/cilium/cilium/pkg/u8proto"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -219,18 +218,13 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 		NamedPorts: make(ciliumTypes.NamedPortMap, len(endpoint.NamedPorts)),
 	}
 	for _, port := range endpoint.NamedPorts {
-		p, err := u8proto.ParseProtocol(port.Protocol)
-		if err != nil {
+		if err := k8sMeta.NamedPorts.AddPort(port.Name, int(port.Port), port.Protocol); err != nil {
 			k.logger.Error(
-				"Parsing named port protocol failed",
+				"Parsing named port failed",
 				logfields.Error, err,
 				logfields.CEPName, endpoint.GetName(),
 			)
 			continue
-		}
-		k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
-			Port:  port.Port,
-			Proto: p,
 		}
 	}
 
