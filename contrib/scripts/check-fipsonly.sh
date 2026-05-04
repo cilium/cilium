@@ -29,7 +29,6 @@ EXCLUDED_DIRS=(
     "tools/spdxconv"
     "tools/sysctlfix"
     "tools/testowners"
-    "tools/stackwhere"
 )
 
 FIPSONLY_EXAMPLE=$(
