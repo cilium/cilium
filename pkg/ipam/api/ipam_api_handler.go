@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -22,8 +23,20 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	cslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+func prefixesToStrings(prefixes []netip.Prefix) []string {
+	return cslices.Map(prefixes, func(p netip.Prefix) string { return p.String() })
+}
+
+func gatewayString(addr netip.Addr) string {
+	if !addr.IsValid() {
+		return ""
+	}
+	return addr.String()
+}
 
 type IpamDeleteIpamIPHandler struct {
 	IPAM            *ipam.IPAM
@@ -68,10 +81,10 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 		resp.Address.IPv4 = ipv4Result.IP.String()
 		resp.Address.IPv4PoolName = ipv4Result.IPPoolName.String()
 		resp.IPv4 = &models.IPAMAddressResponse{
-			Cidrs:           ipv4Result.CIDRs,
+			Cidrs:           prefixesToStrings(ipv4Result.CIDRs),
 			IP:              ipv4Result.IP.String(),
 			MasterMac:       ipv4Result.PrimaryMAC,
-			Gateway:         ipv4Result.GatewayIP,
+			Gateway:         gatewayString(ipv4Result.GatewayIP),
 			ExpirationUUID:  ipv4Result.ExpirationUUID,
 			InterfaceNumber: ipv4Result.InterfaceNumber,
 			SkipMasquerade:  ipv4Result.SkipMasquerade,
@@ -82,10 +95,10 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 		resp.Address.IPv6 = ipv6Result.IP.String()
 		resp.Address.IPv6PoolName = ipv6Result.IPPoolName.String()
 		resp.IPv6 = &models.IPAMAddressResponse{
-			Cidrs:           ipv6Result.CIDRs,
+			Cidrs:           prefixesToStrings(ipv6Result.CIDRs),
 			IP:              ipv6Result.IP.String(),
 			MasterMac:       ipv6Result.PrimaryMAC,
-			Gateway:         ipv6Result.GatewayIP,
+			Gateway:         gatewayString(ipv6Result.GatewayIP),
 			ExpirationUUID:  ipv6Result.ExpirationUUID,
 			InterfaceNumber: ipv6Result.InterfaceNumber,
 			SkipMasquerade:  ipv6Result.SkipMasquerade,

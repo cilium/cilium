@@ -36,7 +36,7 @@ type AllocationResult struct {
 	// This is primarily useful if the IP has been allocated out of a VPC
 	// subnet range and the VPC provides routing to a set of CIDRs in which
 	// the IP is routable.
-	CIDRs []string
+	CIDRs []netip.Prefix
 
 	// PrimaryMAC is the MAC address of the primary interface. This is useful
 	// when the IP is a secondary address of an interface which is
@@ -47,7 +47,7 @@ type AllocationResult struct {
 	// GatewayIP is the IP of the gateway which must be used for this IP.
 	// If the allocated IP is derived from a VPC, then the gateway
 	// represented the gateway of the VPC or VPC subnet.
-	GatewayIP string
+	GatewayIP netip.Addr
 
 	// ExpirationUUID is the UUID of the expiration timer. This field is
 	// only set if AllocateNextWithExpiration is used.

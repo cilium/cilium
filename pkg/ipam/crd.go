@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -698,24 +699,6 @@ func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig,
 	return allocator
 }
 
-// deriveGatewayIP accept the CIDR and the index of the IP in this CIDR.
-func deriveGatewayIP(logger *slog.Logger, cidr string, index int) string {
-	_, ipNet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		logger.Warn(
-			"Unable to parse subnet CIDR",
-			logfields.Error, err,
-			logfields.CIDR, cidr,
-		)
-		return ""
-	}
-	gw := ip.GetIPAtIndex(*ipNet, int64(index))
-	if gw == nil {
-		return ""
-	}
-	return gw.String()
-}
-
 func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.AllocationIP) (result *AllocationResult, err error) {
 	result = &AllocationResult{IP: addr}
 
@@ -737,11 +720,17 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
 			if iface.ID == ipInfo.Resource {
 				result.PrimaryMAC = iface.MAC
-				result.GatewayIP = iface.Gateway
-				result.CIDRs = append(result.CIDRs, iface.CIDR)
+				if gatewayIP, err := netip.ParseAddr(iface.Gateway); err == nil {
+					result.GatewayIP = gatewayIP
+				}
+				if p, err := netip.ParsePrefix(iface.CIDR); err == nil {
+					result.CIDRs = append(result.CIDRs, p)
+				}
 				// Add manually configured Native Routing CIDR
 				if a.conf.IPv4NativeRoutingCIDR != nil {
-					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
+					if p, ok := netipx.FromStdIPNet(a.conf.IPv4NativeRoutingCIDR.IPNet); ok {
+						result.CIDRs = append(result.CIDRs, p)
+					}
 				}
 				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
 				// Note that the resulting ip rules will not be dynamically regenerated if the
@@ -750,9 +739,9 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 					nonMasqCidrs := a.ipMasqAgent.NonMasqCIDRsFromConfig()
 					for _, prefix := range nonMasqCidrs {
 						if addr.Is4() && prefix.Addr().Is4() {
-							result.CIDRs = append(result.CIDRs, prefix.String())
+							result.CIDRs = append(result.CIDRs, prefix)
 						} else if !addr.Is4() && prefix.Addr().Is6() {
-							result.CIDRs = append(result.CIDRs, prefix.String())
+							result.CIDRs = append(result.CIDRs, prefix)
 						}
 					}
 				}
@@ -781,10 +770,13 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 				continue
 			}
 			result.PrimaryMAC = eni.MACAddress
-			result.CIDRs = []string{eni.VSwitch.CIDRBlock}
+			if p, err := netip.ParsePrefix(eni.VSwitch.CIDRBlock); err == nil {
+				result.CIDRs = []netip.Prefix{p}
 
-			// Ref: https://www.alibabacloud.com/help/doc-detail/65398.html
-			result.GatewayIP = deriveGatewayIP(a.logger, eni.VSwitch.CIDRBlock, -3)
+				// AlibabaCloud reserves the third-to-last IP of the subnet for the gateway.
+				// Ref: https://www.alibabacloud.com/help/doc-detail/65398.html
+				result.GatewayIP = netipx.PrefixLastIP(p).Prev().Prev()
+			}
 			result.InterfaceNumber = strconv.Itoa(alibabaCloud.GetENIIndexFromTags(a.logger, eni.Tags))
 			return
 		}

@@ -30,60 +30,72 @@ func TestCoalesceCIDRs(t *testing.T) {
 		logger: hivetest.Logger(t),
 	}
 
-	CIDR := []string{"10.0.0.0/8"}
-	expectedCIDR := []string{"10.0.0.0/8"}
-	newCIDR, err := infraIPAllocator.coalesceCIDRs(CIDR)
-	if err != nil || len(newCIDR) != len(expectedCIDR) || newCIDR[0] != expectedCIDR[0] {
-		t.Errorf("got %v, want %v, err: %v\n", newCIDR, expectedCIDR, err)
+	cases := []struct {
+		in   []netip.Prefix
+		want []netip.Prefix
+	}{
+		{
+			in:   []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
+			want: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
+		},
+		{
+			in:   []netip.Prefix{netip.MustParsePrefix("10.105.0.0/16"), netip.MustParsePrefix("10.0.0.0/8")},
+			want: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
+		},
+		{
+			in: []netip.Prefix{
+				netip.MustParsePrefix("10.105.0.0/16"),
+				netip.MustParsePrefix("10.104.0.0/19"),
+				netip.MustParsePrefix("10.0.0.0/8"),
+			},
+			want: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
+		},
+		{
+			in:   []netip.Prefix{netip.MustParsePrefix("10.105.0.0/16"), netip.MustParsePrefix("192.168.1.0/24")},
+			want: []netip.Prefix{netip.MustParsePrefix("10.105.0.0/16"), netip.MustParsePrefix("192.168.1.0/24")},
+		},
+		{
+			in: []netip.Prefix{
+				netip.MustParsePrefix("10.105.0.0/16"),
+				netip.MustParsePrefix("192.168.1.0/24"),
+				netip.MustParsePrefix("10.0.0.0/8"),
+			},
+			want: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8"), netip.MustParsePrefix("192.168.1.0/24")},
+		},
+		{
+			in: []netip.Prefix{
+				netip.MustParsePrefix("10.105.0.0/16"),
+				netip.MustParsePrefix("192.168.1.0/24"),
+				netip.MustParsePrefix("10.0.0.0/8"),
+				netip.MustParsePrefix("f00d::a0f:0:0:0/96"),
+			},
+			want: []netip.Prefix{
+				netip.MustParsePrefix("10.0.0.0/8"),
+				netip.MustParsePrefix("192.168.1.0/24"),
+				netip.MustParsePrefix("f00d::a0f:0:0:0/96"),
+			},
+		},
+		{
+			in: []netip.Prefix{
+				netip.MustParsePrefix("f00d::a0f:0:0:0/96"),
+				netip.MustParsePrefix("10.105.0.0/16"),
+				netip.MustParsePrefix("192.168.1.0/24"),
+				netip.MustParsePrefix("10.0.0.0/8"),
+			},
+			want: []netip.Prefix{
+				netip.MustParsePrefix("10.0.0.0/8"),
+				netip.MustParsePrefix("192.168.1.0/24"),
+				netip.MustParsePrefix("f00d::a0f:0:0:0/96"),
+			},
+		},
+		{
+			in:   []netip.Prefix{netip.MustParsePrefix("f00d::a0f:0:0:0/96")},
+			want: []netip.Prefix{netip.MustParsePrefix("f00d::a0f:0:0:0/96")},
+		},
 	}
 
-	CIDR = []string{"10.105.0.0/16", "10.0.0.0/8"}
-	expectedCIDR = []string{"10.0.0.0/8"}
-	newCIDR, err = infraIPAllocator.coalesceCIDRs(CIDR)
-	if err != nil || len(newCIDR) != len(expectedCIDR) || newCIDR[0] != expectedCIDR[0] {
-		t.Errorf("got %v, want %v, err: %v\n", newCIDR, expectedCIDR, err)
-	}
-
-	CIDR = []string{"10.105.0.0/16", "10.104.0.0/19", "10.0.0.0/8"}
-	expectedCIDR = []string{"10.0.0.0/8"}
-	newCIDR, err = infraIPAllocator.coalesceCIDRs(CIDR)
-	if err != nil || len(newCIDR) != len(expectedCIDR) || newCIDR[0] != expectedCIDR[0] {
-		t.Errorf("got %v, want %v, err: %v\n", newCIDR, expectedCIDR, err)
-	}
-
-	CIDR = []string{"10.105.0.0/16", "192.168.1.0/24"}
-	expectedCIDR = []string{"10.105.0.0/16", "192.168.1.0/24"}
-	newCIDR, err = infraIPAllocator.coalesceCIDRs(CIDR)
-	if err != nil || len(newCIDR) != len(expectedCIDR) || newCIDR[0] != expectedCIDR[0] || newCIDR[1] != expectedCIDR[1] {
-		t.Errorf("got %v, want %v, err: %v\n", newCIDR, expectedCIDR, err)
-	}
-
-	CIDR = []string{"10.105.0.0/16", "192.168.1.0/24", "10.0.0.0/8"}
-	expectedCIDR = []string{"10.0.0.0/8", "192.168.1.0/24"}
-	newCIDR, err = infraIPAllocator.coalesceCIDRs(CIDR)
-	if err != nil || len(newCIDR) != len(expectedCIDR) || newCIDR[0] != expectedCIDR[0] || newCIDR[1] != expectedCIDR[1] {
-		t.Errorf("got %v, want %v, err: %v\n", newCIDR, expectedCIDR, err)
-	}
-
-	CIDR = []string{"10.105.0.0/16", "192.168.1.0/24", "10.0.0.0/8", "f00d::a0f:0:0:0/96"}
-	expectedCIDR = []string{"10.0.0.0/8", "192.168.1.0/24", "f00d::a0f:0:0:0/96"}
-	newCIDR, err = infraIPAllocator.coalesceCIDRs(CIDR)
-	if err != nil || len(newCIDR) != len(expectedCIDR) || newCIDR[0] != expectedCIDR[0] || newCIDR[1] != expectedCIDR[1] || newCIDR[2] != expectedCIDR[2] {
-		t.Errorf("got %v, want %v, err: %v\n", newCIDR, expectedCIDR, err)
-	}
-
-	CIDR = []string{"f00d::a0f:0:0:0/96", "10.105.0.0/16", "192.168.1.0/24", "10.0.0.0/8"}
-	expectedCIDR = []string{"10.0.0.0/8", "192.168.1.0/24", "f00d::a0f:0:0:0/96"}
-	newCIDR, err = infraIPAllocator.coalesceCIDRs(CIDR)
-	if err != nil || len(newCIDR) != len(expectedCIDR) || newCIDR[0] != expectedCIDR[0] || newCIDR[1] != expectedCIDR[1] || newCIDR[2] != expectedCIDR[2] {
-		t.Errorf("got %v, want %v, err: %v\n", newCIDR, expectedCIDR, err)
-	}
-
-	CIDR = []string{"f00d::a0f:0:0:0/96"}
-	expectedCIDR = []string{"f00d::a0f:0:0:0/96"}
-	newCIDR, err = infraIPAllocator.coalesceCIDRs(CIDR)
-	if err != nil || len(newCIDR) != len(expectedCIDR) || newCIDR[0] != expectedCIDR[0] {
-		t.Errorf("got %v, want %v, err: %v\n", newCIDR, expectedCIDR, err)
+	for _, tc := range cases {
+		require.Equal(t, tc.want, infraIPAllocator.coalesceCIDRs(tc.in))
 	}
 }
 
