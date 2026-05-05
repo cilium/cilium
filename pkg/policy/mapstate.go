@@ -402,10 +402,12 @@ func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
 // between L3 and L4-only policies as the bpf datapath  when both match the given 'key'.
 // To be used in testing in place of the bpf datapath when full integration testing is not desired.
 // Returns the closest matching covering policy entry and 'true' if found.
-// 'key' must not have a wildcard identity or port.
+// 'key' must have a non-zero protocol and a non-wildcard port. Identity may be
+// zero, in which case only entries with zero identity are considered, mirroring
+// the L4-only side of the L3-vs-L4 precedence logic below.
 func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
-	// Validate that the search key has no wildcards
-	if key.Identity == 0 || key.Nexthdr == 0 || key.DestPort == 0 || key.EndPort() != key.DestPort {
+	// Validate that the search key has no wildcards in protocol or port.
+	if key.Nexthdr == 0 || key.DestPort == 0 || key.EndPort() != key.DestPort {
 		ms.logger.Error(
 			"invalid key for Lookup",
 			logfields.Stacktrace, hclog.Stacktrace(),
