@@ -157,7 +157,7 @@ func Test_printRouteSummary(t *testing.T) {
 			var out bytes.Buffer
 
 			// function to test
-			printRouteSummary(&out, tt.Config, tt.printPeer)
+			printRouteSummaryLegacy(&out, tt.Config, tt.printPeer)
 
 			// validate rows and cols
 			rows := 0
@@ -203,7 +203,7 @@ func Test_defaultGetRoutesArgs(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
-			args := defaultGetRoutesArgs(tt.Args, true)
+			args := defaultGetRoutesArgsLegacy(tt.Args, true)
 			require.Equal(t, tt.expectArgs, args)
 		})
 	}
@@ -304,7 +304,7 @@ func Test_validateGetRoutesArgs(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
-			err := validateGetRoutesArgs(tt.Args)
+			err := validateGetRoutesArgsLegacy(tt.Args)
 			if tt.expectErr {
 				require.Error(t, err)
 			} else {

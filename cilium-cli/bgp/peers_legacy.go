@@ -32,8 +32,8 @@ const (
 	paddingChar = ' '
 )
 
-// GetPeeringState gets peering state from all/specific cilium agent pods.
-func (s *Status) GetPeeringState(ctx context.Context) error {
+// GetPeeringStateLegacy gets peering state from all/specific cilium agent pods.
+func (s *Status) GetPeeringStateLegacy(ctx context.Context) error {
 	ctx, cancelFn := context.WithTimeout(ctx, s.params.WaitDuration)
 	defer cancelFn()
 
@@ -42,7 +42,7 @@ func (s *Status) GetPeeringState(ctx context.Context) error {
 		return err
 	}
 
-	res, err := s.fetchPeeringStateConcurrently(ctx)
+	res, err := s.fetchPeeringStateConcurrentlyLegacy(ctx)
 	if err != nil {
 		if len(res) == 0 {
 			// no results retrieved - just return the error
@@ -52,10 +52,10 @@ func (s *Status) GetPeeringState(ctx context.Context) error {
 		fmt.Fprintf(os.Stderr, "Errors retrieving peering state: %v\n\n", err)
 	}
 
-	return s.writeStatus(res)
+	return s.writeStatusLegacy(res)
 }
 
-func (s *Status) fetchPeeringStateConcurrently(ctx context.Context) (map[string][]*models.BgpPeer, error) {
+func (s *Status) fetchPeeringStateConcurrentlyLegacy(ctx context.Context) (map[string][]*models.BgpPeer, error) {
 	allFetchedData := make(map[string][]*models.BgpPeer)
 
 	// res contains data returned from cilium pod
@@ -76,7 +76,7 @@ func (s *Status) fetchPeeringStateConcurrently(ctx context.Context) (map[string]
 		go func(ctx context.Context, pod *corev1.Pod) {
 			defer wg.Done()
 
-			peers, err := s.fetchPeeringStateFromPod(ctx, pod)
+			peers, err := s.fetchPeeringStateFromPodLegacy(ctx, pod)
 			resCh <- res{
 				nodeName: pod.Spec.NodeName,
 				data:     peers,
@@ -105,7 +105,7 @@ func (s *Status) fetchPeeringStateConcurrently(ctx context.Context) (map[string]
 	return allFetchedData, err
 }
 
-func (s *Status) fetchPeeringStateFromPod(ctx context.Context, pod *corev1.Pod) ([]*models.BgpPeer, error) {
+func (s *Status) fetchPeeringStateFromPodLegacy(ctx context.Context, pod *corev1.Pod) ([]*models.BgpPeer, error) {
 	cmd := []string{"cilium", "bgp", "peers", "-o", "json"}
 	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 	if err != nil {
@@ -122,7 +122,7 @@ func (s *Status) fetchPeeringStateFromPod(ctx context.Context, pod *corev1.Pod) 
 	return bgpPeers, nil
 }
 
-func (s *Status) writeStatus(res map[string][]*models.BgpPeer) error {
+func (s *Status) writeStatusLegacy(res map[string][]*models.BgpPeer) error {
 	if s.params.Output == status.OutputJSON {
 		jsonStatus, err := json.MarshalIndent(res, "", " ")
 		if err != nil {
@@ -131,16 +131,16 @@ func (s *Status) writeStatus(res map[string][]*models.BgpPeer) error {
 		fmt.Println(string(jsonStatus))
 	} else {
 		if s.params.ShowCaps {
-			printAllPeersCaps(os.Stdout, res)
+			printAllPeersCapsLegacy(os.Stdout, res)
 		} else {
-			printSummary(os.Stdout, res)
+			printSummaryLegacy(os.Stdout, res)
 		}
 	}
 
 	return nil
 }
 
-func printSummary(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
+func printSummaryLegacy(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
 	// sort by node names
 	nodes := slices.Sorted(maps.Keys(peersPerNode))
 
@@ -190,7 +190,7 @@ func printSummary(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
 	w.Flush()
 }
 
-func printAllPeersCaps(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
+func printAllPeersCapsLegacy(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
 	if len(peersPerNode) == 0 {
 		fmt.Fprintln(out, "No BGP peer sessions found on any node")
 	}

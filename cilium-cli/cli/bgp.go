@@ -20,14 +20,19 @@ func newCmdBgp() *cobra.Command {
 		Short: "Access to BGP control plane",
 		Long:  ``,
 	}
+	legacyCMD := &cobra.Command{
+		Use:   "legacy",
+		Short: "Access to deprecated REST API based BGP commands",
+		Long:  ``,
+	}
 
-	cmd.AddCommand(newCmdBgpPeers())
-	cmd.AddCommand(newCmdBgpRoutes())
+	cmd.AddCommand(legacyCMD)
+	legacyCMD.AddCommand(newCmdBgpPeersLegacy(), newCmdBgpRoutesLegacy())
 
 	return cmd
 }
 
-func newCmdBgpPeers() *cobra.Command {
+func newCmdBgpPeersLegacy() *cobra.Command {
 	params := bgp.Parameters{}
 
 	cmd := &cobra.Command{
@@ -39,7 +44,7 @@ func newCmdBgpPeers() *cobra.Command {
 			params.CiliumNamespace = RootParams.Namespace
 
 			s := bgp.NewStatus(RootK8sClient, params)
-			err := s.GetPeeringState(context.Background())
+			err := s.GetPeeringStateLegacy(context.Background())
 			if err != nil {
 				fatalf("Unable to get peering status: %s", err)
 			}
@@ -56,7 +61,7 @@ func newCmdBgpPeers() *cobra.Command {
 	return cmd
 }
 
-func newCmdBgpRoutes() *cobra.Command {
+func newCmdBgpRoutesLegacy() *cobra.Command {
 	params := bgp.Parameters{}
 
 	cmd := &cobra.Command{
@@ -64,19 +69,19 @@ func newCmdBgpRoutes() *cobra.Command {
 		Short: "Lists BGP routes",
 		Long:  "Lists BGP routes from all nodes in the cluster",
 		Example: `  Get all IPv4 unicast routes available:
-    cilium bgp routes available ipv4 unicast
+    cilium bgp legacy routes available ipv4 unicast
 
   Get all IPv6 unicast routes available for a specific vrouter:
-    cilium bgp routes available ipv6 unicast vrouter 65001
+    cilium bgp legacy routes available ipv6 unicast vrouter 65001
 
   Get IPv4 unicast routes advertised to a specific peer:
-    cilium bgp routes advertised ipv4 unicast peer 10.0.0.1`,
+    cilium bgp legacy routes advertised ipv4 unicast peer 10.0.0.1`,
 
 		RunE: func(_ *cobra.Command, args []string) error {
 			params.CiliumNamespace = RootParams.Namespace
 
 			s := bgp.NewStatus(RootK8sClient, params)
-			err := s.GetRoutes(context.Background(), args)
+			err := s.GetRoutesLegacy(context.Background(), args)
 			if err != nil {
 				fatalf("Unable to get BGP routes: %s", err)
 			}
