@@ -127,11 +127,11 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 
 	var errs error
 	if newPol.Spec != nil {
-		errs = errors.Join(errs, newPol.Spec.Sanitize())
+		errs = errors.Join(errs, newPol.Spec.SanitizeWithNamespace(pol.Namespace))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
-		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, r.SanitizeWithNamespace(pol.Namespace))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 

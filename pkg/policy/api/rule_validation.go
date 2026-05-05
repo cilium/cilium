@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/iana"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -109,6 +110,40 @@ func (r *Rule) Sanitize() error {
 	}
 
 	return nil
+}
+
+// SanitizeWithNamespace performs the same validation as Sanitize, and
+// additionally checks that the EndpointSelector does not reference a
+// namespace different from the one the policy lives in. Pass an empty
+// namespace for cluster-wide policies (CCNP) to skip the check.
+func (r *Rule) SanitizeWithNamespace(namespace string) error {
+	if err := r.Sanitize(); err != nil {
+		return err
+	}
+	return r.checkEndpointSelectorNamespace(namespace)
+}
+
+// checkEndpointSelectorNamespace checks whether the EndpointSelector in a
+// rule contains an illegal namespace match. The EndpointSelector always
+// applies in the namespace of the policy resource, so specifying a different
+// namespace is invalid. An empty namespace indicates a cluster-wide policy
+// (CCNP) where any namespace match is valid.
+func (r *Rule) checkEndpointSelectorNamespace(namespace string) error {
+	if r.EndpointSelector.LabelSelector == nil {
+		return nil
+	}
+
+	podPrefixLbl := labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
+	userNamespace, present := r.EndpointSelector.GetMatch(podPrefixLbl)
+	if !present {
+		return nil
+	}
+
+	if namespace == "" || (len(userNamespace) == 1 && userNamespace[0] == namespace) {
+		return nil
+	}
+
+	return fmt.Errorf("EndpointSelector must not specify namespace %q; it always applies in the policy namespace %q", userNamespace, namespace)
 }
 
 func countL7Rules(ports []PortRule) map[string]int {

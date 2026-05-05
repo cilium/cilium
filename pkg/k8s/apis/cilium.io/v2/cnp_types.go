@@ -193,7 +193,7 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (ap
 	}
 
 	if r.Spec != nil {
-		if err := r.Spec.Sanitize(); err != nil {
+		if err := r.Spec.SanitizeWithNamespace(namespace); err != nil {
 			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
 		}
 		if r.Spec.NodeSelector.LabelSelector != nil {
@@ -204,7 +204,7 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (ap
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
-			if err := rule.Sanitize(); err != nil {
+			if err := rule.SanitizeWithNamespace(namespace); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
 			}
 			if rule.NodeSelector.LabelSelector != nil {
