@@ -359,6 +359,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 		datapathRegenCtxt.revertStack.Push(func() error {
 			// Do nothing if e.policyMap was not initialized already
 			if e.policyMap != nil && e.desiredPolicy != e.realizedPolicy {
+				desiredPolicyMapLen := e.desiredPolicy.Len()
 				// Revert nextPolicyRevision; otherwise,
 				// res.endpointPolicy will not be recalculated
 				// on the next regeneration attempt, and we
@@ -377,6 +378,10 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 				if err != nil {
 					e.getLogger().Error("failed to sync PolicyMap when reverting to last known good policy", logfields.Error, err)
 				}
+
+				// The pressure was set when we performed the sync above;
+				// override it to the "real" value.
+				e.updatePolicyMapPressureMetric(desiredPolicyMapLen)
 			}
 			return nil
 		})
