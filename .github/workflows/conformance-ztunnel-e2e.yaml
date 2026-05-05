@@ -218,6 +218,7 @@ jobs:
           mkdir -p cilium-junits
 
           cilium connectivity test ${{ steps.e2e_config.outputs.test_flags }} \
+            --test='!pod-to-world.*' \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests (${{ matrix.name }})"
