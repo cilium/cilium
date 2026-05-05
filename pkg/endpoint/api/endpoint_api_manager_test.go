@@ -39,14 +39,14 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 	}{
 		{
 			name: "pod not found",
-			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+			fetcher: func(run uint, nsName, podName string, newPod bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 				return nil, nil, notFoundErr
 			},
 			err: func(string) error { return notFoundErr },
 		},
 		{
 			name: "uid mismatch",
-			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+			fetcher: func(run uint, nsName, podName string, newPod bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 				return &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{
 					Name: podName, Namespace: nsName, UID: "other",
 				}}, &endpoint.K8sMetadata{}, nil
@@ -61,7 +61,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 		},
 		{
 			name: "uid mismatch, then resolved",
-			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+			fetcher: func(run uint, nsName, podName string, newPod bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 				uid := types.UID("uid")
 				if run < 5 {
 					uid = types.UID("other")
@@ -76,7 +76,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 		},
 		{
 			name: "pod found",
-			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+			fetcher: func(run uint, nsName, podName string, newPod bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 				return &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{
 					Name: podName, Namespace: nsName, UID: "uid",
 				}}, &endpoint.K8sMetadata{}, nil
@@ -109,7 +109,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 	}
 }
 
-type fetcherFn func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error)
+type fetcherFn func(run uint, nsName, podName string, newPod bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error)
 
 type fetcher struct {
 	fn   fetcherFn
@@ -117,10 +117,10 @@ type fetcher struct {
 }
 
 // FetchK8sMetadataForEndpoint implements metadata.EndpointMetadataFetcher.
-func (f *fetcher) FetchK8sMetadataForEndpoint(nsName string, podName string, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+func (f *fetcher) FetchK8sMetadataForEndpoint(nsName string, podName string, uid string, newPod bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 	defer func() { f.runs++ }()
 
-	pod, m, err := f.fn(f.runs, nsName, podName)
+	pod, m, err := f.fn(f.runs, nsName, podName, newPod)
 	if uid != "" && err == nil && pod != nil && string(pod.GetUID()) != uid {
 		return nil, nil, endpointmetadata.ErrPodStoreOutdated
 	}
@@ -129,7 +129,7 @@ func (f *fetcher) FetchK8sMetadataForEndpoint(nsName string, podName string, uid
 
 // FetchK8sMetadataForEndpointFromPod implements metadata.EndpointMetadataFetcher.
 func (f *fetcher) FetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
-	_, m, err := f.FetchK8sMetadataForEndpoint(p.Namespace, p.Name, string(p.UID))
+	_, m, err := f.FetchK8sMetadataForEndpoint(p.Namespace, p.Name, string(p.UID), false)
 	return m, err
 }
 

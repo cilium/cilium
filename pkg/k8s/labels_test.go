@@ -9,8 +9,12 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	ciliumLabels "github.com/cilium/cilium/pkg/labels"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func TestGetPodMetadata(t *testing.T) {
@@ -67,4 +71,40 @@ func TestGetPodMetadata(t *testing.T) {
 			require.Equal(t, expectedLabels, labels)
 		})
 	})
+
+	t.Run("named ports metadata", func(t *testing.T) {
+		pod := pod.DeepCopy()
+		pod.Labels[ciliumio.NamedPortsIdentityLabelName] = "spoofed"
+		pod.Spec.Containers = []slim_corev1.Container{{
+			Ports: []slim_corev1.ContainerPort{
+				{Name: "https", ContainerPort: 443, Protocol: slim_corev1.ProtocolTCP},
+				{Name: "dns", ContainerPort: 53, Protocol: slim_corev1.ProtocolUDP},
+				{Name: "http", ContainerPort: 80, Protocol: slim_corev1.ProtocolTCP},
+				{Name: "", ContainerPort: 8080, Protocol: slim_corev1.ProtocolTCP},
+			},
+		}}
+
+		namedPorts, labels := GetPodMetadata(hivetest.Logger(t), ns, pod)
+		require.Equal(t, ciliumTypes.NamedPortMap{
+			"dns":   {Port: 53, Proto: u8proto.UDP},
+			"http":  {Port: 80, Proto: u8proto.TCP},
+			"https": {Port: 443, Proto: u8proto.TCP},
+		}, namedPorts)
+		require.Equal(t, expectedLabels, labels)
+	})
+}
+
+func TestNamedPortsIdentityLabel(t *testing.T) {
+	label, ok := NamedPortsIdentityLabel(ciliumTypes.NamedPortMap{
+		"https": {Port: 443, Proto: u8proto.TCP},
+		"dns":   {Port: 53, Proto: u8proto.UDP},
+		"http":  {Port: 80, Proto: u8proto.TCP},
+	})
+	require.True(t, ok)
+	require.Equal(t, ciliumio.NamedPortsIdentityLabelName, label.Key)
+	require.Equal(t, "dns:UDP:53,http:TCP:80,https:TCP:443", label.Value)
+	require.Equal(t, ciliumLabels.LabelSourceGenerated, label.Source)
+
+	_, ok = NamedPortsIdentityLabel(nil)
+	require.False(t, ok)
 }

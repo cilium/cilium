@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sTesting "k8s.io/client-go/testing"
@@ -21,6 +22,7 @@ import (
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/key"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -478,6 +480,28 @@ func TestReconcileNS(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetRelevantLabelsForPodDoesNotIncludeGeneratedNamedPorts(t *testing.T) {
+	ctx := t.Context()
+	reconciler, _, _, cleanupFunc := testNewReconciler(t, ctx, false)
+	defer cleanupFunc()
+
+	ns := cidtest.NewNamespace("ns1", nil)
+	require.NoError(t, reconciler.nsStore.CacheStore().Add(ns))
+
+	pod := cidtest.NewPod("pod1", ns.Name, testLbsA, "node1")
+	pod.Spec.Containers = []slim_corev1.Container{{
+		Ports: []slim_corev1.ContainerPort{{
+			Name:          "http",
+			ContainerPort: 8080,
+			Protocol:      slim_corev1.ProtocolTCP,
+		}},
+	}}
+
+	k8sLabels, err := GetRelevantLabelsForPod(hivetest.Logger(t), pod, reconciler.nsStore)
+	require.NoError(t, err)
+	require.NotContains(t, k8sLabels, ciliumio.NamedPortsIdentityLabelName)
 }
 
 func TestHandleStoreCIDMatch(t *testing.T) {

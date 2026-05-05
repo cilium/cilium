@@ -5,9 +5,15 @@ package k8s
 
 import (
 	"log/slog"
+	"maps"
+	"slices"
+	"strconv"
+	"strings"
 
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	ciliumLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
@@ -50,4 +56,24 @@ func GetPodMetadata(logger *slog.Logger, k8sNs nameLabelsGetter, pod *slim_corev
 	}
 
 	return namedPorts, labels
+}
+
+// NamedPortsIdentityLabel returns the generated identity label for named ports.
+func NamedPortsIdentityLabel(namedPorts ciliumTypes.NamedPortMap) (ciliumLabels.Label, bool) {
+	if len(namedPorts) == 0 {
+		return ciliumLabels.Label{}, false
+	}
+
+	var value strings.Builder
+	for i, name := range slices.Sorted(maps.Keys(namedPorts)) {
+		if i > 0 {
+			value.WriteByte(',')
+		}
+		value.WriteString(name)
+		value.WriteByte(':')
+		value.WriteString(namedPorts[name].Proto.String())
+		value.WriteByte(':')
+		value.WriteString(strconv.Itoa(int(namedPorts[name].Port)))
+	}
+	return ciliumLabels.NewLabel(ciliumio.NamedPortsIdentityLabelName, value.String(), ciliumLabels.LabelSourceGenerated), true
 }
