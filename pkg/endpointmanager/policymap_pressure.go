@@ -21,10 +21,24 @@ import (
 func (p *policyMapPressure) Update(ev endpoint.PolicyMapPressureEvent) {
 	val := ev.Value
 	p.Lock()
+	prev := p.current[ev.EndpointID]
 	p.current[ev.EndpointID] = val
 	p.Unlock()
 
-	p.logger.Debug("EndpointManager policymap received event", logfields.Value, val)
+	// Log if nearing or over threshold
+	if prev < 0.9 && val >= 0.9 && val <= 1.0 {
+		p.logger.Warn("Endpoint nearing policymap overflow!",
+			logfields.EndpointID, ev.EndpointID,
+			logfields.Value, val)
+	} else if prev <= 1.0 && val > 1.0 {
+		p.logger.Error("Endpoint policymap has overflowed!",
+			logfields.EndpointID, ev.EndpointID,
+			logfields.Value, val)
+	} else if prev != val {
+		p.logger.Debug("Endpoint policymap pressure set",
+			logfields.EndpointID, ev.EndpointID,
+			logfields.Value, val)
+	}
 
 	p.trigger.Trigger()
 }
