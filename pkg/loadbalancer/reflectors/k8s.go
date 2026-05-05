@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -31,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -79,7 +79,7 @@ type reflectorParams struct {
 	JobGroup               job.Group
 	Clientset              client.Clientset
 	EventStream            stream.Observable[event]
-	Pods                   statedb.Table[daemonK8s.LocalPod]
+	Pods                   statedb.Table[k8sTables.LocalPod]
 	Writer                 *writer.Writer
 	Config                 loadbalancer.Config
 	ExtConfig              loadbalancer.ExternalConfig
@@ -142,7 +142,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 
 	rh := newReflectorHealth(health, p.Log)
 
-	processBuffer := func(txn writer.WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]) {
+	processBuffer := func(txn writer.WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[k8sTables.LocalPod]]) {
 		for _, change := range buf {
 			obj := change.Object.Pod
 			if obj.Spec.HostNetwork {
@@ -195,9 +195,9 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			reflectorBufferSize,
 			p.waitTime(),
 
-			func(buf *container.InsertOrderedMap[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]], change statedb.Change[daemonK8s.LocalPod]) *container.InsertOrderedMap[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]] {
+			func(buf *container.InsertOrderedMap[types.NamespacedName, statedb.Change[k8sTables.LocalPod]], change statedb.Change[k8sTables.LocalPod]) *container.InsertOrderedMap[types.NamespacedName, statedb.Change[k8sTables.LocalPod]] {
 				if buf == nil {
-					buf = container.NewInsertOrderedMap[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]()
+					buf = container.NewInsertOrderedMap[types.NamespacedName, statedb.Change[k8sTables.LocalPod]]()
 				}
 				pod := change.Object
 				buf.Insert(types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, change)

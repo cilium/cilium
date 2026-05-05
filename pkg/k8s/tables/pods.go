@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package k8s
+package tables
 
 import (
 	"fmt"
@@ -76,10 +76,6 @@ func (p LocalPod) TableRow() []string {
 	}
 }
 
-const (
-	PodTableName = "k8s-pods"
-)
-
 var (
 	PodNameIndex = newNameIndex[LocalPod]()
 	PodTableCell = cell.Provide(NewPodTableAndReflector)
@@ -111,7 +107,7 @@ func PodByName(namespace, name string) statedb.Query[LocalPod] {
 func NewPodTable(db *statedb.DB) (statedb.RWTable[LocalPod], error) {
 	return statedb.NewTable(
 		db,
-		PodTableName,
+		"k8s-pods",
 		PodNameIndex,
 	)
 }

@@ -17,6 +17,7 @@ import (
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -86,7 +87,7 @@ func main() {
 var Hive = hive.New(
 	client.Cell,
 	daemonk8s.ResourcesCell,
-	daemonk8s.TablesCell,
+	k8sTables.TablesCell,
 	maglev.Cell,
 	node.LocalNodeStoreTestCell,
 	metrics.Cell,

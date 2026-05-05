@@ -52,6 +52,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/hostfirewallbypass"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	kpr "github.com/cilium/cilium/pkg/kpr/initializer"
@@ -202,7 +203,7 @@ var (
 		agentK8s.ResourcesCell,
 
 		// StateDB tables for Kubernetes objects.
-		agentK8s.TablesCell,
+		k8sTables.TablesCell,
 
 		// Shared synchronization structures for waiting on K8s resources to
 		// be synced

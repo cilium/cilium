@@ -16,12 +16,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
 
-func newTestK8sNamespace(name string, labels map[string]string) daemonk8s.Namespace {
-	return daemonk8s.Namespace{
+func newTestK8sNamespace(name string, labels map[string]string) k8sTables.Namespace {
+	return k8sTables.Namespace{
 		Name:   name,
 		Labels: labels,
 	}

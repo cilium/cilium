@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -17,14 +17,14 @@ type getLrpHandler struct {
 	db       *statedb.DB
 	lrps     statedb.Table[*LocalRedirectPolicy]
 	backends statedb.Table[*lb.Backend]
-	pods     statedb.Table[daemonk8s.LocalPod]
+	pods     statedb.Table[k8sTables.LocalPod]
 }
 
 func (h *getLrpHandler) Handle(params service.GetLrpParams) middleware.Responder {
 	return service.NewGetLrpOK().WithPayload(getLRPs(h.db.ReadTxn(), h.lrps, h.backends, h.pods))
 }
 
-func getLRPs(txn statedb.ReadTxn, lrps statedb.Table[*LocalRedirectPolicy], backends statedb.Table[*lb.Backend], pods statedb.Table[daemonk8s.LocalPod]) []*models.LRPSpec {
+func getLRPs(txn statedb.ReadTxn, lrps statedb.Table[*LocalRedirectPolicy], backends statedb.Table[*lb.Backend], pods statedb.Table[k8sTables.LocalPod]) []*models.LRPSpec {
 	list := make([]*models.LRPSpec, 0, lrps.NumObjects(txn))
 	for lrp := range lrps.All(txn) {
 		list = append(list, lrp.getModel(txn, backends, pods))
@@ -32,7 +32,7 @@ func getLRPs(txn statedb.ReadTxn, lrps statedb.Table[*LocalRedirectPolicy], back
 	return list
 }
 
-func (lrp *LocalRedirectPolicy) getModel(txn statedb.ReadTxn, backends statedb.Table[*lb.Backend], pods statedb.Table[daemonk8s.LocalPod]) *models.LRPSpec {
+func (lrp *LocalRedirectPolicy) getModel(txn statedb.ReadTxn, backends statedb.Table[*lb.Backend], pods statedb.Table[k8sTables.LocalPod]) *models.LRPSpec {
 	if lrp == nil {
 		return nil
 	}

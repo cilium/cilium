@@ -12,10 +12,10 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-func registerNamespaceUpdater(log *slog.Logger, jg job.Group, db *statedb.DB, namespaces statedb.Table[daemonk8s.Namespace], em EndpointManager) {
+func registerNamespaceUpdater(log *slog.Logger, jg job.Group, db *statedb.DB, namespaces statedb.Table[k8sTables.Namespace], em EndpointManager) {
 	nsUpdater := namespaceUpdater{
 		oldIdtyLabels:   make(map[string]labels.Labels),
 		oldSIPAllowAnno: make(map[string]string),
@@ -44,10 +44,10 @@ type namespaceUpdater struct {
 	endpointManager EndpointManager
 	log             *slog.Logger
 	db              *statedb.DB
-	namespaces      statedb.Table[daemonk8s.Namespace]
+	namespaces      statedb.Table[k8sTables.Namespace]
 }
 
-func getNamespaceLabels(ns daemonk8s.Namespace) labels.Labels {
+func getNamespaceLabels(ns k8sTables.Namespace) labels.Labels {
 	lbls := ns.Labels
 	labelMap := make(map[string]string, len(lbls))
 	for k, v := range lbls {
@@ -87,7 +87,7 @@ func (u *namespaceUpdater) run(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (u *namespaceUpdater) update(newNS daemonk8s.Namespace) error {
+func (u *namespaceUpdater) update(newNS k8sTables.Namespace) error {
 	newLabels := getNamespaceLabels(newNS)
 
 	oldIdtyLabels := u.oldIdtyLabels[newNS.Name]

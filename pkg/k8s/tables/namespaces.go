@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package k8s
+package tables
 
 import (
 	"maps"
@@ -66,10 +66,6 @@ func (ns Namespace) TableRow() []string {
 	}
 }
 
-const (
-	NamespaceTableName = "k8s-namespaces"
-)
-
 var (
 	NamespaceIndex  = newNameIndex[Namespace]()
 	NamespaceByName = NamespaceIndex.Query
@@ -95,7 +91,7 @@ func NewNamespaceTableAndReflector(jg job.Group, db *statedb.DB, cs client.Clien
 func NewNamespaceTable(db *statedb.DB) (statedb.RWTable[Namespace], error) {
 	return statedb.NewTable(
 		db,
-		NamespaceTableName,
+		"k8s-namespaces",
 		NamespaceIndex,
 	)
 }

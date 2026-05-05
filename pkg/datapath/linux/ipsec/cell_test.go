@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -141,7 +142,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			writer.Cell,
 			ipset.Cell,
 			k8s.ResourcesCell,
-			k8s.PodTableCell,
+			k8sTables.PodTableCell,
 			node.LocalNodeStoreTestCell,
 			k8sClient.FakeClientCell(),
 			kvstore.Cell(kvstore.DisabledBackendName),

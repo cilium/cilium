@@ -12,10 +12,10 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/option"
@@ -33,11 +33,11 @@ type cachedEndpointMetadataFetcher struct {
 	logger     *slog.Logger
 	config     *option.DaemonConfig
 	db         *statedb.DB
-	pods       statedb.Table[daemonk8s.LocalPod]
-	namespaces statedb.Table[daemonk8s.Namespace]
+	pods       statedb.Table[k8sTables.LocalPod]
+	namespaces statedb.Table[k8sTables.Namespace]
 }
 
-func NewEndpointMetadataFetcher(logger *slog.Logger, config *option.DaemonConfig, db *statedb.DB, pods statedb.Table[daemonk8s.LocalPod], namespaces statedb.Table[daemonk8s.Namespace]) EndpointMetadataFetcher {
+func NewEndpointMetadataFetcher(logger *slog.Logger, config *option.DaemonConfig, db *statedb.DB, pods statedb.Table[k8sTables.LocalPod], namespaces statedb.Table[k8sTables.Namespace]) EndpointMetadataFetcher {
 	return &cachedEndpointMetadataFetcher{
 		logger:     logger,
 		config:     config,
@@ -88,11 +88,11 @@ func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpointFromPod(p 
 	}, nil
 }
 
-func (cemf *cachedEndpointMetadataFetcher) fetchNamespace(nsName string) (daemonk8s.Namespace, error) {
+func (cemf *cachedEndpointMetadataFetcher) fetchNamespace(nsName string) (k8sTables.Namespace, error) {
 	// If network policies are disabled, labels are not needed, the namespace
 	// watcher is not running, and a namespace containing only the name is returned.
 	if !option.NetworkPolicyEnabled(cemf.config) {
-		return daemonk8s.Namespace{
+		return k8sTables.Namespace{
 			Name: nsName,
 		}, nil
 	}
@@ -103,7 +103,7 @@ func (cemf *cachedEndpointMetadataFetcher) getPod(namespace, name string) (*slim
 	_, initWatch := cemf.pods.Initialized(cemf.db.ReadTxn())
 	<-initWatch
 
-	pod, _, found := cemf.pods.Get(cemf.db.ReadTxn(), daemonk8s.PodByName(namespace, name))
+	pod, _, found := cemf.pods.Get(cemf.db.ReadTxn(), k8sTables.PodByName(namespace, name))
 	if !found {
 		return nil, k8sErrors.NewNotFound(schema.GroupResource{
 			Group:    "core",
@@ -113,13 +113,13 @@ func (cemf *cachedEndpointMetadataFetcher) getPod(namespace, name string) (*slim
 	return pod.Pod, nil
 }
 
-func (cemf *cachedEndpointMetadataFetcher) getNamespace(namespace string) (daemonk8s.Namespace, error) {
+func (cemf *cachedEndpointMetadataFetcher) getNamespace(namespace string) (k8sTables.Namespace, error) {
 	_, initWatch := cemf.namespaces.Initialized(cemf.db.ReadTxn())
 	<-initWatch
 
-	ns, _, found := cemf.namespaces.Get(cemf.db.ReadTxn(), daemonk8s.NamespaceIndex.Query(namespace))
+	ns, _, found := cemf.namespaces.Get(cemf.db.ReadTxn(), k8sTables.NamespaceIndex.Query(namespace))
 	if !found {
-		return daemonk8s.Namespace{}, k8sErrors.NewNotFound(schema.GroupResource{
+		return k8sTables.Namespace{}, k8sErrors.NewNotFound(schema.GroupResource{
 			Group:    "core",
 			Resource: "namespace",
 		}, namespace)

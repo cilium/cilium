@@ -27,6 +27,7 @@ import (
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -71,7 +72,7 @@ func TestScript(t *testing.T) {
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
 				cell.Config(envoyCfg.SecretSyncConfig{}),
-				daemonk8s.TablesCell,
+				k8sTables.TablesCell,
 				metrics.Cell,
 
 				lbipamconfig.Cell,

@@ -8,7 +8,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -71,7 +71,7 @@ func lrpAPI(
 	db *statedb.DB,
 	lrps statedb.Table[*LocalRedirectPolicy],
 	backends statedb.Table[*lb.Backend],
-	pods statedb.Table[daemonk8s.LocalPod],
+	pods statedb.Table[k8sTables.LocalPod],
 ) service.GetLrpHandler {
 	return &getLrpHandler{db, lrps, backends, pods}
 }

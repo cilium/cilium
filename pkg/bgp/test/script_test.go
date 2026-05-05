@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -125,7 +126,7 @@ func TestPrivilegedScript(t *testing.T) {
 			// Dependencies
 			k8sClient.FakeClientCell(),
 			daemonk8s.ResourcesCell,
-			daemonk8s.TablesCell,
+			k8sTables.TablesCell,
 			node.LocalNodeStoreTestCell,
 			cell.Config(envoyCfg.SecretSyncConfig{}),
 

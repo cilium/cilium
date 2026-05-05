@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -32,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sTestUtils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -564,7 +564,7 @@ func testHive(maps lbmaps.LBMaps,
 				reflectors.EventStreamForBenchmark,
 			),
 
-			daemonk8s.PodTableCell,
+			k8sTables.PodTableCell,
 
 			cell.Invoke(func(db_ *statedb.DB, w *writer.Writer, bo_ *lbreconciler.BPFOps) {
 				*db = db_

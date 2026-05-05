@@ -10,12 +10,12 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -34,8 +34,8 @@ type managerParams struct {
 	DaemonConfig *option.DaemonConfig
 	Clientset    k8sClient.Clientset
 	DB           *statedb.DB
-	Pods         statedb.Table[k8s.LocalPod]
-	Namespaces   statedb.Table[k8s.Namespace]
+	Pods         statedb.Table[k8sTables.LocalPod]
+	Namespaces   statedb.Table[k8sTables.Namespace]
 	Jobs         job.Group
 
 	PodIPPoolResource resource.Resource[*api_v2alpha1.CiliumPodIPPool]

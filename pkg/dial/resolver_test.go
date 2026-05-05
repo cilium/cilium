@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	k8stest "k8s.io/client-go/testing"
 
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/dial"
@@ -29,6 +28,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -54,7 +54,7 @@ func TestLBServiceResolver(t *testing.T) {
 		dial.ServiceResolverCell,
 
 		// LB depends on these
-		daemonk8s.TablesCell,
+		k8sTables.TablesCell,
 		node.LocalNodeStoreTestCell,
 		source.Cell,
 		cell.Provide(

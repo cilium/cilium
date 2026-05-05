@@ -104,7 +104,7 @@ Let's start off with some guidelines that you might want to consider:
 
 * Do not export ``RWTable[Obj]`` if outside modules do not need to directly write into the table. If other modules do write into the table, consider defining "writer functions" that validate that the writes are well-formed.
 
-* If the table is closely associated with a specific feature, define it alongside the implementation of the feature. If the table is shared by many modules, consider defining it in ``daemon/k8s`` or ``pkg/datapath/tables`` so it is easy to discover.
+* If the table is closely associated with a specific feature, define it alongside the implementation of the feature. If the table is shared by many modules, consider defining it in ``pkg/k8s/tables`` or ``pkg/datapath/tables`` so it is easy to discover.
 
 * Make sure the object can be JSON marshalled so it can be inspected. If you need to store non-marshallable data (e.g. functions), make them private or mark them with ``json:"-"`` struct tag.
 

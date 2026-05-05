@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -75,7 +76,7 @@ func TestScript(t *testing.T) {
 			k8sClient.FakeClientCell(),
 			synced.Cell,
 			daemonk8s.ResourcesCell,
-			daemonk8s.TablesCell,
+			k8sTables.TablesCell,
 			metrics.Cell,
 			maglev.Cell,
 			cell.Config(CECConfig{}),

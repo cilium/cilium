@@ -13,16 +13,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hive"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
 type nsUpdaterTestFixture struct {
 	db         *statedb.DB
-	namespaces statedb.RWTable[daemonk8s.Namespace]
-	changeIter statedb.ChangeIterator[daemonk8s.Namespace]
+	namespaces statedb.RWTable[k8sTables.Namespace]
+	changeIter statedb.ChangeIterator[k8sTables.Namespace]
 	// Tracking maps mirror namespaceUpdater's internal state
 	oldIdtyLabels   map[string]labels.Labels
 	oldSIPAllowAnno map[string]string
@@ -31,17 +31,17 @@ type nsUpdaterTestFixture struct {
 func newNSUpdaterTestFixture(t testing.TB) *nsUpdaterTestFixture {
 	var (
 		db  *statedb.DB
-		tbl statedb.RWTable[daemonk8s.Namespace]
+		tbl statedb.RWTable[k8sTables.Namespace]
 	)
 
 	logger := hivetest.Logger(t)
 
 	hive.New(
 		cell.Provide(
-			daemonk8s.NewNamespaceTable,
-			statedb.RWTable[daemonk8s.Namespace].ToTable,
+			k8sTables.NewNamespaceTable,
+			statedb.RWTable[k8sTables.Namespace].ToTable,
 		),
-		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[daemonk8s.Namespace]) {
+		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[k8sTables.Namespace]) {
 			db = d
 			tbl = t
 		}),
@@ -64,7 +64,7 @@ func newNSUpdaterTestFixture(t testing.TB) *nsUpdaterTestFixture {
 
 func (f *nsUpdaterTestFixture) insertNS(t testing.TB, name string, lbls, annotations map[string]string) {
 	wtxn := f.db.WriteTxn(f.namespaces)
-	_, _, err := f.namespaces.Insert(wtxn, daemonk8s.Namespace{
+	_, _, err := f.namespaces.Insert(wtxn, k8sTables.Namespace{
 		Name:        name,
 		Labels:      lbls,
 		Annotations: annotations,
@@ -76,7 +76,7 @@ func (f *nsUpdaterTestFixture) insertNS(t testing.TB, name string, lbls, annotat
 
 func (f *nsUpdaterTestFixture) deleteNS(t testing.TB, name string) {
 	wtxn := f.db.WriteTxn(f.namespaces)
-	_, _, err := f.namespaces.Delete(wtxn, daemonk8s.Namespace{Name: name})
+	_, _, err := f.namespaces.Delete(wtxn, k8sTables.Namespace{Name: name})
 	require.NoError(t, err)
 	wtxn.Commit()
 }

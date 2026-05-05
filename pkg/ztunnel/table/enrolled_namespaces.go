@@ -4,11 +4,11 @@
 package table
 
 import (
-	"github.com/cilium/cilium/daemon/k8s"
-
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
+
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 )
 
 type EnrolledNamespace struct {
@@ -65,7 +65,7 @@ func NewEnrolledNamespacesTable(db *statedb.DB) (statedb.RWTable[*EnrolledNamesp
 	)
 }
 
-func K8sNamespaceToEnrolledNamespace(ns k8s.Namespace, deleted bool) (*EnrolledNamespace, statedb.DeriveResult) {
+func K8sNamespaceToEnrolledNamespace(ns k8sTables.Namespace, deleted bool) (*EnrolledNamespace, statedb.DeriveResult) {
 	enrolled := true
 	if mtlsValue, exists := ns.Labels["io.cilium/mtls-enabled"]; !exists || mtlsValue != "true" {
 		enrolled = false

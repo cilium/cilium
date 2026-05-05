@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
 	consts "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -25,6 +24,7 @@ import (
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 )
 
 func selectorFromLabels(labels map[string]string) slim_labels.Selector {
@@ -34,9 +34,9 @@ func selectorFromLabels(labels map[string]string) slim_labels.Selector {
 
 func TestManager_GetIPPoolForPod(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err, "NewPodTable")
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err, "NewNamespaceTable")
 	m := &manager{
 		logger:      hivetest.Logger(t),
@@ -48,8 +48,8 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 	m.poolsSynced.Store(true)
 
 	txn := db.WriteTxn(pods, namespaces)
-	newPod := func(namespace, name string, annotations map[string]string) k8s.LocalPod {
-		return k8s.LocalPod{Pod: &slim_core_v1.Pod{
+	newPod := func(namespace, name string, annotations map[string]string) k8sTables.LocalPod {
+		return k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Namespace:   namespace,
 				Name:        name,
@@ -92,12 +92,12 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 
 	namespaces.Insert(
 		txn,
-		k8s.Namespace{
+		k8sTables.Namespace{
 			Name: "default",
 		})
 	namespaces.Insert(
 		txn,
-		k8s.Namespace{
+		k8sTables.Namespace{
 			Name: "special",
 			Annotations: map[string]string{
 				annotation.IPAMPoolKey: "namespace-pool",
@@ -215,9 +215,9 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 
 func TestManager_handlePoolEvent_UpsertAndDelete(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err)
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err)
 
 	m := &manager{
@@ -278,9 +278,9 @@ func TestManager_handlePoolEvent_UpsertAndDelete(t *testing.T) {
 
 func TestManager_handlePoolEvent_BadSelectorIgnored(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err)
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err)
 
 	m := &manager{
@@ -344,9 +344,9 @@ func TestManager_handlePoolEvent_BadSelectorIgnored(t *testing.T) {
 
 func TestManager_SelectorBasedMatching(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err)
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err)
 
 	m := &manager{
@@ -360,7 +360,7 @@ func TestManager_SelectorBasedMatching(t *testing.T) {
 
 	txn := db.WriteTxn(pods, namespaces)
 
-	pods.Insert(txn, k8s.LocalPod{Pod: &slim_core_v1.Pod{
+	pods.Insert(txn, k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Namespace: "namespace",
 			Name:      "pod",
@@ -369,7 +369,7 @@ func TestManager_SelectorBasedMatching(t *testing.T) {
 			},
 		},
 	}})
-	namespaces.Insert(txn, k8s.Namespace{Name: "namespace"})
+	namespaces.Insert(txn, k8sTables.Namespace{Name: "namespace"})
 	txn.Commit()
 
 	selSynthetic, err := slim_meta_v1.LabelSelectorAsSelector(&slim_meta_v1.LabelSelector{
@@ -404,9 +404,9 @@ func TestManager_SelectorBasedMatching(t *testing.T) {
 
 func TestManager_SelectorMultipleMatches_Error(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err)
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err)
 
 	m := &manager{
@@ -418,14 +418,14 @@ func TestManager_SelectorMultipleMatches_Error(t *testing.T) {
 	m.poolsSynced.Store(true)
 
 	txn := db.WriteTxn(pods, namespaces)
-	pods.Insert(txn, k8s.LocalPod{Pod: &slim_core_v1.Pod{
+	pods.Insert(txn, k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Namespace: "namespace",
 			Name:      "pod",
 			Labels:    map[string]string{"team": "blue"},
 		},
 	}})
-	namespaces.Insert(txn, k8s.Namespace{Name: "namespace"})
+	namespaces.Insert(txn, k8sTables.Namespace{Name: "namespace"})
 	txn.Commit()
 
 	m.compiledPools = map[string]compiledPool{
@@ -445,9 +445,9 @@ func TestManager_SelectorMultipleMatches_Error(t *testing.T) {
 
 func TestManager_PodAnnotationOverridesSelector(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err)
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err)
 
 	m := &manager{
@@ -459,7 +459,7 @@ func TestManager_PodAnnotationOverridesSelector(t *testing.T) {
 	m.poolsSynced.Store(true)
 
 	txn := db.WriteTxn(pods, namespaces)
-	pods.Insert(txn, k8s.LocalPod{Pod: &slim_core_v1.Pod{
+	pods.Insert(txn, k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Namespace:   "namespace",
 			Name:        "pod",
@@ -467,7 +467,7 @@ func TestManager_PodAnnotationOverridesSelector(t *testing.T) {
 			Annotations: map[string]string{annotation.IPAMPoolKey: "annot-pool"},
 		},
 	}})
-	namespaces.Insert(txn, k8s.Namespace{Name: "namespace"})
+	namespaces.Insert(txn, k8sTables.Namespace{Name: "namespace"})
 	txn.Commit()
 
 	// selector matches but superceded by annotation
@@ -484,9 +484,9 @@ func TestManager_PodAnnotationOverridesSelector(t *testing.T) {
 
 func TestManager_NamespaceAnnotationOverridesSelector(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err)
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err)
 
 	m := &manager{
@@ -498,13 +498,13 @@ func TestManager_NamespaceAnnotationOverridesSelector(t *testing.T) {
 	m.poolsSynced.Store(true)
 
 	txn := db.WriteTxn(pods, namespaces)
-	pods.Insert(txn, k8s.LocalPod{Pod: &slim_core_v1.Pod{
+	pods.Insert(txn, k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Namespace: "namespace", Name: "pod",
 			Labels: map[string]string{"tier": "backend"},
 		},
 	}})
-	namespaces.Insert(txn, k8s.Namespace{
+	namespaces.Insert(txn, k8sTables.Namespace{
 		Name:        "namespace",
 		Annotations: map[string]string{annotation.IPAMPoolKey: "ns-pool"},
 	})
@@ -524,9 +524,9 @@ func TestManager_NamespaceAnnotationOverridesSelector(t *testing.T) {
 
 func TestManager_NoSelectorNoMatch(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err)
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err)
 	m := &manager{
 		logger:     hivetest.Logger(t),
@@ -541,10 +541,10 @@ func TestManager_NoSelectorNoMatch(t *testing.T) {
 	}
 
 	// Add pod and namespace
-	pod := k8s.LocalPod{Pod: &slim_core_v1.Pod{
+	pod := k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 		ObjectMeta: slim_meta_v1.ObjectMeta{Name: "test", Namespace: "namespace", Labels: map[string]string{"tier": "backend"}},
 	}}
-	ns := k8s.Namespace{Name: "namespace"}
+	ns := k8sTables.Namespace{Name: "namespace"}
 	txn := db.WriteTxn(pods, namespaces)
 	pods.Insert(txn, pod)
 	namespaces.Insert(txn, ns)
@@ -558,9 +558,9 @@ func TestManager_NoSelectorNoMatch(t *testing.T) {
 
 func TestManager_RequirePoolMatchAnnotation(t *testing.T) {
 	db := statedb.New()
-	pods, err := k8s.NewPodTable(db)
+	pods, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err)
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err)
 	m := &manager{
 		logger:     hivetest.Logger(t),
@@ -573,7 +573,7 @@ func TestManager_RequirePoolMatchAnnotation(t *testing.T) {
 
 	t.Run("pod annotation blocks default fallback", func(t *testing.T) {
 		// Add pod with require-pool-match annotation
-		pod := k8s.LocalPod{Pod: &slim_core_v1.Pod{
+		pod := k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:        "pod",
 				Namespace:   "default",
@@ -584,7 +584,7 @@ func TestManager_RequirePoolMatchAnnotation(t *testing.T) {
 		pods.Insert(txn, pod)
 
 		// Add namespace without annotation
-		ns := k8s.Namespace{Name: "default"}
+		ns := k8sTables.Namespace{Name: "default"}
 		namespaces.Insert(txn, ns)
 		txn.Commit()
 
@@ -597,7 +597,7 @@ func TestManager_RequirePoolMatchAnnotation(t *testing.T) {
 
 	t.Run("namespace annotation blocks default fallback", func(t *testing.T) {
 		// Add pod without annotation
-		pod := k8s.LocalPod{Pod: &slim_core_v1.Pod{
+		pod := k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "pod2",
 				Namespace: "strict-ns",
@@ -607,7 +607,7 @@ func TestManager_RequirePoolMatchAnnotation(t *testing.T) {
 		pods.Insert(txn, pod)
 
 		// Add namespace with require-pool-match annotation
-		ns := k8s.Namespace{
+		ns := k8sTables.Namespace{
 			Name:        "strict-ns",
 			Annotations: map[string]string{annotation.IPAMRequirePoolMatch: "true"},
 		}
@@ -623,7 +623,7 @@ func TestManager_RequirePoolMatchAnnotation(t *testing.T) {
 
 	t.Run("annotation false allows default fallback", func(t *testing.T) {
 		// Add pod with annotation set to false
-		pod := k8s.LocalPod{Pod: &slim_core_v1.Pod{
+		pod := k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:        "pod3",
 				Namespace:   "namespace",
@@ -634,7 +634,7 @@ func TestManager_RequirePoolMatchAnnotation(t *testing.T) {
 		pods.Insert(txn, pod)
 
 		// Add namespace
-		ns := k8s.Namespace{Name: "namespace"}
+		ns := k8sTables.Namespace{Name: "namespace"}
 		namespaces.Insert(txn, ns)
 		txn.Commit()
 
@@ -659,9 +659,9 @@ func TestDefaultManager_DefaultPool(t *testing.T) {
 
 func TestNamespaceSelector(t *testing.T) {
 	db := statedb.New()
-	pools, err := k8s.NewPodTable(db)
+	pools, err := k8sTables.NewPodTable(db)
 	require.NoError(t, err, "NewPodTable")
-	namespaces, err := k8s.NewNamespaceTable(db)
+	namespaces, err := k8sTables.NewNamespaceTable(db)
 	require.NoError(t, err, "NewNamespaceTable")
 
 	m := &manager{
@@ -675,20 +675,20 @@ func TestNamespaceSelector(t *testing.T) {
 
 	// Create dev/prod namespaces and pods
 	w := db.WriteTxn(namespaces, pools)
-	namespaces.Insert(w, k8s.Namespace{
+	namespaces.Insert(w, k8sTables.Namespace{
 		Name:   "dev",
 		Labels: map[string]string{"env": "dev"},
 	})
-	namespaces.Insert(w, k8s.Namespace{
+	namespaces.Insert(w, k8sTables.Namespace{
 		Name:   "prod",
 		Labels: map[string]string{"env": "prod"},
 	})
-	pools.Insert(w, k8s.LocalPod{Pod: &slim_core_v1.Pod{
+	pools.Insert(w, k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Namespace: "dev", Name: "pod", Labels: map[string]string{"app": "web"},
 		},
 	}})
-	pools.Insert(w, k8s.LocalPod{Pod: &slim_core_v1.Pod{
+	pools.Insert(w, k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Namespace: "prod", Name: "pod", Labels: map[string]string{"app": "web"},
 		},
@@ -735,12 +735,12 @@ func TestNamespaceSelector(t *testing.T) {
 
 		// Add a restricted namespace/pod
 		w := db.WriteTxn(namespaces, pools)
-		namespaces.Insert(w, k8s.Namespace{
+		namespaces.Insert(w, k8sTables.Namespace{
 			Name:        "restricted",
 			Annotations: map[string]string{annotation.IPAMRequirePoolMatch: "true"},
 		})
 		// Pod with no labels
-		pools.Insert(w, k8s.LocalPod{Pod: &slim_core_v1.Pod{
+		pools.Insert(w, k8sTables.LocalPod{Pod: &slim_core_v1.Pod{
 			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Namespace: "restricted", Name: "pod", Labels: map[string]string{},
 			},

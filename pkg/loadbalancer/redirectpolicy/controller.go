@@ -16,9 +16,9 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	ciliumLabels "github.com/cilium/cilium/pkg/labels"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -58,7 +58,7 @@ type lrpControllerParams struct {
 	Log                *slog.Logger
 	DB                 *statedb.DB
 	LRPs               statedb.Table[*LocalRedirectPolicy]
-	Pods               statedb.Table[daemonk8s.LocalPod]
+	Pods               statedb.Table[k8sTables.LocalPod]
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
 	Writer             *writer.Writer
 	NetNSCookieSupport reflectors.HaveNetNSCookieSupport
@@ -268,7 +268,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 	// For each matching pod create a backend and associate it with the LocalRedirect
 	// service we just created above. We find pods by doing a prefix search with the
 	// namespace (more efficient than having a separate namespace index for pods).
-	podsSameNamespace, watch := c.p.Pods.PrefixWatch(wtxn, daemonk8s.PodByName(lrpID.Namespace(), ""))
+	podsSameNamespace, watch := c.p.Pods.PrefixWatch(wtxn, k8sTables.PodByName(lrpID.Namespace(), ""))
 	ws.Add(watch)
 
 	var matchingPods []podInfo
@@ -654,7 +654,7 @@ type podInfo struct {
 	labels         map[string]string
 }
 
-func getPodInfo(pod daemonk8s.LocalPod) podInfo {
+func getPodInfo(pod k8sTables.LocalPod) podInfo {
 	return podInfo{
 		namespace:      pod.Namespace,
 		namespacedName: pod.Namespace + "/" + pod.Name,
