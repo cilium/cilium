@@ -55,6 +55,7 @@ func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg Reflecto
 		db:              db,
 		table:           targetTable,
 		source:          source,
+		log:             slog.Default(),
 	}
 	wtxn := db.WriteTxn(targetTable)
 	r.initDone = targetTable.RegisterInitializer(wtxn, r.ReflectorConfig.Name)
