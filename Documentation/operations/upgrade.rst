@@ -334,6 +334,13 @@ The following options have been introduced in this version of Cilium:
   in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
   but may change in future releases.
 
+* When ``ipam.mode=delegated-plugin`` is combined with ``gatewayAPI.enabled=true``,
+  the cilium-agent now allocates Gateway ingress IPs by exec'ing the configured
+  IPAM plugin binary out of the host CNI bin directory. The new
+  ``--delegated-ipam-cni-bin-path`` agent flag (default ``/host/opt/cni/bin``)
+  controls where the agent looks for the binary, and the Helm chart automatically
+  mounts that path into the agent pod when both options are set.
+
 Changed Options
 ###############
 

@@ -971,6 +971,9 @@ data:
   enable-k8s-cluster-network-policy: "true"
 {{- end }}
   enable-endpoint-lockdown-on-policy-overflow: {{ .Values.endpointLockdownOnMapOverflow | quote }}
+{{- if and (eq .Values.ipam.mode "delegated-plugin") (or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy"))) }}
+  delegated-ipam-cni-bin-path: {{ .Values.cni.hostBinDirMountPath | quote }}
+{{- end }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
 {{- if .Values.cni.customConf  }}

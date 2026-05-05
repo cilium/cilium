@@ -333,6 +333,7 @@ contributors across the globe, there is almost always someone available to help.
 | cni.customConf | bool | `false` | Skip writing of the CNI configuration. This can be used if writing of the CNI configuration is performed by external automation. |
 | cni.enableRouteMTUForCNIChaining | bool | `false` | Enable route MTU for pod netns when CNI chaining is used |
 | cni.exclusive | bool | `true` | Make Cilium take ownership over the `/etc/cni/net.d` directory on the node, renaming all non-Cilium CNI configurations to `*.cilium_bak`. This ensures no Pods can be scheduled using other CNI plugins during Cilium agent downtime. |
+| cni.hostBinDirMountPath | string | `"/host/opt/cni/bin"` | Configure the path to where the CNI binary directory is mounted inside the agent pod. Used by delegated IPAM with Gateway API, Ingress, or Envoy L7 backends to exec the IPAM plugin binary from this path. |
 | cni.hostConfDirMountPath | string | `"/host/etc/cni/net.d"` | Configure the path to where the CNI configuration directory is mounted inside the agent pod. |
 | cni.install | bool | `true` | Install the CNI configuration and binary files into the filesystem. |
 | cni.iptablesRemoveAWSRules | bool | `true` | Enable the removal of iptables rules created by the AWS CNI VPC plugin. |

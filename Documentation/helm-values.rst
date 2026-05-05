@@ -1132,6 +1132,10 @@
      - Make Cilium take ownership over the ``/etc/cni/net.d`` directory on the node, renaming all non-Cilium CNI configurations to ``*.cilium_bak``. This ensures no Pods can be scheduled using other CNI plugins during Cilium agent downtime.
      - bool
      - ``true``
+   * - :spelling:ignore:`cni.hostBinDirMountPath`
+     - Configure the path to where the CNI binary directory is mounted inside the agent pod. Used by delegated IPAM with Gateway API, Ingress, or Envoy L7 backends to exec the IPAM plugin binary from this path.
+     - string
+     - ``"/host/opt/cni/bin"``
    * - :spelling:ignore:`cni.hostConfDirMountPath`
      - Configure the path to where the CNI configuration directory is mounted inside the agent pod.
      - string

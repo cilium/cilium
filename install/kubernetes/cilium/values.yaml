@@ -829,6 +829,11 @@ cni:
   # -- Configure the path to where the CNI configuration directory is mounted
   # inside the agent pod.
   hostConfDirMountPath: /host/etc/cni/net.d
+  # -- Configure the path to where the CNI binary directory is mounted
+  # inside the agent pod. Used by delegated IPAM with Gateway API,
+  # Ingress, or Envoy L7 backends to exec the IPAM plugin binary from
+  # this path.
+  hostBinDirMountPath: /host/opt/cni/bin
   # -- Specifies the resources for the cni initContainer
   resources:
     requests:

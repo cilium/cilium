@@ -1657,6 +1657,9 @@
         "exclusive": {
           "type": "boolean"
         },
+        "hostBinDirMountPath": {
+          "type": "string"
+        },
         "hostConfDirMountPath": {
           "type": "string"
         },
