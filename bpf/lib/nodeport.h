@@ -410,7 +410,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	__u16 encap_len = sizeof(struct ipv6hdr) + sizeof(struct udphdr) +
 		sizeof(struct genevehdr) + ETH_HLEN;
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(*ip6);
-	fraginfo_t fraginfo;
+	fraginfo_t fraginfo = 0;
 	__u16 total_len = 0;
 	__be16 src_port;
 	int l4_off, ret;
@@ -951,7 +951,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 	__u32 src_sec_identity __maybe_unused = SECLABEL;
 	__be16 src_port __maybe_unused = 0;
 	bool allow_neigh_map = true;
-	fraginfo_t fraginfo;
+	fraginfo_t fraginfo = 0;
 	int ifindex = 0;
 	__u32 monitor = 0;
 
@@ -1225,9 +1225,9 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	};
 	struct ipv6_nat_entry *state = NULL;
 	int ret, l4_off, oif = 0;
+	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	fraginfo_t fraginfo;
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
 	const struct remote_endpoint_info *info;
@@ -1532,11 +1532,11 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					__s8 *ext_err,
 					bool __maybe_unused *dsr)
 {
-	fraginfo_t fraginfo;
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	const struct lb6_service *svc;
+	fraginfo_t fraginfo = 0;
 	struct lb6_key key = {};
 
 	tuple.nexthdr = ip6->nexthdr;

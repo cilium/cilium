@@ -2115,9 +2115,9 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	struct ipv6_nat_entry *state = NULL;
 	struct ipv6_ct_tuple tuple = {};
 	__u32 off, inner_l3_off;
+	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	fraginfo_t fraginfo;
 	__be16 to_dport = 0;
 	__u16 port_off = 0;
 	int ret, hdrlen;
