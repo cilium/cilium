@@ -61,9 +61,9 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 		return
 	}
 
-	info, ok := lookupPolicyForKey(epInfo,
+	info, ok := epInfo.GetPolicyCorrelationInfoForKey(
 		policy.KeyForDirection(direction).WithIdentity(remoteIdentity).WithPortProto(proto, dport),
-		f.GetPolicyMatchType())
+	)
 	if !ok {
 		logger.Debug(
 			"unable to find policy for policy verdict notification",
@@ -140,86 +140,6 @@ func extractFlowKey(f *flowpb.Flow) (
 	}
 
 	return
-}
-
-func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (policyTypes.PolicyCorrelationInfo, bool) {
-	switch matchType {
-	case monitorAPI.PolicyMatchL3L4:
-		// Check for L4 policy rules.
-		//
-		// Consider the network policy:
-		//
-		// spec:
-		//  podSelector: {}
-		//  ingress:
-		//  - podSelector:
-		//      matchLabels:
-		//        app: client
-		//    ports:
-		//    - port: 80
-		//      protocol: TCP
-	case monitorAPI.PolicyMatchL3Proto:
-		// Check for L3 policy rules with protocol (but no port).
-		//
-		// Consider the network policy:
-		//
-		// spec:
-		//  podSelector: {}
-		//  ingress:
-		//  - podSelector:
-		//      matchLabels:
-		//        app: client
-		//    ports:
-		//    - protocol: TCP
-		key = policy.KeyForDirection(key.TrafficDirection()).WithIdentity(key.Identity).WithProto(key.Nexthdr)
-	case monitorAPI.PolicyMatchL4Only:
-		// Check for port-specific rules.
-		// This covers the case where one or more identities are allowed by network policy.
-		//
-		// Consider the network policy:
-		//
-		// spec:
-		//  podSelector: {}
-		//  ingress:
-		//  - ports:
-		//    - port: 80
-		//      protocol: TCP // protocol is optional for this match.
-		key = policy.KeyForDirection(key.TrafficDirection()).WithPortProto(key.Nexthdr, key.DestPort)
-	case monitorAPI.PolicyMatchProtoOnly:
-		// Check for protocol-only policies.
-		//
-		// Consider the network policy:
-		//
-		// spec:
-		//  podSelector: {}
-		//  ingress:
-		//  - ports:
-		//    - protocol: TCP
-		key = policy.KeyForDirection(key.TrafficDirection()).WithProto(key.Nexthdr)
-	case monitorAPI.PolicyMatchL3Only:
-		// Check for L3 policy rules.
-		//
-		// Consider the network policy:
-		//
-		// spec:
-		//  podSelector: {}
-		//  ingress:
-		//  - podSelector:
-		//      matchLabels:
-		//        app: client
-		key = policy.KeyForDirection(key.TrafficDirection()).WithIdentity(key.Identity)
-	case monitorAPI.PolicyMatchAll:
-		// Check for allow-all policy rules.
-		//
-		// Consider the network policy:
-		//
-		// spec:
-		//  podSelector: {}
-		//  ingress:
-		//  - {}
-		key = policy.KeyForDirection(key.TrafficDirection())
-	}
-	return ep.GetPolicyCorrelationInfoForKey(key)
 }
 
 func toProto(info policyTypes.PolicyCorrelationInfo) (policies []*flowpb.Policy) {

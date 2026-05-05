@@ -1326,7 +1326,10 @@ func (e *Endpoint) UpdateBandwidthPolicy(bandwidthEgress, bandwidthIngress, prio
 }
 
 // GetPolicyCorrelationInfoForKey returns the list of policy rule labels which match a given flow
-// key (in host byte-order) and associated correlation information.
+// key (in host byte-order) and associated correlation information. The lookup mirrors the bpf
+// datapath's L3-vs-L4 precedence (via EndpointPolicy.Lookup), so port-range entries and the
+// various matchType-equivalent stored shapes (L3L4, L4Only, L3Proto, ProtoOnly, L3Only, All)
+// resolve through a single LPM walk without per-matchType key adjustments on the caller side.
 func (e *Endpoint) GetPolicyCorrelationInfoForKey(key policyTypes.Key) (
 	info policyTypes.PolicyCorrelationInfo,
 	ok bool,
@@ -1334,14 +1337,14 @@ func (e *Endpoint) GetPolicyCorrelationInfoForKey(key policyTypes.Key) (
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	ruleMeta, err := e.realizedPolicy.GetRuleMeta(key)
-	if err != nil {
+	_, ruleMeta, found := e.realizedPolicy.Lookup(key)
+	if !found {
 		return info, false
 	}
 	info.RuleLabels = ruleMeta.LabelArrayListString()
 	info.Log = ruleMeta.Log()
 	info.Revision = e.policyRevision
-	return info, err == nil
+	return info, true
 }
 
 // setDNSRulesLocked is called when the Endpoint's DNS policy has been updated.

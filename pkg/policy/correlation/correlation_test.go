@@ -838,3 +838,77 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }
+
+func TestCorrelatePolicy_PortRange(t *testing.T) {
+	localIP := "1.2.3.4"
+	localIdentity := uint32(1234)
+	localID := uint32(12)
+	remoteIP := "5.6.7.8"
+	remoteIdentity := uint32(5678)
+	remoteID := uint32(56)
+	dstPort := uint32(80) // inside [64, 127]
+
+	flow := &flowpb.Flow{
+		EventType:        &flowpb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP:               &flowpb.IP{Source: localIP, Destination: remoteIP},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: dstPort}},
+		},
+		Source:          &flowpb.Endpoint{ID: localID, Identity: localIdentity},
+		Destination:     &flowpb.Endpoint{ID: remoteID, Identity: remoteIdentity},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+
+	policyLabel := utils.GetPolicyLabels("foo-namespace", "port-range-policy", "abcd-ef01", utils.ResourceTypeCiliumNetworkPolicy)
+	rangeKey := policy.EgressKey().
+		WithIdentity(identity.NumericIdentity(remoteIdentity)).
+		WithTCPPortPrefix(64, 10)
+
+	ep := &testutils.FakeEndpointInfo{
+		ID:           uint64(localID),
+		Identity:     identity.NumericIdentity(localIdentity),
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "client",
+		PodNamespace: "default",
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			rangeKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfoByID: func(id uint16) (getters.EndpointInfo, bool) {
+			if uint64(id) == ep.ID {
+				return ep, true
+			}
+			t.Fatalf("did not expect endpoint retrieval for non-local endpoint: %d", id)
+			return nil, false
+		},
+	}
+
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+
+	expected := []*flowpb.Policy{
+		{
+			Name:      "port-range-policy",
+			Namespace: "foo-namespace",
+			Kind:      utils.ResourceTypeCiliumNetworkPolicy,
+			Labels: []string{
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+				"k8s:io.cilium.k8s.policy.name=port-range-policy",
+				"k8s:io.cilium.k8s.policy.namespace=foo-namespace",
+				"k8s:io.cilium.k8s.policy.uid=abcd-ef01",
+			},
+			Revision: 1,
+		},
+	}
+
+	require.Nil(t, flow.IngressAllowedBy)
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+}
