@@ -1061,6 +1061,16 @@ ingressController:
     # Valid values are "Cluster" and "Local".
     # ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
     externalTrafficPolicy: Cluster
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Configure a specific ipFamilyPolicy on the shared LB service
+    ipFamilyPolicy: ~
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Configure specific ipFamilies on the shared LB service
+    ipFamilies: ~
   # Host Network related configuration
   hostNetwork:
     # -- Configure whether the Envoy listeners should be exposed on the host network.

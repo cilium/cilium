@@ -4383,6 +4383,18 @@
                 "integer"
               ]
             },
+            "ipFamilies": {
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "ipFamilyPolicy": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
             "labels": {
               "type": "object"
             },
