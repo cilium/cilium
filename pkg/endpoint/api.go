@@ -564,7 +564,9 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	}
 
 	e.replaceInformationLabels(labels.LabelSourceAny, newEp.labels.OrchestrationInfo)
-	rev := e.replaceIdentityLabels(labels.LabelSourceAny, newEp.labels.IdentityLabels())
+	// PATCH does not remove generated labels and the caller has a comment stating that
+	// labels are ignored, but here we go.
+	rev := e.replaceNonGeneratedIdentityLabels(labels.LabelSourceAny, newEp.labels.IdentityLabels())
 	if rev != 0 {
 		// Run as a goroutine since the runIdentityResolver needs to get the lock
 		go e.runIdentityResolver(e.aliveCtx, false, 0)

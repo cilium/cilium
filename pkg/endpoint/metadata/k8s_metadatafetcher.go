@@ -24,7 +24,7 @@ import (
 var ErrPodStoreOutdated = errors.New("pod store outdated")
 
 type EndpointMetadataFetcher interface {
-	FetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error)
+	FetchK8sMetadataForEndpoint(nsName, podName, uid string, isNew bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error)
 
 	FetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error)
 }
@@ -47,7 +47,7 @@ func NewEndpointMetadataFetcher(logger *slog.Logger, config *option.DaemonConfig
 	}
 }
 
-func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpoint(nsName, podName, uid string, newPod bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 	p, err := cemf.getPod(nsName, podName)
 	if err != nil {
 		return nil, nil, err
@@ -58,6 +58,15 @@ func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpoint(nsName, p
 	}
 
 	metadata, err := cemf.FetchK8sMetadataForEndpointFromPod(p)
+
+	// set the named ports identity label on new (non-restored) endpoints
+	if err == nil && newPod {
+		lbl, haveLbl := k8s.NamedPortsIdentityLabel(metadata.NamedPorts)
+		if haveLbl {
+			metadata.IdentityLabels[lbl.Key] = lbl
+		}
+	}
+
 	return p, metadata, err
 }
 

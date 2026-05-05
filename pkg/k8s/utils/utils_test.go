@@ -467,11 +467,12 @@ func TestSanitizePodLabels(t *testing.T) {
 	namespaceLabelKey := "wow-very-key"
 	namespaceMetaLabelKey := joinPath(k8sconst.PodNamespaceMetaLabels, namespaceLabelKey)
 	testedLabels := map[string]string{
-		k8sconst.PodNamespaceLabel:         "fake-namespace",
-		k8sconst.PolicyLabelServiceAccount: "fake-sa",
-		k8sconst.PolicyLabelCluster:        "fake-cluster-name",
-		namespaceMetaLabelKey:              "fake-namespace-label-val",
-		k8sconst.PodNameLabel:              "fake-pod-name",
+		k8sconst.PodNamespaceLabel:           "fake-namespace",
+		k8sconst.PolicyLabelServiceAccount:   "fake-sa",
+		k8sconst.PolicyLabelCluster:          "fake-cluster-name",
+		k8sconst.NamedPortsIdentityLabelName: "fake-named-ports",
+		namespaceMetaLabelKey:                "fake-namespace-label-val",
+		k8sconst.PodNameLabel:                "fake-pod-name",
 	}
 	trueNamespace := "true-namespace"
 	trueSA := "true-sa"
@@ -546,9 +547,10 @@ func TestStripPodLabels(t *testing.T) {
 		{
 			name: "Cilium owned label",
 			labels: map[string]string{
-				"app":                            "foo",
-				"io.cilium.k8s.policy.namespace": "kube-system",
-				"io.cilium.k8s.something":        "cilium internal",
+				"app":                                        "foo",
+				"io.cilium.k8s.policy.namespace":             "kube-system",
+				"io.cilium.k8s.something":                    "cilium internal",
+				"io.cilium.k8s.named-ports":                  "http=80",
 				"io.cilium.k8s.namespace.labels.foo.bar/baz": "foobar",
 			},
 			want: map[string]string{
