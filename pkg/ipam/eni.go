@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -350,13 +351,21 @@ func buildENIAllocationResult(
 		result := &AllocationResult{
 			IP:         allocatedAddr,
 			PrimaryMAC: eni.MAC,
-			CIDRs:      []string{eni.VPC.PrimaryCIDR},
 		}
-		result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
+		if primaryCIDR, err := netip.ParsePrefix(eni.VPC.PrimaryCIDR); err == nil {
+			result.CIDRs = append(result.CIDRs, primaryCIDR)
+		}
+		for _, c := range eni.VPC.CIDRs {
+			if p, err := netip.ParsePrefix(c); err == nil {
+				result.CIDRs = append(result.CIDRs, p)
+			}
+		}
 
 		// Add manually configured Native Routing CIDR
 		if conf.IPv4NativeRoutingCIDR != nil {
-			result.CIDRs = append(result.CIDRs, conf.IPv4NativeRoutingCIDR.String())
+			if p, ok := netipx.FromStdIPNet(conf.IPv4NativeRoutingCIDR.IPNet); ok {
+				result.CIDRs = append(result.CIDRs, p)
+			}
 		}
 
 		// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
@@ -365,17 +374,17 @@ func buildENIAllocationResult(
 		if conf.EnableIPMasqAgent {
 			for _, prefix := range ipMasqAgent.NonMasqCIDRsFromConfig() {
 				if allocatedAddr.Is4() && prefix.Addr().Is4() {
-					result.CIDRs = append(result.CIDRs, prefix.String())
+					result.CIDRs = append(result.CIDRs, prefix)
 				} else if !allocatedAddr.Is4() && prefix.Addr().Is6() {
-					result.CIDRs = append(result.CIDRs, prefix.String())
+					result.CIDRs = append(result.CIDRs, prefix)
 				}
 			}
 		}
 
-		if eni.Subnet.CIDR != "" {
-			// The gateway for a subnet and VPC is always x.x.x.1
+		if prefix, err := netip.ParsePrefix(eni.Subnet.CIDR); err == nil {
+			// AWS reserves the first subnet IP for the gateway.
 			// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
-			result.GatewayIP = deriveGatewayIP(logger, eni.Subnet.CIDR, 1)
+			result.GatewayIP = prefix.Addr().Next()
 		}
 		result.InterfaceNumber = strconv.Itoa(eni.Number)
 

@@ -270,9 +270,9 @@ func TestBuildENIAllocationResult(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
-		require.Equal(t, "10.1.1.1", result.GatewayIP)
-		require.Contains(t, result.CIDRs, "10.1.0.0/16")
-		require.Contains(t, result.CIDRs, "10.2.0.0/16")
+		require.Equal(t, netip.MustParseAddr("10.1.1.1"), result.GatewayIP)
+		require.Contains(t, result.CIDRs, netip.MustParsePrefix("10.1.0.0/16"))
+		require.Contains(t, result.CIDRs, netip.MustParsePrefix("10.2.0.0/16"))
 	})
 
 	t.Run("secondary IP on eni-2", func(t *testing.T) {
@@ -280,7 +280,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:02", result.PrimaryMAC)
 		require.Equal(t, "2", result.InterfaceNumber)
-		require.Equal(t, "10.3.1.1", result.GatewayIP)
+		require.Equal(t, netip.MustParseAddr("10.3.1.1"), result.GatewayIP)
 	})
 
 	t.Run("unknown IP returns error", func(t *testing.T) {
@@ -295,7 +295,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 		}
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), node, confWithNative, nil)
 		require.NoError(t, err)
-		require.Contains(t, result.CIDRs, "10.0.0.0/8")
+		require.Contains(t, result.CIDRs, netip.MustParsePrefix("10.0.0.0/8"))
 	})
 }
 
