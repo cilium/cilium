@@ -105,7 +105,7 @@ func Test_printSummary(t *testing.T) {
 		var out bytes.Buffer
 
 		// function to test
-		printSummary(&out, tt.Config)
+		printSummaryLegacy(&out, tt.Config)
 
 		// validate rows and cols
 		rows := 0
