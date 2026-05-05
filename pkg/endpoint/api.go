@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -334,10 +333,11 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 
 // getNamedPortsModel returns the endpoint's NamedPorts object.
 func (e *Endpoint) getNamedPortsModel() models.NamedPorts {
-	var k8sPorts types.NamedPortMap
-	if p := e.k8sPorts.Load(); p != nil {
-		k8sPorts = *p
+	p := e.k8sPorts.Load()
+	if p == nil || *p == nil {
+		return models.NamedPorts{}
 	}
+	k8sPorts := *p
 
 	np := make(models.NamedPorts, 0, len(k8sPorts))
 	// keep named ports ordered to avoid the unnecessary updates to

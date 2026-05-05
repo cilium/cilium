@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"os"
 	"runtime"
@@ -1374,28 +1375,20 @@ func (e *Endpoint) GetCEPOwner() CEPOwnerInterface {
 	return e.GetPod()
 }
 
-// SetK8sMetadata sets the k8s container ports specified by kubernetes.
+// SetK8sMetadata sets the k8s named ports specified by kubernetes.
 // Note that once put in place, the new k8sPorts is never changed,
 // so that the map can be used concurrently without keeping locks.
 // Can't really error out as that might break backwards compatibility.
-func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) {
-	k8sPorts := make(types.NamedPortMap, len(containerPorts))
-	for _, cp := range containerPorts {
-		if cp.Name == "" {
-			continue // silently skip unnamed ports
-		}
-		err := k8sPorts.AddPort(cp.Name, int(cp.ContainerPort), string(cp.Protocol))
-		if err != nil {
-			e.getLogger().Warn("Adding named port failed", logfields.Error, err)
-			continue
-		}
-	}
+func (e *Endpoint) SetK8sMetadata(namedPorts types.NamedPortMap) {
+	k8sPorts := maps.Clone(namedPorts)
+	// Store a non-nil pointer even when namedPorts is nil. The pointer tracks
+	// whether K8s metadata has been set; a nil map means the pod has no named ports.
 	e.k8sPorts.Store(&k8sPorts)
 }
 
 // GetK8sPorts returns the k8sPorts, which must not be modified by the caller
 func (e *Endpoint) GetK8sPorts() (k8sPorts types.NamedPortMap) {
-	if p := e.k8sPorts.Load(); p != nil {
+	if p := e.k8sPorts.Load(); p != nil && *p != nil {
 		k8sPorts = *p
 	}
 	return k8sPorts
@@ -1403,6 +1396,8 @@ func (e *Endpoint) GetK8sPorts() (k8sPorts types.NamedPortMap) {
 
 // HaveK8sMetadata returns true once hasK8sMetadata was set
 func (e *Endpoint) HaveK8sMetadata() (metadataSet bool) {
+	// Only the pointer matters here. A non-nil pointer to a nil map means K8s
+	// metadata was set for a pod with no named ports.
 	p := e.k8sPorts.Load()
 	return p != nil
 }
@@ -1878,7 +1873,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	controllerBaseLabels.MergeLabels(k8sMetadata.IdentityLabels)
 
 	e.SetPod(pod)
-	e.SetK8sMetadata(k8sMetadata.ContainerPorts)
+	e.SetK8sMetadata(k8sMetadata.NamedPorts)
 	e.UpdateNoTrackRules(func() string {
 		value, _ := annotation.Get(pod, annotation.NoTrack, annotation.NoTrackAlias)
 		return value
@@ -1939,7 +1934,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 // K8sMetadata is a collection of Kubernetes-related metadata that are fetched
 // from Kubernetes.
 type K8sMetadata struct {
-	ContainerPorts       []slim_corev1.ContainerPort
+	NamedPorts           types.NamedPortMap
 	IdentityLabels       labels.Labels
 	InfoLabels           labels.Labels
 	NamespaceAnnotations map[string]string
