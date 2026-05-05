@@ -109,8 +109,8 @@ func (t *templateCfg) GetPolicyVerdictLogFilter() uint32 {
 	return templatePolicyVerdictFilter
 }
 
-func (*templateCfg) GetRTInfo() uint32 {
-	return 0
+func (*templateCfg) GetRTInfo() (uint32, eptypes.RTInfoEncoding) {
+	return 0, eptypes.RTInfoNone
 }
 
 func (*templateCfg) GetPropertyValue(key string) any {

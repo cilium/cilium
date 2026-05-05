@@ -33,6 +33,7 @@ import (
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -416,15 +417,15 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 			if annoChangedFIBTableID {
 				if tid, ok := newK8sPod.Annotations[annotation.FIBTableID]; ok {
 					if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
-						podEP.SetRTInfo(uint32(tidInt))
+						podEP.SetRTInfo(uint32(tidInt), endpointtypes.RTInfoFIB)
 					} else {
 						scopedLog.Warn("Unable to parse fib-table-id annotation as uint32, pod will use default routing table.",
 							logfields.Annotation, annotation.FIBTableID,
 							logfields.Error, err,
 						)
 					}
-				} else {
-					podEP.SetRTInfo(0)
+				} else if _, enc := podEP.GetRTInfo(); enc == endpointtypes.RTInfoFIB {
+					podEP.ClearRTInfo()
 				}
 				regenMetadata := &regeneration.ExternalRegenerationMetadata{
 					Reason:            "fib-table-id annotation updated",

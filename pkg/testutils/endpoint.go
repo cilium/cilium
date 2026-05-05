@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 
+	eptypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -91,7 +92,7 @@ func (e *TestEndpoint) GetOptions() *option.IntOptions { return e.Opts }
 
 func (e *TestEndpoint) IsHost() bool { return e.isHost }
 
-func (e *TestEndpoint) GetRTInfo() uint32 { return 0 }
+func (e *TestEndpoint) GetRTInfo() (uint32, eptypes.RTInfoEncoding) { return 0, eptypes.RTInfoNone }
 
 func (e *TestEndpoint) GetPropertyValue(key string) any { return nil }
 

@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	eptypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -119,7 +120,7 @@ type EndpointFrontend interface {
 	GetIfIndex() int
 	GetParentIfIndex() int
 	GetID() uint64
-	GetRTInfo() uint32
+	GetRTInfo() (uint32, eptypes.RTInfoEncoding)
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
 	GetIdentity() identity.NumericIdentity
@@ -161,6 +162,7 @@ func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 		return nil, fmt.Errorf("invalid node MAC: %w", err)
 	}
 
+	rtInfo, _ := e.GetRTInfo()
 	// Both lxc and node mac can be nil for the case of L3/NOARP devices.
 	info := &EndpointInfo{
 		IfIndex:       uint32(e.GetIfIndex()),
@@ -169,7 +171,7 @@ func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 		NodeMAC:       nodeMAC,
 		SecID:         e.GetIdentity().Uint32(), // Host byte-order
 		ParentIfIndex: uint32(e.GetParentIfIndex()),
-		RTInfo:        e.GetRTInfo(),
+		RTInfo:        rtInfo,
 	}
 
 	if e.IsAtHostNS() {
