@@ -27,6 +27,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -261,7 +262,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 
 			if tid, ok := pod.Annotations[annotation.FIBTableID]; option.Config.EnableFibTableIDAnnotation && ok {
 				if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
-					ep.SetRTInfo(uint32(tidInt))
+					ep.SetRTInfo(uint32(tidInt), endpointtypes.RTInfoFIB)
 				} else {
 					m.logger.Warn("Unable to parse fib-table-id annotation as uint32, pod will use default routing table.",
 						logfields.K8sPodName, epTemplate.K8sPodName,

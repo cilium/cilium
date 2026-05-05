@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"strconv"
 
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -101,8 +102,9 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 	}
 }
 
-func (ep *epInfoCache) GetRTInfo() uint32 {
-	return ep.rtInfo
+func (ep *epInfoCache) GetRTInfo() (uint32, endpoint.RTInfoEncoding) {
+	enc, _ := ep.properties[PropertyRTInfo].(string)
+	return ep.rtInfo, endpoint.RTInfoEncoding(enc)
 }
 
 func (ep *epInfoCache) GetIfIndex() int {

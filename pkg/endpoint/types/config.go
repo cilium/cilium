@@ -11,6 +11,14 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+// RTInfoEncoding describes a possible encoding of the RTInfo field of an endpoint.
+type RTInfoEncoding string
+
+const (
+	RTInfoNone RTInfoEncoding = ""
+	RTInfoFIB  RTInfoEncoding = "fib"
+)
+
 // Config provides datapath implementations a clean interface to access
 // endpoint-specific configuration when configuring the datapath.
 type Config interface {
@@ -48,8 +56,8 @@ type LoadTimeConfig interface {
 	// GetPropertyValue returns the endpoint property value for this key.
 	GetPropertyValue(key string) any
 
-	// GetRTInfo returns the routing domain info for the pod.
-	GetRTInfo() uint32
+	// GetRTInfo returns the routing domain info for the pod and its encoding.
+	GetRTInfo() (uint32, RTInfoEncoding)
 
 	// RequireARPPassthrough returns true if the datapath must implement
 	// ARP passthrough for this endpoint

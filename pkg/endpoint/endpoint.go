@@ -104,6 +104,8 @@ const (
 	PropertySkipMasqueradeV4 = "property-skip-masquerade-v4"
 	// PropertySkipMasqueradeV6 will mark the endpoint to skip IPv6 masquerade.
 	PropertySkipMasqueradeV6 = "property-skip-masquerade-v6"
+	// Property RTInfo describes the endpoint's RTInfo encoding.
+	PropertyRTInfo = "property-rt-info"
 )
 
 var (
@@ -1919,10 +1921,14 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	)
 	if tid, ok := pod.Annotations[annotation.FIBTableID]; option.Config.EnableFibTableIDAnnotation && ok {
 		if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
-			e.SetRTInfo(uint32(tidInt))
+			e.SetRTInfo(uint32(tidInt), endpoint.RTInfoFIB)
 		}
 	} else {
-		e.SetRTInfo(0)
+		// if either endpoint is no longer annotated, or EnableFibTableIDAnnotation was
+		// disabled, remove pod from FIB table if bound.
+		if _, enc := e.GetRTInfo(); enc == endpoint.RTInfoFIB {
+			e.ClearRTInfo()
+		}
 	}
 
 	// Handle DisableSourceIPVerification annotation.
@@ -2823,32 +2829,51 @@ func (e *Endpoint) GetCreatedAt() time.Time {
 	return e.createdAt
 }
 
-func (e *Endpoint) SetRTInfo(info uint32) {
+func (e *Endpoint) SetRTInfo(info uint32, t endpoint.RTInfoEncoding) {
 	e.mutex.RWMutex.Lock()
 	defer e.mutex.RWMutex.Unlock()
+
 	e.rtInfo = info
+	e.setPropertyValue(PropertyRTInfo, string(t))
+
 }
 
-func (e *Endpoint) GetRTInfo() uint32 {
+func (e *Endpoint) GetRTInfo() (uint32, endpoint.RTInfoEncoding) {
 	e.mutex.RWMutex.RLock()
 	defer e.mutex.RWMutex.RUnlock()
-	return e.rtInfo
+	enc, _ := e.getPropertyValue(PropertyRTInfo).(string)
+	return e.rtInfo, endpoint.RTInfoEncoding(enc)
+}
+
+func (e *Endpoint) ClearRTInfo() {
+	e.mutex.RWMutex.Lock()
+	defer e.mutex.RWMutex.Unlock()
+	e.rtInfo = 0
+	delete(e.properties, PropertyRTInfo)
+}
+
+func (e *Endpoint) getPropertyValue(key string) any {
+	return e.properties[key]
 }
 
 // GetPropertyValue returns the endpoint property value for this key.
 func (e *Endpoint) GetPropertyValue(key string) any {
 	e.mutex.RWMutex.RLock()
 	defer e.mutex.RWMutex.RUnlock()
-	return e.properties[key]
+	return e.getPropertyValue(key)
+}
+
+func (e *Endpoint) setPropertyValue(key string, value any) any {
+	old := e.properties[key]
+	e.properties[key] = value
+	return old
 }
 
 // SetPropertyValue sets the endpoint property value for this key.
 func (e *Endpoint) SetPropertyValue(key string, value any) any {
 	e.mutex.RWMutex.Lock()
 	defer e.mutex.RWMutex.Unlock()
-	old := e.properties[key]
-	e.properties[key] = value
-	return old
+	return e.setPropertyValue(key, value)
 }
 
 // IsProperty checks if the value of the properties map is set, it's a boolean
