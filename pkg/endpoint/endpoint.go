@@ -1208,8 +1208,8 @@ func (e *Endpoint) replaceInformationLabels(sourceFilter string, l labels.Labels
 
 // replaceIdentityLabels replaces the identity labels of the endpoint for the
 // given 'sourceFilter', if 'sourceFilter' is 'LabelSourceAny' then all labels
-// are replaced.
-// If a net changed occurred, the identityRevision is bumped and returned,
+// are replaced (including any LabelSourceGenerated labels).
+// If a net change occurred, the identityRevision is bumped and returned,
 // otherwise 0 is returned.
 // Passing a nil set of labels will not perform any action and will return the
 // current endpoint's identityRevision.
@@ -1227,6 +1227,32 @@ func (e *Endpoint) replaceIdentityLabels(sourceFilter string, l labels.Labels) i
 	}
 
 	return rev
+}
+
+// replaceNonGeneratedIdentityLabels replaces the identity labels of the endpoint
+// for the given 'sourceFilter', if 'sourceFilter' is 'LabelSourceAny' then all
+// labels except LabelSourceGenerated labels are replaced.
+// If a net changed occurred, the identityRevision is bumped and returned,
+// otherwise 0 is returned.
+// Passing a nil set of labels will not perform any action and will return the
+// current endpoint's identityRevision.
+// Must be called with e.mutex.Lock().
+func (e *Endpoint) replaceNonGeneratedIdentityLabels(sourceFilter string, l labels.Labels) int {
+	// only add generated labels if sourceFilter is Any or Generated,
+	// as otherwise the generated labels are already left as-is.
+	if sourceFilter == labels.LabelSourceAny || sourceFilter == labels.LabelSourceGenerated {
+		cloned := false
+		for _, v := range e.labels.OrchestrationIdentity {
+			if v.Source == labels.LabelSourceGenerated {
+				if !cloned {
+					l = labels.NewFrom(l)
+					cloned = true
+				}
+				l[v.Key] = v
+			}
+		}
+	}
+	return e.replaceIdentityLabels(sourceFilter, l)
 }
 
 // DeleteConfig is the endpoint deletion configuration
@@ -1838,7 +1864,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 
 	ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 
-	pod, k8sMetadata, err := resolveMetadata(ns, podName, e.K8sUID)
+	pod, k8sMetadata, err := resolveMetadata(ns, podName, e.K8sUID, !restoredEndpoint)
 	if err != nil {
 		if restoredEndpoint && k8sErrors.IsNotFound(err) {
 			e.Logger(resolveLabels).Info(
@@ -1942,7 +1968,7 @@ type K8sMetadata struct {
 
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(ns, podName, uid string) (pod *slim_corev1.Pod, k8sMetadata *K8sMetadata, err error)
+type MetadataResolverCB func(ns, podName, uid string, newPod bool) (pod *slim_corev1.Pod, k8sMetadata *K8sMetadata, err error)
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the
@@ -2145,6 +2171,7 @@ func (e *Endpoint) InitWithNodeLabels(ctx context.Context, nodeLabels map[string
 // run first synchronously if 'blocking' is true, and then in the background.
 //
 // Returns 'true' if endpoint regeneration was triggered.
+// identityLabels must be non-nil; infoLabels may be nil.
 func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identityLabels, infoLabels labels.Labels, blocking bool) (regenTriggered bool) {
 	e.getLogger().Debug(
 		"Refreshing labels of endpoint",
@@ -2160,7 +2187,8 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 
 	e.replaceInformationLabels(sourceFilter, infoLabels)
 	// replace identity labels and update the identity if labels have changed
-	rev := e.replaceIdentityLabels(sourceFilter, identityLabels)
+	// UpdateLabels keeps all generated source labels.
+	rev := e.replaceNonGeneratedIdentityLabels(sourceFilter, identityLabels)
 
 	// If the endpoint is in an 'init' state we need to remove this label
 	// regardless of the "sourceFilter". Otherwise, we face risk of leaving the

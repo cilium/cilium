@@ -185,6 +185,10 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
 		}
 
+		if apiLabels.IsGenerated() {
+			return invalidDataError(ep, fmt.Errorf("not allowed to add generated labels: %s", apiLabels))
+		}
+
 		apiLabels, _ = labelsfilter.Filter(apiLabels)
 		if len(apiLabels) == 0 {
 			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
@@ -362,13 +366,14 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 // testing purposes.
 var handleOutdatedPodInformerRetryPeriod = 100 * time.Millisecond
 
+// handleOutdatedPodInformer is only used when creating new Endpoints, never for restored endpoints!
 func (m *endpointAPIManager) handleOutdatedPodInformer(ctx context.Context, ep *endpoint.Endpoint) (pod *slim_corev1.Pod, k8sMetadata *endpoint.K8sMetadata, err error) {
 	var once sync.Once
 
 	// Average attempt is every 100ms.
 	err = resiliency.Retry(ctx, handleOutdatedPodInformerRetryPeriod, 20, func(_ context.Context, _ int) (bool, error) {
 		var err2 error
-		pod, k8sMetadata, err2 = m.endpointMetadata.FetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName, ep.K8sUID)
+		pod, k8sMetadata, err2 = m.endpointMetadata.FetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName, ep.K8sUID, true)
 		if ep.K8sUID == "" {
 			// If the CNI did not set the UID, then don't retry and just exit
 			// out of the loop to proceed as normal.

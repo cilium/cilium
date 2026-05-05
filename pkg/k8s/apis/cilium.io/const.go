@@ -30,6 +30,10 @@ const (
 	// running in
 	PolicyLabelCluster = LabelPrefix + ".policy.cluster"
 
+	// NamedPortsIdentityLabelName is the label added to an endpoint's identity
+	// when its pod has any named ports.
+	NamedPortsIdentityLabelName = LabelPrefix + ".named-ports"
+
 	// PodNamespaceMetaLabels is the label used to store the labels of the
 	// kubernetes namespace's labels.
 	PodNamespaceMetaLabels = LabelPrefix + ".namespace.labels"
