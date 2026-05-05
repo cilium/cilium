@@ -5,13 +5,18 @@ package bgp
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
+	"github.com/blang/semver/v4"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
@@ -59,4 +64,97 @@ func (s *Status) initTargetCiliumPods(ctx context.Context) error {
 		s.ciliumPods = append(s.ciliumPods, ciliumPod.DeepCopy())
 	}
 	return nil
+}
+
+// minCiliumVersion is the minimum Cilium agent version supporting the BGP hive shell commands.
+var minCiliumVersion = semver.MustParse("1.20.0")
+
+// errUnsupportedCiliumVersion is returned when the Cilium agent version does not
+// support the BGP hive shell commands.
+var errUnsupportedCiliumVersion = fmt.Errorf("Cilium version <%s does not support this command", minCiliumVersion)
+
+// checkCiliumVersion checks if the cilium agent version is supported.
+// It returns an error wrapping errUnsupportedCiliumVersion if the version is too old.
+func (s *Status) checkCiliumVersion(ctx context.Context, pod *corev1.Pod) error {
+	version := make(map[string]map[string]string)
+	cmd := []string{"cilium-dbg", "version", "-o", "json"}
+	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to get Cilium version: %w", err)
+	}
+	if err := json.Unmarshal(output.Bytes(), &version); err != nil {
+		return fmt.Errorf("failed to get Cilium version: %w", err)
+	}
+
+	actualVersion, err := semver.Parse(version["Client"]["Version"])
+	if err != nil {
+		return fmt.Errorf("failed to get Cilium version: %w", err)
+	}
+	if actualVersion.LT(minCiliumVersion) {
+		return fmt.Errorf("%w (found %s)", errUnsupportedCiliumVersion, actualVersion)
+	}
+
+	return nil
+}
+
+// versionCheckError wraps an error returned by checkCiliumVersion. The legacy
+// command is suggested only if the agent version is unsupported.
+func versionCheckError(pod *corev1.Pod, err error, legacyCmd string) error {
+	if errors.Is(err, errUnsupportedCiliumVersion) {
+		return fmt.Errorf("failed to fetch bgp state from %s: %w, use %q instead", pod.Name, err, legacyCmd)
+	}
+	return fmt.Errorf("failed to fetch bgp state from %s: %w", pod.Name, err)
+}
+
+// fetchCmdFromPod defines the function signature for running a fetch command on the pods.
+type fetchCmdFromPod func(context.Context, []string, *corev1.Pod) ([]string, error)
+
+func (s *Status) fetchCmdConcurrently(ctx context.Context, fetchCmd []string, fetchFunc fetchCmdFromPod) (map[string][]string, error) {
+	allFetchedData := make(map[string][]string)
+
+	// res contains data returned from cilium pod
+	type res struct {
+		nodeName string
+		data     []string
+		err      error
+	}
+	resCh := make(chan res)
+
+	var wg sync.WaitGroup
+
+	// max number of concurrent go routines will be number of cilium agent pods
+	wg.Add(len(s.ciliumPods))
+
+	// concurrently fetch routes from each cilium pod
+	for _, pod := range s.ciliumPods {
+		go func(ctx context.Context, pod *corev1.Pod) {
+			defer wg.Done()
+
+			routes, err := fetchFunc(ctx, fetchCmd, pod)
+			resCh <- res{
+				nodeName: pod.Spec.NodeName,
+				data:     routes,
+				err:      err,
+			}
+		}(ctx, pod)
+	}
+
+	// close resCh when data from all nodes is collected
+	go func() {
+		wg.Wait()
+		close(resCh)
+	}()
+
+	// read from the channel till it is closed.
+	// on error, store error and continue to next node.
+	var err error
+	for fetchedData := range resCh {
+		if fetchedData.err != nil {
+			err = errors.Join(err, fetchedData.err)
+		} else {
+			allFetchedData[fetchedData.nodeName] = fetchedData.data
+		}
+	}
+
+	return allFetchedData, err
 }

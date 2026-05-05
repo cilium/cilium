@@ -40,12 +40,12 @@ const (
 	unicastSAFI  = "unicast"
 )
 
-// GetRoutes gets BGP routes from all/specific cilium agent pods.
-func (s *Status) GetRoutes(ctx context.Context, args []string) error {
+// GetRoutesLegacy gets BGP routes from all/specific cilium agent pods.
+func (s *Status) GetRoutesLegacy(ctx context.Context, args []string) error {
 	silent := s.params.Output == status.OutputJSON // do not print out notes / warnings when the output is JSON
 
-	args = defaultGetRoutesArgs(args, silent)
-	err := validateGetRoutesArgs(args)
+	args = defaultGetRoutesArgsLegacy(args, silent)
+	err := validateGetRoutesArgsLegacy(args)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (s *Status) GetRoutes(ctx context.Context, args []string) error {
 		return err
 	}
 
-	res, err := s.fetchRoutesConcurrently(ctx, args)
+	res, err := s.fetchRoutesConcurrentlyLegacy(ctx, args)
 	if err != nil {
 		if len(res) == 0 {
 			// no results retrieved - just return the error
@@ -69,10 +69,10 @@ func (s *Status) GetRoutes(ctx context.Context, args []string) error {
 	}
 
 	printPeer := args[0] == advertisedKW // print peer addresses for `advertised` routes
-	return s.writeRoutes(res, printPeer)
+	return s.writeRoutesLegacy(res, printPeer)
 }
 
-func (s *Status) fetchRoutesConcurrently(ctx context.Context, args []string) (map[string][]*models.BgpRoute, error) {
+func (s *Status) fetchRoutesConcurrentlyLegacy(ctx context.Context, args []string) (map[string][]*models.BgpRoute, error) {
 	allFetchedData := make(map[string][]*models.BgpRoute)
 
 	// res contains data returned from cilium pod
@@ -98,7 +98,7 @@ func (s *Status) fetchRoutesConcurrently(ctx context.Context, args []string) (ma
 		go func(ctx context.Context, pod *corev1.Pod) {
 			defer wg.Done()
 
-			routes, err := s.fetchRoutesFromPod(ctx, fetchCmd, pod)
+			routes, err := s.fetchRoutesFromPodLegacy(ctx, fetchCmd, pod)
 			resCh <- res{
 				nodeName: pod.Spec.NodeName,
 				data:     routes,
@@ -127,7 +127,7 @@ func (s *Status) fetchRoutesConcurrently(ctx context.Context, args []string) (ma
 	return allFetchedData, err
 }
 
-func (s *Status) fetchRoutesFromPod(ctx context.Context, fetchCmd []string, pod *corev1.Pod) ([]*models.BgpRoute, error) {
+func (s *Status) fetchRoutesFromPodLegacy(ctx context.Context, fetchCmd []string, pod *corev1.Pod) ([]*models.BgpRoute, error) {
 	output, errOutput, err := s.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, fetchCmd)
 	if err != nil {
 		var errStr string
@@ -149,7 +149,7 @@ func (s *Status) fetchRoutesFromPod(ctx context.Context, fetchCmd []string, pod 
 	return bgpRoutes, nil
 }
 
-func (s *Status) writeRoutes(res map[string][]*models.BgpRoute, printPeer bool) error {
+func (s *Status) writeRoutesLegacy(res map[string][]*models.BgpRoute, printPeer bool) error {
 	if s.params.Output == status.OutputJSON {
 		jsonStatus, err := json.MarshalIndent(res, "", " ")
 		if err != nil {
@@ -157,13 +157,13 @@ func (s *Status) writeRoutes(res map[string][]*models.BgpRoute, printPeer bool) 
 		}
 		fmt.Println(string(jsonStatus))
 	} else {
-		printRouteSummary(os.Stdout, res, printPeer)
+		printRouteSummaryLegacy(os.Stdout, res, printPeer)
 	}
 
 	return nil
 }
 
-func defaultGetRoutesArgs(args []string, silent bool) []string {
+func defaultGetRoutesArgsLegacy(args []string, silent bool) []string {
 	if len(args) < 1 {
 		if !silent {
 			fmt.Printf("(Defaulting to `%s %s %s` routes, please see help for more options)\n\n", availableKW, ipv4AFI, unicastSAFI)
@@ -185,7 +185,7 @@ func defaultGetRoutesArgs(args []string, silent bool) []string {
 	return args
 }
 
-func validateGetRoutesArgs(args []string) error {
+func validateGetRoutesArgsLegacy(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("missing argument `%s` / `%s`", availableKW, advertisedKW)
 	}
@@ -239,7 +239,7 @@ func validateGetRoutesArgs(args []string) error {
 	return nil
 }
 
-func printRouteSummary(out io.Writer, routesPerNode map[string][]*models.BgpRoute, printPeer bool) {
+func printRouteSummaryLegacy(out io.Writer, routesPerNode map[string][]*models.BgpRoute, printPeer bool) {
 	// sort by node names
 	nodes := slices.Sorted(maps.Keys(routesPerNode))
 
