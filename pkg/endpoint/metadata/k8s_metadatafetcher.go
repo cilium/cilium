@@ -77,11 +77,11 @@ func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpointFromPod(p 
 		return nil, err
 	}
 
-	containerPorts, lbls := k8s.GetPodMetadata(cemf.logger, ns, p)
+	namedPorts, lbls := k8s.GetPodMetadata(cemf.logger, ns, p)
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
 	return &endpoint.K8sMetadata{
-		ContainerPorts:       containerPorts,
+		NamedPorts:           namedPorts,
 		IdentityLabels:       identityLabels,
 		InfoLabels:           infoLabels,
 		NamespaceAnnotations: ns.Annotations,

@@ -231,7 +231,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 			ep.Logger("api").Warn("Unable to fetch kubernetes labels", logfields.Error, err)
 		} else {
 			ep.SetPod(pod)
-			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
+			ep.SetK8sMetadata(k8sMetadata.NamedPorts)
 			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
 			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
 			if _, ok := pod.Annotations[bandwidth.IngressBandwidth]; ok && !m.bandwidthManager.Enabled() {

@@ -10,6 +10,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
 )
 
 // UseOriginalSourceAddressLabel is the k8s label that can be added to a
@@ -24,9 +25,9 @@ type nameLabelsGetter interface {
 	GetLabels() map[string]string
 }
 
-// GetPodMetadata returns the labels and annotations of the pod with the given
-// namespace / name.
-func GetPodMetadata(logger *slog.Logger, k8sNs nameLabelsGetter, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string) {
+// GetPodMetadata returns the named ports, labels and annotations of the pod
+// with the given namespace / name.
+func GetPodMetadata(logger *slog.Logger, k8sNs nameLabelsGetter, pod *slim_corev1.Pod) (namedPorts ciliumTypes.NamedPortMap, lbls map[string]string) {
 	namespace := pod.Namespace
 	logger.Debug(
 		"Connecting to k8s local stores to retrieve labels for pod",
@@ -37,9 +38,16 @@ func GetPodMetadata(logger *slog.Logger, k8sNs nameLabelsGetter, pod *slim_corev
 	objMetaCpy := pod.ObjectMeta.DeepCopy()
 	labels := k8sUtils.SanitizePodLabels(objMetaCpy.Labels, k8sNs, pod.Spec.ServiceAccountName, option.Config.ClusterName)
 
+	namedPorts = make(ciliumTypes.NamedPortMap)
 	for _, containers := range pod.Spec.Containers {
-		containerPorts = append(containerPorts, containers.Ports...)
+		for _, port := range containers.Ports {
+			if port.Name != "" {
+				if err := namedPorts.AddPort(port.Name, int(port.ContainerPort), string(port.Protocol)); err != nil {
+					logger.Warn("Adding named port failed", logfields.Error, err)
+				}
+			}
+		}
 	}
 
-	return containerPorts, labels
+	return namedPorts, labels
 }
