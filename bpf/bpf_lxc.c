@@ -331,8 +331,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 {
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state_new = {};
-	fraginfo_t fraginfo;
 	const struct lb6_service *svc;
+	fraginfo_t fraginfo = 0;
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
 	int l4_off;

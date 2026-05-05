@@ -497,9 +497,9 @@ ct_is_reply ## FAMILY(const void *map,						\
 static __always_inline int
 ipv6_extract_tuple(const struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 {
+	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	fraginfo_t fraginfo;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
