@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -364,7 +365,10 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 	if cfg.LBSockRevNatEntries == 0 {
 		getEntries := dcfg.GetDynamicSizeCalculator(log)
 		cfg.LBSockRevNatEntries = getEntries(option.SockRevNATMapEntriesDefault, option.LimitTableAutoSockRevNatMin, option.LimitTableMax)
-		log.Info(fmt.Sprintf("option %s set by dynamic sizing to %v", LBSockRevNatEntriesName, cfg.LBSockRevNatEntries)) // FIXME
+		log.Info("Option set by dynamic sizing",
+			logfields.Option, LBSockRevNatEntriesName,
+			logfields.Value, cfg.LBSockRevNatEntries,
+		)
 	}
 
 	cfg.LBSockRevNatEntries = dcfg.AlignMapSizeForLRU(log, LBSockRevNatEntriesName, cfg.LBSockRevNatEntries)
