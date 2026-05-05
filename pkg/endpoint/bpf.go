@@ -533,7 +533,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	if !datapathRegenCtxt.policyMapSyncDone {
 		err = e.policyMapSync(datapathRegenCtxt.policyMapDump, stats)
 		if err != nil {
-			return 0, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %w", err)
+			return 0, fmt.Errorf("unable to regenerate policy because policymap synchronization failed: %w", err)
 		}
 		datapathRegenCtxt.policyMapSyncDone = true
 	}
@@ -1203,6 +1203,9 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 // shouldLockdownLockdown returns true if the desiredPolicy, after changes,
 // will be larger than policymap.MaxEntries. The Endpoint must be locked.
 func (e *Endpoint) shouldLockdownLocked(changeSize int) bool {
+	if !option.Config.EnableEndpointLockdownOnPolicyOverflow {
+		return false
+	}
 	// The desiredPolicy will be larger than the BPF maximum after
 	// the changes.
 	return e.desiredPolicy != nil && e.policyMap != nil &&
