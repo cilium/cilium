@@ -60,9 +60,9 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  __s8 *ext_err, struct snat_v6_args *args)
 {
 	int hdrlen, l4_off, ret = NAT_PUNT_TO_STACK;
+	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	fraginfo_t fraginfo;
 
 	args->target.min_port = NODEPORT_PORT_MIN_NAT;
 	args->target.max_port = NODEPORT_PORT_MAX_NAT;
@@ -163,8 +163,8 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	struct lb6_reverse_nat nat_info __align_stack_8;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
-	fraginfo_t fraginfo;
 	struct ipv6hdr *ip6;
 	__u32 monitor = 0;
 	int ret, l4_off;

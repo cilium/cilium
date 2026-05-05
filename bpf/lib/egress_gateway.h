@@ -551,8 +551,8 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 	int l4_off;
 	const struct remote_endpoint_info *info;
 	const struct endpoint_info *src_ep;
+	fraginfo_t fraginfo = 0;
 	bool is_reply;
-	fraginfo_t fraginfo;
 	int ret;
 
 	if (src_sec_identity == HOST_ID)
