@@ -282,11 +282,11 @@ jobs:
   commit-status-final:
     if: ${{ always() }}
     name: Commit Status Final
-    needs: merge-and-diff
+    needs: [merge-and-diff, setup-and-test]
     runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.merge-and-diff.result }}
+          status: ${{ needs.merge-and-diff.result && needs.setup-and-test.result }}
