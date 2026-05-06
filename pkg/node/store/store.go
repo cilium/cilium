@@ -167,7 +167,7 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, 
 		return err
 	}
 
-	err = nodeStore.UpdateLocalKeySync(ctx, n)
+	err = nodeStore.UpdateLocalKeySync(ctx, n.DeepCopy())
 	if err != nil {
 		nodeStore.Release()
 		return err
@@ -183,5 +183,5 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, 
 // UpdateLocalKeySync synchronizes the local key for the node using the
 // SharedStore.
 func (nr *NodeRegistrar) UpdateLocalKeySync(ctx context.Context, n *nodeTypes.Node) error {
-	return nr.SharedStore.UpdateLocalKeySync(ctx, n)
+	return nr.SharedStore.UpdateLocalKeySync(ctx, n.DeepCopy())
 }
