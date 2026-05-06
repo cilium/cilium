@@ -334,6 +334,10 @@ func Test_translator_Translate(t *testing.T) {
 					RouteConfig: translation.RouteConfig{
 						HostNameSuffixMatch: false,
 					},
+					OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+						UseRemoteAddress:  true,
+						XFFNumTrustedHops: 0,
+					},
 				}),
 				hostNetworkEnabled: tt.args.hostNetworkEnabled,
 			}

@@ -4,7 +4,9 @@ host_network_config: {}
 ip_config: {}
 listener_config:
   stream_idle_timeout_seconds: 300
-original_ip_detection_config: {}
+original_ip_detection_config:
+  use_remote_address: true
+  xff_num_trusted_hops: 0
 route_config:
   host_name_suffix_match: true
 secrets_namespace: cilium-secrets

@@ -563,6 +563,7 @@ contributors across the globe, there is almost always someone available to help.
 | gatewayAPI.secretsNamespace.create | bool | `true` | Create secrets namespace for Gateway API. |
 | gatewayAPI.secretsNamespace.name | string | `"cilium-secrets"` | Name of Gateway API secret namespace. |
 | gatewayAPI.secretsNamespace.sync | bool | `true` | Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally. |
+| gatewayAPI.useRemoteAddress | bool | `true` | Configure whether to use the remote address of the client when determining the source IP. When enabled, the source IP is determined from the remote address instead of the proxy protocol header. |
 | gatewayAPI.xffNumTrustedHops | int | `0` | The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address. |
 | gke.enabled | bool | `false` | Enable Google Kubernetes Engine integration |
 | healthCheckICMPFailureThreshold | int | `3` | Number of ICMP requests sent for each health check before marking a node or endpoint unreachable. |
@@ -778,6 +779,8 @@ contributors across the globe, there is almost always someone available to help.
 | ingressController.service.name | string | `"cilium-ingress"` | Service name |
 | ingressController.service.secureNodePort | string | `nil` | Configure a specific nodePort for secure HTTPS traffic on the shared LB service |
 | ingressController.service.type | string | `"LoadBalancer"` | Service type for the shared LB service |
+| ingressController.useRemoteAddress | bool | `true` | Configure whether to use the remote address of the client when determining the source IP. When enabled, the source IP is determined from the remote address instead of the proxy protocol header. |
+| ingressController.xffNumTrustedHops | int | `0` | The number of additional Ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address. |
 | initResources | object | `{}` | resources & limits for the agent init containers |
 | installNoConntrackIptablesRules | bool | `false` | Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup. |
 | ipMasqAgent | object | `{"enabled":false}` | Configure the eBPF-based ip-masq-agent |
