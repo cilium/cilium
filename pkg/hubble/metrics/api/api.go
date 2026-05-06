@@ -179,7 +179,11 @@ func parseOptionConfigs(s string) (options []*ContextOptionConfig) {
 			Name: kv[0],
 		}
 		if len(kv) == 2 {
-			ctxOption.Values = parseOptionValues(kv[1])
+			if strings.ToLower(kv[0]) == "labelscontext" {
+				ctxOption.Values = parseLabelsOptionValues(kv[1])
+			} else {
+				ctxOption.Values = parseOptionValues(kv[1])
+			}
 		} else {
 			ctxOption.Values = []string{""}
 		}
@@ -192,21 +196,23 @@ func parseOptionConfigs(s string) (options []*ContextOptionConfig) {
 func parseOptionValues(s string) (values ContextValues) {
 	values = ContextValues{}
 
-	if strings.Contains(s, "|") {
-		for option := range strings.SplitSeq(s, "|") {
-			if option == "" {
-				continue
-			}
-			values = append(values, option)
+	for option := range strings.SplitSeq(s, "|") {
+		if option == "" {
+			continue
 		}
-	} else {
-		// temporarily handling comma separated values for labels context
-		for option := range strings.SplitSeq(s, ",") {
-			if option == "" {
-				continue
-			}
-			values = append(values, option)
+		values = append(values, option)
+	}
+	return
+}
+
+func parseLabelsOptionValues(s string) (values ContextValues) {
+	values = ContextValues{}
+
+	for option := range strings.SplitSeq(s, ",") {
+		if option == "" {
+			continue
 		}
+		values = append(values, option)
 	}
 	return
 }

@@ -194,9 +194,6 @@ func parseContextValues(s ContextValues) (cs ContextIdentifierList, err error) {
 }
 
 func parseLabels(s ContextValues) (labelsSet, error) {
-	// TODO this labels parsing is different from options | parsing
-	// be care ful and support this
-	//labels := strings.Split(s, ",")
 	for _, label := range s {
 		if !allowedContextLabels.HasLabel(label) {
 			return labelsSet{}, fmt.Errorf("invalid labelsContext value: %s", label)
