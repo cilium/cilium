@@ -105,11 +105,6 @@ func (s *ClusterService) GetKeyName() string {
 	return path.Join(s.Cluster, s.Namespace, s.Name)
 }
 
-// DeepKeyCopy creates a deep copy of the LocalKey
-func (s *ClusterService) DeepKeyCopy() store.LocalKey {
-	return s.DeepCopy()
-}
-
 // Marshal returns the global service object as JSON byte slice
 func (s *ClusterService) Marshal() ([]byte, error) {
 	return json.Marshal(s)
