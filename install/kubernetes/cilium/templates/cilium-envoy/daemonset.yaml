@@ -20,6 +20,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
+  {{- if .Values.envoy.minReadySeconds }}
+  minReadySeconds: {{ .Values.envoy.minReadySeconds }}
+  {{- end }}
   selector:
     matchLabels:
       k8s-app: cilium-envoy

@@ -19,7 +19,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  minReadySeconds: 5
+  {{- if .Values.standaloneDnsProxy.minReadySeconds }}
+  minReadySeconds: {{ .Values.standaloneDnsProxy.minReadySeconds }}
+  {{- end }}
   {{- with .Values.standaloneDnsProxy.updateStrategy }}
   updateStrategy:
     {{- toYaml . | nindent 4 }}
