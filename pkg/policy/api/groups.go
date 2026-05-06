@@ -44,6 +44,33 @@ type AWSGroup struct {
 
 	// Deprecated: Region is unused.
 	Region string `json:"region,omitempty"`
+
+	// ManagedPrefixList selects VPC managed prefix lists.
+	ManagedPrefixList *AWSManagedPrefixList `json:"managedPrefixList,omitempty"`
+}
+
+// AWSManagedPrefixList is a structure that can be used to filter VPC managed prefix lists
+type AWSManagedPrefixList struct {
+	// IDs selects VPC managed prefix lists by IDs.
+	// If multiple IDs are specified, they are OR-ed together.
+	//
+	// Note that this may be AND-ed with any Names or Owner IDs specified.
+	// Specifying all three is generally not necessary.
+	IDs []string `json:"ids,omitempty"`
+
+	// Names selects VPC managed prefix lists by name.
+	// If multiple names are specified, they are OR-ed together.
+	//
+	// Note that this may be AND-ed with any IDs or Owner IDs specified.
+	// Specifying all three is generally not necessary.
+	Names []string `json:"names,omitempty"`
+
+	// OwnerIDs selects VPC managed prefix lists by owner IDs.
+	// If multiple owner IDs are specified, they are OR-ed together.
+	//
+	// Note that this may be AND-ed with any IDs or Names specified.
+	// Specifying all three is generally not necessary.
+	OwnerIDs []string `json:"ownerIDs,omitempty"`
 }
 
 // Hash hashes this group to a standard key. This is used to reference the group
