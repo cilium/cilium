@@ -248,6 +248,10 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 				assert.NotNil(t, linkPair.hostLink)
 				assert.NotNil(t, linkPair.peerLink)
 				assert.Equal(t, linkPair.mode, tt.mode)
+				// for now we are getting a stale link back
+				// in peerLink! it doesnt contain the modifications
+				// we did like changing the link name.
+				require.False(t, IsCiliumManagedLink(linkPair.peerLink))
 			}
 		})
 	}
@@ -352,6 +356,10 @@ func TestPrivilegedLinkPairDelete(t *testing.T) {
 			require.NotNil(t, linkPair)
 			assert.NotNil(t, linkPair.hostLink)
 			assert.NotNil(t, linkPair.peerLink)
+			// for now we are getting a stale link back
+			// in peerLink! it doesnt contain the modifications
+			// we did like changing the link name.
+			require.False(t, IsCiliumManagedLink(linkPair.peerLink))
 
 			require.NoError(t, ns.Do(func() error {
 				return linkPair.Delete()
