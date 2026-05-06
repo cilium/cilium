@@ -32,7 +32,6 @@ type TestType struct {
 var _ = TestType{}
 
 func (t *TestType) GetKeyName() string                    { return t.Name }
-func (t *TestType) DeepKeyCopy() LocalKey                 { return &TestType{Name: t.Name} }
 func (t *TestType) Marshal() ([]byte, error)              { return json.Marshal(t) }
 func (t *TestType) Unmarshal(_ string, data []byte) error { return json.Unmarshal(data, t) }
 

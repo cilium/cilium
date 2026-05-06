@@ -116,7 +116,7 @@ type SharedStore struct {
 	// localKeys is a map of keys that are owned by the local instance. All
 	// local keys are synchronized with the kvstore. This map can be
 	// modified with UpdateLocalKey() and DeleteLocalKey().
-	localKeys map[string]LocalKey
+	localKeys map[string]Key
 
 	// sharedKeys is a map of all keys that either have been discovered
 	// from remote collaborators or successfully shared local keys. This
@@ -171,15 +171,7 @@ type Key interface {
 	Unmarshal(key string, data []byte) error
 }
 
-// LocalKey is a Key owned by the local store instance
-type LocalKey interface {
-	Key
-
-	// DeepKeyCopy must return a deep copy of the key
-	DeepKeyCopy() LocalKey
-}
-
-// KVPair represents a basic implementation of the LocalKey interface
+// KVPair represents a basic implementation of the Key interface
 type KVPair struct {
 	Key   string
 	Value []byte
@@ -209,7 +201,7 @@ func JoinSharedStore(logger *slog.Logger, c Configuration) (*SharedStore, error)
 	s := &SharedStore{
 		logger:     logger,
 		conf:       c,
-		localKeys:  map[string]LocalKey{},
+		localKeys:  map[string]Key{},
 		sharedKeys: map[string]Key{},
 		backend:    c.Backend,
 	}
@@ -289,7 +281,7 @@ func (s *SharedStore) keyPath(key NamedKey) string {
 }
 
 // syncLocalKey synchronizes a key to the kvstore
-func (s *SharedStore) syncLocalKey(ctx context.Context, key LocalKey, lease bool) error {
+func (s *SharedStore) syncLocalKey(ctx context.Context, key Key, lease bool) error {
 	jsonValue, err := key.Marshal()
 	if err != nil {
 		return err
@@ -321,7 +313,7 @@ func (s *SharedStore) syncLocalKeys(ctx context.Context, lease bool) error {
 	return nil
 }
 
-func (s *SharedStore) lookupLocalKey(name string) LocalKey {
+func (s *SharedStore) lookupLocalKey(name string) Key {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -334,42 +326,17 @@ func (s *SharedStore) lookupLocalKey(name string) LocalKey {
 	return nil
 }
 
-// NumEntries returns the number of entries in the store
-func (s *SharedStore) NumEntries() int {
-	if s == nil {
-		return 0
-	}
-
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return len(s.sharedKeys)
-}
-
-// SharedKeysMap returns a copy of the SharedKeysMap, the returned map can
-// be safely modified but the values of the map represent the actual data
-// stored in the internal SharedStore SharedKeys map.
-func (s *SharedStore) SharedKeysMap() map[string]Key {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return maps.Clone(s.sharedKeys)
-}
-
 // UpdateLocalKeySync synchronously synchronizes a local key with the kvstore
 // and adds it to the list of local keys to be synchronized if the initial
 // synchronous synchronization was successful
-func (s *SharedStore) UpdateLocalKeySync(ctx context.Context, key LocalKey) error {
+func (s *SharedStore) UpdateLocalKeySync(ctx context.Context, key Key) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	err := s.syncLocalKey(ctx, key, true)
 	if err == nil {
-		s.localKeys[key.GetKeyName()] = key.DeepKeyCopy()
+		s.localKeys[key.GetKeyName()] = key
 	}
 	return err
-}
-
-// UpdateKeySync synchronously synchronizes a key with the kvstore.
-func (s *SharedStore) UpdateKeySync(ctx context.Context, key LocalKey, lease bool) error {
-	return s.syncLocalKey(ctx, key, lease)
 }
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
