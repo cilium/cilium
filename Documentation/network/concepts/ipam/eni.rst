@@ -632,6 +632,8 @@ perform ENI creation and IP allocation:
  * ``ModifyNetworkInterfaceAttribute``
  * ``AssignPrivateIpAddresses``
  * ``CreateTags``
+ * ``DescribeManagedPrefixLists``
+ * ``GetManagedPrefixListEntries``
 
 If ENI GC is enabled (which is the default), and ``--cluster-name`` and ``--eni-gc-tags`` are not set to custom values:
 
