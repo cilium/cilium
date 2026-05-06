@@ -67,6 +67,8 @@ type ServiceView struct {
 
 	SharingKey            sharingKey
 	SharingCrossNamespace []string
+	// SharingPermitDifferentPods relaxes the same-selector requirement for sharing an IP; see the lbipam.cilium.io/sharing-permit-different-pods annotation.
+	SharingPermitDifferentPods bool
 	// These required to determine if a service conflicts with another for sharing an ip
 	ExternalTrafficPolicy slim_core_v1.ServiceExternalTrafficPolicy
 	Ports                 []slim_core_v1.ServicePort
@@ -126,12 +128,21 @@ func (sv *ServiceView) isCompatible(osv *ServiceView) (bool, string) {
 	if sv.ExternalTrafficPolicy == slim_core_v1.ServiceExternalTrafficPolicyLocal {
 		// If any of the two service doesn't select any pods with the selector, it likely uses an endpoints object to
 		// link the service to pods. LB-IPAM isn't smart enough to handle this case (yet), so we don't allow it.
+		// This applies even when both services opt in via sharing-permit-different-pods, because the opt-in only
+		// relaxes the same-selector requirement and does not give LB-IPAM a way to reason about endpoints.
 		if len(sv.Selector) == 0 || len(osv.Selector) == 0 {
 			return false, "compatible ExternalTrafficPolicy local but selecting different set of pods"
 		}
 
 		// If both use selectors, and they are not the same, then the services are not compatible.
-		if !maps.Equal(sv.Selector, osv.Selector) {
+		//
+		// Both services may opt out of this same-selector check by setting the
+		// sharing-permit-different-pods annotation. The user is then responsible for steering traffic
+		// to a node that has a backend, e.g. via an L4-aware external load balancer or by deploying
+		// both services as DaemonSets with matching node coverage. Cilium's built-in BGP and L2
+		// announcements are not L4 aware, so combining them with this opt-in can drop traffic.
+		if !maps.Equal(sv.Selector, osv.Selector) &&
+			!(sv.SharingPermitDifferentPods && osv.SharingPermitDifferentPods) {
 			return false, "compatible ExternalTrafficPolicy local but selecting different set of pods"
 		}
 	}
