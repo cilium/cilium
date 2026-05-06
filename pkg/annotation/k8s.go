@@ -274,10 +274,12 @@ const (
 	LBIPAMIPsKey     = LBIPAMPrefix + "/ips"
 	LBIPAMIPKeyAlias = Prefix + "/lb-ipam-ips"
 
-	LBIPAMSharingKey                  = LBIPAMPrefix + "/sharing-key"
-	LBIPAMSharingKeyAlias             = Prefix + "/lb-ipam-sharing-key"
-	LBIPAMSharingAcrossNamespace      = LBIPAMPrefix + "/sharing-cross-namespace"
-	LBIPAMSharingAcrossNamespaceAlias = Prefix + "/lb-ipam-sharing-cross-namespace"
+	LBIPAMSharingKey                      = LBIPAMPrefix + "/sharing-key"
+	LBIPAMSharingKeyAlias                 = Prefix + "/lb-ipam-sharing-key"
+	LBIPAMSharingAcrossNamespace          = LBIPAMPrefix + "/sharing-cross-namespace"
+	LBIPAMSharingAcrossNamespaceAlias     = Prefix + "/lb-ipam-sharing-cross-namespace"
+	LBIPAMSharingPermitDifferentPods      = LBIPAMPrefix + "/sharing-permit-different-pods"
+	LBIPAMSharingPermitDifferentPodsAlias = Prefix + "/lb-ipam-sharing-permit-different-pods"
 
 	CECInjectCiliumFilters      = CECPrefix + "/inject-cilium-filters"
 	CECIsL7LB                   = CECPrefix + "/is-l7lb"

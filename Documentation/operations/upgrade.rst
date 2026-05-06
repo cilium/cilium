@@ -319,6 +319,12 @@ Informational Notes
   improvements and prepare for the eventual deprecation of ``v1alpha1``.
 * Listing BGP peers, routes and route-policies via the local REST API and ``cilium-dbg bgp`` commands is deprecated.
   Use the BGP hive shell commands instead: ``cilium shell -- bgp/*``.
+* LB IPAM now supports an opt-in
+  ``lbipam.cilium.io/sharing-permit-different-pods`` annotation that,
+  when set to ``"true"`` on both services, allows two services with
+  ``externalTrafficPolicy: Local`` to share an IP even when they select
+  different pods. The default same-selector requirement is unchanged.
+  See :ref:`lb_ipam` for the safety trade-off.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
