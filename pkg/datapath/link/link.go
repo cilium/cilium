@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
@@ -77,7 +76,6 @@ func GetIfBufferMargins(ifName string) (uint16, uint16, error) {
 type LinkCache struct {
 	mu          lock.RWMutex
 	indexToName map[int]string
-	manager     *controller.Manager
 }
 
 var Cell = cell.Module(
@@ -95,7 +93,6 @@ type linkCacheParams struct {
 func NewLinkCache() *LinkCache {
 	return &LinkCache{
 		indexToName: make(map[int]string),
-		manager:     controller.NewManager(),
 	}
 }
 
