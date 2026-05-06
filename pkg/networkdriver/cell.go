@@ -101,7 +101,6 @@ func podResource(
 	lc cell.Lifecycle,
 	cs k8sClient.Clientset,
 	mp workqueue.MetricsProvider,
-	crdSync promise.Promise[synced.CRDSync],
 ) (resource.Resource[*corev1.Pod], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
@@ -114,7 +113,6 @@ func podResource(
 	)
 	return resource.New[*corev1.Pod](lc, lw, mp,
 		resource.WithMetric("Pod"),
-		resource.WithCRDSync(crdSync),
 	), nil
 }
 
