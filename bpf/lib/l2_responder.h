@@ -16,6 +16,7 @@ struct l2_responder_stats {
 	__u64 responses_sent;
 };
 
+/* The map cannot be marked read-only because stats are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct l2_responder_v4_key);
@@ -31,6 +32,7 @@ struct l2_responder_v6_key {
 	__u32 pad;
 };
 
+/* The map cannot be marked read-only because stats are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct l2_responder_v6_key);

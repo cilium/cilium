@@ -107,6 +107,7 @@ struct policy_stats_value {
 };
 
 /* Global policy stats map */
+/* The map cannot be marked read-only because stats are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
 	__type(key, struct policy_stats_key);

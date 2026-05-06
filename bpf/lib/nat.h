@@ -132,6 +132,7 @@ struct ipv4_nat_target {
 	__u32 tbid;
 };
 
+/* The map cannot be marked read-only because NAT entries are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
@@ -149,6 +150,7 @@ struct {
 	__uint(max_entries, SNAT_COLLISION_RETRIES + 1);
 } cilium_snat_v4_alloc_retries __section_maps_btf;
 
+/* The map cannot be marked read-only because NAT entries are written from BPF. */
 struct per_cluster_snat_mapping_ipv4_inner_map {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
@@ -1274,6 +1276,7 @@ struct ipv6_nat_target {
 	__u32 tbid;
 };
 
+/* The map cannot be marked read-only because NAT entries are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
@@ -1296,6 +1299,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 256);
+	/* The inner map cannot be marked read-only because NAT entries are written from BPF. */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv6_ct_tuple);

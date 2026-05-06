@@ -29,6 +29,7 @@ struct edt_info {
 	__u64		pad[3];
 };
 
+/* The map cannot be marked read-only because values are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct edt_id);

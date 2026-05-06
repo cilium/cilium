@@ -24,6 +24,7 @@ struct ratelimit_value {
 	__u64 tokens;
 };
 
+/* The map cannot be marked read-only because ratelimit values are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ratelimit_key);
@@ -41,6 +42,7 @@ struct ratelimit_metrics_value {
 	__u64 dropped;
 };
 
+/* The map cannot be marked read-only because metrics are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct ratelimit_metrics_key);

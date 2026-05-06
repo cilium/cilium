@@ -214,6 +214,7 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_backends_v3 __section_maps_btf;
 
+/* The map cannot be marked read-only because LB affinity is written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb6_affinity_key);
@@ -232,6 +233,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb6_source_range __section_maps_btf;
 
+/* The map cannot be marked read-only because LB health is written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __sock_cookie);
@@ -294,6 +296,7 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb4_backends_v3 __section_maps_btf;
 
+/* The map cannot be marked read-only because LB affinity is written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb4_affinity_key);
@@ -312,6 +315,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb4_source_range __section_maps_btf;
 
+/* The map cannot be marked read-only because LB health is written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __sock_cookie);

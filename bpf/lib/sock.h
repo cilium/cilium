@@ -32,6 +32,7 @@ struct ipv4_revnat_entry {
 	__u16 rev_nat_index;
 };
 
+/* The map cannot be marked read-only because revNAT entries are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_revnat_tuple);
@@ -54,6 +55,7 @@ struct ipv6_revnat_entry {
 	__u16 rev_nat_index;
 };
 
+/* The map cannot be marked read-only because revNAT entries are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_revnat_tuple);

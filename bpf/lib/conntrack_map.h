@@ -7,6 +7,7 @@
 #include "config.h"
 #include "clustermesh.h"
 
+/* The map cannot be marked read-only because CT entries are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
@@ -16,6 +17,7 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ct6_global __section_maps_btf;
 
+/* The map cannot be marked read-only because CT entries are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
@@ -43,6 +45,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 256);
+	/* The inner map cannot be marked read-only because CT entries are written from BPF. */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv6_ct_tuple);
@@ -58,6 +61,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 256);
+	/* The inner map cannot be marked read-only because CT entries are written from BPF. */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv6_ct_tuple);

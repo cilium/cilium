@@ -25,6 +25,7 @@ struct metrics_value {
 	__u64	bytes;
 };
 
+/* The map cannot be marked read-only because metrics are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 	__type(key, struct metrics_key);

@@ -18,6 +18,7 @@ struct lb_act_value {
 	__u32 closed;
 };
 
+/* The map cannot be marked read-only because values are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb_act_key);

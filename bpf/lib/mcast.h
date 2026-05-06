@@ -51,6 +51,8 @@ struct mcast_subscriber_v4 {
  * The outer map is keyed by a 'mcast_group_v4' multicast group address.
  * The inner value is an hash map of 'mcast_subscriber_v4' structures keyed
  * by a their IPv4 source address in big endian format.
+ * These cannot be marked read-only because multicast groups and subscribers are
+ * written from BPF.
  */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);

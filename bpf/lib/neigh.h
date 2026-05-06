@@ -9,6 +9,7 @@
 #include "common.h"
 #include "eth.h"
 
+/* The map cannot be marked read-only because neighbors are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, union v6addr);	/* ipv6 addr */
@@ -54,6 +55,7 @@ neigh_lookup_ip6(const union v6addr *addr __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT && ENABLE_IPV6 */
 
+/* The map cannot be marked read-only because neighbors are written from BPF. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __be32);		/* ipv4 addr */
