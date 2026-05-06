@@ -340,6 +340,7 @@ func loadAndRecordComplexity(
 			// The part of the log we are interested in is at the end. And looks like this:
 			//   verification time 355643 usec
 			//   stack depth 144+280+120
+			//   insns processed 12591+75421+455  <-- only on newer kernels
 			//   processed 88467 insns (limit 1000000) max_states_per_insn 44 total_states 4141 peak_states 1137 mark_read 56
 
 			// Remove trailing newline so strings.LastIndex finds the newline ahead of the last log line.
@@ -395,7 +396,16 @@ func loadAndRecordComplexity(
 //	stack depth 144+280+120
 func parseStackDepth(s *ebpf.ProgramSpec, verifierLogs string, lastLineIndex, lastOff int) (int, int, error) {
 	stackDepthIndex := strings.LastIndex(verifierLogs[:lastLineIndex], "\n")
-	stackDepthLine := strings.TrimPrefix(strings.TrimSpace(verifierLogs[stackDepthIndex+1:lastOff]), "stack depth ")
+	stackDepthLine := verifierLogs[stackDepthIndex+1 : lastOff]
+	if !strings.Contains(stackDepthLine, "stack depth ") {
+		lastOff = stackDepthIndex + 1
+		stackDepthIndex = strings.LastIndex(verifierLogs[:stackDepthIndex], "\n")
+		stackDepthLine = verifierLogs[stackDepthIndex+1 : lastOff]
+		if !strings.Contains(stackDepthLine, "stack depth ") {
+			return 0, stackDepthIndex, fmt.Errorf("Couldn't find stack depths line in verifier logs")
+		}
+	}
+	stackDepthLine = strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth ")
 
 	// Remove prefix so we are just left with plus separated stack depths, and parse them into ints.
 	//   144+280+120
@@ -404,7 +414,7 @@ func parseStackDepth(s *ebpf.ProgramSpec, verifierLogs string, lastLineIndex, la
 	for part := range strings.SplitSeq(stackDepthLine, "+") {
 		depth, err := strconv.Atoi(part)
 		if err != nil {
-			return 0, stackDepthIndex, nil
+			return 0, stackDepthIndex, err
 		}
 		depths = append(depths, depth)
 	}
