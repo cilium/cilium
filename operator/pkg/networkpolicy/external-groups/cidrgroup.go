@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/netip"
+	"slices"
 	"strings"
 
 	"github.com/cilium/statedb/part"
@@ -15,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/cilium/cilium/pkg/ip"
 	apiv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -167,7 +167,7 @@ func (gm *externalGroupManager) onCCGUpdate(ctx context.Context, ccg *apiv2.Cili
 }
 
 // upsertCCG creates or updates the CCG in the apiserver
-func (gm *externalGroupManager) upsertCCG(ctx context.Context, row *ExternalGroup, addrs []netip.Addr) (*apiv2.CiliumCIDRGroup, error) {
+func (gm *externalGroupManager) upsertCCG(ctx context.Context, row *ExternalGroup, addrs []netip.Prefix) (*apiv2.CiliumCIDRGroup, error) {
 	newCCG := makeGroup(row, addrs)
 	if skipCCGUpdate(row.CCG, newCCG) {
 		gm.log.Debug("skipping CCG update: unchanged",
@@ -270,16 +270,12 @@ func skipCCGUpdate(old, upd *apiv2.CiliumCIDRGroup) bool {
 }
 
 // makeGroup creates the desired group object.
-func makeGroup(row *ExternalGroup, addrs []netip.Addr) *cilium_v2.CiliumCIDRGroup {
-	ip.SortAddrList(addrs)
+func makeGroup(row *ExternalGroup, addrs []netip.Prefix) *cilium_v2.CiliumCIDRGroup {
+	slices.SortFunc(addrs, netip.Prefix.Compare)
 
 	cidrs := make([]api.CIDR, 0, len(addrs))
 	for _, addr := range addrs {
-		prefix := "128"
-		if addr.Is4() {
-			prefix = "32"
-		}
-		cidrs = append(cidrs, api.CIDR(fmt.Sprintf("%s/%s", addr.String(), prefix)))
+		cidrs = append(cidrs, api.CIDR(addr.String()))
 	}
 
 	// cannot fail; this was already hashed before.

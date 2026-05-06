@@ -170,7 +170,7 @@ func TestEnsureGroup(t *testing.T) {
 
 	// Update CIDRs
 	t2 := time.Now()
-	provider.DummmyIP1 = netip.MustParseAddr("192.0.2.3")
+	provider.DummmyIP1 = netip.MustParsePrefix("192.0.2.3/32")
 	err = egm.ensureGroup(ctx, row1)
 	require.NoError(t, err)
 
