@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -610,11 +609,6 @@ func GetKeyNodeName(cluster, node string) string {
 // GetKeyName returns the kvstore key to be used for the node
 func (n *Node) GetKeyName() string {
 	return GetKeyNodeName(n.Cluster, n.Name)
-}
-
-// DeepKeyCopy creates a deep copy of the LocalKey
-func (n *Node) DeepKeyCopy() store.LocalKey {
-	return n.DeepCopy()
 }
 
 // Marshal returns the node object as JSON byte slice
