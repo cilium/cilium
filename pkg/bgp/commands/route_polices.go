@@ -51,7 +51,7 @@ func BGPRoutePoliciesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 				}
 				tw := getCmdTabWriter(w)
 
-				PrintBGPRoutePoliciesTable(tw, res.Instances)
+				PrintRoutePoliciesTable(tw, res.Instances)
 				tw.Flush()
 
 				return buf.String(), "", err
@@ -60,8 +60,8 @@ func BGPRoutePoliciesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 	)
 }
 
-// PrintBGPRoutePoliciesTable prints table of provided BGP route policies in the provided tab writer.
-func PrintBGPRoutePoliciesTable(tw *tabwriter.Writer, instances []agent.InstanceRoutePolicies) {
+// PrintRoutePoliciesTable prints table of provided BGP route policies in the provided tab writer.
+func PrintRoutePoliciesTable(tw *tabwriter.Writer, instances []agent.InstanceRoutePolicies) {
 	type row struct {
 		Instance      string
 		PolicyName    string
