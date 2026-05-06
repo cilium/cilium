@@ -298,6 +298,10 @@ func defaultRouteHook(routeMTUs []RouteMTU) error {
 			continue
 		}
 
+		if !connector.IsCiliumManagedLink(link) {
+			continue
+		}
+
 		netlink.LinkSetMTU(link, defaultRouteMTU.DeviceMTU)
 
 		routes, err := safenetlink.RouteList(link, netlink.FAMILY_ALL)
