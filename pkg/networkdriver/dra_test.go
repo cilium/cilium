@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	v1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -124,16 +126,20 @@ func TestNetworkDriverIPAM(t *testing.T) {
 	}
 
 	var (
-		mgr *ipam.MultiPoolManager
-		cs  *k8sClient.FakeClientset
+		mgr  *ipam.MultiPoolManager
+		cs   *k8sClient.FakeClientset
+		pods resource.Resource[*corev1.Pod]
 	)
 
 	hive := hive.New(
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
-		cell.Provide(func() *option.DaemonConfig {
-			return daemonCfg
-		}),
+		cell.Provide(
+			podResource,
+			func() *option.DaemonConfig {
+				return daemonCfg
+			},
+		),
 		resourceIPAM,
 
 		cell.Invoke(func(c *k8sClient.FakeClientset) {
@@ -143,9 +149,10 @@ func TestNetworkDriverIPAM(t *testing.T) {
 				assert.NoError(t, err)
 			}
 		}),
-		cell.Invoke(func(m *ipam.MultiPoolManager, c *k8sClient.FakeClientset) {
+		cell.Invoke(func(m *ipam.MultiPoolManager, c *k8sClient.FakeClientset, p resource.Resource[*corev1.Pod]) {
 			mgr = m
 			cs = c
+			pods = p
 		}),
 	)
 
@@ -155,6 +162,7 @@ func TestNetworkDriverIPAM(t *testing.T) {
 	driver := &Driver{
 		logger:     tlog,
 		kubeClient: cs,
+		pods:       pods,
 		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 			DriverName: driverName,
 		},
@@ -375,6 +383,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 	var (
 		mgr             *ipam.MultiPoolManager
 		cs              *k8sClient.FakeClientset
+		pods            resource.Resource[*corev1.Pod]
 		db              *statedb.DB
 		resourceNetCfgs statedb.Table[resourceNetworkConfig]
 	)
@@ -383,6 +392,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Provide(
+			podResource,
 			func() *option.DaemonConfig {
 				return daemonCfg
 			},
@@ -424,11 +434,13 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		cell.Invoke(func(
 			m *ipam.MultiPoolManager,
 			c *k8sClient.FakeClientset,
+			p resource.Resource[*corev1.Pod],
 			d *statedb.DB,
 			netCfgs statedb.Table[resourceNetworkConfig],
 		) {
 			mgr = m
 			cs = c
+			pods = p
 			db = d
 			resourceNetCfgs = netCfgs
 		}),
@@ -450,6 +462,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 	driver := &Driver{
 		logger:     tlog,
 		kubeClient: cs,
+		pods:       pods,
 		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 			DriverName: driverName,
 		},

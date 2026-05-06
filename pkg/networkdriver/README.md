@@ -277,6 +277,27 @@ spec:
     image: my-dpdk-app:latest
 ```
 
+### 6. IPAM — static IP address allocation
+
+Besides ResourceClaim or ResourceClaimTemplate Spec, static IP addresses can also
+be supplied on the pod with the `ipam.cilium.io/network-driver-static-addresses` annotation.
+The annotation value is a JSON object mapping ResourceClaim's and ResourceClaimTemplate's
+requests to objects containing `ipv4` and `ipv6` fields for IPv4 and IPv6 addresses, respectively:
+
+```
+metadata:
+  annotations:
+    ipam.cilium.io/network-driver-static-addresses: |
+      {
+        "sriov-claim-direct": {
+          "net": {
+            "ipv4": "192.168.1.10/24",
+            "ipv6": "2001:db8::10/64"
+          }
+        }
+      }
+```
+
 ### 6. IPAM — dynamic IP address allocation
 
 The operator can manage IP pools for network driver devices using

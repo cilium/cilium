@@ -12,16 +12,21 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strings"
 
 	"go4.org/netipx"
+	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -157,6 +162,127 @@ func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi
 		}
 	}
 	return devicesCfg, nil
+}
+
+func (driver *Driver) podForClaim(ctx context.Context, claim *resourceapi.ResourceClaim, podRef resourceapi.ResourceClaimConsumerReference) (*corev1.Pod, error) {
+	if podRef.Resource != "pods" {
+		return nil, fmt.Errorf("claim %s is reserved for unsupported resource %s", path.Join(claim.Namespace, claim.Name), podRef.Resource)
+	}
+
+	podStore, err := driver.pods.Store(ctx)
+	if err == nil {
+		pod, exists, err := podStore.GetByKey(resource.Key{Namespace: claim.Namespace, Name: podRef.Name})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get pod %s/%s from store: %w", claim.Namespace, podRef.Name, err)
+		}
+		if exists {
+			return pod, nil
+		}
+	}
+
+	driver.logger.DebugContext(ctx, "unable to get pod from store, falling back to kubernetes client",
+		logfields.K8sNamespace, claim.Namespace,
+		logfields.Name, claim.Name,
+		logfields.K8sPodName, podRef.Name,
+		logfields.Error, err,
+	)
+
+	pod, err := driver.kubeClient.CoreV1().Pods(claim.Namespace).Get(ctx, podRef.Name, metav1.GetOptions{})
+	if k8sErrors.IsNotFound(err) {
+		driver.logger.DebugContext(ctx, "pod for claim not found, skipping pod annotations",
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+			logfields.K8sPodName, podRef.Name,
+		)
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod %s/%s for claim %s: %w", claim.Namespace, podRef.Name, path.Join(claim.Namespace, claim.Name), err)
+	}
+
+	return pod, nil
+}
+
+func addressesForClaim(pod *corev1.Pod, claim string) (types.StaticAddrsMap, error) {
+	if pod == nil {
+		return nil, nil
+	}
+
+	raw, found := annotation.Get(pod, annotation.NetworkDriverStaticAddresses)
+	if !found || strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+
+	// claim → request → addresses
+	var prefixes map[string]types.StaticAddrsMap
+	if err := json.Unmarshal([]byte(raw), &prefixes); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal %s annotation on pod %s/%s: %w", annotation.NetworkDriverStaticAddresses, pod.Namespace, pod.Name, err)
+	}
+
+	return prefixes[claim], nil
+}
+
+func (driver *Driver) applyAddressToConfig(
+	claim *resourceapi.ResourceClaim,
+	request string,
+	prefix netip.Prefix,
+	devicesCfg map[string]types.DeviceConfig,
+) error {
+	if !prefix.IsValid() {
+		if prefix == (netip.Prefix{}) {
+			// treat zero address as "no address specified" and skip without error
+			return nil
+		}
+		return fmt.Errorf("invalid prefix %s for request %s in claim %s", prefix, request, claim.Name)
+	}
+
+	family := "ipv6"
+	if prefix.Addr().Is4() {
+		family = "ipv4"
+	}
+
+	cfg, found := devicesCfg[request]
+	if !found {
+		return fmt.Errorf("unable to find request %s in claim %s, static prefixes will not be applied", request, claim.Name)
+	}
+	if family == "ipv4" {
+		cfg.IPv4Addr = prefix
+	} else {
+		cfg.IPv6Addr = prefix
+	}
+	devicesCfg[request] = cfg
+
+	return nil
+}
+
+func (driver *Driver) applyAddressesFromAnnotation(ctx context.Context, claim *resourceapi.ResourceClaim, podRef resourceapi.ResourceClaimConsumerReference, devicesCfg map[string]types.DeviceConfig) error {
+	pod, err := driver.podForClaim(ctx, claim, podRef)
+	if err != nil {
+		return err
+	}
+
+	// ResourceClaim generated from a ResourceClaimTemplate stores the original template name in an annotation
+	// (see https://kubernetes.io/docs/reference/labels-annotations-taints/#resource-kubernetes-io-pod-claim-name).
+	// For generated claims we need to use that name to look up the prefixes, because that's how users will specify
+	// them in the pod annotation.
+	claimName, found := annotation.Get(claim, "resource.kubernetes.io/pod-claim-name")
+	if !found {
+		claimName = claim.Name // annotation not found, it is a regular claim, use its own name to look up prefixes
+	}
+
+	prefixes, err := addressesForClaim(pod, claimName)
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for request, prefix := range prefixes {
+		errs = append(errs,
+			driver.applyAddressToConfig(claim, request, prefix.IPv4, devicesCfg),
+			driver.applyAddressToConfig(claim, request, prefix.IPv6, devicesCfg),
+		)
+	}
+	return errors.Join(errs...)
 }
 
 type netDevConfig struct {
@@ -392,6 +518,23 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	deviceClaimConfigs, err := driver.deviceClaimConfigs(ctx, claim)
 	if err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
+	}
+
+	// where available, apply static IP addresses from the pod annotation.
+	if err := driver.applyAddressesFromAnnotation(ctx, claim, pod, deviceClaimConfigs); err != nil {
+		driver.logger.ErrorContext(ctx, "failed to apply static IP addresses from pod annotation",
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+			logfields.K8sPodName, pod,
+			logfields.Error, err,
+		)
+		return kubeletplugin.PrepareResult{Err: err}
+	} else {
+		driver.logger.DebugContext(ctx, "applied static IP addresses from pod annotation",
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+			logfields.K8sPodName, pod,
+		)
 	}
 
 	// Validate podIfName in all configs before proceeding

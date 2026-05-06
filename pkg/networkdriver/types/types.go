@@ -224,3 +224,11 @@ type SerializedDevice struct {
 	Dev     json.RawMessage
 	Config  DeviceConfig
 }
+
+type StaticAddrs struct {
+	IPv4 netip.Prefix `json:"ipv4,omitempty"`
+	IPv6 netip.Prefix `json:"ipv6,omitempty"`
+}
+
+// claim request → static addresses
+type StaticAddrsMap map[string]StaticAddrs
