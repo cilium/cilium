@@ -14,8 +14,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
@@ -37,8 +37,8 @@ func getEPTemplate(t *testing.T, ipamManager *ipam.IPAM) *models.EndpointChangeR
 			IPv4: ip4.IP.String(),
 		},
 		Properties: map[string]any{
-			endpoint.PropertySkipBPFRegeneration: true,
-			endpoint.PropertyFakeEndpoint:        true,
+			endpointtypes.PropertySkipBPFRegeneration: true,
+			endpointtypes.PropertyFakeEndpoint:        true,
 		},
 	}
 }

@@ -914,8 +914,8 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 	ep.Start(uint16(model.ID))
 	t.Cleanup(ep.Stop)
 
-	ep.properties[PropertyFakeEndpoint] = true
-	ep.properties[PropertySkipBPFPolicy] = true
+	ep.properties[endpoint.PropertyFakeEndpoint] = true
+	ep.properties[endpoint.PropertySkipBPFPolicy] = true
 
 	// In case deadlock occurs, provide a timeout of 3 (number of events) *
 	// deadlockTimeout + 1 seconds to ensure that we are actually testing for
@@ -1085,7 +1085,7 @@ func newTestEndpointModel(id int, state State) *models.EndpointChangeRequest {
 		ID:    int64(id),
 		State: ptr.To(models.EndpointState(state)),
 		Properties: map[string]any{
-			PropertyFakeEndpoint: true,
+			endpoint.PropertyFakeEndpoint: true,
 		},
 	}
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1790,7 +1791,7 @@ func newTestEndpointModel(id int, state endpoint.State) *models.EndpointChangeRe
 		ID:    int64(id),
 		State: ptr.To(models.EndpointState(state)),
 		Properties: map[string]any{
-			endpoint.PropertyFakeEndpoint: true,
+			endpointtypes.PropertyFakeEndpoint: true,
 		},
 	}
 }

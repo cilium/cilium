@@ -73,41 +73,6 @@ const (
 	resolveLabels   = "resolve-labels"
 )
 
-const (
-	// PropertyFakeEndpoint marks the endpoint as being "fake". By "fake" it
-	// means that it doesn't have any datapath bpf programs regenerated.
-	PropertyFakeEndpoint = "property-fake-endpoint"
-
-	// PropertyAtHostNS is used for endpoints that are reached via the host networking
-	// namespace, but have their own IP(s) from the node's pod CIDR range
-	PropertyAtHostNS = "property-at-host-network-namespace"
-
-	// PropertyWithouteBPFDatapath marks the endpoint that doesn't contain a
-	// eBPF datapath program.
-	PropertyWithouteBPFDatapath = "property-without-bpf-endpoint"
-
-	// PropertySkipBPFPolicy will mark the endpoint to skip ebpf
-	// policy regeneration.
-	PropertySkipBPFPolicy = "property-skip-bpf-policy"
-
-	// PropertySkipBPFRegeneration will mark the endpoint to skip ebpf
-	// regeneration.
-	PropertySkipBPFRegeneration = "property-skip-bpf-regeneration"
-
-	// PropertyCEPOwner will be able to store the CEP owner for this endpoint.
-	PropertyCEPOwner = "property-cep-owner"
-
-	// PropertyCEPName contains the CEP name for this endpoint.
-	PropertyCEPName = "property-cep-name"
-
-	// PropertySkipMasqueradeV4 will mark the endpoint to skip IPv4 masquerade.
-	PropertySkipMasqueradeV4 = "property-skip-masquerade-v4"
-	// PropertySkipMasqueradeV6 will mark the endpoint to skip IPv6 masquerade.
-	PropertySkipMasqueradeV6 = "property-skip-masquerade-v6"
-	// Property RTInfo describes the endpoint's RTInfo encoding.
-	PropertyRTInfo = "property-rt-info"
-)
-
 var (
 	EndpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
 
@@ -573,7 +538,7 @@ func (e *Endpoint) LXCMac() mac.MAC {
 }
 
 func (e *Endpoint) IsAtHostNS() bool {
-	return e.isProperty(PropertyAtHostNS)
+	return e.isProperty(endpoint.PropertyAtHostNS)
 }
 
 func (e *Endpoint) IsHost() bool {
@@ -581,11 +546,11 @@ func (e *Endpoint) IsHost() bool {
 }
 
 func (e *Endpoint) SkipMasqueradeV4() bool {
-	return e.isProperty(PropertySkipMasqueradeV4)
+	return e.isProperty(endpoint.PropertySkipMasqueradeV4)
 }
 
 func (e *Endpoint) SkipMasqueradeV6() bool {
-	return e.isProperty(PropertySkipMasqueradeV6)
+	return e.isProperty(endpoint.PropertySkipMasqueradeV6)
 }
 
 // SetIsHost is a convenient method to create host endpoints for testing.
@@ -729,13 +694,13 @@ func CreateIngressEndpoint(p EndpointParams,
 
 	// Ingress endpoint is reachable via the host networking namespace
 	// Host delivery flag is set in lxcmap
-	ep.properties[PropertyAtHostNS] = true
+	ep.properties[endpoint.PropertyAtHostNS] = true
 
 	// Ingress endpoint has no bpf policy maps
-	ep.properties[PropertySkipBPFPolicy] = true
+	ep.properties[endpoint.PropertySkipBPFPolicy] = true
 
 	// Ingress endpoint has no bpf programs
-	ep.properties[PropertyWithouteBPFDatapath] = true
+	ep.properties[endpoint.PropertyWithouteBPFDatapath] = true
 
 	ep.IPv4 = ipv4
 	ep.IPv6 = ipv6
@@ -1326,7 +1291,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
-	if !e.isProperty(PropertyFakeEndpoint) {
+	if !e.isProperty(endpoint.PropertyFakeEndpoint) {
 		e.scrubIPsInConntrackTableLocked()
 	}
 
@@ -1395,7 +1360,7 @@ type CEPOwnerInterface interface {
 // GetCEPOwner retrieves the cep owner related to this endpoint which will be,
 // by default, the pod associated with this endpoint.
 func (e *Endpoint) GetCEPOwner() CEPOwnerInterface {
-	if cepOwnerInt, ok := e.properties[PropertyCEPOwner]; ok {
+	if cepOwnerInt, ok := e.properties[endpoint.PropertyCEPOwner]; ok {
 		cepOwner, ok := cepOwnerInt.(CEPOwnerInterface)
 		if ok {
 			return cepOwner
@@ -2711,7 +2676,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	}
 
 	// If dry mode is enabled, no changes to system state are made.
-	if !e.isProperty(PropertyFakeEndpoint) {
+	if !e.isProperty(endpoint.PropertyFakeEndpoint) {
 		// Set the Endpoint's interface down to prevent it from passing any traffic
 		// after its tc filters are removed.
 		if err := e.setDown(); err != nil {
@@ -2834,14 +2799,14 @@ func (e *Endpoint) SetRTInfo(info uint32, t endpoint.RTInfoEncoding) {
 	defer e.mutex.RWMutex.Unlock()
 
 	e.rtInfo = info
-	e.setPropertyValue(PropertyRTInfo, string(t))
+	e.setPropertyValue(endpoint.PropertyRTInfo, string(t))
 
 }
 
 func (e *Endpoint) GetRTInfo() (uint32, endpoint.RTInfoEncoding) {
 	e.mutex.RWMutex.RLock()
 	defer e.mutex.RWMutex.RUnlock()
-	enc, _ := e.getPropertyValue(PropertyRTInfo).(string)
+	enc, _ := e.getPropertyValue(endpoint.PropertyRTInfo).(string)
 	return e.rtInfo, endpoint.RTInfoEncoding(enc)
 }
 
@@ -2849,7 +2814,7 @@ func (e *Endpoint) ClearRTInfo() {
 	e.mutex.RWMutex.Lock()
 	defer e.mutex.RWMutex.Unlock()
 	e.rtInfo = 0
-	delete(e.properties, PropertyRTInfo)
+	delete(e.properties, endpoint.PropertyRTInfo)
 }
 
 func (e *Endpoint) getPropertyValue(key string) any {

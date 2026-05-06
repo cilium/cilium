@@ -102,7 +102,7 @@ func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context) 
 			continue
 		}
 
-		if ep.IsProperty(endpoint.PropertyWithouteBPFDatapath) {
+		if ep.IsProperty(types.PropertyWithouteBPFDatapath) {
 			// Skip Endpoints without BPF datapath
 			continue
 		}
