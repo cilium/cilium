@@ -139,7 +139,7 @@ func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kube
 func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
 	devicesCfg := map[string]types.DeviceConfig{}
 	for _, cfg := range claim.Status.Allocation.Devices.Config {
-		if cfg.Opaque.Parameters.Raw != nil {
+		if cfg.Opaque != nil && cfg.Opaque.Parameters.Raw != nil {
 			c := types.DeviceConfig{}
 			if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c); err != nil {
 				driver.logger.ErrorContext(
