@@ -553,6 +553,9 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			ipam.logger.Debug(fmt.Sprintf("removing allocation '%s' from '%s'", alloc.IP, sv.Key))
 			if empty := cluster.Remove(sv); empty {
 				alloc.Origin.alloc.Free(alloc.IP)
+				if sv.SharingKey != "" {
+					ipam.sharingIndex.Remove(sv.SharingKey, cluster)
+				}
 			}
 			sv.AllocatedIPs = slices.Delete(sv.AllocatedIPs, allocIdx, allocIdx+1)
 		}
@@ -1679,7 +1682,10 @@ func (ipam *LBIPAM) handlePoolDeleted(ctx context.Context, k8sPool *cilium_api_v
 	ipam.metrics.AvailableIPs.DeleteLabelValues(k8sPool.GetName())
 	ipam.metrics.UsedIPs.DeleteLabelValues(k8sPool.GetName())
 
-	pool := ipam.pools[k8sPool.GetName()]
+	pool, found := ipam.pools[k8sPool.GetName()]
+	if !found {
+		return nil
+	}
 
 	var svsModified []*ServiceView
 	for _, poolRange := range pool.ranges {
