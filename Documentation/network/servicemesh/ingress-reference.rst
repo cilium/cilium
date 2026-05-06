@@ -79,6 +79,15 @@ have Envoy use the ``n`` th value from the list, counting from the right.
 Envoy will also set the ``X-Envoy-External-Address`` header to the trusted client
 address, whatever that turns out to be, based on ``X-Forwarded-For``.
 
+By default, Cilium uses the source IP of the client of a connection to apply policies for Layer 7 functionality including Ingress. 
+If you trust the source of the traffic to inject an ``X-Forwarded-For`` header (such as when using a cloud load balancer), 
+you can force Envoy to treat the traffic as coming from the client IP encoded in the ``X-Forwarded-For`` header by setting 
+``useRemoteAddress`` to ``false`` in ``gatewayAPI`` or ``ingressController`` sections of values files.
+
+For more information, see the `Envoy X-Forwarded-For`_ headers documentation.
+
+.. _Envoy X-Forwarded-For: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers.html#x-forwarded-for
+
 .. Note::
     
     Backends using Cilium ingress (whether via Ingress or Gateway API) should

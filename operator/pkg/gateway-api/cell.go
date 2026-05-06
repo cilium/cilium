@@ -54,6 +54,7 @@ var Cell = cell.Module(
 
 		GatewayAPIHostnetworkEnabled:           false,
 		GatewayAPIHostnetworkNodelabelselector: "",
+		GatewayAPIUseRemoteAddress:             true,
 	}),
 
 	// Private provider for preconditions - consumed by both initGatewayAPIController
@@ -192,6 +193,7 @@ type gatewayApiConfig struct {
 
 	GatewayAPIHostnetworkEnabled           bool
 	GatewayAPIHostnetworkNodelabelselector string
+	GatewayAPIUseRemoteAddress             bool
 }
 
 func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
@@ -203,6 +205,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("gateway-api-service-externaltrafficpolicy", r.GatewayAPIServiceExternalTrafficPolicy, "Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
+	flags.Bool("gateway-api-use-remote-address", r.GatewayAPIUseRemoteAddress, "Use the immediate client's IP address as the origin client's IP address")
 	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
 }
 
@@ -271,6 +274,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		},
 		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 			XFFNumTrustedHops: params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
+			UseRemoteAddress:  params.GatewayApiConfig.GatewayAPIUseRemoteAddress,
 		},
 	}
 	cecTranslator := translation.NewCECTranslator(cfg)

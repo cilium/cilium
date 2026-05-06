@@ -8,6 +8,7 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	envoy_extensions_filters_network_hcm_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -507,6 +508,215 @@ func getTCPProxy(t *testing.T, filterChain *envoy_config_listener.FilterChain) *
 	tcpProxy := &envoy_extensions_filters_network_tcp_v3.TcpProxy{}
 	require.NoError(t, filterChain.GetFilters()[0].GetTypedConfig().UnmarshalTo(tcpProxy))
 	return tcpProxy
+}
+
+func Test_withUseRemoteAddress(t *testing.T) {
+	tests := []struct {
+		name               string
+		useRemoteAddress   bool
+		wantUseRemoteValue bool
+	}{
+		{
+			name:               "use_remote_address_true",
+			useRemoteAddress:   true,
+			wantUseRemoteValue: true,
+		},
+		{
+			name:               "use_remote_address_false",
+			useRemoteAddress:   false,
+			wantUseRemoteValue: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hcmAny := toAny(&envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{})
+			listener := &envoy_config_listener.Listener{
+				Name: "listener",
+				FilterChains: []*envoy_config_listener.FilterChain{
+					{
+						Filters: []*envoy_config_listener.Filter{
+							{
+								Name: httpConnectionManagerType,
+								ConfigType: &envoy_config_listener.Filter_TypedConfig{
+									TypedConfig: hcmAny,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			mutator := withUseRemoteAddress(tt.useRemoteAddress)
+			listener = mutator(listener)
+
+			require.Len(t, listener.FilterChains, 1)
+			require.Len(t, listener.FilterChains[0].Filters, 1)
+
+			filter := listener.FilterChains[0].Filters[0]
+			typedConfig := filter.GetTypedConfig()
+			hcm, err := typedConfig.UnmarshalNew()
+			require.NoError(t, err)
+			hcmConfig, ok := hcm.(*envoy_extensions_filters_network_hcm_v3.HttpConnectionManager)
+			require.True(t, ok)
+			assert.Equal(t, tt.wantUseRemoteValue, hcmConfig.UseRemoteAddress.GetValue())
+		})
+	}
+}
+
+func Test_desiredEnvoyListener_UseRemoteAddressFalse(t *testing.T) {
+	translator := &cecTranslator{
+		Config: Config{
+			OriginalIPDetectionConfig: OriginalIPDetectionConfig{
+				UseRemoteAddress: false,
+			},
+		},
+	}
+
+	resources, err := translator.desiredEnvoyListener(&model.Model{
+		HTTP: []model.HTTPListener{{
+			Name:     "listener",
+			Port:     80,
+			Hostname: "*",
+		}},
+	})
+	require.NoError(t, err)
+	require.Len(t, resources, 1)
+	require.NotNil(t, resources[0].Any)
+
+	msg, err := resources[0].Any.UnmarshalNew()
+	require.NoError(t, err)
+
+	listener, ok := msg.(*envoy_config_listener.Listener)
+	require.True(t, ok)
+	require.NotEmpty(t, listener.FilterChains)
+	require.NotEmpty(t, listener.FilterChains[0].Filters)
+
+	hcmAny := listener.FilterChains[0].Filters[0].GetTypedConfig()
+	hcmMsg, err := hcmAny.UnmarshalNew()
+	require.NoError(t, err)
+
+	hcm, ok := hcmMsg.(*envoy_extensions_filters_network_hcm_v3.HttpConnectionManager)
+	require.True(t, ok)
+	require.NotNil(t, hcm.UseRemoteAddress)
+	assert.False(t, hcm.UseRemoteAddress.GetValue(), "generated listener should honor UseRemoteAddress=false from config")
+}
+
+func Test_withUseRemoteAddress_NoHCMFilter(t *testing.T) {
+	listener := &envoy_config_listener.Listener{
+		Name: "listener",
+		FilterChains: []*envoy_config_listener.FilterChain{
+			{
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: "envoy.filters.network.tcp_proxy",
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{}),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mutator := withUseRemoteAddress(true)
+	modifiedListener := mutator(listener)
+
+	require.Len(t, modifiedListener.FilterChains, 1)
+	require.Len(t, modifiedListener.FilterChains[0].Filters, 1)
+	assert.Equal(t, "envoy.filters.network.tcp_proxy", modifiedListener.FilterChains[0].Filters[0].Name)
+}
+
+func Test_withUseRemoteAddress_NoFilterChains(t *testing.T) {
+	listener := &envoy_config_listener.Listener{
+		Name: "listener",
+	}
+
+	mutator := withUseRemoteAddress(true)
+	modifiedListener := mutator(listener)
+
+	require.NotNil(t, modifiedListener)
+}
+
+func Test_withUseRemoteAddress_MultipleFilterChains(t *testing.T) {
+	hcmAny := toAny(&envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{})
+	tcpProxyAny := toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{})
+
+	listener := &envoy_config_listener.Listener{
+		Name: "listener",
+		FilterChains: []*envoy_config_listener.FilterChain{
+			{
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: httpConnectionManagerType,
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: hcmAny,
+						},
+					},
+				},
+			},
+			{
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: "envoy.filters.network.tcp_proxy",
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: tcpProxyAny,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mutator := withUseRemoteAddress(true)
+	modifiedListener := mutator(listener)
+
+	require.Len(t, modifiedListener.FilterChains, 2)
+
+	// First filter chain should have HCM with default useRemoteAddress value (false).
+	firstFilterChain := modifiedListener.FilterChains[0]
+	require.Len(t, firstFilterChain.Filters, 1)
+	filter := firstFilterChain.Filters[0]
+	typedConfig := filter.GetTypedConfig()
+	hcm, err := typedConfig.UnmarshalNew()
+	require.NoError(t, err)
+	hcmConfig, ok := hcm.(*envoy_extensions_filters_network_hcm_v3.HttpConnectionManager)
+	require.True(t, ok)
+	assert.True(t, hcmConfig.UseRemoteAddress.Value, "First filter chain HCM should have useRemoteAddress=true")
+
+	// Second filter chain should be unchanged (no HCM)
+	secondFilterChain := modifiedListener.FilterChains[1]
+	require.Len(t, secondFilterChain.Filters, 1)
+	assert.Equal(t, "envoy.filters.network.tcp_proxy", secondFilterChain.Filters[0].Name)
+}
+
+func Test_withUseRemoteAddress_Idempotent(t *testing.T) {
+	hcmAny := toAny(&envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{})
+
+	listener := &envoy_config_listener.Listener{
+		Name: "listener",
+		FilterChains: []*envoy_config_listener.FilterChain{
+			{
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: httpConnectionManagerType,
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: hcmAny,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Apply the mutator twice
+	mutator := withUseRemoteAddress(true)
+	firstModified := mutator(listener)
+	secondModified := mutator(firstModified)
+
+	// Both should be identical
+	diffOutput := cmp.Diff(firstModified, secondModified, protocmp.Transform())
+	require.Empty(t, diffOutput, "Applying the mutator twice should produce identical results")
 }
 
 func Test_withHostNetworkPortSorted(t *testing.T) {
