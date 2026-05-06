@@ -269,7 +269,7 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 
 func reportCNPChangeMetrics(op string, err error) {
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(string(source.Directory), op, metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Directory), op, metrics.LabelValueOutcomeFailure).Inc()
 	} else {
 		metrics.PolicyChangeTotal.WithLabelValues(string(source.Directory), op, metrics.LabelValueOutcomeSuccess).Inc()
 	}

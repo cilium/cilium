@@ -23,7 +23,7 @@ func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Cluste
 
 	rules, err := k8s.ParseClusterNetworkPolicy(p.log, clusterName, k8sCNP)
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeFailure).Inc()
 		p.log.Error(
 			"Error while parsing k8s kubernetes ClusterNetworkPolicy",
 			logfields.Error, err,
