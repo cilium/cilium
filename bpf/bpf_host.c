@@ -621,7 +621,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		if (!ctx_skip_nodeport(ctx)) {
 			bool is_dsr = false;
 
-			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, punt_to_stack,
+			int ret = nodeport_lb4(ctx, ip4, secctx, punt_to_stack,
 					       ext_err, &is_dsr);
 
 			/* nodeport_lb4() returns with TC_ACT_REDIRECT for

@@ -2884,7 +2884,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
  */
 static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					struct iphdr *ip4,
-					int l3_off,
 					__u32 src_sec_identity,
 					bool *punt_to_stack,
 					__s8 *ext_err,
@@ -2895,10 +2894,11 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	bool is_svc_proto = true;
 	const struct lb4_service *svc;
 	struct lb4_key key = {};
+	int l3_off = ETH_HLEN;
 	int ret, l4_off;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	l4_off = l3_off + ipv4_hdrlen(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {

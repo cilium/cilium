@@ -111,7 +111,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 			goto out;
 		}
 
-		ret = nodeport_lb4(ctx, ip4, ETH_HLEN, UNKNOWN_ID, &punt_to_stack,
+		ret = nodeport_lb4(ctx, ip4, UNKNOWN_ID, &punt_to_stack,
 				   &ext_err, &is_dsr);
 	}
 
