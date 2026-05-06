@@ -4,11 +4,12 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"slices"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/cilium/hive/script"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
@@ -27,6 +28,7 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 			Args:    "<table type> <afi> <safi>",
 			Flags: func(fs *pflag.FlagSet) {
 				addOutFileFlag(fs)
+				addFormatFlag(fs)
 				fs.Bool("no-age", false, "Do not show Age column for testing purpose")
 				fs.BoolP("with-attrs", "a", false, "Show path attributes (excluding NEXT_HOP and MP_REACH_NLRI)")
 			},
@@ -68,6 +70,11 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 					return "", "", err
 				}
 
+				format, err := s.Flags.GetString(formatFlag)
+				if err != nil {
+					return "", "", err
+				}
+
 				printAttr, err := s.Flags.GetBool("with-attrs")
 				if err != nil {
 					return "", "", err
@@ -88,8 +95,25 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 				}
 
 				printPeer := tableType == types.TableTypeAdjRIBIn || tableType == types.TableTypeAdjRIBOut
-				PrintRoutes(tw, res.Instances, printPeer, noAge, printAttr)
-				tw.Flush()
+
+				switch format {
+				case "table":
+					PrintRoutes(tw, res.Instances, printPeer, noAge, printAttr)
+					tw.Flush()
+				case "table-json":
+					builder := strings.Builder{}
+					PrintRoutes(&builder, res.Instances, printPeer, noAge, printAttr)
+					table := tableJSONfromString(builder.String())
+					out, err := json.MarshalIndent(table, "", "  ")
+					if err != nil {
+						return "", "", fmt.Errorf("json marshal failed: %w", err)
+					}
+					if _, err := w.Write(out); err != nil {
+						return "", "", err
+					}
+				default:
+					return "", "", fmt.Errorf("unsupported format: %s", format)
+				}
 
 				return buf.String(), stderr, nil
 			}, nil
@@ -126,7 +150,7 @@ func parseTableTypeArg(arg string) (types.TableType, error) {
 	}
 }
 
-func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPeer, noAge, printAttr bool) {
+func PrintRoutes(w io.Writer, instances []agent.InstanceRoutes, printPeer, noAge, printAttr bool) {
 	type row struct {
 		Instance string
 		Peer     string
@@ -197,15 +221,15 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPe
 		}
 
 		if printPeer {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Age)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Age)
 		} else {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s", row.Instance, row.Prefix, row.NextHop, row.Best, row.Age)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s", row.Instance, row.Prefix, row.NextHop, row.Best, row.Age)
 		}
 
 		if printAttr {
-			fmt.Fprintf(tw, "\t%s\n", row.Attrs)
+			fmt.Fprintf(w, "\t%s\n", row.Attrs)
 		} else {
-			fmt.Fprintf(tw, "\n")
+			fmt.Fprintf(w, "\n")
 		}
 
 		if row.Instance != "" {

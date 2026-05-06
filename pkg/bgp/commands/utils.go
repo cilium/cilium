@@ -27,12 +27,46 @@ const (
 	tabPaddingChar = ' '
 )
 
+type tableJSON struct {
+	Columns []string            `json:"columns"`
+	Rows    []map[string]string `json:"rows"`
+}
+
+func tableJSONfromString(output string) tableJSON {
+	lines := strings.FieldsFunc(output, func(c rune) bool {
+		return c == '\n'
+	})
+	table := tableJSON{
+		Rows: []map[string]string{},
+	}
+
+	for i, line := range lines {
+		rows := strings.Split(line, "\t")
+		for j, row := range rows {
+			if i == 0 {
+				table.Columns = append(table.Columns, row)
+			} else {
+				if j == 0 {
+					table.Rows = append(table.Rows, map[string]string{})
+				}
+				table.Rows[i-1][table.Columns[j]] = row
+			}
+		}
+	}
+
+	return table
+}
+
 func addOutFileFlag(fs *pflag.FlagSet) {
 	fs.StringP(outFileFlag, outFileFlagShort, "", "File to write to instead of stdout")
 }
 
 func addFormatFlag(fs *pflag.FlagSet) {
-	fs.StringP(formatFlag, formatFlagShort, "table", "Format to write in (table, json or detailed)")
+	fs.StringP(formatFlag, formatFlagShort, "table", "Format to write in (table or table-json)")
+}
+
+func addFormatFlagPeers(fs *pflag.FlagSet) {
+	fs.StringP(formatFlag, formatFlagShort, "table", "Format to write in (table, table-json, json or detailed)")
 }
 
 func getCmdWriter(s *script.State) (writer io.Writer, buf *strings.Builder, f *os.File, err error) {
