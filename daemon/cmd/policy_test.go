@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -212,8 +213,8 @@ func (ds *DaemonSuite) prepareEndpoint(t *testing.T, identity *identity.Identity
 	e.Start(testEndpointID)
 	t.Cleanup(e.Stop)
 
-	e.SetPropertyValue(endpoint.PropertyWithouteBPFDatapath, true)
-	e.SetPropertyValue(endpoint.PropertySkipBPFPolicy, true)
+	e.SetPropertyValue(endpointtypes.PropertyWithouteBPFDatapath, true)
+	e.SetPropertyValue(endpointtypes.PropertySkipBPFPolicy, true)
 	if qa {
 		e.IPv6 = QAIPv6Addr
 		e.IPv4 = QAIPv4Addr

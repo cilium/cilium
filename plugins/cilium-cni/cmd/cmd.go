@@ -36,8 +36,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/hooks"
@@ -739,7 +739,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			ep.Addressing.IPv6PoolName = ipam.Address.IPv6PoolName
 			ep.Addressing.IPv6ExpirationUUID = ipam.IPv6.ExpirationUUID
 			if ipam.IPv6.SkipMasquerade {
-				ep.Properties[endpoint.PropertySkipMasqueradeV6] = true
+				ep.Properties[endpointtypes.PropertySkipMasqueradeV6] = true
 			}
 
 			ipv6Config, routes, err = prepareIP(ep.Addressing.IPv6, state, int(conf.RouteMTU))
@@ -757,7 +757,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			ep.Addressing.IPv4PoolName = ipam.Address.IPv4PoolName
 			ep.Addressing.IPv4ExpirationUUID = ipam.IPv4.ExpirationUUID
 			if ipam.IPv4.SkipMasquerade {
-				ep.Properties[endpoint.PropertySkipMasqueradeV4] = true
+				ep.Properties[endpointtypes.PropertySkipMasqueradeV4] = true
 			}
 
 			ipConfig, routes, err = prepareIP(ep.Addressing.IPv4, state, int(conf.RouteMTU))

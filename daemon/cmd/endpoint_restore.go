@@ -27,6 +27,7 @@ import (
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -252,7 +253,7 @@ func (r *endpointRestorer) validateDatapathModeCompatibility(endpoints map[uint1
 		}
 
 		// Skip fake endpoints
-		if ep.IsProperty(endpoint.PropertyFakeEndpoint) {
+		if ep.IsProperty(endpointtypes.PropertyFakeEndpoint) {
 			continue
 		}
 
@@ -298,7 +299,7 @@ func (r *endpointRestorer) validateDatapathModeCompatibility(endpoints map[uint1
 // Returns true to indicate that the endpoint is valid to restore, and an
 // optional error.
 func (r *endpointRestorer) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error) {
-	if ep.IsProperty(endpoint.PropertyFakeEndpoint) {
+	if ep.IsProperty(endpointtypes.PropertyFakeEndpoint) {
 		return true, nil
 	}
 

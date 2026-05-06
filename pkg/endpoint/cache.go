@@ -59,7 +59,7 @@ type epInfoCache struct {
 
 // Must be called when endpoint is still locked.
 func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
-	if e.isProperty(PropertyAtHostNS) {
+	if e.isProperty(endpoint.PropertyAtHostNS) {
 		return &epInfoCache{
 			revision: e.nextPolicyRevision,
 
@@ -103,7 +103,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 }
 
 func (ep *epInfoCache) GetRTInfo() (uint32, endpoint.RTInfoEncoding) {
-	enc, _ := ep.properties[PropertyRTInfo].(string)
+	enc, _ := ep.properties[endpoint.PropertyRTInfo].(string)
 	return ep.rtInfo, endpoint.RTInfoEncoding(enc)
 }
 
@@ -204,11 +204,11 @@ func (ep *epInfoCache) IsAtHostNS() bool {
 }
 
 func (ep *epInfoCache) SkipMasqueradeV4() bool {
-	return ep.isProperty(PropertySkipMasqueradeV4)
+	return ep.isProperty(endpoint.PropertySkipMasqueradeV4)
 }
 
 func (ep *epInfoCache) SkipMasqueradeV6() bool {
-	return ep.isProperty(PropertySkipMasqueradeV6)
+	return ep.isProperty(endpoint.PropertySkipMasqueradeV6)
 }
 
 // isProperty checks if the value of the properties map is set, it's a boolean

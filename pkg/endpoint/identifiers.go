@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/endpoint/id"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 )
 
 // GetContainerName returns the name of the container for the endpoint.
@@ -47,7 +48,7 @@ func (e *Endpoint) GetK8sNamespaceAndPodName() string {
 // for this endpoint (without the namespace)
 // Returns an empty string if the endpoint does not belong to a pod.
 func (e *Endpoint) GetK8sCEPName() string {
-	if cepName, ok := e.properties[PropertyCEPName]; ok {
+	if cepName, ok := e.properties[endpointtypes.PropertyCEPName]; ok {
 		cepNameStr, ok := cepName.(string)
 		if ok {
 			return cepNameStr

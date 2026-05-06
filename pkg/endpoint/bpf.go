@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -231,7 +232,7 @@ func (p *proxyPolicy) GetListener() string {
 // required to implement the given L4 policy.
 // Only called after a new selector policy has been computed.
 func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]uint16, skipped uint, rf revert.RevertFunc) {
-	if e.isProperty(PropertyFakeEndpoint) || e.IsProxyDisabled() {
+	if e.isProperty(endpointtypes.PropertyFakeEndpoint) || e.IsProxyDisabled() {
 		return nil, 0, nil
 	}
 
@@ -319,7 +320,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 // Must be called with endpoint.mutex locked for writing, as this calls back to
 // 'e.OnDNSPolicyUpdateLocked()'.
 func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[string]uint16) {
-	if e.isProperty(PropertyFakeEndpoint) || e.IsProxyDisabled() {
+	if e.isProperty(endpointtypes.PropertyFakeEndpoint) || e.IsProxyDisabled() {
 		return
 	}
 
@@ -396,7 +397,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// reverted, and execute it in case of regeneration success.
 	defer func() {
 		// Ignore finalizing of proxy state in dry mode.
-		if !e.isProperty(PropertyFakeEndpoint) {
+		if !e.isProperty(endpointtypes.PropertyFakeEndpoint) {
 			e.finalizeEndpointRegeneration(regenContext, reterr)
 		}
 	}()
@@ -441,15 +442,15 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// No need to compile BPF in dry mode. Also, in lb-only mode we do not
 	// support local Pods on the worker node, hence endpoint BPF regeneration
 	// is skipped everywhere.
-	if e.isProperty(PropertyFakeEndpoint) {
+	if e.isProperty(endpointtypes.PropertyFakeEndpoint) {
 		return e.nextPolicyRevision, nil
 	}
 
 	// Skip BPF if the endpoint has no policy map
-	if e.isProperty(PropertySkipBPFPolicy) {
+	if e.isProperty(endpointtypes.PropertySkipBPFPolicy) {
 		// Ingress endpoint needs entries in the endpoints map so that the return traffic,
 		// ARP, and IPv6 ND are delivered to the host stack in all datapath configurations.
-		if e.isProperty(PropertyAtHostNS) {
+		if e.isProperty(endpointtypes.PropertyAtHostNS) {
 			stats.mapSync.Start()
 			err = e.lxcMap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 			stats.mapSync.End(err == nil)
@@ -655,7 +656,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 
 	// Once the policy has been calculated, we can update the standalone dns proxy as well.
 	// We need to send the snapshot of the policyRules to SDP.
-	if !e.isProperty(PropertyFakeEndpoint) && !e.IsProxyDisabled() && e.proxy.IsSDPEnabled() {
+	if !e.isProperty(endpointtypes.PropertyFakeEndpoint) && !e.IsProxyDisabled() && e.proxy.IsSDPEnabled() {
 		repo := e.policyRepo
 		e.getLogger().Debug("Updating standalone DNS proxy with policy rules")
 		policyRules := repo.GetPolicySnapshot()
@@ -682,7 +683,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// pre-existing connections using that IP are now invalid.
 	if !e.ctCleaned {
 		go func() {
-			if !e.isProperty(PropertyFakeEndpoint) {
+			if !e.isProperty(endpointtypes.PropertyFakeEndpoint) {
 				e.scrubIPsInConntrackTable()
 			}
 			close(datapathRegenCtxt.ctCleaned)
@@ -745,13 +746,13 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	e.setDNSRulesLocked(rules)
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
-	if e.isProperty(PropertySkipBPFPolicy) {
+	if e.isProperty(endpointtypes.PropertySkipBPFPolicy) {
 		// Ingress endpoint needs epInfoCache for endpointmap population
-		if e.isProperty(PropertyAtHostNS) {
+		if e.isProperty(endpointtypes.PropertyAtHostNS) {
 			datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)
 		}
 
-		if e.isProperty(PropertyFakeEndpoint) {
+		if e.isProperty(endpointtypes.PropertyFakeEndpoint) {
 			if err = e.writeHeaderfile(nextDir); err != nil {
 				return newRegenerationErrorf(regenerationFailureReasonDatapathOrchestrationError, "unable to write header file: %w", err)
 			}
@@ -816,14 +817,14 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	}
 
 	// sync policy map for fake endpoints, bpf compilation will be skipped for them.
-	if e.isProperty(PropertyFakeEndpoint) {
+	if e.isProperty(endpointtypes.PropertyFakeEndpoint) {
 		err = e.policyMapSync(nil, stats)
 		if err != nil {
 			return newRegenerationErrorf(regenerationFailureReasonPolicyBPFError, "fake ep policymap synchronization failed: %w", err)
 		}
 	}
 
-	if e.isProperty(PropertySkipBPFRegeneration) {
+	if e.isProperty(endpointtypes.PropertySkipBPFRegeneration) {
 		return nil
 	}
 
@@ -1122,7 +1123,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 
 	// Ingress endpoint does not need to wait.
 	// This also lets daemon/cmd integration tests to proceed
-	if e.isProperty(PropertySkipBPFPolicy) {
+	if e.isProperty(endpointtypes.PropertySkipBPFPolicy) {
 		e.getLogger().Debug(
 			"Ingress Endpoint updating Network policy",
 		)
@@ -1158,7 +1159,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	}
 
 	// Ingress endpoint has no bpf policy maps, so return before applying changes to bpf.
-	if e.isProperty(PropertySkipBPFPolicy) {
+	if e.isProperty(endpointtypes.PropertySkipBPFPolicy) {
 		e.getLogger().Debug(
 			"Skipping bpf updates due to dry mode",
 		)
@@ -1505,7 +1506,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 func (e *Endpoint) startSyncPolicyMapController() {
 	// Skip the controller if the endpoint has no policy map
-	if e.isProperty(PropertySkipBPFPolicy) {
+	if e.isProperty(endpointtypes.PropertySkipBPFPolicy) {
 		return
 	}
 

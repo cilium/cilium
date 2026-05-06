@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -190,7 +191,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	ep.Start(uint16(model.ID))
 	t.Cleanup(ep.Stop)
 
-	ep.SetPropertyValue(PropertyFakeEndpoint, false)
+	ep.SetPropertyValue(endpointtypes.PropertyFakeEndpoint, false)
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
 	require.NoError(t, err)
