@@ -201,7 +201,7 @@ jobs:
         with:
           provision: 'false'
           cmd: |
-            cd /host/base
+            cd /host/pull
             export TMPDIR=/var/tmp
             export GOCACHE=/host/gocache
             mkdir -p /host/datapath-verifier /host/gocache
