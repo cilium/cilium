@@ -998,6 +998,14 @@ ingressController:
   enforceHttps: true
   # -- Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
   enableProxyProtocol: false
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Configure whether to use the remote address of the client when determining the source IP.
+  # When enabled, the source IP is determined from the remote address instead of the proxy protocol header.
+  useRemoteAddress: true
+  # -- The number of additional Ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
+  xffNumTrustedHops: 0
   # -- IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service
   ingressLBAnnotationPrefixes: ['lbipam.cilium.io', 'nodeipam.cilium.io', 'service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
   # @schema
@@ -1089,6 +1097,12 @@ gatewayAPI:
   enabled: false
   # -- Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
   enableProxyProtocol: false
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Configure whether to use the remote address of the client when determining the source IP.
+  # When enabled, the source IP is determined from the remote address instead of the proxy protocol header.
+  useRemoteAddress: true
   # -- Enable Backend Protocol selection support (GEP-1911) for Gateway API via appProtocol.
   enableAppProtocol: false
   # -- Enable ALPN for all listeners configured with Gateway API. ALPN will attempt HTTP/2, then HTTP 1.1.

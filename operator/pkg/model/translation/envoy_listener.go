@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -82,6 +83,34 @@ func withAlpn() ListenerMutator {
 
 			transportSocket.ConfigType = &envoy_config_core_v3.TransportSocket_TypedConfig{
 				TypedConfig: toAny(downstreamContext),
+			}
+		}
+		return listener
+	}
+}
+
+func withUseRemoteAddress(useRemoteAddress bool) ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		for _, filterChain := range listener.FilterChains {
+			for _, filter := range filterChain.Filters {
+				if filter.Name == httpConnectionManagerType {
+					tc := filter.GetTypedConfig()
+					switch tc.GetTypeUrl() {
+					case envoy.HttpConnectionManagerTypeURL:
+						hcm, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
+						}
+						hcmConfig, ok := hcm.(*httpConnectionManagerv3.HttpConnectionManager)
+						if !ok {
+							continue
+						}
+						hcmConfig.UseRemoteAddress = wrapperspb.Bool(useRemoteAddress)
+						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(hcmConfig),
+						}
+					}
+				}
 			}
 		}
 		return listener
@@ -289,6 +318,8 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 	if i.Config.ListenerConfig.StreamIdleTimeoutSeconds > 0 {
 		res = append(res, WithStreamIdleTimeout(i.Config.ListenerConfig.StreamIdleTimeoutSeconds))
 	}
+
+	res = append(res, withUseRemoteAddress(i.Config.OriginalIPDetectionConfig.UseRemoteAddress))
 
 	if i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops > 0 {
 		res = append(res, withXffNumTrustedHops(i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops))
