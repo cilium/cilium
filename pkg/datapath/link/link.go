@@ -49,6 +49,16 @@ func Rename(curName, newName string) error {
 	return netlink.LinkSetName(link, newName)
 }
 
+// SetAltNames sets the altnames for a link
+func AddAltName(linkName, altName string) error {
+	link, err := safenetlink.LinkByName(linkName)
+	if err != nil {
+		return err
+	}
+
+	return netlink.LinkAddAltName(link, altName)
+}
+
 func GetHardwareAddr(ifName string) (mac.MAC, error) {
 	iface, err := safenetlink.LinkByName(ifName)
 	if err != nil {

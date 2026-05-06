@@ -152,6 +152,13 @@ func NewLinkPair(
 		}
 	}
 
+	if err := markOwned(cfg.PeerNamespace, finalPeerIfName); err != nil {
+		log.Warn("unable to mark peer link cilium ownership",
+			logfields.Error, err,
+			logfields.Name, finalPeerIfName,
+		)
+	}
+
 	pair := &linkPair{
 		hostLink: hostLink,
 		peerLink: peerLink,
@@ -263,4 +270,18 @@ func (lp *linkPair) Delete() error {
 		*lp = linkPair{}
 	}
 	return nil
+}
+
+// markOwned marks interface at `ifName` inside `ns` context
+// as cilium owned by writing to the link altname.
+func markOwned(ns *netns.NetNS, ifName string) error {
+	markFunc := func() error {
+		return link.AddAltName(ifName, CniAltName(ifName))
+	}
+
+	if ns != nil {
+		return ns.Do(markFunc)
+	}
+
+	return markFunc()
 }
