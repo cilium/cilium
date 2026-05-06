@@ -430,6 +430,10 @@ securityContext:
       # If available, SYS_ADMIN can be removed.
       #- PERFMON
       #- BPF
+# -- Minimum number of seconds for which a newly created agent pod should be ready
+# before it is considered available. Defaults to 0 (pod is considered available as soon as it is ready).
+# ref: https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/
+minReadySeconds: 0
 # -- Cilium agent update strategy
 updateStrategy:
   type: RollingUpdate
@@ -1197,6 +1201,9 @@ encryption:
       requests:
         cpu: 200m
         memory: 512Mi
+    # -- Minimum number of seconds for which a newly created ztunnel pod should be ready
+    # before it is considered available.
+    minReadySeconds: 0
     # -- ztunnel update strategy.
     updateStrategy:
       type: RollingUpdate
@@ -2783,6 +2790,9 @@ envoy:
   terminationGracePeriodSeconds: 1
   # -- TCP port for the health API.
   healthPort: 9878
+  # -- Minimum number of seconds for which a newly created envoy pod should be ready
+  # before it is considered available.
+  minReadySeconds: 0
   # -- cilium-envoy update strategy
   # ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset
   updateStrategy:
@@ -3410,6 +3420,9 @@ nodeinit:
     pullPolicy: "Always"
   # -- The priority class to use for the nodeinit pod.
   priorityClassName: ""
+  # -- Minimum number of seconds for which a newly created node-init pod should be ready
+  # before it is considered available.
+  minReadySeconds: 0
   # -- node-init update strategy
   updateStrategy:
     type: RollingUpdate
@@ -4492,6 +4505,9 @@ standaloneDnsProxy:
   tolerations: []
   # -- Standalone DNS proxy auto mount service account token
   automountServiceAccountToken: false
+  # -- Minimum number of seconds for which a newly created standalone DNS proxy pod should be ready
+  # before it is considered available.
+  minReadySeconds: 5
   # -- Standalone DNS proxy update strategy
   updateStrategy:
     type: RollingUpdate

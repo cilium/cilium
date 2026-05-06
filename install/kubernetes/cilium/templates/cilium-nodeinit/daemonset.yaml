@@ -18,6 +18,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
+  {{- if .Values.nodeinit.minReadySeconds }}
+  minReadySeconds: {{ .Values.nodeinit.minReadySeconds }}
+  {{- end }}
   selector:
     matchLabels:
       app: cilium-node-init

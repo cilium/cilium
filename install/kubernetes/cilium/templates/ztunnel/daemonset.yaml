@@ -19,6 +19,9 @@ metadata:
     {{- end }}
 spec:
   revisionHistoryLimit: 10
+  {{- if .Values.encryption.ztunnel.minReadySeconds }}
+  minReadySeconds: {{ .Values.encryption.ztunnel.minReadySeconds }}
+  {{- end }}
   selector:
     matchLabels:
       app: ztunnel-cilium

@@ -2055,6 +2055,9 @@
               },
               "type": "object"
             },
+            "minReadySeconds": {
+              "type": "integer"
+            },
             "nodeSelector": {
               "properties": {
                 "kubernetes.io/os": {
@@ -2604,6 +2607,9 @@
           "type": "integer"
         },
         "maxRequestsPerConnection": {
+          "type": "integer"
+        },
+        "minReadySeconds": {
           "type": "integer"
         },
         "nodeLocality": {
@@ -4791,6 +4797,9 @@
     "maglev": {
       "type": "object"
     },
+    "minReadySeconds": {
+      "type": "integer"
+    },
     "monitor": {
       "properties": {
         "enabled": {
@@ -4924,6 +4933,9 @@
             }
           },
           "type": "object"
+        },
+        "minReadySeconds": {
+          "type": "integer"
         },
         "nodeSelector": {
           "properties": {
@@ -6392,6 +6404,9 @@
             }
           },
           "type": "object"
+        },
+        "minReadySeconds": {
+          "type": "integer"
         },
         "nodeSelector": {
           "properties": {
