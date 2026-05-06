@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -380,7 +381,7 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 
 // describeNetworkInterfacesFromInstances lists all ENIs matching filtered EC2 instances
 func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]ec2_types.NetworkInterface, error) {
-	enisFromInstances := make(map[string]struct{})
+	enisFromInstances := sets.New[string]()
 
 	instanceAttrs := &ec2.DescribeInstancesInput{}
 	if len(c.instancesFilters) > 0 {
@@ -401,16 +402,13 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		for _, r := range output.Reservations {
 			for _, i := range r.Instances {
 				for _, ifs := range i.NetworkInterfaces {
-					enisFromInstances[aws.ToString(ifs.NetworkInterfaceId)] = struct{}{}
+					enisFromInstances.Insert(aws.ToString(ifs.NetworkInterfaceId))
 				}
 			}
 		}
 	}
 
-	enisListFromInstances := make([]string, 0, len(enisFromInstances))
-	for k := range enisFromInstances {
-		enisListFromInstances = append(enisListFromInstances, k)
-	}
+	enisListFromInstances := enisFromInstances.UnsortedList()
 
 retry:
 	for {

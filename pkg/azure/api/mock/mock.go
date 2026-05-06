@@ -11,6 +11,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/azure/types"
@@ -205,13 +206,10 @@ func (a *API) GetSubnetsByIDs(ctx context.Context, nodeSubnetIDs []string) (ipam
 	subnets := ipamTypes.SubnetMap{}
 
 	// Only return subnets that match the requested subnet IDs
-	subnetIDSet := make(map[string]struct{})
-	for _, id := range nodeSubnetIDs {
-		subnetIDSet[id] = struct{}{}
-	}
+	subnetIDSet := sets.New[string](nodeSubnetIDs...)
 
 	for _, s := range a.subnets {
-		if _, exists := subnetIDSet[s.subnet.ID]; exists {
+		if subnetIDSet.Has(s.subnet.ID) {
 			sd := s.subnet.DeepCopy()
 			sd.AvailableAddresses = s.allocator.Free()
 			subnets[sd.ID] = sd

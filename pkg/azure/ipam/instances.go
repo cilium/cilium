@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"slices"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	// Register the Azure resource-ID parser. This is the canonical place
@@ -155,17 +155,16 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 
 // extractSubnetIDs extracts unique subnet IDs from node network interfaces
 func (m *InstancesManager) extractSubnetIDs(instances *ipamTypes.InstanceMap) []string {
-	// Use map[string]struct{} as a set for efficient deduplication (O(1) insertion, zero memory overhead)
-	subnetIDs := make(map[string]struct{})
+	subnetIDs := sets.New[string]()
 
 	instances.ForeachAddress("", func(instanceID, interfaceID, ip, poolID string, address ipamTypes.Address) error {
 		if poolID != "" {
-			subnetIDs[poolID] = struct{}{}
+			subnetIDs.Insert(poolID)
 		}
 		return nil
 	})
 
-	return slices.Collect(maps.Keys(subnetIDs))
+	return subnetIDs.UnsortedList()
 }
 
 // resyncInstances performs a full sync of all instances using three-phase strategy
