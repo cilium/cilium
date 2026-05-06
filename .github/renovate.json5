@@ -358,7 +358,9 @@
         "/github.com/onsi/ginkgo/",
         "/github.com/onsi/gomega/*/",
         // We can't update it, see https://github.com/cilium/cilium/issues/44063 for more info
-        "github.com/cilium/ebpf"
+        "github.com/cilium/ebpf",
+        // The version upgrade from 9.0.4 to 9.1.0 breaks our CI
+        "sphinx"
       ]
     },
     {
