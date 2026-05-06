@@ -2837,20 +2837,20 @@ static __always_inline int nodeport_svc_lb4(
  * which handles the case of: i) backend is local EP, ii) backend is remote EP,
  * iii) reply from remote backend EP.
  */
-static __always_inline int nodeport_lb4(
-	struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off,
-	__u32 src_sec_identity, bool *punt_to_stack, __s8 *ext_err,
-	bool __maybe_unused *dsr)
+static __always_inline int
+nodeport_lb4(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_sec_identity,
+	     bool *punt_to_stack, __s8 *ext_err, bool __maybe_unused *dsr)
 {
 	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
 	const struct lb4_service *svc;
 	struct lb4_key key = {};
+	int l3_off = ETH_HLEN;
 	int ret, l4_off;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	l4_off = l3_off + ipv4_hdrlen(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {

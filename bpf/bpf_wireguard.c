@@ -148,7 +148,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 		bool punt_to_stack = false;
 		bool is_dsr = false;
 
-		ret = nodeport_lb4(ctx, ip4, ETH_HLEN, identity, &punt_to_stack,
+		ret = nodeport_lb4(ctx, ip4, identity, &punt_to_stack,
 				   ext_err, &is_dsr);
 		/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 		 * traffic to L7 LB. Policy enforcement needs to take
