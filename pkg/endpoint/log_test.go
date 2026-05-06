@@ -19,11 +19,12 @@ import (
 )
 
 func TestPolicyLog(t *testing.T) {
-	logger := hivetest.Logger(t)
-	logPath := filepath.Join(option.Config.StateDir, "endpoint-policy.log")
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "endpoint-policy.log")
 	f, err := os.Create(logPath)
 	require.NoError(t, err)
 
+	logger := hivetest.Logger(t)
 	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
 
 	model := newTestEndpointModel(12345, StateReady)
@@ -45,11 +46,6 @@ func TestPolicyLog(t *testing.T) {
 	ep.UpdateLogger(nil)
 	policyLogger = ep.getPolicyLogger()
 	require.NotNil(t, policyLogger)
-	defer func() {
-		// remote created log file when we are done.
-		err := os.Remove(logPath)
-		require.NoError(t, err)
-	}()
 
 	// Test logging, policyLogger must not be nil
 	policyLogger.Info("testing policy logging")
