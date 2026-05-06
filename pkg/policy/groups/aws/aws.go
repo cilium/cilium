@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	cilium_ec2 "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -23,10 +24,9 @@ var (
 )
 
 // GetIPsFromGroup will return the list of the IPs for the given group filter
-func GetIPsFromGroup(ctx context.Context, group *api.Groups) ([]netip.Addr, error) {
-	result := []netip.Addr{}
+func GetIPsFromGroup(ctx context.Context, group *api.Groups) ([]netip.Prefix, error) {
 	if group.AWS == nil {
-		return result, nil
+		return []netip.Prefix{}, nil
 	}
 
 	cfg, err := cilium_ec2.NewConfig(ctx)
@@ -35,13 +35,15 @@ func GetIPsFromGroup(ctx context.Context, group *api.Groups) ([]netip.Addr, erro
 	}
 	ec2Client := ec2.NewFromConfig(cfg)
 
+	addrs := []netip.Addr{}
+
 	// If the group has a security group filter, add the IPs from the network interfaces
 	if len(group.AWS.SecurityGroupsIds) > 0 || len(group.AWS.SecurityGroupsNames) > 0 {
 		ips, err := getNetworkInterfaceIpsFromFilter(ctx, group.AWS, ec2Client)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, ips...)
+		addrs = append(addrs, ips...)
 	}
 
 	// If the group has a label filter, add the IPs from the instances
@@ -50,10 +52,16 @@ func GetIPsFromGroup(ctx context.Context, group *api.Groups) ([]netip.Addr, erro
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, ips...)
+		addrs = append(addrs, ips...)
 	}
 
-	return result, nil
+	result := make(sets.Set[netip.Prefix], len(addrs))
+
+	for _, addr := range addrs {
+		result.Insert(netip.PrefixFrom(addr, addr.BitLen()))
+	}
+
+	return result.UnsortedList(), nil
 }
 
 // getNetworkInterfaceIpsFromFilter returns the IPs from the network interfaces for

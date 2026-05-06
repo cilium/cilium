@@ -16,16 +16,16 @@ func RegisterTestDummyProvider() {
 	providers[AWSProvider] = getDummyIPs
 }
 
-var DummmyIP1 = netip.MustParseAddr("192.0.2.1")
-var DummmyIP2 = netip.MustParseAddr("192.0.2.2")
+var DummmyIP1 = netip.MustParsePrefix("192.0.2.1/32")
+var DummmyIP2 = netip.MustParsePrefix("192.0.2.2/32")
 
-func getDummyIPs(_ context.Context, group *api.Groups) ([]netip.Addr, error) {
+func getDummyIPs(_ context.Context, group *api.Groups) ([]netip.Prefix, error) {
 	if group.AWS == nil {
 		return nil, nil
 	}
 
 	// return a RFC5737 IP
-	out := []netip.Addr{}
+	out := []netip.Prefix{}
 	for _, sg := range group.AWS.SecurityGroupsNames {
 		switch sg {
 		case "dummy1":
