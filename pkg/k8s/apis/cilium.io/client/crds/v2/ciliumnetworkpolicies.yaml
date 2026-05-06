@@ -501,6 +501,36 @@ spec:
                                   Labels selects AWS ENIs by labels.
                                   Multiple labels are AND-ed together.
                                 type: object
+                              managedPrefixListsIds:
+                                description: |-
+                                  ManagedPrefixListsIds selects VPC managed prefix lists by IDs.
+                                  If multiple IDs are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any Names or Owner IDs specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
+                              managedPrefixListsNames:
+                                description: |-
+                                  ManagedPrefixListsNames selects VPC managed prefix lists by name.
+                                  If multiple names are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any IDs or Owner IDs specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
+                              managedPrefixListsOwnerIds:
+                                description: |-
+                                  ManagedPrefixListsOwnerIds selects VPC managed prefix lists by owner IDs.
+                                  If multiple owner IDs are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any IDs or Names specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
                               region:
                                 description: 'Deprecated: Region is unused.'
                                 type: string
@@ -1441,6 +1471,36 @@ spec:
                                   Labels selects AWS ENIs by labels.
                                   Multiple labels are AND-ed together.
                                 type: object
+                              managedPrefixListsIds:
+                                description: |-
+                                  ManagedPrefixListsIds selects VPC managed prefix lists by IDs.
+                                  If multiple IDs are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any Names or Owner IDs specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
+                              managedPrefixListsNames:
+                                description: |-
+                                  ManagedPrefixListsNames selects VPC managed prefix lists by name.
+                                  If multiple names are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any IDs or Owner IDs specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
+                              managedPrefixListsOwnerIds:
+                                description: |-
+                                  ManagedPrefixListsOwnerIds selects VPC managed prefix lists by owner IDs.
+                                  If multiple owner IDs are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any IDs or Names specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
                               region:
                                 description: 'Deprecated: Region is unused.'
                                 type: string
@@ -2074,6 +2134,36 @@ spec:
                                   Labels selects AWS ENIs by labels.
                                   Multiple labels are AND-ed together.
                                 type: object
+                              managedPrefixListsIds:
+                                description: |-
+                                  ManagedPrefixListsIds selects VPC managed prefix lists by IDs.
+                                  If multiple IDs are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any Names or Owner IDs specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
+                              managedPrefixListsNames:
+                                description: |-
+                                  ManagedPrefixListsNames selects VPC managed prefix lists by name.
+                                  If multiple names are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any IDs or Owner IDs specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
+                              managedPrefixListsOwnerIds:
+                                description: |-
+                                  ManagedPrefixListsOwnerIds selects VPC managed prefix lists by owner IDs.
+                                  If multiple owner IDs are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any IDs or Names specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
                               region:
                                 description: 'Deprecated: Region is unused.'
                                 type: string
@@ -2928,6 +3018,36 @@ spec:
                                   Labels selects AWS ENIs by labels.
                                   Multiple labels are AND-ed together.
                                 type: object
+                              managedPrefixListsIds:
+                                description: |-
+                                  ManagedPrefixListsIds selects VPC managed prefix lists by IDs.
+                                  If multiple IDs are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any Names or Owner IDs specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
+                              managedPrefixListsNames:
+                                description: |-
+                                  ManagedPrefixListsNames selects VPC managed prefix lists by name.
+                                  If multiple names are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any IDs or Owner IDs specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
+                              managedPrefixListsOwnerIds:
+                                description: |-
+                                  ManagedPrefixListsOwnerIds selects VPC managed prefix lists by owner IDs.
+                                  If multiple owner IDs are specified, they are OR-ed together.
+
+                                  Note that this may be AND-ed with any IDs or Names specified.
+                                  Specifying all three is not recommended.
+                                items:
+                                  type: string
+                                type: array
                               region:
                                 description: 'Deprecated: Region is unused.'
                                 type: string
@@ -3705,6 +3825,36 @@ spec:
                                     Labels selects AWS ENIs by labels.
                                     Multiple labels are AND-ed together.
                                   type: object
+                                managedPrefixListsIds:
+                                  description: |-
+                                    ManagedPrefixListsIds selects VPC managed prefix lists by IDs.
+                                    If multiple IDs are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any Names or Owner IDs specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
+                                managedPrefixListsNames:
+                                  description: |-
+                                    ManagedPrefixListsNames selects VPC managed prefix lists by name.
+                                    If multiple names are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any IDs or Owner IDs specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
+                                managedPrefixListsOwnerIds:
+                                  description: |-
+                                    ManagedPrefixListsOwnerIds selects VPC managed prefix lists by owner IDs.
+                                    If multiple owner IDs are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any IDs or Names specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
                                 region:
                                   description: 'Deprecated: Region is unused.'
                                   type: string
@@ -4646,6 +4796,36 @@ spec:
                                     Labels selects AWS ENIs by labels.
                                     Multiple labels are AND-ed together.
                                   type: object
+                                managedPrefixListsIds:
+                                  description: |-
+                                    ManagedPrefixListsIds selects VPC managed prefix lists by IDs.
+                                    If multiple IDs are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any Names or Owner IDs specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
+                                managedPrefixListsNames:
+                                  description: |-
+                                    ManagedPrefixListsNames selects VPC managed prefix lists by name.
+                                    If multiple names are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any IDs or Owner IDs specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
+                                managedPrefixListsOwnerIds:
+                                  description: |-
+                                    ManagedPrefixListsOwnerIds selects VPC managed prefix lists by owner IDs.
+                                    If multiple owner IDs are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any IDs or Names specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
                                 region:
                                   description: 'Deprecated: Region is unused.'
                                   type: string
@@ -5279,6 +5459,36 @@ spec:
                                     Labels selects AWS ENIs by labels.
                                     Multiple labels are AND-ed together.
                                   type: object
+                                managedPrefixListsIds:
+                                  description: |-
+                                    ManagedPrefixListsIds selects VPC managed prefix lists by IDs.
+                                    If multiple IDs are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any Names or Owner IDs specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
+                                managedPrefixListsNames:
+                                  description: |-
+                                    ManagedPrefixListsNames selects VPC managed prefix lists by name.
+                                    If multiple names are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any IDs or Owner IDs specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
+                                managedPrefixListsOwnerIds:
+                                  description: |-
+                                    ManagedPrefixListsOwnerIds selects VPC managed prefix lists by owner IDs.
+                                    If multiple owner IDs are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any IDs or Names specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
                                 region:
                                   description: 'Deprecated: Region is unused.'
                                   type: string
@@ -6134,6 +6344,36 @@ spec:
                                     Labels selects AWS ENIs by labels.
                                     Multiple labels are AND-ed together.
                                   type: object
+                                managedPrefixListsIds:
+                                  description: |-
+                                    ManagedPrefixListsIds selects VPC managed prefix lists by IDs.
+                                    If multiple IDs are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any Names or Owner IDs specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
+                                managedPrefixListsNames:
+                                  description: |-
+                                    ManagedPrefixListsNames selects VPC managed prefix lists by name.
+                                    If multiple names are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any IDs or Owner IDs specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
+                                managedPrefixListsOwnerIds:
+                                  description: |-
+                                    ManagedPrefixListsOwnerIds selects VPC managed prefix lists by owner IDs.
+                                    If multiple owner IDs are specified, they are OR-ed together.
+
+                                    Note that this may be AND-ed with any IDs or Names specified.
+                                    Specifying all three is not recommended.
+                                  items:
+                                    type: string
+                                  type: array
                                 region:
                                   description: 'Deprecated: Region is unused.'
                                   type: string

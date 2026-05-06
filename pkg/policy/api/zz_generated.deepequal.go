@@ -73,6 +73,56 @@ func (in *AWSGroup) DeepEqual(other *AWSGroup) bool {
 	if in.Region != other.Region {
 		return false
 	}
+	if ((in.ManagedPrefixListsIds != nil) && (other.ManagedPrefixListsIds != nil)) || ((in.ManagedPrefixListsIds == nil) != (other.ManagedPrefixListsIds == nil)) {
+		in, other := &in.ManagedPrefixListsIds, &other.ManagedPrefixListsIds
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.ManagedPrefixListsNames != nil) && (other.ManagedPrefixListsNames != nil)) || ((in.ManagedPrefixListsNames == nil) != (other.ManagedPrefixListsNames == nil)) {
+		in, other := &in.ManagedPrefixListsNames, &other.ManagedPrefixListsNames
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.ManagedPrefixListsOwnerIds != nil) && (other.ManagedPrefixListsOwnerIds != nil)) || ((in.ManagedPrefixListsOwnerIds == nil) != (other.ManagedPrefixListsOwnerIds == nil)) {
+		in, other := &in.ManagedPrefixListsOwnerIds, &other.ManagedPrefixListsOwnerIds
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
 
 	return true
 }
