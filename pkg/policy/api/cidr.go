@@ -91,7 +91,6 @@ func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 		if err == nil {
 			slice = append(slice, NewESFromLabels(lbl))
 		}
-		// TODO: Log the error?
 	}
 
 	return slice
