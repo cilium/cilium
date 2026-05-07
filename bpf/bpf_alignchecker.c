@@ -84,6 +84,7 @@ add_type(struct edt_info);
 #include "lib/egress_gateway.h"
 add_type(struct egress_gw_policy_key);
 add_type(struct egress_gw_policy_entry);
+add_type(struct egress_gw_policy_entry_v2);
 add_type(struct egress_gw_policy_key6);
 add_type(struct egress_gw_policy_entry6);
 

@@ -66,6 +66,55 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 		assert.ErrorIs(t, err, ebpf.ErrKeyNotExist)
 	})
 
+	t.Run("IPv4 policies V2", func(t *testing.T) {
+		egressPolicyMap := createPolicyMap4V2(hivetest.Lifecycle(t), nil, DefaultPolicyConfig, ebpf.PinNone)
+
+		sourceIP1 := netip.MustParseAddr("1.1.1.1")
+		sourceIP2 := netip.MustParseAddr("1.1.1.2")
+
+		destCIDR1 := netip.MustParsePrefix("2.2.1.0/24")
+		destCIDR2 := netip.MustParsePrefix("2.2.2.0/24")
+
+		egressIP1 := netip.MustParseAddr("3.3.3.1")
+		egressIP2 := netip.MustParseAddr("3.3.3.2")
+
+		ifIndex1 := uint32(1)
+		ifIndex2 := uint32(2)
+
+		err := egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, egressIP1, ifIndex1)
+		assert.NoError(t, err)
+
+		err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, egressIP2, ifIndex2)
+		assert.NoError(t, err)
+
+		val, err := egressPolicyMap.Lookup(sourceIP1, destCIDR1)
+		assert.NoError(t, err)
+
+		assert.Equal(t, val.EgressIP.Addr(), egressIP1)
+		assert.Equal(t, val.GatewayIP.Addr(), egressIP1)
+		assert.Equal(t, val.EgressIfindex, ifIndex1)
+
+		val, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
+		assert.NoError(t, err)
+
+		assert.Equal(t, val.EgressIP.Addr(), egressIP2)
+		assert.Equal(t, val.GatewayIP.Addr(), egressIP2)
+		assert.Equal(t, val.EgressIfindex, ifIndex2)
+
+		err = egressPolicyMap.Delete(sourceIP2, destCIDR2)
+		assert.NoError(t, err)
+
+		val, err = egressPolicyMap.Lookup(sourceIP1, destCIDR1)
+		assert.NoError(t, err)
+
+		assert.Equal(t, val.EgressIP.Addr(), egressIP1)
+		assert.Equal(t, val.GatewayIP.Addr(), egressIP1)
+		assert.Equal(t, val.EgressIfindex, ifIndex1)
+
+		_, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
+		assert.ErrorIs(t, err, ebpf.ErrKeyNotExist)
+	})
+
 	t.Run("IPv6 policies", func(t *testing.T) {
 		egressPolicyMap := createPolicyMap6(hivetest.Lifecycle(t), nil, DefaultPolicyConfig, ebpf.PinNone)
 

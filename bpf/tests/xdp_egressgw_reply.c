@@ -102,7 +102,7 @@ SETUP("xdp", "xdp_egressgw_reply")
 int egressgw_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install EgressGW policy for the connection: */
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0, 0);
 
 	/* install RevSNAT entry */
 	struct ipv4_ct_tuple snat_tuple = {

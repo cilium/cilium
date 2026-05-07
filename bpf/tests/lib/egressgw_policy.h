@@ -3,7 +3,8 @@
 
 #ifdef ENABLE_EGRESS_GATEWAY
 static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr,
-						      __be32 gateway_ip, __be32 egress_ip)
+						      __be32 gateway_ip, __be32 egress_ip,
+						      __u32 egress_ifindex)
 {
 	struct egress_gw_policy_key in_key = {
 		.lpm_key = { EGRESS_PREFIX_LEN_V4(cidr), {} },
@@ -11,12 +12,13 @@ static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr
 		.daddr   = daddr,
 	};
 
-	struct egress_gw_policy_entry in_val = {
+	struct egress_gw_policy_entry_v2 in_val = {
 		.egress_ip  = egress_ip,
 		.gateway_ip = gateway_ip,
+		.egress_ifindex = egress_ifindex,
 	};
 
-	map_update_elem(&cilium_egress_gw_policy_v4, &in_key, &in_val, 0);
+	map_update_elem(&cilium_egress_gw_policy_v4_v2, &in_key, &in_val, 0);
 }
 
 static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr)
@@ -27,7 +29,7 @@ static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr
 		.daddr   = daddr,
 	};
 
-	map_delete_elem(&cilium_egress_gw_policy_v4, &in_key);
+	map_delete_elem(&cilium_egress_gw_policy_v4_v2, &in_key);
 }
 
 #ifdef ENABLE_IPV6

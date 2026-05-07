@@ -28,6 +28,7 @@ type egressPolicy struct {
 	DestCIDR  string
 	EgressIP  string
 	GatewayIP string
+	Ifindex   uint32
 }
 
 var bpfEgressListCmd = &cobra.Command{
@@ -41,23 +42,47 @@ var bpfEgressListCmd = &cobra.Command{
 		bpfEgressList := []egressPolicy{}
 		var ipv4MapExists, ipv6MapExists bool
 
-		policyMap4, err := egressmap.OpenPinnedPolicyMap4(log)
+		policyMap4V2, err := egressmap.OpenPinnedPolicyMap4V2(log)
 		if err == nil {
 			ipv4MapExists = true
-			parse4 := func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
+			parse4 := func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4V2) {
 				bpfEgressList = append(bpfEgressList, egressPolicy{
 					SourceIP:  key.GetSourceIP().String(),
 					DestCIDR:  key.GetDestCIDR().String(),
 					EgressIP:  val.GetEgressAddr().String(),
 					GatewayIP: mapGatewayIP(val.GetGatewayAddr()),
+					Ifindex:   val.EgressIfindex,
 				})
 			}
 
-			if err := policyMap4.IterateWithCallback(parse4); err != nil {
-				Fatalf("Error dumping contents of IPv4 egress policy map: %s\n", err)
+			if err := policyMap4V2.IterateWithCallback(parse4); err != nil {
+				Fatalf("Error dumping contents of IPv4 V2 egress policy map: %s\n", err)
 			}
 		} else if !errors.Is(err, fs.ErrNotExist) {
-			Fatalf("Cannot open IPv4 egress gateway bpf map: %s", err)
+			Fatalf("Cannot open IPv4 V2 egress gateway bpf map: %s", err)
+		}
+
+		/* Fall back to legacy map on older releases: */
+		if policyMap4V2 == nil {
+			policyMap4, err := egressmap.OpenPinnedPolicyMap4(log)
+			if err == nil {
+				ipv4MapExists = true
+				parse4 := func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
+					bpfEgressList = append(bpfEgressList, egressPolicy{
+						SourceIP:  key.GetSourceIP().String(),
+						DestCIDR:  key.GetDestCIDR().String(),
+						EgressIP:  val.GetEgressAddr().String(),
+						GatewayIP: mapGatewayIP(val.GetGatewayAddr()),
+						Ifindex:   0,
+					})
+				}
+
+				if err := policyMap4.IterateWithCallback(parse4); err != nil {
+					Fatalf("Error dumping contents of IPv4 egress policy map: %s\n", err)
+				}
+			} else if !errors.Is(err, fs.ErrNotExist) {
+				Fatalf("Cannot open IPv4 egress gateway bpf map: %s", err)
+			}
 		}
 
 		policyMap6, err := egressmap.OpenPinnedPolicyMap6(log)
@@ -69,6 +94,7 @@ var bpfEgressListCmd = &cobra.Command{
 					DestCIDR:  key.GetDestCIDR().String(),
 					EgressIP:  val.GetEgressAddr().String(),
 					GatewayIP: mapGatewayIP(val.GetGatewayAddr()),
+					Ifindex:   val.EgressIfindex,
 				})
 			}
 
@@ -114,9 +140,9 @@ func mapGatewayIP(ip netip.Addr) string {
 func printEgressList(egressList []egressPolicy) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
-	fmt.Fprintln(w, "Source IP\tDestination CIDR\tEgress IP\tGateway IP")
+	fmt.Fprintln(w, "Source IP\tDestination CIDR\tEgress IP\tGateway IP\tEgress Ifindex")
 	for _, ep := range egressList {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", ep.SourceIP, ep.DestCIDR, ep.EgressIP, ep.GatewayIP)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", ep.SourceIP, ep.DestCIDR, ep.EgressIP, ep.GatewayIP, ep.Ifindex)
 	}
 
 	w.Flush()

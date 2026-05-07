@@ -73,7 +73,7 @@ SETUP("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface")
 int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
-				  EGRESS_IP);
+				  EGRESS_IP, EGRESS_IFINDEX);
 
 	return overlay_receive_packet(ctx);
 }

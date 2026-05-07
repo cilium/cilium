@@ -104,7 +104,7 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 	settings->fib_lookup_called = false;
 
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 
 	return overlay_receive_packet(ctx);
 }

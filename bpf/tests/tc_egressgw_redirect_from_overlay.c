@@ -76,7 +76,7 @@ SETUP("tc", "tc_egressgw_redirect_from_overlay")
 int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 
 	return overlay_receive_packet(ctx);
 }
@@ -108,9 +108,9 @@ SETUP("tc", "tc_egressgw_skip_excluded_cidr_redirect_from_overlay")
 int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 
 	return overlay_receive_packet(ctx);
 }
@@ -143,7 +143,7 @@ SETUP("tc", "tc_egressgw_skip_no_gateway_redirect_from_overlay")
 int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 
 	return overlay_receive_packet(ctx);
 }
@@ -175,7 +175,7 @@ SETUP("tc", "tc_egressgw_drop_no_egress_ip_from_overlay")
 int egressgw_drop_no_egress_ip_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, GATEWAY_NODE_IP,
-				  EGRESS_GATEWAY_NO_EGRESS_IP);
+				  EGRESS_GATEWAY_NO_EGRESS_IP, 0);
 
 	return overlay_receive_packet(ctx);
 }
