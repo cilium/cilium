@@ -22,6 +22,7 @@ var typesOpts struct {
 }
 
 const typesGoFile = "types_generated.go"
+const auxSection = ".data.aux"
 
 func runTypes(cmd *cobra.Command, args []string) error {
 	// Enable deduplication on the builder to make all equivalent types included
@@ -56,6 +57,10 @@ func runTypes(cmd *cobra.Command, args []string) error {
 		}
 
 		for _, v := range sorted(cs.Variables) {
+			// We can skip aux variables as they are only used from the BPF side.
+			if v.SectionName == auxSection {
+				continue
+			}
 			if err := addVariableType(bb, added, v); err != nil {
 				return fmt.Errorf("adding type for variable %s: %w", v.Name, err)
 			}
