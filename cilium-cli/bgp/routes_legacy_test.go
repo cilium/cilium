@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	expectedRoutesColFormat = []string{
+func Test_printRouteSummaryLegacy(t *testing.T) {
+	expectedRoutesColFormat := []string{
 		"Node",
 		"VRouter",
 		"Prefix",
@@ -22,7 +22,7 @@ var (
 		"Age",
 		"Attrs",
 	}
-	expectedRoutesColFormatWithPeer = []string{
+	expectedRoutesColFormatWithPeer := []string{
 		"Node",
 		"VRouter",
 		"Peer",
@@ -32,7 +32,7 @@ var (
 		"Attrs",
 	}
 
-	route1 = &models.BgpRoute{
+	route1 := &models.BgpRoute{
 		Prefix:    "10.1.0.0/24",
 		RouterAsn: 65001,
 		Paths: []*models.BgpPath{
@@ -48,7 +48,7 @@ var (
 		},
 	}
 
-	route2 = &models.BgpRoute{
+	route2 := &models.BgpRoute{
 		Prefix:    "10.1.1.0/24",
 		RouterAsn: 65001,
 		Neighbor:  "192.168.0.100",
@@ -73,7 +73,7 @@ var (
 		},
 	}
 
-	routeInvalid = &models.BgpRoute{
+	routeInvalid := &models.BgpRoute{
 		Prefix:    "10.1.0.0/24",
 		RouterAsn: 65001,
 		Paths: []*models.BgpPath{
@@ -88,9 +88,7 @@ var (
 			},
 		},
 	}
-)
 
-func Test_printRouteSummary(t *testing.T) {
 	testCases := []struct {
 		Name         string
 		Config       map[string][]*models.BgpRoute
@@ -178,7 +176,7 @@ func Test_printRouteSummary(t *testing.T) {
 	}
 }
 
-func Test_defaultGetRoutesArgs(t *testing.T) {
+func Test_defaultGetRoutesArgsLegacy(t *testing.T) {
 	testCases := []struct {
 		Name       string
 		Args       []string
@@ -209,7 +207,7 @@ func Test_defaultGetRoutesArgs(t *testing.T) {
 	}
 }
 
-func Test_validateGetRoutesArgs(t *testing.T) {
+func Test_validateGetRoutesArgsLegacy(t *testing.T) {
 	testCases := []struct {
 		Name      string
 		Args      []string
