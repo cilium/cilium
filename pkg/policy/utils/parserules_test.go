@@ -254,6 +254,51 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 		},
 		{
+			name: "endpoint selectors expand into one entry per selector",
+			rules: api.Rules{
+				{
+					EndpointSelectors: []api.EndpointSelector{
+						api.NewESFromLabels(labels.ParseSelectLabel("app=foo")),
+						api.NewESFromLabels(labels.ParseSelectLabel("app=bar")),
+					},
+					Labels: lbls,
+					Ingress: []api.IngressRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromEndpoints: []api.EndpointSelector{api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint"))},
+							},
+						},
+					},
+				},
+			},
+			want: types.PolicyEntries{
+				{
+					Tier:        types.Normal,
+					Subject:     types.NewLabelSelector(api.NewESFromLabels(labels.ParseSelectLabel("app=foo"))),
+					Labels:      lbls,
+					DefaultDeny: true,
+					Verdict:     types.Allow,
+					Ingress:     true,
+					L3: types.ToSelectors(
+						api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint")),
+					),
+					L4: api.PortRules{},
+				},
+				{
+					Tier:        types.Normal,
+					Subject:     types.NewLabelSelector(api.NewESFromLabels(labels.ParseSelectLabel("app=bar"))),
+					Labels:      lbls,
+					DefaultDeny: true,
+					Verdict:     types.Allow,
+					Ingress:     true,
+					L3: types.ToSelectors(
+						api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint")),
+					),
+					L4: api.PortRules{},
+				},
+			},
+		},
+		{
 			name: "default deny disabled",
 			rules: api.Rules{
 				{
@@ -537,11 +582,12 @@ func TestIcmpRules(t *testing.T) {
 func TestGetSelector(t *testing.T) {
 	endpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("app=test"))
 	nodeSelector := api.NewESFromLabels(labels.ParseSelectLabel("node=test"))
+	endpointSelector2 := api.NewESFromLabels(labels.ParseSelectLabel("app=other"))
 
 	tests := []struct {
 		name     string
 		rule     *api.Rule
-		wantEs   api.EndpointSelector
+		wantEs   []api.EndpointSelector
 		wantNode bool
 	}{
 		{
@@ -549,7 +595,7 @@ func TestGetSelector(t *testing.T) {
 			rule: &api.Rule{
 				EndpointSelector: endpointSelector,
 			},
-			wantEs:   endpointSelector,
+			wantEs:   []api.EndpointSelector{endpointSelector},
 			wantNode: false,
 		},
 		{
@@ -557,7 +603,7 @@ func TestGetSelector(t *testing.T) {
 			rule: &api.Rule{
 				NodeSelector: nodeSelector,
 			},
-			wantEs:   nodeSelector,
+			wantEs:   []api.EndpointSelector{nodeSelector},
 			wantNode: true,
 		},
 		{
@@ -566,20 +612,37 @@ func TestGetSelector(t *testing.T) {
 				EndpointSelector: endpointSelector,
 				NodeSelector:     nodeSelector,
 			},
-			wantEs:   nodeSelector,
+			wantEs:   []api.EndpointSelector{nodeSelector},
+			wantNode: true,
+		},
+		{
+			name: "endpoint selectors",
+			rule: &api.Rule{
+				EndpointSelectors: []api.EndpointSelector{endpointSelector, endpointSelector2},
+			},
+			wantEs:   []api.EndpointSelector{endpointSelector, endpointSelector2},
+			wantNode: false,
+		},
+		{
+			name: "node selector takes precedence over endpoint selectors",
+			rule: &api.Rule{
+				NodeSelector:      nodeSelector,
+				EndpointSelectors: []api.EndpointSelector{endpointSelector, endpointSelector2},
+			},
+			wantEs:   []api.EndpointSelector{nodeSelector},
 			wantNode: true,
 		},
 		{
 			name:     "no selector",
 			rule:     &api.Rule{},
-			wantEs:   api.EndpointSelector{},
+			wantEs:   []api.EndpointSelector{{}},
 			wantNode: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotEs, gotNode := getSelector(tt.rule)
+			gotEs, gotNode := getSelectors(tt.rule)
 			assert.Equal(t, tt.wantEs, gotEs)
 			assert.Equal(t, tt.wantNode, gotNode)
 		})

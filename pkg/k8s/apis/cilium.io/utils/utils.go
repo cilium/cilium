@@ -376,16 +376,15 @@ func ParseToCiliumRule(logger *slog.Logger, clusterName, namespace, name string,
 		// so it wouldn't make sense to inject a namespace match for
 		// those policies.
 		if namespace != "" {
-			userNamespace, present := r.EndpointSelector.GetMatch(podPrefixLbl)
-			if present && !namespacesAreValid(namespace, userNamespace) {
-				logger.Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector."+
-					" EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match'.",
-					logfields.K8sNamespace, namespace,
-					logfields.CiliumNetworkPolicyName, name,
-					logfields.K8sNamespaceIllegal, userNamespace,
-				)
+			overrideNamespaceLabel(logger, namespace, name, &retRule.EndpointSelector)
+		}
+	} else if r.EndpointSelectors != nil {
+		retRule.EndpointSelectors = make([]api.EndpointSelector, len(r.EndpointSelectors))
+		for i, es := range r.EndpointSelectors {
+			retRule.EndpointSelectors[i] = api.NewESFromK8sLabelSelector("", es.LabelSelector)
+			if namespace != "" {
+				overrideNamespaceLabel(logger, namespace, name, &retRule.EndpointSelectors[i])
 			}
-			retRule.EndpointSelector.AddMatch(podPrefixLbl, namespace)
 		}
 	} else if r.NodeSelector.LabelSelector != nil {
 		retRule.NodeSelector = api.NewESFromK8sLabelSelector("", r.NodeSelector.LabelSelector)
@@ -428,4 +427,22 @@ func ParseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs labels.L
 	}
 
 	return append(policyLbls, userLbls...).Sort()
+}
+
+// overrideNamespaceLabel overrides the namespace label in the EndpointSelector if it is present and invalid.
+func overrideNamespaceLabel(logger *slog.Logger, namespace, name string, es *api.EndpointSelector) {
+	if es.LabelSelector == nil {
+		return
+	}
+
+	userNamespace, present := es.GetMatch(podPrefixLbl)
+	if present && !namespacesAreValid(namespace, userNamespace) {
+		logger.Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector."+
+			" EndpointSelector always applies in namespace of the policy resource, overriding illegal namespace match'.",
+			logfields.K8sNamespace, namespace,
+			logfields.CiliumNetworkPolicyName, name,
+			logfields.K8sNamespaceIllegal, userNamespace,
+		)
+	}
+	es.AddMatch(podPrefixLbl, namespace)
 }

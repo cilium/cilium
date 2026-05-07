@@ -958,6 +958,13 @@ func (in PortRulesHTTP) DeepCopy() PortRulesHTTP {
 func (in *Rule) DeepCopyInto(out *Rule) {
 	*out = *in
 	in.EndpointSelector.DeepCopyInto(&out.EndpointSelector)
+	if in.EndpointSelectors != nil {
+		in, out := &in.EndpointSelectors, &out.EndpointSelectors
+		*out = make([]EndpointSelector, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	in.NodeSelector.DeepCopyInto(&out.NodeSelector)
 	if in.Ingress != nil {
 		in, out := &in.Ingress, &out.Ingress

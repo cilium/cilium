@@ -1170,6 +1170,23 @@ func (in *Rule) deepEqual(other *Rule) bool {
 		return false
 	}
 
+	if ((in.EndpointSelectors != nil) && (other.EndpointSelectors != nil)) || ((in.EndpointSelectors == nil) != (other.EndpointSelectors == nil)) {
+		in, other := &in.EndpointSelectors, &other.EndpointSelectors
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	if !in.NodeSelector.DeepEqual(&other.NodeSelector) {
 		return false
 	}

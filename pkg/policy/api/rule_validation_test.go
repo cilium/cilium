@@ -942,13 +942,51 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 		Egress:           []EgressRule{{}},
 	}
 	err = invalidRuleBothSelectors.Sanitize()
-	require.Equal(t, "rule cannot have both EndpointSelector and NodeSelector", err.Error())
+	require.Equal(t, "rule cannot have more than one of EndpointSelector, NodeSelector and EndpointSelectors", err.Error())
+
+	invalidRuleEndpointSelectorAndEndpointSelectors := Rule{
+		EndpointSelector:  WildcardEndpointSelector,
+		EndpointSelectors: []EndpointSelector{WildcardEndpointSelector},
+		Egress:            []EgressRule{{}},
+	}
+	err = invalidRuleEndpointSelectorAndEndpointSelectors.Sanitize()
+	require.Equal(t, "rule cannot have more than one of EndpointSelector, NodeSelector and EndpointSelectors", err.Error())
+
+	invalidRuleNodeSelectorAndEndpointSelectors := Rule{
+		NodeSelector:      WildcardEndpointSelector,
+		EndpointSelectors: []EndpointSelector{WildcardEndpointSelector},
+		Egress:            []EgressRule{{}},
+	}
+	err = invalidRuleNodeSelectorAndEndpointSelectors.Sanitize()
+	require.Equal(t, "rule cannot have more than one of EndpointSelector, NodeSelector and EndpointSelectors", err.Error())
 
 	invalidRuleNoSelector := Rule{
 		Egress: []EgressRule{{}},
 	}
 	err = invalidRuleNoSelector.Sanitize()
-	require.Equal(t, "rule must have one of EndpointSelector or NodeSelector", err.Error())
+	require.Equal(t, "rule must have one of EndpointSelector or NodeSelector or EndpointSelectors", err.Error())
+
+	validRuleEndpointSelectors := Rule{
+		EndpointSelectors: []EndpointSelector{WildcardEndpointSelector},
+		Egress:            []EgressRule{{}},
+	}
+	require.NoError(t, validRuleEndpointSelectors.Sanitize())
+
+	invalidEndpointSelectors := &slim_metav1.LabelSelector{
+		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+			{
+				Key:      "any.foo",
+				Operator: "asdfasdfasdf",
+				Values:   []string{"default"},
+			},
+		},
+	}
+	invalidRuleEndpointSelectors := Rule{
+		EndpointSelectors: []EndpointSelector{NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, invalidEndpointSelectors)},
+		Egress:            []EgressRule{{}},
+	}
+	err = invalidRuleEndpointSelectors.Sanitize()
+	require.EqualError(t, err, "invalid label selector: matchExpressions[0].operator: Invalid value: \"asdfasdfasdf\": not a valid selector operator")
 }
 
 func TestTooManyPortsRule(t *testing.T) {

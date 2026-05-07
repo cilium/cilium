@@ -63,15 +63,31 @@ func (r *Rule) Sanitize() error {
 		r.EnableDefaultDeny.Ingress = &enableDefaultDenyDefault
 	}
 
-	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
-		return errors.New("rule must have one of EndpointSelector or NodeSelector")
+	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil && len(r.EndpointSelectors) == 0 {
+		return errors.New("rule must have one of EndpointSelector or NodeSelector or EndpointSelectors")
 	}
-	if r.EndpointSelector.LabelSelector != nil && r.NodeSelector.LabelSelector != nil {
-		return errors.New("rule cannot have both EndpointSelector and NodeSelector")
+	count := 0
+	if r.EndpointSelector.LabelSelector != nil {
+		count++
+	}
+	if r.NodeSelector.LabelSelector != nil {
+		count++
+	}
+	if len(r.EndpointSelectors) > 0 {
+		count++
+	}
+	if count > 1 {
+		return errors.New("rule cannot have more than one of EndpointSelector, NodeSelector and EndpointSelectors")
 	}
 
 	if r.EndpointSelector.LabelSelector != nil {
 		if err := r.EndpointSelector.Sanitize(); err != nil {
+			return err
+		}
+	}
+
+	for i := range r.EndpointSelectors {
+		if err := r.EndpointSelectors[i].Sanitize(); err != nil {
 			return err
 		}
 	}

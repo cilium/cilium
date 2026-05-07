@@ -12,134 +12,136 @@ import (
 func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 	entries := types.PolicyEntries{}
 	for _, rule := range rules {
-		ls, node := getSelector(rule)
+		lss, node := getSelectors(rule)
 
-		subjectSelector := types.NewLabelSelector(ls)
+		for _, ls := range lss {
+			subjectSelector := types.NewLabelSelector(ls)
 
-		for _, iRule := range rule.Ingress {
-			defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
+			for _, iRule := range rule.Ingress {
+				defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
 
-			l3 := mergeEndpointSelectors(
-				iRule.FromEndpoints,
-				iRule.FromNodes,
-				iRule.FromEntities,
-				iRule.FromCIDR,
-				iRule.FromCIDRSet,
-				nil,
-				iRule.FromGroups)
+				l3 := mergeEndpointSelectors(
+					iRule.FromEndpoints,
+					iRule.FromNodes,
+					iRule.FromEntities,
+					iRule.FromCIDR,
+					iRule.FromCIDRSet,
+					nil,
+					iRule.FromGroups)
 
-			l4 := make(api.PortRules, 0, len(iRule.ToPorts)+len(iRule.ICMPs))
-			l4 = append(l4, iRule.ToPorts...)
-			l4 = append(l4, icmpRules(iRule.ICMPs)...)
+				l4 := make(api.PortRules, 0, len(iRule.ToPorts)+len(iRule.ICMPs))
+				l4 = append(l4, iRule.ToPorts...)
+				l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
-			entry := &types.PolicyEntry{
-				Tier:           types.Normal,
-				Subject:        subjectSelector,
-				Node:           node,
-				Labels:         rule.Labels,
-				DefaultDeny:    defaultDeny,
-				Verdict:        types.Allow,
-				Ingress:        true,
-				L3:             l3,
-				L4:             l4,
-				Authentication: iRule.Authentication,
-				Log:            rule.Log,
+				entry := &types.PolicyEntry{
+					Tier:           types.Normal,
+					Subject:        subjectSelector,
+					Node:           node,
+					Labels:         rule.Labels,
+					DefaultDeny:    defaultDeny,
+					Verdict:        types.Allow,
+					Ingress:        true,
+					L3:             l3,
+					L4:             l4,
+					Authentication: iRule.Authentication,
+					Log:            rule.Log,
+				}
+				entries = append(entries, entry)
 			}
-			entries = append(entries, entry)
-		}
 
-		for _, iRule := range rule.IngressDeny {
-			defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
+			for _, iRule := range rule.IngressDeny {
+				defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
 
-			l3 := mergeEndpointSelectors(
-				iRule.FromEndpoints,
-				iRule.FromNodes,
-				iRule.FromEntities,
-				iRule.FromCIDR,
-				iRule.FromCIDRSet,
-				nil,
-				iRule.FromGroups)
+				l3 := mergeEndpointSelectors(
+					iRule.FromEndpoints,
+					iRule.FromNodes,
+					iRule.FromEntities,
+					iRule.FromCIDR,
+					iRule.FromCIDRSet,
+					nil,
+					iRule.FromGroups)
 
-			l4 := make(api.PortRules, 0, len(iRule.ToPorts)+len(iRule.ICMPs))
-			l4 = append(l4, portDenyRulesToPortRules(iRule.ToPorts)...)
-			l4 = append(l4, icmpRules(iRule.ICMPs)...)
+				l4 := make(api.PortRules, 0, len(iRule.ToPorts)+len(iRule.ICMPs))
+				l4 = append(l4, portDenyRulesToPortRules(iRule.ToPorts)...)
+				l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
-			entry := &types.PolicyEntry{
-				Tier:        types.Normal,
-				Subject:     subjectSelector,
-				Node:        node,
-				Labels:      rule.Labels,
-				DefaultDeny: defaultDeny,
-				Verdict:     types.Deny,
-				Ingress:     true,
-				L3:          l3,
-				L4:          l4,
-				Log:         rule.Log,
+				entry := &types.PolicyEntry{
+					Tier:        types.Normal,
+					Subject:     subjectSelector,
+					Node:        node,
+					Labels:      rule.Labels,
+					DefaultDeny: defaultDeny,
+					Verdict:     types.Deny,
+					Ingress:     true,
+					L3:          l3,
+					L4:          l4,
+					Log:         rule.Log,
+				}
+				entries = append(entries, entry)
 			}
-			entries = append(entries, entry)
-		}
 
-		for _, eRule := range rule.Egress {
-			defaultDeny := rule.EnableDefaultDeny.Egress == nil || *rule.EnableDefaultDeny.Egress
+			for _, eRule := range rule.Egress {
+				defaultDeny := rule.EnableDefaultDeny.Egress == nil || *rule.EnableDefaultDeny.Egress
 
-			l3 := mergeEndpointSelectors(
-				eRule.ToEndpoints,
-				eRule.ToNodes,
-				eRule.ToEntities,
-				eRule.ToCIDR,
-				eRule.ToCIDRSet,
-				eRule.ToFQDNs,
-				eRule.ToGroups)
+				l3 := mergeEndpointSelectors(
+					eRule.ToEndpoints,
+					eRule.ToNodes,
+					eRule.ToEntities,
+					eRule.ToCIDR,
+					eRule.ToCIDRSet,
+					eRule.ToFQDNs,
+					eRule.ToGroups)
 
-			l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
-			l4 = append(l4, eRule.ToPorts...)
-			l4 = append(l4, icmpRules(eRule.ICMPs)...)
+				l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
+				l4 = append(l4, eRule.ToPorts...)
+				l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
-			entry := &types.PolicyEntry{
-				Tier:           types.Normal,
-				Subject:        subjectSelector,
-				Node:           node,
-				Labels:         rule.Labels,
-				DefaultDeny:    defaultDeny,
-				Verdict:        types.Allow,
-				Ingress:        false,
-				L3:             l3,
-				L4:             l4,
-				Authentication: eRule.Authentication,
-				Log:            rule.Log,
+				entry := &types.PolicyEntry{
+					Tier:           types.Normal,
+					Subject:        subjectSelector,
+					Node:           node,
+					Labels:         rule.Labels,
+					DefaultDeny:    defaultDeny,
+					Verdict:        types.Allow,
+					Ingress:        false,
+					L3:             l3,
+					L4:             l4,
+					Authentication: eRule.Authentication,
+					Log:            rule.Log,
+				}
+				entries = append(entries, entry)
 			}
-			entries = append(entries, entry)
-		}
 
-		for _, eRule := range rule.EgressDeny {
-			defaultDeny := rule.EnableDefaultDeny.Egress == nil || *rule.EnableDefaultDeny.Egress
+			for _, eRule := range rule.EgressDeny {
+				defaultDeny := rule.EnableDefaultDeny.Egress == nil || *rule.EnableDefaultDeny.Egress
 
-			l3 := mergeEndpointSelectors(
-				eRule.ToEndpoints,
-				eRule.ToNodes,
-				eRule.ToEntities,
-				eRule.ToCIDR,
-				eRule.ToCIDRSet,
-				nil,
-				eRule.ToGroups)
+				l3 := mergeEndpointSelectors(
+					eRule.ToEndpoints,
+					eRule.ToNodes,
+					eRule.ToEntities,
+					eRule.ToCIDR,
+					eRule.ToCIDRSet,
+					nil,
+					eRule.ToGroups)
 
-			l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
-			l4 = append(l4, portDenyRulesToPortRules(eRule.ToPorts)...)
-			l4 = append(l4, icmpRules(eRule.ICMPs)...)
+				l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
+				l4 = append(l4, portDenyRulesToPortRules(eRule.ToPorts)...)
+				l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
-			entry := &types.PolicyEntry{
-				Tier:        types.Normal,
-				Subject:     subjectSelector,
-				Node:        node,
-				Labels:      rule.Labels,
-				DefaultDeny: defaultDeny,
-				Verdict:     types.Deny,
-				Ingress:     false,
-				L3:          l3,
-				L4:          l4,
-				Log:         rule.Log,
+				entry := &types.PolicyEntry{
+					Tier:        types.Normal,
+					Subject:     subjectSelector,
+					Node:        node,
+					Labels:      rule.Labels,
+					DefaultDeny: defaultDeny,
+					Verdict:     types.Deny,
+					Ingress:     false,
+					L3:          l3,
+					L4:          l4,
+					Log:         rule.Log,
+				}
+				entries = append(entries, entry)
 			}
-			entries = append(entries, entry)
 		}
 	}
 	return entries
@@ -186,10 +188,14 @@ func icmpRules(icmpRules api.ICMPRules) api.PortRules {
 	return out
 }
 
-// getSelector returns either the endpoint selector, which is the target of a policy rule and true if the endpoint represents a node.
-func getSelector(rule *api.Rule) (api.EndpointSelector, bool) {
+// getSelectors returns the endpoint selectors that are the targets of a policy rule,
+// and true if the selectors represent nodes.
+func getSelectors(rule *api.Rule) ([]api.EndpointSelector, bool) {
 	if es := rule.NodeSelector; es.LabelSelector != nil {
-		return es, true
+		return []api.EndpointSelector{es}, true
 	}
-	return rule.EndpointSelector, false
+	if ess := rule.EndpointSelectors; len(ess) > 0 {
+		return ess, false
+	}
+	return []api.EndpointSelector{rule.EndpointSelector}, false
 }

@@ -681,6 +681,121 @@ func Test_ParseToCiliumRule(t *testing.T) {
 				},
 			),
 		},
+		{
+			// EndpointSelectors should each have the policy namespace
+			// injected into their match labels.
+			name: "parse-endpoint-selectors-in-namespace",
+			args: args{
+				namespace: slim_metav1.NamespaceDefault,
+				uid:       uuid,
+				rule: &api.Rule{
+					EndpointSelectors: []api.EndpointSelector{
+						api.NewESFromMatchRequirements(
+							map[string]string{role: "backend"},
+							nil,
+						),
+						api.NewESFromMatchRequirements(
+							map[string]string{role: "frontend"},
+							nil,
+						),
+					},
+				},
+			},
+			want: &api.Rule{
+				EndpointSelectors: []api.EndpointSelector{
+					api.NewESFromMatchRequirements(
+						map[string]string{
+							role:      "backend",
+							namespace: "default",
+						},
+						nil,
+					),
+					api.NewESFromMatchRequirements(
+						map[string]string{
+							role:      "frontend",
+							namespace: "default",
+						},
+						nil,
+					),
+				},
+				Labels: labels.LabelArray{
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.name",
+						Value:  "parse-endpoint-selectors-in-namespace",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.namespace",
+						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			},
+		},
+		{
+			// An invalid namespace match in an EndpointSelectors entry
+			// is overridden with the policy's namespace, mirroring the
+			// behaviour for EndpointSelector.
+			name: "parse-endpoint-selectors-with-invalid-namespace",
+			args: args{
+				namespace: slim_metav1.NamespaceDefault,
+				uid:       uuid,
+				rule: &api.Rule{
+					EndpointSelectors: []api.EndpointSelector{
+						api.NewESFromMatchRequirements(
+							map[string]string{
+								role:      "backend",
+								namespace: "foo",
+							},
+							nil,
+						),
+					},
+				},
+			},
+			want: &api.Rule{
+				EndpointSelectors: []api.EndpointSelector{
+					api.NewESFromMatchRequirements(
+						map[string]string{
+							role:      "backend",
+							namespace: "default",
+						},
+						nil,
+					),
+				},
+				Labels: labels.LabelArray{
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.name",
+						Value:  "parse-endpoint-selectors-with-invalid-namespace",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.namespace",
+						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -67,14 +67,21 @@ type LogConfig struct {
 // +deepequal-gen:private-method=true
 type Rule struct {
 	// EndpointSelector selects all endpoints which should be subject to
-	// this rule. EndpointSelector and NodeSelector cannot be both empty and
+	// this rule. EndpointSelector, EndpointSelectors and NodeSelector cannot be all empty and
 	// are mutually exclusive.
 	//
 	// +kubebuilder:validation:OneOf
 	EndpointSelector EndpointSelector `json:"endpointSelector,omitzero"`
 
+	// EndpointSelectors is a list of endpoint selectors.
+	// An endpoint is subject to this rule if it matches at least one of the endpoint selectors in the list.
+	// EndpointSelector, EndpointSelectors and NodeSelector cannot be all empty and are mutually exclusive.
+	//
+	// +kubebuilder:validation:OneOf
+	EndpointSelectors []EndpointSelector `json:"endpointSelectors,omitempty"`
+
 	// NodeSelector selects all nodes which should be subject to this rule.
-	// EndpointSelector and NodeSelector cannot be both empty and are mutually
+	// EndpointSelector, EndpointSelectors and NodeSelector cannot be all empty and are mutually
 	// exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
 	//
 	// +kubebuilder:validation:OneOf
