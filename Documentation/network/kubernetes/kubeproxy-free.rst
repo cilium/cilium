@@ -1143,7 +1143,7 @@ LoadBalancer service or a service with externalIPs will be accessible through
 the IP addresses of native devices which have the default route on the host or
 have Kubernetes InternalIP or ExternalIP assigned. InternalIP is preferred over
 ExternalIP if both exist. To change the devices, set their names in the
-``devices`` Helm option, e.g. ``devices='{eth0,eth1,eth2}'``. Each
+``devices`` Helm option, e.g. ``devices='eth0,eth1,eth2'``. Each
 listed device has to be named the same on all Cilium managed nodes. Alternatively
 if the devices do not match across different nodes, the wildcard option can be
 used, e.g. ``devices=eth+``, which would match any device starting with prefix
