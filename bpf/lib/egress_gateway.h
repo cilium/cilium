@@ -25,6 +25,14 @@ struct egress_gw_policy_entry {
 	__be32 gateway_ip;
 };
 
+struct egress_gw_policy_entry_v2 {
+	__be32 egress_ip;
+	__be32 gateway_ip;
+	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
+	__u32 egress_ifindex;
+	__u32 reserved2; /* for even more future extension */
+};
+
 struct egress_gw_policy_key6 {
 	struct bpf_lpm_trie_key lpm_key;
 	union v6addr saddr;
@@ -47,6 +55,15 @@ struct {
 	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_egress_gw_policy_v4 __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct egress_gw_policy_key);
+	__type(value, struct egress_gw_policy_entry_v2);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+} cilium_egress_gw_policy_v4_v2 __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
@@ -139,6 +156,17 @@ lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 	};
 	return map_lookup_elem(&cilium_egress_gw_policy_v4, &key);
 }
+
+static __always_inline const struct egress_gw_policy_entry_v2 *
+lookup_ip4_egress_gw_policy_v2(__be32 saddr, __be32 daddr)
+{
+	struct egress_gw_policy_key key = {
+		.lpm_key = { EGRESS_IPV4_PREFIX, {} },
+		.saddr = saddr,
+		.daddr = daddr,
+	};
+	return map_lookup_elem(&cilium_egress_gw_policy_v4_v2, &key);
+}
 # endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline int
@@ -146,13 +174,22 @@ egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 				 __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
+	const struct egress_gw_policy_entry_v2 *egress_gw_policy_v2;
 	const struct egress_gw_policy_entry *egress_gw_policy;
+
+	egress_gw_policy_v2 = lookup_ip4_egress_gw_policy_v2(ipv4_ct_reverse_tuple_saddr(rtuple),
+							     ipv4_ct_reverse_tuple_daddr(rtuple));
+	if (egress_gw_policy_v2) {
+		egress_gw_policy = (struct egress_gw_policy_entry *)egress_gw_policy_v2;
+		goto evaluate_policy;
+	}
 
 	egress_gw_policy = lookup_ip4_egress_gw_policy(ipv4_ct_reverse_tuple_saddr(rtuple),
 						       ipv4_ct_reverse_tuple_daddr(rtuple));
 	if (!egress_gw_policy)
 		return CTX_ACT_OK;
 
+evaluate_policy:
 	switch (egress_gw_policy->gateway_ip) {
 	case EGRESS_GATEWAY_NO_GATEWAY:
 		/* If no gateway is found, drop the packet. */
@@ -175,20 +212,26 @@ bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 			   __u32 *egress_ifindex __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
+	const struct egress_gw_policy_entry_v2 *egress_gw_policy_v2;
 	const struct egress_gw_policy_entry *egress_gw_policy;
+
+	egress_gw_policy_v2 = lookup_ip4_egress_gw_policy_v2(saddr, daddr);
+	if (egress_gw_policy_v2) {
+		egress_gw_policy = (struct egress_gw_policy_entry *)egress_gw_policy_v2;
+		*egress_ifindex = egress_gw_policy_v2->egress_ifindex;
+		goto evaluate_policy;
+	}
 
 	egress_gw_policy = lookup_ip4_egress_gw_policy(saddr, daddr);
 	if (!egress_gw_policy)
 		return false;
 
+evaluate_policy:
 	if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
 	    egress_gw_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
 
 	*snat_addr = egress_gw_policy->egress_ip;
-#ifdef EGRESS_IFINDEX
-	*egress_ifindex = EGRESS_IFINDEX;
-#endif
 
 	return true;
 #else
@@ -200,13 +243,21 @@ static __always_inline
 bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
+	const struct egress_gw_policy_entry_v2 *egress_policy_v2;
 	const struct egress_gw_policy_entry *egress_policy;
 
 	/* Find a matching policy by looking up the reverse address tuple: */
+	egress_policy_v2 = lookup_ip4_egress_gw_policy_v2(ip4->daddr, ip4->saddr);
+	if (egress_policy_v2) {
+		egress_policy = (struct egress_gw_policy_entry *)egress_policy_v2;
+		goto evaluate_policy;
+	}
+
 	egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
 	if (!egress_policy)
 		return false;
 
+evaluate_policy:
 	if (egress_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
 	    egress_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
