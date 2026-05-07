@@ -55,4 +55,16 @@ const (
 
 	// Indexes UDPRoutes by all the Gateway parents referenced in the object.
 	GatewayUDPRouteIndex = "gatewayUDPRouteIndex"
+
+	// Indexes ListenerSets by the parent Gateway referenced in the object.
+	ListenerSetGatewayIndex = "listenerSetGatewayIndex"
+
+	// Indexes HTTPRoutes by all the ListenerSet parents referenced in the object.
+	HTTPRouteListenerSetIndex = "listenerSetHTTPRouteIndex"
+
+	// Indexes GRPCRoutes by all the ListenerSet parents referenced in the object.
+	GRPCRouteListenerSetIndex = "listenerSetGRPCRouteIndex"
+
+	// Indexes TLSRoutes by all the ListenerSet parents referenced in the object.
+	TLSRouteListenerSetIndex = "listenerSetTLSRouteIndex"
 )
