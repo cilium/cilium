@@ -158,13 +158,14 @@ func (c *collection) Run(t *testing.T, kv kernelVersion, records *verifierComple
 		t.Parallel()
 		i := 1
 		for perm := range buildPermutations(c.progDir, kv, c.loadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, c.collection, c.source, c.output, i, records))
+			t.Run(strconv.Itoa(i), compileAndLoad(perm, c.collection, c.source, c.output, kv, i, records))
 			i++
 		}
 	})
 }
 
-func compileAndLoad(perm buildPermutation, collection, source, output string, build int, records *verifierComplexityRecords) func(t *testing.T) {
+func compileAndLoad(perm buildPermutation, collection, source, output string, kv kernelVersion,
+	build int, records *verifierComplexityRecords) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
@@ -206,7 +207,7 @@ func compileAndLoad(perm buildPermutation, collection, source, output string, bu
 				spec,
 				constants,
 				collection,
-				build, ii,
+				kv, build, ii,
 				records,
 			))
 			ii++
@@ -227,6 +228,7 @@ func loadAndRecordComplexity(
 	spec *ebpf.CollectionSpec,
 	constants any,
 	collection string,
+	kv kernelVersion,
 	build, load int,
 	records *verifierComplexityRecords,
 ) func(t *testing.T) {
@@ -364,11 +366,19 @@ func loadAndRecordComplexity(
 				t.Fatalf("Failed to parse verifier log for program %s: %v", n, err)
 			}
 
-			stackDepth, stackDepthIndex, err := parseStackDepth(s, p.VerifierLog, lastLineIndex, lastOff)
-			if err != nil {
-				t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
+			stackDepthIndex := strings.LastIndex(p.VerifierLog[:lastLineIndex], "\n")
+			// On older kernels, the max field is missing in verifier logs so
+			// we can't easily retrieve the max stack size. We'll just return
+			// it for bpf-next, where it's likely already the highest value
+			// anyway.
+			if kv == kernelVersionNetNext {
+				var stackDepth int
+				stackDepth, stackDepthIndex, err = parseStackDepth(s, p.VerifierLog, lastLineIndex, lastOff)
+				if err != nil {
+					t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
+				}
+				r.StackDepth = stackDepth
 			}
-			r.StackDepth = stackDepth
 
 			// Extract the third to last line, which looks like:
 			//   verification time 355643 usec
