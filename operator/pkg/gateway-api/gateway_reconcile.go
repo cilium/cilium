@@ -117,6 +117,12 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	mergedListeners, attachedListenerSets, err := r.resolveAllowedListeners(ctx, scopedLog, gw)
+	if err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to resolve allowed ListenerSet listeners", logfields.Error, err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+
 	httpRouteList := &gatewayv1.HTTPRouteList{}
 	if err := r.Client.List(ctx, httpRouteList, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexers.GatewayHTTPRouteIndex, client.ObjectKeyFromObject(original).String()),
@@ -141,6 +147,51 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
 			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 		}
+	}
+
+	if helpers.HasListenerSetSupport(r.Client.Scheme()) {
+		for _, ls := range attachedListenerSets {
+			lsKey := client.ObjectKeyFromObject(&ls).String()
+
+			lsHTTPRoutes := &gatewayv1.HTTPRouteList{}
+			if err := r.Client.List(ctx, lsHTTPRoutes, &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(indexers.HTTPRouteListenerSetIndex, lsKey),
+			}); err != nil {
+				scopedLog.ErrorContext(ctx, "Unable to list HTTPRoutes for ListenerSet",
+					logfields.Error, err,
+					logfields.Resource, lsKey)
+			} else {
+				httpRouteList.Items = append(httpRouteList.Items, lsHTTPRoutes.Items...)
+			}
+
+			lsGRPCRoutes := &gatewayv1.GRPCRouteList{}
+			if err := r.Client.List(ctx, lsGRPCRoutes, &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(indexers.GRPCRouteListenerSetIndex, lsKey),
+			}); err != nil {
+				scopedLog.ErrorContext(ctx, "Unable to list GRPCRoutes for ListenerSet",
+					logfields.Error, err,
+					logfields.Resource, lsKey)
+			} else {
+				grpcRouteList.Items = append(grpcRouteList.Items, lsGRPCRoutes.Items...)
+			}
+
+			if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
+				lsTLSRoutes := &gatewayv1.TLSRouteList{}
+				if err := r.Client.List(ctx, lsTLSRoutes, &client.ListOptions{
+					FieldSelector: fields.OneTermEqualSelector(indexers.TLSRouteListenerSetIndex, lsKey),
+				}); err != nil {
+					scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes for ListenerSet",
+						logfields.Error, err,
+						logfields.Resource, lsKey)
+				} else {
+					tlsRouteList.Items = append(tlsRouteList.Items, lsTLSRoutes.Items...)
+				}
+			}
+		}
+
+		httpRouteList.Items = deduplicateHTTPRoutes(httpRouteList.Items)
+		grpcRouteList.Items = deduplicateGRPCRoutes(grpcRouteList.Items)
+		tlsRouteList.Items = deduplicateTLSRoutes(tlsRouteList.Items)
 	}
 
 	btlspList := &gatewayv1.BackendTLSPolicyList{}
@@ -268,6 +319,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ServiceImports:      serviceImportsList.Items,
 		ReferenceGrants:     grants.Items,
 		BackendTLSPolicyMap: btlspMap,
+		MergedListeners:     mergedListeners,
 	})
 
 	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, tcpRouteList, udpRouteList, namespaceLabels)
@@ -612,6 +664,101 @@ func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv
 		return nil
 	}
 	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) updateListenerSetStatus(ctx context.Context, original *gatewayv1.ListenerSet, new *gatewayv1.ListenerSet) error {
+	oldStatus := original.Status.DeepCopy()
+	newStatus := new.Status.DeepCopy()
+
+	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
+		return nil
+	}
+	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) resolveAllowedListeners(
+	ctx context.Context,
+	scopedLog *slog.Logger,
+	gw *gatewayv1.Gateway,
+) ([]ingestion.ListenerWithContext, []gatewayv1.ListenerSet, error) {
+	gwSource := gatewayFQR(gw)
+
+	var merged []ingestion.ListenerWithContext
+	for _, l := range gw.Spec.Listeners {
+		merged = append(merged, ingestion.ListenerWithContext{
+			Listener: l,
+			Source:   gwSource,
+		})
+	}
+
+	if !helpers.HasListenerSetSupport(r.Client.Scheme()) {
+		return merged, nil, nil
+	}
+
+	lsList := &gatewayv1.ListenerSetList{}
+	if err := r.Client.List(ctx, lsList, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(indexers.ListenerSetGatewayIndex, client.ObjectKeyFromObject(gw).String()),
+	}); err != nil {
+		return nil, nil, fmt.Errorf("failed to list ListenerSets: %w", err)
+	}
+
+	sortListenerSets(lsList.Items)
+
+	var attachedSets []gatewayv1.ListenerSet
+	for i := range lsList.Items {
+		ls := &lsList.Items[i]
+		if !isListenerSetAllowed(ctx, r.Client, gw, ls, scopedLog) {
+			original := ls.DeepCopy()
+			setListenerSetAccepted(ls, false, "ListenerSet is not allowed by the Gateway's allowedListeners policy", gatewayv1.ListenerSetReasonNotAllowed)
+			setListenerSetProgrammed(ls, false, "ListenerSet is not allowed by the Gateway's allowedListeners policy", gatewayv1.ListenerSetReasonNotAllowed)
+			if err := r.updateListenerSetStatus(ctx, original, ls); err != nil {
+				scopedLog.ErrorContext(ctx, "Unable to update ListenerSet status", logfields.Error, err)
+			}
+			continue
+		}
+		attachedSets = append(attachedSets, *ls)
+
+		lsSource := listenerSetFQR(ls)
+		for _, entry := range ls.Spec.Listeners {
+			listener := helpers.ListenerEntryToListener(entry)
+			merged = append(merged, ingestion.ListenerWithContext{
+				Listener:          listener,
+				Source:            lsSource,
+				AllowedNamespaces: resolveAllowedNamespaces(ctx, r.Client, ls.GetNamespace(), listener, scopedLog),
+			})
+		}
+	}
+
+	attachedCount := int32(len(attachedSets))
+	gw.Status.AttachedListenerSets = &attachedCount
+	return merged, attachedSets, nil
+}
+
+// resolveAllowedNamespaces resolves a listener's allowedRoutes.namespaces policy
+// into a set of namespace names. Returns nil to indicate all namespaces are allowed.
+func resolveAllowedNamespaces(ctx context.Context, c client.Client, listenerNamespace string, listener gatewayv1.Listener, logger *slog.Logger) map[string]struct{} {
+	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil || listener.AllowedRoutes.Namespaces.From == nil {
+		return map[string]struct{}{listenerNamespace: {}}
+	}
+	switch *listener.AllowedRoutes.Namespaces.From {
+	case gatewayv1.NamespacesFromAll:
+		return nil
+	case gatewayv1.NamespacesFromSame:
+		return map[string]struct{}{listenerNamespace: {}}
+	case gatewayv1.NamespacesFromSelector:
+		nsList := &corev1.NamespaceList{}
+		selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
+		if err := c.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
+			logger.ErrorContext(ctx, "Unable to list namespaces for listener", logfields.Error, err)
+			return map[string]struct{}{listenerNamespace: {}}
+		}
+		allowed := make(map[string]struct{})
+		for _, ns := range nsList.Items {
+			allowed[ns.Name] = struct{}{}
+		}
+		return allowed
+	}
+	return map[string]struct{}{listenerNamespace: {}}
 }
 
 func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.HTTPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1.HTTPRoute {
