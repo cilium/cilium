@@ -1833,6 +1833,13 @@
     "defaultLBServiceIPAM": {
       "type": "string"
     },
+    "devices": {
+      "type": [
+        "null",
+        "string",
+        "array"
+      ]
+    },
     "directRoutingSkipUnreachable": {
       "type": "boolean"
     },
