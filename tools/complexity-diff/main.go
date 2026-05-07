@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"maps"
+	"math"
 	"os"
 	"slices"
 	"sort"
@@ -29,6 +30,8 @@ const (
 
 	// Number of top values to display.
 	NumberTopValues = 15
+
+	valuesToSkip = math.MinInt
 )
 
 type verifierComplexityRecord struct {
@@ -109,6 +112,9 @@ func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord
 	printTopMinMax("largest differences by instructions processed", minMaxInsnsProcessed, percentInsnsProcessedDiff, colorRelativeChange)
 
 	minMaxStackDepth := calcMinMax(diffRecords, func(r verifierComplexityRecord) (int, int) {
+		if r.Kernel != "bpf-next" {
+			return math.MinInt, math.MinInt
+		}
 		return r.StackDepth, r.OrigStackDepth
 	})
 	printTopMinMax("largest differences by stack depth", minMaxStackDepth, percentStackDepthDiff, colorRelativeChange)
@@ -136,6 +142,9 @@ func printCurrentState(newRecords map[string]verifierComplexityRecord) []error {
 	}
 
 	minMaxStackDepth := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) (int, int) {
+		if r.Kernel != "bpf-next" {
+			return math.MinInt, math.MinInt
+		}
 		return r.StackDepth, r.OrigStackDepth
 	})
 	err = printTopMinMax("largest stack depth", minMaxStackDepth, percentStackDepth, colorAbsoluteValue)
@@ -308,6 +317,9 @@ func calcMinMax(records []verifierComplexityRecord, metric func(r verifierComple
 	minMaxRecords := map[string]minMax{}
 	for _, r := range records {
 		val, origVal := metric(r)
+		if val == valuesToSkip || origVal == valuesToSkip {
+			continue
+		}
 		mm, ok := minMaxRecords[collectionProgramKey(r)]
 		if !ok {
 			mm = minMax{
