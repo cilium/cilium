@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	PolicyMapName4   = "cilium_egress_gw_policy_v4"
 	PolicyMapName4V2 = "cilium_egress_gw_policy_v4_v2"
 	PolicyMapName6   = "cilium_egress_gw_policy_v6"
 	// PolicyStaticPrefixBits4 represents the size in bits of the static
@@ -38,12 +37,6 @@ type EgressPolicyKey4 struct {
 
 	SourceIP types.IPv4 `align:"saddr"`
 	DestCIDR types.IPv4 `align:"daddr"`
-}
-
-// EgressPolicyVal4 is the value of an egress policy map.
-type EgressPolicyVal4 struct {
-	EgressIP  types.IPv4 `align:"egress_ip"`
-	GatewayIP types.IPv4 `align:"gateway_ip"`
 }
 
 type EgressPolicyVal4V2 struct {
@@ -108,7 +101,6 @@ func createPolicyMapFromDaemonConfig(in struct {
 }) (out struct {
 	cell.Out
 
-	IPv4Map   bpf.MapOut[*PolicyMap4]
 	IPv4MapV2 bpf.MapOut[*PolicyMap4V2]
 	IPv6Map   bpf.MapOut[*PolicyMap6]
 	defines.NodeOut
@@ -122,8 +114,7 @@ func createPolicyMapFromDaemonConfig(in struct {
 	}
 
 	if in.EnableIPv4 {
-		out.IPv4Map = bpf.NewMapOut(createPolicyMap4(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName))
-		out.IPv4MapV2 = bpf.NewMapOut(createPolicyMap4V2(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName))
+		out.IPv4MapV2 = bpf.NewMapOut(createPolicyMap4(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName))
 	}
 
 	if in.EnableIPv6 {
@@ -136,12 +127,8 @@ func createPolicyMapFromDaemonConfig(in struct {
 // CreatePrivatePolicyMap4 creates an unpinned IPv4 policy map.
 //
 // Useful for testing.
-func CreatePrivatePolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) *PolicyMap4 {
+func CreatePrivatePolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) *PolicyMap4V2 {
 	return createPolicyMap4(lc, registry, cfg, ebpf.PinNone)
-}
-
-func CreatePrivatePolicyMap4V2(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) *PolicyMap4V2 {
-	return createPolicyMap4V2(lc, registry, cfg, ebpf.PinNone)
 }
 
 // CreatePrivatePolicyMap6 creates an unpinned IPv6 policy map.
@@ -151,35 +138,7 @@ func CreatePrivatePolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg 
 	return createPolicyMap6(lc, registry, cfg, ebpf.PinNone)
 }
 
-func createPolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *PolicyMap4 {
-	m := bpf.NewMap(
-		PolicyMapName4,
-		ebpf.LPMTrie,
-		&EgressPolicyKey4{},
-		&EgressPolicyVal4{},
-		cfg.EgressGatewayPolicyMapMax,
-		unix.BPF_F_RDONLY_PROG,
-	).WithPressureMetric(registry)
-
-	lc.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			switch pinning {
-			case ebpf.PinNone:
-				return m.CreateUnpinned()
-			case ebpf.PinByName:
-				return m.OpenOrCreate()
-			}
-			return fmt.Errorf("received unexpected pin type: %d", pinning)
-		},
-		OnStop: func(cell.HookContext) error {
-			return m.Close()
-		},
-	})
-
-	return &PolicyMap4{m}
-}
-
-func createPolicyMap4V2(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *PolicyMap4V2 {
+func createPolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *PolicyMap4V2 {
 	m := bpf.NewMap(
 		PolicyMapName4V2,
 		ebpf.LPMTrie,
@@ -236,16 +195,7 @@ func createPolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyC
 }
 
 // OpenPinnedPolicyMap4 opens an existing pinned IPv4 policy map.
-func OpenPinnedPolicyMap4(logger *slog.Logger) (*PolicyMap4, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName4), &EgressPolicyKey4{}, &EgressPolicyVal4{})
-	if err != nil {
-		return nil, err
-	}
-
-	return &PolicyMap4{m}, nil
-}
-
-func OpenPinnedPolicyMap4V2(logger *slog.Logger) (*PolicyMap4V2, error) {
+func OpenPinnedPolicyMap4(logger *slog.Logger) (*PolicyMap4V2, error) {
 	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName4V2), &EgressPolicyKey4{}, &EgressPolicyVal4V2{})
 	if err != nil {
 		return nil, err
@@ -279,15 +229,6 @@ func NewEgressPolicyKey4(sourceIP netip.Addr, destPrefix netip.Prefix) EgressPol
 
 // NewEgressPolicyVal4 returns a new EgressPolicyVal4 object representing for
 // the given egress IP and gateway IPs
-func NewEgressPolicyVal4(egressIP, gatewayIP netip.Addr) EgressPolicyVal4 {
-	val := EgressPolicyVal4{}
-
-	val.EgressIP.FromAddr(egressIP)
-	val.GatewayIP.FromAddr(gatewayIP)
-
-	return val
-}
-
 func NewEgressPolicyVal4V2(egressIP, gatewayIP netip.Addr, egressIfindex uint32) EgressPolicyVal4V2 {
 	val := EgressPolicyVal4V2{}
 
@@ -324,17 +265,10 @@ func (k *EgressPolicyKey4) GetDestCIDR() netip.Prefix {
 }
 
 // New returns an egress policy value
-func (v *EgressPolicyVal4) New() bpf.MapValue { return &EgressPolicyVal4{} }
-
 func (v *EgressPolicyVal4V2) New() bpf.MapValue { return &EgressPolicyVal4V2{} }
 
 // Match returns true if the egressIP and gatewayIP parameters match the egress
 // policy value.
-func (v *EgressPolicyVal4) Match(egressIP, gatewayIP netip.Addr) bool {
-	return v.GetEgressAddr() == egressIP &&
-		v.GetGatewayAddr() == gatewayIP
-}
-
 func (v *EgressPolicyVal4V2) Match(egressIP, gatewayIP netip.Addr, egressIfindex uint32) bool {
 	return v.GetEgressAddr() == egressIP &&
 		v.GetGatewayAddr() == gatewayIP &&
@@ -342,44 +276,22 @@ func (v *EgressPolicyVal4V2) Match(egressIP, gatewayIP netip.Addr, egressIfindex
 }
 
 // GetEgressIP returns the egress policy value's egress IP.
-func (v *EgressPolicyVal4) GetEgressAddr() netip.Addr {
-	return v.EgressIP.Addr()
-}
-
 func (v *EgressPolicyVal4V2) GetEgressAddr() netip.Addr {
 	return v.EgressIP.Addr()
 }
 
 // GetGatewayIP returns the egress policy value's gateway IP.
-func (v *EgressPolicyVal4) GetGatewayAddr() netip.Addr {
-	return v.GatewayIP.Addr()
-}
-
 func (v *EgressPolicyVal4V2) GetGatewayAddr() netip.Addr {
 	return v.GatewayIP.Addr()
 }
 
 // String returns the string representation of an egress policy value.
-func (v *EgressPolicyVal4) String() string {
-	return fmt.Sprintf("%s %s", v.GetGatewayAddr(), v.GetEgressAddr())
-}
-
 func (v *EgressPolicyVal4V2) String() string {
 	return fmt.Sprintf("%s %s %d", v.GetGatewayAddr(), v.GetEgressAddr(), v.EgressIfindex)
 }
 
 // Lookup returns the egress policy object associated with the provided (source
 // IP, destination CIDR) tuple.
-func (m *PolicyMap4) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error) {
-	key := NewEgressPolicyKey4(sourceIP, destCIDR)
-	val, err := m.m.Lookup(&key)
-	if err != nil {
-		return nil, err
-	}
-
-	return val.(*EgressPolicyVal4), err
-}
-
 func (m *PolicyMap4V2) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4V2, error) {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 	val, err := m.m.Lookup(&key)
@@ -392,13 +304,6 @@ func (m *PolicyMap4V2) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*Egre
 
 // Update updates the (sourceIP, destCIDR) egress policy entry with the provided
 // egress and gateway IPs.
-func (m *PolicyMap4) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error {
-	key := NewEgressPolicyKey4(sourceIP, destCIDR)
-	val := NewEgressPolicyVal4(egressIP, gatewayIP)
-
-	return m.m.Update(&key, &val)
-}
-
 func (m *PolicyMap4V2) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr, egressIfindex uint32) error {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 	val := NewEgressPolicyVal4V2(egressIP, gatewayIP, egressIfindex)
@@ -407,12 +312,6 @@ func (m *PolicyMap4V2) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egress
 }
 
 // Delete deletes the (sourceIP, destCIDR) egress policy entry.
-func (m *PolicyMap4) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
-	key := NewEgressPolicyKey4(sourceIP, destCIDR)
-
-	return m.m.Delete(&key)
-}
-
 func (m *PolicyMap4V2) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 
@@ -422,20 +321,10 @@ func (m *PolicyMap4V2) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error 
 // EgressPolicyIterateCallback represents the signature of the callback function
 // expected by the IterateWithCallback method, which in turn is used to iterate
 // all the keys/values of an egress policy map.
-type EgressPolicyIterateCallback func(*EgressPolicyKey4, *EgressPolicyVal4)
 type EgressPolicyIterateCallbackV2 func(*EgressPolicyKey4, *EgressPolicyVal4V2)
 
 // IterateWithCallback iterates through all the keys/values of an egress policy
 // map, passing each key/value pair to the cb callback.
-func (m *PolicyMap4) IterateWithCallback(cb EgressPolicyIterateCallback) error {
-	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
-		key := k.(*EgressPolicyKey4)
-		value := v.(*EgressPolicyVal4)
-
-		cb(key, value)
-	})
-}
-
 func (m *PolicyMap4V2) IterateWithCallback(cb EgressPolicyIterateCallbackV2) error {
 	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
 		key := k.(*EgressPolicyKey4)
