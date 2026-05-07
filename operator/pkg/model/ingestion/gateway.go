@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -422,7 +421,8 @@ func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Servic
 				scopedLog := log.With(
 					logfields.BackendTLSPolicyName, btlsp.Name,
 					logfields.Port, port.Name,
-					logfields.Section, sectionName)
+					logfields.Section, sectionName,
+				)
 
 				scopedLog.Debug("Checking valid BTLSP on port")
 
@@ -684,7 +684,7 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol m
 		for _, rule := range r.Spec.Rules {
 			bes := make([]model.Backend, 0, len(rule.BackendRefs))
 			for _, be := range rule.BackendRefs {
-				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1alpha2.SchemeGroupVersion.WithKind("TLSRoute"), grants) {
+				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1.SchemeGroupVersion.WithKind("TLSRoute"), grants) {
 					continue
 				}
 				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
@@ -800,7 +800,7 @@ func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirror
 
 func toHostname(hostname *gatewayv1.Hostname) string {
 	if hostname != nil {
-		return (string)(*hostname)
+		return string(*hostname)
 	}
 	return allHosts
 }

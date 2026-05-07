@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -49,7 +48,7 @@ func EnqueueRequestForBackendService(c client.Client, logger slog.Logger) handle
 		}
 
 		// Then, fetch all TLSRoutes that reference this service, using the backendServiceIndex
-		tlsrList := &gatewayv1alpha2.TLSRouteList{}
+		tlsrList := &gatewayv1.TLSRouteList{}
 
 		if err := c.List(ctx, tlsrList, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceTLSRouteIndex, client.ObjectKeyFromObject(o).String()),
