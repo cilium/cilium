@@ -461,6 +461,10 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 			// UDPRoute is reconciled by the Gateway API reconciler, but log that the
 			// support has been successfully enabled.
 			logger.Info("UDPRoute CRD is installed, UDPRoute support is enabled")
+		case helpers.ListenerSetKind:
+			// ListenerSet is reconciled by the Gateway API reconciler, but log that the
+			// support has been successfully enabled.
+			logger.Info("ListenerSet CRD is installed, ListenerSet support is enabled")
 		case helpers.ServiceImportKind:
 			// we don't need a reconciler, but we do need to tell folks that the
 			// support is working.
