@@ -13,13 +13,13 @@ Create TLS Certificate and Private Key
 
         .. code-block:: shell-session
 
-            $ mkcert bookinfo.cilium.rocks hispter.cilium.rocks
+            $ mkcert bookinfo.cilium.rocks hipstershop.cilium.rocks
             Note: the local CA is not installed in the system trust store.
             Run "mkcert -install" for certificates to be trusted automatically ⚠️
 
             Created a new certificate valid for the following names 📜
              - "bookinfo.cilium.rocks"
-             - "hispter.cilium.rocks"
+             - "hipstershop.cilium.rocks"
 
             The certificate is at "./bookinfo.cilium.rocks+1.pem" and the key at "./bookinfo.cilium.rocks+1-key.pem" ✅
 
