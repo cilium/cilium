@@ -355,6 +355,7 @@ rules:
   - referencegrants
   - referencepolicies
   - backendtlspolicies
+  - listenersets
   verbs:
   - get
   - list
@@ -376,6 +377,7 @@ rules:
   - backendtlspolicies/status
   - tcproutes/status
   - udproutes/status
+  - listenersets/status
   verbs:
   - update
   - patch
