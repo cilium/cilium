@@ -9,9 +9,9 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 )
 
-func computeHosts[T ~string](gw *gatewayv1.Gateway, hostnames []T, excludeHostNames []T) []string {
+func computeHosts[T ~string](listeners []gatewayv1.Listener, hostnames []T, excludeHostNames []T) []string {
 	hosts := make([]string, 0, len(hostnames))
-	for _, listener := range gw.Spec.Listeners {
+	for _, listener := range listeners {
 		hosts = append(hosts, computeHostsForListener(&listener, hostnames, excludeHostNames)...)
 	}
 

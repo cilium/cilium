@@ -58,7 +58,7 @@ func groupDerefOr(group *gatewayv1.Group, defaultGroup string) string {
 // isAllowed returns true if the provided Route is allowed to attach to given gateway
 func isAllowed(gw *gatewayv1.Gateway, route metav1.Object, namespaceLabels gatewayapihelpers.NamespaceLabelIndex) bool {
 	for _, listener := range gw.Spec.Listeners {
-		if listenerisAllowed(gw, &listener, route, namespaceLabels) {
+		if listenerisAllowed(gw.GetNamespace(), &listener, route, namespaceLabels) {
 			return true
 		}
 	}
@@ -66,16 +66,16 @@ func isAllowed(gw *gatewayv1.Gateway, route metav1.Object, namespaceLabels gatew
 }
 
 // listenerisAllowed reports whether route may attach to listener.
-func listenerisAllowed(gw *gatewayv1.Gateway, listener *gatewayv1.Listener, route metav1.Object, namespaceLabels gatewayapihelpers.NamespaceLabelIndex) bool {
+func listenerisAllowed(listenerNamespace string, listener *gatewayv1.Listener, route metav1.Object, namespaceLabels gatewayapihelpers.NamespaceLabelIndex) bool {
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
-		return gatewayapihelpers.IsListenerNamespaceAllowed(*listener, route.GetNamespace(), gw.GetNamespace(), namespaceLabels)
+		return gatewayapihelpers.IsListenerNamespaceAllowed(*listener, route.GetNamespace(), listenerNamespace, namespaceLabels)
 	}
 
 	// check if route is kind-allowed
 	if !isKindAllowed(*listener, route) {
 		return false
 	}
-	return gatewayapihelpers.IsListenerNamespaceAllowed(*listener, route.GetNamespace(), gw.GetNamespace(), namespaceLabels)
+	return gatewayapihelpers.IsListenerNamespaceAllowed(*listener, route.GetNamespace(), listenerNamespace, namespaceLabels)
 }
 
 func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
