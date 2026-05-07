@@ -71,7 +71,6 @@ var (
 		"edt_id":                    {bwmap.EdtId{}},
 		"edt_info":                  {bwmap.EdtInfo{}},
 		"egress_gw_policy_key":      {egressmap.EgressPolicyKey4{}},
-		"egress_gw_policy_entry":    {egressmap.EgressPolicyVal4{}},
 		"egress_gw_policy_entry_v2": {egressmap.EgressPolicyVal4V2{}},
 		"egress_gw_policy_key6":     {egressmap.EgressPolicyKey6{}},
 		"egress_gw_policy_entry6":   {egressmap.EgressPolicyVal6{}},

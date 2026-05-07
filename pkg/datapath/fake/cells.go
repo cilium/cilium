@@ -72,7 +72,7 @@ var Cell = cell.Module(
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 		func() encrypt.EncryptMap { return fakeencrypt.NewFakeEncryptMap() },
-		func() *egressmap.PolicyMap4 { return nil },
+		func() *egressmap.PolicyMap4V2 { return nil },
 		func() *egressmap.PolicyMap6 { return nil },
 		func() lxcmap.Map { return nil },
 		func() bigtcp.Config { return &fakebigtcp.Config{} },
