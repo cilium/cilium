@@ -36,13 +36,13 @@ echo "Latest image from branch ${github_branch}: ${image_full}"
 
 DOCKERFILEPATH="./images/cilium/Dockerfile"
 echo "Updating image in ${DOCKERFILEPATH}"
-sed -i -E "s|ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy.*:.*@sha256:[0-9a-z]*|ARG CILIUM_ENVOY_IMAGE=${image}:${image_tag}@${image_sha256}|" ${DOCKERFILEPATH}
+sed -i -E "s|ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy.*:.*$|ARG CILIUM_ENVOY_IMAGE=${image}:${image_tag}@${image_sha256}|" ${DOCKERFILEPATH}
 
 MAKEFILEPATH="./install/kubernetes/Makefile.values"
 echo "Updating image in ${MAKEFILEPATH}"
-sed -i -E "s|export[[:space:]]+CILIUM_ENVOY_REPO:=.*|export CILIUM_ENVOY_REPO:=${image}|" ${MAKEFILEPATH}
-sed -i -E "s|export[[:space:]]+CILIUM_ENVOY_VERSION:=.*|export CILIUM_ENVOY_VERSION:=${image_tag}|" ${MAKEFILEPATH}
-sed -i -E "s|export[[:space:]]+CILIUM_ENVOY_DIGEST:=.*|export CILIUM_ENVOY_DIGEST:=${image_sha256}|" ${MAKEFILEPATH}
+sed -i -E "s|(export[[:space:]]+CILIUM_ENVOY_REPO.=).*|\1${image}|" ${MAKEFILEPATH}
+sed -i -E "s|(export[[:space:]]+CILIUM_ENVOY_VERSION.=).*|\1${image_tag}|" ${MAKEFILEPATH}
+sed -i -E "s|(export[[:space:]]+CILIUM_ENVOY_DIGEST.=).*|\1${image_sha256}|" ${MAKEFILEPATH}
 
 if git diff --exit-code ./install/kubernetes/Makefile.values ./images/cilium/Dockerfile &>/dev/null ; then
   echo "The envoy image is already up to date"
