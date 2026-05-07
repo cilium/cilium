@@ -24,6 +24,7 @@
 #include "stubs.h"
 #include "trace.h"
 #include "aux.h"
+#include "subnet.h"
 
 /* Nodeport NAT minimum port value */
 #define NODEPORT_PORT_MIN_NAT CONFIG(nodeport_port_max) + 1
@@ -776,6 +777,18 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		 * by the remote node if its native dev's
 		 * rp_filter=1.
 		 */
+
+		/* In hybrid routing mode, skip SNAT for traffic within the same
+		 * subnet group. These packets are natively routed and don't need
+		 * masquerading.
+		 */
+		if (CONFIG(hybrid_routing_enabled)) {
+			__u32 src_subnet_id = lookup_ip4_subnet_id(tuple->saddr);
+			__u32 dst_subnet_id = lookup_ip4_subnet_id(tuple->daddr);
+
+			if ((src_subnet_id == dst_subnet_id) && (src_subnet_id != 0))
+				return NAT_PUNT_TO_STACK;
+		}
 
 		if (remote_ep->flag_skip_tunnel)
 			return NAT_PUNT_TO_STACK;
@@ -1768,6 +1781,18 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		}
 		if (!is_defined(TUNNEL_MODE))
 			return NAT_PUNT_TO_STACK;
+
+		/* In hybrid routing mode, skip SNAT for traffic within the same
+		 * subnet group. These packets are natively routed and don't need
+		 * masquerading.
+		 */
+		if (CONFIG(hybrid_routing_enabled)) {
+			__u32 src_subnet_id = lookup_ip6_subnet_id((union v6addr *)&tuple->saddr);
+			__u32 dst_subnet_id = lookup_ip6_subnet_id(&tuple->daddr);
+
+			if ((src_subnet_id == dst_subnet_id) && (src_subnet_id != 0))
+				return NAT_PUNT_TO_STACK;
+		}
 
 		if (remote_ep->flag_skip_tunnel)
 			return NAT_PUNT_TO_STACK;
