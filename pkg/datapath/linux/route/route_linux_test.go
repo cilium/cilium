@@ -68,7 +68,6 @@ func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest boo
 
 	nexthop := net.ParseIP(nexthopStr)
 	require.NotNil(t, nexthop)
-
 	rt := Route{
 		Device:  "lo",
 		Prefix:  *prefix,
@@ -106,8 +105,24 @@ func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest boo
 func TestPrivilegedReplaceRoute(t *testing.T) {
 	setup(t)
 
+	link, err := safenetlink.LinkByName("lo")
+	require.NoError(t, err)
+
+	// Add addresses to lo within the same subnets as the nexthops so the
+	// kernel accepts the link-scope nexthop routes. The addresses must be
+	// different from the nexthops themselves but in the same subnet.
+	v4Addr, err := netlink.ParseAddr("1.2.3.1/24")
+	require.NoError(t, err)
+	require.NoError(t, netlink.AddrAdd(link, v4Addr))
+	defer netlink.AddrDel(link, v4Addr)
+
+	v6Addr, err := netlink.ParseAddr("f00d::a02:100:0:1/96")
+	require.NoError(t, err)
+	require.NoError(t, netlink.AddrAdd(link, v6Addr))
+	defer netlink.AddrDel(link, v6Addr)
+
 	testReplaceRoute(t, "2.2.0.0/16", "1.2.3.4", true)
-	// lookup test broken for IPv6 as long as use lo as device
+	// lookup test broken for IPv6 as long as we use lo as device
 	testReplaceRoute(t, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", false)
 }
 
