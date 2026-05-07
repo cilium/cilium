@@ -11,7 +11,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,7 +29,7 @@ type TCPRouteInput struct {
 	TCPRoute       *gatewayv1alpha2.TCPRoute
 	ControllerName string
 
-	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
+	gateways map[gatewayv1.ParentReference]ListenerOwner
 }
 
 func (t *TCPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition) {
@@ -114,33 +113,27 @@ func (t *TCPRouteInput) GetHostnames() []gatewayv1.Hostname {
 	return nil
 }
 
-func (t *TCPRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error) {
-	if t.gateways == nil {
-		t.gateways = make(map[gatewayv1.ParentReference]*gatewayv1.Gateway)
-	}
-
-	if gw, exists := t.gateways[parent]; exists {
-		return gw, nil
-	}
-
-	ns := helpers.NamespaceDerefOr(parent.Namespace, t.GetNamespace())
-	gw := &gatewayv1.Gateway{}
-
-	if err := t.Client.Get(t.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return nil, fmt.Errorf("error while getting gateway: %w", err)
-		}
-
-		return nil, fmt.Errorf("gateway %q does not exist: %w", parent.Name, err)
-	}
-
-	t.gateways[parent] = gw
-
-	return gw, nil
-}
-
 func (t *TCPRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
 	return nil, fmt.Errorf("GAMMA support is not implemented in this reconciler")
+}
+
+func (t *TCPRouteInput) GetListenerOwner(parent gatewayv1.ParentReference) (ListenerOwner, error) {
+	if t.gateways == nil {
+		t.gateways = make(map[gatewayv1.ParentReference]ListenerOwner)
+	}
+
+	if owner, exists := t.gateways[parent]; exists {
+		return owner, nil
+	}
+
+	owner, err := ResolveListenerOwner(t.Ctx, t.Client, parent, t.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	t.gateways[parent] = owner
+
+	return owner, nil
 }
 
 func (t *TCPRouteInput) Log() *slog.Logger {

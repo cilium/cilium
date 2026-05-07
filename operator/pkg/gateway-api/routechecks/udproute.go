@@ -11,7 +11,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,7 +29,7 @@ type UDPRouteInput struct {
 	UDPRoute       *gatewayv1alpha2.UDPRoute
 	ControllerName string
 
-	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
+	gateways map[gatewayv1.ParentReference]ListenerOwner
 }
 
 func (u *UDPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition) {
@@ -114,33 +113,27 @@ func (u *UDPRouteInput) GetHostnames() []gatewayv1.Hostname {
 	return nil
 }
 
-func (u *UDPRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error) {
-	if u.gateways == nil {
-		u.gateways = make(map[gatewayv1.ParentReference]*gatewayv1.Gateway)
-	}
-
-	if gw, exists := u.gateways[parent]; exists {
-		return gw, nil
-	}
-
-	ns := helpers.NamespaceDerefOr(parent.Namespace, u.GetNamespace())
-	gw := &gatewayv1.Gateway{}
-
-	if err := u.Client.Get(u.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return nil, fmt.Errorf("error while getting gateway: %w", err)
-		}
-
-		return nil, fmt.Errorf("gateway %q does not exist: %w", parent.Name, err)
-	}
-
-	u.gateways[parent] = gw
-
-	return gw, nil
-}
-
 func (u *UDPRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
 	return nil, fmt.Errorf("GAMMA support is not implemented in this reconciler")
+}
+
+func (u *UDPRouteInput) GetListenerOwner(parent gatewayv1.ParentReference) (ListenerOwner, error) {
+	if u.gateways == nil {
+		u.gateways = make(map[gatewayv1.ParentReference]ListenerOwner)
+	}
+
+	if owner, exists := u.gateways[parent]; exists {
+		return owner, nil
+	}
+
+	owner, err := ResolveListenerOwner(u.Ctx, u.Client, parent, u.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	u.gateways[parent] = owner
+
+	return owner, nil
 }
 
 func (u *UDPRouteInput) Log() *slog.Logger {
