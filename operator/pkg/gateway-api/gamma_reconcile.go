@@ -253,7 +253,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 func (r *gammaReconciler) filterHTTPRoutesByService(ctx context.Context, gammaService *corev1.Service, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(ctx, gammaService, &route, route.Status.Parents) {
+		if helpers.IsParentAttachable(ctx, gammaService, &route, route.Status.Parents, nil) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -263,7 +263,7 @@ func (r *gammaReconciler) filterHTTPRoutesByService(ctx context.Context, gammaSe
 func (r *gammaReconciler) filterGRPCRoutesByService(ctx context.Context, gammaService *corev1.Service, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
 	var filtered []gatewayv1.GRPCRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(ctx, gammaService, &route, route.Status.Parents) {
+		if helpers.IsParentAttachable(ctx, gammaService, &route, route.Status.Parents, nil) {
 			filtered = append(filtered, route)
 		}
 	}

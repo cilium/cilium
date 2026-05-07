@@ -112,7 +112,7 @@ func TestIsParentAttachable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsParentAttachable(context.Background(), tt.reconcileParent, tt.route, tt.parents)
+			got := IsParentAttachable(context.Background(), tt.reconcileParent, tt.route, tt.parents, nil)
 			// TODO: update the condition below to compare got with tt.want.
 			if tt.want != got {
 				t.Errorf("IsParentAttachable() = %v, want %v", got, tt.want)
