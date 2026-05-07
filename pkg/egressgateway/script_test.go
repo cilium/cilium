@@ -158,7 +158,6 @@ var testCell = cell.Group(
 		func() egressmap.PolicyConfig {
 			return egressmap.DefaultPolicyConfig
 		},
-		egressmap.CreatePrivatePolicyMap4,
 		egressmap.CreatePrivatePolicyMap4V2,
 		egressmap.CreatePrivatePolicyMap6,
 	),

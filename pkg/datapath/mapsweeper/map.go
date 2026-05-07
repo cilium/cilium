@@ -171,7 +171,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_snat_v4_external",
 			"cilium_snat_v4_alloc_retries",
 			"cilium_l2_responder_v4",
-			"cilium_egress_gw_policy_v4",
 			"cilium_egress_gw_policy_v4_v2",
 			lbmaps.MaglevOuter4MapName,
 			lbmaps.Affinity4MapName,
