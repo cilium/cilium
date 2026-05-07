@@ -1202,17 +1202,14 @@ drop_err:
 	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_INGRESS);
 }
 
+DEFINE_AUX(struct bpf_fib_lookup_padded, nodeport_fib_params);
+
 __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
 static __always_inline
 int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 {
 	const bool nat_46x64 = nat46x64_cb_xlate(ctx);
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET6,
-			.ifindex	= ctx_get_ifindex(ctx),
-		},
-	};
+	struct bpf_fib_lookup_padded *fib_params = AUX(nodeport_fib_params);
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
@@ -1338,16 +1335,19 @@ fib_ipv4:
 			ret = DROP_INVALID;
 			goto drop_err;
 		}
-		fib_params.l.ipv4_src = ip4->saddr;
-		fib_params.l.ipv4_dst = ip4->daddr;
-		fib_params.l.family = AF_INET;
+		fib_params->l.ipv4_src = ip4->saddr;
+		fib_params->l.ipv4_dst = ip4->daddr;
+		fib_params->l.family = AF_INET;
 	} else {
-		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
+		ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_src,
 			       (union v6addr *)&ip6->saddr);
-		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
+		ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
+
+	fib_params->l.family = AF_INET6;
+	fib_params->l.ifindex	= ctx_get_ifindex(ctx);
+	ret = fib_redirect(ctx, true, fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		return ret;
 	}
