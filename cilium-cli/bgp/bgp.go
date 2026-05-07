@@ -52,6 +52,7 @@ type Parameters struct {
 	WaitDuration     time.Duration
 	Output           string
 	ShowCaps         bool
+	ShowAttrs        bool
 }
 
 // Status is used to get bgp state from cilium agents

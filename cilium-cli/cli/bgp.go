@@ -26,7 +26,7 @@ func newCmdBgp() *cobra.Command {
 		Long:  ``,
 	}
 
-	cmd.AddCommand(legacyCMD, newCmdBgpPeers())
+	cmd.AddCommand(legacyCMD, newCmdBgpPeers(), newCmdBgpRoutes())
 	legacyCMD.AddCommand(newCmdBgpPeersLegacy(), newCmdBgpRoutesLegacy())
 
 	return cmd
@@ -84,6 +84,36 @@ func newCmdBgpPeersLegacy() *cobra.Command {
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
 	cmd.Flags().BoolVarP(&params.ShowCaps, "capabilities", "c", false, "Show all BGP peer capabilities in detail")
+	return cmd
+}
+
+func newCmdBgpRoutes() *cobra.Command {
+	params := bgp.Parameters{}
+
+	cmd := &cobra.Command{
+		Use:   "routes <table type> <afi> <safi>",
+		Short: "List BGP routes on Cilium",
+		Long:  "List routes in the BGP Control Plane's RIBs",
+		Example: `  table type: "loc" (loc-rib), "in" (adj-rib-in), or "out" (adj-rib-out).
+  afi: Address Family Identifier (e.g. ipv4, ipv6).
+  safi: Subsequent Address Family Identifier (e.g. unicast).`,
+
+		RunE: func(_ *cobra.Command, args []string) error {
+			params.CiliumNamespace = RootParams.Namespace
+
+			s := bgp.NewStatus(RootK8sClient, params)
+			err := s.GetRoutes(context.Background(), args)
+			if err != nil {
+				fatalf("Unable to get BGP routes: %s", err)
+			}
+
+			return nil
+		},
+	}
+
+	addCommonFlags(cmd, &params)
+	cmd.Flags().BoolVarP(&params.ShowAttrs, "with-attrs", "a", false, "Show path attributes (excluding NEXT_HOP and MP_REACH_NLRI)")
+
 	return cmd
 }
 
