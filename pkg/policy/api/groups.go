@@ -58,8 +58,8 @@ func (g *Groups) Hash() string {
 		// unreachable; we already loaded this from JSON via the apiserver...
 		return ""
 	}
-	sum := sha256.New224().Sum(b)
-	return base64.RawURLEncoding.EncodeToString(sum)[0:63]
+	sum := sha256.Sum224(b)
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 // LabelKey returns a unique label key for this group, in the format of
