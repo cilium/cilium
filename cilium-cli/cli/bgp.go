@@ -26,8 +26,34 @@ func newCmdBgp() *cobra.Command {
 		Long:  ``,
 	}
 
-	cmd.AddCommand(legacyCMD)
+	cmd.AddCommand(legacyCMD, newCmdBgpPeers())
 	legacyCMD.AddCommand(newCmdBgpPeersLegacy(), newCmdBgpRoutesLegacy())
+
+	return cmd
+}
+
+func newCmdBgpPeers() *cobra.Command {
+	params := bgp.Parameters{}
+
+	cmd := &cobra.Command{
+		Use:   "peers",
+		Short: "List BGP peers on Cilium",
+		Long:  "List current state of all BGP peers configured in Cilium BGP Control Plane",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			params.CiliumNamespace = RootParams.Namespace
+
+			s := bgp.NewStatus(RootK8sClient, params)
+			err := s.GetPeeringState(context.Background())
+			if err != nil {
+				fatalf("Unable to get peering status: %s", err)
+			}
+
+			return nil
+		},
+	}
+
+	addCommonFlags(cmd, &params)
+	cmd.Flags().StringVarP(&params.Output, "format", "f", status.FormatTable, "Format to write in (table or detailed)")
 
 	return cmd
 }
@@ -96,4 +122,10 @@ func newCmdBgpRoutesLegacy() *cobra.Command {
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
 
 	return cmd
+}
+
+func addCommonFlags(cmd *cobra.Command, params *bgp.Parameters) {
+	cmd.Flags().StringVar(&params.AgentPodSelector, "agent-pod-selector", defaults.AgentPodSelector, "Label on cilium-agent pods to select with")
+	cmd.Flags().StringVar(&params.NodeName, "node", "", "Node from which BGP status will be fetched, omit to select all nodes")
+	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 }

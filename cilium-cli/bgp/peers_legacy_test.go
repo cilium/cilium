@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	expectedColFormat = []string{
+func Test_printSummaryLegacy(t *testing.T) {
+	expectedColFormat := []string{
 		"Node",
 		"Local AS",
 		"Peer AS",
@@ -28,7 +28,7 @@ var (
 		"Advertised",
 	}
 
-	ipv4Unicast1 = &models.BgpPeerFamilies{
+	ipv4Unicast1 := &models.BgpPeerFamilies{
 		Accepted:   1,
 		Advertised: 1,
 		Afi:        "ipv4",
@@ -36,7 +36,7 @@ var (
 		Safi:       "unicast",
 	}
 
-	ipv6Unicast1 = &models.BgpPeerFamilies{
+	ipv6Unicast1 := &models.BgpPeerFamilies{
 		Accepted:   0,
 		Advertised: 0,
 		Afi:        "ipv6",
@@ -44,7 +44,7 @@ var (
 		Safi:       "unicast",
 	}
 
-	peer1 = &models.BgpPeer{
+	peer1 := &models.BgpPeer{
 		LocalAsn:          65001,
 		PeerAddress:       "192.168.0.2",
 		PeerAsn:           65002,
@@ -53,7 +53,7 @@ var (
 		Families:          []*models.BgpPeerFamilies{ipv4Unicast1, ipv6Unicast1},
 	}
 
-	peer2 = &models.BgpPeer{
+	peer2 := &models.BgpPeer{
 		LocalAsn:          65101,
 		PeerAddress:       "192.168.0.2",
 		PeerAsn:           65102,
@@ -61,9 +61,7 @@ var (
 		UptimeNanoseconds: int64(time.Second),
 		Families:          []*models.BgpPeerFamilies{ipv4Unicast1, ipv6Unicast1},
 	}
-)
 
-func Test_printSummary(t *testing.T) {
 	testCases := []struct {
 		Name         string
 		Config       map[string][]*models.BgpPeer
