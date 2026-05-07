@@ -65,3 +65,22 @@ func IndexTLSRouteByGateway(rawObj client.Object) []string {
 	}
 	return gateways
 }
+
+// IndexTLSRouteByListenerSet indexes TLSRoutes by all ListenerSet parents
+// referenced in the object, returning ListenerSet full names (`namespace/name`).
+func IndexTLSRouteByListenerSet(rawObj client.Object) []string {
+	route := rawObj.(*gatewayv1.TLSRoute)
+	var listenerSets []string
+	for _, parent := range route.Spec.ParentRefs {
+		if !helpers.IsListenerSet(parent) {
+			continue
+		}
+		listenerSets = append(listenerSets,
+			types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, route.Namespace),
+				Name:      string(parent.Name),
+			}.String(),
+		)
+	}
+	return listenerSets
+}

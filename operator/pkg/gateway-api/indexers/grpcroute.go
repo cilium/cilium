@@ -35,6 +35,25 @@ func IndexGRPCRouteByGateway(rawObj client.Object) []string {
 	return gateways
 }
 
+// IndexGRPCRouteByListenerSet indexes GRPCRoutes by all ListenerSet parents
+// referenced in the object, returning ListenerSet full names (`namespace/name`).
+func IndexGRPCRouteByListenerSet(rawObj client.Object) []string {
+	route := rawObj.(*gatewayv1.GRPCRoute)
+	var listenerSets []string
+	for _, parent := range route.Spec.ParentRefs {
+		if !helpers.IsListenerSet(parent) {
+			continue
+		}
+		listenerSets = append(listenerSets,
+			types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, route.Namespace),
+				Name:      string(parent.Name),
+			}.String(),
+		)
+	}
+	return listenerSets
+}
+
 // IndexGRPCRouteByGammaService is a client.IndexerFunc that takes a single GRPCRoute and returns all
 // referenced Service object full names (`namespace/name`) to add to the relevant index.
 func IndexGRPCRouteByGammaService(rawObj client.Object) []string {
