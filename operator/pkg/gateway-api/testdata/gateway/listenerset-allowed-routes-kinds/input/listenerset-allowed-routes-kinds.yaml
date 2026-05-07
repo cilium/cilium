@@ -1,0 +1,51 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: allowed-route-kinds
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  allowedListeners:
+    namespaces:
+      from: Same
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: valid-kinds
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: allowed-route-kinds
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: http-valid
+      port: 8080
+      protocol: HTTP
+      allowedRoutes:
+        kinds:
+          - kind: HTTPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: invalid-kinds
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: allowed-route-kinds
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: http-invalid
+      port: 9090
+      protocol: HTTP
+      allowedRoutes:
+        kinds:
+          - kind: FooRoute
