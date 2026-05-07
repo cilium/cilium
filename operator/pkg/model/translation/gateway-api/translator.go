@@ -61,8 +61,15 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 
 	for _, l := range listeners {
 		sources := l.GetSources()
-		source = &sources[0]
-		owner = source
+		// Source must come from a direct Gateway listener or a GAMMA Service.
+		// The existence of one such listener is validated in the calling
+		// context. ListenerSet listeners may appear first, so this loop scans
+		// for the first direct Gateway listener source.
+		if source == nil && sources[0].Kind != "ListenerSet" {
+			source = &sources[0]
+			owner = source
+		}
+
 		// If there's more than one source in the listener, then this model is a GAMMA one,
 		// and includes a HTTPRoute source as the second one.
 		if len(sources) > 1 {
