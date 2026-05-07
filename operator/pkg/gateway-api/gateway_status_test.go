@@ -132,11 +132,12 @@ func Test_gatewayStatusReadyCondition(t *testing.T) {
 	}
 }
 
-func Test_gatewayListenerProgrammedCondition(t *testing.T) {
+func Test_listenerProgrammedCondition(t *testing.T) {
 	type args struct {
-		gw    *gatewayv1.Gateway
-		ready bool
-		msg   string
+		generation int64
+		ready      bool
+		reason     gatewayv1.ListenerConditionReason
+		msg        string
 	}
 	tests := []struct {
 		name string
@@ -146,13 +147,10 @@ func Test_gatewayListenerProgrammedCondition(t *testing.T) {
 		{
 			name: "ready",
 			args: args{
-				gw: &gatewayv1.Gateway{
-					ObjectMeta: metav1.ObjectMeta{
-						Generation: 100,
-					},
-				},
-				ready: true,
-				msg:   "Listener Ready",
+				generation: 100,
+				ready:      true,
+				reason:     gatewayv1.ListenerConditionReason(gatewayv1.ListenerConditionProgrammed),
+				msg:        "Listener Ready",
 			},
 			want: metav1.Condition{
 				Type:               "Programmed",
@@ -165,13 +163,10 @@ func Test_gatewayListenerProgrammedCondition(t *testing.T) {
 		{
 			name: "unready",
 			args: args{
-				gw: &gatewayv1.Gateway{
-					ObjectMeta: metav1.ObjectMeta{
-						Generation: 100,
-					},
-				},
-				ready: false,
-				msg:   "Listener Pending",
+				generation: 100,
+				ready:      false,
+				reason:     gatewayv1.ListenerReasonPending,
+				msg:        "Listener Pending",
 			},
 			want: metav1.Condition{
 				Type:               "Programmed",
@@ -184,8 +179,8 @@ func Test_gatewayListenerProgrammedCondition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gatewayListenerProgrammedCondition(tt.args.gw, tt.args.ready, tt.args.msg)
-			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusAcceptedCondition() = %v, want %v", got, tt.want)
+			got := listenerProgrammedCondition(tt.args.generation, tt.args.ready, tt.args.reason, tt.args.msg)
+			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "listenerProgrammedCondition() = %v, want %v", got, tt.want)
 		})
 	}
 }
