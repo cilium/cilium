@@ -11,7 +11,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +28,7 @@ type TLSRouteInput struct {
 	TLSRoute       *gatewayv1.TLSRoute
 	ControllerName string
 
-	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
+	gateways map[gatewayv1.ParentReference]ListenerOwner
 }
 
 func (t *TLSRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition) {
@@ -114,31 +113,23 @@ func (t *TLSRouteInput) GetHostnames() []gatewayv1.Hostname {
 	return t.TLSRoute.Spec.Hostnames
 }
 
-func (t *TLSRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error) {
+func (t *TLSRouteInput) GetListenerOwner(parent gatewayv1.ParentReference) (ListenerOwner, error) {
 	if t.gateways == nil {
-		t.gateways = make(map[gatewayv1.ParentReference]*gatewayv1.Gateway)
+		t.gateways = make(map[gatewayv1.ParentReference]ListenerOwner)
 	}
 
-	if gw, exists := t.gateways[parent]; exists {
-		return gw, nil
+	if owner, exists := t.gateways[parent]; exists {
+		return owner, nil
 	}
 
-	ns := helpers.NamespaceDerefOr(parent.Namespace, t.GetNamespace())
-	gw := &gatewayv1.Gateway{}
-
-	if err := t.Client.Get(t.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			// if it is not just a not found error, we should return the error as something is bad
-			return nil, fmt.Errorf("error while getting gateway: %w", err)
-		}
-
-		// Gateway does not exist skip further checks
-		return nil, fmt.Errorf("gateway %q does not exist: %w", parent.Name, err)
+	owner, err := ResolveListenerOwner(t.Ctx, t.Client, parent, t.GetNamespace())
+	if err != nil {
+		return nil, err
 	}
 
-	t.gateways[parent] = gw
+	t.gateways[parent] = owner
 
-	return gw, nil
+	return owner, nil
 }
 
 func (t *TLSRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {

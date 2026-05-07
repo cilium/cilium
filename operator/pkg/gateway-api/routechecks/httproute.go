@@ -29,7 +29,7 @@ type HTTPRouteInput struct {
 	HTTPRoute      *gatewayv1.HTTPRoute
 	ControllerName string
 
-	gateways      map[gatewayv1.ParentReference]*gatewayv1.Gateway
+	gateways      map[gatewayv1.ParentReference]ListenerOwner
 	gammaServices map[gatewayv1.ParentReference]*corev1.Service
 }
 
@@ -106,31 +106,23 @@ func (h *HTTPRouteInput) GetHostnames() []gatewayv1.Hostname {
 	return h.HTTPRoute.Spec.Hostnames
 }
 
-func (h *HTTPRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error) {
+func (h *HTTPRouteInput) GetListenerOwner(parent gatewayv1.ParentReference) (ListenerOwner, error) {
 	if h.gateways == nil {
-		h.gateways = make(map[gatewayv1.ParentReference]*gatewayv1.Gateway)
+		h.gateways = make(map[gatewayv1.ParentReference]ListenerOwner)
 	}
 
-	if gw, exists := h.gateways[parent]; exists {
-		return gw, nil
+	if owner, exists := h.gateways[parent]; exists {
+		return owner, nil
 	}
 
-	ns := helpers.NamespaceDerefOr(parent.Namespace, h.GetNamespace())
-	gw := &gatewayv1.Gateway{}
-
-	if err := h.Client.Get(h.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			// if it is not just a not found error, we should return the error as something is bad
-			return nil, fmt.Errorf("error while getting gateway: %w", err)
-		}
-
-		// Gateway does not exist skip further checks
-		return nil, fmt.Errorf("gateway %q does not exist: %w", parent.Name, err)
+	owner, err := ResolveListenerOwner(h.Ctx, h.Client, parent, h.GetNamespace())
+	if err != nil {
+		return nil, err
 	}
 
-	h.gateways[parent] = gw
+	h.gateways[parent] = owner
 
-	return gw, nil
+	return owner, nil
 }
 
 func (h *HTTPRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
