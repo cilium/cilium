@@ -59,7 +59,7 @@ The native host networking devices are auto detected as native devices which hav
 the default route on the host or have Kubernetes ``InternalIP`` or ``ExternalIP`` assigned.
 ``InternalIP`` is preferred over ``ExternalIP`` if both exist. To change and manually specify
 the devices, set their names in the ``devices`` helm option (e.g.
-``devices='{eth0,eth1,eth2}'``). Each listed device has to be named the same
+``devices='eth0,eth1,eth2'``). Each listed device has to be named the same
 on all Cilium-managed nodes.
 
 Verify that the Cilium Pods have come up correctly:
