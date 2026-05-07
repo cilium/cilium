@@ -29,8 +29,10 @@ const (
 )
 
 const (
-	OutputJSON    = "json"
-	OutputSummary = "summary"
+	FormatTable    = "table"
+	FormatDetailed = "detailed"
+	OutputJSON     = "json"
+	OutputSummary  = "summary"
 )
 
 // MapCount is a map to count number of occurrences of a string

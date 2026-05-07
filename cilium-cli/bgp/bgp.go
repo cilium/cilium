@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,28 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 )
+
+// output format of BGP hive shell commands
+type tableJSON struct {
+	Columns []string            `json:"columns"`
+	Rows    []map[string]string `json:"rows"`
+}
+
+func (t tableJSON) ToStrings() []string {
+	rows := []string{strings.Join(t.Columns, "\t")}
+	for _, row := range t.Rows {
+		var builder strings.Builder
+		for j, column := range t.Columns {
+			if j != 0 {
+				builder.WriteString("\t")
+			}
+			builder.WriteString(row[column])
+		}
+		rows = append(rows, builder.String())
+	}
+
+	return rows
+}
 
 // Parameters contains options for CLI
 type Parameters struct {
