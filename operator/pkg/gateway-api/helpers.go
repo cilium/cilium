@@ -58,7 +58,10 @@ func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, rout
 
 		// all routes in the same namespace are allowed for this listener
 		if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
-			return route.GetNamespace() == gw.GetNamespace()
+			if route.GetNamespace() == gw.GetNamespace() {
+				return true
+			}
+			continue
 		}
 
 		// check if route is kind-allowed
@@ -79,7 +82,7 @@ func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, rout
 			selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
 			if err := c.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
 				logger.ErrorContext(ctx, "Unable to list namespaces", logfields.Error, err)
-				return false
+				continue
 			}
 
 			for _, ns := range nsList.Items {
