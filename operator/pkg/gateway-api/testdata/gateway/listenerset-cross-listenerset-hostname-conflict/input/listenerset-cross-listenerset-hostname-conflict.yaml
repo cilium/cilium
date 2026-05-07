@@ -1,0 +1,54 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cross-listenerset-hostname-conflict
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  allowedListeners:
+    namespaces:
+      from: Same
+  listeners:
+    - name: http
+      hostname: gateway.example.com
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+# Alphabetically first ListenerSet — wins the hostname slot
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: hostname-alpha
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: cross-listenerset-hostname-conflict
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: shared-hostname
+      hostname: shared.example.com
+      port: 80
+      protocol: HTTP
+---
+# Alphabetically second ListenerSet — loses, conflicting listener marked Conflicted
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: hostname-beta
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: cross-listenerset-hostname-conflict
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: dup-hostname
+      hostname: shared.example.com
+      port: 80
+      protocol: HTTP
+    - name: unique-hostname
+      hostname: unique.example.com
+      port: 80
+      protocol: HTTP

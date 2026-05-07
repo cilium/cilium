@@ -135,6 +135,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			obj := &corev1.Node{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
+		case "ListenerSet":
+			obj := &gatewayv1.ListenerSet{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
 		}
 	}
 
