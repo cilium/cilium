@@ -126,6 +126,21 @@
       "minimumReleaseAge": "5 days"
     },
     {
+      // Do not pin digests for self-referenced cilium/cilium GitHub Actions
+      // and reusable workflows (e.g.,
+      // cilium/cilium/.github/actions/set-commit-status@main or
+      // cilium/cilium/.github/workflows/foo.yaml@v1.17). These are internal
+      // references within the same repository and should not be pinned to a
+      // commit SHA by Renovate.
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "cilium/cilium"
+      ],
+      "pinDigests": false
+    },
+    {
       "matchPackageNames": [
         "bufbuild/buf", // Protocol buffer toolkit
         "docker.io/alpine/socat", // Alpine socat package
