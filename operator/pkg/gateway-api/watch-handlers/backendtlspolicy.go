@@ -162,6 +162,6 @@ func updateReconcileRequestsForBackendTLSPolicy(ctx context.Context,
 		httpRoutes = append(httpRoutes, hrList.Items...)
 	}
 	for _, hr := range httpRoutes {
-		updateReconcileRequestsForParentRefs(hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, rrSet)
+		updateReconcileRequestsForParentRefs(ctx, c, hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, rrSet)
 	}
 }
