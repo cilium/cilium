@@ -144,7 +144,7 @@ Validate the Setup
    processed by the enrollment reconciler.
 
 #. Run a ``bash`` shell in one of the Cilium pods hosting a mtls-enrolled pod with
-   ``kubectl -n kube-system exec -ti pod/<cillium-pod-hosting-mtls-pod> -- bash`` 
+   ``kubectl -n kube-system exec -ti pod/<cilium-pod-hosting-mtls-pod> -- bash``
    and execute the following commands:
 
    Install tcpdump
