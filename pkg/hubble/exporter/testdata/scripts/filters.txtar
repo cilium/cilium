@@ -1,0 +1,224 @@
+# Test include filters with various patterns
+
+# Configure exporter with include filter for specific namespace
+config/add filter-namespace.yaml
+
+# Send events - some match, some don't
+event/send flow-match-namespace.json
+event/send flow-no-match-namespace.json
+event/send flow-match-namespace-2.json
+
+# Verify file was created
+* file/exists $WORK/filtered-namespace.log
+
+# Read and verify only matching events were exported
+* file/read $WORK/filtered-namespace.log filtered-output.actual
+
+# Should contain events from "production" namespace
+* grep -q '"namespace":"production"' filtered-output.actual
+
+# Should NOT contain events from "staging" namespace  
+! grep -q '"namespace":"staging"' filtered-output.actual
+
+# Verify we have the two matching events (both with production namespace)
+* grep -q 'app-server-1' filtered-output.actual
+* grep -q 'app-server-2' filtered-output.actual
+
+# Clean up
+config/delete filter-namespace.yaml
+
+
+# Test with multiple filter criteria (pod name pattern)
+config/add filter-pod.yaml
+
+event/send flow-web-frontend.json
+event/send flow-api-backend.json  
+event/send flow-db-postgres.json
+
+* file/exists $WORK/filtered-pod.log
+* file/read $WORK/filtered-pod.log filtered-pod-output.actual
+
+# Should contain web-frontend (matches "frontend/" pattern)
+* grep -q '"pod_name":"web-frontend"' filtered-pod-output.actual
+
+# Should NOT contain api-backend or db-postgres (different namespace prefix)
+! grep -q '"pod_name":"api-backend"' filtered-pod-output.actual
+! grep -q '"pod_name":"db-postgres"' filtered-pod-output.actual
+
+config/delete filter-pod.yaml
+
+
+# Test with multiple filters (OR logic - any filter matches)
+config/add filter-multiple.yaml
+
+event/send flow-prod-web.json
+event/send flow-staging-api.json
+event/send flow-dev-db.json
+
+* file/exists $WORK/filtered-multiple.log
+* file/read $WORK/filtered-multiple.log filtered-multi-output.actual
+
+# Should match flow-prod-web (matches namespace filter)
+* grep -q '"namespace":"production"' filtered-multi-output.actual
+* grep -q '"pod_name":"web-app"' filtered-multi-output.actual
+
+# Should match flow-staging-api (matches destinationPod filter for gateway)
+* grep -q '"namespace":"staging"' filtered-multi-output.actual
+* grep -q '"pod_name":"api-gateway"' filtered-multi-output.actual
+
+# Should NOT match flow-dev-db (doesn't match any filter)
+! grep -q '"namespace":"development"' filtered-multi-output.actual
+! grep -q '"pod_name":"dev-database"' filtered-multi-output.actual
+
+config/delete filter-multiple.yaml
+
+# ---
+
+-- filter-namespace.yaml --
+name: filter-namespace
+filePath: $WORK/filtered-namespace.log
+includeFilters:
+  - sourcePod:
+      - production/
+
+-- filter-pod.yaml --
+name: filter-pod
+filePath: $WORK/filtered-pod.log
+includeFilters:
+  - sourcePod:
+      - frontend/
+
+-- filter-multiple.yaml --
+name: filter-multiple
+filePath: $WORK/filtered-multiple.log
+includeFilters:
+  - sourcePod:
+      - production/
+  - destinationPod:
+      - staging/api-
+
+-- flow-match-namespace.json --
+{
+  "time": "2024-01-01T10:00:00Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "production",
+    "pod_name": "app-server-1"
+  },
+  "destination": {
+    "namespace": "production",
+    "pod_name": "db-primary"
+  }
+}
+
+-- flow-no-match-namespace.json --
+{
+  "time": "2024-01-01T10:00:01Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "staging",
+    "pod_name": "test-server"
+  },
+  "destination": {
+    "namespace": "staging",
+    "pod_name": "test-db"
+  }
+}
+
+-- flow-match-namespace-2.json --
+{
+  "time": "2024-01-01T10:00:02Z",
+  "verdict": "DROPPED",
+  "source": {
+    "namespace": "production",
+    "pod_name": "app-server-2"
+  },
+  "destination": {
+    "namespace": "external",
+    "pod_name": "internet"
+  }
+}
+
+-- flow-web-frontend.json --
+{
+  "time": "2024-01-01T10:00:00Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "frontend",
+    "pod_name": "web-frontend"
+  },
+  "destination": {
+    "namespace": "backend",
+    "pod_name": "api"
+  }
+}
+
+-- flow-api-backend.json --
+{
+  "time": "2024-01-01T10:00:01Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "backend",
+    "pod_name": "api-backend"
+  },
+  "destination": {
+    "namespace": "data",
+    "pod_name": "database"
+  }
+}
+
+-- flow-db-postgres.json --
+{
+  "time": "2024-01-01T10:00:02Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "data",
+    "pod_name": "db-postgres"
+  },
+  "destination": {
+    "namespace": "storage",
+    "pod_name": "s3-gateway"
+  }
+}
+
+-- flow-prod-web.json --
+{
+  "time": "2024-01-01T10:00:00Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "production",
+    "pod_name": "web-app"
+  },
+  "destination": {
+    "namespace": "production",
+    "pod_name": "backend-app"
+  }
+}
+
+-- flow-staging-api.json --
+{
+  "time": "2024-01-01T10:00:01Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "staging",
+    "pod_name": "test-app"
+  },
+  "destination": {
+    "namespace": "staging",
+    "pod_name": "api-gateway"
+  }
+}
+
+-- flow-dev-db.json --
+{
+  "time": "2024-01-01T10:00:02Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "development",
+    "pod_name": "dev-app"
+  },
+  "destination": {
+    "namespace": "development",
+    "pod_name": "dev-database"
+  }
+}
