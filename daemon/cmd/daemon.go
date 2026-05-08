@@ -51,12 +51,6 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		return fmt.Errorf("Strict ingress encryption requires tunneling to be enabled.")
 	}
 
-	if params.DaemonConfig.EnableHostFirewall {
-		if params.IPSecConfig.Enabled() {
-			return fmt.Errorf("IPSec cannot be used with the host firewall.")
-		}
-	}
-
 	if params.DaemonConfig.LocalRouterIPv4 != "" || params.DaemonConfig.LocalRouterIPv6 != "" {
 		if params.IPSecConfig.Enabled() {
 			return fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSec)

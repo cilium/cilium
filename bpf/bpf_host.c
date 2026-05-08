@@ -1466,6 +1466,15 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	if (ctx_snat_done(ctx))
 		goto skip_host_firewall;
 
+# ifdef ENABLE_IPSEC
+	/* The post-XFRM ESP packet recirculates through the native device with
+	 * MARK_MAGIC_ENCRYPT set. Skip host firewall egress on this pass; the
+	 * ESP outer tuple would otherwise be treated as host-originated traffic.
+	 */
+	if (ctx_is_encrypt(ctx))
+		goto skip_host_firewall;
+# endif
+
 	if (!eth_is_supported_ethertype(proto)) {
 		ret = DROP_UNSUPPORTED_L2;
 		goto drop_err;
@@ -1840,8 +1849,9 @@ int cil_to_host(struct __ctx_buff *ctx)
 		goto skip_ipsec_nodeport_revdnat;
 
 	/* handle_nat_fwd() tail calls in the majority of cases, so control
-	 * might never return to this program. Since IPsec is not compatible
-	 * iwth Host Firewall, this won't be an issue.
+	 * might never return to this program. On IPsec recirculation, packets
+	 * delivered to local endpoints do not need host firewall ingress; the
+	 * destination identity lookup below would skip them.
 	 */
 	ret = handle_nat_fwd(ctx, 0, src_id, proto, true, &trace, &ext_err);
 	if (IS_ERR(ret))
