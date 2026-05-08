@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -866,7 +867,7 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 		name   string
 		ip     string
 		labels map[string]string
-		node   *nodeTypes.Node
+		node   *cilium_api_v2.CiliumNode
 	}
 	// List of nodes is already organized by the node IP.
 	nodes := []testNodes{
@@ -1095,14 +1096,15 @@ func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) 
 	tb.Fatal("failed to enable rp_filter")
 }
 
-func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.Node {
-	return nodeTypes.Node{
-		Name:   name,
-		Labels: nodeLabels,
-		IPAddresses: []nodeTypes.Address{
-			{
-				Type: addressing.NodeInternalIP,
-				IP:   netip.MustParseAddr(nodeIP).AsSlice(),
+func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) cilium_api_v2.CiliumNode {
+	return cilium_api_v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Labels: nodeLabels},
+		Spec: cilium_api_v2.NodeSpec{
+			Addresses: []cilium_api_v2.NodeAddress{
+				{
+					Type: addressing.NodeInternalIP,
+					IP:   nodeIP,
+				},
 			},
 		},
 	}

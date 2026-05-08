@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
@@ -243,11 +242,11 @@ func deleteEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoi
 	})
 }
 
-func addNodeAndReconcile(tb testing.TB, k *EgressGatewayTestSuite, egressGatewayManager *Manager, node *nodeTypes.Node) {
+func addNodeAndReconcile(tb testing.TB, k *EgressGatewayTestSuite, egressGatewayManager *Manager, node *cilium_api_v2.CiliumNode) {
 	currentRun := egressGatewayManager.reconciliationEventsCount.Load()
 	k.nodes.process(tb, resource.Event[*cilium_api_v2.CiliumNode]{
 		Kind:   resource.Upsert,
-		Object: node.ToCiliumNode(),
+		Object: node,
 	})
 	waitForReconciliationRun(tb, egressGatewayManager, currentRun)
 }
