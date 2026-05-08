@@ -77,6 +77,7 @@ import (
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/podendpointsource"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
@@ -280,6 +281,11 @@ var (
 
 		// IPAM provides IP address management.
 		ipamcell.Cell,
+
+		// Observes pod endpoints from the IPCache and exposes them as a
+		// typed event stream consumed by the Egress Gateway (and
+		// potentially other components in the future).
+		podendpointsource.Cell,
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,

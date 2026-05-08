@@ -578,6 +578,22 @@ type dummyListener struct {
 	ipc     *IPCache
 }
 
+type recordedChange struct {
+	modType       CacheModification
+	cidrCluster   cmtypes.PrefixCluster
+	oldHostIP     net.IP
+	newHostIP     net.IP
+	oldID         *Identity
+	newID         Identity
+	encryptKey    uint8
+	k8sMeta       *K8sMetadata
+	endpointFlags uint8
+}
+
+type recordingListener struct {
+	events []recordedChange
+}
+
 func newDummyListener(ipc *IPCache) *dummyListener {
 	return &dummyListener{
 		ipc: ipc,
@@ -594,6 +610,45 @@ func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
 	default:
 		// Ignore, for simplicity we just clear the cache every time
 	}
+}
+
+func (rl *recordingListener) OnIPIdentityCacheChange(modType CacheModification,
+	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *Identity,
+	newID Identity, encryptKey uint8, k8sMeta *K8sMetadata, endpointFlags uint8) {
+
+	var oldIDCopy *Identity
+	if oldID != nil {
+		copied := *oldID
+		oldIDCopy = &copied
+	}
+
+	var metaCopy *K8sMetadata
+	if k8sMeta != nil {
+		copied := *k8sMeta
+		metaCopy = &copied
+	}
+
+	rl.events = append(rl.events, recordedChange{
+		modType:       modType,
+		cidrCluster:   cidrCluster,
+		oldHostIP:     slices.Clone(oldHostIP),
+		newHostIP:     slices.Clone(newHostIP),
+		oldID:         oldIDCopy,
+		newID:         newID,
+		encryptKey:    encryptKey,
+		k8sMeta:       metaCopy,
+		endpointFlags: endpointFlags,
+	})
+}
+
+func upsertTestEntry(t *testing.T, ipc *IPCache, ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity, endpointFlags uint8) {
+	t.Helper()
+
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
+
+	_, err := ipc.upsertLocked(ip, hostIP, hostKey, k8sMeta, newIdentity, endpointFlags, false, false)
+	require.NoError(t, err)
 }
 
 func (dl *dummyListener) ExpectMapping(t *testing.T, targetIP string, targetIdentity identityPkg.NumericIdentity) {
@@ -655,4 +710,55 @@ func TestIPCacheShadowing(t *testing.T) {
 	ipc.Delete(endpointIP, source.KVStore)
 	_, exists := ipc.LookupByPrefix(cidrOverlap)
 	require.False(t, exists)
+}
+
+func TestIPCacheShadowedCIDRRevivalUsesCurrentAttributes(t *testing.T) {
+	t.Parallel()
+	s := setupIPCacheTestSuite(t)
+
+	const (
+		endpointKey   = uint8(7)
+		cidrKey       = uint8(9)
+		endpointFlags = uint8(0x1)
+		cidrFlags     = uint8(0x2)
+	)
+
+	endpointIP := "10.0.0.15"
+	cidrOverlap := "10.0.0.15/32"
+	endpointHostIP := net.ParseIP("192.0.2.10")
+	cidrHostIP := net.ParseIP("192.0.2.20")
+	endpointMeta := &K8sMetadata{
+		Namespace: "default",
+		PodName:   "pod-a",
+	}
+	endpointIdentity := Identity{
+		ID:     identityPkg.NumericIdentity(68),
+		Source: source.KVStore,
+	}
+	cidrIdentity := Identity{
+		ID:     identityPkg.NumericIdentity(202),
+		Source: source.Generated,
+	}
+
+	upsertTestEntry(t, s.IPIdentityCache, endpointIP, endpointHostIP, endpointKey, endpointMeta, endpointIdentity, endpointFlags)
+	upsertTestEntry(t, s.IPIdentityCache, cidrOverlap, cidrHostIP, cidrKey, nil, cidrIdentity, cidrFlags)
+
+	listener := &recordingListener{}
+	s.IPIdentityCache.AddListener(listener)
+	listener.events = nil
+
+	s.IPIdentityCache.Delete(endpointIP, source.KVStore)
+
+	require.Len(t, listener.events, 1)
+	event := listener.events[0]
+	require.Equal(t, Upsert, event.modType)
+	require.Equal(t, cidrOverlap, event.cidrCluster.String())
+	require.NotNil(t, event.oldID)
+	require.Equal(t, endpointIdentity.ID, event.oldID.ID)
+	require.Equal(t, cidrIdentity.ID, event.newID.ID)
+	require.True(t, endpointHostIP.Equal(event.oldHostIP))
+	require.True(t, cidrHostIP.Equal(event.newHostIP))
+	require.Equal(t, cidrKey, event.encryptKey)
+	require.Nil(t, event.k8sMeta)
+	require.Equal(t, cidrFlags, event.endpointFlags)
 }
