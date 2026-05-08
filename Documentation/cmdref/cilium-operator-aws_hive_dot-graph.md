@@ -149,6 +149,7 @@ cilium-operator-aws hive dot-graph [flags]
       --taint-sync-workers int                                     Number of workers used to synchronize node taints and conditions (default 10)
       --unmanaged-pod-watcher-interval duration                    Interval to check for unmanaged kube-dns pods (0 to disable) (default 15s)
       --validate-network-policy                                    Whether to enable or disable the informational network policy validator (default true)
+      --ztunnel-ca-type string                                     CA backend used by ztunnel: 'spire' (external SPIRE server) or 'internal' (Cilium-managed CA) (default "internal")
 ```
 
 ### SEE ALSO

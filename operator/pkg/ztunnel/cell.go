@@ -45,7 +45,10 @@ func registerEnrollmentReconciler(
 	ops reconciler.Operations[*table.EnrolledNamespace],
 	tbl statedb.RWTable[*table.EnrolledNamespace],
 ) error {
-	if !cfg.EnableZTunnel {
+	// The reconciler manages SPIRE entries for enrolled namespaces, so it only
+	// runs when ztunnel is configured to use an external SPIRE CA. With the
+	// internal CA there is no SPIRE server to enroll against.
+	if !cfg.UseSpireCA() {
 		return nil
 	}
 	_, err := reconciler.Register(
