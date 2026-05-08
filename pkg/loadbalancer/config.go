@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
@@ -238,6 +239,19 @@ var ConfigCell = cell.Group(
 
 		// Validate and populate [loadbalancer.userConfig] to produce the final [loadbalancer.Config]
 		NewConfig,
+
+		// Enable tunnel configuration when DSR Geneve is enabled.
+		func(kpr kpr.KPRConfig, lbcfg Config) tunnel.EnablerOut {
+			return tunnel.NewEnabler(
+				kpr.KubeProxyReplacement &&
+					lbcfg.LoadBalancerUsesDSR() &&
+					lbcfg.DSRDispatch == DSRDispatchGeneve,
+				// The datapath logic takes care of the MTU overhead. So no need to
+				// take it into account here.
+				// See encap_geneve_dsr_opt[4,6] in nodeport.h
+				tunnel.WithoutMTUAdaptation(),
+			)
+		},
 	),
 )
 
