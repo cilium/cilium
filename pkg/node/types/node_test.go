@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -162,70 +161,6 @@ func TestParseCiliumNode(t *testing.T) {
 		IPv6HealthIP:            net.ParseIP("c0de::1"),
 		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
 		IPv6IngressIP:           net.ParseIP("c0de::2"),
-	}, n)
-}
-
-func TestNode_ToCiliumNode(t *testing.T) {
-	nodeResource := Node{
-		Name:   "foo",
-		Source: source.CustomResource,
-		IPAddresses: []Address{
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
-		},
-		EncryptionKey:           uint8(10),
-		IPv4AllocCIDR:           cidr.MustParseCIDR("10.10.0.0/16"),
-		IPv6AllocCIDR:           cidr.MustParseCIDR("c0de::/96"),
-		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("10.20.0.0/16")},
-		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("c0fe::/96")},
-		IPv4HealthIP:            net.ParseIP("1.1.1.1"),
-		IPv6HealthIP:            net.ParseIP("c0de::1"),
-		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
-		IPv6IngressIP:           net.ParseIP("c0de::2"),
-		WireguardPubKey:         "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
-		Annotations: map[string]string{
-			annotation.BGPVRouterAnnoPrefix + "64512": "router-id=172.0.0.3",
-		},
-	}
-
-	n := nodeResource.ToCiliumNode()
-	require.Equal(t, &ciliumv2.CiliumNode{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "",
-			Annotations: map[string]string{
-				annotation.BGPVRouterAnnoPrefix + "64512": "router-id=172.0.0.3",
-			},
-		},
-		Spec: ciliumv2.NodeSpec{
-			Addresses: []ciliumv2.NodeAddress{
-				{Type: addressing.NodeInternalIP, IP: "2.2.2.2"},
-				{Type: addressing.NodeExternalIP, IP: "3.3.3.3"},
-				{Type: addressing.NodeInternalIP, IP: "c0de::1"},
-				{Type: addressing.NodeExternalIP, IP: "c0de::2"},
-			},
-			Encryption: ciliumv2.EncryptionSpec{
-				Key: 10,
-			},
-			IPAM: ipamTypes.IPAMSpec{
-				PodCIDRs: []string{
-					"10.10.0.0/16",
-					"c0de::/96",
-					"10.20.0.0/16",
-					"c0fe::/96",
-				},
-			},
-			HealthAddressing: ciliumv2.HealthAddressingSpec{
-				IPv4: "1.1.1.1",
-				IPv6: "c0de::1",
-			},
-			IngressAddressing: ciliumv2.AddressPair{
-				IPV4: "1.1.1.2",
-				IPV6: "c0de::2",
-			},
-		},
 	}, n)
 }
 

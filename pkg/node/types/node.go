@@ -12,14 +12,11 @@ import (
 	"path"
 	"slices"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
@@ -101,74 +98,6 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 	}
 
 	return
-}
-
-// ToCiliumNode converts the node to a CiliumNode
-func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
-	var (
-		podCIDRs                 []string
-		ipAddrs                  []ciliumv2.NodeAddress
-		healthIPv4, healthIPv6   string
-		ingressIPv4, ingressIPv6 string
-	)
-
-	if n.IPv4AllocCIDR != nil {
-		podCIDRs = append(podCIDRs, n.IPv4AllocCIDR.String())
-	}
-	if n.IPv6AllocCIDR != nil {
-		podCIDRs = append(podCIDRs, n.IPv6AllocCIDR.String())
-	}
-	for _, ipv4AllocCIDR := range n.IPv4SecondaryAllocCIDRs {
-		podCIDRs = append(podCIDRs, ipv4AllocCIDR.String())
-	}
-	for _, ipv6AllocCIDR := range n.IPv6SecondaryAllocCIDRs {
-		podCIDRs = append(podCIDRs, ipv6AllocCIDR.String())
-	}
-	if n.IPv4HealthIP != nil {
-		healthIPv4 = n.IPv4HealthIP.String()
-	}
-	if n.IPv6HealthIP != nil {
-		healthIPv6 = n.IPv6HealthIP.String()
-	}
-	if n.IPv4IngressIP != nil {
-		ingressIPv4 = n.IPv4IngressIP.String()
-	}
-	if n.IPv6IngressIP != nil {
-		ingressIPv6 = n.IPv6IngressIP.String()
-	}
-
-	for _, address := range n.IPAddresses {
-		ipAddrs = append(ipAddrs, ciliumv2.NodeAddress{
-			Type: address.Type,
-			IP:   address.IP.String(),
-		})
-	}
-
-	return &ciliumv2.CiliumNode{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        n.Name,
-			Labels:      n.Labels,
-			Annotations: n.Annotations,
-		},
-		Spec: ciliumv2.NodeSpec{
-			Addresses: ipAddrs,
-			HealthAddressing: ciliumv2.HealthAddressingSpec{
-				IPv4: healthIPv4,
-				IPv6: healthIPv6,
-			},
-			IngressAddressing: ciliumv2.AddressPair{
-				IPV4: ingressIPv4,
-				IPV6: ingressIPv6,
-			},
-			Encryption: ciliumv2.EncryptionSpec{
-				Key: int(n.EncryptionKey),
-			},
-			IPAM: ipamTypes.IPAMSpec{
-				PodCIDRs: podCIDRs,
-			},
-			BootID: n.BootID,
-		},
-	}
 }
 
 // Node contains the nodes name, the list of addresses to this address
