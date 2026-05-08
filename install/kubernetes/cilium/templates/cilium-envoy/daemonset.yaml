@@ -187,6 +187,13 @@ spec:
           failureThreshold: {{ .Values.envoy.readinessProbe.failureThreshold }}
           initialDelaySeconds: {{ .Values.envoy.readinessProbe.initialDelaySeconds }}
           timeoutSeconds: {{ .Values.envoy.readinessProbe.timeoutSeconds }}
+
+        {{- $lifecycleHooks := include "envoy.lifecycle" . | trim }}
+        {{- if $lifecycleHooks }}
+        lifecycle:
+        {{- $lifecycleHooks | nindent 10 }}
+        {{- end }}
+
         env:
         - name: K8S_NODE_NAME
           valueFrom:
