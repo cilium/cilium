@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -116,7 +117,7 @@ func (nc *CiliumNodeConverter) Convert(event resource.Event[*cilium_api_v2.Ciliu
 		return noneIter[store.Key], singleIter[store.NamedKey](&node)
 	}
 
-	node := nodeTypes.ParseCiliumNode(event.Object)
+	node := k8s.ParseCiliumNode(event.Object)
 	node.Cluster = nc.cinfo.Name
 	node.ClusterID = nc.cinfo.ID
 	return singleIter[store.Key](&node), noneIter[store.NamedKey]
