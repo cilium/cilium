@@ -4,6 +4,7 @@
 package nodemanager
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -103,8 +104,8 @@ func TestSyncToAPIServerForNonExistingNode(t *testing.T) {
 		},
 		logLimiter: logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		ipv4Alloc: ipAllocAttrs{
-			ipsMarkedForRelease: make(map[string]time.Time),
-			ipReleaseStatus:     make(map[string]string),
+			ipsMarkedForRelease: make(map[netip.Addr]time.Time),
+			ipReleaseStatus:     make(map[netip.Addr]string),
 		},
 		resource: newCiliumNode("test-node", 0, 0, 0),
 		ops:      &nodeOperationsMock{},

@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"sort"
 
 	"golang.org/x/sync/semaphore"
@@ -288,8 +289,8 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 			manager:    n,
 			logLimiter: logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 			ipv4Alloc: ipAllocAttrs{
-				ipsMarkedForRelease: make(map[string]time.Time),
-				ipReleaseStatus:     make(map[string]string),
+				ipsMarkedForRelease: make(map[netip.Addr]time.Time),
+				ipReleaseStatus:     make(map[netip.Addr]string),
 			},
 			excessIPReleaseDelay: time.Duration(n.excessIPReleaseDelay) * time.Second,
 		}
