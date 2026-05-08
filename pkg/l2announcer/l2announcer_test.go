@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
@@ -249,7 +250,7 @@ func TestHappyPath(t *testing.T) {
 		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
-	assert.Contains(t, fix.announcer.selectedPolicies, resource.NewKey(policy))
+	assert.Contains(t, fix.announcer.selectedPolicies, types.NamespacedName{Namespace: policy.Namespace, Name: policy.Name})
 
 	svc, fe := blueService()
 	fix.insertService(svc, fe)
@@ -284,7 +285,7 @@ func TestHappyPath(t *testing.T) {
 			IP:               fe.Address.Addr(),
 			NetworkInterface: policy.Spec.Interfaces[0],
 		},
-		Origins: []resource.Key{svcKey},
+		Origins: []types.NamespacedName{svcKey},
 	}, entries[0])
 }
 
@@ -364,7 +365,7 @@ func TestHappyPathPermutations(t *testing.T) {
 						IP:               fe.Address.Addr(),
 						NetworkInterface: bluePolicy().Spec.Interfaces[0],
 					},
-					Origins: []resource.Key{serviceKey(svc)},
+					Origins: []types.NamespacedName{serviceKey(svc)},
 				}, entries[0])
 			}
 		})
@@ -465,7 +466,7 @@ func TestPolicyRedundancy(t *testing.T) {
 			IP:               fe.Address.Addr(),
 			NetworkInterface: policy.Spec.Interfaces[0],
 		},
-		Origins: []resource.Key{svcKey},
+		Origins: []types.NamespacedName{svcKey},
 	}, entries[0])
 
 	// Delete second policy
@@ -480,7 +481,7 @@ func TestPolicyRedundancy(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Assert only one policy selected
-	assert.Equal(t, []resource.Key{
+	assert.Equal(t, []types.NamespacedName{
 		policyKey(policy),
 	}, fix.announcer.selectedServices[svcKey].byPolicies)
 
@@ -494,7 +495,7 @@ func TestPolicyRedundancy(t *testing.T) {
 			IP:               fe.Address.Addr(),
 			NetworkInterface: policy.Spec.Interfaces[0],
 		},
-		Origins: []resource.Key{svcKey},
+		Origins: []types.NamespacedName{svcKey},
 	}, entries[0])
 }
 
@@ -844,7 +845,7 @@ func TestPolicySelection(t *testing.T) {
 			IP:               netip.MustParseAddr("192.168.2.7"),
 			NetworkInterface: bluePolicy().Spec.Interfaces[0],
 		},
-		Origins: []resource.Key{serviceKey(svc)},
+		Origins: []types.NamespacedName{serviceKey(svc)},
 	})
 }
 
@@ -902,7 +903,7 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 			IP:               netip.MustParseAddr("192.168.2.3"),
 			NetworkInterface: bluePolicy().Spec.Interfaces[0],
 		},
-		Origins: []resource.Key{serviceKey(svc)},
+		Origins: []types.NamespacedName{serviceKey(svc)},
 	})
 
 	// changing the frontend type should unselect the service
@@ -959,7 +960,7 @@ func TestUpdatePolicy_ChangeInterfaces(t *testing.T) {
 			IP:               fe.Address.Addr(),
 			NetworkInterface: "eth0",
 		},
-		Origins: []resource.Key{serviceKey(svc)},
+		Origins: []types.NamespacedName{serviceKey(svc)},
 	})
 }
 
