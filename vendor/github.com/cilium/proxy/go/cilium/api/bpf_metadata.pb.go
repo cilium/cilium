@@ -7,6 +7,7 @@
 package cilium
 
 import (
+	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -86,8 +87,10 @@ type BpfMetadata struct {
 	CacheEntryTtl *durationpb.Duration `protobuf:"bytes,14,opt,name=cache_entry_ttl,json=cacheEntryTtl,proto3" json:"cache_entry_ttl,omitempty"`
 	// Cache is garbage collected at interval 10 times the ttl (default 30 ms).
 	CacheGcInterval *durationpb.Duration `protobuf:"bytes,15,opt,name=cache_gc_interval,json=cacheGcInterval,proto3" json:"cache_gc_interval,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Configuration for the source of NPDS updates. Currently this field is not supported.
+	NpdsConfig    *v3.ConfigSource `protobuf:"bytes,16,opt,name=npds_config,json=npdsConfig,proto3" json:"npds_config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BpfMetadata) Reset() {
@@ -225,11 +228,18 @@ func (x *BpfMetadata) GetCacheGcInterval() *durationpb.Duration {
 	return nil
 }
 
+func (x *BpfMetadata) GetNpdsConfig() *v3.ConfigSource {
+	if x != nil {
+		return x.NpdsConfig
+	}
+	return nil
+}
+
 var File_cilium_api_bpf_metadata_proto protoreflect.FileDescriptor
 
 const file_cilium_api_bpf_metadata_proto_rawDesc = "" +
 	"\n" +
-	"\x1dcilium/api/bpf_metadata.proto\x12\x06cilium\x1a\x1egoogle/protobuf/duration.proto\x1a\x17validate/validate.proto\"\x94\x06\n" +
+	"\x1dcilium/api/bpf_metadata.proto\x12\x06cilium\x1a(envoy/config/core/v3/config_source.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x17validate/validate.proto\"\xd9\x06\n" +
 	"\vBpfMetadata\x12\x19\n" +
 	"\bbpf_root\x18\x01 \x01(\tR\abpfRoot\x12\x1d\n" +
 	"\n" +
@@ -247,7 +257,9 @@ const file_cilium_api_bpf_metadata_proto_rawDesc = "" +
 	"\fipcache_name\x18\f \x01(\tR\vipcacheName\x12\x1b\n" +
 	"\tuse_nphds\x18\r \x01(\bR\buseNphds\x12A\n" +
 	"\x0fcache_entry_ttl\x18\x0e \x01(\v2\x19.google.protobuf.DurationR\rcacheEntryTtl\x12E\n" +
-	"\x11cache_gc_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\x0fcacheGcIntervalB!\n" +
+	"\x11cache_gc_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\x0fcacheGcInterval\x12C\n" +
+	"\vnpds_config\x18\x10 \x01(\v2\".envoy.config.core.v3.ConfigSourceR\n" +
+	"npdsConfigB!\n" +
 	"\x1f_original_source_so_linger_timeB.Z,github.com/cilium/proxy/go/cilium/api;ciliumb\x06proto3"
 
 var (
@@ -266,16 +278,18 @@ var file_cilium_api_bpf_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 
 var file_cilium_api_bpf_metadata_proto_goTypes = []any{
 	(*BpfMetadata)(nil),         // 0: cilium.BpfMetadata
 	(*durationpb.Duration)(nil), // 1: google.protobuf.Duration
+	(*v3.ConfigSource)(nil),     // 2: envoy.config.core.v3.ConfigSource
 }
 var file_cilium_api_bpf_metadata_proto_depIdxs = []int32{
 	1, // 0: cilium.BpfMetadata.policy_update_warning_limit:type_name -> google.protobuf.Duration
 	1, // 1: cilium.BpfMetadata.cache_entry_ttl:type_name -> google.protobuf.Duration
 	1, // 2: cilium.BpfMetadata.cache_gc_interval:type_name -> google.protobuf.Duration
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 3: cilium.BpfMetadata.npds_config:type_name -> envoy.config.core.v3.ConfigSource
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_cilium_api_bpf_metadata_proto_init() }
