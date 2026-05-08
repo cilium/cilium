@@ -15,7 +15,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
@@ -696,7 +695,7 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 	var netIfConfig *armcompute.VirtualMachineScaleSetNetworkConfiguration
 
 	vmssGetOptions := &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
-		Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		Expand: new(armcompute.InstanceViewTypesInstanceView),
 	}
 
 	c.limiter.Limit(ctx, virtualMachineScaleSetVMsGet)
@@ -735,11 +734,11 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 	for range addresses {
 		ipConfigurations = append(ipConfigurations,
 			&armcompute.VirtualMachineScaleSetIPConfiguration{
-				Name: to.Ptr(generateIpConfigName()),
+				Name: new(generateIpConfigName()),
 				Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 					ApplicationSecurityGroups: appSecurityGroups,
-					PrivateIPAddressVersion:   to.Ptr(armcompute.IPVersionIPv4),
-					Subnet:                    &armcompute.APIEntityReference{ID: to.Ptr(subnetID)},
+					PrivateIPAddressVersion:   new(armcompute.IPVersionIPv4),
+					Subnet:                    &armcompute.APIEntityReference{ID: new(subnetID)},
 				},
 			},
 		)
@@ -800,12 +799,12 @@ func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, inter
 	ipConfigurations := make([]*armnetwork.InterfaceIPConfiguration, 0, addresses)
 	for range addresses {
 		ipConfigurations = append(ipConfigurations, &armnetwork.InterfaceIPConfiguration{
-			Name: to.Ptr(generateIpConfigName()),
+			Name: new(generateIpConfigName()),
 			Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
 				ApplicationSecurityGroups: appSecurityGroups,
-				PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+				PrivateIPAllocationMethod: new(armnetwork.IPAllocationMethodDynamic),
 				Subnet: &armnetwork.Subnet{
-					ID: to.Ptr(subnetID),
+					ID: new(subnetID),
 				},
 			},
 		})
@@ -848,7 +847,7 @@ func (c *Client) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vm
 	var primaryNetIfConfig *armcompute.VirtualMachineScaleSetNetworkConfiguration
 
 	vmssGetOptions := &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
-		Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		Expand: new(armcompute.InstanceViewTypesInstanceView),
 	}
 
 	c.limiter.Limit(ctx, virtualMachineScaleSetVMsGet)
@@ -927,10 +926,10 @@ func (c *Client) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vm
 
 	// Create a new public IP configuration
 	primaryIPConfig.Properties.PublicIPAddressConfiguration = &armcompute.VirtualMachineScaleSetPublicIPAddressConfiguration{
-		Name: to.Ptr("cilium-managed-public-ip"),
+		Name: new("cilium-managed-public-ip"),
 		Properties: &armcompute.VirtualMachineScaleSetPublicIPAddressConfigurationProperties{
 			PublicIPPrefix: &armcompute.SubResource{
-				ID: to.Ptr(publicIPPrefixID),
+				ID: new(publicIPPrefixID),
 			},
 		},
 	}
@@ -980,7 +979,7 @@ func (c *Client) AssignPublicIPAddressesVM(ctx context.Context, instanceID strin
 
 	// Get the VM
 	vmGetOptions := &armcompute.VirtualMachinesClientGetOptions{
-		Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		Expand: new(armcompute.InstanceViewTypesInstanceView),
 	}
 
 	c.limiter.Limit(ctx, virtualMachinesGet)
@@ -1062,11 +1061,11 @@ func (c *Client) AssignPublicIPAddressesVM(ctx context.Context, instanceID strin
 
 	// Assign the public IP prefix to the primary IP configuration
 	primaryIPConfig.Properties.PublicIPAddress = &armnetwork.PublicIPAddress{
-		Name: to.Ptr("cilium-managed-public-ip"),
+		Name: new("cilium-managed-public-ip"),
 		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
-			PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+			PublicIPAllocationMethod: new(armnetwork.IPAllocationMethodStatic),
 			PublicIPPrefix: &armnetwork.SubResource{
-				ID: to.Ptr(publicIPPrefixID),
+				ID: new(publicIPPrefixID),
 			},
 		},
 	}

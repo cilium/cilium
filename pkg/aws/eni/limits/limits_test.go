@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"k8s.io/utils/ptr"
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/cilium/hive/hivetest"
@@ -30,12 +29,12 @@ func TestGet(t *testing.T) {
 	api.UpdateInstanceTypes([]ec2_types.InstanceTypeInfo{{
 		InstanceType: "test.large",
 		NetworkInfo: &ec2_types.NetworkInfo{
-			MaximumNetworkInterfaces:  ptr.To[int32](4),
-			Ipv4AddressesPerInterface: ptr.To[int32](5),
-			Ipv6AddressesPerInterface: ptr.To[int32](6),
+			MaximumNetworkInterfaces:  new(int32(4)),
+			Ipv4AddressesPerInterface: new(int32(5)),
+			Ipv6AddressesPerInterface: new(int32(6)),
 		},
 		Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
-		BareMetal:  ptr.To(false),
+		BareMetal:  new(false),
 	}})
 	newLimitsGetter, err := NewLimitsGetter(hivetest.Logger(t), api, testTriggerMinInterval, testEC2apiTimeout, testEC2apiRetryCount)
 	require.NoError(t, err)
@@ -59,12 +58,12 @@ func TestGet(t *testing.T) {
 	api.UpdateInstanceTypes([]ec2_types.InstanceTypeInfo{{
 		InstanceType: "newtype",
 		NetworkInfo: &ec2_types.NetworkInfo{
-			MaximumNetworkInterfaces:  ptr.To[int32](4),
-			Ipv4AddressesPerInterface: ptr.To[int32](15),
-			Ipv6AddressesPerInterface: ptr.To[int32](15),
+			MaximumNetworkInterfaces:  new(int32(4)),
+			Ipv4AddressesPerInterface: new(int32(15)),
+			Ipv6AddressesPerInterface: new(int32(15)),
 		},
 		Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
-		BareMetal:  ptr.To(false),
+		BareMetal:  new(false),
 	}})
 
 	limit, ok = newLimitsGetter.Get("newtype")
@@ -90,12 +89,12 @@ func TestInitEC2APIUpdateTrigger(t *testing.T) {
 		{
 			InstanceType: "test.large",
 			NetworkInfo: &ec2_types.NetworkInfo{
-				MaximumNetworkInterfaces:  ptr.To[int32](4),
-				Ipv4AddressesPerInterface: ptr.To[int32](10),
-				Ipv6AddressesPerInterface: ptr.To[int32](10),
+				MaximumNetworkInterfaces:  new(int32(4)),
+				Ipv4AddressesPerInterface: new(int32(10)),
+				Ipv6AddressesPerInterface: new(int32(10)),
 			},
 			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
-			BareMetal:  ptr.To(false),
+			BareMetal:  new(false),
 		},
 	})
 

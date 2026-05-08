@@ -7,7 +7,6 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	"github.com/stretchr/testify/require"
@@ -25,52 +24,52 @@ func TestAvailableIPs(t *testing.T) {
 func TestFindPublicIPPrefixByTags(t *testing.T) {
 	prefixes := []*armnetwork.PublicIPPrefix{
 		{
-			ID: to.Ptr("prefix1"),
+			ID: new("prefix1"),
 			Tags: map[string]*string{
-				"env":  to.Ptr("prod"),
-				"pool": to.Ptr("pool-1"),
+				"env":  new("prod"),
+				"pool": new("pool-1"),
 			},
 			Properties: &armnetwork.PublicIPPrefixPropertiesFormat{
-				ProvisioningState: to.Ptr(armnetwork.ProvisioningStateSucceeded),
-				IPPrefix:          to.Ptr("10.0.0.0/28"),
+				ProvisioningState: new(armnetwork.ProvisioningStateSucceeded),
+				IPPrefix:          new("10.0.0.0/28"),
 				PublicIPAddresses: []*armnetwork.ReferencedPublicIPAddress{
-					{ID: to.Ptr("ip1")},
+					{ID: new("ip1")},
 				},
 			},
 		},
 		{
-			ID: to.Ptr("prefix2"),
+			ID: new("prefix2"),
 			Tags: map[string]*string{
-				"env": to.Ptr("dev"),
+				"env": new("dev"),
 			},
 			Properties: &armnetwork.PublicIPPrefixPropertiesFormat{
-				ProvisioningState: to.Ptr(armnetwork.ProvisioningStateSucceeded),
-				IPPrefix:          to.Ptr("10.1.0.0/28"),
+				ProvisioningState: new(armnetwork.ProvisioningStateSucceeded),
+				IPPrefix:          new("10.1.0.0/28"),
 			},
 		},
 		{
 			// Not provisioned
-			ID: to.Ptr("prefix3"),
+			ID: new("prefix3"),
 			Tags: map[string]*string{
-				"env": to.Ptr("staging"),
+				"env": new("staging"),
 			},
 			Properties: &armnetwork.PublicIPPrefixPropertiesFormat{
-				ProvisioningState: to.Ptr(armnetwork.ProvisioningStateFailed),
-				IPPrefix:          to.Ptr("10.2.0.0/28"),
+				ProvisioningState: new(armnetwork.ProvisioningStateFailed),
+				IPPrefix:          new("10.2.0.0/28"),
 			},
 		},
 		{
 			// Full
-			ID: to.Ptr("prefix4"),
+			ID: new("prefix4"),
 			Tags: map[string]*string{
-				"env": to.Ptr("test"),
+				"env": new("test"),
 			},
 			Properties: &armnetwork.PublicIPPrefixPropertiesFormat{
-				ProvisioningState: to.Ptr(armnetwork.ProvisioningStateSucceeded),
-				IPPrefix:          to.Ptr("10.3.0.0/31"), // 2 IPs
+				ProvisioningState: new(armnetwork.ProvisioningStateSucceeded),
+				IPPrefix:          new("10.3.0.0/31"), // 2 IPs
 				PublicIPAddresses: []*armnetwork.ReferencedPublicIPAddress{
-					{ID: to.Ptr("ip1")},
-					{ID: to.Ptr("ip2")},
+					{ID: new("ip1")},
+					{ID: new("ip2")},
 				},
 			},
 		},
@@ -120,7 +119,7 @@ func TestIsPublicIPProvisionFailed(t *testing.T) {
 			name: "success",
 			instanceViewStatuses: []*armcompute.InstanceViewStatus{
 				{
-					Code: to.Ptr("ProvisioningState/succeeded"),
+					Code: new("ProvisioningState/succeeded"),
 				},
 			},
 			expected: false,
@@ -129,7 +128,7 @@ func TestIsPublicIPProvisionFailed(t *testing.T) {
 			name: "failure",
 			instanceViewStatuses: []*armcompute.InstanceViewStatus{
 				{
-					Code: to.Ptr("ProvisioningState/failed/PublicIpPrefixOutOfIpAddressesForVMScaleSet"),
+					Code: new("ProvisioningState/failed/PublicIpPrefixOutOfIpAddressesForVMScaleSet"),
 				},
 			},
 			expected: true,
