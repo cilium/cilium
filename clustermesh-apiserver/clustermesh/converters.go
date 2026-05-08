@@ -7,10 +7,8 @@ import (
 	"errors"
 	"iter"
 	"log/slog"
-	"maps"
 	"net"
 	"path"
-	"slices"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -50,37 +48,35 @@ type CachedConverter[T runtime.Object] struct {
 	mapper func(T) iter.Seq[store.Key]
 	// cache remembers the kvstore keys associated with any Kubernetes resource.
 	cache map[resource.Key]sets.Set[string]
-	// refCount tracks the number of resources referencing each kvstore key.
-	refCount map[string]int
+	// ownership tracks the entries proposed by each resource for each kvstore key.
+	ownership map[string]map[resource.Key]store.Key
 }
 
 func NewCachedCoverter[T runtime.Object](mapper func(T) iter.Seq[store.Key]) *CachedConverter[T] {
 	return &CachedConverter[T]{
-		mapper:   mapper,
-		cache:    make(map[resource.Key]sets.Set[string]),
-		refCount: make(map[string]int),
+		mapper:    mapper,
+		cache:     make(map[resource.Key]sets.Set[string]),
+		ownership: make(map[string]map[resource.Key]store.Key),
 	}
 }
 
 func (ec *CachedConverter[T]) Convert(event resource.Event[T]) (upserts iter.Seq[store.Key], deletes iter.Seq[store.NamedKey]) {
 	toDelete := ec.cache[event.Key]
-	if toDelete == nil {
-		toDelete = sets.New[string]()
-	}
 	var toAdd []store.Key
 
 	if event.Kind != resource.Delete {
-		var current = sets.New[string]()
+		current := sets.New[string]()
 		for entry := range ec.mapper(event.Object) {
 			key := entry.GetKeyName()
 			toAdd = append(toAdd, entry)
+			current.Insert(key)
 
-			if !current.Has(key) {
-				if !toDelete.Has(key) {
-					ec.refCount[key]++
-				}
-				current.Insert(key)
+			ownerMap, ok := ec.ownership[key]
+			if !ok {
+				ownerMap = make(map[resource.Key]store.Key)
+				ec.ownership[key] = ownerMap
 			}
+			ownerMap[event.Key] = entry
 			toDelete.Delete(key)
 		}
 		ec.cache[event.Key] = current
@@ -88,19 +84,47 @@ func (ec *CachedConverter[T]) Convert(event resource.Event[T]) (upserts iter.Seq
 		delete(ec.cache, event.Key)
 	}
 
+	// For each key scheduled for deletion, make sure the resource from the event
+	// is removed as an owner of that key.
+	for keyName := range toDelete {
+		delete(ec.ownership[keyName], event.Key)
+	}
+
+	upsertIter := func(yield func(store.Key) bool) {
+		// Fresh updates from this event
+		for _, entry := range toAdd {
+			if !yield(entry) {
+				return
+			}
+		}
+		// if a key is marked for deletion but other resources still own the key,
+		// we must re-upsert one of the other owner's values to ensure kvstore is
+		// correct.
+		for keyName := range toDelete {
+			if ownerMap := ec.ownership[keyName]; len(ownerMap) > 0 {
+				for _, entry := range ownerMap {
+					if !yield(entry) {
+						return
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// only delete the key from the kvstore if no resource owns the key.
 	deleteIter := func(yield func(store.NamedKey) bool) {
-		for entry := range maps.Keys(toDelete) {
-			ec.refCount[entry]--
-			if ec.refCount[entry] == 0 {
-				delete(ec.refCount, entry)
-				if !yield(store.NewKVPair(entry, "")) {
+		for keyName := range toDelete {
+			if len(ec.ownership[keyName]) == 0 {
+				delete(ec.ownership, keyName)
+				if !yield(store.NewKVPair(keyName, "")) {
 					return
 				}
 			}
 		}
 	}
 
-	return slices.Values(toAdd), deleteIter
+	return upsertIter, deleteIter
 }
 
 // ----- CiliumNodes ----- //
