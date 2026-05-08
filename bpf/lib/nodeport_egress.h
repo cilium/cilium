@@ -3,9 +3,9 @@
 
 #pragma once
 
+#include "auxvars.h"
 #include "drop.h"
 #include "nodeport.h"
-#include "aux.h"
 
 #ifdef ENABLE_NODEPORT
 
