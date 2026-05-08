@@ -1,0 +1,41 @@
+# Start the exporter with initial config
+config/add exporter-1.yaml
+
+# Send a flow event
+event/send flow-1.json
+
+# Wait for file to be created and verify contents
+* file/exists $WORK/export.log
+* file/read $WORK/export.log output-1.actual
+
+# Verify the file contains a complete JSON entry
+* grep -q '"flow"' output-1.actual
+* grep -q '"time":"2024-01-01T10:00:00Z"' output-1.actual
+* grep -q '"verdict":"FORWARDED"' output-1.actual
+* grep -q '"source".*"namespace":"default"' output-1.actual
+* grep -q '"source".*"pod_name":"pod-1"' output-1.actual
+* grep -q '"destination".*"pod_name":"pod-target"' output-1.actual
+
+
+# Delete the exporter config
+config/delete exporter-1.yaml
+
+# ---
+
+-- exporter-1.yaml --
+name: exporter-1
+filePath: $WORK/export.log
+
+-- flow-1.json --
+{
+  "time": "2024-01-01T10:00:00Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "default",
+    "pod_name": "pod-1"
+  },
+  "destination": {
+    "namespace": "default",
+    "pod_name": "pod-target"
+  }
+}

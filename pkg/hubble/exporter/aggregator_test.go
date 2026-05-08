@@ -325,6 +325,66 @@ func TestAggregateAdd(t *testing.T) {
 			assert.Equal(t, 0, value.EgressFlowCount)
 		}
 	})
+
+	t.Run("different keys create separate aggregates", func(t *testing.T) {
+		// Test that flows with DIFFERENT aggregation keys create SEPARATE aggregates,
+		// not grouped together. This is the inverse case of all the tests above.
+		fieldMask, err := fieldmaskpb.New(&flowpb.Flow{}, "verdict")
+		require.NoError(t, err)
+
+		fieldAgg, err := fieldaggregate.New(fieldMask)
+		require.NoError(t, err)
+
+		aggregator := NewAggregatorWithFields(fieldAgg, hivetest.Logger(t))
+
+		// Add flows with DIFFERENT verdicts - should create 3 separate aggregates.
+		aggregator.Add(&v1.Event{
+			Event: &flowpb.Flow{
+				Verdict:          flowpb.Verdict_FORWARDED,
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+			},
+		})
+		aggregator.Add(&v1.Event{
+			Event: &flowpb.Flow{
+				Verdict:          flowpb.Verdict_DROPPED,
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+			},
+		})
+		aggregator.Add(&v1.Event{
+			Event: &flowpb.Flow{
+				Verdict:          flowpb.Verdict_ERROR,
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+			},
+		})
+
+		// Add another FORWARDED flow - should add to existing FORWARDED aggregate.
+		aggregator.Add(&v1.Event{
+			Event: &flowpb.Flow{
+				Verdict:          flowpb.Verdict_FORWARDED,
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+			},
+		})
+
+		// Should have 3 separate aggregates (FORWARDED, DROPPED, ERROR).
+		assert.Len(t, aggregator.m, 3, "different verdicts should create separate aggregates")
+
+		// Verify each aggregate has correct counts.
+		forwardedKey := generateAggregationKey(&flowpb.Flow{Verdict: flowpb.Verdict_FORWARDED})
+		forwardedValue, exists := aggregator.m[forwardedKey]
+		require.True(t, exists, "FORWARDED aggregate should exist")
+		assert.Equal(t, 1, forwardedValue.IngressFlowCount, "FORWARDED should have 1 ingress")
+		assert.Equal(t, 1, forwardedValue.EgressFlowCount, "FORWARDED should have 1 egress")
+
+		droppedKey := generateAggregationKey(&flowpb.Flow{Verdict: flowpb.Verdict_DROPPED})
+		droppedValue, exists := aggregator.m[droppedKey]
+		require.True(t, exists, "DROPPED aggregate should exist")
+		assert.Equal(t, 1, droppedValue.EgressFlowCount, "DROPPED should have 1 egress")
+
+		errorKey := generateAggregationKey(&flowpb.Flow{Verdict: flowpb.Verdict_ERROR})
+		errorValue, exists := aggregator.m[errorKey]
+		require.True(t, exists, "ERROR aggregate should exist")
+		assert.Equal(t, 1, errorValue.IngressFlowCount, "ERROR should have 1 ingress")
+	})
 }
 
 func TestAggregateTimeEnrichment(t *testing.T) {

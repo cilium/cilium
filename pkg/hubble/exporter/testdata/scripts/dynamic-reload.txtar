@@ -1,0 +1,96 @@
+# Start with initial configuration with two exporters
+config/add multi-exporter-1.yaml
+
+# Verify exporters are created
+* exporters/count 2
+
+# Send events to both exporters
+event/send flow-web.json
+event/send flow-api.json
+
+# Verify both files exist
+* file/exists $WORK/web.log
+* file/exists $WORK/api.log
+
+# Check web exporter got events
+* file/read $WORK/web.log web-1.actual
+* grep -q '"flow"' web-1.actual
+* grep -q '"source".*"pod_name":"web-frontend"' web-1.actual
+* grep -q '"destination".*"pod_name":"api-backend"' web-1.actual
+
+# Check api exporter got events
+* file/read $WORK/api.log api-1.actual
+* grep -q '"flow"' api-1.actual
+* grep -q '"source".*"pod_name":"api-backend"' api-1.actual
+* grep -q '"destination".*"pod_name":"db-postgres"' api-1.actual
+
+# Update config - remove web exporter, keep api exporter
+config/delete multi-exporter-1.yaml
+config/add multi-exporter-2.yaml
+
+# Verify only 1 exporter remains
+* exporters/count 1
+
+# Send more events - only api should receive them
+event/send flow-web.json
+event/send flow-api.json
+
+# Wait a bit for events to be written
+sleep 50ms
+
+# Clean up
+config/delete multi-exporter-2.yaml
+
+# ---
+
+-- multi-exporter-1.yaml --
+exporters:
+  - name: web-exporter
+    filePath: $WORK/web.log
+    fieldMask:
+      - source
+      - destination
+  
+  - name: api-exporter
+    filePath: $WORK/api.log
+    fieldMask:
+      - source
+      - destination
+
+-- multi-exporter-2.yaml --
+exporters:
+  - name: api-exporter
+    filePath: $WORK/api.log
+    fieldMask:
+      - source
+      - destination
+
+-- flow-web.json --
+{
+  "time": "2024-01-01T10:00:00Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "default",
+    "pod_name": "web-frontend",
+    "labels": ["app=web", "tier=frontend"]
+  },
+  "destination": {
+    "namespace": "default",
+    "pod_name": "api-backend"
+  }
+}
+
+-- flow-api.json --
+{
+  "time": "2024-01-01T10:00:01Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "default",
+    "pod_name": "api-backend",
+    "labels": ["app=api", "tier=backend"]
+  },
+  "destination": {
+    "namespace": "default",
+    "pod_name": "db-postgres"
+  }
+}
