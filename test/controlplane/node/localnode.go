@@ -14,9 +14,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/suite"
@@ -117,7 +117,7 @@ func validateLocalNodeAgent(cs client.Clientset, lns *node.LocalNodeStore) error
 		assert.Equal(errs, localNodeObject.UID, ciliumNode.OwnerReferences[0].UID)
 	}
 
-	parsedCiliumNode := nodeTypes.ParseCiliumNode(&ciliumNode)
+	parsedCiliumNode := k8s.ParseCiliumNode(&ciliumNode)
 	assert.Equal(errs, node.IPv4HealthIP, parsedCiliumNode.IPv4HealthIP, "CiliumNode HealthIP")
 	assert.Equal(errs, node.IPAddresses, parsedCiliumNode.IPAddresses, "CiliumNode IPAddresses")
 	assert.Equal(errs, node.Labels, parsedCiliumNode.Labels, "CiliumNode Labels")

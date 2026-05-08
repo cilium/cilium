@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
@@ -545,7 +546,7 @@ func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.Ciliu
 func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.CiliumNode]) {
 	defer event.Done(nil)
 
-	node := nodeTypes.ParseCiliumNode(event.Object)
+	node := k8s.ParseCiliumNode(event.Object)
 
 	manager.Lock()
 	defer manager.Unlock()

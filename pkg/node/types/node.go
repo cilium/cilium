@@ -13,11 +13,9 @@ import (
 	"slices"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -32,72 +30,6 @@ type Identity struct {
 // String returns the string representation on NodeIdentity.
 func (nn Identity) String() string {
 	return path.Join(nn.Cluster, nn.Name)
-}
-
-// appendAllocCDIR sets or appends the given podCIDR to the node.
-// If the IPv4/IPv6AllocCIDR is already set, we add the podCIDR as a secondary
-// alloc CIDR.
-func (n *Node) appendAllocCDIR(podCIDR *cidr.CIDR) {
-	if podCIDR.IP.To4() != nil {
-		if n.IPv4AllocCIDR == nil {
-			n.IPv4AllocCIDR = podCIDR
-		} else {
-			n.IPv4SecondaryAllocCIDRs = append(n.IPv4SecondaryAllocCIDRs, podCIDR)
-		}
-	} else {
-		if n.IPv6AllocCIDR == nil {
-			n.IPv6AllocCIDR = podCIDR
-		} else {
-			n.IPv6SecondaryAllocCIDRs = append(n.IPv6SecondaryAllocCIDRs, podCIDR)
-		}
-	}
-}
-
-// ParseCiliumNode parses a CiliumNode custom resource and returns a Node
-// instance. Invalid IP and CIDRs are silently ignored
-func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
-	wireguardPubKey, _ := annotation.Get(n, annotation.WireguardPubKey, annotation.WireguardPubKeyAlias)
-	node = Node{
-		Name:            n.Name,
-		EncryptionKey:   uint8(n.Spec.Encryption.Key),
-		Cluster:         option.Config.ClusterName,
-		ClusterID:       option.Config.ClusterID,
-		Source:          source.CustomResource,
-		Labels:          n.ObjectMeta.Labels,
-		Annotations:     n.ObjectMeta.Annotations,
-		WireguardPubKey: wireguardPubKey,
-		BootID:          n.Spec.BootID,
-	}
-
-	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
-		ipnet, err := cidr.ParseCIDR(cidrString)
-		if err == nil {
-			node.appendAllocCDIR(ipnet)
-		}
-	}
-
-	for _, pool := range n.Spec.IPAM.Pools.Allocated {
-		for _, podCIDR := range pool.CIDRs {
-			ipnet, err := cidr.ParseCIDR(string(podCIDR))
-			if err == nil {
-				node.appendAllocCDIR(ipnet)
-			}
-		}
-	}
-
-	node.IPv4HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv4)
-	node.IPv6HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv6)
-
-	node.IPv4IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV4)
-	node.IPv6IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV6)
-
-	for _, address := range n.Spec.Addresses {
-		if ip := net.ParseIP(address.IP); ip != nil {
-			node.IPAddresses = append(node.IPAddresses, Address{Type: address.Type, IP: ip})
-		}
-	}
-
-	return
 }
 
 // Node contains the nodes name, the list of addresses to this address

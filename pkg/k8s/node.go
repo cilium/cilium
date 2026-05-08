@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -303,4 +304,67 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 	}
 
 	return newNode
+}
+
+// ParseCiliumNode parses a CiliumNode custom resource and returns a Node
+// instance. Invalid IP and CIDRs are silently ignored
+func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
+	var appendAllocCIDR = func(node *nodeTypes.Node, podCIDR *cidr.CIDR) {
+		if podCIDR.IP.To4() != nil {
+			if node.IPv4AllocCIDR == nil {
+				node.IPv4AllocCIDR = podCIDR
+			} else {
+				node.IPv4SecondaryAllocCIDRs = append(node.IPv4SecondaryAllocCIDRs, podCIDR)
+			}
+		} else {
+			if node.IPv6AllocCIDR == nil {
+				node.IPv6AllocCIDR = podCIDR
+			} else {
+				node.IPv6SecondaryAllocCIDRs = append(node.IPv6SecondaryAllocCIDRs, podCIDR)
+			}
+		}
+	}
+
+	wireguardPubKey, _ := annotation.Get(n, annotation.WireguardPubKey, annotation.WireguardPubKeyAlias)
+	node = nodeTypes.Node{
+		Name:            n.Name,
+		EncryptionKey:   uint8(n.Spec.Encryption.Key),
+		Cluster:         option.Config.ClusterName,
+		ClusterID:       option.Config.ClusterID,
+		Source:          source.CustomResource,
+		Labels:          n.ObjectMeta.Labels,
+		Annotations:     n.ObjectMeta.Annotations,
+		WireguardPubKey: wireguardPubKey,
+		BootID:          n.Spec.BootID,
+	}
+
+	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
+		ipnet, err := cidr.ParseCIDR(cidrString)
+		if err == nil {
+			appendAllocCIDR(&node, ipnet)
+		}
+	}
+
+	for _, pool := range n.Spec.IPAM.Pools.Allocated {
+		for _, podCIDR := range pool.CIDRs {
+			ipnet, err := cidr.ParseCIDR(string(podCIDR))
+			if err == nil {
+				appendAllocCIDR(&node, ipnet)
+			}
+		}
+	}
+
+	node.IPv4HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv4)
+	node.IPv6HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv6)
+
+	node.IPv4IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV4)
+	node.IPv6IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV6)
+
+	for _, address := range n.Spec.Addresses {
+		if ip := net.ParseIP(address.IP); ip != nil {
+			node.IPAddresses = append(node.IPAddresses, nodeTypes.Address{Type: address.Type, IP: ip})
+		}
+	}
+
+	return
 }

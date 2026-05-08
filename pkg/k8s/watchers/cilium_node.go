@@ -23,7 +23,6 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nm "github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/node/types"
 )
 
 type k8sCiliumNodeWatcherParams struct {
@@ -123,7 +122,7 @@ func (k *K8sCiliumNodeWatcher) onCiliumNodeInsert(ciliumNode *cilium_v2.CiliumNo
 	if k8s.IsLocalCiliumNode(ciliumNode) {
 		return false
 	}
-	n := types.ParseCiliumNode(ciliumNode)
+	n := k8s.ParseCiliumNode(ciliumNode)
 	k.nodeManager.NodeUpdated(n)
 	return true
 }
@@ -142,7 +141,7 @@ func (k *K8sCiliumNodeWatcher) onCiliumNodeDelete(ciliumNode *cilium_v2.CiliumNo
 	if k8s.IsLocalCiliumNode(ciliumNode) {
 		return
 	}
-	n := types.ParseCiliumNode(ciliumNode)
+	n := k8s.ParseCiliumNode(ciliumNode)
 	k.nodeManager.NodeDeleted(n)
 }
 

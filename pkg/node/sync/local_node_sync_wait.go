@@ -40,7 +40,7 @@ func (ini *localNodeSynchronizer) retrieveNodeInformation(ctx context.Context) *
 				break
 			}
 			if event.Kind == resource.Upsert {
-				no := nodeTypes.ParseCiliumNode(event.Object)
+				no := k8s.ParseCiliumNode(event.Object)
 				n = &no
 				ini.Logger.Info("Retrieved node information from cilium node", logfields.NodeName, n.Name)
 				if err := waitForCIDR(); err != nil {

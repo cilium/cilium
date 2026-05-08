@@ -16,13 +16,13 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -202,7 +202,7 @@ func startLocalNodeAllocCIDRsSync(
 					return nil
 				}
 
-				no := nodeTypes.ParseCiliumNode(ev.Object)
+				no := k8s.ParseCiliumNode(ev.Object)
 				localNodeStore.Update(func(n *node.LocalNode) {
 					if enableIPv4 && no.IPv4AllocCIDR != nil {
 						n.IPv4AllocCIDR = no.IPv4AllocCIDR
