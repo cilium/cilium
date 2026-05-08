@@ -49,6 +49,7 @@ retryScope:
 	ipsPublic := []netlink.Addr{}
 	ipsPrivate := []netlink.Addr{}
 	hasPreferred := false
+	hadFilteredCandidate := false
 
 	for _, a := range addr {
 		if a.Scope > linkScopeMax {
@@ -63,6 +64,16 @@ retryScope:
 		isPreferredIP := a.IP.Equal(preferredIP)
 		if a.Flags&unix.IFA_F_SECONDARY > 0 && !isPreferredIP {
 			// Skip secondary addresses if they're not the preferredIP
+			continue
+		}
+		// Skip tentative (DAD in progress) and DAD-failed addresses. The
+		// kernel won't send/receive on these — they're either still being
+		// validated or in a permanent DAD-conflict state. Picking one
+		// silently produces an unusable node IP. Track that we saw a
+		// candidate so the cross-interface fallback below can refuse to
+		// substitute an unrelated interface's address.
+		if a.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED) != 0 {
+			hadFilteredCandidate = true
 			continue
 		}
 
@@ -114,6 +125,18 @@ retryScope:
 		goto retryScope
 	}
 
+	// If the named interface had global candidates that were all filtered
+	// out as tentative/dadfailed, refuse to fall back to scanning every
+	// interface on the host — that path can pick up unrelated addresses
+	// (Cilium-managed lxc, sibling-node mirrors via L2 announce responder)
+	// and silently use them as the node identity. Surface the network-state
+	// problem as a clear startup error instead.
+	if link != nil && hadFilteredCandidate {
+		return nil, fmt.Errorf(
+			"all global %s addresses on %q are tentative or dadfailed; refusing all-interfaces fallback",
+			familyName(family), intf)
+	}
+
 	// Fall back with retry for all interfaces with full scope again
 	// (which then goes back to lower scope again for all interfaces
 	// before we give up completely).
@@ -124,6 +147,13 @@ retryScope:
 	}
 
 	return nil, fmt.Errorf("No address found")
+}
+
+func familyName(family int) string {
+	if family == netlink.FAMILY_V4 {
+		return "IPv4"
+	}
+	return "IPv6"
 }
 
 // firstGlobalV4Addr returns the first IPv4 global IP of an interface,
