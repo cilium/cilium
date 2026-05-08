@@ -176,11 +176,12 @@ type Client struct {
 }
 
 // NewClient creates a new SPIRE client.
-// If the mutual authentication is not enabled, it returns a noop client.
-// When ztunnel is enabled, the client is still created but the identity.Provider
-// returned is a noop since ztunnel handles identity differently.
+// It returns a noop client when neither mutual authentication nor ztunnel-with-SPIRE
+// is enabled. When ztunnel uses SPIRE as its CA, the client is created so that the
+// operator can manage SPIRE entries for enrolled namespaces; the identity.Provider
+// returned in that case is a noop since ztunnel handles identity differently.
 func NewClient(params params) out {
-	if !params.MutualAuthConfig.Enabled {
+	if !params.MutualAuthConfig.Enabled && !params.ZtunnelConfig.UseSpireCA() {
 		return out{
 			Provider: &noopClient{},
 			Client:   nil,

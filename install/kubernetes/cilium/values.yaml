@@ -1181,6 +1181,15 @@ encryption:
   # ztunnel is Istio's purpose-built, per-node proxy for handling L4 traffic in ambient mesh mode.
   # These settings only apply when encryption.type is set to "ztunnel".
   ztunnel:
+    # -- CA backend used by ztunnel to issue workload identities.
+    ca:
+      # @schema
+      # enum: [spire, internal]
+      # @schema
+      # -- Type of CA. "spire" uses an external SPIRE server (the operator
+      # then manages SPIRE entries for enrolled namespaces). "internal" uses
+      # Cilium's built-in CA and skips the SPIRE enrollment reconciler.
+      type: internal
     # -- ztunnel container image.
     image:
       # @schema
