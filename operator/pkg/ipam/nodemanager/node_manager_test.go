@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"slices"
 	"sync"
 	"testing"
@@ -127,7 +128,7 @@ func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *Alloca
 	n.allocator.allocatedIPs += allocation.IPv4.AvailableForAllocation
 	for range allocation.IPv4.AvailableForAllocation {
 		n.allocator.ipGenerator++
-		n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("%d", n.allocator.ipGenerator))
+		n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("10.0.%d.%d", n.allocator.ipGenerator/256, n.allocator.ipGenerator%256))
 	}
 	n.allocator.mutex.Unlock()
 	n.mutex.Unlock()
@@ -717,7 +718,8 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 	node.resource.Status.IPAM.ReleaseIPs[releasedIP] = ipamOption.IPAMReleased
 
 	// Also mark it as released in the internal ipReleaseStatus map
-	node.ipv4Alloc.ipReleaseStatus[releasedIP] = ipamOption.IPAMReleased
+	releasedAddr := netip.MustParseAddr(releasedIP)
+	node.ipv4Alloc.ipReleaseStatus[releasedAddr] = ipamOption.IPAMReleased
 
 	// Normally at this point, the agent would see the IP is released and remove it from Status.IPAM.ReleaseIPs
 	// But before that happens, simulate the IP being reassigned back to the pool
@@ -743,8 +745,8 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		node.mutex.Lock()
 		defer node.mutex.Unlock()
 
-		_, inReleaseStatus := node.ipv4Alloc.ipReleaseStatus[releasedIP]
-		_, inMarkedForRelease := node.ipv4Alloc.ipsMarkedForRelease[releasedIP]
+		_, inReleaseStatus := node.ipv4Alloc.ipReleaseStatus[releasedAddr]
+		_, inMarkedForRelease := node.ipv4Alloc.ipsMarkedForRelease[releasedAddr]
 		_, inReleaseIPs := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
 
 		return !inReleaseStatus && !inMarkedForRelease && !inReleaseIPs

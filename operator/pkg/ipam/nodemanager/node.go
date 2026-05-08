@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	cslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -152,14 +153,14 @@ type ipAllocAttrs struct {
 	// Excess IP address from a cilium node would be marked for release only after a delay
 	// configured by excess-ip-release-delay flag. ipsMarkedForRelease tracks the IP and the
 	// timestamp at which it was marked for release.
-	ipsMarkedForRelease map[string]time.Time
+	ipsMarkedForRelease map[netip.Addr]time.Time
 
 	// ipReleaseStatus tracks the state for every IP address considered for release.
 	// IPAMMarkForRelease  : Marked for Release
 	// IPAMReadyForRelease : Acknowledged as safe to release by agent
 	// IPAMDoNotRelease    : Release request denied by agent
 	// IPAMReleased        : IP released by the operator
-	ipReleaseStatus map[string]string
+	ipReleaseStatus map[netip.Addr]string
 }
 
 // Statistics represent the IP allocation statistics of a node
@@ -611,11 +612,15 @@ func (n *Node) buildPoolAllocated(node *v2.CiliumNode) []ipamTypes.IPAMPoolAlloc
 		// Here we need to apply a reverse logic to only advertise as /32 CIDRs in the pool
 		// regular secondary addresses (or the ENI primary IP when using UsePrimaryAddress)
 		// and not addresses that are already being advertised through a /28 CIDR.
-		for _, addr := range eni.Addresses {
-			if addressCoveredByPrefix(addr, prefixes) {
+		for _, addrStr := range eni.Addresses {
+			parsed, err := netip.ParseAddr(addrStr)
+			if err != nil {
 				continue
 			}
-			cidrs = append(cidrs, ipamTypes.IPAMCIDR(addr+"/32"))
+			if addressCoveredByPrefix(parsed, prefixes) {
+				continue
+			}
+			cidrs = append(cidrs, ipamTypes.IPAMCIDR(addrStr+"/32"))
 		}
 	}
 
@@ -631,18 +636,11 @@ func (n *Node) buildPoolAllocated(node *v2.CiliumNode) []ipamTypes.IPAMPoolAlloc
 	}
 }
 
-// addressCoveredByPrefix returns true if the given IP address string falls
+// addressCoveredByPrefix returns true if the given IP address falls
 // within any of the provided prefixes.
-func addressCoveredByPrefix(addr string, prefixes []netip.Prefix) bool {
-	if len(prefixes) == 0 {
-		return false
-	}
-	ip, err := netip.ParseAddr(addr)
-	if err != nil {
-		return false
-	}
+func addressCoveredByPrefix(addr netip.Addr, prefixes []netip.Prefix) bool {
 	for _, p := range prefixes {
-		if p.Contains(ip) {
+		if p.Contains(addr) {
 			return true
 		}
 	}
@@ -854,12 +852,12 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 func (n *Node) removeStaleReleaseIPs() {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	for ip, status := range n.ipv4Alloc.ipReleaseStatus {
+	for addr, status := range n.ipv4Alloc.ipReleaseStatus {
 		if status != ipamOption.IPAMReleased {
 			continue
 		}
-		if _, ok := n.resource.Status.IPAM.ReleaseIPs[ip]; !ok {
-			delete(n.ipv4Alloc.ipReleaseStatus, ip)
+		if _, ok := n.resource.Status.IPAM.ReleaseIPs[addr.String()]; !ok {
+			delete(n.ipv4Alloc.ipReleaseStatus, addr)
 		}
 	}
 }
@@ -876,6 +874,10 @@ func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
 		if excessMap[ip] {
 			continue
 		}
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			continue
+		}
 		// Handshake can be aborted from every state except 'released'
 		// 'released' state is removed by the agent once the IP has been removed from ciliumnode's IPAM pool as well.
 		// But if the IP is back in the pool, we need to remove it from the release status map.
@@ -883,26 +885,26 @@ func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
 			// Check if the IP is back in the pool despite being marked as released
 			if _, ok := n.resource.Spec.IPAM.Pool[ip]; ok {
 				delete(n.resource.Status.IPAM.ReleaseIPs, ip)
-				delete(n.ipv4Alloc.ipsMarkedForRelease, ip)
-				delete(n.ipv4Alloc.ipReleaseStatus, ip)
+				delete(n.ipv4Alloc.ipsMarkedForRelease, addr)
+				delete(n.ipv4Alloc.ipReleaseStatus, addr)
 			}
 
 			// If it's still released and not in the pool, we don't need to do anything
 			continue
 		}
 
-		if status, ok := n.ipv4Alloc.ipReleaseStatus[ip]; ok && status != ipamOption.IPAMReleased {
-			delete(n.ipv4Alloc.ipsMarkedForRelease, ip)
-			delete(n.ipv4Alloc.ipReleaseStatus, ip)
+		if status, ok := n.ipv4Alloc.ipReleaseStatus[addr]; ok && status != ipamOption.IPAMReleased {
+			delete(n.ipv4Alloc.ipsMarkedForRelease, addr)
+			delete(n.ipv4Alloc.ipReleaseStatus, addr)
 		}
 	}
 }
 
 // handleIPReleaseResponse handles IPs agent has already responded to
 // caller must hold mutex lock
-func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) bool {
+func (n *Node) handleIPReleaseResponse(markedIP netip.Addr, ipsToRelease *[]netip.Addr) bool {
 	if n.resource.Status.IPAM.ReleaseIPs != nil {
-		if status, ok := n.resource.Status.IPAM.ReleaseIPs[markedIP]; ok {
+		if status, ok := n.resource.Status.IPAM.ReleaseIPs[markedIP.String()]; ok {
 			switch status {
 			case ipamOption.IPAMReadyForRelease:
 				*ipsToRelease = append(*ipsToRelease, markedIP)
@@ -932,8 +934,8 @@ func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) 
 //
 // Handshake would be aborted if there are new allocations and the node doesn't have IPs in excess anymore.
 func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (instanceMutated bool, err error) {
-	var ipsToMark []string
-	var ipsToRelease []string
+	var ipsToMark []netip.Addr
+	var ipsToRelease []netip.Addr
 
 	n.mutex.Lock()
 
@@ -941,20 +943,24 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 	releaseTS := time.Now()
 	if a.release != nil && a.release.IPsToRelease != nil {
 		for _, ip := range a.release.IPsToRelease {
-			if _, ok := n.ipv4Alloc.ipsMarkedForRelease[ip]; !ok {
-				n.ipv4Alloc.ipsMarkedForRelease[ip] = releaseTS
+			addr, err := netip.ParseAddr(ip)
+			if err != nil {
+				continue
+			}
+			if _, ok := n.ipv4Alloc.ipsMarkedForRelease[addr]; !ok {
+				n.ipv4Alloc.ipsMarkedForRelease[addr] = releaseTS
 			}
 		}
 	}
 
 	if n.ipv4Alloc.ipsMarkedForRelease == nil || a.release == nil || len(a.release.IPsToRelease) == 0 {
 		// Resetting ipsMarkedForRelease if there are no IPs to release in this iteration
-		n.ipv4Alloc.ipsMarkedForRelease = make(map[string]time.Time)
+		n.ipv4Alloc.ipsMarkedForRelease = make(map[netip.Addr]time.Time)
 	}
 
 	for markedIP, ts := range n.ipv4Alloc.ipsMarkedForRelease {
 		// Determine which IPs are still marked for release.
-		stillMarkedForRelease := slices.Contains(a.release.IPsToRelease, markedIP)
+		stillMarkedForRelease := slices.Contains(a.release.IPsToRelease, markedIP.String())
 		if !stillMarkedForRelease {
 			// n.determineMaintenanceAction() only returns the IPs on the interface with maximum number of IPs that
 			// can be freed up. If the selected interface changes or if this IP is not excess anymore, remove entry
@@ -975,12 +981,12 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 		ipsToMark = append(ipsToMark, markedIP)
 	}
 
-	for _, ip := range ipsToMark {
+	for _, addr := range ipsToMark {
 		n.logger.Load().Debug(
 			"Marking IP for release",
-			logfields.IPAddr, ip,
+			logfields.IPAddr, addr,
 		)
-		n.ipv4Alloc.ipReleaseStatus[ip] = ipamOption.IPAMMarkForRelease
+		n.ipv4Alloc.ipReleaseStatus[addr] = ipamOption.IPAMMarkForRelease
 	}
 	n.mutex.Unlock()
 
@@ -995,7 +1001,7 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 	n.abortNoLongerExcessIPs(excessMap)
 
 	if len(ipsToRelease) > 0 {
-		a.release.IPsToRelease = ipsToRelease
+		a.release.IPsToRelease = cslices.Map(ipsToRelease, netip.Addr.String)
 
 		nodeStats := n.Stats()
 
@@ -1031,9 +1037,9 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			n.manager.metricsAPI.AddIPRelease(string(a.release.PoolID), int64(len(a.release.IPsToRelease)))
 			// Remove the IPs from ipsMarkedForRelease
 			n.mutex.Lock()
-			for _, ip := range ipsToRelease {
-				delete(n.ipv4Alloc.ipsMarkedForRelease, ip)
-				n.ipv4Alloc.ipReleaseStatus[ip] = ipamOption.IPAMReleased
+			for _, addr := range ipsToRelease {
+				delete(n.ipv4Alloc.ipsMarkedForRelease, addr)
+				n.ipv4Alloc.ipReleaseStatus[addr] = ipamOption.IPAMReleased
 			}
 			n.mutex.Unlock()
 			return true, nil
@@ -1188,7 +1194,8 @@ func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	releaseStatus := make(map[string]ipamTypes.IPReleaseStatus)
-	for ip, status := range n.ipv4Alloc.ipReleaseStatus {
+	for addr, status := range n.ipv4Alloc.ipReleaseStatus {
+		ip := addr.String()
 		if existingStatus, ok := node.Status.IPAM.ReleaseIPs[ip]; ok && status == ipamOption.IPAMMarkForRelease {
 			// retain status if agent already responded to this IP
 			if existingStatus == ipamOption.IPAMReadyForRelease || existingStatus == ipamOption.IPAMDoNotRelease {
