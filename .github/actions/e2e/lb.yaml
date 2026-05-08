@@ -71,3 +71,19 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
   # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
+- name: 'lb-6'
+  # Mirrors n3r production datapath: KPR=true, Geneve tunnel, DSR with Geneve dispatch.
+  # Production-only helm values are injected via .github/actions/helm-default/ci-required-values.yaml.
+  kernel: '6.12'
+  kube-proxy: 'none'
+  kpr: 'true'
+  devices: '{eth0,eth1}'
+  secondary-network: 'true'
+  tunnel: 'geneve'
+  lb-mode: 'dsr'
+  endpoint-routes: 'false'
+  egress-gateway: 'false'
+  host-fw: 'false'
+  ingress-controller: 'false'
+  # L7 testing: skip — production has envoy.enabled=false (embedded), L7 path differs
+  test-l7: 'false'
