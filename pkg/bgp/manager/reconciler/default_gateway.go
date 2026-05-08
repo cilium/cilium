@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // DefaultGatewayReconciler is a ConfigReconciler which handles auto-discovery
@@ -42,12 +43,13 @@ type DefaultGatewayReconcilerOut struct {
 type DefaultGatewayReconcilerIn struct {
 	cell.In
 
-	Logger      *slog.Logger
-	DB          *statedb.DB
-	JobGroup    job.Group
-	Signaler    *signaler.BGPCPSignaler
-	RouteTable  statedb.Table[*tables.Route]
-	DeviceTable statedb.Table[*tables.Device]
+	Logger       *slog.Logger
+	DaemonConfig *option.DaemonConfig
+	DB           *statedb.DB
+	JobGroup     job.Group
+	Signaler     *signaler.BGPCPSignaler
+	RouteTable   statedb.Table[*tables.Route]
+	DeviceTable  statedb.Table[*tables.Device]
 }
 
 var (
@@ -56,6 +58,10 @@ var (
 )
 
 func NewDefaultGatewayReconciler(p DefaultGatewayReconcilerIn) DefaultGatewayReconcilerOut {
+	if !p.DaemonConfig.BGPControlPlaneEnabled() {
+		return DefaultGatewayReconcilerOut{}
+	}
+
 	logger := p.Logger.With(types.ReconcilerLogField, "DefaultGateway")
 
 	// Add job observers for route and device change tracking
