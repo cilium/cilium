@@ -5,7 +5,7 @@
 
 #include "drop.h"
 #include "nodeport.h"
-#include "aux.h"
+#include "auxvars.h"
 
 #ifdef ENABLE_NODEPORT
 
