@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	//nolint:gomodguard
+	//nolint:gomodguard_v2
 	"go.uber.org/goleak"
 )
 
