@@ -104,6 +104,12 @@ Allow packagers to add extra arguments to the clustermesh-apiserver kvstoremesh 
 {{- end }}
 
 {{/*
+Allow packagers to add lifecycle hooks to the cilium-envoy container.
+*/}}
+{{- define "envoy.lifecycle" -}}
+{{- end }}
+
+{{/*
 Allow packagers to add init containers to the cilium-envoy pods.
 */}}
 {{- define "envoy.initContainers" -}}
