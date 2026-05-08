@@ -44,21 +44,60 @@ kvstore/list -o json cilium/state/ip ips-1+3.actual
 # Add one more CiliumEndpoint; the IPv4 address overlaps with that of endpoint-3
 k8s/add endpoint-4.yaml
 
-# Wait for synchronization
+# Wait for synchronization. The entry for the IP of endpoint-3 should be updated
+# to that of endpoint-4
 kvstore/list -o json cilium/state/ip ips-1+3+4.actual
 * cmp ips-1+3+4.actual ips-1+3+4.expected
 
-# Delete endpoint-3. The entry for endpoint-4 should be preserved
+# Delete endpoint-4.
+k8s/delete endpoint-4.yaml
+
+# Wait for synchronization. The entry for endpoint-3 should be preserved after endpoint-4 is deleted.
+kvstore/list -o json cilium/state/ip ips-1+3.actual
+* cmp ips-1+3.actual ips-1+3.expected
+
+# Add endpoint-4 again
+k8s/add endpoint-4.yaml
+
+# Wait for synchronization. The entry for the IP of endpoint-3 should be updated
+# to that of endpoint-4
+kvstore/list -o json cilium/state/ip ips-1+3+4.actual
+* cmp ips-1+3+4.actual ips-1+3+4.expected
+
+# Delete endpoint-3.
 k8s/delete endpoint-3.yaml
 
-# Wait for synchronization
+# Wait for synchronization. The entry for endpoint-4 should be preserved after endpoint-3 is deleted.
 kvstore/list -o json cilium/state/ip ips-1+4.actual
 * cmp ips-1+4.actual ips-1+4.expected
 
-# Delete endpoint-4. No entry for the ip should exist anymore
+# Add endpoint-3 again
+k8s/add endpoint-3.yaml
+
+# Wait for synchronization. The entry for the IP of endpoint-4 should be updated
+# to that of endpoint-3.
+kvstore/list -o json cilium/state/ip ips-1+3+4.actual
+* cmp ips-1+3+4.actual ips-1+4+3.expected
+
+# Trigger an update for endpoint-4
+k8s/update endpoint-4.yaml
+
+# Wait for synchronization. The entry for the IP of endpoint-3 should be updated
+# to that of endpoint-4.
+kvstore/list -o json cilium/state/ip ips-1+3+4.actual
+* cmp ips-1+3+4.actual ips-1+3+4.expected
+
+# Delete endpoint-4.
 k8s/delete endpoint-4.yaml
 
-# Wait for synchronization
+# Wait for synchronization. The entry for endpoint-3 should be preserved after endpoint-4 is deleted.
+kvstore/list -o json cilium/state/ip ips-1+3.actual
+* cmp ips-1+3.actual ips-1+3.expected
+
+# Delete endpoint-3.
+k8s/delete endpoint-3.yaml
+
+# Wait for synchronization. No entry for the IP of endpoint-3 should exist anymore.
 kvstore/list -o json cilium/state/ip ips-1.actual
 * cmp ips-1.actual ips-1.expected
 
@@ -406,7 +445,7 @@ status:
   "K8sPodName": "cep-004",
   "K8sServiceAccount": "default"
 }
--- ips-1+3+4-bis.expected --
+-- ips-1+4+3.expected --
 # cilium/state/ip/v1/default/10.244.1.80
 {
   "IP": "10.244.1.80",
