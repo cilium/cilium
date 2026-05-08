@@ -96,10 +96,10 @@ type L2Announcer struct {
 	devicesUpdatedSig chan struct{}
 
 	// selectedPolicies matching the current node.
-	selectedPolicies map[resource.Key]*selectedPolicy
+	selectedPolicies map[types.NamespacedName]*selectedPolicy
 	// Services which are selected by one or more policies for which we thus want to participate in leader election.
 	// Indexed by service key.
-	selectedServices map[resource.Key]*selectedService
+	selectedServices map[types.NamespacedName]*selectedService
 	// A list of devices which can be matched by the policies
 	devices []string
 }
@@ -109,8 +109,8 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	const leaderElectionBufferSize = 16
 	announcer := &L2Announcer{
 		params:            params,
-		selectedServices:  make(map[resource.Key]*selectedService),
-		selectedPolicies:  make(map[resource.Key]*selectedPolicy),
+		selectedServices:  make(map[types.NamespacedName]*selectedService),
+		selectedPolicies:  make(map[types.NamespacedName]*selectedPolicy),
 		leaderChannel:     make(chan leaderElectionEvent, leaderElectionBufferSize),
 		devicesUpdatedSig: make(chan struct{}, 1),
 	}
@@ -310,7 +310,7 @@ func (l2a *L2Announcer) processPolicyEvent(ctx context.Context, event resource.E
 		}
 
 	case resource.Delete:
-		err = l2a.delPolicy(event.Key)
+		err = l2a.delPolicy(types.NamespacedName{Namespace: event.Key.Namespace, Name: event.Key.Name})
 		if err != nil {
 			err = fmt.Errorf("delete policy: %w", err)
 		}
@@ -388,7 +388,7 @@ func (l2a *L2Announcer) upsertSvc(svc *loadbalancer.Service) error {
 	}
 
 	// Service is not selected, check if any policies match.
-	var matchingPolicies []resource.Key
+	var matchingPolicies []types.NamespacedName
 	for policyKey, selectedPolicy := range l2a.selectedPolicies {
 		if selectedPolicy.serviceSelector.Matches(svcAndMetaLabels(svc)) {
 			// Policy IP type and Service IP type must match
@@ -407,7 +407,7 @@ func (l2a *L2Announcer) upsertSvc(svc *loadbalancer.Service) error {
 	return nil
 }
 
-func (l2a *L2Announcer) delSvc(key resource.Key) error {
+func (l2a *L2Announcer) delSvc(key types.NamespacedName) error {
 	ss, found := l2a.selectedServices[key]
 	if !found {
 		return nil
@@ -433,7 +433,7 @@ func (l2a *L2Announcer) processSvcEvent(event statedb.Change[*loadbalancer.Servi
 			err = fmt.Errorf("upsert service: %w", err)
 		}
 	} else {
-		err = l2a.delSvc(resource.Key{Namespace: event.Object.Name.Namespace(), Name: event.Object.Name.Name()})
+		err = l2a.delSvc(types.NamespacedName{Namespace: event.Object.Name.Namespace(), Name: event.Object.Name.Name()})
 		if err != nil {
 			err = fmt.Errorf("delete service: %w", err)
 		}
@@ -442,12 +442,12 @@ func (l2a *L2Announcer) processSvcEvent(event statedb.Change[*loadbalancer.Servi
 	return err
 }
 
-func policyKey(policy *cilium_api_v2alpha1.CiliumL2AnnouncementPolicy) resource.Key {
-	return resource.Key{Name: policy.Name}
+func policyKey(policy *cilium_api_v2alpha1.CiliumL2AnnouncementPolicy) types.NamespacedName {
+	return types.NamespacedName{Name: policy.Name}
 }
 
-func serviceKey(svc *loadbalancer.Service) resource.Key {
-	return resource.Key{Namespace: svc.Name.Namespace(), Name: svc.Name.Name()}
+func serviceKey(svc *loadbalancer.Service) types.NamespacedName {
+	return types.NamespacedName{Namespace: svc.Name.Namespace(), Name: svc.Name.Name()}
 }
 
 func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2alpha1.CiliumL2AnnouncementPolicy) error {
@@ -610,7 +610,7 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 			continue
 		}
 
-		l2a.addSelectedService(svc, externalAddresses, lbAddresses, []resource.Key{key})
+		l2a.addSelectedService(svc, externalAddresses, lbAddresses, []types.NamespacedName{key})
 	}
 
 	err := l2a.gcOrphanedServices()
@@ -691,7 +691,7 @@ func (l2a *L2Announcer) updatePolicyStatus(
 	return err
 }
 
-func (l2a *L2Announcer) delPolicy(key resource.Key) error {
+func (l2a *L2Announcer) delPolicy(key types.NamespacedName) error {
 	for _, ss := range l2a.selectedServices {
 		idx := slices.Index(ss.byPolicies, key)
 		if idx != -1 {
@@ -782,7 +782,7 @@ func (l2a *L2Announcer) leaseTimings() (leaseDuration, renewDeadline, retryPerio
 	return leaseDuration, renewDeadline, retryPeriod
 }
 
-func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, lbAddrs []netip.Addr, byPolicies []resource.Key) {
+func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, lbAddrs []netip.Addr, byPolicies []types.NamespacedName) {
 	leaseDuration, renewDeadline, retryPeriod := l2a.leaseTimings()
 	ss := &selectedService{
 		svc:               svc,
@@ -1082,7 +1082,7 @@ func (l2a *L2Announcer) desiredEntries(ss *selectedService) map[string]*tables.L
 							IP:               ip,
 							NetworkInterface: iface,
 						},
-						Origins: []resource.Key{serviceKey(ss.svc)},
+						Origins: []types.NamespacedName{serviceKey(ss.svc)},
 					}
 				}
 				entries[key] = entry
@@ -1116,7 +1116,7 @@ type selectedService struct {
 	externalAddresses, lbAddresses []netip.Addr
 
 	// The policies which select this service.
-	byPolicies []resource.Key
+	byPolicies []types.NamespacedName
 
 	// lease parameters
 	leaseDuration time.Duration

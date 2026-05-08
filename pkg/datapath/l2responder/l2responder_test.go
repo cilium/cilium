@@ -15,10 +15,10 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
@@ -87,7 +87,7 @@ var (
 	ipv6_2  = netip.MustParseAddr("fd02::c0a8:0")
 	ipv6_3  = netip.MustParseAddr("fd03::c0a8:0")
 	ns_mac  = mac.MustParseMAC("33:33:ff:a8:00:00")
-	origin1 = resource.Key{Name: "abc"}
+	origin1 = types.NamespacedName{Name: "abc"}
 )
 
 const (
@@ -106,7 +106,7 @@ func TestEmptyMapAddPartialSync(t *testing.T) {
 			IP:               ip1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 
@@ -143,7 +143,7 @@ func TestEmptyMapAddDelPartialSync(t *testing.T) {
 			IP:               ip1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	_, _, err = fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
@@ -205,7 +205,7 @@ func TestEmptyMapAddFullSync(t *testing.T) {
 			IP:               ip1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	txn.Commit()
@@ -236,7 +236,7 @@ func TestEmptyMapAddDelFullSync(t *testing.T) {
 			IP:               ip1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	_, _, err = fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
@@ -290,7 +290,7 @@ func Test1RougeAddPartialSync(t *testing.T) {
 			IP:               ip1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 
@@ -335,7 +335,7 @@ func Test1RougeAddFullSync(t *testing.T) {
 			IP:               ip1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	txn.Commit()
@@ -374,7 +374,7 @@ func Test1ExistingAddFullSync(t *testing.T) {
 			IP:               ip1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	txn.Commit()
@@ -432,7 +432,7 @@ func TestIpv6McasMAC(t *testing.T) {
 			IP:               ipv6_1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	txn.Commit()
@@ -469,7 +469,7 @@ func TestIpv6McasMAC(t *testing.T) {
 			IP:               ipv6_2,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	txn.Commit()
@@ -490,7 +490,7 @@ func TestIpv6McasMAC(t *testing.T) {
 			IP:               ipv6_2,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	txn.Commit()
@@ -511,7 +511,7 @@ func TestIpv6McasMAC(t *testing.T) {
 			IP:               ipv6_1,
 			NetworkInterface: if1,
 		},
-		Origins: []resource.Key{origin1},
+		Origins: []types.NamespacedName{origin1},
 	})
 	assert.NoError(t, err)
 	txn.Commit()
@@ -585,7 +585,7 @@ func TestFullReconciliationPointerReuse(t *testing.T) {
 					IP:               tt.ips[0],
 					NetworkInterface: if1,
 				},
-				Origins: []resource.Key{origin1},
+				Origins: []types.NamespacedName{origin1},
 			})
 			assert.NoError(t, err)
 			txn.Commit()
@@ -617,7 +617,7 @@ func TestFullReconciliationPointerReuse(t *testing.T) {
 					IP:               tt.ips[1],
 					NetworkInterface: if1,
 				},
-				Origins: []resource.Key{origin1},
+				Origins: []types.NamespacedName{origin1},
 			})
 			assert.NoError(t, err)
 			txn.Commit()
