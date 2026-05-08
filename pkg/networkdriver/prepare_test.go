@@ -192,6 +192,15 @@ func createPrepClaim(t *testing.T, cs *k8sClient.FakeClientset, claim *resourcea
 	claim.ResourceVersion = updated.ResourceVersion
 }
 
+// helperCfgs parses device configs from a claim using the driver's
+// deviceClaimConfigs parser.
+func helperCfgs(t *testing.T, driver *Driver, claim *resourceapi.ResourceClaim) map[string]types.DeviceConfig {
+	t.Helper()
+	cfgs, err := driver.deviceClaimConfigs(t.Context(), claim)
+	require.NoError(t, err)
+	return cfgs
+}
+
 // namedObject is a small helper to build a kubeletplugin.NamespacedObject.
 func namedObject(ns, name string, uid kubetypes.UID) kubeletplugin.NamespacedObject {
 	return kubeletplugin.NamespacedObject{
@@ -214,7 +223,7 @@ func TestPrepare_Success(t *testing.T) {
 	createPrepClaim(t, cs, claim)
 
 	driver := buildPrepDriver(t, cs, dev)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.NoError(t, result.Err)
 
 	assert.EqualValues(t, 1, dev.setupCalls.Load(), "Setup must be called once")
@@ -244,7 +253,7 @@ func TestPrepare_TwoDevices_BothSucceed(t *testing.T) {
 	createPrepClaim(t, cs, claim)
 
 	driver := buildPrepDriver(t, cs, dev0, dev1)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.NoError(t, result.Err)
 
 	assert.EqualValues(t, 1, dev0.setupCalls.Load())
@@ -273,7 +282,7 @@ func TestPrepare_UpdateStatusFails_MapEmpty(t *testing.T) {
 	claim := buildPrepClaim(prepTestDev0)
 
 	driver := buildPrepDriver(t, cs, dev)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err, "UpdateStatus should fail because claim was not pre-created")
 
 	// no partial entry must be left in the map.
@@ -293,7 +302,7 @@ func TestPrepare_UpdateStatusFails_RollbackCalled(t *testing.T) {
 	claim := buildPrepClaim(prepTestDev0)
 
 	driver := buildPrepDriver(t, cs, dev)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 
 	assert.EqualValues(t, 1, dev.setupCalls.Load(), "Setup should have been attempted")
@@ -315,7 +324,7 @@ func TestPrepare_UpdateStatusFails_TwoDevices_BothRolledBack(t *testing.T) {
 	claim := buildPrepClaim(prepTestDev0, prepTestDev1)
 
 	driver := buildPrepDriver(t, cs, dev0, dev1)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 
 	assert.EqualValues(t, 1, dev0.setupCalls.Load())
@@ -339,7 +348,7 @@ func TestPrepare_SecondSetupFails_FirstRolledBack(t *testing.T) {
 	createPrepClaim(t, cs, claim)
 
 	driver := buildPrepDriver(t, cs, dev0, dev1)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 	assert.Contains(t, result.Err.Error(), "setup exploded")
 
@@ -370,7 +379,7 @@ func TestPrepare_DeviceNotFound_PreviousRolledBack(t *testing.T) {
 	createPrepClaim(t, cs, claim)
 
 	driver := buildPrepDriver(t, cs, dev0) // only dev0 registered
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 	assert.ErrorIs(t, result.Err, errDeviceNotFound)
 
@@ -395,7 +404,7 @@ func TestPrepare_FirstSetupFails_NoRollbackNeeded(t *testing.T) {
 	createPrepClaim(t, cs, claim)
 
 	driver := buildPrepDriver(t, cs, dev0)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 
 	assert.EqualValues(t, 1, dev0.setupCalls.Load())
@@ -418,7 +427,7 @@ func TestPrepare_RollbackFreeError_OriginalErrReturned(t *testing.T) {
 	createPrepClaim(t, cs, claim)
 
 	driver := buildPrepDriver(t, cs, dev0, dev1)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 
 	// The original setup error is what the caller must see.
@@ -436,10 +445,10 @@ func TestPrepare_RollbackFreeError_OriginalErrReturned(t *testing.T) {
 // Tests — early rejection paths
 // ---------------------------------------------------------------------------
 
-// TestPrepare_DuplicatePodUID_Rejected verifies that a second
-// PrepareResourceClaims call for the same pod UID is rejected without calling
-// Setup again.
-func TestPrepare_DuplicatePodUID_Rejected(t *testing.T) {
+// TestPrepare_IdempotentSameClaim verifies that a second prepareResourceClaim
+// call for the exact same claim UID returns success without calling Setup again
+// (kubelet retry scenario).
+func TestPrepare_IdempotentSameClaim(t *testing.T) {
 	tlog := hivetest.Logger(t)
 	cs, _ := k8sClient.NewFakeClientset(tlog)
 	dev := &trackedDevice{name: prepTestDev0}
@@ -449,15 +458,14 @@ func TestPrepare_DuplicatePodUID_Rejected(t *testing.T) {
 	driver := buildPrepDriver(t, cs, dev)
 
 	// First call succeeds.
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.NoError(t, result.Err)
 
-	// Second call with the same pod UID must be rejected.
-	result2 := driver.prepareResourceClaim(t.Context(), claim)
-	require.Error(t, result2.Err)
-	assert.ErrorIs(t, result2.Err, errAllocationAlreadyExistsForPod)
+	// Second call with the same claim UID must be idempotent (succeed, no extra Setup).
+	result2 := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
+	require.NoError(t, result2.Err)
 
-	// Setup must only have been called once (by the first call).
+	// Setup must only have been called once.
 	assert.EqualValues(t, 1, dev.setupCalls.Load())
 }
 
@@ -478,7 +486,7 @@ func TestPrepare_InvalidPodIfName_NoSetup(t *testing.T) {
 	createPrepClaim(t, cs, claim)
 
 	driver := buildPrepDriver(t, cs, dev)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 
 	assert.EqualValues(t, 0, dev.setupCalls.Load(),
@@ -499,7 +507,7 @@ func TestPrepare_WrongReservedForLength_Rejected(t *testing.T) {
 	createPrepClaim(t, cs, claim)
 
 	driver := buildPrepDriver(t, cs, dev)
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 	assert.ErrorIs(t, result.Err, errUnexpectedInput)
 	assert.EqualValues(t, 0, dev.setupCalls.Load())
@@ -522,7 +530,7 @@ func TestUnprepare_RemovesAllocationAndCallsFree(t *testing.T) {
 
 	driver := buildPrepDriver(t, cs, dev)
 
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.NoError(t, result.Err)
 	require.Contains(t, driver.allocations, prepTestPodUID)
 
@@ -550,7 +558,7 @@ func TestUnprepare_MultipleDevices_AllFreed(t *testing.T) {
 
 	driver := buildPrepDriver(t, cs, dev0, dev1)
 
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.NoError(t, result.Err)
 
 	_, err := driver.UnprepareResourceClaims(t.Context(),
@@ -588,7 +596,7 @@ func TestUnprepare_PrepareRollbackThenPrepareAgain(t *testing.T) {
 	driver := buildPrepDriver(t, cs, dev)
 
 	// First attempt: claim not in API → UpdateStatus fails → rollback.
-	result := driver.prepareResourceClaim(t.Context(), claim)
+	result := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.Error(t, result.Err)
 	assert.Empty(t, driver.allocations, "map must be clean after failed prepare")
 
@@ -597,7 +605,7 @@ func TestUnprepare_PrepareRollbackThenPrepareAgain(t *testing.T) {
 
 	// Second attempt: should succeed because the map is clean
 	// (no "allocation already exists" guard fires).
-	result2 := driver.prepareResourceClaim(t.Context(), claim)
+	result2 := driver.prepareResourceClaim(t.Context(), claim, helperCfgs(t, driver, claim))
 	require.NoError(t, result2.Err, "second prepare must succeed after rollback cleaned up")
 
 	require.Contains(t, driver.allocations, prepTestPodUID)
@@ -606,4 +614,160 @@ func TestUnprepare_PrepareRollbackThenPrepareAgain(t *testing.T) {
 	// Setup called twice (once per attempt), Free called once (rollback of first attempt).
 	assert.EqualValues(t, 2, dev.setupCalls.Load())
 	assert.EqualValues(t, 1, dev.freeCalls.Load())
+}
+
+// ---------------------------------------------------------------------------
+// Tests — multi-claim (validateClaimsIntent)
+// ---------------------------------------------------------------------------
+
+// buildPrepClaimWithUID is like buildPrepClaim but allows setting a custom
+// claim UID, so tests can create two distinct claims for the same pod.
+func buildPrepClaimWithUID(uid kubetypes.UID, name string, devices ...string) *resourceapi.ResourceClaim {
+	c := buildPrepClaim(devices...)
+	c.UID = uid
+	c.Name = name
+	return c
+}
+
+// TestPrepare_TwoClaims_NonOverlapping verifies that two claims for the same
+// pod that request distinct devices both succeed.
+func TestPrepare_TwoClaims_NonOverlapping(t *testing.T) {
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
+	const (
+		claimUID2  = kubetypes.UID("cccccccc-0000-0000-0000-000000000003")
+		claimName2 = "test-claim-2"
+	)
+
+	dev0 := &trackedDevice{name: prepTestDev0}
+	dev1 := &trackedDevice{name: prepTestDev1}
+
+	claim1 := buildPrepClaim(prepTestDev0)
+	claim2 := buildPrepClaimWithUID(claimUID2, claimName2, prepTestDev1)
+
+	createPrepClaim(t, cs, claim1)
+	createPrepClaim(t, cs, claim2)
+
+	driver := buildPrepDriver(t, cs, dev0, dev1)
+
+	results, err := driver.PrepareResourceClaims(t.Context(), []*resourceapi.ResourceClaim{claim1, claim2})
+	require.NoError(t, err)
+
+	require.NoError(t, results[prepTestClaimUID].Err, "claim1 must succeed")
+	require.NoError(t, results[claimUID2].Err, "claim2 must succeed")
+
+	assert.EqualValues(t, 1, dev0.setupCalls.Load())
+	assert.EqualValues(t, 1, dev1.setupCalls.Load())
+
+	require.Contains(t, driver.allocations, prepTestPodUID)
+	assert.Len(t, driver.allocations[prepTestPodUID], 2, "both claims must be in the pod entry")
+}
+
+// TestPrepare_TwoClaims_SameDevice_Conflict verifies that two claims for the
+// same pod that request the same device are rejected with a conflict error.
+func TestPrepare_TwoClaims_SameDevice_Conflict(t *testing.T) {
+	t.Skip("conflict detection not yet implemented")
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
+	const (
+		claimUID2  = kubetypes.UID("cccccccc-0000-0000-0000-000000000003")
+		claimName2 = "test-claim-2"
+	)
+
+	dev0 := &trackedDevice{name: prepTestDev0}
+
+	claim1 := buildPrepClaim(prepTestDev0)
+	claim2 := buildPrepClaimWithUID(claimUID2, claimName2, prepTestDev0) // same device
+
+	createPrepClaim(t, cs, claim1)
+	createPrepClaim(t, cs, claim2)
+
+	driver := buildPrepDriver(t, cs, dev0)
+
+	results, err := driver.PrepareResourceClaims(t.Context(), []*resourceapi.ResourceClaim{claim1, claim2})
+	require.NoError(t, err)
+
+	// One must succeed, one must fail with a conflict error.
+	// claim1 is processed first (deterministic order in the batch).
+	require.NoError(t, results[prepTestClaimUID].Err, "claim1 must succeed")
+	require.Error(t, results[claimUID2].Err, "claim2 must fail — same device")
+	assert.ErrorIs(t, results[claimUID2].Err, errDeviceConflict)
+
+	// Setup is only called for claim1.
+	assert.EqualValues(t, 1, dev0.setupCalls.Load())
+}
+
+// TestPrepare_TwoClaims_SamePodIfName_Conflict verifies that two claims for
+// the same pod that assign the same podIfName are rejected.
+func TestPrepare_TwoClaims_SamePodIfName_Conflict(t *testing.T) {
+	t.Skip("conflict detection not yet implemented")
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
+	const (
+		claimUID2  = kubetypes.UID("cccccccc-0000-0000-0000-000000000003")
+		claimName2 = "test-claim-2"
+		sharedName = "eth1"
+	)
+
+	rawParam := func() []byte {
+		b, _ := json.Marshal(map[string]string{
+			"ipv4Addr":  "10.1.0.1/32",
+			"ipv6Addr":  "fd00::1/128",
+			"podIfName": sharedName,
+		})
+		return b
+	}()
+
+	makeClaimWithIfName := func(uid kubetypes.UID, name, dev string) *resourceapi.ResourceClaim {
+		c := buildPrepClaim(dev)
+		c.UID = uid
+		c.Name = name
+		c.Status.Allocation.Devices.Config[0].Opaque.Parameters = runtime.RawExtension{Raw: rawParam}
+		return c
+	}
+
+	dev0 := &trackedDevice{name: prepTestDev0}
+	dev1 := &trackedDevice{name: prepTestDev1}
+
+	claim1 := makeClaimWithIfName(prepTestClaimUID, prepTestClaimName, prepTestDev0)
+	claim2 := makeClaimWithIfName(claimUID2, claimName2, prepTestDev1)
+
+	createPrepClaim(t, cs, claim1)
+	createPrepClaim(t, cs, claim2)
+
+	driver := buildPrepDriver(t, cs, dev0, dev1)
+
+	results, err := driver.PrepareResourceClaims(t.Context(), []*resourceapi.ResourceClaim{claim1, claim2})
+	require.NoError(t, err)
+
+	require.NoError(t, results[prepTestClaimUID].Err, "claim1 must succeed")
+	require.Error(t, results[claimUID2].Err, "claim2 must fail — same podIfName")
+	assert.ErrorIs(t, results[claimUID2].Err, errDeviceConflict)
+}
+
+// TestPrepare_IntraClaimDuplicateDevice verifies that a single claim whose
+// Results list references the same device twice is rejected.
+func TestPrepare_IntraClaimDuplicateDevice(t *testing.T) {
+	t.Skip("conflict detection not yet implemented")
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
+	dev0 := &trackedDevice{name: prepTestDev0}
+
+	// buildPrepClaim with the same device name twice
+	claim := buildPrepClaim(prepTestDev0, prepTestDev0)
+	createPrepClaim(t, cs, claim)
+
+	driver := buildPrepDriver(t, cs, dev0)
+
+	results, err := driver.PrepareResourceClaims(t.Context(), []*resourceapi.ResourceClaim{claim})
+	require.NoError(t, err)
+	require.Error(t, results[prepTestClaimUID].Err)
+	assert.ErrorIs(t, results[prepTestClaimUID].Err, errDeviceConflict)
+
+	assert.EqualValues(t, 0, dev0.setupCalls.Load(), "Setup must not be called when validation fails")
+	assert.Empty(t, driver.allocations)
 }

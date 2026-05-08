@@ -374,7 +374,7 @@ func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string,
 	return alloc, nil
 }
 
-func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.ResourceClaim) kubeletplugin.PrepareResult {
+func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.ResourceClaim, cfgs map[string]types.DeviceConfig) kubeletplugin.PrepareResult {
 	if len(claim.Status.ReservedFor) != 1 {
 		return kubeletplugin.PrepareResult{
 			Err: fmt.Errorf("%w: Status.ReservedFor field has more than one entry", errUnexpectedInput),
@@ -383,28 +383,26 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 
 	pod := claim.Status.ReservedFor[0]
 
-	if _, ok := driver.allocations[pod.UID]; ok {
-		return kubeletplugin.PrepareResult{
-			Err: fmt.Errorf("%w: name: %s, resource: %s, uid: %s", errAllocationAlreadyExistsForPod, pod.Name, pod.Resource, pod.UID),
-		}
-	}
-
-	deviceClaimConfigs, err := driver.deviceClaimConfigs(ctx, claim)
-	if err != nil {
-		return kubeletplugin.PrepareResult{Err: err}
-	}
-
-	// Validate podIfName in all configs before proceeding
-	for request, cfg := range deviceClaimConfigs {
+	// Validate podIfNames before touching any devices.
+	for request, cfg := range cfgs {
 		if err := types.ValidateInterfaceName(cfg.PodIfName); err != nil {
 			return kubeletplugin.PrepareResult{
-				Err: fmt.Errorf("invalid podIfName in request %s for claim %s: %w",
-					request, path.Join(claim.Namespace, claim.Name), err),
+				Err: fmt.Errorf("invalid podIfName in request %s for claim %s/%s: %w",
+					request, claim.Namespace, claim.Name, err),
 			}
 		}
 	}
 
+	// Idempotency: if this exact claim was already prepared (e.g. kubelet retry), succeed immediately.
+	if podAllocs, ok := driver.allocations[pod.UID]; ok {
+		if _, already := podAllocs[claim.UID]; already {
+			return kubeletplugin.PrepareResult{}
+		}
+		// Pod has other claims already prepared — that is fine, continue.
+	}
+
 	var (
+		err           error
 		alloc         []allocation
 		devicesStatus []resourceapi.AllocatedDeviceStatus
 	)
@@ -432,7 +430,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}()
 
 	for _, result := range claim.Status.Allocation.Devices.Results {
-		cfg, found := deviceClaimConfigs[result.Request]
+		cfg, found := cfgs[result.Request]
 		if !found {
 			err = fmt.Errorf("%w with ifname %s for %s", errDeviceClaimConfigNotFound, result.Device, path.Join(claim.Namespace, claim.Name))
 			return kubeletplugin.PrepareResult{
@@ -527,7 +525,9 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	driver.allocations[pod.UID] = make(map[kube_types.UID][]allocation)
+	if _, ok := driver.allocations[pod.UID]; !ok {
+		driver.allocations[pod.UID] = make(map[kube_types.UID][]allocation)
+	}
 	driver.allocations[pod.UID][claim.UID] = alloc
 
 	// we dont need to return anything here.
@@ -576,19 +576,15 @@ func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resou
 	result = make(map[kube_types.UID]kubeletplugin.PrepareResult)
 
 	err = driver.withLock(func() error {
-		for _, c := range claims {
-			l := driver.logger.With(
-				logfields.K8sNamespace, c.Namespace,
-				logfields.UID, c.UID,
-				logfields.Name, c.Name,
-			)
-			result[c.UID] = driver.prepareResourceClaim(ctx, c)
+		for _, claim := range claims {
+			cfgs, err := driver.deviceClaimConfigs(ctx, claim)
+			if err != nil {
+				result[claim.UID] = kubeletplugin.PrepareResult{Err: err}
+				continue
+			}
 
-			l.DebugContext(ctx, "allocation for claim",
-				logfields.Result, result[c.UID],
-			)
+			result[claim.UID] = driver.prepareResourceClaim(ctx, claim, cfgs)
 		}
-
 		return nil
 	})
 
