@@ -43,6 +43,28 @@ layer 7 DNS rules, but no other kinds of layer 7 rules.
       Cilium agent pod, and it will fail to start (rendering the node unusable)
       despite the new agent image having been pre-pulled.
 
+    - Some Kubernetes versions require extra care when using host L7 DNS policies:
+
+      * In Kubernetes v1.33, kubelet always fetches image pull credentials, even if
+        the image is present and the image pull policy is ``Never`` or ``IfNotPresent``.
+        As a result, in clusters relying on remote authentication and authorization
+        services for images, restarting the Cilium daemon pod on a node can take up
+        to several minutes, during which time the node is not ready. This issue was
+        `fixed <https://github.com/kubernetes/kubernetes/pull/133079>`_ in v1.34.
+
+      * In Kubernetes v1.34, the same behavior occurs when the feature gate
+        `KubeletEnsureSecretPulledImages`_ is enabled, even if image pull credentials
+        verification policy is disabled or the Cilium image is white-listed. This issue
+        was `fixed <https://github.com/kubernetes/kubernetes/pull/133114>`_ in v1.35.
+
+.. attention::
+
+    Host L7 DNS policies are incompletely compatible with per-endpoint routes. If
+    per-endpoint routes are enabled, the DNS proxy will work as long as the upstream
+    DNS servers to which the host and any host-networking pods direct DNS requests
+    are external to the cluster, but if upstream DNS is in-cluster (e.g. kube-dns)
+    then those DNS requests will time out.
+
 
 .. _KubeletEnsureSecretPulledImages: https://kubernetes.io/docs/concepts/containers/images/#ensureimagepullcredentialverification
 .. _image credential providers: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider
