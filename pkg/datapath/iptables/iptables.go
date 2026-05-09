@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/mattn/go-shellwords"
 	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
@@ -190,32 +191,6 @@ func (ipt *ipt) runProg(args []string) error {
 	return err
 }
 
-func reverseRule(rule string) ([]string, error) {
-	if strings.HasPrefix(rule, "-A") {
-		// From: -A POSTROUTING -m comment [...]
-		// To:   -D POSTROUTING -m comment [...]
-		return shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
-	}
-
-	if strings.HasPrefix(rule, "-I") {
-		// From: -I POSTROUTING -m comment [...]
-		// To:   -D POSTROUTING -m comment [...]
-		return shellwords.Parse(strings.Replace(rule, "-I", "-D", 1))
-	}
-
-	return []string{}, nil
-}
-
-func ruleReferencesDisabledChain(disableIptablesFeederRules []string, rule string) (bool, string) {
-	for _, disabledChain := range disableIptablesFeederRules {
-		if strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
-			return true, disabledChain
-		}
-	}
-
-	return false, ""
-}
-
 func isDisabledChain(disableIptablesFeederRules []string, chain string) bool {
 	for _, disabledChain := range disableIptablesFeederRules {
 		if strings.EqualFold(chain, disabledChain) {
@@ -226,62 +201,83 @@ func isDisabledChain(disableIptablesFeederRules []string, chain string) bool {
 	return false
 }
 
-func (m *manager) removeCiliumRules(table string, prog runnable, match string) error {
-	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
-	if err != nil {
-		return err
+// removeCiliumFeederRules removes feeder rules in built-in chains that jump
+// to any Cilium-owned chain whose name starts with chainPrefix + "CILIUM_".
+// Rules are matched by line number and jump target only; the body is never
+// inspected, so cleanup tolerates iptables version skew that can corrupt body
+// fields (issue #33465). Rules inside Cilium chains are flushed by
+// customChain.doRemove and not visited here.
+func (m *manager) removeCiliumFeederRules(table string, prog runnable, chainPrefix string) error {
+	hookSet := sets.New[string]()
+	for _, c := range ciliumChains {
+		if c.table != table {
+			continue
+		}
+		hookSet.Insert(c.hook)
 	}
+	if hookSet.Len() == 0 {
+		return nil
+	}
+	hooks := sets.List(hookSet)
 
-	scanner := bufio.NewScanner(strings.NewReader(rules))
-	for scanner.Scan() {
-		rule := scanner.Text()
+	// Prefix (not exact chain) match also catches feeders left behind by
+	// chains removed in older Cilium versions.
+	targetPrefix := chainPrefix + "CILIUM_"
+	lineRe := regexp.MustCompile(`^\s*(\d+)\s+(\S+)`)
 
-		// All rules installed by cilium either belong to a chain with
-		// the name CILIUM_ or call a chain with the name CILIUM_:
-		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
-		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
-		if !strings.Contains(rule, match) {
-			continue
-		}
-
-		// Skip rules that live inside a CILIUM_ chain — they will be cleared when
-		// the chain is flushed in doRemove. Only feeder rules (those in built-in
-		// chains that jump to a CILIUM_ chain) need explicit removal here, because
-		// iptables -X fails if the chain is still referenced by another chain.
-		if parts := strings.Fields(rule); len(parts) >= 2 && strings.HasPrefix(parts[1], match) {
-			continue
-		}
-
-		// do not remove feeder for chains that are set to be disabled
-		// ie catch the beginning of the rule like -A POSTROUTING to match it against
-		// disabled chains
-		if skip, disabledChain := ruleReferencesDisabledChain(m.cfg.DisableIptablesFeederRules, rule); skip {
+	for _, hook := range hooks {
+		if isDisabledChain(m.cfg.DisableIptablesFeederRules, hook) {
 			m.logger.Info(
-				"Skipping the removal of feeder chain",
-				logfields.Chain, disabledChain,
+				"Skipping the removal of feeder rules in disabled chain",
+				logfields.Chain, hook,
 			)
 			continue
 		}
 
-		reversedRule, err := reverseRule(rule)
+		out, err := prog.runProgOutput([]string{"-t", table, "-nL", hook, "--line-numbers"})
 		if err != nil {
-			m.logger.Warn(
-				"Unable to parse rule into slice. Leaving rule behind.",
-				logfields.Error, err,
-				logfields.Prog, prog,
-			)
-			continue
+			if isMissingChainOrTableErr(err) {
+				continue
+			}
+			return err
 		}
 
-		if len(reversedRule) > 0 {
-			deleteRule := append([]string{"-t", table}, reversedRule...)
-			if err := prog.runProg(deleteRule); err != nil {
+		var toDelete []int
+		scanner := bufio.NewScanner(strings.NewReader(out))
+		for scanner.Scan() {
+			match := lineRe.FindStringSubmatch(scanner.Text())
+			if match == nil {
+				continue
+			}
+			if !strings.HasPrefix(match[2], targetPrefix) {
+				continue
+			}
+			num, err := strconv.Atoi(match[1])
+			if err != nil {
+				continue
+			}
+			toDelete = append(toDelete, num)
+		}
+
+		// Delete descending so earlier indices remain valid.
+		slices.Sort(toDelete)
+		slices.Reverse(toDelete)
+		for _, num := range toDelete {
+			if err := prog.runProg([]string{"-t", table, "-D", hook, strconv.Itoa(num)}); err != nil {
 				return err
 			}
 		}
 	}
 
 	return nil
+}
+
+// isMissingChainOrTableErr mirrors the error patterns customChain.exists tolerates.
+func isMissingChainOrTableErr(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "No chain/target/match by that name.") ||
+		strings.Contains(s, "is incompatible, use 'nft' tool.") ||
+		strings.Contains(s, "tables: Incompatible with this kernel.")
 }
 
 type podAndNameSpace struct {
@@ -630,12 +626,12 @@ func (m *manager) removeRules(prefix string) error {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
-		if err := m.removeCiliumRules(t, m.ip4tables, prefix+"CILIUM_"); err != nil {
+		if err := m.removeCiliumFeederRules(t, m.ip4tables, prefix); err != nil {
 			return err
 		}
 
 		if m.haveIp6tables {
-			if err := m.removeCiliumRules(t, m.ip6tables, prefix+"CILIUM_"); err != nil {
+			if err := m.removeCiliumFeederRules(t, m.ip6tables, prefix); err != nil {
 				return err
 			}
 		}

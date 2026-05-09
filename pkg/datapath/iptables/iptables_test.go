@@ -602,90 +602,92 @@ func TestAddProxyRulesv6(t *testing.T) {
 	}
 }
 
-func TestRemoveCiliumRulesv4(t *testing.T) {
+func TestRemoveCiliumFeederRulesV4(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
-			args: "-t mangle -S",
-			out: []byte(
-				`-P PREROUTING ACCEPT
--P INPUT ACCEPT
--P FORWARD ACCEPT
--P OUTPUT ACCEPT
--P POSTROUTING ACCEPT
--N OLD_CILIUM_POST_mangle
--N OLD_CILIUM_PRE_mangle
--N CILIUM_POST_mangle
--N CILIUM_PRE_mangle
--N KUBE-KUBELET-CANARY
--N KUBE-PROXY-CANARY
--A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j OLD_CILIUM_PRE_mangle
--A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j OLD_CILIUM_POST_mangle
--A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j CILIUM_PRE_mangle
--A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j CILIUM_POST_mangle
--A OLD_CILIUM_PRE_mangle -m socket --transparent -m comment --comment "cilium: any->pod redirect proxied traffic to host proxy" -j MARK --set-xmark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
--A CILIUM_PRE_mangle -m socket --transparent -m comment --comment "cilium: any->pod redirect proxied traffic to host proxy" -j MARK --set-xmark 0x200/0xffffffff
--A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
--A CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
+			args: "-t mangle -nL POSTROUTING --line-numbers",
+			out: []byte(`Chain POSTROUTING (policy ACCEPT)
+num  target                  prot opt source               destination
+1    KUBE-POSTROUTING        0    --  0.0.0.0/0            0.0.0.0/0
+2    OLD_CILIUM_POST_mangle  0    --  0.0.0.0/0            0.0.0.0/0            /* cilium-feeder: CILIUM_POST_mangle */
+3    CILIUM_POST_mangle      0    --  0.0.0.0/0            0.0.0.0/0            /* cilium-feeder: CILIUM_POST_mangle */
 `),
-		}, {
-			args: "-t mangle -D PREROUTING -m comment --comment cilium-feeder: CILIUM_PRE_mangle -j OLD_CILIUM_PRE_mangle",
-		}, {
-			args: "-t mangle -D POSTROUTING -m comment --comment cilium-feeder: CILIUM_POST_mangle -j OLD_CILIUM_POST_mangle",
 		},
+		{args: "-t mangle -D POSTROUTING 2"},
+		{
+			args: "-t mangle -nL PREROUTING --line-numbers",
+			out: []byte(`Chain PREROUTING (policy ACCEPT)
+num  target                 prot opt source               destination
+1    OLD_CILIUM_PRE_mangle  0    --  0.0.0.0/0            0.0.0.0/0            /* cilium-feeder: CILIUM_PRE_mangle */
+2    CILIUM_PRE_mangle      0    --  0.0.0.0/0            0.0.0.0/0            /* cilium-feeder: CILIUM_PRE_mangle */
+`),
+		},
+		{args: "-t mangle -D PREROUTING 1"},
 	}
 
-	// Only removes Cilium chains with the OLD_ prefix
-	mockManager.removeCiliumRules("mangle", mockIp4tables, oldCiliumPrefix+"CILIUM_")
-	err := mockIp4tables.checkExpectations()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, mockManager.removeCiliumFeederRules("mangle", mockIp4tables, oldCiliumPrefix))
+	require.NoError(t, mockIp4tables.checkExpectations())
 }
 
-func TestRemoveCiliumRulesv6(t *testing.T) {
+func TestRemoveCiliumFeederRulesV6(t *testing.T) {
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 	mockIp6tables.expectations = []expectation{
 		{
-			args: "-t mangle -S",
-			out: []byte(
-				`-P PREROUTING ACCEPT
--P INPUT ACCEPT
--P FORWARD ACCEPT
--P OUTPUT ACCEPT
--P POSTROUTING ACCEPT
--N OLD_CILIUM_POST_mangle
--N OLD_CILIUM_PRE_mangle
--N CILIUM_POST_mangle
--N CILIUM_PRE_mangle
--N KUBE-KUBELET-CANARY
--N KUBE-PROXY-CANARY
--A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j OLD_CILIUM_PRE_mangle
--A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j OLD_CILIUM_POST_mangle
--A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j CILIUM_PRE_mangle
--A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j CILIUM_POST_mangle
--A OLD_CILIUM_PRE_mangle -m socket --transparent -m comment --comment "cilium: any->pod redirect proxied traffic to host proxy" -j MARK --set-xmark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
--A OLD_CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
--A CILIUM_PRE_mangle -m socket --transparent -m comment --comment "cilium: any->pod redirect proxied traffic to host proxy" -j MARK --set-xmark 0x200/0xffffffff
--A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
--A CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
+			args: "-t mangle -nL POSTROUTING --line-numbers",
+			out: []byte(`Chain POSTROUTING (policy ACCEPT)
+num  target                  prot opt source               destination
+1    OLD_CILIUM_POST_mangle  0        ::/0                 ::/0                 /* cilium-feeder: CILIUM_POST_mangle */
+2    CILIUM_POST_mangle      0        ::/0                 ::/0                 /* cilium-feeder: CILIUM_POST_mangle */
 `),
-		}, {
-			args: "-t mangle -D PREROUTING -m comment --comment cilium-feeder: CILIUM_PRE_mangle -j OLD_CILIUM_PRE_mangle",
-		}, {
-			args: "-t mangle -D POSTROUTING -m comment --comment cilium-feeder: CILIUM_POST_mangle -j OLD_CILIUM_POST_mangle",
+		},
+		{args: "-t mangle -D POSTROUTING 1"},
+		{
+			args: "-t mangle -nL PREROUTING --line-numbers",
+			out: []byte(`Chain PREROUTING (policy ACCEPT)
+num  target                 prot opt source               destination
+1    OLD_CILIUM_PRE_mangle  0        ::/0                 ::/0                 /* cilium-feeder: CILIUM_PRE_mangle */
+2    CILIUM_PRE_mangle      0        ::/0                 ::/0                 /* cilium-feeder: CILIUM_PRE_mangle */
+`),
+		},
+		{args: "-t mangle -D PREROUTING 1"},
+	}
+
+	require.NoError(t, mockManager.removeCiliumFeederRules("mangle", mockIp6tables, oldCiliumPrefix))
+	require.NoError(t, mockIp6tables.checkExpectations())
+}
+
+// Regression test for #33465: body corruption (line 2 has 99.105.108.105/24 in
+// the IP slot from version-skew misalignment), legacy chain prefix matching
+// (line 5 targets a chain not in current ciliumChains), and descending-order
+// deletion across multiple matches in one hook.
+func TestRemoveCiliumFeederRulesIgnoresCorruptedBodyAndHandlesLegacyTargets(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp4tables.expectations = []expectation{
+		{
+			args: "-t mangle -nL POSTROUTING --line-numbers",
+			out: []byte(`Chain POSTROUTING (policy ACCEPT)
+num  target                  prot opt source               destination
+1    KUBE-POSTROUTING        0    --  0.0.0.0/0            0.0.0.0/0
+2    OLD_CILIUM_POST_mangle  0    --  10.42.0.0/24         99.105.108.105/24    /* corrupted body */
+3    CILIUM_POST_mangle      0    --  0.0.0.0/0            0.0.0.0/0
+4    OLD_CILIUM_POST_mangle  0    --  0.0.0.0/0            0.0.0.0/0
+5    OLD_CILIUM_LEGACY_FOO   0    --  0.0.0.0/0            0.0.0.0/0
+`),
+		},
+		{args: "-t mangle -D POSTROUTING 5"},
+		{args: "-t mangle -D POSTROUTING 4"},
+		{args: "-t mangle -D POSTROUTING 2"},
+		{
+			args: "-t mangle -nL PREROUTING --line-numbers",
+			out: []byte(`Chain PREROUTING (policy ACCEPT)
+num  target     prot opt source               destination
+`),
 		},
 	}
 
-	// Only removes Cilium chains with the OLD_ prefix
-	mockManager.removeCiliumRules("mangle", mockIp6tables, oldCiliumPrefix+"CILIUM_")
-	err := mockIp6tables.checkExpectations()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, mockManager.removeCiliumFeederRules("mangle", mockIp4tables, oldCiliumPrefix))
+	require.NoError(t, mockIp4tables.checkExpectations())
 }
 
 func TestNodeIpsetNATCmds(t *testing.T) {
