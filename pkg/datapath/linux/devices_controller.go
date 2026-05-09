@@ -455,6 +455,14 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				if dc.deadLinkIndexes.Has(u.LinkIndex) {
 					continue
 				}
+				// Skip addresses that are not usable yet. Tentative addresses
+				// are still going through DAD and dadfailed ones never will,
+				// so populating Device.Addrs with them would surface unusable
+				// addresses to downstream features. A later AddrUpdate emitted
+				// by the kernel when DAD completes will add the address.
+				if u.NewAddr && u.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED) != 0 {
+					continue
+				}
 				addr := deviceAddressFromAddrUpdate(u)
 				i := slices.Index(d.Addrs, addr)
 				if u.NewAddr {

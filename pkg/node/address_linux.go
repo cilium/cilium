@@ -51,18 +51,8 @@ retryScope:
 	hasPreferred := false
 
 	for _, a := range addr {
-		if a.Scope > linkScopeMax {
-			continue
-		}
-		if ip.ListContainsIP(ipsToExclude, a.IP) {
-			continue
-		}
-		if len(a.IP) < ipLen {
-			continue
-		}
 		isPreferredIP := a.IP.Equal(preferredIP)
-		if a.Flags&unix.IFA_F_SECONDARY > 0 && !isPreferredIP {
-			// Skip secondary addresses if they're not the preferredIP
+		if !addrUsableAsNodeIP(a, isPreferredIP, ipsToExclude, linkScopeMax, ipLen) {
 			continue
 		}
 
@@ -124,6 +114,25 @@ retryScope:
 	}
 
 	return nil, fmt.Errorf("No address found")
+}
+
+func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.IP, linkScopeMax, ipLen int) bool {
+	if a.Scope > linkScopeMax {
+		return false
+	}
+	if ip.ListContainsIP(ipsToExclude, a.IP) {
+		return false
+	}
+	if len(a.IP) < ipLen {
+		return false
+	}
+	if a.Flags&unix.IFA_F_SECONDARY > 0 && !isPreferredIP {
+		return false
+	}
+	if a.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED) != 0 {
+		return false
+	}
+	return true
 }
 
 // firstGlobalV4Addr returns the first IPv4 global IP of an interface,
