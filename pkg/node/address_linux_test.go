@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -62,6 +63,91 @@ func TestPrivilegedFirstGlobalV4Addr(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, tc.want, got.String())
 		removeDevice(ifName)
+	}
+}
+
+func TestAddrUsableAsNodeIP(t *testing.T) {
+	testCases := []struct {
+		name          string
+		addr          netlink.Addr
+		isPreferredIP bool
+		ipsToExclude  []net.IP
+		linkScopeMax  int
+		ipLen         int
+		want          bool
+	}{
+		{
+			name:         "plain IPv4 is usable",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE)},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        4,
+			want:         true,
+		},
+		{
+			name:         "tentative IPv6 is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::1"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_TENTATIVE},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        16,
+			want:         false,
+		},
+		{
+			name:         "dadfailed IPv6 is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::2"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DADFAILED},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        16,
+			want:         false,
+		},
+		{
+			name:         "tentative and dadfailed combined is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::3"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_TENTATIVE | unix.IFA_F_DADFAILED},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        16,
+			want:         false,
+		},
+		{
+			name:          "secondary IPv4 is rejected unless preferred",
+			addr:          netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_SECONDARY},
+			isPreferredIP: false,
+			linkScopeMax:  int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:         4,
+			want:          false,
+		},
+		{
+			name:          "secondary IPv4 is accepted when it is the preferred IP",
+			addr:          netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_SECONDARY},
+			isPreferredIP: true,
+			linkScopeMax:  int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:         4,
+			want:          true,
+		},
+		{
+			name:         "address narrower than allowed scope is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_HOST)},
+			linkScopeMax: int(unix.RT_SCOPE_SITE),
+			ipLen:        4,
+			want:         false,
+		},
+		{
+			name:         "excluded address is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE)},
+			ipsToExclude: []net.IP{net.ParseIP("10.0.0.1")},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        4,
+			want:         false,
+		},
+		{
+			name:         "address shorter than required ipLen is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1").To4(), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE)},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        16,
+			want:         false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := addrUsableAsNodeIP(tc.addr, tc.isPreferredIP, tc.ipsToExclude, tc.linkScopeMax, tc.ipLen)
+			require.Equal(t, tc.want, got)
+		})
 	}
 }
 
