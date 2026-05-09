@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+go// SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
 package iptables
@@ -1265,4 +1265,55 @@ func mustParseCIDR(s string) *net.IPNet {
 		panic(err)
 	}
 	return n
+}
+
+func TestRemoteSNATDstAddrExclusionCIDR(t *testing.T) {
+	m := &manager{
+		logger: hivetest.Logger(t),
+	}
+
+	tests := []struct {
+		name              string
+		nativeRoutingCIDR string
+		allocCIDR         string
+		expected          string
+	}{
+		{
+			name:              "valid IPv4 native routing CIDR is used",
+			nativeRoutingCIDR: "10.0.0.0/8",
+			allocCIDR:         "10.42.0.0/24",
+			expected:          "10.0.0.0/8",
+		},
+		{
+			name:              "valid IPv6 native routing CIDR is used",
+			nativeRoutingCIDR: "fd00::/64",
+			allocCIDR:         "fd01::/96",
+			expected:          "fd00::/64",
+		},
+		{
+			name:              "empty native routing CIDR falls back to allocCIDR",
+			nativeRoutingCIDR: "",
+			allocCIDR:         "10.42.0.0/24",
+			expected:          "10.42.0.0/24",
+		},
+		{
+			name:              "non-CIDR string falls back to allocCIDR",
+			nativeRoutingCIDR: "not-a-cidr",
+			allocCIDR:         "10.42.0.0/24",
+			expected:          "10.42.0.0/24",
+		},
+		{
+			name:              "bare IP without prefix falls back to allocCIDR",
+			nativeRoutingCIDR: "10.0.0.1",
+			allocCIDR:         "10.42.0.0/24",
+			expected:          "10.42.0.0/24",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := m.remoteSNATDstAddrExclusionCIDR(tt.nativeRoutingCIDR, tt.allocCIDR)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
 }

@@ -1936,8 +1936,15 @@ func (m *manager) installRules(state desiredState) error {
 
 func (m *manager) remoteSNATDstAddrExclusionCIDR(nativeRoutingCIDR, allocCIDR string) string {
 	if nativeRoutingCIDR != "" {
-		// ip{v4,v6}-native-routing-cidr is set, so use it
-		return nativeRoutingCIDR
+		if _, _, err := net.ParseCIDR(nativeRoutingCIDR); err == nil {
+			// ip{v4,v6}-native-routing-cidr is set and valid, so use it
+			return nativeRoutingCIDR
+		}
+		m.logger.Warn(
+			"native-routing-cidr contains an invalid CIDR string, falling back to allocation CIDR for SNAT exclusion. "+
+				"This may indicate uninitialized state or a configuration error.",
+			logfields.Value, nativeRoutingCIDR,
+		)
 	}
 
 	return allocCIDR
