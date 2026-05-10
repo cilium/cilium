@@ -127,6 +127,9 @@ func withTLSOrigination(tls *model.BackendTLSOrigination) ClusterMutator {
 		tlsContext := &envoy_config_tls.UpstreamTlsContext{
 			Sni: tls.SNI,
 			CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+				TlsParams: &envoy_config_tls.TlsParameters{
+					TlsMaximumProtocolVersion: envoy_config_tls.TlsParameters_TLSv1_3,
+				},
 				ValidationContextType: &envoy_config_tls.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &envoy_config_tls.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext: &envoy_config_tls.CertificateValidationContext{},
