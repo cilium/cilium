@@ -134,6 +134,8 @@ spec:
         typedConfig:
           "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
           commonTlsContext:
+            tlsParams:
+              tlsMaximumProtocolVersion: TLSv1_3
             combinedValidationContext:
               defaultValidationContext: {}
               validationContextSdsSecretConfig:
