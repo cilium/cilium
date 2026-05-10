@@ -60,7 +60,7 @@ concurrency:
 env:
   clusterNamePrefix: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.225.0
+  eksctl_version: v0.226.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.36.0
 
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@98995b41cfa4549131dadab2498f598c2a0c8d16 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@380de320e1536b28487b0af6e9e0cac14c078b8e # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -124,7 +124,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
@@ -190,7 +190,7 @@ jobs:
 
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@98995b41cfa4549131dadab2498f598c2a0c8d16 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@380de320e1536b28487b0af6e9e0cac14c078b8e # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -310,7 +310,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
