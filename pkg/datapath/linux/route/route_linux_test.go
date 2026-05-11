@@ -59,7 +59,7 @@ func TestReplaceNexthopRoute(t *testing.T) {
 	testReplaceNexthopRoute(t, link, routerNet)
 }
 
-func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest bool) {
+func testReplaceRoute(t *testing.T, device, prefixStr, nexthopStr string, lookupTest bool) {
 	_, prefix, err := net.ParseCIDR(prefixStr)
 	require.NoError(t, err)
 	require.NotNil(t, prefix)
@@ -68,7 +68,7 @@ func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest boo
 	require.NotNil(t, nexthop)
 
 	rt := Route{
-		Device:  "lo",
+		Device:  device,
 		Prefix:  *prefix,
 		Nexthop: &nexthop,
 	}
@@ -79,7 +79,7 @@ func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest boo
 	// Defer deletion of route and nexthop route to cleanup in case of failure
 	defer Delete(rt)
 	defer Delete(Route{
-		Device: "lo",
+		Device: device,
 		Prefix: *rt.getNexthopAsIPNet(),
 		Scope:  netlink.SCOPE_LINK,
 	})
@@ -104,9 +104,17 @@ func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest boo
 func TestReplaceRoute(t *testing.T) {
 	setup(t)
 
-	testReplaceRoute(t, "2.2.0.0/16", "1.2.3.4", true)
-	// lookup test broken for IPv6 as long as use lo as device
-	testReplaceRoute(t, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", false)
+	testReplaceRoute(t, "lo", "2.2.0.0/16", "1.2.3.4", true)
+
+	// Linux rejects IPv6 routes via nexthop on loopback, so use a
+	// temporary dummy interface for the IPv6 case.
+	// patch: https://github.com/torvalds/linux/commit/b3b5a03
+	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "test-dummy0"}}
+	require.NoError(t, netlink.LinkAdd(dummy))
+	defer netlink.LinkDel(dummy)
+	require.NoError(t, netlink.LinkSetUp(dummy))
+
+	testReplaceRoute(t, dummy.Name, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", true)
 }
 
 func testReplaceRule(t *testing.T, mark uint32, from, to *net.IPNet, table int) {
