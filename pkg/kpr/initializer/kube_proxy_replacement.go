@@ -98,7 +98,7 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 		}
 
 		dsrIPIP := r.lbConfig.LoadBalancerUsesDSR() && r.lbConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP
-		if dsrIPIP && option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
+		if dsrIPIP {
 			option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices = true
 		}
 
