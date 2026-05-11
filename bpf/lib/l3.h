@@ -8,6 +8,7 @@
 #include "ipv4.h"
 #include "eth.h"
 #include "icmp6.h"
+#include "arp.h"
 
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
@@ -49,4 +50,47 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 		return DROP_WRITE_ERROR;
 
 	return CTX_ACT_OK;
+}
+
+/* Pull the L3 header for the given ethertype into linear memory.
+ * Should be called at the first ethertype de-mux point, before branching into
+ * per-protocol handlers that expect the header to be in linear memory.
+ * Returns DROP_INVALID if the pull fails, 0 otherwise.
+ */
+static __always_inline int pull_l3_hdr(struct __ctx_buff *ctx __maybe_unused,
+				       __be16 proto)
+{
+	switch (bpf_ntohs(proto)) {
+#ifdef ENABLE_IPV6
+	case ETH_P_IPV6: {
+		void *data, *data_end;
+		struct ipv6hdr *ip6;
+
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+		break;
+	}
+#endif /* ENABLE_IPV6 */
+#ifdef ENABLE_IPV4
+	case ETH_P_IP: {
+		void *data, *data_end;
+		struct iphdr *ip4;
+
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		break;
+	}
+	case ETH_P_ARP: {
+		void *data, *data_end;
+		struct arp_eth *arp;
+
+		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp))
+			return DROP_INVALID;
+		break;
+	}
+#endif /* ENABLE_IPV4 */
+	default:
+		break;
+	}
+	return 0;
 }
