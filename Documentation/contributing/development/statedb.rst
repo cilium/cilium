@@ -148,6 +148,8 @@ Here are some common mistakes to be aware of:
 
 * Query is made with ReadTxn and results are used in a WriteTxn. The results may have changed between the ReadTxn and WriteTxn! If you want optimistic concurrency control, then use CompareAndSwap in the write transaction.
 
+The linter in ``tools/statedblint`` catches some of these. It is run as part of CI and can be run locally with ``make statedb-lint``.
+
 Inspecting with cilium-dbg 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

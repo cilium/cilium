@@ -728,6 +728,7 @@ Makefile* @cilium/build
 /tools/dpgen @cilium/loader
 /tools/envoy-bootstrap-locality @cilium/envoy
 /tools/metricslint @cilium/metrics
+/tools/statedblint @cilium/sig-foundations
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
