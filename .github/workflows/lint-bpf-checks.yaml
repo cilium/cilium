@@ -71,6 +71,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           make -C bpf checkpatch || (echo "Run 'make -C bpf checkpatch' locally to investigate reports"; exit 1)
+      - name: Double-check Signed-off-by
+        run: |
+          commits=$(git log ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          if echo "$commits" | grep -v renovate | grep 'Signed-off-by:.*noreply.*'; then
+            echo "Please use a real email address for your Signed-off-by."
+            exit 1
+          fi
+          if echo "$commits" | grep -v renovate | grep -i 'author.*noreply.*'; then
+            echo "Please use a real email address for all authors. Generative AI tools can not author or sign off contributions."
+            exit 1
+          fi
 
   # Runs only if code under bpf/ or contrib/coccinnelle/ is changed.
   coccicheck:
