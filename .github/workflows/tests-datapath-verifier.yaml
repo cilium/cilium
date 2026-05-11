@@ -285,4 +285,4 @@ jobs:
         uses: cilium/cilium/.github/actions/set-commit-status@380de320e1536b28487b0af6e9e0cac14c078b8e # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.merge-and-diff.result && needs.setup-and-test.result }}
+          status: ${{ needs.setup-and-test.result == 'success' && needs.merge-and-diff.result }}
