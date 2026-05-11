@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -191,8 +192,8 @@ func (k *K8sInstaller) listVersions() error {
 	}
 	defaultVersion := helm.GetDefaultVersionString()
 	// Iterate backwards to print the newest version first.
-	for i := len(versions) - 1; i >= 0; i-- {
-		version := "v" + versions[i].String()
+	for _, v := range slices.Backward(versions) {
+		version := "v" + v.String()
 		if version == defaultVersion {
 			fmt.Println(version, "(default)")
 		} else {
