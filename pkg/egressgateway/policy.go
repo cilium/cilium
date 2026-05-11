@@ -436,7 +436,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 				policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, egressRule.NodeSelector)))
 		}
 		if egressRule.NamespaceSelector != nil {
-			prefixedNsSelector := egressRule.NamespaceSelector
+			prefixedNsSelector := egressRule.NamespaceSelector.DeepCopy()
 			matchLabels := map[string]string{}
 			// We use our own special label prefix for namespace metadata,
 			// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels

@@ -104,6 +104,8 @@ var (
 	ep1Labels = map[string]string{"test-key": "test-value-1"}
 	ep2Labels = map[string]string{"test-key": "test-value-2"}
 
+	ns1Labels = map[string]string{"test-key": "ns-test-value-1"}
+
 	identityAllocator = testidentity.NewMockIdentityAllocator(nil)
 
 	nodeGroupNotFoundLabels = map[string]string{"label1": "notfound"}
@@ -310,6 +312,40 @@ func TestPrivilegedEgressGatewayCEGPParser(t *testing.T) {
 	cegp.Spec.Selectors[0].PodSelector = nil
 	_, err = ParseCEGP(cegp)
 	require.Error(t, err)
+
+	// PodSelector is not mutated by the CEGP parser
+	policy = policyParams{
+		name:             "policy-1",
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		policyGwParams: []policyGatewayParams{
+			{
+				iface: testInterface1,
+			},
+		},
+	}
+
+	cegp, _ = newCEGP(&policy)
+	_, err = ParseCEGP(cegp)
+	require.NoError(t, err)
+	require.Equal(t, ep1Labels, cegp.Spec.Selectors[0].PodSelector.MatchLabels)
+
+	// NamespaceSelector is not mutated by the CEGP parser
+	policy = policyParams{
+		name:             "policy-1",
+		namespaceLabels:  ns1Labels,
+		destinationCIDRs: []string{destCIDR},
+		policyGwParams: []policyGatewayParams{
+			{
+				iface: testInterface1,
+			},
+		},
+	}
+
+	cegp, _ = newCEGP(&policy)
+	_, err = ParseCEGP(cegp)
+	require.NoError(t, err)
+	require.Equal(t, ns1Labels, cegp.Spec.Selectors[0].NamespaceSelector.MatchLabels)
 
 	// can't specify both egress iface and IP
 	policy = policyParams{
