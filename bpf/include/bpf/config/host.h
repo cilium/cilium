@@ -23,3 +23,21 @@ DECLARE_CONFIG(__u8, eth_header_length, "Length of the Ethernet header on this d
 ASSIGN_CONFIG(__u8, eth_header_length, __ETH_HLEN)
 #define ETH_HLEN CONFIG(eth_header_length)
 #endif
+
+/* --vlan-bpf-bypass allowlist. Each slot holds a VLAN ID to bypass BPF
+ * processing; 0 means allow all VLAN-tagged traffic; 0xFFFF means unused.
+ * Slots are checked in order and the search stops at the first 0xFFFF.
+ */
+#define VLAN_FILTER_SLOTS 6
+DECLARE_CONFIG(__u16, vlan_filter_id_0, "--vlan-bpf-bypass slot 0; 0 = allow all VLANs, 0xFFFF = unused")
+DECLARE_CONFIG(__u16, vlan_filter_id_1, "--vlan-bpf-bypass slot 1; 0xFFFF = unused")
+DECLARE_CONFIG(__u16, vlan_filter_id_2, "--vlan-bpf-bypass slot 2; 0xFFFF = unused")
+DECLARE_CONFIG(__u16, vlan_filter_id_3, "--vlan-bpf-bypass slot 3; 0xFFFF = unused")
+DECLARE_CONFIG(__u16, vlan_filter_id_4, "--vlan-bpf-bypass slot 4; 0xFFFF = unused")
+DECLARE_CONFIG(__u16, vlan_filter_id_5, "--vlan-bpf-bypass slot 5; 0xFFFF = unused")
+ASSIGN_CONFIG(__u16, vlan_filter_id_0, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_1, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_2, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_3, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_4, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_5, 0xFFFF)
