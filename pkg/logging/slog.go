@@ -93,18 +93,18 @@ func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
 		switch level := a.Value; {
 		case level.Equal(levelFatalValue):
 			return slog.Attr{
-				Key:   a.Key,
+				Key:   slog.LevelKey,
 				Value: slog.StringValue("fatal"),
 			}
 		case level.Equal(levelPanicValue):
 			return slog.Attr{
-				Key:   a.Key,
+				Key:   slog.LevelKey,
 				Value: slog.StringValue("panic"),
 			}
 		}
 		// Lower-case the log level
 		return slog.Attr{
-			Key:   a.Key,
+			Key:   slog.LevelKey,
 			Value: slog.StringValue(strings.ToLower(a.Value.String())),
 		}
 	case logrErrorKey:

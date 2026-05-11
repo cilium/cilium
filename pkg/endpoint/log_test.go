@@ -18,6 +18,8 @@ import (
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
+const testField = "testField"
+
 func TestPolicyLog(t *testing.T) {
 	tmpDir := t.TempDir()
 	logPath := filepath.Join(tmpDir, "endpoint-policy.log")
@@ -52,7 +54,7 @@ func TestPolicyLog(t *testing.T) {
 
 	// Test logging with integrated nil check, no fields
 	ep.PolicyDebug("testing PolicyDebug")
-	ep.PolicyDebug("PolicyDebug with fields", slog.String("testField", "Test Value"))
+	ep.PolicyDebug("PolicyDebug with fields", slog.String(testField, "Test Value"))
 
 	// Disable option
 	ep.Options.SetValidated(option.DebugPolicy, option.OptionDisabled)

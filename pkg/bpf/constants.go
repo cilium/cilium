@@ -83,7 +83,7 @@ func typeName(i any) string {
 		return ""
 	}
 	typ := reflect.TypeOf(i)
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
 	return typ.String()

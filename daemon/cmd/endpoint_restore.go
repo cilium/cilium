@@ -540,9 +540,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	// purpose, all endpoints being restored must already be in the
 	// endpoint list.
 	startTimeRestore := time.Now()
-	for i := len(state.restored) - 1; i >= 0; i-- {
-		ep := state.restored[i]
-
+	for i, ep := range slices.Backward(state.restored) {
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee

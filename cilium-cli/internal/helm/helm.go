@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -217,12 +218,12 @@ func GetDefaultVersionString() string {
 		panic(err)
 	}
 	// Start from the latest version
-	for i := len(versions) - 1; i >= 0; i-- {
+	for _, v := range slices.Backward(versions) {
 		// Skip pre-releases
-		if versions[i].Pre != nil {
+		if v.Pre != nil {
 			continue
 		}
-		return fmt.Sprintf("v%s", versions[i].String())
+		return fmt.Sprintf("v%s", v.String())
 	}
 	panic("there is no Cilium version to install")
 }
