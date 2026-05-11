@@ -594,6 +594,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.CTMapEntriesTimeoutSVCAnyName, 60*time.Second, "Timeout for service entries in non-TCP CT table")
 	option.BindEnv(vp, option.CTMapEntriesTimeoutSVCAnyName)
 
+	flags.Duration(option.CTMapEntriesTimeoutSIP, 1200*time.Second, "Timeout for SIP entries in CT table")
+	option.BindEnv(vp, option.CTMapEntriesTimeoutSIP)
+
 	flags.Duration(option.CTMapEntriesTimeoutSYNName, 60*time.Second, "Establishment timeout for entries in TCP CT table")
 	option.BindEnv(vp, option.CTMapEntriesTimeoutSYNName)
 

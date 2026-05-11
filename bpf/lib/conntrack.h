@@ -108,7 +108,7 @@ struct ct_entry {
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      dsr_internal:1,	/* DSR is k8s service related, cluster internal */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved2:1,	/* unused since v1.14 */
+	      is_sip:1,	/* This session is UDP-based SIP call */
 	      from_tunnel:1,	/* Connection is over tunnel */
 	      reserved3:5;
 	__u16 rev_nat_index;
@@ -257,6 +257,9 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 		} else {
 			lifetime = bpf_sec_to_mono(CT_SYN_TIMEOUT);
 		}
+	}
+	if (entry->is_sip) {
+		lifetime = bpf_sec_to_mono(CT_SIP_SESSION_LIFETIME);
 	}
 
 	return __ct_update_timeout(entry, lifetime, dir, seen_flags,
@@ -1142,6 +1145,8 @@ static __always_inline int ct_create4(const void *map_main,
 
 	if (ct_state)
 		ct_create_fill_entry(&entry, ct_state, dir);
+
+	entry.is_sip = tuple->sip_call_id_hash > 0;
 
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);

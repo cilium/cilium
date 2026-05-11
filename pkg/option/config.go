@@ -512,6 +512,7 @@ const (
 	CTMapEntriesTimeoutSVCTCPName      = "bpf-ct-timeout-service-tcp"
 	CTMapEntriesTimeoutSVCTCPGraceName = "bpf-ct-timeout-service-tcp-grace"
 	CTMapEntriesTimeoutSVCAnyName      = "bpf-ct-timeout-service-any"
+	CTMapEntriesTimeoutSIP             = "bpf-ct-timeout-sip"
 
 	// NATMapEntriesGlobalDefault holds the default size of the NAT map
 	// and is 2/3 of the full CT size as a heuristic
@@ -1238,6 +1239,7 @@ type DaemonConfig struct {
 	CTMapEntriesTimeoutSVCTCP      time.Duration
 	CTMapEntriesTimeoutSVCTCPGrace time.Duration
 	CTMapEntriesTimeoutSVCAny      time.Duration
+	CTMapEntriesTimeoutSIP         time.Duration
 	CTMapEntriesTimeoutSYN         time.Duration
 	CTMapEntriesTimeoutFIN         time.Duration
 
@@ -2489,6 +2491,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.CTMapEntriesTimeoutSVCTCP = vp.GetDuration(CTMapEntriesTimeoutSVCTCPName)
 	c.CTMapEntriesTimeoutSVCTCPGrace = vp.GetDuration(CTMapEntriesTimeoutSVCTCPGraceName)
 	c.CTMapEntriesTimeoutSVCAny = vp.GetDuration(CTMapEntriesTimeoutSVCAnyName)
+	c.CTMapEntriesTimeoutSIP = vp.GetDuration(CTMapEntriesTimeoutSIP)
 	c.CTMapEntriesTimeoutSYN = vp.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = vp.GetDuration(CTMapEntriesTimeoutFINName)
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
