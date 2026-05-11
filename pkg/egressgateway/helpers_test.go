@@ -90,6 +90,7 @@ type policyGatewayParams struct {
 type policyParams struct {
 	name             string
 	endpointLabels   map[string]string
+	namespaceLabels  map[string]string
 	nodeSelectors    map[string]string
 	destinationCIDRs []string
 	excludedCIDRs    []string
@@ -174,13 +175,6 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 			Name: params.name,
 		},
 		Spec: v2.CiliumEgressGatewayPolicySpec{
-			Selectors: []v2.EgressRule{
-				{
-					PodSelector: &slimv1.LabelSelector{
-						MatchLabels: params.endpointLabels,
-					},
-				},
-			},
 			DestinationCIDRs: destinationCIDRs,
 			ExcludedCIDRs:    excludedCIDRs,
 			EgressGateway: &v2.EgressGateway{
@@ -191,6 +185,24 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 				EgressIP:  params.policyGwParams[0].egressIP,
 			},
 		},
+	}
+
+	if len(params.namespaceLabels) != 0 {
+		cegp.Spec.Selectors = []v2.EgressRule{
+			{
+				NamespaceSelector: &slimv1.LabelSelector{
+					MatchLabels: params.namespaceLabels,
+				},
+			},
+		}
+	} else {
+		cegp.Spec.Selectors = []v2.EgressRule{
+			{
+				PodSelector: &slimv1.LabelSelector{
+					MatchLabels: params.endpointLabels,
+				},
+			},
+		}
 	}
 
 	// Only populate the list if there is more than one gateway.
