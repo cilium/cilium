@@ -1354,7 +1354,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
 				     const struct lb6_backend **selected_backend,
-				     __s8 *ext_err)
+				     __s8 *ext_err,
+				     const struct lb6_backend *forced_backend)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
@@ -1366,6 +1367,24 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
 
 	state->rev_nat_index = svc->rev_nat_index;
+
+	/* See lb4_local() for the rationale of the forced-backend path. */
+	if (forced_backend) {
+		ret = ct_lazy_lookup6(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
+				      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
+		if (ret < 0)
+			goto drop_err;
+		if (ret == CT_NEW) {
+			ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE,
+					 state, ext_err);
+			if (IS_ERR(ret))
+				goto drop_err;
+		}
+
+		tuple->flags = flags;
+		*selected_backend = forced_backend;
+		return CTX_ACT_OK;
+	}
 
 	/* See lb4_local comments re svc endpoint lookup process */
 	ret = ct_lazy_lookup6(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
