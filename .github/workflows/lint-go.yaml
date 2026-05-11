@@ -104,6 +104,10 @@ jobs:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
+
+      - name: Cleanup Disk space in runner
+        uses: ./src/github.com/cilium/cilium/.github/actions/disk-cleanup
+
       - name: Executables check
         run: |
           cd src/github.com/cilium/cilium
