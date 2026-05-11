@@ -80,6 +80,10 @@ tcp_svc_one   = 80
 tcp_svc_two   = 443
 tcp_svc_three = 53
 
+# Other default properties for TCP
+tcp_default_seq = 123456
+tcp_default_win = 65535
+
 # Default payload data for tests. Note this includes a trailing
 # NUL-terminating byte for consistency with the C macro. This is
 # to ensure consistency in things like IP checksum values.
