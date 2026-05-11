@@ -1370,15 +1370,18 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	/* See lb4_local() for the rationale of the forced-backend path. */
 	if (forced_backend) {
-		ret = ct_lazy_lookup6(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
-				      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
-		if (ret < 0)
-			goto drop_err;
-		if (ret == CT_NEW) {
-			ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE,
-					 state, ext_err);
-			if (IS_ERR(ret))
+		if (!lb6_svc_is_l7_punt_proxy(svc)) {
+			ret = ct_lazy_lookup6(map, tuple, ctx, fraginfo, l4_off,
+					      CT_SERVICE, SCOPE_REVERSE,
+					      CT_ENTRY_SVC, state, &monitor);
+			if (ret < 0)
 				goto drop_err;
+			if (ret == CT_NEW) {
+				ret = ct_create6(map, NULL, tuple, ctx,
+						 CT_SERVICE, state, ext_err);
+				if (IS_ERR(ret))
+					goto drop_err;
+			}
 		}
 
 		tuple->flags = flags;
@@ -2178,15 +2181,24 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	state->rev_nat_index = svc->rev_nat_index;
 
 	if (forced_backend) {
-		ret = ct_lazy_lookup4(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
-				      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
-		if (ret < 0)
-			goto drop_err;
-		if (ret == CT_NEW) {
-			ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE,
-					 state, ext_err);
-			if (IS_ERR(ret))
+		/* L7-punt-proxy svcs punt to the host stack (Envoy) before any
+		 * DNAT and Envoy maintains its own connection state, so the
+		 * Cilium SERVICE CT entry is never consulted on that flow.
+		 * Skip the CT touch entirely instead of populating an entry
+		 * that just ages out unused.
+		 */
+		if (!lb4_svc_is_l7_punt_proxy(svc)) {
+			ret = ct_lazy_lookup4(map, tuple, ctx, fraginfo, l4_off,
+					      CT_SERVICE, SCOPE_REVERSE,
+					      CT_ENTRY_SVC, state, &monitor);
+			if (ret < 0)
 				goto drop_err;
+			if (ret == CT_NEW) {
+				ret = ct_create4(map, NULL, tuple, ctx,
+						 CT_SERVICE, state, ext_err);
+				if (IS_ERR(ret))
+					goto drop_err;
+			}
 		}
 
 		tuple->flags = flags;
