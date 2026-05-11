@@ -1376,6 +1376,8 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 {
 	struct ct_state ct_state_svc = {};
 	const struct lb6_backend *backend;
+	const struct lb6_backend *forced_be_p __maybe_unused = NULL;
+	struct lb6_backend forced_be __maybe_unused = {};
 	bool backend_local;
 	__u32 monitor = 0;
 	int ret;
@@ -1423,8 +1425,23 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 	}
 #endif
+#ifdef ENABLE_IPIP_TERMINATION
+	{
+		union v6addr forced_addr = {};
+		const union v6addr zero = {};
+
+		ctx_load_meta_ipv6(ctx, &forced_addr, CB_FORCED_BACKEND_V6_1);
+		ctx_store_meta_ipv6(ctx, CB_FORCED_BACKEND_V6_1, &zero);
+		if (forced_addr.d1 || forced_addr.d2) {
+			ipv6_addr_copy(&forced_be.address, &forced_addr);
+			forced_be.flags = BE_STATE_ACTIVE;
+			forced_be_p = &forced_be;
+		}
+	}
+#endif
 	ret = lb6_local(get_ct_map6(tuple), ctx, fraginfo, l4_off,
-			key, tuple, svc, &ct_state_svc, &backend, ext_err);
+			key, tuple, svc, &ct_state_svc, &backend,
+			ext_err, forced_be_p);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE) {
 			if (!CONFIG(enable_no_service_endpoints_routable))

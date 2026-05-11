@@ -1052,6 +1052,49 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			}
 		}
 
+#ifdef ENABLE_IPIP_TERMINATION
+		/* IPv6-in-IPv6 DSR-IPIP termination, mirror of the v4 path
+		 * below. The outer dst is a local Pod IP; if we punted to the
+		 * cilium_ipip netdev the kernel would route the still-encapped
+		 * packet via the lxc and the Pod would drop it. Strip the
+		 * outer header in BPF, then stash the LB-picked backend (the
+		 * outer dst) so nodeport_lb6() can DNAT to that specific Pod
+		 * instead of running a fresh backend selection on the inner
+		 * 5-tuple. Only fires when the next header is IPV6 directly
+		 * (no extension headers) since the DSR-IPIP encap path never
+		 * inserts them.
+		 */
+		if (!from_host && ip6->nexthdr == NEXTHDR_IPV6) {
+			const struct endpoint_info *ep_outer;
+
+			ep_outer = lookup_ip6_endpoint(ip6);
+			if (ep_outer &&
+			    !(ep_outer->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
+				union v6addr outer_dst;
+
+				ipv6_addr_copy(&outer_dst,
+					       (union v6addr *)&ip6->daddr);
+
+				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip6),
+						     BPF_ADJ_ROOM_MAC,
+						     ctx_adjust_hroom_flags())) {
+					ret = DROP_INVALID;
+					goto drop_err_ingress;
+				}
+				if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+					ret = DROP_INVALID;
+					goto drop_err_ingress;
+				}
+				ctx_store_meta_ipv6(ctx, CB_FORCED_BACKEND_V6_1,
+						    &outer_dst);
+				/* See the IPv4 sibling block below for why we
+				 * have to clear the skip-nodeport flag here.
+				 */
+				ctx_skip_nodeport_clear(ctx);
+			}
+		}
+#endif /* ENABLE_IPIP_TERMINATION */
+
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
