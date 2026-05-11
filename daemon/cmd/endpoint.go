@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -184,12 +185,22 @@ func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim
 		return nil, nil, err
 	}
 
-	if uid != "" && uid != string(p.GetUID()) {
+	if isPodStoreOutdatedForUID(uid, p) {
 		return nil, nil, podStoreOutdatedErr
 	}
 
 	metadata, err := d.fetchK8sMetadataForEndpointFromPod(p)
 	return p, metadata, err
+}
+
+// isPodStoreOutdatedForUID returns true when CNI uid disagrees with the store pod uid such
+// that podStoreOutdatedErr applies. Mirror pods (static pods; corev1.MirrorPodAnnotationKey) are exempt.
+func isPodStoreOutdatedForUID(uid string, pod *slim_corev1.Pod) bool {
+	if uid == "" || uid == string(pod.GetUID()) {
+		return false
+	}
+	_, mirrorPod := pod.GetAnnotations()[corev1.MirrorPodAnnotationKey]
+	return !mirrorPod
 }
 
 func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {

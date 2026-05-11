@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -207,6 +208,61 @@ func (f *fetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
 	return f.fn(f.runs, nsName, podName)
 }
 
+func TestIsPodStoreOutdatedForUID(t *testing.T) {
+	storeUID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	otherUID := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
+	tests := []struct {
+		name string
+		uid  string
+		pod  *slim_corev1.Pod
+		want bool
+	}{
+		{
+			name: "empty uid never outdated",
+			uid:  "",
+			pod:  &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{UID: types.UID(storeUID)}},
+			want: false,
+		},
+		{
+			name: "uid match not outdated",
+			uid:  storeUID,
+			pod:  &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{UID: types.UID(storeUID)}},
+			want: false,
+		},
+		{
+			name: "uid mismatch without mirror annotation is outdated",
+			uid:  otherUID,
+			pod: &slim_corev1.Pod{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					UID: types.UID(storeUID),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "uid mismatch mirror pod not outdated",
+			uid:  otherUID,
+			pod: &slim_corev1.Pod{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					UID: types.UID(storeUID),
+					Annotations: map[string]string{
+						corev1.MirrorPodAnnotationKey: otherUID,
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPodStoreOutdatedForUID(tt.uid, tt.pod)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestHandleOutdatedPodInformer(t *testing.T) {
 	defer func(current time.Duration) { handleOutdatedPodInformerRetryPeriod = current }(handleOutdatedPodInformerRetryPeriod)
 	handleOutdatedPodInformerRetryPeriod = 1 * time.Millisecond
@@ -243,6 +299,18 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 				return podStoreOutdatedErr
 			},
 			retries: 20,
+		},
+		{
+			name: "uid mismatch mirror pod",
+			fetcher: func(_ uint, nsName, podName string) (*slim_corev1.Pod, error) {
+				return &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{
+					Name: podName, Namespace: nsName, UID: "other",
+					Annotations: map[string]string{
+						corev1.MirrorPodAnnotationKey: "uid",
+					},
+				}}, nil
+			},
+			err: func(string) error { return nil },
 		},
 		{
 			name: "uid mismatch, then resolved",
