@@ -405,14 +405,23 @@ govet: ## Run govet on Go source files in the repository.
 	@$(ECHO_CHECK) vetting all packages...
 	$(QUIET) $(GO_VET) ./...
 
-.PHONY: custom-lint
-custom-lint: ## Run extra local linters
+.PHONY: custom-lint metrics-lint cloud-dep-check statedb-lint
+custom-lint: metrics-lint statedb-lint cloud-dep-check ## Run extra local linters
+
+metrics-lint:
 	$(ECHO_CHECK) metricslint
 	$(QUIET)$(MAKE) -C tools/metricslint
 	$(QUIET)tools/metricslint/metricslint ./...
+
+cloud-dep-check:
 	$(ECHO_CHECK) cloud-dep-check
 	$(QUIET)$(MAKE) -C tools/cloud-dep-check
 	$(QUIET)tools/cloud-dep-check/cilium-cloud-dep-check -root .
+
+statedb-lint:
+	$(ECHO_CHECK) statedblint
+	$(QUIET)$(MAKE) -C tools/statedblint
+	$(QUIET)tools/statedblint/statedblint ./...
 
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION:v%=%),$(GOLANGCILINT_VERSION)))
