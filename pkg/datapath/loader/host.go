@@ -249,20 +249,6 @@ func defaultNetdevMapRenames(ep endpoint.Config, lnc *config.Config, link netlin
 func attachNetworkDevices(logger *slog.Logger, reg *registry.MapRegistry, ep endpoint.Endpoint, lnc *config.Config, spec *ebpf.CollectionSpec) error {
 	devices := lnc.DeviceNames()
 
-	// Selectively attach bpf_host to cilium_ipip{4,6} in order to have a
-	// service lookup after IPIP termination. Do not attach in case of the
-	// devices being created via health datapath (see Reinitialize()) since
-	// it can push packets up the local stack which should be handled by
-	// the host instead.
-	if option.Config.EnableIPIPTermination && !option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
-		if option.Config.IPv4Enabled() {
-			devices = append(devices, defaults.IPIPv4Device)
-		}
-		if option.Config.IPv6Enabled() {
-			devices = append(devices, defaults.IPIPv6Device)
-		}
-	}
-
 	// Replace programs on physical devices, ignoring devices that don't exist.
 	for _, device := range devices {
 		iface, err := safenetlink.LinkByName(device)

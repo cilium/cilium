@@ -1053,23 +1053,17 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		}
 
 #ifdef ENABLE_IPIP_TERMINATION
-		/* IPv6-in-IPv6 DSR-IPIP termination, mirror of the v4 path
-		 * below. The outer dst is a local Pod IP; if we punted to the
-		 * cilium_ipip netdev the kernel would route the still-encapped
-		 * packet via the lxc and the Pod would drop it. Strip the
-		 * outer header in BPF, then stash the LB-picked backend (the
-		 * outer dst) so nodeport_lb6() can DNAT to that specific Pod
-		 * instead of running a fresh backend selection on the inner
-		 * 5-tuple. Only fires when the next header is IPV6 directly
-		 * (no extension headers) since the DSR-IPIP encap path never
-		 * inserts them.
+		/* IPv6-in-IPv6 IPIP termination, mirror of the v4 path
+		 * below; see that comment for the full rationale. Fires for
+		 * any local endpoint (pod or hostNetwork) outer dst, when the
+		 * outer's next header is IPV6 directly with no extension
+		 * headers (the DSR-IPIP encap path never inserts them).
 		 */
 		if (!from_host && ip6->nexthdr == NEXTHDR_IPV6) {
 			const struct endpoint_info *ep_outer;
 
 			ep_outer = lookup_ip6_endpoint(ip6);
-			if (ep_outer &&
-			    !(ep_outer->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
+			if (ep_outer) {
 				union v6addr outer_dst;
 
 				ipv6_addr_copy(&outer_dst,
@@ -1137,20 +1131,30 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		}
 
 #ifdef ENABLE_IPIP_TERMINATION
-		/* If we have IPIP termination enabled and the outer header
-		 * is a Pod IP, then simply punting to the cilium_ipip netdev
-		 * does not work as routing happens before and given non-local
-		 * IP, kernel will attempt to forward the IPIP into the Pod
-		 * rather than to decap it. This is not an issue when the outer
-		 * dst IP is a host IP.
+		/* Terminate inbound IPIP in BPF on netdev ingress for any
+		 * outer dst that resolves to a local endpoint:
+		 *
+		 *  - Pod outer dst: the kernel would otherwise route the still-
+		 *    encapped packet via the lxc into the Pod netns where it
+		 *    gets dropped (no IPIP handler in the container).
+		 *  - Host outer dst (hostNetwork backend, or --enable-ipip-
+		 *    termination Envoy target): the kernel would otherwise
+		 *    decap on cilium_ipip4 via the collect_md fallback. Doing
+		 *    it here keeps the input ifindex on the physical netdev
+		 *    and lets us drop the bpf_host attach to cilium_ipip{4,6}.
+		 *
+		 * Stash the LB-picked backend (the just-stripped outer dst)
+		 * so nodeport_lb4() honors it instead of re-running selection.
+		 * For L7-punt-proxy svcs the lb4_svc_is_l7_punt_proxy &&
+		 * backend_local gate downstream punts to host stack before
+		 * any DNAT, so Envoy interception still works.
 		 */
 		if (!from_host && ip4->protocol == IPPROTO_IPIP &&
 		    ipv4_hdrlen(ip4) == sizeof(*ip4)) {
 			const struct endpoint_info *ep_outer;
 
 			ep_outer = lookup_ip4_endpoint(ip4);
-			if (ep_outer &&
-			    !(ep_outer->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
+			if (ep_outer) {
 				__be32 outer_dst = ip4->daddr;
 
 				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
@@ -1163,11 +1167,6 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 					ret = DROP_INVALID;
 					goto drop_err_ingress;
 				}
-				/* Stash the LB-picked backend (the just-stripped
-				 * outer dst) so that nodeport_lb4 can DNAT to
-				 * that specific backend instead of running a
-				 * fresh backend selection on the inner 5-tuple.
-				 */
 				ctx_store_meta(ctx, CB_FORCED_BACKEND_V4, outer_dst);
 				/* If NodePort XDP acceleration ran upstream, it
 				 * couldn't classify the IPIP packet (no L4 to
