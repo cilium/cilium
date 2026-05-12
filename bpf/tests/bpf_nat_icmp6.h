@@ -36,6 +36,8 @@
 #include <lib/nat.h>
 #include <lib/time.h>
 
+#include "scapy.h"
+
 #include "bpf_nat_tuples.h"
 
 #define NODE_ONE { .addr = v6_node_one_addr }
@@ -87,64 +89,18 @@
  *
  * Ref: https://datatracker.ietf.org/doc/html/rfc4443#section-3.2
  */
-__always_inline int gen_pmtu_pkt(struct pktgen *builder, int l4_type)
-{
-	struct ipv6hdr *inner_l3 = NULL;
-	struct icmp6hdr *l4 = NULL;
-	struct tcphdr *inner_l4 = NULL;
-	struct udphdr *inner_l4_udp = NULL; /* compiler complains if this isn't init to null? */
-	struct sctphdr *inner_l4_sctp = NULL;
-	void *data = NULL;
-
-	l4 = pktgen__push_ipv6_icmp6_packet(builder,
-					    (__u8 *)mac_one,
-					    (__u8 *)mac_two,
-					    (__u8 *)v6_ext_node_one,
-					    (__u8 *)v6_node_one,
-					    ICMPV6_PKT_TOOBIG);
-	if (!l4)
-		return TEST_FAIL;
-
-	inner_l3 = pktgen__push_default_ipv6hdr(builder);
-	if (!inner_l3)
-		return TEST_FAIL;
-
-	inner_l3->nexthdr = (__u8)l4_type;
-	ipv6hdr__set_addrs(inner_l3, (__u8 *)v6_node_one, (__u8 *)v6_ext_node_one);
-
-	switch (l4_type) {
-	case IPPROTO_TCP:
-		inner_l4 = pktgen__push_default_tcphdr(builder);
-		if (!inner_l4)
-			return TEST_FAIL;
-		/* original source */
-		inner_l4->dest = 1234;
-		inner_l4->source = 30001;
-		break;
-	case IPPROTO_UDP:
-		inner_l4_udp = pktgen__push_default_udphdr(builder);
-		if (!inner_l4_udp)
-			return TEST_FAIL;
-		inner_l4_udp->dest = 1234;
-		inner_l4_udp->source = 30001;
-		break;
-	case IPPROTO_SCTP:
-		inner_l4_sctp = pktgen__push_default_sctphdr(builder);
-		if (!inner_l4_udp)
-			return TEST_FAIL;
-		inner_l4_sctp->dest = 1234;
-		inner_l4_sctp->source = 30001;
-		break;
-	default:
-		return TEST_FAIL;
-	}
-
-	data = pktgen__push_data(builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_FAIL;
-
-	return TEST_PASS;
-}
+const __u8 icmp6_err_nodeport_revnat_full_tcp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_nodeport_revnat_full_tcp)
+};
+const __u8 icmp6_err_nodeport_revnat_full_tcp_after[] = {
+	SCAPY_BUF_BYTES(icmp6_err_nodeport_revnat_full_tcp_after)
+};
+const __u8 icmp6_err_nodeport_revnat_full_udp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_nodeport_revnat_full_udp)
+};
+const __u8 icmp6_err_nodeport_revnat_full_udp_after[] = {
+	SCAPY_BUF_BYTES(icmp6_err_nodeport_revnat_full_udp_after)
+};
 
 int snat_v6_insert_ct_nat(__u8 proto)
 {
@@ -152,14 +108,14 @@ int snat_v6_insert_ct_nat(__u8 proto)
 		.to_daddr = POD_IP,
 	};
 	entry.to_sport = 0;
-	entry.to_dport = 20;
+	entry.to_dport = bpf_htons(20);
 	struct ipv6_ct_tuple tuple = {
 		.daddr   = NODE_ONE,
 		.saddr   = EXT_IP,
-		.dport   = 30001, /* SNAT remapped port */
-		.sport   = 1234,
+		.dport   = bpf_htons(30001), /* SNAT remapped port */
+		.sport   = bpf_htons(1234),
 		.nexthdr = proto,
-		.flags = TUPLE_F_IN,
+		.flags   = TUPLE_F_IN,
 	};
 	return map_update_elem(&cilium_snat_v6_external, &tuple, &entry, BPF_ANY);
 }
@@ -200,9 +156,9 @@ int do_icmp6_pkt_too_big_check(const struct __ctx_buff *ctx)
 	l4 = (void *)(data + sizeof(__u32) +
 		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
 		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr));
-	if (*((__u16 *)l4) != 20)
+	if (*((__u16 *)l4) != bpf_htons(20))
 		return TEST_FAIL;
-	if (*((__u16 *)(l4 + sizeof(__u16))) != 1234)
+	if (*((__u16 *)(l4 + sizeof(__u16))) != bpf_htons(1234))
 		return TEST_FAIL;
 	return 0;
 }
@@ -213,7 +169,9 @@ int snat_v6_pmtu_pktgen(struct __ctx_buff *ctx)
 	struct pktgen builder;
 
 	pktgen__init(&builder, ctx);
-	gen_pmtu_pkt(&builder, IPPROTO_TCP);
+	scapy_push_data(&builder,
+			icmp6_err_nodeport_revnat_full_tcp,
+			sizeof(icmp6_err_nodeport_revnat_full_tcp));
 	pktgen__finish(&builder);
 	return TEST_PASS;
 }
@@ -234,7 +192,9 @@ CHECK("tc", "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_check(const struct __ctx_buff *ctx)
 {
 	test_init();
-	assert(do_icmp6_pkt_too_big_check(ctx) == 0);
+	ASSERT_CTX_BUF_OFF("snat_v6_tcp_pmtu", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_nodeport_revnat_full_tcp_after,
+			   sizeof(icmp6_err_nodeport_revnat_full_tcp_after));
 	test_finish();
 
 	return 0;
@@ -246,7 +206,9 @@ int snat_v6_pmtu_udp_pktgen(struct __ctx_buff *ctx)
 	struct pktgen builder;
 
 	pktgen__init(&builder, ctx);
-	gen_pmtu_pkt(&builder, IPPROTO_UDP);
+	scapy_push_data(&builder,
+			icmp6_err_nodeport_revnat_full_udp,
+			sizeof(icmp6_err_nodeport_revnat_full_udp));
 	pktgen__finish(&builder);
 	return TEST_PASS;
 }
@@ -267,7 +229,9 @@ CHECK("tc", "snat_v6_udp_pmtu")
 int snat_v6_pmtu_udp_check(const struct __ctx_buff *ctx)
 {
 	test_init();
-	assert(do_icmp6_pkt_too_big_check(ctx) == 0);
+	ASSERT_CTX_BUF_OFF("snat_v6_udp_pmtu", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_nodeport_revnat_full_udp_after,
+			   sizeof(icmp6_err_nodeport_revnat_full_udp_after));
 	test_finish();
 
 	return 0;

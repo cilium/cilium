@@ -63,3 +63,40 @@ icmp4_err_nodeport_revnat_min_tcp_after = (
     IP(src=v4_pod_one, dst=v4_ext_one, flags="DF", proto=6) /
     Raw(_nodeport_tcp_hdr_min_after)
 )
+
+def _icmp6_nodeport_revnat_pkt(inner_l4):
+    """Outer ICMPv6 PKT_TOO_BIG wrapper (pre-revSNAT): ext -> node, inner node -> ext."""
+    return (
+        Ether(src=mac_one, dst=mac_two) /
+        IPv6(src=v6_ext_node_one, dst=v6_node_one) /
+        ICMPv6PacketTooBig(mtu=1500) /
+        IPv6(src=v6_node_one, dst=v6_ext_node_one) /
+        inner_l4
+    )
+
+def _icmp6_nodeport_revnat_after_pkt(inner_l4):
+    """Outer ICMPv6 PKT_TOO_BIG wrapper (post-revSNAT): ext -> pod, inner pod -> ext."""
+    return (
+        Ether(src=mac_one, dst=mac_two) /
+        IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+        ICMPv6PacketTooBig(mtu=1500) /
+        IPv6(src=v6_pod_one, dst=v6_ext_node_one) /
+        inner_l4
+    )
+
+icmp6_err_nodeport_revnat_full_tcp = _icmp6_nodeport_revnat_pkt(
+    TCP(sport=30001, dport=1234, seq=tcp_default_seq) / Raw(default_data)
+)
+
+icmp6_err_nodeport_revnat_full_tcp_after = _icmp6_nodeport_revnat_after_pkt(
+    TCP(sport=20, dport=1234, seq=tcp_default_seq) / Raw(default_data)
+)
+
+icmp6_err_nodeport_revnat_full_udp = _icmp6_nodeport_revnat_pkt(
+    TCP(sport=30001, dport=1234) / Raw(default_data)
+)
+
+icmp6_err_nodeport_revnat_full_udp_after = _icmp6_nodeport_revnat_after_pkt(
+    TCP(sport=20, dport=1234) / Raw(default_data)
+)
+
