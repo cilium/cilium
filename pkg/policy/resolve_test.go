@@ -374,7 +374,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 	mdl := repo.GetRulesList()
 	require.Contains(t, mdl.Policy, "10.1.1.1")
 
-	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
+	td.assertEqualPolicies(t, &expectedEndpointPolicy, policy)
 }
 
 func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
@@ -446,7 +446,7 @@ func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 		EgressPolicyEnabled:  true,
 	}
 
-	require.EqualExportedValues(t, expectedPolicy, selPolicy)
+	td.assertEqualPolicies(t, expectedPolicy, selPolicy)
 
 	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
@@ -540,7 +540,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 		PolicyOwner: DummyOwner{logger: logger},
 	}
 
-	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
+	td.assertEqualPolicies(t, &expectedEndpointPolicy, policy)
 }
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
@@ -638,7 +638,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 		PolicyOwner: DummyOwner{logger: logger},
 	}
 
-	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
+	td.assertEqualPolicies(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
@@ -731,7 +731,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	// policyMapState cannot be compared via DeepEqual
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 
-	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
+	td.assertEqualPolicies(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngress(t *testing.T) {
@@ -902,7 +902,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	// policyMapState cannot be compared via DeepEqual
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 
-	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
+	td.assertEqualPolicies(t, &expectedEndpointPolicy, policy)
 }
 
 // allowsIdentity returns whether the specified policy allows

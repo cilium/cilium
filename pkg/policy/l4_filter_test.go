@@ -126,6 +126,19 @@ func (td *testData) getCachedSelectorForTest(es api.EndpointSelector) CachedSele
 	return cs
 }
 
+func (td *testData) stopNotificationHandlers() {
+	td.sc.StopNotificationHandler()
+	td.subjectSc.StopNotificationHandler()
+}
+
+// assertEqualPolicies stops the SelectorCache notification handlers before
+// comparing, to avoid racing with handleUserNotifications.
+func (td *testData) assertEqualPolicies(t *testing.T, expected, actual any) {
+	t.Helper()
+	td.stopNotificationHandlers()
+	require.EqualExportedValues(t, expected, actual)
+}
+
 // withIDs loads the set of IDs in to the SelectorCache. Returns
 // the same testData for easy chaining.
 func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
