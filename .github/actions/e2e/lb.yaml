@@ -73,7 +73,8 @@
   test-l7: 'true'
 - name: 'lb-6'
   # Mirrors n3r production datapath: KPR=true, Geneve tunnel, DSR with Geneve dispatch.
-  # Production-only helm values are injected via .github/actions/helm-default/ci-required-values.yaml.
+  # Production-only helm values are injected via the `misc` field below so this entry's
+  # config stays scoped to this matrix job (does NOT affect other CI workflows).
   kernel: '6.12'
   kube-proxy: 'none'
   kpr: 'true'
@@ -85,5 +86,6 @@
   egress-gateway: 'false'
   host-fw: 'false'
   ingress-controller: 'false'
+  misc: 'bpf.hostLegacyRouting=true,socketLB.enabled=false,socketLB.hostNamespaceOnly=true,loadBalancer.algorithm=maglev,loadBalancer.dsrDispatch=geneve,loadBalancer.serviceTopology=true,nodePort.autoProtectPortRange=true,nodePort.bindProtection=true,nodePort.enableHealthCheck=true,envoy.enabled=false,ipam.mode=kubernetes,identityAllocationMode=crd,identityManagementMode=agent'
   # L7 testing: skip — production has envoy.enabled=false (embedded), L7 path differs
   test-l7: 'false'
