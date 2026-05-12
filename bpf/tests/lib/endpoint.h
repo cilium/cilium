@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#pragma once
+
 static __always_inline void
 endpoint_add_entry(struct endpoint_key *key, __u32 ifindex, __u16 lxc_id, __u32 flags, __u32 sec_id,
 		   __u32 parent_ifindex, const __u8 *ep_mac_addr, const __u8 *node_mac_addr)
