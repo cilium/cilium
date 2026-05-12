@@ -272,7 +272,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	}
 	fs.Var(&levelVal, "zap-log-level",
 		"Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error', 'panic'"+
-			"or any integer value > 0 which corresponds to custom debug levels of increasing verbosity")
+			" or any integer value > 0 which corresponds to custom debug levels of increasing verbosity")
 
 	// Set the StrackTrace Level
 	var stackVal stackTraceFlag

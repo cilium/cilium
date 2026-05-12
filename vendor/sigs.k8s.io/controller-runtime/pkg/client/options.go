@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/utils/ptr"
 )
 
 // {{{ "Functional" Option Interfaces
@@ -741,12 +740,12 @@ type UnsafeDisableDeepCopyOption bool
 
 // ApplyToGet applies this configuration to the given an Get options.
 func (d UnsafeDisableDeepCopyOption) ApplyToGet(opts *GetOptions) {
-	opts.UnsafeDisableDeepCopy = ptr.To(bool(d))
+	opts.UnsafeDisableDeepCopy = new(bool(d))
 }
 
 // ApplyToList applies this configuration to the given an List options.
 func (d UnsafeDisableDeepCopyOption) ApplyToList(opts *ListOptions) {
-	opts.UnsafeDisableDeepCopy = ptr.To(bool(d))
+	opts.UnsafeDisableDeepCopy = new(bool(d))
 }
 
 // UnsafeDisableDeepCopy indicates not to deep copy objects during list objects.
@@ -953,19 +952,19 @@ var ForceOwnership = forceOwnership{}
 type forceOwnership struct{}
 
 func (forceOwnership) ApplyToPatch(opts *PatchOptions) {
-	opts.Force = ptr.To(true)
+	opts.Force = new(true)
 }
 
 func (forceOwnership) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
-	opts.Force = ptr.To(true)
+	opts.Force = new(true)
 }
 
 func (forceOwnership) ApplyToApply(opts *ApplyOptions) {
-	opts.Force = ptr.To(true)
+	opts.Force = new(true)
 }
 
 func (forceOwnership) ApplyToSubResourceApply(opts *SubResourceApplyOptions) {
-	opts.Force = ptr.To(true)
+	opts.Force = new(true)
 }
 
 // }}}

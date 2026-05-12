@@ -135,7 +135,7 @@ require (
 	k8s.io/kubectl v0.36.0
 	k8s.io/metrics v0.36.0
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
-	sigs.k8s.io/controller-runtime v0.23.3
+	sigs.k8s.io/controller-runtime v0.24.0
 	sigs.k8s.io/gateway-api v1.5.1
 	sigs.k8s.io/gateway-api/conformance v1.5.1
 	sigs.k8s.io/mcs-api v0.4.2-0.20260429160526-4546fabf7251
@@ -339,10 +339,6 @@ require (
 // Using private fork of controller-tools. See commit msg for more context
 // as to why we are using a private fork.
 replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.5-1
-
-// controller-runtime v0.24 (matching k8s.io/* v0.36) is not yet released.
-// Use a commit from main that includes the k8s v0.36 bump.
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.23.1-0.20260331131016-598e330bda55
 
 // Using private fork of gobgp. See commit msg for more context as to why we
 // are using a private fork.

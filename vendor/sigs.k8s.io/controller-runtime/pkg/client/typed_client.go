@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/util/apply"
 )
 
@@ -146,17 +147,24 @@ func (c *typedClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration,
 	applyOpts := &ApplyOptions{}
 	applyOpts.ApplyOptions(opts)
 
-	return req.
+	var contentType string
+	body, err := req.
 		NamespaceIfScoped(o.namespace, o.isNamespaced()).
 		Resource(o.resource()).
 		Name(o.name).
 		VersionedParams(applyOpts.AsPatchOptions(), c.paramCodec).
 		Do(ctx).
-		// This is hacky, it is required because `Into` takes a `runtime.Object` and
-		// that is not implemented by the ApplyConfigurations. The generated clients
-		// don't have this problem because they deserialize into the api type, not the
-		// apply configuration: https://github.com/kubernetes/kubernetes/blob/22f5e01a37c0bc6a5f494dec14dd4e3688ee1d55/staging/src/k8s.io/client-go/gentype/type.go#L296-L317
-		Into(runtimeObjectFromApplyConfiguration(obj))
+		ContentType(&contentType).
+		Raw()
+	if err != nil {
+		return err
+	}
+
+	if contentType != "application/json" {
+		return fmt.Errorf("unexpected content type %q in apply response, expected application/json", contentType)
+	}
+
+	return json.Unmarshal(body, obj)
 }
 
 // Get implements client.Client.
@@ -324,16 +332,23 @@ func (c *typedClient) ApplySubResource(ctx context.Context, obj runtime.ApplyCon
 		return fmt.Errorf("failed to create apply request: %w", err)
 	}
 
-	return req.
+	var contentType string
+	respBody, err := req.
 		NamespaceIfScoped(o.namespace, o.isNamespaced()).
 		Resource(o.resource()).
 		Name(o.name).
 		SubResource(subResource).
 		VersionedParams(applyOpts.AsPatchOptions(), c.paramCodec).
 		Do(ctx).
-		// This is hacky, it is required because `Into` takes a `runtime.Object` and
-		// that is not implemented by the ApplyConfigurations. The generated clients
-		// don't have this problem because they deserialize into the api type, not the
-		// apply configuration: https://github.com/kubernetes/kubernetes/blob/22f5e01a37c0bc6a5f494dec14dd4e3688ee1d55/staging/src/k8s.io/client-go/gentype/type.go#L296-L317
-		Into(runtimeObjectFromApplyConfiguration(obj))
+		ContentType(&contentType).
+		Raw()
+	if err != nil {
+		return err
+	}
+
+	if contentType != "application/json" {
+		return fmt.Errorf("unexpected content type %q in apply response, expected application/json", contentType)
+	}
+
+	return json.Unmarshal(respBody, obj)
 }

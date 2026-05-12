@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -88,8 +87,8 @@ func SetControllerReference(owner, controlled metav1.Object, scheme *runtime.Sch
 		Kind:               gvk.Kind,
 		Name:               owner.GetName(),
 		UID:                owner.GetUID(),
-		BlockOwnerDeletion: ptr.To(true),
-		Controller:         ptr.To(true),
+		BlockOwnerDeletion: new(true),
+		Controller:         new(true),
 	}
 	for _, opt := range opts {
 		opt(&ref)

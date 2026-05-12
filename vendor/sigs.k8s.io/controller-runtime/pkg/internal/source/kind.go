@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	toolscache "k8s.io/client-go/tools/cache"
@@ -116,10 +118,18 @@ func (ks *Kind[object, request]) Start(ctx context.Context, queue workqueue.Type
 }
 
 func (ks *Kind[object, request]) String() string {
-	if !isNil(ks.Type) {
+	if isNil(ks.Type) {
+		return "kind source: unknown type"
+	}
+
+	switch v := any(ks.Type).(type) {
+	case *unstructured.Unstructured, *metav1.PartialObjectMetadata:
+		gvk := v.(client.Object).GetObjectKind().GroupVersionKind()
+		gv, kind := gvk.ToAPIVersionAndKind()
+		return fmt.Sprintf("kind source: %T[%s %s]", v, gv, kind)
+	default:
 		return fmt.Sprintf("kind source: %T", ks.Type)
 	}
-	return "kind source: unknown type"
 }
 
 // WaitForSync implements SyncingSource to allow controllers to wait with starting
@@ -133,7 +143,7 @@ func (ks *Kind[object, request]) WaitForSync(ctx context.Context) error {
 		if errors.Is(ctx.Err(), context.Canceled) {
 			return nil
 		}
-		return fmt.Errorf("timed out waiting for cache to be synced for Kind %T", ks.Type)
+		return fmt.Errorf("timed out waiting for cache to be synced for %s", ks.String())
 	}
 }
 

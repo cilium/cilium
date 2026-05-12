@@ -1067,8 +1067,8 @@ oras.land/oras-go/v2 v2.6.0/go.mod h1:magiQDfG6H1O9APp+rOsvCPcW1GD2MM7vgnKY0Y+u1
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 h1:hSfpvjjTQXQY2Fol2CS0QHMNs/WI1MOSGzCm1KhM5ec=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
-sigs.k8s.io/controller-runtime v0.23.1-0.20260331131016-598e330bda55 h1:HYrtAkFK1ObCgDcuT4n8zQJOZZXxnERv1H81huW+wF0=
-sigs.k8s.io/controller-runtime v0.23.1-0.20260331131016-598e330bda55/go.mod h1:bTZXYvH6eWv12M5PgRYYTSMw/LDN1xBf0oNTycNo1YY=
+sigs.k8s.io/controller-runtime v0.24.0 h1:Ck6N2LdS8Lovy1o25BB4r1xjvLEKUl1s2o9kU+KWDE4=
+sigs.k8s.io/controller-runtime v0.24.0/go.mod h1:vFkfY5fGt5xAC/sKb8IBFKgWPNKG9OUG29dR8Y2wImw=
 sigs.k8s.io/gateway-api v1.5.1 h1:RqVRIlkhLhUO8wOHKTLnTJA6o/1un4po4/6M1nRzdd0=
 sigs.k8s.io/gateway-api v1.5.1/go.mod h1:GvCETiaMAlLym5CovLxGjS0NysqFk3+Yuq3/rh6QL2o=
 sigs.k8s.io/gateway-api/conformance v1.5.1 h1:5eruSMKcwKnkX42PFek8oO6BgPNBD5FbWbTcRV76KIw=

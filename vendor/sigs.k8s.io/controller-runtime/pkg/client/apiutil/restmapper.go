@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/utils/ptr"
 )
 
 // NewDynamicRESTMapper returns a dynamic RESTMapper for cfg. The dynamic
@@ -197,7 +196,7 @@ func (m *mapper) addKnownGroupAndReload(groupName string, versions ...string) er
 				}
 			}
 			if len(failedGroups) > 0 {
-				return ptr.To(ErrResourceDiscoveryFailed(failedGroups))
+				return new(ErrResourceDiscoveryFailed(failedGroups))
 			}
 			return nil
 		}
