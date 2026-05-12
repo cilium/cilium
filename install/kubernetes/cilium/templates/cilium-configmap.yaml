@@ -797,6 +797,7 @@ data:
   enable-bandwidth-manager: {{ .Values.bandwidthManager.enabled | quote }}
   enable-bbr: {{ .Values.bandwidthManager.bbr | quote }}
   enable-bbr-hostns-only: {{ .Values.bandwidthManager.bbrHostNamespaceOnly | quote }}
+  enable-dscp-marking: {{ (dig "dscp" "enabled" false .Values.bandwidthManager) | quote }}
 {{- end }}
 {{- end }}
 

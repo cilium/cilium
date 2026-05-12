@@ -886,10 +886,9 @@ func (e *Endpoint) deleteMaps() []error {
 		errors = append(errors, fmt.Errorf("removing endpoint program from global policy map: %w", err))
 	}
 
-	// Remove rate limit from bandwidth manager map.
-	if e.bps != 0 {
-		e.bandwidthManager.DeleteBandwidthLimit(e.ID)
-	}
+	// Remove rate limit from bandwidth manager map. The egress entry may carry
+	// only a DSCP mark (no bps), so we always issue the delete.
+	e.bandwidthManager.DeleteBandwidthLimit(e.ID)
 	if e.ingressBps != 0 {
 		e.bandwidthManager.DeleteIngressBandwidthLimit(e.ID)
 	}

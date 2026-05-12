@@ -80,6 +80,7 @@ type k8sPodWatcherParams struct {
 	Namespaces         statedb.Table[agentK8s.Namespace]
 	NodeAddrs          statedb.Table[datapathTables.NodeAddress]
 	CGroupManager      cgroup.CGroupManager
+	BandwidthManager   bandwidth.Manager `optional:"true"`
 	LBConfig           loadbalancer.Config
 	WgConfig           wgTypes.Config
 	IPSecConfig        ipsec.Config
@@ -102,6 +103,7 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		pods:               params.Pods,
 		namespaces:         params.Namespaces,
 		nodeAddrs:          params.NodeAddrs,
+		bandwidthManager:   params.BandwidthManager,
 		lbConfig:           params.LBConfig,
 		wgConfig:           params.WgConfig,
 		ipsecConfig:        params.IPSecConfig,
@@ -133,6 +135,7 @@ type K8sPodWatcher struct {
 	pods               statedb.Table[agentK8s.LocalPod]
 	namespaces         statedb.Table[agentK8s.Namespace]
 	nodeAddrs          statedb.Table[datapathTables.NodeAddress]
+	bandwidthManager   bandwidth.Manager
 	lbConfig           loadbalancer.Config
 	wgConfig           wgTypes.Config
 	ipsecConfig        ipsec.Config
@@ -335,11 +338,12 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 	newAnno := newK8sPod.ObjectMeta.Annotations
 	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno) || !k8s.AnnotationsEqual([]string{bandwidth.IngressBandwidth}, oldAnno, newAnno)
 	annoChangedPriority := !k8s.AnnotationsEqual([]string{bandwidth.Priority}, oldAnno, newAnno)
+	annoChangedDSCP := !k8s.AnnotationsEqual([]string{bandwidth.EgressDSCP}, oldAnno, newAnno)
 	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack, annotation.NoTrackAlias}, oldAnno, newAnno)
 	annoChangedFIBTableID := option.Config.EnableFibTableIDAnnotation &&
 		!k8s.AnnotationsEqual([]string{annotation.FIBTableID}, oldAnno, newAnno)
 	annoChangedDisableSIP := !k8s.AnnotationsEqual([]string{annotation.DisableSourceIPVerification}, oldAnno, newAnno)
-	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack || annoChangedFIBTableID || annoChangedDisableSIP
+	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedDSCP || annoChangedNoTrack || annoChangedFIBTableID || annoChangedDisableSIP
 
 	// Check label updates too.
 	oldK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(oldK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
@@ -401,10 +405,11 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 		}
 
 		if annotationsChanged {
-			if annoChangedBandwidth || annoChangedPriority {
+			if annoChangedBandwidth || annoChangedPriority || annoChangedDSCP {
 				podEP.UpdateBandwidthPolicy(newK8sPod.Annotations[bandwidth.EgressBandwidth],
 					newK8sPod.Annotations[bandwidth.IngressBandwidth],
-					newK8sPod.Annotations[bandwidth.Priority])
+					newK8sPod.Annotations[bandwidth.Priority],
+					newK8sPod.Annotations[bandwidth.EgressDSCP])
 			}
 			if annoChangedNoTrack {
 				podEP.UpdateNoTrackRules(func() string {

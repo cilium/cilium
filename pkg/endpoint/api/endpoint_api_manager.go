@@ -247,6 +247,13 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 					logfields.Annotations, pod.Annotations,
 				)
 			}
+			if _, ok := pod.Annotations[bandwidth.EgressDSCP]; ok && !m.bandwidthManager.DSCPMarkingEnabled() {
+				m.logger.Warn("Endpoint has DSCP annotation, but DSCP marking is disabled. This annotation is ignored.",
+					logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
+					logfields.Annotation, bandwidth.EgressDSCP,
+					logfields.Annotations, pod.Annotations,
+				)
+			}
 			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
 				mac, err := mac.ParseMAC(hwAddr)
 				if err != nil {

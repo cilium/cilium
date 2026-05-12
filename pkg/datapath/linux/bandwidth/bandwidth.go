@@ -10,6 +10,7 @@ package bandwidth
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -34,6 +35,8 @@ const (
 	IngressBandwidth = "kubernetes.io/ingress-bandwidth"
 	// Priority is the Cilium Pod priority annotation.
 	Priority = "bandwidth.cilium.io/priority"
+	// EgressDSCP is the Cilium Pod annotation for egress DSCP marking.
+	EgressDSCP = "bandwidth.cilium.io/egress-dscp"
 
 	// FqDefaultHorizon represents maximum allowed departure
 	// time delta in future. Given applications can set SO_TXTIME
@@ -56,6 +59,9 @@ const (
 	BurstableQoSDefaultPriority = 8 + 1
 	// BestEffortQoSDefaultPriority prio value to classify packets to medium prio band
 	BestEffortQoSDefaultPriority = 5 + 1
+
+	// DSCPMarkUnset indicates that no DSCP rewrite should be performed.
+	DSCPMarkUnset uint32 = 0
 )
 
 // Must be in sync with DIRECTION_* in <bpf/lib/common.h>
@@ -66,9 +72,10 @@ const (
 
 type Manager interface {
 	BBREnabled() bool
+	DSCPMarkingEnabled() bool
 	Enabled() bool
 
-	UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64, prio uint32)
+	UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64, prio, dscpMark uint32)
 	DeleteBandwidthLimit(endpointID uint16)
 
 	UpdateIngressBandwidthLimit(endpointID uint16, bytesPerSecond uint64)
@@ -94,17 +101,24 @@ func (m *manager) BBREnabled() bool {
 	return m.params.Config.EnableBBR
 }
 
+func (m *manager) DSCPMarkingEnabled() bool {
+	return m.enabled && m.params.Config.EnableDSCPMarking
+}
+
 func (m *manager) defines() (defines.Map, error) {
 	cDefinesMap := make(defines.Map)
 
 	if m.Enabled() {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
 	}
+	if m.DSCPMarkingEnabled() {
+		cDefinesMap["ENABLE_DSCP_MARKING"] = "1"
+	}
 
 	return cDefinesMap, nil
 }
 
-func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio uint32) {
+func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio, dscpMark uint32) {
 	if !m.enabled {
 		return
 	}
@@ -116,7 +130,7 @@ func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio 
 
 	m.params.EdtTable.Insert(
 		txn,
-		bwmap.NewEdt(epID, DirectionEgress, bytesPerSecond, prio),
+		bwmap.NewEdt(epID, DirectionEgress, bytesPerSecond, prio, dscpMark),
 	)
 	txn.Commit()
 }
@@ -142,7 +156,7 @@ func (m *manager) ensureHostEndpointQoS(txn statedb.WriteTxn) {
 	// Host endpoint is available, set it up with Guaranteed QoS priority
 	m.params.EdtTable.Insert(
 		txn,
-		bwmap.NewEdt(hostEpID, DirectionEgress, 0, GuaranteedQoSDefaultPriority),
+		bwmap.NewEdt(hostEpID, DirectionEgress, 0, GuaranteedQoSDefaultPriority, DSCPMarkUnset),
 	)
 
 	m.hostEpDone.Store(true)
@@ -170,7 +184,7 @@ func (m *manager) UpdateIngressBandwidthLimit(epID uint16, bytesPerSecond uint64
 		txn := m.params.DB.WriteTxn(m.params.EdtTable)
 		m.params.EdtTable.Insert(
 			txn,
-			bwmap.NewEdt(epID, DirectionIngress, bytesPerSecond, 0),
+			bwmap.NewEdt(epID, DirectionIngress, bytesPerSecond, 0, DSCPMarkUnset),
 		)
 		txn.Commit()
 	}
@@ -198,10 +212,33 @@ func GetBytesPerSec(bandwidth string) (uint64, error) {
 	return uint64(res.Value() / 8), err
 }
 
+// ParseEgressDSCPMark parses the bandwidth.cilium.io/egress-dscp Pod annotation
+// and returns the encoded mark (`dscp + 1`, so 0 is the "no rewrite" sentinel).
+// When the feature is disabled or the value is empty, it returns DSCPMarkUnset
+// with no error.
+func ParseEgressDSCPMark(value string, enabled bool) (uint32, error) {
+	value = strings.TrimSpace(value)
+	if !enabled || value == "" {
+		return DSCPMarkUnset, nil
+	}
+
+	dscp, err := strconv.ParseUint(value, 10, 8)
+	if err != nil {
+		return DSCPMarkUnset, err
+	}
+	if dscp > 63 {
+		return DSCPMarkUnset, fmt.Errorf("DSCP value %d out of range 0-63", dscp)
+	}
+	return uint32(dscp) + 1, nil
+}
+
 // probe checks the various system requirements of the bandwidth manager and disables it if they are
 // not met.
 func (m *manager) probe() error {
 	if !m.params.Config.EnableBandwidthManager {
+		if m.params.Config.EnableDSCPMarking {
+			return fmt.Errorf("cannot enable --%s without enabling --%s", types.EnableDSCPMarkingFlag, types.EnableBandwidthManagerFlag)
+		}
 		return nil
 	}
 	if _, err := m.params.Sysctl.Read([]string{"net", "core", "default_qdisc"}); err != nil {

@@ -1916,6 +1916,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		pod.Annotations[bandwidth.EgressBandwidth],
 		pod.Annotations[bandwidth.IngressBandwidth],
 		pod.Annotations[bandwidth.Priority],
+		pod.Annotations[bandwidth.EgressDSCP],
 	)
 	if tid, ok := pod.Annotations[annotation.FIBTableID]; option.Config.EnableFibTableIDAnnotation && ok {
 		if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {

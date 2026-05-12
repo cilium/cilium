@@ -487,6 +487,9 @@ bandwidthManager:
   bbr: false
   # -- Activate BBR TCP congestion control for Pods in the host namespace only.
   bbrHostNamespaceOnly: false
+  dscp:
+    # -- Enable DSCP marking for Pod egress traffic. Requires bandwidthManager.enabled=true.
+    enabled: false
 # -- Configure standalone NAT46/NAT64 gateway
 nat46x64Gateway:
   # -- Enable RFC6052-prefixed translation
