@@ -70,18 +70,18 @@ type Frontend struct {
 
 // RedirectFrontend is a frontend configuration that matches traffic that needs to be redirected.
 // The configuration must be specified using a ip/port tuple or a Kubernetes service.
+//
+// +kubebuilder:validation:ExactlyOneOf=addressMatcher;serviceMatcher
 type RedirectFrontend struct {
 	// AddressMatcher is a tuple {IP, port, protocol} that matches traffic to be
 	// redirected.
 	//
-	// +kubebuilder:validation:OneOf
 	// +kubebuilder:validation:Optional
 	AddressMatcher *Frontend `json:"addressMatcher,omitempty"`
 
 	// ServiceMatcher specifies Kubernetes service and port that matches
 	// traffic to be redirected.
 	//
-	// +kubebuilder:validation:OneOf
 	// +kubebuilder:validation:Optional
 	ServiceMatcher *ServiceInfo `json:"serviceMatcher,omitempty"`
 }

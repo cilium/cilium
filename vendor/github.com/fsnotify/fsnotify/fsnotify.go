@@ -51,26 +51,25 @@ import (
 // The fs.inotify.max_user_watches sysctl variable specifies the upper limit
 // for the number of watches per user, and fs.inotify.max_user_instances
 // specifies the maximum number of inotify instances per user. Every Watcher you
-// create is an "instance", and every path you add is a "watch".
+// create is an "instance", and every path you add is a "watch". Reaching the
+// limit will result in a "no space left on device" or "too many open files"
+// error.
 //
 // These are also exposed in /proc as /proc/sys/fs/inotify/max_user_watches and
-// /proc/sys/fs/inotify/max_user_instances
+// /proc/sys/fs/inotify/max_user_instances. The default values differ per distro
+// and available memory.
 //
 // To increase them you can use sysctl or write the value to the /proc file:
 //
-//	# Default values on Linux 5.18
-//	sysctl fs.inotify.max_user_watches=124983
-//	sysctl fs.inotify.max_user_instances=128
+//	sysctl fs.inotify.max_user_watches=200000
+//	sysctl fs.inotify.max_user_instances=256
 //
 // To make the changes persist on reboot edit /etc/sysctl.conf or
 // /usr/lib/sysctl.d/50-default.conf (details differ per Linux distro; check
 // your distro's documentation):
 //
-//	fs.inotify.max_user_watches=124983
-//	fs.inotify.max_user_instances=128
-//
-// Reaching the limit will result in a "no space left on device" or "too many open
-// files" error.
+//	fs.inotify.max_user_watches=200000
+//	fs.inotify.max_user_instances=256
 //
 // # kqueue notes (macOS, BSD)
 //
@@ -220,7 +219,7 @@ const (
 
 	// File opened for reading was closed.
 	//
-	// Only works on Linux and FreeBSD.
+	// Only works on Linux.
 	xUnportableCloseRead
 )
 
@@ -410,7 +409,6 @@ type (
 	withOpts struct {
 		bufsize    int
 		op         Op
-		noFollow   bool
 		sendCreate bool
 	}
 )
@@ -469,12 +467,6 @@ func withOps(op Op) addOpt {
 	return func(opt *withOpts) { opt.op = op }
 }
 
-// WithNoFollow disables following symlinks, so the symlinks themselves are
-// watched.
-func withNoFollow() addOpt {
-	return func(opt *withOpts) { opt.noFollow = true }
-}
-
 // "Internal" option for recursive watches on inotify.
 func withCreate() addOpt {
 	return func(opt *withOpts) { opt.sendCreate = true }
@@ -494,3 +486,13 @@ func recursivePath(path string) (string, bool) {
 	}
 	return path, false
 }
+
+type watchFlag uint8
+
+const (
+	// Added by user with Add(), rather than an internal watch.
+	flagByUser = watchFlag(0x01)
+	// Part of recursive watch; as the top-level path added by the user or an
+	// "internal" watch.
+	flagRecurse = watchFlag(0x02)
+)

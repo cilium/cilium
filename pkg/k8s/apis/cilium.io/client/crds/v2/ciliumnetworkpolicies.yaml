@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: ciliumnetworkpolicies.cilium.io
 spec:
   group: cilium.io
@@ -52,33 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            anyOf:
-            - properties:
-                ingress: {}
-              required:
-              - ingress
-            - properties:
-                ingressDeny: {}
-              required:
-              - ingressDeny
-            - properties:
-                egress: {}
-              required:
-              - egress
-            - properties:
-                egressDeny: {}
-              required:
-              - egressDeny
             description: Spec is the desired Cilium specific rule specification.
-            oneOf:
-            - properties:
-                endpointSelector: {}
-              required:
-              - endpointSelector
-            - properties:
-                nodeSelector: {}
-              required:
-              - nodeSelector
             properties:
               description:
                 description: |-
@@ -220,19 +194,6 @@ spec:
                           CIDRRule is a rule that specifies a CIDR prefix to/from which outside
                           communication  is allowed, along with an optional list of subnets within that
                           CIDR prefix to/from which outside communication is not allowed.
-                        oneOf:
-                        - properties:
-                            cidr: {}
-                          required:
-                          - cidr
-                        - properties:
-                            cidrGroupRef: {}
-                          required:
-                          - cidrGroupRef
-                        - properties:
-                            cidrGroupSelector: {}
-                          required:
-                          - cidrGroupSelector
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
@@ -320,6 +281,11 @@ spec:
                               type: string
                             type: array
                         type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of the fields in [cidr cidrGroupRef
+                            cidrGroupSelector] must be set
+                          rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
+                            == 1'
                       type: array
                     toEndpoints:
                       description: |-
@@ -431,15 +397,6 @@ spec:
                         ToFQDN rule will not apply to that IP.
                         Note: ToFQDN cannot occur in the same policy as other To* rules.
                       items:
-                        oneOf:
-                        - properties:
-                            matchName: {}
-                          required:
-                          - matchName
-                        - properties:
-                            matchPattern: {}
-                          required:
-                          - matchPattern
                         properties:
                           matchName:
                             description: |-
@@ -473,6 +430,11 @@ spec:
                             pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                             type: string
                         type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of the fields in [matchName matchPattern]
+                            must be set
+                          rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
+                            == 1'
                       type: array
                     toGroups:
                       description: |-
@@ -752,30 +714,12 @@ spec:
                               Rules is a list of additional port level rules which must be met in
                               order for the PortRule to allow the traffic. If omitted or empty,
                               no layer 7 rules are enforced.
-                            oneOf:
-                            - properties:
-                                http: {}
-                              required:
-                              - http
-                            - properties:
-                                dns: {}
-                              required:
-                              - dns
                             properties:
                               dns:
                                 description: DNS-specific rules.
                                 items:
                                   description: PortRuleDNS is a list of allowed DNS
                                     lookups.
-                                  oneOf:
-                                  - properties:
-                                      matchName: {}
-                                    required:
-                                    - matchName
-                                  - properties:
-                                      matchPattern: {}
-                                    required:
-                                    - matchPattern
                                   properties:
                                     matchName:
                                       description: |-
@@ -809,6 +753,11 @@ spec:
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: exactly one of the fields in [matchName
+                                      matchPattern] must be set
+                                    rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
+                                      == 1'
                                 type: array
                               http:
                                 description: HTTP specific rules.
@@ -916,6 +865,11 @@ spec:
                                   type: object
                                 type: array
                             type: object
+                            x-kubernetes-validations:
+                            - message: at most one of the fields in [http dns] may
+                                be set
+                              rule: '[has(self.http),has(self.dns)].filter(x,x==true).size()
+                                <= 1'
                           serverNames:
                             description: |-
                               ServerNames is a list of allowed TLS SNI values. If not empty, then
@@ -1219,19 +1173,6 @@ spec:
                           CIDRRule is a rule that specifies a CIDR prefix to/from which outside
                           communication  is allowed, along with an optional list of subnets within that
                           CIDR prefix to/from which outside communication is not allowed.
-                        oneOf:
-                        - properties:
-                            cidr: {}
-                          required:
-                          - cidr
-                        - properties:
-                            cidrGroupRef: {}
-                          required:
-                          - cidrGroupRef
-                        - properties:
-                            cidrGroupSelector: {}
-                          required:
-                          - cidrGroupSelector
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
@@ -1319,6 +1260,11 @@ spec:
                               type: string
                             type: array
                         type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of the fields in [cidr cidrGroupRef
+                            cidrGroupSelector] must be set
+                          rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
+                            == 1'
                       type: array
                     toEndpoints:
                       description: |-
@@ -1851,19 +1797,6 @@ spec:
                           CIDRRule is a rule that specifies a CIDR prefix to/from which outside
                           communication  is allowed, along with an optional list of subnets within that
                           CIDR prefix to/from which outside communication is not allowed.
-                        oneOf:
-                        - properties:
-                            cidr: {}
-                          required:
-                          - cidr
-                        - properties:
-                            cidrGroupRef: {}
-                          required:
-                          - cidrGroupRef
-                        - properties:
-                            cidrGroupSelector: {}
-                          required:
-                          - cidrGroupSelector
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
@@ -1951,6 +1884,11 @@ spec:
                               type: string
                             type: array
                         type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of the fields in [cidr cidrGroupRef
+                            cidrGroupSelector] must be set
+                          rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
+                            == 1'
                       type: array
                     fromEndpoints:
                       description: |-
@@ -2393,30 +2331,12 @@ spec:
                               Rules is a list of additional port level rules which must be met in
                               order for the PortRule to allow the traffic. If omitted or empty,
                               no layer 7 rules are enforced.
-                            oneOf:
-                            - properties:
-                                http: {}
-                              required:
-                              - http
-                            - properties:
-                                dns: {}
-                              required:
-                              - dns
                             properties:
                               dns:
                                 description: DNS-specific rules.
                                 items:
                                   description: PortRuleDNS is a list of allowed DNS
                                     lookups.
-                                  oneOf:
-                                  - properties:
-                                      matchName: {}
-                                    required:
-                                    - matchName
-                                  - properties:
-                                      matchPattern: {}
-                                    required:
-                                    - matchPattern
                                   properties:
                                     matchName:
                                       description: |-
@@ -2450,6 +2370,11 @@ spec:
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: exactly one of the fields in [matchName
+                                      matchPattern] must be set
+                                    rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
+                                      == 1'
                                 type: array
                               http:
                                 description: HTTP specific rules.
@@ -2557,6 +2482,11 @@ spec:
                                   type: object
                                 type: array
                             type: object
+                            x-kubernetes-validations:
+                            - message: at most one of the fields in [http dns] may
+                                be set
+                              rule: '[has(self.http),has(self.dns)].filter(x,x==true).size()
+                                <= 1'
                           serverNames:
                             description: |-
                               ServerNames is a list of allowed TLS SNI values. If not empty, then
@@ -2705,19 +2635,6 @@ spec:
                           CIDRRule is a rule that specifies a CIDR prefix to/from which outside
                           communication  is allowed, along with an optional list of subnets within that
                           CIDR prefix to/from which outside communication is not allowed.
-                        oneOf:
-                        - properties:
-                            cidr: {}
-                          required:
-                          - cidr
-                        - properties:
-                            cidrGroupRef: {}
-                          required:
-                          - cidrGroupRef
-                        - properties:
-                            cidrGroupSelector: {}
-                          required:
-                          - cidrGroupSelector
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
@@ -2805,6 +2722,11 @@ spec:
                               type: string
                             type: array
                         type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of the fields in [cidr cidrGroupRef
+                            cidrGroupSelector] must be set
+                          rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
+                            == 1'
                       type: array
                     fromEndpoints:
                       description: |-
@@ -3241,26 +3163,18 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
             type: object
+            x-kubernetes-validations:
+            - message: exactly one of the fields in [endpointSelector nodeSelector]
+                must be set
+              rule: '[has(self.endpointSelector),has(self.nodeSelector)].filter(x,x==true).size()
+                == 1'
+            - message: at least one of the fields in [ingress ingressDeny egress egressDeny]
+                must be set
+              rule: '[has(self.ingress),has(self.ingressDeny),has(self.egress),has(self.egressDeny)].filter(x,x==true).size()
+                >= 1'
           specs:
             description: Specs is a list of desired Cilium specific rule specification.
             items:
-              anyOf:
-              - properties:
-                  ingress: {}
-                required:
-                - ingress
-              - properties:
-                  ingressDeny: {}
-                required:
-                - ingressDeny
-              - properties:
-                  egress: {}
-                required:
-                - egress
-              - properties:
-                  egressDeny: {}
-                required:
-                - egressDeny
               description: |-
                 Rule is a policy rule which must be applied to all endpoints which match the
                 labels contained in the endpointSelector
@@ -3273,15 +3187,6 @@ spec:
 
                 Either ingress, egress, or both can be provided. If both ingress and egress
                 are omitted, the rule has no effect.
-              oneOf:
-              - properties:
-                  endpointSelector: {}
-                required:
-                - endpointSelector
-              - properties:
-                  nodeSelector: {}
-                required:
-                - nodeSelector
               properties:
                 description:
                   description: |-
@@ -3424,19 +3329,6 @@ spec:
                             CIDRRule is a rule that specifies a CIDR prefix to/from which outside
                             communication  is allowed, along with an optional list of subnets within that
                             CIDR prefix to/from which outside communication is not allowed.
-                          oneOf:
-                          - properties:
-                              cidr: {}
-                            required:
-                            - cidr
-                          - properties:
-                              cidrGroupRef: {}
-                            required:
-                            - cidrGroupRef
-                          - properties:
-                              cidrGroupSelector: {}
-                            required:
-                            - cidrGroupSelector
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
@@ -3524,6 +3416,11 @@ spec:
                                 type: string
                               type: array
                           type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of the fields in [cidr cidrGroupRef
+                              cidrGroupSelector] must be set
+                            rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
+                              == 1'
                         type: array
                       toEndpoints:
                         description: |-
@@ -3635,15 +3532,6 @@ spec:
                           ToFQDN rule will not apply to that IP.
                           Note: ToFQDN cannot occur in the same policy as other To* rules.
                         items:
-                          oneOf:
-                          - properties:
-                              matchName: {}
-                            required:
-                            - matchName
-                          - properties:
-                              matchPattern: {}
-                            required:
-                            - matchPattern
                           properties:
                             matchName:
                               description: |-
@@ -3677,6 +3565,11 @@ spec:
                               pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                               type: string
                           type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of the fields in [matchName matchPattern]
+                              must be set
+                            rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
+                              == 1'
                         type: array
                       toGroups:
                         description: |-
@@ -3956,30 +3849,12 @@ spec:
                                 Rules is a list of additional port level rules which must be met in
                                 order for the PortRule to allow the traffic. If omitted or empty,
                                 no layer 7 rules are enforced.
-                              oneOf:
-                              - properties:
-                                  http: {}
-                                required:
-                                - http
-                              - properties:
-                                  dns: {}
-                                required:
-                                - dns
                               properties:
                                 dns:
                                   description: DNS-specific rules.
                                   items:
                                     description: PortRuleDNS is a list of allowed
                                       DNS lookups.
-                                    oneOf:
-                                    - properties:
-                                        matchName: {}
-                                      required:
-                                      - matchName
-                                    - properties:
-                                        matchPattern: {}
-                                      required:
-                                      - matchPattern
                                     properties:
                                       matchName:
                                         description: |-
@@ -4013,6 +3888,11 @@ spec:
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                         type: string
                                     type: object
+                                    x-kubernetes-validations:
+                                    - message: exactly one of the fields in [matchName
+                                        matchPattern] must be set
+                                      rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
+                                        == 1'
                                   type: array
                                 http:
                                   description: HTTP specific rules.
@@ -4120,6 +4000,11 @@ spec:
                                     type: object
                                   type: array
                               type: object
+                              x-kubernetes-validations:
+                              - message: at most one of the fields in [http dns] may
+                                  be set
+                                rule: '[has(self.http),has(self.dns)].filter(x,x==true).size()
+                                  <= 1'
                             serverNames:
                               description: |-
                                 ServerNames is a list of allowed TLS SNI values. If not empty, then
@@ -4424,19 +4309,6 @@ spec:
                             CIDRRule is a rule that specifies a CIDR prefix to/from which outside
                             communication  is allowed, along with an optional list of subnets within that
                             CIDR prefix to/from which outside communication is not allowed.
-                          oneOf:
-                          - properties:
-                              cidr: {}
-                            required:
-                            - cidr
-                          - properties:
-                              cidrGroupRef: {}
-                            required:
-                            - cidrGroupRef
-                          - properties:
-                              cidrGroupSelector: {}
-                            required:
-                            - cidrGroupSelector
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
@@ -4524,6 +4396,11 @@ spec:
                                 type: string
                               type: array
                           type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of the fields in [cidr cidrGroupRef
+                              cidrGroupSelector] must be set
+                            rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
+                              == 1'
                         type: array
                       toEndpoints:
                         description: |-
@@ -5056,19 +4933,6 @@ spec:
                             CIDRRule is a rule that specifies a CIDR prefix to/from which outside
                             communication  is allowed, along with an optional list of subnets within that
                             CIDR prefix to/from which outside communication is not allowed.
-                          oneOf:
-                          - properties:
-                              cidr: {}
-                            required:
-                            - cidr
-                          - properties:
-                              cidrGroupRef: {}
-                            required:
-                            - cidrGroupRef
-                          - properties:
-                              cidrGroupSelector: {}
-                            required:
-                            - cidrGroupSelector
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
@@ -5156,6 +5020,11 @@ spec:
                                 type: string
                               type: array
                           type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of the fields in [cidr cidrGroupRef
+                              cidrGroupSelector] must be set
+                            rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
+                              == 1'
                         type: array
                       fromEndpoints:
                         description: |-
@@ -5599,30 +5468,12 @@ spec:
                                 Rules is a list of additional port level rules which must be met in
                                 order for the PortRule to allow the traffic. If omitted or empty,
                                 no layer 7 rules are enforced.
-                              oneOf:
-                              - properties:
-                                  http: {}
-                                required:
-                                - http
-                              - properties:
-                                  dns: {}
-                                required:
-                                - dns
                               properties:
                                 dns:
                                   description: DNS-specific rules.
                                   items:
                                     description: PortRuleDNS is a list of allowed
                                       DNS lookups.
-                                    oneOf:
-                                    - properties:
-                                        matchName: {}
-                                      required:
-                                      - matchName
-                                    - properties:
-                                        matchPattern: {}
-                                      required:
-                                      - matchPattern
                                     properties:
                                       matchName:
                                         description: |-
@@ -5656,6 +5507,11 @@ spec:
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                         type: string
                                     type: object
+                                    x-kubernetes-validations:
+                                    - message: exactly one of the fields in [matchName
+                                        matchPattern] must be set
+                                      rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
+                                        == 1'
                                   type: array
                                 http:
                                   description: HTTP specific rules.
@@ -5763,6 +5619,11 @@ spec:
                                     type: object
                                   type: array
                               type: object
+                              x-kubernetes-validations:
+                              - message: at most one of the fields in [http dns] may
+                                  be set
+                                rule: '[has(self.http),has(self.dns)].filter(x,x==true).size()
+                                  <= 1'
                             serverNames:
                               description: |-
                                 ServerNames is a list of allowed TLS SNI values. If not empty, then
@@ -5911,19 +5772,6 @@ spec:
                             CIDRRule is a rule that specifies a CIDR prefix to/from which outside
                             communication  is allowed, along with an optional list of subnets within that
                             CIDR prefix to/from which outside communication is not allowed.
-                          oneOf:
-                          - properties:
-                              cidr: {}
-                            required:
-                            - cidr
-                          - properties:
-                              cidrGroupRef: {}
-                            required:
-                            - cidrGroupRef
-                          - properties:
-                              cidrGroupSelector: {}
-                            required:
-                            - cidrGroupSelector
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
@@ -6011,6 +5859,11 @@ spec:
                                 type: string
                               type: array
                           type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of the fields in [cidr cidrGroupRef
+                              cidrGroupSelector] must be set
+                            rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
+                              == 1'
                         type: array
                       fromEndpoints:
                         description: |-
@@ -6450,6 +6303,15 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
               type: object
+              x-kubernetes-validations:
+              - message: exactly one of the fields in [endpointSelector nodeSelector]
+                  must be set
+                rule: '[has(self.endpointSelector),has(self.nodeSelector)].filter(x,x==true).size()
+                  == 1'
+              - message: at least one of the fields in [ingress ingressDeny egress
+                  egressDeny] must be set
+                rule: '[has(self.ingress),has(self.ingressDeny),has(self.egress),has(self.egressDeny)].filter(x,x==true).size()
+                  >= 1'
             type: array
           status:
             description: Status is the status of the Cilium policy rule

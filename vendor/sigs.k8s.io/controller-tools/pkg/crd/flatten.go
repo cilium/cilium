@@ -19,12 +19,11 @@ package crd
 import (
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
-	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-tools/pkg/loader"
 )
 
@@ -39,9 +38,9 @@ type ErrorRecorder interface {
 
 // isOrNil checks if val is nil if val is of a nillable type, otherwise,
 // it compares val to valInt (which should probably be the zero value).
-func isOrNil(val reflect.Value, valInt interface{}, zeroInt interface{}) bool {
+func isOrNil(val reflect.Value, valInt any, zeroInt any) bool {
 	switch valKind := val.Kind(); valKind {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
 		return val.IsNil()
 	default:
 		return valInt == zeroInt
@@ -50,7 +49,7 @@ func isOrNil(val reflect.Value, valInt interface{}, zeroInt interface{}) bool {
 
 // flattenAllOfInto copies properties from src to dst, then copies the properties
 // of each item in src's allOf to dst's properties as well.
-func flattenAllOfInto(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps, errRec ErrorRecorder) {
+func flattenAllOfInto(dst *apiextensionsv1.JSONSchemaProps, src apiextensionsv1.JSONSchemaProps, errRec ErrorRecorder) {
 	if len(src.AllOf) > 0 {
 		for _, embedded := range src.AllOf {
 			flattenAllOfInto(dst, embedded, errRec)
@@ -61,9 +60,9 @@ func flattenAllOfInto(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps, e
 	srcVal := reflect.ValueOf(src)
 	typ := dstVal.Type()
 
-	srcRemainder := apiext.JSONSchemaProps{}
+	srcRemainder := apiextensionsv1.JSONSchemaProps{}
 	srcRemVal := reflect.Indirect(reflect.ValueOf(&srcRemainder))
-	dstRemainder := apiext.JSONSchemaProps{}
+	dstRemainder := apiextensionsv1.JSONSchemaProps{}
 	dstRemVal := reflect.Indirect(reflect.ValueOf(&dstRemainder))
 	hoisted := false
 
@@ -75,6 +74,15 @@ func flattenAllOfInto(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps, e
 			continue
 		case "Title", "Description", "Example", "ExternalDocs":
 			// don't merge because we pre-merge to properly preserve field docs
+			continue
+		case "Enum":
+			// Enum from field markers should be preserved even if the type schema doesn't have it
+			// This is important for types like IntOrString where field-level enum validation
+			// needs to be preserved during flattening
+			if len(src.Enum) > 0 && len(dst.Enum) == 0 {
+				dst.Enum = make([]apiextensionsv1.JSON, len(src.Enum))
+				copy(dst.Enum, src.Enum)
+			}
 			continue
 		}
 		srcField := srcVal.Field(i)
@@ -105,8 +113,8 @@ func flattenAllOfInto(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps, e
 		switch fieldName {
 		case "Properties":
 			// merge if possible, use all of otherwise
-			srcMap := srcInt.(map[string]apiext.JSONSchemaProps)
-			dstMap := dstInt.(map[string]apiext.JSONSchemaProps)
+			srcMap := srcInt.(map[string]apiextensionsv1.JSONSchemaProps)
+			dstMap := dstInt.(map[string]apiextensionsv1.JSONSchemaProps)
 
 			for k, v := range srcMap {
 				dstProp, exists := dstMap[k]
@@ -133,14 +141,14 @@ func flattenAllOfInto(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps, e
 		// - Definitions: common named validation sets that can be references (merge, bail if duplicate)
 		case "AdditionalProperties":
 			// as of the time of writing, `allows: false` is not allowed, so we don't have to handle it
-			srcProps := srcInt.(*apiext.JSONSchemaPropsOrBool)
+			srcProps := srcInt.(*apiextensionsv1.JSONSchemaPropsOrBool)
 			if srcProps.Schema == nil {
 				// nothing to merge
 				continue
 			}
-			dstProps := dstInt.(*apiext.JSONSchemaPropsOrBool)
+			dstProps := dstInt.(*apiextensionsv1.JSONSchemaPropsOrBool)
 			if dstProps.Schema == nil {
-				dstProps.Schema = &apiext.JSONSchemaProps{}
+				dstProps.Schema = &apiextensionsv1.JSONSchemaProps{}
 			}
 			flattenAllOfInto(dstProps.Schema, *srcProps.Schema, errRec)
 		case "XPreserveUnknownFields":
@@ -177,7 +185,7 @@ func flattenAllOfInto(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps, e
 			dst.Required = append(dst.Required, req)
 		}
 		// be deterministic
-		sort.Strings(dst.Required)
+		slices.Sort(dst.Required)
 	}
 }
 
@@ -189,7 +197,7 @@ type allOfVisitor struct {
 	errRec ErrorRecorder
 }
 
-func (v *allOfVisitor) Visit(schema *apiext.JSONSchemaProps) SchemaVisitor {
+func (v *allOfVisitor) Visit(schema *apiextensionsv1.JSONSchemaProps) SchemaVisitor {
 	if schema == nil {
 		return v
 	}
@@ -211,7 +219,7 @@ func (v *allOfVisitor) Visit(schema *apiext.JSONSchemaProps) SchemaVisitor {
 // FlattenEmbedded flattens embedded fields (represented via AllOf) which have
 // already had their references resolved into simple properties in the containing
 // schema.
-func FlattenEmbedded(schema *apiext.JSONSchemaProps, errRec ErrorRecorder) *apiext.JSONSchemaProps {
+func FlattenEmbedded(schema *apiextensionsv1.JSONSchemaProps, errRec ErrorRecorder) *apiextensionsv1.JSONSchemaProps {
 	outSchema := schema.DeepCopy()
 	EditSchema(outSchema, &allOfVisitor{errRec: errRec})
 	return outSchema
@@ -227,13 +235,13 @@ type Flattener struct {
 	LookupReference func(ref string, contextPkg *loader.Package) (TypeIdent, error)
 
 	// flattenedTypes hold the flattened version of each seen type for later reuse.
-	flattenedTypes map[TypeIdent]apiext.JSONSchemaProps
+	flattenedTypes map[TypeIdent]apiextensionsv1.JSONSchemaProps
 	initOnce       sync.Once
 }
 
 func (f *Flattener) init() {
 	f.initOnce.Do(func() {
-		f.flattenedTypes = make(map[TypeIdent]apiext.JSONSchemaProps)
+		f.flattenedTypes = make(map[TypeIdent]apiextensionsv1.JSONSchemaProps)
 		if f.LookupReference == nil {
 			f.LookupReference = identFromRef
 		}
@@ -241,13 +249,13 @@ func (f *Flattener) init() {
 }
 
 // cacheType saves the flattened version of the given type for later reuse
-func (f *Flattener) cacheType(typ TypeIdent, schema apiext.JSONSchemaProps) {
+func (f *Flattener) cacheType(typ TypeIdent, schema apiextensionsv1.JSONSchemaProps) {
 	f.init()
 	f.flattenedTypes[typ] = schema
 }
 
 // loadUnflattenedSchema fetches a fresh, unflattened schema from the parser.
-func (f *Flattener) loadUnflattenedSchema(typ TypeIdent) (*apiext.JSONSchemaProps, error) {
+func (f *Flattener) loadUnflattenedSchema(typ TypeIdent) (*apiextensionsv1.JSONSchemaProps, error) {
 	f.Parser.NeedSchemaFor(typ)
 
 	baseSchema, found := f.Parser.Schemata[typ]
@@ -259,7 +267,7 @@ func (f *Flattener) loadUnflattenedSchema(typ TypeIdent) (*apiext.JSONSchemaProp
 
 // FlattenType flattens the given pre-loaded type, removing any references from it.
 // It deep-copies the schema first, so it won't affect the parser's version of the schema.
-func (f *Flattener) FlattenType(typ TypeIdent) *apiext.JSONSchemaProps {
+func (f *Flattener) FlattenType(typ TypeIdent) *apiextensionsv1.JSONSchemaProps {
 	f.init()
 	if cachedSchema, isCached := f.flattenedTypes[typ]; isCached {
 		return &cachedSchema
@@ -276,7 +284,7 @@ func (f *Flattener) FlattenType(typ TypeIdent) *apiext.JSONSchemaProps {
 
 // FlattenSchema flattens the given schema, removing any references.
 // It deep-copies the schema first, so the input schema won't be affected.
-func (f *Flattener) FlattenSchema(baseSchema apiext.JSONSchemaProps, currentPackage *loader.Package) *apiext.JSONSchemaProps {
+func (f *Flattener) FlattenSchema(baseSchema apiextensionsv1.JSONSchemaProps, currentPackage *loader.Package) *apiextensionsv1.JSONSchemaProps {
 	resSchema := baseSchema.DeepCopy()
 	EditSchema(resSchema, &flattenVisitor{
 		Flattener:      f,
@@ -295,8 +303,8 @@ func RefParts(ref string) (typ string, pkgName string, err error) {
 	}
 	ref = ref[len(defPrefix):]
 	// decode the json pointer encodings
-	ref = strings.Replace(ref, "~1", "/", -1)
-	ref = strings.Replace(ref, "~0", "~", -1)
+	ref = strings.ReplaceAll(ref, "~1", "/")
+	ref = strings.ReplaceAll(ref, "~0", "~")
 	nameParts := strings.SplitN(ref, "~", 2)
 
 	if len(nameParts) == 1 {
@@ -333,7 +341,7 @@ func identFromRef(ref string, contextPkg *loader.Package) (TypeIdent, error) {
 // preserveFields copies documentation fields from src into dst, preserving
 // field-level documentation when flattening, and preserving field-level validation
 // as allOf entries.
-func preserveFields(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps) {
+func preserveFields(dst *apiextensionsv1.JSONSchemaProps, src apiextensionsv1.JSONSchemaProps) {
 	srcDesc := src.Description
 	srcTitle := src.Title
 	srcExDoc := src.ExternalDocs
@@ -342,8 +350,8 @@ func preserveFields(dst *apiext.JSONSchemaProps, src apiext.JSONSchemaProps) {
 	src.Description, src.Title, src.ExternalDocs, src.Example = "", "", nil, nil
 
 	src.Ref = nil
-	*dst = apiext.JSONSchemaProps{
-		AllOf: []apiext.JSONSchemaProps{*dst, src},
+	*dst = apiextensionsv1.JSONSchemaProps{
+		AllOf: []apiextensionsv1.JSONSchemaProps{*dst, src},
 
 		// keep these, in case the source field doesn't specify anything useful
 		Description:  dst.Description,
@@ -372,11 +380,11 @@ type flattenVisitor struct {
 
 	currentPackage *loader.Package
 	currentType    *TypeIdent
-	currentSchema  *apiext.JSONSchemaProps
-	originalField  apiext.JSONSchemaProps
+	currentSchema  *apiextensionsv1.JSONSchemaProps
+	originalField  apiextensionsv1.JSONSchemaProps
 }
 
-func (f *flattenVisitor) Visit(baseSchema *apiext.JSONSchemaProps) SchemaVisitor {
+func (f *flattenVisitor) Visit(baseSchema *apiextensionsv1.JSONSchemaProps) SchemaVisitor {
 	if baseSchema == nil {
 		// end-of-node marker, cache the results
 		if f.currentType != nil {
@@ -422,7 +430,7 @@ func (f *flattenVisitor) Visit(baseSchema *apiext.JSONSchemaProps) SchemaVisitor
 
 		// avoid loops (which shouldn't exist, but just in case)
 		// by marking a nil cached pointer before we start recursing
-		f.cacheType(refIdent, apiext.JSONSchemaProps{})
+		f.cacheType(refIdent, apiextensionsv1.JSONSchemaProps{})
 
 		return &flattenVisitor{
 			Flattener: f.Flattener,

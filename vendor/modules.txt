@@ -837,11 +837,11 @@ github.com/fluxcd/cli-utils/pkg/kstatus/polling/statusreaders
 github.com/fluxcd/cli-utils/pkg/kstatus/status
 github.com/fluxcd/cli-utils/pkg/kstatus/watcher
 github.com/fluxcd/cli-utils/pkg/object
-# github.com/fsnotify/fsnotify v1.9.0
-## explicit; go 1.17
+# github.com/fsnotify/fsnotify v1.10.0
+## explicit; go 1.23
 github.com/fsnotify/fsnotify
 github.com/fsnotify/fsnotify/internal
-# github.com/fxamacker/cbor/v2 v2.9.0
+# github.com/fxamacker/cbor/v2 v2.9.1
 ## explicit; go 1.20
 github.com/fxamacker/cbor/v2
 # github.com/go-errors/errors v1.5.1
@@ -879,8 +879,8 @@ github.com/go-openapi/analysis/internal/flatten/sortref
 # github.com/go-openapi/errors v0.22.7
 ## explicit; go 1.24.0
 github.com/go-openapi/errors
-# github.com/go-openapi/jsonpointer v0.22.5
-## explicit; go 1.24.0
+# github.com/go-openapi/jsonpointer v0.23.1
+## explicit; go 1.25.0
 github.com/go-openapi/jsonpointer
 # github.com/go-openapi/jsonreference v0.21.5
 ## explicit; go 1.24.0
@@ -1050,7 +1050,7 @@ github.com/google/certificate-transparency-go/jsonclient
 github.com/google/certificate-transparency-go/tls
 github.com/google/certificate-transparency-go/x509
 github.com/google/certificate-transparency-go/x509/pkix
-# github.com/google/gnostic-models v0.7.0
+# github.com/google/gnostic-models v0.7.1
 ## explicit; go 1.22
 github.com/google/gnostic-models/compiler
 github.com/google/gnostic-models/extensions
@@ -1333,7 +1333,7 @@ github.com/onsi/ginkgo/v2/internal/reporters
 github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.39.1
+# github.com/onsi/gomega v1.40.0
 ## explicit; go 1.24.0
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -1730,7 +1730,7 @@ go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
-# go.yaml.in/yaml/v2 v2.4.3
+# go.yaml.in/yaml/v2 v2.4.4
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
 # go.yaml.in/yaml/v3 v3.0.4
@@ -2724,7 +2724,7 @@ k8s.io/klog/v2/internal/severity
 k8s.io/klog/v2/internal/sloghandler
 k8s.io/klog/v2/internal/verbosity
 k8s.io/klog/v2/textlogger
-# k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
+# k8s.io/kube-openapi v0.0.0-20260427204847-8949caaa1199
 ## explicit; go 1.23.0
 k8s.io/kube-openapi/cmd/openapi-gen
 k8s.io/kube-openapi/cmd/openapi-gen/args
@@ -2866,15 +2866,17 @@ sigs.k8s.io/controller-runtime/pkg/webhook/admission/metrics
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion/metrics
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
-# sigs.k8s.io/controller-tools v0.20.1 => github.com/cilium/controller-tools v0.16.5-1
-## explicit; go 1.22.0
+# sigs.k8s.io/controller-tools v0.21.0 => sigs.k8s.io/controller-tools v0.21.1-0.20260506142635-aca8f6767500
+## explicit; go 1.26.0
 sigs.k8s.io/controller-tools/cmd/controller-gen
+sigs.k8s.io/controller-tools/pkg/applyconfiguration
 sigs.k8s.io/controller-tools/pkg/crd
 sigs.k8s.io/controller-tools/pkg/crd/markers
 sigs.k8s.io/controller-tools/pkg/deepcopy
 sigs.k8s.io/controller-tools/pkg/genall
 sigs.k8s.io/controller-tools/pkg/genall/help
 sigs.k8s.io/controller-tools/pkg/genall/help/pretty
+sigs.k8s.io/controller-tools/pkg/internal/crd
 sigs.k8s.io/controller-tools/pkg/loader
 sigs.k8s.io/controller-tools/pkg/markers
 sigs.k8s.io/controller-tools/pkg/rbac
@@ -3030,7 +3032,7 @@ sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha
 ## explicit; go 1.18
 sigs.k8s.io/randfill
 sigs.k8s.io/randfill/bytesource
-# sigs.k8s.io/structured-merge-diff/v6 v6.3.2
+# sigs.k8s.io/structured-merge-diff/v6 v6.4.0
 ## explicit; go 1.23
 sigs.k8s.io/structured-merge-diff/v6/fieldpath
 sigs.k8s.io/structured-merge-diff/v6/merge
@@ -3042,6 +3044,6 @@ sigs.k8s.io/structured-merge-diff/v6/value
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v3
 sigs.k8s.io/yaml/kyaml
-# sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.5-1
+# sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.21.1-0.20260506142635-aca8f6767500
 # sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.23.1-0.20260331131016-598e330bda55
 # github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20260130142103-27e5da2a39e6

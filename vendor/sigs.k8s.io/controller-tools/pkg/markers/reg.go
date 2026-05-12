@@ -54,7 +54,7 @@ func (r *Registry) init() {
 // It's a shortcut around
 //
 //	r.Register(MakeDefinition(name, target, obj))
-func (r *Registry) Define(name string, target TargetType, obj interface{}) error {
+func (r *Registry) Define(name string, target TargetType, obj any) error {
 	def, err := MakeDefinition(name, target, obj)
 	if err != nil {
 		return err

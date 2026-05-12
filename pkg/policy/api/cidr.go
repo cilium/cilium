@@ -22,24 +22,20 @@ func (s CIDR) SelectorKey() string {
 // CIDRRule is a rule that specifies a CIDR prefix to/from which outside
 // communication  is allowed, along with an optional list of subnets within that
 // CIDR prefix to/from which outside communication is not allowed.
+//
+// +kubebuilder:validation:ExactlyOneOf=cidr;cidrGroupRef;cidrGroupSelector
 type CIDRRule struct {
 	// CIDR is a CIDR prefix / IP Block.
-	//
-	// +kubebuilder:validation:OneOf
 	Cidr CIDR `json:"cidr,omitempty"`
 
 	// CIDRGroupRef is a reference to a CiliumCIDRGroup object.
 	// A CiliumCIDRGroup contains a list of CIDRs that the endpoint, subject to
 	// the rule, can (Ingress/Egress) or cannot (IngressDeny/EgressDeny) receive
 	// connections from.
-	//
-	// +kubebuilder:validation:OneOf
 	CIDRGroupRef CIDRGroupRef `json:"cidrGroupRef,omitempty"`
 
 	// CIDRGroupSelector selects CiliumCIDRGroups by their labels,
 	// rather than by name.
-	//
-	// +kubebuilder:validation:OneOf
 	CIDRGroupSelector EndpointSelector `json:"cidrGroupSelector,omitzero"`
 
 	// ExceptCIDRs is a list of IP blocks which the endpoint subject to the rule

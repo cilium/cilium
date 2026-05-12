@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: ciliumlocalredirectpolicies.cilium.io
 spec:
   group: cilium.io
@@ -161,15 +161,6 @@ spec:
                 description: |-
                   RedirectFrontend specifies frontend configuration to redirect traffic from.
                   It can not be empty.
-                oneOf:
-                - properties:
-                    addressMatcher: {}
-                  required:
-                  - addressMatcher
-                - properties:
-                    serviceMatcher: {}
-                  required:
-                  - serviceMatcher
                 properties:
                   addressMatcher:
                     description: |-
@@ -293,6 +284,10 @@ spec:
                 x-kubernetes-validations:
                 - message: redirectFrontend is immutable
                   rule: self == oldSelf
+                - message: exactly one of the fields in [addressMatcher serviceMatcher]
+                    must be set
+                  rule: '[has(self.addressMatcher),has(self.serviceMatcher)].filter(x,x==true).size()
+                    == 1'
               skipRedirectFromBackend:
                 default: false
                 description: |-

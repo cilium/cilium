@@ -65,47 +65,37 @@ type LogConfig struct {
 // are omitted, the rule has no effect.
 //
 // +deepequal-gen:private-method=true
+// +kubebuilder:validation:ExactlyOneOf=endpointSelector;nodeSelector
+// +kubebuilder:validation:AtLeastOneOf=ingress;ingressDeny;egress;egressDeny
 type Rule struct {
 	// EndpointSelector selects all endpoints which should be subject to
 	// this rule. EndpointSelector and NodeSelector cannot be both empty and
 	// are mutually exclusive.
-	//
-	// +kubebuilder:validation:OneOf
 	EndpointSelector EndpointSelector `json:"endpointSelector,omitzero"`
 
 	// NodeSelector selects all nodes which should be subject to this rule.
 	// EndpointSelector and NodeSelector cannot be both empty and are mutually
 	// exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
-	//
-	// +kubebuilder:validation:OneOf
 	NodeSelector EndpointSelector `json:"nodeSelector,omitzero"`
 
 	// Ingress is a list of IngressRule which are enforced at ingress.
 	// If omitted or empty, this rule does not apply at ingress.
-	//
-	// +kubebuilder:validation:AnyOf
 	Ingress []IngressRule `json:"ingress,omitempty"`
 
 	// IngressDeny is a list of IngressDenyRule which are enforced at ingress.
 	// Any rule inserted here will be denied regardless of the allowed ingress
 	// rules in the 'ingress' field.
 	// If omitted or empty, this rule does not apply at ingress.
-	//
-	// +kubebuilder:validation:AnyOf
 	IngressDeny []IngressDenyRule `json:"ingressDeny,omitempty"`
 
 	// Egress is a list of EgressRule which are enforced at egress.
 	// If omitted or empty, this rule does not apply at egress.
-	//
-	// +kubebuilder:validation:AnyOf
 	Egress []EgressRule `json:"egress,omitempty"`
 
 	// EgressDeny is a list of EgressDenyRule which are enforced at egress.
 	// Any rule inserted here will be denied regardless of the allowed egress
 	// rules in the 'egress' field.
 	// If omitted or empty, this rule does not apply at egress.
-	//
-	// +kubebuilder:validation:AnyOf
 	EgressDeny []EgressDenyRule `json:"egressDeny,omitempty"`
 
 	// Labels is a list of optional strings which can be used to

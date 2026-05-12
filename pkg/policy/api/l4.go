@@ -202,7 +202,6 @@ type Listener struct {
 //
 // +kubebuilder:validation:MaxLength=255
 // +kubebuilder:validation:Pattern=`^([-a-zA-Z0-9_*]+[.]?)+$`
-// +kubebuilder:validation:OneOf
 type ServerName string
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7
@@ -298,17 +297,17 @@ func (pd *PortDenyRule) GetPortRule() *PortRule {
 // L7Rules is a union of port level rule types. Mixing of different port
 // level rule types is disallowed, so exactly one of the following must be set.
 // If none are specified, then no additional port level rules are applied.
+//
+// +kubebuilder:validation:AtMostOneOf=http;dns
 type L7Rules struct {
 	// HTTP specific rules.
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:OneOf
 	HTTP PortRulesHTTP `json:"http,omitempty"`
 
 	// DNS-specific rules.
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:OneOf
 	DNS PortRulesDNS `json:"dns,omitempty"`
 }
 

@@ -49,7 +49,7 @@ func (c *codeWriter) Line(line string) {
 }
 
 // Linef writes a single line with formatting (as per fmt.Sprintf).
-func (c *codeWriter) Linef(line string, args ...interface{}) {
+func (c *codeWriter) Linef(line string, args ...any) {
 	fmt.Fprintf(c.out, line+"\n", args...)
 }
 
@@ -61,7 +61,7 @@ func (c *codeWriter) If(setup string, block func()) {
 	c.Line("}")
 }
 
-// If writes if and else statements with the given setup/condition clause, executing
+// IfElse writes if and else statements with the given setup/condition clause, executing
 // the given functions to write the contents of the blocks.
 func (c *codeWriter) IfElse(setup string, ifBlock func(), elseBlock func()) {
 	c.Linef("if %s {", setup)
@@ -173,18 +173,12 @@ func (n *namingInfo) Syntax(basePkg *loader.Package, imports *importsList) strin
 
 	// NB(directxman12): typeInfo.String gets us most of the way there,
 	// but fails (for us) on named imports, since it uses the full package path.
+	var typeName *types.TypeName
 	switch typeInfo := n.typeInfo.(type) {
+	case *types.Alias:
+		typeName = typeInfo.Obj()
 	case *types.Named:
-		// register that we need an import for this type,
-		// so we can get the appropriate alias to use.
-		typeName := typeInfo.Obj()
-		otherPkg := typeName.Pkg()
-		if otherPkg == basePkg.Types {
-			// local import
-			return typeName.Name()
-		}
-		alias := imports.NeedImport(loader.NonVendorPath(otherPkg.Path()))
-		return alias + "." + typeName.Name()
+		typeName = typeInfo.Obj()
 	case *types.Basic:
 		return typeInfo.String()
 	case *types.Pointer:
@@ -200,6 +194,16 @@ func (n *namingInfo) Syntax(basePkg *loader.Package, imports *importsList) strin
 		basePkg.AddError(fmt.Errorf("name requested for invalid type: %s", typeInfo))
 		return typeInfo.String()
 	}
+
+	// register that we need an import for this type,
+	// so we can get the appropriate alias to use.
+	otherPkg := typeName.Pkg()
+	if otherPkg == basePkg.Types {
+		// local import
+		return typeName.Name()
+	}
+	alias := imports.NeedImport(loader.NonVendorPath(otherPkg.Path()))
+	return alias + "." + typeName.Name()
 }
 
 // copyMethodMakers makes DeepCopy (and related) methods for Go types,
@@ -349,14 +353,15 @@ func (c *copyMethodMaker) genMapDeepCopy(actualName *namingInfo, mapType *types.
 				// If we're calling DeepCopy, check if it's receiver needs a pointer
 				inIsPtr = copyOnPtr
 			}
-			if inIsPtr == fieldIsPtr {
+			switch {
+			case inIsPtr == fieldIsPtr:
 				c.Line("(*out)[key] = val.DeepCopy()")
-			} else if fieldIsPtr {
+			case fieldIsPtr:
 				c.Line("{") // use a block because we use `x` as a temporary
 				c.Line("x := val.DeepCopy()")
 				c.Line("(*out)[key] = &x")
 				c.Line("}")
-			} else {
+			default:
 				c.Line("(*out)[key] = *val.DeepCopy()")
 			}
 		case fineToShallowCopy(mapType.Elem()):
@@ -442,9 +447,7 @@ func (c *copyMethodMaker) genSliceDeepCopy(actualName *namingInfo, sliceType *ty
 func (c *copyMethodMaker) genStructDeepCopy(_ *namingInfo, structType *types.Struct) {
 	c.Line("*out = *in")
 
-	for i := 0; i < structType.NumFields(); i++ {
-		field := structType.Field(i)
-
+	for field := range structType.Fields() {
 		// if we have a manual deepcopy, use that
 		hasDeepCopy, copyOnPtr := hasDeepCopyMethod(c.pkg, field.Type())
 		hasDeepCopyInto := hasDeepCopyIntoMethod(c.pkg, field.Type())
@@ -540,10 +543,13 @@ func (c *copyMethodMaker) genPointerDeepCopy(_ *namingInfo, pointerType *types.P
 
 	// pass-by-reference types get delegated to the main switch
 	if passesByReference(underlyingElem) {
-		c.Linef("*out = new(%s)", (&namingInfo{typeInfo: underlyingElem}).Syntax(c.pkg, c.importsList))
+		// Use the declared element type (pointerType.Elem()) when allocating and
+		// when generating the inner DeepCopyInto, so that type aliases are preserved
+		// (e.g. `MapAlias`, `Bars`) instead of using their underlying types.
+		c.Linef("*out = new(%s)", (&namingInfo{typeInfo: pointerType.Elem()}).Syntax(c.pkg, c.importsList))
 		c.If("**in != nil", func() {
 			c.Line("in, out := *in, *out")
-			c.genDeepCopyIntoBlock(&namingInfo{typeInfo: underlyingElem}, eventualUnderlyingType(underlyingElem))
+			c.genDeepCopyIntoBlock(&namingInfo{typeInfo: pointerType.Elem()}, pointerType.Elem())
 		})
 		return
 	}
@@ -618,14 +624,15 @@ func shouldBeCopied(pkg *loader.Package, info *markers.TypeInfo) bool {
 		return false
 	}
 
-	// according to gengo, everything named is an alias, except for an alias to a pointer,
-	// which is just a pointer, afaict.  Just roll with it.
-	if asPtr, isPtr := typeInfo.(*types.Named).Underlying().(*types.Pointer); isPtr {
-		typeInfo = asPtr
-	}
-
 	lastType := typeInfo
 	if _, isNamed := typeInfo.(*types.Named); isNamed {
+		// according to gengo, everything named is an alias, except for an alias to a pointer,
+		// which is just a pointer, afaict.  Just roll with it.
+		if asPtr, isPtr := typeInfo.(*types.Named).Underlying().(*types.Pointer); isPtr {
+			lastType = asPtr
+			typeInfo = asPtr
+		}
+
 		// if it has a manual deepcopy or deepcopyinto, we're fine
 		if hasAnyDeepCopyMethod(pkg, typeInfo) {
 			return true
@@ -763,8 +770,7 @@ func fineToShallowCopy(typeInfo types.Type) bool {
 		return fineToShallowCopy(typeInfo.Underlying())
 	case *types.Struct:
 		// structs are fine to shallow-copy if they have all shallow-copyable fields
-		for i := 0; i < typeInfo.NumFields(); i++ {
-			field := typeInfo.Field(i)
+		for field := range typeInfo.Fields() {
 			if !fineToShallowCopy(field.Type()) {
 				return false
 			}
@@ -779,11 +785,7 @@ func fineToShallowCopy(typeInfo types.Type) bool {
 // (except for interfaces, which are handled separately).
 func passesByReference(typeInfo types.Type) bool {
 	switch typeInfo.(type) {
-	case *types.Slice:
-		return true
-	case *types.Map:
-		return true
-	case *types.Pointer:
+	case *types.Slice, *types.Map, *types.Pointer:
 		return true
 	default:
 		return false

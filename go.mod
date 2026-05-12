@@ -38,7 +38,7 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fatih/color v1.19.0
-	github.com/fsnotify/fsnotify v1.9.0
+	github.com/fsnotify/fsnotify v1.10.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-openapi/errors v0.22.7
 	github.com/go-openapi/loads v0.23.3
@@ -75,7 +75,7 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.28.1
-	github.com/onsi/gomega v1.39.1
+	github.com/onsi/gomega v1.40.0
 	github.com/osrg/gobgp/v3 v3.37.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
@@ -200,14 +200,14 @@ require (
 	github.com/extism/go-sdk v1.7.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fluxcd/cli-utils v0.37.2-flux.1 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/analysis v0.25.0 // indirect
-	github.com/go-openapi/jsonpointer v0.22.5 // indirect
+	github.com/go-openapi/jsonpointer v0.23.1 // indirect
 	github.com/go-openapi/jsonreference v0.21.5 // indirect
 	github.com/go-openapi/swag/cmdutils v0.26.0 // indirect
 	github.com/go-openapi/swag/conv v0.26.0 // indirect
@@ -232,7 +232,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
-	github.com/google/gnostic-models v0.7.0 // indirect
+	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/licenseclassifier/v2 v2.0.0 // indirect
 	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
@@ -310,7 +310,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.yaml.in/yaml/v2 v2.4.3 // indirect
+	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/telemetry v0.0.0-20260409153401-be6f6cb8b1fa // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
@@ -325,20 +325,20 @@ require (
 	k8s.io/apiserver v0.36.0 // indirect
 	k8s.io/code-generator v0.36.0 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
-	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
+	k8s.io/kube-openapi v0.0.0-20260427204847-8949caaa1199 // indirect
 	k8s.io/streaming v0.36.0 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
-	sigs.k8s.io/controller-tools v0.20.1 // indirect
+	sigs.k8s.io/controller-tools v0.21.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
 )
 
-// Using private fork of controller-tools. See commit msg for more context
-// as to why we are using a private fork.
-replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.5-1
+// Using pseudo version of controller-tools to have https://github.com/kubernetes-sigs/controller-tools/pull/1375
+// This can be dropped once there is a new release of controller-tools that includes that PR.
+replace sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.21.1-0.20260506142635-aca8f6767500
 
 // controller-runtime v0.24 (matching k8s.io/* v0.36) is not yet released.
 // Use a commit from main that includes the k8s v0.36 bump.

@@ -17,6 +17,7 @@ limitations under the License.
 package loader
 
 import (
+	"errors"
 	"fmt"
 	"go/token"
 )
@@ -37,7 +38,8 @@ type Node interface {
 // attaching it to the given AST node.  It will automatically map
 // over error lists.
 func ErrFromNode(err error, node Node) error {
-	if asList, isList := err.(ErrList); isList {
+	var asList ErrList
+	if isList := errors.As(err, &asList); isList {
 		resList := make(ErrList, len(asList))
 		for i, baseErr := range asList {
 			resList[i] = ErrFromNode(baseErr, node)
