@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	goslices "slices"
+	"strings"
 	"syscall"
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -400,36 +401,158 @@ func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bo
 }
 
 func tlsPassthroughFilterChains(m *model.Model) []*envoy_config_listener.FilterChain {
-	ptBackendsToHostnames := m.TLSBackendsToHostnames()
-	if len(ptBackendsToHostnames) == 0 {
-		return nil
-	}
-
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedBackends := goslices.Sorted(maps.Keys(ptBackendsToHostnames))
+	for _, listener := range stableTLSPassthroughListeners(m.TLSPassthrough) {
+		for _, route := range stableTLSPassthroughRoutes(listener.Routes) {
+			backends := stableTLSPassthroughBackends(route.Backends)
+			if len(backends) == 0 {
+				continue
+			}
 
-	for _, backend := range orderedBackends {
-		hostNames := ptBackendsToHostnames[backend]
-		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: toFilterChainMatch(hostNames),
-			Filters: []*envoy_config_listener.Filter{
-				{
-					Name: tcpProxyType,
-					ConfigType: &envoy_config_listener.Filter_TypedConfig{
-						TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
-							StatPrefix: backend,
-							ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
-								Cluster: backend,
-							},
-						}),
+			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+				FilterChainMatch: toFilterChainMatch(route.Hostnames),
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: tcpProxyType,
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(tcpProxyForTLSPassthroughRoute(route, backends)),
+						},
 					},
 				},
-			},
-		})
+			})
+		}
 	}
 
 	return filterChains
+}
+
+func stableTLSPassthroughListeners(listeners []model.TLSPassthroughListener) []model.TLSPassthroughListener {
+	if len(listeners) < 2 {
+		return listeners
+	}
+
+	stable := append([]model.TLSPassthroughListener(nil), listeners...)
+	goslices.SortFunc(stable, func(a, b model.TLSPassthroughListener) int {
+		return cmp.Or(
+			cmp.Compare(a.Port, b.Port),
+			cmp.Compare(a.Address, b.Address),
+			cmp.Compare(a.Hostname, b.Hostname),
+			cmp.Compare(a.Name, b.Name),
+		)
+	})
+
+	return stable
+}
+
+func stableTLSPassthroughRoutes(routes []model.TLSPassthroughRoute) []model.TLSPassthroughRoute {
+	if len(routes) < 2 {
+		return routes
+	}
+
+	stable := append([]model.TLSPassthroughRoute(nil), routes...)
+	goslices.SortFunc(stable, func(a, b model.TLSPassthroughRoute) int {
+		return cmp.Or(
+			cmp.Compare(tlsPassthroughHostnamesKey(a.Hostnames), tlsPassthroughHostnamesKey(b.Hostnames)),
+			cmp.Compare(tlsPassthroughBackendsKey(a.Backends), tlsPassthroughBackendsKey(b.Backends)),
+			cmp.Compare(a.Name, b.Name),
+		)
+	})
+
+	return stable
+}
+
+func stableTLSPassthroughBackends(backends []model.Backend) []model.Backend {
+	if len(backends) < 2 {
+		return backends
+	}
+
+	stable := append([]model.Backend(nil), backends...)
+	goslices.SortFunc(stable, func(a, b model.Backend) int {
+		return cmp.Or(
+			cmp.Compare(a.Namespace, b.Namespace),
+			cmp.Compare(a.Name, b.Name),
+			cmp.Compare(tlsPassthroughBackendPort(a), tlsPassthroughBackendPort(b)),
+			cmp.Compare(tlsPassthroughBackendWeight(a), tlsPassthroughBackendWeight(b)),
+		)
+	})
+
+	return stable
+}
+
+func tcpProxyForTLSPassthroughRoute(route model.TLSPassthroughRoute, backends []model.Backend) *envoy_extensions_filters_network_tcp_v3.TcpProxy {
+	tcpProxy := &envoy_extensions_filters_network_tcp_v3.TcpProxy{
+		StatPrefix: tlsPassthroughFilterChainStatPrefix(route),
+	}
+
+	if len(backends) == 1 {
+		tcpProxy.ClusterSpecifier = &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
+			Cluster: tlsPassthroughClusterName(backends[0]),
+		}
+		return tcpProxy
+	}
+
+	weightedClusters := make([]*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight, 0, len(backends))
+	for _, backend := range backends {
+		weightedClusters = append(weightedClusters, &envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight{
+			Name:   tlsPassthroughClusterName(backend),
+			Weight: tlsPassthroughBackendWeight(backend),
+		})
+	}
+
+	tcpProxy.ClusterSpecifier = &envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedClusters{
+		WeightedClusters: &envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster{
+			Clusters: weightedClusters,
+		},
+	}
+
+	return tcpProxy
+}
+
+func tlsPassthroughClusterName(backend model.Backend) string {
+	return getClusterName(backend.Namespace, backend.Name, backend.Port.GetPort())
+}
+
+func tlsPassthroughFilterChainStatPrefix(route model.TLSPassthroughRoute) string {
+	return "tls-passthrough:" + tlsPassthroughHostnamesKey(route.Hostnames)
+}
+
+func tlsPassthroughHostnamesKey(hostnames []string) string {
+	if len(hostnames) == 0 {
+		return "*"
+	}
+
+	stable := append([]string(nil), hostnames...)
+	goslices.Sort(stable)
+	return strings.Join(stable, ",")
+}
+
+func tlsPassthroughBackendsKey(backends []model.Backend) string {
+	stable := stableTLSPassthroughBackends(backends)
+	keys := make([]string, 0, len(stable))
+	for _, backend := range stable {
+		keys = append(keys, fmt.Sprintf("%s/%s:%s:%d", backend.Namespace, backend.Name, tlsPassthroughBackendPort(backend), tlsPassthroughBackendWeight(backend)))
+	}
+	return strings.Join(keys, ",")
+}
+
+func tlsPassthroughBackendPort(backend model.Backend) string {
+	if backend.Port == nil {
+		return ""
+	}
+	return backend.Port.GetPort()
+}
+
+func tlsPassthroughBackendWeight(backend model.Backend) uint32 {
+	if backend.Weight == nil {
+		return 1
+	}
+	// Gateway API validates non-negative weights, but clamp defensively for
+	// internal model callers.
+	if *backend.Weight < 0 {
+		return 0
+	}
+	return uint32(*backend.Weight)
 }
 
 func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) *envoy_config_core_v3.TransportSocket {
@@ -467,7 +590,7 @@ func toFilterChainMatch(hostNames []string) *envoy_config_listener.FilterChainMa
 	res := &envoy_config_listener.FilterChainMatch{
 		TransportProtocol: tlsTransportProtocol,
 	}
-	// ServerNames must be sorted and unique, however, envoy don't support "*" as a server name
+	// ServerNames must be sorted and unique, and Envoy does not support "*" as a server name.
 	serverNames := slices.SortedUnique(hostNames)
 	if goslices.Contains(serverNames, "*") {
 		return res
