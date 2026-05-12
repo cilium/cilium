@@ -1,0 +1,19 @@
+- metadata:
+    creationTimestamp: null
+    name: tls-weighted
+    namespace: default
+  spec:
+    hostnames:
+    - test.example.com
+    parentRefs:
+    - name: my-gateway
+    rules:
+    - backendRefs:
+      - name: backend-v1
+        port: 443
+        weight: 70
+      - name: backend-v2
+        port: 443
+        weight: 30
+  status:
+    parents: null

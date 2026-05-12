@@ -27,16 +27,6 @@ spec:
       filterChains:
         - filterChainMatch:
             serverNames:
-              - abc.example.com
-            transportProtocol: tls
-          filters:
-            - name: envoy.filters.network.tcp_proxy
-              typedConfig:
-                "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-                cluster: gateway-conformance-infra:tls-backend:443
-                statPrefix: gateway-conformance-infra:tls-backend:443
-        - filterChainMatch:
-            serverNames:
               - "*.com"
             transportProtocol: tls
           filters:
@@ -44,7 +34,17 @@ spec:
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
                 cluster: gateway-conformance-infra:tls-backend-2:443
-                statPrefix: gateway-conformance-infra:tls-backend-2:443
+                statPrefix: tls-passthrough:*.com
+        - filterChainMatch:
+            serverNames:
+              - abc.example.com
+            transportProtocol: tls
+          filters:
+            - name: envoy.filters.network.tcp_proxy
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+                cluster: gateway-conformance-infra:tls-backend:443
+                statPrefix: tls-passthrough:abc.example.com
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:

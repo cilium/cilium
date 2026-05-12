@@ -14,23 +14,32 @@ metadata:
     uid: ""
 spec:
   backendServices:
-  - name: my-service
+  - name: backend-v1
     namespace: default
     number:
-    - "8080"
+    - "443"
+  - name: backend-v2
+    namespace: default
+    number:
+    - "443"
   resources:
   - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
     filterChains:
     - filterChainMatch:
         serverNames:
-        - foo.com
+        - test.example.com
         transportProtocol: tls
       filters:
       - name: envoy.filters.network.tcp_proxy
         typedConfig:
           '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-          cluster: default:my-service:8080
-          statPrefix: tls-passthrough:foo.com
+          statPrefix: tls-passthrough:test.example.com
+          weightedClusters:
+            clusters:
+            - name: default:backend-v1:443
+              weight: 70
+            - name: default:backend-v2:443
+              weight: 30
     listenerFilters:
     - name: envoy.filters.listener.tls_inspector
       typedConfig:
@@ -55,8 +64,15 @@ spec:
       name: "6"
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
     edsClusterConfig:
-      serviceName: default/my-service:8080
-    name: default:my-service:8080
+      serviceName: default/backend-v1:443
+    name: default:backend-v1:443
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    edsClusterConfig:
+      serviceName: default/backend-v2:443
+    name: default:backend-v2:443
     outlierDetection:
       splitExternalLocalOriginErrors: true
     type: EDS
