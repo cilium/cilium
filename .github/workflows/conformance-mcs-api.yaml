@@ -305,12 +305,22 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-context2-final-${{ matrix.name }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Upload report artifacts
+      - name: Upload the HTML report artifact
         if: ${{ always() && steps.mcs-api-conformance.outcome != 'skipped' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: report-${{ matrix.name }}.html
           path: pkg/clustermesh/mcsapi/conformance/report.html
+          archive: false
+          retention-days: 5
+          if-no-files-found: ignore
+
+      - name: Upload the yaml report artifact
+        if: ${{ always() && steps.mcs-api-conformance.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: report-${{ matrix.name }}.yaml
+          path: pkg/clustermesh/mcsapi/conformance/report.yaml
           archive: false
           retention-days: 5
           if-no-files-found: ignore
