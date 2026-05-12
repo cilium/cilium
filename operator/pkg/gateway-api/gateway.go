@@ -61,12 +61,10 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 // The reconciler will be triggered by Gateway, or any cilium-managed GatewayClass events
 func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Determine which optional CRDs are enabled
-	var tlsRouteEnabled, serviceImportEnabled bool
+	var serviceImportEnabled bool
 
 	for _, gvk := range r.installedCRDs {
 		switch gvk.Kind {
-		case helpers.TLSRouteKind:
-			tlsRouteEnabled = true
 		case helpers.ServiceImportKind:
 			serviceImportEnabled = true
 		}
@@ -95,14 +93,12 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	// Add indexes for TLSRoutes
-	if tlsRouteEnabled {
-		for indexName, indexerFunc := range map[string]client.IndexerFunc{
-			indexers.BackendServiceTLSRouteIndex: indexers.GenerateIndexerTLSRoutebyBackendService(r.Client, r.logger),
-			indexers.GatewayTLSRouteIndex:        indexers.IndexTLSRouteByGateway,
-		} {
-			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexName, indexerFunc); err != nil {
-				return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-			}
+	for indexName, indexerFunc := range map[string]client.IndexerFunc{
+		indexers.BackendServiceTLSRouteIndex: indexers.GenerateIndexerTLSRoutebyBackendService(r.Client, r.logger),
+		indexers.GatewayTLSRouteIndex:        indexers.IndexTLSRouteByGateway,
+	} {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexName, indexerFunc); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
 		}
 	}
 
@@ -137,6 +133,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForOwningHTTPRoute(r.Client, r.logger, helpers.CiliumDefaultControllerName)).
 		// Watch GRPCRoute linked to Gateway
 		Watches(&gatewayv1.GRPCRoute{}, watchhandlers.EnqueueRequestForOwningGRPCRoute(r.Client, r.logger, helpers.CiliumDefaultControllerName)).
+		// Watch TLSRoute linked to Gateway
+		Watches(&gatewayv1.TLSRoute{}, watchhandlers.EnqueueRequestForOwningTLSRoute(r.Client, r.logger, helpers.CiliumDefaultControllerName)).
 		// Watch related secrets used to configure TLS
 		Watches(&corev1.Secret{},
 			watchhandlers.EnqueueRequestForTLSSecret(r.Client, r.logger),
@@ -153,11 +151,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		Owns(&corev1.Service{}).
 		Owns(&discoveryv1.EndpointSlice{})
-
-	if tlsRouteEnabled {
-		// Watch TLSRoute linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.TLSRoute{}, watchhandlers.EnqueueRequestForOwningTLSRoute(r.Client, r.logger, helpers.CiliumDefaultControllerName))
-	}
 
 	if serviceImportEnabled {
 		// Watch for changes to Backend Service Imports
