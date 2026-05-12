@@ -75,7 +75,9 @@ func (s SubnetTableEntry) getStatus() reconciler.Status {
 	return s.Status
 }
 
-// SubnetLPMIndex is the primary index for SubnetEntry, indexing by Prefix.
+// SubnetLPMIndex is the secondary index for SubnetEntry.
+// The primary index is the exact prefix index (SubnetPrimaryIndex);
+// the secondary LPM index is used for longest-prefix-match lookups.
 var SubnetLPMIndex = statedb.NetIPPrefixIndex[SubnetTableEntry]{
 	Name: "prefix",
 	FromObject: func(s SubnetTableEntry) iter.Seq[netip.Prefix] {
