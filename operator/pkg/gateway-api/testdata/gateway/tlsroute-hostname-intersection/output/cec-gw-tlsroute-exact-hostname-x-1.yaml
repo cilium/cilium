@@ -59,7 +59,7 @@ spec:
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
                 cluster: gateway-conformance-infra:tls-backend:443
-                statPrefix: gateway-conformance-infra:tls-backend:443
+                statPrefix: tls-passthrough:abc.example.com
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
