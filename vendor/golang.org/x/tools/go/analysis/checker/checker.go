@@ -311,9 +311,7 @@ func (act *Action) execOnce() {
 
 	module := &analysis.Module{} // possibly empty (non nil) in go/analysis drivers.
 	if mod := act.Package.Module; mod != nil {
-		module.Path = mod.Path
-		module.Version = mod.Version
-		module.GoVersion = mod.GoVersion
+		module = analysisModuleFromPackagesModule(mod)
 	}
 
 	// Run the analysis.
@@ -626,4 +624,30 @@ func forEach(roots []*Action, f func(*Action) error) error {
 		return nil
 	}
 	return visitAll(roots)
+}
+
+func analysisModuleFromPackagesModule(mod *packages.Module) *analysis.Module {
+	if mod == nil {
+		return nil
+	}
+
+	var modErr *analysis.ModuleError
+	if mod.Error != nil {
+		modErr = &analysis.ModuleError{
+			Err: mod.Error.Err,
+		}
+	}
+
+	return &analysis.Module{
+		Path:      mod.Path,
+		Version:   mod.Version,
+		Replace:   analysisModuleFromPackagesModule(mod.Replace),
+		Time:      mod.Time,
+		Main:      mod.Main,
+		Indirect:  mod.Indirect,
+		Dir:       mod.Dir,
+		GoMod:     mod.GoMod,
+		GoVersion: mod.GoVersion,
+		Error:     modErr,
+	}
 }
