@@ -799,7 +799,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	struct ipv4_ct_tuple tuple = {};
 	struct iphdr iphdr;
 	__u16 port_off;
-	__u32 icmpoff;
+	__u32 inner_l4_off;
 	__u8 type;
 	int ret;
 	bool icmp_has_inner_l4_csum = true;
@@ -820,7 +820,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	tuple.daddr = iphdr.saddr;
 	tuple.flags = NAT_DIR_EGRESS;
 
-	icmpoff = inner_l3_off + ipv4_hdrlen(&iphdr);
+	inner_l4_off = inner_l3_off + ipv4_hdrlen(&iphdr);
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
@@ -830,13 +830,13 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 		/* No reasons to handle IP fragmentation for this case as it is
 		 * expected that DF isn't set for this particular context.
 		 */
-		if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
+		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0)
+		if (ctx_load_bytes(ctx, inner_l4_off, &type, sizeof(type)) < 0)
 			return DROP_INVALID;
 
 		switch (type) {
@@ -849,7 +849,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			return DROP_UNKNOWN_ICMP4_CODE;
 		}
 
-		if (ctx_load_bytes(ctx, icmpoff + port_off,
+		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
 				   &tuple.sport, sizeof(tuple.sport)) < 0)
 			return DROP_INVALID;
 		break;
@@ -869,7 +869,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	/* We found SNAT entry to NAT embedded packet. The destination addr
 	 * should be NATed according to the entry.
 	 */
-	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, icmpoff,
+	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, inner_l4_off,
 				      tuple.saddr, (*state)->to_saddr, IPV4_DADDR_OFF,
 				      tuple.sport, (*state)->to_sport, port_off, 0);
 	/* Failing to update the inner L4 checksum is not fatal if the header
@@ -1022,7 +1022,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	struct ipv4_ct_tuple tuple = {};
 	struct iphdr iphdr;
 	__u16 port_off;
-	__u32 icmpoff;
+	__u32 inner_l4_off;
 	__u8 type;
 	bool icmp_has_inner_l4_csum = true;
 	bool is_inner_l4_csum_enabled = true;
@@ -1047,7 +1047,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	tuple.daddr = iphdr.saddr;
 	tuple.flags = NAT_DIR_INGRESS;
 
-	icmpoff = (__u32)(inner_l3_off + ipv4_hdrlen(&iphdr));
+	inner_l4_off = (__u32)(inner_l3_off + ipv4_hdrlen(&iphdr));
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
@@ -1057,13 +1057,13 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 		/* No reasons to handle IP fragmentation for this case as it is
 		 * expected that DF isn't set for this particular context.
 		 */
-		if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
+		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0)
+		if (ctx_load_bytes(ctx, inner_l4_off, &type, sizeof(type)) < 0)
 			return DROP_INVALID;
 
 		switch (type) {
@@ -1076,7 +1076,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 			return DROP_UNKNOWN_ICMP4_CODE;
 		}
 
-		if (ctx_load_bytes(ctx, icmpoff + port_off,
+		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
 				   &tuple.dport, sizeof(tuple.dport)) < 0)
 			return DROP_INVALID;
 		break;
@@ -1097,7 +1097,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	if (tuple.nexthdr == IPPROTO_UDP) {
 		__be16 l4_csum_be = 0;
 
-		if (ctx_load_bytes(ctx, icmpoff + offsetof(struct udphdr, check),
+		if (ctx_load_bytes(ctx, inner_l4_off + offsetof(struct udphdr, check),
 				   &l4_csum_be, sizeof(l4_csum_be)) < 0)
 			return DROP_INVALID;
 		if (l4_csum_be == 0)
@@ -1113,7 +1113,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 
 	/* The embedded packet was SNATed on egress. Reverse it again: */
 	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off,
-				      true, icmpoff,
+				      true, inner_l4_off,
 				      tuple.daddr, (*state)->to_daddr, IPV4_SADDR_OFF,
 				      tuple.dport, (*state)->to_dport, port_off, 0);
 	/* Failing to update the inner L4 checksum is not fatal if the header
@@ -1811,7 +1811,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6hdr ip6;
 	__u16 port_off;
-	__u32 icmpoff;
+	__u32 inner_l4_off;
 	int hdrlen;
 	__u8 type;
 
@@ -1835,7 +1835,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	if (hdrlen < 0)
 		return hdrlen;
 
-	icmpoff = inner_l3_off + hdrlen;
+	inner_l4_off = inner_l3_off + hdrlen;
 
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -1846,13 +1846,13 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 		/* No reasons to handle IP fragmentation for this case as it is
 		 * expected that DF isn't set for this particular context.
 		 */
-		if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
+		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMPV6:
-		if (icmp6_load_type(ctx, icmpoff, &type) < 0)
+		if (icmp6_load_type(ctx, inner_l4_off, &type) < 0)
 			return DROP_INVALID;
 
 		switch (type) {
@@ -1865,7 +1865,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			return DROP_UNKNOWN_ICMP6_CODE;
 		}
 
-		if (ctx_load_bytes(ctx, icmpoff + port_off,
+		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
 				   &tuple.sport, sizeof(tuple.sport)) < 0)
 			return DROP_INVALID;
 		break;
@@ -1878,7 +1878,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 		return NAT_PUNT_TO_STACK;
 
 	/* The embedded packet was RevSNATed on ingress. Reverse it again: */
-	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, icmpoff,
+	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, inner_l4_off,
 				       &tuple.saddr, &(*state)->to_saddr, IPV6_DADDR_OFF,
 				       tuple.sport, (*state)->to_sport, port_off);
 }
@@ -2029,7 +2029,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6hdr iphdr;
 	__u16 port_off;
-	__u32 icmpoff;
+	__u32 inner_l4_off;
 	__u8 type;
 	int hdrlen;
 
@@ -2062,7 +2062,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 	if (hdrlen < 0)
 		return hdrlen;
 
-	icmpoff = inner_l3_off + hdrlen;
+	inner_l4_off = inner_l3_off + hdrlen;
 
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -2074,7 +2074,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 		 * as it is expected that DF isn't set for this particular
 		 * context.
 		 */
-		if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
+		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_SPORT_OFF;
@@ -2083,14 +2083,14 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 		/* No reasons to see a packet different than
 		 * ICMPV6_ECHO_REQUEST.
 		 */
-		if (icmp6_load_type(ctx, icmpoff, &type) < 0 ||
+		if (icmp6_load_type(ctx, inner_l4_off, &type) < 0 ||
 		    type != ICMPV6_ECHO_REQUEST)
 			return DROP_INVALID;
 
 		port_off = offsetof(struct icmp6hdr,
 				    icmp6_dataun.u_echo.identifier);
 
-		if (ctx_load_bytes(ctx, icmpoff + port_off,
+		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
 				   &tuple.dport, sizeof(tuple.dport)) < 0)
 			return DROP_INVALID;
 		break;
@@ -2103,7 +2103,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 		return NAT_PUNT_TO_STACK;
 
 	/* The embedded packet was SNATed on egress. Reverse it again: */
-	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, icmpoff,
+	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, inner_l4_off,
 				       &tuple.daddr, &(*state)->to_daddr, IPV6_SADDR_OFF,
 				       tuple.dport, (*state)->to_dport, port_off);
 }
