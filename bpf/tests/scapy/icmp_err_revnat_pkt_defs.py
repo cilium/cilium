@@ -60,6 +60,62 @@ icmp4_err_revnat_min_tcp_after = (
     Raw(_tcp_hdr_min_after)
 )
 
+# Pod -> external host as goes into to-netdev host device (pre-masquerading).
+# pod_ip6:33440 -> ext_ip6:22331
+# Same idea as icmp4_err_nodeport_revnat_egress_tcp: let the to-netdev datapath
+# build the revSNAT state. 
+icmp6_err_nodeport_revnat_egress_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_one, dst=v6_ext_node_one) /
+    TCP(sport=tcp_src_two, dport=tcp_dst_one, seq=tcp_default_seq) /
+    Raw(default_data)
+)
+
+icmp6_err_nodeport_revnat_egress_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_one, dst=v6_ext_node_one) /
+    UDP(sport=tcp_src_two, dport=tcp_dst_one) /
+    Raw(default_data)
+)
+
+def _icmp6_nodeport_revnat_pkt(inner_l4):
+    """Outer ICMPv6 PKT_TOO_BIG wrapper (pre-revSNAT): ext -> node, inner node -> ext."""
+    return (
+        Ether(src=mac_one, dst=mac_two) /
+        IPv6(src=v6_ext_node_one, dst=v6_node_one) /
+        ICMPv6PacketTooBig(mtu=1500) /
+        IPv6(src=v6_node_one, dst=v6_ext_node_one) /
+        inner_l4
+    )
+
+def _icmp6_nodeport_revnat_after_pkt(inner_l4):
+    """Outer ICMPv6 PKT_TOO_BIG wrapper (post-revSNAT): ext -> pod, inner pod -> ext."""
+    return (
+        Ether(src=mac_one, dst=mac_two) /
+        IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+        ICMPv6PacketTooBig(mtu=1500) /
+        IPv6(src=v6_pod_one, dst=v6_ext_node_one) /
+        inner_l4
+    )
+
+icmp6_err_nodeport_revnat_full_tcp = _icmp6_nodeport_revnat_pkt(
+    TCP(sport=tcp_src_two, dport=tcp_dst_one, seq=tcp_default_seq) / Raw(default_data)
+)
+
+# After revSNAT: outer daddr -> pod_ip6, inner saddr -> pod_ip6. The ports are
+# unchanged because the SNAT preserved the source port (see above).
+icmp6_err_nodeport_revnat_full_tcp_after = _icmp6_nodeport_revnat_after_pkt(
+    TCP(sport=tcp_src_two, dport=tcp_dst_one, seq=tcp_default_seq) / Raw(default_data)
+)
+
+icmp6_err_nodeport_revnat_full_udp = _icmp6_nodeport_revnat_pkt(
+    UDP(sport=tcp_src_two, dport=tcp_dst_one) / Raw(default_data)
+)
+
+icmp6_err_nodeport_revnat_full_udp_after = _icmp6_nodeport_revnat_after_pkt(
+    UDP(sport=tcp_src_two, dport=tcp_dst_one) / Raw(default_data)
+)
+
 # outer IPv4 (pod_two -> pod_one), ICMP Destination Unreachable / Fragmentation Needed,
 # embedded original IPv4 + TCP with SNAT'd port
 icmp4_err_frag_needed_for_revnat = (
