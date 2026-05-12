@@ -1,0 +1,24 @@
+tls_passthrough:
+- hostname: '*'
+  name: prod-web-gw
+  port: 443
+  routes:
+  - backends:
+    - name: backend-v1
+      namespace: default
+      port:
+        port: 443
+      weight: 70
+    - name: backend-v2
+      namespace: default
+      port:
+        port: 443
+      weight: 30
+    hostnames:
+    - test.example.com
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
