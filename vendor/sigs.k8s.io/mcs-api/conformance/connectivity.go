@@ -17,6 +17,7 @@ limitations under the License.
 package conformance
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -57,14 +58,14 @@ var _ = Describe("", func() {
 	})
 
 	Context("Connectivity to an exported ClusterIP service", func() {
-		It("should be accessible through DNS", Label(OptionalLabel, ConnectivityLabel, ClusterIPLabel), func() {
+		It("should be accessible through DNS", Label(OptionalLabel, ConnectivityLabel, ClusterIPLabel), func(ctx context.Context) {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 			By("Exporting the service", func() {
 				// On the "remote" cluster
-				t.createServiceExport(&clients[0], newHelloServiceExport())
+				t.createServiceExport(ctx, &clients[0], newHelloServiceExport())
 			})
 			By("Issuing a request from all clusters", func() {
-				t.execPortConnectivityCommand(42, "pod ip", 1)
+				t.execPortConnectivityCommand(ctx, 42, "pod ip", 1)
 			})
 		})
 	})
@@ -74,20 +75,20 @@ var _ = Describe("", func() {
 			requireTwoClusters()
 		})
 
-		JustBeforeEach(func() {
-			t.deployHelloService(&clients[1], newHelloService())
+		JustBeforeEach(func(ctx context.Context) {
+			t.deployHelloService(ctx, &clients[1], newHelloService())
 		})
 
-		It("should only access the exporting cluster", Label(OptionalLabel, ConnectivityLabel, ClusterIPLabel), func() {
+		It("should only access the exporting cluster", Label(OptionalLabel, ConnectivityLabel, ClusterIPLabel), func(ctx context.Context) {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/blob/master/keps/sig-multicluster/1645-multi-cluster-services-api/README.md#exporting-services")
 
 			By(fmt.Sprintf("Exporting the service on cluster %q", clients[0].name))
 
-			t.createServiceExport(&clients[0], newHelloServiceExport())
+			t.createServiceExport(ctx, &clients[0], newHelloServiceExport())
 
-			servicePodIP := t.awaitServicePodIP(&clients[0])
+			servicePodIP := t.awaitServicePodIP(ctx, &clients[0])
 
-			t.execPortConnectivityCommand(42, servicePodIP, 10)
+			t.execPortConnectivityCommand(ctx, 42, servicePodIP, 10)
 		})
 	})
 
@@ -100,12 +101,12 @@ var _ = Describe("", func() {
 			}
 		})
 
-		It("should only route traffic to the cluster that exposes the port", Label(OptionalLabel, ConnectivityLabel, ClusterIPLabel, StrictPortConflictLabel), func() {
+		It("should only route traffic to the cluster that exposes the port", Label(OptionalLabel, ConnectivityLabel, ClusterIPLabel, StrictPortConflictLabel), func(ctx context.Context) {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#service-port")
 
-			servicePodIP := t.awaitServicePodIP(&clients[0])
+			servicePodIP := t.awaitServicePodIP(ctx, &clients[0])
 
-			t.execPortConnectivityCommand(42, servicePodIP, 10)
+			t.execPortConnectivityCommand(ctx, 42, servicePodIP, 10)
 		})
 	})
 
@@ -118,14 +119,14 @@ var _ = Describe("", func() {
 			}
 		})
 
-		It("should route traffic to each port only to the cluster that exposes it", Label(OptionalLabel, ConnectivityLabel, ClusterIPLabel, StrictPortConflictLabel), func() {
+		It("should route traffic to each port only to the cluster that exposes it", Label(OptionalLabel, ConnectivityLabel, ClusterIPLabel, StrictPortConflictLabel), func(ctx context.Context) {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#service-port")
 
-			cluster1PodIP := t.awaitServicePodIP(&clients[0])
-			cluster2PodIP := t.awaitServicePodIP(&clients[1])
+			cluster1PodIP := t.awaitServicePodIP(ctx, &clients[0])
+			cluster2PodIP := t.awaitServicePodIP(ctx, &clients[1])
 
-			t.execPortConnectivityCommand(42, cluster1PodIP, 10)
-			t.execPortConnectivityCommand(4242, cluster2PodIP, 10)
+			t.execPortConnectivityCommand(ctx, 42, cluster1PodIP, 10)
+			t.execPortConnectivityCommand(ctx, 4242, cluster2PodIP, 10)
 		})
 	})
 })
