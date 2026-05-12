@@ -38,6 +38,11 @@ var LocalNodeSyncCell = cell.Module(
 	cell.Provide(newLocalNodeSynchronizer),
 )
 
+// InitFunc is called before during startup to fill in the local node before other
+// sub-systems can access it. This is called after the [node.LocalNode] is filled in
+// from configuration and k8s node.
+type InitFunc func(context.Context, *node.LocalNode) error
+
 type localNodeSynchronizerParams struct {
 	cell.In
 
@@ -47,6 +52,7 @@ type localNodeSynchronizerParams struct {
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
 	IPsecConfig        ipsec.Config
+	ExtraInitFuncs     []InitFunc `group:"init-funcs"`
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
@@ -74,6 +80,12 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 	n.BootID = node.GetBootID(ini.Logger)
 	if ini.IPsecConfig.Enabled() && n.BootID == "" {
 		return fmt.Errorf("IPSec requires a valid BootID")
+	}
+
+	for _, fn := range ini.ExtraInitFuncs {
+		if err := fn(ctx, n); err != nil {
+			return err
+		}
 	}
 
 	return nil
