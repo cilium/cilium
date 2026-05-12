@@ -75,6 +75,83 @@ icmp4_err_revnat_min_tcp_after = (
     Raw(_tcp_hdr_min_after)
 )
 
+# Shared header layers for the IPv6 egress flow, pre- and post-masquerade.
+_ip6_hdr_egress = IPv6(src=v6_pod_one, dst=v6_ext_node_one)
+_udp_hdr_egress = UDP(sport=tcp_src_two, dport=tcp_dst_one)
+
+# Pod -> external host as goes into to-netdev host device (pre-masquerading).
+# pod_ip6:33440 -> ext_ip6:22331
+# Same idea as icmp4_err_revnat_egress_tcp: let the to-netdev datapath
+# build the revSNAT state. 
+icmp6_err_revnat_egress_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    _ip6_hdr_egress /
+    _tcp_hdr_egress /
+    Raw(default_data)
+)
+
+icmp6_err_revnat_egress_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    _ip6_hdr_egress /
+    _udp_hdr_egress /
+    Raw(default_data)
+)
+
+# Post-masquerade: saddr rewritten to node IP. Ports are unchanged because
+# tcp_src_two (33440) > NODEPORT_PORT_MIN_NAT so the same source port is reused.
+_ip6_hdr_egress_post = IPv6(src=v6_node_one, dst=v6_ext_node_one)
+icmp6_err_revnat_egress_post_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    _ip6_hdr_egress_post /
+    _tcp_hdr_egress /
+    Raw(default_data)
+)
+
+icmp6_err_revnat_egress_post_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    _ip6_hdr_egress_post /
+    _udp_hdr_egress /
+    Raw(default_data)
+)
+
+def _icmp6_revnat_pkt(inner_l4):
+    """Outer ICMPv6 PKT_TOO_BIG wrapper (pre-revSNAT): ext -> node, inner node -> ext."""
+    return (
+        Ether(src=mac_one, dst=mac_two) /
+        IPv6(src=v6_ext_node_one, dst=v6_node_one) /
+        ICMPv6PacketTooBig(mtu=1500) /
+        _ip6_hdr_egress_post /
+        inner_l4
+    )
+
+def _icmp6_revnat_after_pkt(inner_l4):
+    """Outer ICMPv6 PKT_TOO_BIG wrapper (post-revSNAT): ext -> pod, inner pod -> ext."""
+    return (
+        Ether(src=mac_one, dst=mac_two) /
+        IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+        ICMPv6PacketTooBig(mtu=1500) /
+        _ip6_hdr_egress /
+        inner_l4
+    )
+
+icmp6_err_revnat_full_tcp = _icmp6_revnat_pkt(
+    _tcp_hdr_egress / Raw(default_data)
+)
+
+# After revSNAT: outer daddr -> pod_ip6, inner saddr -> pod_ip6. The ports are
+# unchanged because the SNAT preserved the source port (see above).
+icmp6_err_revnat_full_tcp_after = _icmp6_revnat_after_pkt(
+    _tcp_hdr_egress / Raw(default_data)
+)
+
+icmp6_err_revnat_full_udp = _icmp6_revnat_pkt(
+    _udp_hdr_egress / Raw(default_data)
+)
+
+icmp6_err_revnat_full_udp_after = _icmp6_revnat_after_pkt(
+    _udp_hdr_egress / Raw(default_data)
+)
+
 # outer IPv4 (pod_two -> pod_one), ICMP Destination Unreachable / Fragmentation Needed,
 # embedded original IPv4 + TCP with SNAT'd port
 icmp4_err_frag_needed_for_revnat = (
