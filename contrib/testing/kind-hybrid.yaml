@@ -1,0 +1,4 @@
+routingMode: hybrid
+tunnelProtocol: vxlan
+ipv4NativeRoutingCIDR: "10.244.0.0/16"
+subnetTopology: "10.244.0.0/24;10.244.1.0/24"
