@@ -305,10 +305,9 @@ func Test_Conformance(t *testing.T) {
 				WithStatusSubresource(&gatewayv1.GatewayClass{}).
 				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{})
 
-			switch tt.disableServiceImport {
-			case true:
-				clientBuilder.WithScheme(helpers.TestScheme(helpers.NoMCSOptionalKinds))
-			case false:
+			if tt.disableServiceImport {
+				clientBuilder.WithScheme(helpers.TestScheme(nil))
+			} else {
 				clientBuilder.WithScheme(helpers.TestScheme(helpers.AllOptionalKinds))
 			}
 
@@ -736,7 +735,8 @@ func fakeIndexHTTPRouteByBackendService(rawObj client.Object) []string {
 				continue
 			}
 			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-			backendServices = append(backendServices,
+			backendServices = append(
+				backendServices,
 				types.NamespacedName{
 					Namespace: namespace,
 					Name:      string(backend.Name),

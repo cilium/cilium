@@ -24,20 +24,16 @@ var RequiredGVKs = []schema.GroupVersionKind{
 	gatewayv1.SchemeGroupVersion.WithKind(GatewayKind),
 	gatewayv1.SchemeGroupVersion.WithKind(HTTPRouteKind),
 	gatewayv1.SchemeGroupVersion.WithKind(GRPCRouteKind),
+	gatewayv1.SchemeGroupVersion.WithKind(TLSRouteKind),
 	gatewayv1.SchemeGroupVersion.WithKind(ReferenceGrantKind),
 	gatewayv1.SchemeGroupVersion.WithKind(BackendTLSPolicyKind),
 }
 
 var AllOptionalKinds = []schema.GroupVersionKind{
-	gatewayv1.SchemeGroupVersion.WithKind(TLSRouteKind),
 	mcsapiv1beta1.SchemeGroupVersion.WithKind(ServiceImportKind),
 }
 
-var NoMCSOptionalKinds = []schema.GroupVersionKind{
-	gatewayv1.SchemeGroupVersion.WithKind(TLSRouteKind),
-}
-
-func TestScheme(installedGVKs []schema.GroupVersionKind) *runtime.Scheme {
+func TestScheme(optionalKinds []schema.GroupVersionKind) *runtime.Scheme {
 	scheme := runtime.NewScheme()
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -45,7 +41,7 @@ func TestScheme(installedGVKs []schema.GroupVersionKind) *runtime.Scheme {
 	utilruntime.Must(ciliumv2alpha1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
-	RegisterGatewayAPITypesToScheme(scheme, installedGVKs)
+	RegisterGatewayAPITypesToScheme(scheme, optionalKinds)
 
 	return scheme
 }
