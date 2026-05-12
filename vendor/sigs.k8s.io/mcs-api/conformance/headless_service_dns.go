@@ -17,6 +17,7 @@ limitations under the License.
 package conformance
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"slices"
@@ -46,15 +47,15 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 	})
 
 	Specify("A DNS query of the <service>.<ns>.svc."+dnsDomain+" domain for a headless service should return the "+
-		"ready endpoint addresses of all the backing pods", func() {
+		"ready endpoint addresses of all the backing pods", func(ctx context.Context) {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
 		for _, client := range clients {
-			for _, ipFamily := range t.awaitServiceImportIPFamilies(&client) {
+			for _, ipFamily := range t.awaitServiceImportIPFamilies(ctx, &client) {
 				command := []string{"sh", "-c", fmt.Sprintf("nslookup -type=%s %s.%s.svc.%s.", dnsRecordTypeOf(ipFamily),
 					t.helloService.Name, t.namespace, dnsDomain)}
 
-				endpoints := t.awaitK8sEndpoints(&clients[0], addressTypeOf(ipFamily))
+				endpoints := t.awaitK8sEndpoints(ctx, &clients[0], addressTypeOf(ipFamily))
 
 				var addresses []string
 				for _, ep := range endpoints {
@@ -73,18 +74,18 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 			t.helloDeployment = nil
 		})
 
-		JustBeforeEach(func() {
+		JustBeforeEach(func(ctx context.Context) {
 			_, err := clients[0].k8s.AppsV1().StatefulSets(t.namespace).Create(ctx, newStatefulSet(replicas), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Specify("A DNS query of the <hostname>.<clusterid>.<service>.<ns>.svc."+dnsDomain+" domain for a headless StatefulSet "+
-			"service should return the requested pod's endpoint address", Label(EndpointSliceLabel), func() {
+			"service should return the requested pod's endpoint address", Label(EndpointSliceLabel), func(ctx context.Context) {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
 			for _, client := range clients {
-				for _, ipFamily := range t.awaitServiceImportIPFamilies(&client) {
-					eps := t.awaitMCSEndpointSlice(&client, addressTypeOf(ipFamily), func(g Gomega, eps *discovery.EndpointSlice) {
+				for _, ipFamily := range t.awaitServiceImportIPFamilies(ctx, &client) {
+					eps := t.awaitMCSEndpointSlice(ctx, &client, addressTypeOf(ipFamily), func(g Gomega, eps *discovery.EndpointSlice) {
 						g.Expect(eps.Endpoints).To(HaveLen(replicas),
 							"the MCS EndpointSlice %q does not contain the expected number of endpoints %d",
 							eps.Name, replicas)
@@ -122,13 +123,13 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 	})
 
 	Specify("A DNS SRV query of the <service>.<ns>.svc."+dnsDomain+" domain for a headless service should return valid SRV "+
-		"records", func() {
+		"records", func(ctx context.Context) {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
 		// Collect endpoints for all IP families in the service (for dual-stack support)
 		var allEndpoints []endpointInfo
 		for _, ipFamily := range t.helloService.Spec.IPFamilies {
-			endpoints := t.awaitK8sEndpoints(&clients[0], addressTypeOf(ipFamily))
+			endpoints := t.awaitK8sEndpoints(ctx, &clients[0], addressTypeOf(ipFamily))
 			allEndpoints = append(allEndpoints, endpoints...)
 		}
 
@@ -162,12 +163,12 @@ func (e endpointInfo) String() string {
 	return fmt.Sprintf("address:%q, hostName:%q", e.address, e.hostName)
 }
 
-func (t *testDriver) awaitK8sEndpoints(c *clusterClients, addressType discovery.AddressType) []endpointInfo {
+func (t *testDriver) awaitK8sEndpoints(ctx context.Context, c *clusterClients, addressType discovery.AddressType) []endpointInfo {
 	By(fmt.Sprintf("Retrieving %s K8s endpoint addresses for the service on cluster %q", addressType, c.name))
 
 	var endpoints []endpointInfo
 
-	Eventually(func(g Gomega) {
+	Eventually(func(g Gomega, ctx context.Context) {
 		epsList, err := c.k8s.DiscoveryV1().EndpointSlices(t.namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: labels.SelectorFromSet(map[string]string{
 				discovery.LabelServiceName: t.helloService.Name,
@@ -215,7 +216,7 @@ func (t *testDriver) awaitK8sEndpoints(c *clusterClients, addressType discovery.
 
 		// The final run succeeded so cancel any prior non-conformance reported.
 		cancelNonConformanceReport()
-	}).Within(20 * time.Second).ProbeEvery(100 * time.Millisecond).Should(Succeed())
+	}).WithContext(ctx).Within(20 * time.Second).ProbeEvery(100 * time.Millisecond).Should(Succeed())
 
 	By(fmt.Sprintf("Found endpoints %v", endpoints))
 

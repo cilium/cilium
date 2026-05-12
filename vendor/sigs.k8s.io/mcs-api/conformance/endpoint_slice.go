@@ -17,6 +17,7 @@ limitations under the License.
 package conformance
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -37,12 +38,12 @@ var _ = Describe("", Label(OptionalLabel, EndpointSliceLabel), func() {
 	SpecifyWithSpecRef("Exporting a service should create an MCS EndpointSlice in the service's namespace in each cluster with the "+
 		"required MCS labels. Unexporting should delete the EndpointSlice.",
 		"https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#using-endpointslice-objects-to-track-endpoints",
-		func() {
+		func(ctx context.Context) {
 			endpointSliceNames := make([][]string, len(clients))
 
 			for i, client := range clients {
-				for _, ipFamily := range t.awaitServiceImportIPFamilies(&client) {
-					eps := t.awaitMCSEndpointSlice(&client, addressTypeOf(ipFamily), nil, reportNonConformant(fmt.Sprintf(
+				for _, ipFamily := range t.awaitServiceImportIPFamilies(ctx, &client) {
+					eps := t.awaitMCSEndpointSlice(ctx, &client, addressTypeOf(ipFamily), nil, reportNonConformant(fmt.Sprintf(
 						"an MCS EndpointSlice was not found on cluster %q. An MCS EndpointSlice is identified by the presence "+
 							"of the required MCS labels (%q and %q). "+
 							"If the MCS implementation does not use MCS EndpointSlices, you can specify a Ginkgo label filter using "+
@@ -67,14 +68,14 @@ var _ = Describe("", Label(OptionalLabel, EndpointSliceLabel), func() {
 				}
 			}
 
-			t.deleteServiceExport(&clients[0])
+			t.deleteServiceExport(ctx, &clients[0])
 
 			for i, client := range clients {
 				for _, name := range endpointSliceNames[i] {
-					Eventually(func() bool {
+					Eventually(func(ctx context.Context) bool {
 						_, err := client.k8s.DiscoveryV1().EndpointSlices(t.namespace).Get(ctx, name, metav1.GetOptions{})
 						return apierrors.IsNotFound(err)
-					}, 20*time.Second, 100*time.Millisecond).Should(BeTrue(),
+					}).WithContext(ctx).Within(20*time.Second).ProbeEvery(100*time.Millisecond).Should(BeTrue(),
 						reportNonConformant(fmt.Sprintf("the EndpointSlice %q was not deleted on unexport from cluster %q",
 							name, client.name)))
 				}
@@ -82,7 +83,7 @@ var _ = Describe("", Label(OptionalLabel, EndpointSliceLabel), func() {
 		})
 })
 
-func (t *testDriver) awaitMCSEndpointSlice(c *clusterClients, addressType discoveryv1.AddressType,
+func (t *testDriver) awaitMCSEndpointSlice(ctx context.Context, c *clusterClients, addressType discoveryv1.AddressType,
 	verify func(Gomega, *discoveryv1.EndpointSlice), desc ...any) *discoveryv1.EndpointSlice {
 	By(fmt.Sprintf("Retrieving %s MCS EndpointSlice for the service on cluster %q", addressType, c.name))
 
@@ -93,7 +94,7 @@ func (t *testDriver) awaitMCSEndpointSlice(c *clusterClients, addressType discov
 		return exists
 	}
 
-	Eventually(func(g Gomega) {
+	Eventually(func(g Gomega, ctx context.Context) {
 		list, err := c.k8s.DiscoveryV1().EndpointSlices(t.namespace).List(ctx, metav1.ListOptions{})
 		g.Expect(err).ToNot(HaveOccurred(), "Error retrieving EndpointSlices")
 
@@ -115,7 +116,7 @@ func (t *testDriver) awaitMCSEndpointSlice(c *clusterClients, addressType discov
 
 		// The final run succeeded so cancel any prior non-conformance reported.
 		cancelNonConformanceReport()
-	}).Within(20 * time.Second).ProbeEvery(100 * time.Millisecond).Should(Succeed())
+	}).WithContext(ctx).Within(20 * time.Second).ProbeEvery(100 * time.Millisecond).Should(Succeed())
 
 	return endpointSlice
 }

@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,11 +34,11 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 	t := newTestDriver()
 
 	Specify("A DNS lookup of the <service>.<ns>.svc."+dnsDomain+" domain for a ClusterIP service should resolve to the "+
-		"clusterset IP", func() {
+		"clusterset IP", func(ctx context.Context) {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
 		for _, client := range clients {
-			serviceImport := t.awaitServiceImport(&client, t.helloService.Name, false,
+			serviceImport := t.awaitServiceImport(ctx, &client, t.helloService.Name, false,
 				func(g Gomega, serviceImport *v1beta1.ServiceImport) {
 					g.Expect(serviceImport.Spec.IPs).ToNot(BeEmpty(), "ServiceImport on cluster %q does not contain an IP", client.name)
 				})
@@ -77,21 +78,21 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 	})
 
 	Specify("DNS lookups of the <service>.<ns>.svc.cluster.local domain for a ClusterIP service should only resolve "+
-		"local services", func() {
+		"local services", func(ctx context.Context) {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
 		By(fmt.Sprintf("Retrieving local Service on cluster %q", clients[0].name))
 
 		var resolvedIP string
 
-		Eventually(func() string {
-			svc, err := clients[0].k8s.CoreV1().Services(t.namespace).Get(context.TODO(), t.helloService.Name, metav1.GetOptions{})
+		Eventually(func(ctx context.Context) string {
+			svc, err := clients[0].k8s.CoreV1().Services(t.namespace).Get(ctx, t.helloService.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Error retrieving the local Service")
 
 			resolvedIP = svc.Spec.ClusterIP
 
 			return resolvedIP
-		}, 20, 1).ShouldNot(BeEmpty(), "The service was not assigned a cluster IP")
+		}).WithContext(ctx).Within(20*time.Second).ProbeEvery(1*time.Second).ShouldNot(BeEmpty(), "The service was not assigned a cluster IP")
 
 		By(fmt.Sprintf("Found local Service cluster IP %q", resolvedIP))
 
