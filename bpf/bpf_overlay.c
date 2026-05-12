@@ -621,7 +621,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	 * timestamp already here. The tunnel dev has noqueue qdisc, so as
 	 * tradeoff it's close enough.
 	 */
-	ret = edt_sched_departure(ctx, proto);
+	ret = edt_sched_departure(ctx, proto, false);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
 	if (ret < 0) {
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS, (__u8)-ret);

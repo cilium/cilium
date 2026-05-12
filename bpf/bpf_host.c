@@ -1434,7 +1434,7 @@ skip_host_firewall:
 #endif
 
 #if defined(ENABLE_BANDWIDTH_MANAGER)
-	ret = edt_sched_departure(ctx, proto);
+	ret = edt_sched_departure(ctx, proto, true);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
 	if (ret < 0) {
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS, (__u8)-ret);
