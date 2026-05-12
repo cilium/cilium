@@ -15,6 +15,8 @@
 
 #define TPROXY_PORT			bpf_htons(11111)
 
+#define POD_SECURITY_ID			40000
+#define POD_IP				v4_pod_one
 #define SERVER_IP			v4_ext_one
 #define SERVER_PORT			bpf_htons(53)
 
@@ -29,8 +31,8 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 
-static __always_inline
-int host_proxy_v4_udp_pktgen(struct __ctx_buff *ctx, __be16 node_port)
+static __always_inline int
+pktgen(struct __ctx_buff *ctx, __be16 node_port, bool to_pod)
 {
 	struct pktgen builder;
 	struct udphdr *udp;
@@ -40,7 +42,7 @@ int host_proxy_v4_udp_pktgen(struct __ctx_buff *ctx, __be16 node_port)
 
 	udp = pktgen__push_ipv4_udp_packet(&builder,
 					   (__u8 *)node_mac, (__u8 *)server_mac,
-					   NODE_IP, SERVER_IP,
+					   NODE_IP, to_pod ? POD_IP : SERVER_IP,
 					   node_port, SERVER_PORT);
 	if (!udp)
 		return TEST_ERROR;
@@ -51,28 +53,31 @@ int host_proxy_v4_udp_pktgen(struct __ctx_buff *ctx, __be16 node_port)
 	return 0;
 }
 
-PKTGEN("tc", "host_proxy_v4_1_udp")
-int host_proxy_v4_1_udp_pktgen(struct __ctx_buff *ctx)
+/* Validate that a host-to-world packet matching a `proxy` policy entry
+ * is actually redirected to the proxy.
+ */
+PKTGEN("tc", "proxy_v4_1_host_to_world")
+int proxy_v4_1_host_to_world_pktgen(struct __ctx_buff *ctx)
 {
-	return host_proxy_v4_udp_pktgen(ctx, NODE_PORT);
+	return pktgen(ctx, NODE_PORT, false);
 }
 
-SETUP("tc", "host_proxy_v4_1_udp")
-int host_proxy_v4_1_udp_setup(struct __ctx_buff *ctx)
+SETUP("tc", "proxy_v4_1_host_to_world")
+int proxy_v4_1_host_to_world_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
 			      0, (__u8 *)node_mac, (__u8 *)node_mac);
 	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
 	ipcache_v4_add_world_entry();
-	policy_add_entry(true, WORLD_ID, IPPROTO_UDP, SERVER_PORT, 0, false, TPROXY_PORT);
+	policy_add_entry(true, 0, IPPROTO_UDP, SERVER_PORT, 0, false, TPROXY_PORT);
 
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
 
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_proxy_v4_1_udp")
-int host_proxy_v4_1_udp_check(struct __ctx_buff *ctx)
+static __always_inline int
+check_redirect(struct __ctx_buff *ctx, bool to_pod)
 {
 	void *data, *data_end;
 	__u32 *status_code;
@@ -92,7 +97,7 @@ int host_proxy_v4_1_udp_check(struct __ctx_buff *ctx)
 	/* Check whether BPF created a CT entry */
 	struct ipv4_ct_tuple tuple = {
 		.daddr   = NODE_IP,
-		.saddr   = SERVER_IP,
+		.saddr   = to_pod ? POD_IP : SERVER_IP,
 		.dport   = SERVER_PORT,
 		.sport   = NODE_PORT,
 		.nexthdr = IPPROTO_UDP,
@@ -109,22 +114,30 @@ int host_proxy_v4_1_udp_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "host_proxy_v4_2_udp")
-int host_proxy_v4_2_udp_pktgen(struct __ctx_buff *ctx)
+CHECK("tc", "proxy_v4_1_host_to_world")
+int proxy_v4_1_host_to_world_check(struct __ctx_buff *ctx)
 {
-	return host_proxy_v4_udp_pktgen(ctx, NODE_PROXY_PORT);
+	return check_redirect(ctx, false);
 }
 
-SETUP("tc", "host_proxy_v4_2_udp")
-int host_proxy_v4_2_udp_setup(struct __ctx_buff *ctx)
+/* Validate that a proxy-to-world packet is not redirected back to the proxy.
+ */
+PKTGEN("tc", "proxy_v4_2_proxy_to_world")
+int proxy_v4_2_proxy_to_world_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen(ctx, NODE_PROXY_PORT, false);
+}
+
+SETUP("tc", "proxy_v4_2_proxy_to_world")
+int proxy_v4_2_proxy_to_world_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, HOST_ID, MARK_MAGIC_PROXY_EGRESS);
 
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_proxy_v4_2_udp")
-int host_proxy_v4_2_udp_check(const struct __ctx_buff *ctx)
+static __always_inline int
+check_passthrough(const struct __ctx_buff *ctx, bool to_pod)
 {
 	void *data, *data_end;
 	__u32 *status_code;
@@ -144,7 +157,7 @@ int host_proxy_v4_2_udp_check(const struct __ctx_buff *ctx)
 	/* Check whether BPF created a CT entry */
 	struct ipv4_ct_tuple tuple = {
 		.daddr   = NODE_IP,
-		.saddr   = SERVER_IP,
+		.saddr   = to_pod ? POD_IP : SERVER_IP,
 		.dport   = SERVER_PORT,
 		.sport   = NODE_PROXY_PORT,
 		.nexthdr = IPPROTO_UDP,
@@ -167,7 +180,58 @@ int host_proxy_v4_2_udp_check(const struct __ctx_buff *ctx)
 
 	assert(ct_entry->packets == 1);
 
-	policy_delete_entry(true, WORLD_ID, IPPROTO_UDP, SERVER_PORT, 0);
-
 	test_finish();
+}
+
+CHECK("tc", "proxy_v4_2_proxy_to_world")
+int proxy_v4_2_proxy_to_world_check(const struct __ctx_buff *ctx)
+{
+	return check_passthrough(ctx, false);
+}
+
+/* Validate that a host-to-pod packet matching a `proxy` policy entry
+ * is actually redirected to the proxy.
+ */
+PKTGEN("tc", "proxy_v4_3_host_to_pod")
+int proxy_v4_3_host_to_pod_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen(ctx, NODE_PORT, true);
+}
+
+SETUP("tc", "proxy_v4_3_host_to_pod")
+int proxy_v4_3_host_to_pod_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v4_add_entry(POD_IP, 0, POD_SECURITY_ID, 0, 0);
+
+	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
+
+	return host_send_packet(ctx);
+}
+
+CHECK("tc", "proxy_v4_3_host_to_pod")
+int proxy_v4_3_host_to_pod_check(struct __ctx_buff *ctx)
+{
+	return check_redirect(ctx, true);
+}
+
+/* Validate that a proxy-to-pod packet is not redirected back to the proxy.
+ */
+PKTGEN("tc", "proxy_v4_4_proxy_to_pod")
+int proxy_v4_4_proxy_to_pod_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen(ctx, NODE_PROXY_PORT, true);
+}
+
+SETUP("tc", "proxy_v4_4_proxy_to_pod")
+int proxy_v4_4_proxy_to_pod_setup(struct __ctx_buff *ctx)
+{
+	set_identity_mark(ctx, HOST_ID, MARK_MAGIC_PROXY_EGRESS);
+
+	return host_send_packet(ctx);
+}
+
+CHECK("tc", "proxy_v4_4_proxy_to_pod")
+int proxy_v4_4_proxy_to_pod_check(const struct __ctx_buff *ctx)
+{
+	return check_passthrough(ctx, true);
 }
