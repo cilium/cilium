@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"path"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -39,6 +40,55 @@ func singleIter[T any](value T) iter.Seq[T] {
 	}
 }
 
+type resourceOwner struct {
+	owner resource.Key
+	entry store.Key
+}
+
+// entryGroup tracks all Kubernetes resources claiming a given kvstore key.
+// It is optimized for the common case where a key is owned by a single resource.
+type entryGroup struct {
+	primary resource.Key
+	pending []resourceOwner
+}
+
+func (e *entryGroup) upsert(owner resource.Key, entry store.Key) (primary bool) {
+	if e.primary == (resource.Key{}) || e.primary == owner {
+		e.primary = owner
+		return true
+	}
+
+	if i := slices.IndexFunc(e.pending, func(ro resourceOwner) bool { return ro.owner == owner }); i >= 0 {
+		e.pending[i].entry = entry
+		return false
+	}
+
+	e.pending = append(e.pending, resourceOwner{owner: owner, entry: entry})
+	return false
+}
+
+func (e *entryGroup) release(owner resource.Key) store.Key {
+	if e.primary == owner {
+		if len(e.pending) > 0 {
+			next := e.pending[0]
+			e.primary = next.owner
+			e.pending = e.pending[1:]
+			return next.entry
+		}
+		e.primary = resource.Key{}
+		return nil
+	}
+
+	e.pending = slices.DeleteFunc(e.pending, func(ro resourceOwner) bool {
+		return ro.owner == owner
+	})
+	return nil
+}
+
+func (e *entryGroup) empty() bool {
+	return e.primary == (resource.Key{})
+}
+
 // ----- Generic ----- //
 
 // CachedConverter implements the common logic of a converter that, given a single
@@ -48,83 +98,61 @@ type CachedConverter[T runtime.Object] struct {
 	mapper func(T) iter.Seq[store.Key]
 	// cache remembers the kvstore keys associated with any Kubernetes resource.
 	cache map[resource.Key]sets.Set[string]
-	// ownership tracks the entries proposed by each resource for each kvstore key.
-	ownership map[string]map[resource.Key]store.Key
+	// ownership tracks all Kubernetes resources claiming a given kvstore key.
+	ownership map[string]*entryGroup
 }
 
-func NewCachedCoverter[T runtime.Object](mapper func(T) iter.Seq[store.Key]) *CachedConverter[T] {
+func NewCachedConverter[T runtime.Object](mapper func(T) iter.Seq[store.Key]) *CachedConverter[T] {
 	return &CachedConverter[T]{
 		mapper:    mapper,
 		cache:     make(map[resource.Key]sets.Set[string]),
-		ownership: make(map[string]map[resource.Key]store.Key),
+		ownership: make(map[string]*entryGroup),
 	}
 }
 
 func (ec *CachedConverter[T]) Convert(event resource.Event[T]) (upserts iter.Seq[store.Key], deletes iter.Seq[store.NamedKey]) {
-	toDelete := ec.cache[event.Key]
+	stale := ec.cache[event.Key]
 	var toAdd []store.Key
 
-	if event.Kind != resource.Delete {
+	if event.Kind == resource.Upsert {
 		current := sets.New[string]()
 		for entry := range ec.mapper(event.Object) {
 			key := entry.GetKeyName()
-			toAdd = append(toAdd, entry)
 			current.Insert(key)
 
-			ownerMap, ok := ec.ownership[key]
+			group, ok := ec.ownership[key]
 			if !ok {
-				ownerMap = make(map[resource.Key]store.Key)
-				ec.ownership[key] = ownerMap
+				group = &entryGroup{}
+				ec.ownership[key] = group
 			}
-			ownerMap[event.Key] = entry
-			toDelete.Delete(key)
+			if group.upsert(event.Key, entry) {
+				toAdd = append(toAdd, entry)
+			}
+			stale.Delete(key)
 		}
 		ec.cache[event.Key] = current
 	} else {
 		delete(ec.cache, event.Key)
 	}
 
+	var toDelete []store.NamedKey
 	// For each key scheduled for deletion, make sure the resource from the event
 	// is removed as an owner of that key.
-	for keyName := range toDelete {
-		delete(ec.ownership[keyName], event.Key)
-	}
-
-	upsertIter := func(yield func(store.Key) bool) {
-		// Fresh updates from this event
-		for _, entry := range toAdd {
-			if !yield(entry) {
-				return
-			}
+	for keyName := range stale {
+		group := ec.ownership[keyName]
+		if entry := group.release(event.Key); entry != nil {
+			// if the primary owner is removed, but other resources still own the key,
+			// we must re-upsert the entry of the new primary owner.
+			toAdd = append(toAdd, entry)
 		}
-		// if a key is marked for deletion but other resources still own the key,
-		// we must re-upsert one of the other owner's values to ensure kvstore is
-		// correct.
-		for keyName := range toDelete {
-			if ownerMap := ec.ownership[keyName]; len(ownerMap) > 0 {
-				for _, entry := range ownerMap {
-					if !yield(entry) {
-						return
-					}
-					break
-				}
-			}
+
+		if group.empty() {
+			delete(ec.ownership, keyName)
+			toDelete = append(toDelete, store.NewKVPair(keyName, ""))
 		}
 	}
 
-	// only delete the key from the kvstore if no resource owns the key.
-	deleteIter := func(yield func(store.NamedKey) bool) {
-		for keyName := range toDelete {
-			if len(ec.ownership[keyName]) == 0 {
-				delete(ec.ownership, keyName)
-				if !yield(store.NewKVPair(keyName, "")) {
-					return
-				}
-			}
-		}
-	}
-
-	return upsertIter, deleteIter
+	return slices.Values(toAdd), slices.Values(toDelete)
 }
 
 // ----- CiliumNodes ----- //
@@ -210,7 +238,7 @@ func newCiliumEndpointOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*type
 }
 
 func newCiliumEndpointConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*types.CiliumEndpoint] {
-	return NewCachedCoverter(ciliumEndpointMapper)
+	return NewCachedConverter(ciliumEndpointMapper)
 }
 
 func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
@@ -257,7 +285,7 @@ func newCiliumEndpointSliceOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[
 }
 
 func newCiliumEndpointSliceConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*cilium_api_v2a1.CiliumEndpointSlice] {
-	return NewCachedCoverter(ciliumEndpointSliceMapper)
+	return NewCachedConverter(ciliumEndpointSliceMapper)
 }
 
 func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlice) iter.Seq[store.Key] {
