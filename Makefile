@@ -608,6 +608,8 @@ mcs-api-conformance: ## Run MCS-API conformance tests.
 	@$(ECHO_CHECK) running MCS-API conformance tests...
 	MCS_API_CONFORMANCE_TESTS=1 \
 	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./pkg/clustermesh/mcsapi/conformance \
+		-organization Cilium -project Cilium -url 'https://cilium.io/' \
+		-version "$(VERSION)"  \
 		$(MCS_API_TEST_FLAGS) \
 		-test.run $(MCS_API_CONFORMANCE_TEST_NAME) \
 	| $(GOTEST_FORMATTER)
