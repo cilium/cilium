@@ -213,7 +213,7 @@ func (w *priorityqueue[T]) lockedAddWithOpts(o AddOpts, items ...T) {
 
 		var readyAt *time.Time
 		if after > 0 {
-			readyAt = ptr.To(w.now().Add(after))
+			readyAt = new(w.now().Add(after))
 			w.metrics.retry()
 		}
 		if _, ok := w.items[key]; !ok {

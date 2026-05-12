@@ -39,28 +39,6 @@ func ApplyConfigurationFromUnstructured(u *unstructured.Unstructured) runtime.Ap
 	return &unstructuredApplyConfiguration{Unstructured: u}
 }
 
-type applyconfigurationRuntimeObject struct {
-	runtime.ApplyConfiguration
-}
-
-func (a *applyconfigurationRuntimeObject) GetObjectKind() schema.ObjectKind {
-	return a
-}
-
-func (a *applyconfigurationRuntimeObject) GroupVersionKind() schema.GroupVersionKind {
-	return schema.GroupVersionKind{}
-}
-
-func (a *applyconfigurationRuntimeObject) SetGroupVersionKind(gvk schema.GroupVersionKind) {}
-
-func (a *applyconfigurationRuntimeObject) DeepCopyObject() runtime.Object {
-	panic("applyconfigurationRuntimeObject does not support DeepCopyObject")
-}
-
-func runtimeObjectFromApplyConfiguration(ac runtime.ApplyConfiguration) runtime.Object {
-	return &applyconfigurationRuntimeObject{ApplyConfiguration: ac}
-}
-
 func gvkFromApplyConfiguration(ac applyConfiguration) (schema.GroupVersionKind, error) {
 	var gvk schema.GroupVersionKind
 	gv, err := schema.ParseGroupVersion(ptr.Deref(ac.GetAPIVersion(), ""))
