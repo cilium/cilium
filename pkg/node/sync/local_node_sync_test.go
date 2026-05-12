@@ -129,6 +129,12 @@ func TestLocalNodeSync(t *testing.T) {
 				},
 			},
 			IPsecConfig: fakeipsec.Config{},
+			ExtraInitFuncs: []InitFunc{
+				func(_ context.Context, n *node.LocalNode) error {
+					n.Annotations["extra-init-func"] = "called"
+					return nil
+				},
+			},
 		})
 	)
 
@@ -138,7 +144,7 @@ func TestLocalNodeSync(t *testing.T) {
 	require.Equal(t, "10.0.0.1", local.GetNodeInternalIPv4().String())
 	require.Equal(t, "fc00::11", local.GetNodeInternalIPv6().String())
 	require.Equal(t, map[string]string{"ex": "label", "foo": "bar"}, local.Labels)
-	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/baz": "qux"}, local.Annotations)
+	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/baz": "qux", "extra-init-func": "called"}, local.Annotations)
 	require.Equal(t, k8stypes.UID("uid1"), local.Local.UID)
 	require.Equal(t, "provider://foobar", local.Local.ProviderID)
 
@@ -153,7 +159,7 @@ func TestLocalNodeSync(t *testing.T) {
 	updates := stream.ToChannel(t.Context(), store)
 	update := <-updates
 	require.Equal(t, map[string]string{"ex": "label", "qux": "baz"}, update.Labels)
-	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/bar": "foo"}, update.Annotations)
+	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/bar": "foo", "extra-init-func": "called"}, update.Annotations)
 	require.Equal(t, k8stypes.UID("uid2"), update.Local.UID)
 	require.Equal(t, "provider://foobaz", update.Local.ProviderID)
 
