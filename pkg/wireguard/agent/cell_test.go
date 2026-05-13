@@ -60,6 +60,9 @@ import (
 
 var TestTimeout = 5 * time.Second
 
+// Non-default device MTU for testing.
+const TestDeviceMTU = 1480
+
 // paramsOut holds the output parameters needed for running cells in the test.
 type paramsOut struct {
 	cell.Out
@@ -115,7 +118,6 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 	// getHive returns a new hive with Wireguard enabled/disabled.
 	getHive := func(wireguardEnabled bool) *hive.Hive {
 		return hive.New(
-			mtu.Cell,
 			nodeManager.Cell,
 			nodediscovery.Cell,
 			source.Cell,
@@ -137,6 +139,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 				newWireguardAgent,
 				newWireguardConfig,
 
+				mtu.NewMTUTable,
 				regeneration.NewFence,
 				tables.NewDeviceTable,
 				tables.NewNodeAddressTable,
@@ -144,6 +147,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 				ipcache.NewIPIdentitySynchronizer,
 				statedb.RWTable[*tables.Device].ToTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
+				statedb.RWTable[mtu.RouteMTU].ToTable,
 
 				func() paramsOut {
 					return paramsOut{
@@ -205,7 +209,17 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 					nodeStore = s
 					ipCache = i
 					cacheStatus = c
-				}),
+				},
+				func(db *statedb.DB, mtuTable statedb.RWTable[mtu.RouteMTU]) {
+					txn := db.WriteTxn(mtuTable)
+					mtuTable.Insert(txn, mtu.RouteMTU{
+						Prefix:    mtu.DefaultPrefixV4,
+						DeviceMTU: TestDeviceMTU,
+						RouteMTU:  TestDeviceMTU - mtu.WireguardOverhead,
+					})
+					txn.Commit()
+				},
+			),
 		)
 	}
 
@@ -224,10 +238,8 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			link, err := safenetlink.LinkByName(types.IfaceName)
 			require.NoError(t, err)
 
-			// 4. Ensure the MTU is set accordingly (mtu-reconciler job).
-			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, mtu.EthernetMTU-mtu.WireguardOverhead, link.Attrs().MTU)
-			}, TestTimeout, 50*time.Millisecond)
+			// 4. Ensure the MTU is set accordingly.
+			require.Equal(t, TestDeviceMTU-mtu.WireguardOverhead, link.Attrs().MTU)
 
 			// 5. Ensure local node has been updated (localnode-updater job).
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
