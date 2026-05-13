@@ -37,6 +37,9 @@ metadata:
     {{- end }}
     {{- end }}
 spec:
+  {{- with .Values.minReadySeconds }}
+  minReadySeconds: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       k8s-app: cilium

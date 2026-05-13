@@ -844,6 +844,7 @@ contributors across the globe, there is almost always someone available to help.
 | localRedirectPolicy | bool | `false` | Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead) |
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |
+| minReadySeconds | int | `0` | Configure minReadySeconds for cilium-agent DaemonSet. This sets the minimum number of seconds a newly-ready pod must remain ready before the rolling update advances to the next pod. Increase this value to give subsystems such as the BGP control plane enough time to re-establish sessions during rolling upgrades. Defaults to 0 (Kubernetes default behavior). |
 | monitor | object | `{"enabled":false}` | cilium-monitor sidecar. |
 | monitor.enabled | bool | `false` | Enable the cilium-monitor sidecar. |
 | name | string | `"cilium"` | Agent daemonset name. |

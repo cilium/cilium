@@ -3176,6 +3176,10 @@
      - Configure maglev consistent hashing
      - object
      - ``{}``
+   * - :spelling:ignore:`minReadySeconds`
+     - Configure minReadySeconds for cilium-agent DaemonSet. This sets the minimum number of seconds a newly-ready pod must remain ready before the rolling update advances to the next pod. Increase this value to give subsystems such as the BGP control plane enough time to re-establish sessions during rolling upgrades. Defaults to 0 (Kubernetes default behavior).
+     - int
+     - ``0``
    * - :spelling:ignore:`monitor`
      - cilium-monitor sidecar.
      - object

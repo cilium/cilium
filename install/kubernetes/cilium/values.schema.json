@@ -4791,6 +4791,9 @@
     "maglev": {
       "type": "object"
     },
+    "minReadySeconds": {
+      "type": "integer"
+    },
     "monitor": {
       "properties": {
         "enabled": {

@@ -578,6 +578,7 @@ memcached
 memcd
 microservice
 microservices
+minReadySeconds
 minikube
 misconfiguration
 misconfigured
@@ -671,9 +672,9 @@ powershell
 pprof
 pre
 preconfigured
+preferIpv
 prefilter
 preflight
-preferIpv
 preload
 preloaded
 preloading
