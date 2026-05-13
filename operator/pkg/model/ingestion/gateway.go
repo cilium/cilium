@@ -4,6 +4,7 @@
 package ingestion
 
 import (
+	"cmp"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -322,6 +323,7 @@ func extractRoutes(logger *slog.Logger,
 		var rewriteFilter *model.HTTPURLRewriteFilter
 		var requestMirrors []*model.HTTPRequestMirror
 		var externalAuth *model.HTTPExternalAuthFilter
+		var requestCORS *model.HTTPCORSFilter
 
 		for _, f := range rule.Filters {
 			switch f.Type {
@@ -354,6 +356,21 @@ func extractRoutes(logger *slog.Logger,
 					}
 				}
 				externalAuth = toHTTPExternalAuthFilter(logger, f.ExternalAuth, hr.Namespace, services, serviceImports, btlspMap)
+			case gatewayv1.HTTPRouteFilterCORS:
+				ac := false
+				if f.CORS.AllowCredentials != nil {
+					ac = *f.CORS.AllowCredentials
+				}
+				requestCORS = &model.HTTPCORSFilter{
+					AllowOrigins:     toStringSlice(f.CORS.AllowOrigins),
+					AllowCredentials: ac,
+					AllowMethods:     toStringSlice(f.CORS.AllowMethods),
+					AllowHeaders:     toStringSlice(f.CORS.AllowHeaders),
+					ExposeHeaders:    toStringSlice(f.CORS.ExposeHeaders),
+					// CRD defaults the value to 5 and allows values of 1 or higher.
+					// Local tests can bypass this, ensuring we always get a default.
+					MaxAge: cmp.Or(f.CORS.MaxAge, int32(5)),
+				}
 			}
 		}
 
@@ -371,6 +388,7 @@ func extractRoutes(logger *slog.Logger,
 				ExternalAuth:           externalAuth,
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
+				CORS:                   requestCORS,
 			})
 		}
 
@@ -392,6 +410,7 @@ func extractRoutes(logger *slog.Logger,
 				ExternalAuth:           externalAuth,
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
+				CORS:                   requestCORS,
 			})
 		}
 	}
@@ -1123,7 +1142,7 @@ func toMapString[K, V ~string](in map[K]V) map[string]string {
 	return out
 }
 
-func toStringSlice(s []gatewayv1.Hostname) []string {
+func toStringSlice[S ~string](s []S) []string {
 	res := make([]string, 0, len(s))
 	for _, h := range s {
 		res = append(res, string(h))
