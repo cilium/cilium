@@ -364,23 +364,11 @@ func loadAndRecordComplexity(
 				t.Fatalf("Failed to parse verifier log for program %s: %v", n, err)
 			}
 
-			// Extract the second to last line, which looks like:
-			//   stack depth 144+280+120
-			stackDepthIndex := strings.LastIndex(p.VerifierLog[:lastLineIndex], "\n")
-			stackDepthLine := strings.TrimPrefix(strings.TrimSpace(p.VerifierLog[stackDepthIndex+1:lastOff]), "stack depth ")
-
-			// Remove prefix so we are just left with plus separated stack depths, and parse them into ints.
-			//   144+280+120
-			// Split and parse to ints
-			var depths []int
-			for part := range strings.SplitSeq(stackDepthLine, "+") {
-				depth, err := strconv.Atoi(part)
-				if err != nil {
-					t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
-				}
-				depths = append(depths, depth)
+			stackDepth, stackDepthIndex, err := parseStackDepth(s, p.VerifierLog, lastLineIndex, lastOff)
+			if err != nil {
+				t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
 			}
-			r.StackDepth = maxStackDepth(s, depths)
+			r.StackDepth = stackDepth
 
 			// Extract the third to last line, which looks like:
 			//   verification time 355643 usec
@@ -400,6 +388,27 @@ func loadAndRecordComplexity(
 			records.Add(r)
 		}
 	}
+}
+
+// Extract the second to last line, which looks like:
+//
+//	stack depth 144+280+120
+func parseStackDepth(s *ebpf.ProgramSpec, verifierLogs string, lastLineIndex, lastOff int) (int, int, error) {
+	stackDepthIndex := strings.LastIndex(verifierLogs[:lastLineIndex], "\n")
+	stackDepthLine := strings.TrimPrefix(strings.TrimSpace(verifierLogs[stackDepthIndex+1:lastOff]), "stack depth ")
+
+	// Remove prefix so we are just left with plus separated stack depths, and parse them into ints.
+	//   144+280+120
+	// Split and parse to ints
+	var depths []int
+	for part := range strings.SplitSeq(stackDepthLine, "+") {
+		depth, err := strconv.Atoi(part)
+		if err != nil {
+			return 0, stackDepthIndex, nil
+		}
+		depths = append(depths, depth)
+	}
+	return maxStackDepth(s, depths), stackDepthIndex, nil
 }
 
 func maxStackDepth(spec *ebpf.ProgramSpec, stackDepths []int) int {
