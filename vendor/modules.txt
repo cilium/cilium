@@ -457,7 +457,7 @@ github.com/cyphar/filepath-securejoin/internal/consts
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13
+# github.com/dgryski/go-farm v0.0.0-20240924180020-3414d57e47da
 ## explicit
 github.com/dgryski/go-farm
 # github.com/distribution/reference v0.6.0
@@ -843,6 +843,18 @@ github.com/fsnotify/fsnotify/internal
 # github.com/fxamacker/cbor/v2 v2.9.1
 ## explicit; go 1.20
 github.com/fxamacker/cbor/v2
+# github.com/gaissmai/bart v0.26.1
+## explicit; go 1.24.0
+github.com/gaissmai/bart
+github.com/gaissmai/bart/internal/allot
+github.com/gaissmai/bart/internal/art
+github.com/gaissmai/bart/internal/bitset
+github.com/gaissmai/bart/internal/lpm
+github.com/gaissmai/bart/internal/nodes
+github.com/gaissmai/bart/internal/sparse
+github.com/gaissmai/bart/internal/tests/golden
+github.com/gaissmai/bart/internal/tests/random
+github.com/gaissmai/bart/internal/value
 # github.com/go-errors/errors v1.5.1
 ## explicit; go 1.14
 github.com/go-errors/errors
@@ -1364,20 +1376,23 @@ github.com/opencontainers/image-spec/specs-go/v1
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
-# github.com/osrg/gobgp/v3 v3.37.0 => github.com/cilium/gobgp/v3 v3.0.0-20260130142103-27e5da2a39e6
-## explicit; go 1.23.0
-github.com/osrg/gobgp/v3/api
-github.com/osrg/gobgp/v3/internal/pkg/table
-github.com/osrg/gobgp/v3/internal/pkg/version
-github.com/osrg/gobgp/v3/pkg/apiutil
-github.com/osrg/gobgp/v3/pkg/config/oc
-github.com/osrg/gobgp/v3/pkg/log
-github.com/osrg/gobgp/v3/pkg/packet/bgp
-github.com/osrg/gobgp/v3/pkg/packet/bmp
-github.com/osrg/gobgp/v3/pkg/packet/mrt
-github.com/osrg/gobgp/v3/pkg/packet/rtr
-github.com/osrg/gobgp/v3/pkg/server
-github.com/osrg/gobgp/v3/pkg/zebra
+# github.com/orcaman/concurrent-map/v2 v2.0.1
+## explicit; go 1.18
+github.com/orcaman/concurrent-map/v2
+# github.com/osrg/gobgp/v4 v4.5.0
+## explicit; go 1.24.5
+github.com/osrg/gobgp/v4/api
+github.com/osrg/gobgp/v4/internal/pkg/netutils
+github.com/osrg/gobgp/v4/internal/pkg/table
+github.com/osrg/gobgp/v4/internal/pkg/version
+github.com/osrg/gobgp/v4/pkg/apiutil
+github.com/osrg/gobgp/v4/pkg/config/oc
+github.com/osrg/gobgp/v4/pkg/packet/bgp
+github.com/osrg/gobgp/v4/pkg/packet/bmp
+github.com/osrg/gobgp/v4/pkg/packet/mrt
+github.com/osrg/gobgp/v4/pkg/packet/rtr
+github.com/osrg/gobgp/v4/pkg/server
+github.com/osrg/gobgp/v4/pkg/zebra
 # github.com/pelletier/go-toml v1.9.5
 ## explicit; go 1.12
 github.com/pelletier/go-toml
@@ -1459,6 +1474,9 @@ github.com/santhosh-tekuri/jsonschema/v6/kind
 # github.com/sasha-s/go-deadlock v0.3.9
 ## explicit
 github.com/sasha-s/go-deadlock
+# github.com/segmentio/fasthash v1.0.3
+## explicit; go 1.11
+github.com/segmentio/fasthash/fnv1a
 # github.com/sergi/go-diff v1.4.0
 ## explicit; go 1.13
 github.com/sergi/go-diff/diffmatchpatch
@@ -3050,4 +3068,3 @@ sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v3
 sigs.k8s.io/yaml/kyaml
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.21.0-1
-# github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20260130142103-27e5da2a39e6
