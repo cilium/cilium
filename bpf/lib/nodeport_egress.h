@@ -90,6 +90,9 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (args->target.egress_gateway) {
+		if (ctx_egw_done(ctx))
+			goto apply_snat;
+
 		/* Stay on the desired egress interface: */
 		if (args->target.ifindex && args->target.ifindex == CONFIG(interface_ifindex))
 			goto apply_snat;
@@ -378,6 +381,10 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway) {
+		/* from-overlay has already picked the correct egress interface: */
+		if (ctx_egw_done(ctx))
+			goto apply_snat;
+
 		/* Stay on the desired egress interface: */
 		if (target.ifindex && target.ifindex == CONFIG(interface_ifindex))
 			goto apply_snat;

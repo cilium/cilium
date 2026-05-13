@@ -28,7 +28,7 @@ mock_redirect_neigh(int ifindex, struct bpf_redir_neigh *params, int plen,
 
 #define fib_lookup mock_fib_lookup
 static __always_inline __maybe_unused long
-mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
+mock_fib_lookup(void *ctx __maybe_unused, const struct bpf_fib_lookup *params __maybe_unused,
 		int plen __maybe_unused, __u32 flags __maybe_unused);
 
 #include "lib/bpf_host.h"
@@ -66,20 +66,11 @@ mock_redirect_neigh(int ifindex, struct bpf_redir_neigh *params __maybe_unused,
 }
 
 static __always_inline __maybe_unused long
-mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
+mock_fib_lookup(void *ctx __maybe_unused, const struct bpf_fib_lookup *params __maybe_unused,
 		int plen __maybe_unused, __u32 flags __maybe_unused)
 {
-	union v6addr egress_ip = EGRESS_IP2_V6;
-
-	if (params) {
-		if (params->ipv4_src == EGRESS_IP2)
-			params->ifindex = SECONDARY_IFACE_IFINDEX;
-
-		if (memcmp(&params->ipv6_src, &egress_ip, sizeof(union v6addr)) == 0)
-			params->ifindex = SECONDARY_IFACE_IFINDEX;
-	}
-
-	return 0;
+	/* expect no FIB lookup for packets that arrived via overlay */
+	return -1;
 }
 
 /* Test that a packet matching an egress gateway policy on the to-netdev program
@@ -363,42 +354,6 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	test_finish();
-}
-
-PKTGEN("tc", "tc_egressgw_fib_redirect")
-int egressgw_fib_redirect_pktgen(struct __ctx_buff *ctx)
-{
-	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
-			.test = TEST_FIB,
-			.redirect = true,
-		});
-}
-
-SETUP("tc", "tc_egressgw_fib_redirect")
-int egressgw_fib_redirect_setup(struct __ctx_buff *ctx)
-{
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
-				  GATEWAY_NODE_IP, EGRESS_IP2);
-	ipcache_v4_add_entry(EGRESS_IP2, 0, HOST_ID, 0, 0);
-
-	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
-
-	return netdev_send_packet(ctx);
-}
-
-CHECK("tc", "tc_egressgw_fib_redirect")
-int egressgw_fib_redirect_check(const struct __ctx_buff *ctx __maybe_unused)
-{
-	int ret = egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
-			.test = TEST_FIB,
-			.redirect = true,
-			.packets = 1,
-			.status_code = CTX_ACT_REDIRECT,
-		});
-
-	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
-
-	return ret;
 }
 
 /* Test that a packet matching an egress gateway policy on the to-netdev program
@@ -710,48 +665,4 @@ int egressgw_skip_excluded_cidr_snat_check_v6(const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	test_finish();
-}
-
-/* Test FIB lookup based redirect functionality (IPv6) */
-PKTGEN("tc", "tc_v6_egressgw_fib_redirect")
-int egressgw_fib_redirect_pktgen_v6(struct __ctx_buff *ctx)
-{
-	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
-			.test = TEST_FIB,
-			.redirect = true,
-		});
-}
-
-SETUP("tc", "tc_v6_egressgw_fib_redirect")
-int egressgw_fib_redirect_setup_v6(struct __ctx_buff *ctx)
-{
-	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
-	union v6addr client_ip = CLIENT_IP_V6;
-	union v6addr egress_ip = EGRESS_IP2_V6;
-
-	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip, 0);
-	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
-
-	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
-
-	return netdev_send_packet(ctx);
-}
-
-CHECK("tc", "tc_v6_egressgw_fib_redirect")
-int egressgw_fib_redirect_check_v6(const struct __ctx_buff *ctx __maybe_unused)
-{
-	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
-	union v6addr client_ip = CLIENT_IP_V6;
-
-	int ret = egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
-			.test = TEST_FIB,
-			.redirect = true,
-			.packets = 1,
-			.status_code = CTX_ACT_REDIRECT,
-		});
-
-	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
-
-	return ret;
 }

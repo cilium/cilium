@@ -40,8 +40,7 @@ enum egressgw_test {
 	TEST_REDIRECT_EXCL_CIDR       = 5,
 	TEST_REDIRECT_SKIP_NO_GATEWAY = 6,
 	TEST_XDP_REPLY                = 7,
-	TEST_FIB                      = 8,
-	TEST_DROP_NO_EGRESS_IP        = 9,
+	TEST_DROP_NO_EGRESS_IP        = 8,
 };
 
 struct egressgw_test_ctx {
