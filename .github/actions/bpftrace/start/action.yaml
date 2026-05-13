@@ -25,7 +25,7 @@ runs:
             # https://github.com/bpftrace/bpftrace/issues/3011
             # Let's buy us some time, and keep installing v0.19.1 for the moment.
 
-            curl -L https://github.com/bpftrace/bpftrace/releases/download/v0.19.1/bpftrace -o bpftrace
+            curl -fL https://github.com/bpftrace/bpftrace/releases/download/v0.19.1/bpftrace -o bpftrace
             install -m 755 bpftrace /usr/local/bin/bpftrace
 
           fi
