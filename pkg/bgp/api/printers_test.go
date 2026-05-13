@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"testing"
 
-	bgppacket "github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	bgppacket "github.com/osrg/gobgp/v4/pkg/packet/bgp"
 )
 
 func TestFormatCaps(t *testing.T) {
@@ -190,8 +190,8 @@ func TestFormatCaps(t *testing.T) {
 				},
 				Tuples: []*bgppacket.CapAddPathTuple{
 					{
-						RouteFamily: bgppacket.RF_IPv4_UC,
-						Mode:        bgppacket.BGP_ADD_PATH_RECEIVE,
+						Family: bgppacket.RF_IPv4_UC,
+						Mode:   bgppacket.BGP_ADD_PATH_RECEIVE,
 					},
 				},
 			},
@@ -201,8 +201,8 @@ func TestFormatCaps(t *testing.T) {
 				},
 				Tuples: []*bgppacket.CapAddPathTuple{
 					{
-						RouteFamily: bgppacket.RF_IPv6_UC,
-						Mode:        bgppacket.BGP_ADD_PATH_SEND,
+						Family: bgppacket.RF_IPv6_UC,
+						Mode:   bgppacket.BGP_ADD_PATH_SEND,
 					},
 				},
 			},

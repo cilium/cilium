@@ -7,7 +7,7 @@ import (
 	"net/netip"
 	"slices"
 
-	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
@@ -51,20 +51,38 @@ func NewPathForPrefix(prefix netip.Prefix) (path *Path) {
 
 	switch {
 	case prefix.Addr().Is4():
-		nlri := bgp.NewIPAddrPrefix(uint8(prefix.Bits()), prefix.Addr().String())
-		nextHopAttr := bgp.NewPathAttributeNextHop("0.0.0.0")
+		nlri, err := bgp.NewIPAddrPrefix(prefix)
+		if err != nil {
+			return nil
+		}
+		nextHopAttr, err := bgp.NewPathAttributeNextHop(netip.IPv4Unspecified())
+		if err != nil {
+			return nil
+		}
 		path = &Path{
-			NLRI: nlri,
+			Family: Family{Afi: AfiIPv4, Safi: SafiUnicast},
+			NLRI:   nlri,
 			PathAttributes: []bgp.PathAttributeInterface{
 				originAttr,
 				nextHopAttr,
 			},
 		}
 	case prefix.Addr().Is6():
-		nlri := bgp.NewIPv6AddrPrefix(uint8(prefix.Bits()), prefix.Addr().String())
-		mpReachNLRIAttr := bgp.NewPathAttributeMpReachNLRI("::", []bgp.AddrPrefixInterface{nlri})
+		nlri, err := bgp.NewIPAddrPrefix(prefix)
+		if err != nil {
+			return nil
+		}
+		mpReachNLRIAttr, err := bgp.NewPathAttributeMpReachNLRI(
+			bgp.NewFamily(bgp.AFI_IP6, bgp.SAFI_UNICAST),
+			[]bgp.PathNLRI{{NLRI: nlri}},
+			netip.IPv6Unspecified(),
+		)
+		if err != nil {
+			return nil
+		}
 		path = &Path{
-			NLRI: nlri,
+			Family: Family{Afi: AfiIPv6, Safi: SafiUnicast},
+			NLRI:   nlri,
 			PathAttributes: []bgp.PathAttributeInterface{
 				originAttr,
 				mpReachNLRIAttr,
