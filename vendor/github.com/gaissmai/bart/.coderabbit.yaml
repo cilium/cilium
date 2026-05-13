@@ -1,0 +1,113 @@
+language: en-US
+tone_instructions: ''
+early_access: true
+enable_free_tier: true
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_placeholder: '@coderabbitai summary'
+  high_level_summary_in_walkthrough: false
+  auto_title_placeholder: '@coderabbitai'
+  auto_title_instructions: ''
+  review_status: true
+  commit_status: true
+  fail_commit_status: false
+  collapse_walkthrough: false
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  poem: true
+  labeling_instructions: []
+  path_filters:
+    - '!**/doc/**'
+    - '!**/testdata/**'
+  path_instructions: []
+  abort_on_close: true
+  disable_cache: false
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    ignore_title_keywords: ['skip ci']
+    labels: []
+    drafts: false
+    base_branches: []
+    ignore_usernames: []
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+  pre_merge_checks:
+    docstrings:
+      mode: warning
+      threshold: 80
+    title:
+      mode: warning
+      requirements: ''
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+  tools:
+    markdownlint:
+      enabled: true
+    github-checks:
+      enabled: true
+      timeout_ms: 300000
+    languagetool:
+      enabled: true
+      enabled_rules: []
+      disabled_rules: []
+      enabled_categories: []
+      disabled_categories: []
+      enabled_only: false
+      level: default
+    golangci-lint:
+      enabled: true
+      config_file: .golangci.yml
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+chat:
+  art: false
+  auto_reply: true
+  integrations: {}
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns: []
+  learnings:
+    scope: auto
+  issues:
+    scope: auto
+  jira:
+    usage: disabled
+    project_keys: []
+  linear:
+    usage: disabled
+    team_keys: []
+  pull_requests:
+    scope: auto
+  mcp:
+    usage: auto
+    disabled_servers: []
+code_generation:
+  docstrings:
+    language: en-US
+    path_instructions: []
+  unit_tests:
+    path_instructions: []

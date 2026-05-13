@@ -1,0 +1,32 @@
+# This is a weird way of telling Travis to use the fast container-based test
+# runner instead of the slow VM-based runner.
+sudo: false
+
+language: go
+
+# You don't need to test on very old version of the Go compiler. It's the user's
+# responsibility to keep their compilers up to date.
+go:
+  - 1.18
+
+# Only clone the most recent commit.
+git:
+  depth: 1
+
+# Skip the install step. Don't `go get` dependencies. Only build with the code
+# in vendor/
+install: true
+
+# Don't email me the results of the test runs.
+notifications:
+  email: false
+
+before_script:
+  - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# script always runs to completion (set +e). If we have linter issues AND a
+# failing test, we want to see both. Configure golangci-lint with a
+# .golangci.yml file at the top level of your repo.
+script:
+  - golangci-lint run       # run a bunch of code checkers/linters in parallel
+  - go test -v -race ./...  # Run all the tests with the race detector enabled
