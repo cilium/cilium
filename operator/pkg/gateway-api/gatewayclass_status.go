@@ -28,7 +28,6 @@ var exemptFeatures = []features.Feature{
 	features.HTTPRouteParentRefPortFeature,
 	features.MeshConsumerRouteFeature,
 	features.BackendTLSPolicySanValidationFeature,
-	features.HTTPRouteCORS,
 	features.TLSRouteModeTerminateFeature,
 	features.ListenerSetFeature,
 	features.GatewayBackendClientCertificateFeature,
@@ -45,7 +44,7 @@ func getSupportedFeatures() []gatewayv1.SupportedFeature {
 	for _, feature := range exemptFeatures {
 		supportedFeatures.Delete(feature)
 	}
-	ret := []gatewayv1.SupportedFeature{}
+	ret := make([]gatewayv1.SupportedFeature, 0, len(supportedFeatures))
 	for _, feat := range supportedFeatures.UnsortedList() {
 		ret = append(ret, gatewayv1.SupportedFeature{Name: gatewayv1.FeatureName(feat.Name)})
 	}

@@ -11,6 +11,7 @@ import (
 
 	mutation_rules_v3 "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	httpCorsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	grpcStatsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcWebv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
@@ -83,11 +84,8 @@ func (i *cecTranslator) httpConnectionManagerMutators() []HttpConnectionManagerM
 	}
 }
 
-// desiredHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
-// authFilters is a deduplicated list of external auth backends; one named ext_authz filter is added per entry,
-// positioned before the terminal router filter so that per-route TypedPerFilterConfig can enable/disable each.
-func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, authFilters []*model.HTTPExternalAuthFilter) (ciliumv2.XDSResource, error) {
-	httpFilters := []*httpConnectionManagerv3.HttpFilter{
+func getHTTPConnectionManagerHttpFilters(authFilters []*model.HTTPExternalAuthFilter, m *model.Model) ([]*httpConnectionManagerv3.HttpFilter, error) {
+	hf := []*httpConnectionManagerv3.HttpFilter{
 		{
 			Name: "envoy.filters.http.grpc_web",
 			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
@@ -108,18 +106,40 @@ func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, aut
 	for _, af := range authFilters {
 		f, err := buildExtAuthzHTTPFilter(af)
 		if err != nil {
-			return ciliumv2.XDSResource{}, err
+			return nil, err
 		}
-		httpFilters = append(httpFilters, f)
+		hf = append(hf, f)
 	}
 
-	httpFilters = append(httpFilters, &httpConnectionManagerv3.HttpFilter{
+	// HTTP filter order matters. When CORS is enabled,
+	// the CORS filter must run before envoy.filters.http.router.
+	if m != nil && m.IsCORSFilterConfigured() {
+		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+			Name: "envoy.filters.http.cors",
+			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&httpCorsv3.Cors{}),
+			},
+		})
+	}
+
+	hf = append(hf, &httpConnectionManagerv3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
 			TypedConfig: toAny(&httpRouterv3.Router{}),
 		},
 	})
 
+	return hf, nil
+}
+
+// desiredHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
+// authFilters is a deduplicated list of external auth backends; one named ext_authz filter is added per entry,
+// positioned before the terminal router filter so that per-route TypedPerFilterConfig can enable/disable each.
+func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, authFilters []*model.HTTPExternalAuthFilter, m *model.Model) (ciliumv2.XDSResource, error) {
+	hf, err := getHTTPConnectionManagerHttpFilters(authFilters, m)
+	if err != nil {
+		return ciliumv2.XDSResource{}, err
+	}
 	connectionManager := &httpConnectionManagerv3.HttpConnectionManager{
 		StatPrefix: name,
 		RouteSpecifier: &httpConnectionManagerv3.HttpConnectionManager_Rds{
@@ -127,7 +147,7 @@ func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, aut
 		},
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:    false,
-		HttpFilters:      httpFilters,
+		HttpFilters:      hf,
 		UpgradeConfigs: []*httpConnectionManagerv3.HttpConnectionManager_UpgradeConfig{
 			{UpgradeType: "websocket"},
 		},
