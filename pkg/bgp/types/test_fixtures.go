@@ -6,16 +6,32 @@ package types
 import (
 	"net/netip"
 
-	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 	"k8s.io/utils/ptr"
 )
 
 var (
-	prefixV4             = bgp.NewIPAddrPrefix(24, "10.0.0.0")
-	prefixV6             = bgp.NewIPv6AddrPrefix(64, "fd00::")
-	originAttribute      = bgp.NewPathAttributeOrigin(0)
-	nextHopAttribute     = bgp.NewPathAttributeNextHop("0.0.0.0")
-	mpReachNLRIAttribute = bgp.NewPathAttributeMpReachNLRI("::", []bgp.AddrPrefixInterface{prefixV6})
+	prefixV4 = func() *bgp.IPAddrPrefix {
+		res, _ := bgp.NewIPAddrPrefix(netip.MustParsePrefix("10.0.0.0/24"))
+		return res
+	}
+	prefixV6 = func() *bgp.IPAddrPrefix {
+		res, _ := bgp.NewIPAddrPrefix(netip.MustParsePrefix("fd00::/64"))
+		return res
+	}
+	originAttribute  = bgp.NewPathAttributeOrigin(0)
+	nextHopAttribute = func() *bgp.PathAttributeNextHop {
+		res, _ := bgp.NewPathAttributeNextHop(netip.MustParseAddr("0.0.0.0"))
+		return res
+	}
+	mpReachNLRIAttribute = func() *bgp.PathAttributeMpReachNLRI {
+		res, _ := bgp.NewPathAttributeMpReachNLRI(
+			bgp.NewFamily(bgp.AFI_IP6, bgp.SAFI_UNICAST),
+			[]bgp.PathNLRI{{NLRI: prefixV6()}},
+			netip.IPv6Unspecified(),
+		)
+		return res
+	}
 
 	// CommonPaths contains common path structure values appearing in the agent code
 	CommonPaths = []struct {
@@ -25,20 +41,22 @@ var (
 		{
 			Name: "IPv4 unicast advertisement",
 			Path: Path{
-				NLRI: prefixV4,
+				Family: Family{Afi: AfiIPv4, Safi: SafiUnicast},
+				NLRI:   prefixV4(),
 				PathAttributes: []bgp.PathAttributeInterface{
 					originAttribute,
-					nextHopAttribute,
+					nextHopAttribute(),
 				},
 			},
 		},
 		{
 			Name: "IPv6 unicast advertisement",
 			Path: Path{
-				NLRI: prefixV6,
+				Family: Family{Afi: AfiIPv6, Safi: SafiUnicast},
+				NLRI:   prefixV6(),
 				PathAttributes: []bgp.PathAttributeInterface{
 					originAttribute,
-					mpReachNLRIAttribute,
+					mpReachNLRIAttribute(),
 				},
 			},
 		},

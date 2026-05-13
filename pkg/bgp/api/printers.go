@@ -13,7 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	bgppacket "github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	bgppacket "github.com/osrg/gobgp/v4/pkg/packet/bgp"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
@@ -369,7 +369,7 @@ func formatExtendedNexthopCap(w io.Writer, cap bgppacket.ParameterCapabilityInte
 func formatAddPathCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
 	formatCapabilityWithDetails(w, cap, support, localCap, remoteCap, func(w io.Writer, c bgppacket.ParameterCapabilityInterface) {
 		for _, item := range c.(*bgppacket.CapAddPath).Tuples {
-			fmt.Fprintf(w, "\t\t\t%s: %s\n", item.RouteFamily, item.Mode)
+			fmt.Fprintf(w, "\t\t\t%s: %s\n", item.Family, item.Mode)
 		}
 	})
 }
@@ -433,7 +433,7 @@ func parseGracefulRestartCap(g *bgppacket.CapGracefulRestart) string {
 		grStr += "\n"
 	}
 	for _, t := range g.Tuples {
-		grStr += fmt.Sprintf("\t\t\t%s", bgppacket.AfiSafiToRouteFamily(t.AFI, t.SAFI))
+		grStr += fmt.Sprintf("\t\t\t%s", bgppacket.NewFamily(t.AFI, t.SAFI))
 		if t.Flags == 0x80 {
 			grStr += ", forward flag set"
 		}
@@ -445,7 +445,7 @@ func parseGracefulRestartCap(g *bgppacket.CapGracefulRestart) string {
 func parseLongLivedGracefulRestartCap(g *bgppacket.CapLongLivedGracefulRestart) string {
 	var llgrStr strings.Builder
 	for _, t := range g.Tuples {
-		fmt.Fprintf(&llgrStr, "\t\t\t%s, restart time %d sec", bgppacket.AfiSafiToRouteFamily(t.AFI, t.SAFI), t.RestartTime)
+		fmt.Fprintf(&llgrStr, "\t\t\t%s, restart time %d sec", bgppacket.NewFamily(t.AFI, t.SAFI), t.RestartTime)
 		if t.Flags == 0x80 {
 			llgrStr.WriteString(", forward flag set")
 		}
@@ -466,7 +466,7 @@ func parseExtendedNexthopCap(e *bgppacket.CapExtendedNexthop) string {
 		default:
 			nhafi = fmt.Sprintf("%d", t.NexthopAFI)
 		}
-		line := fmt.Sprintf("\t\t\tnlri: %s, nexthop: %s\n", bgppacket.AfiSafiToRouteFamily(t.NLRIAFI, uint8(t.NLRISAFI)), nhafi)
+		line := fmt.Sprintf("\t\t\tnlri: %s, nexthop: %s\n", bgppacket.NewFamily(t.NLRIAFI, uint8(t.NLRISAFI)), nhafi)
 		lines = append(lines, line)
 	}
 	return strings.Join(lines, "")

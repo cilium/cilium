@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -431,8 +431,8 @@ func TestGetRoutes(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res.Routes, 1)
 	require.Len(t, res.Routes[0].Paths, 1)
-	require.Equal(t, uint16(bgp.AFI_IP), res.Routes[0].Paths[0].NLRI.AFI())
-	require.Equal(t, uint8(bgp.SAFI_UNICAST), res.Routes[0].Paths[0].NLRI.SAFI())
+	require.EqualValues(t, bgp.AFI_IP, res.Routes[0].Paths[0].Family.Afi)
+	require.EqualValues(t, bgp.SAFI_UNICAST, res.Routes[0].Paths[0].Family.Safi)
 	require.IsType(t, &bgp.IPAddrPrefix{}, res.Routes[0].Paths[0].NLRI)
 
 	// test IPv6 address family
@@ -446,9 +446,9 @@ func TestGetRoutes(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res.Routes, 1)
 	require.Len(t, res.Routes[0].Paths, 1)
-	require.Equal(t, uint16(bgp.AFI_IP6), res.Routes[0].Paths[0].NLRI.AFI())
-	require.Equal(t, uint8(bgp.SAFI_UNICAST), res.Routes[0].Paths[0].NLRI.SAFI())
-	require.IsType(t, &bgp.IPv6AddrPrefix{}, res.Routes[0].Paths[0].NLRI)
+	require.EqualValues(t, bgp.AFI_IP6, res.Routes[0].Paths[0].Family.Afi)
+	require.EqualValues(t, bgp.SAFI_UNICAST, res.Routes[0].Paths[0].Family.Safi)
+	require.IsType(t, &bgp.IPAddrPrefix{}, res.Routes[0].Paths[0].NLRI)
 
 	// test adj-rib-out
 	res, err = testSC.GetRoutes(context.TODO(), &types.GetRoutesRequest{

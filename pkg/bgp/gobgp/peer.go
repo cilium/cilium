@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/netip"
 
-	gobgp "github.com/osrg/gobgp/v3/api"
+	gobgp "github.com/osrg/gobgp/v4/api"
 
 	"github.com/cilium/cilium/pkg/bgp/types"
 )
@@ -54,7 +54,7 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n *types.Neighbor) err
 		}
 		if !needsHardReset {
 			resetReq.Soft = true
-			resetReq.Direction = gobgp.ResetPeerRequest_IN
+			resetReq.Direction = gobgp.ResetPeerRequest_DIRECTION_IN
 		}
 		if err = g.server.ResetPeer(ctx, resetReq); err != nil {
 			return fmt.Errorf("failed while resetting peer %v:%v in ASN %v: %w", oldPeer.Conf.NeighborAddress, oldPeer.Transport.RemotePort, oldPeer.Conf.PeerAsn, err)
