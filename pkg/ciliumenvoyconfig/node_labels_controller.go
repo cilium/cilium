@@ -82,17 +82,17 @@ func (c *nodeLabelController) run(ctx context.Context, _ cell.Health) error {
 				}
 			}
 			oldLabels = newLabels
-			if updated {
-				wtxn.Commit()
-			} else {
-				wtxn.Abort()
-			}
+		}
+		if updated {
+			wtxn.Commit()
+		} else {
+			wtxn.Abort()
+		}
 
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-watch:
-			}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-watch:
 		}
 
 	}
