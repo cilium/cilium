@@ -116,14 +116,3 @@ func GenerateRandMAC() (MAC, error) {
 
 	return buf, nil
 }
-
-// CArrayString returns a string which can be used for assigning the given
-// MAC addr to "union macaddr" in C.
-func CArrayString(m net.HardwareAddr) string {
-	if m == nil || len(m) != 6 {
-		return "{0x0,0x0,0x0,0x0,0x0,0x0}"
-	}
-
-	return fmt.Sprintf("{0x%x,0x%x,0x%x,0x%x,0x%x,0x%x}",
-		m[0], m[1], m[2], m[3], m[4], m[5])
-}
