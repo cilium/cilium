@@ -12,11 +12,13 @@ import (
 	"time"
 
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_extensions_filters_http_cors_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -707,6 +709,45 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.NotNil(t, res[1].GetRoute())
 		require.Equal(t, "default:backend:31337", res[1].GetRoute().GetCluster())
 	})
+	t.Run("http route with CORS filter and no backend", func(t *testing.T) {
+		corsPolicy := toAny(&envoy_extensions_filters_http_cors_v3.CorsPolicy{
+			AllowOriginStringMatch: []*envoy_type_matcher_v3.StringMatcher{
+				{
+					MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+						Exact: "https://example.com",
+					},
+				},
+			},
+			AllowCredentials:             wrapperspb.Bool(false),
+			AllowMethods:                 "*",
+			AllowHeaders:                 "*",
+			ExposeHeaders:                "*",
+			MaxAge:                       "42",
+			ForwardNotMatchingPreflights: wrapperspb.Bool(false),
+		})
+		httpRoutes := []model.HTTPRoute{
+			{
+				Name:      "Index",
+				PathMatch: model.StringMatch{Prefix: "/"},
+				DirectResponse: &model.DirectResponse{
+					StatusCode: 500,
+				},
+				CORS: &model.HTTPCORSFilter{
+					AllowOrigins:  []string{"https://example.com"},
+					AllowMethods:  []string{"*"},
+					AllowHeaders:  []string{"*"},
+					ExposeHeaders: []string{"*"},
+					MaxAge:        42,
+				},
+			},
+		}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
+		require.Len(t, res, 1)
+		require.NotNil(t, res[0])
+		require.NotNil(t, res[0].GetDirectResponse())
+		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
+		require.Equal(t, corsPolicy, res[0].GetTypedPerFilterConfig()["envoy.filters.http.cors"])
+	})
 }
 
 // Test_envoyHTTPSRoutes_disablesExtAuthzFilters verifies that HTTPS redirect routes
@@ -797,4 +838,109 @@ func Test_envoyHTTPSRoutes_noAuthFilters(t *testing.T) {
 	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, nil)
 	require.Len(t, result, 1)
 	require.Nil(t, result[0].TypedPerFilterConfig, "redirect route must not set TypedPerFilterConfig when there are no auth filters")
+}
+
+func Test_getCORSStringMatcher(t *testing.T) {
+	t.Run("exact match no wildcard", func(t *testing.T) {
+		ao := "http://example.com"
+		match := &envoy_type_matcher_v3.StringMatcher{
+			MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+				Exact: ao,
+			},
+		}
+		res := getCORSStringMatcher(ao)
+		require.Equal(t, match, res)
+	})
+	t.Run("wildcard only match", func(t *testing.T) {
+		ao := "*"
+		match := &envoy_type_matcher_v3.StringMatcher{
+			MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+					Regex: "^.*$",
+				},
+			},
+		}
+		res := getCORSStringMatcher(ao)
+		require.Equal(t, match, res)
+	})
+	t.Run("wildcard match", func(t *testing.T) {
+		ao := "http://*.example.com"
+		match := &envoy_type_matcher_v3.StringMatcher{
+			MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+					Regex: "^http://[A-Za-z0-9.-]+\\.example\\.com$",
+				},
+			},
+		}
+		res := getCORSStringMatcher(ao)
+		require.Equal(t, match, res)
+	})
+}
+
+func Test_getCORS(t *testing.T) {
+	t.Run("allow and expose all", func(t *testing.T) {
+		cf := &model.HTTPCORSFilter{
+			AllowOrigins:     []string{"*"},
+			AllowCredentials: false,
+			AllowMethods:     []string{"*"},
+			AllowHeaders:     []string{"*"},
+			ExposeHeaders:    []string{"*"},
+			MaxAge:           42,
+		}
+		res := getCORS(cf)
+		match := toAny(&envoy_extensions_filters_http_cors_v3.CorsPolicy{
+			AllowOriginStringMatch: []*envoy_type_matcher_v3.StringMatcher{
+				{
+					MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+							Regex: "^.*$",
+						},
+					},
+				},
+			},
+			AllowCredentials:             wrapperspb.Bool(false),
+			AllowMethods:                 "*",
+			AllowHeaders:                 "*",
+			ExposeHeaders:                "*",
+			MaxAge:                       "42",
+			ForwardNotMatchingPreflights: wrapperspb.Bool(false),
+		})
+		require.NotNil(t, res)
+		require.Equal(t, match, res)
+	})
+	t.Run("allow specific methods and headers", func(t *testing.T) {
+		cf := &model.HTTPCORSFilter{
+			AllowOrigins:     []string{"http://example.com", "http://*.example.com"},
+			AllowCredentials: false,
+			AllowMethods:     []string{"PUT", "GET"},
+			AllowHeaders:     []string{"Keep-Alive", "User-Agent"},
+			ExposeHeaders:    []string{"Content-Security-Policy"},
+			MaxAge:           42,
+		}
+		res := getCORS(cf)
+		match := toAny(&envoy_extensions_filters_http_cors_v3.CorsPolicy{
+			AllowOriginStringMatch: []*envoy_type_matcher_v3.StringMatcher{
+				{
+					MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+						Exact: "http://example.com",
+					},
+				},
+				{
+					MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+							Regex: "^http://[A-Za-z0-9.-]+\\.example\\.com$",
+						},
+					},
+				},
+			},
+			AllowCredentials:             wrapperspb.Bool(false),
+			AllowMethods:                 "PUT, GET",
+			AllowHeaders:                 "Keep-Alive, User-Agent",
+			ExposeHeaders:                "Content-Security-Policy",
+			MaxAge:                       "42",
+			ForwardNotMatchingPreflights: wrapperspb.Bool(false),
+		})
+		require.NotNil(t, res)
+		require.Equal(t, match, res)
+	})
 }

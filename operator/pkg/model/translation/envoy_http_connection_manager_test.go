@@ -6,6 +6,7 @@ package translation
 import (
 	"testing"
 
+	httpCORSv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/stretchr/testify/require"
@@ -15,27 +16,96 @@ import (
 )
 
 func Test_desiredHTTPConnectionManager(t *testing.T) {
-	i := &cecTranslator{}
-	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", nil)
-	require.NoError(t, err)
+	t.Run("no CORS filter enabled", func(t *testing.T) {
+		i := &cecTranslator{}
+		m := &model.Model{}
+		res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", nil, m)
+		require.NoError(t, err)
 
-	httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
-	err = proto.Unmarshal(res.Value, httpConnectionManager)
+		httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
+		err = proto.Unmarshal(res.Value, httpConnectionManager)
 
-	require.NoError(t, err)
+		require.NoError(t, err)
 
-	require.Equal(t, "dummy-name", httpConnectionManager.StatPrefix)
-	require.Equal(t, &httpConnectionManagerv3.HttpConnectionManager_Rds{
-		Rds: &httpConnectionManagerv3.Rds{RouteConfigName: "dummy-route-name"},
-	}, httpConnectionManager.GetRouteSpecifier())
+		require.Equal(t, "dummy-name", httpConnectionManager.StatPrefix)
+		require.Equal(t, &httpConnectionManagerv3.HttpConnectionManager_Rds{
+			Rds: &httpConnectionManagerv3.Rds{RouteConfigName: "dummy-route-name"},
+		}, httpConnectionManager.GetRouteSpecifier())
 
-	require.Len(t, httpConnectionManager.GetHttpFilters(), 3)
-	require.Equal(t, "envoy.filters.http.grpc_web", httpConnectionManager.GetHttpFilters()[0].Name)
-	require.Equal(t, "envoy.filters.http.grpc_stats", httpConnectionManager.GetHttpFilters()[1].Name)
-	require.Equal(t, "envoy.filters.http.router", httpConnectionManager.GetHttpFilters()[2].Name)
+		require.Len(t, httpConnectionManager.GetHttpFilters(), 3)
+		require.Equal(t, "envoy.filters.http.grpc_web", httpConnectionManager.GetHttpFilters()[0].Name)
+		require.Equal(t, "envoy.filters.http.grpc_stats", httpConnectionManager.GetHttpFilters()[1].Name)
+		require.Equal(t, "envoy.filters.http.router", httpConnectionManager.GetHttpFilters()[2].Name)
 
-	require.Len(t, httpConnectionManager.GetUpgradeConfigs(), 1)
-	require.Equal(t, "websocket", httpConnectionManager.GetUpgradeConfigs()[0].UpgradeType)
+		require.Len(t, httpConnectionManager.GetUpgradeConfigs(), 1)
+		require.Equal(t, "websocket", httpConnectionManager.GetUpgradeConfigs()[0].UpgradeType)
+	})
+	t.Run("CORS filter enabled", func(t *testing.T) {
+		i := &cecTranslator{}
+		m := &model.Model{HTTP: []model.HTTPListener{
+			{
+				Routes: []model.HTTPRoute{
+					{
+						CORS: &model.HTTPCORSFilter{AllowOrigins: []string{"*"}},
+					},
+				},
+			},
+		}}
+		res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", nil, m)
+		require.NoError(t, err)
+
+		httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
+		err = proto.Unmarshal(res.Value, httpConnectionManager)
+
+		require.NoError(t, err)
+
+		require.Equal(t, "dummy-name", httpConnectionManager.StatPrefix)
+		require.Equal(t, &httpConnectionManagerv3.HttpConnectionManager_Rds{
+			Rds: &httpConnectionManagerv3.Rds{RouteConfigName: "dummy-route-name"},
+		}, httpConnectionManager.GetRouteSpecifier())
+
+		require.Len(t, httpConnectionManager.GetHttpFilters(), 4)
+		require.Equal(t, "envoy.filters.http.grpc_web", httpConnectionManager.GetHttpFilters()[0].Name)
+		require.Equal(t, "envoy.filters.http.grpc_stats", httpConnectionManager.GetHttpFilters()[1].Name)
+		require.Equal(t, "envoy.filters.http.cors", httpConnectionManager.GetHttpFilters()[2].Name)
+		require.Equal(t, "envoy.filters.http.router", httpConnectionManager.GetHttpFilters()[3].Name)
+
+		require.Len(t, httpConnectionManager.GetUpgradeConfigs(), 1)
+		require.Equal(t, "websocket", httpConnectionManager.GetUpgradeConfigs()[0].UpgradeType)
+	})
+}
+
+func Test_getHTTPConnectionManagerHttpFilters(t *testing.T) {
+	t.Run("no CORS filter enabled", func(t *testing.T) {
+		m := &model.Model{}
+		res, err := getHTTPConnectionManagerHttpFilters([]*model.HTTPExternalAuthFilter{}, m)
+		require.NoError(t, err)
+
+		require.Len(t, res, 3)
+		require.Equal(t, "envoy.filters.http.grpc_web", res[0].Name)
+		require.Equal(t, "envoy.filters.http.grpc_stats", res[1].Name)
+		require.Equal(t, "envoy.filters.http.router", res[2].Name)
+	})
+	t.Run("CORS filter enabled", func(t *testing.T) {
+		m := &model.Model{HTTP: []model.HTTPListener{
+			{
+				Routes: []model.HTTPRoute{
+					{
+						CORS: &model.HTTPCORSFilter{AllowOrigins: []string{"*"}},
+					},
+				},
+			},
+		}}
+		res, err := getHTTPConnectionManagerHttpFilters([]*model.HTTPExternalAuthFilter{}, m)
+		require.NoError(t, err)
+
+		require.Len(t, res, 4)
+		require.Equal(t, "envoy.filters.http.grpc_web", res[0].Name)
+		require.Equal(t, "envoy.filters.http.grpc_stats", res[1].Name)
+		require.Equal(t, "envoy.filters.http.cors", res[2].Name)
+		require.Equal(t, "envoy.filters.http.router", res[3].Name)
+
+	})
 }
 
 func Test_desiredHTTPConnectionManager_withExtAuthz(t *testing.T) {
@@ -52,7 +122,7 @@ func Test_desiredHTTPConnectionManager_withExtAuthz(t *testing.T) {
 	}
 
 	i := &cecTranslator{}
-	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", authFilters)
+	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", authFilters, nil)
 	require.NoError(t, err)
 
 	hcm := &httpConnectionManagerv3.HttpConnectionManager{}
@@ -210,14 +280,14 @@ func Test_buildExtAuthzHTTPFilter_allowedRequestHeaders(t *testing.T) {
 	})
 }
 
-func Test_buildExtAuthzPerRouteConfig(t *testing.T) {
+func Test_getTypedPerFilterConfig(t *testing.T) {
 	authFilters := []*model.HTTPExternalAuthFilter{
 		{Backend: model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}}, Protocol: model.ExternalAuthProtocolGRPC},
 		{Backend: model.Backend{Name: "svc-b", Namespace: "ns", Port: &model.BackendPort{Port: 8080}}, Protocol: model.ExternalAuthProtocolHTTP},
 	}
 
 	t.Run("route without auth disables all filters", func(t *testing.T) {
-		cfg := buildExtAuthzPerRouteConfig(nil, authFilters)
+		cfg := getTypedPerFilterConfig(nil, authFilters, model.HTTPRoute{})
 		require.Len(t, cfg, 2)
 		for _, v := range cfg {
 			perRoute := &extauthzv3.ExtAuthzPerRoute{}
@@ -231,7 +301,7 @@ func Test_buildExtAuthzPerRouteConfig(t *testing.T) {
 			Backend:  model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
 			Protocol: model.ExternalAuthProtocolGRPC,
 		}
-		cfg := buildExtAuthzPerRouteConfig(routeAuth, authFilters)
+		cfg := getTypedPerFilterConfig(routeAuth, authFilters, model.HTTPRoute{})
 		// Only svc-b should be disabled; svc-a has no entry (enabled by default)
 		require.Len(t, cfg, 1)
 		_, hasSvcA := cfg["envoy.filters.http.ext_authz/GRPC:ns:svc-a:9000"]
@@ -243,8 +313,17 @@ func Test_buildExtAuthzPerRouteConfig(t *testing.T) {
 		require.True(t, perRoute.GetDisabled())
 	})
 
+	t.Run("route with CORS filter", func(t *testing.T) {
+		cfg := getTypedPerFilterConfig(nil, nil, model.HTTPRoute{
+			CORS: &model.HTTPCORSFilter{MaxAge: 42},
+		})
+		require.Len(t, cfg, 1)
+		cors := &httpCORSv3.CorsPolicy{}
+		require.NoError(t, proto.Unmarshal(cfg["envoy.filters.http.cors"].Value, cors))
+	})
+
 	t.Run("no auth filters returns nil", func(t *testing.T) {
-		require.Nil(t, buildExtAuthzPerRouteConfig(nil, nil))
+		require.Nil(t, getTypedPerFilterConfig(nil, nil, model.HTTPRoute{}))
 	})
 }
 

@@ -1,0 +1,58 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: cors-multiple-origins-methods-headers
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - "https://www.foo.com"
+        - "https://*.bar.com"
+        allowMethods:
+        - GET
+        - OPTIONS
+        allowHeaders:
+        - "x-header-1"
+        - "x-header-2"
+        exposeHeaders:
+        - "x-header-3"
+        - "x-header-4"
+        allowCredentials: true
+        maxAge: 3600
+    matches:
+    - path:
+        type: PathPrefix
+        value: /cors-1
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2026-05-12T09:41:00Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-05-12T09:41:00Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

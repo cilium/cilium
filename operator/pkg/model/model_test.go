@@ -78,3 +78,61 @@ func TestModel_GetListeners(t *testing.T) {
 		})
 	}
 }
+
+func TestModel_IsCORSFilterConfigured(t *testing.T) {
+	tests := []struct {
+		name          string
+		httpListeners []HTTPListener
+		want          bool
+	}{
+		{
+			name:          "no HTTP listeners",
+			httpListeners: []HTTPListener{},
+			want:          false,
+		},
+		{
+			name: "HTTP listener without CORS",
+			httpListeners: []HTTPListener{
+				{Routes: []HTTPRoute{{CORS: nil}}},
+			},
+			want: false,
+		},
+		{
+			name: "one HTTP listener with CORS",
+			httpListeners: []HTTPListener{
+				{Routes: []HTTPRoute{
+					{
+						CORS: &HTTPCORSFilter{
+							AllowOrigins: []string{"*"},
+						},
+					},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "multiple HTTP listeners with one CORS filter",
+			httpListeners: []HTTPListener{
+				{Routes: []HTTPRoute{{CORS: nil}}},
+				{Routes: []HTTPRoute{
+					{
+						CORS: &HTTPCORSFilter{
+							AllowOrigins: []string{"*"},
+						},
+					},
+				}},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Model{
+				HTTP: tt.httpListeners,
+			}
+			if got := m.IsCORSFilterConfigured(); got != tt.want {
+				t.Errorf("Model.IsCORSFilterConfigured() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
