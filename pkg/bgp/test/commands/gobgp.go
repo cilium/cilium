@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/cilium/hive/script"
-	gobgpapi "github.com/osrg/gobgp/v3/api"
-	"github.com/osrg/gobgp/v3/pkg/apiutil"
-	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
-	"github.com/osrg/gobgp/v3/pkg/server"
+	gobgpapi "github.com/osrg/gobgp/v4/api"
+	"github.com/osrg/gobgp/v4/pkg/apiutil"
+	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
+	"github.com/osrg/gobgp/v4/pkg/server"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bgp/api"
@@ -43,6 +43,8 @@ const (
 
 	familiesFlag      = "families"
 	familiesFlagShort = "f"
+
+	gobgpSessionStatePrefix = "SESSION_STATE_"
 )
 
 type GoBGPCmdContext struct {
@@ -145,11 +147,11 @@ func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			}
 
 			// start new GoBGP server
-			gobgpServer := server.NewBgpServer(server.LoggerOption(gobgp.NewServerLogger(slog.Default(), gobgp.LogParams{
-				AS:        uint32(asn),
-				Component: "test",
-				SubSys:    "gobgp",
-			})))
+			logger := slog.Default().With(
+				types.ComponentLogField, "gobgp-server",
+				types.LocalASNLogField, asn,
+			)
+			gobgpServer := server.NewBgpServer(server.LoggerOption(logger, nil))
 			go gobgpServer.Serve()
 			err = gobgpServer.StartBgp(s.Context(), &gobgpapi.StartBgpRequest{Global: &gobgpapi.Global{
 				Asn:             uint32(asn),
@@ -320,26 +322,28 @@ func GoBGPWaitStateCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			}
 
 			doneCh := make(chan struct{})
-			watchRequest := &gobgpapi.WatchEventRequest{
-				Peer: &gobgpapi.WatchEventRequest_Peer{},
-			}
-			err = gobgpServer.WatchEvent(ctx, watchRequest, func(r *gobgpapi.WatchEventResponse) {
-				if p := r.GetPeer(); p != nil && p.Type == gobgpapi.WatchEventResponse_PeerEvent_STATE {
-					s.Logf("peer %s %s\n", p.Peer.Conf.NeighborAddress, p.Peer.State.SessionState)
-					if p.Peer.State.SessionState == gobgpapi.PeerState_SessionState(gobgpapi.PeerState_SessionState_value[args[1]]) {
-						if p.Peer.Conf.NeighborAddress == args[0] {
+			cb := func(p *apiutil.WatchEventMessage_PeerEvent, _ time.Time) {
+				if p.Type == apiutil.PEER_EVENT_STATE {
+					if p.Peer.State.SessionState.String() == "BGP_FSM_"+args[1] {
+						if p.Peer.Conf.NeighborAddress.String() == args[0] {
 							doneCh <- struct{}{}
 						}
 					}
 				}
-			})
+			}
+			err = gobgpServer.WatchEvent(ctx,
+				server.WatchEventMessageCallbacks{
+					OnPeerUpdate: cb,
+				},
+				server.WatchPeer(),
+			)
 			if err != nil {
 				return nil, err
 			}
 			// check if the peer isn't already in the expected state
 			done := false
 			err = gobgpServer.ListPeer(s.Context(), &gobgpapi.ListPeerRequest{Address: args[0]}, func(p *gobgpapi.Peer) {
-				if p.State.SessionState == gobgpapi.PeerState_SessionState(gobgpapi.PeerState_SessionState_value[args[1]]) {
+				if p.State.SessionState == stringToSessionState(args[1]) {
 					done = true
 				}
 			})
@@ -440,25 +444,26 @@ func GoBGPRoutesCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 					defer f.Close()
 				}
 
-				req := &gobgpapi.ListPathRequest{
-					TableType: gobgpapi.TableType_GLOBAL,
-					Family: &gobgpapi.Family{
-						Afi:  gobgpapi.Family_AFI_IP,
-						Safi: gobgpapi.Family_SAFI_UNICAST,
-					},
+				family := &types.Family{
+					Afi:  types.AfiIPv4,
+					Safi: types.SafiUnicast,
 				}
 				if len(args) > 0 && args[0] != "" {
-					req.Family.Afi = gobgpapi.Family_Afi(types.ParseAfi(args[0]))
+					family.Afi = types.ParseAfi(args[0])
 				}
 				if len(args) > 1 && args[1] != "" {
-					req.Family.Safi = gobgpapi.Family_Safi(types.ParseSafi(args[1]))
+					family.Safi = types.ParseSafi(args[1])
 				}
-				var paths []*gobgpapi.Destination
-				err = gobgpServer.ListPath(s.Context(), req, func(dst *gobgpapi.Destination) {
-					paths = append(paths, dst)
+				req := apiutil.ListPathRequest{
+					TableType: gobgpapi.TableType_TABLE_TYPE_GLOBAL,
+					Family:    bgp.NewFamily(uint16(family.Afi), uint8(family.Safi)),
+				}
+				var paths []*apiutil.Path
+				err = gobgpServer.ListPath(req, func(_ bgp.NLRI, p []*apiutil.Path) {
+					paths = append(paths, p...)
 				})
 				sort.Slice(paths, func(i, j int) bool {
-					return paths[i].String() < paths[j].String()
+					return paths[i].Nlri.String() < paths[j].Nlri.String()
 				})
 
 				printPathHeader(tw)
@@ -497,29 +502,17 @@ func GoBGPAdvertiseRouteCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			}
 
 			return func(s *script.State) (stdout, stderr string, err error) {
-				originAttr := bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP)
-
-				var path *gobgpapi.Path
-				switch {
-				case prefix.Addr().Is4():
-					nlri := bgp.NewIPAddrPrefix(uint8(prefix.Bits()), prefix.Addr().String())
-					nextHopAttr := bgp.NewPathAttributeNextHop("0.0.0.0")
-					path, err = apiutil.NewPath(nlri, false, []bgp.PathAttributeInterface{originAttr, nextHopAttr}, time.Now())
-					if err != nil {
-						return "", "", fmt.Errorf("could not create path: %w", err)
-					}
-				case prefix.Addr().Is6():
-					nlri := bgp.NewIPv6AddrPrefix(uint8(prefix.Bits()), prefix.Addr().String())
-					mpReachNLRIAttr := bgp.NewPathAttributeMpReachNLRI("::", []bgp.AddrPrefixInterface{nlri})
-					path, err = apiutil.NewPath(nlri, false, []bgp.PathAttributeInterface{originAttr, mpReachNLRIAttr}, time.Now())
-					if err != nil {
-						return "", "", fmt.Errorf("could not create path: %w", err)
-					}
+				agentPath := types.NewPathForPrefix(prefix)
+				if agentPath == nil {
+					return "", "", fmt.Errorf("could not create path for prefix %s", prefix)
+				}
+				path, err := gobgp.ToGoBGPPath(agentPath)
+				if err != nil {
+					return "", "", fmt.Errorf("could not convert path: %w", err)
 				}
 
-				_, err = gobgpServer.AddPath(s.Context(), &gobgpapi.AddPathRequest{
-					TableType: gobgpapi.TableType_GLOBAL,
-					Path:      path,
+				_, err = gobgpServer.AddPath(apiutil.AddPathRequest{
+					Paths: []*apiutil.Path{path},
 				})
 
 				return "", "", err
@@ -551,7 +544,7 @@ func printPeerHeader(w *tabwriter.Writer) {
 }
 
 func printPeer(w *tabwriter.Writer, peer *gobgpapi.Peer) {
-	fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%d\t%d\t%d\n", peer.Conf.NeighborAddress, peer.State.RouterId, peer.State.PeerAsn, peer.State.SessionState,
+	fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%d\t%d\t%d\n", peer.Conf.NeighborAddress, peer.State.RouterId, peer.State.PeerAsn, sessionStateToString(peer.State.SessionState),
 		peer.Timers.State.KeepaliveInterval, peer.Timers.State.NegotiatedHoldTime, peer.GracefulRestart.PeerRestartTime)
 }
 
@@ -559,12 +552,23 @@ func printPathHeader(w *tabwriter.Writer) {
 	fmt.Fprintln(w, "Prefix\tNextHop\tAttrs")
 }
 
-func printPath(w *tabwriter.Writer, dst *gobgpapi.Destination) {
-	aPaths, _ := gobgp.ToAgentPaths(dst.Paths)
-	sort.Slice(aPaths, func(i, j int) bool {
-		return fmt.Sprint(aPaths[i].PathAttributes) < fmt.Sprint(aPaths[j].PathAttributes)
-	})
-	for _, path := range aPaths {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", dst.Prefix, api.NextHopFromPathAttributes(path.PathAttributes), path.PathAttributes)
+func printPath(w *tabwriter.Writer, path *apiutil.Path) {
+	agentPath, err := gobgp.ToAgentPath(path)
+	if err != nil {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", path.Nlri.String(), "<error>", err)
+		return
 	}
+	fmt.Fprintf(w, "%s\t%s\t%s\n", path.Nlri.String(), api.NextHopFromPathAttributes(agentPath.PathAttributes), agentPath.PathAttributes)
+}
+
+func stringToSessionState(stateStr string) gobgpapi.PeerState_SessionState {
+	state, ok := gobgpapi.PeerState_SessionState_value[gobgpSessionStatePrefix+stateStr]
+	if !ok {
+		return gobgpapi.PeerState_SESSION_STATE_UNSPECIFIED
+	}
+	return gobgpapi.PeerState_SessionState(state)
+}
+
+func sessionStateToString(state gobgpapi.PeerState_SessionState) string {
+	return strings.TrimPrefix(state.String(), gobgpSessionStatePrefix)
 }

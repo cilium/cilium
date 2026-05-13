@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	gobgp "github.com/osrg/gobgp/v3/api"
-	"github.com/osrg/gobgp/v3/pkg/server"
+	gobgp "github.com/osrg/gobgp/v4/api"
+	"github.com/osrg/gobgp/v4/pkg/server"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -37,7 +37,7 @@ func TestGlobalImportPolicy(t *testing.T) {
 	gobgpServer := router.(*GoBGPServer).server
 	request := &gobgp.ListPolicyAssignmentRequest{
 		Name:      "global",
-		Direction: gobgp.PolicyDirection_IMPORT,
+		Direction: gobgp.PolicyDirection_POLICY_DIRECTION_IMPORT,
 	}
 	response := []*gobgp.PolicyAssignment{}
 
@@ -63,10 +63,10 @@ func TestGlobalImportPolicy(t *testing.T) {
 					Name: fmt.Sprintf("%s_stmt0", globalAllowLocalPolicyName),
 					Conditions: &gobgp.Conditions{
 						RouteType:  gobgp.Conditions_ROUTE_TYPE_LOCAL,
-						RpkiResult: -1,
+						RpkiResult: gobgp.ValidationState_VALIDATION_STATE_UNSPECIFIED,
 					},
 
-					Actions: &gobgp.Actions{RouteAction: gobgp.RouteAction_ACCEPT}},
+					Actions: &gobgp.Actions{RouteAction: gobgp.RouteAction_ROUTE_ACTION_ACCEPT}},
 			},
 		},
 	}
@@ -151,7 +151,11 @@ func checkPoliciesCleanedUp(t *testing.T, gobgpServer *server.BgpServer) {
 
 	// check that defined sets were removed
 	cnt = 0
-	err = gobgpServer.ListDefinedSet(context.Background(), &gobgp.ListDefinedSetRequest{}, func(ds *gobgp.DefinedSet) {
+	err = gobgpServer.ListDefinedSet(context.Background(), &gobgp.ListDefinedSetRequest{DefinedType: gobgp.DefinedType_DEFINED_TYPE_NEIGHBOR}, func(ds *gobgp.DefinedSet) {
+		cnt++
+	})
+	require.NoError(t, err)
+	err = gobgpServer.ListDefinedSet(context.Background(), &gobgp.ListDefinedSetRequest{DefinedType: gobgp.DefinedType_DEFINED_TYPE_PREFIX}, func(ds *gobgp.DefinedSet) {
 		cnt++
 	})
 	require.NoError(t, err)

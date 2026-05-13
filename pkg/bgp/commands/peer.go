@@ -15,7 +15,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/hive/script"
-	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bgp/agent"
@@ -345,7 +345,7 @@ func formatExtendedNexthopCap(w io.Writer, cap bgp.ParameterCapabilityInterface)
 func formatAddPathCap(w io.Writer, cap bgp.ParameterCapabilityInterface) {
 	fmt.Fprintf(w, "      %s:\n", cap.Code())
 	for _, item := range cap.(*bgp.CapAddPath).Tuples {
-		fmt.Fprintf(w, "        %s: %s\n", item.RouteFamily, item.Mode)
+		fmt.Fprintf(w, "        %s: %s\n", item.Family, item.Mode)
 	}
 }
 
@@ -385,7 +385,7 @@ func parseGracefulRestartCap(g *bgp.CapGracefulRestart) string {
 		grStr += "\n"
 	}
 	for _, t := range g.Tuples {
-		grStr += fmt.Sprintf("        %s", bgp.AfiSafiToRouteFamily(t.AFI, t.SAFI))
+		grStr += fmt.Sprintf("        %s", bgp.NewFamily(t.AFI, t.SAFI))
 		if t.Flags == 0x80 {
 			grStr += ", forward flag set"
 		}
@@ -397,7 +397,7 @@ func parseGracefulRestartCap(g *bgp.CapGracefulRestart) string {
 func parseLongLivedGracefulRestartCap(g *bgp.CapLongLivedGracefulRestart) string {
 	var llgrStr strings.Builder
 	for _, t := range g.Tuples {
-		fmt.Fprintf(&llgrStr, "        %s, restart time %d sec", bgp.AfiSafiToRouteFamily(t.AFI, t.SAFI), t.RestartTime)
+		fmt.Fprintf(&llgrStr, "        %s, restart time %d sec", bgp.NewFamily(t.AFI, t.SAFI), t.RestartTime)
 		if t.Flags == 0x80 {
 			llgrStr.WriteString(", forward flag set")
 		}
@@ -418,7 +418,7 @@ func parseExtendedNexthopCap(e *bgp.CapExtendedNexthop) string {
 		default:
 			nhafi = fmt.Sprintf("%d", t.NexthopAFI)
 		}
-		line := fmt.Sprintf("        nlri: %s, nexthop: %s\n", bgp.AfiSafiToRouteFamily(t.NLRIAFI, uint8(t.NLRISAFI)), nhafi)
+		line := fmt.Sprintf("        nlri: %s, nexthop: %s\n", bgp.NewFamily(t.NLRIAFI, uint8(t.NLRISAFI)), nhafi)
 		lines = append(lines, line)
 	}
 	return strings.Join(lines, "")
