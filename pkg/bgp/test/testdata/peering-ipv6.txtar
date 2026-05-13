@@ -89,4 +89,4 @@ PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   
 fd00::aa:bb:cc:112   5.6.7.8    65001     ESTABLISHED    30          90         0
 -- gobgp-routes.expected --
 Prefix            NextHop              Attrs
-fd00:11:22::/64   fd00::aa:bb:cc:112   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:cc:112, NLRIs: [fd00:11:22::/64]}}]
+fd00:11:22::/64   fd00::aa:bb:cc:112   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:cc:112, NLRIs: [fd00:11:22::/64:0]}}]

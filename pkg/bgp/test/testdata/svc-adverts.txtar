@@ -293,45 +293,45 @@ spec:
 
 -- gobgp-routes-svc1-lb-ipv4.expected --
 Prefix          NextHop             Attrs
-172.16.1.1/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32]}}]
+172.16.1.1/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32:0]}}]
 -- gobgp-routes-svc1-lb-ipv6.expected --
 Prefix              NextHop             Attrs
-fd00:aa:bb::1/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128]}}]
+fd00:aa:bb::1/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128:0]}}]
 -- gobgp-routes-svc1-cluster-lb-ipv4.expected --
 Prefix            NextHop             Attrs
-10.96.50.104/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.104/32]}}]
-172.16.1.1/32     fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32]}}]
+10.96.50.104/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.104/32:0]}}]
+172.16.1.1/32     fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32:0]}}]
 -- gobgp-routes-svc1-cluster-lb-ipv6.expected --
 Prefix                    NextHop             Attrs
-2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7ebc/128]}}]
-fd00:aa:bb::1/128         fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128]}}]
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7ebc/128:0]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128:0]}}]
 -- gobgp-routes-all-ipv4.expected --
 Prefix            NextHop             Attrs
-1.2.3.4/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [1.2.3.4/32]}}]
-10.96.50.104/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.104/32]}}]
-10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32]}}]
-172.16.1.1/32     fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32]}}]
+1.2.3.4/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [1.2.3.4/32:0]}}]
+10.96.50.104/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.104/32:0]}}]
+10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32:0]}}]
+172.16.1.1/32     fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [172.16.1.1/32:0]}}]
 -- gobgp-routes-all-ipv6.expected --
 Prefix                    NextHop             Attrs
-2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7ebc/128]}}]
-2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128]}}]
-fd00:1:2::3/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:1:2::3/128]}}]
-fd00:aa:bb::1/128         fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128]}}]
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7ebc/128:0]}}]
+2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128:0]}}]
+fd00:1:2::3/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:1:2::3/128:0]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:aa:bb::1/128:0]}}]
 -- gobgp-routes-svc2-cluster-external-ipv4.expected --
 Prefix            NextHop             Attrs
-1.2.3.4/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [1.2.3.4/32]}}]
-10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32]}}]
+1.2.3.4/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [1.2.3.4/32:0]}}]
+10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32:0]}}]
 -- gobgp-routes-svc2-cluster-external-ipv6.expected --
 Prefix                    NextHop             Attrs
-2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128]}}]
-fd00:1:2::3/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:1:2::3/128]}}]
+2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128:0]}}]
+fd00:1:2::3/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:1:2::3/128:0]}}]
 -- gobgp-routes-svc2-cluster-external-updated-ipv4.expected --
 Prefix            NextHop             Attrs
-10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32]}}]
-9.9.9.9/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [9.9.9.9/32]}}]
+10.96.50.105/32   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [10.96.50.105/32:0]}}]
+9.9.9.9/32        fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [9.9.9.9/32:0]}}]
 -- gobgp-routes-svc2-cluster-external-updated-ipv6.expected --
 Prefix                    NextHop             Attrs
-2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128]}}]
-fd00:9:9::9/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:9:9::9/128]}}]
+2001:db8:fd00::7eff/128   fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [2001:db8:fd00::7eff/128:0]}}]
+fd00:9:9::9/128           fd00::bb:cc:dd:10   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:10, NLRIs: [fd00:9:9::9/128:0]}}]
 -- gobgp-routes-empty.expected --
 Prefix   NextHop   Attrs

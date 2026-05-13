@@ -158,19 +158,19 @@ PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   
 fd00::aa:bb:dd:102   5.6.7.8    65001     ESTABLISHED    30          90         0
 -- gobgp-routes-99-ipv4.expected --
 Prefix          NextHop              Attrs
-10.244.0.0/24   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [10.244.0.0/24]}}]
+10.244.0.0/24   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [10.244.0.0/24:0]}}]
 -- gobgp-routes-99-ipv6.expected --
 Prefix            NextHop              Attrs
-fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64]}}]
+fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64:0]}}]
 -- gobgp-routes-101-ipv4.expected --
 Prefix          NextHop              Attrs
-10.244.0.0/24   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [10.244.0.0/24]}}]
+10.244.0.0/24   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [10.244.0.0/24:0]}}]
 -- gobgp-routes-101-ipv6.expected --
 Prefix            NextHop              Attrs
-fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64]}}]
+fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64:0]}}]
 -- gobgp-routes-other-ipv4.expected --
 Prefix          NextHop              Attrs
-10.244.0.0/24   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: no-export} {LargeCommunity: [ 65001:100:100]} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [10.244.0.0/24]}}]
+10.244.0.0/24   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: no-export} {LargeCommunity: [ 65001:100:100]} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [10.244.0.0/24:0]}}]
 -- gobgp-routes-other-ipv6.expected --
 Prefix            NextHop              Attrs
-fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: no-export} {LargeCommunity: [ 65001:100:100]} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64]}}]
+fd00:11:22::/64   fd00::aa:bb:dd:102   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: no-export} {LargeCommunity: [ 65001:100:100]} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:dd:102, NLRIs: [fd00:11:22::/64:0]}}]

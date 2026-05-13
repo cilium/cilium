@@ -346,29 +346,29 @@ Prefix            NextHop       Attrs
 172.16.1.2/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
 172.16.1.3/32     10.99.4.212   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.212}]
 -- gobgp-routes-aggregated-ipv6-1.expected --
-Prefix                   NextHop       Attrs
-2001:db8:fd00::100/120   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::100/120]}}]
-2001:db8:fd00::103/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::103/128]}}]
-fd00:aa:bb::/120         10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::/120]}}]
-fd00:aa:bb::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::3/128]}}]
-fd00:cc:dd::/120         10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::/120]}}]
-fd00:cc:dd::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::3/128]}}]
+Prefix                   NextHop              Attrs
+2001:db8:fd00::100/120   ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [2001:db8:fd00::100/120:0]}}]
+2001:db8:fd00::103/128   ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [2001:db8:fd00::103/128:0]}}]
+fd00:aa:bb::/120         ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:aa:bb::/120:0]}}]
+fd00:aa:bb::3/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:aa:bb::3/128:0]}}]
+fd00:cc:dd::/120         ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:cc:dd::/120:0]}}]
+fd00:cc:dd::3/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:cc:dd::3/128:0]}}]
 -- gobgp-routes-aggregated-ipv6-2.expected --
-Prefix                   NextHop       Attrs
-2001:db8:fd00::/64       10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::/64]}}]
-2001:db8:fd00::103/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::103/128]}}]
-fd00:aa:bb::/64          10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::/64]}}]
-fd00:aa:bb::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::3/128]}}]
-fd00:cc:dd::/64          10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::/64]}}]
-fd00:cc:dd::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::3/128]}}]
+Prefix                   NextHop              Attrs
+2001:db8:fd00::/64       ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [2001:db8:fd00::/64:0]}}]
+2001:db8:fd00::103/128   ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [2001:db8:fd00::103/128:0]}}]
+fd00:aa:bb::/64          ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:aa:bb::/64:0]}}]
+fd00:aa:bb::3/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:aa:bb::3/128:0]}}]
+fd00:cc:dd::/64          ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:cc:dd::/64:0]}}]
+fd00:cc:dd::3/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:cc:dd::3/128:0]}}]
 -- gobgp-routes-non-aggregated-ipv6.expected --
-Prefix                   NextHop       Attrs
-2001:db8:fd00::101/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::101/128]}}]
-2001:db8:fd00::102/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::102/128]}}]
-2001:db8:fd00::103/128   10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [2001:db8:fd00::103/128]}}]
-fd00:aa:bb::1/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::1/128]}}]
-fd00:aa:bb::2/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::2/128]}}]
-fd00:aa:bb::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:aa:bb::3/128]}}]
-fd00:cc:dd::1/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::1/128]}}]
-fd00:cc:dd::2/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::2/128]}}]
-fd00:cc:dd::3/128        10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: 10.99.4.212, NLRIs: [fd00:cc:dd::3/128]}}]
+Prefix                   NextHop              Attrs
+2001:db8:fd00::101/128   ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [2001:db8:fd00::101/128:0]}}]
+2001:db8:fd00::102/128   ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [2001:db8:fd00::102/128:0]}}]
+2001:db8:fd00::103/128   ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [2001:db8:fd00::103/128:0]}}]
+fd00:aa:bb::1/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:aa:bb::1/128:0]}}]
+fd00:aa:bb::2/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:aa:bb::2/128:0]}}]
+fd00:aa:bb::3/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:aa:bb::3/128:0]}}]
+fd00:cc:dd::1/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:cc:dd::1/128:0]}}]
+fd00:cc:dd::2/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:cc:dd::2/128:0]}}]
+fd00:cc:dd::3/128        ::ffff:10.99.4.212   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.4.212, NLRIs: [fd00:cc:dd::3/128:0]}}]

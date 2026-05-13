@@ -233,9 +233,9 @@ Prefix               NextHop     Attrs
 192.168.100.101/32   10.99.5.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.2} {Communities: 65001:100}]
 -- gobgp-routes-ipv4-ds.expected --
 Prefix               NextHop            Attrs
-192.168.100.100/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.100/32]}}]
-192.168.100.101/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.101/32]}}]
+192.168.100.100/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.100/32:0]}}]
+192.168.100.101/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.101/32:0]}}]
 -- gobgp-routes-ipv6.expected --
 Prefix             NextHop            Attrs
-fd00::aabb:1/128   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [fd00::aabb:1/128]}}]
-fd00::aabb:2/128   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [fd00::aabb:2/128]}}]
+fd00::aabb:1/128   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [fd00::aabb:1/128:0]}}]
+fd00::aabb:2/128   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [fd00::aabb:2/128:0]}}]

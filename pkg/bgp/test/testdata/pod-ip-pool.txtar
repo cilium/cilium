@@ -232,8 +232,8 @@ Prefix         NextHop     Attrs
 10.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: 65001:100}]
 10.30.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: 65001:100}]
 -- gobgp-routes-red-ipv6.expected --
-Prefix       NextHop     Attrs
-fd00::/120   10.99.2.2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: 10.99.2.2, NLRIs: [fd00::/120]}}]
+Prefix       NextHop            Attrs
+fd00::/120   ::ffff:10.99.2.2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.2.2, NLRIs: [fd00::/120:0]}}]
 -- gobgp-routes-green-partial-ipv4.expected --
 Prefix         NextHop     Attrs
 11.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
@@ -242,7 +242,7 @@ Prefix         NextHop     Attrs
 11.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
 11.30.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
 -- gobgp-routes-green-ipv6.expected --
-Prefix       NextHop     Attrs
-fd11::/120   10.99.2.2   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv6-unicast): {Nexthop: 10.99.2.2, NLRIs: [fd11::/120]}}]
+Prefix       NextHop            Attrs
+fd11::/120   ::ffff:10.99.2.2   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.2.2, NLRIs: [fd11::/120:0]}}]
 -- gobgp-routes-empty.expected --
 Prefix   NextHop   Attrs
