@@ -2,11 +2,11 @@
 
 ## cilium bgp peers
 
-Lists BGP peering state
+List BGP peers on Cilium
 
 ### Synopsis
 
-This command lists the BGP state from all nodes in the cluster
+List current state of all BGP peers configured in Cilium BGP Control Plane
 
 ```
 cilium bgp peers [flags]
@@ -16,10 +16,9 @@ cilium bgp peers [flags]
 
 ```
       --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
-  -c, --capabilities                Show all BGP peer capabilities in detail
+  -f, --format string               Format to write in (table or detailed) (default "table")
   -h, --help                        help for peers
       --node string                 Node from which BGP status will be fetched, omit to select all nodes
-  -o, --output string               Output format. One of: json, summary (default "summary")
       --wait-duration duration      Maximum time to wait for result, default 1 minute (default 1m0s)
 ```
 

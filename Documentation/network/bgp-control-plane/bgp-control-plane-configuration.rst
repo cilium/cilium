@@ -167,9 +167,11 @@ To verify that BGP sessions are established with the auto-discovered peers, use 
 .. code-block:: shell-session
 
     $ cilium bgp peers
-    Local AS   Peer AS   Peer Address         Session       Uptime   Family         Received   Advertised
-    65001      65000     fd00:10:0:1::1:179   established   21m55s   ipv4/unicast   2          2    
-                                                                     ipv6/unicast   2          2
+    Node                              Instance   Peer         Session State   Uptime   Family         Received   Accepted   Advertised
+    bgp-cplane-dev-mh-control-plane   65001      ipv6-65000   established     2m7s     ipv4-unicast   2          0          1
+                                                                                       ipv6-unicast   2          0          1
+    bgp-cplane-dev-mh-worker          65001      ipv6-65000   established     2m7s     ipv4-unicast   2          0          1
+                                                                                       ipv6-unicast   2          0          1
 
 Limitations
 ~~~~~~~~~~~

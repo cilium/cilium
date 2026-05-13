@@ -30,17 +30,20 @@ Cilium BGP state can be inspected via ``cilium bgp`` subcommand.
       cilium bgp [command]
 
     Available Commands:
-      peers       Lists BGP peering state
-      routes      Lists BGP routes
+      legacy      Access to deprecated REST API based BGP commands
+      peers       List BGP peers on Cilium
+      routes      List BGP routes on Cilium
 
     Flags:
       -h, --help   help for bgp
 
     Global Flags:
+          --as string                  Username to impersonate for the operation. User could be a regular user or a service account in a namespace.
+          --as-group stringArray       Group to impersonate for the operation, this flag can be repeated to specify multiple groups.
           --context string             Kubernetes configuration context
           --helm-release-name string   Helm release name (default "cilium")
           --kubeconfig string          Path to the kubeconfig file
-      -n, --namespace string           Namespace Cilium is running in (default "kube-system")
+      -n, --namespace string           Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var (default "kube-system")
 
     Use "cilium bgp [command] --help" for more information about a command.
 
@@ -56,11 +59,11 @@ In the following example, peering status is displayed for two nodes in the clust
 .. code-block:: shell-session
 
     # cilium bgp peers
-    Node                                   Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
-    bgp-cplane-dev-service-control-plane   65001      65000     fd00:10::1     established     33m26s   ipv4/unicast   2          2
-                                                                                                        ipv6/unicast   2          2
-    bgp-cplane-dev-service-worker          65001      65000     fd00:10::1     established     33m25s   ipv4/unicast   2          2
-                                                                                                        ipv6/unicast   2          2
+    Node                              Instance   Peer         Session State   Uptime     Family         Received   Accepted   Advertised
+    bgp-cplane-dev-mh-control-plane   65001      ipv6-65000   established     2h22m30s   ipv4-unicast   2          0          1
+                                                                                         ipv6-unicast   2          0          1
+    bgp-cplane-dev-mh-worker          65001      ipv6-65000   established     2h22m29s   ipv4-unicast   2          0          1
+                                                                                         ipv6-unicast   2          0          1
 
 
 Using this command, you can validate BGP session state is ``established`` and expected number
@@ -75,19 +78,19 @@ In the following example, the local BGP routing table for IPv4/Unicast address f
 
 .. code-block:: shell-session
 
-    # cilium bgp routes available ipv4 unicast
-    Node                                   VRouter   Prefix        NextHop   Age      Attrs
-    bgp-cplane-dev-service-control-plane   65001     10.1.0.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
-    bgp-cplane-dev-service-worker          65001     10.1.1.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
+    # cilium bgp routes loc ipv4 unicast -a
+    Node                              Instance   Prefix        NextHop   Best   Age        Attrs
+    bgp-cplane-dev-mh-control-plane   65001      10.1.0.0/24   0.0.0.0   true   2h23m53s   [{Origin: i}]
+    bgp-cplane-dev-mh-worker          65001      10.1.1.0/24   0.0.0.0   true   2h23m53s   [{Origin: i}]
 
 Similarly, you can inspect per peer advertisements using following command.
 
 .. code-block:: shell-session
 
-    # cilium bgp routes advertised ipv4 unicast
-    Node                                   VRouter   Peer         Prefix        NextHop          Age     Attrs
-    bgp-cplane-dev-service-control-plane   65001     fd00:10::1   10.1.0.0/24   fd00:10:0:1::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:1::2, NLRIs: [10.1.0.0/24]}}]
-    bgp-cplane-dev-service-worker          65001     fd00:10::1   10.1.1.0/24   fd00:10:0:2::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.1.1.0/24]}}]
+    # cilium bgp routes out ipv4 unicast -a
+    Node                              Instance   Peer         Prefix        NextHop          Age       Attrs
+    bgp-cplane-dev-mh-control-plane   65001      ipv6-65000   10.1.0.0/24   fd00:11:0:1::2   2h26m5s   [{Origin: i} {AsPath: 65001}]
+    bgp-cplane-dev-mh-worker          65001      ipv6-65000   10.1.1.0/24   fd00:11:0:2::2   2h26m5s   [{Origin: i} {AsPath: 65001}]
 
 
 You can validate the BGP attributes are advertised based on configured :ref:`CiliumBGPAdvertisement <bgp-adverts>` resources.
@@ -102,11 +105,11 @@ you can inspect installed BGP policies using cilium-dbg CLI from the Cilium agen
 
 .. code-block:: shell-session
 
-    /home/cilium# cilium-dbg bgp route-policies
-    VRouter   Policy Name          Type     Match Peers      Match Prefixes (Min..Max Len)   RIB Action   Path Actions
-    65001     65000-ipv4-PodCIDR   export   fd00:10::1/128   10.1.0.0/24 (24..24)            accept       AddCommunities: [65000:99]
-    65001     65000-ipv6-PodCIDR   export   fd00:10::1/128   fd00:10:1::/64 (64..64)         accept       AddCommunities: [65000:99]
-    65001     allow-local          import                                                    accept
+    /home/cilium# cilium-dbg shell -- bgp/route-policies
+    Instance   Policy Name               Type     Match Peers      Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+    65001      allow-local               import                                                                     accept       
+    65001      ipv6-65000-ipv4-PodCIDR   export   fd00:11:0:2::1                    10.1.1.0/24 (24..24)            accept       
+    65001      ipv6-65000-ipv6-PodCIDR   export   fd00:11:0:2::1                    fd00:10:1:1::/64 (64..64)       accept  
 
 CiliumBGPClusterConfig Status
 =============================
