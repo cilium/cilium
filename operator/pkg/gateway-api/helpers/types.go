@@ -25,6 +25,7 @@ const (
 	HTTPRouteKind         string = "httproutes"
 	GRPCRouteKind         string = "grpcroutes"
 	ReferenceGrantKind    string = "referencegrants"
+	BackendTLSPolicyKind  string = "backendtlspolicies"
 	TLSRouteKind          string = "tlsroutes"
 	TLSRouteListKind      string = "tlsroutelists"
 	ServiceImportKind     string = "serviceimports"
