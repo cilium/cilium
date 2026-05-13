@@ -1,0 +1,57 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: cors-wildcard-methods-headers
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - "*"
+        allowMethods: ["*"]
+        allowHeaders: ["*"]
+        allowCredentials: true
+    matches:
+    - path:
+        type: PathPrefix
+        value: /cors-wildcard-methods-headers
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+  - filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - "*"
+        allowMethods: ["*"]
+        allowHeaders: ["*"]
+        allowCredentials: false
+    matches:
+    - path:
+        type: PathPrefix
+        value: /cors-wildcard-methods-headers-unauth
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2026-05-12T09:41:00Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-05-12T09:41:00Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

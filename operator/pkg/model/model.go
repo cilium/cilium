@@ -281,6 +281,28 @@ type HTTPRequestMirror struct {
 	Denominator int32 `json:"denominator,omitempty"`
 }
 
+// HTTPCORSFilter defines configuration for the CORS filter.
+type HTTPCORSFilter struct {
+	// AllowOrigins indicates whether the response can be shared with
+	// requested resource from the given `Origin`.
+	AllowOrigins []string `json:"allowOrigins,omitempty"`
+	// AllowCredentials indicates whether the actual cross-origin request
+	// allows to include credentials.
+	AllowCredentials bool `json:"allowCredentials,omitempty"`
+	// AllowMethods indicates which HTTP methods are supported
+	// for accessing the requested resource.
+	AllowMethods []string `json:"allowMethods,omitempty"`
+	// AllowHeaders indicates which HTTP request headers are supported
+	// for accessing the requested resource.
+	AllowHeaders []string `json:"allowHeaders,omitempty"`
+	// ExposeHeaders indicates which HTTP response headers can be exposed
+	// to client-side scripts in response to a cross-origin request.
+	ExposeHeaders []string `json:"exposeHeaders,omitempty"`
+	// MaxAge indicates the duration (in seconds) for the client to cache
+	// the results of a "preflight" request.
+	MaxAge int32 `json:"maxAge,omitempty"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -327,6 +349,9 @@ type HTTPRoute struct {
 
 	// Retry holds the retry configuration for a route.
 	Retry *HTTPRetry `json:"retry,omitempty"`
+
+	// CORS holds cross-origin resource sharing filters for a route.
+	CORS *HTTPCORSFilter `json:"cors,omitempty"`
 }
 
 type BackendHTTPFilter struct {
@@ -551,6 +576,19 @@ func (m *Model) HTTPPorts() []uint32 {
 		ports = append(ports, l.Port)
 	}
 	return slices.SortedUnique(ports)
+}
+
+// IsCORSFilterConfigured returns true if any HTTP route has a configured CORS filter.
+func (m *Model) IsCORSFilterConfigured() bool {
+	for _, h := range m.HTTP {
+		for _, r := range h.Routes {
+			if r.CORS != nil {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // TLSPassthroughPorts returns a list of unique ports for all TLS Passthrough listeners.
