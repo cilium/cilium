@@ -58,12 +58,14 @@ const (
 	// encapsulation.
 	//
 	// https://github.com/torvalds/linux/blob/v5.12/drivers/net/wireguard/device.c#L262:
+	// https://github.com/torvalds/linux/blob/v5.12/drivers/net/wireguard/send.c#L141
 	//      MESSAGE_MINIMUM_LENGTH:    32B
 	//      Outer IPv4 or IPv6 header: 40B
 	//      Outer UDP header:           8B
+	//      Maximum padding:           15B
 	//                                 ---
 	//      Total extra bytes:         80B
-	WireguardOverhead = 80
+	WireguardOverhead = 95
 
 	// IPv6MinMTU is the minimum MTU required for IPv6 to function on a
 	// network interface, as defined in RFC 8200 section 5. The Linux kernel
