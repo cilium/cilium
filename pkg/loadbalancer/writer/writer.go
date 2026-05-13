@@ -442,8 +442,18 @@ func matchesFrontend(be *loadbalancer.Backend, fe *loadbalancer.Frontend) bool {
 }
 
 // topologyPreferenceCandidate reports whether a backend should participate in
-// same-node and same-zone preference decisions.
+// same-node and same-zone preference decisions. This mirrors kube-proxy's
+// behaviour where topology hint validation considers Ready endpoints only.
 func (w *Writer) topologyPreferenceCandidate(svc *loadbalancer.Service, be *loadbalancer.Backend) bool {
+	// Terminating backends are excluded from hint computation by the
+	// EndpointSlice controller, so they would always lack hints. Including
+	// them here would either spuriously trip the missing-hints safeguard or
+	// pin traffic to a draining Pod.
+	if be.State == loadbalancer.BackendStateTerminating ||
+		be.State == loadbalancer.BackendStateTerminatingNotServing {
+		return false
+	}
+
 	if w.isServiceHealthCheckedFunc == nil || !w.isServiceHealthCheckedFunc(svc) {
 		return true
 	}
@@ -570,8 +580,11 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 					continue
 				}
 			}
-			if checkZoneHints && !slices.Contains(be.Zone.ForZones, *thisZone) {
-				continue
+			if checkZoneHints {
+				if be.Zone == nil ||
+					!slices.Contains(be.Zone.ForZones, *thisZone) {
+					continue
+				}
 			}
 			if !yield(be, rev) {
 				return

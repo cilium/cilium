@@ -912,3 +912,139 @@ func TestWriter_SelectBackends_PreferCloseFallsBackFromUnhealthySameZone(t *test
 	assert.Contains(t, addresses, localAddr)
 	assert.Contains(t, addresses, remoteAddr)
 }
+
+// TestWriter_SelectBackends_PreferCloseIgnoresTerminatingForMissingHints verifies
+// that backends in BackendStateTerminating / BackendStateTerminatingNotServing are
+// excluded from the missing-hints safeguard. The EndpointSlice controller does not
+// compute zone hints for non-Ready endpoints, so without this exclusion a single
+// terminating Pod would disable topology-aware routing for the entire Service.
+func TestWriter_SelectBackends_PreferCloseIgnoresTerminatingForMissingHints(t *testing.T) {
+	p := fixture(t)
+	p.Writer.config.EnableServiceTopology = true
+	p.LocalNodeStore.Update(func(n *node.LocalNode) {
+		if n.Labels == nil {
+			n.Labels = map[string]string{}
+		}
+		n.Labels[corev1.LabelTopologyZone] = "zone-a"
+	})
+
+	svcName := loadbalancer.NewServiceName("test", "svc")
+	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1), 80, loadbalancer.ScopeExternal)
+	activeLocalAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(2), 8080, loadbalancer.ScopeExternal)
+	activeRemoteAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(3), 8080, loadbalancer.ScopeExternal)
+	terminatingAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(4), 8080, loadbalancer.ScopeExternal)
+	terminatingNoZoneAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(5), 8080, loadbalancer.ScopeExternal)
+
+	svc := &loadbalancer.Service{
+		Name:                svcName,
+		Source:              source.Kubernetes,
+		TrafficDistribution: loadbalancer.TrafficDistributionPreferClose,
+	}
+	fe := &loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     feAddr,
+			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: feAddr.Port(),
+		},
+		Service: svc,
+	}
+	backends := iter.Seq2[*loadbalancer.Backend, statedb.Revision](func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		for i, be := range []*loadbalancer.Backend{
+			{
+				Address: activeLocalAddr,
+				State:   loadbalancer.BackendStateActive,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-a", ForZones: []string{"zone-a"}},
+			},
+			{
+				Address: activeRemoteAddr,
+				State:   loadbalancer.BackendStateActive,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-b", ForZones: []string{"zone-b"}},
+			},
+			{
+				// Terminating Pod whose endpoint kept its zone label but has no
+				// ForZones hint. Pre-fix this would have set missingHints=true and
+				// disabled topology routing for the whole Service.
+				Address: terminatingAddr,
+				State:   loadbalancer.BackendStateTerminating,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-c"},
+			},
+			{
+				// Terminating Pod on a node without a zone label. Pre-fix the
+				// emit loop would have nil-dereferenced be.Zone.ForZones.
+				Address: terminatingNoZoneAddr,
+				State:   loadbalancer.BackendStateTerminatingNotServing,
+			},
+		} {
+			if !yield(be, statedb.Revision(i+1)) {
+				return
+			}
+		}
+	})
+
+	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
+
+	// Topology safeguard must remain engaged: only the zone-a Active backend
+	// should be selected. Terminating backends are filtered from primary traffic
+	// because their (possibly empty / nil) ForZones cannot match the local zone.
+	require.Len(t, selected, 1)
+	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
+}
+
+// TestWriter_SelectBackends_PreferCloseFallsBackWhenOnlyTerminating verifies that
+// when every backend is terminating, the safeguard reports no candidates and we
+// fall back to the default behaviour (yield all backends), preserving graceful
+// drain semantics. The nil-Zone backend must not panic.
+func TestWriter_SelectBackends_PreferCloseFallsBackWhenOnlyTerminating(t *testing.T) {
+	p := fixture(t)
+	p.Writer.config.EnableServiceTopology = true
+	p.LocalNodeStore.Update(func(n *node.LocalNode) {
+		if n.Labels == nil {
+			n.Labels = map[string]string{}
+		}
+		n.Labels[corev1.LabelTopologyZone] = "zone-a"
+	})
+
+	svcName := loadbalancer.NewServiceName("test", "svc")
+	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1), 80, loadbalancer.ScopeExternal)
+	terminatingAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(2), 8080, loadbalancer.ScopeExternal)
+	terminatingNoZoneAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(3), 8080, loadbalancer.ScopeExternal)
+
+	svc := &loadbalancer.Service{
+		Name:                svcName,
+		Source:              source.Kubernetes,
+		TrafficDistribution: loadbalancer.TrafficDistributionPreferClose,
+	}
+	fe := &loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     feAddr,
+			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: feAddr.Port(),
+		},
+		Service: svc,
+	}
+	backends := iter.Seq2[*loadbalancer.Backend, statedb.Revision](func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		for i, be := range []*loadbalancer.Backend{
+			{
+				Address: terminatingAddr,
+				State:   loadbalancer.BackendStateTerminating,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-a"},
+			},
+			{
+				Address: terminatingNoZoneAddr,
+				State:   loadbalancer.BackendStateTerminating,
+			},
+		} {
+			if !yield(be, statedb.Revision(i+1)) {
+				return
+			}
+		}
+	})
+
+	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
+	require.Len(t, selected, 2)
+	addresses := []loadbalancer.L3n4Addr{selected[0].Address, selected[1].Address}
+	assert.Contains(t, addresses, terminatingAddr)
+	assert.Contains(t, addresses, terminatingNoZoneAddr)
+}
