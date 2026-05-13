@@ -229,25 +229,25 @@ PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   
 fd00::bb:cc:dd:102   5.6.7.8    65001     ESTABLISHED    30          90         0
 -- gobgp-routes-99-ipv4.expected --
 Prefix            NextHop              Attrs
-10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32]}}]
-172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32]}}]
+10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32:0]}}]
+172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32:0]}}]
 -- gobgp-routes-99-ipv6.expected --
 Prefix                    NextHop              Attrs
-2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128]}}]
-fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128]}}]
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128:0]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 99} {Communities: 65000:99} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128:0]}}]
 -- gobgp-routes-101-ipv4.expected --
 Prefix            NextHop              Attrs
-10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32]}}]
-172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32]}}]
+10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32:0]}}]
+172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32:0]}}]
 -- gobgp-routes-101-ipv6.expected --
 Prefix                    NextHop              Attrs
-2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128]}}]
-fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128]}}]
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128:0]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 101} {Communities: 65000:101} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128:0]}}]
 -- gobgp-routes-overlapping-ipv4.expected --
 Prefix            NextHop              Attrs
-10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32]}}]
-172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32]}}]
+10.96.50.104/32   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [10.96.50.104/32:0]}}]
+172.16.1.1/32     fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv4-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [172.16.1.1/32:0]}}]
 -- gobgp-routes-overlapping-ipv6.expected --
 Prefix                    NextHop              Attrs
-2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128]}}]
-fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128]}}]
+2001:db8:fd00::7ebc/128   fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [2001:db8:fd00::7ebc/128:0]}}]
+fd00:aa:bb::1/128         fd00::bb:cc:dd:102   [{Origin: i} {AsPath: } {LocalPref: 102} {Communities: 65000:102, 65000:98} {MpReach(ipv6-unicast): {Nexthop: fd00::bb:cc:dd:102, NLRIs: [fd00:aa:bb::1/128:0]}}]
