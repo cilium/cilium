@@ -191,5 +191,5 @@ Prefix          NextHop       Attrs
 172.16.1.1/32   10.99.0.136   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.136}]
 -- gobgp-routes-v6.expected --
 Prefix          NextHop              Attrs
-10.244.0.0/24   fd00::aa:bb:cc:136   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:cc:136, NLRIs: [10.244.0.0/24]}}]
-172.16.1.1/32   fd00::aa:bb:cc:136   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:cc:136, NLRIs: [172.16.1.1/32]}}]
+10.244.0.0/24   fd00::aa:bb:cc:136   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:cc:136, NLRIs: [10.244.0.0/24:0]}}]
+172.16.1.1/32   fd00::aa:bb:cc:136   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:cc:136, NLRIs: [172.16.1.1/32:0]}}]
