@@ -112,29 +112,32 @@ static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
-	const struct remote_endpoint_info *info = NULL;
+	const struct remote_endpoint_info *info;
 	union v6addr *src;
 
-	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(real_sec_identity)) {
-		src = (union v6addr *) &ip6->saddr;
-		info = lookup_ip6_remote_endpoint(src, 0);
-		if (info) {
-			*ipcache_sec_identity = info->sec_identity;
+	/* Always populate ipcache_sec_identity. The host firewall egress
+	 * gate needs to know whether the source IP is a host IP,
+	 * independently of the identity carried in the packet mark.
+	 */
+	src = (union v6addr *) &ip6->saddr;
+	info = lookup_ip6_remote_endpoint(src, 0);
+	if (info)
+		*ipcache_sec_identity = info->sec_identity;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   ((__u32 *)src)[3], *ipcache_sec_identity);
 
-			/* When SNAT is enabled on traffic ingressing
-			 * into Cilium, all traffic from the world will
-			 * have a source IP of the host. It will only
-			 * actually be from the host if "real_sec_identity"
-			 * (passed into this function) reports the src as
-			 * the host. So we can ignore the ipcache if it
-			 * reports the source as HOST_ID.
-			 */
-			if (*ipcache_sec_identity != HOST_ID)
-				real_sec_identity = *ipcache_sec_identity;
-		}
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *)src)[3], real_sec_identity);
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(real_sec_identity) && info) {
+		/* When SNAT is enabled on traffic ingressing
+		 * into Cilium, all traffic from the world will
+		 * have a source IP of the host. It will only
+		 * actually be from the host if "real_sec_identity"
+		 * (passed into this function) reports the src as
+		 * the host. So we can ignore the ipcache if it
+		 * reports the source as HOST_ID.
+		 */
+		if (*ipcache_sec_identity != HOST_ID)
+			real_sec_identity = *ipcache_sec_identity;
 	}
 
 	return real_sec_identity;
@@ -563,27 +566,30 @@ static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
-	const struct remote_endpoint_info *info = NULL;
+	const struct remote_endpoint_info *info;
+
+	/* Always populate ipcache_sec_identity. The host firewall egress
+	 * gate needs to know whether the source IP is a host IP,
+	 * independently of the identity carried in the packet mark.
+	 */
+	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+	if (info != NULL)
+		*ipcache_sec_identity = info->sec_identity;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->saddr, *ipcache_sec_identity);
 
 	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(real_sec_identity)) {
-		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-		if (info != NULL) {
-			*ipcache_sec_identity = info->sec_identity;
-
-			/* When SNAT is enabled on traffic ingressing
-			 * into Cilium, all traffic from the world will
-			 * have a source IP of the host. It will only
-			 * actually be from the host if "real_sec_identity"
-			 * (passed into this function) reports the src as
-			 * the host. So we can ignore the ipcache if it
-			 * reports the source as HOST_ID.
-			 */
-			if (*ipcache_sec_identity != HOST_ID)
-				real_sec_identity = *ipcache_sec_identity;
-		}
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   ip4->saddr, real_sec_identity);
+	if (identity_is_reserved(real_sec_identity) && info != NULL) {
+		/* When SNAT is enabled on traffic ingressing
+		 * into Cilium, all traffic from the world will
+		 * have a source IP of the host. It will only
+		 * actually be from the host if "real_sec_identity"
+		 * (passed into this function) reports the src as
+		 * the host. So we can ignore the ipcache if it
+		 * reports the source as HOST_ID.
+		 */
+		if (*ipcache_sec_identity != HOST_ID)
+			real_sec_identity = *ipcache_sec_identity;
 	}
 
 	return real_sec_identity;

@@ -344,6 +344,7 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 	tests := []testBuilder{
 		hostFirewallIngress{},
 		hostFirewallEgress{},
+		hostFirewallL7Ingress{},
 		clientEgressL7TlsDenyWithoutHeaders{},
 		clientEgressL7TlsHeaders{},
 		egresstoSpecificNamespace{},
