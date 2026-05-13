@@ -203,12 +203,12 @@ func (a *Agent) Stop(cell.HookContext) error {
 	return a.wgClient.Close()
 }
 
-// Name implements datapath.NodeHandler.
+// Name implements node.Handler.
 func (a *Agent) Name() string {
 	return "wireguard-agent"
 }
 
-// Returns true when enabled. Implements [types.WireguardAgent].
+// Returns true when enabled. Implements [types.Agent].
 func (a *Agent) Enabled() bool {
 	return a.config.Enabled()
 }
@@ -272,9 +272,19 @@ func (a *Agent) init() error {
 		_ = netlink.LinkDel(link)
 	}
 
+	// Best-effort MTU computation: account for WireGuard overhead including padding.
+	// Without this, the kernel defaults to 1500 - 80 = 1420, ignoring alignment padding.
+	// Worst case we set 1500 - 95 = 1405; the mtuReconciler will adjust once the MTU table is populated.
+	deviceMTU := mtu.EthernetMTU
+	if mtuRoute, _, _, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4)); found {
+		deviceMTU = mtuRoute.DeviceMTU
+	}
+	linkMTU := deviceMTU - mtu.WireguardOverhead
+
 	link = &netlink.Wireguard{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: types.IfaceName,
+			MTU:  linkMTU,
 		},
 	}
 
