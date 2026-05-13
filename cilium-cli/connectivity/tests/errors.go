@@ -63,7 +63,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
-		hubbleQueueFull, reflectPanic, svcNotFound, gobgpWarnings,
+		hubbleQueueFull, reflectPanic, svcNotFound, gobgpv3Warnings, gobgpNotification, gobgpNoMatchingWithdrawPath,
 		endpointMapDeleteFailed, etcdReconnection, failedToRetrieveRemoteClusterCfg, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
@@ -457,7 +457,9 @@ const (
 	hubbleQueueFull                  stringMatcher = "hubble events queue is full"                                           // Because we run without monitor aggregation
 	reflectPanic                     stringMatcher = "reflect.Value.SetUint using value obtained using unexported field"     // cf. https://github.com/cilium/cilium/issues/33766
 	svcNotFound                      stringMatcher = "service not found"                                                     // cf. https://github.com/cilium/cilium/issues/35768
-	gobgpWarnings                    stringMatcher = "component=gobgp.BgpServerInstance"                                     // cf. https://github.com/cilium/cilium/issues/35799
+	gobgpv3Warnings                  stringMatcher = "component=gobgp.BgpServerInstance"                                     // cf. https://github.com/cilium/cilium/issues/35799
+	gobgpNotification                stringMatcher = "sent notification"                                                     // cf. https://github.com/cilium/cilium/issues/35799
+	gobgpNoMatchingWithdrawPath      stringMatcher = "No matching path for withdraw found"                                   // cf. https://github.com/cilium/cilium/issues/35799
 	etcdReconnection                 stringMatcher = "Error observed on etcd connection, reconnecting etcd"                  // cf. https://github.com/cilium/cilium/issues/35865
 	failedToRetrieveRemoteClusterCfg stringMatcher = "failed to retrieve cluster configuration: not found"                   // Possible race condition in KVStoreMesh mode
 	epRestoreMissingState            stringMatcher = "Couldn't find state, ignoring endpoint"                                // cf. https://github.com/cilium/cilium/issues/35869
