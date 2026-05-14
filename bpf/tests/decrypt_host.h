@@ -110,9 +110,8 @@ int check(const struct __ctx_buff *ctx, bool ipv4)
 
 	assert(*status_code == CTX_ACT_OK);
 
-	assert(ctx_is_decrypt(ctx));
-
 #ifdef ENABLE_WIREGUARD
+	assert(!ctx_is_decrypt(ctx));
 	if (ipv4) {
 		ASSERT_CTX_BUF_OFF("v4_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
 				   v4_wireguard, sizeof(v4_wireguard));
@@ -122,6 +121,7 @@ int check(const struct __ctx_buff *ctx, bool ipv4)
 	}
 #endif
 #ifdef ENABLE_IPSEC
+	assert(ctx_is_decrypt(ctx));
 	if (ipv4) {
 		ASSERT_CTX_BUF_OFF("v4_ipsec_pkt_ok", "Ether", ctx, sizeof(__u32),
 				   v4_ipsec, sizeof(v4_ipsec));
