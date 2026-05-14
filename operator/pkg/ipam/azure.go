@@ -6,8 +6,6 @@
 package ipam
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -15,7 +13,6 @@ import (
 	"github.com/spf13/pflag"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
-	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/azure"
 	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -73,11 +70,7 @@ type azureParams struct {
 }
 
 func startAzureAllocator(p azureParams) {
-	if p.DaemonCfg.IPAM != ipamOption.IPAMAzure {
-		return
-	}
-
-	allocator := &azure.AllocatorAzure{
+	alloc := &azure.AllocatorAzure{
 		AzureSubscriptionID:         p.AzureCfg.AzureSubscriptionID,
 		AzureResourceGroup:          p.AzureCfg.AzureResourceGroup,
 		AzureUserAssignedIdentityID: p.AzureCfg.AzureUserAssignedIdentityID,
@@ -85,27 +78,16 @@ func startAzureAllocator(p azureParams) {
 		ParallelAllocWorkers:        p.Cfg.ParallelAllocWorkers,
 		LimitIPAMAPIBurst:           p.Cfg.LimitIPAMAPIBurst,
 		LimitIPAMAPIQPS:             p.Cfg.LimitIPAMAPIQPS,
+		AzureMetrics:                p.AzureMetrics,
 	}
 
-	p.Lifecycle.Append(
-		cell.Hook{
-			OnStart: func(ctx cell.HookContext) error {
-				if err := allocator.Init(ctx, p.Logger); err != nil {
-					return fmt.Errorf("unable to init Azure allocator: %w", err)
-				}
-
-				p.JobGroup.Add(p.NodeWatcherFactory(
-					func(ctx context.Context) (allocatorTypes.NodeEventHandler, error) {
-						nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.AzureMetrics, p.IPAMMetrics)
-						if err != nil {
-							return nil, fmt.Errorf("unable to start Azure allocator: %w", err)
-						}
-						return nm, nil
-					},
-				))
-
-				return nil
-			},
-		},
-	)
+	startCloudAllocator(cloudAllocatorBootstrap{
+		Logger:             p.Logger,
+		Lifecycle:          p.Lifecycle,
+		JobGroup:           p.JobGroup,
+		Clientset:          p.Clientset,
+		IPAMMetrics:        p.IPAMMetrics,
+		DaemonCfg:          p.DaemonCfg,
+		NodeWatcherFactory: p.NodeWatcherFactory,
+	}, "Azure", ipamOption.IPAMAzure, alloc)
 }

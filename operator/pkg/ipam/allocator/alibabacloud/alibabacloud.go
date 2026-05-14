@@ -34,6 +34,7 @@ type AllocatorAlibabaCloud struct {
 	ParallelAllocWorkers         int64
 	LimitIPAMAPIBurst            int
 	LimitIPAMAPIQPS              float64
+	AlibabaMetrics               alibabacloudAPI.MetricsAPI
 
 	rootLogger *slog.Logger
 	logger     *slog.Logger
@@ -42,7 +43,7 @@ type AllocatorAlibabaCloud struct {
 
 // Init sets up ENI limits based on given options
 // Credential ref https://github.com/aliyun/alibaba-cloud-sdk-go/blob/master/docs/2-Client-EN.md
-func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger, aMetrics alibabacloudAPI.MetricsAPI) error {
+func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 
@@ -76,7 +77,7 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger, a
 	vpcClient.GetConfig().WithScheme("HTTPS")
 	ecsClient.GetConfig().WithScheme("HTTPS")
 
-	a.client = alibabacloudAPI.NewClient(vpcClient, ecsClient, aMetrics, a.LimitIPAMAPIQPS,
+	a.client = alibabacloudAPI.NewClient(vpcClient, ecsClient, a.AlibabaMetrics, a.LimitIPAMAPIQPS,
 		a.LimitIPAMAPIBurst, operatorOption.Config.IPAMInstanceTags)
 
 	if err := limits.UpdateFromAPI(ctx, a.client); err != nil {
