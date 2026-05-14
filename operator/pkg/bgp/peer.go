@@ -156,24 +156,29 @@ func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, health c
 
 			// The resource doesn't exist anymore which is fine.
 			if !exists {
+				removed.Insert(k)
 				continue
 			}
 
 			updateStatus := false
 			for _, cond := range v2.AllBGPPeerConfigConditions {
-				if removed := meta.RemoveStatusCondition(&pc.Status.Conditions, cond); removed {
+				if meta.RemoveStatusCondition(&pc.Status.Conditions, cond) {
 					updateStatus = true
 				}
 			}
 
-			if updateStatus {
-				if _, err := u.cs.CiliumV2().CiliumBGPPeerConfigs().UpdateStatus(ctx, pc, meta_v1.UpdateOptions{}); err != nil {
-					// Failed to update status. Skip and retry.
-					continue
-				} else {
-					removed.Insert(k)
-				}
+			if !updateStatus {
+				// No managed conditions are present on this resource,
+				// so there is nothing to clean up.
+				removed.Insert(k)
+				continue
 			}
+
+			if _, err := u.cs.CiliumV2().CiliumBGPPeerConfigs().UpdateStatus(ctx, pc, meta_v1.UpdateOptions{}); err != nil {
+				// Failed to update status. Skip and retry.
+				continue
+			}
+			removed.Insert(k)
 		}
 
 		remaining = remaining.Difference(removed)
