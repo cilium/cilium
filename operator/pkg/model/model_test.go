@@ -136,3 +136,58 @@ func TestModel_IsCORSFilterConfigured(t *testing.T) {
 		})
 	}
 }
+
+func TestModel_GRPCWebTranslationEnabled(t *testing.T) {
+	tests := []struct {
+		name  string
+		model *Model
+		want  bool
+	}{
+		{
+			name: "nil model",
+			want: true,
+		},
+		{
+			name:  "empty model",
+			model: &Model{},
+			want:  true,
+		},
+		{
+			name: "nil grpc-web translation config",
+			model: &Model{
+				HTTPOptions: &HTTPOptions{},
+			},
+			want: true,
+		},
+		{
+			name: "enabled",
+			model: &Model{
+				HTTPOptions: &HTTPOptions{
+					GRPCWebTranslation: &GRPCWebTranslationConfig{
+						Enabled: true,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "disabled",
+			model: &Model{
+				HTTPOptions: &HTTPOptions{
+					GRPCWebTranslation: &GRPCWebTranslationConfig{
+						Enabled: false,
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.model.GRPCWebTranslationEnabled(); got != tt.want {
+				t.Errorf("Model.GRPCWebTranslationEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

@@ -119,6 +119,14 @@ up in related HTTPRoutes.
     NAME         HOSTNAMES   AGE
     grpc-route               116s
 
+gRPC-web Translation
+====================
+
+Cilium Gateway API enables Envoy's gRPC-web to gRPC request translation by default. To pass gRPC-web requests through
+unchanged for all Gateways using a parameterized GatewayClass, set ``httpOptions.grpcWebTranslation.enabled`` to ``false`` in the
+``CiliumGatewayClassConfig`` referenced by the ``GatewayClass``. See :ref:`gs_gateway_disable_grpc_web_translation`
+for an example.
+
 Update ``/etc/hosts`` with the host names and IP address of the Gateway:
 
 .. code-block:: shell-session

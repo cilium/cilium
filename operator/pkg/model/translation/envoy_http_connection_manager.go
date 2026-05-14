@@ -85,23 +85,25 @@ func (i *cecTranslator) httpConnectionManagerMutators() []HttpConnectionManagerM
 }
 
 func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*httpConnectionManagerv3.HttpFilter {
-	hf := []*httpConnectionManagerv3.HttpFilter{
-		{
+	hf := []*httpConnectionManagerv3.HttpFilter{}
+	if m.GRPCWebTranslationEnabled() {
+		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
 			Name: "envoy.filters.http.grpc_web",
 			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(&grpcWebv3.GrpcWeb{}),
 			},
-		},
-		{
-			Name: "envoy.filters.http.grpc_stats",
-			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
-				TypedConfig: toAny(&grpcStatsv3.FilterConfig{
-					EmitFilterState:     true,
-					EnableUpstreamStats: true,
-				}),
-			},
-		},
+		})
 	}
+
+	hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+		Name: "envoy.filters.http.grpc_stats",
+		ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+			TypedConfig: toAny(&grpcStatsv3.FilterConfig{
+				EmitFilterState:     true,
+				EnableUpstreamStats: true,
+			}),
+		},
+	})
 
 	for _, af := range i.getUniqueAuthFilters(m) {
 		hf = append(hf, buildExtAuthzHTTPFilter(af))

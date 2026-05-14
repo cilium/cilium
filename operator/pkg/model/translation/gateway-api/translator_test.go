@@ -34,6 +34,7 @@ func Test_translator_Translate(t *testing.T) {
 	}{
 		// Gateway API related tests
 		{name: "basic_http_listener"},
+		{name: "basic_http_listener_without_grpc_web_translation"},
 		{name: "basic_http_listener_nodeport"},
 		{name: "basic_http_listener_external_traffic_policy"},
 		{name: "basic_http_listener_load_balancer"},
