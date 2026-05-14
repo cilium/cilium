@@ -41,6 +41,7 @@ type AllocatorAWS struct {
 	ParallelAllocWorkers         int64
 	LimitIPAMAPIBurst            int
 	LimitIPAMAPIQPS              float64
+	AWSMetrics                   ec2shim.MetricsAPI
 
 	rootLogger *slog.Logger
 	logger     *slog.Logger
@@ -85,7 +86,7 @@ func (a *AllocatorAWS) initENIGarbageCollectionTags(ctx context.Context, cfg aws
 }
 
 // Init sets up ENI limits based on given options
-func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, aMetrics ec2shim.MetricsAPI) error {
+func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 
@@ -115,7 +116,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, aMetrics e
 		}
 	}
 
-	a.client = ec2shim.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), aMetrics, a.LimitIPAMAPIQPS,
+	a.client = ec2shim.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), a.AWSMetrics, a.LimitIPAMAPIQPS,
 		a.LimitIPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
 		a.AWSUsePrimaryAddress, a.AWSMaxResultsPerCall)
 
