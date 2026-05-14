@@ -15,7 +15,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 cd "${root_dir}"
 
 # shellcheck disable=SC2207
-used_by=($(git grep -l "${image}:" .github/actions/; find . -type f -name Dockerfile -print0 | xargs -0 git grep -l CILIUM_RUNTIME_IMAGE= | sort -u))
+used_by=($(git grep -l "${image}:" .github/actions/; find . -type f -name 'Dockerfile*' -print0 | xargs -0 git grep -l CILIUM_RUNTIME_IMAGE= | sort -u))
 
 for i in "${used_by[@]}" ; do
   sed -E "s#${image}:.*#${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
