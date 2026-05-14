@@ -72,6 +72,11 @@ type AzureInterface struct {
 	// +optional
 	ID string `json:"id,omitempty"`
 
+	// IP is the primary IP of the interface
+	//
+	// +optional
+	IP string `json:"ip,omitempty"`
+
 	// Name is the name of the interface
 	//
 	// +optional
@@ -87,8 +92,10 @@ type AzureInterface struct {
 	// +optional
 	State string `json:"state,omitempty"`
 
-	// Addresses is the list of all IPs associated with the interface,
-	// including all secondary addresses
+	// Addresses is the list of secondary IPs associated with the interface.
+	// The primary IP is tracked separately in the IP field, but is also
+	// included here when the operator is configured to expose it for
+	// allocation.
 	//
 	// +optional
 	Addresses []AzureAddress `json:"addresses,omitempty"`
