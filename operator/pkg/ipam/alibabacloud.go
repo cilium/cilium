@@ -6,8 +6,6 @@
 package ipam
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -15,7 +13,6 @@ import (
 	"github.com/spf13/pflag"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
-	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/alibabacloud"
 	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -67,37 +64,22 @@ type alibabaParams struct {
 }
 
 func startAlibabaAllocator(p alibabaParams) {
-	if p.DaemonCfg.IPAM != ipamOption.IPAMAlibabaCloud {
-		return
-	}
-
-	allocator := &alibabacloud.AllocatorAlibabaCloud{
+	alloc := &alibabacloud.AllocatorAlibabaCloud{
 		AlibabaCloudVPCID:            p.AlibabaCfg.AlibabaCloudVPCID,
 		AlibabaCloudReleaseExcessIPs: p.AlibabaCfg.AlibabaCloudReleaseExcessIPs,
 		ParallelAllocWorkers:         p.Cfg.ParallelAllocWorkers,
 		LimitIPAMAPIBurst:            p.Cfg.LimitIPAMAPIBurst,
 		LimitIPAMAPIQPS:              p.Cfg.LimitIPAMAPIQPS,
+		AlibabaMetrics:               p.AlibabaMetrics,
 	}
 
-	p.Lifecycle.Append(
-		cell.Hook{
-			OnStart: func(ctx cell.HookContext) error {
-				if err := allocator.Init(ctx, p.Logger, p.AlibabaMetrics); err != nil {
-					return fmt.Errorf("unable to init AlibabaCloud allocator: %w", err)
-				}
-
-				p.JobGroup.Add(p.NodeWatcherFactory(
-					func(ctx context.Context) (allocatorTypes.NodeEventHandler, error) {
-						nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.IPAMMetrics)
-						if err != nil {
-							return nil, fmt.Errorf("unable to start AlibabaCloud allocator: %w", err)
-						}
-						return nm, nil
-					},
-				))
-
-				return nil
-			},
-		},
-	)
+	startCloudAllocator(cloudAllocatorBootstrap{
+		Logger:             p.Logger,
+		Lifecycle:          p.Lifecycle,
+		JobGroup:           p.JobGroup,
+		Clientset:          p.Clientset,
+		IPAMMetrics:        p.IPAMMetrics,
+		DaemonCfg:          p.DaemonCfg,
+		NodeWatcherFactory: p.NodeWatcherFactory,
+	}, "AlibabaCloud", ipamOption.IPAMAlibabaCloud, alloc)
 }
