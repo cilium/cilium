@@ -1425,6 +1425,12 @@
                     },
                     "method": {
                       "type": "string"
+                    },
+                    "privateKey": {
+                      "type": "object"
+                    },
+                    "subject": {
+                      "type": "object"
                     }
                   },
                   "type": "object"
@@ -3846,8 +3852,14 @@
                 "method": {
                   "type": "string"
                 },
+                "privateKey": {
+                  "type": "object"
+                },
                 "schedule": {
                   "type": "string"
+                },
+                "subject": {
+                  "type": "object"
                 }
               },
               "type": "object"
