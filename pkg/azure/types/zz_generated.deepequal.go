@@ -38,6 +38,9 @@ func (in *AzureInterface) DeepEqual(other *AzureInterface) bool {
 	if in.ID != other.ID {
 		return false
 	}
+	if in.IP != other.IP {
+		return false
+	}
 	if in.Name != other.Name {
 		return false
 	}
