@@ -61,7 +61,7 @@ type epInfoCache struct {
 func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 	if e.isProperty(endpoint.PropertyAtHostNS) {
 		return &epInfoCache{
-			revision: e.nextPolicyRevision,
+			revision: e.desiredPolicyRevision,
 
 			id:         e.GetID(),
 			identity:   e.getIdentity(),
@@ -76,7 +76,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		}
 	}
 	return &epInfoCache{
-		revision: e.nextPolicyRevision,
+		revision: e.desiredPolicyRevision,
 
 		epdir:                  epdir,
 		id:                     e.GetID(),
