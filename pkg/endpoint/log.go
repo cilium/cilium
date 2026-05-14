@@ -161,7 +161,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]any) {
 			e.policyLoggerAttrs.Store(logfields.EndpointID, e.ID)
 			e.policyLoggerAttrs.Store(logfields.ContainerID, e.GetShortContainerID())
 			e.policyLoggerAttrs.Store(logfields.DatapathPolicyRevision, e.policyRevision)
-			e.policyLoggerAttrs.Store(logfields.DesiredPolicyRevision, e.nextPolicyRevision)
+			e.policyLoggerAttrs.Store(logfields.DesiredPolicyRevision, e.desiredPolicyRevision)
 			e.policyLoggerAttrs.Store(logfields.IPv4, e.GetIPv4Address())
 			e.policyLoggerAttrs.Store(logfields.IPv6, e.GetIPv6Address())
 			e.policyLoggerAttrs.Store(logfields.K8sPodName, e.GetK8sNamespaceAndPodName())
