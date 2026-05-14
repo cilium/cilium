@@ -13,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
+	azureTypes "github.com/cilium/cilium/pkg/azure/types"
+
 	// Register the Azure resource-ID parser. This is the canonical place
 	// for Azure-IPAM-enabled binaries to wire in pkg/azure/types' parser
 	// so AzureInterface.SetID() can populate the VMSS/VM/RG fields.
@@ -162,9 +164,9 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 func (m *InstancesManager) extractSubnetIDs(instances *ipamTypes.InstanceMap) []string {
 	subnetIDs := sets.New[string]()
 
-	instances.ForeachAddress("", func(instanceID, interfaceID, ip, poolID string, address ipamTypes.Address) error {
-		if poolID != "" {
-			subnetIDs.Insert(poolID)
+	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+		if azIface, ok := iface.(*azureTypes.AzureInterface); ok && azIface.Subnet.ID != "" {
+			subnetIDs.Insert(azIface.Subnet.ID)
 		}
 		return nil
 	})

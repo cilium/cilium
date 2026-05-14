@@ -26,6 +26,48 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
+func TestAzureInterfaceCIDR(t *testing.T) {
+	tests := []struct {
+		name  string
+		iface azureTypes.AzureInterface
+		want  string
+	}{
+		{
+			name: "new operator: Subnet.CIDR populated, flat CIDR mirrored",
+			iface: azureTypes.AzureInterface{
+				Subnet: azureTypes.AzureSubnet{CIDR: "10.0.0.0/24"},
+				CIDR:   "10.0.0.0/24", //nolint:staticcheck // exercises the dual-write path
+			},
+			want: "10.0.0.0/24",
+		},
+		{
+			name: "old operator: only flat CIDR set, fallback used",
+			iface: azureTypes.AzureInterface{
+				CIDR: "10.0.0.0/24", //nolint:staticcheck // exercises the legacy-only path
+			},
+			want: "10.0.0.0/24",
+		},
+		{
+			name: "Subnet.CIDR wins when fields disagree",
+			iface: azureTypes.AzureInterface{
+				Subnet: azureTypes.AzureSubnet{CIDR: "10.0.1.0/24"},
+				CIDR:   "10.0.0.0/24", //nolint:staticcheck // exercises preference order
+			},
+			want: "10.0.1.0/24",
+		},
+		{
+			name:  "neither field set: empty string",
+			iface: azureTypes.AzureInterface{},
+			want:  "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, azureInterfaceCIDR(tt.iface))
+		})
+	}
+}
+
 func TestIPNotAvailableInPoolError(t *testing.T) {
 	err := NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
 	err2 := NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
@@ -156,9 +198,9 @@ func TestAzureIPMasq(t *testing.T) {
 			Name:    "eth0",
 			MAC:     "00:00:5e:00:53:01",
 			Gateway: "10.10.1.1",
-			CIDR:    "10.10.1.0/24",
+			Subnet:  azureTypes.AzureSubnet{ID: "subnet-1", CIDR: "10.10.1.0/24"},
 			Addresses: []azureTypes.AzureAddress{
-				{IP: "10.10.1.5", Subnet: "subnet-1", State: azureTypes.StateSucceeded},
+				{IP: "10.10.1.5", State: azureTypes.StateSucceeded},
 			},
 		},
 	}

@@ -40,15 +40,15 @@ func newCapacityTestInterface(name, id, primaryIP string, secondaryIPs ...string
 	addrs := make([]types.AzureAddress, 0, len(secondaryIPs))
 	for _, ip := range secondaryIPs {
 		addrs = append(addrs, types.AzureAddress{
-			IP:     ip,
-			Subnet: "subnet-1",
-			State:  types.StateSucceeded,
+			IP:    ip,
+			State: types.StateSucceeded,
 		})
 	}
 	iface := &types.AzureInterface{
 		Name:          name,
 		IP:            primaryIP,
 		SecurityGroup: "sg1",
+		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses:     addrs,
 		State:         types.StateSucceeded,
 	}

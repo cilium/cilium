@@ -155,11 +155,11 @@ func TestIpamPreAllocate8(t *testing.T) {
 	resource := &types.AzureInterface{
 		Name:          "eth0",
 		SecurityGroup: "sg1",
+		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:     "1.1.1.1",
-				Subnet: "subnet-1",
-				State:  types.StateSucceeded,
+				IP:    "1.1.1.1",
+				State: types.StateSucceeded,
 			},
 		},
 		State: types.StateSucceeded,
@@ -217,11 +217,11 @@ func TestIpamMinAllocate10(t *testing.T) {
 	resource := &types.AzureInterface{
 		Name:          "eth0",
 		SecurityGroup: "sg1",
+		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:     "1.1.1.1",
-				Subnet: "subnet-1",
-				State:  types.StateSucceeded,
+				IP:    "1.1.1.1",
+				State: types.StateSucceeded,
 			},
 		},
 		State: types.StateSucceeded,
@@ -309,11 +309,11 @@ func TestIpamManyNodes(t *testing.T) {
 				resource := &types.AzureInterface{
 					Name:          "eth0",
 					SecurityGroup: "sg1",
+					Subnet:        types.AzureSubnet{ID: "subnet-1"},
 					Addresses: []types.AzureAddress{
 						{
-							IP:     fmt.Sprintf("10.0.0.%d", i+10),
-							Subnet: "subnet-1",
-							State:  types.StateSucceeded,
+							IP:    fmt.Sprintf("10.0.0.%d", i+10),
+							State: types.StateSucceeded,
 						},
 					},
 					State: types.StateSucceeded,
