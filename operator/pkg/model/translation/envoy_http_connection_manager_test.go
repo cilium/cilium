@@ -356,3 +356,24 @@ func Test_extAuthzFilterKey_sameBackendDifferentConfig(t *testing.T) {
 	headersBA := &model.HTTPExternalAuthFilter{Backend: backend, Protocol: model.ExternalAuthProtocolHTTP, AllowedRequestHeaders: []string{"B", "A"}}
 	require.Equal(t, extAuthzFilterKey(headersAB), extAuthzFilterKey(headersBA))
 }
+
+func Test_desiredHTTPConnectionManagerWithoutGRPCWebTranslation(t *testing.T) {
+	i := &cecTranslator{}
+	m := &model.Model{
+		HTTPOptions: &model.HTTPOptions{
+			GRPCWebTranslation: &model.GRPCWebTranslationConfig{
+				Enabled: false,
+			},
+		},
+	}
+	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", m)
+	require.NoError(t, err)
+
+	httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
+	err = proto.Unmarshal(res.Value, httpConnectionManager)
+	require.NoError(t, err)
+
+	require.Len(t, httpConnectionManager.GetHttpFilters(), 2)
+	require.Equal(t, "envoy.filters.http.grpc_stats", httpConnectionManager.GetHttpFilters()[0].Name)
+	require.Equal(t, "envoy.filters.http.router", httpConnectionManager.GetHttpFilters()[1].Name)
+}

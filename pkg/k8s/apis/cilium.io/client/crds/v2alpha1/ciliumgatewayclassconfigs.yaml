@@ -61,6 +61,20 @@ spec:
                   with more details.
                 maxLength: 64
                 type: string
+              httpOptions:
+                description: HTTPOptions specifies HTTP connection manager options.
+                properties:
+                  grpcWebTranslation:
+                    description: GRPCWebTranslation controls Envoy's gRPC-web to gRPC
+                      request translation.
+                    properties:
+                      enabled:
+                        default: true
+                        description: Enabled controls Envoy's gRPC-web to gRPC request
+                          translation.
+                        type: boolean
+                    type: object
+                type: object
               service:
                 description: |-
                   Service specifies the configuration for the generated Service.
