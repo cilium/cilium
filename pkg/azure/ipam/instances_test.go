@@ -161,7 +161,7 @@ func TestSubnetDiscovery(t *testing.T) {
 	api := apimock.NewAPI(subnets, vnets)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(hivetest.Logger(t), api)
+	mngr := NewInstancesManager(hivetest.Logger(t), api, false)
 	require.NotNil(t, mngr)
 
 	require.Nil(t, mngr.subnets["subnet-1"])
@@ -196,7 +196,7 @@ func TestResyncInstancePreservesOtherNodesSubnets(t *testing.T) {
 	api := apimock.NewAPI(subnets2, vnets)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(hivetest.Logger(t), api)
+	mngr := NewInstancesManager(hivetest.Logger(t), api, false)
 	require.NotNil(t, mngr)
 
 	// Two instances using DIFFERENT subnets:
@@ -253,7 +253,7 @@ func TestExtractSubnetIDs(t *testing.T) {
 	api := apimock.NewAPI(subnets, vnets)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(hivetest.Logger(t), api)
+	mngr := NewInstancesManager(hivetest.Logger(t), api, false)
 	require.NotNil(t, mngr)
 
 	// Create 100 instances across only 2 different subnets to test deduplication
