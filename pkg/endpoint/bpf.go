@@ -438,7 +438,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// support local Pods on the worker node, hence endpoint BPF regeneration
 	// is skipped everywhere.
 	if e.isProperty(endpointtypes.PropertyFakeEndpoint) {
-		return e.nextPolicyRevision, nil
+		return e.desiredPolicyRevision, nil
 	}
 
 	// Skip BPF if the endpoint has no policy map
@@ -466,7 +466,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 			return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
 		}
 
-		return e.nextPolicyRevision, nil
+		return e.desiredPolicyRevision, nil
 	}
 
 	// Wait for connection tracking cleaning to complete

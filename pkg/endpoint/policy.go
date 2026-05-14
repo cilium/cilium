@@ -102,13 +102,13 @@ func (e *Endpoint) proxyIDs(selectorPolicy policy.SelectorPolicy, l4 *policy.L4F
 	}
 }
 
-// setNextPolicyRevision updates the desired policy revision field
+// setDesiredPolicyRevision updates the desired policy revision field
 // Must be called with the endpoint lock held for at least reading
-func (e *Endpoint) setNextPolicyRevision(revision uint64) {
-	e.nextPolicyRevision = revision
+func (e *Endpoint) setDesiredPolicyRevision(revision uint64) {
+	e.desiredPolicyRevision = revision
 	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
 		e.UpdateLogger(map[string]any{
-			logfields.DesiredPolicyRevision: e.nextPolicyRevision,
+			logfields.DesiredPolicyRevision: e.desiredPolicyRevision,
 		})
 	}
 }
@@ -380,10 +380,10 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 		return fmt.Errorf("endpoint %d SecurityIdentity revision changed during policy regeneration", e.ID)
 	}
 
-	oldNextPolicyRevision := e.nextPolicyRevision
+	oldDesiredPolicyRevision := e.desiredPolicyRevision
 	// Set the revision of this endpoint to the current revision of the policy
 	// repository.
-	e.setNextPolicyRevision(res.policyRevision)
+	e.setDesiredPolicyRevision(res.policyRevision)
 
 	if res.endpointPolicy != nil && res.endpointPolicy != e.desiredPolicy {
 		if e.desiredPolicy != e.realizedPolicy {
@@ -405,12 +405,12 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 			// Do nothing if e.policyMap was not initialized already
 			if e.policyMap != nil && e.desiredPolicy != e.realizedPolicy {
 				desiredPolicyMapLen := e.desiredPolicy.Len()
-				// Revert nextPolicyRevision; otherwise,
+				// Revert desiredPolicyRevision; otherwise,
 				// res.endpointPolicy will not be recalculated
 				// on the next regeneration attempt, and we
 				// won't advance to the true desired policy map
 				// state. See GH-38998.
-				e.setNextPolicyRevision(oldNextPolicyRevision)
+				e.setDesiredPolicyRevision(oldDesiredPolicyRevision)
 				e.desiredPolicy.Detach(e.getLogger())
 				e.desiredPolicy = e.realizedPolicy
 

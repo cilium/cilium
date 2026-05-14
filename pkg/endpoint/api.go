@@ -463,8 +463,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	desiredMdl := &models.EndpointPolicy{
 		ID: int64(e.SecurityIdentity.ID),
 		// This field should be removed.
-		Build:                    int64(e.nextPolicyRevision),
-		PolicyRevision:           int64(e.nextPolicyRevision),
+		Build:                    int64(e.desiredPolicyRevision),
+		PolicyRevision:           int64(e.desiredPolicyRevision),
 		AllowedIngressIdentities: desiredIngressIdentities,
 		AllowedEgressIdentities:  desiredEgressIdentities,
 		DeniedIngressIdentities:  desiredDenyIngressIdentities,

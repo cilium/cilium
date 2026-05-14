@@ -344,10 +344,12 @@ type Endpoint struct {
 	// You must hold Endpoint.proxyStatisticsMutex to read or write it.
 	proxyStatistics map[string]*models.ProxyStatistics
 
-	// nextPolicyRevision is the policy revision that the endpoint has
-	// updated to and that will become effective with the next regenerate.
-	// Must hold the endpoint mutex *and* buildMutex to write, and either to read.
-	nextPolicyRevision uint64
+	// desiredPolicyRevision is the revision of the policy in e.desiredPolicy.
+	// It can be less than policyRevision when UpdatePolicy bumps policyRevision
+	// without recomputing desired policy.
+	//
+	// To write, both ep.mutex and ep.buildMutex must be held.
+	desiredPolicyRevision uint64
 
 	// forcePolicyCompute full endpoint policy recomputation
 	// Set when endpoint options have been changed. Cleared right before releasing the
