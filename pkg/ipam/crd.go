@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	alibabaCloud "github.com/cilium/cilium/pkg/alibabacloud/utils"
+	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ip"
@@ -250,7 +251,7 @@ func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR *cidr.CIDR, secondar
 		}
 	}
 	for _, azif := range node.Status.Azure.Interfaces {
-		c, err := cidr.ParseCIDR(azif.CIDR)
+		c, err := cidr.ParseCIDR(azureInterfaceCIDR(azif))
 		if err == nil {
 			primaryCIDR = c
 			return
@@ -712,7 +713,7 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 				if gatewayIP, err := netip.ParseAddr(iface.Gateway); err == nil {
 					result.GatewayIP = gatewayIP
 				}
-				if p, err := netip.ParsePrefix(iface.CIDR); err == nil {
+				if p, err := netip.ParsePrefix(azureInterfaceCIDR(iface)); err == nil {
 					result.CIDRs = append(result.CIDRs, p)
 				}
 				// Add manually configured Native Routing CIDR
@@ -957,4 +958,17 @@ func (e *ErrIPNotAvailableInPool) Is(target error) bool {
 		return false
 	}
 	return t.addr == e.addr
+}
+
+// azureInterfaceCIDR returns Subnet.CIDR, falling back to the deprecated
+// AzureInterface.CIDR for CiliumNodes written by operators predating the
+// Subnet.CIDR migration.
+//
+// TODO(https://github.com/cilium/cilium/issues/46074): remove once
+// AzureInterface.CIDR is deleted.
+func azureInterfaceCIDR(iface azureTypes.AzureInterface) string {
+	if iface.Subnet.CIDR != "" {
+		return iface.Subnet.CIDR
+	}
+	return iface.CIDR //nolint:staticcheck // fallback for operators predating the Subnet.CIDR migration
 }
