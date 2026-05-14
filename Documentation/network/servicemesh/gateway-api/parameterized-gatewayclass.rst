@@ -45,6 +45,27 @@ Once the Gateway is deployed, you can access the service using via NodePort serv
     root@kind-worker:/# curl http://localhost:30493/details/1
     {"id":1,"author":"William Shakespeare","year":1595,"type":"paperback","pages":200,"publisher":"PublisherA","language":"English","ISBN-10":"1234567890","ISBN-13":"123-1234567890"}root@kind-worker:/#
 
+.. _gs_gateway_disable_grpc_web_translation:
+
+Disable gRPC-web translation
+============================
+
+Cilium Gateway API enables Envoy's gRPC-web to gRPC request translation by default. To pass gRPC-web requests through
+unchanged for all Gateways using a parameterized GatewayClass, set ``httpOptions.grpcWebTranslation.enabled`` to ``false`` in the
+``CiliumGatewayClassConfig``:
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumGatewayClassConfig
+    metadata:
+      name: grpc-web
+      namespace: default
+    spec:
+      httpOptions:
+        grpcWebTranslation:
+          enabled: false
+
 Reference
 =========
 

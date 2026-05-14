@@ -18,6 +18,15 @@ import (
 type Model struct {
 	HTTP           []HTTPListener           `json:"http,omitempty"`
 	TLSPassthrough []TLSPassthroughListener `json:"tls_passthrough,omitempty"`
+	HTTPOptions    *HTTPOptions             `json:"http_options,omitempty"`
+}
+
+type HTTPOptions struct {
+	GRPCWebTranslation *GRPCWebTranslationConfig `json:"grpc_web_translation,omitempty"`
+}
+
+type GRPCWebTranslationConfig struct {
+	Enabled bool `json:"enabled"`
 }
 
 func (m *Model) GetListeners() []Listener {
@@ -32,6 +41,13 @@ func (m *Model) GetListeners() []Listener {
 	}
 
 	return listeners
+}
+
+func (m *Model) GRPCWebTranslationEnabled() bool {
+	return m == nil ||
+		m.HTTPOptions == nil ||
+		m.HTTPOptions.GRPCWebTranslation == nil ||
+		m.HTTPOptions.GRPCWebTranslation.Enabled
 }
 
 type Listener interface {
