@@ -236,4 +236,9 @@ runs:
       run: |
         SKIP=false
 
+        CONFIG="${{ steps.derive-config.outputs.config }}"
+        if echo "${CONFIG}" | grep -q "encryption.enabled=true"; then
+          SKIP=true
+        fi
+
         echo "skip=${SKIP}" >> "$GITHUB_OUTPUT"
