@@ -48,6 +48,10 @@ type InstancesManager struct {
 	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
 	resyncLock lock.RWMutex
 
+	// usePrimary mirrors the --azure-use-primary-address operator flag; when
+	// true, each NIC's primary IP is exposed to the allocatable pool.
+	usePrimary bool
+
 	// mutex protects the fields below
 	mutex     lock.RWMutex
 	instances *ipamTypes.InstanceMap
@@ -56,11 +60,12 @@ type InstancesManager struct {
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger *slog.Logger, api AzureAPI) *InstancesManager {
+func NewInstancesManager(logger *slog.Logger, api AzureAPI, usePrimary bool) *InstancesManager {
 	return &InstancesManager{
-		logger:    logger.With(subsysLogAttr...),
-		instances: ipamTypes.NewInstanceMap(),
-		api:       api,
+		logger:     logger.With(subsysLogAttr...),
+		instances:  ipamTypes.NewInstanceMap(),
+		api:        api,
+		usePrimary: usePrimary,
 	}
 }
 
