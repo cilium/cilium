@@ -1074,7 +1074,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 identity,
 			if (likely(hdrlen > 0) &&
 			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
-				set_decrypt_mark(ctx, 0);
 			}
 		}
 # endif /* ENABLE_WIREGUARD */
@@ -1114,7 +1113,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 identity,
 			hdrlen = ipv4_hdrlen(ip4);
 			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
-				set_decrypt_mark(ctx, 0);
 			}
 		}
 #endif /* ENABLE_WIREGUARD */
