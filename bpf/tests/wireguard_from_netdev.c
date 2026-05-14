@@ -20,8 +20,8 @@
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 
 /* these tests validate that a real wireguard packet is handled properly
- * we expect the packet to not be modified, and to be passed up the stack with
- * the MARK_MAGIC_DECRYPT mark in skb->mark.
+ * we expect the packet to not be modified, and to be passed up the stack.
+ * MARK_MAGIC_DECRYPT is no longer set; tunnel routing uses port-based rules.
  * conditions:
  *  - udp packet
  *  - source and dest ports == $wg_port
@@ -71,8 +71,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_check(const struct __ctx_buff *ctx)
 	/* packet goes up the stack for decryption */
 	assert(*status_code == CTX_ACT_OK);
 
-	/* we use this mark to skip conntrack for encrypted flows */
-	assert(ctx_is_decrypt(ctx));
+	assert(!ctx_is_decrypt(ctx));
 
 	/*  make sure packet was not modified */
 	/* declare the buffer where our expectation is (the same wireguard packet we injected) */
@@ -129,8 +128,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_check(const struct __ctx_buff *ctx)
 	/* packet goes up the stack for decryption */
 	assert(*status_code == CTX_ACT_OK);
 
-	/* we use this mark to skip conntrack for encrypted flows */
-	assert(ctx_is_decrypt(ctx));
+	assert(!ctx_is_decrypt(ctx));
 
 	/*  make sure packet was not modified */
 	/* declare the buffer where our expectation is (the same wireguard packet we injected) */
