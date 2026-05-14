@@ -133,6 +133,9 @@ var (
 
 	//go:embed manifests/allow-egress-specific-ns-ccnp.yaml
 	egresstoSpecificNSYAML string
+
+	//go:embed manifests/host-firewall-egress-to-fqdns.yaml
+	hostFirewallEgressToFQDNsPolicyYAML string
 )
 
 var (
@@ -344,6 +347,7 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 	tests := []testBuilder{
 		hostFirewallIngress{},
 		hostFirewallEgress{},
+		hostFirewallEgressToFqdns{},
 		clientEgressL7TlsDenyWithoutHeaders{},
 		clientEgressL7TlsHeaders{},
 		egresstoSpecificNamespace{},
@@ -396,6 +400,7 @@ func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Par
 		"ingressfromSpecificNSYAML":                                  ingressfromSpecificNSYAML,
 		"egresstoSpecificNSYAML":                                     egresstoSpecificNSYAML,
 		"echoIngressFromClientTieredWildcardPassL7YAML":              echoIngressFromClientTieredWildcardPassL7PolicyYAML,
+		"hostFirewallEgressToFQDNsPolicyYAML":                        hostFirewallEgressToFQDNsPolicyYAML,
 	}
 	if param.K8sLocalHostTest {
 		templates["clientEgressToCIDRCPHostPolicyYAML"] = clientEgressToCIDRCPHostPolicyYAML
