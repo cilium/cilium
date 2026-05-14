@@ -56,11 +56,26 @@ type AzureAddress struct {
 	// IP is the ip address of the address
 	IP string `json:"ip,omitempty"`
 
-	// Subnet is the subnet the address belongs to
+	// Subnet is the subnet the address belongs to.
+	//
+	// Deprecated: use AzureInterface.Subnet.ID. Populated as a mirror for one
+	// release so external consumers of CiliumNode.Status.Azure can migrate.
+	// TODO(https://github.com/cilium/cilium/issues/46074): remove once the migration window closes.
 	Subnet string `json:"subnet,omitempty"`
 
 	// State is the provisioning state of the address
 	State string `json:"state,omitempty"`
+}
+
+// AzureSubnet describes the subnet an AzureInterface is attached to. Azure
+// enforces one subnet per NIC, so it is tracked once per interface (mirroring
+// the AWS and Alibaba patterns).
+type AzureSubnet struct {
+	// ID is the resource ID of the subnet
+	ID string `json:"id,omitempty"`
+
+	// CIDR is the CIDR range associated with the subnet
+	CIDR string `json:"cidr,omitempty"`
 }
 
 // AzureInterface represents an Azure Interface
@@ -103,12 +118,21 @@ type AzureInterface struct {
 	// SecurityGroup is the security group associated with the interface
 	SecurityGroup string `json:"security-group,omitempty"`
 
+	// Subnet is the subnet the interface is attached to.
+	//
+	// +optional
+	Subnet AzureSubnet `json:"subnet,omitzero"`
+
 	// Gateway is the interface's subnet's default route
 	//
 	// +optional
 	Gateway string `json:"gateway"`
 
 	// CIDR is the range that the interface belongs to.
+	//
+	// Deprecated: use Subnet.CIDR. Retained for one release so agent/operator
+	// rolling upgrades work in either order.
+	// TODO(https://github.com/cilium/cilium/issues/46074): remove once the migration window closes.
 	//
 	// +optional
 	CIDR string `json:"cidr,omitempty"`
@@ -163,10 +187,12 @@ func (a *AzureInterface) GetVMID() string {
 	return a.vmID
 }
 
-// ForeachAddress iterates over all addresses and calls fn
+// ForeachAddress iterates over all addresses and calls fn. The poolID
+// argument is always empty: subnet is tracked at the interface level
+// (matching AWS and Alibaba).
 func (a *AzureInterface) ForeachAddress(id string, fn types.AddressIterator) error {
 	for _, address := range a.Addresses {
-		if err := fn(id, a.ID, address.IP, address.Subnet, address); err != nil {
+		if err := fn(id, a.ID, address.IP, "", address); err != nil {
 			return err
 		}
 	}

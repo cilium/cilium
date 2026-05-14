@@ -16,6 +16,7 @@ func (in *AzureInterface) DeepCopyInto(out *AzureInterface) {
 		*out = make([]AzureAddress, len(*in))
 		copy(*out, *in)
 	}
+	out.Subnet = in.Subnet
 	return
 }
 

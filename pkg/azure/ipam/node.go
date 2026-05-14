@@ -102,11 +102,9 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 				logfields.AvailableAddresses, availableOnInterface,
 			)
 
-			preferredPoolIDs := []ipamTypes.PoolID{}
-			for _, address := range iface.Addresses {
-				if address.Subnet != "" {
-					preferredPoolIDs = append(preferredPoolIDs, ipamTypes.PoolID(address.Subnet))
-				}
+			var preferredPoolIDs []ipamTypes.PoolID
+			if iface.Subnet.ID != "" {
+				preferredPoolIDs = []ipamTypes.PoolID{ipamTypes.PoolID(iface.Subnet.ID)}
 			}
 
 			poolID, available := n.manager.subnets.FirstSubnetWithAvailableAddresses(preferredPoolIDs)

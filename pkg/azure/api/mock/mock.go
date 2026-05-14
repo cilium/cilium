@@ -262,7 +262,7 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 			}
 			intf.Addresses = append(intf.Addresses, types.AzureAddress{
 				IP:     ip.String(),
-				Subnet: subnetID,
+				Subnet: subnetID, //nolint:staticcheck // deprecated mirror; matches parseInterface, see https://github.com/cilium/cilium/issues/46074
 				State:  types.StateSucceeded,
 			})
 		}

@@ -334,6 +334,21 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 			if ip.Properties.PrivateIPAddress == nil {
 				continue
 			}
+
+			// Azure enforces one subnet per NIC, so record it once. Doing
+			// this before the primary-skip below also covers NICs whose only
+			// IPConfig is the primary.
+			if ip.Properties.Subnet != nil && i.Subnet.ID == "" {
+				i.Subnet.ID = *ip.Properties.Subnet.ID
+				if subnet, ok := subnets[i.Subnet.ID]; ok {
+					if subnet.CIDR.IsValid() {
+						i.Subnet.CIDR = subnet.CIDR.String()
+						i.CIDR = i.Subnet.CIDR //nolint:staticcheck // transitional, see https://github.com/cilium/cilium/issues/46074
+					}
+					i.Gateway = deriveGatewayIP(subnet.CIDR.Addr())
+				}
+			}
+
 			isPrimary := ip.Properties.Primary != nil && *ip.Properties.Primary
 			if isPrimary {
 				i.IP = *ip.Properties.PrivateIPAddress
@@ -346,17 +361,9 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 				IP:    *ip.Properties.PrivateIPAddress,
 				State: strings.ToLower(string(*ip.Properties.ProvisioningState)),
 			}
-
 			if ip.Properties.Subnet != nil {
-				addr.Subnet = *ip.Properties.Subnet.ID
-				if subnet, ok := subnets[addr.Subnet]; ok {
-					if subnet.CIDR.IsValid() {
-						i.CIDR = subnet.CIDR.String()
-					}
-					i.Gateway = deriveGatewayIP(subnet.CIDR.Addr())
-				}
+				addr.Subnet = *ip.Properties.Subnet.ID //nolint:staticcheck // transitional, see https://github.com/cilium/cilium/issues/46074
 			}
-
 			i.Addresses = append(i.Addresses, addr)
 		}
 	}

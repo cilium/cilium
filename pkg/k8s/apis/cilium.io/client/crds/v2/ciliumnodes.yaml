@@ -543,14 +543,20 @@ spec:
                                   address
                                 type: string
                               subnet:
-                                description: Subnet is the subnet the address belongs
-                                  to
+                                description: |-
+                                  Subnet is the subnet the address belongs to.
+
+                                  Deprecated: use AzureInterface.Subnet.ID. Populated as a mirror for one
+                                  release so external consumers of CiliumNode.Status.Azure can migrate.
                                 type: string
                             type: object
                           type: array
                         cidr:
-                          description: CIDR is the range that the interface belongs
-                            to.
+                          description: |-
+                            CIDR is the range that the interface belongs to.
+
+                            Deprecated: use Subnet.CIDR. Retained for one release so agent/operator
+                            rolling upgrades work in either order.
                           type: string
                         gateway:
                           description: Gateway is the interface's subnet's default
@@ -575,6 +581,18 @@ spec:
                         state:
                           description: State is the provisioning state
                           type: string
+                        subnet:
+                          description: Subnet is the subnet the interface is attached
+                            to.
+                          properties:
+                            cidr:
+                              description: CIDR is the CIDR range associated with
+                                the subnet
+                              type: string
+                            id:
+                              description: ID is the resource ID of the subnet
+                              type: string
+                          type: object
                       type: object
                     type: array
                 type: object
