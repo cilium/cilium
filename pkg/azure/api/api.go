@@ -330,28 +330,34 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 	}
 
 	if iface.Properties.IPConfigurations != nil {
-		for _, ip := range (*iface).Properties.IPConfigurations {
-			if !usePrimary && ip.Properties.Primary != nil && *ip.Properties.Primary {
+		for _, ip := range iface.Properties.IPConfigurations {
+			if ip.Properties.PrivateIPAddress == nil {
 				continue
 			}
-			if ip.Properties.PrivateIPAddress != nil {
-				addr := types.AzureAddress{
-					IP:    *ip.Properties.PrivateIPAddress,
-					State: strings.ToLower(string(*ip.Properties.ProvisioningState)),
+			isPrimary := ip.Properties.Primary != nil && *ip.Properties.Primary
+			if isPrimary {
+				i.IP = *ip.Properties.PrivateIPAddress
+				if !usePrimary {
+					continue
 				}
-
-				if ip.Properties.Subnet != nil {
-					addr.Subnet = *ip.Properties.Subnet.ID
-					if subnet, ok := subnets[addr.Subnet]; ok {
-						if subnet.CIDR.IsValid() {
-							i.CIDR = subnet.CIDR.String()
-						}
-						i.Gateway = deriveGatewayIP(subnet.CIDR.Addr())
-					}
-				}
-
-				i.Addresses = append(i.Addresses, addr)
 			}
+
+			addr := types.AzureAddress{
+				IP:    *ip.Properties.PrivateIPAddress,
+				State: strings.ToLower(string(*ip.Properties.ProvisioningState)),
+			}
+
+			if ip.Properties.Subnet != nil {
+				addr.Subnet = *ip.Properties.Subnet.ID
+				if subnet, ok := subnets[addr.Subnet]; ok {
+					if subnet.CIDR.IsValid() {
+						i.CIDR = subnet.CIDR.String()
+					}
+					i.Gateway = deriveGatewayIP(subnet.CIDR.Addr())
+				}
+			}
+
+			i.Addresses = append(i.Addresses, addr)
 		}
 	}
 

@@ -11,8 +11,146 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	"github.com/stretchr/testify/require"
 
+	// Required so SetID() resolves the Azure resource-ID parser.
+	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
+
+func TestParseInterface(t *testing.T) {
+	ifaceID := "/subscriptions/xxx/resourceGroups/rg/providers/Microsoft.Network/networkInterfaces/nic1"
+	subnetID := "/subscriptions/xxx/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/subnet1"
+
+	newIPConfig := func(ip string, primary bool) *armnetwork.InterfaceIPConfiguration {
+		return &armnetwork.InterfaceIPConfiguration{
+			Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+				PrivateIPAddress:  new(ip),
+				Primary:           new(primary),
+				ProvisioningState: new(armnetwork.ProvisioningStateSucceeded),
+				Subnet:            &armnetwork.Subnet{ID: new(subnetID)},
+			},
+		}
+	}
+
+	newIface := func(configs ...*armnetwork.InterfaceIPConfiguration) *armnetwork.Interface {
+		return &armnetwork.Interface{
+			ID: new(ifaceID),
+			Properties: &armnetwork.InterfacePropertiesFormat{
+				IPConfigurations: configs,
+			},
+		}
+	}
+
+	subnetMap := ipamTypes.SubnetMap{
+		subnetID: &ipamTypes.Subnet{
+			ID:   subnetID,
+			CIDR: netip.MustParsePrefix("10.0.0.0/24"),
+		},
+	}
+
+	tests := []struct {
+		name            string
+		iface           *armnetwork.Interface
+		subnets         ipamTypes.SubnetMap
+		usePrimary      bool
+		expectedIP      string
+		expectedAddrs   []string
+		expectedCIDR    string
+		expectedGateway string
+	}{
+		{
+			name: "primary and secondaries, usePrimary=false",
+			iface: newIface(
+				newIPConfig("10.0.0.4", true),
+				newIPConfig("10.0.0.5", false),
+				newIPConfig("10.0.0.6", false),
+			),
+			subnets:         subnetMap,
+			usePrimary:      false,
+			expectedIP:      "10.0.0.4",
+			expectedAddrs:   []string{"10.0.0.5", "10.0.0.6"},
+			expectedCIDR:    "10.0.0.0/24",
+			expectedGateway: "10.0.0.1",
+		},
+		{
+			name: "primary and secondaries, usePrimary=true",
+			iface: newIface(
+				newIPConfig("10.0.0.4", true),
+				newIPConfig("10.0.0.5", false),
+				newIPConfig("10.0.0.6", false),
+			),
+			subnets:         subnetMap,
+			usePrimary:      true,
+			expectedIP:      "10.0.0.4",
+			expectedAddrs:   []string{"10.0.0.4", "10.0.0.5", "10.0.0.6"},
+			expectedCIDR:    "10.0.0.0/24",
+			expectedGateway: "10.0.0.1",
+		},
+		{
+			// Pre-existing behaviour: when the only IPConfiguration is the primary
+			// and usePrimary=false, CIDR/Gateway are not derived from the subnet.
+			// Pinning this so a future fix has to update both code and test.
+			name:            "only primary, usePrimary=false, subnet info not derived",
+			iface:           newIface(newIPConfig("10.0.0.4", true)),
+			subnets:         subnetMap,
+			usePrimary:      false,
+			expectedIP:      "10.0.0.4",
+			expectedAddrs:   nil,
+			expectedCIDR:    "",
+			expectedGateway: "",
+		},
+		{
+			name:          "no IPConfigurations",
+			iface:         newIface(),
+			usePrimary:    false,
+			expectedIP:    "",
+			expectedAddrs: nil,
+		},
+		{
+			name: "no primary flag set on any config",
+			iface: newIface(
+				newIPConfig("10.0.0.5", false),
+				newIPConfig("10.0.0.6", false),
+			),
+			usePrimary:    false,
+			expectedIP:    "",
+			expectedAddrs: []string{"10.0.0.5", "10.0.0.6"},
+		},
+		{
+			name: "nil Primary pointer treated as non-primary",
+			iface: newIface(&armnetwork.InterfaceIPConfiguration{
+				Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+					PrivateIPAddress:  new("10.0.0.5"),
+					Primary:           nil,
+					ProvisioningState: new(armnetwork.ProvisioningStateSucceeded),
+					Subnet:            &armnetwork.Subnet{ID: new(subnetID)},
+				},
+			}),
+			usePrimary:    false,
+			expectedIP:    "",
+			expectedAddrs: []string{"10.0.0.5"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, got := parseInterface(tt.iface, tt.subnets, tt.usePrimary)
+			require.NotNil(t, got)
+			require.Equal(t, tt.expectedIP, got.IP)
+			require.Equal(t, tt.expectedCIDR, got.CIDR)
+			require.Equal(t, tt.expectedGateway, got.Gateway)
+
+			gotAddrs := make([]string, 0, len(got.Addresses))
+			for _, a := range got.Addresses {
+				gotAddrs = append(gotAddrs, a.IP)
+			}
+			if tt.expectedAddrs == nil {
+				require.Empty(t, gotAddrs)
+			} else {
+				require.Equal(t, tt.expectedAddrs, gotAddrs)
+			}
+		})
+	}
+}
 
 func TestAvailableIPs(t *testing.T) {
 	cidr := netip.MustParsePrefix("10.0.0.0/8")

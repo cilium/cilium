@@ -527,8 +527,10 @@ spec:
                       properties:
                         addresses:
                           description: |-
-                            Addresses is the list of all IPs associated with the interface,
-                            including all secondary addresses
+                            Addresses is the list of secondary IPs associated with the interface.
+                            The primary IP is tracked separately in the IP field, but is also
+                            included here when the operator is configured to expose it for
+                            allocation.
                           items:
                             description: AzureAddress is an IP address assigned to
                               an AzureInterface
@@ -556,6 +558,9 @@ spec:
                           type: string
                         id:
                           description: ID is the identifier
+                          type: string
+                        ip:
+                          description: IP is the primary IP of the interface
                           type: string
                         mac:
                           description: MAC is the mac address
