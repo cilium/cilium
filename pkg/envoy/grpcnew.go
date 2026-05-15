@@ -32,6 +32,7 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 	callbacks := callbacks.ChainedCallbacks{
 		callbacks.LoggingCallbacks{Log: s.logger},
 		s.cache.GetCompletionCallbacks(),
+		newNPHDSIPCacheListenerCallbacks(s.logger, s.ipCache, s),
 	}
 	server := envoy_server.NewServer(context.Background(), s.cache, callbacks,
 		sotw.WithOrderedADS(),
@@ -43,19 +44,36 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 
 	reflection.Register(grpcServer)
 
-	serverCtx, stopServer := context.WithCancel(ctx)
-	defer stopServer()
-
-	ctx, cancel := context.WithTimeout(ctx, s.config.policyRestoreTimeout)
+	restoreCtx, cancel := context.WithTimeout(ctx, s.config.policyRestoreTimeout)
 	defer cancel()
 	s.stopFunc = grpcServer.Stop
+
+	if s.restorerPromise != nil {
+		s.logger.Info("Envoy: Waiting for endpoint restorer before serving xDS resources...")
+		restorer, err := s.restorerPromise.Await(restoreCtx)
+		if err == nil && restorer != nil {
+			s.logger.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
+			err = restorer.WaitForInitialPolicy(restoreCtx)
+		}
+		if errors.Is(err, context.Canceled) {
+			s.logger.Debug("Envoy: xDS server stopped before started serving")
+			return err
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			s.logger.Warn("Envoy: Endpoint policy restoration took longer than configured restore timeout, starting serving resources to Envoy",
+				logfields.Duration, s.config.policyRestoreTimeout,
+			)
+		}
+	}
 
 	s.logger.Info("Envoy: Starting xDS gRPC server listening",
 		logfields.Address, listener.Addr(),
 	)
 
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		<-serverCtx.Done()
+		<-ctx.Done()
 		grpcServer.Stop()
 		if s.socketPath != "" {
 			_ = os.Remove(s.socketPath)
