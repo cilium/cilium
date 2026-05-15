@@ -5,31 +5,29 @@ package envoy
 
 import (
 	"context"
-	"iter"
 	"log/slog"
 	"os"
-	"strconv"
 	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
-	"github.com/cilium/cilium/pkg/envoy/xds"
-	"github.com/cilium/cilium/pkg/envoy/xdsnew"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
+
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -125,7 +123,7 @@ func TestNewADSServer(t *testing.T) {
 		metrics:              nil,
 	}
 
-	server := newADSServer(logger, nil, nil, config, nil)
+	server := newADSServer(logger, nil, nil, config, nil, nil)
 
 	require.NotNil(t, server)
 	require.NotNil(t, server.logger)
@@ -143,7 +141,7 @@ func TestAddListener(t *testing.T) {
 
 	cache := xdsnew.NewCache(logger)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	wg := completion.NewWaitGroup(ctx)
@@ -188,7 +186,7 @@ func TestAddAdminListener(t *testing.T) {
 
 	cache := xdsnew.NewCache(logger)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 	wg := completion.NewWaitGroup(ctx)
 
@@ -225,7 +223,7 @@ func TestAddMetricsListener(t *testing.T) {
 
 	cache := xdsnew.NewCache(logger)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 	wg := completion.NewWaitGroup(ctx)
 
@@ -259,7 +257,7 @@ func TestRemoveListener(t *testing.T) {
 	}
 	cache := xdsnew.NewCache(logger)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 	wg := completion.NewWaitGroup(ctx)
 
@@ -274,7 +272,7 @@ func TestRemoveListener(t *testing.T) {
 	assert.NotNil(t, revertFunc)
 
 	resources = cache.GetAllResources(localNodeID)
-	require.Len(t, resources.Listeners, 0)
+	require.Empty(t, resources.Listeners)
 }
 
 // TestUpsertEnvoyResources verifies that Envoy resources can be upserted
@@ -286,7 +284,7 @@ func TestUpsertEnvoyResources(t *testing.T) {
 	}
 	cache := xdsnew.NewCache(logger)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -316,7 +314,7 @@ func TestUpdateEnvoyResources(t *testing.T) {
 
 	cache := xdsnew.NewCache(logger)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	oldResources := DEFAULT_RESOURCES
@@ -404,7 +402,7 @@ func TestUpdateEnvoyResources(t *testing.T) {
 	require.NotNil(t, resources.Listeners["listener1"])
 	require.Len(t, resources.Clusters, 1)
 	require.NotNil(t, resources.Clusters["cluster1"])
-	require.Len(t, resources.Secrets, 0)
+	require.Empty(t, resources.Secrets)
 	require.Len(t, resources.Routes, 2)
 	require.NotNil(t, resources.Routes["routeConfig1"])
 	require.NotNil(t, resources.Routes["routeConfig2"])
@@ -473,7 +471,7 @@ func TestDeleteEnvoyResources(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 	cache := xdsnew.NewCache(logger)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	xdsResources := xds.Resources{
@@ -489,12 +487,12 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	err := server.DeleteEnvoyResources(ctx, xdsResources, nil)
 	assert.NoError(t, err)
 	resources := cache.GetAllResources(localNodeID)
-	require.Len(t, resources.Listeners, 0)
-	require.Len(t, resources.Clusters, 0)
-	require.Len(t, resources.Routes, 0)
-	require.Len(t, resources.Endpoints, 0)
-	require.Len(t, resources.Secrets, 0)
-	require.Len(t, resources.NetworkPolicies, 0)
+	require.Empty(t, resources.Listeners)
+	require.Empty(t, resources.Clusters)
+	require.Empty(t, resources.Routes)
+	require.Empty(t, resources.Endpoints)
+	require.Empty(t, resources.Secrets)
+	require.Empty(t, resources.NetworkPolicies)
 
 	// Add some resources and then delete them.
 	err = server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -517,12 +515,12 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	err = server.DeleteEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
 	resources = cache.GetAllResources(localNodeID)
-	require.Len(t, resources.Listeners, 0)
-	require.Len(t, resources.Clusters, 0)
-	require.Len(t, resources.Routes, 0)
-	require.Len(t, resources.Endpoints, 0)
-	require.Len(t, resources.Secrets, 0)
-	require.Len(t, resources.NetworkPolicies, 0)
+	require.Empty(t, resources.Listeners)
+	require.Empty(t, resources.Clusters)
+	require.Empty(t, resources.Routes)
+	require.Empty(t, resources.Endpoints)
+	require.Empty(t, resources.Secrets)
+	require.Empty(t, resources.NetworkPolicies)
 }
 
 func TestGetNetworkPolicies(t *testing.T) {
@@ -532,7 +530,7 @@ func TestGetNetworkPolicies(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 	cache := xdsnew.NewCache(logger)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -554,7 +552,7 @@ func TestGetNetworkPolicies(t *testing.T) {
 	policies, err = server.GetNetworkPolicies([]string{"nonexistent"})
 	assert.NoError(t, err)
 	assert.NotNil(t, policies)
-	assert.Len(t, policies, 0)
+	assert.Empty(t, policies)
 }
 
 func TestUpdateNetworkPolicy(t *testing.T) {
@@ -564,7 +562,7 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 	cache := xdsnew.NewCache(logger)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline())
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
@@ -572,7 +570,7 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 	wg := completion.NewWaitGroup(ctx)
 
 	// Create a mock endpoint updater
-	mockEp := &mockEndpointUpdater{}
+	mockEp := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 
 	// Create a mock policy
 	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
@@ -689,7 +687,7 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 	cache := xdsnew.NewCache(logger)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, nil)
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, nil, nil)
 
 	ctx := context.Background()
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -705,7 +703,7 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 	server.RemoveNetworkPolicy(ctx, mockEp)
 
 	resources = cache.GetAllResources(localNodeID)
-	require.Len(t, resources.NetworkPolicies, 0)
+	require.Empty(t, resources.NetworkPolicies)
 }
 
 // TestRemoveAllNetworkPolicies verifies that all network policies can be removed
@@ -716,7 +714,7 @@ func TestRemoveAllNetworkPolicies(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 	cache := xdsnew.NewCache(logger)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline())
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
@@ -724,7 +722,7 @@ func TestRemoveAllNetworkPolicies(t *testing.T) {
 	wg := completion.NewWaitGroup(ctx)
 
 	// Create a mock endpoint updater
-	mockEp := &mockEndpointUpdater{}
+	mockEp := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 
 	// Create a mock policy
 	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
@@ -744,51 +742,10 @@ func TestRemoveAllNetworkPolicies(t *testing.T) {
 
 	server.RemoveAllNetworkPolicies()
 	resources = cache.GetAllResources(localNodeID)
-	require.Len(t, resources.NetworkPolicies, 0)
+	require.Empty(t, resources.NetworkPolicies)
 }
 
 // Mock types for testing
-
-type mockEndpointUpdater struct{}
-
-func (m *mockEndpointUpdater) GetID() uint64 {
-	return 1
-}
-
-func (m *mockEndpointUpdater) GetIPv4Address() string {
-	return "127.0.0.1"
-}
-
-func (m *mockEndpointUpdater) GetIPv6Address() string {
-	return ""
-}
-
-func (m *mockEndpointUpdater) GetPolicyNames() []string {
-	return []string{"127.0.0.1"}
-}
-
-func (m *mockEndpointUpdater) GetPolicySelectors() policy.SelectorSnapshot {
-	return types.MockSelectorSnapshot()
-}
-
-func (m *mockEndpointUpdater) OnProxyPolicyUpdate(revision uint64) {
-}
-
-func (m *mockEndpointUpdater) UpdateProxyStatistics(proxyType, l4Protocol string, port, proxyPort uint16, ingress, request bool,
-	verdict accesslog.FlowVerdict) {
-}
-
-func (m *mockEndpointUpdater) GetListenerProxyPort(listener string) uint16 {
-	return 0
-}
-
-func (m *mockEndpointUpdater) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) uint16 {
-	return 0
-}
-
-func (m *mockEndpointUpdater) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
-	return 0
-}
 
 type mockEndpointInfoSource struct{}
 
@@ -808,20 +765,8 @@ func (m *mockEndpointInfoSource) GetPolicyNames() []string {
 	return []string{"40"}
 }
 
-func (m *mockEndpointInfoSource) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) uint16 {
-	return 0
-}
-
 func (m *mockEndpointInfoSource) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
 	return 0
-}
-
-func testADSServer(t *testing.T) *adsServer {
-	logger := hivetest.Logger(t)
-	return &adsServer{
-		logger:            logger,
-		l7RulesTranslator: envoypolicy.NewEnvoyL7RulesTranslator(logger, nil),
-	}
 }
 
 // testableEndpointUpdater is a configurable mock implementing endpoint.EndpointUpdater.
@@ -855,84 +800,155 @@ func (m *testableEndpointUpdater) UpdateProxyStatistics(string, string, uint16, 
 }
 func (m *testableEndpointUpdater) GetListenerProxyPort(string) uint16 { return 0 }
 
-func TestADSUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemoval(t *testing.T) {
+// mockRestorer implements endpointstate.Restorer for testing.
+type mockRestorer struct {
+	waitErr error
+}
+
+func (m *mockRestorer) WaitForEndpointRestore(ctx context.Context) error {
+	return m.waitErr
+}
+
+func (m *mockRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
+	return m.waitErr
+}
+
+func (m *mockRestorer) WaitForInitialPolicy(ctx context.Context) error {
+	return m.waitErr
+}
+
+func TestStartAdsGRPCServerWithRestorerSuccess(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
-		policyRestoreTimeout: 30 * time.Second,
-	}
-	cache := xdsnew.NewCache(logger)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline())
-	ctx := context.Background()
-
-	currentEP := &testableEndpointUpdater{
-		id:   2766,
-		ipv4: "10.0.0.159",
-		ipv6: "fd00:10:244::ab0e",
+		policyRestoreTimeout: 5 * time.Second,
 	}
 
-	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
+	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
 
-	wg := completion.NewWaitGroup(ctx)
+	ctx := t.Context()
 
-	// First UpdateNetworkPolicy for currentEP.
-	err, revertFunc, _ := server.UpdateNetworkPolicy(ctx, currentEP, mockPolicy, wg)
-	require.NoError(t, err)
-	require.NotNil(t, revertFunc)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.startAdsGRPCServer(ctx)
+	}()
 
-	// Create a stale endpoint with the same IPv4 as currentEP but a different ID.
-	staleEP := &testableEndpointUpdater{
-		id:   500,
-		ipv4: currentEP.ipv4,
-		ipv6: "fd00:10:244::500",
+	// Resolve the promise with a restorer that succeeds.
+	resolver.Resolve(&mockRestorer{waitErr: nil})
+
+	// Wait briefly for the server to start serving.
+	time.Sleep(200 * time.Millisecond)
+
+	// Server should be running; stop it and verify no error.
+	require.NotNil(t, server.stopFunc, "stopFunc should be set after gRPC server is created")
+	server.stopFunc()
+
+	err := <-errCh
+	assert.NoError(t, err)
+}
+
+func TestStartAdsGRPCServerWithRestorerDeadlineExceeded(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	config := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 5 * time.Second,
 	}
-	staleResourceName := strconv.FormatUint(staleEP.GetID(), 10)
 
-	// Manually inject stale endpoint policy into the ADS cache.
-	err = server.UpsertEnvoyResources(ctx, xds.Resources{
-		NetworkPolicies: map[string]*cilium.NetworkPolicy{
-			staleResourceName: {},
-		},
-	}, nil)
-	require.NoError(t, err)
+	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
+	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
 
-	// Register stale endpoint in the local endpoint store.
-	server.localEndpointStore.setLocalEndpoint(staleEP)
-	localEP := server.localEndpointStore.getLocalEndpoint(staleEP.ipv6)
-	require.NotNil(t, localEP)
-	require.Equal(t, staleEP.GetID(), localEP.GetID())
+	ctx := t.Context()
 
-	// Update current endpoint policy again — should detect and remove the stale conflict.
-	err, revertFunc, _ = server.UpdateNetworkPolicy(ctx, currentEP, mockPolicy, nil)
-	require.NoError(t, err)
-	require.NotNil(t, revertFunc)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.startAdsGRPCServer(ctx)
+	}()
 
-	// Verify currentEP is still in the store.
-	localEP = server.localEndpointStore.getLocalEndpoint(currentEP.ipv4)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-	localEP = server.localEndpointStore.getLocalEndpoint(currentEP.ipv6)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-	// Stale endpoint's unique IPv6 should be gone.
-	require.Nil(t, server.localEndpointStore.getLocalEndpoint(staleEP.ipv6))
+	// Resolve with a restorer that returns DeadlineExceeded.
+	resolver.Resolve(&mockRestorer{waitErr: context.DeadlineExceeded})
 
-	// Stale policy should have been removed from the ADS cache.
-	cachedResources := cache.GetAllResources(localNodeID)
-	require.Nil(t, cachedResources.NetworkPolicies[staleResourceName])
+	// Server should still start serving despite the deadline exceeded.
+	time.Sleep(200 * time.Millisecond)
 
-	// Revert should keep currentEP and must not resurrect the stale entry.
-	require.NoError(t, revertFunc())
+	require.NotNil(t, server.stopFunc, "stopFunc should be set even after deadline exceeded")
+	server.stopFunc()
 
-	localEP = server.localEndpointStore.getLocalEndpoint(currentEP.ipv4)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-	localEP = server.localEndpointStore.getLocalEndpoint(currentEP.ipv6)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-	require.Nil(t, server.localEndpointStore.getLocalEndpoint(staleEP.ipv6))
+	err := <-errCh
+	assert.NoError(t, err)
+}
 
-	// Stale policy must still be absent after revert.
-	cachedResources = cache.GetAllResources(localNodeID)
-	require.Nil(t, cachedResources.NetworkPolicies[staleResourceName])
+func TestStartAdsGRPCServerWithRestorerCanceled(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	config := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 5 * time.Second,
+	}
+
+	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
+	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
+
+	ctx := t.Context()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.startAdsGRPCServer(ctx)
+	}()
+
+	// Resolve with a restorer that returns context.Canceled.
+	resolver.Resolve(&mockRestorer{waitErr: context.Canceled})
+
+	err := <-errCh
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestStartAdsGRPCServerWithNilRestorerPromise(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	config := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 5 * time.Second,
+	}
+
+	server := newADSServer(logger, nil, nil, config, nil, nil)
+
+	ctx := t.Context()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.startAdsGRPCServer(ctx)
+	}()
+
+	// With nil restorerPromise, server should start immediately.
+	time.Sleep(200 * time.Millisecond)
+
+	require.NotNil(t, server.stopFunc, "stopFunc should be set when restorerPromise is nil")
+	server.stopFunc()
+
+	err := <-errCh
+	assert.NoError(t, err)
+}
+
+func TestStartAdsGRPCServerContextCanceledBeforeResolve(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	config := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 5 * time.Second,
+	}
+
+	_, restorerPromise := promise.New[endpointstate.Restorer]()
+	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.startAdsGRPCServer(ctx)
+	}()
+
+	// Cancel context before resolving the promise — simulates shutdown during startup.
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	err := <-errCh
+	assert.ErrorIs(t, err, context.Canceled)
 }

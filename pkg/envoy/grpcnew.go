@@ -46,9 +46,31 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 	defer cancel()
 	s.stopFunc = grpcServer.Stop
 
+	if s.restorerPromise != nil {
+		s.logger.Info("Envoy: Waiting for endpoint restorer before serving xDS resources...")
+		restorer, err := s.restorerPromise.Await(ctx)
+		if err == nil && restorer != nil {
+			s.logger.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
+			err = restorer.WaitForInitialPolicy(ctx)
+		}
+		if errors.Is(err, context.Canceled) {
+			s.logger.Debug("Envoy: xDS server stopped before started serving")
+			return err
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			s.logger.Warn("Envoy: Endpoint policy restoration took longer than configured restore timeout, starting serving resources to Envoy",
+				logfields.Duration, s.config.policyRestoreTimeout,
+			)
+		}
+	}
+
 	s.logger.Info("Envoy: Starting xDS gRPC server listening",
 		logfields.Address, listener.Addr(),
 	)
+
+	// Start listening to IPCache events to populate NPHDS resources.
+	startNPHDSIPCacheListener(s.logger, s.ipCache, s)
+
 	if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
 		s.logger.Error("Envoy: Failed to serve xDS gRPC API",
 			logfields.Error, err,
