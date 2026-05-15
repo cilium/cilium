@@ -13,12 +13,15 @@ import (
 	"sync"
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // todo (nezdolik) migrate to go control plane constants when available
@@ -56,6 +59,22 @@ const (
 	// DownstreamTlsContextURL is the type URL of DownstreamTlsContext
 	DownstreamTlsContextURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
 )
+
+var CiliumXdsWithAdsConfigSource = &envoy_config_core.ConfigSource{
+	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_Ads{Ads: &envoy_config_core.AggregatedConfigSource{}},
+	InitialFetchTimeout:   durationpb.New(0),
+	ResourceApiVersion:    envoy_config_core.ApiVersion_V3,
+}
+
+// GetXDSConfigSource returns the appropriate xDS config source for inline resource references
+// (RDS, EDS, SDS). When ADS mode is enabled, resources are fetched via the aggregated stream;
+// otherwise they use per-resource-type gRPC streams.
+func GetXDSConfigSource() *envoy_config_core.ConfigSource {
+	if option.Config.EnvoyADSModeEnabled() {
+		return CiliumXdsWithAdsConfigSource
+	}
+	return CiliumXDSConfigSource
+}
 
 // NPHDSCache is a cache of resources in the Network Policy Hosts Discovery
 // Service.

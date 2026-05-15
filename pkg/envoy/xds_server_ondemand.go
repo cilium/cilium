@@ -21,6 +21,7 @@ type onDemandXdsStarter struct {
 
 	logger                         *slog.Logger
 	runDir                         string
+	adsMode                        bool
 	envoyLogPath                   string
 	envoyDefaultLogLevel           string
 	envoyNodeLocalityEnabled       bool
@@ -80,6 +81,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoy(ctx context.Context, wg *compl
 	o.envoyOnce.Do(func() {
 		// Start standalone Envoy on first invocation
 		_, startErr = o.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
+			adsMode:                        o.adsMode,
 			runDir:                         o.runDir,
 			logPath:                        o.envoyLogPath,
 			defaultLogLevel:                o.envoyDefaultLogLevel,

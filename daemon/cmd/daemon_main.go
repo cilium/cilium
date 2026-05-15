@@ -294,6 +294,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
 	option.BindEnv(vp, option.EnableL7Proxy)
 
+	flags.String(option.EnvoyXDSMode, "", `xDS server implementation for Envoy proxy configuration. Valid values are "" for the existing per-resource-type xDS server or "ads" for the ADS (Aggregated Discovery Service) xDS server`)
+	option.BindEnv(vp, option.EnvoyXDSMode)
+
 	flags.Bool(option.BPFEventsDropEnabled, defaults.BPFEventsDropEnabled, "Expose 'drop' events for Cilium monitor and/or Hubble")
 	option.BindEnv(vp, option.BPFEventsDropEnabled)
 
