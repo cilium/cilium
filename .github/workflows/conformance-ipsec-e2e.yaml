@@ -202,6 +202,7 @@ jobs:
           misc: ${{ matrix.misc }}
 
       - name: Set Kind params
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: kind-params
         shell: bash
         run: |
@@ -215,6 +216,7 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: lvh-kind
         uses: ./.github/actions/lvh-kind
         with:
@@ -224,6 +226,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Set up job variables for connectivity tests
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: vars-conn
         run: |
           EXTRA_CLI_FLAGS=(
@@ -253,6 +256,7 @@ jobs:
           echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
 
       - name: Setup bootid file
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
         with:
           provision: 'false'
@@ -265,7 +269,7 @@ jobs:
 
       - name: Start Cilium KVStore
         id: kvstore
-        if: matrix.kvstore == 'true'
+        if: ${{ matrix.kvstore == 'true' && steps.cilium-config.outputs.skip != 'true' }}
         run: |
           make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
 
@@ -277,6 +281,7 @@ jobs:
           " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: cilium/cilium-cli@28724c91759fcfe797a1619994da9eb53399da9d # v0.19.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
@@ -288,6 +293,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
@@ -297,6 +303,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Install Cilium
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: install-cilium
         shell: bash
         run: |
@@ -311,6 +318,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Prepare the bpftrace parameters
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: bpftrace-params
         run: |
           CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
@@ -324,6 +332,7 @@ jobs:
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
       - name: Start unencrypted packets check
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # Only check for DNS proxy traffic if IPv4 is enabled.
@@ -332,6 +341,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
       - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: run-tests
         shell: bash
         run: |
@@ -350,15 +360,18 @@ jobs:
             --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested"
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
 
       - name: Assert that no unencrypted packets are leaked
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Start unencrypted packets check for key rotation
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
@@ -367,29 +380,35 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
 
       - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Rotate IPsec Key (${{ join(matrix.*, ', ') }})
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/ipsec-key-rotate
         with:
           key-algo: ${{ matrix.key-two }}
 
       - name: Assert that no unencrypted packets are leaked during key rotation
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: ${{ env.job_name }}-${{ matrix.name }}-post-rotate
           extra-connectivity-test-flags: "${{ steps.vars-conn.outputs.connectivity_test_defaults }}"
 
       - name: Start unencrypted packets check for tests
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
       - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -407,12 +426,14 @@ jobs:
             --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested after all other tests after rotating ipsec keys"
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - after rotating keys"
 
       - name: Assert that no unencrypted packets are leaked during tests
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Fetch artifacts

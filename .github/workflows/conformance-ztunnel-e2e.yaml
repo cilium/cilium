@@ -152,12 +152,14 @@ jobs:
           mutual-auth: false
 
       - name: Set Kind params
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: kind-params
         shell: bash
         run: |
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} dual" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: lvh-kind
         uses: ./.github/actions/lvh-kind
         with:
@@ -167,6 +169,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Install Cilium CLI
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: cilium/cilium-cli@28724c91759fcfe797a1619994da9eb53399da9d # v0.19.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
@@ -178,6 +181,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
@@ -187,9 +191,11 @@ jobs:
             install/kubernetes/cilium
 
       - name: Generate ZTunnel certificates
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/ztunnel-certs
 
       - name: Install Cilium
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: install-cilium
         shell: bash
         run: |
@@ -200,6 +206,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Wait for ZTunnel DaemonSet
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         shell: bash
         run: |
           echo "Waiting for ztunnel-cilium DaemonSet to be ready..."
@@ -207,12 +214,14 @@ jobs:
           kubectl -n kube-system get pods -l app=ztunnel -o wide
 
       - name: Get connectivity test flags
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: e2e_config
         uses: ./.github/actions/cli-test-config
         with:
           include-unsafe-tests: true
 
       - name: Run connectivity tests (${{ matrix.name }})
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -223,6 +232,7 @@ jobs:
             --junit-property github_job_step="Run tests (${{ matrix.name }})"
 
       - name: Features tested
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested"
