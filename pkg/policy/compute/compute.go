@@ -33,7 +33,6 @@ type Result struct {
 	Identity             identity.NumericIdentity
 	NewPolicy, OldPolicy policy.SelectorPolicy
 	Revision             uint64
-	NeedsRelease         bool
 	Err                  error
 }
 
@@ -140,7 +139,8 @@ func (r *IdentityPolicyComputer) GetIdentityPolicyByIdentity(identity *identity.
 func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 	type pending struct {
 		computeRequest
-		rev statedb.Revision // statedb revision for CompareAndSwap
+		rev       statedb.Revision      // statedb revision for CompareAndSwap
+		oldPolicy policy.SelectorPolicy // the committed policy, superseded after the new one commits
 	}
 
 	for {
@@ -178,7 +178,9 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				close(req.done)
 				continue
 			}
-			work = append(work, pending{req, rev})
+			// The currently committed policy becomes the old one once this
+			// recomputation commits its replacement.
+			work = append(work, pending{computeRequest: req, rev: rev, oldPolicy: obj.NewPolicy})
 		}
 		if len(work) == 0 {
 			continue
@@ -195,7 +197,8 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				start := time.Now()
 				results[i].pending = w
 				results[i].res.Identity = w.identity.ID
-				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.OldPolicy, results[i].res.NeedsRelease, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity, w.toRev)
+				results[i].res.OldPolicy = w.oldPolicy
+				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity)
 				outcome := metrics.LabelValueOutcomeSuccess
 				if results[i].res.Err != nil {
 					outcome = metrics.LabelValueOutcomeFailure
@@ -242,19 +245,13 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				results[i].res = Result{}
 				continue
 			}
-			// CAS failure means a delete for this identity raced us. If
-			// the delete ran getPolicy() before our setPolicy() published
-			// NewPolicy, NewPolicy remains attached to the SelectorCache.
-			// Detach both NewPolicy and OldPolicy here, since the success
-			// path's OldPolicy detach loop below skips zeroed results.
+			// CAS failure means a delete for this identity raced us. The
+			// new policy was Attach()ed by resolvePolicyLocked, so supersede
+			// it here to release its SelectorCache references. The old policy
+			// is released by the delete path in LocalEndpointIdentityRemoved.
 			if _, _, err := r.tbl.CompareAndSwap(wtxn, results[i].rev, results[i].res); err != nil {
-				if results[i].res.NeedsRelease {
-					if results[i].res.NewPolicy != nil {
-						results[i].res.NewPolicy.Supersede()
-					}
-					if results[i].res.OldPolicy != nil {
-						results[i].res.OldPolicy.Supersede()
-					}
+				if results[i].res.NewPolicy != nil {
+					results[i].res.NewPolicy.Supersede()
 				}
 				results[i].res = Result{}
 			}
@@ -280,7 +277,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				logfields.Identity, cr.res.Identity,
 				logfields.PolicyRevision, cr.toRev,
 			)
-			if cr.res.OldPolicy != nil && cr.res.NeedsRelease {
+			if cr.res.OldPolicy != nil {
 				cr.res.OldPolicy.Supersede()
 			}
 		}
