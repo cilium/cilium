@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#pragma once
+
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
@@ -40,9 +42,9 @@
 
 #include "bpf_nat_tuples.h"
 
-#define NODE_ONE { .addr = v6_node_one_addr }
-#define EXT_IP { .addr = v6_ext_node_one_addr }
-#define POD_IP { .addr = v6_pod_one_addr }
+#define NODE_ONE6 { .addr = v6_node_one_addr }
+#define EXT_IP6 { .addr = v6_ext_node_one_addr }
+#define POD_IP6 { .addr = v6_pod_one_addr }
 
 /*
  * Input packet represents a device sending a PKT_TOO_BIG response ICMPv6
@@ -105,13 +107,13 @@ const __u8 icmp6_err_nodeport_revnat_full_udp_after[] = {
 int snat_v6_insert_ct_nat(__u8 proto)
 {
 	struct ipv6_nat_entry entry = {
-		.to_daddr = POD_IP,
+		.to_daddr = POD_IP6,
 	};
 	entry.to_sport = 0;
 	entry.to_dport = bpf_htons(20);
 	struct ipv6_ct_tuple tuple = {
-		.daddr   = NODE_ONE,
-		.saddr   = EXT_IP,
+		.daddr   = NODE_ONE6,
+		.saddr   = EXT_IP6,
 		.dport   = bpf_htons(30001), /* SNAT remapped port */
 		.sport   = bpf_htons(1234),
 		.nexthdr = proto,
