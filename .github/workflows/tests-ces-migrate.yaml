@@ -159,6 +159,7 @@ jobs:
           misc: 'bpfClockProbe=false,cni.uninstall=false'
 
       - name: Install Cilium CLI
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: cilium/cilium-cli@28724c91759fcfe797a1619994da9eb53399da9d # v0.19.3
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
@@ -168,11 +169,13 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Cilium
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: install-cilium
         run: |
           cilium install ${{ steps.cilium-config.outputs.config }}
 
       - name: Wait for Cilium status to be ready
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         run: |
           cilium status --wait --interactive=false
           kubectl get pods --all-namespaces -o wide
@@ -180,9 +183,11 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Setup conn-disrupt-test
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Enable CiliumEndpointSlice
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         shell: bash
         run: |
           kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"enable-cilium-endpoint-slice":"true"}}'
@@ -206,6 +211,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Run tests after migration
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         id: run-tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
