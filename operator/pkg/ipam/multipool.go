@@ -77,6 +77,7 @@ func startMultiPoolAllocator(p multiPoolParams) {
 	}
 
 	logger := p.Logger.With([]any{logfields.LogSubsys, "ipam-allocator-multi-pool"}...)
+	poolLogger := p.Logger.With([]any{logfields.LogSubsys, "ip-pool-watcher"}...)
 
 	allocator := multipool.NewPoolAllocator(logger, p.DaemonCfg.EnableIPv4, p.DaemonCfg.EnableIPv6)
 
@@ -87,12 +88,23 @@ func startMultiPoolAllocator(p multiPoolParams) {
 					return err
 				}
 
-				// The following operation will block until all pools are restored, thus it
-				// is safe to continue starting node allocation right after return.
-				startIPPoolAllocator(
-					ctx, allocator, p.CiliumPodIPPools,
-					p.Logger.With(logfields.LogSubsys, "ip-pool-watcher"),
-				)
+				synced := make(chan struct{})
+
+				// Watch PodIPPool events via a job, so the watcher persists beyond
+				// the start hook and new pools created at runtime are picked up.
+				p.JobGroup.Add(job.OneShot(
+					"ip-pool-allocator",
+					ipPoolWatcherJob(allocator, p.CiliumPodIPPools, poolLogger, synced),
+				))
+
+				// Block until all pools are restored, so callers can
+				// safely start node allocation right after return.
+				select {
+				case <-synced:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				poolLogger.InfoContext(ctx, "All CiliumPodIPPool resources synchronized")
 
 				nm := multipool.NewNodeHandler(
 					"ipam-multi-pool-sync",
@@ -155,17 +167,16 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 	return nil
 }
 
-func startIPPoolAllocator(
-	ctx context.Context,
+func ipPoolWatcherJob(
 	allocator *multipool.PoolAllocator,
 	ipPools resource.Resource[*cilium_v2alpha1.CiliumPodIPPool],
 	logger *slog.Logger,
-) {
-	logger.InfoContext(ctx, "Starting CiliumPodIPPool allocator watcher")
+	synced chan struct{},
+) func(ctx context.Context, health cell.Health) error {
+	return func(ctx context.Context, health cell.Health) error {
+		logger.InfoContext(ctx, "Starting CiliumPodIPPool allocator watcher")
+		health.OK("Primed")
 
-	synced := make(chan struct{})
-
-	go func() {
 		for ev := range ipPools.Events(ctx) {
 			var err error
 			var action string
@@ -173,6 +184,7 @@ func startIPPoolAllocator(
 			switch ev.Kind {
 			case resource.Sync:
 				close(synced)
+				health.OK("Synced")
 			case resource.Upsert:
 				err = multipool.UpsertPool(allocator, ev.Object.Name, ev.Object.Spec.IPv4, ev.Object.Spec.IPv6)
 				action = "upsert"
@@ -185,10 +197,7 @@ func startIPPoolAllocator(
 				logger.ErrorContext(ctx, fmt.Sprintf("failed to %s pool %q", action, ev.Key), logfields.Error, err)
 			}
 		}
-	}()
 
-	// Block until all pools are restored, so callers can safely start node allocation
-	// right after return.
-	<-synced
-	logger.InfoContext(ctx, "All CiliumPodIPPool resources synchronized")
+		return nil
+	}
 }

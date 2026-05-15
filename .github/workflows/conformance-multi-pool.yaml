@@ -335,6 +335,77 @@ jobs:
           cilium status --wait --interactive=false
           kubectl -n kube-system get pods
 
+      - name: Verify late-created pool is reconciled
+        id: late-pool
+        timeout-minutes: 10
+        run: |
+          echo "Deploying late-created-pool-check deployment..."
+          cat <<'EOF' | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: late-created-pool-check
+            namespace: default
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: late-created-pool-check
+            template:
+              metadata:
+                labels:
+                  app: late-created-pool-check
+                annotations:
+                  ipam.cilium.io/ip-pool: late-created-pool
+              spec:
+                containers:
+                - name: pause
+                  image: registry.k8s.io/pause:3.10
+          EOF
+
+          if kubectl rollout status deployment/late-created-pool-check --namespace default --timeout=60s; then
+            echo "::error::deployment unexpectedly became ready before pool creation"
+            exit 1
+          fi
+
+          echo "Creating late-created-pool CiliumPodIPPool..."
+          cat <<'EOF' | kubectl apply -f -
+          apiVersion: cilium.io/v2alpha1
+          kind: CiliumPodIPPool
+          metadata:
+            name: late-created-pool
+          spec:
+            ipv4:
+              cidrs:
+              - 192.168.32.0/20
+              maskSize: 27
+            ipv6:
+              cidrs:
+              - fd00::400/120
+              maskSize: 122
+          EOF
+
+          kubectl rollout status deployment/late-created-pool-check --namespace default --timeout=5m
+          kubectl get pod --namespace default -l app=late-created-pool-check -o "jsonpath=pod_ips={.items[0].status.podIPs[*].ip}{'\n'}" >> "$GITHUB_OUTPUT"
+          echo "ipv4_cidr=192.168.32.0/20" >> "$GITHUB_OUTPUT"
+          echo "ipv6_cidr=fd00::400/120" >> "$GITHUB_OUTPUT"
+
+      - name: Validate late-created pool pod IPs
+        shell: python
+        run: |
+          from ipaddress import ip_address, ip_network
+
+          ips = "${{ steps.late-pool.outputs.pod_ips }}".split()
+          assert ips, "late-created-pool pod has no IPs"
+          assert any(ip_address(ip) in ip_network("${{ steps.late-pool.outputs.ipv4_cidr }}") for ip in ips), "missing IPv4 address from late-created-pool"
+          assert any(ip_address(ip) in ip_network("${{ steps.late-pool.outputs.ipv6_cidr }}") for ip in ips), "missing IPv6 address from late-created-pool"
+
+      - name: Cleanup late-created pool resources
+        if: always()
+        run: |
+          kubectl delete deployment/late-created-pool-check --namespace default --ignore-not-found=true --wait=true
+          kubectl delete ciliumpodippool/late-created-pool --ignore-not-found=true --wait=true
+
       - name: Make JUnit report directory
         run: |
           mkdir -p cilium-junits
