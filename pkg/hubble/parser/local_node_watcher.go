@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package observer
+package parser
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 )
 
-// LocalNodeWatcher populate Hubble flows local node related fields (currently
+// LocalNodeWatcher populates Hubble flows local node related fields (currently
 // only labels).
 type LocalNodeWatcher struct {
 	mu    lock.Mutex
@@ -23,26 +23,28 @@ type LocalNodeWatcher struct {
 	}
 }
 
-// NewLocalNodeWatcher return a new LocalNodeWatcher. The given context control
-// whether the LocalNodeWatcher gets updated by the localNodeStore. It is safe
-// to use the returned LocalNodeWatcher once the context is cancelled, but its
-// information might be out-of-date.
-func NewLocalNodeWatcher(ctx context.Context, localNodeStore *node.LocalNodeStore) (*LocalNodeWatcher, error) {
-	watcher := LocalNodeWatcher{}
-	// fetch the initial local node
+// Run initializes the LocalNodeWatcher and subscribes to local node changes.
+// It blocks until the context is cancelled.
+func (w *LocalNodeWatcher) Run(ctx context.Context, localNodeStore *node.LocalNodeStore) error {
 	n, err := localNodeStore.Get(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	watcher.update(n)
-	// subscribe to local node changes.
-	localNodeStore.Observe(ctx, watcher.update, watcher.complete)
+	w.update(n)
+	localNodeStore.Observe(ctx, w.update, w.complete)
+	<-ctx.Done()
+	return nil
+}
 
-	return &watcher, nil
+// NodeLabels returns the current node labels as a sorted key=val slice.
+func (w *LocalNodeWatcher) NodeLabels() []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.cache.labels
 }
 
 // OnDecodedFlow implements OnDecodedFlow for LocalNodeWatcher. The
-// LocalNodeWatcher populate the flow's node_labels field.
+// LocalNodeWatcher populates the flow's node_labels field.
 func (w *LocalNodeWatcher) OnDecodedFlow(_ context.Context, flow *flowpb.Flow) (bool, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -50,7 +52,7 @@ func (w *LocalNodeWatcher) OnDecodedFlow(_ context.Context, flow *flowpb.Flow) (
 	return false, nil
 }
 
-// update synchronize the LocalNodeWatcher cache with the given LocalNode info.
+// update synchronizes the LocalNodeWatcher cache with the given LocalNode info.
 func (w *LocalNodeWatcher) update(n node.LocalNode) {
 	labels := sortedLabelSlice(n.Labels)
 	w.mu.Lock()
@@ -65,7 +67,7 @@ func (w *LocalNodeWatcher) complete(error) {
 	w.cache.labels = nil
 }
 
-// sortedLabelSlice convert a given map of key/val labels, and return a sorted
+// sortedLabelSlice converts a given map of key/val labels, and returns a sorted
 // key=val slice.
 func sortedLabelSlice(src map[string]string) []string {
 	labels := make([]string, 0, len(src))
