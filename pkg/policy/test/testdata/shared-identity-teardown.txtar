@@ -1,0 +1,69 @@
+hive/start
+
+# Two endpoints sharing one numeric identity. Tearing one down must keep the
+# policy's selectors and compute table entry alive; only the last teardown
+# releases them.
+
+# ${id} is the shared numeric identity. ${epA}/${epB} are the per-endpoint IDs
+# assigned by the endpoint manager, which are distinct from the identity.
+env labels=k8s:io.kubernetes.pod.namespace=default,k8s:app=shared
+identity/allocate ${labels}
+env --from-stdout id
+
+policy/import policy.yaml
+
+# Both endpoints resolve to the shared identity. endpoint/create returns the
+# assigned endpoint ID.
+endpoint/create 0 ${labels}
+env --from-stdout epA
+endpoint/create 0 ${labels}
+env --from-stdout epB
+
+endpoint/wait-for-policy-revision 2
+
+# Both caches are populated: the peer cache holds the toEndpoints selector, the
+# subject cache holds the shared identity, and the compute table has its entry.
+policyrepo/selectorcache
+stdout 'k8s:app: peer'
+policyrepo/selectorcache --subject
+stdout ${id}
+db/show --columns Identity policy-computations
+stdout ${id}
+
+# Deleting the first endpoint drops the identity refcount to 1, so nothing is
+# released.
+endpoint/delete ${epA}
+policyrepo/selectorcache
+stdout 'k8s:app: peer'
+policyrepo/selectorcache --subject
+stdout ${id}
+db/show --columns Identity policy-computations
+stdout ${id}
+
+# Deleting the last endpoint drops the refcount to 0 and releases everything.
+endpoint/delete ${epB}
+policyrepo/selectorcache
+! stdout 'k8s:app: peer'
+policyrepo/selectorcache --subject
+! stdout ${id}
+db/show --columns Identity policy-computations
+! stdout ${id}
+
+-- policy.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "shared"
+  namespace: "default"
+spec:
+  endpointSelector:
+    matchLabels:
+      "k8s:app": shared
+  egress:
+    - toEndpoints:
+      - matchLabels:
+          "k8s:app": peer
+      toPorts:
+      - ports:
+        - port: "80"
+          protocol: "TCP"
