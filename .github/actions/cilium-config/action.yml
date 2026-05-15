@@ -74,6 +74,9 @@ outputs:
   config:
     description: 'Cilium installation config'
     value: ${{ steps.derive-config.outputs.config }}
+  skip:
+    description: 'True when tests should be skipped based on the previously generated Cilium config'
+    value: ${{ steps.check-config-skip.outputs.skip }}
 runs:
   using: composite
   steps:
@@ -227,3 +230,10 @@ runs:
 
           CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV4} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY} ${BGP_CONTROL_PLANE}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT
+
+    - shell: bash
+      id: check-config-skip
+      run: |
+        SKIP=false
+
+        echo "skip=${SKIP}" >> "$GITHUB_OUTPUT"
