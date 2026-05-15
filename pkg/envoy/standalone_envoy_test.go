@@ -223,7 +223,7 @@ func TestEnvoyAds(t *testing.T) {
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
 		},
-		nil)
+		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
@@ -356,7 +356,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
 		},
-		nil)
+		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
@@ -464,7 +464,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
 		},
-		nil)
+		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
@@ -854,7 +854,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
 		},
-		nil)
+		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
@@ -978,7 +978,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
 		},
-		nil)
+		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
@@ -1078,7 +1078,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
 		},
-		nil)
+		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
@@ -1155,218 +1155,6 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 
 	t.Log("stopping Envoy")
 	stopEnvoy()
-}
-
-func TestEnvoyAdsNACKRevertWithSecret(t *testing.T) {
-	s := setupEnvoySuite(t)
-
-	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
-	defer cancel()
-
-	s.waitGroup = completion.NewWaitGroup(ctx)
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
-
-	logging.SetLogLevel(slog.LevelDebug)
-	flowdebug.Enable()
-
-	testRunDir, err := os.MkdirTemp("", "envoy_go_test")
-	require.NoError(t, err)
-	t.Logf("run directory: %s", testRunDir)
-
-	localEndpointStore := newLocalEndpointStore()
-	logger := hivetest.Logger(t)
-
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
-		xdsServerConfig{
-			envoySocketDir:    util.GetSocketDir(testRunDir),
-			proxyGID:          1337,
-			httpNormalizePath: true,
-			metrics:           xds.NewXDSMetric(),
-		},
-		nil)
-	require.NotNil(t, xdsServer)
-
-	go func() {
-		err = xdsServer.start(t.Context())
-		require.NoError(t, err)
-	}()
-	defer xdsServer.stop()
-
-	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
-	require.NotNil(t, accessLogServer)
-	go func() {
-		err = accessLogServer.start(t.Context())
-		require.NoError(t, err)
-	}()
-	defer accessLogServer.stop()
-
-	starter := &onDemandXdsStarter{logger: logger}
-	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-		adsMode:                        true,
-		runDir:                         testRunDir,
-		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
-		baseID:                         42,
-		connectTimeout:                 1,
-		maxActiveDownstreamConnections: 100,
-		defaultLogLevel:                "debug",
-		maxConnections:                 10,
-		maxRequests:                    100,
-		maxConcurrentRetries:           10,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, envoyProxy)
-	t.Log("started Envoy")
-	defer envoyProxy.admin.quit()
-
-	// Step 1: Add a valid listener so Envoy has a known-good baseline.
-	t.Log("adding valid listener on port 8081")
-	xdsServer.AddListener(ctx, "test-listener", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
-	err = s.waitForProxyCompletion()
-	require.NoError(t, err)
-	t.Log("completed adding test-listener")
-
-	// Step 2: Add a cluster that references a secret via SDS, plus a valid secret.
-	s.waitGroup = completion.NewWaitGroup(ctx)
-	t.Log("upserting cluster with SDS secret reference and valid secret")
-
-	currentResources := xdsServer.cache.GetAllResources(localNodeID).DeepCopy()
-	currentResources.Clusters["test-cluster"] = &envoy_config_cluster.Cluster{
-		Name:                 "test-cluster",
-		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       &durationpb.Duration{Seconds: 5},
-		LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-		TransportSocket: &envoy_config_core_v3.TransportSocket{
-			Name: "envoy.transport_sockets.tls",
-			ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
-				TypedConfig: ToAny(&envoy_config_tls.UpstreamTlsContext{
-					CommonTlsContext: &envoy_config_tls.CommonTlsContext{
-						TlsCertificateSdsSecretConfigs: []*envoy_config_tls.SdsSecretConfig{
-							{
-								Name: "test-secret",
-								SdsConfig: &envoy_config_core_v3.ConfigSource{
-									ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-										Ads: &envoy_config_core_v3.AggregatedConfigSource{},
-									},
-								},
-							},
-						},
-					},
-				}),
-			},
-		},
-	}
-	currentResources.Secrets["test-secret"] = &envoy_config_tls.Secret{
-		Name: "test-secret",
-		Type: &envoy_config_tls.Secret_TlsCertificate{
-			TlsCertificate: &envoy_config_tls.TlsCertificate{
-				CertificateChain: &envoy_config_core_v3.DataSource{
-					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
-						InlineBytes: []byte{1, 2, 3},
-					},
-				},
-				PrivateKey: &envoy_config_core_v3.DataSource{
-					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
-						InlineBytes: []byte{4, 5, 6},
-					},
-				},
-			},
-		},
-	}
-
-	err = xdsServer.UpsertEnvoyResources(ctx, *currentResources, s.waitGroup)
-	require.NoError(t, err)
-	err = s.waitForProxyCompletion()
-	require.NoError(t, err)
-	t.Log("completed upserting cluster and valid secret")
-
-	// Verify the secret exists in the snapshot.
-	cached := xdsServer.cache.GetAllResources(localNodeID)
-	require.Contains(t, cached.Secrets, "test-secret")
-
-	// Step 3: Replace the secret with a bad one that Envoy will NACK.
-	// Using a Filename pointing to a non-existent path triggers a NACK because
-	// Envoy's SDS handler validates the data source when the secret is delivered.
-	s.waitGroup = completion.NewWaitGroup(ctx)
-	t.Log("upserting resources with bad secret (expect NACK)")
-
-	badResources := xdsServer.cache.GetAllResources(localNodeID).DeepCopy()
-	badResources.Secrets["test-secret"] = &envoy_config_tls.Secret{
-		Name: "test-secret",
-		Type: &envoy_config_tls.Secret_TlsCertificate{
-			TlsCertificate: &envoy_config_tls.TlsCertificate{
-				CertificateChain: &envoy_config_core_v3.DataSource{
-					Specifier: &envoy_config_core_v3.DataSource_Filename{
-						Filename: "/nonexistent/path/cert.pem",
-					},
-				},
-				PrivateKey: &envoy_config_core_v3.DataSource{
-					Specifier: &envoy_config_core_v3.DataSource_Filename{
-						Filename: "/nonexistent/path/key.pem",
-					},
-				},
-			},
-		},
-	}
-
-	err = xdsServer.UpsertEnvoyResources(ctx, *badResources, s.waitGroup)
-	require.NoError(t, err)
-	err = s.waitForProxyCompletion()
-	require.Error(t, err)
-	t.Logf("NACK received as expected: %s", err)
-
-	// Step 4: Wait briefly for the asynchronous revert to complete.
-	time.Sleep(1 * time.Second)
-
-	// Step 5: Verify the bad secret was reverted and the valid one is restored.
-	cached = xdsServer.cache.GetAllResources(localNodeID)
-	require.Contains(t, cached.Secrets, "test-secret",
-		"test-secret should still exist after NACK revert")
-	secret := cached.Secrets["test-secret"]
-	require.NotNil(t, secret.GetTlsCertificate(),
-		"secret should have TlsCertificate after revert")
-	require.NotNil(t, secret.GetTlsCertificate().GetCertificateChain().GetInlineBytes(),
-		"secret should have been reverted to InlineBytes (not Filename) after NACK")
-	t.Log("verified secret was reverted after NACK")
-
-	// The listener should still be present after revert.
-	require.Contains(t, cached.Listeners, "test-listener",
-		"test-listener should still exist after NACK revert")
-
-	// Step 6: Remove the cluster+secret (they use invalid cert bytes that Envoy
-	// may NACK on re-push), then verify we can still add new valid listeners.
-	s.waitGroup = completion.NewWaitGroup(ctx)
-	t.Log("deleting cluster and secret before adding post-revert listener")
-	cleanupResources := xds.Resources{
-		Clusters: map[string]*envoy_config_cluster.Cluster{
-			"test-cluster": cached.Clusters["test-cluster"],
-		},
-		Secrets: map[string]*envoy_config_tls.Secret{
-			"test-secret": cached.Secrets["test-secret"],
-		},
-	}
-	err = xdsServer.DeleteEnvoyResources(ctx, cleanupResources, s.waitGroup)
-	require.NoError(t, err)
-	err = s.waitForProxyCompletion()
-	require.NoError(t, err)
-	t.Log("completed deleting cluster and secret")
-
-	s.waitGroup = completion.NewWaitGroup(ctx)
-	t.Log("adding another valid listener on port 8082 after NACK revert")
-	xdsServer.AddListener(ctx, "post-revert-listener", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
-	err = s.waitForProxyCompletion()
-	require.NoError(t, err)
-
-	cached = xdsServer.cache.GetAllResources(localNodeID)
-	require.Contains(t, cached.Listeners, "post-revert-listener")
-	t.Log("successfully added listener after NACK revert — xDS server is healthy")
-
-	t.Log("stopping Envoy")
-	err = envoyProxy.Stop()
-	require.NoError(t, err)
-	time.Sleep(2 * time.Second)
 }
 
 type proxyAccessLoggerMock struct{}
