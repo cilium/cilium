@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
@@ -41,18 +40,14 @@ func NewIdentityPolicyComputer(params Params) *IdentityPolicyComputer {
 
 		logger: params.Logger,
 
-		policyCacheEvents: params.PolicyCacheEvents,
-
 		trigger: make(chan struct{}, 1),
 	}
 
-	params.JobGroup.Add(
-		job.Observer[policy.PolicyCacheChange](
-			"policy-cache-observer",
-			obj.handlePolicyCacheEvent,
-			obj.policyCacheEvents,
-		),
-	)
+	// Subscribe directly to identitymanager. Observer callbacks fire
+	// synchronously under idm.mutex, so they must remain non-blocking. See
+	// the receiver methods for the constraint.
+	params.IDManager.Subscribe(obj)
+
 	params.JobGroup.Add(
 		job.OneShot("policy-computation-loop", func(ctx context.Context, health cell.Health) error {
 			return obj.processRequests(ctx)
@@ -71,8 +66,6 @@ type IdentityPolicyComputer struct {
 	repo      policy.PolicyRepository
 	idmanager identitymanager.IDManager
 
-	policyCacheEvents stream.Observable[policy.PolicyCacheChange]
-
 	reqsMu  lock.Mutex
 	reqs    []computeRequest
 	trigger chan struct{}
@@ -90,6 +83,4 @@ type Params struct {
 
 	Repo      policy.PolicyRepository
 	IDManager identitymanager.IDManager
-
-	PolicyCacheEvents stream.Observable[policy.PolicyCacheChange]
 }

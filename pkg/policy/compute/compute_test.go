@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -196,9 +195,7 @@ func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomput
 				},
 			),
 
-			cell.ProvidePrivate(func() (policy.PolicyRepository, stream.Observable[policy.PolicyCacheChange]) {
-				return repo, repo.PolicyCacheObservable()
-			}),
+			cell.ProvidePrivate(func() policy.PolicyRepository { return repo }),
 			cell.ProvidePrivate(func() identitymanager.IDManager { return idmgr }),
 
 			cell.Provide(
