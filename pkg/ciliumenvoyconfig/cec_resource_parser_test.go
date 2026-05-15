@@ -10,7 +10,6 @@ import (
 	"maps"
 	"testing"
 
-	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -26,6 +25,8 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+
+	util "github.com/cilium/cilium/pkg/envoy/util"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -2011,4 +2012,40 @@ func Test_isL7LB(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
+	parser := CECResourceParser{
+		logger:           hivetest.Logger(t),
+		portAllocator:    NewMockPortAllocator(),
+		httpLingerConfig: -1,
+	}
+
+	t.Run("ADS disabled: UseNphds not set", func(t *testing.T) {
+		option.Config.EnvoyXDSMode = ""
+		lf := parser.getBPFMetadataListenerFilter(true, false, 1234, false)
+		require.NotNil(t, lf)
+		msg, err := lf.GetTypedConfig().UnmarshalNew()
+		require.NoError(t, err)
+		meta, ok := msg.(*cilium.BpfMetadata)
+		require.True(t, ok)
+		assert.False(t, meta.UseNphds)
+		assert.Nil(t, meta.NpdsConfig)
+	})
+
+	t.Run("ADS enabled: UseNphds and NpdsConfig set to ADS", func(t *testing.T) {
+		option.Config.EnvoyXDSMode = option.EnvoyXDSModeADS
+		defer func() { option.Config.EnvoyXDSMode = "" }()
+
+		lf := parser.getBPFMetadataListenerFilter(true, false, 1234, false)
+		require.NotNil(t, lf)
+		msg, err := lf.GetTypedConfig().UnmarshalNew()
+		require.NoError(t, err)
+		meta, ok := msg.(*cilium.BpfMetadata)
+		require.True(t, ok)
+		assert.True(t, meta.UseNphds)
+		require.NotNil(t, meta.NpdsConfig)
+		assert.NotNil(t, meta.NpdsConfig.GetAds(), "NpdsConfig should use ADS aggregated source")
+		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.NpdsConfig.ResourceApiVersion)
+	})
 }

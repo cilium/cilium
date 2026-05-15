@@ -167,6 +167,11 @@ func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 		IpcacheName:              ipcache.Name,
 	}
 
+	if option.Config.EnvoyADSModeEnabled() {
+		conf.UseNphds = true
+		conf.NpdsConfig = CiliumXdsWithAdsConfigSource
+	}
+
 	if lingerConfig >= 0 {
 		lingerTime := uint32(lingerConfig)
 		conf.OriginalSourceSoLingerTime = &lingerTime

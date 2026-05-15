@@ -122,6 +122,12 @@ const (
 	// EnableL7Proxy is the name of the option to enable L7 proxy
 	EnableL7Proxy = "enable-l7-proxy"
 
+	// EnvoyXDSMode selects the xDS server implementation for Envoy proxy configuration.
+	EnvoyXDSMode = "envoy-xds-mode"
+
+	// EnvoyXDSModeADS selects the ADS (Aggregated Discovery Service) xDS server.
+	EnvoyXDSModeADS = "ads"
+
 	// EnableTracing enables tracing mode in the agent.
 	EnableTracing = "enable-tracing"
 
@@ -1400,6 +1406,9 @@ type DaemonConfig struct {
 	// EnableL7Proxy is the option to enable L7 proxy
 	EnableL7Proxy bool
 
+	// EnvoyXDSMode selects the xDS server implementation for Envoy proxy configuration.
+	EnvoyXDSMode string
+
 	// BootIDFile is the file containing the boot ID of the node
 	BootIDFile string
 
@@ -2092,6 +2101,11 @@ func (c *DaemonConfig) HealthCheckingEnabled() bool {
 	return c.EnableHealthChecking
 }
 
+// EnvoyADSModeEnabled returns true when Envoy should use the ADS xDS server.
+func (c *DaemonConfig) EnvoyADSModeEnabled() bool {
+	return c.EnvoyXDSMode == EnvoyXDSModeADS
+}
+
 // IPAMMode returns the IPAM mode
 func (c *DaemonConfig) IPAMMode() string {
 	return strings.ToLower(c.IPAM)
@@ -2142,6 +2156,16 @@ func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
 // is enabled
 func (c *DaemonConfig) PerNodeLabelsEnabled() bool {
 	return c.EnableNodeSelectorLabels
+}
+
+func (c *DaemonConfig) validateEnvoyXDSMode() error {
+	switch c.EnvoyXDSMode {
+	case "", EnvoyXDSModeADS:
+		return nil
+	default:
+		return fmt.Errorf("invalid Envoy xDS mode %q, valid modes = {%q, %q}",
+			c.EnvoyXDSMode, "", EnvoyXDSModeADS)
+	}
 }
 
 func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
@@ -2226,6 +2250,10 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 
 	if c.RouteMetric < 0 {
 		return fmt.Errorf("RouteMetric '%d' cannot be negative", c.RouteMetric)
+	}
+
+	if err := c.validateEnvoyXDSMode(); err != nil {
+		return err
 	}
 
 	if c.IPAM == ipamOption.IPAMENI && c.EnableIPv6 {
@@ -2462,6 +2490,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
 	c.EnableL7Proxy = vp.GetBool(EnableL7Proxy)
+	c.EnvoyXDSMode = vp.GetString(EnvoyXDSMode)
 	c.EnableTracing = vp.GetBool(EnableTracing)
 	c.EnableIPIPTermination = vp.GetBool(EnableIPIPTermination)
 	c.UnsafeDaemonConfigOption.EnableIPIPDevices = c.EnableIPIPTermination

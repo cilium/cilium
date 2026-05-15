@@ -119,6 +119,38 @@ func TestGetEnvName(t *testing.T) {
 	}
 }
 
+func TestValidateEnvoyXDSMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		mode    string
+		wantErr bool
+	}{
+		{
+			name: "default mode",
+		},
+		{
+			name: "ADS mode",
+			mode: EnvoyXDSModeADS,
+		},
+		{
+			name:    "unknown mode",
+			mode:    "sotw",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := (&DaemonConfig{EnvoyXDSMode: tt.mode}).validateEnvoyXDSMode()
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestReadDirConfig(t *testing.T) {
 	vp := viper.New()
 	var dirName string
