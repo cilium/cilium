@@ -6,7 +6,6 @@ package compute
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/cilium/statedb"
@@ -288,51 +287,61 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 	}
 }
 
-func (r *IdentityPolicyComputer) handlePolicyCacheEvent(ctx context.Context, event policy.PolicyCacheChange) error {
-	r.logger.Debug("Handle policy cache event", logfields.Identity, event.ID)
-
-	// The identity may already be gone from the manager by now, so clean up
-	// statedb on delete.
-	if event.Kind == policy.PolicyChangeDelete {
-		// Drop pending requests for this identity and close their done
-		// channels. No Result is committed. Endpoint regen retries on
-		// not-found.
-		r.reqsMu.Lock()
-		kept := r.reqs[:0]
-		for _, req := range r.reqs {
-			if req.identity.ID == event.ID {
-				close(req.done)
-				continue
-			}
-			kept = append(kept, req)
-		}
-		r.reqs = kept
-		r.reqsMu.Unlock()
-
-		wtxn := r.db.WriteTxn(r.tbl)
-		obj, _, found := r.tbl.Get(wtxn, PolicyComputationByIdentity(event.ID))
-		if !found {
-			wtxn.Abort()
-			return nil
-		}
-		_, _, err := r.tbl.Delete(wtxn, obj)
-		if err != nil {
-			wtxn.Abort()
-			return fmt.Errorf("failed to delete from statedb policy computation table: %w", err)
-		}
-		wtxn.Commit()
-		return nil
+// LocalEndpointIdentityAdded is part of the identitymanager.Observer interface.
+//
+// identitymanager dispatches observer callbacks synchronously while holding
+// its mutex, so this method must stay non-blocking: enqueue the request and
+// signal the trigger, nothing else. Anything that takes a lock or waits on a
+// goroutine here will serialize identity churn agent-wide.
+func (r *IdentityPolicyComputer) LocalEndpointIdentityAdded(id *identity.Identity) {
+	if id == nil {
+		return
 	}
+	_, _ = r.RecomputeIdentityPolicy(id, 0)
+}
 
-	if event.Identity == nil {
-		return nil
+// LocalEndpointIdentityRemoved is part of the identitymanager.Observer interface.
+//
+// Same constraint as LocalEndpointIdentityAdded: must remain non-blocking.
+// The statedb writes here are bounded bookkeeping.
+func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Identity) {
+	if id == nil {
+		return
 	}
+	r.logger.Debug("Identity removed", logfields.Identity, id.ID)
 
-	if event.Kind == policy.PolicyChangeInsert {
-		_, err := r.RecomputeIdentityPolicy(event.Identity, 0)
-		if err != nil {
-			return err
+	// Drop any pending compute requests for this identity so we don't keep
+	// re-running a stale computation.
+	r.reqsMu.Lock()
+	kept := r.reqs[:0]
+	for _, req := range r.reqs {
+		if req.identity.ID == id.ID {
+			close(req.done)
+			continue
 		}
+		kept = append(kept, req)
 	}
-	return nil
+	r.reqs = kept
+	r.reqsMu.Unlock()
+
+	wtxn := r.db.WriteTxn(r.tbl)
+	obj, _, found := r.tbl.Get(wtxn, PolicyComputationByIdentity(id.ID))
+	if !found {
+		wtxn.Abort()
+		return
+	}
+	if _, _, err := r.tbl.Delete(wtxn, obj); err != nil {
+		wtxn.Abort()
+		r.logger.Error("Failed to delete from policy computation table",
+			logfields.Identity, id.ID,
+			logfields.Error, err)
+		return
+	}
+	wtxn.Commit()
+
+	// Release the policy's selectors. Supersede after Commit so the detach
+	// runs outside the write txn, matching processRequests.
+	if obj.NewPolicy != nil {
+		obj.NewPolicy.Supersede()
+	}
 }
