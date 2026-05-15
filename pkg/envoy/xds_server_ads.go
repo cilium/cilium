@@ -63,12 +63,6 @@ var CiliumAdsConfigSource = &envoy_config_core.ApiConfigSource{
 	},
 }
 
-var CiliumXdsWithAdsConfigSource = &envoy_config_core.ConfigSource{
-	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_Ads{Ads: &envoy_config_core.AggregatedConfigSource{}},
-	InitialFetchTimeout:   durationpb.New(0),
-	ResourceApiVersion:    envoy_config_core.ApiVersion_V3,
-}
-
 type adsServer struct {
 	logger *slog.Logger
 
@@ -140,7 +134,7 @@ func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpoint
 	return newADSServerWithCache(xdsnew.NewCache(logger), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
 }
 
-func (s *adsServer) start(ctx context.Context) error {
+func (s *adsServer) run(ctx context.Context) error {
 	return s.startAdsGRPCServer(ctx)
 }
 
