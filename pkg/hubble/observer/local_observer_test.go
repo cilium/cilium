@@ -46,6 +46,7 @@ func noopParser(tb testing.TB) *parser.Parser {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
+		nil, // localNodeWatcher
 	)
 	require.NoError(tb, err)
 	return pp
@@ -653,8 +654,8 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	assert.Positive(t, flowsReceived)
 }
 
-// TestLocalObserverServer_NodeLabels test the LocalNodeWatcher integration
-// with the observer.
+// TestLocalObserverServer_NodeLabels tests that node labels are populated
+// on flows when the parser has a LocalNodeWatcher.
 func TestLocalObserverServer_NodeLabels(t *testing.T) {
 	ctx := t.Context()
 
@@ -671,22 +672,51 @@ func TestLocalObserverServer_NodeLabels(t *testing.T) {
 			},
 		},
 	}
-	localNodeWatcher, err := NewLocalNodeWatcher(ctx, node.NewTestLocalNodeStore(localNode))
+	expectedLabels := []string{
+		"kubernetes.io/arch=amd64",
+		"kubernetes.io/hostname=ip-1-2-3-4.us-west-2.compute.internal",
+		"kubernetes.io/os=linux",
+		"topology.kubernetes.io/region=us-west-2",
+		"topology.kubernetes.io/zone=us-west-2d",
+	}
+
+	// Start the LocalNodeWatcher via Run.
+	store := node.NewTestLocalNodeStore(localNode)
+	watcher := &parser.LocalNodeWatcher{}
+	watcherCtx, watcherCancel := context.WithCancel(ctx)
+	defer watcherCancel()
+	go watcher.Run(watcherCtx, store)
+
+	// Wait for the watcher to be initialized.
+	require.EventuallyWithT(
+		t,
+		func(c *assert.CollectT) {
+			assert.NotEmpty(c, watcher.NodeLabels())
+		},
+		10*time.Second,
+		10*time.Millisecond,
+	)
+
+	// Create a parser with the watcher.
+	pp, err := parser.New(
+		hivetest.Logger(t),
+		&testutils.NoopEndpointGetter,
+		&testutils.NoopIdentityGetter,
+		&testutils.NoopDNSGetter,
+		&testutils.NoopIPGetter,
+		&testutils.NoopServiceGetter,
+		&testutils.NoopLinkGetter,
+		&testutils.NoopPodMetadataGetter,
+		watcher,
+	)
 	require.NoError(t, err)
-	require.NotNil(t, localNodeWatcher)
 
 	// fake hubble server setup.
 	flowsReceived := 0
 	req := &observerpb.GetFlowsRequest{Number: uint64(1)}
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
-			// NOTE: a bit hacky to directly access the localNodeWatcher cache,
-			// but we don't have any use yet for an accessor method beyond this
-			// package local test.
-			localNodeWatcher.mu.Lock()
-			expected := localNodeWatcher.cache.labels
-			localNodeWatcher.mu.Unlock()
-			assert.Equal(t, expected, response.GetFlow().GetNodeLabels())
+			assert.Equal(t, expectedLabels, response.GetFlow().GetNodeLabels())
 			flowsReceived++
 			return nil
 		},
@@ -698,10 +728,8 @@ func TestLocalObserverServer_NodeLabels(t *testing.T) {
 	}
 
 	// local hubble observer setup.
-	pp, nm := noopParser(t), testutils.NoopNamespaceManager
-	s, err := NewLocalServer(pp, nm, hivetest.Logger(t),
-		observeroption.WithOnDecodedFlow(localNodeWatcher),
-	)
+	nm := testutils.NoopNamespaceManager
+	s, err := NewLocalServer(pp, nm, hivetest.Logger(t))
 	require.NoError(t, err)
 	go s.Start()
 

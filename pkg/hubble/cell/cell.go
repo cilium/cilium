@@ -28,7 +28,6 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
-	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 )
 
@@ -86,7 +85,6 @@ type hubbleParams struct {
 	IPCache           *ipcache.IPCache
 	CGroupManager     manager.CGroupManager
 	NodeManager       nodeManager.NodeManager
-	NodeLocalStore    *node.LocalNodeStore
 	MonitorAgent      monitorAgent.Agent
 
 	TLSConfigPromise tlsConfigPromise
@@ -120,7 +118,6 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.IPCache,
 		params.CGroupManager,
 		params.NodeManager,
-		params.NodeLocalStore,
 		params.MonitorAgent,
 		params.TLSConfigPromise,
 		params.ObserverOptions,
