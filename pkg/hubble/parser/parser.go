@@ -149,7 +149,7 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 		flow.Time = ts
 		flow.NodeName = monitorEvent.NodeName
 		if p.localNodeWatcher != nil {
-			flow.NodeLabels = p.localNodeWatcher.NodeLabels()
+			flow.NodeName, flow.NodeLabels = p.localNodeWatcher.NodeInfo()
 		}
 		ev.Event = flow
 		return ev, nil
@@ -175,7 +175,7 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 			flow.Time = ts
 			flow.NodeName = monitorEvent.NodeName
 			if p.localNodeWatcher != nil {
-				flow.NodeLabels = p.localNodeWatcher.NodeLabels()
+				flow.NodeName, flow.NodeLabels = p.localNodeWatcher.NodeInfo()
 			}
 			ev.Event = flow
 			return ev, nil

@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -71,18 +70,11 @@ func Test_LocalNodeWatcher(t *testing.T) {
 			t,
 			func(c *assert.CollectT) {
 				assert.Equal(c, localNodeLabelSlice, watcher.NodeLabels())
+				assert.Equal(c, localNode.Fullname(), watcher.NodeName())
 			},
 			10*time.Second,
 			10*time.Millisecond,
 		)
-	})
-
-	t.Run("OnDecodedFlow", func(t *testing.T) {
-		var flow flowpb.Flow
-		stop, err := watcher.OnDecodedFlow(ctx, &flow)
-		require.False(t, stop)
-		require.NoError(t, err)
-		require.Equal(t, localNodeLabelSlice, flow.GetNodeLabels())
 	})
 
 	t.Run("update", func(t *testing.T) {
@@ -93,6 +85,7 @@ func Test_LocalNodeWatcher(t *testing.T) {
 			t,
 			func(c *assert.CollectT) {
 				assert.Equal(c, updatedNodeLabelSlice, watcher.NodeLabels(), "node labels mismatch")
+				assert.Equal(c, updatedNode.Fullname(), watcher.NodeName(), "node name mismatch")
 			},
 			10*time.Second,
 			10*time.Millisecond,
@@ -103,11 +96,12 @@ func Test_LocalNodeWatcher(t *testing.T) {
 		cancel()
 		err := <-runDone
 		require.NoError(t, err)
-		// After cancellation, labels should be cleared by complete().
+		// After cancellation, cache should be cleared by complete().
 		require.EventuallyWithT(
 			t,
 			func(c *assert.CollectT) {
 				assert.Empty(c, watcher.NodeLabels())
+				assert.Empty(c, watcher.NodeName())
 			},
 			10*time.Second,
 			10*time.Millisecond,
