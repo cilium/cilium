@@ -1,0 +1,165 @@
+#! --enable-service-topology --lb-test-fault-probability=0.0
+#
+# Regression test for the topology safeguard interaction with terminating
+# endpoints. The EndpointSlice controller computes zone hints only for Ready
+# endpoints, so a Pod in the terminating phase appears in the slice without
+# hints.forZones. Before the fix this hint-less terminating backend would
+# trip the missing-hints safeguard (safeguard #4 at
+# https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards)
+# and disable topology-aware routing for the entire Service.
+#
+
+# Set the node zone label before starting so it's read by the zone watcher.
+test/set-node-labels topology.kubernetes.io/zone=foo
+
+# Start and wait for watchers
+hive start
+
+# Add the service (with topology-mode=auto) and both endpointslices.
+# Both Pods initially Ready with hints for zone 'foo' so that, with the
+# local node in zone 'foo', both are selected.
+k8s/add service.yaml endpointslice1.yaml endpointslice2.yaml
+db/cmp services services.table
+db/cmp backends backends-both-active.table
+db/cmp frontends frontends-both.table
+
+# === Regression: one Pod becomes terminating without hints ===
+# Transform endpointslice2 to a terminating endpoint that has no hints, as
+# the real EndpointSlice controller would produce for a non-Ready Pod.
+# Pre-fix this would have fallen back to all backends (missingHints=true);
+# post-fix the safeguard ignores the terminating backend and only the
+# Ready zone-local endpoint is selected.
+cp endpointslice2.yaml endpointslice2-terminating.yaml
+sed 'ready: true' 'ready: false' endpointslice2-terminating.yaml
+sed 'terminating: false' 'terminating: true' endpointslice2-terminating.yaml
+sed 'forZones:' 'notForZones:' endpointslice2-terminating.yaml
+k8s/update endpointslice2-terminating.yaml
+db/cmp backends backends-one-terminating.table
+db/cmp frontends frontends-only-eps1.table
+
+# === Drain fallback: all Pods terminating ===
+# Once every backend is terminating the safeguard finds no candidates and
+# falls back to the default behaviour, which yields all backends so the
+# graceful-termination drain semantics are preserved.
+cp endpointslice1.yaml endpointslice1-terminating.yaml
+sed 'ready: true' 'ready: false' endpointslice1-terminating.yaml
+sed 'terminating: false' 'terminating: true' endpointslice1-terminating.yaml
+sed 'forZones:' 'notForZones:' endpointslice1-terminating.yaml
+k8s/update endpointslice1-terminating.yaml
+db/cmp backends backends-both-terminating.table
+db/cmp frontends frontends-both-terminating.table
+
+# === Cleanup ===
+k8s/delete endpointslice1-terminating.yaml endpointslice2-terminating.yaml
+db/cmp frontends frontends-none.table
+* db/empty backends
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameZone
+
+-- backends-both-active.table --
+Service    Address              State
+test/echo  10.244.1.1:80/TCP    active
+test/echo  10.244.2.1:80/TCP    active
+
+-- backends-one-terminating.table --
+Service    Address              State
+test/echo  10.244.1.1:80/TCP    active
+test/echo  10.244.2.1:80/TCP    terminating
+
+-- backends-both-terminating.table --
+Service    Address              State
+test/echo  10.244.1.1:80/TCP    terminating
+test/echo  10.244.2.1:80/TCP    terminating
+
+-- frontends-both.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP
+
+-- frontends-only-eps1.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
+
+-- frontends-both-terminating.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP
+
+-- frontends-none.table --
+Address               Type        ServiceName   PortName   Status   Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.kubernetes.io/topology-mode: auto
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice1.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  zone: "foo"
+  hints:
+    forZones:
+    - name: foo
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  zone: "bar"
+  hints:
+    forZones:
+    - name: foo
+ports:
+- name: http
+  port: 80
+  protocol: TCP
