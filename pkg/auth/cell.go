@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -98,7 +98,7 @@ type authManagerParams struct {
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
-	PolicyRepo      policy.PolicyRepository
+	PolicyComputer  compute.PolicyRecomputer
 }
 
 func registerAuthManager(params authManagerParams) (*AuthManager, error) {
@@ -122,7 +122,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
-	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyRepo)
+	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyComputer)
 
 	// Register auth components to lifecycle hooks & jobs
 

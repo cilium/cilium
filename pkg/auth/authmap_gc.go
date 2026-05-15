@@ -23,10 +23,10 @@ import (
 )
 
 type authMapGarbageCollector struct {
-	logger        *slog.Logger
-	authmap       authMap
-	nodeIDHandler node.IDHandler
-	policyRepo    policyRepository
+	logger          *slog.Logger
+	authmap         authMap
+	nodeIDHandler   node.IDHandler
+	authTypeFetcher authTypeFetcher
 
 	ciliumNodesMutex      lock.Mutex
 	ciliumNodesDiscovered map[uint16]struct{}
@@ -47,16 +47,18 @@ func (r *authMapGarbageCollector) Name() string {
 	return "authmap-gc"
 }
 
-type policyRepository interface {
+// authTypeFetcher returns the AuthTypes required by the policy between two
+// identities. Today this is satisfied by the policy compute cell.
+type authTypeFetcher interface {
 	GetAuthTypes(localID, remoteID identity.NumericIdentity) policyTypes.AuthTypes
 }
 
-func newAuthMapGC(logger *slog.Logger, authmap authMap, nodeIDHandler node.IDHandler, policyRepo policyRepository) *authMapGarbageCollector {
+func newAuthMapGC(logger *slog.Logger, authmap authMap, nodeIDHandler node.IDHandler, authTypeFetcher authTypeFetcher) *authMapGarbageCollector {
 	return &authMapGarbageCollector{
-		logger:        logger,
-		authmap:       authmap,
-		nodeIDHandler: nodeIDHandler,
-		policyRepo:    policyRepo,
+		logger:          logger,
+		authmap:         authmap,
+		nodeIDHandler:   nodeIDHandler,
+		authTypeFetcher: authTypeFetcher,
 
 		ciliumNodesDiscovered: map[uint16]struct{}{
 			0: {}, // Local node 0 is always available
@@ -338,7 +340,7 @@ func (r *authMapGarbageCollector) cleanupEntriesWithoutAuthPolicy(_ context.Cont
 	r.logger.Debug("Cleaning up entries which no longer require authentication by a policy")
 
 	err := r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
-		authTypes := r.policyRepo.GetAuthTypes(key.localIdentity, key.remoteIdentity)
+		authTypes := r.authTypeFetcher.GetAuthTypes(key.localIdentity, key.remoteIdentity)
 
 		if _, ok := authTypes[key.authType]; !ok {
 			r.logger.Debug("Deleting entry because no policy requires authentication",
