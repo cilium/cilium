@@ -170,6 +170,10 @@ type SelectorPolicy interface {
 	// GetEgressNamedPorts iterates named ports for the given identities
 	GetEgressNamedPorts(name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq
 
+	// GetAuthTypes returns the AuthTypes required by the policy for traffic to
+	// remoteID, or nil if none.
+	GetAuthTypes(remoteID identity.NumericIdentity) types.AuthTypes
+
 	AddHold() bool
 	ReleaseHold()
 	Detach()
@@ -216,6 +220,33 @@ func (p *selectorPolicy) GetEgressNamedPorts(name string, proto u8proto.U8proto,
 		return pkgTypes.EmptyNidPortSeq
 	}
 	return p.namedPortsGetter.GetNamedPorts().GetNamedPorts(name, proto, idents)
+}
+
+// GetAuthTypes returns the AuthTypes required by the policy for traffic to
+// remoteID, or nil if none. The selectorPolicy is treated as immutable after
+// creation, so no locking is required.
+func (p *selectorPolicy) GetAuthTypes(remoteID identity.NumericIdentity) types.AuthTypes {
+	var resTypes types.AuthTypes
+	for cs, authTypes := range p.L4Policy.authMap {
+		missing := false
+		for authType := range authTypes {
+			if _, exists := resTypes[authType]; !exists {
+				missing = true
+				break
+			}
+		}
+		// Only check if 'cs' selects 'remoteID' if one of the authTypes is still missing
+		// from the result.
+		if missing && cs.Selects(remoteID) {
+			if resTypes == nil {
+				resTypes = make(types.AuthTypes, 1)
+			}
+			for authType := range authTypes {
+				resTypes[authType] = struct{}{}
+			}
+		}
+	}
+	return resTypes
 }
 
 func (p *selectorPolicy) Attach(ctx PolicyContext) {

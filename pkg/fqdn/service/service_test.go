@@ -744,6 +744,9 @@ func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, poli
 func (sp *testSelectorPolicy) GetSelectorSnapshot() policy.SelectorSnapshot {
 	return policy.SelectorSnapshot{}
 }
+func (sp *testSelectorPolicy) GetAuthTypes(_ identity.NumericIdentity) policytypes.AuthTypes {
+	return nil
+}
 func (sp *testSelectorPolicy) AddHold() bool       { return true }
 func (sp *testSelectorPolicy) ReleaseHold()        {}
 func (sp *testSelectorPolicy) Detach()             {}

@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/compute"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	proxyendpoint "github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/testutils"
 	testcompute "github.com/cilium/cilium/pkg/testutils/compute"
@@ -1081,6 +1082,10 @@ func (sp *testSelectorPolicy) GetEgressNamedPorts(name string, proto u8proto.U8p
 			}
 		}
 	}
+}
+
+func (sp *testSelectorPolicy) GetAuthTypes(remoteID identity.NumericIdentity) policyTypes.AuthTypes {
+	return nil
 }
 
 func (sp *testSelectorPolicy) AddHold() bool { return true }
