@@ -55,9 +55,11 @@ type PolicyRepository interface {
 	// calculation.
 	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error)
 
-	// ComputeSelectorPolicy computes the SelectorPolicy for a given identity,
-	// if it needs recomputing.
-	ComputeSelectorPolicy(id *identity.Identity, skipRevision uint64) (SelectorPolicy, uint64, SelectorPolicy, bool, error)
+	// ComputeSelectorPolicy resolves the SelectorPolicy for the given
+	// identity at the repository's current revision. The returned policy is
+	// already attached to the SelectorCache. The caller must detach it when
+	// no longer needed.
+	ComputeSelectorPolicy(id *identity.Identity) (SelectorPolicy, uint64, error)
 
 	// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
 	GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy
@@ -595,19 +597,18 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	return sp, rev, err
 }
 
-// ComputeSelectorPolicy computes the SelectorPolicy for a given identity, if
-// it needs recomputing.
-func (r *Repository) ComputeSelectorPolicy(id *identity.Identity, skipRevision uint64) (SelectorPolicy, uint64, SelectorPolicy, bool, error) {
+// ComputeSelectorPolicy resolves the SelectorPolicy for the given identity at
+// the repository's current revision. The returned policy is already attached
+// to the SelectorCache. The caller must detach it when no longer needed.
+func (r *Repository) ComputeSelectorPolicy(id *identity.Identity) (SelectorPolicy, uint64, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	rev := r.GetRevision()
-	sp, old, release, err := r.policyCache.updateSelectorPolicy(id, 0)
+	sp, err := r.resolvePolicyLocked(id)
 	if err != nil {
-		return nil, 0, nil, release, err
+		return nil, 0, err
 	}
-
-	return sp, rev, old, release, err
+	return sp, r.GetRevision(), nil
 }
 
 // ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
