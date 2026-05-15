@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package observer
+package parser
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,8 +17,6 @@ import (
 )
 
 func Test_LocalNodeWatcher(t *testing.T) {
-	ctx := t.Context()
-
 	localNode := node.LocalNode{
 		Node: types.Node{
 			Name: "ip-1-2-3-4.us-west-2.compute.internal",
@@ -55,14 +54,27 @@ func Test_LocalNodeWatcher(t *testing.T) {
 		"kubernetes.io/os=linux",
 	}
 
-	var watcher *LocalNodeWatcher
 	store := node.NewTestLocalNodeStore(localNode)
 
-	t.Run("NewLocalNodeWatcher", func(t *testing.T) {
-		var err error
-		watcher, err = NewLocalNodeWatcher(ctx, store)
-		require.NoError(t, err)
-		require.NotNil(t, watcher)
+	// Start the watcher with a cancellable context.
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	watcher := &LocalNodeWatcher{}
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- watcher.Run(ctx, store)
+	}()
+
+	t.Run("NodeLabels", func(t *testing.T) {
+		require.EventuallyWithT(
+			t,
+			func(c *assert.CollectT) {
+				assert.Equal(c, localNodeLabelSlice, watcher.NodeLabels())
+			},
+			10*time.Second,
+			10*time.Millisecond,
+		)
 	})
 
 	t.Run("OnDecodedFlow", func(t *testing.T) {
@@ -80,25 +92,26 @@ func Test_LocalNodeWatcher(t *testing.T) {
 		require.EventuallyWithT(
 			t,
 			func(c *assert.CollectT) {
-				var flow flowpb.Flow
-				stop, err := watcher.OnDecodedFlow(ctx, &flow)
-				if assert.False(c, stop) {
-					assert.NoError(c, err)
-					assert.Equal(c, updatedNodeLabelSlice, flow.GetNodeLabels(), "node labels mismatch")
-				}
+				assert.Equal(c, updatedNodeLabelSlice, watcher.NodeLabels(), "node labels mismatch")
 			},
 			10*time.Second,
 			10*time.Millisecond,
 		)
 	})
 
-	t.Run("complete", func(t *testing.T) {
-		watcher.complete(nil)
-		var flow flowpb.Flow
-		stop, err := watcher.OnDecodedFlow(ctx, &flow)
-		require.False(t, stop)
+	t.Run("context_cancellation", func(t *testing.T) {
+		cancel()
+		err := <-runDone
 		require.NoError(t, err)
-		require.Empty(t, flow.GetNodeLabels())
+		// After cancellation, labels should be cleared by complete().
+		require.EventuallyWithT(
+			t,
+			func(c *assert.CollectT) {
+				assert.Empty(c, watcher.NodeLabels())
+			},
+			10*time.Second,
+			10*time.Millisecond,
+		)
 	})
 }
 

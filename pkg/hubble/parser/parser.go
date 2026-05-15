@@ -35,10 +35,11 @@ type Decoder interface {
 
 // Parser for all flows
 type Parser struct {
-	l34  *threefour.Parser
-	l7   *seven.Parser
-	dbg  *debug.Parser
-	sock *sock.Parser
+	l34              *threefour.Parser
+	l7               *seven.Parser
+	dbg              *debug.Parser
+	sock             *sock.Parser
+	localNodeWatcher *LocalNodeWatcher
 }
 
 // New creates a new parser
@@ -51,6 +52,7 @@ func New(
 	serviceGetter getters.ServiceGetter,
 	linkGetter getters.LinkGetter,
 	cgroupGetter getters.PodMetadataGetter,
+	localNodeWatcher *LocalNodeWatcher,
 	opts ...options.Option,
 ) (*Parser, error) {
 
@@ -75,10 +77,11 @@ func New(
 	}
 
 	return &Parser{
-		l34:  l34,
-		l7:   l7,
-		dbg:  dbg,
-		sock: sock,
+		l34:              l34,
+		l7:               l7,
+		dbg:              dbg,
+		sock:             sock,
+		localNodeWatcher: localNodeWatcher,
 	}, nil
 }
 
@@ -145,6 +148,9 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 		// populate these fields for compatibility with old clients.
 		flow.Time = ts
 		flow.NodeName = monitorEvent.NodeName
+		if p.localNodeWatcher != nil {
+			flow.NodeLabels = p.localNodeWatcher.NodeLabels()
+		}
 		ev.Event = flow
 		return ev, nil
 	case *observerTypes.AgentEvent:
@@ -168,6 +174,9 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 			// populate these fields for compatibility with old clients.
 			flow.Time = ts
 			flow.NodeName = monitorEvent.NodeName
+			if p.localNodeWatcher != nil {
+				flow.NodeLabels = p.localNodeWatcher.NodeLabels()
+			}
 			ev.Event = flow
 			return ev, nil
 		case monitorAPI.MessageTypeAgent:
