@@ -186,16 +186,6 @@ clusters.
    cilium clustermesh enable --context $CLUSTER1
    cilium clustermesh enable --context $CLUSTER2
 
-.. note::
-
-   Starting from v1.16 KVStoreMesh is enabled by default.
-   You can opt out of :ref:`kvstoremesh` when enabling the Cluster Mesh.
-
-   .. code-block:: shell-session
-
-     cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh=false
-     cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh=false
-
 .. important::
 
    In some cases, the service type cannot be automatically detected and you need to specify it manually. This
