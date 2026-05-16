@@ -37,12 +37,16 @@ Cluster Addressing Requirements
   exact ports are documented in the :ref:`firewall_requirements` section.
 
 .. note::
-  
-  For cloud-specific deployments, you can check out the :ref:`gs_clustermesh_aks_prep`
-  guide for Azure Kubernetes Service (AKS), the :ref:`gs_clustermesh_eks_prep`
-  guide for Amazon Elastic Kubernetes Service (EKS) or the :ref:`gs_clustermesh_gke_prep` 
-  guide for Google Kubernetes Engine (GKE) clusters for instructions on
-  how to meet the above requirements.
+
+  For cloud-specific deployments, the following guides show how to meet the
+  above requirements:
+
+  .. toctree::
+     :maxdepth: 1
+
+     aks-clustermesh-prep
+     eks-clustermesh-prep
+     gke-clustermesh-prep
 
 Additional Requirements for Native-routed Datapath Modes
 --------------------------------------------------------
