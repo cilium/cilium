@@ -1417,6 +1417,7 @@ func TestBPFOps(t *testing.T) {
 					Maglev:         maglev,
 					DB:             db,
 					NodeAddresses:  nodeAddrs,
+					Frontends:      nil,
 				}
 
 				ops := newBPFOps(p)

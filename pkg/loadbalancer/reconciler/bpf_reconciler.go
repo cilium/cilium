@@ -112,6 +112,7 @@ type BPFOps struct {
 	log       rateLimitingLogger
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
+	frontends statedb.Table[*loadbalancer.Frontend]
 
 	cfg           loadbalancer.Config
 	extCfg        loadbalancer.ExternalConfig
@@ -186,6 +187,7 @@ type bpfOpsParams struct {
 	Maglev         *maglev.Maglev
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
+	Frontends      statedb.Table[*loadbalancer.Frontend]
 }
 
 const (
@@ -203,6 +205,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		LBMaps:    p.LBMaps,
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
+		frontends: p.Frontends,
 	}
 	ops.setLastUpdatedAt()
 
@@ -681,10 +684,26 @@ func (ops *BPFOps) pruneMaglev() error {
 	return errors.Join(errs...)
 }
 
+var errInitializersPending = errors.New("load-balancing tables not fully initialized")
+
+func (ops *BPFOps) initializersPending(txn statedb.ReadTxn) bool {
+	if ops.frontends == nil {
+		return false
+	}
+	initialized, _ := ops.frontends.Initialized(txn)
+	return !initialized
+}
+
 // Prune implements reconciler.Operations.
-func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*loadbalancer.Frontend, statedb.Revision]) error {
+func (ops *BPFOps) Prune(_ context.Context, txn statedb.ReadTxn, _ iter.Seq2[*loadbalancer.Frontend, statedb.Revision]) error {
 	ops.mu.Lock()
 	defer ops.mu.Unlock()
+	if ops.initializersPending(txn) {
+		ops.log.Warn("Skipping prune: load-balancing initializers are still pending",
+			"pending-initializers", ops.frontends.PendingInitializers(txn),
+		)
+		return nil
+	}
 	defer func() { ops.pruneCount.Add(1) }()
 	ops.log.Debug("Pruning")
 	return errors.Join(
@@ -705,6 +724,19 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
 		return nil
+	}
+
+	hasBackends := false
+	for range fe.Backends {
+		hasBackends = true
+		break
+	}
+	if !hasBackends && ops.initializersPending(txn) {
+		ops.log.Warn("Deferring update: frontend has no backends and initializers are still pending",
+			logfields.Address, fe.Address,
+			"pending-initializers", ops.frontends.PendingInitializers(txn),
+		)
+		return errInitializersPending
 	}
 
 	isLocalAddr := func(addr netip.Addr) bool {
