@@ -15,7 +15,7 @@ Multi-cluster Networking
    :glob:
 
    intro
-   clustermesh
+   setup
    services
    mcsapi
    policy
