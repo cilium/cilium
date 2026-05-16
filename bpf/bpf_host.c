@@ -1684,6 +1684,10 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 	};
 	int ret;
 
+	ret = pull_l3_hdr(ctx, proto);
+	if (ret < 0)
+		return ret;
+
 	switch (proto) {
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
