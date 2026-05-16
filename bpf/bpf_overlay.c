@@ -504,6 +504,10 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		goto out;
 	}
 
+	ret = pull_l3_hdr(ctx, proto);
+	if (ret < 0)
+		goto out;
+
 	if (is_defined(ENABLE_WIREGUARD) && CONFIG(enable_identity_mark)) {
 		/* When wireguard is enabled we should drop any traffic coming through the tunnel
 		 * that previously wasn't marked as decrypted by cilium.
