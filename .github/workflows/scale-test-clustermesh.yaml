@@ -61,7 +61,7 @@ concurrency:
 
 env:
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 567.0.0
+  gcloud_version: 568.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
   cmapisrv_mock_ref: 4ee70c6fe5560252e44b1cf65cfc60b1a9310b8d
 
@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@6bbf438de412ec7abcb58b25bc02227e6f09ac0c # main
+        uses: cilium/cilium/.github/actions/set-commit-status@b4d5fa827b77b8dc5cf57ba395bcfb5711598e96 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -96,7 +96,7 @@ jobs:
       job_name: "Install and Cluster Mesh Scale Test"
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@6bbf438de412ec7abcb58b25bc02227e6f09ac0c # main
+        uses: cilium/cilium/.github/actions/set-commit-status@b4d5fa827b77b8dc5cf57ba395bcfb5711598e96 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
