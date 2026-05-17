@@ -147,13 +147,18 @@ func (c *typedClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration,
 	applyOpts := &ApplyOptions{}
 	applyOpts.ApplyOptions(opts)
 
-	var contentType string
-	body, err := req.
+	resp := req.
 		NamespaceIfScoped(o.namespace, o.isNamespaced()).
 		Resource(o.resource()).
 		Name(o.name).
 		VersionedParams(applyOpts.AsPatchOptions(), c.paramCodec).
-		Do(ctx).
+		Do(ctx)
+	if err := resp.Error(); err != nil {
+		return err
+	}
+
+	var contentType string
+	body, err := resp.
 		ContentType(&contentType).
 		Raw()
 	if err != nil {
@@ -332,14 +337,19 @@ func (c *typedClient) ApplySubResource(ctx context.Context, obj runtime.ApplyCon
 		return fmt.Errorf("failed to create apply request: %w", err)
 	}
 
-	var contentType string
-	respBody, err := req.
+	resp := req.
 		NamespaceIfScoped(o.namespace, o.isNamespaced()).
 		Resource(o.resource()).
 		Name(o.name).
 		SubResource(subResource).
 		VersionedParams(applyOpts.AsPatchOptions(), c.paramCodec).
-		Do(ctx).
+		Do(ctx)
+	if err := resp.Error(); err != nil {
+		return err
+	}
+
+	var contentType string
+	respBody, err := resp.
 		ContentType(&contentType).
 		Raw()
 	if err != nil {

@@ -56,7 +56,7 @@ This will print:
 ```
 Prichard
 ```
-*There's also the [GetMany](#get-multiple-values-at-once) function to get multiple values at once, and [GetBytes](#working-with-bytes) for working with JSON byte slices.*
+*There's also [GetBytes](#working-with-bytes) for working with JSON byte slices.*
 
 ## Path Syntax
 

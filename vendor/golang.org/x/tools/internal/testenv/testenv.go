@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -330,9 +331,9 @@ func ExitIfSmallMachine() {
 
 // Go1Point returns the x in Go 1.x.
 func Go1Point() int {
-	for i := len(build.Default.ReleaseTags) - 1; i >= 0; i-- {
+	for _, tag := range slices.Backward(build.Default.ReleaseTags) {
 		var version int
-		if _, err := fmt.Sscanf(build.Default.ReleaseTags[i], "go1.%d", &version); err != nil {
+		if _, err := fmt.Sscanf(tag, "go1.%d", &version); err != nil {
 			continue
 		}
 		return version

@@ -17,6 +17,7 @@ import (
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/swag/typeutils"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/logger"
@@ -468,7 +469,7 @@ func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (any, *h
 	}
 
 	applies, usr, err := route.Authenticators.Authenticate(request, route)
-	if !applies || err != nil || !route.Authenticators.AllowsAnonymous() && usr == nil {
+	if !applies || err != nil || !route.Authenticators.AllowsAnonymous() && typeutils.IsZero(usr) {
 		if err != nil {
 			return nil, nil, err
 		}

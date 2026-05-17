@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
-	"github.com/go-openapi/swag/stringutils"
 )
 
 type validation struct {
@@ -22,25 +21,60 @@ type validation struct {
 }
 
 // ContentType validates the content type of a request.
+//
+// An allowed entry may carry MIME type parameters (e.g. "text/plain;charset=utf-8").
+// In that case every parameter the client sends must be present on the allowed entry
+// with the same value; the allowed entry may carry additional parameters the client
+// omits. An allowed entry without parameters accepts any client parameters.
+// "*/*" and "type/*" wildcards are matched on the bare type only.
 func validateContentType(allowed []string, actual string) error {
 	if len(allowed) == 0 {
 		return nil
 	}
-	mt, _, err := mime.ParseMediaType(actual)
+	actualType, actualParams, err := mime.ParseMediaType(actual)
 	if err != nil {
 		return errors.InvalidContentType(actual, allowed)
 	}
-	if stringutils.ContainsStringsCI(allowed, mt) {
-		return nil
+	typeWildcard := ""
+	if slash := strings.IndexByte(actualType, '/'); slash > 0 {
+		typeWildcard = actualType[:slash] + "/*"
 	}
-	if stringutils.ContainsStringsCI(allowed, "*/*") {
-		return nil
-	}
-	parts := strings.Split(actual, "/")
-	if len(parts) == 2 && stringutils.ContainsStringsCI(allowed, parts[0]+"/*") {
-		return nil
+	for _, a := range allowed {
+		if strings.EqualFold(a, "*/*") {
+			return nil
+		}
+		if typeWildcard != "" && strings.EqualFold(a, typeWildcard) {
+			return nil
+		}
+		if mediaTypeMatches(a, actualType, actualParams) {
+			return nil
+		}
 	}
 	return errors.InvalidContentType(actual, allowed)
+}
+
+// mediaTypeMatches reports whether the actual client media type satisfies the
+// server-side allowed media type, with parameter-aware comparison.
+func mediaTypeMatches(allowed, actualType string, actualParams map[string]string) bool {
+	allowedType, allowedParams, err := mime.ParseMediaType(allowed)
+	if err != nil {
+		// Fall back to a case-insensitive bare match if the configured value
+		// can't be parsed as a media type.
+		return strings.EqualFold(allowed, actualType)
+	}
+	if !strings.EqualFold(allowedType, actualType) {
+		return false
+	}
+	if len(allowedParams) == 0 {
+		return true
+	}
+	for k, v := range actualParams {
+		sv, ok := allowedParams[k]
+		if !ok || !strings.EqualFold(sv, v) {
+			return false
+		}
+	}
+	return true
 }
 
 func validateRequest(ctx *Context, request *http.Request, route *MatchedRoute) *validation {

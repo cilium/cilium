@@ -65,6 +65,12 @@ type ModifyVpnConnectionOptionsInput struct {
 	// Default: ::/0
 	RemoteIpv6NetworkCidr *string
 
+	// The desired bandwidth specification for the VPN connection. standard supports
+	// up to 1.25 Gbps per tunnel, while large supports up to 5 Gbps per tunnel. Large
+	// bandwidth is only available for VPN connections attached to a transit gateway or
+	// to Cloud WAN. The default value is standard .
+	TunnelBandwidth types.VpnTunnelBandwidth
+
 	noSmithyDocumentSerde
 }
 
