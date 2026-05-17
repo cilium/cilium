@@ -215,7 +215,8 @@ func (p ProxyRedirects) Equal(other ProxyRedirects) bool {
 }
 
 // ForPort finds the ProxyRedirect that matches the given frontend port.
-// Returns nil if no match is found.
+// It prefers an exact port match over a wildcard (Ports is empty) match.
+// Returns nil if no match is found. Nil entries are not expected.
 func (p ProxyRedirects) ForPort(port uint16) *ProxyRedirect {
 	var wildcard *ProxyRedirect
 	for i := range p {

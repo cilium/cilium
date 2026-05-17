@@ -624,6 +624,81 @@ var proxyTestCases = []testCase{
 		nil,
 		false,
 	),
+	newTestCase(
+		"L7Proxy_distinct_port80",
+
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			fe.ServicePort = 80
+
+			svc.ProxyRedirects = loadbalancer.ProxyRedirects{
+				{ProxyPort: 0x0a0a, Ports: []uint16{80}},
+				{ProxyPort: 0x0b0b, Ports: []uint16{443}},
+			}
+			return false, []loadbalancer.Backend{baseBackend}
+		},
+		[]maps.MapDump{
+			"BE: ID=2 ADDR=10.1.0.1:80/TCP STATE=active",
+			"REV: ID=2 ADDR=<auto>",
+			"SVC: ID=0 ADDR=<auto>/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=2 ADDR=<auto>/TCP SLOT=0 L7Proxy=2570 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+			"SVC: ID=2 ADDR=<auto>/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+		},
+		nil,
+		false,
+	),
+	newTestCase(
+		"L7Proxy_distinct_port443",
+
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.MustParseAddrCluster("10.0.0.2"), 443, loadbalancer.ScopeExternal)
+			fe.ServicePort = 443
+
+			svc.ProxyRedirects = loadbalancer.ProxyRedirects{
+				{ProxyPort: 0x0a0a, Ports: []uint16{80}},
+				{ProxyPort: 0x0b0b, Ports: []uint16{443}},
+			}
+			return false, []loadbalancer.Backend{baseBackend}
+		},
+		[]maps.MapDump{
+			"BE: ID=2 ADDR=10.1.0.1:80/TCP STATE=active",
+			"REV: ID=2 ADDR=<auto>",
+			"REV: ID=3 ADDR=10.0.0.2:443",
+			"SVC: ID=0 ADDR=10.0.0.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=0 ADDR=<auto>/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=2 ADDR=<auto>/TCP SLOT=0 L7Proxy=2570 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+			"SVC: ID=2 ADDR=<auto>/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+			"SVC: ID=3 ADDR=10.0.0.2:443/TCP SLOT=0 L7Proxy=2827 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+			"SVC: ID=3 ADDR=10.0.0.2:443/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+		},
+		nil,
+		false,
+	),
+	newTestCase(
+		"L7Proxy_distinct_cleanup",
+		deleteFrontend(autoAddr, ClusterIP),
+		[]maps.MapDump{
+			"BE: ID=2 ADDR=10.1.0.1:80/TCP STATE=active",
+			"REV: ID=3 ADDR=10.0.0.2:443",
+			"SVC: ID=0 ADDR=10.0.0.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=3 ADDR=10.0.0.2:443/TCP SLOT=0 L7Proxy=2827 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+			"SVC: ID=3 ADDR=10.0.0.2:443/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+		},
+		nil,
+		false,
+	),
+	newTestCase(
+		"L7Proxy_distinct_cleanup_2",
+		deleteFrontend(
+			loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.MustParseAddrCluster("10.0.0.2"), 443, loadbalancer.ScopeExternal),
+			ClusterIP,
+		),
+		[]maps.MapDump{},
+		nil,
+		false,
+	),
 }
 
 var extraFrontendInternal = loadbalancer.NewL3n4Addr(
