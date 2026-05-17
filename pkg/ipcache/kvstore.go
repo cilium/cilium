@@ -287,10 +287,10 @@ func WithCachedPrefix(cached bool) IWOpt {
 
 // WithIdentityValidator registers a validation function to ensure that the
 // observed IPs are associated with an identity belonging to the expected range.
-func WithIdentityValidator(clusterID uint32) IWOpt {
+func WithIdentityValidator(cinfo cmtypes.ClusterInfo, clusterID uint32) IWOpt {
 	return func(opts *iwOpts) {
-		min := identity.GetMinimalAllocationIdentity(clusterID)
-		max := identity.GetMaximumAllocationIdentity(clusterID)
+		min := identity.NumericIdentity(cinfo.MinimalAllocationIdentity(clusterID))
+		max := identity.NumericIdentity(cinfo.MaximumAllocationIdentity(clusterID))
 
 		validator := func(pair *identity.IPIdentityPair) error {
 			switch {

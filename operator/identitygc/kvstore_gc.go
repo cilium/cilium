@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/allocator"
-	ciliumIdentity "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -23,8 +22,8 @@ func (igc *GC) startKVStoreModeGC(ctx context.Context) error {
 		return fmt.Errorf("unable to initialize kvstore backend for identity allocation")
 	}
 
-	minID := idpool.ID(ciliumIdentity.GetMinimalAllocationIdentity(igc.clusterInfo.ID))
-	maxID := idpool.ID(ciliumIdentity.GetMaximumAllocationIdentity(igc.clusterInfo.ID))
+	minID := idpool.ID(igc.clusterInfo.MinimalAllocationIdentity(igc.clusterInfo.ID))
+	maxID := idpool.ID(igc.clusterInfo.MaximumAllocationIdentity(igc.clusterInfo.ID))
 	igc.logger.InfoContext(ctx, "Garbage Collecting kvstore identities between range",
 		logfields.Min, minID,
 		logfields.Max, maxID,

@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/identity"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -506,8 +505,8 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 
 func (d *statusCollector) getIdentityRange() *models.IdentityRange {
 	s := &models.IdentityRange{
-		MinIdentity: int64(identity.GetMinimalAllocationIdentity(d.statusParams.ClusterInfo.ID)),
-		MaxIdentity: int64(identity.GetMaximumAllocationIdentity(d.statusParams.ClusterInfo.ID)),
+		MinIdentity: int64(d.statusParams.ClusterInfo.MinimalAllocationIdentity(d.statusParams.ClusterInfo.ID)),
+		MaxIdentity: int64(d.statusParams.ClusterInfo.MaximumAllocationIdentity(d.statusParams.ClusterInfo.ID)),
 	}
 
 	return s

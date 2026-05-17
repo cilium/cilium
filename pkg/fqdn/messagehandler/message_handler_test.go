@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -117,12 +118,13 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 
 	// Initialize the endpoints.
 	endpoints := make([]*endpoint.Endpoint, nEndpoints)
+	clusterInfo := cmtypes.ClusterInfo{MaxConnectedClusters: option.Config.MaxConnectedClusters}
 	for i := range endpoints {
 		endpoints[i] = &endpoint.Endpoint{
 			ID:   uint16(i),
 			IPv4: netip.MustParseAddr(fmt.Sprintf("10.96.%d.%d", i/256, i%256)),
 			SecurityIdentity: &identity.Identity{
-				ID: identity.NumericIdentity(i % int(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))),
+				ID: identity.NumericIdentity(i % int(clusterInfo.MaximumAllocationIdentity(option.Config.ClusterID))),
 			},
 			DNSZombies: &fqdn.DNSZombieMappings{
 				Mutex: lock.Mutex{},

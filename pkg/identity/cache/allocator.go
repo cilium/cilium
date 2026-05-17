@@ -20,6 +20,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -105,12 +106,15 @@ type CachingIdentityAllocator struct {
 
 	// syncInterval is the periodic synchronization interval of the allocated identities.
 	syncInterval time.Duration
+
+	clusterInfo cmtypes.ClusterInfo
 }
 
 type AllocatorConfig struct {
 	EnableOperatorManageCIDs bool
 	Timeout                  time.Duration
 	SyncInterval             time.Duration
+	ClusterInfo              cmtypes.ClusterInfo
 	maxAllocAttempts         int
 }
 
@@ -217,8 +221,8 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	m.logger.Info("Initializing identity allocator")
 
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
+	minID := idpool.ID(m.clusterInfo.MinimalAllocationIdentity(option.Config.ClusterID))
+	maxID := idpool.ID(m.clusterInfo.MaximumAllocationIdentity(option.Config.ClusterID))
 
 	m.logger.Info(
 		"Allocating identities between range",
@@ -305,7 +309,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
-			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
+			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << m.clusterInfo.GetClusterIDShift())),
 		}
 		if m.operatorIDManagement {
 			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
@@ -391,6 +395,7 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 		maxAllocAttempts:                   config.maxAllocAttempts,
 		timeout:                            config.Timeout,
 		syncInterval:                       config.SyncInterval,
+		clusterInfo:                        config.ClusterInfo,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
@@ -937,7 +942,7 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remo
 	remoteAlloc, err := allocator.NewAllocator(m.logger,
 		&key.GlobalIdentity{}, remoteAllocatorBackend,
 		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart(),
-		allocator.WithCacheValidator(clusterIDValidator(remoteID)),
+		allocator.WithCacheValidator(clusterIDValidator(m.clusterInfo, remoteID)),
 		allocator.WithCacheValidator(clusterNameValidator(remoteName)),
 	)
 	if err != nil {
@@ -1024,9 +1029,9 @@ func (m *CachingIdentityAllocator) LocalIdentityChanges() stream.Observable[Iden
 
 // clusterIDValidator returns a validator ensuring that the identity ID belongs
 // to the ClusterID range.
-func clusterIDValidator(clusterID uint32) allocator.CacheValidator {
-	min := idpool.ID(identity.GetMinimalAllocationIdentity(clusterID))
-	max := idpool.ID(identity.GetMaximumAllocationIdentity(clusterID))
+func clusterIDValidator(cinfo cmtypes.ClusterInfo, clusterID uint32) allocator.CacheValidator {
+	min := idpool.ID(cinfo.MinimalAllocationIdentity(clusterID))
+	max := idpool.ID(cinfo.MaximumAllocationIdentity(clusterID))
 
 	return func(_ allocator.AllocatorChangeKind, id idpool.ID, _ allocator.AllocatorKey) error {
 		if id < min || id > max {

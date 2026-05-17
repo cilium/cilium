@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -48,8 +47,8 @@ func runLockSweeper(p params) {
 		logging.Fatal(p.Logger, "Unable to initialize kvstore backend for stale locks collection", logfields.Error, err)
 	}
 
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity(p.ClusterInfo.ID))
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(p.ClusterInfo.ID))
+	minID := idpool.ID(p.ClusterInfo.MinimalAllocationIdentity(p.ClusterInfo.ID))
+	maxID := idpool.ID(p.ClusterInfo.MaximumAllocationIdentity(p.ClusterInfo.ID))
 	a := allocator.NewAllocatorForGC(p.Logger, backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
 	keysToDelete := map[string]kvstore.Value{}

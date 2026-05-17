@@ -170,6 +170,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		name:                     name,
 		clusterID:                cmtypes.ClusterIDUnset,
 		clusterConfigValidator:   cm.conf.ClusterInfo.ValidateRemoteConfig,
+		clusterInfo:              cm.conf.ClusterInfo,
 		serviceModeV2:            cm.conf.ServiceModeV2,
 		usedIDs:                  cm.conf.ClusterIDsManager,
 		status:                   status,

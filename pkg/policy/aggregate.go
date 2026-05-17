@@ -34,6 +34,7 @@
 package policy
 
 import (
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -65,7 +66,7 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 
 	// NID is global scope and > 100.
 	// Determine if nid is in-cluster.
-	cid := nid.ClusterID()
+	cid := nid.ClusterID(cmtypes.ClusterInfo{MaxConnectedClusters: option.Config.MaxConnectedClusters})
 	if cid == option.Config.ClusterID {
 		return identity.ReservedIdentityAggregateCluster
 	}

@@ -4,7 +4,6 @@
 package identity
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,45 +16,49 @@ func TestLocalIdentity(t *testing.T) {
 	localID := NumericIdentity(IdentityScopeLocal | 1)
 	require.True(t, localID.HasLocalScope())
 
-	maxClusterID := NumericIdentity(cmtypes.ClusterIDMax | 1)
+	maxClusterID := NumericIdentity(cmtypes.DefaultClusterInfo.MaxConnectedClusters | 1)
 	require.False(t, maxClusterID.HasLocalScope())
 
 	require.False(t, ReservedIdentityWorld.HasLocalScope())
 }
 
 func TestClusterID(t *testing.T) {
-	tbl := []struct {
+	tests := []struct {
+		name      string
+		cinfo     cmtypes.ClusterInfo
 		identity  uint32
 		clusterID uint32
 	}{
 		{
+			name:      "clustermesh255-zero",
+			cinfo:     cmtypes.DefaultClusterInfo,
 			identity:  0x000000,
 			clusterID: 0,
 		},
 		{
-			identity:  0x010000,
-			clusterID: 1,
-		},
-		{
+			name:      "clustermesh255-mid",
+			cinfo:     cmtypes.DefaultClusterInfo,
 			identity:  0x2A0000,
 			clusterID: 42,
 		},
 		{
-			identity:  0xFF0000,
-			clusterID: 255,
-		},
-		{ // make sure we support min/max configuration values
-			identity:  cmtypes.ClusterIDMin << 16,
-			clusterID: cmtypes.ClusterIDMin,
+			name:      "clustermesh255-max",
+			cinfo:     cmtypes.DefaultClusterInfo,
+			identity:  cmtypes.DefaultClusterInfo.MaxConnectedClusters << cmtypes.DefaultClusterInfo.GetClusterIDShift(),
+			clusterID: cmtypes.DefaultClusterInfo.MaxConnectedClusters,
 		},
 		{
-			identity:  cmtypes.ClusterIDMax << 16,
-			clusterID: cmtypes.ClusterIDMax,
+			name:      "clustermesh511-max",
+			cinfo:     cmtypes.ClusterInfo{MaxConnectedClusters: cmtypes.ClusterIDExt511},
+			identity:  cmtypes.ClusterIDExt511 << (cmtypes.ClusterInfo{MaxConnectedClusters: cmtypes.ClusterIDExt511}).GetClusterIDShift(),
+			clusterID: cmtypes.ClusterIDExt511,
 		},
 	}
 
-	for _, item := range tbl {
-		require.Equal(t, item.clusterID, NumericIdentity(item.identity).ClusterID())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.clusterID, NumericIdentity(tt.identity).ClusterID(tt.cinfo))
+		})
 	}
 }
 
@@ -81,8 +84,6 @@ func TestAsUint32Slice(t *testing.T) {
 }
 
 func TestGetClusterIDShift(t *testing.T) {
-	resetClusterIDInit := func() { clusterIDInit = sync.Once{} }
-
 	tests := []struct {
 		name                   string
 		maxConnectedClusters   uint32
@@ -103,28 +104,11 @@ func TestGetClusterIDShift(t *testing.T) {
 		},
 	}
 
-	// cleanup state from any previous tests
-	resetClusterIDInit()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Cleanup(resetClusterIDInit)
 			cinfo := cmtypes.ClusterInfo{MaxConnectedClusters: tt.maxConnectedClusters}
-			cinfo.InitClusterIDMax()
-			assert.Equal(t, tt.expectedClusterIDShift, GetClusterIDShift())
-			assert.Equal(t, tt.expectedClusterIDBits, GetClusterIDBits())
-
-			// ensure we cannot change the clusterIDShift after it has been initialized
-			for _, tc := range tests {
-				if tc.name == tt.name {
-					// skip the current test case itself
-					continue
-				}
-				newCinfo := cmtypes.ClusterInfo{MaxConnectedClusters: tc.maxConnectedClusters}
-				newCinfo.InitClusterIDMax()
-				assert.NotEqual(t, tc.expectedClusterIDShift, GetClusterIDShift())
-				assert.NotEqual(t, tc.expectedClusterIDBits, GetClusterIDBits())
-			}
+			assert.Equal(t, tt.expectedClusterIDShift, cinfo.GetClusterIDShift())
+			assert.Equal(t, tt.expectedClusterIDBits, cinfo.GetClusterIDBits())
 		})
 	}
 }

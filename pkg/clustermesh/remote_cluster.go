@@ -45,6 +45,7 @@ type remoteCluster struct {
 	// clusterConfigValidator validates the cluster configuration advertised
 	// by remote clusters.
 	clusterConfigValidator func(cmtypes.CiliumClusterConfig) error
+	clusterInfo            cmtypes.ClusterInfo
 
 	usedIDs ClusterIDsManager
 
@@ -299,7 +300,7 @@ func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig)
 
 	if config != nil {
 		opts = append(opts, ipcache.WithCachedPrefix(config.Capabilities.Cached))
-		opts = append(opts, ipcache.WithIdentityValidator(config.ID))
+		opts = append(opts, ipcache.WithIdentityValidator(rc.clusterInfo, config.ID))
 	}
 
 	if rc.ipCacheWatcherExtraOpts != nil {
