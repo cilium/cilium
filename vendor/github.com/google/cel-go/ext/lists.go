@@ -616,8 +616,8 @@ func estimateListSlice(estimator checker.CostEstimator, target *checker.AstNode,
 		return nil
 	}
 	sz := estimateSize(estimator, *target)
-	start := nodeAsIntValue(args[0], 0)
-	end := nodeAsIntValue(args[1], sz.Max)
+	start := nodeAsUintValue(args[0], 0)
+	end := nodeAsUintValue(args[1], sz.Max)
 	return estimateAllocatingListCall(1, checker.FixedSizeEstimate(end-start))
 }
 
@@ -626,7 +626,7 @@ func estimateListsRange(estimator checker.CostEstimator, target *checker.AstNode
 	if target != nil || len(args) != 1 {
 		return nil
 	}
-	return estimateAllocatingListCall(1, checker.FixedSizeEstimate(nodeAsIntValue(args[0], math.MaxUint)))
+	return estimateAllocatingListCall(1, checker.FixedSizeEstimate(nodeAsUintValue(args[0], math.MaxUint)))
 }
 
 // estimateListReverse computes an O(n) reverse operation with a cost factor of 1.
@@ -644,7 +644,7 @@ func estimateListFlatten(estimator checker.CostEstimator, target *checker.AstNod
 	}
 	depth := uint64(1)
 	if len(args) == 1 {
-		depth = nodeAsIntValue(args[0], math.MaxUint)
+		depth = nodeAsUintValue(args[0], math.MaxUint)
 	}
 	return estimateAllocatingListCall(float64(depth), estimateSize(estimator, *target))
 }
@@ -753,27 +753,12 @@ func trackListSelfCompare(l traits.Lister) *uint64 {
 	if elem.Type() == types.StringType || elem.Type() == types.BytesType {
 		costFactor += common.StringTraversalCostFactor
 	}
-	return trackAllocatingListCall(costFactor, sz*sz)
+	return trackAllocatingListCall(costFactor, safeMul(sz, sz))
 }
 
 // trackAllocatingListCall computes costs as a function of the size of the result list with a baseline cost
 // for the call dispatch and the associated list allocation.
 func trackAllocatingListCall(costFactor float64, size uint64) *uint64 {
-	cost := uint64(float64(size)*costFactor) + callCost + common.ListCreateBaseCost
+	cost := safeAdd(uint64(float64(size)*costFactor), callCost, common.ListCreateBaseCost)
 	return &cost
-}
-
-func nodeAsIntValue(node checker.AstNode, defaultVal uint64) uint64 {
-	if node.Expr().Kind() != ast.LiteralKind {
-		return defaultVal
-	}
-	lit := node.Expr().AsLiteral()
-	if lit.Type() != types.IntType {
-		return defaultVal
-	}
-	val := lit.(types.Int)
-	if val < types.IntZero {
-		return 0
-	}
-	return uint64(lit.(types.Int))
 }

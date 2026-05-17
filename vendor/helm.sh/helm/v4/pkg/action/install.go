@@ -130,6 +130,10 @@ type Install struct {
 	// TakeOwnership will ignore the check for helm annotations and take ownership of the resources.
 	TakeOwnership bool
 	PostRenderer  postrenderer.PostRenderer
+	// PostRenderStrategy controls how hooks and regular templates are passed
+	// to the configured post-renderer. See PostRenderStrategy for the
+	// available modes. Defaults to PostRenderStrategyCombined.
+	PostRenderStrategy PostRenderStrategy
 	// Lock to control raceconditions when the process receives a SIGTERM
 	Lock           sync.Mutex
 	goroutineCount atomic.Int32
@@ -158,9 +162,10 @@ type ChartPathOptions struct {
 // NewInstall creates a new Install object with the given configuration.
 func NewInstall(cfg *Configuration) *Install {
 	in := &Install{
-		cfg:             cfg,
-		ServerSideApply: true, // Must always match the CLI default.
-		DryRunStrategy:  DryRunNone,
+		cfg:                cfg,
+		ServerSideApply:    true, // Must always match the CLI default.
+		DryRunStrategy:     DryRunNone,
+		PostRenderStrategy: PostRenderStrategyCombined,
 	}
 	in.registryClient = cfg.RegistryClient
 
@@ -267,7 +272,7 @@ func (i *Install) installCRDs(crds []chart.CRD) error {
 //
 // If DryRun is set to true, this will prepare the release, but not install it
 
-func (i *Install) Run(chrt ci.Charter, vals map[string]interface{}) (ri.Releaser, error) {
+func (i *Install) Run(chrt ci.Charter, vals map[string]any) (ri.Releaser, error) {
 	ctx := context.Background()
 	return i.RunWithContext(ctx, chrt, vals)
 }
@@ -276,7 +281,7 @@ func (i *Install) Run(chrt ci.Charter, vals map[string]interface{}) (ri.Releaser
 //
 // When the task is cancelled through ctx, the function returns and the install
 // proceeds in the background.
-func (i *Install) RunWithContext(ctx context.Context, ch ci.Charter, vals map[string]interface{}) (ri.Releaser, error) {
+func (i *Install) RunWithContext(ctx context.Context, ch ci.Charter, vals map[string]any) (ri.Releaser, error) {
 	var chrt *chart.Chart
 	switch c := ch.(type) {
 	case *chart.Chart:
@@ -370,14 +375,14 @@ func (i *Install) RunWithContext(ctx context.Context, ch ci.Charter, vals map[st
 	rel := i.createRelease(chrt, vals, i.Labels)
 
 	var manifestDoc *bytes.Buffer
-	rel.Hooks, manifestDoc, rel.Info.Notes, err = i.cfg.renderResources(chrt, valuesToRender, i.ReleaseName, i.OutputDir, i.SubNotes, i.UseReleaseName, i.IncludeCRDs, i.PostRenderer, interactWithServer(i.DryRunStrategy), i.EnableDNS, i.HideSecret)
+	rel.Hooks, manifestDoc, rel.Info.Notes, err = i.cfg.renderResources(chrt, valuesToRender, i.ReleaseName, i.OutputDir, i.SubNotes, i.UseReleaseName, i.IncludeCRDs, i.PostRenderer, interactWithServer(i.DryRunStrategy), i.EnableDNS, i.HideSecret, i.PostRenderStrategy)
 	// Even for errors, attach this if available
 	if manifestDoc != nil {
 		rel.Manifest = manifestDoc.String()
 	}
 	// Check error from render
 	if err != nil {
-		rel.SetStatus(rcommon.StatusFailed, fmt.Sprintf("failed to render resource: %s", err.Error()))
+		rel.SetStatus(rcommon.StatusFailed, "failed to render resource: "+err.Error())
 		// Return a release with partial data so that the client can show debugging information.
 		return rel, err
 	}
@@ -503,7 +508,7 @@ func (i *Install) performInstall(rel *release.Release, toBeAdopted kube.Resource
 	// pre-install hooks
 	if !i.DisableHooks {
 		if err := i.cfg.execHook(rel, release.HookPreInstall, i.WaitStrategy, i.WaitOptions, i.Timeout, i.ServerSideApply); err != nil {
-			return rel, fmt.Errorf("failed pre-install: %s", err)
+			return rel, fmt.Errorf("failed pre-install: %w", err)
 		}
 	}
 
@@ -549,7 +554,7 @@ func (i *Install) performInstall(rel *release.Release, toBeAdopted kube.Resource
 
 	if !i.DisableHooks {
 		if err := i.cfg.execHook(rel, release.HookPostInstall, i.WaitStrategy, i.WaitOptions, i.Timeout, i.ServerSideApply); err != nil {
-			return rel, fmt.Errorf("failed post-install: %s", err)
+			return rel, fmt.Errorf("failed post-install: %w", err)
 		}
 	}
 
@@ -653,7 +658,7 @@ func releaseV1ListToReleaserList(ls []*release.Release) ([]ri.Releaser, error) {
 }
 
 // createRelease creates a new release object
-func (i *Install) createRelease(chrt *chart.Chart, rawVals map[string]interface{}, labels map[string]string) *release.Release {
+func (i *Install) createRelease(chrt *chart.Chart, rawVals map[string]any, labels map[string]string) *release.Release {
 	ts := i.cfg.Now()
 
 	r := &release.Release{

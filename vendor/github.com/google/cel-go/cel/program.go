@@ -370,7 +370,7 @@ func (p *prog) ContextEval(ctx context.Context, input any) (ref.Val, *EvalDetail
 	}
 	out, det, err := p.Eval(vars)
 	if err != nil && errors.Is(err, interpreter.InterruptError{}) {
-		return out, det, context.Cause(ctx)
+		return out, det, fmt.Errorf("%w: %w", err, context.Cause(ctx))
 	}
 	return out, det, err
 }

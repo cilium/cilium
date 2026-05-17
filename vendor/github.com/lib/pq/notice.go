@@ -1,6 +1,3 @@
-//go:build go1.10
-// +build go1.10
-
 package pq
 
 import (
@@ -10,7 +7,7 @@ import (
 
 // NoticeHandler returns the notice handler on the given connection, if any. A
 // runtime panic occurs if c is not a pq connection. This is rarely used
-// directly, use ConnectorNoticeHandler and ConnectorWithNoticeHandler instead.
+// directly, use [ConnectorNoticeHandler] and [ConnectorWithNoticeHandler] instead.
 func NoticeHandler(c driver.Conn) func(*Error) {
 	return c.(*conn).noticeHandler
 }
@@ -18,7 +15,7 @@ func NoticeHandler(c driver.Conn) func(*Error) {
 // SetNoticeHandler sets the given notice handler on the given connection. A
 // runtime panic occurs if c is not a pq connection. A nil handler may be used
 // to unset it. This is rarely used directly, use ConnectorNoticeHandler and
-// ConnectorWithNoticeHandler instead.
+// [ConnectorWithNoticeHandler] instead.
 //
 // Note: Notice handlers are executed synchronously by pq meaning commands
 // won't continue to be processed until the handler returns.
@@ -44,7 +41,7 @@ func (n *NoticeHandlerConnector) Connect(ctx context.Context) (driver.Conn, erro
 }
 
 // ConnectorNoticeHandler returns the currently set notice handler, if any. If
-// the given connector is not a result of ConnectorWithNoticeHandler, nil is
+// the given connector is not a result of [ConnectorWithNoticeHandler], nil is
 // returned.
 func ConnectorNoticeHandler(c driver.Connector) func(*Error) {
 	if c, ok := c.(*NoticeHandlerConnector); ok {

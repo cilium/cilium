@@ -545,14 +545,7 @@ func (r *Runtime) createHttpRequest(operation *runtime.ClientOperation) (*reques
 	//}
 
 	// Enhancement proposal: https://github.com/go-openapi/runtime/issues/386
-	cmt := r.DefaultMediaType
-	for _, mediaType := range operation.ConsumesMediaTypes {
-		// Pick first non-empty media type
-		if mediaType != "" {
-			cmt = mediaType
-			break
-		}
-	}
+	cmt := pickConsumesMediaType(operation.ConsumesMediaTypes, r.DefaultMediaType)
 
 	if _, ok := r.Producers[cmt]; !ok && cmt != runtime.MultipartFormMime && cmt != runtime.URLencodedFormMime {
 		return nil, nil, fmt.Errorf("none of producers: %v registered. try %s", r.Producers, cmt)
@@ -566,6 +559,27 @@ func (r *Runtime) createHttpRequest(operation *runtime.ClientOperation) (*reques
 	req.URL.Host = r.Host
 	req.Host = r.Host
 	return request, req, nil
+}
+
+// pickConsumesMediaType selects which Content-Type the client will send.
+//
+// When the operation advertises multipart/form-data alongside other types
+// (typically application/x-www-form-urlencoded), multipart is preferred because
+// it streams and preserves per-file Content-Type. Otherwise the first non-empty
+// entry wins, falling back to def. This makes the choice independent of the
+// order produced by codegen.
+func pickConsumesMediaType(consumes []string, def string) string {
+	for _, mt := range consumes {
+		if strings.EqualFold(mt, runtime.MultipartFormMime) {
+			return mt
+		}
+	}
+	for _, mt := range consumes {
+		if mt != "" {
+			return mt
+		}
+	}
+	return def
 }
 
 func basePool(pool *x509.CertPool) *x509.CertPool {

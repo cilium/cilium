@@ -17,6 +17,7 @@ import (
 	"hash"
 	"io"
 	"net/textproto"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -48,6 +49,8 @@ var endText = []byte("-----BEGIN PGP SIGNATURE-----")
 
 // end is a marker which denotes the end of the armored signature.
 var end = []byte("\n-----END PGP SIGNATURE-----")
+
+var allowedHashHeaderValues = []string{"MD5", "SHA1", "RIPEMD160", "SHA224", "SHA256", "SHA384", "SHA512", "SHA3-256", "SHA3-512"}
 
 var crlf = []byte("\r\n")
 var lf = byte('\n')
@@ -131,7 +134,10 @@ func Decode(data []byte) (b *Block, rest []byte) {
 		key = strings.TrimSpace(key)
 		if key == hashHeader {
 			for _, val := range strings.Split(val, ",") {
-				val = strings.TrimSpace(val)
+				val = strings.ToUpper(strings.TrimSpace(val))
+				if !slices.Contains(allowedHashHeaderValues, val) {
+					return nil, data
+				}
 				b.Headers.Add(key, val)
 			}
 		} else {
