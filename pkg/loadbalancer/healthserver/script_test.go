@@ -228,10 +228,10 @@ func svcSetProxyRedirectCmd(writer *writer.Writer) script.Cmd {
 				}
 
 				svc = svc.Clone()
-				svc.ProxyRedirect = &loadbalancer.ProxyRedirect{
+				svc.ProxyRedirects = loadbalancer.ProxyRedirects{{
 					ProxyPort: proxyPort,
 					Ports:     []uint16{80, 443},
-				}
+				}}
 
 				if _, err := writer.UpsertService(wtxn, svc); err != nil {
 					return "", "", fmt.Errorf("failed to upsert service: %w", err)

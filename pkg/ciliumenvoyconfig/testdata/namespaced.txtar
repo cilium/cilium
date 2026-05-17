@@ -82,7 +82,7 @@ test/echo
 
 -- services_redirected.table --
 Name        Flags
-test/echo   ProxyRedirect=1000 (ports: [80])
+test/echo   ProxyRedirects=1000 (ports: [80])
 
 -- backends.table --
 Address

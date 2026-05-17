@@ -72,12 +72,12 @@ func SvcSetProxyRedirectCmd(w *writer.Writer) script.Cmd {
 					return "", "", fmt.Errorf("service %s not found", svcName)
 				}
 
-				// Clone and set ProxyRedirect
+				// Clone and set ProxyRedirects
 				svc = svc.Clone()
-				svc.ProxyRedirect = &loadbalancer.ProxyRedirect{
+				svc.ProxyRedirects = loadbalancer.ProxyRedirects{{
 					ProxyPort: proxyPort,
 					Ports:     []uint16{80, 443},
-				}
+				}}
 
 				// UpsertService also calls updateServiceReferences internally,
 				// which updates all frontends to point to the new service.
