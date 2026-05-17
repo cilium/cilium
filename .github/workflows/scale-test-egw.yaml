@@ -80,7 +80,7 @@ env:
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 97d69a912654265ede4e12111d6a12833a6e3425
+  egw_utils_ref: 4ee70c6fe5560252e44b1cf65cfc60b1a9310b8d
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@380de320e1536b28487b0af6e9e0cac14c078b8e # main
+        uses: cilium/cilium/.github/actions/set-commit-status@7861489348642857f8b02b35e828c8334d8118f2 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -143,7 +143,7 @@ jobs:
           - egw
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@380de320e1536b28487b0af6e9e0cac14c078b8e # main
+        uses: cilium/cilium/.github/actions/set-commit-status@7861489348642857f8b02b35e828c8334d8118f2 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
