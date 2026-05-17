@@ -45,7 +45,7 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Re
 			svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
 			if found {
 				svc = svc.Clone()
-				svc.ProxyRedirect = nil
+				svc.ProxyRedirects = nil
 				ops.writer.UpsertService(wtxn, svc)
 			}
 		}
@@ -224,11 +224,11 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 		if res.Redirects.Len() > 0 || res.ReconciledRedirects.Len() > 0 {
 			wtxn := ops.writer.WriteTxn()
 			orphanRedirects := res.ReconciledRedirects
-			for name, redirect := range res.Redirects.All() {
+			for name, redirects := range res.Redirects.All() {
 				svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
-				if found && !svc.ProxyRedirect.Equal(redirect) {
+				if found && !svc.ProxyRedirects.Equal(redirects) {
 					svc = svc.Clone()
-					svc.ProxyRedirect = redirect
+					svc.ProxyRedirects = redirects
 					ops.writer.UpsertService(wtxn, svc)
 				}
 				orphanRedirects = orphanRedirects.Delete(name)
@@ -238,7 +238,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 					svc, _, found := ops.writer.Services().Get(wtxn, loadbalancer.ServiceByName(name))
 					if found {
 						svc = svc.Clone()
-						svc.ProxyRedirect = nil
+						svc.ProxyRedirects = nil
 						ops.writer.UpsertService(wtxn, svc)
 					}
 				}
