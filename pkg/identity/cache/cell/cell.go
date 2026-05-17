@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -69,6 +70,7 @@ type identityAllocatorParams struct {
 	Lifecycle      cell.Lifecycle
 	IDUpdater      policycell.IdentityUpdater
 	LocalNodeStore *node.LocalNodeStore
+	ClusterInfo    cmtypes.ClusterInfo
 
 	IdentityHandlers []identity.UpdateIdentities `group:"identity-handlers"`
 
@@ -123,6 +125,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 			EnableOperatorManageCIDs: isOperatorManageCIDsEnabled,
 			Timeout:                  params.Config.IdentityAllocationTimeout,
 			SyncInterval:             params.Config.IdentityAllocationSyncInterval,
+			ClusterInfo:              params.ClusterInfo,
 		}
 
 		// Allocator: allocates local and cluster-wide security identities.

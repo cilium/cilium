@@ -4,14 +4,16 @@
 package config
 
 import (
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func NodeConfig(lnc *Config) Node {
 	node := *NewNode()
-	node.ClusterIDBits = identity.GetClusterIDBits()
+	node.ClusterIDBits = cmtypes.ClusterInfo{
+		MaxConnectedClusters: option.Config.MaxConnectedClusters,
+	}.GetClusterIDBits()
 
 	node.CiliumHostIfIndex = lnc.CiliumHostIfIndex
 	node.CiliumHostMAC.Addr = lnc.CiliumHostMAC.As6()

@@ -6,11 +6,13 @@ package types
 import (
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	identitynumeric "github.com/cilium/cilium/pkg/identity/numericidentity"
 )
 
 const (
@@ -114,4 +116,41 @@ type CiliumClusterConfigCapabilities struct {
 	// Whether or not MCS-API ServiceExports is enabled by the cluster.
 	// Additionally a nil values means that it's not supported.
 	ServiceExportsEnabled *bool `json:"serviceExportsEnabled,omitempty"`
+}
+
+func (c ClusterInfo) configuredMaxConnectedClusters() uint32 {
+	if c.MaxConnectedClusters == 0 {
+		return defaults.MaxConnectedClusters
+	}
+	return c.MaxConnectedClusters
+}
+
+// GetClusterIDBits returns the number of bits that represent a cluster ID in a
+// numeric identity for this cluster configuration.
+func (c ClusterInfo) GetClusterIDBits() uint32 {
+	return uint32(math.Log2(float64(c.configuredMaxConnectedClusters() + 1)))
+}
+
+// GetClusterIDShift returns the number of bits to shift a cluster ID in a
+// numeric identity for this cluster configuration.
+func (c ClusterInfo) GetClusterIDShift() uint32 {
+	return identitynumeric.Bitlength - c.GetClusterIDBits()
+}
+
+// MinimalAllocationIdentity returns the minimal numeric identity not used for
+// reserved purposes for the given cluster ID under this cluster configuration.
+func (c ClusterInfo) MinimalAllocationIdentity(clusterID uint32) uint32 {
+	if clusterID > 0 {
+		// For ClusterID > 0, the identity range just starts from cluster shift,
+		// no well-known-identities need to be reserved from the range.
+		return (1 << c.GetClusterIDShift()) * clusterID
+	}
+	return identitynumeric.MinimalIdentity
+}
+
+// MaximumAllocationIdentity returns the maximum numeric identity that should be
+// handed out by the identity allocator for the given cluster ID under this
+// cluster configuration.
+func (c ClusterInfo) MaximumAllocationIdentity(clusterID uint32) uint32 {
+	return (1<<c.GetClusterIDShift())*(clusterID+1) - 1
 }

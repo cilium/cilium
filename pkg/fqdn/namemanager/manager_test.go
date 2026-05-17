@@ -239,8 +239,9 @@ func TestNameManagerGCConsistency(t *testing.T) {
 		logger: logger,
 		eps:    make(sets.Set[*endpoint.Endpoint]),
 	}
+	clusterInfo := cmtypes.ClusterInfo{MaxConnectedClusters: option.Config.MaxConnectedClusters}
 	ep := &endpoint.Endpoint{ID: uint16(1), IPv4: netip.MustParseAddr("10.96.0.1"), SecurityIdentity: &identity.Identity{
-		ID: identity.NumericIdentity(int(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))),
+		ID: identity.NumericIdentity(int(clusterInfo.MaximumAllocationIdentity(option.Config.ClusterID))),
 	},
 		DNSZombies: fqdn.NewDNSZombieMappings(logger, 10000, 10000),
 		DNSHistory: fqdn.NewDNSCache(1),
