@@ -71,3 +71,15 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
   # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
+- name: 'lb-6-legacy'
+  kernel: '6.12'
+  kube-proxy: 'none'
+  kpr: 'true'
+  devices: '{eth0,eth1}'
+  secondary-network: 'true'
+  tunnel: 'vxlan'
+  lb-mode: 'snat'
+  ingress-controller: 'true'
+  misc: 'bpfClockProbe=false,cni.uninstall=false,envoy.xdsMode='
+  # L7 testing: SNAT load balancer + Ingress controller with the legacy per-resource-type xDS server
+  test-l7: 'true'

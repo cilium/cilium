@@ -133,6 +133,12 @@ jobs:
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: true
+        - name: With_Legacy_XDS
+          kube-proxy-replacement: true
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+          legacy-xds: true
 
     steps:
       - name: Set commit status to pending
@@ -176,6 +182,10 @@ jobs:
             --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
             --helm-set=extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }} \
             --helm-set=l2announcements.enabled=true"
+
+          if [ "${{ matrix.legacy-xds }}" == "true" ]; then
+            CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} --helm-set=envoy.xdsMode="
+          fi
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 

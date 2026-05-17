@@ -138,6 +138,11 @@ jobs:
                 "crd-channel": "standard",
                 "conformance-profile": false,
                 "encryption": "ipsec"
+              },
+              {
+                "crd-channel": "experimental",
+                "conformance-profile": false,
+                "legacy-xds": true
               }
             ]
           }'
@@ -213,6 +218,10 @@ jobs:
             --helm-set=kubeProxyReplacement=true \
             --helm-set=gatewayAPI.enabled=true \
             --helm-set=l2announcements.enabled=true"
+
+          if [ "${{ matrix.legacy-xds }}" == "true" ]; then
+            CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} --helm-set=envoy.xdsMode="
+          fi
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT

@@ -74,11 +74,19 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   installation-and-connectivity:
-    name: "Installation and Connectivity Test"
+    name: "Installation and Connectivity Test (${{ matrix.name }})"
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: default
+          extra-helm-set: ""
+        - name: legacy-xds
+          extra-helm-set: "--helm-set=envoy.xdsMode="
     env:
-      job_name: "Installation and Connectivity Test"
+      job_name: "Installation and Connectivity Test (${{ matrix.name }})"
     steps:
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
@@ -157,6 +165,7 @@ jobs:
             --helm-set=tls.secretSync.enabled=true \
             --helm-set=envoy.enabled=false \
             --helm-set=ipv6.enabled=true \
+            ${{ matrix.extra-helm-set }} \
             --wait=false"
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
             --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \

@@ -1900,6 +1900,10 @@
      - For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter to use the original source address when extracting the metadata for a request.
      - bool
      - ``true``
+   * - :spelling:ignore:`envoy.xdsMode`
+     - xDS server implementation for Envoy proxy configuration. Supported values are "ads" for the ADS (Aggregated Discovery Service) xDS server and "" for the existing per-resource-type xDS server.
+     - string
+     - ``"ads"``
    * - :spelling:ignore:`envoy.xffNumTrustedHopsL7PolicyEgress`
      - Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
      - int

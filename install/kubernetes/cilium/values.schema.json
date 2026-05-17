@@ -2849,6 +2849,9 @@
         "useOriginalSourceAddress": {
           "type": "boolean"
         },
+        "xdsMode": {
+          "type": "string"
+        },
         "xffNumTrustedHopsL7PolicyEgress": {
           "type": "integer"
         },

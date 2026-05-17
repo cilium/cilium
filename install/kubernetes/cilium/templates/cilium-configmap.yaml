@@ -1536,6 +1536,8 @@ data:
 {{- end }}
   envoy-keep-cap-netbindservice: {{ .Values.envoy.securityContext.capabilities.keepCapNetBindService | quote }}
 
+  envoy-xds-mode: {{ .Values.envoy.xdsMode | quote }}
+
 {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
   max-connected-clusters: {{ .Values.clustermesh.maxConnectedClusters | quote }}
 {{- end }}

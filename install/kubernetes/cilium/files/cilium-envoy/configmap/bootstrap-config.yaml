@@ -299,6 +299,23 @@ staticResources:
               pipe:
                 path: "/var/run/cilium/envoy/sockets/admin.sock"
 dynamicResources:
+{{- if eq .Values.envoy.xdsMode "ads" }}
+  adsConfig:
+    apiType: "GRPC"
+    transportApiVersion: "V3"
+    setNodeOnFirstMessageOnly: true
+    grpcServices:
+    - envoyGrpc:
+        clusterName: "xds-grpc-cilium"
+  ldsConfig:
+    initialFetchTimeout: "{{ .Values.envoy.initialFetchTimeoutSeconds }}s"
+    ads: {}
+    resourceApiVersion: "V3"
+  cdsConfig:
+    initialFetchTimeout: "{{ .Values.envoy.initialFetchTimeoutSeconds }}s"
+    ads: {}
+    resourceApiVersion: "V3"
+{{- else }}
   ldsConfig:
     initialFetchTimeout: "{{ .Values.envoy.initialFetchTimeoutSeconds }}s"
     apiConfigSource:
@@ -319,6 +336,7 @@ dynamicResources:
           clusterName: "xds-grpc-cilium"
       setNodeOnFirstMessageOnly: true
     resourceApiVersion: "V3"
+{{- end }}
 bootstrapExtensions:
 - name: "envoy.bootstrap.internal_listener"
   typedConfig:
