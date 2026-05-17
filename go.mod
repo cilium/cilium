@@ -120,7 +120,7 @@ require (
 	gopkg.in/ini.v1 v1.67.0
 	k8s.io/api v0.33.11
 	k8s.io/apiextensions-apiserver v0.33.11
-	k8s.io/apimachinery v0.33.11
+	k8s.io/apimachinery v0.33.12
 	k8s.io/cli-runtime v0.33.11
 	k8s.io/client-go v0.33.11
 	k8s.io/component-base v0.33.11
