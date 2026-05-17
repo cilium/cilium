@@ -57,7 +57,7 @@ test/frontend
 Name                      Flags
 test/backend
 test/backend_unnamed_port
-test/frontend             ProxyRedirect=1000 (ports: [80])
+test/frontend             ProxyRedirects=1000 (ports: [80])
 
 -- frontends1.table --
 Address            Type        ServiceName     PortName   Backends           Status   Error

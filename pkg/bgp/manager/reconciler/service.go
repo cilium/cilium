@@ -184,7 +184,6 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 	}
 
 	err = r.reconcileServices(ctx, p, &metadata, desiredPeerAdverts, reqFullReconcile)
-
 	if err != nil {
 		// Preserve partial router state without committing desired advertisements or other metadata.
 		currentMetadata := r.getMetadata(p.BGPInstance)
@@ -647,10 +646,10 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p ReconcileParams, svc *loadb
 	}
 
 	// Check if this service has a local proxy (Envoy) handling its traffic.
-	// ProxyRedirect is non-nil when the local Envoy proxy is running and configured
+	// ProxyRedirects is non-empty when the local Envoy proxy is running and configured
 	// to handle this service (e.g., Gateway API or Ingress services).
 	// This handles deployments where cilium-envoy has a nodeSelector that excludes some nodes.
-	hasLocalProxy := svc.ProxyRedirect != nil
+	hasLocalProxy := !svc.ProxyRedirects.Empty()
 
 	for _, fe := range frontends {
 		if fe.Type != loadbalancer.SVCTypeLoadBalancer {

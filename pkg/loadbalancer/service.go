@@ -71,10 +71,13 @@ type Service struct {
 	// for a LoadBalancer service. If unset the default implementation is used.
 	LoadBalancerClass *string
 
-	// ProxyRedirect if non-nil redirects the traffic going to the frontends
-	// towards a locally running proxy.
+	// ProxyRedirects if non-empty redirects the traffic going to the frontends
+	// towards a locally running proxy. Each entry can target different frontend
+	// ports to different proxy ports.
+	// NOTE: This is a slice and is shared by Clone() (shallow copy). Do not
+	// mutate in place after cloning; always replace the whole field.
 	// +deepequal-gen=false
-	ProxyRedirect *ProxyRedirect
+	ProxyRedirects ProxyRedirects
 
 	// HealthCheckNodePort defines on which port the node runs a HTTP health
 	// check server which may be used by external loadbalancers to determine
@@ -126,7 +129,7 @@ func (td TrafficDistribution) RequiresZoneUpdate() bool {
 
 func (svc *Service) DeepEqual(other *Service) bool {
 	return svc.deepEqual(other) &&
-		svc.ProxyRedirect.Equal(other.ProxyRedirect) &&
+		svc.ProxyRedirects.Equal(other.ProxyRedirects) &&
 		slices.EqualFunc(svc.SourceRanges, other.SourceRanges,
 			func(a, b netip.Prefix) bool {
 				return a == b
@@ -183,17 +186,6 @@ func (pr *ProxyRedirect) Redirects(port uint16) bool {
 	return len(pr.Ports) == 0 || slices.Contains(pr.Ports, port)
 }
 
-func (pr *ProxyRedirect) Equal(other *ProxyRedirect) bool {
-	switch {
-	case pr == nil && other == nil:
-		return true
-	case pr != nil && other != nil:
-		return pr.ProxyPort == other.ProxyPort && slices.Equal(pr.Ports, other.Ports)
-	default:
-		return false
-	}
-}
-
 func (pr *ProxyRedirect) String() string {
 	if pr == nil {
 		return ""
@@ -202,6 +194,65 @@ func (pr *ProxyRedirect) String() string {
 		return fmt.Sprintf("%d (ports: %v)", pr.ProxyPort, pr.Ports)
 	}
 	return strconv.FormatUint(uint64(pr.ProxyPort), 10)
+}
+
+// ProxyRedirects is a set of proxy redirects associated with a service.
+type ProxyRedirects []ProxyRedirect
+
+// Equal returns true if two ProxyRedirects are equal.
+// Comparison is order-sensitive; this is safe because the slice order is
+// determined by the stable ordering of CEC spec.services entries.
+func (p ProxyRedirects) Equal(other ProxyRedirects) bool {
+	if len(p) != len(other) {
+		return false
+	}
+	for i := range p {
+		if p[i].ProxyPort != other[i].ProxyPort || !slices.Equal(p[i].Ports, other[i].Ports) {
+			return false
+		}
+	}
+	return true
+}
+
+// ForPort finds the ProxyRedirect that matches the given frontend port.
+// Returns nil if no match is found.
+func (p ProxyRedirects) ForPort(port uint16) *ProxyRedirect {
+	var wildcard *ProxyRedirect
+	for i := range p {
+		if slices.Contains(p[i].Ports, port) {
+			return &p[i]
+		}
+		if wildcard == nil && len(p[i].Ports) == 0 {
+			wildcard = &p[i]
+		}
+	}
+	return wildcard
+}
+
+// Redirects returns true if any ProxyRedirect in the set matches the given
+// frontend port.
+func (p ProxyRedirects) Redirects(port uint16) bool {
+	return p.ForPort(port) != nil
+}
+
+// Empty reports whether the set contains no proxy redirects.
+func (p ProxyRedirects) Empty() bool {
+	return len(p) == 0
+}
+
+// String returns a human-readable representation of the redirects.
+func (p ProxyRedirects) String() string {
+	if len(p) == 0 {
+		return ""
+	}
+	if len(p) == 1 {
+		return p[0].String()
+	}
+	ss := make([]string, len(p))
+	for i := range p {
+		ss[i] = p[i].String()
+	}
+	return "[" + strings.Join(ss, ", ") + "]"
 }
 
 // Clone returns a shallow clone of the service, e.g. for updating a service with UpsertService. Fields that are references
@@ -251,8 +302,8 @@ func (svc *Service) TableRow() []string {
 		flags = append(flags, "SourceRangesPolicy=deny")
 	}
 
-	if svc.ProxyRedirect != nil {
-		flags = append(flags, "ProxyRedirect="+svc.ProxyRedirect.String())
+	if !svc.ProxyRedirects.Empty() {
+		flags = append(flags, "ProxyRedirects="+svc.ProxyRedirects.String())
 	}
 
 	if svc.HealthCheckNodePort != 0 {

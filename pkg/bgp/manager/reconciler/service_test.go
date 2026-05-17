@@ -117,17 +117,17 @@ var (
 		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
 	}
-	// redSvcExtTPLocalWithProxy is a service with eTP=Local and ProxyRedirect set,
+	// redSvcExtTPLocalWithProxy is a service with eTP=Local and ProxyRedirects set,
 	// simulating a Gateway API / Ingress service where local Envoy handles traffic.
 	redSvcExtTPLocalWithProxy = &loadbalancer.Service{
 		Name:             redSvcName,
 		Labels:           redSvcLabels,
 		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
 		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-		ProxyRedirect: &loadbalancer.ProxyRedirect{
+		ProxyRedirects: loadbalancer.ProxyRedirects{{
 			ProxyPort: 10000,
 			Ports:     []uint16{80, 443},
-		},
+		}},
 	}
 	redSvc2TPCluster = &loadbalancer.Service{
 		Name:             redSvc2Name,
