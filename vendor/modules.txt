@@ -1064,9 +1064,9 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/go-github/v84 v84.0.0
+# github.com/google/go-github/v86 v86.0.0
 ## explicit; go 1.25.0
-github.com/google/go-github/v84/github
+github.com/google/go-github/v86/github
 # github.com/google/go-licenses/v2 v2.0.1
 ## explicit; go 1.23.0
 github.com/google/go-licenses/v2/internal/third_party/pkgsite/derrors
