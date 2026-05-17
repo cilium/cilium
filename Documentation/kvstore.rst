@@ -1,3 +1,5 @@
+.. _kvstore:
+
 Key-Value Store
 ###############
 
