@@ -34,6 +34,8 @@ type ModifyManagedResourceVisibilityInput struct {
 
 	// The default visibility setting for managed resources. Valid values: hidden |
 	// visible .
+	//
+	// This member is required.
 	DefaultVisibility types.ManagedResourceDefaultVisibility
 
 	// Checks whether you have the required permissions for the operation, without
@@ -118,6 +120,9 @@ func (c *Client) addOperationModifyManagedResourceVisibilityMiddlewares(stack *m
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
+	if err = addOpModifyManagedResourceVisibilityValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyManagedResourceVisibility(options.Region), middleware.Before); err != nil {

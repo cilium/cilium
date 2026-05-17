@@ -121,6 +121,10 @@ type Upgrade struct {
 	// If this is non-nil, then after templates are rendered, they will be sent to the
 	// post renderer before sending to the Kubernetes API server.
 	PostRenderer postrenderer.PostRenderer
+	// PostRenderStrategy controls how hooks and regular templates are passed
+	// to the configured post-renderer. See PostRenderStrategy for the
+	// available modes. Defaults to PostRenderStrategyCombined.
+	PostRenderStrategy PostRenderStrategy
 	// DisableOpenAPIValidation controls whether OpenAPI validation is enforced.
 	DisableOpenAPIValidation bool
 	// Get missing dependencies
@@ -141,9 +145,10 @@ type resultMessage struct {
 // NewUpgrade creates a new Upgrade object with the given configuration.
 func NewUpgrade(cfg *Configuration) *Upgrade {
 	up := &Upgrade{
-		cfg:             cfg,
-		ServerSideApply: "auto", // Must always match the CLI default.
-		DryRunStrategy:  DryRunNone,
+		cfg:                cfg,
+		ServerSideApply:    "auto", // Must always match the CLI default.
+		DryRunStrategy:     DryRunNone,
+		PostRenderStrategy: PostRenderStrategyCombined,
 	}
 	up.registryClient = cfg.RegistryClient
 
@@ -156,13 +161,13 @@ func (u *Upgrade) SetRegistryClient(client *registry.Client) {
 }
 
 // Run executes the upgrade on the given release.
-func (u *Upgrade) Run(name string, chart chart.Charter, vals map[string]interface{}) (ri.Releaser, error) {
+func (u *Upgrade) Run(name string, chart chart.Charter, vals map[string]any) (ri.Releaser, error) {
 	ctx := context.Background()
 	return u.RunWithContext(ctx, name, chart, vals)
 }
 
 // RunWithContext executes the upgrade on the given release with context.
-func (u *Upgrade) RunWithContext(ctx context.Context, name string, ch chart.Charter, vals map[string]interface{}) (ri.Releaser, error) {
+func (u *Upgrade) RunWithContext(ctx context.Context, name string, ch chart.Charter, vals map[string]any) (ri.Releaser, error) {
 	if err := u.cfg.KubeClient.IsReachable(); err != nil {
 		return nil, err
 	}
@@ -213,7 +218,7 @@ func (u *Upgrade) RunWithContext(ctx context.Context, name string, ch chart.Char
 }
 
 // prepareUpgrade builds an upgraded release for an upgrade operation.
-func (u *Upgrade) prepareUpgrade(name string, chart *chartv2.Chart, vals map[string]interface{}) (*release.Release, *release.Release, bool, error) {
+func (u *Upgrade) prepareUpgrade(name string, chart *chartv2.Chart, vals map[string]any) (*release.Release, *release.Release, bool, error) {
 	if chart == nil {
 		return nil, nil, false, errMissingChart
 	}
@@ -253,7 +258,7 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chartv2.Chart, vals map[str
 		var cerr error
 		currentRelease, cerr = releaserToV1Release(currentReleasei)
 		if cerr != nil {
-			return nil, nil, false, err
+			return nil, nil, false, cerr
 		}
 		if err != nil {
 			if errors.Is(err, driver.ErrNoDeployedReleases) &&
@@ -296,7 +301,7 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chartv2.Chart, vals map[str
 		return nil, nil, false, err
 	}
 
-	hooks, manifestDoc, notesTxt, err := u.cfg.renderResources(chart, valuesToRender, "", "", u.SubNotes, false, false, u.PostRenderer, interactWithServer(u.DryRunStrategy), u.EnableDNS, u.HideSecret)
+	hooks, manifestDoc, notesTxt, err := u.cfg.renderResources(chart, valuesToRender, "", "", u.SubNotes, false, false, u.PostRenderer, interactWithServer(u.DryRunStrategy), u.EnableDNS, u.HideSecret, u.PostRenderStrategy)
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -408,7 +413,7 @@ func (u *Upgrade) performUpgrade(ctx context.Context, originalRelease, upgradedR
 	}
 	rChan := make(chan resultMessage)
 	ctxChan := make(chan resultMessage)
-	doneChan := make(chan interface{})
+	doneChan := make(chan any)
 	defer close(doneChan)
 	go u.releasingUpgrade(rChan, upgradedRelease, current, target, originalRelease, serverSideApply)
 	go u.handleContext(ctx, doneChan, ctxChan, upgradedRelease)
@@ -434,7 +439,7 @@ func (u *Upgrade) reportToPerformUpgrade(c chan<- resultMessage, rel *release.Re
 }
 
 // Setup listener for SIGINT and SIGTERM
-func (u *Upgrade) handleContext(ctx context.Context, done chan interface{}, c chan<- resultMessage, upgradedRelease *release.Release) {
+func (u *Upgrade) handleContext(ctx context.Context, done chan any, c chan<- resultMessage, upgradedRelease *release.Release) {
 	select {
 	case <-ctx.Done():
 		err := ctx.Err()
@@ -455,7 +460,7 @@ func (u *Upgrade) releasingUpgrade(c chan<- resultMessage, upgradedRelease *rele
 
 	if !u.DisableHooks {
 		if err := u.cfg.execHook(upgradedRelease, release.HookPreUpgrade, u.WaitStrategy, u.WaitOptions, u.Timeout, serverSideApply); err != nil {
-			u.reportToPerformUpgrade(c, upgradedRelease, kube.ResourceList{}, fmt.Errorf("pre-upgrade hooks failed: %s", err))
+			u.reportToPerformUpgrade(c, upgradedRelease, kube.ResourceList{}, fmt.Errorf("pre-upgrade hooks failed: %w", err))
 			return
 		}
 	} else {
@@ -503,7 +508,7 @@ func (u *Upgrade) releasingUpgrade(c chan<- resultMessage, upgradedRelease *rele
 	// post-upgrade hooks
 	if !u.DisableHooks {
 		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.WaitStrategy, u.WaitOptions, u.Timeout, serverSideApply); err != nil {
-			u.reportToPerformUpgrade(c, upgradedRelease, results.Created, fmt.Errorf("post-upgrade hooks failed: %s", err))
+			u.reportToPerformUpgrade(c, upgradedRelease, results.Created, fmt.Errorf("post-upgrade hooks failed: %w", err))
 			return
 		}
 	}
@@ -601,7 +606,7 @@ func (u *Upgrade) failRelease(rel *release.Release, created kube.ResourceList, e
 //
 // This is skipped if the u.ResetValues flag is set, in which case the
 // request values are not altered.
-func (u *Upgrade) reuseValues(chart *chartv2.Chart, current *release.Release, newVals map[string]interface{}) (map[string]interface{}, error) {
+func (u *Upgrade) reuseValues(chart *chartv2.Chart, current *release.Release, newVals map[string]any) (map[string]any, error) {
 	if u.ResetValues {
 		// If ResetValues is set, we completely ignore current.Config.
 		u.cfg.Logger().Debug("resetting values to the chart's original version")

@@ -76237,6 +76237,11 @@ func awsEc2query_serializeOpDocumentDescribeInstanceTypesInput(v *DescribeInstan
 		}
 	}
 
+	if v.IncludeUnsupportedInRegion != nil {
+		objectKey := object.Key("IncludeUnsupportedInRegion")
+		objectKey.Boolean(*v.IncludeUnsupportedInRegion)
+	}
+
 	if v.InstanceTypes != nil {
 		objectKey := object.FlatKey("InstanceType")
 		if err := awsEc2query_serializeDocumentRequestInstanceTypeList(v.InstanceTypes, objectKey); err != nil {
@@ -87312,6 +87317,11 @@ func awsEc2query_serializeOpDocumentModifyVpnConnectionOptionsInput(v *ModifyVpn
 	if v.RemoteIpv6NetworkCidr != nil {
 		objectKey := object.Key("RemoteIpv6NetworkCidr")
 		objectKey.String(*v.RemoteIpv6NetworkCidr)
+	}
+
+	if len(v.TunnelBandwidth) > 0 {
+		objectKey := object.Key("TunnelBandwidth")
+		objectKey.String(string(v.TunnelBandwidth))
 	}
 
 	if v.VpnConnectionId != nil {

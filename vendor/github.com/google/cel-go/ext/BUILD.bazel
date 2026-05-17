@@ -9,6 +9,7 @@ go_library(
     srcs = [
         "bindings.go",
         "comprehensions.go",
+        "costs.go",
         "encoders.go",
         "extension_option_factory.go",
         "formatting.go",

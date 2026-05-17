@@ -112461,6 +112461,22 @@ func awsEc2query_deserializeDocumentInstanceTypeInfo(v **types.InstanceTypeInfo,
 				return err
 			}
 
+		case strings.EqualFold("supportedInRegion", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected SupportedInRegion to be of type *bool, got %T instead", val)
+				}
+				sv.SupportedInRegion = ptr.Bool(xtv)
+			}
+
 		case strings.EqualFold("supportedRootDeviceTypes", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentRootDeviceTypeList(&sv.SupportedRootDeviceTypes, nodeDecoder); err != nil {

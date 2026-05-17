@@ -43,6 +43,14 @@ type DefaultStatusWatcher struct {
 	// required for computing parent object status, to compensate for
 	// controllers that aren't following status conventions.
 	ClusterReader engine.ClusterReader
+
+	// StatusComputeWorkers is the maximum number of concurrent goroutines
+	// used to compute object status per informer. When set to a value > 1,
+	// status computation is dispatched to async goroutines, preventing the
+	// informer notification pipeline from being blocked by slow API calls.
+	// Defaults to 0 (synchronous, same as original behavior).
+	// Set to a higher value (e.g., 8) to enable concurrent status computation.
+	StatusComputeWorkers int
 }
 
 var _ StatusWatcher = &DefaultStatusWatcher{}
@@ -88,13 +96,14 @@ func (w *DefaultStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadata
 	}
 
 	informer := &ObjectStatusReporter{
-		InformerFactory: NewDynamicInformerFactory(w.DynamicClient, w.ResyncPeriod),
-		Mapper:          w.Mapper,
-		StatusReader:    w.StatusReader,
-		ClusterReader:   w.ClusterReader,
-		Targets:         targets,
-		ObjectFilter:    &AllowListObjectFilter{AllowList: ids},
-		RESTScope:       scope,
+		InformerFactory:      NewDynamicInformerFactory(w.DynamicClient, w.ResyncPeriod),
+		Mapper:               w.Mapper,
+		StatusReader:         w.StatusReader,
+		ClusterReader:        w.ClusterReader,
+		StatusComputeWorkers: w.StatusComputeWorkers,
+		Targets:              targets,
+		ObjectFilter:         &AllowListObjectFilter{AllowList: ids},
+		RESTScope:            scope,
 	}
 	return informer.Start(ctx)
 }

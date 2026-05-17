@@ -159,6 +159,11 @@ func (se SizeEstimate) Union(size SizeEstimate) SizeEstimate {
 	return result
 }
 
+// AsCost converts a size estimates to an equivalent cost estimate.
+func (se SizeEstimate) AsCost() CostEstimate {
+	return se.MultiplyByCostFactor(1)
+}
+
 // CostEstimate represents an estimated cost range and provides add and multiply operations
 // that do not overflow.
 type CostEstimate struct {

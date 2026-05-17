@@ -189,6 +189,14 @@ func (r *request) SetTimeout(timeout time.Duration) error {
 }
 
 func (r *request) isMultipart(mediaType string) bool {
+	// An explicit application/x-www-form-urlencoded choice is honored even when
+	// file fields are present: the spec allows files to travel as URL-encoded
+	// form values, although it does not stream and is discouraged. Without this
+	// short-circuit, picking urlencoded with files would silently fall back to
+	// multipart and emit an inconsistent Content-Type.
+	if strings.EqualFold(mediaType, runtime.URLencodedFormMime) {
+		return false
+	}
 	if len(r.fileFields) > 0 {
 		return true
 	}
@@ -223,8 +231,29 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 	if len(r.formFields) > 0 || len(r.fileFields) > 0 {
 		if !r.isMultipart(mediaType) {
 			r.header.Set(runtime.HeaderContentType, mediaType)
-			formString := r.formFields.Encode()
-			r.buf.WriteString(formString)
+			values := url.Values{}
+			for k, vs := range r.formFields {
+				values[k] = append(values[k], vs...)
+			}
+			// Per Swagger 2.0, file form parameters can be sent under
+			// application/x-www-form-urlencoded by including the file content as a
+			// regular form-field value. The whole form is then percent-encoded as
+			// usual. This buffers the entire payload and does not preserve a
+			// per-file Content-Type — multipart/form-data is preferred when both
+			// are advertised by the operation.
+			for fn, ff := range r.fileFields {
+				for _, fi := range ff {
+					data, ferr := io.ReadAll(fi)
+					if cerr := fi.Close(); cerr != nil && ferr == nil {
+						ferr = cerr
+					}
+					if ferr != nil {
+						return nil, ferr
+					}
+					values.Add(fn, string(data))
+				}
+			}
+			r.buf.WriteString(values.Encode())
 			goto DoneChoosingBodySource
 		}
 
@@ -460,9 +489,6 @@ func logClose(err error, pw *io.PipeWriter) {
 	}
 }
 
-func mangleContentType(mediaType, boundary string) string {
-	if strings.ToLower(mediaType) == runtime.URLencodedFormMime {
-		return fmt.Sprintf("%s; boundary=%s", mediaType, boundary)
-	}
+func mangleContentType(_, boundary string) string {
 	return "multipart/form-data; boundary=" + boundary
 }

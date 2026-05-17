@@ -19,14 +19,15 @@ var typeSQLScanner = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
 // slice of any dimension.
 //
 // For example:
-//  db.Query(`SELECT * FROM t WHERE id = ANY($1)`, pq.Array([]int{235, 401}))
 //
-//  var x []sql.NullInt64
-//  db.QueryRow(`SELECT ARRAY[235, 401]`).Scan(pq.Array(&x))
+//	db.Query(`SELECT * FROM t WHERE id = ANY($1)`, pq.Array([]int{235, 401}))
+//
+//	var x []sql.NullInt64
+//	db.QueryRow(`SELECT ARRAY[235, 401]`).Scan(pq.Array(&x))
 //
 // Scanning multi-dimensional arrays is not supported.  Arrays where the lower
 // bound is not one (such as `[0:0]={1}') are not supported.
-func Array(a interface{}) interface {
+func Array(a any) interface {
 	driver.Valuer
 	sql.Scanner
 } {
@@ -76,7 +77,7 @@ type ArrayDelimiter interface {
 type BoolArray []bool
 
 // Scan implements the sql.Scanner interface.
-func (a *BoolArray) Scan(src interface{}) error {
+func (a *BoolArray) Scan(src any) error {
 	switch src := src.(type) {
 	case []byte:
 		return a.scanBytes(src)
@@ -150,7 +151,7 @@ func (a BoolArray) Value() (driver.Value, error) {
 type ByteaArray [][]byte
 
 // Scan implements the sql.Scanner interface.
-func (a *ByteaArray) Scan(src interface{}) error {
+func (a *ByteaArray) Scan(src any) error {
 	switch src := src.(type) {
 	case []byte:
 		return a.scanBytes(src)
@@ -176,7 +177,7 @@ func (a *ByteaArray) scanBytes(src []byte) error {
 		for i, v := range elems {
 			b[i], err = parseBytea(v)
 			if err != nil {
-				return fmt.Errorf("could not parse bytea array index %d: %s", i, err.Error())
+				return fmt.Errorf("could not parse bytea array index %d: %w", i, err)
 			}
 		}
 		*a = b
@@ -222,7 +223,7 @@ func (a ByteaArray) Value() (driver.Value, error) {
 type Float64Array []float64
 
 // Scan implements the sql.Scanner interface.
-func (a *Float64Array) Scan(src interface{}) error {
+func (a *Float64Array) Scan(src any) error {
 	switch src := src.(type) {
 	case []byte:
 		return a.scanBytes(src)
@@ -246,8 +247,9 @@ func (a *Float64Array) scanBytes(src []byte) error {
 	} else {
 		b := make(Float64Array, len(elems))
 		for i, v := range elems {
-			if b[i], err = strconv.ParseFloat(string(v), 64); err != nil {
-				return fmt.Errorf("pq: parsing array element index %d: %v", i, err)
+			b[i], err = strconv.ParseFloat(string(v), 64)
+			if err != nil {
+				return fmt.Errorf("pq: parsing array element index %d: %w", i, err)
 			}
 		}
 		*a = b
@@ -284,7 +286,7 @@ func (a Float64Array) Value() (driver.Value, error) {
 type Float32Array []float32
 
 // Scan implements the sql.Scanner interface.
-func (a *Float32Array) Scan(src interface{}) error {
+func (a *Float32Array) Scan(src any) error {
 	switch src := src.(type) {
 	case []byte:
 		return a.scanBytes(src)
@@ -308,9 +310,9 @@ func (a *Float32Array) scanBytes(src []byte) error {
 	} else {
 		b := make(Float32Array, len(elems))
 		for i, v := range elems {
-			var x float64
-			if x, err = strconv.ParseFloat(string(v), 32); err != nil {
-				return fmt.Errorf("pq: parsing array element index %d: %v", i, err)
+			x, err := strconv.ParseFloat(string(v), 32)
+			if err != nil {
+				return fmt.Errorf("pq: parsing array element index %d: %w", i, err)
 			}
 			b[i] = float32(x)
 		}
@@ -345,7 +347,7 @@ func (a Float32Array) Value() (driver.Value, error) {
 
 // GenericArray implements the driver.Valuer and sql.Scanner interfaces for
 // an array or slice of any dimension.
-type GenericArray struct{ A interface{} }
+type GenericArray struct{ A any }
 
 func (GenericArray) evaluateDestination(rt reflect.Type) (reflect.Type, func([]byte, reflect.Value) error, string) {
 	var assign func([]byte, reflect.Value) error
@@ -354,7 +356,7 @@ func (GenericArray) evaluateDestination(rt reflect.Type) (reflect.Type, func([]b
 	// TODO calculate the assign function for other types
 	// TODO repeat this section on the element type of arrays or slices (multidimensional)
 	{
-		if reflect.PtrTo(rt).Implements(typeSQLScanner) {
+		if reflect.PointerTo(rt).Implements(typeSQLScanner) {
 			// dest is always addressable because it is an element of a slice.
 			assign = func(src []byte, dest reflect.Value) (err error) {
 				ss := dest.Addr().Interface().(sql.Scanner)
@@ -383,10 +385,10 @@ FoundType:
 }
 
 // Scan implements the sql.Scanner interface.
-func (a GenericArray) Scan(src interface{}) error {
+func (a GenericArray) Scan(src any) error {
 	dpv := reflect.ValueOf(a.A)
 	switch {
-	case dpv.Kind() != reflect.Ptr:
+	case dpv.Kind() != reflect.Pointer:
 		return fmt.Errorf("pq: destination %T is not a pointer to array or slice", a.A)
 	case dpv.IsNil():
 		return fmt.Errorf("pq: destination %T is nil", a.A)
@@ -449,8 +451,9 @@ func (a GenericArray) scanBytes(src []byte, dv reflect.Value) error {
 
 	values := reflect.MakeSlice(reflect.SliceOf(dtype), len(elems), len(elems))
 	for i, e := range elems {
-		if err := assign(e, values.Index(i)); err != nil {
-			return fmt.Errorf("pq: parsing array element index %d: %v", i, err)
+		err := assign(e, values.Index(i))
+		if err != nil {
+			return fmt.Errorf("pq: parsing array element index %d: %w", i, err)
 		}
 	}
 
@@ -483,7 +486,7 @@ func (a GenericArray) Value() (driver.Value, error) {
 		}
 	case reflect.Array:
 	default:
-		return nil, fmt.Errorf("pq: Unable to convert %T to array", a.A)
+		return nil, fmt.Errorf("pq: unable to convert %T to array", a.A)
 	}
 
 	if n := rv.Len(); n > 0 {
@@ -502,7 +505,7 @@ func (a GenericArray) Value() (driver.Value, error) {
 type Int64Array []int64
 
 // Scan implements the sql.Scanner interface.
-func (a *Int64Array) Scan(src interface{}) error {
+func (a *Int64Array) Scan(src any) error {
 	switch src := src.(type) {
 	case []byte:
 		return a.scanBytes(src)
@@ -526,8 +529,9 @@ func (a *Int64Array) scanBytes(src []byte) error {
 	} else {
 		b := make(Int64Array, len(elems))
 		for i, v := range elems {
-			if b[i], err = strconv.ParseInt(string(v), 10, 64); err != nil {
-				return fmt.Errorf("pq: parsing array element index %d: %v", i, err)
+			b[i], err = strconv.ParseInt(string(v), 10, 64)
+			if err != nil {
+				return fmt.Errorf("pq: parsing array element index %d: %w", i, err)
 			}
 		}
 		*a = b
@@ -563,7 +567,7 @@ func (a Int64Array) Value() (driver.Value, error) {
 type Int32Array []int32
 
 // Scan implements the sql.Scanner interface.
-func (a *Int32Array) Scan(src interface{}) error {
+func (a *Int32Array) Scan(src any) error {
 	switch src := src.(type) {
 	case []byte:
 		return a.scanBytes(src)
@@ -589,7 +593,7 @@ func (a *Int32Array) scanBytes(src []byte) error {
 		for i, v := range elems {
 			x, err := strconv.ParseInt(string(v), 10, 32)
 			if err != nil {
-				return fmt.Errorf("pq: parsing array element index %d: %v", i, err)
+				return fmt.Errorf("pq: parsing array element index %d: %w", i, err)
 			}
 			b[i] = int32(x)
 		}
@@ -626,7 +630,7 @@ func (a Int32Array) Value() (driver.Value, error) {
 type StringArray []string
 
 // Scan implements the sql.Scanner interface.
-func (a *StringArray) Scan(src interface{}) error {
+func (a *StringArray) Scan(src any) error {
 	switch src := src.(type) {
 	case []byte:
 		return a.scanBytes(src)
@@ -683,10 +687,10 @@ func (a StringArray) Value() (driver.Value, error) {
 	return "{}", nil
 }
 
-// appendArray appends rv to the buffer, returning the extended buffer and
-// the delimiter used between elements.
+// appendArray appends rv to the buffer, returning the extended buffer and the
+// delimiter used between elements.
 //
-// It panics when n <= 0 or rv's Kind is not reflect.Array nor reflect.Slice.
+// Returns an error when n <= 0 or rv is not a reflect.Array or reflect.Slice.
 func appendArray(b []byte, rv reflect.Value, n int) ([]byte, string, error) {
 	var del string
 	var err error
@@ -728,7 +732,7 @@ func appendArrayElement(b []byte, rv reflect.Value) ([]byte, string, error) {
 
 	var del = ","
 	var err error
-	var iv interface{} = rv.Interface()
+	var iv = rv.Interface()
 
 	if ad, ok := iv.(ArrayDelimiter); ok {
 		del = ad.ArrayDelimiter()
@@ -769,7 +773,11 @@ func appendArrayQuotedBytes(b, v []byte) []byte {
 }
 
 func appendValue(b []byte, v driver.Value) ([]byte, error) {
-	return append(b, encode(nil, v, 0)...), nil
+	enc, err := encode(v, 0)
+	if err != nil {
+		return nil, err
+	}
+	return append(b, enc...), nil
 }
 
 // parseArray extracts the dimensions and elements of an array represented in
