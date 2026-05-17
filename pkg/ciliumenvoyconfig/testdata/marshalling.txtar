@@ -367,23 +367,27 @@ spec:
   "Redirects": [
     {
       "k": "test/echo",
-      "v": {
-        "ProxyPort": 1000,
-        "Ports": [
-          80
-        ]
-      }
+      "v": [
+        {
+          "ProxyPort": 1000,
+          "Ports": [
+            80
+          ]
+        }
+      ]
     }
   ],
   "ReconciledRedirects": [
     {
       "k": "test/echo",
-      "v": {
-        "ProxyPort": 1000,
-        "Ports": [
-          80
-        ]
-      }
+      "v": [
+        {
+          "ProxyPort": 1000,
+          "Ports": [
+            80
+          ]
+        }
+      ]
     }
   ],
   "ReferencedServices": [

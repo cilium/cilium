@@ -114,7 +114,6 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 		loadbalancer.TCP,
 		addr, uint16(port), loadbalancer.ScopeExternal,
 	)
-
 }
 
 func dumpLBMapsWithReplace(lbmaps maps.LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []maps.MapDump) {
@@ -183,7 +182,7 @@ var baseService = loadbalancer.Service{
 	IntTrafficPolicy:       loadbalancer.SVCTrafficPolicyLocal,
 	SessionAffinity:        false,
 	SessionAffinityTimeout: 0,
-	ProxyRedirect:          nil,
+	ProxyRedirects:         nil,
 	LoopbackHostPort:       false,
 }
 
@@ -196,8 +195,10 @@ var baseFrontend = loadbalancer.Frontend{
 	Status:   reconciler.StatusPending(),
 }
 
-var baseBackend = newTestBackend(backend1, loadbalancer.BackendStateActive)
-var nextBackendRevision = statedb.Revision(1)
+var (
+	baseBackend         = newTestBackend(backend1, loadbalancer.BackendStateActive)
+	nextBackendRevision = statedb.Revision(1)
+)
 
 func concatBe(bes loadbalancer.BackendsSeq2, be loadbalancer.Backend, rev statedb.Revision) loadbalancer.BackendsSeq2 {
 	return func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
@@ -294,8 +295,7 @@ var clusterIPTestCases = []testCase{
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
-			be1, be2 :=
-				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			be1, be2 := newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []loadbalancer.Backend{be1, be2}
 		},
@@ -317,8 +317,7 @@ var clusterIPTestCases = []testCase{
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
-			be1, be2, be3, be4 :=
-				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			be1, be2, be3, be4 := newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive),
 				newTestBackend(withClusterID(backend2, 10), loadbalancer.BackendStateActive),
 				newTestBackend(withClusterID(backend2, 20), loadbalancer.BackendStateActive)
@@ -436,8 +435,7 @@ var quarantineTestCases = []testCase{
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
-			be1, be2 :=
-				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			be1, be2 := newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []loadbalancer.Backend{be1, be2}
 		},
@@ -459,8 +457,7 @@ var quarantineTestCases = []testCase{
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
-			be1, be2 :=
-				newTestBackend(backend1, loadbalancer.BackendStateQuarantined),
+			be1, be2 := newTestBackend(backend1, loadbalancer.BackendStateQuarantined),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []loadbalancer.Backend{be1, be2}
 		},
@@ -497,8 +494,7 @@ var nodePortTestCases = []testCase{
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
-			be1, be2 :=
-				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			be1, be2 := newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []loadbalancer.Backend{be1, be2}
 		},
@@ -606,9 +602,9 @@ var proxyTestCases = []testCase{
 			// from how the backend ID is normally stored (host byte-order). Hence to make this
 			// work on both little and big-endian machine's the port is set to a value that's the
 			// same in both byte orders.
-			svc.ProxyRedirect = &loadbalancer.ProxyRedirect{
+			svc.ProxyRedirects = loadbalancer.ProxyRedirects{{
 				ProxyPort: 0x0a0a, // 2570
-			}
+			}}
 			return false, []loadbalancer.Backend{baseBackend}
 		},
 		[]maps.MapDump{
@@ -852,8 +848,7 @@ var sessionAffinityTestCases = []testCase{
 			fe.Address = zeroAddr
 			svc.SessionAffinity = true
 			svc.SessionAffinityTimeout = time.Second
-			be1, be2 :=
-				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			be1, be2 := newTestBackend(backend1, loadbalancer.BackendStateActive),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []loadbalancer.Backend{be1, be2}
 		},
@@ -887,8 +882,7 @@ var sessionAffinityTestCases = []testCase{
 			fe.Address = zeroAddr
 			svc.SessionAffinity = true
 			svc.SessionAffinityTimeout = time.Second
-			be1, be2 :=
-				newTestBackend(backend1, loadbalancer.BackendStateQuarantined),
+			be1, be2 := newTestBackend(backend1, loadbalancer.BackendStateQuarantined),
 				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []loadbalancer.Backend{be1, be2}
 		},

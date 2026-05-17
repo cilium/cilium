@@ -65,7 +65,7 @@ test/echo  [2002::2]:8080/TCP
   "SessionAffinity": false,
   "SessionAffinityTimeout": 0,
   "LoadBalancerClass": null,
-  "ProxyRedirect": null,
+  "ProxyRedirects": null,
   "HealthCheckNodePort": 0,
   "LoopbackHostPort": false,
   "SourceRanges": null,
@@ -216,7 +216,7 @@ forwardingmode: ""
 sessionaffinity: false
 sessionaffinitytimeout: 0s
 loadbalancerclass: null
-proxyredirect: null
+proxyredirects: []
 healthchecknodeport: 0
 loopbackhostport: false
 sourceranges: []

@@ -42,7 +42,7 @@ type FrontendParams struct {
 	// ServicePort is the associated "ClusterIP" port of this frontend.
 	// Same as [Address.L4Addr.Port] except when [Type] NodePort or
 	// LoadBalancer. This is used to match frontends with the [Ports] of
-	// [Service.ProxyRedirect].
+	// [Service.ProxyRedirects].
 	ServicePort uint16
 }
 
@@ -192,6 +192,22 @@ func (fe *Frontend) ToModel() *models.Service {
 
 	for be := range fe.Backends {
 		spec.BackendAddresses = append(spec.BackendAddresses, backendModel(be))
+	}
+
+	if pr := svc.ProxyRedirects.ForPort(fe.ServicePort); pr != nil {
+		state, _ := BackendStateActive.String()
+		localhost := "127.0.0.1"
+		if fe.Address.AddrCluster().Is6() {
+			localhost = "::1"
+		}
+
+		spec.BackendAddresses = append(spec.BackendAddresses, &models.BackendAddress{
+			IP:        &localhost,
+			Protocol:  fe.Address.Protocol(),
+			Port:      pr.ProxyPort,
+			State:     state,
+			Preferred: true,
+		})
 	}
 
 	return &models.Service{

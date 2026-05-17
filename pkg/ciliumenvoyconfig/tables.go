@@ -181,10 +181,10 @@ type EnvoyResource struct {
 
 	// Redirects are the proxy redirects to set. Redirection of services is performed after
 	// the resources have been reconciled to Envoy.
-	Redirects part.Map[loadbalancer.ServiceName, *loadbalancer.ProxyRedirect]
+	Redirects part.Map[loadbalancer.ServiceName, loadbalancer.ProxyRedirects]
 
 	// ReconciledRedirects are the redirects that were successfully set.
-	ReconciledRedirects part.Map[loadbalancer.ServiceName, *loadbalancer.ProxyRedirect]
+	ReconciledRedirects part.Map[loadbalancer.ServiceName, loadbalancer.ProxyRedirects]
 
 	ReferencedServices part.Set[loadbalancer.ServiceName]
 

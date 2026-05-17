@@ -60,7 +60,7 @@ test/echo
 
 -- services_redirected.table --
 Name        Flags
-test/echo   ProxyRedirect=1000
+test/echo   ProxyRedirects=1000
 
 -- backends.table --
 Address

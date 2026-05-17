@@ -814,7 +814,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 
 	// Check for invalid feature combinations to catch bugs at the upper layers.
 	switch {
-	case svc.SessionAffinity && svc.ProxyRedirect != nil:
+	case svc.SessionAffinity && !svc.ProxyRedirects.Empty():
 		return fmt.Errorf("invalid feature combination: SessionAffinity with proxy redirection is not supported")
 	case svc.LoopbackHostPort && proxyDelegation != loadbalancer.SVCProxyDelegationNone:
 		return fmt.Errorf("invalid feature combination: HostPort loopback with proxy delegation is not supported ")
@@ -879,7 +879,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		IsRoutable:       isRoutable,
 		CheckSourceRange: checkSourceRange,
 		SourceRangeDeny:  checkSourceRange && svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
-		L7LoadBalancer:   svc.ProxyRedirect.Redirects(fe.ServicePort),
+		L7LoadBalancer:   svc.ProxyRedirects.Redirects(fe.ServicePort),
 		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
 		Quarantined:      false,
 	})
@@ -1076,7 +1076,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	ops.log.Debug("Update master service",
 		logfields.ID, feID,
 		logfields.Type, fe.Type,
-		logfields.ProxyRedirect, fe.Service.ProxyRedirect,
+		logfields.ProxyRedirect, fe.Service.ProxyRedirects,
 		logfields.Address, fe.Address,
 		logfields.Count, backendCount,
 		logfieldActiveCount, activeCount,
@@ -1216,8 +1216,8 @@ func (ops *BPFOps) upsertMaster(svcKey maps.ServiceKey, svcVal maps.ServiceValue
 			return err
 		}
 	}
-	if svc.ProxyRedirect.Redirects(fe.ServicePort) {
-		svcVal.SetL7LBProxyPort(svc.ProxyRedirect.ProxyPort)
+	if pr := svc.ProxyRedirects.ForPort(fe.ServicePort); pr != nil {
+		svcVal.SetL7LBProxyPort(pr.ProxyPort)
 	}
 	return ops.upsertService(svcKey, svcVal)
 }
@@ -1304,7 +1304,6 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ServiceID, svcKey maps.ServiceKe
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 	return nil
-
 }
 
 type backendWithRevision struct {

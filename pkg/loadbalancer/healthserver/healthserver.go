@@ -321,7 +321,7 @@ type httpHealthServer struct {
 func (h *httpHealthServer) getLocalEndpointCount() int {
 	txn := h.db.ReadTxn()
 	svc, _, found := h.services.Get(txn, lb.ServiceByName(h.name))
-	if found && svc.ProxyRedirect != nil {
+	if found && !svc.ProxyRedirects.Empty() {
 		// Traffic is redirected to a proxy and thus we have no information on
 		// the actual backends. Return a synthetic single backend in this case.
 		return 1

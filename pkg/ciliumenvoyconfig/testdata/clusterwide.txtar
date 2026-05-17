@@ -55,7 +55,7 @@ test/echo2
 
 -- services_redirected.table --
 Name        Flags
-test/echo2  ProxyRedirect=1000
+test/echo2  ProxyRedirects=1000
 
 -- cec.table --
 Name                  Selected  Services    Listeners
