@@ -13,6 +13,7 @@ Documentation/codeowners.rst linguist-generated
 Documentation/requirements.txt linguist-generated
 Documentation/_static/* -diff
 *svg -diff
+*excalidraw -diff
 pkg/k8s/client/clientset/** linguist-generated
 pkg/k8s/client/informers/** linguist-generated
 pkg/k8s/client/listers/** linguist-generated
