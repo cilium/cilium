@@ -81,6 +81,8 @@ jobs:
     name: Wait for images
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    environment:
+      name: test-with-images
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -92,6 +94,9 @@ jobs:
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   setup-and-test:
     needs: [wait-for-images]
@@ -100,6 +105,8 @@ jobs:
     timeout-minutes: 30
     env:
       job_name: "Installation and Migration Test"
+    environment:
+      name: test-with-images
     steps:
       - name: Set commit status to pending
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
@@ -147,16 +154,27 @@ jobs:
           config: ${{ env.KIND_CONFIG }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Create imagePullSecret
+        run: |
+          kubectl create secret docker-registry cilium-registry \
+            --namespace kube-system \
+            --docker-server=${{ vars.DOCKER_READ_HOST }} \
+            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
+
       - name: Set up install variables
         id: cilium-config
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: 'install/kubernetes/cilium'
           ipv6: false
           egress-gateway: false # Currently incompatible with CES
           mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
+          image-pull-secret: "cilium-registry"
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@3ce83aa3b4ea3ce6d97023c4d83c22b73a4ed3b4 # v0.19.2

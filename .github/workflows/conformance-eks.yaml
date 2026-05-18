@@ -40,9 +40,6 @@ on:
         required: false
         type: number
         default: 3
-    secrets:
-      AWS_PR_ASSUME_ROLE:
-        required: true
 
   workflow_dispatch:
     inputs:
@@ -141,6 +138,8 @@ jobs:
     name: Wait for images
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    environment:
+      name: test-with-images
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -153,6 +152,9 @@ jobs:
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-aws-ci hubble-relay-ci cilium-cli-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   generate-matrix:
     name: Generate Matrix
@@ -258,6 +260,8 @@ jobs:
     timeout-minutes: 90
     env:
       job_name: "Installation and Connectivity Test"
+    environment:
+      name: test-with-images
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
@@ -290,7 +294,10 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: ./untrusted/install/kubernetes/cilium
+          image-pull-secret: "cilium-registry"
 
       - name: Get connectivity test flags
         id: e2e_config
@@ -414,6 +421,14 @@ jobs:
         uses: ./.github/actions/get-cloud-kubeconfig
         with:
           kubeconfig: "~/.kube/config"
+
+      - name: Create imagePullSecret
+        run: |
+          kubectl create secret docker-registry cilium-registry \
+            --namespace kube-system \
+            --docker-server=${{ vars.DOCKER_READ_HOST }} \
+            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@3ce83aa3b4ea3ce6d97023c4d83c22b73a4ed3b4 # v0.19.2
