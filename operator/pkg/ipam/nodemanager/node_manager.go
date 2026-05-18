@@ -185,6 +185,7 @@ type NodeManager struct {
 	logger               *slog.Logger
 	mutex                lock.RWMutex
 	nodes                nodeMap
+	resyncController     *controller.Manager
 	instancesAPI         AllocationImplementation
 	k8sAPI               allocator.CiliumNodeGetterUpdater
 	metricsAPI           MetricsAPI
@@ -213,6 +214,7 @@ func NewNodeManager(logger *slog.Logger, instancesAPI AllocationImplementation, 
 	mngr := &NodeManager{
 		logger:               logger,
 		nodes:                nodeMap{},
+		resyncController:     controller.NewManager(),
 		instancesAPI:         instancesAPI,
 		k8sAPI:               k8sAPI,
 		metricsAPI:           metrics,
@@ -248,8 +250,7 @@ func (n *NodeManager) Start(ctx context.Context) error {
 	// event driven trigger fails, and also release excess IP addresses
 	// if release-excess-ips is enabled
 	go func() {
-		mngr := controller.NewManager()
-		mngr.UpdateController("ipam-node-interval-refresh",
+		n.resyncController.UpdateController("ipam-node-interval-refresh",
 			controller.ControllerParams{
 				Group:       ipamNodeIntervalControllerGroup,
 				RunInterval: time.Minute,
@@ -271,6 +272,7 @@ func (n *NodeManager) Start(ctx context.Context) error {
 }
 
 func (n *NodeManager) Stop() {
+	n.resyncController.RemoveAllAndWait()
 }
 
 // SetInstancesAPIReadiness sets the readiness state of the instances API
