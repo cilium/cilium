@@ -37,7 +37,7 @@ limitations under the License.
 //		return ApplyPriorityFirst
 //	}
 //
-//	func (m MyCustomMarker) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
+//	func (m MyCustomMarker) ApplyToSchema(ctx *SchemaContext, schema *apiext.JSONSchemaProps) error {
 //	  ...
 //	}
 //

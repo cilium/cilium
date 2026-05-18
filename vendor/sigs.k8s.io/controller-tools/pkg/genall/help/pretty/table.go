@@ -43,13 +43,13 @@ func (c *TableCalculator) ColumnWidths() []int {
 	maxColWidths := make([]int, len(c.cellSizesByCol))
 
 	for colInd, cellSizes := range c.cellSizesByCol {
-		max := 0
+		maxValue := 0
 		for _, cellSize := range cellSizes {
-			if max < cellSize {
-				max = cellSize
+			if maxValue < cellSize {
+				maxValue = cellSize
 			}
 		}
-		maxColWidths[colInd] = max
+		maxColWidths[colInd] = maxValue
 	}
 
 	actualMaxWidth := c.MaxWidth - c.Padding

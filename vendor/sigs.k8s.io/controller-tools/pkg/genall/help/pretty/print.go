@@ -291,7 +291,7 @@ func writePadding(out io.Writer, typ []byte, amt int) error {
 
 	num := amt / len(typ)
 	rem := amt % len(typ)
-	for i := 0; i < num; i++ {
+	for range num {
 		if _, err := out.Write(typ); err != nil {
 			return err
 		}

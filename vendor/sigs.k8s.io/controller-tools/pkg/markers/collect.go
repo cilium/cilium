@@ -36,11 +36,11 @@ type Collector struct {
 }
 
 // MarkerValues are all the values for some set of markers.
-type MarkerValues map[string][]interface{}
+type MarkerValues map[string][]any
 
 // Get fetches the first value that for the given marker, returning
 // nil if no values are available.
-func (v MarkerValues) Get(name string) interface{} {
+func (v MarkerValues) Get(name string) any {
 	vals := v[name]
 	if len(vals) == 0 {
 		return nil
@@ -109,7 +109,7 @@ func (c *Collector) parseMarkersInPackage(nodeMarkersRaw map[ast.Node][]markerCo
 		default:
 			target = DescribesType
 		}
-		markerVals := make(map[string][]interface{})
+		markerVals := make(map[string][]any)
 		for _, markerRaw := range markersRaw {
 			markerText := markerRaw.Text()
 			def := c.Registry.Lookup(markerText, target)

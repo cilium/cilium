@@ -24,16 +24,38 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
 
+func (AtLeastOneOf) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "adds a validation constraint that allows at least one of the specified fields.",
+			Details: "This marker may be repeated to specify multiple AtLeastOneOf constraints that are mutually exclusive.\n\nExample:\n\n\t// +kubebuilder:validation:AtLeastOneOf=email;phone;address\n\ttype Contact struct {\n\t    Email *string\n\t    Phone *string\n\t    Address *string\n\t}",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
+func (AtMostOneOf) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "adds a validation constraint that allows at most one of the specified fields.",
+			Details: "This marker may be repeated to specify multiple AtMostOneOf constraints that are mutually exclusive.\n\nExample:\n\n\t// +kubebuilder:validation:AtMostOneOf=configMapRef;secretRef\n\ttype MyType struct {\n\t    ConfigMapRef *ConfigMapRef\n\t    SecretRef *SecretRef\n\t}",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
 func (Default) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "sets the default value for this field.",
-			Details: "A default value will be accepted as any value valid for the\nfield. Formatting for common types include: boolean: `true`, string:\n`Cluster`, numerical: `1.24`, array: `{1,2}`, object: `{policy:\n\"delete\"}`). Defaults should be defined in pruned form, and only best-effort\nvalidation will be performed. Full validation of a default requires\nsubmission of the containing CRD to an apiserver.",
+			Details: "A default value will be accepted as any value valid for the\nfield. Formatting for common types include: boolean: `true`, string:\n`Cluster`, numerical: `1.24`, array: `{1,2}`, object: `{policy:\n\"delete\"}`). Defaults should be defined in pruned form, and only best-effort\nvalidation will be performed. Full validation of a default requires\nsubmission of the containing CRD to an apiserver.\n\nExamples:\n\n\t// String default\n\t// +kubebuilder:default=\"ClusterIP\"\n\tServiceType string\n\n\t// Integer default\n\t// +kubebuilder:default=3\n\tReplicas int32\n\n\t// Boolean default\n\t// +kubebuilder:default=true\n\tEnabled bool\n\n\t// Array default\n\t// +kubebuilder:default={80,443}\n\tPorts []int\n\n\t// Object default\n\t// +kubebuilder:default={replicas: 1}\n\tConfig map[string]interface{}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Value": {
-				Summary: "",
+				Summary: "is the default value. It can be any value valid for the field type.",
 				Details: "",
 			},
 		},
@@ -45,12 +67,12 @@ func (DeprecatedVersion) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "marks this version as deprecated.",
-			Details: "",
+			Details: "Deprecated versions show a warning message when used. This is useful for\ncommunicating to users that they should migrate to a newer version.\n\nExample:\n\n\t// +kubebuilder:deprecatedversion:warning=\"v1alpha1 is deprecated; use v1 instead\"\n\ttype MyCRDv1alpha1 struct {\n\t    metav1.TypeMeta\n\t    metav1.ObjectMeta\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Warning": {
-				Summary: "message to be shown on the deprecated version",
-				Details: "",
+				Summary: "message to be shown on the deprecated version.",
+				Details: "This message is displayed to users when they interact with the deprecated version.",
 			},
 		},
 	}
@@ -61,7 +83,18 @@ func (Enum) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies that this (scalar) field is restricted to the *exact* values specified here.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:Enum=ClusterIP;NodePort;LoadBalancer\n\tServiceType string",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
+func (ExactlyOneOf) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "adds a validation constraint that allows at exactly one of the specified fields.",
+			Details: "This marker may be repeated to specify multiple ExactlyOneOf constraints that are mutually exclusive.\n\nExample:\n\n\t// +kubebuilder:validation:ExactlyOneOf=http;https;grpc\n\ttype Protocol struct {\n\t    HTTP *HTTPConfig\n\t    HTTPS *HTTPSConfig\n\t    GRPC *GRPCConfig\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -72,11 +105,11 @@ func (Example) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "sets the example value for this field.",
-			Details: "An example value will be accepted as any value valid for the\nfield. Formatting for common types include: boolean: `true`, string:\n`Cluster`, numerical: `1.24`, array: `{1,2}`, object: `{policy:\n\"delete\"}`). Examples should be defined in pruned form, and only best-effort\nvalidation will be performed. Full validation of an example requires\nsubmission of the containing CRD to an apiserver.",
+			Details: "An example value will be accepted as any value valid for the\nfield. Formatting for common types include: boolean: `true`, string:\n`Cluster`, numerical: `1.24`, array: `{1,2}`, object: `{policy:\n\"delete\"}`). Examples should be defined in pruned form, and only best-effort\nvalidation will be performed. Full validation of an example requires\nsubmission of the containing CRD to an apiserver.\n\nExamples are shown in API documentation to help users understand the expected format.\n\nUsage Examples:\n\n\t// String example\n\t// +kubebuilder:example=\"my-service\"\n\tServiceName string\n\n\t// Integer example\n\t// +kubebuilder:example=5\n\tReplicas int32\n\n\t// Boolean example\n\t// +kubebuilder:example=false\n\tDebug bool\n\n\t// Array example\n\t// +kubebuilder:example={8080,8443}\n\tPorts []int\n\n\t// Object example\n\t// +kubebuilder:example={cpu: \"100m\", memory: \"128Mi\"}\n\tResources map[string]string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Value": {
-				Summary: "",
+				Summary: "is the example value to be shown in API documentation.",
 				Details: "",
 			},
 		},
@@ -88,7 +121,7 @@ func (ExclusiveMaximum) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "indicates that the maximum is \"up to\" but not including that value.",
-			Details: "",
+			Details: "Example (value must be less than 100, not less than or equal to 100):\n\n\t// +kubebuilder:validation:Maximum=100\n\t// +kubebuilder:validation:ExclusiveMaximum=true\n\tPercentage float64",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -99,9 +132,29 @@ func (ExclusiveMinimum) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "indicates that the minimum is \"up to\" but not including that value.",
-			Details: "",
+			Details: "Example (value must be greater than 0, not greater than or equal to 0):\n\n\t// +kubebuilder:validation:Minimum=0\n\t// +kubebuilder:validation:ExclusiveMinimum=true\n\tPositiveNumber float64",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
+func (ExternalDocs) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "specifies external documentation for this field or type.",
+			Details: "The url is required and must be a valid URL. The description is optional\nand provides a short description of the external documentation.",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"URL": {
+				Summary: "specifies the URL for the target documentation.",
+				Details: "",
+			},
+			"Description": {
+				Summary: "is a short description of the target documentation.",
+				Details: "",
+			},
+		},
 	}
 }
 
@@ -110,7 +163,18 @@ func (Format) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies additional \"complex\" formatting for this field.",
-			Details: "For example, a date-time field would be marked as \"type: string\" and\n\"format: date-time\".",
+			Details: "For example, a date-time field would be marked as \"type: string\" and\n\"format: date-time\".\n\nCommon formats include: \"int32\", \"int64\", \"float\", \"double\", \"byte\", \"date\", \"date-time\", \"password\".\n\nExample:\n\n\t// +kubebuilder:validation:Format=date-time\n\tCreatedAt string",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
+func (Immutable) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "marks a field as immutable. Once set, the value cannot be changed.",
+			Details: "For optional fields, a single transition from unset to set is allowed.\n\nNote that immutable fields that are nested below optional fields can still be\nupdated by unsetting the optional parent field and re-setting it again.\n\nExamples:\n\n\t// +k8s:immutable\n\t// +required\n\tPort intstr.IntOrString\n\n\t// +k8s:immutable\n\t// +optional\n\tTargetPort intstr.IntOrString",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -120,12 +184,12 @@ func (KubernetesDefault) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
-			Summary: "Default sets the default value for this field.",
-			Details: "A default value will be accepted as any value valid for the field.\nOnly JSON-formatted values are accepted. `ref(...)` values are ignored.\nFormatting for common types include: boolean: `true`, string:\n`\"Cluster\"`, numerical: `1.24`, array: `[1,2]`, object: `{\"policy\":\n\"delete\"}`). Defaults should be defined in pruned form, and only best-effort\nvalidation will be performed. Full validation of a default requires\nsubmission of the containing CRD to an apiserver.",
+			Summary: "sets the default value for this field.",
+			Details: "A default value will be accepted as any value valid for the field.\nOnly JSON-formatted values are accepted. `ref(...)` values are ignored.\nFormatting for common types include: boolean: `true`, string:\n`\"Cluster\"`, numerical: `1.24`, array: `[1,2]`, object: `{\"policy\":\n\"delete\"}`). Defaults should be defined in pruned form, and only best-effort\nvalidation will be performed. Full validation of a default requires\nsubmission of the containing CRD to an apiserver.\n\nExamples:\n\n\t// String default (note the JSON quotes)\n\t// +default=\"ClusterIP\"\n\tServiceType string\n\n\t// Integer default\n\t// +default=3\n\tReplicas int32\n\n\t// Boolean default\n\t// +default=true\n\tEnabled bool\n\n\t// Array default (JSON format)\n\t// +default=[80,443]\n\tPorts []int\n\n\t// Object default (JSON format)\n\t// +default={\"policy\": \"delete\"}\n\tConfig map[string]interface{}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Value": {
-				Summary: "",
+				Summary: "is the default value in JSON format. It can be any value valid for the field type.",
 				Details: "",
 			},
 		},
@@ -137,7 +201,7 @@ func (ListMapKey) Help() *markers.DefinitionHelp {
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the keys to map listTypes.",
-			Details: "It indicates the index of a map list. They can be repeated if multiple keys\nmust be used. It can only be used when ListType is set to map, and the keys\nshould be scalar types.",
+			Details: "It indicates the index of a map list. They can be repeated if multiple keys\nmust be used. It can only be used when ListType is set to map, and the keys\nshould be scalar types.\n\nExamples:\n\n\t// Single key\n\t// +listType=map\n\t// +listMapKey=name\n\tContainers []Container\n\n\t// Composite key (multiple keys)\n\t// +listType=map\n\t// +listMapKey=name\n\t// +listMapKey=protocol\n\tPorts []Port",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -148,7 +212,7 @@ func (ListType) Help() *markers.DefinitionHelp {
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the type of data-structure that the list",
-			Details: "represents (map, set, atomic).\n\nPossible data-structure types of a list are:\n\n  - \"map\": it needs to have a key field, which will be used to build an\n    associative list. A typical example is a the pod container list,\n    which is indexed by the container name.\n\n  - \"set\": Fields need to be \"scalar\", and there can be only one\n    occurrence of each.\n\n  - \"atomic\": All the fields in the list are treated as a single value,\n    are typically manipulated together by the same actor.",
+			Details: "represents (map, set, atomic).\n\nThis is important for Server-Side Apply to correctly merge list updates.\n\nPossible data-structure types of a list are:\n\n  - \"map\": it needs to have a key field, which will be used to build an\n    associative list. A typical example is a the pod container list,\n    which is indexed by the container name.\n\n  - \"set\": Fields need to be \"scalar\", and there can be only one\n    occurrence of each.\n\n  - \"atomic\": All the fields in the list are treated as a single value,\n    are typically manipulated together by the same actor.\n\nExamples:\n\n\t// Map list (associative list) - items are merged by key\n\t// +listType=map\n\t// +listMapKey=name\n\tContainers []Container\n\n\t// Set list - items must be unique scalars\n\t// +listType=set\n\tTags []string\n\n\t// Atomic list - entire list is replaced on update\n\t// +listType=atomic\n\tArgs []string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -159,7 +223,7 @@ func (MapType) Help() *markers.DefinitionHelp {
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the level of atomicity of the map;",
-			Details: "i.e. whether each item in the map is independent of the others,\nor all fields are treated as a single unit.\n\nPossible values:\n\n  - \"granular\": items in the map are independent of each other,\n    and can be manipulated by different actors.\n    This is the default behavior.\n\n  - \"atomic\": all fields are treated as one unit.\n    Any changes have to replace the entire map.",
+			Details: "i.e. whether each item in the map is independent of the others,\nor all fields are treated as a single unit.\n\nThis is important for Server-Side Apply to correctly merge map updates.\n\nPossible values:\n\n  - \"granular\": items in the map are independent of each other,\n    and can be manipulated by different actors.\n    This is the default behavior.\n\n  - \"atomic\": all fields are treated as one unit.\n    Any changes have to replace the entire map.\n\nExamples:\n\n\t// Granular map (default) - individual keys can be updated independently\n\t// +mapType=granular\n\tLabels map[string]string\n\n\t// Atomic map - entire map is replaced on update\n\t// +mapType=atomic\n\tConfig map[string]string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -170,7 +234,7 @@ func (MaxItems) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the maximum length for this list.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:MaxItems=10\n\tItems []string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -181,7 +245,7 @@ func (MaxLength) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the maximum length for this string.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:MaxLength=64\n\tName string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -192,7 +256,7 @@ func (MaxProperties) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "restricts the number of keys in an object",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:MaxProperties=10\n\tLabels map[string]string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -203,7 +267,7 @@ func (Maximum) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the maximum numeric value that this field can have.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:Maximum=100\n\tPercentage int32",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -214,16 +278,16 @@ func (Metadata) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "configures the additional annotations or labels for this CRD.",
-			Details: "For example adding annotation \"api-approved.kubernetes.io\" for a CRD with Kubernetes groups,\nor annotation \"cert-manager.io/inject-ca-from-secret\" for a CRD that needs CA injection.",
+			Details: "For example adding annotation \"api-approved.kubernetes.io\" for a CRD with Kubernetes groups,\nor annotation \"cert-manager.io/inject-ca-from-secret\" for a CRD that needs CA injection.\n\nExample:\n\n\t// +kubebuilder:metadata:annotations=\"api-approved.kubernetes.io/v1=https://github.com/myorg/myrepo/pull/123\"\n\t// +kubebuilder:metadata:labels=\"app=myapp\"\n\ttype MyCRD struct {\n\t    metav1.TypeMeta\n\t    metav1.ObjectMeta\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Annotations": {
 				Summary: "will be added into the annotations of this CRD.",
-				Details: "",
+				Details: "Format: \"key=value\". Multiple annotations can be specified by repeating the marker.",
 			},
 			"Labels": {
 				Summary: "will be added into the labels of this CRD.",
-				Details: "",
+				Details: "Format: \"key=value\". Multiple labels can be specified by repeating the marker.",
 			},
 		},
 	}
@@ -234,7 +298,7 @@ func (MinItems) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the minimum length for this list.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:MinItems=1\n\tEndpoints []string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -245,7 +309,7 @@ func (MinLength) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the minimum length for this string.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:MinLength=1\n\tName string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -256,7 +320,7 @@ func (MinProperties) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "restricts the number of keys in an object",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:MinProperties=1\n\tMetadata map[string]string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -267,7 +331,7 @@ func (Minimum) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the minimum numeric value that this field can have. Negative numbers are supported.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:Minimum=0\n\tReplicas int32",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -278,7 +342,7 @@ func (MultipleOf) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies that this field must have a numeric value that's a multiple of this one.",
-			Details: "",
+			Details: "Example (value must be a multiple of 5):\n\n\t// +kubebuilder:validation:MultipleOf=5\n\tCount int32",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -289,7 +353,7 @@ func (Nullable) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "marks this field as allowing the \"null\" value.",
-			Details: "This is often not necessary, but may be helpful with custom serialization.",
+			Details: "This is often not necessary, but may be helpful with custom serialization.\n\nExample:\n\n\t// +nullable\n\tDescription *string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -300,7 +364,7 @@ func (Pattern) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies that this string must match the given regular expression.",
-			Details: "",
+			Details: "Example (DNS subdomain):\n\n\t// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`\n\tDNSName string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -311,24 +375,24 @@ func (PrintColumn) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "adds a column to \"kubectl get\" output for this CRD.",
-			Details: "",
+			Details: "This allows you to customize which columns are shown when users run `kubectl get` on your CRD.\n\nExample:\n\n\t// +kubebuilder:printcolumn:name=\"Status\",type=string,JSONPath=`.status.phase`\n\t// +kubebuilder:printcolumn:name=\"Age\",type=date,JSONPath=`.metadata.creationTimestamp`\n\ttype MyCRD struct {\n\t    metav1.TypeMeta\n\t    metav1.ObjectMeta\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Name": {
-				Summary: "specifies the name of the column.",
+				Summary: "specifies the name of the column as it will appear in the header.",
 				Details: "",
 			},
 			"Type": {
 				Summary: "indicates the type of the column.",
-				Details: "It may be any OpenAPI data type listed at\nhttps://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types.",
+				Details: "It may be any OpenAPI data type listed at\nhttps://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types.\nCommon values: \"string\", \"integer\", \"number\", \"boolean\", \"date\".",
 			},
 			"JSONPath": {
 				Summary: "specifies the jsonpath expression used to extract the value of the column.",
-				Details: "",
+				Details: "The path is relative to the resource root. Example: `.status.phase` or `.spec.replicas`.",
 			},
 			"Description": {
-				Summary: "specifies the help/description for this column.",
-				Details: "",
+				Summary: "specifies optional help text for this column.",
+				Details: "Display behavior is client-dependent; see CustomResourceColumnDefinition in the Kubernetes API docs.",
 			},
 			"Format": {
 				Summary: "specifies the format of the column.",
@@ -336,7 +400,7 @@ func (PrintColumn) Help() *markers.DefinitionHelp {
 			},
 			"Priority": {
 				Summary: "indicates how important it is that this column be displayed.",
-				Details: "Lower priority (*higher* numbered) columns will be hidden if the terminal\nwidth is too small.",
+				Details: "Lower priority (*higher* numbered) columns will be hidden if the terminal\nwidth is too small. Priority 0 columns are always shown.",
 			},
 		},
 	}
@@ -347,28 +411,28 @@ func (Resource) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "configures naming and scope for a CRD.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:resource:path=mycrdplural,singular=mycrdsingular,shortName=mc;mcrd,categories=all,scope=Namespaced\n\ttype MyCRD struct {\n\t    metav1.TypeMeta\n\t    metav1.ObjectMeta\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Path": {
 				Summary: "specifies the plural \"resource\" for this CRD.",
-				Details: "It generally corresponds to a plural, lower-cased version of the Kind.\nSee https://book.kubebuilder.io/cronjob-tutorial/gvks.html.",
+				Details: "It generally corresponds to a plural, lower-cased version of the Kind.\nFor example, if the Kind is \"MyCRD\", the path might be \"mycrds\".\nSee https://book.kubebuilder.io/cronjob-tutorial/gvks.html.",
 			},
 			"ShortName": {
 				Summary: "specifies aliases for this CRD.",
-				Details: "Short names are often used when people have work with your resource\nover and over again.  For instance, \"rs\" for \"replicaset\" or\n\"crd\" for customresourcedefinition.",
+				Details: "Short names are often used when people have work with your resource\nover and over again.  For instance, \"rs\" for \"replicaset\" or\n\"crd\" for customresourcedefinition. Multiple short names can be specified\nseparated by semicolons.",
 			},
 			"Categories": {
 				Summary: "specifies which group aliases this resource is part of.",
-				Details: "Group aliases are used to work with groups of resources at once.\nThe most common one is \"all\" which covers about a third of the base\nresources in Kubernetes, and is generally used for \"user-facing\" resources.",
+				Details: "Group aliases are used to work with groups of resources at once.\nThe most common one is \"all\" which covers about a third of the base\nresources in Kubernetes, and is generally used for \"user-facing\" resources.\nThis allows users to run commands like `kubectl get all` to include your CRD.",
 			},
 			"Singular": {
 				Summary: "overrides the singular form of your resource.",
-				Details: "The singular form is otherwise defaulted off the plural (path).",
+				Details: "The singular form is otherwise defaulted off the plural (path).\nThis is used in API responses and `kubectl` output.",
 			},
 			"Scope": {
 				Summary: "overrides the scope of the CRD (Cluster vs Namespaced).",
-				Details: "Scope defaults to \"Namespaced\".  Cluster-scoped (\"Cluster\") resources\ndon't exist in namespaces.",
+				Details: "Scope defaults to \"Namespaced\".  Cluster-scoped (\"Cluster\") resources\ndon't exist in namespaces and are accessible from anywhere in the cluster.",
 			},
 		},
 	}
@@ -379,7 +443,7 @@ func (Schemaless) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "marks a field as being a schemaless object.",
-			Details: "Schemaless objects are not introspected, so you must provide\nany type and validation information yourself. One use for this\ntag is for embedding fields that hold JSONSchema typed objects.\nBecause this field disables all type checking, it is recommended\nto be used only as a last resort.",
+			Details: "Schemaless objects are not introspected, so you must provide\nany type and validation information yourself. One use for this\ntag is for embedding fields that hold JSONSchema typed objects.\nBecause this field disables all type checking, it is recommended\nto be used only as a last resort.\n\nExample:\n\n\t// +kubebuilder:validation:Schemaless\n\tJSONSchema apiextensionsv1.JSONSchemaProps",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -390,12 +454,12 @@ func (SelectableField) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "adds a field that may be used with field selectors.",
-			Details: "",
+			Details: "Field selectors allow users to filter resources based on field values when listing.\nFor example, `kubectl get mycrds --field-selector status.phase=Running`.\n\nExample:\n\n\t// +kubebuilder:selectablefield:JSONPath=\".status.phase\"\n\ttype MyCRD struct {\n\t    metav1.TypeMeta\n\t    metav1.ObjectMeta\n\t    Status MyCRDStatus\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"JSONPath": {
 				Summary: "specifies the jsonpath expression which is used to produce a field selector value.",
-				Details: "",
+				Details: "The path is relative to the resource root. Example: `.status.phase`.",
 			},
 		},
 	}
@@ -406,7 +470,7 @@ func (SkipVersion) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "removes the particular version of the CRD from the CRDs spec.",
-			Details: "This is useful if you need to skip generating and listing version entries\nfor 'internal' resource versions, which typically exist if using the\nKubernetes upstream conversion-gen tool.",
+			Details: "This is useful if you need to skip generating and listing version entries\nfor 'internal' resource versions, which typically exist if using the\nKubernetes upstream conversion-gen tool.\n\nExample:\n\n\t// +kubebuilder:skipversion\n\ttype MyCRDInternal struct {\n\t    // internal version not served by API\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -417,7 +481,7 @@ func (StorageVersion) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "marks this version as the \"storage version\" for the CRD for conversion.",
-			Details: "When conversion is enabled for a CRD (i.e. it's not a trivial-versions/single-version CRD),\none version is set as the \"storage version\" to be stored in etcd.  Attempting to store any\nother version will result in conversion to the storage version via a conversion webhook.",
+			Details: "When conversion is enabled for a CRD (i.e. it's not a trivial-versions/single-version CRD),\none version is set as the \"storage version\" to be stored in etcd.  Attempting to store any\nother version will result in conversion to the storage version via a conversion webhook.\n\nExample:\n\n\t// +kubebuilder:storageversion\n\ttype MyCRDv2 struct {\n\t    metav1.TypeMeta\n\t    metav1.ObjectMeta\n\t    Spec MyCRDSpec\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -428,7 +492,7 @@ func (StructType) Help() *markers.DefinitionHelp {
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the level of atomicity of the struct;",
-			Details: "i.e. whether each field in the struct is independent of the others,\nor all fields are treated as a single unit.\n\nPossible values:\n\n  - \"granular\": fields in the struct are independent of each other,\n    and can be manipulated by different actors.\n    This is the default behavior.\n\n  - \"atomic\": all fields are treated as one unit.\n    Any changes have to replace the entire struct.",
+			Details: "i.e. whether each field in the struct is independent of the others,\nor all fields are treated as a single unit.\n\nThis is important for Server-Side Apply to correctly merge struct updates.\n\nPossible values:\n\n  - \"granular\": fields in the struct are independent of each other,\n    and can be manipulated by different actors.\n    This is the default behavior.\n\n  - \"atomic\": all fields are treated as one unit.\n    Any changes have to replace the entire struct.\n\nExamples:\n\n\t// Granular struct (default) - individual fields can be updated independently\n\t// +structType=granular\n\ttype Config struct {\n\t    Host string\n\t    Port int\n\t}\n\n\t// Atomic struct - entire struct is replaced on update\n\t// +structType=atomic\n\ttype Credentials struct {\n\t    Username string\n\t    Password string\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -439,20 +503,20 @@ func (SubresourceScale) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "enables the \"/scale\" subresource on a CRD.",
-			Details: "",
+			Details: "The scale subresource allows you to use `kubectl scale` and the HorizontalPodAutoscaler with your CRD.\n\nExample:\n\n\t// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.replicas,selectorpath=.status.selector\n\ttype MyCRD struct {\n\t    metav1.TypeMeta\n\t    metav1.ObjectMeta\n\t    Spec MyCRDSpec\n\t    Status MyCRDStatus\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"SpecPath": {
 				Summary: "specifies the jsonpath to the replicas field for the scale's spec.",
-				Details: "",
+				Details: "This is where the desired number of replicas is stored (typically .spec.replicas).",
 			},
 			"StatusPath": {
 				Summary: "specifies the jsonpath to the replicas field for the scale's status.",
-				Details: "",
+				Details: "This is where the actual number of replicas is stored (typically .status.replicas).",
 			},
 			"SelectorPath": {
 				Summary: "specifies the jsonpath to the pod label selector field for the scale's status.",
-				Details: "The selector field must be the *string* form (serialized form) of a selector.\nSetting a pod label selector is necessary for your type to work with the HorizontalPodAutoscaler.",
+				Details: "The selector field must be the *string* form (serialized form) of a selector.\nSetting a pod label selector is necessary for your type to work with the HorizontalPodAutoscaler.\nThis is typically .status.selector.",
 			},
 		},
 	}
@@ -463,9 +527,25 @@ func (SubresourceStatus) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "enables the \"/status\" subresource on a CRD.",
-			Details: "",
+			Details: "The status subresource allows you to update the status field separately from the rest\nof the resource spec, and prevents updates to the status subresource when updating the root object.\nThis is useful for separating user-provided spec from system-provided status.\n\nExample:\n\n\t// +kubebuilder:subresource:status\n\ttype MyCRD struct {\n\t    metav1.TypeMeta\n\t    metav1.ObjectMeta\n\t    Spec   MyCRDSpec\n\t    Status MyCRDStatus\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
+func (Title) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "sets the title for this field.",
+			Details: "The title is metadata that makes the OpenAPI documentation more user-friendly,\nmaking the schema more understandable when viewed in documentation tools.\nIt's a metadata field that doesn't affect validation but provides\nimportant context about what the schema represents.\n\nExamples:\n\n\t// Simple title\n\t// +kubebuilder:title=\"Replica Count\"\n\tReplicas int32\n\n\t// Descriptive title\n\t// +kubebuilder:title=\"Database Connection Configuration\"\n\tDatabaseConfig DatabaseConfig",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"Value": {
+				Summary: "is the title text to be shown in OpenAPI documentation.",
+				Details: "",
+			},
+		},
 	}
 }
 
@@ -474,7 +554,7 @@ func (Type) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "overrides the type for this field (which defaults to the equivalent of the Go type).",
-			Details: "This generally must be paired with custom serialization.  For example, the\nmetav1.Time field would be marked as \"type: string\" and \"format: date-time\".",
+			Details: "This generally must be paired with custom serialization.  For example, the\nmetav1.Time field would be marked as \"type: string\" and \"format: date-time\".\n\nCommon types include: \"string\", \"number\", \"integer\", \"boolean\", \"array\", \"object\".\n\nExample:\n\n\t// +kubebuilder:validation:Type=string\n\t// +kubebuilder:validation:Format=date-time\n\tTime metav1.Time",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -485,7 +565,7 @@ func (UniqueItems) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies that all items in this list must be unique.",
-			Details: "",
+			Details: "Example:\n\n\t// +kubebuilder:validation:UniqueItems=true\n\tTags []string",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -496,7 +576,7 @@ func (UnservedVersion) Help() *markers.DefinitionHelp {
 		Category: "CRD",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "does not serve this version.",
-			Details: "This is useful if you need to drop support for a version in favor of a newer version.",
+			Details: "This is useful if you need to drop support for a version in favor of a newer version.\nThe version will still be stored in etcd if it's the storage version, but won't be\nserved via the API.\n\nExample:\n\n\t// +kubebuilder:unservedversion\n\ttype MyCRDv1alpha1 struct {\n\t    // This version is no longer served\n\t}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -506,8 +586,8 @@ func (XEmbeddedResource) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
-			Summary: "EmbeddedResource marks a fields as an embedded resource with apiVersion, kind and metadata fields.",
-			Details: "An embedded resource is a value that has apiVersion, kind and metadata fields.\nThey are validated implicitly according to the semantics of the currently\nrunning apiserver. It is not necessary to add any additional schema for these\nfield, yet it is possible. This can be combined with PreserveUnknownFields.",
+			Summary: "marks a fields as an embedded resource with apiVersion, kind and metadata fields.",
+			Details: "An embedded resource is a value that has apiVersion, kind and metadata fields.\nThey are validated implicitly according to the semantics of the currently\nrunning apiserver. It is not necessary to add any additional schema for these\nfield, yet it is possible. This can be combined with PreserveUnknownFields.\n\nExample:\n\n\t// +kubebuilder:validation:EmbeddedResource\n\tTemplate runtime.RawExtension",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -517,8 +597,8 @@ func (XIntOrString) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
-			Summary: "IntOrString marks a fields as an IntOrString.",
-			Details: "This is required when applying patterns or other validations to an IntOrString\nfield. Known information about the type is applied during the collapse phase\nand as such is not normally available during marker application.",
+			Summary: "marks a fields as an IntOrString.",
+			Details: "This is required when applying patterns or other validations to an IntOrString\nfield. Known information about the type is applied during the collapse phase\nand as such is not normally available during marker application.\n\nExample:\n\n\t// +kubebuilder:validation:XIntOrString\n\t// +kubebuilder:validation:Pattern=\"^(\\\\d+|\\\\d+%|)$\"\n\tPort intstr.IntOrString",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -528,8 +608,8 @@ func (XPreserveUnknownFields) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
-			Summary: "PreserveUnknownFields stops the apiserver from pruning fields which are not specified.",
-			Details: "By default the apiserver drops unknown fields from the request payload\nduring the decoding step. This marker stops the API server from doing so.\nIt affects fields recursively, but switches back to normal pruning behaviour\nif nested  properties or additionalProperties are specified in the schema.\nThis can either be true or undefined. False\nis forbidden.\n\nNB: The kubebuilder:validation:XPreserveUnknownFields variant is deprecated\nin favor of the kubebuilder:pruning:PreserveUnknownFields variant.  They function\nidentically.",
+			Summary: "stops the apiserver from pruning fields which are not specified.",
+			Details: "By default the apiserver drops unknown fields from the request payload\nduring the decoding step. This marker stops the API server from doing so.\nIt affects fields recursively, but switches back to normal pruning behaviour\nif nested  properties or additionalProperties are specified in the schema.\nThis can either be true or undefined. False\nis forbidden.\n\nNB: The kubebuilder:validation:XPreserveUnknownFields variant is deprecated\nin favor of the kubebuilder:pruning:PreserveUnknownFields variant.  They function\nidentically.\n\nExample:\n\n\t// +kubebuilder:pruning:PreserveUnknownFields\n\tRawConfig map[string]interface{}",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -540,7 +620,7 @@ func (XValidation) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "marks a field as requiring a value for which a given",
-			Details: "expression evaluates to true.\n\nThis marker may be repeated to specify multiple expressions, all of\nwhich must evaluate to true.",
+			Details: "expression evaluates to true.\n\nThis marker may be repeated to specify multiple expressions, all of\nwhich must evaluate to true.\n\nExamples:\n\n\t// Basic field validation\n\t// +kubebuilder:validation:XValidation:rule=\"self.minReplicas <= self.replicas && self.replicas <= self.maxReplicas\",message=\"replicas must be between minReplicas and maxReplicas\"\n\n\t// Validation with custom reason\n\t// +kubebuilder:validation:XValidation:rule=\"self.x <= self.maxX\",message=\"x cannot be greater than maxX\",reason=\"FieldValueInvalid\"\n\n\t// Immutability check\n\t// +kubebuilder:validation:XValidation:rule=\"self == oldSelf\",message=\"field is immutable\"",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Rule": {
@@ -560,6 +640,10 @@ func (XValidation) Help() *markers.DefinitionHelp {
 				Details: "",
 			},
 			"FieldPath": {
+				Summary: "",
+				Details: "",
+			},
+			"OptionalOldSelf": {
 				Summary: "",
 				Details: "",
 			},

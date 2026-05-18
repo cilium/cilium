@@ -13,19 +13,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package crd
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/gobuffalo/flect"
-
-	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"sigs.k8s.io/controller-tools/pkg/loader"
 )
 
@@ -34,7 +33,7 @@ import (
 type SpecMarker interface {
 	// ApplyToCRD applies this marker to the given CRD, in the given version
 	// within that CRD.  It's called after everything else in the CRD is populated.
-	ApplyToCRD(crd *apiext.CustomResourceDefinitionSpec, version string) error
+	ApplyToCRD(crd *apiextensionsv1.CustomResourceDefinitionSpec, version string) error
 }
 
 // Marker is a marker that knows how to apply itself to a particular
@@ -42,7 +41,7 @@ type SpecMarker interface {
 type Marker interface {
 	// ApplyToCRD applies this marker to the given CRD, in the given version
 	// within that CRD.  It's called after everything else in the CRD is populated.
-	ApplyToCRD(crd *apiext.CustomResourceDefinition, version string) error
+	ApplyToCRD(crd *apiextensionsv1.CustomResourceDefinition, version string) error
 }
 
 // NeedCRDFor requests the full CRD for the given group-kind.  It requires
@@ -64,23 +63,23 @@ func (p *Parser) NeedCRDFor(groupKind schema.GroupKind, maxDescLen *int) {
 	}
 
 	defaultPlural := strings.ToLower(flect.Pluralize(groupKind.Kind))
-	crd := apiext.CustomResourceDefinition{
+	crd := apiextensionsv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: apiext.SchemeGroupVersion.String(),
+			APIVersion: apiextensionsv1.SchemeGroupVersion.String(),
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaultPlural + "." + groupKind.Group,
 		},
-		Spec: apiext.CustomResourceDefinitionSpec{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: groupKind.Group,
-			Names: apiext.CustomResourceDefinitionNames{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Kind:     groupKind.Kind,
 				ListKind: groupKind.Kind + "List",
 				Plural:   defaultPlural,
 				Singular: strings.ToLower(groupKind.Kind),
 			},
-			Scope: apiext.NamespaceScoped,
+			Scope: apiextensionsv1.NamespaceScoped,
 		},
 	}
 
@@ -96,10 +95,10 @@ func (p *Parser) NeedCRDFor(groupKind schema.GroupKind, maxDescLen *int) {
 		if maxDescLen != nil {
 			TruncateDescription(&fullSchema, *maxDescLen)
 		}
-		ver := apiext.CustomResourceDefinitionVersion{
+		ver := apiextensionsv1.CustomResourceDefinitionVersion{
 			Name:   p.GroupVersions[pkg].Version,
 			Served: true,
-			Schema: &apiext.CustomResourceValidation{
+			Schema: &apiextensionsv1.CustomResourceValidation{
 				OpenAPIV3Schema: &fullSchema, // fine to take a reference since we deepcopy above
 			},
 		}
@@ -140,7 +139,7 @@ func (p *Parser) NeedCRDFor(groupKind schema.GroupKind, maxDescLen *int) {
 
 	// it is necessary to make sure the order of CRD versions in crd.Spec.Versions is stable and explicitly set crd.Spec.Version.
 	// Otherwise, crd.Spec.Version may point to different CRD versions across different runs.
-	sort.Slice(crd.Spec.Versions, func(i, j int) bool { return crd.Spec.Versions[i].Name < crd.Spec.Versions[j].Name })
+	slices.SortStableFunc(crd.Spec.Versions, func(a, b apiextensionsv1.CustomResourceDefinitionVersion) int { return strings.Compare(a.Name, b.Name) })
 
 	// make sure we have *a* storage version
 	// (default it if we only have one, otherwise, bail)

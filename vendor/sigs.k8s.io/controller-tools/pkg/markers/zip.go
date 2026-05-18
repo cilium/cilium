@@ -75,7 +75,7 @@ func extractDoc(node ast.Node, decl *ast.GenDecl) string {
 		lines = lines[:len(lines)-1]
 	}
 
-	var outLines []string
+	outLines := make([]string, 0, len(lines))
 	var insideCodeBlock bool
 	for i, line := range lines {
 		if isAsteriskComment {

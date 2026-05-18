@@ -22,18 +22,17 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
-	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kyaml "sigs.k8s.io/yaml"
-
 	crdgen "sigs.k8s.io/controller-tools/pkg/crd"
 	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 	"sigs.k8s.io/controller-tools/pkg/genall"
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
 	yamlop "sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml"
+	kyaml "sigs.k8s.io/yaml"
 )
 
 // NB(directxman12): this code is quite fragile, but there are a sufficient
@@ -53,7 +52,7 @@ import (
 // patches.
 
 var (
-	currentAPIExtVersion = apiext.SchemeGroupVersion.String()
+	currentAPIExtVersion = apiextensionsv1.SchemeGroupVersion.String()
 )
 
 // +controllertools:marker:generateHelp
@@ -138,7 +137,7 @@ func (g Generator) Generate(ctx *genall.GenerationContext) (result error) {
 
 			// Fix top level ObjectMeta regardless of the settings.
 			if _, ok := fullSchema.Properties["metadata"]; ok {
-				fullSchema.Properties["metadata"] = apiext.JSONSchemaProps{Type: "object"}
+				fullSchema.Properties["metadata"] = apiextensionsv1.JSONSchemaProps{Type: "object"}
 			}
 
 			existingSet.NewSchemata[gv.Version] = fullSchema
@@ -222,7 +221,7 @@ type partialCRDSet struct {
 	// GroupKind is the GroupKind represented by this CRD.
 	GroupKind schema.GroupKind
 	// NewSchemata are the new schemata generated from Go IDL by controller-gen.
-	NewSchemata map[string]apiext.JSONSchemaProps
+	NewSchemata map[string]apiextensionsv1.JSONSchemaProps
 	// CRDVersions are the forms of this CRD across different apiextensions
 	// versions
 	CRDVersions []*partialCRD
@@ -287,7 +286,7 @@ func (e *partialCRDSet) setVersionedSchemata() error {
 // setVersionedSchemata populates all existing versions with new schemata,
 // wiping the schema of any version that doesn't have a listed schema.
 // Any "unknown" versions are ignored.
-func (e *partialCRD) setVersionedSchemata(newSchemata map[string]apiext.JSONSchemaProps) error {
+func (e *partialCRD) setVersionedSchemata(newSchemata map[string]apiextensionsv1.JSONSchemaProps) error {
 	var err error
 	if err := yamlop.DeleteNode(e.Yaml, "spec", "validation"); err != nil {
 		return err
@@ -390,7 +389,7 @@ func crdsFromDirectory(ctx *genall.GenerationContext, dir string) (map[schema.Gr
 		if res[groupKind] == nil {
 			res[groupKind] = &partialCRDSet{
 				GroupKind:   groupKind,
-				NewSchemata: make(map[string]apiext.JSONSchemaProps),
+				NewSchemata: make(map[string]apiextensionsv1.JSONSchemaProps),
 				Versions:    make(map[string]struct{}),
 			}
 		}

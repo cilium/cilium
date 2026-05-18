@@ -79,7 +79,7 @@ type hasHelp interface {
 
 // mustMakeAllWithPrefix converts each object into a marker definition using
 // the object's type's with the prefix to form the marker name.
-func mustMakeAllWithPrefix(prefix string, target markers.TargetType, objs ...interface{}) []*definitionWithHelp {
+func mustMakeAllWithPrefix(prefix string, target markers.TargetType, objs ...any) []*definitionWithHelp {
 	defs := make([]*definitionWithHelp, len(objs))
 	for i, obj := range objs {
 		name := prefix + reflect.TypeOf(obj).Name()

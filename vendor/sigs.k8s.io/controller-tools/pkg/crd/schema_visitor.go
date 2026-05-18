@@ -17,7 +17,7 @@ limitations under the License.
 package crd
 
 import (
-	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // SchemaVisitor walks the nodes of a schema.
@@ -31,13 +31,13 @@ type SchemaVisitor interface {
 	// It is *NOT* safe to save references to the given schema.
 	// Make deepcopies if you need to keep things around beyond
 	// the lifetime of the call.
-	Visit(schema *apiext.JSONSchemaProps) SchemaVisitor
+	Visit(schema *apiextensionsv1.JSONSchemaProps) SchemaVisitor
 }
 
 // EditSchema walks the given schema using the given visitor.  Actual
 // pointers to each schema node are passed to the visitor, so any changes
 // made by the visitor will be reflected to the passed-in schema.
-func EditSchema(schema *apiext.JSONSchemaProps, visitor SchemaVisitor) {
+func EditSchema(schema *apiextensionsv1.JSONSchemaProps, visitor SchemaVisitor) {
 	walker := schemaWalker{visitor: visitor}
 	walker.walkSchema(schema)
 }
@@ -55,7 +55,7 @@ type schemaWalker struct {
 // visitor will be used to visit all "children" of the current schema, followed
 // by a nil schema with the returned visitor to mark completion.  If a nil visitor
 // is returned, traversal will no continue into the children of the current schema.
-func (w schemaWalker) walkSchema(schema *apiext.JSONSchemaProps) {
+func (w schemaWalker) walkSchema(schema *apiextensionsv1.JSONSchemaProps) {
 	// Walk a potential chain of schema references, keeping track of seen
 	// references to avoid circular references
 	subVisitor := w.visitor
@@ -104,7 +104,7 @@ func (w schemaWalker) walkSchema(schema *apiext.JSONSchemaProps) {
 }
 
 // walkMap walks over values of the given map, saving changes to them.
-func (w schemaWalker) walkMap(defs map[string]apiext.JSONSchemaProps) {
+func (w schemaWalker) walkMap(defs map[string]apiextensionsv1.JSONSchemaProps) {
 	for name, def := range defs {
 		// this is iter var reference is because we immediately preseve it below
 		//nolint:gosec
@@ -116,14 +116,14 @@ func (w schemaWalker) walkMap(defs map[string]apiext.JSONSchemaProps) {
 }
 
 // walkSlice walks over items of the given slice.
-func (w schemaWalker) walkSlice(defs []apiext.JSONSchemaProps) {
+func (w schemaWalker) walkSlice(defs []apiextensionsv1.JSONSchemaProps) {
 	for i := range defs {
 		w.walkSchema(&defs[i])
 	}
 }
 
 // walkPtr walks over the contents of the given pointer, if it's not nil.
-func (w schemaWalker) walkPtr(def *apiext.JSONSchemaProps) {
+func (w schemaWalker) walkPtr(def *apiextensionsv1.JSONSchemaProps) {
 	if def == nil {
 		return
 	}

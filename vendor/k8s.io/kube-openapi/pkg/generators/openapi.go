@@ -223,8 +223,8 @@ func getReferableName(m *types.Member) string {
 }
 
 func shouldInlineMembers(m *types.Member) bool {
-	jsonTags := getJsonTags(m)
-	return len(jsonTags) > 1 && jsonTags[1] == "inline"
+	jsonTag, jsonTagExists := reflect.StructTag(m.Tags).Lookup("json")
+	return m.Embedded && jsonTagExists && (jsonTag == "" || strings.HasPrefix(jsonTag, ","))
 }
 
 type openAPITypeWriter struct {
