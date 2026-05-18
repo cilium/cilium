@@ -56,7 +56,7 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 }
 
 static __always_inline bool
-should_redirect_peer(bool from_host)
+should_redirect_peer(bool from_host, bool from_netdev)
 {
 	/* We should only do a redirect_peer() if BPF Host Routing is enabled,
 	 * otherwise we do a standard redirect().
@@ -65,19 +65,26 @@ should_redirect_peer(bool from_host)
 	 * via redirect_peer() and instead need an ingress -> egress netns
 	 * traversal (or vice versa.)
 	 *
-	 * Finally, in case of Pod -> Pod:
+	 * In case of Pod -> Pod:
 	 * - on veth, we're on TC ingress and need a redirect_peer() to get
 	 *   to the target namespace.
 	 * - on netkit, we're on TC egress and need a regular redirect() to
 	 *   the peer device's ifindex. Netkit takes care of the namespace
 	 *   switch for us.
 	 *
+	 * For node-external -> local Pod (e.g. inbound DSR-IPIP after BPF
+	 * decap on the physical netdev): we're on TC ingress of the phys
+	 * dev with from_netdev=true. redirect_peer() is the right primitive
+	 * for both veth and netkit here: it deposits the packet straight
+	 * into the target Pod netns RX, bypassing the per-endpoint policy
+	 * tail-call chain and the egress-direction BPF on the netkit peer.
+	 *
 	 * Note: both redirect() and redirect_peer() only traverse the CPU
 	 * backlog queue once.
 	 */
 	return is_defined(ENABLE_HOST_ROUTING) &&
 	       !from_host &&
-	       !CONFIG(enable_netkit);
+	       (!CONFIG(enable_netkit) || from_netdev);
 }
 
 static __always_inline int redirect_ep(struct __ctx_buff *ctx,
@@ -119,7 +126,7 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 static __always_inline int
 local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	       const struct endpoint_info *ep, __u8 direction, bool from_host,
-	       bool from_tunnel, __u32 cluster_id)
+	       bool from_netdev, bool from_tunnel, __u32 cluster_id)
 {
 	bool use_redirect_peer;
 
@@ -147,7 +154,18 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	 * this case the skb is delivered directly to pod's namespace and the ingress
 	 * policy (the cil_to_container BPF program) is bypassed.
 	 */
-	use_redirect_peer = should_redirect_peer(from_host);
+	use_redirect_peer = should_redirect_peer(from_host, from_netdev);
+
+	/* For node-external -> local Pod on netkit with BPF host routing,
+	 * short-circuit to redirect_peer() right here. We must not fall
+	 * through to the per-endpoint policy tail-call chain because, on
+	 * netkit, that chain ultimately uses ctx_redirect() into the netkit
+	 * primary TX, which then runs the peer-side cil_from_container
+	 * (egress-from-pod) program in the wrong direction on the way in.
+	 */
+	if (use_redirect_peer && from_netdev && CONFIG(enable_netkit))
+		return redirect_ep(ctx, ep->ifindex, true, from_tunnel);
+
 	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && !use_redirect_peer &&
 	    /* We need to enforce policies at the source in case of netkit
 	     * devices because we can't redirect to proxy from bpf_lxc. That
@@ -187,7 +205,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       __u32 seclabel, __u32 magic,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
-					       bool from_tunnel)
+					       bool from_netdev, bool from_tunnel)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -200,7 +218,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 		return ret;
 
 	return local_delivery(ctx, seclabel, magic, ep, direction, from_host,
-			      from_tunnel, 0);
+			      from_netdev, from_tunnel, 0);
 }
 
 /* Performs IPv4 L2/L3 handling and delivers the packet to the destination pod
@@ -213,7 +231,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       struct iphdr *ip4,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
-					       bool from_tunnel, __u32 cluster_id)
+					       bool from_netdev, bool from_tunnel,
+					       __u32 cluster_id)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -226,7 +245,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 		return ret;
 
 	return local_delivery(ctx, seclabel, magic, ep, direction, from_host,
-			      from_tunnel, cluster_id);
+			      from_netdev, from_tunnel, cluster_id);
 }
 
 /* Performs IPv6 L2/L3 handling and delivers the packet to the cilium_host@ingress

@@ -90,7 +90,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 			l3_off += __ETH_HLEN;
 
 		return ipv6_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ep,
-					   METRIC_INGRESS, false, false);
+					   METRIC_INGRESS, false, false, false);
 #else
 		return CTX_ACT_OK;
 #endif /* ENABLE_HOST_ROUTING */
@@ -207,7 +207,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 		}
 
 		return ipv4_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ip4, ep,
-					   METRIC_INGRESS, false, false, 0);
+					   METRIC_INGRESS, false, false, false, 0);
 #else
 		return CTX_ACT_OK;
 #endif /* ENABLE_HOST_ROUTING */
