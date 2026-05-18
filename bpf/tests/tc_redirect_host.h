@@ -104,7 +104,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 	/* We should always be from_host here. */
 	if (do_redirect && from_host)
 		return redirect_ep(ctx, CONFIG(interface_ifindex),
-				   should_redirect_peer(from_host),
+				   should_redirect_peer(ctx, from_host),
 				   from_tunnel);
 
 	/* Failure path */
