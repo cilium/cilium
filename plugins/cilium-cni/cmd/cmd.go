@@ -682,9 +682,20 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		if err := netlink.LinkSetNsFd(epLink, ns.FD()); err != nil {
 			return fmt.Errorf("unable to move netkit pair %q to netns %s: %w", epLink, args.Netns, err)
 		}
+
 		err = connector.RenameLinkInRemoteNs(ns, tmpIfName, epConf.IfName())
 		if err != nil {
 			return fmt.Errorf("unable to set up netkit on container side: %w", err)
+		}
+
+		if err := ns.Do(func() error {
+			// Mark the peer interface as Cilium-owned via altname so that other
+			// components (e.g. MTU updater) can distinguish it from interfaces
+			// created by other CNI plugins.
+
+			return connector.MarkOwned(epConf.IfName())
+		}); err != nil {
+			return fmt.Errorf("failed to rename link from %q to %q: %w", tmpIfName, epConf.IfName(), err)
 		}
 
 		if l2Mode {
