@@ -654,3 +654,11 @@ func (e *Endpoint) GetRealizedL4PolicyRuleOriginModel() (policy *models.L4Policy
 	}
 	return e.realizedPolicy.SelectorPolicy.L4Policy.GetRuleOriginModel(), e.policyRevision, nil
 }
+
+// GetDesiredPolicy returns the desired or current endpoint policy.
+// May return nil in certain circumstances.
+func (e *Endpoint) GetDesiredPolicy() *policy.EndpointPolicy {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return e.desiredPolicy
+}
