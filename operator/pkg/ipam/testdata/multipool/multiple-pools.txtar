@@ -1,0 +1,271 @@
+hive start
+
+# Add green IP pool
+k8s/add ippool-green.yaml
+
+# Add "test-node1" node requesting CIDRs from the green pool
+k8s/add test-node1-v1.yaml
+
+# CIDRs from the green pool have been assigned to "test-node1" node
+k8s/get cilium.io.v2.ciliumnodes test-node1 -o actual.yaml
+* cmp expected-v1.yaml actual.yaml
+
+# Add red IP pool
+k8s/add ippool-red.yaml
+
+# Update "test-node1" node to request CIDRs from the red pool too
+k8s/add test-node1-v2.yaml
+
+# Check that CIDRs from the red pool have been assigned to "test-node1" node
+k8s/get cilium.io.v2.ciliumnodes test-node1 -o actual.yaml
+* cmp expected-v2.yaml actual.yaml
+
+# Add "test-node2" node requesting CIDRs from the green pool
+k8s/add test-node2-v1.yaml
+
+# Check that CIDRs from the green pool have been assigned to "test-node2" node
+k8s/get cilium.io.v2.ciliumnodes test-node2 -o actual.yaml
+* cmp expected-v3.yaml actual.yaml
+
+# Add blue IP pool
+k8s/add ippool-blue.yaml
+
+# Add "test-node3" node requesting CIDRs from the blue pool
+k8s/add test-node3-v1.yaml
+
+# CIDRs from the blue pool have been assigned to "test-node3" node
+k8s/get cilium.io.v2.ciliumnodes test-node3 -o actual.yaml
+* cmp expected-v4.yaml actual.yaml
+
+hive stop
+
+# ----
+
+-- ippool-green.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: green-pool
+spec:
+  ipv4:
+    cidrs:
+    - 10.10.0.0/16
+    maskSize: 24
+
+-- ippool-red.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: red-pool
+spec:
+  ipv4:
+    cidrs:
+    - 10.20.0.0/16
+    maskSize: 28
+
+-- ippool-blue.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: blue-pool
+spec:
+  ipv4:
+    cidrs:
+    - 10.30.0.0/16
+    maskSize: 26
+
+-- test-node1-v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node1
+  labels:
+    kubernetes.io/hostname: test-node1
+spec:
+  ipam:
+    pools:
+      requested:
+        - pool: "green-pool"
+          needed:
+            ipv4-addrs: 4
+
+-- test-node1-v2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node1
+  labels:
+    kubernetes.io/hostname: test-node1
+spec:
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.10.0.0/24
+        pool: green-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: green-pool
+      - needed:
+          ipv4-addrs: 36
+        pool: red-pool
+
+-- test-node2-v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node2
+  labels:
+    kubernetes.io/hostname: test-node2
+spec:
+  ipam:
+    pools:
+      requested:
+        - pool: "green-pool"
+          needed:
+            ipv4-addrs: 4
+
+-- test-node3-v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node3
+  labels:
+    kubernetes.io/hostname: test-node3
+spec:
+  ipam:
+    pools:
+      requested:
+        - pool: "blue-pool"
+          needed:
+            ipv4-addrs: 4
+
+-- expected-v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node1
+  name: test-node1
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.10.0.0/24
+        pool: green-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: green-pool
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- expected-v2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node1
+  name: test-node1
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.10.0.0/24
+        pool: green-pool
+      - cidrs:
+        - 10.20.0.0/28
+        - 10.20.0.16/28
+        - 10.20.0.32/28
+        pool: red-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: green-pool
+      - needed:
+          ipv4-addrs: 36
+        pool: red-pool
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- expected-v3.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node2
+  name: test-node2
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.10.1.0/24
+        pool: green-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: green-pool
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- expected-v4.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node3
+  name: test-node3
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.30.0.0/26
+        pool: blue-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: blue-pool
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
