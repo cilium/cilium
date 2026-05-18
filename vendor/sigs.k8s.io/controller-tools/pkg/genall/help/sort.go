@@ -24,8 +24,8 @@ import (
 
 // SortGroup knows how to sort and group marker definitions.
 type SortGroup interface {
-	// Less is equivalent to the Less function from sort, and is used to sort the markers.
-	Less(*markers.Definition, *markers.Definition) bool
+	// Compare is equivalent to the compare function from slices, and is used to sort the markers.
+	Compare(*markers.Definition, *markers.Definition) int
 	// Group returns the "group" that a given marker belongs to.
 	Group(*markers.Definition, *markers.DefinitionHelp) string
 }
@@ -46,13 +46,13 @@ func (sortByCategory) Group(_ *markers.Definition, help *markers.DefinitionHelp)
 	}
 	return help.Category
 }
-func (sortByCategory) Less(i, j *markers.Definition) bool {
-	return i.Name < j.Name
+func (sortByCategory) Compare(i, j *markers.Definition) int {
+	return strings.Compare(j.Name, i.Name)
 }
 
 type optionsSort struct{}
 
-func (optionsSort) Less(i, j *markers.Definition) bool {
+func (optionsSort) Compare(i, j *markers.Definition) int {
 	iParts := strings.Split(i.Name, ":")
 	jParts := strings.Split(j.Name, ":")
 
@@ -83,10 +83,10 @@ func (optionsSort) Less(i, j *markers.Definition) bool {
 	}
 
 	if iGen != jGen {
-		return iGen > jGen
+		return strings.Compare(iGen, jGen)
 	}
 
-	return iRule < jRule
+	return strings.Compare(jRule, iRule)
 }
 func (optionsSort) Group(def *markers.Definition, _ *markers.DefinitionHelp) string {
 	parts := strings.Split(def.Name, ":")

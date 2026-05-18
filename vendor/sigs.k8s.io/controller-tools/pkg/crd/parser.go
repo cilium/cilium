@@ -19,9 +19,9 @@ package crd
 import (
 	"fmt"
 
-	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
+	"sigs.k8s.io/controller-tools/pkg/internal/crd"
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
@@ -52,15 +52,15 @@ type Parser struct {
 	// Types contains the known TypeInfo for this parser.
 	Types map[TypeIdent]*markers.TypeInfo
 	// Schemata contains the known OpenAPI JSONSchemata for this parser.
-	Schemata map[TypeIdent]apiext.JSONSchemaProps
+	Schemata map[TypeIdent]apiextensionsv1.JSONSchemaProps
 	// GroupVersions contains the known group-versions of each package in this parser.
 	GroupVersions map[*loader.Package]schema.GroupVersion
 	// CustomResourceDefinitions contains the known CustomResourceDefinitions for types in this parser.
-	CustomResourceDefinitions map[schema.GroupKind]apiext.CustomResourceDefinition
+	CustomResourceDefinitions map[schema.GroupKind]apiextensionsv1.CustomResourceDefinition
 	// FlattenedSchemata contains fully flattened schemata for use in building
 	// CustomResourceDefinition validation.  Each schema has been flattened by the flattener,
 	// and then embedded fields have been flattened with FlattenEmbedded.
-	FlattenedSchemata map[TypeIdent]apiext.JSONSchemaProps
+	FlattenedSchemata map[TypeIdent]apiextensionsv1.JSONSchemaProps
 
 	// PackageOverrides indicates that the loading of any package with
 	// the given path should be handled by the given overrider.
@@ -104,7 +104,7 @@ func (p *Parser) init() {
 		}
 	}
 	if p.Schemata == nil {
-		p.Schemata = make(map[TypeIdent]apiext.JSONSchemaProps)
+		p.Schemata = make(map[TypeIdent]apiextensionsv1.JSONSchemaProps)
 	}
 	if p.Types == nil {
 		p.Types = make(map[TypeIdent]*markers.TypeInfo)
@@ -116,10 +116,10 @@ func (p *Parser) init() {
 		p.GroupVersions = make(map[*loader.Package]schema.GroupVersion)
 	}
 	if p.CustomResourceDefinitions == nil {
-		p.CustomResourceDefinitions = make(map[schema.GroupKind]apiext.CustomResourceDefinition)
+		p.CustomResourceDefinitions = make(map[schema.GroupKind]apiextensionsv1.CustomResourceDefinition)
 	}
 	if p.FlattenedSchemata == nil {
-		p.FlattenedSchemata = make(map[TypeIdent]apiext.JSONSchemaProps)
+		p.FlattenedSchemata = make(map[TypeIdent]apiextensionsv1.JSONSchemaProps)
 	}
 }
 
@@ -133,17 +133,8 @@ func (p *Parser) indexTypes(pkg *loader.Package) {
 		if skipPkg := pkgMarkers.Get("kubebuilder:skip"); skipPkg != nil {
 			return
 		}
-		if nameVal := pkgMarkers.Get("groupName"); nameVal != nil {
-			versionVal := pkg.Name // a reasonable guess
-			if versionMarker := pkgMarkers.Get("versionName"); versionMarker != nil {
-				versionVal = versionMarker.(string)
-			}
 
-			p.GroupVersions[pkg] = schema.GroupVersion{
-				Version: versionVal,
-				Group:   nameVal.(string),
-			}
-		}
+		p.GroupVersions[pkg] = crd.GroupVersionForPackage(pkgMarkers, pkg)
 	}
 
 	if err := markers.EachType(p.Collector, pkg, func(info *markers.TypeInfo) {
@@ -179,7 +170,7 @@ func (p *Parser) NeedSchemaFor(typ TypeIdent) {
 	}
 
 	// avoid tripping recursive schemata, like ManagedFields, by adding an empty WIP schema
-	p.Schemata[typ] = apiext.JSONSchemaProps{}
+	p.Schemata[typ] = apiextensionsv1.JSONSchemaProps{}
 
 	schemaCtx := newSchemaContext(typ.Package, p, p.AllowDangerousTypes, p.IgnoreUnexportedFields)
 	ctxForInfo := schemaCtx.ForInfo(info)

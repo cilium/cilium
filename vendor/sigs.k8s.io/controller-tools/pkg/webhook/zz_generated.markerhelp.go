@@ -29,7 +29,7 @@ func (Config) Help() *markers.DefinitionHelp {
 		Category: "Webhook",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies how a webhook should be served.",
-			Details: "It specifies only the details that are intrinsic to the application serving\nit (e.g. the resources it can handle, or the path it serves on).",
+			Details: "It specifies only the details that are intrinsic to the application serving\nit (e.g. the resources it can handle, or the path it serves on).\n\nExample (Validating Webhook):\n\n\t// +kubebuilder:webhook:path=/validate-mygroup-v1-myresource,mutating=false,failurePolicy=fail,sideEffects=None,groups=mygroup.example.com,resources=myresources,verbs=create;update,versions=v1,name=myresource.kb.io,admissionReviewVersions=v1\n\nExample (Mutating Webhook):\n\n\t// +kubebuilder:webhook:path=/mutate-mygroup-v1-myresource,mutating=true,failurePolicy=fail,sideEffects=None,groups=mygroup.example.com,resources=myresources,verbs=create;update,versions=v1,name=myresource.kb.io,admissionReviewVersions=v1",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Mutating": {
@@ -38,15 +38,15 @@ func (Config) Help() *markers.DefinitionHelp {
 			},
 			"FailurePolicy": {
 				Summary: "specifies what should happen if the API server cannot reach the webhook.",
-				Details: "It may be either \"ignore\" (to skip the webhook and continue on) or \"fail\" (to reject\nthe object in question).",
+				Details: "It may be either \"ignore\" (to skip the webhook and continue on) or \"fail\" (to reject\nthe object in question). Most webhooks should use \"fail\" to ensure the webhook logic\nis always executed.",
 			},
 			"MatchPolicy": {
 				Summary: "defines how the \"rules\" list is used to match incoming requests.",
-				Details: "Allowed values are \"Exact\" (match only if it exactly matches the specified rule)\nor \"Equivalent\" (match a request if it modifies a resource listed in rules, even via another API group or version).",
+				Details: "Allowed values are \"Exact\" (match only if it exactly matches the specified rule)\nor \"Equivalent\" (match a request if it modifies a resource listed in rules, even via another API group or version).\nDefaults to \"Equivalent\" if not specified.",
 			},
 			"SideEffects": {
 				Summary: "specify whether calling the webhook will have side effects.",
-				Details: "This has an impact on dry runs and `kubectl diff`: if the sideEffect is \"Unknown\" (the default) or \"Some\", then\nthe API server will not call the webhook on a dry-run request and fails instead.\nIf the value is \"None\", then the webhook has no side effects and the API server will call it on dry-run.\nIf the value is \"NoneOnDryRun\", then the webhook is responsible for inspecting the \"dryRun\" property of the\nAdmissionReview sent in the request, and avoiding side effects if that value is \"true.\"",
+				Details: "This has an impact on dry runs and `kubectl diff`: if the sideEffect is \"Unknown\" (the default) or \"Some\", then\nthe API server will not call the webhook on a dry-run request and fails instead.\nIf the value is \"None\", then the webhook has no side effects and the API server will call it on dry-run.\nIf the value is \"NoneOnDryRun\", then the webhook is responsible for inspecting the \"dryRun\" property of the\nAdmissionReview sent in the request, and avoiding side effects if that value is \"true.\"\nMost webhooks should use \"None\".",
 			},
 			"TimeoutSeconds": {
 				Summary: "allows configuring how long the API server should wait for a webhook to respond before treating the call as a failure.",
@@ -54,27 +54,39 @@ func (Config) Help() *markers.DefinitionHelp {
 			},
 			"Groups": {
 				Summary: "specifies the API groups that this webhook receives requests for.",
-				Details: "",
+				Details: "Use \"*\" to match all groups. Multiple groups are separated by semicolons.\nExample: \"apps;batch\" or \"*\".",
 			},
 			"Resources": {
 				Summary: "specifies the API resources that this webhook receives requests for.",
-				Details: "",
+				Details: "Use \"*\" to match all resources. Multiple resources are separated by semicolons.\nExample: \"deployments;pods\" or \"*\".",
 			},
 			"Verbs": {
 				Summary: "specifies the Kubernetes API verbs that this webhook receives requests for.",
-				Details: "Only modification-like verbs may be specified.\nMay be \"create\", \"update\", \"delete\", \"connect\", or \"*\" (for all).",
+				Details: "Only modification-like verbs may be specified.\nMay be \"create\", \"update\", \"delete\", \"connect\", or \"*\" (for all).\nMultiple verbs are separated by semicolons. Example: \"create;update\".",
 			},
 			"Versions": {
 				Summary: "specifies the API versions that this webhook receives requests for.",
-				Details: "",
+				Details: "Use \"*\" to match all versions. Multiple versions are separated by semicolons.\nExample: \"v1;v1beta1\" or \"*\".",
 			},
 			"Name": {
 				Summary: "indicates the name of this webhook configuration. Should be a domain with at least three segments separated by dots",
-				Details: "",
+				Details: "Example: \"myresource.mygroup.example.com\".",
+			},
+			"ServiceName": {
+				Summary: "indicates the name of the K8s Service the webhook uses.",
+				Details: "Defaults to \"webhook-service\" if not specified.",
+			},
+			"ServiceNamespace": {
+				Summary: "indicates the namespace of the K8s Service the webhook uses.",
+				Details: "Defaults to \"system\" if not specified.",
 			},
 			"Path": {
 				Summary: "specifies that path that the API server should connect to this webhook on. Must be",
 				Details: "prefixed with a '/validate-' or '/mutate-' depending on the type, and followed by\n$GROUP-$VERSION-$KIND where all values are lower-cased and the periods in the group\nare substituted for hyphens. For example, a validating webhook path for type\nbatch.tutorial.kubebuilder.io/v1,Kind=CronJob would be\n/validate-batch-tutorial-kubebuilder-io-v1-cronjob",
+			},
+			"ServicePort": {
+				Summary: "indicates the port of the K8s Service the webhook uses.",
+				Details: "Defaults to 443 if not specified.",
 			},
 			"WebhookVersions": {
 				Summary: "specifies the target API versions of the {Mutating,Validating}WebhookConfiguration objects",
@@ -82,11 +94,11 @@ func (Config) Help() *markers.DefinitionHelp {
 			},
 			"AdmissionReviewVersions": {
 				Summary: "is an ordered list of preferred `AdmissionReview`",
-				Details: "versions the Webhook expects.",
+				Details: "versions the Webhook expects. The API server will try to use the first version\nin the list which it supports. If none of the versions specified are supported,\nthe API call will fail. Common values: \"v1\" or \"v1;v1beta1\".",
 			},
 			"ReinvocationPolicy": {
-				Summary: "allows mutating webhooks to request reinvocation after other mutations",
-				Details: "To allow mutating admission plugins to observe changes made by other plugins,\nbuilt-in mutating admission plugins are re-run if a mutating webhook modifies\nan object, and mutating webhooks can specify a reinvocationPolicy to control\nwhether they are reinvoked as well.",
+				Summary: "allows mutating webhooks to request reinvocation after other mutations.",
+				Details: "To allow mutating admission plugins to observe changes made by other plugins,\nbuilt-in mutating admission plugins are re-run if a mutating webhook modifies\nan object, and mutating webhooks can specify a reinvocationPolicy to control\nwhether they are reinvoked as well. May be \"Never\" or \"IfNeeded\". Defaults to \"Never\".",
 			},
 			"URL": {
 				Summary: "allows mutating webhooks configuration to specify an external URL when generating",
@@ -120,8 +132,8 @@ func (WebhookConfig) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "",
 		DetailedHelp: markers.DetailedHelp{
-			Summary: "",
-			Details: "",
+			Summary: "specifies the configuration for a MutatingWebhookConfiguration or ValidatingWebhookConfiguration.",
+			Details: "This marker configures the webhook configuration object itself, not the individual webhooks.\n\nExample:\n\n\t// +kubebuilder:webhookconfiguration:mutating=true,name=my-mutating-webhook-configuration\n\tpackage v1",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Mutating": {
@@ -130,7 +142,7 @@ func (WebhookConfig) Help() *markers.DefinitionHelp {
 			},
 			"Name": {
 				Summary: "indicates the name of the K8s MutatingWebhookConfiguration or ValidatingWebhookConfiguration object.",
-				Details: "",
+				Details: "If not specified, the name will be auto-generated based on the webhook names.",
 			},
 		},
 	}

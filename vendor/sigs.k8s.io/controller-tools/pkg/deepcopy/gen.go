@@ -22,7 +22,7 @@ import (
 	"go/ast"
 	"go/format"
 	"io"
-	"sort"
+	"slices"
 	"strings"
 
 	"sigs.k8s.io/controller-tools/pkg/genall"
@@ -273,7 +273,7 @@ func writeMethods(pkg *loader.Package, out io.Writer, byType map[string][]byte) 
 	for name := range byType {
 		sortedNames = append(sortedNames, name)
 	}
-	sort.Strings(sortedNames)
+	slices.Sort(sortedNames)
 
 	for _, name := range sortedNames {
 		_, err := out.Write(byType[name])
