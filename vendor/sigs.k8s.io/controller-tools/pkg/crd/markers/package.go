@@ -23,10 +23,10 @@ import (
 func init() {
 	AllDefinitions = append(AllDefinitions,
 		mustOptional(markers.MakeDefinition("groupName", markers.DescribesPackage, "")).
-			WithHelp(markers.SimpleHelp("CRD", "specifies the API group name for this package.")),
+			WithHelp(markers.SimpleHelp("CRD", "specifies the API group name for this package. Example: +groupName=mygroup.example.com")),
 
 		must(markers.MakeDefinition("versionName", markers.DescribesPackage, "")).
-			WithHelp(markers.SimpleHelp("CRD", "overrides the API group version for this package (defaults to the package name).")),
+			WithHelp(markers.SimpleHelp("CRD", "overrides the API group version for this package (defaults to the package name). Example: +versionName=v1beta1")),
 
 		must(markers.MakeDefinition("kubebuilder:validation:Optional", markers.DescribesPackage, struct{}{})).
 			WithHelp(markers.SimpleHelp("CRD validation", "specifies that all fields in this package are optional by default.")),
@@ -35,6 +35,6 @@ func init() {
 			WithHelp(markers.SimpleHelp("CRD validation", "specifies that all fields in this package are required by default.")),
 
 		must(markers.MakeDefinition("kubebuilder:skip", markers.DescribesPackage, struct{}{})).
-			WithHelp(markers.SimpleHelp("CRD", "don't consider this package as an API version.")),
+			WithHelp(markers.SimpleHelp("CRD", "don't consider this package as an API version. Use this to exclude internal or helper packages from CRD generation.")),
 	)
 }
