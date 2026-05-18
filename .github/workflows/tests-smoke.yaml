@@ -81,6 +81,9 @@ jobs:
     if: ${{ needs.check_changes.outputs.tested == 'true' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-24.04
     name: Installation and Conformance Test
+    environment:
+      name: test-with-images
+
     steps:
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
@@ -100,6 +103,9 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ github.event.pull_request.head.sha || github.sha }}
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
+          image-pull-secret: "cilium-registry"
 
       - name: Set image tag
         id: sha
@@ -121,12 +127,27 @@ jobs:
           config: ${{ env.KIND_CONFIG }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Create imagePullSecret
+        run: |
+          kubectl create secret docker-registry cilium-registry \
+            --namespace kube-system \
+            --docker-server=${{ vars.DOCKER_READ_HOST }} \
+            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
+
+      - name: Login to docker registry for image wait
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ vars.DOCKER_READ_HOST}}
+          username: ${{ vars.DOCKER_READ_USERNAME}}
+          password: ${{ secrets.DOCKER_READ_PASSWORD }}
+
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect ${{ vars.DOCKER_READ_HOST }}/${{ vars.DOCKER_READ_ORG }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Generate CA, Server and Client certs for Operator Prometheus
