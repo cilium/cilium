@@ -4,6 +4,8 @@
 package ipam
 
 import (
+	"context"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
@@ -47,4 +49,5 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Float64("limit-ipam-api-qps", defaultConfig.LimitIPAMAPIQPS, "Queries per second limit when accessing external IPAM APIs")
 }
 
-type nodeWatcherJobFactory func(nm allocator.NodeEventHandler) job.Job
+type nodeEventHandlerFactory func(ctx context.Context) (allocator.NodeEventHandler, error)
+type nodeWatcherJobFactory func(nmFactory nodeEventHandlerFactory) job.Job
