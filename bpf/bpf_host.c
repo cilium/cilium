@@ -1091,6 +1091,10 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 				}
 				ctx_store_meta_ipv6(ctx, CB_FORCED_BACKEND_V6_1,
 						    &outer_dst);
+				/* See the IPv4 sibling block below for why we
+				 * have to clear the skip-nodeport flag here.
+				 */
+				ctx_skip_nodeport_clear(ctx);
 			}
 		}
 #endif /* ENABLE_IPIP_TERMINATION */
@@ -1177,6 +1181,19 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 				 * fresh backend selection on the inner 5-tuple.
 				 */
 				ctx_store_meta(ctx, CB_FORCED_BACKEND_V4, outer_dst);
+				/* If NodePort XDP acceleration ran upstream
+				 * with ENABLE_NODEPORT_ACCELERATION, it
+				 * couldn't classify the IPIP packet (no L4
+				 * to extract a service tuple from) and
+				 * signalled XFER_PKT_NO_SVC. cil_from_netdev
+				 * translated that into a skip-nodeport hint
+				 * via tc_index. That hint was correct for the
+				 * OUTER header but is stale now: the inner is
+				 * exactly the service request that needs the
+				 * forced-backend DNAT in nodeport_svc_lb4().
+				 * Clear it so handle_ipv4() runs nodeport_lb4().
+				 */
+				ctx_skip_nodeport_clear(ctx);
 			}
 		}
 #endif /* ENABLE_IPIP_TERMINATION */
