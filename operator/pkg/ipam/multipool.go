@@ -16,6 +16,7 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/multipool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -87,22 +88,26 @@ func startMultiPoolAllocator(p multiPoolParams) {
 					return err
 				}
 
-				// The following operation will block until all pools are restored, thus it
-				// is safe to continue starting node allocation right after return.
-				startIPPoolAllocator(
-					ctx, allocator, p.CiliumPodIPPools,
-					p.Logger.With(logfields.LogSubsys, "ip-pool-watcher"),
-				)
+				p.JobGroup.Add(p.NodeWatcherFactory(
+					func(ctx context.Context) (allocatorTypes.NodeEventHandler, error) {
+						// The following operation will block until all pools are restored, thus it
+						// is safe to continue starting node allocation right after return.
+						startIPPoolAllocator(
+							ctx, allocator, p.CiliumPodIPPools,
+							p.Logger.With(logfields.LogSubsys, "ip-pool-watcher"),
+						)
 
-				nm := multipool.NewNodeHandler(
-					"ipam-multi-pool-sync",
-					logger, allocator, p.Clientset.CiliumV2().CiliumNodes(),
-					func(cn *v2.CiliumNode) *types.IPAMPoolSpec {
-						return &cn.Spec.IPAM.Pools
+						nm := multipool.NewNodeHandler(
+							"ipam-multi-pool-sync",
+							logger, allocator, p.Clientset.CiliumV2().CiliumNodes(),
+							func(cn *v2.CiliumNode) *types.IPAMPoolSpec {
+								return &cn.Spec.IPAM.Pools
+							},
+						)
+
+						return nm, nil
 					},
-				)
-
-				p.JobGroup.Add(p.NodeWatcherFactory(nm))
+				))
 
 				return nil
 			},

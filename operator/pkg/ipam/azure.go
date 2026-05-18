@@ -6,6 +6,7 @@
 package ipam
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/spf13/pflag"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/azure"
 	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -92,12 +94,15 @@ func startAzureAllocator(p azureParams) {
 					return fmt.Errorf("unable to init Azure allocator: %w", err)
 				}
 
-				nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.AzureMetrics, p.IPAMMetrics)
-				if err != nil {
-					return fmt.Errorf("unable to start Azure allocator: %w", err)
-				}
-
-				p.JobGroup.Add(p.NodeWatcherFactory(nm))
+				p.JobGroup.Add(p.NodeWatcherFactory(
+					func(ctx context.Context) (allocatorTypes.NodeEventHandler, error) {
+						nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.AzureMetrics, p.IPAMMetrics)
+						if err != nil {
+							return nil, fmt.Errorf("unable to start Azure allocator: %w", err)
+						}
+						return nm, nil
+					},
+				))
 
 				return nil
 			},
