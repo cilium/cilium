@@ -48,6 +48,8 @@ func newNodeWatcherJobFactory(
 				withResync := daemonCfg.IPAM == ipamOption.IPAMClusterPool || daemonCfg.IPAM == ipamOption.IPAMMultiPool
 				watchCiliumNodes(ctx, ciliumNodes, nm, withResync)
 
+				nm.Stop()
+
 				return nil
 			},
 		)

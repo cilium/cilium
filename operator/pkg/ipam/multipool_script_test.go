@@ -25,6 +25,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // Register the multi-pool IPAM allocator directly to test it without the specific build tag.
@@ -41,6 +42,8 @@ func init() {
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScriptMultiPool(t *testing.T) {
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
+
 	setup := func(t testing.TB, args []string) *script.Engine {
 		h := hive.New(
 			k8sClient.FakeClientCell(),

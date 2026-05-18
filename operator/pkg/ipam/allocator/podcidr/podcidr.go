@@ -238,6 +238,10 @@ func NewNodesPodCIDRManager(
 	return n
 }
 
+func (n *NodesPodCIDRManager) Stop() {
+	n.k8sReSyncController.RemoveAllAndWait()
+}
+
 // syncToK8s will sync all nodes present in the ciliumNodesToK8s into kubernetes
 // In case any of the nodes failed to be synced with kubernetes the returned
 // error is for one of those nodes. Remaining nodes will still be synced with
