@@ -440,6 +440,8 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg shell -- bgp/routes -a out ipv4 unicast",
 		"cilium-dbg shell -- bgp/routes -a out ipv6 unicast",
 		"cilium-dbg shell -- bgp/route-policies",
+		"cilium-dbg shell -- policy/mapstate/entries",
+		"cilium-dbg shell -- policy/mapstate/topk",
 		"cilium-dbg troubleshoot kvstore",
 		"cilium-dbg troubleshoot clustermesh",
 		"cilium-dbg bpf frag list",

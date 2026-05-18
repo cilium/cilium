@@ -129,6 +129,10 @@ func (p Precedence) Priority() Priority {
 	return LowestPriority - Priority(p>>precedencePriorityShift)
 }
 
+func (p Precedence) ListenerPriority() ListenerPriority {
+	return ListenerPriority(precedenceByteMask - (p & precedenceByteMask))
+}
+
 // MapStateEntry is the configuration associated with a Key in a
 // MapState. This is a minimized version of policymap.PolicyEntry.
 type MapStateEntry struct {
