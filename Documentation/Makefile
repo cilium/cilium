@@ -32,7 +32,7 @@ base-image: Dockerfile ## Build the docs-base image for updating the requirement
 	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
 
 DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:299b1b0619ca41010e1a3d930848cfbba6166df5@sha256:30b84cea76127ba89cf3aec9dc6cc2a7d81825e49957a59b648f8b26c414800b
-DOCS_BUILDER_REPO := $(shell echo $(DOCS_BUILDER_IMG) | sed -E 's#:.*##')
+DOCS_BUILDER_REPO := $(shell echo $(DOCS_BUILDER_IMG) | sed -E 's/:.*//')
 
 ifndef SKIP_BUILDER_IMAGE
 builder-image: Dockerfile $(REQUIREMENTS) ## Build the docs-builder image for rendering and checking the documentation.
