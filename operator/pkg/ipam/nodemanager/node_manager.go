@@ -270,6 +270,9 @@ func (n *NodeManager) Start(ctx context.Context) error {
 	return nil
 }
 
+func (n *NodeManager) Stop() {
+}
+
 // SetInstancesAPIReadiness sets the readiness state of the instances API
 func (n *NodeManager) SetInstancesAPIReadiness(ready bool) {
 	n.mutex.Lock()
