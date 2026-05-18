@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
@@ -156,6 +157,9 @@ func TestPrivilegedScript(t *testing.T) {
 					return kpr.KPRConfig{
 						KubeProxyReplacement: *kubeProxyReplacement,
 					}
+				},
+				func() cmtypes.ClusterInfo {
+					return cmtypes.DefaultClusterInfo
 				},
 			),
 			cell.Invoke(func(m agent.BGPRouterManager) {
