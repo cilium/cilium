@@ -17,6 +17,7 @@ type NodeEventHandler interface {
 	Upsert(resource *v2.CiliumNode)
 	Delete(resource *v2.CiliumNode)
 	Resync(context.Context, time.Time)
+	Stop()
 }
 
 // CiliumNodeGetterUpdater defines the interface used to interact with the k8s
