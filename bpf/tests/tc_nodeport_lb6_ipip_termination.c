@@ -20,6 +20,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
+#define ENABLE_NODEPORT_ACCELERATION	/* exercise the XFER_PKT_NO_SVC handoff */
 #define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
@@ -48,6 +49,22 @@ enum {
 };
 
 static volatile __u32 num_calls[RECORD_MAX];
+
+/* See the IPv4 sibling file for why we wrap the overloadable.h include in
+ * an EVENT_SOURCE define/undef and mock ctx_get_xfer via a macro.
+ */
+#define EVENT_SOURCE 0
+#include <lib/overloadable.h>
+#undef EVENT_SOURCE
+
+static volatile __u32 xdp_xfer_flags;
+
+#define ctx_get_xfer mock_ctx_get_xfer
+static __always_inline __maybe_unused __u32
+mock_ctx_get_xfer(struct __sk_buff *ctx __maybe_unused, __u32 off __maybe_unused)
+{
+	return xdp_xfer_flags;
+}
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
 static __always_inline __maybe_unused int
@@ -177,6 +194,7 @@ int ipip_term_v6_local_pod_setup(struct __ctx_buff *ctx)
 
 	num_calls[RECORD_REDIRECT] = 0;
 	num_calls[RECORD_REDIRECT_PEER] = 0;
+	xdp_xfer_flags = 0;
 
 	return netdev_receive_packet(ctx);
 }
@@ -275,6 +293,7 @@ int ipip_term_v6_l7_punt_proxy_setup(struct __ctx_buff *ctx)
 
 	num_calls[RECORD_REDIRECT] = 0;
 	num_calls[RECORD_REDIRECT_PEER] = 0;
+	xdp_xfer_flags = 0;
 
 	return netdev_receive_packet(ctx);
 }
@@ -328,6 +347,85 @@ int ipip_term_v6_l7_punt_proxy_check(struct __ctx_buff *ctx)
 		test_fatal("inner src IP changed");
 	if (memcmp(&l3->daddr, (void *)v6_pod_three, 16) != 0)
 		test_fatal("inner dst IP was rewritten - forced-backend DNAT must not run on L7-punt-proxy path");
+
+	test_finish();
+}
+
+/* -------------------------------------------------------------------------- */
+/* Test 3: same input as test 1 (IPIP6 -> local Pod) but XDP NodePort accel   */
+/* ran upstream and set XFER_PKT_NO_SVC. See the IPv4 sibling test for the    */
+/* rationale and the full contract being pinned.                              */
+/* -------------------------------------------------------------------------- */
+
+PKTGEN("tc", "tc_nodeport_ipip_term_v6_xdp_handoff")
+int ipip_term_v6_xdp_handoff_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_ipip_v6(ctx, (void *)v6_pod_two, (void *)v6_pod_three);
+}
+
+SETUP("tc", "tc_nodeport_ipip_term_v6_xdp_handoff")
+int ipip_term_v6_xdp_handoff_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 1;
+
+	lb_v6_add_service((const union v6addr *)v6_pod_three, FRONTEND_PORT,
+			  IPPROTO_TCP, 1, revnat_id);
+	lb_v6_add_backend((const union v6addr *)v6_pod_three, FRONTEND_PORT,
+			  1, 124,
+			  (const union v6addr *)v6_pod_two, FRONTEND_PORT,
+			  IPPROTO_TCP, 0);
+
+	endpoint_v6_add_entry((const union v6addr *)v6_pod_two,
+			      BACKEND_IFACE, BACKEND_EP_ID, 0, 0,
+			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	ipcache_v6_add_entry((const union v6addr *)v6_pod_two, 0, 112233, 0, 0);
+
+	num_calls[RECORD_REDIRECT] = 0;
+	num_calls[RECORD_REDIRECT_PEER] = 0;
+	xdp_xfer_flags = XFER_PKT_NO_SVC;
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_ipip_term_v6_xdp_handoff")
+int ipip_term_v6_xdp_handoff_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+
+	test_init();
+
+	endpoint_v6_del_entry((const union v6addr *)v6_pod_two);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+	if (num_calls[RECORD_REDIRECT_PEER] != 1)
+		test_fatal("expected exactly one ctx_redirect_peer call, got %u",
+			   num_calls[RECORD_REDIRECT_PEER]);
+	if (num_calls[RECORD_REDIRECT] != 0)
+		test_fatal("did not expect plain ctx_redirect, got %u",
+			   num_calls[RECORD_REDIRECT]);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->nexthdr != IPPROTO_TCP)
+		test_fatal("post-decap nexthdr is %u, expected TCP", l3->nexthdr);
+	if (memcmp(&l3->daddr, (void *)v6_pod_two, 16) != 0)
+		test_fatal("post-decap dst IP is not BACKEND - forced-backend DNAT skipped (stale skip-nodeport hint from XDP)");
 
 	test_finish();
 }

@@ -28,6 +28,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
+#define ENABLE_NODEPORT_ACCELERATION	/* exercise the XFER_PKT_NO_SVC handoff */
 #define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
@@ -74,6 +75,33 @@ enum {
 };
 
 static volatile __u32 num_calls[RECORD_MAX];
+
+/* Simulated XDP -> TC handoff state. cil_from_netdev calls ctx_get_xfer()
+ * at entry; with ENABLE_NODEPORT_ACCELERATION set this is how XDP signals
+ * "I couldn't classify, skip nodeport at TC" via XFER_PKT_NO_SVC. We mock
+ * it so each test can choose whether to simulate XDP having run upstream.
+ *
+ * Pull in lib/overloadable.h first so that ctx_get_xfer's static inline
+ * definition gets the original name. The #define below then only rewrites
+ * subsequent call sites (cil_from_netdev pulled in via lib/bpf_host.h).
+ *
+ * overloadable_skb.h includes lib/common.h which defines EVENT_SOURCE=0
+ * (only with #ifndef), but bpf_host.c expects to be the first to set it
+ * (to CONFIG(host_ep_id)). Pre-define+undef so the include below doesn't
+ * leave EVENT_SOURCE defined when bpf_host.c gets pulled in later.
+ */
+#define EVENT_SOURCE 0
+#include <lib/overloadable.h>
+#undef EVENT_SOURCE
+
+static volatile __u32 xdp_xfer_flags;
+
+#define ctx_get_xfer mock_ctx_get_xfer
+static __always_inline __maybe_unused __u32
+mock_ctx_get_xfer(struct __sk_buff *ctx __maybe_unused, __u32 off __maybe_unused)
+{
+	return xdp_xfer_flags;
+}
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
 static __always_inline __maybe_unused int
@@ -208,6 +236,7 @@ int ipip_term_v4_local_pod_setup(struct __ctx_buff *ctx)
 
 	num_calls[RECORD_REDIRECT] = 0;
 	num_calls[RECORD_REDIRECT_PEER] = 0;
+	xdp_xfer_flags = 0;
 
 	return netdev_receive_packet(ctx);
 }
@@ -319,6 +348,7 @@ int ipip_term_v4_l7_punt_proxy_setup(struct __ctx_buff *ctx)
 
 	num_calls[RECORD_REDIRECT] = 0;
 	num_calls[RECORD_REDIRECT_PEER] = 0;
+	xdp_xfer_flags = 0;
 
 	return netdev_receive_packet(ctx);
 }
@@ -376,6 +406,96 @@ int ipip_term_v4_l7_punt_proxy_check(struct __ctx_buff *ctx)
 	if (l3->daddr != L7_FRONTEND_IP)
 		test_fatal("inner dst IP was rewritten - forced-backend DNAT must not run on L7-punt-proxy path (got %x, want %x)",
 			   l3->daddr, L7_FRONTEND_IP);
+
+	test_finish();
+}
+
+/* -------------------------------------------------------------------------- */
+/* Test 3: same input as test 1 (IPIP -> local Pod) but XDP NodePort accel    */
+/* ran upstream and set XFER_PKT_NO_SVC. cil_from_netdev mirrors that into a  */
+/* tc_index skip-nodeport hint. The IPIP strip must clear that hint so that  */
+/* handle_ipv4() still calls into nodeport_lb4() and the forced-backend DNAT */
+/* runs - otherwise the inner falls through with daddr == LB VIP.            */
+/* -------------------------------------------------------------------------- */
+
+PKTGEN("tc", "tc_nodeport_ipip_term_v4_xdp_handoff")
+int ipip_term_v4_xdp_handoff_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_ipip_v4(ctx, BACKEND_IP, FRONTEND_IP);
+}
+
+SETUP("tc", "tc_nodeport_ipip_term_v4_xdp_handoff")
+int ipip_term_v4_xdp_handoff_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 1;
+
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+			      (__u8 *)backend_mac, (__u8 *)node_mac);
+
+	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
+
+	num_calls[RECORD_REDIRECT] = 0;
+	num_calls[RECORD_REDIRECT_PEER] = 0;
+
+	/* Simulate XDP NodePort acceleration: the IPIP outer can't be
+	 * classified (proto=4 has no L4 service tuple), so XDP returned
+	 * CTX_ACT_OK with XFER_PKT_NO_SVC set. cil_from_netdev will read
+	 * this and call ctx_skip_nodeport_set() on the skb.
+	 */
+	xdp_xfer_flags = XFER_PKT_NO_SVC;
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_ipip_term_v4_xdp_handoff")
+int ipip_term_v4_xdp_handoff_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+	status_code = data;
+
+	/* End result must be identical to the non-XDP local_pod case. If the
+	 * IPIP strip didn't clear the skip-nodeport hint, handle_ipv4 would
+	 * skip nodeport_lb4(), no DNAT would run, and dst would stay LB VIP.
+	 */
+	assert(*status_code == CTX_ACT_REDIRECT);
+	if (num_calls[RECORD_REDIRECT_PEER] != 1)
+		test_fatal("expected exactly one ctx_redirect_peer call, got %u",
+			   num_calls[RECORD_REDIRECT_PEER]);
+	if (num_calls[RECORD_REDIRECT] != 0)
+		test_fatal("did not expect plain ctx_redirect, got %u",
+			   num_calls[RECORD_REDIRECT]);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->protocol != IPPROTO_TCP)
+		test_fatal("post-decap L3 protocol is %u, expected TCP",
+			   l3->protocol);
+	if (l3->daddr != BACKEND_IP)
+		test_fatal("post-decap dst IP is %x, expected BACKEND_IP - forced-backend DNAT was skipped (stale skip-nodeport hint from XDP)",
+			   l3->daddr);
 
 	test_finish();
 }
