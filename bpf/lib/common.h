@@ -314,6 +314,8 @@ enum metric_dir {
 #define TC_INDEX_F_SKIP_HEALTH_CHECK	8
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
+#define CB_DELIVERY_FLAGS_REDIRECT	(1 << 0)
+
 #define CB_NAT_FLAGS_REVDNAT_ONLY	(1 << 0)
 
 /*
@@ -336,7 +338,7 @@ enum {
 #define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define CB_VERDICT		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_1,
-#define	CB_DELIVERY_REDIRECT	CB_1		/* Alias, non-overlapping */
+#define	CB_DELIVERY_FLAGS	CB_1		/* Alias, non-overlapping */
 #define	CB_NAT_46X64		CB_1		/* Alias, non-overlapping */
 #define	CB_ADDR_V4		CB_1		/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_1		/* Alias, non-overlapping */
