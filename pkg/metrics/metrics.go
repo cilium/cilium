@@ -725,6 +725,8 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Subsystem: SubsystemAgent,
 			Name:      "api_process_time_seconds",
 			Help:      "Duration of processed API calls labeled by path, method and return code.",
+			// default buckets extended to 2min
+			Buckets: []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 20, 30, 60, 90, 120},
 		}, []string{LabelPath, LabelMethod, LabelAPIReturnCode}),
 
 		EndpointComponentStatus: metric.NewGaugeVec(metric.GaugeOpts{
