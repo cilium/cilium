@@ -36,14 +36,16 @@ func (tw *TableBuilder) Write(w io.Writer) {
 	}
 
 	// Create the divider between the header and rows
-	headingDiv := "|"
+	var headingDivBuilder strings.Builder
+	headingDivBuilder.WriteString("|")
 	for i := range colWidths {
-		headingDiv += strings.Repeat("-", colWidths[i]+2)
+		headingDivBuilder.WriteString(strings.Repeat("-", colWidths[i]+2))
 		if i != len(colWidths)-1 {
-			headingDiv += "+"
+			headingDivBuilder.WriteString("+")
 		}
 	}
-	headingDiv += "\n"
+	headingDivBuilder.WriteString("\n")
+	headingDiv := headingDivBuilder.String()
 
 	// Print out the table name and columnNames
 	fmt.Fprintf(w, " - %s %s\n", tw.tableName, strings.Repeat("-", len(headingDiv)-len(tw.tableName)-5))

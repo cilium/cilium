@@ -542,8 +542,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	// account for the new identity during the grace period. For this
 	// purpose, all endpoints being restored must already be in the
 	// endpoint list.
-	for i := len(state.restored) - 1; i >= 0; i-- {
-		ep := state.restored[i]
+	for i, ep := range slices.Backward(state.restored) {
 
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
