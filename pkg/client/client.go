@@ -342,15 +342,17 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	if sr.KubeProxyReplacement != nil {
 		devices := ""
 		if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeFalse {
+			var b strings.Builder
 			for i, dev := range sr.KubeProxyReplacement.DeviceList {
-				kubeProxyDevices += fmt.Sprintf("%s %s", dev.Name, strings.Join(dev.IP, " "))
+				fmt.Fprintf(&b, "%s %s", dev.Name, strings.Join(dev.IP, " "))
 				if dev.Name == sr.KubeProxyReplacement.DirectRoutingDevice {
-					kubeProxyDevices += " (Direct Routing)"
+					b.WriteString(" (Direct Routing)")
 				}
 				if i+1 != len(sr.KubeProxyReplacement.Devices) {
-					kubeProxyDevices += ", "
+					b.WriteString(", ")
 				}
 			}
+			kubeProxyDevices = b.String()
 			if len(sr.KubeProxyReplacement.DeviceList) > 0 {
 				devices = "[" + kubeProxyDevices + "]"
 			}

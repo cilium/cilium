@@ -425,9 +425,7 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 	}
 
 	// Fork a goroutine to process the queued keys and pass them to the subscriber.
-	r.wg.Add(1)
-	go func() {
-		defer r.wg.Done()
+	r.wg.Go(func() {
 		defer close(out)
 
 		// Grab a handle to the store. Asynchronous as informer is started in the background.
@@ -464,20 +462,18 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		r.mu.Lock()
 		delete(r.subscribers, subId)
 		r.mu.Unlock()
-	}()
+	})
 
 	// Fork a goroutine to wait for either the subscriber cancelling or the resource
 	// shutting down.
-	r.wg.Add(1)
-	go func() {
-		defer r.wg.Done()
+	r.wg.Go(func() {
 		select {
 		case <-r.ctx.Done():
 		case <-ctx.Done():
 		}
 		subCancel()
 		sub.wq.ShutDownWithDrain()
-	}()
+	})
 
 	return out
 }

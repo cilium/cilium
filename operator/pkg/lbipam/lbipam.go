@@ -544,8 +544,7 @@ func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.S
 func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 	var errs error
 	// Remove bad allocations which are no longer valid
-	for allocIdx := len(sv.AllocatedIPs) - 1; allocIdx >= 0; allocIdx-- {
-		alloc := sv.AllocatedIPs[allocIdx]
+	for allocIdx, alloc := range slices.Backward(sv.AllocatedIPs) {
 
 		releaseAllocIP := func() {
 			ipam.logger.Debug(fmt.Sprintf("removing allocation '%s' from '%s'", alloc.IP, sv.Key))
@@ -1722,9 +1721,7 @@ func (ipam *LBIPAM) setPoolCondition(
 func (ipam *LBIPAM) deleteRangeAllocations(delRange *LBRange) []*ServiceView {
 	delAllocs := func(sv *ServiceView) bool {
 		svModified := false
-		for i := len(sv.AllocatedIPs) - 1; i >= 0; i-- {
-			alloc := sv.AllocatedIPs[i]
-
+		for i, alloc := range slices.Backward(sv.AllocatedIPs) {
 			if alloc.Origin == delRange {
 				sv.AllocatedIPs = slices.Delete(sv.AllocatedIPs, i, i+1)
 				svModified = true
