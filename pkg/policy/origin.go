@@ -137,24 +137,3 @@ func (ro ruleOrigin) Merge(other ruleOrigin) ruleOrigin {
 }
 
 var NilRuleOrigin = newRuleOrigin(RuleMeta{labels: "[]"})
-
-// stringLabels is an interned labels.LabelArray.String()
-type stringLabels unique.Handle[labels.LabelArrayListString]
-
-var EmptyStringLabels = makeStringLabels(nil)
-
-func (sl stringLabels) Value() labels.LabelArrayListString {
-	// Avoid nil pointer dereference if handle is empty
-	if unique.Handle[labels.LabelArrayListString](sl) == (unique.Handle[labels.LabelArrayListString]{}) {
-		return ""
-	}
-	return unique.Handle[labels.LabelArrayListString](sl).Value()
-}
-
-func makeStringLabels(lbls labels.LabelArray) stringLabels {
-	return newStringLabels(labels.LabelArrayList{lbls.Sort()}.ArrayListString())
-}
-
-func newStringLabels(lbls labels.LabelArrayListString) stringLabels {
-	return stringLabels(unique.Make(lbls))
-}
