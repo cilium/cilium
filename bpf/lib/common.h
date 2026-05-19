@@ -306,6 +306,8 @@ enum metric_dir {
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
 #define CB_DELIVERY_FLAGS_REDIRECT	(1 << 0)
+#define CB_DELIVERY_FLAGS_FROM_HOST	(1 << 1)
+#define CB_DELIVERY_FLAGS_FROM_TUNNEL	(1 << 2)
 
 #define CB_NAT_FLAGS_REVDNAT_ONLY	(1 << 0)
 

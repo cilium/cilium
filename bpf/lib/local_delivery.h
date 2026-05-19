@@ -113,6 +113,10 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 
 	if (delivery_redirect)
 		delivery_flags |= CB_DELIVERY_FLAGS_REDIRECT;
+	if (from_host)
+		delivery_flags |= CB_DELIVERY_FLAGS_FROM_HOST;
+	if (from_tunnel)
+		delivery_flags |= CB_DELIVERY_FLAGS_FROM_TUNNEL;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_DELIVERY_FLAGS, delivery_flags);
