@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -192,8 +193,7 @@ func (p *podCIDRPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 	// Iterate over pod CIDRs in reverse order, so we prioritize releasing
 	// later pod CIDRs.
 	retainedAllocators := []*ipallocator.Range{}
-	for i := len(p.ipAllocators) - 1; i >= 0; i-- {
-		ipAllocator := p.ipAllocators[i]
+	for _, ipAllocator := range slices.Backward(p.ipAllocators) {
 		cidrNet := ipAllocator.CIDR()
 		cidrStr := cidrNet.String()
 
