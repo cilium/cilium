@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
+	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -193,7 +194,7 @@ func (*fakeXdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
 	panic("unimplemented")
 }
 
