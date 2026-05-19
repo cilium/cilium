@@ -109,8 +109,13 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 			 bool delivery_redirect, bool from_host,
 			 bool from_tunnel, __u32 cluster_id)
 {
+	__u32 delivery_flags = 0;
+
+	if (delivery_redirect)
+		delivery_flags |= CB_DELIVERY_FLAGS_REDIRECT;
+
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
-	ctx_store_meta(ctx, CB_DELIVERY_REDIRECT, delivery_redirect ? 1 : 0);
+	ctx_store_meta(ctx, CB_DELIVERY_FLAGS, delivery_flags);
 	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, from_tunnel ? 1 : 0);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, cluster_id);

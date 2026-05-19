@@ -97,7 +97,7 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
  */
 int mock_tail_policy(struct __ctx_buff *ctx)
 {
-	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_FLAGS) & CB_DELIVERY_FLAGS_REDIRECT;
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool from_tunnel = false;
 
