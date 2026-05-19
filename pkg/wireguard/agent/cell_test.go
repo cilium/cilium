@@ -168,7 +168,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 						},
 						TunnelConfig:     tunnel.Config{},
 						DaemonConfig:     option.Config,
-						LBConfig:         loadbalancer.Config{},
+						LBConfig:         loadbalancer.DefaultConfig,
 						LBExternalConfig: loadbalancer.ExternalConfig{},
 						LocalNode: node.LocalNode{
 							Node: nodeTypes.Node{

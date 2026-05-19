@@ -46,13 +46,6 @@ const (
 	// reflectorBufferSize is the maximum size of the event buffer.
 	reflectorBufferSize = 500
 
-	// reflectorWaitTime is the maximum amount of time to try and fill the buffer.
-	// A higher wait time will reduce processing of transient states and increases
-	// throughput as it gives bigger batches downstream for processing. Batching
-	// also helps to combine related objects, e.g. a Service may have multiple
-	// associated EndpointSlices and preferably these would be processed together.
-	reflectorWaitTime = 500 * time.Millisecond
-
 	// K8sInitializerPrefix is the StateDB initializer prefix used here. This can
 	// be used to wait for the tables to be populated just from k8s even when
 	// other initializers are present.
@@ -101,7 +94,7 @@ func (p reflectorParams) waitTime() time.Duration {
 		// Use a much lower wait time in tests to trigger more edge cases and make them faster.
 		return 10 * time.Millisecond
 	}
-	return reflectorWaitTime
+	return p.Config.ReflectorWaitTime
 }
 
 func RegisterK8sReflector(p reflectorParams) {
