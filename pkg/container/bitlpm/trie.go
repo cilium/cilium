@@ -5,6 +5,7 @@ package bitlpm
 
 import (
 	"container/heap"
+	"slices"
 )
 
 // Trie is a [non-preemptive] [binary] [trie] that indexes arbitrarily long
@@ -504,8 +505,8 @@ func (t *trie[K, T]) treverse(prefixLen uint, k K, fn func(currentNode *node[K, 
 	}
 
 	// Call the function for stacked nodes in reverse order, i.e., longest-prefix-match first
-	for i := len(stack) - 1; i >= 0; i-- {
-		if !fn(stack[i]) {
+	for _, node := range slices.Backward(stack) {
+		if !fn(node) {
 			return
 		}
 	}
