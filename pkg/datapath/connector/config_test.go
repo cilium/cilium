@@ -18,6 +18,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -379,6 +380,7 @@ func TestNewConfig(t *testing.T) {
 				DaemonConfig: tt.daemonConfig,
 				WgAgent:      tt.wgAgent,
 				TunnelConfig: tt.tunnelConfig,
+				KPRConfig:    kpr.KPRConfig{KubeProxyReplacement: true},
 			}
 			connector, err := newConfig(p)
 
@@ -436,6 +438,7 @@ func TestUseTunedBufferMargins(t *testing.T) {
 				Log:          logger,
 				Lifecycle:    &cell.DefaultLifecycle{},
 				DaemonConfig: tt.daemonConfig,
+				KPRConfig:    kpr.KPRConfig{KubeProxyReplacement: true},
 			}
 			connector, err := newConfig(p)
 
@@ -699,6 +702,7 @@ func TestPrivilegedCalculateTunedBufferMargins(t *testing.T) {
 				DaemonConfig: tt.daemonConfig,
 				WgAgent:      tt.wgAgent,
 				TunnelConfig: tt.tunnelConfig,
+				KPRConfig:    kpr.KPRConfig{KubeProxyReplacement: true},
 			}
 
 			connector, err := newConfig(p)
