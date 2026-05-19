@@ -77,7 +77,7 @@ var AgentCell = cell.Group(
 func Metric[S any](ctor func() S) cell.Cell {
 	var nilOut S
 	outTyp := reflect.TypeOf(nilOut)
-	if outTyp.Kind() == reflect.Ptr {
+	if outTyp.Kind() == reflect.Pointer {
 		outTyp = outTyp.Elem()
 	}
 

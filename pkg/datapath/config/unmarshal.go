@@ -130,7 +130,7 @@ func structFields(structVal reflect.Value, tag string, visited map[reflect.Type]
 		// to a struct, attempt to gather its fields as well.
 		var v reflect.Value
 		switch field.Type.Kind() {
-		case reflect.Ptr:
+		case reflect.Pointer:
 			if field.Type.Elem().Kind() != reflect.Struct {
 				continue
 			}
