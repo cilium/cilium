@@ -28,10 +28,6 @@ inputs:
     required: false
     default: '1'
     description: 'Concurrency level to run tests'
-  skip-include-conn-disrupt-test-ns-traffic:
-    required: false
-    default: 'false'
-    description: 'Skip NS traffic disruption test (--include-conn-disrupt-test-ns-traffic). Can be removed after Cilium v1.20 release'
   include-conn-disrupt-test-l7-traffic:
     required: false
     default: 'false'
@@ -49,20 +45,14 @@ runs:
           if [[ -n "${{ env.CONN_DISRUPT_EXTRA_TEST }}" ]]; then
             TEST_ARG="${TEST_ARG},${{ env.CONN_DISRUPT_EXTRA_TEST }}"
           fi
-          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw"
-          if [[ "${{ inputs.skip-include-conn-disrupt-test-ns-traffic }}" != "true" ]]; then
-            EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-ns-traffic"
-          fi
+          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw --include-conn-disrupt-test-ns-traffic"
           if [[ -n "${{ env.CONN_DISRUPT_EXTRA_ARG }}" ]]; then
             EXTRA_ARG="${EXTRA_ARG} ${{ env.CONN_DISRUPT_EXTRA_ARG }}"
           fi
         fi
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
           TEST_ARG=""
-          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw"
-          if [[ "${{ inputs.skip-include-conn-disrupt-test-ns-traffic }}" != "true" ]]; then
-            EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-ns-traffic"
-          fi
+          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw --include-conn-disrupt-test-ns-traffic"
         fi
 
         if [[ "${{ inputs.conn-disrupt }}" == "true" && "${{ inputs.include-conn-disrupt-test-l7-traffic }}" == "true" ]]; then
