@@ -87,11 +87,9 @@ func rwsRun(store WatchStore, prefix string, body func(), backend WatchStoreBack
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		store.Watch(ctx, backend, prefix)
-	}()
+	})
 
 	defer func() {
 		cancel()
@@ -265,11 +263,9 @@ func TestRestartableWatchStoreConcurrent(t *testing.T) {
 	f, _ := GetFactory(t)
 	store := f.NewWatchStore("qux", KVPairCreator, observer)
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		store.Watch(ctx, backend, "foo/bar/")
-		wg.Done()
-	}()
+	})
 
 	// Ensure that the Watch operation running in the goroutine has started
 	require.Equal(t, NewKVPair("key1", "value1"), eventually(observer.updated))

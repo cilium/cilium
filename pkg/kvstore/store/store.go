@@ -440,11 +440,9 @@ func (s *SharedStore) deleteSharedKey(name string) {
 func (s *SharedStore) listAndStartWatcher() error {
 	listDone := make(chan struct{})
 
-	s.wg.Add(1)
-	go func() {
+	s.wg.Go(func() {
 		s.watcher(listDone)
-		s.wg.Done()
-	}()
+	})
 
 	select {
 	case <-listDone:
