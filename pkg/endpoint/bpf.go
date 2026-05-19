@@ -1065,6 +1065,12 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 		metrics.EndpointDetachedSelectorPolicyTimeStats.WithLabelValues("incremental-update").Observe(time.Since(t).Seconds())
 	}
 
+	if !e.desiredPolicy.IsValid() {
+		// The endpoint has no computed policy yet, so it is pointless to try apply
+		// incremental changes on it.
+		return nil
+	}
+
 	// NOTE: Since we create an ephemeral regenerationContext for the endpoint here,
 	// the revert functions of updated proxy network policies are not retained.
 	// This means that even if Envoy would end up NACKing a NetworkPolicy, it will remain in the
@@ -1112,8 +1118,6 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
-	var err error
-
 	proxyWaitGroup := datapathRegenCtxt.proxyWaitGroup
 
 	// Ingress endpoint does not need to wait.
@@ -1144,11 +1148,14 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		if hasNewPolicy || hasEnvoyRedirect || e.isIngress {
 			e.getLogger().Debug("applyPolicyMapChanges: Updating Envoy NetworkPolicy")
 			stats.proxyPolicyCalculation.Start()
-			var rf revert.RevertFunc
-			err, rf = e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
-			stats.proxyPolicyCalculation.End(err == nil)
-			if err == nil {
+			proxyErr, rf, ff := e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
+			stats.proxyPolicyCalculation.End(proxyErr == nil)
+
+			// UpdateNetworkPolicy only returns revert/finalize func if there is no
+			// synchronous error
+			if proxyErr == nil {
 				datapathRegenCtxt.revertStack.Push(rf)
+				datapathRegenCtxt.finalizeList.Append(ff)
 			}
 		}
 	}

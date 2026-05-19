@@ -2247,9 +2247,11 @@ func TestUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemo
 	repo, localIdentity, currentEPP := newTestEndpointPolicy(t, currentEP)
 	xds := newTestXDSServer(t)
 
-	err, revert := xds.UpdateNetworkPolicy(currentEP, currentEPP, nil)
+	err, revert, finalize := xds.UpdateNetworkPolicy(currentEP, currentEPP, nil)
 	require.NoError(t, err)
 	require.NotNil(t, revert)
+	require.NotNil(t, finalize)
+	finalize()
 
 	staleEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
 		Id:   500,
@@ -2266,9 +2268,11 @@ func TestUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemo
 	require.Equal(t, staleEP.GetID(), localEP.GetID())
 
 	refreshedCurrentEPP := distillEndpointPolicy(t, repo, localIdentity, currentEP)
-	err, revert = xds.UpdateNetworkPolicy(currentEP, refreshedCurrentEPP, nil)
+	err, revert, finalize = xds.UpdateNetworkPolicy(currentEP, refreshedCurrentEPP, nil)
 	require.NoError(t, err)
 	require.NotNil(t, revert)
+	require.NotNil(t, finalize)
+	finalize()
 
 	localEP = xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv4)
 	require.NotNil(t, localEP)
