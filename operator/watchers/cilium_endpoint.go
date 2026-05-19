@@ -68,11 +68,9 @@ func CiliumEndpointsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sC
 			CiliumEndpointStore,
 		)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			ciliumEndpointInformer.Run(ctx.Done())
-		}()
+		})
 
 		cache.WaitForCacheSync(ctx.Done(), ciliumEndpointInformer.HasSynced)
 		close(CiliumEndpointsSynced)
