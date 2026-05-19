@@ -161,6 +161,7 @@ linked, either choice is valid.
         CONFIG_BPF_JIT=y
         CONFIG_NET_CLS_ACT=y
         CONFIG_NET_SCH_INGRESS=y
+        CONFIG_DEBUG_INFO_BTF=y
         CONFIG_CRYPTO_SHA1=y
         CONFIG_CRYPTO_USER_API_HASH=y
         CONFIG_CGROUPS=y
