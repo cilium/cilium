@@ -2,6 +2,11 @@
 
 set -eu
 
+V=${V:-""}
+if [ "$V" != '0' ]; then
+    set -x
+fi
+
 cd "$(dirname "$0")/../.."
 
 CILIUM_BUILDER_IMAGE=$(cat images/cilium/Dockerfile | grep '^ARG CILIUM_BUILDER_IMAGE=' | cut -d '=' -f 2)
@@ -12,6 +17,10 @@ USERID=$(id -u)
 GROUPID=$(id -g)
 USER_OPTION=(--user "$USERID:$GROUPID")
 USER_PATH="/home/ubuntu"
+CHOWN_FLAGS=("--no-dereference")
+if [ "$V" != '0' ]; then
+    CHOWN_FLAGS+=("--changes")
+fi
 
 # Ensure that the GOCACHE and GOMODCACHE directories exist, create as the
 # current user if not: Docker would create it as root if they don't exist, and
@@ -47,7 +56,6 @@ elif [ -d "$LOCAL_CCACHE_DIR" ]; then
 fi
 
 set +u # Workaround for macOS and BASH 3.2 that treats an empty array as "unbound variable".
-echo "Docker params: ${MOUNT_GOCACHE_DIR[@]} ${MOUNT_GOMODCACHE_DIR[@]} ${MOUNT_CCACHE_DIR[@]}"
 CONTAINER=$(docker create \
 	"${MOUNT_GOCACHE_DIR[@]}" \
 	"${MOUNT_GOMODCACHE_DIR[@]}" \
@@ -115,7 +123,11 @@ fi
 
 docker exec "$CONTAINER" groupmod -g "$GROUPID" ubuntu
 # usermod fixes UIDs, but GIDs need to be fixed manually.
-docker exec "$CONTAINER" chown -Rhc --from=:1000 :ubuntu /home/ubuntu
-docker exec "$CONTAINER" usermod -u "$USERID" ubuntu
-docker exec "$CONTAINER" chown -hc ubuntu:ubuntu /home/ubuntu/.cache
+docker exec "$CONTAINER" chown --recursive "${CHOWN_FLAGS[@]}" --from=:1000 :ubuntu /home/ubuntu
+if [ "$V" = '0' ]; then
+	docker exec "$CONTAINER" usermod -u "$USERID" ubuntu >/dev/null
+else
+	docker exec "$CONTAINER" usermod -u "$USERID" ubuntu
+fi
+docker exec "$CONTAINER" chown "${CHOWN_FLAGS[@]}" ubuntu:ubuntu /home/ubuntu/.cache
 docker exec "${USER_OPTION[@]}" ${DOCKER_ARGS:+$DOCKER_ARGS} "$CONTAINER" "$@"
