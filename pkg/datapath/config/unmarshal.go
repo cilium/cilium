@@ -15,7 +15,7 @@ import (
 // as the key in the map, and the map value is the runtime value of the member.
 func StructToMap(obj any) (map[string]any, error) {
 	toValue := reflect.ValueOf(obj)
-	if toValue.Type().Kind() != reflect.Ptr {
+	if toValue.Type().Kind() != reflect.Pointer {
 		return nil, fmt.Errorf("%T is not a pointer to struct", obj)
 	}
 
@@ -82,7 +82,7 @@ func structFields(structVal reflect.Value, tag string, visited map[reflect.Type]
 		// to a struct, attempt to gather its fields as well.
 		var v reflect.Value
 		switch field.Type.Kind() {
-		case reflect.Ptr:
+		case reflect.Pointer:
 			if field.Type.Elem().Kind() != reflect.Struct {
 				continue
 			}
