@@ -589,7 +589,6 @@ jobs:
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
-          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
@@ -654,7 +653,6 @@ jobs:
         with:
           job-name: cilium-restart-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
-          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
           include-conn-disrupt-test-l7-traffic: ${{ steps.vars-conn.outputs.include_conn_disrupt_test_l7_traffic }}
 
       - name: Features tested before downgrade
@@ -700,7 +698,6 @@ jobs:
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
-          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && matrix.encryption != '' }}

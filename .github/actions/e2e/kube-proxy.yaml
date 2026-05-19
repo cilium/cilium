@@ -34,7 +34,6 @@
   misc: 'socketLB.enabled=false,bpf.masquerade=true'
   local-redirect-policy: 'true'
   node-local-dns: 'true'
-  skip-include-conn-disrupt-test-ns-traffic: 'true'
   # L7 testing: Node local DNS requires DNS proxy testing
   test-l7: 'true'
 - name: 'kube-proxy-5'
