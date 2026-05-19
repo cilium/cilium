@@ -28,8 +28,8 @@ func newNodeWatcherJobFactory(
 	pods resource.Resource[*slim_corev1.Pod],
 	ciliumNodes resource.Resource[*cilium_api_v2.CiliumNode],
 	daemonCfg *option.DaemonConfig,
-) nodeWatcherJobFactory {
-	return func(nmFactory nodeEventHandlerFactory) job.Job {
+) allocator.NodeWatcherJobFactory {
+	return func(nmFactory allocator.NodeEventHandlerFactory) job.Job {
 		return job.OneShot(
 			"cilium-nodes-watcher",
 			func(ctx context.Context, _ cell.Health) error {
