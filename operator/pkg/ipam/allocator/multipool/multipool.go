@@ -31,16 +31,16 @@ import (
 // CiliumPodIPPool resources to be auto-created on startup.
 const autoCreateCiliumPodIPPoolsFlag = "auto-create-cilium-pod-ip-pools"
 
-type MultiPoolConfig struct {
+type Config struct {
 	AutoCreatePools map[string]string `mapstructure:"auto-create-cilium-pod-ip-pools"`
 }
 
-var MultiPoolDefaultConfig = MultiPoolConfig{
+var DefaultConfig = Config{
 	AutoCreatePools: nil,
 }
 
-func (cfg MultiPoolConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringToString(autoCreateCiliumPodIPPoolsFlag, MultiPoolDefaultConfig.AutoCreatePools,
+func (cfg Config) Flags(flags *pflag.FlagSet) {
+	flags.StringToString(autoCreateCiliumPodIPPoolsFlag, DefaultConfig.AutoCreatePools,
 		"Automatically create CiliumPodIPPool resources on startup. "+
 			"Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)")
 }
@@ -56,10 +56,10 @@ type multiPoolParams struct {
 	CiliumPodIPPools   resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
 	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 
-	MultiPoolCfg MultiPoolConfig
+	MultiPoolCfg Config
 }
 
-func StartMultiPoolAllocator(p multiPoolParams) {
+func StartAllocator(p multiPoolParams) {
 	if p.DaemonCfg.IPAM != ipamOption.IPAMMultiPool {
 		return
 	}

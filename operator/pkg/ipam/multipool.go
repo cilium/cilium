@@ -16,7 +16,7 @@ func init() {
 		"multipool-ipam-allocator",
 		"Multi Pool IP Allocator",
 
-		cell.Config(multipool.MultiPoolDefaultConfig),
-		cell.Invoke(multipool.StartMultiPoolAllocator),
+		cell.Config(multipool.DefaultConfig),
+		cell.Invoke(multipool.StartAllocator),
 	))
 }
