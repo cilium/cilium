@@ -157,6 +157,13 @@ func (s Status) String() string {
 	return fmt.Sprintf("%s:%s", str, s.Mode)
 }
 
+func (s Status) shortString() string {
+	if s.Enabled {
+		return "enabled"
+	}
+	return "disabled"
+}
+
 // Set contains the Status of a collection of Features.
 type Set map[Feature]Status
 
@@ -166,7 +173,7 @@ func (fs Set) MatchRequirements(reqs ...Requirement) (bool, string) {
 	for _, req := range reqs {
 		status := fs[req.Feature]
 		if req.requiresEnabled && (req.enabled != status.Enabled) {
-			return false, fmt.Sprintf("Feature %s is disabled", req.Feature)
+			return false, fmt.Sprintf("Feature %s is %s", req.Feature, status.shortString())
 		}
 		if req.requiresMode && (req.mode != status.Mode) {
 			return false, fmt.Sprintf("requires Feature %s mode %s, got %s", req.Feature, req.mode, status.Mode)
