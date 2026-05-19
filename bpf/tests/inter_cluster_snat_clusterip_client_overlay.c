@@ -341,9 +341,9 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 	if (l4->check != bpf_htons(0x2fc5))
 		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
-	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
-	if (meta != 1)
-		test_fatal("skb->cb[CB_DELIVERY_REDIRECT] should be 1, got %d", meta);
+	meta = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
+	if (meta != CB_DELIVERY_FLAGS_REDIRECT)
+		test_fatal("skb->cb[CB_DELIVERY_FLAGS] should be 1, got %d", meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != BACKEND_IDENTITY)
