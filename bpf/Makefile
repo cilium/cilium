@@ -163,15 +163,21 @@ build_all: force
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) bpf_all BUILD_PERMUTATIONS=1
 
 testdata:
-	${CLANG} ${FLAGS} --target=bpf -Wall -Werror \
+	@$(ECHO_CC)
+	$(QUIET)${CLANG} ${FLAGS} --target=bpf -Wall -Werror \
 	-c ../pkg/alignchecker/testdata/bpf_foo.c \
 	-o ../pkg/alignchecker/testdata/bpf_foo.o
 
 generate: $(BPF)
-	$(GO) generate ../pkg/datapath/types
-	$(GO) generate ../pkg/datapath/config
-	$(GO) generate ../pkg/datapath/maps
-	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf
+	@$(ECHO_GEN)../pkg/datapath/types
+	$(QUIET)$(GO) generate ../pkg/datapath/types
+	@$(ECHO_GEN)../pkg/datapath/config
+	$(QUIET)$(GO) generate ../pkg/datapath/config
+	@$(ECHO_GEN)../pkg/datapath/maps
+	$(QUIET)$(GO) generate ../pkg/datapath/maps
+	@$(ECHO_GEN)../pkg/datapath/bpf
+	$(QUIET)BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" \
+		$(GO) generate ../pkg/datapath/bpf
 
 $(BPF_SIMPLE): %.o: %.c $(LIB)
 	@$(ECHO_CC)
