@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -876,6 +877,137 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 					},
 					Conditions:    BackendConditionReady | BackendConditionServing,
 					HintsForZones: []string{"testing"},
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint slice weight annotation",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      meta.Name,
+							Namespace: meta.Namespace,
+							Labels:    meta.Labels,
+							Annotations: map[string]string{
+								annotation.EndpointSliceWeight: "42",
+							},
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Addresses: []string{"172.0.0.1"},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEmptyEndpoints()
+				svcEP.ObjectMeta.Annotations = map[string]string{
+					annotation.EndpointSliceWeight: "42",
+				}
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+					},
+					Conditions: BackendConditionReady | BackendConditionServing,
+					Weight:     42,
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint slice zero weight annotation enables maintenance",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      meta.Name,
+							Namespace: meta.Namespace,
+							Labels:    meta.Labels,
+							Annotations: map[string]string{
+								annotation.EndpointSliceWeight: "0",
+							},
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Addresses: []string{"172.0.0.1"},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEmptyEndpoints()
+				svcEP.ObjectMeta.Annotations = map[string]string{
+					annotation.EndpointSliceWeight: "0",
+				}
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+					},
+					Conditions:  BackendConditionReady | BackendConditionServing,
+					Maintenance: true,
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "invalid endpoint slice weight annotation falls back to default behavior",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      meta.Name,
+							Namespace: meta.Namespace,
+							Labels:    meta.Labels,
+							Annotations: map[string]string{
+								annotation.EndpointSliceWeight: "abc",
+							},
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Addresses: []string{"172.0.0.1"},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEmptyEndpoints()
+				svcEP.ObjectMeta.Annotations = map[string]string{
+					annotation.EndpointSliceWeight: "abc",
+				}
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+					},
+					Conditions: BackendConditionReady | BackendConditionServing,
 				}
 				return svcEP
 			},

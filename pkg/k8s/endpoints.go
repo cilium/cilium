@@ -14,6 +14,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -159,6 +160,8 @@ type Backend struct {
 	HintsForZones []string
 	Preferred     bool
 	Zone          string
+	Weight        uint16
+	Maintenance   bool
 }
 
 func (b *Backend) DeepEqual(other *Backend) bool {
@@ -168,7 +171,9 @@ func (b *Backend) DeepEqual(other *Backend) bool {
 		b.Conditions == other.Conditions &&
 		slices.Equal(b.HintsForZones, other.HintsForZones) &&
 		b.Preferred == other.Preferred &&
-		b.Zone == other.Zone
+		b.Zone == other.Zone &&
+		b.Weight == other.Weight &&
+		b.Maintenance == other.Maintenance
 }
 
 func (b *Backend) ToPortConfiguration() serviceStore.PortConfiguration {
@@ -268,6 +273,23 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 		logfields.Name, ep.Name,
 	)
 
+	var weight uint16
+	maintenance := false
+	if value, ok := annotation.Get(ep, annotation.EndpointSliceWeight); ok {
+		parsedWeight, err := strconv.ParseUint(value, 10, 16)
+		if err != nil {
+			logger.Warn("Ignoring invalid EndpointSlice annotation",
+				logfields.Error, err,
+				logfields.Name, ep.Name,
+				logfields.Annotations, annotation.EndpointSliceWeight,
+			)
+		} else if parsedWeight == 0 {
+			maintenance = true
+		} else {
+			weight = uint16(parsedWeight)
+		}
+	}
+
 	// Parse the ports shared by all the backends.
 	ports := make(map[loadbalancer.L4Addr][]string, len(ep.Ports))
 	for _, port := range ep.Ports {
@@ -279,8 +301,10 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 	for i, sub := range ep.Endpoints {
 		// Construct the backend configuration shared by all the addresses in this slice.
 		backend := &Backend{
-			Conditions: ParseEndpointConditionsV1(sub.Conditions),
-			Ports:      ports,
+			Conditions:  ParseEndpointConditionsV1(sub.Conditions),
+			Ports:       ports,
+			Weight:      weight,
+			Maintenance: maintenance,
 		}
 
 		if sub.NodeName != nil {

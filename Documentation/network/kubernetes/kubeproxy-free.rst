@@ -851,6 +851,95 @@ service creation and cannot be changed during the lifetime of the given
 Kubernetes service. Switching between load balancing algorithms requires
 recreation of a service.
 
+Annotation-based Load Balancing Weight
+**************************************
+
+Backend weights can be assigned on a per-``EndpointSlice`` basis through the
+``service.cilium.io/weight`` annotation.
+
+Weights are only honored for the Service referenced by that ``EndpointSlice``
+when it uses the Maglev load-balancing algorithm, whether Maglev is configured
+globally or selected per service through ``service.cilium.io/lb-algorithm``.
+Per-service algorithm selection requires ``bpf.lbAlgorithmAnnotation=true``.
+This is primarily intended for selectorless Services backed by multiple
+manually managed ``EndpointSlice`` objects, where each ``EndpointSlice`` can
+assign a different weight to the backends it contributes to the Service.
+
+For example, the following selectorless Service is explicitly marked to use
+the Maglev load-balancing algorithm and is backed by two ``EndpointSlice``
+objects with weights ``70`` and ``30``:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/lb-algorithm: maglev
+  spec:
+    ports:
+      - name: http
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+    type: ClusterIP
+  ---
+  apiVersion: discovery.k8s.io/v1
+  kind: EndpointSlice
+  metadata:
+    name: example-service-1
+    labels:
+      kubernetes.io/service-name: example-service
+    annotations:
+      service.cilium.io/weight: "70"
+  addressType: IPv4
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+  endpoints:
+    - addresses:
+        - 10.0.0.11
+    - addresses:
+        - 10.0.0.12
+  ---
+  apiVersion: discovery.k8s.io/v1
+  kind: EndpointSlice
+  metadata:
+    name: example-service-2
+    labels:
+      kubernetes.io/service-name: example-service
+    annotations:
+      service.cilium.io/weight: "30"
+  addressType: IPv4
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+  endpoints:
+    - addresses:
+        - 10.0.0.21
+    - addresses:
+        - 10.0.0.22
+
+The configured weight applies to all backends in a given ``EndpointSlice``.
+Valid values range from ``0`` to ``65535``. A weight of ``0`` marks those
+backends as being in maintenance so that existing connections can continue
+while new traffic is steered to other backends. Invalid values are ignored.
+Weights are relative and do not need to add up to ``100``.
+
+In the example above, new traffic is distributed according to the relative
+weights of the two ``EndpointSlice`` objects, that is, roughly ``70%%`` to the
+backends from ``example-service-1`` and ``30%%`` to the backends from
+``example-service-2``.
+
+If the second ``EndpointSlice`` is later changed from weight ``30`` to
+weight ``0``, all of its backends enter maintenance. Existing connections can
+continue to use them, but new traffic is steered entirely to the remaining
+non-maintenance backends from ``example-service-1``. In other words, the first
+slice now receives ``100%%`` of the new traffic share.
+
 .. _socketlb-host-netns-only:
 
 Socket LoadBalancer Bypass in Pod Namespace

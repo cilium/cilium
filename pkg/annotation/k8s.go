@@ -137,6 +137,11 @@ const (
 	// - maglev
 	ServiceLoadBalancingAlgorithm = ServicePrefix + "/lb-algorithm"
 
+	// EndpointSliceWeight indicates the load-balancing weight to assign to all
+	// backends in an EndpointSlice. A weight of 0 marks the backends as being in
+	// maintenance.
+	EndpointSliceWeight = ServicePrefix + "/weight"
+
 	// ServiceNodeExposure is the label name used to mark a service to only a
 	// subset of the nodes which match the same value. For all other nodes, this
 	// service is ignored and not installed into their datapath.

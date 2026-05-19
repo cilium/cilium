@@ -430,6 +430,8 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 
 				var state loadbalancer.BackendState
 				switch {
+				case be.Maintenance:
+					state = loadbalancer.BackendStateMaintenance
 				case be.Conditions.IsReady():
 					// A backend that is ready (regardless of serving and terminating) is considered
 					// active. We may see backends that are ready+terminating if 'PublishNotReadyAddresses'
@@ -455,11 +457,15 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					// to existing connections when a backend readiness is flapping.
 					state = loadbalancer.BackendStateMaintenance
 				}
+				weight := be.Weight
+				if weight == 0 && !be.Maintenance {
+					weight = loadbalancer.DefaultBackendWeight
+				}
 				bep := loadbalancer.Backend{
 					Address:   l3n4Addr,
 					NodeName:  be.NodeName,
 					PortNames: portNames,
-					Weight:    loadbalancer.DefaultBackendWeight,
+					Weight:    weight,
 					State:     state,
 				}
 				if be.Zone != "" {
