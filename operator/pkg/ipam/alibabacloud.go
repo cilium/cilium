@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/pflag"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/alibabacloud"
 	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -57,7 +58,7 @@ type alibabaParams struct {
 	AlibabaMetrics     *alibabacloud.Metrics
 	IPAMMetrics        *ipamMetrics.Metrics
 	DaemonCfg          *option.DaemonConfig
-	NodeWatcherFactory nodeWatcherJobFactory
+	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 
 	Cfg        Config
 	AlibabaCfg AlibabaCloudConfig
