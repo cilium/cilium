@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -116,6 +117,7 @@ type connectorParams struct {
 	DaemonConfig *option.DaemonConfig
 	WgAgent      wgTypes.Agent
 	TunnelConfig tunnel.Config
+	KPRConfig    kpr.KPRConfig
 }
 
 func canUseNetkit(p connectorParams) error {
@@ -123,9 +125,23 @@ func canUseNetkit(p connectorParams) error {
 		return fmt.Errorf("netkit device probe failed, requires kernel 6.7.0+ and CONFIG_NETKIT")
 	}
 
-	// We should only run netkit with BPF Host Routing.
+	// netkit only works end-to-end with BPF host routing - traversing the
+	// upper stack defeats redirect_peer delivery. Refuse netkit upfront if
+	// BPF host routing is unavailable or any of the conditions that would
+	// later force the KPR-initializer to fall back to legacy routing
+	// (kube_proxy_replacement.go) are set. That way datapath-mode=auto
+	// demotes to veth gracefully when the prerequisites are missing,
+	// while explicit datapath-mode=netkit/netkit-l2 fails hard - and the
+	// same node that worked under veth on an older kernel keeps working
+	// after a kernel upgrade that newly exposes netkit.
 	if p.DaemonConfig.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
 		return fmt.Errorf("netkit devices cannot be used with --%s=true", option.EnableHostLegacyRouting)
+	}
+	if p.DaemonConfig.IptablesMasqueradingEnabled() {
+		return fmt.Errorf("netkit devices require BPF masquerade (--%s=true)", option.EnableBPFMasquerade)
+	}
+	if !p.KPRConfig.KubeProxyReplacement {
+		return fmt.Errorf("netkit devices require --%s", option.KubeProxyReplacement)
 	}
 
 	// early versions of netkit would scrub skb metadata before execution of BPF
