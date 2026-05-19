@@ -16,7 +16,7 @@ import (
 // Fields extracts object names tagged 'ebpf' from a struct type.
 func Fields(to any) (*set.Set[string], error) {
 	toValue := reflect.ValueOf(to)
-	if toValue.Type().Kind() != reflect.Ptr {
+	if toValue.Type().Kind() != reflect.Pointer {
 		return nil, fmt.Errorf("%T is not a pointer to struct", to)
 	}
 
@@ -62,7 +62,7 @@ func ebpfFields(structVal reflect.Value, visited map[reflect.Type]bool) (*set.Se
 		// to a struct, attempt to gather its fields as well.
 		var v reflect.Value
 		switch field.Type.Kind() {
-		case reflect.Ptr:
+		case reflect.Pointer:
 			if field.Type.Elem().Kind() != reflect.Struct {
 				continue
 			}
