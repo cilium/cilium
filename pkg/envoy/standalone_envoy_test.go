@@ -112,6 +112,10 @@ func TestEnvoy(t *testing.T) {
 		baseID:                         15,
 		connectTimeout:                 1,
 		maxActiveDownstreamConnections: 100,
+		idleTimeout:                    60,
+		maxConcurrentRetries:           128,
+		maxConnections:                 1024,
+		maxRequests:                    1024,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -235,6 +239,10 @@ func TestEnvoyNACK(t *testing.T) {
 		baseID:                         42,
 		connectTimeout:                 1,
 		maxActiveDownstreamConnections: 100,
+		idleTimeout:                    60,
+		maxConcurrentRetries:           128,
+		maxConnections:                 1024,
+		maxRequests:                    1024,
 	})
 	require.NotNil(t, envoyProxy)
 	require.NoError(t, err)
