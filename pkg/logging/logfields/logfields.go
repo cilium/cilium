@@ -1806,4 +1806,16 @@ const (
 	AttachType = "attachType"
 
 	WithFrags = "withFrags"
+
+	// Nexthop is the next-hop IP of a route.
+	Nexthop = "nexthop"
+
+	// Local is the local source IP of a route.
+	Local = "local"
+
+	// CRDName is the name of a Kubernetes CustomResourceDefinition.
+	CRDName = "crdName"
+
+	// TestField is a generic field key used by tests.
+	TestField = "testField"
 )

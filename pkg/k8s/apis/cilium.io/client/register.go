@@ -290,7 +290,7 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes []byte
 	)
 
-	logAttr := slog.String("crdName", crdName)
+	logAttr := slog.String(logfields.CRDName, crdName)
 
 	switch crdName {
 	case CNPCRDName:
