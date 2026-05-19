@@ -18,14 +18,17 @@ TARGETS := \
 
 .DEFAULT_GOAL: docker
 docker: ## Build the testdata binaries using the cilium-builder Docker image.
-	docker run --rm -u "$(UIDGID)" -v "$(ROOT_DIR):/cilium" $(CILIUM_BUILDER_IMAGE) make -C /cilium/pkg/bpf/testdata clean build
+	docker run --rm -u "$(UIDGID)" -v "$(ROOT_DIR):/cilium" -e V=$(V) \
+		$(CILIUM_BUILDER_IMAGE) make -C /cilium/pkg/bpf/testdata clean build
 
 clean: ## Remove testdata artifacts.
-	find "$(TESTDATA_DIR)" -name "*.o" -delete
+	@$(ECHO_CLEAN)
+	$(QUIET)find "$(TESTDATA_DIR)" -name "*.o" -delete
 
 ## Build the testdata binaries using the host's toolchain.
 build: $(addsuffix .o,$(TARGETS))
 
 %.o: %.c
-	$(CLANG) $(CFLAGS) -target bpfel -c $< -o $@
-	$(STRIP) -g $@
+	@$(ECHO_CC) $@
+	$(QUIET)$(CLANG) $(CFLAGS) -target bpfel -c $< -o $@
+	$(QUIET)$(STRIP) -g $@
