@@ -170,11 +170,9 @@ func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, q
 		ciliumPodsStore,
 	)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ciliumPodInformer.Run(stopCh)
-	}()
+	})
 
 	cache.WaitForCacheSync(stopCh, ciliumPodInformer.HasSynced)
 }
@@ -518,14 +516,12 @@ func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clien
 	ciliumPodsWatcher(wg, clientset.Slim(), nodeQueue, stopCh, logger)
 
 	for i := 1; i <= option.Config.TaintSyncWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			// Do not use the k8sClient provided by the nodesInit function since we
 			// need a k8s client that can update node structures and not simply
 			// watch for node events.
 			for checkTaintForNextNodeItem(clientset, &nodeGetter{}, nodeQueue, logger) {
 			}
-		}()
+		})
 	}
 }

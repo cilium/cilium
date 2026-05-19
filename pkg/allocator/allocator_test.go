@@ -531,11 +531,9 @@ func TestWatchRemoteKVStore(t *testing.T) {
 
 	run := func(ctx context.Context, rc RemoteIDCache) context.CancelFunc {
 		ctx, cancel := context.WithCancel(ctx)
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			rc.Watch(ctx, func(context.Context) { synced.Store(true) })
-			wg.Done()
-		}()
+		})
 		return cancel
 	}
 

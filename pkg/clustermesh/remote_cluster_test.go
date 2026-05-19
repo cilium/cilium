@@ -178,11 +178,9 @@ func TestRemoteClusterRun(t *testing.T) {
 				name:              "foo",
 			}
 
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				rc.Run(ctx, remoteClient, tt.srccfg, ready)
-				wg.Done()
-			}()
+			})
 
 			require.NoError(t, <-ready, "rc.Run() failed")
 
@@ -314,12 +312,10 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			wg.Wait()
 		}()
 
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			cfg := types.CiliumClusterConfig{ID: id, Capabilities: types.CiliumClusterConfigCapabilities{Cached: true}}
 			rc.Run(ctx, remote, cfg, ready)
-			wg.Done()
-		}()
+		})
 
 		run(t, ready)
 	}

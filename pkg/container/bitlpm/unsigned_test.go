@@ -6,6 +6,7 @@ package bitlpm
 import (
 	"fmt"
 	"math/bits"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -624,8 +625,7 @@ func TestUnsignedDelete(t *testing.T) {
 			for _, pr := range tt.ranges {
 				ut.Upsert(pr.prefix(), pr.start, fmt.Sprintf("%d-%d", pr.start, pr.end))
 			}
-			for i := len(tt.ranges) - 1; i >= 0; i-- {
-				pr := tt.ranges[i]
+			for i, pr := range slices.Backward(tt.ranges) {
 				// The "got" slice cannot be nil for the DeepEqual
 				// comparison, even if it is empty.
 				got := make([]uint16Range, 0, i+1)

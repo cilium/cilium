@@ -583,11 +583,9 @@ func TestRemoteCache(t *testing.T) {
 		wg.Wait()
 	}()
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		rc.Watch(ctx, func(ctx context.Context) {})
-		wg.Done()
-	}()
+	})
 
 	// wait for remote cache to be populated
 	require.EventuallyWithT(t, func(c *assert.CollectT) {

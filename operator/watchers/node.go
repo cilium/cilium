@@ -94,12 +94,10 @@ func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-
 			},
 			transformToNode,
 		)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer nodeQueue.ShutDown()
 			nodeController.Run(stopCh)
-		}()
+		})
 
 		cache.WaitForCacheSync(stopCh, nodeController.HasSynced)
 		close(slimNodeStoreSynced)

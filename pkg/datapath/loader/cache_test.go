@@ -72,12 +72,10 @@ func TestObjectCacheParallel(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range runtime.GOMAXPROCS(0) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			_, _, err := cache.fetchOrCompile(ctx, &localNodeConfig, &ep, getDirs(t), nil)
 			assert.NoError(t, err)
-		}()
+		})
 	}
 
 	wg.Wait()

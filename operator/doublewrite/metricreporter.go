@@ -105,11 +105,9 @@ func (g *DoubleWriteMetricReporter) Start(ctx cell.HookContext) error {
 	cctx, g.crdBackendWatcherStop = context.WithCancel(context.Background())
 	g.crdBackendListDone = make(chan struct{})
 	g.wg = sync.WaitGroup{}
-	g.wg.Add(1)
-	go func() {
+	g.wg.Go(func() {
 		g.crdBackend.ListAndWatch(cctx, NoOpHandlerWithListDone{listDone: g.crdBackendListDone})
-		g.wg.Done()
-	}()
+	})
 
 	g.mgr = controller.NewManager()
 	g.mgr.UpdateController("double-write-metric-reporter",

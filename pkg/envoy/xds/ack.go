@@ -60,8 +60,8 @@ type AckingResourceMutatorRevertFuncList []AckingResourceMutatorRevertFunc
 
 func (rl AckingResourceMutatorRevertFuncList) Revert() {
 	// Revert the listed funcions in reverse order
-	for i := len(rl) - 1; i >= 0; i-- {
-		rl[i]()
+	for _, f := range slices.Backward(rl) {
+		f()
 	}
 }
 

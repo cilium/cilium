@@ -113,12 +113,10 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 		},
 	)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-ctx.Done()
 		ctrlMgr.RemoveControllerAndWait("cilium-node-gc")
-	}()
+	})
 }
 
 // Runs the garbage collection for CiliumNode resources, for both CiliumNode CRD enabled and disabled modes.
