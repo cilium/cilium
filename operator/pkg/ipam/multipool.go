@@ -67,7 +67,7 @@ type multiPoolParams struct {
 	Clientset          k8sClient.Clientset
 	DaemonCfg          *option.DaemonConfig
 	CiliumPodIPPools   resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
-	NodeWatcherFactory nodeWatcherJobFactory
+	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 
 	MultiPoolCfg MultiPoolConfig
 }

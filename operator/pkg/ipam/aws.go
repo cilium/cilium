@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
+	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/aws"
 	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -88,7 +89,7 @@ type awsParams struct {
 	AWSMetrics         *aws.Metrics
 	IPAMMetrics        *ipamMetrics.Metrics
 	DaemonCfg          *option.DaemonConfig
-	NodeWatcherFactory nodeWatcherJobFactory
+	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 
 	Cfg    Config
 	AwsCfg AWSConfig

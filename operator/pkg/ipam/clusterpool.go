@@ -77,7 +77,7 @@ type clusterPoolParams struct {
 	IPAMMetrics        *ipamMetrics.Metrics
 	DaemonCfg          *option.DaemonConfig
 	ClusterPoolCfg     ClusterPoolConfig
-	NodeWatcherFactory nodeWatcherJobFactory
+	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 }
 
 func startClusterPoolAllocator(p clusterPoolParams) {

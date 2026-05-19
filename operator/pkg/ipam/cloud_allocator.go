@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
+	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -38,7 +39,7 @@ type cloudAllocatorBootstrap struct {
 	Clientset          k8sClient.Clientset
 	IPAMMetrics        *ipamMetrics.Metrics
 	DaemonCfg          *option.DaemonConfig
-	NodeWatcherFactory nodeWatcherJobFactory
+	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 }
 
 // startCloudAllocator registers the OnStart lifecycle hook that drives the

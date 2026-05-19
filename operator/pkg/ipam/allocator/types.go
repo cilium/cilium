@@ -6,6 +6,8 @@ package allocator
 import (
 	"context"
 
+	"github.com/cilium/hive/job"
+
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -25,3 +27,11 @@ type CiliumNodeGetterUpdater interface {
 	UpdateStatus(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
 	Get(name string) (*v2.CiliumNode, error)
 }
+
+// NodeEventHandlerFactory is a function type that returns a NodeEventHandler, used to decouple
+// the allocator logic from the specific implementation of the CiliumNode event handling.
+type NodeEventHandlerFactory func(ctx context.Context) (NodeEventHandler, error)
+
+// NodeWatcherJobFactory is a function type that returns a Job responsible for watching CiliumNode resources
+// and triggering the appropriate events in the allocator.
+type NodeWatcherJobFactory func(nmFactory NodeEventHandlerFactory) job.Job
