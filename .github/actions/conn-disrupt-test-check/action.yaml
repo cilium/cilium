@@ -20,6 +20,10 @@ inputs:
     required: false
     default: ''
     description: 'Select which connectivity tests to run'
+  conn-disrupt:
+    required: false
+    default: 'true'
+    description: 'Whether to run the conn-disrupt sub-tests (--include-conn-disrupt-test*). Set to false for plain connectivity test runs. full-test=true enables them regardless of this input.'
   test-concurrency:
     required: false
     default: '1'
@@ -38,7 +42,7 @@ runs:
     - name: Perform Conn Disrupt Test
       shell: bash
       run: |
-        if [[ -n "${{ inputs.tests }}" ]]; then
+        if [[ "${{ inputs.conn-disrupt }}" != "true" ]]; then
           TEST_ARG="${{ inputs.tests }}"
         else
           TEST_ARG="no-interrupted-connections,no-ipsec-xfrm-error"
@@ -61,7 +65,7 @@ runs:
           fi
         fi
 
-        if [[ "${{ inputs.include-conn-disrupt-test-l7-traffic }}" == "true" ]]; then
+        if [[ "${{ inputs.conn-disrupt }}" == "true" && "${{ inputs.include-conn-disrupt-test-l7-traffic }}" == "true" ]]; then
           EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-l7-traffic"
         fi
 
