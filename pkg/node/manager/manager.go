@@ -641,10 +641,11 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) labels.Labels {
 
 	if option.Config.PerNodeLabelsEnabled() {
 		lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
-		clusterLabel := labels.NewLabel(k8sConst.PolicyLabelCluster, n.Cluster, labels.LabelSourceK8s)
-		lbls[clusterLabel.Key] = clusterLabel
 		filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
 		nodeLabels.MergeLabels(filteredLbls)
+		nodeLabels.MergeLabels(labels.Map2Labels(map[string]string{
+			k8sConst.PolicyLabelCluster: n.Cluster,
+		}, labels.LabelSourceK8s))
 	}
 
 	return nodeLabels
