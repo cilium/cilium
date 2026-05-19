@@ -888,9 +888,6 @@ data:
   enable-auto-protect-node-port-range: {{ .Values.nodePort.autoProtectPortRange | quote }}
 {{- end }}
 {{- if hasKey .Values "loadBalancer" }}
-{{- if .Values.loadBalancer.standalone }}
-  bpf-lb-only: {{ .Values.loadBalancer.standalone | quote }}
-{{- end }}
 {{- if hasKey .Values.loadBalancer "mode" }}
   bpf-lb-mode: {{ .Values.loadBalancer.mode | quote }}
 {{- end }}
