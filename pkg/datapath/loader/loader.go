@@ -34,6 +34,11 @@ const (
 	dirEgress  = "egress"
 )
 
+// CNIConfigProvider provides CNI configuration relevant to the loader.
+type CNIConfigProvider interface {
+	SkipCiliumHostDeviceEnabled() bool
+}
+
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
 type loader struct {
@@ -57,6 +62,8 @@ type loader struct {
 	db           *statedb.DB
 	devices      statedb.Table[*tables.Device]
 	routeManager *routeReconciler.DesiredRouteManager
+
+	skipCiliumHostDevice bool
 }
 
 type Params struct {
@@ -75,6 +82,7 @@ type Params struct {
 	Devices            statedb.Table[*tables.Device]
 	EPRestorer         promise.Promise[endpointstate.Restorer]
 	BIGTCPConfig       bigtcp.Config
+	CNIConfig          CNIConfigProvider
 
 	// Force map initialisation before loader.
 	bpf.MapGroup
@@ -97,6 +105,8 @@ func newLoader(p Params) *loader {
 
 		db:      p.DB,
 		devices: p.Devices,
+
+		skipCiliumHostDevice: p.CNIConfig != nil && p.CNIConfig.SkipCiliumHostDeviceEnabled(),
 	}
 }
 

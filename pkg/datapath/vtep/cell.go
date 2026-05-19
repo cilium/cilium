@@ -40,8 +40,9 @@ type vtepManagerParams struct {
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 
-	VTEPMap vtep.Map
-	Config  config
+	VTEPMap   vtep.Map
+	Config    config
+	CNIConfig CNIConfigProvider
 }
 
 func newVTEPManager(params vtepManagerParams) error {
@@ -55,9 +56,10 @@ func newVTEPManager(params vtepManagerParams) error {
 	}
 
 	mgr := &vtepManager{
-		logger:  params.Logger,
-		vtepMap: params.VTEPMap,
-		config:  *validatedConfig,
+		logger:    params.Logger,
+		vtepMap:   params.VTEPMap,
+		config:    *validatedConfig,
+		cniConfig: params.CNIConfig,
 	}
 
 	// Start job to setup and periodically verify VTEP endpoints and routes.

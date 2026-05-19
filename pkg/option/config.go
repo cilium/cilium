@@ -467,6 +467,11 @@ const (
 	// insert our plugin configuration
 	CNIChainingTarget = "cni-chaining-target"
 
+	// SkipCiliumHostDevice disables creation of the cilium_host/cilium_net
+	// veth pair. Primarily useful in CNI chaining mode where the chained CNI
+	// handles pod networking.
+	SkipCiliumHostDevice = "skip-cilium-host-device"
+
 	// AuthMapEntriesMin defines the minimum auth map limit.
 	AuthMapEntriesMin = 1 << 8
 

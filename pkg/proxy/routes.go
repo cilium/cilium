@@ -60,10 +60,7 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 			return err
 		}
 
-		if fromIngressProxy || fromEgressProxy {
-			if !hostDeviceFound {
-				return fmt.Errorf("failed to get host device %s", defaults.HostDevice)
-			}
+		if (fromIngressProxy || fromEgressProxy) && hostDeviceFound {
 			internalIP, _ := netipx.FromStdIP(localNode.GetCiliumInternalIP(false))
 			if err := installFromProxyRoutesIPv4(p.routeManager, p.routeOwner, internalIP, hostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
@@ -87,13 +84,10 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 			return err
 		}
 
-		if fromIngressProxy || fromEgressProxy {
+		if (fromIngressProxy || fromEgressProxy) && hostDeviceFound {
 			ipv6, err := getCiliumNetIPv6()
 			if err != nil {
 				return err
-			}
-			if !hostDeviceFound {
-				return fmt.Errorf("failed to get host device %s", defaults.HostDevice)
 			}
 			if err := installFromProxyRoutesIPv6(p.routeOwner, p.routeManager, ipv6, hostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err

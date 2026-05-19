@@ -258,6 +258,9 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, reg *regist
 }
 
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
+	if l.skipCiliumHostDevice {
+		return nil
+	}
 	_, _, err := setupBaseDevice(l.logger, l.sysctl, mtu)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices: %w", err)
@@ -306,9 +309,13 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	}
 
 	// Datapath initialization
-	hostDev1, _, err := setupBaseDevice(l.logger, l.sysctl, lnc.DeviceMTU)
-	if err != nil {
-		return fmt.Errorf("failed to setup base devices: %w", err)
+	var hostDev1 netlink.Link
+	if !l.skipCiliumHostDevice {
+		var err error
+		hostDev1, _, err = setupBaseDevice(l.logger, l.sysctl, lnc.DeviceMTU)
+		if err != nil {
+			return fmt.Errorf("failed to setup base devices: %w", err)
+		}
 	}
 
 	if option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices {
@@ -342,8 +349,10 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	}
 
 	// add internal ipv4 and ipv6 addresses to cilium_host
-	if err := addHostDeviceAddr(hostDev1, internalIPv4, internalIPv6); err != nil {
-		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
+	if hostDev1 != nil {
+		if err := addHostDeviceAddr(hostDev1, internalIPv4, internalIPv6); err != nil {
+			return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
+		}
 	}
 
 	devices := lnc.DeviceNames()

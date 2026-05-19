@@ -93,6 +93,11 @@ type reinitializeRequest struct {
 	errChan chan error
 }
 
+// CNIConfigProvider provides CNI configuration relevant to the orchestrator.
+type CNIConfigProvider interface {
+	SkipCiliumHostDeviceEnabled() bool
+}
+
 type orchestratorParams struct {
 	cell.In
 
@@ -125,6 +130,7 @@ type orchestratorParams struct {
 	BIGTCPConfig        bigtcp.Config
 	ConnectorConfig     connector.Config
 	PluginRegistry      plugin.Registry
+	CNIConfig           CNIConfigProvider
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -151,8 +157,10 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 				// Reinitialize the host device in a separate, blocking start hook to make sure all
 				// our dependencies can access the host device. This is necessary because one of these
 				// is the Daemon, which the main reconciliation loop has to wait for.
-				if err := o.params.Loader.ReinitializeHostDev(ctx, mtuRoute.DeviceMTU); err != nil {
-					return fmt.Errorf("failed to reinitialize host device: %w", err)
+				if !o.params.CNIConfig.SkipCiliumHostDeviceEnabled() {
+					if err := o.params.Loader.ReinitializeHostDev(ctx, mtuRoute.DeviceMTU); err != nil {
+						return fmt.Errorf("failed to reinitialize host device: %w", err)
+					}
 				}
 				return nil
 			}
@@ -209,8 +217,10 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 
 	health.OK("Initializing")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
-	if err := o.waitForHostDevices(ctx, health, limiter); err != nil {
-		return err
+	if !o.params.CNIConfig.SkipCiliumHostDeviceEnabled() {
+		if err := o.waitForHostDevices(ctx, health, limiter); err != nil {
+			return err
+		}
 	}
 
 	var (
@@ -239,6 +249,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.IPsecConfig,
 			o.params.ConnectorConfig,
 			o.params.PluginRegistry.Plugins(),
+			o.params.CNIConfig.SkipCiliumHostDeviceEnabled(),
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)

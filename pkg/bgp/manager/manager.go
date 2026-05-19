@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -905,6 +906,9 @@ func calcRouterIDFromMacAddress() (string, error) {
 	// Retrieve the network link for the host device
 	link, err := safenetlink.LinkByName(hostDeviceName)
 	if err != nil {
+		if errors.As(err, &netlink.LinkNotFoundError{}) {
+			return "", fmt.Errorf("device %s not found; when using --skip-cilium-host-device, specify router-id explicitly in BGP config or set --bgp-router-id-allocation-mode=ippool", hostDeviceName)
+		}
 		return "", fmt.Errorf("failed to get device %s: %w", hostDeviceName, err)
 	}
 

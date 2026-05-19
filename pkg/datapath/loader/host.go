@@ -44,18 +44,20 @@ const (
 // reloadHostEndpoint (re)attaches programs from bpf_host.c to cilium_host,
 // cilium_net and external (native) devices.
 func reloadHostEndpoint(logger *slog.Logger, reg *registry.MapRegistry, ep endpoint.Endpoint,
-	lnc *config.Config, spec *ebpf.CollectionSpec) error {
-	// Replace programs on cilium_host.
-	if err := attachCiliumHost(logger, reg, ep, lnc, spec); err != nil {
-		return fmt.Errorf("attaching cilium_host: %w", err)
-	}
+	lnc *config.Config, spec *ebpf.CollectionSpec, skipHostDevices bool) error {
+	if !skipHostDevices {
+		// Replace programs on cilium_host.
+		if err := attachCiliumHost(logger, reg, ep, lnc, spec); err != nil {
+			return fmt.Errorf("attaching cilium_host: %w", err)
+		}
 
-	if err := attachCiliumNet(logger, reg, ep, lnc, spec); err != nil {
-		return fmt.Errorf("attaching cilium_host: %w", err)
+		if err := attachCiliumNet(logger, reg, ep, lnc, spec); err != nil {
+			return fmt.Errorf("attaching cilium_net: %w", err)
+		}
 	}
 
 	if err := attachNetworkDevices(logger, reg, ep, lnc, spec); err != nil {
-		return fmt.Errorf("attaching cilium_host: %w", err)
+		return fmt.Errorf("attaching network devices: %w", err)
 	}
 
 	return nil

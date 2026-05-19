@@ -34,6 +34,7 @@ type Config struct {
 	CNIExclusive          bool
 	CNIChainingTarget     string
 	CNIExternalRouting    bool
+	SkipCiliumHostDevice  bool
 }
 
 type CNIConfigManager interface {
@@ -53,6 +54,10 @@ type CNIConfigManager interface {
 	// ExternalRoutingEnabled returns true if the chained plugin implements
 	// routing for Endpoints (Pods).
 	ExternalRoutingEnabled() bool
+
+	// SkipCiliumHostDeviceEnabled returns true if creation of the
+	// cilium_host/cilium_net veth pair should be skipped.
+	SkipCiliumHostDeviceEnabled() bool
 }
 
 var defaultConfig = Config{
@@ -63,6 +68,7 @@ var defaultConfig = Config{
 	CNIExclusive:          false,
 	CNIChainingTarget:     "",
 	CNIExternalRouting:    false,
+	SkipCiliumHostDevice:  false,
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -73,6 +79,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String(option.CNIChainingTarget, defaultConfig.CNIChainingTarget, "CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.")
 	flags.Bool(option.CNIExclusive, defaultConfig.CNIExclusive, "Whether to remove other CNI configurations")
 	flags.Bool(option.CNIExternalRouting, defaultConfig.CNIExternalRouting, "Whether the chained CNI plugin handles routing on the node")
+	flags.Bool(option.SkipCiliumHostDevice, defaultConfig.SkipCiliumHostDevice, "Skip creation of the cilium_host/cilium_net veth pair. Primarily useful in CNI chaining mode")
 }
 
 func enableConfigManager(lc cell.Lifecycle, logger *slog.Logger, cfg Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {
@@ -82,6 +89,10 @@ func enableConfigManager(lc cell.Lifecycle, logger *slog.Logger, cfg Config, dcf
 }
 
 func newConfigManager(logger *slog.Logger, cfg Config, debug bool) *cniConfigManager {
+	if cfg.SkipCiliumHostDevice && cfg.CNIChainingMode == "none" {
+		logger.Warn("--skip-cilium-host-device is set but CNI chaining mode is 'none'; the host device is required for native Cilium networking")
+	}
+
 	if cfg.CNIChainingMode == "aws-cni" && cfg.CNIChainingTarget == "" {
 		cfg.CNIChainingTarget = "aws-cni"
 		cfg.CNIExternalRouting = true

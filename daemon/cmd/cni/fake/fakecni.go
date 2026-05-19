@@ -30,3 +30,7 @@ func (f *FakeCNIConfigManager) GetCustomNetConf() *cnitypes.NetConf {
 func (f *FakeCNIConfigManager) Status() *models.Status {
 	return nil
 }
+
+func (f *FakeCNIConfigManager) SkipCiliumHostDeviceEnabled() bool {
+	return false
+}

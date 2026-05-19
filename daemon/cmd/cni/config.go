@@ -74,6 +74,12 @@ func (c *cniConfigManager) ExternalRoutingEnabled() bool {
 	return c.config.CNIExternalRouting
 }
 
+// SkipCiliumHostDeviceEnabled returns true if creation of the
+// cilium_host/cilium_net veth pair should be skipped.
+func (c *cniConfigManager) SkipCiliumHostDeviceEnabled() bool {
+	return c.config.SkipCiliumHostDevice
+}
+
 // GetCustomNetConf returns the parsed custom CNI configuration, if provided
 // (In other words, the value to --read-cni-conf).
 // Otherwise, returns nil.

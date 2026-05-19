@@ -17,6 +17,11 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
+// CNIConfigProvider provides CNI configuration relevant to the host endpoint.
+type CNIConfigProvider interface {
+	SkipCiliumHostDeviceEnabled() bool
+}
+
 type hostEndpointParams struct {
 	cell.In
 
@@ -27,6 +32,7 @@ type hostEndpointParams struct {
 	EndpointCreator        endpointcreator.EndpointCreator
 	EndpointManager        endpointmanager.EndpointManager
 	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
+	CNIConfig              CNIConfigProvider
 }
 
 type hostEndpointCreator struct {
@@ -37,6 +43,11 @@ type hostEndpointCreator struct {
 }
 
 func registerHostEndpoint(params hostEndpointParams) {
+	if params.CNIConfig != nil && params.CNIConfig.SkipCiliumHostDeviceEnabled() {
+		params.Logger.Info("Skipping host endpoint creation (--skip-cilium-host-device is set)")
+		return
+	}
+
 	creator := &hostEndpointCreator{
 		logger:                 params.Logger,
 		endpointCreator:        params.EndpointCreator,

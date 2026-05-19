@@ -29,10 +29,16 @@ type vtepManagerConfig struct {
 	vtepMACs      []mac.MAC
 }
 
+// CNIConfigProvider provides CNI configuration relevant to the VTEP manager.
+type CNIConfigProvider interface {
+	SkipCiliumHostDeviceEnabled() bool
+}
+
 type vtepManager struct {
-	logger  *slog.Logger
-	vtepMap vtep.Map
-	config  vtepManagerConfig
+	logger    *slog.Logger
+	vtepMap   vtep.Map
+	config    vtepManagerConfig
+	cniConfig CNIConfigProvider
 }
 
 func (r *vtepManager) syncVTEP(ctx context.Context) error {
@@ -65,6 +71,10 @@ func (r *vtepManager) setupVTEPMapping() error {
 }
 
 func (r *vtepManager) setupRouteToVTEPCidr() error {
+	if r.cniConfig != nil && r.cniConfig.SkipCiliumHostDeviceEnabled() {
+		return nil
+	}
+
 	routeCidrs := []*cidr.CIDR{}
 
 	filter := &netlink.Route{

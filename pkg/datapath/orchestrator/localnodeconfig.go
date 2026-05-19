@@ -73,6 +73,7 @@ func newLocalNodeConfig(
 	ipsecCfg ipsec.Config,
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
+	skipCiliumHostDevice bool,
 ) (config.Config, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -136,24 +137,32 @@ func newLocalNodeConfig(
 
 	hostEndpointID, _ := node.GetEndpointID()
 
-	ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
-	if !ok {
-		return config.Config{}, hostWatch, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
-	}
-	watchChans = append(watchChans, hostWatch)
-	ciliumHostMAC, err := mac.ParseMAC(ciliumHostDevice.HardwareAddr.String())
-	if err != nil {
-		return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.HostDevice, err)
-	}
+	var ciliumHostMAC, ciliumNetMAC mac.MAC
+	var ciliumHostIfIndex, ciliumNetIfIndex uint32
 
-	ciliumNetDevice, _, netWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.SecondHostDevice))
-	if !ok {
-		return config.Config{}, netWatch, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
-	}
-	watchChans = append(watchChans, netWatch)
-	ciliumNetMAC, err := mac.ParseMAC(ciliumNetDevice.HardwareAddr.String())
-	if err != nil {
-		return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
+	if !skipCiliumHostDevice {
+		ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
+		if !ok {
+			return config.Config{}, hostWatch, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
+		}
+		watchChans = append(watchChans, hostWatch)
+		var err error
+		ciliumHostMAC, err = mac.ParseMAC(ciliumHostDevice.HardwareAddr.String())
+		if err != nil {
+			return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.HostDevice, err)
+		}
+		ciliumHostIfIndex = uint32(ciliumHostDevice.Index)
+
+		ciliumNetDevice, _, netWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.SecondHostDevice))
+		if !ok {
+			return config.Config{}, netWatch, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
+		}
+		watchChans = append(watchChans, netWatch)
+		ciliumNetMAC, err = mac.ParseMAC(ciliumNetDevice.HardwareAddr.String())
+		if err != nil {
+			return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
+		}
+		ciliumNetIfIndex = uint32(ciliumNetDevice.Index)
 	}
 
 	return config.Config{
@@ -161,9 +170,9 @@ func newLocalNodeConfig(
 		NodeIPv6:                     ip.AddrFromIP(localNode.GetNodeIP(true)),
 		CiliumInternalIPv4:           ip.AddrFromIP(localNode.GetCiliumInternalIP(false)),
 		CiliumInternalIPv6:           ip.AddrFromIP(localNode.GetCiliumInternalIP(true)),
-		CiliumNetIfIndex:             uint32(ciliumNetDevice.Index),
+		CiliumNetIfIndex:             ciliumNetIfIndex,
 		CiliumNetMAC:                 ciliumNetMAC,
-		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),
+		CiliumHostIfIndex:            ciliumHostIfIndex,
 		CiliumHostMAC:                ciliumHostMAC,
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,

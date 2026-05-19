@@ -1833,16 +1833,18 @@ func (m *manager) installRules(state desiredState) error {
 		return fmt.Errorf("cannot install tunnel rules: %w", err)
 	}
 
-	if err := m.installStaticProxyRules(defaults.HostDevice, localDeliveryInterface); err != nil {
-		return fmt.Errorf("cannot install static proxy rules: %w", err)
-	}
+	if !m.cniConfigManager.SkipCiliumHostDeviceEnabled() {
+		if err := m.installStaticProxyRules(defaults.HostDevice, localDeliveryInterface); err != nil {
+			return fmt.Errorf("cannot install static proxy rules: %w", err)
+		}
 
-	if err := m.addCiliumAcceptEncryptionRules(); err != nil {
-		return fmt.Errorf("cannot install encryption rules: %w", err)
-	}
+		if err := m.addCiliumAcceptEncryptionRules(); err != nil {
+			return fmt.Errorf("cannot install encryption rules: %w", err)
+		}
 
-	if err := m.installForwardChainRules(defaults.HostDevice, localDeliveryInterface, ciliumForwardChain); err != nil {
-		return fmt.Errorf("cannot install forward chain rules to %s: %w", ciliumForwardChain, err)
+		if err := m.installForwardChainRules(defaults.HostDevice, localDeliveryInterface, ciliumForwardChain); err != nil {
+			return fmt.Errorf("cannot install forward chain rules to %s: %w", ciliumForwardChain, err)
+		}
 	}
 
 	if m.sharedCfg.EnableIPv4 {
@@ -1850,7 +1852,7 @@ func (m *manager) installRules(state desiredState) error {
 			return fmt.Errorf("cannot install host traffic mark rule: %w", err)
 		}
 
-		if m.sharedCfg.IptablesMasqueradingIPv4Enabled && state.localNodeInfo.internalIPv4 != nil {
+		if !m.cniConfigManager.SkipCiliumHostDeviceEnabled() && m.sharedCfg.IptablesMasqueradingIPv4Enabled && state.localNodeInfo.internalIPv4 != nil {
 			if err := m.installMasqueradeRules(m.ip4tables, state.devices.UnsortedList(), localDeliveryInterface,
 				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR),
 				state.localNodeInfo.ipv4AllocCIDR,
@@ -1866,7 +1868,7 @@ func (m *manager) installRules(state desiredState) error {
 			return fmt.Errorf("cannot install host traffic mark rule: %w", err)
 		}
 
-		if m.sharedCfg.IptablesMasqueradingIPv6Enabled && state.localNodeInfo.internalIPv6 != nil {
+		if !m.cniConfigManager.SkipCiliumHostDeviceEnabled() && m.sharedCfg.IptablesMasqueradingIPv6Enabled && state.localNodeInfo.internalIPv6 != nil {
 			if err := m.installMasqueradeRules(m.ip6tables, state.devices.UnsortedList(), localDeliveryInterface,
 				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR),
 				state.localNodeInfo.ipv6AllocCIDR,
