@@ -3,7 +3,10 @@
 
 package revert
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // RevertFunc is a function returned by a successful function call, which
 // reverts the side-effects of the initial function call. A call that returns
@@ -29,8 +32,8 @@ func (s *RevertStack) Push(revertFunc RevertFunc) {
 // Revert executes all the RevertFuncs in the given stack in the reverse order
 // they were pushed.
 func (s *RevertStack) Revert() error {
-	for i := len(s.revertFuncs) - 1; i >= 0; i-- {
-		if err := s.revertFuncs[i](); err != nil {
+	for i, f := range slices.Backward(s.revertFuncs) {
+		if err := f(); err != nil {
 			return fmt.Errorf("failed to execute revert function; skipping %d revert functions: %w", i, err)
 		}
 	}

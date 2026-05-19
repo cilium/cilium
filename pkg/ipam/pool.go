@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
@@ -186,8 +187,7 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 	// Iterate over CIDRs in reverse order, so we prioritize releasing
 	// later CIDRs.
 	retainedAllocators := []*ipallocator.Range{}
-	for i := len(p.ipAllocators) - 1; i >= 0; i-- {
-		ipAllocator := p.ipAllocators[i]
+	for _, ipAllocator := range slices.Backward(p.ipAllocators) {
 		cidr := ipAllocator.CIDR()
 
 		// If the CIDR is not used and releasing it would
