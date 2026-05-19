@@ -2018,7 +2018,8 @@ static __always_inline
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
 	struct ipv6_ct_tuple tuple = {};
-	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	__u32 delivery_flags = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
+	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool from_tunnel = false;
@@ -2330,7 +2331,8 @@ static __always_inline
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
 	struct ipv4_ct_tuple tuple = {};
-	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	__u32 delivery_flags = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
+	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool from_tunnel = false;
