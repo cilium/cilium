@@ -6,12 +6,9 @@ package reconciler
 import (
 	"context"
 	"errors"
-	"net/netip"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -19,12 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/api/v1/models"
-	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -34,178 +26,13 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	testendpointmanager "github.com/cilium/cilium/pkg/testutils/endpointmanager"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
 	"github.com/cilium/cilium/pkg/ztunnel/table"
 	"github.com/cilium/cilium/pkg/ztunnel/xds"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// MockEndpointManager is a mock implementation of endpointmanager.EndpointManager.
-// It provides minimal functionality needed for testing the enrollment reconciler.
-type MockEndpointManager struct {
-	endpoints   []*endpoint.Endpoint
-	subscribers map[endpointmanager.Subscriber]struct{}
-}
-
-// Ensure MockEndpointManager implements all required interfaces.
-var _ endpointmanager.EndpointManager = (*MockEndpointManager)(nil)
-var _ endpointmanager.EndpointsLookup = (*MockEndpointManager)(nil)
-var _ endpointmanager.EndpointsModify = (*MockEndpointManager)(nil)
-var _ endpointmanager.EndpointResourceSynchronizer = (*MockEndpointManager)(nil)
-
-// EndpointsLookup interface methods
-
-func (m *MockEndpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
-	panic("MockEndpointManager.Lookup not implemented")
-}
-
-func (m *MockEndpointManager) LookupCiliumID(id uint16) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupCiliumID not implemented")
-}
-
-func (m *MockEndpointManager) LookupCNIAttachmentID(id string) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupCNIAttachmentID not implemented")
-}
-
-func (m *MockEndpointManager) LookupIPv4(ipv4 string) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupIPv4 not implemented")
-}
-
-func (m *MockEndpointManager) LookupIPv6(ipv6 string) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupIPv6 not implemented")
-}
-
-func (m *MockEndpointManager) LookupIP(ip netip.Addr) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupIP not implemented")
-}
-
-func (m *MockEndpointManager) LookupCEPName(name string) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupCEPName not implemented")
-}
-
-func (m *MockEndpointManager) GetEndpointsByPodName(name string) []*endpoint.Endpoint {
-	panic("MockEndpointManager.GetEndpointsByPodName not implemented")
-}
-
-func (m *MockEndpointManager) GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint {
-	panic("MockEndpointManager.GetEndpointsByContainerID not implemented")
-}
-
-func (m *MockEndpointManager) GetEndpointsByServiceAccount(namespace string, serviceAccount string) []*endpoint.Endpoint {
-	panic("MockEndpointManager.GetEndpointsByServiceAccount not implemented")
-}
-
-// GetEndpoints returns all endpoints managed by this mock.
-func (m *MockEndpointManager) GetEndpoints() []*endpoint.Endpoint {
-	return m.endpoints
-}
-
-// GetEndpointsByNamespace returns endpoints in the specified namespace.
-func (m *MockEndpointManager) GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint {
-	var eps []*endpoint.Endpoint
-	for _, ep := range m.endpoints {
-		if ep.K8sNamespace == namespace {
-			eps = append(eps, ep)
-		}
-	}
-	return eps
-}
-
-func (m *MockEndpointManager) GetEndpointList(params endpointapi.GetEndpointParams) []*models.Endpoint {
-	panic("MockEndpointManager.GetEndpointList not implemented")
-}
-
-func (m *MockEndpointManager) EndpointExists(id uint16) bool {
-	panic("MockEndpointManager.EndpointExists not implemented")
-}
-
-func (m *MockEndpointManager) GetHostEndpoint() *endpoint.Endpoint {
-	panic("MockEndpointManager.GetHostEndpoint not implemented")
-}
-
-func (m *MockEndpointManager) HostEndpointExists() bool {
-	panic("MockEndpointManager.HostEndpointExists not implemented")
-}
-
-func (m *MockEndpointManager) GetIngressEndpoint() *endpoint.Endpoint {
-	panic("MockEndpointManager.GetIngressEndpoint not implemented")
-}
-
-func (m *MockEndpointManager) IngressEndpointExists() bool {
-	panic("MockEndpointManager.IngressEndpointExists not implemented")
-}
-
-// EndpointsModify interface methods
-
-func (m *MockEndpointManager) AddEndpoint(ep *endpoint.Endpoint) error {
-	panic("MockEndpointManager.AddEndpoint not implemented")
-}
-
-func (m *MockEndpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
-	panic("MockEndpointManager.RestoreEndpoint not implemented")
-}
-
-func (m *MockEndpointManager) UpdateReferences(ep *endpoint.Endpoint) error {
-	panic("MockEndpointManager.UpdateReferences not implemented")
-}
-
-func (m *MockEndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	panic("MockEndpointManager.RemoveEndpoint not implemented")
-}
-
-// EndpointResourceSynchronizer interface methods
-
-func (m *MockEndpointManager) RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, hr cell.Health) {
-	panic("MockEndpointManager.RunK8sCiliumEndpointSync not implemented")
-}
-
-func (m *MockEndpointManager) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
-	panic("MockEndpointManager.DeleteK8sCiliumEndpointSync not implemented")
-}
-
-// EndpointManager interface methods
-
-// Subscribe adds a subscriber to the endpoint manager.
-func (m *MockEndpointManager) Subscribe(s endpointmanager.Subscriber) {
-	if m.subscribers == nil {
-		m.subscribers = make(map[endpointmanager.Subscriber]struct{})
-	}
-	m.subscribers[s] = struct{}{}
-}
-
-// Unsubscribe removes a subscriber from the endpoint manager.
-func (m *MockEndpointManager) Unsubscribe(s endpointmanager.Subscriber) {
-	delete(m.subscribers, s)
-}
-
-func (m *MockEndpointManager) UpdatePolicyMaps(ctx context.Context) error {
-	panic("MockEndpointManager.UpdatePolicyMaps not implemented")
-}
-
-func (m *MockEndpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup {
-	panic("MockEndpointManager.RegenerateAllEndpoints not implemented")
-}
-
-func (m *MockEndpointManager) TriggerRegenerateAllEndpoints() {
-	panic("MockEndpointManager.TriggerRegenerateAllEndpoints not implemented")
-}
-
-func (m *MockEndpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
-	panic("MockEndpointManager.WaitForEndpointsAtPolicyRev not implemented")
-}
-
-func (m *MockEndpointManager) OverrideEndpointOpts(om option.OptionMap) {
-	panic("MockEndpointManager.OverrideEndpointOpts not implemented")
-}
-
-func (m *MockEndpointManager) InitHostEndpointLabels(ctx context.Context) {
-	panic("MockEndpointManager.InitHostEndpointLabels not implemented")
-}
-
-func (m *MockEndpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
-	panic("MockEndpointManager.UpdatePolicy not implemented")
-}
 
 // MockEndpointEnroller is a mock implementation of zds.EndpointEnroller.
 // It tracks enrollment operations for testing purposes.
@@ -413,14 +240,14 @@ func createTestEndpointWithLabels(id uint16, namespace, podName, netnsPath strin
 
 // setupTest creates a test environment with mock dependencies and returns
 // the database, table, mocks, and reconciler instance.
-func setupTest(t *testing.T) (*statedb.DB, statedb.RWTable[*table.EnrolledNamespace], *MockEndpointManager, *MockEndpointEnroller, *EnrollmentReconciler, chan *xds.EndpointEvent) {
+func setupTest(t *testing.T) (*statedb.DB, statedb.RWTable[*table.EnrolledNamespace], *testendpointmanager.MockEndpointManager, *MockEndpointEnroller, *EnrollmentReconciler, chan *xds.EndpointEvent) {
 	db := statedb.New()
 	tbl, err := table.NewEnrolledNamespacesTable(db)
 	require.NoError(t, err)
 
 	logger := hivetest.Logger(t)
 
-	mockEpMgr := &MockEndpointManager{}
+	mockEpMgr := testendpointmanager.NewMockEndpointManager()
 	mockEnroller := NewMockEndpointEnroller()
 	endpointEventCh := make(chan *xds.EndpointEvent, 100)
 
@@ -627,7 +454,7 @@ func TestEnrollmentReconciler_Update(t *testing.T) {
 				mockCESStore.slices = tt.ciliumEndpointSlices
 			}
 
-			mockEpMgr.endpoints = tt.endpoints
+			mockEpMgr.Endpoints = tt.endpoints
 			mockEnroller.enrollErr = tt.enrollErr
 
 			ns := &table.EnrolledNamespace{
@@ -763,7 +590,7 @@ func TestEnrollmentReconciler_Delete(t *testing.T) {
 			option.Config.EnableCiliumEndpointSlice = tt.enableCiliumEndpointSlice
 			db, _, mockEpMgr, mockEnroller, ops, endpointEventCh := setupTest(t)
 
-			mockEpMgr.endpoints = tt.endpoints
+			mockEpMgr.Endpoints = tt.endpoints
 			mockEnroller.disenrollErr = tt.disenrollErr
 
 			// Setup CiliumEndpoint or CiliumEndpointSlice resources
