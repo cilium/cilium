@@ -527,10 +527,10 @@ Makefile* @cilium/build
 /operator/pkg/ipam/allocator/aws/ @cilium/sig-ipam @cilium/aws
 /operator/pkg/ipam/allocator/azure/ @cilium/sig-ipam @cilium/azure
 /operator/pkg/ipam/allocator/clusterpool/ @cilium/sig-ipam @cilium/operator
+/operator/pkg/ipam/allocator/multipool @cilium/sig-ipam
 /operator/pkg/kvstore @cilium/kvstore
 /operator/pkg/lbipam @cilium/sig-lb
 /operator/pkg/model @cilium/sig-servicemesh
-/operator/pkg/multipool @cilium/sig-ipam
 /operator/pkg/networkpolicy @cilium/sig-policy
 /operator/pkg/nodeipam @cilium/sig-lb
 /operator/pkg/secretsync @cilium/envoy @cilium/sig-servicemesh
