@@ -67,7 +67,7 @@ func (p *envoyProxyIntegration) changeLogLevel(level slog.Level) error {
 	return p.adminClient.ChangeLogLevel(level)
 }
 
-func (p *envoyProxyIntegration) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+func (p *envoyProxyIntegration) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
 	return p.xdsServer.UpdateNetworkPolicy(ep, policy, wg)
 }
 

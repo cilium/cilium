@@ -585,6 +585,16 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 	features := p.SelectorPolicy.L4Policy.Ingress.features | p.SelectorPolicy.L4Policy.Egress.features
 	selectors, changes := p.policyMapChanges.consumeMapChanges(p, features)
 
+	// Even if there were no incremental map changes, follow-on processing may
+	// still need a usable selector snapshot. Reopen one on demand if the
+	// current snapshot is already stale.
+	// This block can be removed when UpdateNetworkPolicy no longer requires a selector
+	// snapshot.
+	if !selectors.IsValid() && !p.selectors.IsValid() {
+		// this will get stored to p.selectors below
+		selectors = p.SelectorPolicy.GetSelectorSnapshot()
+	}
+
 	// Update current selector snapshot and provide a closer function to close the new snapshot
 	// if (and only if) the old one was already closed.
 	closer = func() {}
@@ -615,9 +625,15 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 // The returned stub is not modified.
+// PolicyOwner is left as nil
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
 		policyMapState: emptyMapState(logger),
 	}
+}
+
+// IsValid returns true if the policy is a result of a policy computation, false for the empty stub.
+func (p *EndpointPolicy) IsValid() bool {
+	return p.PolicyOwner != nil
 }

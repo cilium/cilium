@@ -19,7 +19,7 @@ type EndpointProxy interface {
 	CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc)
 	RemoveRedirect(id string)
 	UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy)
-	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error)
+	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc)
 	RemoveNetworkPolicy(ep endpoint.EndpointInfoSource)
 	GetListenerProxyPort(listener string) uint16
 	IsSDPEnabled() bool
@@ -49,8 +49,8 @@ func (f *FakeEndpointProxy) RemoveRedirect(id string) {
 }
 
 // UpdateNetworkPolicy does nothing.
-func (f *FakeEndpointProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
-	return nil, nil
+func (f *FakeEndpointProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
+	return nil, nil, nil
 }
 
 // RemoveNetworkPolicy does nothing.

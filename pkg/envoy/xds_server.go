@@ -48,6 +48,7 @@ import (
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
+	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -120,7 +121,7 @@ type XDSServer interface {
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
 	// When the proxy acknowledges the network policy update, it will result in
 	// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error)
+	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc)
 	// RemoveNetworkPolicy removes network policies relevant to the specified
 	// endpoint from the set published to L7 proxies, and stops listening for
 	// acks for policies on this endpoint.
@@ -1805,10 +1806,11 @@ func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 // implemented by Cilium.
 var ErrNilPolicy = errors.New("nil EndpointPolicy")
 
+// UpdateNetworkPolicy returns nil revert/finalize funcs with synchronous errors.
 func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup,
-) (error, func() error) {
+) (error, revert.RevertFunc, revert.FinalizeFunc) {
 	if epp == nil {
-		return ErrNilPolicy, nil
+		return ErrNilPolicy, nil, nil
 	}
 
 	names := ep.GetPolicyNames()
@@ -1819,7 +1821,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 			logfields.Name, names,
 			logfields.EndpointID, ep.GetID(),
 		)
-		return nil, func() error { return nil }
+		return nil, func() error { return nil }, func() {}
 	}
 
 	l4policy := &epp.SelectorPolicy.L4Policy
@@ -1829,7 +1831,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 
 	// Error out if the selectors are no longer valid
 	if !selectors.IsValid() {
-		return policy.ErrStaleSelectors, nil
+		return policy.ErrStaleSelectors, nil, nil
 	}
 
 	s.mutex.Lock()
@@ -1858,7 +1860,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), ep.GetPolicyNames(), err), nil
+		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), ep.GetPolicyNames(), err), nil, nil
 	}
 
 	// If there are no listeners configured, the local node's Envoy proxy won't
@@ -1881,17 +1883,23 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 
 	return nil, func() error {
-		s.logger.Debug("Reverting xDS network policy update")
+			s.logger.Debug("Reverting xDS network policy update",
+				logfields.EndpointID, epID,
+			)
 
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
+			s.mutex.Lock()
+			defer s.mutex.Unlock()
 
-		revertFunc()
+			revertFunc()
 
-		s.logger.Debug("Finished reverting xDS network policy update")
+			s.logger.Debug("Finished reverting xDS network policy update")
 
-		return nil
-	}
+			return nil
+		}, func() {
+			s.logger.Debug("Finalizing xDS network policy update",
+				logfields.EndpointID, epID,
+			)
+		}
 }
 
 func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {

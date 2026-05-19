@@ -330,7 +330,7 @@ func (p *Proxy) removeRedirect(id string) {
 	}
 }
 
-func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
 	return p.envoyIntegration.UpdateNetworkPolicy(ep, policy, wg)
 }
 
