@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -46,7 +47,7 @@ func newGatewayClassReconciler(mgr ctrl.Manager, logger *slog.Logger) *gatewayCl
 // SetupWithManager sets up the controller with the Manager.
 func (r *gatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		gatewayClassConfigMapIndexName: referencedConfig,
+		indexers.GatewayClassCiliumGatewayClassConfigsIndex: referencedConfig,
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GatewayClass{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
