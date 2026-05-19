@@ -15,6 +15,7 @@ import (
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -60,7 +61,7 @@ func TestPolicyLog(t *testing.T) {
 
 	// Test logging with integrated nil check, no fields
 	ep.PolicyDebug("testing PolicyDebug")
-	ep.PolicyDebug("PolicyDebug with fields", slog.String("testField", "Test Value"))
+	ep.PolicyDebug("PolicyDebug with fields", slog.String(logfields.TestField, "Test Value"))
 
 	// Disable option
 	ep.Options.SetValidated(option.DebugPolicy, option.OptionDisabled)
