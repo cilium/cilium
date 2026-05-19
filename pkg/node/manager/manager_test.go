@@ -353,14 +353,11 @@ func TestNodeLabels(t *testing.T) {
 	require.NoError(t, err)
 	mngr.NodeUpdated(nRemote)
 
-	if err := labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, ""); err != nil {
-		t.Fatal("ParseLabelPrefixCfg() failed")
-	}
-
 	tests := []struct {
 		name               string
 		node               nodeTypes.Node
 		nodeSelectorLabels bool
+		nodeLabelPrefixes  []string
 		setupWanted        func() labels.Labels
 	}{{
 		name:               "Local node with node selector labels enabled",
@@ -400,10 +397,26 @@ func TestNodeLabels(t *testing.T) {
 		setupWanted: func() labels.Labels {
 			return labels.NewFrom(labels.LabelRemoteNode)
 		},
+	}, {
+		name:               "Remote node with node selector labels enabled and filtered labels",
+		node:               nRemote,
+		nodeSelectorLabels: true,
+		nodeLabelPrefixes:  []string{"node:test-label"},
+		setupWanted: func() labels.Labels {
+			want := labels.NewFrom(labels.LabelRemoteNode)
+			want.MergeLabels(labels.Map2Labels(map[string]string{
+				"test-label": "test-value",
+			}, labels.LabelSourceNode))
+			want.MergeLabels(labels.Map2Labels(map[string]string{
+				"io.cilium.k8s.policy.cluster": "default",
+			}, labels.LabelSourceK8s))
+			return want
+		},
 	}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, nil, tt.nodeLabelPrefixes, ""))
 			option.Config.EnableNodeSelectorLabels = tt.nodeSelectorLabels
 			option.Config.ClusterName = "default"
 			got := mngr.nodeIdentityLabels(tt.node)
