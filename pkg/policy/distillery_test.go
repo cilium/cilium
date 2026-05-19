@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -1128,9 +1129,9 @@ func generateRule(testCase int) api.Rules {
 		ruleL3L4___Deny,
 	}
 	rules := make(api.Rules, 0, len(rulesIdx))
-	for i := len(rulesIdx) - 1; i >= 0; i-- {
+	for i, rule := range slices.Backward(rulesIdx) {
 		if ((testCase >> i) & 0x1) != 0 {
-			rules = append(rules, rulesIdx[i])
+			rules = append(rules, rule)
 		} else {
 			if i >= 5 { // denyIdx
 				rules = append(rules, rule_____NoDeny)

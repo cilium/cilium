@@ -545,8 +545,7 @@ func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.S
 func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 	var errs error
 	// Remove bad allocations which are no longer valid
-	for allocIdx := len(sv.AllocatedIPs) - 1; allocIdx >= 0; allocIdx-- {
-		alloc := sv.AllocatedIPs[allocIdx]
+	for allocIdx, alloc := range slices.Backward(sv.AllocatedIPs) {
 		cluster, _ := alloc.Origin.alloc.Get(alloc.IP)
 
 		releaseAllocIP := func() {
@@ -1357,8 +1356,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, existingPool *LBPool
 	}
 
 	// Remove existing ranges that no longer exist
-	for i := len(existingPool.ranges) - 1; i >= 0; i-- {
-		extRange := existingPool.ranges[i]
+	for i, extRange := range slices.Backward(existingPool.ranges) {
 		found := false
 		fromCidr := false
 		for _, newRange := range newRanges {
@@ -1607,9 +1605,7 @@ func (ipam *LBIPAM) setPoolCondition(
 func (ipam *LBIPAM) deleteRangeAllocations(delRange *LBRange) []*ServiceView {
 	delAllocs := func(sv *ServiceView) bool {
 		svModified := false
-		for i := len(sv.AllocatedIPs) - 1; i >= 0; i-- {
-			alloc := sv.AllocatedIPs[i]
-
+		for i, alloc := range slices.Backward(sv.AllocatedIPs) {
 			if alloc.Origin == delRange {
 				sv.AllocatedIPs = slices.Delete(sv.AllocatedIPs, i, i+1)
 				svModified = true
