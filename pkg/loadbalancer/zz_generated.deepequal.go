@@ -388,6 +388,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.NodePortEnableDynamicSourceLookup != other.NodePortEnableDynamicSourceLookup {
 		return false
 	}
+	if in.ReflectorWaitTime != other.ReflectorWaitTime {
+		return false
+	}
 
 	return true
 }

@@ -228,6 +228,14 @@ type UserConfig struct {
 	// Enable dynamic source IP resolution for SNAT via linux's routing table.
 	// The kernel must support this feature.
 	NodePortEnableDynamicSourceLookup bool `mapstructure:"enable-dynamic-source-lookup-nodeport"`
+
+	// ReflectorWaitTime is the maximum amount of time the K8s reflector waits
+	// to fill its events buffer. A higher wait time will reduce processing of
+	// transient states and increases throughput as it gives bigger batches
+	// downstream for processing. Batching also helps to combine related
+	// objects, e.g. a Service may have multiple associated EndpointSlices and
+	// preferably these would be processed together.
+	ReflectorWaitTime time.Duration `mapstructure:"lb-reflector-wait-time"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -333,7 +341,11 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Duration("lb-init-wait-timeout", def.InitWaitTimeout, "Amount of time to wait for initialization before reconciling BPF maps")
 	flags.MarkHidden("lb-init-wait-timeout")
 
+	flags.Duration("lb-reflector-wait-time", def.ReflectorWaitTime, "Maximum time the K8s reflector waits to fill its event buffer")
+	flags.MarkHidden("lb-reflector-wait-time")
+
 	flags.Bool(NodePortEnableDynamicSourceLookup, def.NodePortEnableDynamicSourceLookup, "Enable dynamic source IP resolution for SNAT via linux's routing table. The kernel must support this feature.")
+
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -440,6 +452,10 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 		return Config{}, fmt.Errorf("The value --%s=%s is not supported as default under annotation mode", LoadBalancerModeName, cfg.LBMode)
 	}
 
+	if cfg.ReflectorWaitTime <= 0 {
+		return Config{}, fmt.Errorf("--lb-reflector-wait-time must be greater than 0, got %s", cfg.ReflectorWaitTime)
+	}
+
 	/* FIXME:
 
 	if cfg.NodePortMode == option.NodePortModeDSR &&
@@ -499,7 +515,8 @@ var DefaultUserConfig = UserConfig{
 
 	EnableServiceTopology: false,
 
-	InitWaitTimeout: 1 * time.Minute,
+	InitWaitTimeout:   1 * time.Minute,
+	ReflectorWaitTime: 500 * time.Millisecond,
 }
 
 var DefaultConfig = Config{

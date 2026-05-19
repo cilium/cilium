@@ -179,7 +179,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 						WireguardConfig:  fakewireguard.Config{},
 						TunnelConfig:     tunnel.Config{},
 						DaemonConfig:     option.Config,
-						LBConfig:         loadbalancer.Config{},
+						LBConfig:         loadbalancer.DefaultConfig,
 						LBExternalConfig: loadbalancer.ExternalConfig{},
 						LocalNode: node.LocalNode{
 							Node: nodeTypes.Node{
