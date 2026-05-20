@@ -804,8 +804,11 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 					  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
 			return ret;
 		case DROP_NO_FIB:
-			/* Error handling for local routes - just pass the packet to the kernel stack */
-			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
+			/* Error handling for local routes and external encap
+			 * - just pass the packet to the kernel stack.
+			 */
+			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED ||
+			    *ext_err == BPF_FIB_LKUP_RET_UNSUPP_LWT)
 				break;
 
 			fallthrough;
@@ -1370,8 +1373,11 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 					  trace->reason, trace->monitor, bpf_htons(ETH_P_IP));
 			return ret;
 		case DROP_NO_FIB:
-			/* Error handling for local routes - just pass the packet to the kernel stack */
-			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
+			/* Error handling for local routes and external encap
+			 * - just pass the packet to the kernel stack.
+			 */
+			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED ||
+			    *ext_err == BPF_FIB_LKUP_RET_UNSUPP_LWT)
 				break;
 
 			fallthrough;
