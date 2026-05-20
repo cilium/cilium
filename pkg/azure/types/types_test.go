@@ -28,7 +28,7 @@ func TestForeachAddresses(t *testing.T) {
 
 	// Iterate over all instances
 	addresses := 0
-	m.ForeachAddress("", func(instanceID, interfaceID, ip, poolID string, address types.Address) error {
+	m.ForeachAddress("", func(instanceID, interfaceID, ip string, address types.Address) error {
 		addresses++
 		return nil
 	})
@@ -36,7 +36,7 @@ func TestForeachAddresses(t *testing.T) {
 
 	// Iterate over "i-1"
 	addresses = 0
-	m.ForeachAddress("i-1", func(instanceID, interfaceID, ip, poolID string, address types.Address) error {
+	m.ForeachAddress("i-1", func(instanceID, interfaceID, ip string, address types.Address) error {
 		addresses++
 		return nil
 	})

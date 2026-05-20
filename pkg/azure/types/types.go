@@ -187,12 +187,10 @@ func (a *AzureInterface) GetVMID() string {
 	return a.vmID
 }
 
-// ForeachAddress iterates over all addresses and calls fn. The poolID
-// argument is always empty: subnet is tracked at the interface level
-// (matching AWS and Alibaba).
+// ForeachAddress iterates over all addresses and calls fn.
 func (a *AzureInterface) ForeachAddress(id string, fn types.AddressIterator) error {
 	for _, address := range a.Addresses {
-		if err := fn(id, a.ID, address.IP, "", address); err != nil {
+		if err := fn(id, a.ID, address.IP, address); err != nil {
 			return err
 		}
 	}
