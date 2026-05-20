@@ -6,7 +6,6 @@ package iptables
 import (
 	"context"
 	"log/slog"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -32,8 +31,8 @@ type desiredState struct {
 }
 
 type localNodeInfo struct {
-	internalIPv4          net.IP
-	internalIPv6          net.IP
+	internalIPv4          netip.Addr
+	internalIPv6          netip.Addr
 	ipv4AllocCIDR         string
 	ipv6AllocCIDR         string
 	ipv4NativeRoutingCIDR string
@@ -52,8 +51,8 @@ func (lni localNodeInfo) isValid() bool {
 }
 
 func (lni localNodeInfo) equal(other localNodeInfo) bool {
-	if lni.internalIPv4.Equal(other.internalIPv4) &&
-		lni.internalIPv6.Equal(other.internalIPv6) &&
+	if lni.internalIPv4 == other.internalIPv4 &&
+		lni.internalIPv6 == other.internalIPv6 &&
 		lni.ipv4AllocCIDR == other.ipv4AllocCIDR &&
 		lni.ipv6AllocCIDR == other.ipv6AllocCIDR &&
 		lni.ipv4NativeRoutingCIDR == other.ipv4NativeRoutingCIDR &&
@@ -82,9 +81,12 @@ func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
 		v6NativeRoutingCIDR = n.Local.IPv6NativeRoutingCIDR.String()
 	}
 
+	internalIPv4, _ := netip.AddrFromSlice(n.GetCiliumInternalIP(false).To4())
+	internalIPv6, _ := netip.AddrFromSlice(n.GetCiliumInternalIP(true).To16())
+
 	return localNodeInfo{
-		internalIPv4:          n.GetCiliumInternalIP(false),
-		internalIPv6:          n.GetCiliumInternalIP(true),
+		internalIPv4:          internalIPv4,
+		internalIPv6:          internalIPv6,
 		ipv4AllocCIDR:         v4AllocCIDR,
 		ipv6AllocCIDR:         v6AllocCIDR,
 		ipv4NativeRoutingCIDR: v4NativeRoutingCIDR,
