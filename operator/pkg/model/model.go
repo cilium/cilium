@@ -281,6 +281,38 @@ type HTTPRequestMirror struct {
 	Denominator int32 `json:"denominator,omitempty"`
 }
 
+// ExternalAuthProtocol is the protocol used to communicate with an ext_authz backend.
+type ExternalAuthProtocol string
+
+const (
+	ExternalAuthProtocolGRPC ExternalAuthProtocol = "GRPC"
+	ExternalAuthProtocolHTTP ExternalAuthProtocol = "HTTP"
+)
+
+// HTTPExternalAuthFilter defines configuration for an external authorization filter.
+type HTTPExternalAuthFilter struct {
+	// Backend is the authorization service backend.
+	Backend Backend `json:"backend"`
+	// Protocol is the protocol used to communicate with the auth backend.
+	Protocol ExternalAuthProtocol `json:"protocol"`
+	// PathPrefix is prepended to the request path when forwarding to HTTP auth backends.
+	PathPrefix string `json:"path_prefix,omitempty"`
+	// AllowedRequestHeaders are additional headers forwarded to the auth service (HTTP protocol).
+	AllowedRequestHeaders []string `json:"allowed_request_headers,omitempty"`
+	// AllowedResponseHeaders are headers from the auth response to forward to the upstream (HTTP protocol).
+	AllowedResponseHeaders []string `json:"allowed_response_headers,omitempty"`
+	// ForwardBody configures buffering and forwarding of the client request body to the auth service.
+	// If nil or MaxSize is 0, the body is not forwarded.
+	ForwardBody *ForwardBodyConfig `json:"forward_body,omitempty"`
+}
+
+// ForwardBodyConfig controls if and how the client request body is forwarded to the auth service.
+type ForwardBodyConfig struct {
+	// MaxSize is the maximum number of bytes to buffer and forward. If the body exceeds this,
+	// the body is truncated to MaxSize before being sent to the auth service.
+	MaxSize uint32 `json:"max_size"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -318,6 +350,9 @@ type HTTPRoute struct {
 	// RequestMirrors defines a schema for a filter that mirrors HTTP requests
 	// Unlike other filter, multiple request mirrors are supported
 	RequestMirrors []*HTTPRequestMirror `json:"request_mirrors,omitempty"`
+
+	// ExternalAuth configures external authorization for this route.
+	ExternalAuth *HTTPExternalAuthFilter `json:"external_auth,omitempty"`
 
 	// IsGRPC is an indicator if this route is related to GRPC
 	IsGRPC bool `json:"is_grpc,omitempty"`
@@ -386,6 +421,20 @@ func (r *HTTPRoute) GetMatchKey() string {
 	if r.RequestRedirect != nil && r.RequestRedirect.Scheme != nil {
 		sb.WriteString("redirect:")
 		sb.WriteString("true")
+		sb.WriteString("|")
+	}
+
+	if r.ExternalAuth != nil {
+		sb.WriteString("auth:")
+		sb.WriteString(string(r.ExternalAuth.Protocol))
+		sb.WriteString(":")
+		sb.WriteString(r.ExternalAuth.Backend.Namespace)
+		sb.WriteString(":")
+		sb.WriteString(r.ExternalAuth.Backend.Name)
+		if r.ExternalAuth.Backend.Port != nil {
+			sb.WriteString(":")
+			sb.WriteString(r.ExternalAuth.Backend.Port.GetPort())
+		}
 		sb.WriteString("|")
 	}
 

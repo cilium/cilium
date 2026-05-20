@@ -85,6 +85,27 @@ func GenerateIndexerHTTPRouteByBackendService(c client.Client, logger *slog.Logg
 					}.String(),
 				)
 			}
+			for _, f := range rule.Filters {
+				if f.Type != gatewayv1.HTTPRouteFilterExternalAuth || f.ExternalAuth == nil {
+					continue
+				}
+				ea := f.ExternalAuth
+				namespace := helpers.NamespaceDerefOr(ea.BackendRef.Namespace, route.Namespace)
+				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, ea.BackendRef)
+				if err != nil {
+					logger.Error("Failed to get ext_auth backend service name",
+						logfields.LogSubsys, logfields.HTTPRoute,
+						logfields.HTTPRoute, client.ObjectKeyFromObject(rawObj),
+						logfields.Error, err)
+					continue
+				}
+				backendServices = append(backendServices,
+					types.NamespacedName{
+						Namespace: namespace,
+						Name:      backendServiceName,
+					}.String(),
+				)
+			}
 		}
 		return backendServices
 	}

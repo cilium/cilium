@@ -69,6 +69,12 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "conformance/gamma/mesh_frontend"},
 		{name: "conformance/gamma/mesh_ports"},
 		{name: "conformance/gamma/mesh_splits"},
+		{name: "httproute_external_auth_grpc"},
+		{name: "httproute_external_auth_grpc_with_tls"},
+		{name: "httproute_external_auth_http"},
+		{name: "httproute_external_auth_http_with_tls"},
+		{name: "httproute_external_auth_mixed"},
+		{name: "httproute_external_auth_shared_and_no_auth"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

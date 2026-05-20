@@ -124,3 +124,121 @@ func Test_tcpCluster(t *testing.T) {
 		Type: envoy_config_cluster_v3.Cluster_EDS,
 	}, cluster.ClusterDiscoveryType)
 }
+
+func extAuthBackend(ns, name string, port uint32, tls *model.BackendTLSOrigination) model.Backend {
+	return model.Backend{
+		Namespace: ns,
+		Name:      name,
+		Port:      &model.BackendPort{Port: port},
+		TLS:       tls,
+	}
+}
+
+func extAuthModel(protocol model.ExternalAuthProtocol, be model.Backend) *model.Model {
+	return &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Routes: []model.HTTPRoute{
+					{
+						ExternalAuth: &model.HTTPExternalAuthFilter{
+							Protocol: protocol,
+							Backend:  be,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func Test_desiredEnvoyCluster_grpcExtAuthWithTLS(t *testing.T) {
+	tls := &model.BackendTLSOrigination{
+		SNI:       "authz.example.com",
+		CACertRef: &model.FullyQualifiedResource{Name: "ca-cert", Namespace: "default"},
+	}
+	be := extAuthBackend("authns", "authsvc", 9001, tls)
+	m := extAuthModel(model.ExternalAuthProtocolGRPC, be)
+
+	c := &cecTranslator{}
+	clusters, err := c.desiredEnvoyCluster(m)
+	require.NoError(t, err)
+	require.Len(t, clusters, 1)
+
+	cluster := &envoy_config_cluster_v3.Cluster{}
+	require.NoError(t, proto.Unmarshal(clusters[0].Value, cluster))
+
+	require.Equal(t, "grpc:authns:authsvc:9001", cluster.Name)
+	require.NotNil(t, cluster.TransportSocket, "expected TLS transport socket on gRPC ext_authz cluster")
+	require.Equal(t, "envoy.transport_sockets.tls", cluster.TransportSocket.Name)
+
+	typedConfig := cluster.TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig)
+	tlsCtx := &envoy_config_tls.UpstreamTlsContext{}
+	require.NoError(t, proto.Unmarshal(typedConfig.TypedConfig.Value, tlsCtx))
+	require.Equal(t, "authz.example.com", tlsCtx.Sni)
+}
+
+func Test_desiredEnvoyCluster_httpExtAuthWithTLS(t *testing.T) {
+	tls := &model.BackendTLSOrigination{
+		SNI:       "authz.example.com",
+		CACertRef: &model.FullyQualifiedResource{Name: "ca-cert", Namespace: "default"},
+	}
+	be := extAuthBackend("authns", "authsvc", 9001, tls)
+	m := extAuthModel(model.ExternalAuthProtocolHTTP, be)
+
+	c := &cecTranslator{}
+	clusters, err := c.desiredEnvoyCluster(m)
+	require.NoError(t, err)
+	require.Len(t, clusters, 1)
+
+	cluster := &envoy_config_cluster_v3.Cluster{}
+	require.NoError(t, proto.Unmarshal(clusters[0].Value, cluster))
+
+	require.Equal(t, "http:authns:authsvc:9001", cluster.Name)
+	require.NotNil(t, cluster.TransportSocket, "expected TLS transport socket on HTTP ext_authz cluster")
+	require.Equal(t, "envoy.transport_sockets.tls", cluster.TransportSocket.Name)
+
+	typedConfig := cluster.TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig)
+	tlsCtx := &envoy_config_tls.UpstreamTlsContext{}
+	require.NoError(t, proto.Unmarshal(typedConfig.TypedConfig.Value, tlsCtx))
+	require.Equal(t, "authz.example.com", tlsCtx.Sni)
+}
+
+func Test_getGRPCExtAuthBackends(t *testing.T) {
+	grpcBe := extAuthBackend("ns", "grpc-svc", 8080, nil)
+	httpBe := extAuthBackend("ns", "http-svc", 8081, nil)
+	m := &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Routes: []model.HTTPRoute{
+					{ExternalAuth: &model.HTTPExternalAuthFilter{Protocol: model.ExternalAuthProtocolGRPC, Backend: grpcBe}},
+					{ExternalAuth: &model.HTTPExternalAuthFilter{Protocol: model.ExternalAuthProtocolHTTP, Backend: httpBe}},
+					{ExternalAuth: &model.HTTPExternalAuthFilter{Protocol: model.ExternalAuthProtocolGRPC, Backend: grpcBe}},
+				},
+			},
+		},
+	}
+
+	backends := getGRPCExtAuthBackends(m)
+	require.Len(t, backends, 1)
+	require.Equal(t, "grpc-svc", backends[0].Name)
+}
+
+func Test_getHTTPExtAuthBackends(t *testing.T) {
+	grpcBe := extAuthBackend("ns", "grpc-svc", 8080, nil)
+	httpBe := extAuthBackend("ns", "http-svc", 8081, nil)
+	m := &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Routes: []model.HTTPRoute{
+					{ExternalAuth: &model.HTTPExternalAuthFilter{Protocol: model.ExternalAuthProtocolGRPC, Backend: grpcBe}},
+					{ExternalAuth: &model.HTTPExternalAuthFilter{Protocol: model.ExternalAuthProtocolHTTP, Backend: httpBe}},
+					{ExternalAuth: &model.HTTPExternalAuthFilter{Protocol: model.ExternalAuthProtocolHTTP, Backend: httpBe}},
+				},
+			},
+		},
+	}
+
+	backends := getHTTPExtAuthBackends(m)
+	require.Len(t, backends, 1)
+	require.Equal(t, "http-svc", backends[0].Name)
+}
