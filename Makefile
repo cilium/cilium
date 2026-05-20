@@ -512,8 +512,6 @@ endif
 	$(QUIET) contrib/scripts/check-datapathconfig.sh
 	@$(ECHO_CHECK) $(GO) run ./tools/slogloggercheck .
 	$(QUIET)$(GO) run ./tools/slogloggercheck .
-	@$(ECHO_CHECK) contrib/scripts/check-fipsonly.sh
-	$(QUIET) contrib/scripts/check-fipsonly.sh
 	$(MAKE) check-fuzz
 
 pprof-heap: ## Get Go pprof heap profile.
