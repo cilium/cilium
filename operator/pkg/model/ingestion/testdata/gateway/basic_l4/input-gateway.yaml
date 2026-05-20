@@ -1,0 +1,17 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: gw
+  namespace: default
+  uid: uid
+spec:
+  gatewayClassName: ""
+  listeners:
+  - name: tcp-listener
+    port: 8080
+    protocol: TCP
+  - name: udp-listener
+    port: 5353
+    protocol: UDP
+status: {}

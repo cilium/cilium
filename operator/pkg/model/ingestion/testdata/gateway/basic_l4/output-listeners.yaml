@@ -1,0 +1,32 @@
+- name: tcp-listener
+  sources:
+  - name: gw
+    namespace: default
+    group: gateway.networking.k8s.io
+    version: v1
+    kind: Gateway
+    uid: uid
+  port: 8080
+  protocol: TCP
+  routes:
+  - backends:
+    - name: tcp-backend
+      namespace: default
+      port:
+        port: 8080
+- name: udp-listener
+  sources:
+  - name: gw
+    namespace: default
+    group: gateway.networking.k8s.io
+    version: v1
+    kind: Gateway
+    uid: uid
+  port: 5353
+  protocol: UDP
+  routes:
+  - backends:
+    - name: udp-backend
+      namespace: default
+      port:
+        port: 5353

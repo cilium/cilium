@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
@@ -31,8 +32,9 @@ import (
 )
 
 var (
-	gatewayv1APIVersion = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
-	gatewayTypeMeta     = metav1.TypeMeta{
+	gatewayv1APIVersion       = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
+	gatewayv1alpha2APIVersion = gatewayv1alpha2.GroupVersion.Group + "/" + gatewayv1alpha2.GroupVersion.Version
+	gatewayTypeMeta           = metav1.TypeMeta{
 		Kind:       "Gateway",
 		APIVersion: gatewayv1APIVersion,
 	}
@@ -51,6 +53,14 @@ var (
 	backendTLSPolicyTypeMeta = metav1.TypeMeta{
 		Kind:       "BackendTLSPolicy",
 		APIVersion: gatewayv1APIVersion,
+	}
+	tcpRouteTypeMeta = metav1.TypeMeta{
+		Kind:       "TCPRoute",
+		APIVersion: gatewayv1alpha2APIVersion,
+	}
+	udpRouteTypeMeta = metav1.TypeMeta{
+		Kind:       "UDPRoute",
+		APIVersion: gatewayv1alpha2APIVersion,
 	}
 )
 
@@ -76,6 +86,7 @@ func Test_Conformance(t *testing.T) {
 	type gwDetails struct {
 		FullName types.NamespacedName
 		wantErr  bool
+		skipCEC  bool
 	}
 
 	var (
@@ -272,6 +283,10 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-backendtlspolicy-conflict-resolution", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-backendtlspolicy-invalid-ca-cert", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-backendtlspolicy-invalid-kind", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "tcproute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tcproute-referencegrant", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
+		{name: "tcproute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tcproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
+		{name: "udproute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute-referencegrant", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
+		{name: "udproute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
 		{name: "tlsroute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute-referencegrant", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tlsroute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tlsroute-hostname-intersection", gateway: []gwDetails{
@@ -302,6 +317,8 @@ func Test_Conformance(t *testing.T) {
 				WithStatusSubresource(&gatewayv1.GRPCRoute{}).
 				WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 				WithStatusSubresource(&gatewayv1.TLSRoute{}).
+				WithStatusSubresource(&gatewayv1alpha2.TCPRoute{}).
+				WithStatusSubresource(&gatewayv1alpha2.UDPRoute{}).
 				WithStatusSubresource(&gatewayv1.Gateway{}).
 				WithStatusSubresource(&gatewayv1.GatewayClass{}).
 				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{})
@@ -317,6 +334,8 @@ func Test_Conformance(t *testing.T) {
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
 			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
 			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1alpha2.TCPRoute{}, indexers.GatewayTCPRouteIndex, indexers.IndexTCPRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1alpha2.UDPRoute{}, indexers.GatewayUDPRouteIndex, indexers.IndexUDPRouteByGateway)
 
 			c := clientBuilder.Build()
 
@@ -346,6 +365,16 @@ func Test_Conformance(t *testing.T) {
 			err = c.List(t.Context(), btlspList)
 			require.NoError(t, err)
 
+			// Reconcile all TCPRoute objects
+			tcprList := &gatewayv1alpha2.TCPRouteList{}
+			err = c.List(t.Context(), tcprList)
+			require.NoError(t, err)
+
+			// Reconcile all UDPRoute objects
+			udprList := &gatewayv1alpha2.UDPRouteList{}
+			err = c.List(t.Context(), udprList)
+			require.NoError(t, err)
+
 			for _, gwDetail := range tt.gateway {
 				// Reconcile the gateway under test
 				result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
@@ -361,7 +390,7 @@ func Test_Conformance(t *testing.T) {
 				expectedGateway := &gatewayv1.Gateway{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
 				require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
-				if !gwDetail.wantErr {
+				if !gwDetail.wantErr && !gwDetail.skipCEC {
 					// Checking the output for CiliumEnvoyConfig
 					actualCEC := &ciliumv2.CiliumEnvoyConfig{}
 					err = c.Get(t.Context(), client.ObjectKey{
@@ -417,6 +446,26 @@ func Test_Conformance(t *testing.T) {
 				expectedBTLSP := &gatewayv1.BackendTLSPolicy{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", tt.name, btlsp.Name), expectedBTLSP)
 				require.Empty(t, cmp.Diff(expectedBTLSP, actualBTLSP, cmpIgnoreFields...))
+			}
+
+			for _, tcpr := range tcprList.Items {
+				actualTCPR := &gatewayv1alpha2.TCPRoute{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tcpr), actualTCPR)
+				actualTCPR.TypeMeta = tcpRouteTypeMeta
+				require.NoError(t, err, "error getting TCPRoute %s/%s: %v", tcpr.Namespace, tcpr.Name, err)
+				expectedTCPR := &gatewayv1alpha2.TCPRoute{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tcproute-%s.yaml", tt.name, tcpr.Name), expectedTCPR)
+				require.Empty(t, cmp.Diff(expectedTCPR, actualTCPR, cmpIgnoreFields...))
+			}
+
+			for _, udpr := range udprList.Items {
+				actualUDPR := &gatewayv1alpha2.UDPRoute{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&udpr), actualUDPR)
+				actualUDPR.TypeMeta = udpRouteTypeMeta
+				require.NoError(t, err, "error getting UDPRoute %s/%s: %v", udpr.Namespace, udpr.Name, err)
+				expectedUDPR := &gatewayv1alpha2.UDPRoute{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/udproute-%s.yaml", tt.name, udpr.Name), expectedUDPR)
+				require.Empty(t, cmp.Diff(expectedUDPR, actualUDPR, cmpIgnoreFields...))
 			}
 		})
 	}

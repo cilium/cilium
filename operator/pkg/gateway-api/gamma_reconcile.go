@@ -137,7 +137,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	setGammaServiceAccepted(svc, true, "Gamma Service has routes attached", CiliumGammaReasonAccepted)
 
-	cec, _, cep, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
+	cec, _, ceps, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
@@ -148,9 +148,13 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
 	}
 
-	if err = r.ensureEndpointSlice(ctx, cep); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
+	// GAMMA only ever produces a single dummy EndpointSlice; unwrap from the
+	// shared Translator interface that returns a list to support gateway-api L4.
+	if len(ceps) > 0 {
+		if err = r.ensureEndpointSlice(ctx, ceps[0]); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
+		}
 	}
 
 	setGammaServiceProgrammed(svc, true, "Gamma Service has been programmed", CiliumGammaReasonProgrammed)

@@ -44,4 +44,16 @@ const (
 	// Indexes GatewayClassCiliumGatewayClassConfigsIndex indexes GatewayClass by the CiliumGatewayClassConfig
 	// that it refers to.
 	GatewayClassCiliumGatewayClassConfigsIndex = "gatewayClassCiliumGatewayClassConfigsIndex"
+
+	// Indexes TCPRoutes by all the backend Services referenced in the object.
+	BackendServiceTCPRouteIndex = "backendServiceTCPRouteIndex"
+
+	// Indexes TCPRoutes by all the Gateway parents referenced in the object.
+	GatewayTCPRouteIndex = "gatewayTCPRouteIndex"
+
+	// Indexes UDPRoutes by all the backend Services referenced in the object.
+	BackendServiceUDPRouteIndex = "backendServiceUDPRouteIndex"
+
+	// Indexes UDPRoutes by all the Gateway parents referenced in the object.
+	GatewayUDPRouteIndex = "gatewayUDPRouteIndex"
 )

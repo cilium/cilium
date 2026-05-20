@@ -427,6 +427,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 		newGatewayReconciler(mgr, translator, logger, installedCRDs),
 		newGammaReconciler(mgr, translator, logger),
 		newGatewayClassConfigReconciler(mgr, logger),
+		newEndpointSliceReconciler(mgr, logger),
 	}
 
 	for _, r := range requiredReconcilers {
@@ -445,6 +446,14 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 			// TLSRoute is reconciled by the Gateway API reconciler, but log that the
 			// support has been successfully enabled.
 			logger.Info("TLSRoute CRD is installed, TLSRoute support is enabled")
+		case helpers.TCPRouteKind:
+			// TCPRoute is reconciled by the Gateway API reconciler, but log that the
+			// support has been successfully enabled.
+			logger.Info("TCPRoute CRD is installed, TCPRoute support is enabled")
+		case helpers.UDPRouteKind:
+			// UDPRoute is reconciled by the Gateway API reconciler, but log that the
+			// support has been successfully enabled.
+			logger.Info("UDPRoute CRD is installed, UDPRoute support is enabled")
 		case helpers.ServiceImportKind:
 			// we don't need a reconciler, but we do need to tell folks that the
 			// support is working.

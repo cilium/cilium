@@ -1,0 +1,46 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-wrong-kind
+  namespace: gateway-conformance-web-backend
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: TCPRoute
+      namespace: gateway-conformance-infra
+  to:
+    - group: ""
+      kind: Service
+      name: web-backend
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: reference-grant
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-udproute-referencegrant
+      namespace: gateway-conformance-infra
+  rules:
+    - backendRefs:
+        - name: web-backend
+          namespace: gateway-conformance-web-backend
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-udproute-referencegrant
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: udp
+      port: 5353
+      protocol: UDP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: UDPRoute

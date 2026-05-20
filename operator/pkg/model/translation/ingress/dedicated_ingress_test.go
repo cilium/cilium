@@ -198,31 +198,33 @@ func Test_getEndpointForIngress(t *testing.T) {
 		UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	})
 
-	require.Equal(t, &discoveryv1.EndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cilium-ingress-dummy-ingress",
-			Namespace: "dummy-namespace",
-			Labels:    map[string]string{"cilium.io/ingress": "true"},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: "networking.k8s.io/v1",
-					Kind:       "Ingress",
-					Name:       "dummy-ingress",
-					UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
-					Controller: ptr.To(true),
+	require.Equal(t, []*discoveryv1.EndpointSlice{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cilium-ingress-dummy-ingress",
+				Namespace: "dummy-namespace",
+				Labels:    map[string]string{"cilium.io/ingress": "true"},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "networking.k8s.io/v1",
+						Kind:       "Ingress",
+						Name:       "dummy-ingress",
+						UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+						Controller: ptr.To(true),
+					},
 				},
 			},
-		},
-		AddressType: discoveryv1.AddressTypeIPv4,
-		Endpoints: []discoveryv1.Endpoint{
-			{
-				// This dummy endpoint is required as agent refuses to push service entry
-				// to the lb map when the service has no backends.
-				// Related github issue https://github.com/cilium/cilium/issues/19262
-				Addresses: []string{"192.192.192.192"}, // dummy
+			AddressType: discoveryv1.AddressTypeIPv4,
+			Endpoints: []discoveryv1.Endpoint{
+				{
+					// This dummy endpoint is required as agent refuses to push service entry
+					// to the lb map when the service has no backends.
+					// Related github issue https://github.com/cilium/cilium/issues/19262
+					Addresses: []string{"192.192.192.192"}, // dummy
+				},
 			},
+			Ports: []discoveryv1.EndpointPort{{Port: ptr.To[int32](9999)}}, // dummy port
 		},
-		Ports: []discoveryv1.EndpointPort{{Port: ptr.To[int32](9999)}}, // dummy port
 	}, res)
 }
 
