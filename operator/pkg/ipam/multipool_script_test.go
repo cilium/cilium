@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log/slog"
 	"maps"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/multipool"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -48,22 +50,32 @@ func TestScriptMultiPool(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	setup := func(t testing.TB, args []string) *script.Engine {
+		var allocator *multipool.PoolAllocator
+
 		h := hive.New(
 			k8sClient.FakeClientCell(),
 			k8s.ResourcesCell,
 			cell.Provide(func() *option.DaemonConfig {
 				return &option.DaemonConfig{
-					EnableIPv4: true,
-					EnableIPv6: true,
-					IPAM:       ipamOption.IPAMMultiPool,
+					EnableIPv4:        true,
+					EnableIPv6:        true,
+					IPAM:              ipamOption.IPAMMultiPool,
+					IPAMDefaultIPPool: defaults.IPAMDefaultIPPool,
 				}
 			}),
 
 			Cell(),
+
+			cell.Invoke(func(allocator_ *multipool.PoolAllocator) {
+				allocator = allocator_
+			}),
 		)
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h.RegisterFlags(flags)
+
+		// Parse the shebang arguments in the script.
+		require.NoError(t, flags.Parse(args), "flags.Parse")
 
 		var opts []hivetest.LogOption
 		if *debug {
@@ -79,6 +91,7 @@ func TestScriptMultiPool(t *testing.T) {
 		cmds, err := h.ScriptCommands(log)
 		require.NoError(t, err, "ScriptCommands")
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
+		maps.Insert(cmds, maps.All(commands(allocator)))
 
 		return &script.Engine{Cmds: cmds}
 	}
@@ -89,4 +102,28 @@ func TestScriptMultiPool(t *testing.T) {
 		[]string{},
 		"testdata/multipool/*.txtar",
 	)
+}
+
+func commands(allocator *multipool.PoolAllocator) map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"allocator/allocated-pools": script.Command(
+			script.CmdUsage{
+				Summary: "Dump PoolAllocator.AllocatedPools for a node",
+				Args:    "node-name",
+			},
+			func(_ *script.State, args ...string) (script.WaitFunc, error) {
+				if len(args) != 1 {
+					return nil, script.ErrUsage
+				}
+
+				return func(_ *script.State) (stdout string, stderr string, err error) {
+					data, err := json.MarshalIndent(allocator.AllocatedPools(args[0]), "", "  ")
+					if err != nil {
+						return "", "", err
+					}
+					return string(data) + "\n", "", nil
+				}, nil
+			},
+		),
+	}
 }
