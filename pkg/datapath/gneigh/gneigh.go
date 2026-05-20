@@ -209,7 +209,7 @@ func (s *ndSender) Send(ip netip.Addr, srcHW net.HardwareAddr) error {
 		TargetAddress: ip,
 		Options: []ndp.Option{
 			&ndp.LinkLayerAddress{
-				Direction: ndp.Source,
+				Direction: ndp.Target,
 				Addr:      srcHW,
 			},
 		},
