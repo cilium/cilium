@@ -81,6 +81,31 @@ type Request struct {
 	ClientCert       string
 }
 
+const requestIDQueryParam = "gateway-api-conformance-request-id"
+
+// AddRequestIDQueryParam adds a request ID to the request URI so that echo
+// server logs for this request can be matched unambiguously.
+func (e *ExpectedResponse) AddRequestIDQueryParam(requestID string) {
+	e.Request.Path = addQueryParam(e.Request.Path, requestIDQueryParam, requestID)
+	if e.ExpectedRequest != nil {
+		if e.ExpectedRequest.Path == "" {
+			e.ExpectedRequest.Path = e.Request.Path
+		} else {
+			e.ExpectedRequest.Path = addQueryParam(e.ExpectedRequest.Path, requestIDQueryParam, requestID)
+		}
+	}
+}
+
+func addQueryParam(path, name, value string) string {
+	pathOnly, rawQuery, _ := strings.Cut(path, "?")
+	query, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		query = url.Values{}
+	}
+	query.Set(name, value)
+	return pathOnly + "?" + query.Encode()
+}
+
 // ExpectedRequest defines expected properties of a request that reaches a backend.
 type ExpectedRequest struct {
 	Request

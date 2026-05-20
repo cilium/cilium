@@ -19,6 +19,7 @@ package tests
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
@@ -116,8 +117,11 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 			tc := testCases[i]
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
+				tc.AddRequestIDQueryParam(uuid.NewString())
+				// Start inspecting logs before sending the request
+				waitForMirroredRequests := http.ExpectMirroredRequest(t, suite.Client, suite.Clientset, tc.MirroredTo, tc.Request.Path, suite.TimeoutConfig)
+				defer waitForMirroredRequests() // defer in case we exit below
 				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
-				http.ExpectMirroredRequest(t, suite.Client, suite.Clientset, tc.MirroredTo, tc.Request.Path, suite.TimeoutConfig)
 			})
 		}
 	},
