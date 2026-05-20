@@ -23,6 +23,7 @@
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		{ .addr = v6_ext_node_one_addr }
 #define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_SEC_IDENTITY	CIDR_IDENTITY_RANGE_START
 
 #define BACKEND_IP		v4_pod_one
 #define BACKEND_IPV6		{ .addr = v6_pod_one_addr }
@@ -35,10 +36,7 @@ static volatile const __u8 *server_mac = mac_two;
 int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 			    __maybe_unused  struct bpf_tunnel_key *to,
 			    __maybe_unused __u32 size,
-			    __maybe_unused __u32 flags)
-{
-	return 0;
-}
+			    __maybe_unused __u32 flags);
 
 #define skb_get_tunnel_opt mock_skb_get_tunnel_opt
 int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
@@ -61,8 +59,19 @@ int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 #include "lib/bpf_overlay.h"
 
 #include "lib/endpoint.h"
+#include "lib/ipcache.h"
 
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
+
+int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
+			    __maybe_unused  struct bpf_tunnel_key *to,
+			    __maybe_unused __u32 size,
+			    __maybe_unused __u32 flags)
+{
+	to->remote_ipv4 = v4_node_one;
+	to->tunnel_id = WORLD_ID;
+	return 0;
+}
 
 PKTGEN("tc", "tc_geneve_dsr_v4_legacy")
 int tc_geneve_dsr_v4_legacy_pktgen(struct __ctx_buff *ctx)
@@ -95,6 +104,7 @@ SETUP("tc", "tc_geneve_dsr_v4_legacy")
 int tc_geneve_dsr_v4_legacy_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0, 0, NULL, NULL);
+	ipcache_v4_add_entry(CLIENT_IP, 0, CLIENT_SEC_IDENTITY, 0, 0);
 
 	return overlay_receive_packet(ctx);
 }
@@ -127,6 +137,8 @@ int tc_geneve_dsr_v4_legacy_check(struct __ctx_buff *ctx)
 	/* The packet must be passed to kernel-stack */
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
+	/* Client identity should *not* be embedded */
+	assert((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_IDENTITY);
 
 	/* Verify that the datapath inserted the conntrack entry */
 	ct_entry = map_lookup_elem(&cilium_ct4_global, &expected_tuple_for_ct);
@@ -169,8 +181,10 @@ SETUP("tc", "tc_geneve_dsr_v6_legacy")
 int tc_geneve_dsr_v6_legacy_setup(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip = BACKEND_IPV6;
+	union v6addr client_ip = CLIENT_IPV6;
 
 	endpoint_v6_add_entry(&backend_ip, 0, 0, 0, 0, NULL, NULL);
+	ipcache_v6_add_entry(&client_ip, 0, CLIENT_SEC_IDENTITY, 0, 0);
 
 	return overlay_receive_packet(ctx);
 }
@@ -204,6 +218,7 @@ int tc_geneve_dsr_v6_legacy_check(struct __ctx_buff *ctx)
 	/* Packet must be passed to the kernel stack */
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
+	assert((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_IDENTITY);
 
 	/* Verify that the datapath inserted the conntrack entry */
 	ct_entry = map_lookup_elem(&cilium_ct6_global, &expected_tuple_for_ct);
