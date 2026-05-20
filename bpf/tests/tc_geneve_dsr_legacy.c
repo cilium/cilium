@@ -18,6 +18,8 @@
 #define ENCAP_IFINDEX 42
 #define TUNNEL_MODE
 
+#define FRONTEND_IP		v4_node_one
+#define FRONTEND_IPV6		{ .addr = v6_node_one_addr }
 #define FRONTEND_PORT		__bpf_htons(80)
 
 #define CLIENT_IP		v4_ext_one
@@ -45,12 +47,12 @@ int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 	if (size == sizeof(struct geneve_dsr_opt4)) {
 		struct geneve_dsr_opt4 *gopt = opt;
 
-		set_geneve_dsr_opt4(FRONTEND_PORT, 0, gopt);
+		set_geneve_dsr_opt4(FRONTEND_PORT, FRONTEND_IP, gopt);
 	} else {
 		struct geneve_dsr_opt6 *gopt = opt;
-		union v6addr zero_addr = {};
+		union v6addr frontend_ip = FRONTEND_IPV6;
 
-		set_geneve_dsr_opt6(FRONTEND_PORT, &zero_addr, gopt);
+		set_geneve_dsr_opt6(FRONTEND_PORT, &frontend_ip, gopt);
 	}
 
 	return size;
@@ -145,6 +147,9 @@ int tc_geneve_dsr_v4_legacy_check(struct __ctx_buff *ctx)
 	if (!ct_entry)
 		test_fatal("No entry in conntrack map");
 
+	assert(ct_entry->nat_addr.p4 == FRONTEND_IP);
+	assert(ct_entry->nat_port == FRONTEND_PORT);
+
 	test_finish();
 }
 
@@ -195,6 +200,7 @@ int tc_geneve_dsr_v6_legacy_check(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 	struct ct_entry *ct_entry;
+	union v6addr frontend_ip = FRONTEND_IPV6;
 
 	union v6addr backend_ip = BACKEND_IPV6;
 	union v6addr client_ip  = CLIENT_IPV6;
@@ -224,6 +230,9 @@ int tc_geneve_dsr_v6_legacy_check(struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(&cilium_ct6_global, &expected_tuple_for_ct);
 	if (!ct_entry)
 		test_fatal("No entry in conntrack map");
+
+	assert(ipv6_addr_equals(&ct_entry->nat_addr, &frontend_ip));
+	assert(ct_entry->nat_port == FRONTEND_PORT);
 
 	test_finish();
 }
