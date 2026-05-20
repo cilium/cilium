@@ -1054,6 +1054,25 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 			scopedLog.ErrorContext(ctx, "Different generation comparing a HTTPRoute, re-reconciling", logfields.Error, err)
 			return err
 		}
+		// If the index did not find any routes, also check httpRoutes directly for ext_authz
+		// filter backends. The BackendServiceHTTPRouteIndex only covers backendRefs; ext_authz
+		// backends are added by a separate indexer fix that may not yet have re-indexed
+		// routes that existed before the operator started.
+		if !found {
+			for _, hr := range httpRoutes {
+				for _, rule := range hr.Spec.Rules {
+					for _, f := range rule.Filters {
+						if f.Type != gatewayv1.HTTPRouteFilterExternalAuth || f.ExternalAuth == nil {
+							continue
+						}
+						ns := helpers.NamespaceDerefOr(f.ExternalAuth.BackendRef.Namespace, hr.Namespace)
+						if string(f.ExternalAuth.BackendRef.Name) == svcName.Name && ns == svcName.Namespace {
+							found = true
+						}
+					}
+				}
+			}
+		}
 		if !found {
 			// This service is not used in the current Gateway, so we can skip it.
 			continue

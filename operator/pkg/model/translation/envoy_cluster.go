@@ -77,6 +77,26 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 		}
 	}
 
+	for _, be := range getHTTPExtAuthBackends(m) {
+		port := be.Port.GetPort()
+		clusterName := getHTTPExtAuthClusterName(be.Namespace, be.Name, port)
+		clusterServiceName := getClusterServiceName(be.Namespace, be.Name, port)
+		if _, exists := envoyClusters[clusterName]; !exists {
+			sortedClusterNames = append(sortedClusterNames, clusterName)
+			envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName, false, "", getTLSOrigination(m, be.Namespace, be.Name, port))
+		}
+	}
+
+	for _, be := range getGRPCExtAuthBackends(m) {
+		port := be.Port.GetPort()
+		clusterName := getGRPCExtAuthClusterName(be.Namespace, be.Name, port)
+		clusterServiceName := getClusterServiceName(be.Namespace, be.Name, port)
+		if _, exists := envoyClusters[clusterName]; !exists {
+			sortedClusterNames = append(sortedClusterNames, clusterName)
+			envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName, true, "", getTLSOrigination(m, be.Namespace, be.Name, port))
+		}
+	}
+
 	for ns, v := range getNamespaceNamePortsMapForTLS(m) {
 		for name, ports := range v {
 			for _, port := range ports {
@@ -153,6 +173,21 @@ func getClusterName(ns, name, port string) string {
 	return fmt.Sprintf("%s:%s:%s", ns, name, port)
 }
 
+// getGRPCExtAuthClusterName returns the cluster name for a gRPC ext_authz backend.
+// The "grpc:" prefix keeps it distinct from the plain HTTP cluster for the same service
+// so each carries the correct protocol config (explicitHttpConfig/HTTP2 vs useDownstreamProtocolConfig).
+func getGRPCExtAuthClusterName(ns, name, port string) string {
+	return "grpc:" + getClusterName(ns, name, port)
+}
+
+// getHTTPExtAuthClusterName returns the cluster name for an HTTP ext_authz backend.
+// The "http:" prefix isolates it from both regular route clusters and GRPC ext_authz clusters
+// for the same service, ensuring it always gets useDownstreamProtocolConfig regardless of
+// what other routes do with the same backend.
+func getHTTPExtAuthClusterName(ns, name, port string) string {
+	return "http:" + getClusterName(ns, name, port)
+}
+
 func getClusterServiceName(ns, name, port string) string {
 	// the name is having the format of "namespace/name:port"
 	return fmt.Sprintf("%s/%s:%s", ns, name, port)
@@ -174,6 +209,50 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 		}
 	}
 	return namespaceNamePortMap
+}
+
+// getHTTPExtAuthBackends returns deduplicated backends used as HTTP ext_authz services.
+// Each such backend needs its own protocol-specific cluster with useDownstreamProtocolConfig,
+// isolated from regular route clusters so that isGRPCService on the same service cannot
+// accidentally force HTTP/2 on the ext_authz upstream.
+func getHTTPExtAuthBackends(m *model.Model) []model.Backend {
+	seen := map[string]bool{}
+	var result []model.Backend
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			if r.ExternalAuth == nil || r.ExternalAuth.Protocol == model.ExternalAuthProtocolGRPC {
+				continue
+			}
+			be := r.ExternalAuth.Backend
+			key := getHTTPExtAuthClusterName(be.Namespace, be.Name, be.Port.GetPort())
+			if !seen[key] {
+				seen[key] = true
+				result = append(result, be)
+			}
+		}
+	}
+	return result
+}
+
+// getGRPCExtAuthBackends returns deduplicated backends used as gRPC ext_authz services.
+// Each such backend needs its own protocol-specific cluster with HTTP/2 forced.
+func getGRPCExtAuthBackends(m *model.Model) []model.Backend {
+	seen := map[string]bool{}
+	var result []model.Backend
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			if r.ExternalAuth == nil || r.ExternalAuth.Protocol != model.ExternalAuthProtocolGRPC {
+				continue
+			}
+			be := r.ExternalAuth.Backend
+			key := getGRPCExtAuthClusterName(be.Namespace, be.Name, be.Port.GetPort())
+			if !seen[key] {
+				seen[key] = true
+				result = append(result, be)
+			}
+		}
+	}
+	return result
 }
 
 // getNamespaceNamePortsMapFroTLS returns a map of namespace -> name -> ports.

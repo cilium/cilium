@@ -1,0 +1,53 @@
+- metadata:
+    creationTimestamp: null
+    name: http-app-1
+    namespace: default
+  spec:
+    parentRefs:
+    - name: my-gateway
+    rules:
+    - backendRefs:
+      - name: my-service
+        port: 8080
+      filters:
+      - type: ExternalAuth
+        externalAuth:
+          protocol: HTTP
+          backendRef:
+            name: auth-service
+            port: 9001
+          http:
+            path: /auth
+            allowedResponseHeaders:
+            - X-Auth-User
+      matches:
+      - path:
+          type: PathPrefix
+          value: /api
+    - backendRefs:
+      - name: my-service2
+        port: 9090
+      filters:
+      - type: ExternalAuth
+        externalAuth:
+          protocol: HTTP
+          backendRef:
+            name: auth-service
+            port: 9001
+          http:
+            path: /auth
+            allowedResponseHeaders:
+            - X-Auth-User
+      matches:
+      - path:
+          type: PathPrefix
+          value: /shop
+    - backendRefs:
+      - name: my-service3
+        port: 7070
+      matches:
+      - path:
+          type: PathPrefix
+          value: /public
+  status:
+    parents: null

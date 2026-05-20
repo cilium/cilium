@@ -1,0 +1,30 @@
+- metadata:
+    creationTimestamp: null
+    name: http-app-1
+    namespace: default
+  spec:
+    parentRefs:
+    - name: my-gateway
+    rules:
+    - backendRefs:
+      - name: my-service
+        port: 8080
+      filters:
+      - type: ExternalAuth
+        externalAuth:
+          protocol: HTTP
+          backendRef:
+            name: auth-service
+            port: 8888
+          http:
+            path: /auth
+            allowedHeaders:
+            - X-Custom-Token
+            allowedResponseHeaders:
+            - X-Auth-User
+      matches:
+      - path:
+          type: PathPrefix
+          value: /
+  status:
+    parents: null

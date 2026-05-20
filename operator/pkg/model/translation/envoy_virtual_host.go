@@ -13,8 +13,10 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoy_type_v3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/utils/ptr"
@@ -122,6 +124,9 @@ type VirtualHostParameter struct {
 	HostNames     []string
 	HTTPSRedirect bool
 	ListenerPort  uint32
+	// AllAuthFilters is the deduplicated list of external auth filters active on this listener.
+	// It is used to build per-route TypedPerFilterConfig entries that enable/disable each filter.
+	AllAuthFilters []*model.HTTPExternalAuthFilter
 }
 
 // desiredVirtualHost creates a new VirtualHost with the given HTTP routes, set of pre-defined params as well mutator
@@ -129,9 +134,9 @@ type VirtualHostParameter struct {
 func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) *envoy_config_route_v3.VirtualHost {
 	var routes SortableRoute
 	if param.HTTPSRedirect {
-		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch)
+		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters)
 	} else {
-		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort)
+		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters)
 	}
 
 	// This is to make sure that the Exact match is always having higher priority.
@@ -166,7 +171,7 @@ func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param V
 	return res
 }
 
-func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
@@ -193,7 +198,8 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 				hRoutes[0].QueryParamsMatch,
 				hRoutes[0].HeadersMatch,
 				hRoutes[0].Method),
-			Action: rRedirect,
+			Action:               rRedirect,
+			TypedPerFilterConfig: buildExtAuthzPerRouteConfig(nil, allAuthFilters),
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, r.GetMatchKey())
@@ -201,7 +207,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 	return routes
 }
 
-func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32) []*envoy_config_route_v3.Route {
+func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32, allAuthFilters []*model.HTTPExternalAuthFilter) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
@@ -219,7 +225,11 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		}
 
 		if len(backends) == 0 && hRoutes[0].RequestRedirect == nil {
-			routes = append(routes, envoyHTTPRouteNoBackend(hRoutes[0], hostnames, hostNameSuffixMatch))
+			noBackendRoute := envoyHTTPRouteNoBackend(hRoutes[0], hostnames, hostNameSuffixMatch)
+			if noBackendRoute != nil {
+				noBackendRoute.TypedPerFilterConfig = buildExtAuthzPerRouteConfig(hRoutes[0].ExternalAuth, allAuthFilters)
+			}
+			routes = append(routes, noBackendRoute)
 			continue
 		}
 
@@ -234,6 +244,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 			RequestHeadersToRemove:  getHeadersToRemove(hRoutes[0].RequestHeaderFilter),
 			ResponseHeadersToAdd:    getHeadersToAdd(hRoutes[0].ResponseHeaderModifier),
 			ResponseHeadersToRemove: getHeadersToRemove(hRoutes[0].ResponseHeaderModifier),
+			TypedPerFilterConfig:    buildExtAuthzPerRouteConfig(hRoutes[0].ExternalAuth, allAuthFilters),
 		}
 
 		if hRoutes[0].RequestRedirect != nil {
@@ -257,6 +268,42 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		delete(matchBackendMap, r.GetMatchKey())
 	}
 	return routes
+}
+
+// buildExtAuthzPerRouteConfig returns the TypedPerFilterConfig map for a route.
+// For each ext_authz filter active on the listener:
+//   - If this route's ExternalAuth uses that filter's cluster: no entry (enabled by default).
+//   - Otherwise: disabled via ExtAuthzPerRoute{Disabled: true}.
+//
+// Returns nil when there are no auth filters on the listener (avoids allocations on the common path).
+func buildExtAuthzPerRouteConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFilters []*model.HTTPExternalAuthFilter) map[string]*anypb.Any {
+	if len(allAuthFilters) == 0 {
+		return nil
+	}
+
+	var activeKey string
+	if routeAuth != nil {
+		activeKey = extAuthzFilterKey(routeAuth)
+	}
+
+	config := make(map[string]*anypb.Any, len(allAuthFilters))
+	for _, af := range allAuthFilters {
+		filterKey := extAuthzFilterKey(af)
+		filterName := ExtAuthzFilterName(filterKey)
+		if filterKey == activeKey {
+			// This filter is enabled for this route; no per-route override needed.
+			continue
+		}
+		// Disable this filter for this route.
+		disabled := toAny(&extauthzv3.ExtAuthzPerRoute{
+			Override: &extauthzv3.ExtAuthzPerRoute_Disabled{Disabled: true},
+		})
+		config[filterName] = disabled
+	}
+	if len(config) == 0 {
+		return nil
+	}
+	return config
 }
 
 type routeActionMutation func(*envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route
