@@ -87,6 +87,23 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 #define ctx_redirect mock_ctx_redirect
 #define ctx_redirect_peer mock_ctx_redirect_peer
 
+/* Override ctx_get_ingress_ifindex so should_redirect_peer() and the
+ * enforce-at-source guard in local_delivery() see a realistic value.
+ * cil_from_host runs on TC ingress of a host device, so the kernel populates
+ * skb->ingress_ifindex (> 0). BPF_PROG_TEST_RUN leaves it at 0 on synthetic
+ * skbs, which would misrepresent the from_host path and, on netkit, hide the
+ * double policy-enforcement regression this test guards against: with
+ * ingress_ifindex > 0 the enforce-at-source block must be taken on netkit too
+ * (the !enable_netkit || ingress_ifindex > 0 arm), so we do a single plain
+ * redirect() and skip the policy tail-call instead of doing both.
+ */
+#define ctx_get_ingress_ifindex mock_ctx_get_ingress_ifindex
+static __always_inline __maybe_unused __u32
+mock_ctx_get_ingress_ifindex(const struct __sk_buff *ctx __maybe_unused)
+{
+	return TEST_HOST_IFACE;
+}
+
 /* Load the appropriate BPF programs. */
 #include "lib/bpf_host.h"
 
@@ -123,9 +140,13 @@ ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 #endif
 
-/* Source identity so we can validate skb mark. */
+/* Source identity so we can validate skb mark. With ingress_ifindex > 0 the
+ * enforce-at-source block runs whenever endpoint routes are enabled, on both
+ * veth and netkit, stamping the identity mark. (Without it, only the policy
+ * tail-call runs and the mark stays 0.)
+ */
 #define TEST_SRC_IDENTITY 0xCAFE
-#if !defined(__CONFIG_ENABLE_NETKIT) && defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
+#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
 #define TEST_SKB_MARK (__u32)((TEST_SRC_IDENTITY << 16) | MARK_MAGIC_IDENTITY)
 #else
 #define TEST_SKB_MARK (__u32)0x0
@@ -190,9 +211,13 @@ int tc_redirect_host_ipv4_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_redirect_host_ipv4")
 int tc_redirect_host_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-#ifdef __CONFIG_ENABLE_NETKIT
-	const unsigned int expected[RECORD__MAX] = {1, 1, 0};
-#elif !defined(__CONFIG_ENABLE_NETKIT) && defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
+#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
+	/* from_host + ingress_ifindex > 0: the enforce-at-source block is taken
+	 * on both veth and netkit, so a single plain redirect() and no policy
+	 * tail-call. On netkit this is the regression guard for 210b5866e0: the
+	 * !enable_netkit guard alone would fall through to the tail-call AND
+	 * plain redirect, double-enforcing ingress policy.
+	 */
 	const unsigned int expected[RECORD__MAX] = {0, 1, 0};
 #else
 	const unsigned int expected[RECORD__MAX] = {1, 1, 0};
@@ -300,9 +325,11 @@ int tc_redirect_host_ipv6_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_redirect_host_ipv6")
 int tc_redirect_host_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-#ifdef __CONFIG_ENABLE_NETKIT
-	const unsigned int expected[RECORD__MAX] = {1, 1, 0};
-#elif defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
+#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
+	/* See tc_redirect_host_ipv4_check: enforce-at-source on both drivers,
+	 * single plain redirect(), no policy tail-call. Regression guard for
+	 * netkit double policy enforcement (210b5866e0).
+	 */
 	const unsigned int expected[RECORD__MAX] = {0, 1, 0};
 #else
 	const unsigned int expected[RECORD__MAX] = {1, 1, 0};
