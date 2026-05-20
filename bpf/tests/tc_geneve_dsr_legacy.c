@@ -6,7 +6,8 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4
+#define ENABLE_IPV4		1
+#define ENABLE_IPV6		1
 
 #define ENABLE_NODEPORT 1
 #define ENABLE_DSR 1
@@ -19,13 +20,13 @@
 
 #define FRONTEND_PORT		__bpf_htons(80)
 
-#define CLIENT_IP v4_pod_one
-#define CLIENT_PORT __bpf_htons(111)
+#define CLIENT_IP		v4_ext_one
+#define CLIENT_IPV6		{ .addr = v6_ext_node_one_addr }
+#define CLIENT_PORT		__bpf_htons(111)
 
-#define BACKEND_IP		v4_pod_two
+#define BACKEND_IP		v4_pod_one
+#define BACKEND_IPV6		{ .addr = v6_pod_one_addr }
 #define BACKEND_PORT		__bpf_htons(8080)
-
-#define NODE_IP v4_node_one
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *server_mac = mac_two;
@@ -43,9 +44,17 @@ int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 			    void *opt, __u32 size)
 {
-	struct geneve_dsr_opt4 *gopt = opt;
+	if (size == sizeof(struct geneve_dsr_opt4)) {
+		struct geneve_dsr_opt4 *gopt = opt;
 
-	set_geneve_dsr_opt4(FRONTEND_PORT, 0, gopt);
+		set_geneve_dsr_opt4(FRONTEND_PORT, 0, gopt);
+	} else {
+		struct geneve_dsr_opt6 *gopt = opt;
+		union v6addr zero_addr = {};
+
+		set_geneve_dsr_opt6(FRONTEND_PORT, &zero_addr, gopt);
+	}
+
 	return size;
 }
 
@@ -121,6 +130,83 @@ int tc_geneve_dsr_v4_legacy_check(struct __ctx_buff *ctx)
 
 	/* Verify that the datapath inserted the conntrack entry */
 	ct_entry = map_lookup_elem(&cilium_ct4_global, &expected_tuple_for_ct);
+	if (!ct_entry)
+		test_fatal("No entry in conntrack map");
+
+	test_finish();
+}
+
+PKTGEN("tc", "tc_geneve_dsr_v6_legacy")
+int tc_geneve_dsr_v6_legacy_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+	union v6addr client_ip = CLIENT_IPV6;
+	union v6addr backend_ip = BACKEND_IPV6;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)server_mac,
+					  (__u8 *)&client_ip, (__u8 *)&backend_ip,
+					  CLIENT_PORT, BACKEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_geneve_dsr_v6_legacy")
+int tc_geneve_dsr_v6_legacy_setup(struct __ctx_buff *ctx)
+{
+	union v6addr backend_ip = BACKEND_IPV6;
+
+	endpoint_v6_add_entry(&backend_ip, 0, 0, 0, 0, NULL, NULL);
+
+	return overlay_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_geneve_dsr_v6_legacy")
+int tc_geneve_dsr_v6_legacy_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ct_entry *ct_entry;
+
+	union v6addr backend_ip = BACKEND_IPV6;
+	union v6addr client_ip  = CLIENT_IPV6;
+	struct ipv6_ct_tuple expected_tuple_for_ct = {
+		.saddr   = backend_ip,
+		.daddr   = client_ip,
+		.sport   = CLIENT_PORT,
+		.dport   = BACKEND_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags   = TUPLE_F_OUT,
+	};
+
+	test_init();
+
+	data      = (void *)(long)ctx_data(ctx);
+	data_end  = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	/* Packet must be passed to the kernel stack */
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	/* Verify that the datapath inserted the conntrack entry */
+	ct_entry = map_lookup_elem(&cilium_ct6_global, &expected_tuple_for_ct);
 	if (!ct_entry)
 		test_fatal("No entry in conntrack map");
 
