@@ -306,7 +306,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _Prerequisites: https://docs.cilium.io/en/stable/operations/system_requirements/
 .. _eBPF: https://ebpf.io
 .. _eBPF.io: https://ebpf.io
-.. _Meeting Notes and Zoom Info: https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#
+.. _Meeting Notes and Zoom Info: https://docs.google.com/document/d/1IqLRvTvnK5SQ1SMM8g8R_k2TeeRUwWmOYqjYWZs6MiM/edit#
 .. _APAC Meeting Notes and Zoom Info: https://docs.google.com/document/d/1egv4qLydr0geP-GjQexYKm4tz3_tHy-LCBjVQcXcT5M/edit#
 
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
