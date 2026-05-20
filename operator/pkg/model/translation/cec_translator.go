@@ -187,12 +187,14 @@ func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, 
 func (i *cecTranslator) desiredResources(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	var res []ciliumv2.XDSResource
 
-	listener, err := i.desiredEnvoyListener(m)
+	allAuthFilters := i.getUniqueAuthFilters(m)
+
+	listener, err := i.desiredEnvoyListener(m, allAuthFilters)
 	if err != nil {
 		return nil, err
 	}
 
-	httpRoutes, err := i.desiredEnvoyHTTPRouteConfiguration(m)
+	httpRoutes, err := i.desiredEnvoyHTTPRouteConfiguration(m, allAuthFilters)
 	if err != nil {
 		return nil, err
 	}
@@ -270,6 +272,14 @@ func getTLSOrigination(m *model.Model, ns string, name string, port string) *mod
 					}
 				}
 			}
+			if r.ExternalAuth != nil {
+				be := r.ExternalAuth.Backend
+				if be.Name == name && be.Namespace == ns && be.Port != nil && be.Port.GetPort() == port {
+					if be.TLS != nil {
+						return be.TLS
+					}
+				}
+			}
 		}
 	}
 
@@ -302,6 +312,9 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 				}
 				mergeBackendsInNamespaceNamePortMap([]model.Backend{*rm.Backend}, namespaceNamePortMap)
 			}
+			if r.ExternalAuth != nil {
+				mergeBackendsInNamespaceNamePortMap([]model.Backend{r.ExternalAuth.Backend}, namespaceNamePortMap)
+			}
 		}
 	}
 
@@ -312,6 +325,28 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 	}
 
 	return namespaceNamePortMap
+}
+
+// getUniqueAuthFilters returns a deduplicated list of HTTPExternalAuthFilter from all routes.
+// Two filters are considered identical when all HCM-level config fields match (protocol, backend,
+// path prefix, forward-body size, allowed headers). Routes sharing the same backend with different
+// configs each get their own filter instance, which is enabled only for the routes that reference it.
+func (i *cecTranslator) getUniqueAuthFilters(m *model.Model) []*model.HTTPExternalAuthFilter {
+	seen := map[string]struct{}{}
+	var result []*model.HTTPExternalAuthFilter
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			if r.ExternalAuth == nil {
+				continue
+			}
+			key := extAuthzFilterKey(r.ExternalAuth)
+			if _, exists := seen[key]; !exists {
+				seen[key] = struct{}{}
+				result = append(result, r.ExternalAuth)
+			}
+		}
+	}
+	return result
 }
 
 func mergeBackendsInNamespaceNamePortMap(backends []model.Backend, namespaceNamePortMap map[string]map[string][]string) {

@@ -19,7 +19,7 @@ import (
 type RouteConfigurationMutator func(*envoy_config_route_v3.RouteConfiguration) *envoy_config_route_v3.RouteConfiguration
 
 // desiredEnvoyHTTPRouteConfiguration returns the route configuration for the given model.
-func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ciliumv2.XDSResource, error) {
+func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model, allAuthFilters []*model.HTTPExternalAuthFilter) ([]ciliumv2.XDSResource, error) {
 	var res []ciliumv2.XDSResource
 
 	type hostnameRedirect struct {
@@ -89,9 +89,10 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 			for _, h := range slices.Unique(portHostNameRedirect[secureHost]) {
 				if h.redirect {
 					vhs := i.desiredVirtualHost(hostNamePortRoutes[h.hostname][secureHost], VirtualHostParameter{
-						HostNames:     []string{h.hostname},
-						HTTPSRedirect: true,
-						ListenerPort:  m.HTTP[0].Port,
+						HostNames:      []string{h.hostname},
+						HTTPSRedirect:  true,
+						ListenerPort:   m.HTTP[0].Port,
+						AllAuthFilters: allAuthFilters,
 					})
 					virtualhosts = append(virtualhosts, vhs)
 					redirectedHost[h.hostname] = struct{}{}
@@ -109,9 +110,10 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 				continue
 			}
 			vhs := i.desiredVirtualHost(routes, VirtualHostParameter{
-				HostNames:     []string{h.hostname},
-				HTTPSRedirect: false,
-				ListenerPort:  m.HTTP[0].Port,
+				HostNames:      []string{h.hostname},
+				HTTPSRedirect:  false,
+				ListenerPort:   m.HTTP[0].Port,
+				AllAuthFilters: allAuthFilters,
 			})
 			virtualhosts = append(virtualhosts, vhs)
 		}

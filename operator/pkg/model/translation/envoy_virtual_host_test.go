@@ -12,9 +12,11 @@ import (
 	"time"
 
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -685,7 +687,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
 		require.Len(t, res, 2)
 		// Redirect Route
 		require.NotNil(t, res[0])
@@ -705,4 +707,94 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.NotNil(t, res[1].GetRoute())
 		require.Equal(t, "default:backend:31337", res[1].GetRoute().GetCluster())
 	})
+}
+
+// Test_envoyHTTPSRoutes_disablesExtAuthzFilters verifies that HTTPS redirect routes
+// explicitly disable any ext_authz filters present on the listener. Without this,
+// redirect routes on a mixed listener inherit auth enforcement, which is incorrect.
+func Test_envoyHTTPSRoutes_disablesExtAuthzFilters(t *testing.T) {
+	authFilters := []*model.HTTPExternalAuthFilter{
+		{Backend: model.Backend{Name: "authz", Namespace: "ns", Port: &model.BackendPort{Port: 9000}}, Protocol: model.ExternalAuthProtocolGRPC},
+	}
+	routes := []model.HTTPRoute{
+		{PathMatch: model.StringMatch{Prefix: "/"}},
+	}
+
+	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, authFilters)
+	require.Len(t, result, 1)
+
+	// The redirect route must disable all auth filters so that redirect requests
+	// are not sent to the auth server before being redirected.
+	require.NotNil(t, result[0].TypedPerFilterConfig, "HTTPS redirect route must have TypedPerFilterConfig to disable ext_authz filters")
+	filterName := ExtAuthzFilterName("GRPC:ns:authz:9000")
+	entry, ok := result[0].TypedPerFilterConfig[filterName]
+	require.True(t, ok, "expected ext_authz filter to be disabled on redirect route")
+	perRoute := &extauthzv3.ExtAuthzPerRoute{}
+	require.NoError(t, proto.Unmarshal(entry.Value, perRoute))
+	require.True(t, perRoute.GetDisabled())
+}
+
+// Test_envoyHTTPRoutes_differentAuthFilters verifies that two routes with identical
+// path matches but different ExternalAuth backends are not merged. Without ExternalAuth
+// in the match key, only hRoutes[0]'s auth config would survive the merge.
+func Test_envoyHTTPRoutes_differentAuthFilters(t *testing.T) {
+	authA := &model.HTTPExternalAuthFilter{
+		Backend:  model.Backend{Name: "authz-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
+		Protocol: model.ExternalAuthProtocolGRPC,
+	}
+	authB := &model.HTTPExternalAuthFilter{
+		Backend:  model.Backend{Name: "authz-b", Namespace: "ns", Port: &model.BackendPort{Port: 9001}},
+		Protocol: model.ExternalAuthProtocolGRPC,
+	}
+	allAuthFilters := []*model.HTTPExternalAuthFilter{authA, authB}
+
+	httpRoutes := []model.HTTPRoute{
+		{
+			PathMatch:    model.StringMatch{Prefix: "/"},
+			ExternalAuth: authA,
+			Backends: []model.Backend{
+				{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 80}},
+			},
+		},
+		{
+			PathMatch:    model.StringMatch{Prefix: "/"},
+			ExternalAuth: authB,
+			Backends: []model.Backend{
+				{Name: "svc-b", Namespace: "ns", Port: &model.BackendPort{Port: 80}},
+			},
+		},
+	}
+
+	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, allAuthFilters)
+	require.Len(t, res, 2, "routes with different auth filters must not be merged")
+
+	filterNameA := ExtAuthzFilterName(extAuthzFilterKey(authA))
+	filterNameB := ExtAuthzFilterName(extAuthzFilterKey(authB))
+
+	// First route uses authA — authB must be disabled on it, authA must not appear (enabled by default).
+	cfgA := res[0].TypedPerFilterConfig
+	require.NotNil(t, cfgA)
+	_, hasA := cfgA[filterNameA]
+	require.False(t, hasA, "authA filter must be active (not disabled) on route 0")
+	perRouteB0 := &extauthzv3.ExtAuthzPerRoute{}
+	require.NoError(t, proto.Unmarshal(cfgA[filterNameB].Value, perRouteB0))
+	require.True(t, perRouteB0.GetDisabled(), "authB filter must be disabled on route 0")
+
+	// Second route uses authB — authA must be disabled on it, authB must not appear (enabled by default).
+	cfgB := res[1].TypedPerFilterConfig
+	require.NotNil(t, cfgB)
+	perRouteA1 := &extauthzv3.ExtAuthzPerRoute{}
+	require.NoError(t, proto.Unmarshal(cfgB[filterNameA].Value, perRouteA1))
+	require.True(t, perRouteA1.GetDisabled(), "authA filter must be disabled on route 1")
+	_, hasB := cfgB[filterNameB]
+	require.False(t, hasB, "authB filter must be active (not disabled) on route 1")
+}
+
+func Test_envoyHTTPSRoutes_noAuthFilters(t *testing.T) {
+	routes := []model.HTTPRoute{
+		{PathMatch: model.StringMatch{Prefix: "/"}},
+	}
+	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, nil)
+	require.Len(t, result, 1)
+	require.Nil(t, result[0].TypedPerFilterConfig, "redirect route must not set TypedPerFilterConfig when there are no auth filters")
 }

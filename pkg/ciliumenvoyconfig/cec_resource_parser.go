@@ -18,6 +18,7 @@ import (
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	envoy_config_healthcheck "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -812,6 +813,28 @@ func qualifyHttpFilters(cecNamespace string, cecName string, hcmConfig *envoy_co
 				if updated {
 					httpFilterConfig.ClusterMinHealthyPercentages = clusters
 					h.TypedConfig = toAny(httpFilterConfig)
+				}
+			case *extauthzv3.ExtAuthz:
+				var nameUpdated bool
+				switch svc := httpFilterConfig.Services.(type) {
+				case *extauthzv3.ExtAuthz_GrpcService:
+					if eg := svc.GrpcService.GetEnvoyGrpc(); eg != nil {
+						eg.ClusterName, nameUpdated = api.ResourceQualifiedName(cecNamespace, cecName, eg.ClusterName)
+						if nameUpdated {
+							updated = true
+							h.TypedConfig = toAny(httpFilterConfig)
+						}
+					}
+				case *extauthzv3.ExtAuthz_HttpService:
+					if uri := svc.HttpService.GetServerUri(); uri != nil {
+						if cluster, ok := uri.HttpUpstreamType.(*envoy_config_core.HttpUri_Cluster); ok {
+							cluster.Cluster, nameUpdated = api.ResourceQualifiedName(cecNamespace, cecName, cluster.Cluster)
+							if nameUpdated {
+								updated = true
+								h.TypedConfig = toAny(httpFilterConfig)
+							}
+						}
+					}
 				}
 			}
 		}

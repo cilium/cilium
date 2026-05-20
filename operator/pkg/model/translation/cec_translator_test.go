@@ -277,7 +277,7 @@ func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 				},
 			},
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 
@@ -311,7 +311,7 @@ func TestSharedIngressTranslator_getListener(t *testing.T) {
 				},
 			},
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 
@@ -473,8 +473,8 @@ func TestGetEnvoyHTTPRouteConfiguration_VirtualHostSorted(t *testing.T) {
 		},
 	}
 
-	res1, err1 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l1})
-	res2, err2 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l2})
+	res1, err1 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l1}, nil)
+	res2, err2 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l2}, nil)
 	require.NoError(t, err1)
 	require.NoError(t, err2)
 
@@ -558,7 +558,7 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := defT.desiredEnvoyHTTPRouteConfiguration(tt.args.m)
+			res, err := defT.desiredEnvoyHTTPRouteConfiguration(tt.args.m, nil)
 			require.NoError(t, err)
 			require.Len(t, res, len(tt.expectedRouteConfigs), "Number of Listeners did not match")
 
@@ -754,4 +754,40 @@ func TestSharedIngressTranslator_getResources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_getUniqueAuthFilters(t *testing.T) {
+	backend := model.Backend{Name: "authz", Namespace: "ns", Port: &model.BackendPort{Port: 9000}}
+	i := &cecTranslator{}
+
+	t.Run("same backend same config deduplicates to one filter", func(t *testing.T) {
+		af := &model.HTTPExternalAuthFilter{Backend: backend, Protocol: model.ExternalAuthProtocolHTTP, PathPrefix: "/check"}
+		m := &model.Model{HTTP: []model.HTTPListener{{Routes: []model.HTTPRoute{
+			{ExternalAuth: af},
+			{ExternalAuth: af},
+		}}}}
+		result := i.getUniqueAuthFilters(m)
+		require.Len(t, result, 1)
+	})
+
+	t.Run("same backend different config produces separate filter instances", func(t *testing.T) {
+		afA := &model.HTTPExternalAuthFilter{Backend: backend, Protocol: model.ExternalAuthProtocolHTTP, PathPrefix: "/check"}
+		afB := &model.HTTPExternalAuthFilter{Backend: backend, Protocol: model.ExternalAuthProtocolHTTP, PathPrefix: "/verify"}
+		m := &model.Model{HTTP: []model.HTTPListener{{Routes: []model.HTTPRoute{
+			{ExternalAuth: afA},
+			{ExternalAuth: afB},
+		}}}}
+		result := i.getUniqueAuthFilters(m)
+		require.Len(t, result, 2)
+	})
+
+	t.Run("routes without auth are skipped", func(t *testing.T) {
+		af := &model.HTTPExternalAuthFilter{Backend: backend, Protocol: model.ExternalAuthProtocolGRPC}
+		m := &model.Model{HTTP: []model.HTTPListener{{Routes: []model.HTTPRoute{
+			{ExternalAuth: nil},
+			{ExternalAuth: af},
+		}}}}
+		result := i.getUniqueAuthFilters(m)
+		require.Len(t, result, 1)
+	})
 }
