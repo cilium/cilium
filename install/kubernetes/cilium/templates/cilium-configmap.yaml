@@ -903,6 +903,9 @@ data:
 {{- if hasKey .Values.loadBalancer "serviceTopology" }}
   enable-service-topology: {{ .Values.loadBalancer.serviceTopology | quote }}
 {{- end }}
+{{- if hasKey .Values.loadBalancer "reflectorWaitTime" }}
+  lb-reflector-wait-time: {{ .Values.loadBalancer.reflectorWaitTime | quote }}
+{{- end }}
 {{- end }}
 
 {{- if hasKey .Values.maglev "tableSize" }}
