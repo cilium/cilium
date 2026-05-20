@@ -3059,15 +3059,15 @@
    * - :spelling:ignore:`l2podAnnouncements`
      - Configure L2 pod announcements
      - object
-     - ``{"enabled":false,"interface":"eth0"}``
+     - ``{"enabled":false,"interfacePattern":""}``
    * - :spelling:ignore:`l2podAnnouncements.enabled`
      - Enable L2 pod announcements
      - bool
      - ``false``
-   * - :spelling:ignore:`l2podAnnouncements.interface`
-     - Interface used for sending Gratuitous ARP pod announcements
+   * - :spelling:ignore:`l2podAnnouncements.interfacePattern`
+     - A regular expression matching interfaces used for sending Gratuitous ARP pod announcements
      - string
-     - ``"eth0"``
+     - ``""``
    * - :spelling:ignore:`l7Proxy`
      - Enable Layer 7 network policy.
      - bool
