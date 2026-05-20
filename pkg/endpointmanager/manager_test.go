@@ -48,8 +48,12 @@ func makeTestEndpointParams(logger *slog.Logger, repo policy.PolicyRepository) e
 }
 
 func (mgr *endpointManager) waitEndpointRemoved(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	isRestored := ep.GetState() == endpoint.StateRestoring
 	mgr.unexpose(ep)
 	ep.Stop()
+	if !isRestored {
+		mgr.releaseID(ep)
+	}
 	return nil
 }
 
