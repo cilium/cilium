@@ -532,8 +532,19 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 
 func (m *multiPoolManager) restoreFinished(family Family) {
 	m.poolsMutex.Lock()
+	defer m.poolsMutex.Unlock()
+
 	m.finishedRestore[family] = true
-	m.poolsMutex.Unlock()
+
+	// Trigger update to k8s to recalculate and synchronize requested addresses in CiliumNode
+	// .Spec.IPAM.Pools.Requested with the actual need after restore is finished.
+	if m.ipv4Enabled && !m.finishedRestore[IPv4] {
+		return
+	}
+	if m.ipv6Enabled && !m.finishedRestore[IPv6] {
+		return
+	}
+	m.k8sUpdater.Trigger()
 }
 
 func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
