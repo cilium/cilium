@@ -833,9 +833,9 @@ contributors across the globe, there is almost always someone available to help.
 | l2NeighDiscovery.enabled | bool | `false` | Enable L2 neighbor discovery in the agent |
 | l2announcements | object | `{"enabled":false}` | Configure L2 announcements |
 | l2announcements.enabled | bool | `false` | Enable L2 announcements |
-| l2podAnnouncements | object | `{"enabled":false,"interface":"eth0"}` | Configure L2 pod announcements |
+| l2podAnnouncements | object | `{"enabled":false,"interfacePattern":""}` | Configure L2 pod announcements |
 | l2podAnnouncements.enabled | bool | `false` | Enable L2 pod announcements |
-| l2podAnnouncements.interface | string | `"eth0"` | Interface used for sending Gratuitous ARP pod announcements |
+| l2podAnnouncements.interfacePattern | string | `""` | A regular expression matching interfaces used for sending Gratuitous ARP pod announcements |
 | l7Proxy | bool | `true` | Enable Layer 7 network policy. |
 | livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
