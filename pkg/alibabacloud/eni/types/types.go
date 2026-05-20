@@ -141,7 +141,7 @@ func (e *ENI) ForeachAddress(id string, fn types.AddressIterator) error {
 		if address.Primary {
 			continue
 		}
-		if err := fn(id, e.NetworkInterfaceID, address.PrivateIpAddress, "", address); err != nil {
+		if err := fn(id, e.NetworkInterfaceID, address.PrivateIpAddress, address); err != nil {
 			return err
 		}
 	}

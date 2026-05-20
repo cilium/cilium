@@ -181,7 +181,7 @@ func (e *ENI) InterfaceID() string {
 // ForeachAddress iterates over all addresses and calls fn
 func (e *ENI) ForeachAddress(id string, fn types.AddressIterator) error {
 	for _, address := range e.Addresses {
-		if err := fn(id, e.ID, address, "", address); err != nil {
+		if err := fn(id, e.ID, address, address); err != nil {
 			return err
 		}
 	}
