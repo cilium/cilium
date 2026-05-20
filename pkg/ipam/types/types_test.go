@@ -43,9 +43,9 @@ func (m *mockInterface) InterfaceID() string {
 }
 
 func (m *mockInterface) ForeachAddress(instanceID string, fn AddressIterator) error {
-	for poolID, ips := range m.pools {
+	for _, ips := range m.pools {
 		for _, ip := range ips {
-			if err := fn(instanceID, m.id, ip.String(), poolID, ip); err != nil {
+			if err := fn(instanceID, m.id, ip.String(), ip); err != nil {
 				return err
 			}
 		}
@@ -71,7 +71,7 @@ func TestForeachAddresses(t *testing.T) {
 
 	// Iterate over all instances
 	addresses := 0
-	m.ForeachAddress("", func(instanceID, interfaceID, ip, poolID string, address Address) error {
+	m.ForeachAddress("", func(instanceID, interfaceID, ip string, address Address) error {
 		_, ok := address.(net.IP)
 		require.True(t, ok)
 		addresses++
@@ -81,7 +81,7 @@ func TestForeachAddresses(t *testing.T) {
 
 	// Iterate over "i-1"
 	addresses = 0
-	m.ForeachAddress("i-1", func(instanceID, interfaceID, ip, poolID string, address Address) error {
+	m.ForeachAddress("i-1", func(instanceID, interfaceID, ip string, address Address) error {
 		addresses++
 		return nil
 	})

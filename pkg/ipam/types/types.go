@@ -552,7 +552,7 @@ func (m *InstanceMap) updateLocked(instanceID string, iface Interface) {
 type Address any
 
 // AddressIterator is the function called by the ForeachAddress iterator
-type AddressIterator func(instanceID, interfaceID, ip, poolID string, address Address) error
+type AddressIterator func(instanceID, interfaceID, ip string, address Address) error
 
 func foreachAddress(instanceID string, instance *Instance, fn AddressIterator) error {
 	for _, iface := range instance.Interfaces {
