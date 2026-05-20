@@ -802,11 +802,8 @@ func TestEnvoyNACK(t *testing.T) {
 	err = s.waitForProxyCompletion()
 	require.Error(t, err)
 	require.True(t, cbCalled)
-	require.Equal(t, err, cbErr)
-	var proxyErr *xds.ProxyError
-	require.ErrorAs(t, err, &proxyErr)
-	require.Equal(t, xds.ErrNackReceived, proxyErr.Err)
-	require.Contains(t, proxyErr.Detail, "listener:22: cannot bind")
+	require.ErrorIs(t, err, cbErr)
+	require.EqualValues(t, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '127.0.0.1:22': Address already in use\n"}, err)
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// Remove listener1
