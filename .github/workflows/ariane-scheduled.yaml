@@ -41,7 +41,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          HOUR=$(date -u +"%H")
+          echo "Current date time: $(date --utc --rfc-3339=seconds)"
+
+          HOUR=$(date --utc +"%-H")
           if (( HOUR % 6 == ${{ matrix.hourModulo }} )); then
             echo "Running scheduled workflows for branch ${{ matrix.branch }}"
           else
