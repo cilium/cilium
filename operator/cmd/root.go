@@ -68,6 +68,7 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	hiveHealth "github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -95,6 +96,13 @@ var (
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.EnableGops, defaults.GopsPortOperator),
+
+		// Provides the 'health/history' command. The health history logs are stored
+		// in the state directory.
+		hiveHealth.HistoryCell,
+		cell.ProvidePrivate(func(cfg *option.DaemonConfig) hiveHealth.HistoryDir {
+			return hiveHealth.HistoryDir(filepath.Join(defaults.RuntimePath, defaults.StateDir))
+		}),
 
 		// Provides a Kubernetes client and ClientBuilderFunc that can be used by other cells to create a client.
 		client.Cell,

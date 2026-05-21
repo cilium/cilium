@@ -38,6 +38,12 @@ func Test_Metrics(t *testing.T) {
 
 		cell.ProvidePrivate(newTablesPrivate),
 		cell.Provide(
+			newHealthHistory,
+			func() HistoryDir {
+				return HistoryDir(t.TempDir())
+			},
+		),
+		cell.Provide(
 			newHealthV2Provider,
 			statedb.RWTable[types.Status].ToTable,
 		),
