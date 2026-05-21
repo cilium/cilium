@@ -1,3 +1,12 @@
+
+# Test history against the state inserted in [cmd_test.go].
+health/history --output=history
+cmp history.expected.txt history
+
+# From here on test the 'health' command with direct modifications
+# to health table.
+# Health not OK as there's a non-closed degraded entry
+! health/ok 
 db/insert health allok.yaml
 
 # Should be all ok
@@ -27,9 +36,9 @@ cmp degraded.expected.txt out
 id:
     module:
         - agent
-        - m0
+        - m2
     component:
-        - c0
+        - degraded
 level: OK
 message: ok
 error: ""
@@ -83,8 +92,10 @@ agent
 ├── m0
 │   ├── c0                                          [OK] ok
 │   └── c1                                          [DEGRADED] no!
-└── m1
-    └── c1                                          [OK] yay
+├── m1
+│   └── c1                                          [OK] yay
+└── m2
+    └── degraded                                    [OK] ok
 
 -- m0.expected.txt --
 agent
@@ -97,3 +108,9 @@ agent
 └── m0
     └── c1                                          [DEGRADED] no!
 
+-- history.expected.txt --
+1970-01-01T00:00:01Z | Degraded         | agent.m2.degraded-closed: broken | err2
+1970-01-01T00:00:01Z | Closed(Degraded) | agent.m2.degraded-closed: broken | err2
+1970-01-01T00:00:01Z | Degraded         | agent.m2.degraded: broken | err2
+1970-01-01T00:00:01Z | Closed(OK)       | agent.m3.done: finished
+1970-01-01T00:00:01Z | Stopped          | agent.m4.stopped: now stopped
