@@ -485,6 +485,8 @@ Makefile* @cilium/build
 /examples/kubernetes-egress-gateway/ @cilium/egress-gateway
 /examples/kubernetes/ @cilium/sig-k8s
 /examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
+/examples/kubernetes/gateway/ @cilium/sig-servicemesh
+/examples/kubernetes/servicemesh/ @cilium/sig-servicemesh
 /examples/minikube/ @cilium/sig-k8s
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /hack/ @cilium/contributing

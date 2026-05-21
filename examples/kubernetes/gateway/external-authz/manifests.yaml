@@ -1,0 +1,232 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-external-authz-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ext-authz-test
+  namespace: gateway-external-authz-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ext-authz-test
+  template:
+    metadata:
+      labels:
+        app: ext-authz-test
+    spec:
+      containers:
+      - name: auth-service
+        image: external-authz-test:dev
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: grpc
+          containerPort: 9000
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: gateway-external-authz-demo
+spec:
+  selector:
+    app: ext-authz-test
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  - name: grpc
+    port: 9000
+    targetPort: grpc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+  namespace: gateway-external-authz-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo
+  template:
+    metadata:
+      labels:
+        app: echo
+    spec:
+      containers:
+      - name: echo
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: gateway-external-authz-demo
+spec:
+  selector:
+    app: echo
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ext-authz-gateway
+  namespace: gateway-external-authz-demo
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - name: web
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ext-authz-http
+  namespace: gateway-external-authz-demo
+spec:
+  parentRefs:
+  - name: ext-authz-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /http-auth
+    filters:
+    - type: ExternalAuth
+      externalAuth:
+        protocol: HTTP
+        backendRef:
+          name: auth-service
+          port: 8080
+        http:
+          path: /check
+          allowedResponseHeaders:
+          - X-Test-Authz
+    backendRefs:
+    - name: echo
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ext-authz-http-shared
+  namespace: gateway-external-authz-demo
+spec:
+  parentRefs:
+  - name: ext-authz-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /http-auth-shared
+    filters:
+    - type: ExternalAuth
+      externalAuth:
+        protocol: HTTP
+        backendRef:
+          name: auth-service
+          port: 8080
+        http:
+          path: /check
+          allowedResponseHeaders:
+          - X-Test-Authz
+    backendRefs:
+    - name: echo
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ext-authz-http-variant
+  namespace: gateway-external-authz-demo
+spec:
+  parentRefs:
+  - name: ext-authz-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /http-auth-variant
+    filters:
+    - type: ExternalAuth
+      externalAuth:
+        protocol: HTTP
+        backendRef:
+          name: auth-service
+          port: 8080
+        http:
+          path: /variant-check
+          allowedHeaders:
+          - X-Debug-Token
+          allowedResponseHeaders:
+          - X-Test-Authz
+    backendRefs:
+    - name: echo
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ext-authz-grpc
+  namespace: gateway-external-authz-demo
+spec:
+  parentRefs:
+  - name: ext-authz-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /grpc-auth
+    filters:
+    - type: ExternalAuth
+      externalAuth:
+        protocol: GRPC
+        backendRef:
+          name: auth-service
+          port: 9000
+        grpc: {}
+    backendRefs:
+    - name: echo
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: no-auth
+  namespace: gateway-external-authz-demo
+spec:
+  parentRefs:
+  - name: ext-authz-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /no-auth
+    backendRefs:
+    - name: echo
+      port: 8080
