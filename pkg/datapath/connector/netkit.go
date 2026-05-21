@@ -61,6 +61,8 @@ func setupNetkitPair(defaultLogger *slog.Logger, cfg LinkConfig, l2Mode bool, sy
 		// Ensure that packets leaving the pod's networking namespace are
 		// scrubbed.
 		PeerScrub: netlink.NETKIT_SCRUB_DEFAULT,
+		// Delay device switch to allow for L7 redirect.
+		DevSwitch: netlink.NETKIT_DEV_SWITCH_AFTER,
 		// Configure the headroom and tailroom, which should be calculated to
 		// appropriate values by the agent, taking into account things like
 		// tunneling and encryption.

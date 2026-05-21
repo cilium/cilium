@@ -411,6 +411,13 @@ const (
 	NETKIT_SCRUB_DEFAULT NetkitScrub = 1
 )
 
+type NetkitDevSwitch int
+
+const (
+	NETKIT_DEV_SWITCH_BEFORE NetkitDevSwitch = 0
+	NETKIT_DEV_SWITCH_AFTER  NetkitDevSwitch = 1
+)
+
 func (n *Netkit) IsPrimary() bool {
 	return n.isPrimary
 }
@@ -427,10 +434,12 @@ type Netkit struct {
 	PeerPolicy      NetkitPolicy
 	Scrub           NetkitScrub
 	PeerScrub       NetkitScrub
+	DevSwitch       NetkitDevSwitch
 	DesiredHeadroom uint16 // Named due to presence of Headroom in LinkAttrs
 	DesiredTailroom uint16 // Named due to presence of Tailroom in LinkAttrs
-	supportsScrub   bool
-	isPrimary       bool
+	supportsScrub     bool
+	supportsDevSwitch bool
+	isPrimary         bool
 	peerLinkAttrs   LinkAttrs
 }
 
@@ -445,6 +454,11 @@ func (n *Netkit) Type() string {
 func (n *Netkit) SupportsScrub() bool {
 	return n.supportsScrub
 }
+
+func (n *Netkit) SsupportsDevSwitch() bool {
+	return n.supportsDevSwitch
+}
+
 
 // Veth devices must specify PeerName on create
 type Veth struct {
