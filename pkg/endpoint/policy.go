@@ -24,7 +24,6 @@ import (
 	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/identity"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -37,7 +36,6 @@ import (
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -67,16 +65,11 @@ func (e *Endpoint) GetIngressNamedPort(name string, proto u8proto.U8proto) uint1
 	return port
 }
 
-// GetEgressNamedPorts returns destination ports for the given name scoped to destIdentities.
-func (e *Endpoint) GetEgressNamedPorts(name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) types.NidPortSeq {
-	return e.namedPortsGetter.GetNamedPorts().GetNamedPorts(name, proto, destIdentities)
-}
-
 // proxyIDs returns unique strings to identify proxy mappings, and the resolved
 // destination port numbers, if any. For port ranges the proxy is identified by
 // the first port in the range, as overlapping proxy port ranges are not
 // supported. Must be called with e.mutex held.
-func (e *Endpoint) proxyIDs(l4 *policy.L4Filter, listener string, scSnapshot policy.SelectorSnapshot) iter.Seq2[string, uint16] {
+func (e *Endpoint) proxyIDs(selectorPolicy policy.SelectorPolicy, l4 *policy.L4Filter, listener string, scSnapshot policy.SelectorSnapshot) iter.Seq2[string, uint16] {
 	port := l4.Port
 
 	if port == 0 {
@@ -91,7 +84,7 @@ func (e *Endpoint) proxyIDs(l4 *policy.L4Filter, listener string, scSnapshot pol
 		} else {
 			// Egress named port with different ports for different identities.
 			return func(yield func(string, uint16) bool) {
-				for _, port := range e.GetEgressNamedPorts(l4.PortName, l4.U8Proto, l4.Identities(scSnapshot)) {
+				for _, port := range selectorPolicy.GetEgressNamedPorts(l4.PortName, l4.U8Proto, l4.Identities(scSnapshot)) {
 					if !yield(policy.ProxyID(e.ID, false, string(l4.Protocol), port, listener), port) {
 						return
 					}

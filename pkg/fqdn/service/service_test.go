@@ -43,6 +43,8 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/time"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
 )
@@ -722,6 +724,10 @@ type testSelectorPolicy struct {
 
 func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
 	return nil
+}
+
+func (sp *testSelectorPolicy) GetEgressNamedPorts(name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) ciliumTypes.NidPortSeq {
+	return ciliumTypes.EmptyNidPortSeq
 }
 
 func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {

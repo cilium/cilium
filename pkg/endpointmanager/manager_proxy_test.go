@@ -33,7 +33,6 @@ import (
 	proxyendpoint "github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
@@ -239,16 +238,15 @@ func newUpdatePolicyMapsTestEndpoint(t *testing.T, mgr *endpointManager, repo po
 
 	model := newTestEndpointModel(modelID, endpoint.StateWaitingForIdentity)
 	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
-		Logger:           hivetest.Logger(t),
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		Orchestrator:     &fakeendpoint.FakeOrchestrator{},
-		PolicyRepo:       repo,
-		IdentityManager:  idmgr,
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeipsec.Config{},
-		WgConfig:         &fakewireguard.Config{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
+		Logger:          hivetest.Logger(t),
+		EPBuildQueue:    &endpoint.MockEndpointBuildQueue{},
+		Orchestrator:    &fakeendpoint.FakeOrchestrator{},
+		PolicyRepo:      repo,
+		IdentityManager: idmgr,
+		IPSecConfig:     fakeipsec.Config{},
+		WgConfig:        &fakewireguard.Config{},
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
 		KVStoreSynchronizer: ipcache.NewIPIdentitySynchronizer(
 			hivetest.Logger(t),
 			kvstore.SetupDummy(t, kvstore.DisabledBackendName),

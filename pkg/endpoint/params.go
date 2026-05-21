@@ -46,7 +46,6 @@ type EndpointParams struct {
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
 	WgConfig            wgTypes.Config
 	IPSecConfig         ipsec.Config
-	NamedPortsGetter    NamedPortsGetter
 	LxcMap              lxcmap.Map
 	LocalNodeStore      node.NodeGetter
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
 
@@ -50,15 +49,14 @@ func TestMarkAndSweep(t *testing.T) {
 	for _, id := range allEndpointIDs {
 		model := newTestEndpointModel(int(id), endpoint.StateReady)
 		ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
-			EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-			NamedPortsGetter: testipcache.NewMockIPCache(),
-			Allocator:        testidentity.NewMockIdentityAllocator(nil),
-			CTMapGC:          ctmap.NewFakeGCRunner(),
-			WgConfig:         &fakewireguard.Config{},
-			IPSecConfig:      fakeipsec.Config{},
-			Logger:           logger,
-			IdentityManager:  identitymanager.NewIDManager(logger),
-			PolicyRepo:       s.repo,
+			EPBuildQueue:    &endpoint.MockEndpointBuildQueue{},
+			Allocator:       testidentity.NewMockIdentityAllocator(nil),
+			CTMapGC:         ctmap.NewFakeGCRunner(),
+			WgConfig:        &fakewireguard.Config{},
+			IPSecConfig:     fakeipsec.Config{},
+			Logger:          logger,
+			IdentityManager: identitymanager.NewIDManager(logger),
+			PolicyRepo:      s.repo,
 		}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 		require.NoError(t, err)
 

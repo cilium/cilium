@@ -161,7 +161,7 @@ func (ref namedPortRef) Equal(other namedPortRef) bool {
 
 type NidPortSeq iter.Seq2[identity.NumericIdentity, uint16]
 
-func emptyNidPortSeq(func(identity.NumericIdentity, uint16) bool) {}
+func EmptyNidPortSeq(func(identity.NumericIdentity, uint16) bool) {}
 
 // NamedPortMultiMap may have multiple entries for a name if multiple PODs
 // define the same name with different values.
@@ -356,19 +356,19 @@ func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, n
 // any port defined for the name and protocol.
 func (npm *namedPortMultiMap) GetNamedPorts(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) NidPortSeq {
 	if npm == nil {
-		return emptyNidPortSeq
+		return EmptyNidPortSeq
 	}
 	if proto == u8proto.ANY {
-		return emptyNidPortSeq
+		return EmptyNidPortSeq
 	}
 	npm.RLock()
 	defer npm.RUnlock()
 	if npm.m == nil {
-		return emptyNidPortSeq
+		return EmptyNidPortSeq
 	}
 	pps, ok := npm.m[name]
 	if !ok {
-		return emptyNidPortSeq
+		return EmptyNidPortSeq
 	}
 	var resultNIDs []identity.NumericIdentity
 	var resultPorts []uint16

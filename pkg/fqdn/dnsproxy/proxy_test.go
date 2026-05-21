@@ -49,7 +49,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
@@ -173,15 +172,14 @@ func (s *DNSProxyTestSuite) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.E
 	}
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
 	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         &fakewireguard.Config{},
-		IPSecConfig:      fakeipsec.Config{},
-		Logger:           s.logger,
-		IdentityManager:  identitymanager.NewIDManager(s.logger),
-		PolicyRepo:       s.repo,
+		EPBuildQueue:    &endpoint.MockEndpointBuildQueue{},
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		WgConfig:        &fakewireguard.Config{},
+		IPSecConfig:     fakeipsec.Config{},
+		Logger:          s.logger,
+		IdentityManager: identitymanager.NewIDManager(s.logger),
+		PolicyRepo:      s.repo,
 	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	ep.Start(uint16(model.ID))
 	defer ep.Stop()
@@ -908,15 +906,14 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	// Restore rules
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
 	ep1, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         &fakewireguard.Config{},
-		IPSecConfig:      fakeipsec.Config{},
-		Logger:           hivetest.Logger(t),
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		PolicyRepo:       s.repo,
+		EPBuildQueue:    &endpoint.MockEndpointBuildQueue{},
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		WgConfig:        &fakewireguard.Config{},
+		IPSecConfig:     fakeipsec.Config{},
+		Logger:          hivetest.Logger(t),
+		IdentityManager: identitymanager.NewIDManager(logger),
+		PolicyRepo:      s.repo,
 	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
@@ -970,15 +967,14 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	// Restore rules for epID3
 	modelEP3 := newTestEndpointModel(int(epID3), endpoint.StateReady)
 	ep3, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         &fakewireguard.Config{},
-		IPSecConfig:      fakeipsec.Config{},
-		Logger:           hivetest.Logger(t),
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		PolicyRepo:       s.repo,
+		EPBuildQueue:    &endpoint.MockEndpointBuildQueue{},
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		WgConfig:        &fakewireguard.Config{},
+		IPSecConfig:     fakeipsec.Config{},
+		Logger:          hivetest.Logger(t),
+		IdentityManager: identitymanager.NewIDManager(logger),
+		PolicyRepo:      s.repo,
 	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
@@ -1192,15 +1188,14 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	s.restoring = true
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
 	ep1, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         &fakewireguard.Config{},
-		IPSecConfig:      fakeipsec.Config{},
-		Logger:           hivetest.Logger(t),
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		PolicyRepo:       s.repo,
+		EPBuildQueue:    &endpoint.MockEndpointBuildQueue{},
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		WgConfig:        &fakewireguard.Config{},
+		IPSecConfig:     fakeipsec.Config{},
+		Logger:          hivetest.Logger(t),
+		IdentityManager: identitymanager.NewIDManager(logger),
+		PolicyRepo:      s.repo,
 	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 

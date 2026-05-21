@@ -69,6 +69,8 @@ type PolicyRepository interface {
 	Search() (types.PolicyEntries, uint64)
 
 	PolicyCacheObservable() stream.Observable[PolicyCacheChange]
+
+	SetNamedPortsGetter(namedPortsGetter NamedPortsGetter)
 }
 
 type GetPolicyStatistics interface {
@@ -111,6 +113,9 @@ type Repository struct {
 
 	metricsManager    types.PolicyMetrics
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
+
+	// Getter for egress named ports
+	namedPortsGetter NamedPortsGetter
 }
 
 func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
@@ -157,6 +162,13 @@ func NewPolicyRepository(
 	repo.revision.Store(1)
 	repo.policyCache = newPolicyCache(repo, idmgr)
 	return repo
+}
+
+// SetNamedPortsGetter must be called after NewPolicyRepository and before the repository is used.
+// This is late-bound to avoid making policy/cell construct the repository with IPCache, as IPCache
+// depends on the repository for identity updates.
+func (p *Repository) SetNamedPortsGetter(namedPortsGetter NamedPortsGetter) {
+	p.namedPortsGetter = namedPortsGetter
 }
 
 func (p *Repository) Search() (types.PolicyEntries, uint64) {
@@ -338,6 +350,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
 		SelectorCache:        sc,
+		namedPortsGetter:     p.namedPortsGetter,
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,

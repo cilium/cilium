@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
@@ -165,17 +164,16 @@ const (
 func (s *RedirectSuite) createTestEndpointParams(tb testing.TB) EndpointParams {
 	logger := hivetest.Logger(tb)
 	return EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     &fakeendpoint.FakeOrchestrator{},
-		PolicyRepo:       s.do.repo,
-		IdentityManager:  s.do.idmgr,
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeipsec.Config{},
-		WgConfig:         fakewireguard.Config{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		LocalNodeStore:   &fakeNodeGetter{},
+		Logger:          logger,
+		EPBuildQueue:    &MockEndpointBuildQueue{},
+		Orchestrator:    &fakeendpoint.FakeOrchestrator{},
+		PolicyRepo:      s.do.repo,
+		IdentityManager: s.do.idmgr,
+		IPSecConfig:     fakeipsec.Config{},
+		WgConfig:        fakewireguard.Config{},
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+		LocalNodeStore:  &fakeNodeGetter{},
 	}
 }
 

@@ -68,55 +68,23 @@ func (m *listenerProxyUpdaterMock) RegenerateIfAlive(*regeneration.ExternalRegen
 	return ch
 }
 
-type namedPortProxyUpdaterMock struct {
-	*test.ProxyUpdaterMock
-	t          testing.TB
-	namedPorts map[identity.NumericIdentity]uint16
-}
-
-func newNamedPortProxyUpdaterMock(t testing.TB, namedPorts map[identity.NumericIdentity]uint16) *namedPortProxyUpdaterMock {
-	t.Helper()
-	return &namedPortProxyUpdaterMock{
-		ProxyUpdaterMock: &test.ProxyUpdaterMock{Id: 1000, Ipv4: "10.0.0.1", Ipv6: "f00d::1"},
-		t:                t,
-		namedPorts:       namedPorts,
-	}
-}
-
-func (m *namedPortProxyUpdaterMock) requireHTTPNamedPort(name string) {
-	m.t.Helper()
-	require.Equal(m.t, "http", name)
-}
-
-func (m *namedPortProxyUpdaterMock) GetIngressNamedPort(name string, _ u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) uint16 {
-	m.requireHTTPNamedPort(name)
-
-	var result uint16
-	for id := range nids {
-		port := m.namedPorts[id]
-		if port == 0 {
-			continue
-		}
-		if result != 0 && result != port {
-			return 0
-		}
-		result = port
-	}
-	return result
-}
-
-func (m *namedPortProxyUpdaterMock) GetEgressNamedPorts(name string, _ u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) ciliumTypes.NidPortSeq {
-	m.requireHTTPNamedPort(name)
-
-	return func(yield func(identity.NumericIdentity, uint16) bool) {
-		for id := range nids {
-			if port := m.namedPorts[id]; port != 0 {
-				if !yield(id, port) {
-					return
+func getEgressNamedPortsFunc(portMap map[identity.NumericIdentity]uint16) GetEgressNamedPorts {
+	return func(name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) ciliumTypes.NidPortSeq {
+		return func(yield func(identity.NumericIdentity, uint16) bool) {
+			for nid := range idents {
+				if port, ok := portMap[nid]; ok {
+					if !yield(nid, port) {
+						return
+					}
 				}
 			}
 		}
 	}
+}
+
+func newProxyUpdaterMock(t testing.TB, namedPort uint16) *test.ProxyUpdaterMock {
+	t.Helper()
+	return &test.ProxyUpdaterMock{Id: 1000, Ipv4: "10.0.0.1", Ipv6: "f00d::1", NamedPort: namedPort}
 }
 
 type dummyPolicyStats struct {
@@ -946,35 +914,35 @@ func TestGetDirectionNetworkPolicy(t *testing.T) {
 	// L4+L7
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getDirectionNetworkPolicy(ep, selectors, &L4Policy1.Ingress, true, false, false, "ingress", "")
+	obtained := xds.getDirectionNetworkPolicy(ep, nil, selectors, &L4Policy1.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies12, obtained)
 
 	// L4+L7 with header mods
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4HeaderMatchPolicy1.Ingress, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, nil, selectors, &L4HeaderMatchPolicy1.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies122HeaderMatch, obtained)
 
 	// L4+L7
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4Policy1.Egress, true, false, false, "egress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, nil, selectors, &L4Policy1.Egress, true, false, false, "egress", "")
 	require.Equal(t, ExpectedPerPortPolicies1, obtained)
 
 	// L4+L7 with Deny L3
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4Deny2Policy1.Ingress, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, nil, selectors, &L4Deny2Policy1.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies1Deny2, obtained)
 
 	// L4-only
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4Policy4.Ingress, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, nil, selectors, &L4Policy4.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies, obtained)
 
 	// L4-only
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4Policy5.Ingress, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, nil, selectors, &L4Policy5.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesWildcard, obtained)
 
 	// L4-only with SNI
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4SNIPolicy.Ingress, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, nil, selectors, &L4SNIPolicy.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesSNI, obtained)
 
 	// with pass verdict
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4PassPolicy.Ingress, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, nil, selectors, &L4PassPolicy.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesPass, obtained)
 
 }
@@ -984,7 +952,8 @@ func TestGetDirectionNetworkPolicyCoalescesFiltersByResolvedPort(t *testing.T) {
 	selectors := testSelectorCache.GetSelectorSnapshot()
 
 	t.Run("merges numeric and named port rules", func(t *testing.T) {
-		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+		ep := newProxyUpdaterMock(t, 0)
+		egressPortFunc := getEgressNamedPortsFunc(map[identity.NumericIdentity]uint16{
 			1001: 80,
 			1002: 80,
 		})
@@ -1007,7 +976,7 @@ func TestGetDirectionNetworkPolicyCoalescesFiltersByResolvedPort(t *testing.T) {
 			}),
 		}
 
-		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		obtained := xds.getDirectionNetworkPolicy(ep, egressPortFunc, selectors, l4DirectionPolicy, true, false, false, "egress", "")
 		require.Len(t, obtained, 1)
 		require.Equal(t, uint32(80), obtained[0].Port)
 		require.Equal(t, envoy_config_core.SocketAddress_TCP, obtained[0].Protocol)
@@ -1020,7 +989,8 @@ func TestGetDirectionNetworkPolicyCoalescesFiltersByResolvedPort(t *testing.T) {
 	})
 
 	t.Run("prunes wildcard rules across filters", func(t *testing.T) {
-		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+		ep := newProxyUpdaterMock(t, 0)
+		egressPortFunc := getEgressNamedPortsFunc(map[identity.NumericIdentity]uint16{
 			1001: 80,
 			1002: 80,
 		})
@@ -1043,7 +1013,7 @@ func TestGetDirectionNetworkPolicyCoalescesFiltersByResolvedPort(t *testing.T) {
 			}),
 		}
 
-		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		obtained := xds.getDirectionNetworkPolicy(ep, egressPortFunc, selectors, l4DirectionPolicy, true, false, false, "egress", "")
 		require.Equal(t, []*cilium.PortNetworkPolicy{{
 			Port:     80,
 			Protocol: envoy_config_core.SocketAddress_TCP,
@@ -1096,7 +1066,8 @@ func TestGetDirectionNetworkPolicyEgressNamedPorts(t *testing.T) {
 	selectors := testSelectorCache.GetSelectorSnapshot()
 
 	t.Run("multi port filters remote policies per named port", func(t *testing.T) {
-		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+		ep := newProxyUpdaterMock(t, 0)
+		egressPortFunc := getEgressNamedPortsFunc(map[identity.NumericIdentity]uint16{
 			1001: 8080,
 			1002: 9090,
 		})
@@ -1112,7 +1083,7 @@ func TestGetDirectionNetworkPolicyEgressNamedPorts(t *testing.T) {
 			}),
 		}
 
-		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		obtained := xds.getDirectionNetworkPolicy(ep, egressPortFunc, selectors, l4DirectionPolicy, true, false, false, "egress", "")
 		require.Equal(t, []*cilium.PortNetworkPolicy{{
 			Port:     8080,
 			Protocol: envoy_config_core.SocketAddress_TCP,
@@ -1133,7 +1104,8 @@ func TestGetDirectionNetworkPolicyEgressNamedPorts(t *testing.T) {
 	})
 
 	t.Run("multi port wildcard selector becomes identity scoped", func(t *testing.T) {
-		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+		ep := newProxyUpdaterMock(t, 0)
+		egressPortFunc := getEgressNamedPortsFunc(map[identity.NumericIdentity]uint16{
 			1001: 8080,
 			1002: 9090,
 		})
@@ -1149,7 +1121,7 @@ func TestGetDirectionNetworkPolicyEgressNamedPorts(t *testing.T) {
 			}),
 		}
 
-		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		obtained := xds.getDirectionNetworkPolicy(ep, egressPortFunc, selectors, l4DirectionPolicy, true, false, false, "egress", "")
 		require.Equal(t, []*cilium.PortNetworkPolicy{{
 			Port:     8080,
 			Protocol: envoy_config_core.SocketAddress_TCP,
@@ -1169,8 +1141,9 @@ func TestGetDirectionNetworkPolicyEgressNamedPorts(t *testing.T) {
 		}}, obtained)
 	})
 
-	t.Run("single port keeps selected identities without mappings", func(t *testing.T) {
-		ep := newNamedPortProxyUpdaterMock(t, map[identity.NumericIdentity]uint16{
+	t.Run("only identities with mapped ports are included", func(t *testing.T) {
+		ep := newProxyUpdaterMock(t, 0)
+		egressPortFunc := getEgressNamedPortsFunc(map[identity.NumericIdentity]uint16{
 			1001: 8080,
 		})
 		l4DirectionPolicy := &policy.L4DirectionPolicy{
@@ -1185,13 +1158,13 @@ func TestGetDirectionNetworkPolicyEgressNamedPorts(t *testing.T) {
 			}),
 		}
 
-		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "egress", "")
+		obtained := xds.getDirectionNetworkPolicy(ep, egressPortFunc, selectors, l4DirectionPolicy, true, false, false, "egress", "")
 		require.Equal(t, []*cilium.PortNetworkPolicy{{
 			Port:     8080,
 			Protocol: envoy_config_core.SocketAddress_TCP,
 			Rules: []*cilium.PortNetworkPolicyRule{{
 				Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
-				RemotePolicies: []uint32{1001, 1003},
+				RemotePolicies: []uint32{1001},
 				L7:             ExpectedHttpRule1,
 			}},
 		}}, obtained)
@@ -1228,7 +1201,7 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 			},
 		}), []types.Priority{0, 0x100})
 
-		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "ingress", "")
+		obtained := xds.getDirectionNetworkPolicy(ep, nil, selectors, l4DirectionPolicy, true, false, false, "ingress", "")
 		require.Equal(t, []*cilium.PortNetworkPolicy{{
 			Port:     0,
 			Protocol: envoy_config_core.SocketAddress_TCP,
@@ -1277,7 +1250,7 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 			},
 		}), []types.Priority{0})
 
-		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "ingress", "")
+		obtained := xds.getDirectionNetworkPolicy(ep, nil, selectors, l4DirectionPolicy, true, false, false, "ingress", "")
 		require.Equal(t, []*cilium.PortNetworkPolicy{{
 			Port:     0,
 			Protocol: envoy_config_core.SocketAddress_TCP,
@@ -1330,7 +1303,7 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 			},
 		}), []types.Priority{0})
 
-		obtained := xds.getDirectionNetworkPolicy(ep, selectors, l4DirectionPolicy, true, false, false, "ingress", "")
+		obtained := xds.getDirectionNetworkPolicy(ep, nil, selectors, l4DirectionPolicy, true, false, false, "ingress", "")
 		require.Equal(t, []*cilium.PortNetworkPolicy{{
 			Port:     0,
 			Protocol: envoy_config_core.SocketAddress_TCP,
@@ -1464,7 +1437,7 @@ func TestGetDirectionNetworkPolicyWildcardRedirect(t *testing.T) {
 				}),
 			}
 
-			obtained := xds.getDirectionNetworkPolicy(redirectEP, selectors, l4DirectionPolicy, true, false, false, "ingress", "")
+			obtained := xds.getDirectionNetworkPolicy(redirectEP, nil, selectors, l4DirectionPolicy, true, false, false, "ingress", "")
 			require.Equal(t, tc.expected, obtained)
 		})
 	}
@@ -1540,6 +1513,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 
 	obtained := xds.getDirectionNetworkPolicy(
 		redirectEP,
+		nil,
 		epp.GetPolicySelectors(),
 		&epp.SelectorPolicy.L4Policy.Egress,
 		true,
@@ -1562,7 +1536,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 func TestGetNetworkPolicy(t *testing.T) {
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, L4Policy1, true, true, false, false, "")
+	obtained := xds.getNetworkPolicy(ep, nil, selectors, []string{IPv4Addr}, L4Policy1, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -1575,7 +1549,7 @@ func TestGetNetworkPolicy(t *testing.T) {
 func TestGetNetworkPolicyWildcard(t *testing.T) {
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, L4Policy2, true, true, false, false, "")
+	obtained := xds.getNetworkPolicy(ep, nil, selectors, []string{IPv4Addr}, L4Policy2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -1588,7 +1562,7 @@ func TestGetNetworkPolicyWildcard(t *testing.T) {
 func TestGetNetworkPolicyDeny(t *testing.T) {
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
+	obtained := xds.getNetworkPolicy(ep, nil, selectors, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -1601,7 +1575,7 @@ func TestGetNetworkPolicyDeny(t *testing.T) {
 func TestGetNetworkPolicyWildcardDeny(t *testing.T) {
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
+	obtained := xds.getNetworkPolicy(ep, nil, selectors, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -1614,7 +1588,7 @@ func TestGetNetworkPolicyWildcardDeny(t *testing.T) {
 func TestGetNetworkPolicyNil(t *testing.T) {
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, nil, true, true, false, false, "")
+	obtained := xds.getNetworkPolicy(ep, nil, selectors, []string{IPv4Addr}, nil, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -1627,7 +1601,7 @@ func TestGetNetworkPolicyNil(t *testing.T) {
 func TestGetNetworkPolicyIngressNotEnforced(t *testing.T) {
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, L4Policy2, false, true, false, false, "")
+	obtained := xds.getNetworkPolicy(ep, nil, selectors, []string{IPv4Addr}, L4Policy2, false, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -1640,7 +1614,7 @@ func TestGetNetworkPolicyIngressNotEnforced(t *testing.T) {
 func TestGetNetworkPolicyEgressNotEnforced(t *testing.T) {
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, L4Policy1RequiresV2, true, false, false, false, "")
+	obtained := xds.getNetworkPolicy(ep, nil, selectors, []string{IPv4Addr}, L4Policy1RequiresV2, true, false, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -2332,7 +2306,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			xds := testXdsServer(t)
 			selectors := testSelectorCache.GetSelectorSnapshot()
-			obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, tt.args.inputPolicy, true, true, tt.args.useFullTLSContext, tt.args.useSDS, tt.args.policySecretsNamespace)
+			obtained := xds.getNetworkPolicy(ep, nil, selectors, []string{IPv4Addr}, tt.args.inputPolicy, true, true, tt.args.useFullTLSContext, tt.args.useSDS, tt.args.policySecretsNamespace)
 			expected := &cilium.NetworkPolicy{
 				EndpointIps:            []string{IPv4Addr},
 				EndpointId:             uint64(ep.GetID()),
