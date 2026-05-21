@@ -436,9 +436,8 @@ type Endpoint struct {
 	// properties is used to store some internal properties about this Endpoint.
 	properties map[string]any
 
-	// Root scope for all of this endpoints reporters.
-	reporterScope       cell.Health
-	closeHealthReporter func()
+	// reporterScope is the health scope used by GetReporter.
+	reporterScope atomic.Pointer[cell.Health]
 
 	// NetNsCookie is the network namespace cookie of the Endpoint.
 	NetNsCookie uint64
@@ -460,11 +459,11 @@ func (e *Endpoint) GetPolicyNames() []string {
 }
 
 func (e *Endpoint) GetReporter(name string) cell.Health {
-	if e.reporterScope == nil {
-		_, h := cell.NewSimpleHealth()
-		return h.NewScope(name)
+	if s := e.reporterScope.Load(); s != nil {
+		return (*s).NewScope(name)
 	}
-	return e.reporterScope.NewScope(name)
+	_, h := cell.NewSimpleHealth()
+	return h.NewScope(name)
 }
 
 func (e *Endpoint) InitEndpointHealth(parent cell.Health) {
@@ -473,8 +472,7 @@ func (e *Endpoint) InitEndpointHealth(parent cell.Health) {
 	}
 	s := parent.NewScope(fmt.Sprintf("cilium-endpoint-%d (%s)", e.ID, e.GetK8sNamespaceAndPodName()))
 	if s != nil {
-		e.closeHealthReporter = s.Close
-		e.reporterScope = s
+		e.reporterScope.Store(&s)
 	}
 }
 
@@ -482,9 +480,8 @@ func (e *Endpoint) Close() {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	if e.closeHealthReporter != nil {
-		e.closeHealthReporter()
-		e.reporterScope = nil
+	if s := e.reporterScope.Swap(nil); s != nil {
+		(*s).Close()
 	}
 
 	if e.PolicyMapPressureUpdater != nil {
