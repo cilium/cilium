@@ -4,6 +4,7 @@
 package reconciler
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cilium/hive/job"
@@ -81,9 +82,17 @@ func Register[Obj comparable](
 		progress:             newProgressTracker(),
 	}
 
-	params.JobGroup.Add(job.OneShot("reconcile", r.reconcileLoop))
+	var scoped = func(jn string) string {
+		if cfg.Name == "" {
+			return jn
+		}
+
+		return fmt.Sprintf("%s-%s", jn, cfg.Name)
+	}
+
+	params.JobGroup.Add(job.OneShot(scoped("reconcile"), r.reconcileLoop))
 	if r.config.RefreshInterval > 0 {
-		params.JobGroup.Add(job.OneShot("refresh", r.refreshLoop))
+		params.JobGroup.Add(job.OneShot(scoped("refresh"), r.refreshLoop))
 	}
 	return r, nil
 }
