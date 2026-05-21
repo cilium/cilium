@@ -250,7 +250,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		listener := policySelectorTuple.Policy.GetListener()
 
 		n := 0
-		for proxyID, dstPort := range e.proxyIDs(l4, listener, selectors) {
+		for proxyID, dstPort := range e.proxyIDs(selectorPolicy, l4, listener, selectors) {
 			n++
 			// desiredRedirects starts out empty, so we can use it to check if this
 			// redirect has already been updated on this round.

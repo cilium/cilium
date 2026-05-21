@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"slices"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -50,7 +50,6 @@ import (
 	proxyendpoint "github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -204,7 +203,6 @@ func createEndpointParams(tb testing.TB, o endpoint.Orchestrator, r policy.Polic
 		Orchestrator:     o,
 		PolicyRepo:       r,
 		IdentityManager:  identitymanager.NewIDManager(logger),
-		NamedPortsGetter: testipcache.NewMockIPCache(),
 		BandwidthManager: &fakebandwidth.Manager{},
 		IPSecConfig:      fakeipsec.Config{},
 		WgConfig:         fakewireguard.Config{},
@@ -380,16 +378,15 @@ func TestApplySourceIPVerificationFromAnnotation(t *testing.T) {
 			// Create a minimal endpoint for testing
 			model := newTestEndpointModel(100, StateWaitingForIdentity)
 			p := EndpointParams{
-				Logger:           logger,
-				EPBuildQueue:     &MockEndpointBuildQueue{},
-				Orchestrator:     s.orchestrator,
-				IdentityManager:  identitymanager.NewIDManager(logger),
-				PolicyRepo:       s.repo,
-				NamedPortsGetter: testipcache.NewMockIPCache(),
-				Allocator:        testidentity.NewMockIdentityAllocator(nil),
-				CTMapGC:          ctmap.NewFakeGCRunner(),
-				WgConfig:         fakewireguard.Config{},
-				IPSecConfig:      fakeipsec.Config{},
+				Logger:          logger,
+				EPBuildQueue:    &MockEndpointBuildQueue{},
+				Orchestrator:    s.orchestrator,
+				IdentityManager: identitymanager.NewIDManager(logger),
+				PolicyRepo:      s.repo,
+				Allocator:       testidentity.NewMockIdentityAllocator(nil),
+				CTMapGC:         ctmap.NewFakeGCRunner(),
+				WgConfig:        fakewireguard.Config{},
+				IPSecConfig:     fakeipsec.Config{},
 			}
 			ep, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
 			require.NoError(t, err)
@@ -431,16 +428,15 @@ func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
 	// Create endpoint
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
 	p := EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     s.orchestrator,
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		PolicyRepo:       s.repo,
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         fakewireguard.Config{},
-		IPSecConfig:      fakeipsec.Config{},
+		Logger:          logger,
+		EPBuildQueue:    &MockEndpointBuildQueue{},
+		Orchestrator:    s.orchestrator,
+		IdentityManager: identitymanager.NewIDManager(logger),
+		PolicyRepo:      s.repo,
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		WgConfig:        fakewireguard.Config{},
+		IPSecConfig:     fakeipsec.Config{},
 	}
 	ep, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
@@ -1003,13 +999,46 @@ func collectProxyIDs(seq iter.Seq2[string, uint16]) []proxyIDResult {
 	return results
 }
 
+type testSelectorPolicy struct {
+	portMap map[identity.NumericIdentity]uint16
+}
+
+func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
+	return func(func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {}
+}
+
+func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
+	return nil
+}
+
+func (sp *testSelectorPolicy) GetSelectorSnapshot() policy.SelectorSnapshot {
+	return policy.SelectorSnapshot{}
+}
+
+func (sp *testSelectorPolicy) GetEgressNamedPorts(name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) ciliumTypes.NidPortSeq {
+	return func(yield func(identity.NumericIdentity, uint16) bool) {
+		for nid := range idents {
+			if port, ok := sp.portMap[nid]; ok {
+				if !yield(nid, port) {
+					return
+				}
+			}
+		}
+	}
+}
+
 func TestProxyID(t *testing.T) {
 	setupEndpointSuite(t)
 
 	e := &Endpoint{ID: 123, policyRevision: 0}
 	e.UpdateLogger(nil)
 
-	resolved := collectProxyIDs(e.proxyIDs(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	mockSelectorPolicy := &testSelectorPolicy{portMap: map[identity.NumericIdentity]uint16{
+		101: 8080,
+		102: 9090,
+	}}
+
+	resolved := collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
 	require.Len(t, resolved, 1)
 	id, port := resolved[0].id, resolved[0].port
 	require.NotEmpty(t, id)
@@ -1023,7 +1052,7 @@ func TestProxyID(t *testing.T) {
 	require.Empty(t, listener)
 	require.NoError(t, err)
 
-	resolved = collectProxyIDs(e.proxyIDs(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "test-listener", policy.SelectorSnapshot{}))
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "test-listener", policy.SelectorSnapshot{}))
 	require.Len(t, resolved, 1)
 	id, port = resolved[0].id, resolved[0].port
 	require.NotEmpty(t, id)
@@ -1037,26 +1066,18 @@ func TestProxyID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Undefined named port
-	resolved = collectProxyIDs(e.proxyIDs(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
 	require.Empty(t, resolved)
 
-	resolved = collectProxyIDs(e.proxyIDs(&policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
 	require.Empty(t, resolved)
 
-	npm := ciliumTypes.NewNamedPortMultiMap()
-	require.True(t, npm.Update(identity.NumericIdentity(101), nil, ciliumTypes.NamedPortMap{
-		"http": {Proto: u8proto.TCP, Port: 8080},
-	}))
-	require.True(t, npm.Update(identity.NumericIdentity(102), nil, ciliumTypes.NamedPortMap{
-		"http": {Proto: u8proto.TCP, Port: 9090},
-	}))
-	e.namedPortsGetter = testNamedPortsGetter{npm: npm}
 	e.SetK8sMetadata(ciliumTypes.NamedPortMap{
 		"http": {Proto: u8proto.TCP, Port: 7070},
 	})
 	backendSelector, selectorSnapshot := endpointCachedSelectorForIdentities(t, "id=backend", 101, 102)
 	defer selectorSnapshot.Invalidate()
-	resolved = collectProxyIDs(e.proxyIDs(&policy.L4Filter{
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{
 		PortName: "http",
 		Protocol: api.ProtoTCP,
 		U8Proto:  u8proto.TCP,
@@ -1078,56 +1099,6 @@ func endpointCachedSelectorForIdentities(t testing.TB, selectorLabel string, ide
 	selectorCache := policy.NewSelectorCache(hivetest.Logger(t), identityMap)
 	selector, _ := selectorCache.AddIdentitySelectorForTest(&testpolicy.DummySelectorCacheUser{}, api.NewESFromLabels(labels.ParseSelectLabel(selectorLabel)))
 	return selector, selectorCache.GetSelectorSnapshot()
-}
-
-type testNamedPortsGetter struct {
-	npm ciliumTypes.NamedPortMultiMap
-}
-
-func (g testNamedPortsGetter) GetNamedPorts() ciliumTypes.NamedPortMultiMap {
-	return g.npm
-}
-
-func TestGetEgressNamedPorts(t *testing.T) {
-	namedPorts := ciliumTypes.NewNamedPortMultiMap()
-	nid1 := identity.NumericIdentity(101)
-	nid2 := identity.NumericIdentity(102)
-	require.True(t, namedPorts.Update(nid1, nil, ciliumTypes.NamedPortMap{
-		"http": ciliumTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
-	}))
-	require.True(t, namedPorts.Update(nid1, nil, ciliumTypes.NamedPortMap{
-		"http": ciliumTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
-	}))
-	require.True(t, namedPorts.Update(nid2, nil, ciliumTypes.NamedPortMap{
-		"http": ciliumTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
-	}))
-
-	e := &Endpoint{
-		namedPortsGetter: testNamedPortsGetter{npm: namedPorts},
-	}
-
-	portsByNID := map[identity.NumericIdentity]uint16{}
-	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identity.NumericIdentity{nid1, nid2, 103})) {
-		require.NotContains(t, portsByNID, destID)
-		portsByNID[destID] = port
-	}
-	require.Equal(t, map[identity.NumericIdentity]uint16{
-		nid2: 9090,
-	}, portsByNID)
-
-	portsByNID = map[identity.NumericIdentity]uint16{}
-	for destID, port := range e.GetEgressNamedPorts("http", u8proto.UDP, slices.Values([]identity.NumericIdentity{nid1, nid2})) {
-		require.NotContains(t, portsByNID, destID)
-		portsByNID[destID] = port
-	}
-	require.Empty(t, portsByNID)
-
-	portsByNID = map[identity.NumericIdentity]uint16{}
-	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identity.NumericIdentity{103})) {
-		require.NotContains(t, portsByNID, destID)
-		portsByNID[destID] = port
-	}
-	require.Empty(t, portsByNID)
 }
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {

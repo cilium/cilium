@@ -140,9 +140,6 @@ type Endpoint struct {
 
 	policyRepo policy.PolicyRepository
 
-	// namedPortsGetter can get the ipcache.IPCache object.
-	namedPortsGetter NamedPortsGetter
-
 	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
 	// information about endpoints. Initialized by manager.expose.
 	kvstoreSyncher *ipcache.IPIdentitySynchronizer
@@ -495,10 +492,6 @@ func (e *Endpoint) Close() {
 	}
 }
 
-type NamedPortsGetter interface {
-	GetNamedPorts() (npm types.NamedPortMultiMap)
-}
-
 type DNSRulesAPI interface {
 	// GetDNSRules creates a fresh copy of DNS rules that can be used when
 	// endpoint is restored on a restart.
@@ -615,7 +608,6 @@ func createEndpoint(
 		lxcMap:             p.LxcMap,
 		policyMapFactory:   p.PolicyMapFactory,
 		policyRepo:         p.PolicyRepo,
-		namedPortsGetter:   p.NamedPortsGetter,
 		localNodeStore:     p.LocalNodeStore,
 		ID:                 ID,
 		createdAt:          time.Now(),
@@ -945,7 +937,6 @@ func ParseEndpoint(p EndpointParams,
 		ipsecConfig:      p.IPSecConfig,
 		lxcMap:           p.LxcMap,
 		policyMapFactory: p.PolicyMapFactory,
-		namedPortsGetter: p.NamedPortsGetter,
 		policyRepo:       p.PolicyRepo,
 		proxy:            proxy,
 		allocator:        p.Allocator,
