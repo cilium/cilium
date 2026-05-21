@@ -1,13 +1,13 @@
 kernels:
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  rhel8.10: 'rhel8.10-20260310.122539'
+  rhel8.10: 'rhel8.10-20260519.113437-amd64'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  5.15: '5.15-20260310.122539'
+  5.15: '5.15-20260519.113437-amd64'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  6.1: '6.1-20260310.122539'
+  6.1: '6.1-20260519.113437-amd64'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  6.6: '6.6-20260310.122539'
+  6.6: '6.6-20260519.113437-amd64'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  6.12: '6.12-20260310.122539'
+  6.12: 'netkit-delay-dev-switch-20260519.124318-amd64'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  6.18: '6.18-20260310.122539'
+  6.18: '6.18-20260519.113437-amd64'
