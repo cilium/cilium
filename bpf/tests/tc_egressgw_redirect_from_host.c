@@ -67,7 +67,11 @@ mock_fib_lookup(void *ctx __maybe_unused,
 		}
 	}
 
-	params->ifindex = EGRESS_IFACE;
+	/* Any regular FIB lookup for this packet will use the pod IP.
+	 * Confirm that the EGW FIB lookup is egressIP-aware.
+	 */
+	params->ifindex = (params->ipv4_src == EGRESS_IP) ? EGRESS_IFACE :
+							    PRIMARY_IFACE;
 	return 0;
 }
 
