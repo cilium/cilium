@@ -49,6 +49,7 @@ to learn how to level up through the project.
  * [Quentin Monnet] (Hedgehog)
  * [Robin Hahling] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
+ * [Simone Magnani] (Isovalent)
  * [Tam Mach] (Isovalent)
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
@@ -132,6 +133,7 @@ project.
 [Ray Bejjani]: https://github.com/raybejjani
 [Robin Hahling]: https://github.com/rolinh
 [Sebastian Wicki]: https://github.com/gandro
+[Simone Magnani]: https://github.com/smagnani96
 [Tam Mach]: https://github.com/sayboras
 [Thomas Graf]: https://github.com/tgraf
 [Timo Beckers]: https://github.com/ti-mo
