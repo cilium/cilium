@@ -580,7 +580,7 @@ func (s *FQDNDataServer) buildDNSPoliciesForIdentity(selectorPolicy policy.Selec
 
 // isDNSPolicy checks if the given policy is a DNS policy
 func (s *FQDNDataServer) isDNSPolicy(psp *policy.PerSelectorPolicy) bool {
-	return psp != nil && psp.L7Parser == policy.ParserTypeDNS
+	return psp.GetL7Parser() == policy.ParserTypeDNS
 }
 
 // buildDNSPolicyFromL4Filter creates a DNS policy from L4 filter and policy tuple
