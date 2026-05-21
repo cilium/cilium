@@ -133,6 +133,7 @@ func (j *JUnitCollector) Write() error {
 	}
 
 	if err := suites.WriteReport(f); err != nil {
+		defer os.Remove(j.junitFile)
 		if e := f.Close(); e != nil {
 			return errors.Join(err, e)
 		}
