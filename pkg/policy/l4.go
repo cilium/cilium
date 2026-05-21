@@ -185,7 +185,7 @@ type PerSelectorPolicy struct {
 // IsAllowAll returns true if PerSelectorPolicy allows all traffic
 func (a *PerSelectorPolicy) IsAllowAll() bool {
 	return a == nil ||
-		(a.Verdict == types.Allow && a.L7Parser == "" && a.Listener == "" &&
+		(a.Verdict == types.Allow && a.L7Parser == ParserTypeNone && a.Listener == "" &&
 			a.TerminatingTLS == nil && a.OriginatingTLS == nil &&
 			len(a.ServerNames) == 0 && a.Authentication == nil && a.L7Rules.Len() == 0)
 }
@@ -215,6 +215,14 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		(a.Authentication == nil && b.Authentication == nil || a.Authentication != nil && a.Authentication.DeepEqual(b.Authentication)) &&
 		a.Verdict == b.Verdict &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
+}
+
+// GetL7Parser returns the L7 parser type of the PerSelectorPolicy.
+func (a *PerSelectorPolicy) GetL7Parser() L7ParserType {
+	if a == nil {
+		return ParserTypeNone
+	}
+	return a.L7Parser
 }
 
 // GetListener returns the listener of the PerSelectorPolicy.
@@ -285,7 +293,7 @@ func (a *PerSelectorPolicy) getAuthRequirement() AuthRequirement {
 
 // IsRedirect returns true if the L7Rules are a redirect.
 func (sp *PerSelectorPolicy) IsRedirect() bool {
-	return sp != nil && sp.L7Parser != ""
+	return sp.GetL7Parser() != ParserTypeNone
 }
 
 // HasL7Rules returns whether the `L7Rules` contains any L7 rules.
@@ -1182,10 +1190,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 
 // redirectType returns the redirectType for this filter
 func (sp *PerSelectorPolicy) redirectType() redirectTypes {
-	if sp == nil {
-		return redirectTypeNone
-	}
-	switch sp.L7Parser {
+	switch sp.GetL7Parser() {
 	case ParserTypeNone:
 		return redirectTypeNone
 	case ParserTypeDNS:
