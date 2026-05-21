@@ -5,6 +5,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -57,6 +58,11 @@ func (i Identifier) String() string {
 
 func (i Identifier) HealthID() HealthID {
 	return HealthID(i.String())
+}
+
+func (i Identifier) Equal(other Identifier) bool {
+	return slices.Equal(i.Module, other.Module) &&
+		slices.Equal(i.Component, other.Component)
 }
 
 // Status represents a current health status update.

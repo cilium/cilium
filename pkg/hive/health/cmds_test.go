@@ -5,10 +5,12 @@ package health
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/hive/health/types"
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
@@ -24,13 +26,24 @@ import (
 
 func TestHealthCommands(t *testing.T) {
 	log := hivetest.Logger(t)
+	origNow := time.Now
+	time.Now = func() time.Time {
+		return time.Unix(1, 0)
+	}
+	t.Cleanup(func() {
+		time.Now = origNow
+	})
 	scripttest.Test(t,
 		context.Background(),
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
 				statedb.Cell,
 				Cell,
+				HistoryCell,
 				job.Cell,
+				cell.Provide(func() HistoryDir {
+					return HistoryDir(t.TempDir())
+				}),
 				cell.Provide(func(p types.Provider, jr job.Registry) job.Group {
 					h := p.ForModule(cell.FullModuleID{"test"})
 					return jr.NewGroup(h)
@@ -38,6 +51,24 @@ func TestHealthCommands(t *testing.T) {
 				cell.Invoke(func(p types.Provider) {
 					hr := p.ForModule(cell.FullModuleID{"agent", "m0"})
 					hr.NewScope("c0").OK("ok")
+
+					degraded := p.ForModule(cell.FullModuleID{"agent", "m2"}).
+						NewScope("degraded-closed")
+					degraded.Degraded("broken", errors.New("err2"))
+					degraded.Close()
+
+					p.ForModule(cell.FullModuleID{"agent", "m2"}).
+						NewScope("degraded").
+						Degraded("broken", errors.New("err2"))
+
+					closedOK := p.ForModule(cell.FullModuleID{"agent", "m3"}).NewScope("done")
+					closedOK.OK("finished")
+					closedOK.Close()
+
+					stopped := p.ForModule(cell.FullModuleID{"agent", "m4"}).
+						NewScope("stopped")
+					stopped.OK("ok")
+					stopped.Stopped("now stopped")
 				}),
 			)
 			t.Cleanup(func() {

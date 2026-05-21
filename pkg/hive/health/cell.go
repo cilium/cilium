@@ -27,6 +27,10 @@ var Cell = cell.Module(
 	cell.Provide(healthCommands),
 )
 
+// HistoryCell provides the health/history commands. The [HistoryDir]
+// must be provided for storing status logs.
+var HistoryCell = cell.Provide(newHealthHistory)
+
 var (
 	PrimaryIndex = statedb.Index[types.Status, types.HealthID]{
 		Name: "identifier",

@@ -10,21 +10,33 @@ import (
 	"slices"
 	"strings"
 
-	healthPkg "github.com/cilium/cilium/pkg/health/client"
-	"github.com/cilium/cilium/pkg/hive/health/types"
-
 	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb"
-
 	"github.com/spf13/pflag"
+
+	healthPkg "github.com/cilium/cilium/pkg/health/client"
+	"github.com/cilium/cilium/pkg/hive/health/types"
 )
 
-func healthCommands(db *statedb.DB, table statedb.Table[types.Status]) hive.ScriptCmdsOut {
-	return hive.NewScriptCmds(map[string]script.Cmd{
-		"health":    healthTreeCommand(db, table),
-		"health/ok": allOK(db, table),
-	})
+type healthCommandsParams struct {
+	cell.In
+
+	DB       *statedb.DB
+	Statuses statedb.Table[types.Status]
+	History  *healthHistory `optional:"true"`
+}
+
+func healthCommands(p healthCommandsParams) hive.ScriptCmdsOut {
+	cmds := map[string]script.Cmd{
+		"health":    healthTreeCommand(p.DB, p.Statuses),
+		"health/ok": allOK(p.DB, p.Statuses),
+	}
+	if p.History != nil {
+		cmds["health/history"] = healthHistoryCommand(p.History)
+	}
+	return hive.NewScriptCmds(cmds)
 }
 
 func healthTreeCommand(db *statedb.DB, table statedb.Table[types.Status]) script.Cmd {
@@ -149,6 +161,38 @@ func allOK(db *statedb.DB, table statedb.Table[types.Status]) script.Cmd {
 				return nil, fmt.Errorf("found %d degraded health reports", len(ss))
 			}
 			return nil, nil
+		},
+	)
+}
+
+func healthHistoryCommand(history *healthHistory) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Show health history",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("output", "o", "", "File to write output to")
+			},
+			Detail: []string{
+				"Shows past degraded, stopped and closed health reports",
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			file, err := s.Flags.GetString("output")
+			if err != nil {
+				return nil, err
+			}
+			w := s.LogWriter()
+			if file != "" {
+				p := s.Path(file)
+				fd, err := os.Create(p)
+				if err != nil {
+					return nil, err
+				}
+				defer fd.Close()
+				w = fd
+			}
+			err = history.replay(w)
+			return nil, err
 		},
 	)
 }
