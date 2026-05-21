@@ -9,15 +9,12 @@ package policy
 
 import (
 	"fmt"
-	"iter"
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/spanstat"
-	pkgTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -120,36 +117,14 @@ func (ei *endpointInfo) GetID() uint64 {
 	return ei.ID
 }
 
-func (ei *endpointInfo) getNamedPort(name string, proto u8proto.U8proto) uint16 {
+func (ei *endpointInfo) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
 	switch {
 	case proto == u8proto.TCP && ei.TCPNamedPorts != nil:
 		return ei.TCPNamedPorts[name]
 	case proto == u8proto.UDP && ei.UDPNamedPorts != nil:
 		return ei.UDPNamedPorts[name]
 	}
-
 	return 0
-}
-
-func (ei *endpointInfo) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
-	return ei.getNamedPort(name, proto)
-}
-
-func (ei *endpointInfo) GetEgressNamedPorts(name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq {
-	return func(yield func(identity.NumericIdentity, uint16) bool) {
-		if ei.remoteEndpoint == nil {
-			return
-		}
-		port := ei.remoteEndpoint.getNamedPort(name, proto)
-		if port == 0 {
-			return
-		}
-		for destID := range destIdentities {
-			if !yield(destID, port) {
-				return
-			}
-		}
-	}
 }
 
 func (ei *endpointInfo) PolicyDebug(msg string, attrs ...any) {

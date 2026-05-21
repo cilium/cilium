@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"iter"
 	"math/rand/v2"
 	"sort"
 	"strconv"
@@ -34,45 +33,27 @@ func perSelectorPolicyToString(psp *PerSelectorPolicy) string {
 	return string(b)
 }
 
-type namedPortPolicyOwner struct {
-	DummyOwner
-	egressPorts map[identity.NumericIdentity]uint16
-}
-
-func (o namedPortPolicyOwner) egressPortFor(destID identity.NumericIdentity) uint16 {
-	return o.egressPorts[destID]
-}
-
-func (o namedPortPolicyOwner) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
-	return o.DummyOwner.GetIngressNamedPort(name, proto)
-}
-
-func (o namedPortPolicyOwner) GetEgressNamedPorts(name string, proto u8proto.U8proto, destIDs iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq {
-	return func(yield func(identity.NumericIdentity, uint16) bool) {
-		for destID := range destIDs {
-			port := o.egressPortFor(destID)
-			if port == 0 {
-				continue
-			}
-			if !yield(destID, port) {
-				return
-			}
-		}
-	}
-}
-
 func TestEgressNamedPortToMapStateUnion(t *testing.T) {
 	logger := hivetest.Logger(t)
 	cs := newTestCachedSelector("backend", false, 101, 102, 103)
-	owner := namedPortPolicyOwner{
-		DummyOwner: DummyOwner{logger: logger},
-		egressPorts: map[identity.NumericIdentity]uint16{
-			101: 8080,
-			102: 9090,
-			103: 9090,
-		},
-	}
+	owner := DummyOwner{logger: logger}
+
+	nid1 := identity.NumericIdentity(101)
+	nid2 := identity.NumericIdentity(102)
+	nid3 := identity.NumericIdentity(103)
+	namedPorts := pkgTypes.NewNamedPortMultiMap()
+	require.True(t, namedPorts.Update(nid1, nil, pkgTypes.NamedPortMap{
+		"http": pkgTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
+	}))
+	require.True(t, namedPorts.Update(nid2, nil, pkgTypes.NamedPortMap{
+		"http": pkgTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
+	}))
+	require.True(t, namedPorts.Update(nid3, nil, pkgTypes.NamedPortMap{
+		"http": pkgTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
+	}))
+
 	epPolicy := &EndpointPolicy{
+		SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 		PolicyOwner:    owner,
 		policyMapState: newMapState(logger, nil, namedPortRules),
 		selectors:      types.MockSelectorSnapshot(),
@@ -113,15 +94,22 @@ func TestEgressNamedPortWildcardOptimization(t *testing.T) {
 		},
 	}
 
+	owner := DummyOwner{logger: logger}
+
+	nid1 := identity.NumericIdentity(101)
+	nid2 := identity.NumericIdentity(102)
+
 	t.Run("egress does not use wildcard identity", func(t *testing.T) {
-		owner := namedPortPolicyOwner{
-			DummyOwner: DummyOwner{logger: logger},
-			egressPorts: map[identity.NumericIdentity]uint16{
-				101: 8080,
-				102: 8080,
-			},
-		}
+		namedPorts := pkgTypes.NewNamedPortMultiMap()
+		require.True(t, namedPorts.Update(nid1, nil, pkgTypes.NamedPortMap{
+			"http": pkgTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
+		}))
+		require.True(t, namedPorts.Update(nid2, nil, pkgTypes.NamedPortMap{
+			"http": pkgTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
+		}))
+
 		epPolicy := &EndpointPolicy{
+			SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 			PolicyOwner:    owner,
 			policyMapState: newMapState(logger, nil, namedPortRules),
 			selectors:      types.MockSelectorSnapshot(),
@@ -138,14 +126,16 @@ func TestEgressNamedPortWildcardOptimization(t *testing.T) {
 	})
 
 	t.Run("disagreed ports enumerate identities", func(t *testing.T) {
-		owner := namedPortPolicyOwner{
-			DummyOwner: DummyOwner{logger: logger},
-			egressPorts: map[identity.NumericIdentity]uint16{
-				101: 8080,
-				102: 9090,
-			},
-		}
+		namedPorts := pkgTypes.NewNamedPortMultiMap()
+		require.True(t, namedPorts.Update(nid1, nil, pkgTypes.NamedPortMap{
+			"http": pkgTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
+		}))
+		require.True(t, namedPorts.Update(nid2, nil, pkgTypes.NamedPortMap{
+			"http": pkgTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
+		}))
+
 		epPolicy := &EndpointPolicy{
+			SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 			PolicyOwner:    owner,
 			policyMapState: newMapState(logger, nil, namedPortRules),
 			selectors:      types.MockSelectorSnapshot(),

@@ -5,9 +5,9 @@ package policy
 
 import (
 	"fmt"
-	"iter"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -184,16 +184,6 @@ func (d DummyOwner) CreateRedirects(*L4Filter) {
 
 func (d DummyOwner) GetIngressNamedPort(name string, proto u8proto.U8proto) uint16 {
 	return 80
-}
-
-func (d DummyOwner) GetEgressNamedPorts(name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq {
-	return func(yield func(identity.NumericIdentity, uint16) bool) {
-		for destID := range destIdentities {
-			if !yield(destID, 80) {
-				return
-			}
-		}
-	}
 }
 
 func (d DummyOwner) GetID() uint64 {
@@ -386,6 +376,55 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 	require.Contains(t, mdl.Policy, "10.1.1.1")
 
 	td.assertEqualPolicies(t, &expectedEndpointPolicy, policy)
+}
+
+type testNamedPortsGetter struct {
+	npm pkgTypes.NamedPortMultiMap
+}
+
+func (g testNamedPortsGetter) GetNamedPorts() pkgTypes.NamedPortMultiMap {
+	return g.npm
+}
+
+func TestGetEgressNamedPorts(t *testing.T) {
+	namedPorts := pkgTypes.NewNamedPortMultiMap()
+	nid1 := identity.NumericIdentity(101)
+	nid2 := identity.NumericIdentity(102)
+	require.True(t, namedPorts.Update(nid1, nil, pkgTypes.NamedPortMap{
+		"http": pkgTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
+	}))
+	require.True(t, namedPorts.Update(nid1, nil, pkgTypes.NamedPortMap{
+		"http": pkgTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
+	}))
+	require.True(t, namedPorts.Update(nid2, nil, pkgTypes.NamedPortMap{
+		"http": pkgTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
+	}))
+
+	sp := newSelectorPolicy(testNewSelectorCache(t, hivetest.Logger(t), nil))
+	sp.namedPortsGetter = testNamedPortsGetter{npm: namedPorts}
+
+	portsByNID := map[identity.NumericIdentity]uint16{}
+	for destID, port := range sp.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identity.NumericIdentity{nid1, nid2, 103})) {
+		require.NotContains(t, portsByNID, destID)
+		portsByNID[destID] = port
+	}
+	require.Equal(t, map[identity.NumericIdentity]uint16{
+		nid2: 9090,
+	}, portsByNID)
+
+	portsByNID = map[identity.NumericIdentity]uint16{}
+	for destID, port := range sp.GetEgressNamedPorts("http", u8proto.UDP, slices.Values([]identity.NumericIdentity{nid1, nid2})) {
+		require.NotContains(t, portsByNID, destID)
+		portsByNID[destID] = port
+	}
+	require.Empty(t, portsByNID)
+
+	portsByNID = map[identity.NumericIdentity]uint16{}
+	for destID, port := range sp.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identity.NumericIdentity{103})) {
+		require.NotContains(t, portsByNID, destID)
+		portsByNID[destID] = port
+	}
+	require.Empty(t, portsByNID)
 }
 
 func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {

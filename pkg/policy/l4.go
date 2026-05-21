@@ -808,7 +808,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 			// Egress named ports can map to multiple ports that can be different for
 			// each selector.
 			// Port ranges are not supported with named ports.
-			for id, port := range p.PolicyOwner.GetEgressNamedPorts(l4.PortName, proto, slices.Values(idents)) {
+			for id, port := range p.SelectorPolicy.GetEgressNamedPorts(l4.PortName, proto, slices.Values(idents)) {
 				entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule, tierPriority, nextTierPriority)
 				if !entry.IsValid() && !entry.IsPassEntry() {
 					continue // Skip unrealized redirects
@@ -1780,7 +1780,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 				continue
 			}
 			// egress can have multiple different ports
-			for nid, port := range epPolicy.PolicyOwner.GetEgressNamedPorts(l4.PortName, proto, slices.Values(adds)) {
+			for nid, port := range epPolicy.SelectorPolicy.GetEgressNamedPorts(l4.PortName, proto, slices.Values(adds)) {
 				var proxyPort uint16
 				if redirect {
 					proxyPort = lookupProxyPort(epPolicy, port)

@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
 
@@ -28,16 +27,15 @@ func TestWriteInformationalComments(t *testing.T) {
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
 	p := EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     s.orchestrator,
-		PolicyRepo:       s.repo,
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeipsec.Config{},
-		WgConfig:         fakewireguard.Config{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
+		Logger:          logger,
+		EPBuildQueue:    &MockEndpointBuildQueue{},
+		Orchestrator:    s.orchestrator,
+		PolicyRepo:      s.repo,
+		IdentityManager: identitymanager.NewIDManager(logger),
+		IPSecConfig:     fakeipsec.Config{},
+		WgConfig:        fakewireguard.Config{},
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
 	}
 	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 	require.NoError(t, err)
@@ -60,16 +58,15 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
 	p := EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     s.orchestrator,
-		PolicyRepo:       s.repo,
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeipsec.Config{},
-		WgConfig:         fakewireguard.Config{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
+		Logger:          logger,
+		EPBuildQueue:    &MockEndpointBuildQueue{},
+		Orchestrator:    s.orchestrator,
+		PolicyRepo:      s.repo,
+		IdentityManager: identitymanager.NewIDManager(logger),
+		IPSecConfig:     fakeipsec.Config{},
+		WgConfig:        fakewireguard.Config{},
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
 	}
 	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 	require.NoError(b, err)
