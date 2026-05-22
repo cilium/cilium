@@ -9,11 +9,10 @@ Please ensure your pull request adheres to the following guidelines:
       please add the commit author[s] as reviewer[s] to this issue.
 - [ ] All commits are signed off. See the section [Developer’s Certificate of Origin]
 - [ ] Provide a title or release-note blurb suitable for the release notes.
-- [ ] Write a short paragraph that states whether you used machine learning models
-      (including LLMs and other generative AI), and indicate the rating using
+- [ ] Disclose use of machine learning models (including LLMs and other generative AI)
+      in accordance with the [Cilium AI Policy], and indicate the rating using
       [AI Influence Level].
-      Example: "This PR was prepared with AIL:3. I personally reviewed each line
-      of the submission prior to opening this PR."
+      Example: "This PR was prepared with AIL:3. I personally checked X."
 - [ ] Thanks for contributing!
 
 <!-- Description of change -->
@@ -25,5 +24,6 @@ Fixes: #issue-number
 ```
 
 [AI Influence Level]: https://danielmiessler.com/blog/ai-influence-level-ail
+[Cilium AI Policy]: https://github.com/cilium/community/blob/main/AI-POLICY.md
 [Developer’s Certificate of Origin]: https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#dev-coo
 [Submitting a pull request]: https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#submitting-a-pull-request
