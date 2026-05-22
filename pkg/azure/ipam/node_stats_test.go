@@ -4,6 +4,7 @@
 package ipam
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -11,6 +12,7 @@ import (
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -40,13 +42,13 @@ func newCapacityTestInterface(name, id, primaryIP string, secondaryIPs ...string
 	addrs := make([]types.AzureAddress, 0, len(secondaryIPs))
 	for _, ip := range secondaryIPs {
 		addrs = append(addrs, types.AzureAddress{
-			IP:    ip,
+			IP:    iputil.AddrFrom(netip.MustParseAddr(ip)),
 			State: types.StateSucceeded,
 		})
 	}
 	iface := &types.AzureInterface{
 		Name:          name,
-		IP:            primaryIP,
+		IP:            iputil.AddrFrom(netip.MustParseAddr(primaryIP)),
 		SecurityGroup: "sg1",
 		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses:     addrs,

@@ -13,6 +13,7 @@ import (
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -77,7 +78,7 @@ func iteration1(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "1.1.1.1",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -91,7 +92,7 @@ func iteration1(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "1.1.3.3",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("1.1.3.3")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -115,7 +116,7 @@ func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "1.1.1.1",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -129,7 +130,7 @@ func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		Subnet:        types.AzureSubnet{ID: "subnet-3"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "3.3.3.3",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("3.3.3.3")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -143,7 +144,7 @@ func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "1.1.3.3",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("1.1.3.3")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -209,7 +210,7 @@ func TestResyncInstancePreservesOtherNodesSubnets(t *testing.T) {
 		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "1.1.1.1",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -223,7 +224,7 @@ func TestResyncInstancePreservesOtherNodesSubnets(t *testing.T) {
 		Subnet:        types.AzureSubnet{ID: "subnet-3"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "3.3.3.3",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("3.3.3.3")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -277,7 +278,7 @@ func TestExtractSubnetIDs(t *testing.T) {
 			Subnet:        types.AzureSubnet{ID: subnetID},
 			Addresses: []types.AzureAddress{
 				{
-					IP:    fmt.Sprintf("10.0.%d.%d", (i%254)+1, (i%254)+10),
+					IP:    iputil.AddrFrom(netip.MustParseAddr(fmt.Sprintf("10.0.%d.%d", (i%254)+1, (i%254)+10))),
 					State: types.StateSucceeded,
 				},
 			},

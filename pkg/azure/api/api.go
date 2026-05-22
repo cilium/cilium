@@ -311,7 +311,7 @@ func (c *Client) listVirtualMachineScaleSetVMNetworkInterfaces(ctx context.Conte
 
 // parseInterfaces parses a armnetwork.Interface as returned by the Azure API
 // converts it into a types.AzureInterface
-func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, i *types.AzureInterface) {
+func parseInterface(logger *slog.Logger, iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, i *types.AzureInterface) {
 	i = &types.AzureInterface{}
 
 	if iface.Properties.VirtualMachine != nil && iface.Properties.VirtualMachine.ID != nil {
@@ -357,16 +357,26 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 				}
 			}
 
+			parsedIP, err := netip.ParseAddr(*ip.Properties.PrivateIPAddress)
+			if err != nil {
+				logger.Warn(
+					"Ignoring IP configuration with unparseable PrivateIPAddress",
+					logfields.IPAddr, *ip.Properties.PrivateIPAddress,
+					logfields.Interface, i.ID,
+					logfields.Error, err,
+				)
+				continue
+			}
 			isPrimary := ip.Properties.Primary != nil && *ip.Properties.Primary
 			if isPrimary {
-				i.IP = *ip.Properties.PrivateIPAddress
+				i.IP = iputil.AddrFrom(parsedIP)
 				if !usePrimary {
 					continue
 				}
 			}
 
 			addr := types.AzureAddress{
-				IP:    *ip.Properties.PrivateIPAddress,
+				IP:    iputil.AddrFrom(parsedIP),
 				State: strings.ToLower(string(*ip.Properties.ProvisioningState)),
 			}
 			if ip.Properties.Subnet != nil {
@@ -420,7 +430,7 @@ func (c *Client) ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.
 	instances := ipamTypes.NewInstanceMap()
 
 	for _, iface := range networkInterfaces {
-		if instanceID, azureInterface := parseInterface(iface, subnets, c.usePrimary); instanceID != "" {
+		if instanceID, azureInterface := parseInterface(c.logger, iface, subnets, c.usePrimary); instanceID != "" {
 			instances.Update(instanceID, azureInterface)
 		}
 	}
@@ -468,7 +478,7 @@ func (c *Client) ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Int
 	instance.Interfaces = map[string]ipamTypes.Interface{}
 
 	for _, networkInterface := range networkInterfaces {
-		_, azureInterface := parseInterface(networkInterface, subnets, c.usePrimary)
+		_, azureInterface := parseInterface(c.logger, networkInterface, subnets, c.usePrimary)
 		instance.Interfaces[azureInterface.ID] = azureInterface
 	}
 
