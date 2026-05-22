@@ -93,14 +93,10 @@ Deploy Cilium release via Helm:
    :set: cni.chainingMode=generic-veth
          cni.customConf=true
          cni.exclusive=false
-         nodeinit.enabled=true
          cni.configMap=cni-configuration
          routingMode=native
          enableIPv4Masquerade=false
          endpointRoutes.enabled=true
-
-This will create both the main cilium daemonset, as well as the cilium-node-init daemonset, which handles tasks like mounting the eBPF filesystem and updating the
-existing Azure CNI plugin to run in 'transparent' mode.
 
 .. include:: k8s-install-restart-pods.rst
 
