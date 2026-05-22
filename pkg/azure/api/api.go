@@ -219,6 +219,13 @@ func (c *Client) listVirtualMachineScaleSetsNetworkInterfaces(ctx context.Contex
 	}
 
 	for _, virtualMachineScaleSet := range virtualMachineScaleSets {
+		// Skip scale sets known to be empty: AKS node pools scaled to zero
+		// surface as 0-capacity here and would otherwise cost an ARM call
+		// that returns 404.
+		if virtualMachineScaleSet.SKU != nil && virtualMachineScaleSet.SKU.Capacity != nil && *virtualMachineScaleSet.SKU.Capacity == 0 {
+			continue
+		}
+
 		virtualMachineScaleSetNetworkInterfaces, err := c.listVirtualMachineScaleSetNetworkInterfaces(ctx, *virtualMachineScaleSet.Name)
 		if err != nil {
 			// For scale set created by AKS node group (otherwise it will return an empty list) without any instances API will return not found. Then it can be skipped.
