@@ -77,7 +77,7 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger) e
 	vpcClient.GetConfig().WithScheme("HTTPS")
 	ecsClient.GetConfig().WithScheme("HTTPS")
 
-	a.client = alibabacloudAPI.NewClient(vpcClient, ecsClient, a.AlibabaMetrics, a.LimitIPAMAPIQPS,
+	a.client = alibabacloudAPI.NewClient(a.rootLogger, vpcClient, ecsClient, a.AlibabaMetrics, a.LimitIPAMAPIQPS,
 		a.LimitIPAMAPIBurst, operatorOption.Config.IPAMInstanceTags)
 
 	if err := limits.UpdateFromAPI(ctx, a.client); err != nil {

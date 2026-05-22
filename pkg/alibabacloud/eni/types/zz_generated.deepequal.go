@@ -51,13 +51,14 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 	if in.ZoneID != other.ZoneID {
 		return false
 	}
-	if in.VSwitch != other.VSwitch {
+	if !in.VSwitch.DeepEqual(&other.VSwitch) {
 		return false
 	}
 
-	if in.PrimaryIPAddress != other.PrimaryIPAddress {
+	if !in.PrimaryIPAddress.DeepEqual(&other.PrimaryIPAddress) {
 		return false
 	}
+
 	if ((in.PrivateIPSets != nil) && (other.PrivateIPSets != nil)) || ((in.PrivateIPSets == nil) != (other.PrivateIPSets == nil)) {
 		in, other := &in.PrivateIPSets, &other.PrivateIPSets
 		if other == nil {
@@ -137,9 +138,10 @@ func (in *PrivateIPSet) DeepEqual(other *PrivateIPSet) bool {
 		return false
 	}
 
-	if in.PrivateIpAddress != other.PrivateIpAddress {
+	if !in.PrivateIpAddress.DeepEqual(&other.PrivateIpAddress) {
 		return false
 	}
+
 	if in.Primary != other.Primary {
 		return false
 	}
@@ -163,9 +165,10 @@ func (in *Spec) DeepEqual(other *Spec) bool {
 	if in.VPCID != other.VPCID {
 		return false
 	}
-	if in.CIDRBlock != other.CIDRBlock {
+	if !in.CIDRBlock.DeepEqual(&other.CIDRBlock) {
 		return false
 	}
+
 	if ((in.VSwitches != nil) && (other.VSwitches != nil)) || ((in.VSwitches == nil) != (other.VSwitches == nil)) {
 		in, other := &in.VSwitches, &other.VSwitches
 		if other == nil {
@@ -255,12 +258,14 @@ func (in *VPC) DeepEqual(other *VPC) bool {
 	if in.VPCID != other.VPCID {
 		return false
 	}
-	if in.CIDRBlock != other.CIDRBlock {
+	if !in.CIDRBlock.DeepEqual(&other.CIDRBlock) {
 		return false
 	}
-	if in.IPv6CIDRBlock != other.IPv6CIDRBlock {
+
+	if !in.IPv6CIDRBlock.DeepEqual(&other.IPv6CIDRBlock) {
 		return false
 	}
+
 	if ((in.SecondaryCIDRs != nil) && (other.SecondaryCIDRs != nil)) || ((in.SecondaryCIDRs == nil) != (other.SecondaryCIDRs == nil)) {
 		in, other := &in.SecondaryCIDRs, &other.SecondaryCIDRs
 		if other == nil {
@@ -271,7 +276,7 @@ func (in *VPC) DeepEqual(other *VPC) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -291,10 +296,11 @@ func (in *VSwitch) DeepEqual(other *VSwitch) bool {
 	if in.VSwitchID != other.VSwitchID {
 		return false
 	}
-	if in.CIDRBlock != other.CIDRBlock {
+	if !in.CIDRBlock.DeepEqual(&other.CIDRBlock) {
 		return false
 	}
-	if in.IPv6CIDRBlock != other.IPv6CIDRBlock {
+
+	if !in.IPv6CIDRBlock.DeepEqual(&other.IPv6CIDRBlock) {
 		return false
 	}
 

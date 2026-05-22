@@ -6,9 +6,11 @@ package nodediscovery
 import (
 	"context"
 	"errors"
+	"net/netip"
 
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	alibabaCloudMetadata "github.com/cilium/cilium/pkg/alibabacloud/metadata"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -49,7 +51,15 @@ func (n *NodeDiscovery) mutateAlibabaCloudNodeResource(ctx context.Context, node
 	nodeResource.Spec.InstanceID = instanceID
 	nodeResource.Spec.AlibabaCloud.InstanceType = instanceType
 	nodeResource.Spec.AlibabaCloud.VPCID = vpcID
-	nodeResource.Spec.AlibabaCloud.CIDRBlock = vpcCidrBlock
+	if p, err := netip.ParsePrefix(vpcCidrBlock); err != nil {
+		n.logger.Warn(
+			"Ignoring VPC CIDR block with unparseable value",
+			logfields.CIDR, vpcCidrBlock,
+			logfields.Error, err,
+		)
+	} else {
+		nodeResource.Spec.AlibabaCloud.CIDRBlock = iputil.PrefixFrom(p)
+	}
 	nodeResource.Spec.AlibabaCloud.AvailabilityZone = zoneID
 
 	nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
@@ -64,7 +74,7 @@ func (n *NodeDiscovery) mutateAlibabaCloudNodeResource(ctx context.Context, node
 		if c.AlibabaCloud.VPCID != "" {
 			nodeResource.Spec.AlibabaCloud.VPCID = c.AlibabaCloud.VPCID
 		}
-		if c.AlibabaCloud.CIDRBlock != "" {
+		if c.AlibabaCloud.CIDRBlock.IsValid() {
 			nodeResource.Spec.AlibabaCloud.CIDRBlock = c.AlibabaCloud.CIDRBlock
 		}
 

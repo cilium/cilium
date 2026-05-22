@@ -9,6 +9,7 @@ import (
 	apimock "github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -57,12 +58,12 @@ var (
 		"i-1": {
 			"eni-1": {
 				NetworkInterfaceID: "eni-1",
-				PrimaryIPAddress:   "1.1.0.1",
+				PrimaryIPAddress:   iputil.AddrFrom(netip.MustParseAddr("1.1.0.1")),
 				SecurityGroupIDs:   []string{"sg-1"},
 				PrivateIPSets: []eniTypes.PrivateIPSet{
 					{
 						Primary:          true,
-						PrivateIpAddress: "1.1.0.1",
+						PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("1.1.0.1")),
 					},
 				},
 				Type:       eniTypes.ENITypePrimary,
@@ -75,12 +76,12 @@ var (
 		"i-2": {
 			"eni-2": &eniTypes.ENI{
 				NetworkInterfaceID: "eni-2",
-				PrimaryIPAddress:   "1.1.1.1",
+				PrimaryIPAddress:   iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				SecurityGroupIDs:   []string{"sg-2"},
 				PrivateIPSets: []eniTypes.PrivateIPSet{
 					{
 						Primary:          true,
-						PrivateIpAddress: "1.1.1.1",
+						PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 					},
 				},
 				Type:       eniTypes.ENITypePrimary,
@@ -93,12 +94,12 @@ var (
 		"i-3": {
 			"eni-3": &eniTypes.ENI{
 				NetworkInterfaceID: "eni-3",
-				PrimaryIPAddress:   "1.1.1.2",
+				PrimaryIPAddress:   iputil.AddrFrom(netip.MustParseAddr("1.1.1.2")),
 				SecurityGroupIDs:   []string{"sg-2"},
 				PrivateIPSets: []eniTypes.PrivateIPSet{
 					{
 						Primary:          true,
-						PrivateIpAddress: "1.1.1.2",
+						PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("1.1.1.2")),
 					},
 				},
 				Type:       eniTypes.ENITypePrimary,
