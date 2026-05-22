@@ -58,10 +58,22 @@ type Path struct {
 	Family         Family
 
 	// readonly
-	AgeNanoseconds int64 // time duration in nanoseconds since the Path was created
-	Best           bool
-	UUID           []byte // path identifier in underlying implementation
-	SourceASN      uint32
+	CreatedAt time.Time // time when the Path was created
+	Best      bool
+	UUID      []byte // path identifier in underlying implementation
+	SourceASN uint32
+}
+
+// Age returns the elapsed duration since the Path was created.
+func (p *Path) Age() time.Duration {
+	if p.CreatedAt.IsZero() {
+		return 0
+	}
+	age := time.Since(p.CreatedAt)
+	if age < 0 {
+		return 0
+	}
+	return age
 }
 
 // Neighbor is an object representing a single BGP neighbor. It is an analogue

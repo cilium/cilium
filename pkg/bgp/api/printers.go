@@ -126,7 +126,7 @@ func PrintBGPRoutesTable(w *tabwriter.Writer, routes []*models.BgpRoute, printPe
 			fmt.Fprintf(w, "%s\t", path.NLRI)
 			fmt.Fprintf(w, "%s\t", NextHopFromPathAttributes(path.PathAttributes))
 			if printAge {
-				fmt.Fprintf(w, "%s\t", time.Duration(path.AgeNanoseconds).Round(time.Second))
+				fmt.Fprintf(w, "%s\t", path.Age().Round(time.Second))
 			}
 			fmt.Fprintf(w, "%s\n", path.PathAttributes)
 		}
