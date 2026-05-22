@@ -178,17 +178,6 @@ func (e *ENI) InterfaceID() string {
 	return e.ID
 }
 
-// ForeachAddress iterates over all addresses and calls fn
-func (e *ENI) ForeachAddress(id string, fn types.AddressIterator) error {
-	for _, address := range e.Addresses {
-		if err := fn(id, e.ID, address, address); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // IsExcludedBySpec returns true if the ENI is excluded by the provided spec and
 // therefore should not be managed by Cilium.
 func (e *ENI) IsExcludedBySpec(spec ENISpec) bool {
