@@ -16,15 +16,22 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // ToGoBGPPath converts the Agent Path type to the GoBGP Path type
 func ToGoBGPPath(p *types.Path) (*apiutil.Path, error) {
+	createdAt := p.CreatedAt
+	if createdAt.IsZero() {
+		// GoBGP's Age field is a Unix creation timestamp in seconds;
+		// zero would mean 1970-01-01, not an unset timestamp.
+		createdAt = time.Now()
+	}
 	return &apiutil.Path{
 		Family:  bgp.NewFamily(uint16(p.Family.Afi), uint8(p.Family.Safi)),
 		Nlri:    p.NLRI,
 		Attrs:   p.PathAttributes,
-		Age:     p.AgeNanoseconds,
+		Age:     createdAt.Unix(),
 		Best:    p.Best,
 		PeerASN: p.SourceASN,
 	}, nil
@@ -39,7 +46,7 @@ func ToAgentPath(p *apiutil.Path) (*types.Path, error) {
 		},
 		NLRI:           p.Nlri,
 		PathAttributes: p.Attrs,
-		AgeNanoseconds: p.Age,
+		CreatedAt:      time.Unix(p.Age, 0), // GoBGP's Age field is a Unix creation timestamp in seconds.
 		Best:           p.Best,
 		SourceASN:      p.PeerASN,
 	}, nil

@@ -130,7 +130,7 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPe
 					Prefix:   route.Prefix,
 					NextHop:  api.NextHopFromPathAttributes(path.PathAttributes),
 					Best:     strconv.FormatBool(path.Best),
-					Age:      time.Duration(path.AgeNanoseconds).Truncate(time.Second).String(),
+					Age:      path.Age().Round(time.Second).String(),
 					Attrs:    FormatPathAttributes(path.PathAttributes),
 				}
 				if noAge {
