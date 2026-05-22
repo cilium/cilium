@@ -24,6 +24,7 @@ import (
 	"github.com/tidwall/sjson"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/daemon/cmd/cni/config"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
@@ -33,7 +34,7 @@ import (
 var legacyConfFile = "05-cilium.conf"
 
 type cniConfigManager struct {
-	config      Config
+	config      config.Config
 	debug       bool
 	cniConfDir  string // computed from WriteCNIConfigWhenReady
 	cniConfFile string // computed from WriteCNIConfigWhenReady
