@@ -15,6 +15,7 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
@@ -191,13 +192,13 @@ func enisToCIDRs(enis map[string]eniTypes.ENI) []netip.Prefix {
 	var out []netip.Prefix
 	for _, eni := range enis {
 		for _, prefix := range eni.Prefixes {
-			if p, err := netip.ParsePrefix(prefix); err == nil {
-				out = append(out, p)
+			if prefix.IsValid() {
+				out = append(out, prefix.Prefix)
 			}
 		}
 		for _, addr := range eni.Addresses {
-			if a, err := netip.ParseAddr(addr); err == nil {
-				out = append(out, netip.PrefixFrom(a, a.BitLen()))
+			if addr.IsValid() {
+				out = append(out, netip.PrefixFrom(addr.Addr, addr.BitLen()))
 			}
 		}
 	}
@@ -230,7 +231,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 	t.Run("removed CIDR is marked for release", func(t *testing.T) {
 		enis := map[string]eniTypes.ENI{
-			"eni-1": {Addresses: []string{"10.0.0.1", "10.0.0.2"}},
+			"eni-1": {Addresses: []iputil.Addr{
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+			}},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
@@ -251,7 +255,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 	t.Run("reappearing CIDR is removed from marked-for-release", func(t *testing.T) {
 		enis := map[string]eniTypes.ENI{
-			"eni-1": {Addresses: []string{"10.0.0.1", "10.0.0.2"}},
+			"eni-1": {Addresses: []iputil.Addr{
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+			}},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
@@ -277,7 +284,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 	t.Run("CIDR detached from ENI is cleaned up from marked-for-release", func(t *testing.T) {
 		enis := map[string]eniTypes.ENI{
-			"eni-1": {Addresses: []string{"10.0.0.1", "10.0.0.2"}},
+			"eni-1": {Addresses: []iputil.Addr{
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+			}},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
@@ -295,7 +305,9 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 		// ENI status updated: 10.0.0.2 no longer attached (operator detached it).
 		n.ops.(*nodeOperationsMock).attachedCIDRs = enisToCIDRs(map[string]eniTypes.ENI{
-			"eni-1": {Addresses: []string{"10.0.0.1"}},
+			"eni-1": {Addresses: []iputil.Addr{
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+			}},
 		})
 		n.trackMultiPoolAllocatedLocked()
 		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
@@ -303,7 +315,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 	t.Run("already-marked CIDR keeps original timestamp", func(t *testing.T) {
 		enis := map[string]eniTypes.ENI{
-			"eni-1": {Addresses: []string{"10.0.0.1", "10.0.0.2"}},
+			"eni-1": {Addresses: []iputil.Addr{
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+			}},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
 			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
@@ -327,8 +342,12 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 	t.Run("prefix delegation CIDR tracked correctly", func(t *testing.T) {
 		enis := map[string]eniTypes.ENI{
 			"eni-1": {
-				Addresses: []string{"10.0.0.1"},
-				Prefixes:  []string{"10.0.0.16/28"},
+				Addresses: []iputil.Addr{
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+				},
+				Prefixes: []iputil.Prefix{
+					iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")),
+				},
 			},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{

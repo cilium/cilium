@@ -13,6 +13,7 @@ import (
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/types"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -307,12 +308,12 @@ func TestGetAttachedCIDRs(t *testing.T) {
 	t.Run("addresses and prefixes from multiple ENIs are merged", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				Addresses: []string{"10.0.0.1"},
-				Prefixes:  []string{"10.0.0.16/28"},
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))},
+				Prefixes:  []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28"))},
 			},
 			"eni-2": {
-				Addresses: []string{"2001:db8::1"},
-				Prefixes:  []string{"2001:db8:1::/80"},
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("2001:db8::1"))},
+				Prefixes:  []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1::/80"))},
 			},
 		})
 
@@ -339,11 +340,14 @@ func TestPrepareCIDRRelease(t *testing.T) {
 	t.Run("secondary IP mapped to correct ENI", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				Addresses: []string{"10.0.0.1", "10.0.0.2"},
-				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+				Addresses: []iputil.Addr{
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+				},
+				Subnet: types.AwsSubnet{ID: "subnet-1"},
 			},
 			"eni-2": {
-				Addresses: []string{"10.0.1.1"},
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.1.1"))},
 				Subnet:    types.AwsSubnet{ID: "subnet-2"},
 			},
 		})
@@ -359,8 +363,8 @@ func TestPrepareCIDRRelease(t *testing.T) {
 	t.Run("prefix mapped to correct ENI", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				Addresses: []string{"10.0.0.1"},
-				Prefixes:  []string{"10.0.0.16/28"},
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))},
+				Prefixes:  []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28"))},
 				Subnet:    types.AwsSubnet{ID: "subnet-1"},
 			},
 		})
@@ -375,8 +379,12 @@ func TestPrepareCIDRRelease(t *testing.T) {
 	t.Run("multiple CIDRs on same ENI grouped into one action", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				Addresses: []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"},
-				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+				Addresses: []iputil.Addr{
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.3")),
+				},
+				Subnet: types.AwsSubnet{ID: "subnet-1"},
 			},
 		})
 
@@ -390,11 +398,11 @@ func TestPrepareCIDRRelease(t *testing.T) {
 	t.Run("CIDRs on different ENIs produce separate actions", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				Addresses: []string{"10.0.0.1"},
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))},
 				Subnet:    types.AwsSubnet{ID: "subnet-1"},
 			},
 			"eni-2": {
-				Addresses: []string{"10.0.1.1"},
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.1.1"))},
 				Subnet:    types.AwsSubnet{ID: "subnet-2"},
 			},
 		})
@@ -413,7 +421,7 @@ func TestPrepareCIDRRelease(t *testing.T) {
 	t.Run("excluded ENIs are skipped", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				Addresses: []string{"10.0.0.1"},
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))},
 				Subnet:    types.AwsSubnet{ID: "subnet-1"},
 				Tags:      map[string]string{"skip": "true"},
 			},
@@ -428,7 +436,7 @@ func TestPrepareCIDRRelease(t *testing.T) {
 	t.Run("CIDR not found on any ENI produces no action", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				Addresses: []string{"10.0.0.1"},
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))},
 				Subnet:    types.AwsSubnet{ID: "subnet-1"},
 			},
 		})
@@ -440,7 +448,7 @@ func TestPrepareCIDRRelease(t *testing.T) {
 
 	t.Run("empty input returns empty result", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
-			"eni-1": {Addresses: []string{"10.0.0.1"}},
+			"eni-1": {Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))}},
 		})
 
 		actions := n.PrepareCIDRRelease(nil)
@@ -453,9 +461,12 @@ func TestPrepareCIDRRelease(t *testing.T) {
 		// it because AWS rejects UnassignPrivateIpAddresses on a primary.
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				IP:        "10.0.0.1",
-				Addresses: []string{"10.0.0.1", "10.0.0.2"},
-				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+				IP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+				Addresses: []iputil.Addr{
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+					iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+				},
+				Subnet: types.AwsSubnet{ID: "subnet-1"},
 			},
 		})
 

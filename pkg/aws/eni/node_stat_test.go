@@ -4,6 +4,7 @@
 package eni
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -89,11 +91,11 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	ipamNode.prefixDelegation = false
 	n.enis["eni-a"] = eniTypes.ENI{
 		ID:       "eni-a",
-		Prefixes: []string{"10.0.0.1/28"},
+		Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/28"))},
 	}
 	n.manager.instances.Update("i-000", &eniTypes.ENI{
 		ID:       "eni-a",
-		Prefixes: []string{"10.0.0.1/28"},
+		Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/28"))},
 	})
 
 	// Finally, we have the case where an eni has a leftover prefix available.

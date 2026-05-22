@@ -180,7 +180,7 @@ func (m *MTUManager) consideredDevices(devs []*tables.Device) []*tables.Device {
 
 		for _, eni := range localNode.Status.ENI.ENIs {
 			// Use the primary IP of the node to tell which ENI is the primary
-			isPrimary := eni.IP == internalIP
+			isPrimary := eni.IP.String() == internalIP
 			if isPrimary {
 				continue
 			}
