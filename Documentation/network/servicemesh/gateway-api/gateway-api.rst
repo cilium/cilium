@@ -69,6 +69,7 @@ Cilium's Gateway API features:
    header
    parameterized-gatewayclass
    default-tls-certificate
+   backendtlspolicy
 
 More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.3.0/examples/standard>`_.
 

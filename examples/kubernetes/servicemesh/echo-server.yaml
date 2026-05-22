@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app: backend
+    service: backend
+spec:
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  selector:
+    app: backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: backend
+        version: v1
+    spec:
+      serviceAccountName: backend
+      containers:
+        - image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
+          imagePullPolicy: IfNotPresent
+          name: backend
+          ports:
+            - containerPort: 3000
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
