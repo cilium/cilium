@@ -277,7 +277,7 @@ func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 				},
 			},
 		},
-	}, nil)
+	})
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 
@@ -311,7 +311,7 @@ func TestSharedIngressTranslator_getListener(t *testing.T) {
 				},
 			},
 		},
-	}, nil)
+	})
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 
@@ -473,8 +473,8 @@ func TestGetEnvoyHTTPRouteConfiguration_VirtualHostSorted(t *testing.T) {
 		},
 	}
 
-	res1, err1 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l1}, nil)
-	res2, err2 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l2}, nil)
+	res1, err1 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l1})
+	res2, err2 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l2})
 	require.NoError(t, err1)
 	require.NoError(t, err2)
 
@@ -558,7 +558,7 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := defT.desiredEnvoyHTTPRouteConfiguration(tt.args.m, nil)
+			res, err := defT.desiredEnvoyHTTPRouteConfiguration(tt.args.m)
 			require.NoError(t, err)
 			require.Len(t, res, len(tt.expectedRouteConfigs), "Number of Listeners did not match")
 

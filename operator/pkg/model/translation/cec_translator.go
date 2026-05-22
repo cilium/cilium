@@ -187,14 +187,12 @@ func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, 
 func (i *cecTranslator) desiredResources(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	var res []ciliumv2.XDSResource
 
-	allAuthFilters := i.getUniqueAuthFilters(m)
-
-	listener, err := i.desiredEnvoyListener(m, allAuthFilters)
+	listener, err := i.desiredEnvoyListener(m)
 	if err != nil {
 		return nil, err
 	}
 
-	httpRoutes, err := i.desiredEnvoyHTTPRouteConfiguration(m, allAuthFilters)
+	httpRoutes, err := i.desiredEnvoyHTTPRouteConfiguration(m)
 	if err != nil {
 		return nil, err
 	}
