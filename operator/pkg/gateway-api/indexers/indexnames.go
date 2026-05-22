@@ -41,7 +41,6 @@ const (
 	// Service as a parent.
 	GammaGRPCRouteParentRefsIndex = "gammaGRPCRouteParentRefs"
 
-	// Indexes GatewayClassCiliumGatewayClassConfigsIndex indexes GatewayClass by the CiliumGatewayClassConfig
-	// that it refers to.
+	// Indexes GatewayClass objects by the CiliumGatewayClassConfig they reference.
 	GatewayClassCiliumGatewayClassConfigsIndex = "gatewayClassCiliumGatewayClassConfigsIndex"
 )
