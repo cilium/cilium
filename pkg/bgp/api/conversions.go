@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"time"
 
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 
@@ -78,7 +79,7 @@ func ToAPIFamilies(families []types.Family) []*models.BgpFamily {
 func ToAPIPath(p *types.Path) (*models.BgpPath, error) {
 	ret := &models.BgpPath{}
 
-	ret.AgeNanoseconds = p.AgeNanoseconds
+	ret.AgeNanoseconds = int64(p.Age())
 	ret.Best = p.Best
 
 	// We need this Base64 encoding because OpenAPI 2.0 spec doesn't support Union
@@ -118,7 +119,9 @@ func ToAPIPath(p *types.Path) (*models.BgpPath, error) {
 func ToAgentPath(m *models.BgpPath) (*types.Path, error) {
 	p := &types.Path{}
 
-	p.AgeNanoseconds = m.AgeNanoseconds
+	if m.AgeNanoseconds > 0 {
+		p.CreatedAt = time.Now().Add(-time.Duration(m.AgeNanoseconds))
+	}
 	p.Best = m.Best
 
 	// Decode serialized NLRI to bytes
