@@ -67,11 +67,9 @@ const (
 	// policy enforcement that must be done after the proxy. The identity
 	// stored in the mark is source Endpoint ID.
 	//
-	// Note that this is not used from Go code, but is included here to
-	// document this pattern. This must match the definition of
-	// MARK_MAGIC_PROXY_EGRESS_EPID in the datapath, and the Envoy code in
-	// cilium/proxy/cilium/bpf_metadata.cc
-	MagicMarkProxyEgressEPID int = 0x0900
+	// This must match the definition of MARK_MAGIC_PROXY_EGRESS_EPID in the
+	// datapath, and the Envoy code in cilium/proxy/cilium/bpf_metadata.cc
+	MagicMarkProxyEgressEPID uint32 = 0x0900
 
 	// MagicMarkIngress determines that the traffic is sourced from the
 	// proxy which is applying Ingress policy
