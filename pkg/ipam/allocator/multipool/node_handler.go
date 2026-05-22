@@ -112,10 +112,11 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 			// If a previous run of the controller failed due to a conflict,
 			// we need to re-fetch the node to make sure we have the latest version.
 			if refetchNode {
-				resource, controllerErr = n.nodeUpdater.Get(resource.Name)
-				if controllerErr != nil {
-					return controllerErr
+				updResource, err := n.nodeUpdater.Get(resource.Name)
+				if err != nil {
+					return err
 				}
+				resource = updResource
 				refetchNode = false
 			}
 
