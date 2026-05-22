@@ -182,7 +182,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 
 		for _, address := range iface.Addresses {
 			if address.State == types.StateSucceeded {
-				available[address.IP] = ipamTypes.AllocationIP{Resource: interfaceID}
+				available[address.IP.String()] = ipamTypes.AllocationIP{Resource: interfaceID}
 			} else {
 				scopedLog.Warn(
 					"Ignoring potentially available IP due to non-successful state",
@@ -199,7 +199,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 
 		// The primary IP still consumes a NIC slot even when it is not
 		// allocatable; reserve it from the VM-wide budget.
-		if !usePrimary && iface.IP != "" {
+		if !usePrimary && iface.IP.IsValid() {
 			nodeCapacity--
 		}
 
@@ -275,7 +275,7 @@ func isAvailableInterface(requiredIfaceName string, iface *types.AzureInterface,
 	// When the primary is not exposed to the pool, its slot is consumed but
 	// not reflected in iface.Addresses, so reserve it here.
 	limit := types.InterfaceAddressLimit
-	if !usePrimary && iface.IP != "" {
+	if !usePrimary && iface.IP.IsValid() {
 		limit--
 	}
 	availableOnInterface = max(limit-len(iface.Addresses), 0)

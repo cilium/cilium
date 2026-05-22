@@ -15,9 +15,10 @@ func (in *AzureAddress) DeepEqual(other *AzureAddress) bool {
 		return false
 	}
 
-	if in.IP != other.IP {
+	if !in.IP.DeepEqual(&other.IP) {
 		return false
 	}
+
 	if in.Subnet != other.Subnet {
 		return false
 	}
@@ -38,9 +39,10 @@ func (in *AzureInterface) DeepEqual(other *AzureInterface) bool {
 	if in.ID != other.ID {
 		return false
 	}
-	if in.IP != other.IP {
+	if !in.IP.DeepEqual(&other.IP) {
 		return false
 	}
+
 	if in.Name != other.Name {
 		return false
 	}

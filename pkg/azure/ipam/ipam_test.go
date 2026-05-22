@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -154,7 +155,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "1.1.1.1",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -216,7 +217,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 		Subnet:        types.AzureSubnet{ID: "subnet-1"},
 		Addresses: []types.AzureAddress{
 			{
-				IP:    "1.1.1.1",
+				IP:    iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				State: types.StateSucceeded,
 			},
 		},
@@ -308,7 +309,7 @@ func TestIpamManyNodes(t *testing.T) {
 					Subnet:        types.AzureSubnet{ID: "subnet-1"},
 					Addresses: []types.AzureAddress{
 						{
-							IP:    fmt.Sprintf("10.0.0.%d", i+10),
+							IP:    iputil.AddrFrom(netip.MustParseAddr(fmt.Sprintf("10.0.0.%d", i+10))),
 							State: types.StateSucceeded,
 						},
 					},

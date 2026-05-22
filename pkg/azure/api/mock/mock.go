@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/azure/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -191,7 +192,7 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 				panic("Unable to allocate IP from allocator")
 			}
 			intf.Addresses = append(intf.Addresses, types.AzureAddress{
-				IP:     ip.String(),
+				IP:     iputil.AddrFrom(ip),
 				Subnet: subnetID, //nolint:staticcheck // deprecated mirror; matches parseInterface, see https://github.com/cilium/cilium/issues/46074
 				State:  types.StateSucceeded,
 			})
