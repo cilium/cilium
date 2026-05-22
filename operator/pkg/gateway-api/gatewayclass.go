@@ -72,6 +72,10 @@ func referencedConfig(rawObj client.Object) []string {
 		return nil
 	}
 
+	if string(gwc.Spec.ControllerName) != helpers.CiliumDefaultControllerName {
+		return nil
+	}
+
 	if !isParameterRefSupported(gwc.Spec.ParametersRef) {
 		return nil
 	}
