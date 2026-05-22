@@ -258,15 +258,13 @@ func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR *cidr.CIDR, secondar
 	}
 	// return AlibabaCloud vpc CIDR
 	if len(node.Status.AlibabaCloud.ENIs) > 0 {
-		c, err := cidr.ParseCIDR(node.Spec.AlibabaCloud.CIDRBlock)
-		if err == nil {
-			primaryCIDR = c
+		if p := node.Spec.AlibabaCloud.CIDRBlock; p.IsValid() {
+			primaryCIDR = cidr.NewCIDR(netipx.PrefixIPNet(p.Masked()))
 		}
 		for _, eni := range node.Status.AlibabaCloud.ENIs {
 			for _, sc := range eni.VPC.SecondaryCIDRs {
-				c, err = cidr.ParseCIDR(sc)
-				if err == nil {
-					secondaryCIDRs = append(secondaryCIDRs, c)
+				if sc.IsValid() {
+					secondaryCIDRs = append(secondaryCIDRs, cidr.NewCIDR(netipx.PrefixIPNet(sc.Masked())))
 				}
 			}
 			return
@@ -759,7 +757,8 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 				continue
 			}
 			result.PrimaryMAC = eni.MACAddress
-			if p, err := netip.ParsePrefix(eni.VSwitch.CIDRBlock); err == nil {
+			if eni.VSwitch.CIDRBlock.IsValid() {
+				p := eni.VSwitch.CIDRBlock.Prefix
 				result.CIDRs = []netip.Prefix{p}
 
 				// AlibabaCloud reserves the third-to-last IP of the subnet for the gateway.
