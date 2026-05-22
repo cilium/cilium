@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/kvstore/locksweeper"
 	"github.com/cilium/cilium/operator/pkg/kvstore/nodesgc"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
+	networkdriverconfig "github.com/cilium/cilium/operator/pkg/networkdriver/config"
 	networkdriveripam "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
@@ -360,6 +361,9 @@ var (
 
 		// Provide Multi Pool IPAM for DRA resources managed by the Cilium Network Driver
 		networkdriveripam.Cell,
+
+		// CiliumNetworkDriverClusterConfig handling
+		networkdriverconfig.Cell,
 	}
 
 	binaryName = filepath.Base(os.Args[0])
