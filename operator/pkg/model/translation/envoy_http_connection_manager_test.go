@@ -19,7 +19,7 @@ func Test_desiredHTTPConnectionManager(t *testing.T) {
 	t.Run("no CORS filter enabled", func(t *testing.T) {
 		i := &cecTranslator{}
 		m := &model.Model{}
-		res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", nil, m)
+		res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", m)
 		require.NoError(t, err)
 
 		httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
@@ -51,7 +51,7 @@ func Test_desiredHTTPConnectionManager(t *testing.T) {
 				},
 			},
 		}}
-		res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", nil, m)
+		res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", m)
 		require.NoError(t, err)
 
 		httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
@@ -78,8 +78,8 @@ func Test_desiredHTTPConnectionManager(t *testing.T) {
 func Test_getHTTPConnectionManagerHttpFilters(t *testing.T) {
 	t.Run("no CORS filter enabled", func(t *testing.T) {
 		m := &model.Model{}
-		res, err := getHTTPConnectionManagerHttpFilters([]*model.HTTPExternalAuthFilter{}, m)
-		require.NoError(t, err)
+		i := &cecTranslator{}
+		res := i.getHTTPConnectionManagerHttpFilters(m)
 
 		require.Len(t, res, 3)
 		require.Equal(t, "envoy.filters.http.grpc_web", res[0].Name)
@@ -96,8 +96,8 @@ func Test_getHTTPConnectionManagerHttpFilters(t *testing.T) {
 				},
 			},
 		}}
-		res, err := getHTTPConnectionManagerHttpFilters([]*model.HTTPExternalAuthFilter{}, m)
-		require.NoError(t, err)
+		i := &cecTranslator{}
+		res := i.getHTTPConnectionManagerHttpFilters(m)
 
 		require.Len(t, res, 4)
 		require.Equal(t, "envoy.filters.http.grpc_web", res[0].Name)
@@ -109,20 +109,28 @@ func Test_getHTTPConnectionManagerHttpFilters(t *testing.T) {
 }
 
 func Test_desiredHTTPConnectionManager_withExtAuthz(t *testing.T) {
-	authFilters := []*model.HTTPExternalAuthFilter{
-		{
-			Backend:  model.Backend{Name: "grpc-authz", Namespace: "default", Port: &model.BackendPort{Port: 9000}},
-			Protocol: model.ExternalAuthProtocolGRPC,
-		},
-		{
-			Backend:    model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
-			Protocol:   model.ExternalAuthProtocolHTTP,
-			PathPrefix: "/auth",
-		},
-	}
-
 	i := &cecTranslator{}
-	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", authFilters, nil)
+	m := &model.Model{
+		HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{
+				{
+					ExternalAuth: &model.HTTPExternalAuthFilter{
+						Backend:  model.Backend{Name: "grpc-authz", Namespace: "default", Port: &model.BackendPort{Port: 9000}},
+						Protocol: model.ExternalAuthProtocolGRPC,
+					},
+				},
+				{
+					ExternalAuth: &model.HTTPExternalAuthFilter{
+						Backend:    model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
+						Protocol:   model.ExternalAuthProtocolHTTP,
+						PathPrefix: "/auth",
+					},
+				},
+			},
+		}},
+	}
+	authFilters := i.getUniqueAuthFilters(m)
+	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", m)
 	require.NoError(t, err)
 
 	hcm := &httpConnectionManagerv3.HttpConnectionManager{}
@@ -157,8 +165,7 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 			Protocol:    model.ExternalAuthProtocolGRPC,
 			ForwardBody: &model.ForwardBodyConfig{MaxSize: 4096},
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.NotNil(t, config.GetWithRequestBody())
@@ -172,8 +179,7 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 			Protocol:    model.ExternalAuthProtocolHTTP,
 			ForwardBody: &model.ForwardBodyConfig{MaxSize: 8192},
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.NotNil(t, config.GetWithRequestBody())
@@ -186,8 +192,7 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 			Backend:  model.Backend{Name: "http-authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
 			Protocol: model.ExternalAuthProtocolHTTP,
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.Nil(t, config.GetWithRequestBody())
@@ -199,8 +204,7 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 			Protocol:    model.ExternalAuthProtocolHTTP,
 			ForwardBody: &model.ForwardBodyConfig{MaxSize: 0},
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.Nil(t, config.GetWithRequestBody())
@@ -216,8 +220,7 @@ func Test_buildExtAuthzHTTPFilter_allowedRequestHeaders(t *testing.T) {
 			Protocol:              model.ExternalAuthProtocolGRPC,
 			AllowedRequestHeaders: []string{},
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.Nil(t, config.GetAllowedHeaders())
@@ -228,8 +231,7 @@ func Test_buildExtAuthzHTTPFilter_allowedRequestHeaders(t *testing.T) {
 			Backend:  model.Backend{Name: "grpc-authz", Namespace: "default", Port: &model.BackendPort{Port: 9000}},
 			Protocol: model.ExternalAuthProtocolGRPC,
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.Nil(t, config.GetAllowedHeaders())
@@ -241,8 +243,7 @@ func Test_buildExtAuthzHTTPFilter_allowedRequestHeaders(t *testing.T) {
 			Protocol:              model.ExternalAuthProtocolGRPC,
 			AllowedRequestHeaders: []string{"X-Custom-Header", "X-Tenant-ID"},
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.NotNil(t, config.GetAllowedHeaders())
@@ -257,8 +258,7 @@ func Test_buildExtAuthzHTTPFilter_allowedRequestHeaders(t *testing.T) {
 			Protocol:              model.ExternalAuthProtocolHTTP,
 			AllowedRequestHeaders: []string{},
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.Nil(t, config.GetAllowedHeaders())
@@ -270,8 +270,7 @@ func Test_buildExtAuthzHTTPFilter_allowedRequestHeaders(t *testing.T) {
 			Protocol:              model.ExternalAuthProtocolHTTP,
 			AllowedRequestHeaders: []string{"X-Custom-Header"},
 		}
-		filter, err := buildExtAuthzHTTPFilter(af)
-		require.NoError(t, err)
+		filter := buildExtAuthzHTTPFilter(af)
 		config := &extauthzv3.ExtAuthz{}
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.NotNil(t, config.GetAllowedHeaders())

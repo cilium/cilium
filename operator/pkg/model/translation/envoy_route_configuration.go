@@ -19,8 +19,9 @@ import (
 type RouteConfigurationMutator func(*envoy_config_route_v3.RouteConfiguration) *envoy_config_route_v3.RouteConfiguration
 
 // desiredEnvoyHTTPRouteConfiguration returns the route configuration for the given model.
-func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model, allAuthFilters []*model.HTTPExternalAuthFilter) ([]ciliumv2.XDSResource, error) {
+func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	var res []ciliumv2.XDSResource
+	allAuthFilters := i.getUniqueAuthFilters(m)
 
 	type hostnameRedirect struct {
 		hostname string
