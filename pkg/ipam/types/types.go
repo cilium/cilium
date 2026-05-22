@@ -468,10 +468,6 @@ type Interface interface {
 	// InterfaceID must return the identifier of the interface
 	InterfaceID() string
 
-	// ForeachAddress must iterate over all addresses of the interface and
-	// call fn for each address
-	ForeachAddress(instanceID string, fn AddressIterator) error
-
 	// DeepCopyInterface returns a deep copy of the underlying interface type.
 	DeepCopyInterface() Interface
 }
@@ -547,49 +543,6 @@ func (m *InstanceMap) updateLocked(instanceID string, iface Interface) {
 	}
 
 	i.Interfaces[iface.InterfaceID()] = iface
-}
-
-type Address any
-
-// AddressIterator is the function called by the ForeachAddress iterator
-type AddressIterator func(instanceID, interfaceID, ip string, address Address) error
-
-func foreachAddress(instanceID string, instance *Instance, fn AddressIterator) error {
-	for _, iface := range instance.Interfaces {
-		if err := iface.ForeachAddress(instanceID, fn); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// ForeachAddress calls fn for each address on each interface attached to each
-// instance. If an instanceID is specified, the only the interfaces and
-// addresses of the specified instance are considered.
-//
-// The InstanceMap is read-locked throughout the iteration process, i.e., no
-// updates will occur. However, the address object given to the AddressIterator
-// will point to live data and must be deep copied if used outside of the
-// context of the iterator function.
-func (m *InstanceMap) ForeachAddress(instanceID string, fn AddressIterator) error {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	if instanceID != "" {
-		if instance := m.data[instanceID]; instance != nil {
-			return foreachAddress(instanceID, instance, fn)
-		}
-		return fmt.Errorf("instance does not exist: %q", instanceID)
-	}
-
-	for instanceID, instance := range m.data {
-		if err := foreachAddress(instanceID, instance, fn); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // InterfaceIterator is the function called by the ForeachInterface iterator
