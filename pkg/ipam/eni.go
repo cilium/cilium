@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -26,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/ip"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -119,15 +118,11 @@ func startENINativeRoutingCIDRSync(
 				}
 
 				// Each Upsert retries until the operator populates
-				// Status.ENI.ENIs[].VPC.PrimaryCIDR with a parseable value.
-				// A non-nil error degrades cell health to surface persistent
-				// malformed data, while an empty PrimaryCIDR (operator hasn't
-				// written yet) is treated as a transient absence.
-				primaryCIDR, err := deriveENIVpcCIDR(logger, ev.Object)
-				if err != nil {
-					return err
-				}
-				if primaryCIDR == nil {
+				// Status.ENI.ENIs[].VPC.PrimaryCIDR with a valid value.
+				// An invalid PrimaryCIDR (operator hasn't written yet) is
+				// treated as a transient absence.
+				primaryCIDR := deriveENIVpcCIDR(ev.Object)
+				if !primaryCIDR.IsValid() {
 					return nil
 				}
 
@@ -171,14 +166,14 @@ const waitForENINativeRoutingCIDRTimeout = 5 * time.Minute
 // as the autodetected native routing CIDR.
 func autoDetectENINativeRoutingCIDR(
 	logger *slog.Logger,
-	primaryCIDR *cidr.CIDR,
+	primaryCIDR netip.Prefix,
 	localNodeStore *node.LocalNodeStore,
 	conf *option.DaemonConfig,
 ) {
 	if nativeCIDR := conf.IPv4NativeRoutingCIDR; nativeCIDR != nil {
+		native, ok := netipx.FromStdIPNet(nativeCIDR.IPNet)
 		// Validate that the configured native routing CIDR contains the VPC CIDR.
-		ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, primaryCIDR.IPNet})
-		if len(ranges4) == 1 {
+		if ok && native.Bits() <= primaryCIDR.Bits() && native.Contains(primaryCIDR.Addr()) {
 			logger.Info(
 				"Native routing CIDR contains VPC CIDR, ignoring autodetected VPC CIDR.",
 				logfields.VPCCIDR, primaryCIDR,
@@ -198,7 +193,7 @@ func autoDetectENINativeRoutingCIDR(
 		logfields.VPCCIDR, primaryCIDR,
 	)
 	localNodeStore.Update(func(n *node.LocalNode) {
-		n.Local.IPv4NativeRoutingCIDR = primaryCIDR
+		n.Local.IPv4NativeRoutingCIDR = cidr.NewCIDR(netipx.PrefixIPNet(primaryCIDR))
 	})
 }
 
@@ -206,47 +201,33 @@ func autoDetectENINativeRoutingCIDR(
 // CiliumNode status. All ENIs on a node belong to the same VPC, so any ENI
 // can be used.
 //
-// Returns (nil, nil) when no ENI has populated PrimaryCIDR yet (transient
-// startup state) and (nil, err) when at least one ENI had a non-empty value
-// that failed to parse (persistent, surfaces via cell health).
-func deriveENIVpcCIDR(logger *slog.Logger, node *ciliumv2.CiliumNode) (*cidr.CIDR, error) {
-	var parseErrs []error
+// Returns the zero netip.Prefix when no ENI has populated PrimaryCIDR yet
+// (transient startup state).
+func deriveENIVpcCIDR(node *ciliumv2.CiliumNode) netip.Prefix {
 	for _, eni := range node.Status.ENI.ENIs {
-		if eni.VPC.PrimaryCIDR == "" {
+		if !eni.VPC.PrimaryCIDR.IsValid() {
 			continue
 		}
-		c, err := cidr.ParseCIDR(eni.VPC.PrimaryCIDR)
-		if err != nil {
-			// Per-ENI warn keeps granularity even when another ENI
-			// later in the iteration succeeds.
-			logger.Warn(
-				"Failed to parse VPC primary CIDR from ENI status",
-				logfields.ENI, eni.ID,
-				logfields.VPCCIDR, eni.VPC.PrimaryCIDR,
-				logfields.Error, err,
-			)
-			parseErrs = append(parseErrs, fmt.Errorf("ENI %s: %w", eni.ID, err))
-			continue
-		}
-		return c, nil
+		return eni.VPC.PrimaryCIDR.Masked()
 	}
-	if len(parseErrs) > 0 {
-		return nil, fmt.Errorf("no valid VPC primary CIDR found: %w", errors.Join(parseErrs...))
-	}
-	return nil, nil
+	return netip.Prefix{}
 }
 
 // validateENIConfig validates the ENI configuration in the CiliumNode resource
 // and returns an error if the configuration is not fully set.
 func validateENIConfig(node *ciliumv2.CiliumNode) error {
-	// Check if the VPC CIDR is set for all ENIs
 	for _, eni := range node.Status.ENI.ENIs {
-		if len(eni.VPC.PrimaryCIDR) == 0 {
+		if !eni.IP.IsValid() {
+			return fmt.Errorf("primary IP not set for ENI %s", eni.ID)
+		}
+		if !eni.Subnet.CIDR.IsValid() {
+			return fmt.Errorf("subnet CIDR not set for ENI %s", eni.ID)
+		}
+		if !eni.VPC.PrimaryCIDR.IsValid() {
 			return fmt.Errorf("VPC Primary CIDR not set for ENI %s", eni.ID)
 		}
-
 		for _, c := range eni.VPC.CIDRs {
-			if len(c) == 0 {
+			if !c.IsValid() {
 				return fmt.Errorf("VPC CIDR not set for ENI %s", eni.ID)
 			}
 		}
@@ -263,7 +244,11 @@ func validateENIConfig(node *ciliumv2.CiliumNode) error {
 		for _, sENI := range node.Status.ENI.ENIs {
 			if eni == sENI.ID {
 				for _, addr := range addresses {
-					if !slices.Contains(sENI.Addresses, addr) {
+					parsed, err := netip.ParseAddr(addr)
+					if err != nil {
+						return fmt.Errorf("invalid address %q in pool for ENI %s: %w", addr, eni, err)
+					}
+					if !slices.ContainsFunc(sENI.Addresses, func(a iputil.Addr) bool { return a.Addr == parsed }) {
 						return fmt.Errorf("ENI %s does not have address %s", eni, addr)
 					}
 				}
@@ -281,8 +266,8 @@ func validateENIConfig(node *ciliumv2.CiliumNode) error {
 
 type eniDeviceConfig struct {
 	name         string
-	ip           net.IP
-	cidr         *net.IPNet
+	ip           netip.Addr
+	cidr         netip.Prefix
 	mtu          int
 	usePrimaryIP bool
 }
@@ -311,16 +296,13 @@ func configureENIDevices(logger *slog.Logger, oldNode, newNode *ciliumv2.CiliumN
 		}
 
 		if _, ok := existingENIByName[name]; !ok {
-			cfg, err := parseENIConfig(name, &eni, mtuConfig, usePrimary)
-			if err != nil {
-				logger.Error(
-					"Skipping invalid ENI device config",
-					logfields.Error, err,
-					logfields.Resource, name,
-				)
-				continue
+			addedENIByMac[eni.MAC] = eniDeviceConfig{
+				name:         name,
+				ip:           eni.IP.Addr,
+				cidr:         eni.Subnet.CIDR.Masked(),
+				mtu:          mtuConfig.GetDeviceMTU(),
+				usePrimaryIP: usePrimary,
 			}
-			addedENIByMac[eni.MAC] = cfg
 		}
 	}
 
@@ -368,26 +350,6 @@ func setupENIDevices(logger *slog.Logger, eniConfigByMac configMap, sysctl sysct
 			)
 		}
 	}
-}
-
-func parseENIConfig(name string, eni *eniTypes.ENI, mtuConfig MtuConfiguration, usePrimary bool) (cfg eniDeviceConfig, err error) {
-	ip := net.ParseIP(eni.IP)
-	if ip == nil {
-		return cfg, fmt.Errorf("failed to parse eni primary ip %q", eni.IP)
-	}
-
-	_, cidr, err := net.ParseCIDR(eni.Subnet.CIDR)
-	if err != nil {
-		return cfg, fmt.Errorf("failed to parse eni subnet cidr %q: %w", eni.Subnet.CIDR, err)
-	}
-
-	return eniDeviceConfig{
-		name:         name,
-		ip:           ip,
-		cidr:         cidr,
-		mtu:          mtuConfig.GetDeviceMTU(),
-		usePrimaryIP: usePrimary,
-	}, nil
 }
 
 func waitForNetlinkDevicesWithRefetch(logger *slog.Logger, configByMac configMap) (linkMap, error) {
@@ -465,10 +427,7 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 	// Set the primary IP in order for SNAT to work correctly on this ENI
 	if !cfg.usePrimaryIP {
 		err := netlink.AddrAdd(link, &netlink.Addr{
-			IPNet: &net.IPNet{
-				IP:   cfg.ip,
-				Mask: cfg.cidr.Mask,
-			},
+			IPNet: netipx.PrefixIPNet(netip.PrefixFrom(cfg.ip, cfg.cidr.Bits())),
 		})
 		if err != nil && !errors.Is(err, unix.EEXIST) {
 			return fmt.Errorf("failed to set eni primary ip address %q on link %q: %w", cfg.ip, link.Attrs().Name, err)
@@ -479,8 +438,8 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 		// The Cilium could consider the wrong identity for the node and might drop
 		// the traffic between the host and pods when network policy is in place.
 		err = netlink.RouteDel(&netlink.Route{
-			Dst:   cfg.cidr,
-			Src:   cfg.ip,
+			Dst:   netipx.PrefixIPNet(cfg.cidr),
+			Src:   cfg.ip.AsSlice(),
 			Table: unix.RT_TABLE_MAIN,
 			Scope: netlink.SCOPE_LINK,
 		})
@@ -523,12 +482,12 @@ func buildENIAllocationResult(
 			IPPoolName: pool,
 			PrimaryMAC: eni.MAC,
 		}
-		if primaryCIDR, err := netip.ParsePrefix(eni.VPC.PrimaryCIDR); err == nil {
-			result.CIDRs = append(result.CIDRs, primaryCIDR)
+		if eni.VPC.PrimaryCIDR.IsValid() {
+			result.CIDRs = append(result.CIDRs, eni.VPC.PrimaryCIDR.Prefix)
 		}
 		for _, c := range eni.VPC.CIDRs {
-			if p, err := netip.ParsePrefix(c); err == nil {
-				result.CIDRs = append(result.CIDRs, p)
+			if c.IsValid() {
+				result.CIDRs = append(result.CIDRs, c.Prefix)
 			}
 		}
 
@@ -552,10 +511,10 @@ func buildENIAllocationResult(
 			}
 		}
 
-		if prefix, err := netip.ParsePrefix(eni.Subnet.CIDR); err == nil {
+		if eni.Subnet.CIDR.IsValid() {
 			// AWS reserves the first subnet IP for the gateway.
 			// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
-			result.GatewayIP = prefix.Addr().Next()
+			result.GatewayIP = eni.Subnet.CIDR.Addr().Next()
 		}
 		result.InterfaceNumber = strconv.Itoa(eni.Number)
 
@@ -568,20 +527,18 @@ func buildENIAllocationResult(
 // eniContainsIP returns true if the given IP belongs to the ENI: either as the
 // primary IP, a secondary address, or within one of its delegated prefixes.
 func eniContainsIP(eni eniTypes.ENI, addr netip.Addr) bool {
-	addrStr := addr.String()
-	if eni.IP == addrStr {
+	if eni.IP.Addr == addr {
 		return true
 	}
-	if slices.Contains(eni.Addresses, addrStr) {
+	if slices.ContainsFunc(eni.Addresses, func(a iputil.Addr) bool { return a.Addr == addr }) {
 		return true
 	}
 
 	for _, prefix := range eni.Prefixes {
-		parsed, err := netip.ParsePrefix(prefix)
-		if err != nil {
+		if !prefix.IsValid() {
 			continue
 		}
-		if parsed.Contains(addr) {
+		if prefix.Contains(addr) {
 			return true
 		}
 	}
@@ -596,7 +553,8 @@ func eniContainsIP(eni eniTypes.ENI, addr netip.Addr) bool {
 // sole writer of Spec.IPAM.Pools.Allocated while reading CIDRs from a
 // different source.
 //
-// Secondary IPs are represented as /32 CIDRs and delegated prefixes as /28 CIDRs.
+// Secondary IPs are represented as host-prefix CIDRs (/32 for IPv4, /128 for
+// IPv6) and delegated prefixes as /28 CIDRs for IPv4 and /80 CIDRs for IPv6.
 func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 	pools := &ipamTypes.IPAMPoolSpec{
 		Requested: node.Spec.IPAM.Pools.Requested,
@@ -615,9 +573,9 @@ func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 
 		var prefixes []netip.Prefix
 		for _, p := range eni.Prefixes {
-			cidrs = append(cidrs, ipamTypes.IPAMCIDR(p))
-			if parsed, err := netip.ParsePrefix(p); err == nil {
-				prefixes = append(prefixes, parsed)
+			cidrs = append(cidrs, ipamTypes.IPAMCIDR(p.String()))
+			if p.IsValid() {
+				prefixes = append(prefixes, p.Prefix)
 			}
 		}
 
@@ -626,15 +584,14 @@ func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 		// Here we need to apply a reverse logic to only advertise as /32 CIDRs in the pool
 		// regular secondary addresses (or the ENI primary IP when using UsePrimaryAddress)
 		// and not addresses that are already being advertised through a /28 CIDR.
-		for _, addrStr := range eni.Addresses {
-			parsed, err := netip.ParseAddr(addrStr)
-			if err != nil {
+		for _, addr := range eni.Addresses {
+			if !addr.IsValid() {
 				continue
 			}
-			if addressCoveredByPrefix(parsed, prefixes) {
+			if addressCoveredByPrefix(addr.Addr, prefixes) {
 				continue
 			}
-			cidrs = append(cidrs, ipamTypes.IPAMCIDR(addrStr+"/32"))
+			cidrs = append(cidrs, ipamTypes.IPAMCIDR(netip.PrefixFrom(addr.Addr, addr.BitLen()).String()))
 		}
 	}
 

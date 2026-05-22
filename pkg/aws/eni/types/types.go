@@ -4,6 +4,7 @@
 package types
 
 import (
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -111,7 +112,7 @@ type ENI struct {
 	// IP is the primary IP of the ENI
 	//
 	// +optional
-	IP string `json:"ip,omitempty"`
+	IP iputil.Addr `json:"ip,omitzero"`
 
 	// MAC is the mac address of the ENI
 	//
@@ -147,12 +148,12 @@ type ENI struct {
 	// Addresses is the list of all secondary IPs associated with the ENI
 	//
 	// +optional
-	Addresses []string `json:"addresses,omitempty"`
+	Addresses []iputil.Addr `json:"addresses,omitempty"`
 
 	// Prefixes is the list of all /28 prefixes associated with the ENI
 	//
 	// +optional
-	Prefixes []string `json:"prefixes,omitempty"`
+	Prefixes []iputil.Prefix `json:"prefixes,omitempty"`
 
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`
@@ -166,7 +167,7 @@ type ENI struct {
 	// PublicIP is the public IP associated with the ENI
 	//
 	// +optional
-	PublicIP string `json:"public-ip,omitempty"`
+	PublicIP iputil.Addr `json:"public-ip,omitzero"`
 }
 
 func (e *ENI) DeepCopyInterface() types.Interface {
@@ -208,7 +209,9 @@ type AwsSubnet struct {
 	ID string `json:"id,omitempty"`
 
 	// CIDR is the CIDR range associated with the subnet
-	CIDR string `json:"cidr,omitempty"`
+	//
+	// +optional
+	CIDR iputil.Prefix `json:"cidr,omitzero"`
 }
 
 // AwsVPC stores information regarding an AWS VPC
@@ -217,8 +220,12 @@ type AwsVPC struct {
 	ID string `json:"id,omitempty"`
 
 	// PrimaryCIDR is the primary CIDR of the VPC
-	PrimaryCIDR string `json:"primary-cidr,omitempty"`
+	//
+	// +optional
+	PrimaryCIDR iputil.Prefix `json:"primary-cidr,omitzero"`
 
 	// CIDRs is the list of CIDR ranges associated with the VPC
-	CIDRs []string `json:"cidrs,omitempty"`
+	//
+	// +optional
+	CIDRs []iputil.Prefix `json:"cidrs,omitempty"`
 }

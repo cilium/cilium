@@ -4,6 +4,7 @@
 package eni
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -13,6 +14,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -137,10 +139,10 @@ var (
 		"i-1": {
 			"eni-1": {
 				ID:             "eni-1",
-				IP:             "1.1.1.1",
+				IP:             iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				Number:         0,
 				SecurityGroups: []string{"sg1", "sg2"},
-				Addresses:      []string{},
+				Addresses:      []iputil.Addr{},
 				Subnet:         eniTypes.AwsSubnet{ID: "subnet-1"},
 				VPC:            eniTypes.AwsVPC{ID: "vpc-1"},
 			},
@@ -148,10 +150,10 @@ var (
 		"i-2": {
 			"eni-3": &eniTypes.ENI{
 				ID:             "eni-3",
-				IP:             "3.3.3.3",
+				IP:             iputil.AddrFrom(netip.MustParseAddr("3.3.3.3")),
 				Number:         0,
 				SecurityGroups: []string{"sg3", "sg4"},
-				Addresses:      []string{},
+				Addresses:      []iputil.Addr{},
 				Subnet:         eniTypes.AwsSubnet{ID: "subnet-2"},
 				VPC:            eniTypes.AwsVPC{ID: "vpc-2"},
 			},
@@ -162,19 +164,19 @@ var (
 		"i-1": {
 			"eni-1": {
 				ID:             "eni-1",
-				IP:             "1.1.1.1",
+				IP:             iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				Number:         0,
 				SecurityGroups: []string{"sg1", "sg2"},
-				Addresses:      []string{},
+				Addresses:      []iputil.Addr{},
 				Subnet:         eniTypes.AwsSubnet{ID: "subnet-1"},
 				VPC:            eniTypes.AwsVPC{ID: "vpc-1"},
 			},
 			"eni-2": {
 				ID:             "eni-2",
-				IP:             "2.2.2.2",
+				IP:             iputil.AddrFrom(netip.MustParseAddr("2.2.2.2")),
 				Number:         1,
 				SecurityGroups: []string{"sg3", "sg4"},
-				Addresses:      []string{},
+				Addresses:      []iputil.Addr{},
 				Subnet:         eniTypes.AwsSubnet{ID: "subnet-1"},
 				VPC:            eniTypes.AwsVPC{ID: "vpc-1"},
 			},
@@ -182,10 +184,10 @@ var (
 		"i-2": {
 			"eni-3": &eniTypes.ENI{
 				ID:             "eni-3",
-				IP:             "3.3.3.3",
+				IP:             iputil.AddrFrom(netip.MustParseAddr("3.3.3.3")),
 				Number:         0,
 				SecurityGroups: []string{"sg3", "sg4"},
-				Addresses:      []string{},
+				Addresses:      []iputil.Addr{},
 				Subnet:         eniTypes.AwsSubnet{ID: "subnet-2"},
 				VPC:            eniTypes.AwsVPC{ID: "vpc-2"},
 			},
