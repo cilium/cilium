@@ -51,7 +51,9 @@ type AzureStatus struct {
 // AzureAddress is an IP address assigned to an AzureInterface
 type AzureAddress struct {
 	// IP is the ip address of the address
-	IP string `json:"ip,omitempty"`
+	//
+	// +optional
+	IP iputil.Addr `json:"ip,omitzero"`
 
 	// Subnet is the subnet the address belongs to.
 	//
@@ -89,7 +91,7 @@ type AzureInterface struct {
 	// IP is the primary IP of the interface
 	//
 	// +optional
-	IP string `json:"ip,omitempty"`
+	IP iputil.Addr `json:"ip,omitzero"`
 
 	// Name is the name of the interface
 	//

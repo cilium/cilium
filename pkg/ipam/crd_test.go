@@ -206,7 +206,7 @@ func TestAzureIPMasq(t *testing.T) {
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.10.1.0/24")),
 			},
 			Addresses: []azureTypes.AzureAddress{
-				{IP: "10.10.1.5", State: azureTypes.StateSucceeded},
+				{IP: iputil.AddrFrom(netip.MustParseAddr("10.10.1.5")), State: azureTypes.StateSucceeded},
 			},
 		},
 	}
