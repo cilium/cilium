@@ -129,10 +129,11 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 			// If a previous run of the controller failed due to a conflict,
 			// we need to re-fetch the node to make sure we have the latest version.
 			if refetchNode {
-				resource, controllerErr = n.cnClient.Get(ctx, resource.Name, metav1.GetOptions{})
-				if controllerErr != nil {
-					return controllerErr
+				updResource, err := n.cnClient.Get(ctx, resource.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
 				}
+				resource = updResource
 				refetchNode = false
 			}
 
