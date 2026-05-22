@@ -84,7 +84,7 @@ func (i *cecTranslator) httpConnectionManagerMutators() []HttpConnectionManagerM
 	}
 }
 
-func getHTTPConnectionManagerHttpFilters(authFilters []*model.HTTPExternalAuthFilter, m *model.Model) ([]*httpConnectionManagerv3.HttpFilter, error) {
+func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*httpConnectionManagerv3.HttpFilter {
 	hf := []*httpConnectionManagerv3.HttpFilter{
 		{
 			Name: "envoy.filters.http.grpc_web",
@@ -103,17 +103,13 @@ func getHTTPConnectionManagerHttpFilters(authFilters []*model.HTTPExternalAuthFi
 		},
 	}
 
-	for _, af := range authFilters {
-		f, err := buildExtAuthzHTTPFilter(af)
-		if err != nil {
-			return nil, err
-		}
-		hf = append(hf, f)
+	for _, af := range i.getUniqueAuthFilters(m) {
+		hf = append(hf, buildExtAuthzHTTPFilter(af))
 	}
 
 	// HTTP filter order matters. When CORS is enabled,
 	// the CORS filter must run before envoy.filters.http.router.
-	if m != nil && m.IsCORSFilterConfigured() {
+	if m.IsCORSFilterConfigured() {
 		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
 			Name: "envoy.filters.http.cors",
 			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
@@ -129,17 +125,11 @@ func getHTTPConnectionManagerHttpFilters(authFilters []*model.HTTPExternalAuthFi
 		},
 	})
 
-	return hf, nil
+	return hf
 }
 
 // desiredHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
-// authFilters is a deduplicated list of external auth backends; one named ext_authz filter is added per entry,
-// positioned before the terminal router filter so that per-route TypedPerFilterConfig can enable/disable each.
-func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, authFilters []*model.HTTPExternalAuthFilter, m *model.Model) (ciliumv2.XDSResource, error) {
-	hf, err := getHTTPConnectionManagerHttpFilters(authFilters, m)
-	if err != nil {
-		return ciliumv2.XDSResource{}, err
-	}
+func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, m *model.Model) (ciliumv2.XDSResource, error) {
 	connectionManager := &httpConnectionManagerv3.HttpConnectionManager{
 		StatPrefix: name,
 		RouteSpecifier: &httpConnectionManagerv3.HttpConnectionManager_Rds{
@@ -147,7 +137,7 @@ func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, aut
 		},
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:    false,
-		HttpFilters:      hf,
+		HttpFilters:      i.getHTTPConnectionManagerHttpFilters(m),
 		UpgradeConfigs: []*httpConnectionManagerv3.HttpConnectionManager_UpgradeConfig{
 			{UpgradeType: "websocket"},
 		},
@@ -166,8 +156,10 @@ func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, aut
 	return toXdsResource(connectionManager, envoy.HttpConnectionManagerTypeURL)
 }
 
-// buildExtAuthzHTTPFilter creates a named HCM HttpFilter for the given external auth config.
-func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionManagerv3.HttpFilter, error) {
+// buildExtAuthzHTTPFilter creates one named ext_authz HCM HttpFilter for a deduplicated
+// external auth config. These filters are positioned before the terminal router filter so
+// that per-route TypedPerFilterConfig can enable or disable each instance.
+func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) *httpConnectionManagerv3.HttpFilter {
 	var clusterName string
 	if af.Protocol == model.ExternalAuthProtocolGRPC {
 		clusterName = getGRPCExtAuthClusterName(af.Backend.Namespace, af.Backend.Name, af.Backend.Port.GetPort())
@@ -261,7 +253,7 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) (*httpConnectionM
 		ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
 			TypedConfig: toAny(config),
 		},
-	}, nil
+	}
 }
 
 // allHeadersMatcher returns a ListStringMatcher that matches every header name.
