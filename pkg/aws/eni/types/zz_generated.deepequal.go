@@ -18,7 +18,7 @@ func (in *AwsSubnet) DeepEqual(other *AwsSubnet) bool {
 	if in.ID != other.ID {
 		return false
 	}
-	if in.CIDR != other.CIDR {
+	if !in.CIDR.DeepEqual(&other.CIDR) {
 		return false
 	}
 
@@ -35,9 +35,10 @@ func (in *AwsVPC) DeepEqual(other *AwsVPC) bool {
 	if in.ID != other.ID {
 		return false
 	}
-	if in.PrimaryCIDR != other.PrimaryCIDR {
+	if !in.PrimaryCIDR.DeepEqual(&other.PrimaryCIDR) {
 		return false
 	}
+
 	if ((in.CIDRs != nil) && (other.CIDRs != nil)) || ((in.CIDRs == nil) != (other.CIDRs == nil)) {
 		in, other := &in.CIDRs, &other.CIDRs
 		if other == nil {
@@ -48,7 +49,7 @@ func (in *AwsVPC) DeepEqual(other *AwsVPC) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -68,9 +69,10 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 	if in.ID != other.ID {
 		return false
 	}
-	if in.IP != other.IP {
+	if !in.IP.DeepEqual(&other.IP) {
 		return false
 	}
+
 	if in.MAC != other.MAC {
 		return false
 	}
@@ -83,7 +85,7 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 	if in.Number != other.Number {
 		return false
 	}
-	if in.Subnet != other.Subnet {
+	if !in.Subnet.DeepEqual(&other.Subnet) {
 		return false
 	}
 
@@ -101,7 +103,7 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -118,7 +120,7 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -163,7 +165,7 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 		}
 	}
 
-	if in.PublicIP != other.PublicIP {
+	if !in.PublicIP.DeepEqual(&other.PublicIP) {
 		return false
 	}
 

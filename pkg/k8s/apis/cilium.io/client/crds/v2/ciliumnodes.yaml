@@ -641,6 +641,7 @@ spec:
                           description: Prefixes is the list of all /28 prefixes associated
                             with the ENI
                           items:
+                            format: cidr
                             type: string
                           type: array
                         public-ip:
@@ -660,6 +661,7 @@ spec:
                             cidr:
                               description: CIDR is the CIDR range associated with
                                 the subnet
+                              format: cidr
                               type: string
                             id:
                               description: ID is the ID of the subnet
@@ -680,6 +682,7 @@ spec:
                               description: CIDRs is the list of CIDR ranges associated
                                 with the VPC
                               items:
+                                format: cidr
                                 type: string
                               type: array
                             id:
@@ -688,6 +691,7 @@ spec:
                             primary-cidr:
                               description: PrimaryCIDR is the primary CIDR of the
                                 VPC
+                              format: cidr
                               type: string
                           type: object
                       type: object
