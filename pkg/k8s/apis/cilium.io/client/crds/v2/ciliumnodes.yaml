@@ -84,6 +84,7 @@ spec:
                     type: string
                   cidr-block:
                     description: CIDRBlock is vpc ipv4 CIDR
+                    format: cidr
                     type: string
                   instance-type:
                     description: InstanceType is the ECS instance type, e.g. "ecs.g6.2xlarge"
@@ -482,14 +483,17 @@ spec:
                           properties:
                             cidr:
                               description: CIDRBlock is the VPC IPv4 CIDR
+                              format: cidr
                               type: string
                             ipv6-cidr:
                               description: IPv6CIDRBlock is the VPC IPv6 CIDR
+                              format: cidr
                               type: string
                             secondary-cidrs:
                               description: SecondaryCIDRs is the list of Secondary
                                 CIDRs associated with the VPC
                               items:
+                                format: cidr
                                 type: string
                               type: array
                             vpc-id:
@@ -501,9 +505,11 @@ spec:
                           properties:
                             cidr:
                               description: CIDRBlock is the vSwitch IPv4 CIDR
+                              format: cidr
                               type: string
                             ipv6-cidr:
                               description: IPv6CIDRBlock is the vSwitch IPv6 CIDR
+                              format: cidr
                               type: string
                             vswitch-id:
                               description: VSwitchID is the vSwitch to which the ENI

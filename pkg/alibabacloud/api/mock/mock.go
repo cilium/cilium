@@ -12,6 +12,7 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -98,15 +99,25 @@ func (a *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 		for ifaceID, eni := range enis {
 			if subnets != nil {
 				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR.IsValid() {
-					eni.VSwitch.CIDRBlock = subnet.CIDR.String()
+					eni.VSwitch.CIDRBlock = iputil.PrefixFrom(subnet.CIDR)
 					eni.ZoneID = subnet.AvailabilityZone
 				}
 			}
 
 			if vpcs != nil {
 				if vpc, ok := vpcs[eni.VPC.VPCID]; ok {
-					eni.VPC.CIDRBlock = vpc.PrimaryCIDR
-					eni.VPC.SecondaryCIDRs = vpc.CIDRs
+					if p, err := netip.ParsePrefix(vpc.PrimaryCIDR); err == nil {
+						eni.VPC.CIDRBlock = iputil.PrefixFrom(p)
+					}
+					var secondaryCIDRs []iputil.Prefix
+					for _, s := range vpc.CIDRs {
+						p, err := netip.ParsePrefix(s)
+						if err != nil {
+							continue
+						}
+						secondaryCIDRs = append(secondaryCIDRs, iputil.PrefixFrom(p))
+					}
+					eni.VPC.SecondaryCIDRs = secondaryCIDRs
 				}
 			}
 
@@ -127,15 +138,25 @@ func (a *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 		for _, eni := range enis {
 			if subnets != nil {
 				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR.IsValid() {
-					eni.VSwitch.CIDRBlock = subnet.CIDR.String()
+					eni.VSwitch.CIDRBlock = iputil.PrefixFrom(subnet.CIDR)
 					eni.ZoneID = subnet.AvailabilityZone
 				}
 			}
 
 			if vpcs != nil {
 				if vpc, ok := vpcs[eni.VPC.VPCID]; ok {
-					eni.VPC.CIDRBlock = vpc.PrimaryCIDR
-					eni.VPC.SecondaryCIDRs = vpc.CIDRs
+					if p, err := netip.ParsePrefix(vpc.PrimaryCIDR); err == nil {
+						eni.VPC.CIDRBlock = iputil.PrefixFrom(p)
+					}
+					var secondaryCIDRs []iputil.Prefix
+					for _, s := range vpc.CIDRs {
+						p, err := netip.ParsePrefix(s)
+						if err != nil {
+							continue
+						}
+						secondaryCIDRs = append(secondaryCIDRs, iputil.PrefixFrom(p))
+					}
+					eni.VPC.SecondaryCIDRs = secondaryCIDRs
 				}
 			}
 
@@ -209,7 +230,7 @@ func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCoun
 		NetworkInterfaceID: eniID,
 		VSwitch: eniTypes.VSwitch{
 			VSwitchID: vSwitchID,
-			CIDRBlock: vsw.CIDR.String(),
+			CIDRBlock: iputil.PrefixFrom(vsw.CIDR),
 		},
 		Type:             eniTypes.ENITypeSecondary,
 		SecurityGroupIDs: groups,
@@ -221,12 +242,12 @@ func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCoun
 			panic("Unable to allocate IP from allocator")
 		}
 		primary := false
-		if eni.PrimaryIPAddress == "" {
-			eni.PrimaryIPAddress = ip.String()
+		if !eni.PrimaryIPAddress.IsValid() {
+			eni.PrimaryIPAddress = iputil.AddrFrom(ip)
 			primary = true
 		}
 		eni.PrivateIPSets = append(eni.PrivateIPSets, eniTypes.PrivateIPSet{
-			PrivateIpAddress: ip.String(),
+			PrivateIpAddress: iputil.AddrFrom(ip),
 			Primary:          primary,
 		})
 	}
@@ -295,12 +316,12 @@ func (a *API) AssignPrivateIPAddresses(ctx context.Context, eniID string, toAllo
 					panic("Unable to allocate IP from allocator")
 				}
 				primary := false
-				if eni.PrimaryIPAddress == "" {
-					eni.PrimaryIPAddress = ip.String()
+				if !eni.PrimaryIPAddress.IsValid() {
+					eni.PrimaryIPAddress = iputil.AddrFrom(ip)
 					primary = true
 				}
 				eni.PrivateIPSets = append(eni.PrivateIPSets, eniTypes.PrivateIPSet{
-					PrivateIpAddress: ip.String(),
+					PrivateIpAddress: iputil.AddrFrom(ip),
 					Primary:          primary,
 				})
 			}
@@ -340,12 +361,11 @@ func (a *API) UnassignPrivateIPAddresses(ctx context.Context, eniID string, addr
 			if address.Primary {
 				continue
 			}
-			_, ok := releaseMap[address.PrivateIpAddress]
+			_, ok := releaseMap[address.PrivateIpAddress.String()]
 			if !ok {
 				addressesAfterRelease = append(addressesAfterRelease, address)
 			} else {
-				addr, _ := netip.ParseAddr(address.PrivateIpAddress)
-				a.allocator.Release(addr)
+				a.allocator.Release(address.PrivateIpAddress.Addr)
 				subnet.AvailableAddresses++
 			}
 		}
