@@ -6,16 +6,21 @@ package multipool
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sTesting "k8s.io/client-go/testing"
 
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumFake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 )
 
 type k8sNodeMock struct {
@@ -214,4 +219,172 @@ func TestNodeHandler(t *testing.T) {
 
 	nh.Delete(node1Update.newNode)
 	nh.Delete(node2Update.newNode)
+}
+
+func TestNodeHandlerRetries(t *testing.T) {
+	nodeUpdater := func(t *testing.T, clientset *ciliumFake.Clientset) *k8sNodeMock {
+		return &k8sNodeMock{
+			OnUpdate: func(_, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+				return clientset.CiliumV2().CiliumNodes().Update(t.Context(), newNode, metav1.UpdateOptions{})
+			},
+			OnUpdateStatus: func(_, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+				return clientset.CiliumV2().CiliumNodes().UpdateStatus(t.Context(), newNode, metav1.UpdateOptions{})
+			},
+			OnGet: func(node string) (*v2.CiliumNode, error) {
+				return clientset.CiliumV2().CiliumNodes().Get(t.Context(), node, metav1.GetOptions{})
+			},
+			OnCreate: func(node *v2.CiliumNode) (*v2.CiliumNode, error) {
+				return clientset.CiliumV2().CiliumNodes().Create(t.Context(), node, metav1.CreateOptions{})
+			},
+		}
+	}
+
+	t.Run("get and update", func(t *testing.T) {
+		backend := NewPoolAllocator()
+		assert.NoError(t, backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0))
+
+		node := &v2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-status",
+			},
+			Spec: v2.NodeSpec{
+				IPAM: ipamTypes.IPAMSpec{
+					Pools: ipamTypes.IPAMPoolSpec{
+						Requested: []ipamTypes.IPAMPoolRequest{
+							{
+								Pool:   "default",
+								Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16},
+							},
+						},
+					},
+				},
+			},
+			Status: v2.NodeStatus{
+				IPAM: ipamTypes.IPAMStatus{
+					OperatorStatus: ipamTypes.OperatorStatus{Error: "stale allocation error"},
+				},
+			},
+		}
+
+		clientset := ciliumFake.NewSimpleClientset(node.DeepCopy())
+
+		var (
+			gets    atomic.Int32
+			updates atomic.Int32
+		)
+		clientset.PrependReactor("get", "ciliumnodes", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+			gets.Add(1)
+			if gets.Load() == 1 {
+				return true, nil, errors.New("transient get failure")
+			}
+			return false, nil, nil
+		})
+		clientset.PrependReactor("update", "ciliumnodes", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+			if action.GetSubresource() != "" {
+				return false, nil, nil
+			}
+
+			updates.Add(1)
+			if updates.Load() == 1 {
+				return true, nil, k8sErrors.NewConflict(
+					schema.GroupResource{
+						Group:    v2.CustomResourceDefinitionGroup,
+						Resource: v2.CNPluralName,
+					},
+					node.Name,
+					errors.New("update refused by unit test"),
+				)
+			}
+			return false, nil, nil
+		})
+
+		nh := NewNodeHandler(backend, nodeUpdater(t, clientset))
+		nh.controllerErrorRetryBaseDuration = time.Millisecond
+
+		nh.Upsert(node)
+		nh.Resync(t.Context(), time.Time{})
+
+		assert.EventuallyWithT(t, func(c *assert.CollectT) {
+			// wait for controller to retry after:
+			// - transient get failure
+			// - update conflict
+			assert.GreaterOrEqual(c, gets.Load(), int32(2))
+			assert.GreaterOrEqual(c, updates.Load(), int32(2))
+		}, 5*time.Second, 10*time.Millisecond)
+
+		updatedNode, err := clientset.CiliumV2().CiliumNodes().Get(t.Context(), node.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, updatedNode.Spec.IPAM.Pools.Allocated, 1)
+		require.Equal(t, "default", updatedNode.Spec.IPAM.Pools.Allocated[0].Pool)
+	})
+
+	t.Run("updatestatus", func(t *testing.T) {
+		backend := NewPoolAllocator()
+		assert.NoError(t, backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0))
+
+		node := &v2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-status",
+			},
+			Spec: v2.NodeSpec{
+				IPAM: ipamTypes.IPAMSpec{
+					Pools: ipamTypes.IPAMPoolSpec{
+						Allocated: []ipamTypes.IPAMPoolAllocation{
+							{
+								Pool:  "default",
+								CIDRs: []ipamTypes.IPAMPodCIDR{"10.0.0.0/24"},
+							},
+						},
+						Requested: []ipamTypes.IPAMPoolRequest{
+							{
+								Pool:   "default",
+								Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16},
+							},
+						},
+					},
+				},
+			},
+			Status: v2.NodeStatus{
+				IPAM: ipamTypes.IPAMStatus{
+					OperatorStatus: ipamTypes.OperatorStatus{Error: "stale allocation error"},
+				},
+			},
+		}
+
+		clientset := ciliumFake.NewSimpleClientset(node.DeepCopy())
+
+		var updateStatuses atomic.Int32
+		clientset.PrependReactor("update", "ciliumnodes", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+			if action.GetSubresource() != "status" {
+				return false, nil, nil
+			}
+
+			if updateStatuses.Add(1) == 1 {
+				return true, nil, k8sErrors.NewConflict(
+					schema.GroupResource{
+						Group:    v2.CustomResourceDefinitionGroup,
+						Resource: v2.CNPluralName,
+					},
+					node.Name,
+					errors.New("update refused by unit test"),
+				)
+			}
+			return false, nil, nil
+		})
+
+		nh := NewNodeHandler(backend, nodeUpdater(t, clientset))
+		nh.controllerErrorRetryBaseDuration = time.Millisecond
+
+		nh.Upsert(node)
+		nh.Resync(t.Context(), time.Time{})
+
+		assert.EventuallyWithT(t, func(c *assert.CollectT) {
+			// wait for controller to retry after update conflict on status update
+			assert.GreaterOrEqual(c, updateStatuses.Load(), int32(2))
+		}, 5*time.Second, 10*time.Millisecond)
+
+		updatedNode, err := clientset.CiliumV2().CiliumNodes().Get(t.Context(), node.Name, metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Empty(t, updatedNode.Status.IPAM.OperatorStatus.Error)
+	})
 }
