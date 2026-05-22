@@ -186,14 +186,3 @@ func (a *AzureInterface) GetVMScaleSetName() string {
 func (a *AzureInterface) GetVMID() string {
 	return a.vmID
 }
-
-// ForeachAddress iterates over all addresses and calls fn.
-func (a *AzureInterface) ForeachAddress(id string, fn types.AddressIterator) error {
-	for _, address := range a.Addresses {
-		if err := fn(id, a.ID, address.IP, address); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}

@@ -12,44 +12,7 @@ import (
 	// Register the Azure resource-ID parser so SetID()/extractIDs() populate
 	// the VMSS/VM/RG fields exercised by TestExtractIDs.
 	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
-	"github.com/cilium/cilium/pkg/ipam/types"
 )
-
-func TestForeachAddresses(t *testing.T) {
-	m := types.NewInstanceMap()
-	m.Update("i-1", &azuretypes.AzureInterface{ID: "1", Addresses: []azuretypes.AzureAddress{
-		{IP: "1.1.1.1"},
-		{IP: "2.2.2.2"},
-	}})
-	m.Update("i-2", &azuretypes.AzureInterface{ID: "1", Addresses: []azuretypes.AzureAddress{
-		{IP: "3.3.3.3"},
-		{IP: "4.4.4.4"},
-	}})
-
-	// Iterate over all instances
-	addresses := 0
-	m.ForeachAddress("", func(instanceID, interfaceID, ip string, address types.Address) error {
-		addresses++
-		return nil
-	})
-	require.Equal(t, 4, addresses)
-
-	// Iterate over "i-1"
-	addresses = 0
-	m.ForeachAddress("i-1", func(instanceID, interfaceID, ip string, address types.Address) error {
-		addresses++
-		return nil
-	})
-	require.Equal(t, 2, addresses)
-
-	// Iterate over all interfaces
-	interfaces := 0
-	m.ForeachInterface("", func(instanceID, interfaceID string, interfaceObj types.Interface) error {
-		interfaces++
-		return nil
-	})
-	require.Equal(t, 2, interfaces)
-}
 
 func TestExtractIDs(t *testing.T) {
 	tests := []struct {

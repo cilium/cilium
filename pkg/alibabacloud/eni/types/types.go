@@ -135,20 +135,6 @@ func (e *ENI) InterfaceID() string {
 	return e.NetworkInterfaceID
 }
 
-// ForeachAddress iterates over all addresses and calls fn
-func (e *ENI) ForeachAddress(id string, fn types.AddressIterator) error {
-	for _, address := range e.PrivateIPSets {
-		if address.Primary {
-			continue
-		}
-		if err := fn(id, e.NetworkInterfaceID, address.PrivateIpAddress, address); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // ENIStatus is the status of ENI addressing of the node
 type ENIStatus struct {
 	// ENIs is the list of ENIs on the node
