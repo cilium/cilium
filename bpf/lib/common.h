@@ -211,10 +211,9 @@ struct srv6_policy_key6 {
 
 /* Return value to indicate that proxy redirection is required */
 #define POLICY_ACT_PROXY_REDIRECT (1 << 16)
-
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
-
 #define NAT_NEEDED		CTX_ACT_OK
+#define FRAG_PUNT_TO_STACK	DROP_FRAG_NEEDS_STACK
 
 /* Cilium metrics reasons for forwarding packets and other stats.
  * If reason is larger than below then this is a drop reason and

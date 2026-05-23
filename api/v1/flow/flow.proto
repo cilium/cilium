@@ -524,6 +524,9 @@ enum DropReason {
     DROP_NO_EGRESS_IP = 204;
     // Punt packet to a user space proxy.
     DROP_PUNT_PROXY = 205;
+    // Out-of-order IP fragment: tracking map miss; packet was passed to the
+    // kernel for reassembly instead of being dropped.
+    DROP_FRAG_NEEDS_STACK = 206;
 }
 
 enum TrafficDirection {

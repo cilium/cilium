@@ -202,21 +202,49 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 })
 
 #define send_drop_notify(ctx, src, dst, dst_id, reason, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
-			  __DROP_REASON(reason), CTX_ACT_DROP, direction)
+	({ \
+		int __r = (int)(reason); \
+		__r == DROP_FRAG_NEEDS_STACK ? CTX_ACT_OK : \
+			_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, \
+					  ctx, src, dst, dst_id, \
+					  __DROP_REASON(__r), CTX_ACT_DROP, direction); \
+	})
 
 #define send_drop_notify_error(ctx, src, reason, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
-			  __DROP_REASON(reason), CTX_ACT_DROP, direction)
+	({ \
+		int __r = (int)(reason); \
+		__r == DROP_FRAG_NEEDS_STACK ? CTX_ACT_OK : \
+			_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, \
+					  ctx, src, 0, 0, \
+					  __DROP_REASON(__r), CTX_ACT_DROP, direction); \
+	})
 
 #define send_drop_notify_ext(ctx, src, dst, dst_id, reason, ext_err, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
-			  __DROP_REASON_EXT(reason, ext_err), CTX_ACT_DROP, direction)
+	({ \
+		int __r = (int)(reason); \
+		__r == DROP_FRAG_NEEDS_STACK ? CTX_ACT_OK : \
+			_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, \
+					  ctx, src, dst, dst_id, \
+					  __DROP_REASON_EXT(__r, ext_err), \
+					  CTX_ACT_DROP, direction); \
+	})
 
 #define send_drop_notify_error_ext(ctx, src, reason, ext_err, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
-			  __DROP_REASON_EXT(reason, ext_err), CTX_ACT_DROP, direction)
+	({ \
+		int __r = (int)(reason); \
+		__r == DROP_FRAG_NEEDS_STACK ? CTX_ACT_OK : \
+			_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, \
+					  ctx, src, 0, 0, \
+					  __DROP_REASON_EXT(__r, ext_err), \
+					  CTX_ACT_DROP, direction); \
+	})
 
 #define send_drop_notify_error_with_exitcode_ext(ctx, src, reason, ext_err, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
-			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
+	({ \
+		int __r = (int)(reason); \
+		__r == DROP_FRAG_NEEDS_STACK ? CTX_ACT_OK : \
+			_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, \
+					  ctx, src, 0, 0, \
+					  __DROP_REASON_EXT(__r, ext_err), \
+					  exitcode, direction); \
+	})

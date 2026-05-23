@@ -652,6 +652,9 @@ const (
 	DropReason_DROP_NO_EGRESS_IP DropReason = 204
 	// Punt packet to a user space proxy.
 	DropReason_DROP_PUNT_PROXY DropReason = 205
+	// Out-of-order IP fragment: tracking map miss; packet was passed to the
+	// kernel for reassembly instead of being dropped.
+	DropReason_DROP_FRAG_NEEDS_STACK DropReason = 206
 )
 
 // Enum value maps for DropReason.
@@ -733,6 +736,7 @@ var (
 		203: "DROP_EP_NOT_READY",
 		204: "DROP_NO_EGRESS_IP",
 		205: "DROP_PUNT_PROXY",
+		206: "DROP_FRAG_NEEDS_STACK",
 	}
 	DropReason_value = map[string]int32{
 		"DROP_REASON_UNKNOWN":                                   0,
@@ -811,6 +815,7 @@ var (
 		"DROP_EP_NOT_READY":                                     203,
 		"DROP_NO_EGRESS_IP":                                     204,
 		"DROP_PUNT_PROXY":                                       205,
+		"DROP_FRAG_NEEDS_STACK":                                 206,
 	}
 )
 
@@ -5916,7 +5921,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x06TRACED\x10\x06\x12\x0e\n" +
 	"\n" +
-	"TRANSLATED\x10\a*\xc5\x11\n" +
+	"TRANSLATED\x10\a*\xe1\x11\n" +
 	"\n" +
 	"DropReason\x12\x17\n" +
 	"\x13DROP_REASON_UNKNOWN\x10\x00\x12\x1b\n" +
@@ -5997,7 +6002,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x13DROP_HOST_NOT_READY\x10\xca\x01\x12\x16\n" +
 	"\x11DROP_EP_NOT_READY\x10\xcb\x01\x12\x16\n" +
 	"\x11DROP_NO_EGRESS_IP\x10\xcc\x01\x12\x14\n" +
-	"\x0fDROP_PUNT_PROXY\x10\xcd\x01*J\n" +
+	"\x0fDROP_PUNT_PROXY\x10\xcd\x01\x12\x1a\n" +
+	"\x15DROP_FRAG_NEEDS_STACK\x10\xce\x01*J\n" +
 	"\x10TrafficDirection\x12\x1d\n" +
 	"\x19TRAFFIC_DIRECTION_UNKNOWN\x10\x00\x12\v\n" +
 	"\aINGRESS\x10\x01\x12\n" +
