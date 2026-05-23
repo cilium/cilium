@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"github.com/cilium/lumberjack/v2"
-	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -451,13 +450,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 					CleanupInterval:               &durationpb.Duration{Seconds: config.connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket: &envoy_config_core.TransportSocket{
-						Name: "cilium.tls_wrapper",
-						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
-						},
-					},
-					CircuitBreakers: clusterRetryLimits,
+					CircuitBreakers:               clusterRetryLimits,
 				},
 				{
 					Name:                          ingressClusterName,
@@ -475,13 +468,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 					CleanupInterval:               &durationpb.Duration{Seconds: config.connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket: &envoy_config_core.TransportSocket{
-						Name: "cilium.tls_wrapper",
-						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
-						},
-					},
-					CircuitBreakers: clusterRetryLimits,
+					CircuitBreakers:               clusterRetryLimits,
 				},
 				{
 					Name:                 CiliumXDSClusterName,
@@ -546,6 +533,10 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 			{
 				Name:        "envoy.bootstrap.internal_listener",
 				TypedConfig: toAny(&envoy_extensions_bootstrap_internal_listener_v3.InternalListener{}),
+			},
+			{
+				Name:        "envoy.bootstrap.dynamic_modules",
+				TypedConfig: buildDynamicModuleBootstrapAny(),
 			},
 		},
 		OverloadManager: &envoy_config_overload.OverloadManager{

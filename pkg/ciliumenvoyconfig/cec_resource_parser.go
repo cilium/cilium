@@ -175,12 +175,8 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 				return envoy.Resources{}, fmt.Errorf("unspecified Listener name")
 			}
 
-			if option.Config.EnableBPFTProxy {
-				// Envoy since 1.20.0 uses SO_REUSEPORT on listeners by default.
-				// BPF TPROXY is currently not compatible with SO_REUSEPORT, so
-				// disable it.  Note that this may degrade Envoy performance.
-				listener.EnableReusePort = &wrapperspb.BoolValue{Value: false}
-			}
+			listener.Transparent = &wrapperspb.BoolValue{Value: true}
+			listener.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 
 			// Only inject Cilium downstream filters if all of the following conditions are fulfilled
 			// * Cilium allocates listener address or it's configured to do so
@@ -266,12 +262,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 					if injectCiliumDownstreamFilters && !foundCiliumNetworkFilter {
 						// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
 						fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
-						fc.Filters[i] = &envoy_config_listener.Filter{
-							Name: ciliumNetworkFilterName,
-							ConfigType: &envoy_config_listener.Filter_TypedConfig{
-								TypedConfig: toAny(&cilium.NetworkFilter{}),
-							},
-						}
+						fc.Filters[i] = envoy.WrapNetworkFilterAsDynamicModule("cilium.network", &cilium.NetworkFilter{})
 					}
 					break // Done with this filter chain
 				}
@@ -618,12 +609,7 @@ func (r *CECResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 			logfields.IPv6, conf.GetIpv6SourceAddress())
 	}
 
-	return &envoy_config_listener.ListenerFilter{
-		Name: ciliumBPFMetadataListenerFilterName,
-		ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
-			TypedConfig: toAny(conf),
-		},
-	}
+	return envoy.WrapListenerFilterAsDynamicModule("cilium.bpf_metadata", conf)
 }
 
 // qualifyAddress finds if there is a ServerListenerName in the address and qualifies it
