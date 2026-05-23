@@ -1167,7 +1167,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) (identityToRelease *identityPkg.Identity) {
 	oldIdentity := "no identity"
 	if e.SecurityIdentity != nil {
-		oldIdentity = e.SecurityIdentity.StringID()
+		oldIdentity = e.SecurityIdentity.String()
 	}
 
 	// Current security identity for endpoint is its old identity - delete its
@@ -1200,16 +1200,16 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) (identityToReleas
 		e.runIPIdentitySync(e.IPv6)
 	}
 
-	if oldIdentity != identity.StringID() {
+	if oldIdentity != identity.String() {
 		e.getLogger().Info(
 			"Identity of endpoint changed",
-			logfields.IdentityNew, identity.StringID(),
+			logfields.IdentityNew, identity,
 			logfields.IdentityOld, oldIdentity,
 			logfields.IdentityLabels, map[string]labels.Label(identity.Labels),
 		)
 	}
 	e.UpdateLogger(map[string]any{
-		logfields.Identity: identity.StringID(),
+		logfields.Identity: identity.String(),
 	})
 	return identityToRelease
 }
