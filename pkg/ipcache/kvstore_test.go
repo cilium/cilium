@@ -18,22 +18,25 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type event struct {
-	ev, ip string
-	source source.Source
+	ev, ip  string
+	source  source.Source
+	k8sMeta *K8sMetadata
 }
 
 type fakeIPCache struct{ events chan event }
 type fakeBackend struct{ prefix string }
 
-func NewEvent(ev, ip string, source source.Source) event { return event{ev, ip, source} }
+func NewEvent(ev, ip string, source source.Source) event { return event{ev, ip, source, nil} }
 func NewFakeIPCache() *fakeIPCache                       { return &fakeIPCache{events: make(chan event)} }
 func NewFakeBackend() *fakeBackend                       { return &fakeBackend{} }
 
-func (m *fakeIPCache) Upsert(ip string, _ net.IP, _ uint8, _ *K8sMetadata, id Identity) (bool, error) {
-	m.events <- NewEvent("upsert", ip, id.Source)
+func (m *fakeIPCache) Upsert(ip string, _ net.IP, _ uint8, k8sMeta *K8sMetadata, id Identity) (bool, error) {
+	m.events <- event{ev: "upsert", ip: ip, source: id.Source, k8sMeta: k8sMeta}
 	return true, nil
 }
 
@@ -198,4 +201,38 @@ func TestIdentityValidator(t *testing.T) {
 	for _, id := range []identity.NumericIdentity{identity.MinimalNumericIdentity, minID - 1, maxID + 1} {
 		assert.Error(t, validator(&identity.IPIdentityPair{ID: id}), "ID %d should have failed validation", id)
 	}
+}
+
+func TestIPIdentityWatcherNamedPorts(t *testing.T) {
+	const src = source.Source("foo")
+
+	ipcache := &fakeIPCache{events: make(chan event, 1)}
+	watcher := &IPIdentityWatcher{
+		log:     hivetest.Logger(t),
+		ipcache: ipcache,
+		source:  src,
+	}
+
+	watcher.OnUpdate(&identity.IPIdentityPair{
+		IP:           net.ParseIP("10.0.0.1"),
+		ID:           identity.NumericIdentity(1000),
+		K8sNamespace: "test-ns",
+		K8sPodName:   "echo-1",
+		NamedPorts: []identity.NamedPort{
+			{Name: "http", Port: 8080, Protocol: "TCP"},
+			{Name: "dns", Port: 53, Protocol: "UDP"},
+		},
+	})
+
+	event := eventually(ipcache.events)
+	require.Equal(t, "upsert", event.ev)
+	require.Equal(t, "10.0.0.1", event.ip)
+	require.Equal(t, src, event.source)
+	require.NotNil(t, event.k8sMeta)
+	require.Equal(t, "test-ns", event.k8sMeta.Namespace)
+	require.Equal(t, "echo-1", event.k8sMeta.PodName)
+	require.Equal(t, types.NamedPortMap{
+		"http": {Proto: u8proto.TCP, Port: 8080},
+		"dns":  {Proto: u8proto.UDP, Port: 53},
+	}, event.k8sMeta.NamedPorts)
 }

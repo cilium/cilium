@@ -165,6 +165,13 @@ status:
     id: 199475
     labels:
     - k8s:app=qux
+  named-ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+  - name: dns
+    port: 53
+    protocol: UDP
   networking:
     addressing:
     - ipv4: 10.244.2.74
@@ -236,7 +243,19 @@ status:
   "Metadata": "",
   "K8sNamespace": "bar",
   "K8sPodName": "cep-002",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/fd00:10:244:1::d643
 {
@@ -260,7 +279,19 @@ status:
   "Metadata": "",
   "K8sNamespace": "bar",
   "K8sPodName": "cep-002",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 -- ips-1+2-v2.expected --
 # cilium/state/ip/v1/default/10.244.1.80
@@ -285,7 +316,19 @@ status:
   "Metadata": "",
   "K8sNamespace": "bar",
   "K8sPodName": "cep-002",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e024
 {
@@ -297,7 +340,19 @@ status:
   "Metadata": "",
   "K8sNamespace": "bar",
   "K8sPodName": "cep-002",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 -- ips-1+2+3.expected --
 # cilium/state/ip/v1/default/10.244.1.80
@@ -322,7 +377,19 @@ status:
   "Metadata": "",
   "K8sNamespace": "bar",
   "K8sPodName": "cep-002",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -346,7 +413,19 @@ status:
   "Metadata": "",
   "K8sNamespace": "bar",
   "K8sPodName": "cep-002",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b4
 {

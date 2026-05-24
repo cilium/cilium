@@ -160,6 +160,13 @@ endpoints:
   id: 199494
   name: foo-004
   service-account: default
+  named-ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+  - name: dns
+    port: 53
+    protocol: UDP
   networking:
     addressing:
     - ipv4: 10.244.2.78
@@ -222,7 +229,19 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "fred",
   "K8sPodName": "foo-004",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -258,7 +277,19 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "fred",
   "K8sPodName": "foo-004",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e024
 {
@@ -307,7 +338,19 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "fred",
   "K8sPodName": "foo-004",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -331,7 +374,19 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "fred",
   "K8sPodName": "foo-004",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
@@ -392,7 +447,19 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "fred",
   "K8sPodName": "foo-004",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -428,7 +495,19 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "fred",
   "K8sPodName": "foo-004",
-  "K8sServiceAccount": "default"
+  "K8sServiceAccount": "default",
+  "NamedPorts": [
+    {
+      "Name": "http",
+      "Port": 8080,
+      "Protocol": "TCP"
+    },
+    {
+      "Name": "dns",
+      "Port": 53,
+      "Protocol": "UDP"
+    }
+  ]
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
