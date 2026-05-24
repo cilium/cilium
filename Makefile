@@ -251,7 +251,7 @@ manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	contrib/scripts/k8s-manifests-gen.sh
 
 .PHONY: generate-apis
-generate-apis: generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api generate-sdp-api generate-datapathplugins-api
+generate-apis: generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api generate-sdp-api generate-datapathplugins-api generate-clustermesh-api
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/openapi.yaml
@@ -362,6 +362,26 @@ github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr
 endef
+
+define CLUSTERMESH_PROTO_PACKAGES
+-github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1
+github.com/cilium/cilium/pkg/clustermesh/types/endpointslice/internal
+endef
+
+.PHONY: generate-clustermesh-api-local
+generate-clustermesh-api-local:
+	$(ASSERT_CILIUM_MODULE)
+
+	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
+
+	$(QUIET) $(call generate_k8s_protobuf,${CLUSTERMESH_PROTO_PACKAGES},"$(TMPDIR)")
+
+	$(QUIET) rm -rf "$(TMPDIR)"
+
+.PHONY: generate-clustermesh-api
+generate-clustermesh-api:
+	contrib/scripts/builder.sh \
+		$(MAKE_CONTAINER) -C /go/src/github.com/cilium/cilium/ generate-clustermesh-api-local
 
 .PHONY: generate-k8s-api-local
 generate-k8s-api-local:

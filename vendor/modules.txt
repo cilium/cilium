@@ -1186,6 +1186,16 @@ github.com/k-sone/critbitgo
 # github.com/kevinburke/ssh_config v1.6.0
 ## explicit; go 1.18
 github.com/kevinburke/ssh_config
+# github.com/klauspost/compress v1.18.4
+## explicit; go 1.23
+github.com/klauspost/compress
+github.com/klauspost/compress/fse
+github.com/klauspost/compress/huff0
+github.com/klauspost/compress/internal/cpuinfo
+github.com/klauspost/compress/internal/le
+github.com/klauspost/compress/internal/snapref
+github.com/klauspost/compress/zstd
+github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/kylelemons/godebug v1.1.0
 ## explicit; go 1.11
 github.com/kylelemons/godebug/diff
