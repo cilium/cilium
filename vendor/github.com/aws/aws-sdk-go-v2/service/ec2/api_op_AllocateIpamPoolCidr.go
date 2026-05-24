@@ -97,6 +97,15 @@ type AllocateIpamPoolCidrInput struct {
 	// A preview of the next available CIDR in a pool.
 	PreviewNextCidr *bool
 
+	// The key/value combination of a tag assigned to the resource. Use the tag key in
+	// the filter name and the tag value as the filter value. For example, to find all
+	// resources that have a tag with the key Owner and the value TeamA , specify
+	// tag:Owner for the filter name and TeamA for the filter value.
+	//
+	// If you specify tags, the request is authorized against the allocation resource
+	// in addition to the pool resource.
+	TagSpecifications []types.TagSpecification
+
 	noSmithyDocumentSerde
 }
 

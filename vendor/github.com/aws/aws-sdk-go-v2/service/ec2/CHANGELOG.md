@@ -1,3 +1,11 @@
+# v1.303.0 (2026-05-18)
+
+* **Feature**: Amazon VPC IP Address Manager (IPAM) now supports tags on IPAM pool allocations, enabling all standard tagging features for allocations including tag-on-create.
+
+# v1.302.0 (2026-05-13)
+
+* **Feature**: Include length limits in the SDK and documentation for text fields in Image (AMI) APIs such as the image name and description
+
 # v1.301.0 (2026-05-07)
 
 * **Feature**: DescribeInstanceTypes now accepts an IncludeUnsupportedInRegion parameter. When set, the response also lists instance types that are not available in the current Region. Each instance type includes a SupportedInRegion field indicating its regional availability.

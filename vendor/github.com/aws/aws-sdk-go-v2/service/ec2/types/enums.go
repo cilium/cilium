@@ -9617,6 +9617,7 @@ const (
 	ResourceTypeSecondarySubnet                                        ResourceType = "secondary-subnet"
 	ResourceTypeCapacityManagerDataExport                              ResourceType = "capacity-manager-data-export"
 	ResourceTypeVpnConcentrator                                        ResourceType = "vpn-concentrator"
+	ResourceTypeIpamPoolAllocation                                     ResourceType = "ipam-pool-allocation"
 )
 
 // Values returns all known values for ResourceType. Note that this can be
@@ -9732,6 +9733,7 @@ func (ResourceType) Values() []ResourceType {
 		"secondary-subnet",
 		"capacity-manager-data-export",
 		"vpn-concentrator",
+		"ipam-pool-allocation",
 	}
 }
 

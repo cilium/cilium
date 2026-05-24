@@ -347,6 +347,9 @@ OPTIONS:
 		case TCPOptionKindMultipathTCP:
 			tcp.Multipath = true
 			opt.OptionLength = data[1]
+			if opt.OptionLength <= 0 {
+				return fmt.Errorf("MPTCP bad option length %d", opt.OptionLength)
+			}
 			opt.OptionMultipath = MPTCPSubtype(data[2] >> 4)
 			switch opt.OptionMultipath {
 			case MPTCPSubtypeMPCAPABLE:
