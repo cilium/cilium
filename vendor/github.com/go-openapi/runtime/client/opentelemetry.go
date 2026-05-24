@@ -8,20 +8,62 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-openapi/runtime"
-	"github.com/go-openapi/strfmt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/go-openapi/runtime"
+	"github.com/go-openapi/strfmt"
 )
 
 const (
 	instrumentationVersion = "1.0.0"
 	tracerName             = "go-openapi"
 )
+
+// WithOpenTelemetry adds opentelemetry support to the provided runtime.
+// A new client span is created for each request.
+// If the context of the client operation does not contain an active span, no span is created.
+// The provided opts are applied to each spans - for example to add global tags.
+func (r *Runtime) WithOpenTelemetry(opts ...OpenTelemetryOpt) runtime.ClientTransport {
+	return newOpenTelemetryTransport(r, r.Host, opts)
+}
+
+// WithOpenTracing adds opentracing support to the provided runtime.
+// A new client span is created for each request.
+// If the context of the client operation does not contain an active span, no span is created.
+// The provided opts are applied to each spans - for example to add global tags.
+//
+// Deprecated: use [WithOpenTelemetry] instead, as opentracing is now archived and superseded by opentelemetry.
+//
+// # Deprecation notice
+//
+// The [Runtime.WithOpenTracing] method has been deprecated in favor of [Runtime.WithOpenTelemetry].
+//
+// The method is still around so programs calling it will still build. However, it will return
+// an opentelemetry transport.
+//
+// If you have a strict requirement on using opentracing, you may still do so by importing
+// module [github.com/go-openapi/runtime/client-[middleware]/opentracing] and using
+// [github.com/go-openapi/runtime/client-[middleware]/opentracing.WithOpenTracing] with your
+// usual opentracing options and opentracing-enabled transport.
+//
+// Passed options are ignored unless they are of type [OpenTelemetryOpt].
+func (r *Runtime) WithOpenTracing(opts ...any) runtime.ClientTransport {
+	otelOpts := make([]OpenTelemetryOpt, 0, len(opts))
+	for _, o := range opts {
+		otelOpt, ok := o.(OpenTelemetryOpt)
+		if !ok {
+			continue
+		}
+		otelOpts = append(otelOpts, otelOpt)
+	}
+
+	return r.WithOpenTelemetry(otelOpts...)
+}
 
 type config struct {
 	Tracer            trace.Tracer

@@ -11628,6 +11628,9 @@ type IpamPoolAllocation struct {
 	// The type of the resource.
 	ResourceType IpamPoolAllocationResourceType
 
+	// The tags for the IPAM pool allocation.
+	Tags []Tag
+
 	noSmithyDocumentSerde
 }
 

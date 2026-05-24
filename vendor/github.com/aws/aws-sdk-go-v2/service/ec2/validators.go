@@ -8230,6 +8230,26 @@ func (m *validateOpModifyIpamPolicyAllocationRules) HandleInitialize(ctx context
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyIpamPoolAllocation struct {
+}
+
+func (*validateOpModifyIpamPoolAllocation) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyIpamPoolAllocation) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyIpamPoolAllocationInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyIpamPoolAllocationInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyIpamPool struct {
 }
 
@@ -12312,6 +12332,10 @@ func addOpModifyIpamValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpModifyIpamPolicyAllocationRulesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyIpamPolicyAllocationRules{}, middleware.After)
+}
+
+func addOpModifyIpamPoolAllocationValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyIpamPoolAllocation{}, middleware.After)
 }
 
 func addOpModifyIpamPoolValidationMiddleware(stack *middleware.Stack) error {
@@ -20710,6 +20734,21 @@ func validateOpModifyIpamPolicyAllocationRulesInput(v *ModifyIpamPolicyAllocatio
 	}
 	if len(v.ResourceType) == 0 {
 		invalidParams.Add(smithy.NewErrParamRequired("ResourceType"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpModifyIpamPoolAllocationInput(v *ModifyIpamPoolAllocationInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyIpamPoolAllocationInput"}
+	if v.IpamPoolAllocationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamPoolAllocationId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

@@ -155,7 +155,10 @@ var (
 	LayerTypeAPSP                         = gopacket.RegisterLayerType(150, gopacket.LayerTypeMetadata{Name: "APSP", Decoder: gopacket.DecodeFunc(decodeAPSP)})
 	LayerTypeENIP                         = gopacket.RegisterLayerType(151, gopacket.LayerTypeMetadata{Name: "ENIP", Decoder: gopacket.DecodeFunc(decodeENIP)})
 	LayerTypeCIP                          = gopacket.RegisterLayerType(152, gopacket.LayerTypeMetadata{Name: "CIP", Decoder: gopacket.DecodeFunc(decodeCIP)})
+	LayerTypeModbus                       = gopacket.RegisterLayerType(153, gopacket.LayerTypeMetadata{Name: "Modbus", Decoder: gopacket.DecodeFunc(decodeModbus)})
+	LayerTypeDiameter                     = gopacket.RegisterLayerType(154, gopacket.LayerTypeMetadata{Name: "Diameter", Decoder: gopacket.DecodeFunc(decodeDiameter)})
 	LayerTypeLinuxSLL2                    = gopacket.RegisterLayerType(276, gopacket.LayerTypeMetadata{Name: "Linux SLL2", Decoder: gopacket.DecodeFunc(decodeLinuxSLL2)})
+	LayerTypePktap                        = gopacket.RegisterLayerType(300, gopacket.LayerTypeMetadata{Name: "ApplePktap", Decoder: gopacket.DecodeFunc(decodePktapV1)})
 )
 
 var (
