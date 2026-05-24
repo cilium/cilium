@@ -570,6 +570,42 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.Equal(t, 0, npm.Len())
 }
 
+func TestIPCacheNamedPortsMoveOnIdentityChange(t *testing.T) {
+	s := setupIPCacheTestSuite(t)
+	t.Parallel()
+
+	endpointIP := "10.0.0.15"
+	realIdentity := identityPkg.NumericIdentity(68)
+	meta := K8sMetadata{
+		Namespace: "default",
+		PodName:   "app1",
+		NamedPorts: types.NamedPortMap{
+			"http": types.PortProto{Port: 80, Proto: u8proto.TCP},
+		},
+	}
+
+	namedPortsChanged, err := s.IPIdentityCache.Upsert(endpointIP, nil, 0, &meta, Identity{
+		ID:     identityPkg.ReservedIdentityUnmanaged,
+		Source: source.Kubernetes,
+	})
+	require.NoError(t, err)
+	require.False(t, namedPortsChanged)
+
+	npm := s.IPIdentityCache.GetNamedPorts()
+	require.Equal(t, []uint16{80}, getNamedPorts(npm, "http", u8proto.TCP, identityPkg.ReservedIdentityUnmanaged))
+
+	namedPortsChanged, err = s.IPIdentityCache.Upsert(endpointIP, nil, 0, &meta, Identity{
+		ID:     realIdentity,
+		Source: source.CustomResource,
+	})
+	require.NoError(t, err)
+	require.True(t, namedPortsChanged)
+
+	npm = s.IPIdentityCache.GetNamedPorts()
+	require.Empty(t, getNamedPorts(npm, "http", u8proto.TCP, identityPkg.ReservedIdentityUnmanaged))
+	require.Equal(t, []uint16{80}, getNamedPorts(npm, "http", u8proto.TCP, realIdentity))
+}
+
 func BenchmarkIPCacheUpsert10(b *testing.B) {
 	benchmarkIPCacheUpsert(b, 10)
 }
