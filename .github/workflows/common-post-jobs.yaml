@@ -64,14 +64,14 @@ jobs:
     steps:
       - name: Set final commit status
         if: ${{ inputs.result != 'skipped' }}
-        uses: cilium/cilium/.github/actions/set-commit-status@af87cb77ba265a48afe5077827dde04181da35eb # main
+        uses: cilium/cilium/.github/actions/set-commit-status@0fc1dd326c6de89870d8dd76a6c6112ac74e38e6 # main
         with:
           sha: ${{ inputs.sha }}
           status: ${{ inputs.result == 'abandoned' && 'failure' || inputs.result }}
 
       - name: Set final commit status
         if: ${{ inputs.result == 'skipped' }}
-        uses: cilium/cilium/.github/actions/set-commit-status@af87cb77ba265a48afe5077827dde04181da35eb # main
+        uses: cilium/cilium/.github/actions/set-commit-status@0fc1dd326c6de89870d8dd76a6c6112ac74e38e6 # main
         with:
           sha: ${{ inputs.sha }}
           status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
