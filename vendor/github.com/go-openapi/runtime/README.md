@@ -8,17 +8,53 @@
 [![Release][release-badge]][release-url] [![Go Report Card][gocard-badge]][gocard-url] [![CodeFactor Grade][codefactor-badge]][codefactor-url] [![License][license-badge]][license-url]
 <!-- Badges: documentation & support -->
 <!-- Badges: others & stats -->
-[![GoDoc][godoc-badge]][godoc-url] [![Discord Channel][discord-badge]][discord-url] [![go version][goversion-badge]][goversion-url] ![Top language][top-badge] ![Commits since latest release][commits-badge]
-
+[![Doc][doc-badge]][doc-url] [![GoDoc][godoc-badge]][godoc-url] [![Discord Channel][discord-badge]][discord-url] [![go version][goversion-badge]][goversion-url] ![Top language][top-badge] ![Commits since latest release][commits-badge]
 ---
 
 A runtime for go OpenAPI toolkit.
 
 The runtime component for use in code generation or as untyped usage.
 
-<!--
 ## Announcements
--->
+
+[**Complete documentation as github pages**][doc-url]
+
+**Changes to the API surface in `v0.30.0`**:
+
+* utility package `header` has now moved to `github.com/go-openapi/runtime/server-middleware/negotiate/header`
+
+> A shim is provided to support existing programs, with a deprecation notice.
+
+**Changes in semantics in `v0.30.0`**:
+
+Function `negotiate.NegotiateContentType` (available as an alias for backward compatibility as `middleware.NegotiateContentType`
+now performs a full match considering MIME parameters.
+
+The previous behavior (matching in order of appearance after stripping parameters) may be enabled explicitly with
+option `negotiate.WithIgnoreParameters`.
+
+* **2026-05-07** : exposed UI and Spec middleware as a separate, dependency-free module.
+
+> Newly available package: `github.com/go-openapi/runtime/server-middleware/docui` that now holds our
+> UI and spec serve middleware.
+>
+> A shim is available in `github.com/go-openapi/runtime/middleware` to bridge the older UI options to the new ones,
+> with a deprecation notice.
+>
+> Methods that were unduly exported and purely used to manipulate options (e.g. `SwaggerUIOpts.EnsureDefaults`) have been
+> removed. New options in `docui` should be used instead.
+
+> Users may reuse this middleware to serve a Redoc, Rapidoc or SwaggerUI documentation without
+> importing the complete go-openapi scaffolding.
+
+* **2026-05-05** : exposed content negotiation methods as a separate, dependency-free module
+
+> Users may reuse these utilities to support content-negotiation without extra dependencies.
+>
+> Newly available module: `github.com/go-openapi/runtime/server-middleware`
+>
+> Newly available packages: `github.com/go-openapi/runtime/server-middleware/negotiate` and
+> `github.com/go-openapi/runtime/server-middleware/mediatype`.
 
 ## Status
 
@@ -34,18 +70,21 @@ go get github.com/go-openapi/runtime
 
 See <https://github.com/go-openapi/runtime/releases>
 
-For pre-v0.30.0 releases see [release notes](docs/NOTES.md).
+For v0.29.0 release see [release notes](docs/NOTES.md).
+From that release onwards, changes are tracked in the github release notes.
 
 **What coming next?**
 
 Moving forward, we want to :
 
-* [ ] continue narrowing down the scope of dependencies:
-  * yaml support in an independent module
+* [x] fix a few known issues with some file upload requests (e.g. #286)
+* [] continue narrowing down the scope of dependencies:
+  * [x] split middleware and other useful utilities as a separate dependency-free module
+  * yaml support in an independent module (v2)
   * introduce more up-to-date support for opentelemetry as a separate module that evolves
     independently from the main package (to avoid breaking changes, the existing API
-    will remain maintained, but evolve at a slower pace than opentelemetry).
-* [ ] fix a few known issues with some file upload requests (e.g. #286)
+    will remain maintained, but evolve at a slower pace than opentelemetry). (v2)
+* [] publish proper documentation and examples
 
 ## Licensing
 
@@ -56,7 +95,7 @@ on top of which it has been built.
 
 ## Other documentation
 
-* [FAQ](docs/FAQ.md)
+* [FAQ](https://go-openapi.github.io/runtime/tutorials/faq/) · [Media-type selection](https://go-openapi.github.io/runtime/tutorials/media-types/) · [Client keep-alive](https://go-openapi.github.io/runtime/tutorials/keep-alive/)
 * [All-time contributors](./CONTRIBUTORS.md)
 * [Contributing guidelines][contributing-doc-site]
 * [Maintainers documentation][maintainers-doc-site]
@@ -89,6 +128,8 @@ Maintainers can cut a new release by either:
 [codefactor-badge]: https://img.shields.io/codefactor/grade/github/go-openapi/runtime
 [codefactor-url]: https://www.codefactor.io/repository/github/go-openapi/runtime
 <!-- Badges: documentation & support -->
+[doc-badge]: https://img.shields.io/badge/doc-site-blue?link=https%3A%2F%2Fgo-openapi.github.io%2Fruntime%2F
+[doc-url]: https://go-openapi.github.io/runtime
 [godoc-badge]: https://pkg.go.dev/badge/github.com/go-openapi/runtime
 [godoc-url]: http://pkg.go.dev/github.com/go-openapi/runtime
 [discord-badge]: https://img.shields.io/discord/1446918742398341256?logo=discord&label=discord&color=blue

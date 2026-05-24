@@ -88,6 +88,13 @@ func (t *SCTP) CanDecode() gopacket.LayerClass {
 }
 
 func (t *SCTP) NextLayerType() gopacket.LayerType {
+	// Check if either source or destination port indicates a known protocol
+	if lt := t.SrcPort.LayerType(); lt != gopacket.LayerTypePayload {
+		return lt
+	}
+	if lt := t.DstPort.LayerType(); lt != gopacket.LayerTypePayload {
+		return lt
+	}
 	return gopacket.LayerTypePayload
 }
 
@@ -261,6 +268,7 @@ const (
 	SCTPPayloadDDPSegment                     = 16
 	SCTPPayloadDDPStream                      = 17
 	SCTPPayloadS1AP                           = 18
+	SCTPPayloadDiameter                       = 46
 )
 
 func (p SCTPPayloadProtocol) String() string {
@@ -303,6 +311,8 @@ func (p SCTPPayloadProtocol) String() string {
 		return "DDPStream"
 	case SCTPPayloadS1AP:
 		return "S1AP"
+	case SCTPPayloadDiameter:
+		return "Diameter"
 	}
 	return fmt.Sprintf("Unknown(%d)", p)
 }

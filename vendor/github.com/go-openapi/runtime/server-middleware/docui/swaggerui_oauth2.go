@@ -1,30 +1,56 @@
 // SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
 // SPDX-License-Identifier: Apache-2.0
 
-package middleware
+package docui
 
 import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"path"
 	"text/template"
 )
 
-func SwaggerUIOAuth2Callback(opts SwaggerUIOpts, next http.Handler) http.Handler {
-	opts.EnsureDefaultsOauth2()
+// UseSwaggerUIOAuth2Callback creates a middleware that serves a callback URL to complete
+// a OAuth2 token handshake.
+func UseSwaggerUIOAuth2Callback(opts ...Option) func(next http.Handler) http.Handler {
+	pth, assets := swaggeruiOAuth2Setup(opts)
 
-	pth := opts.OAuthCallbackURL
-	tmpl := template.Must(template.New("swaggeroauth").Parse(opts.Template))
-	assets := bytes.NewBuffer(nil)
-	if err := tmpl.Execute(assets, opts); err != nil {
+	return func(next http.Handler) http.Handler {
+		return serveUI(pth, assets, next)
+	}
+}
+
+// SwaggerUIOAuth2Callback creates a [http.Handler] that serves a callback URL to complete
+// a OAuth2 token handshake.
+func SwaggerUIOAuth2Callback(next http.Handler, opts ...Option) http.Handler {
+	pth, assets := swaggeruiOAuth2Setup(opts)
+
+	return serveUI(pth, assets, next)
+}
+
+func swaggeruiOAuth2Setup(opts []Option) (pth string, assets []byte) {
+	o := optionsWithDefaults(opts,
+		// defaults for SwaggerUI OAuth2 callback endpoint
+		WithUITemplate(swaggerOAuth2Template),
+		WithUIAssetsURL(swaggerLatest),
+	)
+	o.applySwaggerUIDefaults()
+	if o.OAuth2CallbackURL == "" {
+		o.OAuth2CallbackURL = path.Join(o.BasePath, o.Path, "oauth2-callback")
+	}
+
+	pth = o.OAuth2CallbackURL
+	tmpl := template.Must(template.New("swaggeroauth2").Parse(o.Template))
+	buf := bytes.NewBuffer(nil)
+	if err := tmpl.Execute(buf, o); err != nil {
 		panic(fmt.Errorf("cannot execute template: %w", err))
 	}
 
-	return serveUI(pth, assets.Bytes(), next)
+	return pth, buf.Bytes()
 }
 
-const (
-	swaggerOAuthTemplate = `
+const swaggerOAuth2Template = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -105,4 +131,3 @@ const (
 </body>
 </html>
 `
-)

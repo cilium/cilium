@@ -166,8 +166,10 @@ func (lcm *LCM) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		lcm.ChannelName = string(buffer)
 	}
 
-	lcm.fingerprint = LCMFingerprint(
-		binary.BigEndian.Uint64(data[offset : offset+8]))
+	if len(data)-offset >= 8 {
+		lcm.fingerprint = LCMFingerprint(
+			binary.BigEndian.Uint64(data[offset : offset+8]))
+	}
 
 	lcm.contents = data[:offset]
 	lcm.payload = data[offset:]

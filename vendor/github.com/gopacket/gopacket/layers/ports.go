@@ -78,7 +78,13 @@ func (a TCPPort) LayerType() gopacket.LayerType {
 		return LayerTypeTLS
 	case 2222: // EtherNet/IP-1
 		return LayerTypeENIP
-	case 5061: // ips
+	case 3868: // diameter
+		return LayerTypeDiameter
+	case 5061: // sips
+		return LayerTypeTLS
+	case 5082: // sip-tls
+		return LayerTypeTLS
+	case 5083: // sip-tls
 		return LayerTypeTLS
 	case 44818: // EtherNet/IP-2
 		return LayerTypeENIP
@@ -145,9 +151,15 @@ func (a UDPPort) LayerType() gopacket.LayerType {
 		return LayerTypeENIP
 	case 3784:
 		return LayerTypeBFD
+	case 3868: // diameter
+		return LayerTypeDiameter
 	case 4789:
 		return LayerTypeVXLAN
 	case 5060:
+		return LayerTypeSIP
+	case 5082: // sip
+		return LayerTypeSIP
+	case 5083: // sip
 		return LayerTypeSIP
 	case 6081:
 		return LayerTypeGeneve
@@ -188,6 +200,39 @@ func (a SCTPPort) String() string {
 		return fmt.Sprintf("%d(%s)", a, name)
 	}
 	return strconv.Itoa(int(a))
+}
+
+// LayerType returns a LayerType that would be able to decode the
+// application payload. It uses some well-known ports such as 3868 for
+// Diameter.
+//
+// Returns gopacket.LayerTypePayload for unknown/unsupported port numbers.
+func (a SCTPPort) LayerType() gopacket.LayerType {
+	if sctpPortLayerTypeOverride.has(uint16(a)) {
+		return sctpPortLayerType[a]
+	}
+	switch a {
+	case 3868: // diameter
+		return LayerTypeDiameter
+	case 5060: // sip
+		return LayerTypeSIP
+	case 5082: // sip
+		return LayerTypeSIP
+	case 5083: // sip
+		return LayerTypeSIP
+	}
+	return gopacket.LayerTypePayload
+}
+
+var sctpPortLayerTypeOverride bitfield
+
+var sctpPortLayerType = map[SCTPPort]gopacket.LayerType{}
+
+// RegisterSCTPPortLayerType creates a new mapping between a SCTPPort
+// and an underlying LayerType.
+func RegisterSCTPPortLayerType(port SCTPPort, layerType gopacket.LayerType) {
+	sctpPortLayerTypeOverride.set(uint16(port))
+	sctpPortLayerType[port] = layerType
 }
 
 // String returns the port as "number(name)" if there's a well-known port name,
