@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/api/v1/models"
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 // noneIter is a zero-length [Seq].
@@ -242,6 +244,16 @@ func newCiliumEndpointConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) 
 	return NewCachedConverter(ciliumEndpointMapper)
 }
 
+func namedPortsToIPIdentity(namedPorts models.NamedPorts) []identity.NamedPort {
+	return cslices.Map(namedPorts, func(port *models.Port) identity.NamedPort {
+		return identity.NamedPort{
+			Name:     port.Name,
+			Port:     port.Port,
+			Protocol: port.Protocol,
+		}
+	})
+}
+
 func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
 	return func(yield func(store.Key) bool) {
 		if n := endpoint.Networking; n != nil {
@@ -256,6 +268,7 @@ func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
 						K8sNamespace:      endpoint.Namespace,
 						K8sPodName:        endpoint.Name,
 						K8sServiceAccount: endpoint.ServiceAccount,
+						NamedPorts:        namedPortsToIPIdentity(endpoint.NamedPorts),
 					}
 
 					if endpoint.Identity != nil {
@@ -307,6 +320,7 @@ func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlic
 							ID:                identity.NumericIdentity(endpoint.IdentityID),
 							Key:               uint8(endpoint.Encryption.Key),
 							K8sServiceAccount: endpoint.ServiceAccount,
+							NamedPorts:        namedPortsToIPIdentity(endpoint.NamedPorts),
 						}
 
 						if !yield(&entry) {
