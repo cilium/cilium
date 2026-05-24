@@ -2299,7 +2299,7 @@ k8s.io/component-base/metrics/legacyregistry
 k8s.io/component-base/metrics/prometheus/feature
 k8s.io/component-base/metrics/prometheusextension
 k8s.io/component-base/version
-# k8s.io/endpointslice v0.33.11
+# k8s.io/endpointslice v0.33.12
 ## explicit; go 1.24.0
 k8s.io/endpointslice/metrics
 k8s.io/endpointslice/util
@@ -2341,7 +2341,7 @@ k8s.io/kube-openapi/pkg/validation/spec
 k8s.io/kube-openapi/pkg/validation/strfmt
 k8s.io/kube-openapi/pkg/validation/strfmt/bson
 k8s.io/kube-openapi/pkg/validation/validate
-# k8s.io/kubectl v0.33.11
+# k8s.io/kubectl v0.33.12
 ## explicit; go 1.24.0
 k8s.io/kubectl/pkg/util
 k8s.io/kubectl/pkg/util/podutils
