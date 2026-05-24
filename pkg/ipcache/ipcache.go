@@ -463,7 +463,7 @@ func (ipc *IPCache) upsertLocked(
 
 	ipc.ipToEndpointFlags[ip] = endpointFlags
 
-	if !metaEqual {
+	if !metaEqual || found && cachedIdentity.ID != newIdentity.ID {
 		if k8sMeta == nil {
 			delete(ipc.ipToK8sMetadata, ip)
 		} else {
@@ -471,7 +471,12 @@ func (ipc *IPCache) upsertLocked(
 		}
 		// Update the named ports reference counting, but don't cause policy
 		// updates if no policy uses named ports.
-		namedPortsChanged = ipc.namedPorts.Update(newIdentity.ID, oldK8sMeta.NamedPorts, newNamedPorts)
+		if found && cachedIdentity.ID != newIdentity.ID {
+			namedPortsChanged = ipc.namedPorts.Update(cachedIdentity.ID, oldK8sMeta.NamedPorts, nil)
+			namedPortsChanged = ipc.namedPorts.Update(newIdentity.ID, nil, newNamedPorts) || namedPortsChanged
+		} else {
+			namedPortsChanged = ipc.namedPorts.Update(newIdentity.ID, oldK8sMeta.NamedPorts, newNamedPorts)
+		}
 		namedPortsChanged = namedPortsChanged && ipc.needNamedPorts.Load()
 	}
 
