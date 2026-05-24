@@ -16,7 +16,7 @@ rm -rf ./pkg/k8s/client/{clientset,informers,listers}
 rm -rf ./pkg/k8s/slim/k8s/client
 
 # Generate all files
-make generate-k8s-api manifests
+make generate-k8s-api generate-clustermesh-api manifests
 
 # Ensure new files are also considered in the diff
 git add --intent-to-add .
@@ -29,7 +29,7 @@ if [ -n "$diff" ] || [ -n "$diff_staged" ]; then
 	echo "Ungenerated source code:"
 	echo "$diff"
 	echo "$diff_staged"
-	echo "Please run 'make generate-k8s-api && make manifests' and submit your changes"
+	echo "Please run 'make generate-k8s-api generate-clustermesh-api && make manifests' and submit your changes"
 	exit 1
 fi
 
