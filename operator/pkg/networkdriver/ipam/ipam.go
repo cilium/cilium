@@ -154,6 +154,11 @@ func registerAllocator(p AllocatorParams) {
 }
 
 func autoCreatePools(ctx context.Context, client cilium_v2alpha1.CiliumResourceIPPoolInterface, poolMap map[string]string, logger *slog.Logger) error {
+	// we do a first pass to ensure all pools are valid,
+	// then proceed with the creation if the objects if
+	// no malformed pools are seen
+	validated := make([]cilium_v2alpha1_api.CiliumResourceIPPool, 0, len(poolMap))
+
 	for poolName, poolSpecStr := range poolMap {
 		poolSpec, err := multipool.ParsePoolSpec(poolSpecStr)
 		if err != nil {
@@ -161,11 +166,13 @@ func autoCreatePools(ctx context.Context, client cilium_v2alpha1.CiliumResourceI
 				fmt.Sprintf("Failed to parse IP pool spec in %q flag", AutoCreateCiliumResourceIPPools),
 				logfields.PoolName, poolName,
 				logfields.PoolSpec, poolSpecStr,
-				logfields.Error, err)
+				logfields.Error, err,
+			)
+
 			return err
 		}
 
-		pool := &cilium_v2alpha1_api.CiliumResourceIPPool{
+		validated = append(validated, cilium_v2alpha1_api.CiliumResourceIPPool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: poolName,
 			},
@@ -173,26 +180,34 @@ func autoCreatePools(ctx context.Context, client cilium_v2alpha1.CiliumResourceI
 				IPv4: poolSpec.IPv4,
 				IPv6: poolSpec.IPv6,
 			},
-		}
+		})
+	}
 
-		_, err = client.Create(ctx, pool, metav1.CreateOptions{})
+	for _, pool := range validated {
+		_, err := client.Create(ctx, &pool, metav1.CreateOptions{})
 		if err != nil {
 			if k8sErrors.IsAlreadyExists(err) {
 				// Nothing to do, we will not try to update an existing resource
 				logger.InfoContext(ctx,
 					"Found existing CiliumResourceIPPool resource. Skipping creation",
-					logfields.PoolName, poolName)
+					logfields.PoolName, pool.GetObjectMeta().GetName(),
+				)
 			} else {
 				logger.ErrorContext(ctx,
 					"Failed to create CiliumResourceIPPool resource",
-					logfields.PoolName, poolName,
+					logfields.PoolName, pool.GetObjectMeta().GetName(),
 					logfields.Object, pool,
-					logfields.Error, err)
+					logfields.Error, err,
+				)
 			}
+
 			continue
 		}
 
-		logger.InfoContext(ctx, "Created CiliumResourceIPPool resource", logfields.PoolName, poolName)
+		logger.InfoContext(
+			ctx, "Created CiliumResourceIPPool resource",
+			logfields.PoolName, pool.GetObjectMeta().GetName(),
+		)
 	}
 
 	return nil
