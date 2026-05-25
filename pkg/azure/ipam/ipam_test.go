@@ -37,10 +37,6 @@ var (
 		{ID: "s-2", CIDR: netip.MustParsePrefix("2.2.0.0/16"), VirtualNetworkID: "vpc-1"},
 		{ID: "s-3", CIDR: netip.MustParsePrefix("3.3.3.3/16"), VirtualNetworkID: "vpc-1"},
 	}
-
-	testVnet = &ipamTypes.VirtualNetwork{
-		ID: "vpc-1",
-	}
 )
 
 type k8sMock struct {
@@ -146,7 +142,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 	minAllocate := 0
 	toUse := 7
 
-	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVnet})
+	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet})
 	instances := NewInstancesManager(hivetest.Logger(t), api, false)
 	require.NotNil(t, instances)
 
@@ -208,7 +204,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 	minAllocate := 10
 	toUse := 7
 
-	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVnet})
+	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet})
 	instances := NewInstancesManager(hivetest.Logger(t), api, false)
 	require.NotNil(t, instances)
 
@@ -292,7 +288,7 @@ func TestIpamManyNodes(t *testing.T) {
 				numNodes    = 2
 				minAllocate = 1
 			)
-			api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
+			api := apimock.NewAPI(testSubnets)
 			instances := NewInstancesManager(hivetest.Logger(t), api, false)
 			require.NotNil(t, instances)
 
@@ -364,7 +360,7 @@ func TestIpamManyNodes(t *testing.T) {
 }
 
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
-	api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
+	api := apimock.NewAPI(testSubnets)
 	api.SetDelay(apimock.AllOperations, delay)
 	api.SetLimiter(rateLimit, burst)
 
