@@ -180,7 +180,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 		}
 # endif /* !ENABLE_NODEPORT */
 
-		return redirect_ep(ctx, ep->ifindex, use_fast_redirect, from_tunnel);
+		return redirect_ep(ctx, ep->ifindex, false, from_tunnel);
 	}
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
