@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -58,7 +59,7 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Re
 	if prev := res.ReconciledResources; prev != nil {
 		// Perform the deletion with the resources that were last successfully reconciled
 		// instead of whatever the latest one is (which would have not been pushed to Envoy).
-		err = ops.xds.DeleteEnvoyResources(ctx, *prev)
+		err = ops.xds.DeleteEnvoyResources(ctx, *prev, nil)
 
 		for _, listener := range prev.Listeners {
 			ops.portAllocator.ReleaseProxyPort(listener.Name)
@@ -150,7 +151,7 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 	}
 
 	resources.Listeners = newListeners
-	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, nil)
 	return resources, err
 }
 
@@ -182,7 +183,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 		}
 	}
 
-	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, nil)
 
 	if err != nil && isPortBindingError(err) {
 		hasDynamicallyAllocatedPorts := false
@@ -295,8 +296,8 @@ func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
 }
 
 type resourceMutator interface {
-	DeleteEnvoyResources(context.Context, xds.Resources) error
-	UpdateEnvoyResources(context.Context, xds.Resources, xds.Resources) error
+	DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error
+	UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error
 }
 
 type policyTrigger interface {

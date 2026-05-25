@@ -103,7 +103,7 @@ func (r *secretSyncer) upsertK8sSecretV1(ctx context.Context, secret *slim_corev
 		},
 	}
 	// UpsertEnvoyResources does not Wait for an Envoy response when only Secrets are upserted.
-	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
+	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource, nil)
 }
 
 // deleteK8sSecretV1 makes sure the related secret values in Envoy SDS is removed.
@@ -121,7 +121,7 @@ func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, key resource.Key) 
 		},
 	}
 	// DeleteEnvoyResources does not Wait for an Envoy response when only Secrets are deleted.
-	return r.envoyXdsServer.DeleteEnvoyResources(ctx, resource)
+	return r.envoyXdsServer.DeleteEnvoyResources(ctx, resource, nil)
 }
 
 // k8sToEnvoySecret converts k8s secret object to envoy TLS secret object
