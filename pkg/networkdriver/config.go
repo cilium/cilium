@@ -31,6 +31,14 @@ func validateFilters(this v2alpha1.CiliumNetworkDriverDevicePoolConfig, others .
 		}
 	}
 
+	for _, parentIfName := range this.Filter.ParentIfNames {
+		for _, otherPool := range others {
+			if slices.Contains(otherPool.Filter.ParentIfNames, parentIfName) {
+				return fmt.Errorf("%w: %s on pools %s and %s", errParentIfNameInMultiplePools, parentIfName, this.PoolName, otherPool.PoolName)
+			}
+		}
+	}
+
 	return nil
 }
 

@@ -177,6 +177,7 @@ func TestGetDevicePools(t *testing.T) {
 	})
 }
 
+// TestGetDevicePoolsEmptyFilters
 func TestGetDevicePoolsEmptyFilters(t *testing.T) {
 	t.Run("nil filter doesn't appear", func(t *testing.T) {
 		driver := newTestDriver(t,
@@ -225,6 +226,29 @@ func TestGetDevicePoolsEmptyFilters(t *testing.T) {
 	})
 }
 
+// TestBuildPoolsAttributes verifies that the "pool" device attribute is set
+// correctly on every device, since pods use it in CEL selectors to claim devices.
+func TestBuildPoolsAttributes(t *testing.T) {
+	driver := newTestDriver(t,
+		map[types.DeviceManagerType][]types.Device{
+			types.DeviceManagerTypeDummy: {mkDevice("dummy0", types.DeviceManagerTypeDummy)},
+		},
+		[]v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+			{PoolName: "my-pool", Filter: newFilter(types.DeviceManagerTypeDummy.String())},
+		},
+	)
+
+	pools, err := driver.getDevicePools(context.Background())
+	require.NoError(t, err)
+	require.Len(t, pools["my-pool"].Slices[0].Devices, 1)
+
+	dev := pools["my-pool"].Slices[0].Devices[0]
+	poolAttr, ok := dev.Attributes["pool"]
+	require.True(t, ok, "pool attribute must be present")
+	require.NotNil(t, poolAttr.StringValue)
+	require.Equal(t, "my-pool", *poolAttr.StringValue)
+}
+
 // TestFilterDevices tests the filterDevices helper in isolation.
 func TestFilterDevices(t *testing.T) {
 	devices := []types.Device{
@@ -260,5 +284,123 @@ func TestFilterDevices(t *testing.T) {
 		})
 
 		require.Empty(t, got)
+	})
+}
+
+// TestGetDevicePoolsConflict verifies the runtime conflict-resolution rules in
+// getDevicePools: when a device matches more than one pool the first pool in
+// alphabetical order wins for new devices, and previously assigned devices
+// keep their pool across reconcile cycles regardless of alphabetical order.
+func TestGetDevicePoolsConflict(t *testing.T) {
+	t.Run("device matching two pools is assigned to the alphabetically first pool", func(t *testing.T) {
+		// "pool-a" < "pool-z" alphabetically, so dev0 should end up in pool-a.
+		driver := newTestDriver(t,
+			map[types.DeviceManagerType][]types.Device{
+				types.DeviceManagerTypeDummy: {mkDevice("dev0", types.DeviceManagerTypeDummy)},
+			},
+			[]v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+				{PoolName: "pool-z", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+				{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+			},
+		)
+
+		pools, err := driver.getDevicePools(context.Background())
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"dev0"}, poolDeviceNames(pools, "pool-a"))
+		require.Empty(t, poolDeviceNames(pools, "pool-z"))
+	})
+
+	t.Run("device keeps its pool across reconcile cycles even if another pool sorts earlier", func(t *testing.T) {
+		// First cycle: only pool-z exists, so dev0 is assigned there.
+		driver := newTestDriver(t,
+			map[types.DeviceManagerType][]types.Device{
+				types.DeviceManagerTypeDummy: {mkDevice("dev0", types.DeviceManagerTypeDummy)},
+			},
+			[]v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+				{PoolName: "pool-z", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+			},
+		)
+
+		_, err := driver.getDevicePools(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "pool-z", driver.assignedDevices["dev0"])
+
+		// Second cycle: pool-a is added. pool-a sorts before pool-z, but dev0
+		// was already assigned to pool-z so it must stay there.
+		driver.config.Pools = append(driver.config.Pools,
+			v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+				PoolName: "pool-a",
+				Filter:   &v2alpha1.CiliumNetworkDriverDeviceFilter{},
+			},
+		)
+
+		pools, err := driver.getDevicePools(context.Background())
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"dev0"}, poolDeviceNames(pools, "pool-z"))
+		require.Empty(t, poolDeviceNames(pools, "pool-a"))
+	})
+
+	t.Run("device that disappears is removed from the assignment map", func(t *testing.T) {
+		// First cycle: dev0 is present and assigned.
+		mgr := &mockDeviceManager{
+			managerType: types.DeviceManagerTypeDummy,
+			devices:     []types.Device{mkDevice("dev0", types.DeviceManagerTypeDummy)},
+		}
+		driver := &Driver{
+			logger: hivetest.Logger(t),
+			deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
+				types.DeviceManagerTypeDummy: mgr,
+			},
+			config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
+				Pools: []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+					{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+				},
+			},
+		}
+
+		_, err := driver.getDevicePools(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "pool-a", driver.assignedDevices["dev0"])
+
+		// Second cycle: dev0 disappears from the device manager.
+		mgr.devices = nil
+
+		pools, err := driver.getDevicePools(context.Background())
+		require.NoError(t, err)
+		// dev0 should not appear in any pool.
+		require.Empty(t, poolDeviceNames(pools, "pool-a"))
+		// Its stale entry should be cleaned up from the assignment map.
+		require.NotContains(t, driver.assignedDevices, "dev0")
+	})
+
+	// When a device's previously assigned pool is removed from config (or its filter
+	// no longer matches the device), the device must not "leak" into a non-existent
+	// pool.  It should fall back to the alphabetically first pool that still matches.
+	t.Run("device moves to alphabetically first pool when previous pool is removed", func(t *testing.T) {
+		// Cycle 1: only pool-z → dev0 assigned to pool-z.
+		driver := newTestDriver(t,
+			map[types.DeviceManagerType][]types.Device{
+				types.DeviceManagerTypeDummy: {mkDevice("dev0", types.DeviceManagerTypeDummy)},
+			},
+			[]v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+				{PoolName: "pool-z", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+			},
+		)
+
+		_, err := driver.getDevicePools(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "pool-z", driver.assignedDevices["dev0"])
+
+		// Cycle 2: pool-z is gone, only pool-a remains.
+		// The previous assignment ("pool-z") is no longer valid because pool-z does
+		// not match the device this cycle.  dev0 must now go into pool-a.
+		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+		}
+
+		pools, err := driver.getDevicePools(context.Background())
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"dev0"}, poolDeviceNames(pools, "pool-a"))
+		require.Equal(t, "pool-a", driver.assignedDevices["dev0"])
 	})
 }
