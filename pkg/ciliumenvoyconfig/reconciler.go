@@ -112,6 +112,23 @@ func isPortBindingError(err error) bool {
 		strings.Contains(errStr, "eaddrinuse")
 }
 
+func (ops *envoyOps) updateEnvoyResources(ctx context.Context, prevResources, resources xds.Resources) error {
+	if len(resources.PortAllocationCallbacks) == 0 {
+		return ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, nil)
+	}
+
+	// Port allocation callbacks are fired by the xDS N/ACK path, but only if there is a wait
+	// group. We also need to wait to find out if the allocated port failed to bind so that the
+	// caller may try again with a different port.
+	wg := completion.NewWaitGroup(ctx)
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, wg)
+	if err != nil {
+		wg.Cancel()
+		return err
+	}
+	return wg.Wait()
+}
+
 // retryWithNewPorts reallocates dynamically allocated ports and retries UpdateEnvoyResources.
 func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resources xds.Resources) (xds.Resources, error) {
 	newListeners := make(map[string]*envoy_config_listener.Listener, 0)
@@ -151,7 +168,7 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 	}
 
 	resources.Listeners = newListeners
-	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, nil)
+	err := ops.updateEnvoyResources(ctx, prevResources, resources)
 	return resources, err
 }
 
@@ -183,7 +200,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 		}
 	}
 
-	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, nil)
+	err := ops.updateEnvoyResources(ctx, prevResources, resources)
 
 	if err != nil && isPortBindingError(err) {
 		hasDynamicallyAllocatedPorts := false

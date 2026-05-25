@@ -69,7 +69,7 @@ var (
 
 // Server implements the handling of xDS streams.
 type Server struct {
-	logger *slog.Logger
+	Logger *slog.Logger
 	// watchers maps each supported type URL to its corresponding resource
 	// watcher.
 	watchers map[string]*ResourceWatcher
@@ -118,7 +118,7 @@ func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfig
 
 	// TODO: Unregister the watchers when stopping the server.
 
-	return &Server{logger: logger, watchers: watchers, ackObservers: ackObservers, metrics: metrics}
+	return &Server{Logger: logger, watchers: watchers, ackObservers: ackObservers, metrics: metrics}
 }
 
 func (s *Server) RestoreCompleted() {
@@ -140,7 +140,7 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 	// increment stream count
 	streamID := s.lastStreamID.Add(1)
 
-	reqStreamLog := s.logger.With(logfields.XDSStreamID, streamID)
+	reqStreamLog := s.Logger.With(logfields.XDSStreamID, streamID)
 
 	reqCh := make(chan *envoy_service_discovery.DiscoveryRequest)
 

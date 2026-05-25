@@ -106,7 +106,7 @@ func newCECResourceParser(params parserParams) *CECResourceParser {
 		enableBPFTProxy:             params.DaemonConfig.EnableBPFTProxy,
 	}
 	if params.EnvoyConfig.EnvoyAccessLogEnabled {
-		parser.accessLogPath = util.GetAccessLogSocketPath()
+		parser.accessLogPath = util.GetAccessLogSocketPath(util.GetSocketDir(option.Config.RunDir))
 	}
 
 	// Retrieve Ingress IPs from local Node.
