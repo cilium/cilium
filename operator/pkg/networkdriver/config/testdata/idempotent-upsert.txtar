@@ -1,0 +1,66 @@
+hive start
+
+# Add a node and a matching cluster config
+
+k8s/add kind-worker-node.yaml
+k8s/add driver-cluster-config.yaml
+
+# Verify node config is created
+
+* db/cmp netdriver-node-config node-config.table
+
+# Re-add the same node (identical labels) — manager should skip reconciliation
+
+k8s/add kind-worker-node.yaml
+
+# Node config should still be present and unchanged
+
+* db/cmp netdriver-node-config node-config.table
+
+# Re-add the same cluster config (identical spec and nodeSelector) — manager should skip reconciliation
+
+k8s/add driver-cluster-config.yaml
+
+# Node config should still be present and unchanged
+
+* db/cmp netdriver-node-config node-config.table
+
+hive stop
+
+# ----
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+  name: kind-worker
+spec:
+
+-- driver-cluster-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-worker
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    publishInterval: 10
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- node-config.table --
+Node                ClusterConfig          Config                                                                                                                                                                                                                                           Status  Error
+kind-worker         driver-cluster-config  {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"publishInterval":10,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}  Done
