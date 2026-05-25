@@ -2013,6 +2013,12 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_HOST)
 		from_host = true;
 
+	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_INGRESS_PROXY)
+		ctx->tc_index |= TC_INDEX_F_FROM_INGRESS_PROXY;
+
+	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY)
+		ctx->tc_index |= TC_INDEX_F_FROM_EGRESS_PROXY;
+
 #ifdef HAVE_ENCAP
 	from_tunnel = ctx_load_and_clear_meta(ctx, CB_FROM_TUNNEL);
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_TUNNEL)
@@ -2333,6 +2339,12 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_HOST)
 		from_host = true;
+
+	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_INGRESS_PROXY)
+		ctx->tc_index |= TC_INDEX_F_FROM_INGRESS_PROXY;
+
+	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY)
+		ctx->tc_index |= TC_INDEX_F_FROM_EGRESS_PROXY;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 0);
 
