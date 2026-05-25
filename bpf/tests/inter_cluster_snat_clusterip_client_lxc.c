@@ -254,7 +254,7 @@ SETUP("tc", "02_overlay_to_lxc_synack")
 int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
-	local_delivery_fill_meta(ctx, BACKEND_IDENTITY, true, false, true, 2);
+	local_delivery_fill_meta(ctx, BACKEND_IDENTITY, true, false, false, true, 2);
 
 	return pod_receive_packet_by_tailcall(ctx);
 }

@@ -140,7 +140,7 @@ int overlay_to_lxc_syn_setup(struct __ctx_buff *ctx)
 					     BACKEND_PORT, 0);
 
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
-	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, true, 0);
+	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, false, true, 0);
 
 	return pod_receive_packet_by_tailcall(ctx);
 }
@@ -329,7 +329,7 @@ SETUP("tc", "03_overlay_to_lxc_ack")
 int overlay_to_lxc_ack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
-	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, true, 0);
+	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, false, true, 0);
 
 	return pod_receive_packet_by_tailcall(ctx);
 }
