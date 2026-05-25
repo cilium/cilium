@@ -4,12 +4,14 @@
 package networkdriver
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
 	"path"
+	"slices"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
@@ -63,6 +65,8 @@ type Driver struct {
 	allocations map[kube_types.UID]map[kube_types.UID][]allocation
 	// manager_type: devices
 	devices map[types.DeviceManagerType][]types.Device
+	// device ifname: pool name — stable cross-reconcile assignment for conflict resolution
+	assignedDevices map[string]string
 
 	multiPoolMgr           *ipam.MultiPoolManager
 	ipv4Enabled            bool
@@ -100,6 +104,11 @@ func filterDevices(devices []types.Device, filter v2alpha1.CiliumNetworkDriverDe
 
 // getDevicePools queries each device manager for their devices, and group them into pools
 // that are advertised as resourceslices to the kube-api.
+//
+// When a device matches more than one pool an error is logged and the device is
+// assigned to the first pool according to the following priority:
+//  1. The pool the device was assigned to in a previous call (stable across reconcile cycles).
+//  2. The pool that comes first in alphabetical order (deterministic tie-break for new devices).
 func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourceslice.Pool, error) {
 	driver.devices = make(map[types.DeviceManagerType][]types.Device)
 
@@ -120,54 +129,112 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 		}
 	}
 
-	pools := make(map[string]resourceslice.Pool, len(driver.config.Pools))
+	var allDevices []types.Device
+	for devs := range maps.Values(driver.devices) {
+		allDevices = append(allDevices, devs...)
+	}
 
-	for _, p := range driver.config.Pools {
+	devicePool := driver.resolvePoolAssignments(ctx, allDevices)
+
+	pools := driver.buildPools(ctx, allDevices, devicePool)
+
+	return pools, nil
+}
+
+// resolvePoolAssignments matches each device to a single pool, logging conflicts.
+// It returns a map from device ifname to the chosen pool name, and persists
+// the assignment for stability across reconcile cycles.
+func (driver *Driver) resolvePoolAssignments(ctx context.Context, allDevices []types.Device) map[string]string {
+	// Sort pools alphabetically so the tie-break for new devices is deterministic.
+	sortedPools := slices.Clone(driver.config.Pools)
+	slices.SortFunc(sortedPools, func(a, b v2alpha1.CiliumNetworkDriverDevicePoolConfig) int {
+		return cmp.Compare(a.PoolName, b.PoolName)
+	})
+
+	// For each device, collect all matching pool names (already in alphabetical order).
+	deviceMatchingPools := make(map[string][]string)
+	for _, p := range sortedPools {
 		if p.Filter == nil {
-			// no filter specified, this shouldn't happen
-			driver.logger.ErrorContext(
-				ctx, "pool filter is missing. not handling this pool",
-				logfields.PoolName, p.PoolName,
-			)
-
+			driver.logger.ErrorContext(ctx, "pool filter is missing. not handling this pool", logfields.PoolName, p.PoolName)
 			continue
 		}
-		var filtered []types.Device
-		for devs := range maps.Values(driver.devices) {
-			filtered = append(filtered, filterDevices(devs, *p.Filter)...)
-		}
 
-		var devices []resourceapi.Device
-
-		for _, dev := range filtered {
-			if dev.IfName() == "" {
-				// all devices need a name
+		for _, dev := range filterDevices(allDevices, *p.Filter) {
+			ifname := dev.IfName()
+			if ifname == "" {
 				driver.logger.Error("received device without a name", logfields.Attributes, dev.GetAttrs())
 				continue
 			}
 
-			attrs := dev.GetAttrs()
-			attrs["pool"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.PoolName)}
-			devices = append(devices, resourceapi.Device{
-				Name:       dev.IfName(),
-				Attributes: attrs,
-			})
-		}
-
-		driver.logger.DebugContext(
-			ctx, "devices matched filter for pool",
-			logfields.PoolName, p.PoolName,
-			logfields.Devices, filtered,
-		)
-
-		pools[p.PoolName] = resourceslice.Pool{
-			Slices: []resourceslice.Slice{
-				{Devices: devices},
-			},
+			deviceMatchingPools[ifname] = append(deviceMatchingPools[ifname], p.PoolName)
 		}
 	}
 
-	return pools, nil
+	// Resolve each device to a single pool, preferring the previous assignment
+	// for stability, falling back to the alphabetically-first match.
+	devicePool := make(map[string]string, len(deviceMatchingPools))
+	for ifname, matchingPools := range deviceMatchingPools {
+		if len(matchingPools) > 1 {
+			driver.logger.ErrorContext(ctx, "device matches multiple pools",
+				logfields.Device, ifname,
+				logfields.PoolName, matchingPools,
+			)
+		}
+
+		chosen := matchingPools[0]
+		if prevPool, wasPrev := driver.assignedDevices[ifname]; wasPrev && slices.Contains(matchingPools, prevPool) {
+			chosen = prevPool
+		}
+
+		devicePool[ifname] = chosen
+	}
+
+	driver.assignedDevices = devicePool
+
+	return devicePool
+}
+
+// buildPools constructs the resourceslice pool map from the resolved device→pool assignments.
+func (driver *Driver) buildPools(ctx context.Context, allDevices []types.Device, devicePool map[string]string) map[string]resourceslice.Pool {
+	// Pre-populate all pools that have a valid filter so empty pools are published.
+	pools := make(map[string]resourceslice.Pool, len(driver.config.Pools))
+	for _, p := range driver.config.Pools {
+		if p.Filter != nil {
+			pools[p.PoolName] = resourceslice.Pool{Slices: []resourceslice.Slice{{}}}
+		}
+	}
+
+	// Index devices by ifname for O(1) lookup.
+	devByIfName := make(map[string]types.Device, len(allDevices))
+	for _, d := range allDevices {
+		devByIfName[d.IfName()] = d
+	}
+
+	for ifname, poolName := range devicePool {
+		dev, ok := devByIfName[ifname]
+		if !ok {
+			continue
+		}
+
+		attrs := dev.GetAttrs()
+		attrs["pool"] = resourceapi.DeviceAttribute{StringValue: ptr.To(poolName)}
+
+		entry := pools[poolName]
+		entry.Slices[0].Devices = append(entry.Slices[0].Devices, resourceapi.Device{
+			Name:       ifname,
+			Attributes: attrs,
+		})
+		pools[poolName] = entry
+	}
+
+	for poolName, pool := range pools {
+		driver.logger.DebugContext(ctx, "devices matched filter for pool",
+			logfields.PoolName, poolName,
+			logfields.Devices, pool.Slices,
+		)
+	}
+
+	return pools
 }
 
 // publish publishes the mock sriov devices to the kubelet plugin api.
