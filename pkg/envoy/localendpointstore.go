@@ -98,3 +98,9 @@ func (s *LocalEndpointStore) removeLocalEndpoint(ep endpoint.EndpointInfoSource)
 		}
 	}
 }
+
+func GetLocalEndpointStoreForTest() *LocalEndpointStore {
+	return &LocalEndpointStore{
+		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
+	}
+}

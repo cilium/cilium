@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
-// TODO(nezdolik) start using new Resources interface in xds_server_impl.go
 package envoy
 
 import (
@@ -194,7 +193,7 @@ func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpoints
 		secretManager: secretManager,
 	}
 	if config.envoyAccessLogEnabled {
-		xdsServer.accessLogPath = util.GetAccessLogSocketPath()
+		xdsServer.accessLogPath = util.GetAccessLogSocketPath(config.envoySocketDir)
 	}
 
 	xdsServer.initializeXdsConfigs()

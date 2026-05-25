@@ -413,9 +413,7 @@ func (p *selectorPolicy) IsDetached() (bool, time.Time) {
 	return true, *ptr
 }
 
-var (
-	ErrStaleSelectors = errors.New("stale selector snapshot")
-)
+var ErrStaleSelectors = errors.New("stale selector snapshot")
 
 // Ready releases memory held for the selector snapshot.
 // This should be called when the policy has been realized.
@@ -679,6 +677,16 @@ func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPoli
 	return &EndpointPolicy{
 		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
 		policyMapState: emptyMapState(logger),
+	}
+}
+
+// NewEndpointPolicyForTest creates a minimal EndpointPolicy for unit tests.
+func NewEndpointPolicyForTest(snapshot SelectorSnapshot) *EndpointPolicy {
+	return &EndpointPolicy{
+		SelectorPolicy: &selectorPolicy{
+			L4Policy: NewL4Policy(0),
+		},
+		selectors: snapshot,
 	}
 }
 

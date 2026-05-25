@@ -40,7 +40,7 @@ func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessL
 	return &AccessLogServer{
 		logger:             logger,
 		accessLogger:       accessLogger,
-		socketPath:         util.GetAccessLogSocketPath(),
+		socketPath:         util.GetAccessLogSocketPath(envoySocketDir),
 		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
 		bufferSize:         bufferSize,

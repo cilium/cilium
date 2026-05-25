@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type MockPort struct {
@@ -110,7 +111,7 @@ func TestUpstreamInject(t *testing.T) {
 	// Empty options
 	//
 	var opts envoy_upstreams_http_v3.HttpProtocolOptions
-	changed, err := injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(), &opts, false)
+	changed, err := injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(util.GetSocketDir(option.Config.RunDir)), &opts, false)
 	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
@@ -125,7 +126,7 @@ func TestUpstreamInject(t *testing.T) {
 	assert.NotNil(t, opts.GetUseDownstreamProtocolConfig()) // no ALPN support
 
 	// already present
-	changed, err = injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(), &opts, true)
+	changed, err = injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(util.GetSocketDir(option.Config.RunDir)), &opts, true)
 	assert.NoError(t, err)
 	assert.False(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
@@ -150,7 +151,7 @@ func TestUpstreamInject(t *testing.T) {
 			},
 		},
 	}
-	changed, err = injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(), &opts, true)
+	changed, err = injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(util.GetSocketDir(option.Config.RunDir)), &opts, true)
 	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
@@ -172,7 +173,7 @@ func TestUpstreamInject(t *testing.T) {
 			},
 		},
 	}
-	changed, err = injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(), &opts, true)
+	changed, err = injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(util.GetSocketDir(option.Config.RunDir)), &opts, true)
 	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
@@ -201,7 +202,7 @@ func TestUpstreamInject(t *testing.T) {
 			},
 		},
 	}
-	changed, err = injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(), &opts, true)
+	changed, err = injectCiliumUpstreamL7Filter(util.GetAccessLogSocketPath(util.GetSocketDir(option.Config.RunDir)), &opts, true)
 	assert.Error(t, err)
 	assert.False(t, changed)
 	assert.ErrorContains(t, err, "filter after codec filter: name:\"cilium.l7policy\"")
