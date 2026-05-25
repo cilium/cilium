@@ -9,7 +9,6 @@ k8s/add node-b.yaml
 k8s/add driver-cluster-config-a.yaml
 
 * k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node-a -o node-a-config-actual.yaml
-sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' node-a-config-actual.yaml
 * cmp node-a-config-expected.yaml node-a-config-actual.yaml
 
 k8s/add driver-cluster-config-b.yaml
@@ -20,14 +19,12 @@ k8s/add driver-cluster-config-b.yaml
 * db/cmp netdriver-cluster-config cluster-config.table
 
 * k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs driver-cluster-config-b -o cluster-config-b-actual.yaml
-sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' cluster-config-b-actual.yaml
 cmp cluster-config-b-expected.yaml cluster-config-b-actual.yaml
 
 # The conflicting config is globally disabled: even though node-b is not selected
 # by driver-cluster-config-a, it must not receive driver-cluster-config-b.
 
 * k8s/list cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs '' -o node-configs-actual.yaml
-sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' node-configs-actual.yaml
 cmp node-configs-expected.yaml node-configs-actual.yaml
 
 hive stop
@@ -109,7 +106,6 @@ apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverNodeConfig
 metadata:
   name: node-a
-  resourceVersion: "<nr>"
 spec:
   deviceManagerConfigs:
     dummy:
@@ -129,7 +125,6 @@ kind: CiliumNetworkDriverClusterConfig
 metadata:
   creationTimestamp: "2026-04-29T15:30:00Z"
   name: driver-cluster-config-b
-  resourceVersion: "<nr>"
 spec:
   nodeSelector:
     matchLabels:
@@ -165,7 +160,6 @@ items:
   kind: CiliumNetworkDriverNodeConfig
   metadata:
     name: node-a
-    resourceVersion: "<nr>"
   spec:
     deviceManagerConfigs:
       dummy:
@@ -179,5 +173,4 @@ items:
         - dummy
       name: dummy-pool-a
     publishInterval: 10
-metadata:
-  resourceVersion: "<nr>"
+metadata: {}

@@ -72,7 +72,6 @@ items:
   kind: CiliumNetworkDriverNodeConfig
   metadata:
     name: kind-worker
-    resourceVersion: "4"
   spec:
     deviceManagerConfigs:
       dummy:
@@ -86,5 +85,4 @@ items:
         - dummy
       name: dummy-pool
     publishInterval: 10
-metadata:
-  resourceVersion: "4"
+metadata: {}

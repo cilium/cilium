@@ -73,7 +73,6 @@ metadata:
   labels:
     kubernetes.io/hostname: test-node
   name: test-node
-  resourceVersion: "4"
 spec:
   alibaba-cloud: {}
   azure: {}
@@ -127,7 +126,6 @@ metadata:
   labels:
     kubernetes.io/hostname: test-node
   name: test-node
-  resourceVersion: "6"
 spec:
   alibaba-cloud: {}
   azure: {}
@@ -182,7 +180,6 @@ metadata:
   labels:
     kubernetes.io/hostname: test-node-2
   name: test-node-2
-  resourceVersion: "8"
 spec:
   alibaba-cloud: {}
   azure: {}
