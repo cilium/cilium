@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -18,10 +20,14 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -869,6 +875,168 @@ func Test_LocalNodeCIDRsSyncer(t *testing.T) {
 	}, timeout, tick)
 
 	assert.NoError(t, h.Stop(tlog, t.Context()))
+}
+
+func Test_MultiPoolManager_UpdateNodeRetries(t *testing.T) {
+	fixture := func(t *testing.T, node *ciliumv2.CiliumNode, setReactor func(cs *k8sClient.FakeClientset)) *k8sClient.FakeClientset {
+		nodeTypes.SetName(node.Name)
+
+		var (
+			jg        job.Group
+			localNode k8s.LocalCiliumNodeResource
+			clientset *k8sClient.FakeClientset
+		)
+		h := hive.New(
+			k8sClient.FakeClientCell(),
+			k8s.ResourcesCell,
+			cell.Invoke(
+				func(cs *k8sClient.FakeClientset) {
+					setReactor(cs)
+				},
+				func(
+					jg_ job.Group,
+					localNode_ k8s.LocalCiliumNodeResource,
+					clientset_ *k8sClient.FakeClientset,
+				) {
+					jg = jg_
+					localNode = localNode_
+					clientset = clientset_
+				},
+			),
+		)
+
+		tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+		require.NoError(t, h.Start(tlog, t.Context()))
+		t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+
+		_, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), node.DeepCopy(), metav1.CreateOptions{})
+		assert.NoError(t, err)
+
+		mgr := newMultiPoolManager(MultiPoolManagerParams{
+			Logger:               hivetest.Logger(t),
+			IPv4Enabled:          true,
+			CiliumNodeUpdateRate: time.Millisecond,
+			PreallocMap:          preAllocatePerPool{},
+			Node:                 localNode,
+			CNClient:             clientset.CiliumV2().CiliumNodes(),
+			JobGroup:             jg,
+			PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+				return &cn.Spec.IPAM.Pools
+			},
+		})
+		require.NotNil(t, mgr)
+
+		return clientset
+	}
+
+	t.Run("update", func(t *testing.T) {
+		node := &ciliumv2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-node",
+			},
+			Spec: ciliumv2.NodeSpec{
+				IPAM: types.IPAMSpec{
+					Pools: types.IPAMPoolSpec{
+						Requested: []types.IPAMPoolRequest{
+							{
+								Pool:   "default",
+								Needed: types.IPAMPoolDemand{IPv4Addrs: 99},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		var updates atomic.Int32
+		updateReactor := func(cs *k8sClient.FakeClientset) {
+			cs.CiliumFakeClientset.PrependReactor("update", "ciliumnodes", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+				if action.GetSubresource() != "" {
+					return false, nil, nil
+				}
+
+				if updates.Add(1) == 1 {
+					return true, nil, k8sErrors.NewConflict(
+						schema.GroupResource{
+							Group:    ciliumv2.CustomResourceDefinitionGroup,
+							Resource: ciliumv2.CNPluralName,
+						},
+						node.Name,
+						errors.New("update refused by unit test"),
+					)
+				}
+				return false, nil, nil
+			})
+		}
+
+		synctest.Test(t, func(t *testing.T) {
+			clientset := fixture(t, node, updateReactor)
+
+			// wait for the manager to retry the update after the conflict error
+			//
+			// the timeout is set to 2xrefreshPoolInterval so that updateLocalNode
+			// has a chance to be run again from the job.Timer.
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				assert.GreaterOrEqual(c, updates.Load(), int32(2))
+			}, 2*time.Minute, 10*time.Millisecond)
+
+			updatedNode, err := clientset.CiliumV2().CiliumNodes().Get(t.Context(), node.Name, metav1.GetOptions{})
+			assert.NoError(t, err)
+			assert.Empty(t, updatedNode.Spec.IPAM.Pools.Requested)
+		})
+	})
+
+	t.Run("updateStatus", func(t *testing.T) {
+		node := &ciliumv2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-status",
+			},
+			Status: ciliumv2.NodeStatus{
+				IPAM: types.IPAMStatus{
+					Used: types.AllocationMap{
+						"10.0.0.1": types.AllocationIP{Resource: "pod-a"},
+					},
+				},
+			},
+		}
+
+		var updateStatuses atomic.Int32
+		updateStatusReactor := func(cs *k8sClient.FakeClientset) {
+			cs.CiliumFakeClientset.PrependReactor("update", "ciliumnodes", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+				if action.GetSubresource() != "status" {
+					return false, nil, nil
+				}
+
+				if updateStatuses.Add(1) == 1 {
+					return true, nil, k8sErrors.NewConflict(
+						schema.GroupResource{
+							Group:    ciliumv2.CustomResourceDefinitionGroup,
+							Resource: ciliumv2.CNPluralName,
+						},
+						node.Name,
+						errors.New("update refused by unit test"),
+					)
+				}
+				return false, nil, nil
+			})
+		}
+
+		synctest.Test(t, func(t *testing.T) {
+			clientset := fixture(t, node, updateStatusReactor)
+
+			// wait for the manager to retry the update after the conflict error
+			//
+			// the timeout is set to 2xrefreshPoolInterval so that updateLocalNode
+			// has a chance to be run again from the job.Timer.
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				assert.GreaterOrEqual(c, updateStatuses.Load(), int32(2))
+			}, 2*time.Minute, 10*time.Millisecond)
+
+			updatedNode, err := clientset.CiliumV2().CiliumNodes().Get(t.Context(), node.Name, metav1.GetOptions{})
+			assert.NoError(t, err)
+			assert.Empty(t, updatedNode.Status.IPAM.Used)
+		})
+	})
 }
 
 func Test_neededIPCeil(t *testing.T) {
