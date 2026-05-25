@@ -265,7 +265,6 @@ func TestScript(t *testing.T) {
 		setup,
 		[]string{},
 		"testdata/*.txtar")
-
 }
 
 type resourceKey struct {
@@ -456,7 +455,7 @@ func indentLines(s string) string {
 }
 
 // DeleteResources implements envoySyncer.
-func (f *fakeEnvoySyncerAndPolicyTrigger) DeleteEnvoyResources(ctx context.Context, res xds.Resources, wg *completion.WaitGroup) error {
+func (f *fakeEnvoySyncerAndPolicyTrigger) DeleteEnvoyResources(ctx context.Context, res xds.Resources, waitGroup *completion.WaitGroup) error {
 	f.Lock()
 	defer f.Unlock()
 	f.store.delete(&res)
@@ -470,7 +469,7 @@ func (f *fakeEnvoySyncerAndPolicyTrigger) DeleteEnvoyResources(ctx context.Conte
 }
 
 // UpdateResources implements envoySyncer.
-func (f *fakeEnvoySyncerAndPolicyTrigger) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, wg *completion.WaitGroup) error {
+func (f *fakeEnvoySyncerAndPolicyTrigger) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error {
 	f.Lock()
 	defer f.Unlock()
 	f.store.delete(&old)
@@ -532,8 +531,7 @@ func (s staticPortAllocator) ReleaseProxyPort(name string) error {
 
 var _ PortAllocator = staticPortAllocator{}
 
-type mockFeatureMetrics struct {
-}
+type mockFeatureMetrics struct{}
 
 // AddCCEC implements CECMetrics.
 func (m mockFeatureMetrics) AddCCEC() {

@@ -288,8 +288,8 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 func GetNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 	nodeIDs := make([]string, 0, 1)
 
-	// Host proxy uses "127.0.0.1" as the nodeID
-	nodeIDs = append(nodeIDs, "127.0.0.1")
+	// Host proxy uses LocalNodeID as the nodeID
+	nodeIDs = append(nodeIDs, LocalNodeID)
 	return nodeIDs
 }
 
