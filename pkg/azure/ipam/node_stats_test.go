@@ -25,7 +25,7 @@ func newCapacityTestNode(t *testing.T, ifaces []*types.AzureInterface, usePrimar
 		node: mockIPAMNode("vm1"),
 		manager: &InstancesManager{
 			instances:  m,
-			api:        apimock.NewAPI(nil, nil),
+			api:        apimock.NewAPI(nil),
 			usePrimary: usePrimary,
 		},
 		k8sObj: &v2.CiliumNode{

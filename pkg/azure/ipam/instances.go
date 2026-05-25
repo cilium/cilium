@@ -28,7 +28,6 @@ import (
 
 // AzureAPI is the API surface used of the Azure API.
 type AzureAPI interface {
-	GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
 	GetSubnetsByIDs(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.SubnetMap, error)
 	AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error
 	AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
