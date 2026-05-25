@@ -54,24 +54,24 @@ func (o *onDemandXdsStarter) AddListener(ctx context.Context, name string, kind 
 	return o.XDSServer.AddListener(ctx, name, kind, port, isIngress, mayUseOriginalSourceAddr, wg, cb)
 }
 
-func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources xds.Resources) error {
+func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
 	if err := o.startStandaloneEnvoy(ctx, nil); err != nil {
 		o.logger.Error("Envoy: Failed to start standalone Envoy proxy on demand",
 			logfields.Error, err,
 		)
 	}
 
-	return o.XDSServer.UpsertEnvoyResources(ctx, resources)
+	return o.XDSServer.UpsertEnvoyResources(ctx, resources, waitGroup)
 }
 
-func (o *onDemandXdsStarter) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources) error {
+func (o *onDemandXdsStarter) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {
 	if err := o.startStandaloneEnvoy(ctx, nil); err != nil {
 		o.logger.Error("Envoy: Failed to start standalone Envoy proxy on demand",
 			logfields.Error, err,
 		)
 	}
 
-	return o.XDSServer.UpdateEnvoyResources(ctx, old, new)
+	return o.XDSServer.UpdateEnvoyResources(ctx, old, new, waitGroup)
 }
 
 func (o *onDemandXdsStarter) startStandaloneEnvoy(ctx context.Context, wg *completion.WaitGroup) error {

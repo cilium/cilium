@@ -408,7 +408,7 @@ func (r *fakeXdsServer) Reset() {
 	r.nrOfDeletions = 0
 }
 
-func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error {
+func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, wg *completion.WaitGroup) error {
 	if r.returnError {
 		return errors.New("failed to update envoy resources")
 	}
@@ -417,7 +417,7 @@ func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resour
 	return nil
 }
 
-func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
+func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
 	if r.returnError {
 		return errors.New("failed to delete envoy resources")
 	}
@@ -426,7 +426,7 @@ func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.
 	return nil
 }
 
-func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources) error {
+func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
 	if r.returnError {
 		return errors.New("failed to upsert envoy resources")
 	}
@@ -447,7 +447,7 @@ func (*fakeXdsServer) AddMetricsListener(ctx context.Context, port uint16, wg *c
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) RemoveAllNetworkPolicies(ctx context.Context) {
+func (*fakeXdsServer) RemoveAllNetworkPolicies() {
 	panic("unimplemented")
 }
 
