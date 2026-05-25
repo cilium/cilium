@@ -8,6 +8,7 @@
 #include "dbg.h"
 #include "eps.h"
 #include "l3.h"
+#include "proxy.h"
 #include "token_bucket.h"
 
 DECLARE_CONFIG(bool, enable_netkit, "Use netkit devices for pods")
@@ -107,7 +108,7 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx,
  * Note that skb->tc_index is also passed through.
  *
  * As the callers (from-overlay, from-netdev, ...) are re-generated independently
- * from the policy tail-call of the inidividual endpoints, any change to this code
+ * from the policy tail-call of the individual endpoints, any change to this code
  * needs to be introduced with compatibility in mind.
  */
 static __always_inline void
@@ -125,6 +126,10 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 		delivery_flags |= CB_DELIVERY_FLAGS_FROM_HOST;
 	if (from_tunnel)
 		delivery_flags |= CB_DELIVERY_FLAGS_FROM_TUNNEL;
+	if (tc_index_from_ingress_proxy(ctx))
+		delivery_flags |= CB_DELIVERY_FLAGS_FROM_INGRESS_PROXY;
+	if (tc_index_from_egress_proxy(ctx))
+		delivery_flags |= CB_DELIVERY_FLAGS_FROM_EGRESS_PROXY;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_DELIVERY_FLAGS, delivery_flags);
