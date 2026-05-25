@@ -103,3 +103,43 @@ func TestSriov(t *testing.T) {
 		compareAttrs(t, device.GetAttrs(), expectedDevice.GetAttrs())
 	})
 }
+
+func TestPciDeviceMatch(t *testing.T) {
+	dev := PciDevice{
+		Addr:            "0000:02:00.1",
+		PfName:          "mypf",
+		Driver:          "mydriver",
+		VfID:            1,
+		KernelIfaceName: "myvf",
+		DeviceID:        "mydeviceid",
+		Vendor:          "myvendor",
+	}
+
+	t.Run("empty filter matches", func(t *testing.T) {
+		require.True(t, dev.Match(v2alpha1.CiliumNetworkDriverDeviceFilter{}))
+	})
+
+	t.Run("pfNames match", func(t *testing.T) {
+		require.True(t, dev.Match(v2alpha1.CiliumNetworkDriverDeviceFilter{PfNames: []string{"mypf"}}))
+	})
+
+	t.Run("pfNames no match", func(t *testing.T) {
+		require.False(t, dev.Match(v2alpha1.CiliumNetworkDriverDeviceFilter{PfNames: []string{"otherpf"}}))
+	})
+
+	t.Run("pciAddrs match", func(t *testing.T) {
+		require.True(t, dev.Match(v2alpha1.CiliumNetworkDriverDeviceFilter{PCIAddrs: []string{"0000:02:00.1"}}))
+	})
+
+	t.Run("pciAddrs no match", func(t *testing.T) {
+		require.False(t, dev.Match(v2alpha1.CiliumNetworkDriverDeviceFilter{PCIAddrs: []string{"0000:03:00.0"}}))
+	})
+
+	t.Run("ifNames match", func(t *testing.T) {
+		require.True(t, dev.Match(v2alpha1.CiliumNetworkDriverDeviceFilter{IfNames: []string{"0000-02-00-1"}}))
+	})
+
+	t.Run("ifNames no match", func(t *testing.T) {
+		require.False(t, dev.Match(v2alpha1.CiliumNetworkDriverDeviceFilter{IfNames: []string{"myvf"}}))
+	})
+}
