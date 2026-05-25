@@ -80,7 +80,6 @@ apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverNodeConfig
 metadata:
   name: kind-worker
-  resourceVersion: "4"
 spec:
   deviceManagerConfigs:
     dummy:
