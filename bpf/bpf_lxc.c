@@ -2022,7 +2022,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
-	bool from_tunnel = false;
+	bool from_tunnel = false, use_redirect_peer = false;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
 	struct ipv6hdr *ip6;
@@ -2031,6 +2031,9 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_HOST)
 		from_host = true;
+
+	if (delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER)
+		use_redirect_peer = true;
 
 #ifdef HAVE_ENCAP
 	from_tunnel = ctx_load_and_clear_meta(ctx, CB_FROM_TUNNEL);
@@ -2065,8 +2068,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 
 		if (do_redirect)
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  should_redirect_peer(ctx, from_host),
-					  from_tunnel);
+					  use_redirect_peer, from_tunnel);
 		break;
 	default:
 		break;
@@ -2340,7 +2342,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
-	bool from_tunnel = false;
+	bool from_tunnel = false, use_redirect_peer = false;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
 	struct iphdr *ip4;
@@ -2349,6 +2351,9 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_HOST)
 		from_host = true;
+
+	if (delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER)
+		use_redirect_peer = true;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 0);
 
@@ -2392,8 +2397,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 		if (do_redirect)
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  should_redirect_peer(ctx, from_host),
-					  from_tunnel);
+					  use_redirect_peer, from_tunnel);
 		break;
 	default:
 		break;
