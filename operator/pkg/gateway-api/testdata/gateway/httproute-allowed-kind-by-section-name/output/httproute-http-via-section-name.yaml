@@ -1,7 +1,6 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http-via-section-name
   namespace: gateway-conformance-infra
   resourceVersion: "1000"
@@ -11,22 +10,22 @@ spec:
       namespace: gateway-conformance-infra
       sectionName: https
   rules:
-    - matches:
+    - backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      matches:
         - path:
             type: PathPrefix
             value: /kind-allowed
-      backendRefs:
-        - name: infra-backend-v1
-          port: 8080
 status:
   parents:
     - conditions:
-        - lastTransitionTime: "2025-07-01T14:19:43Z"
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
           message: Accepted HTTPRoute
           reason: Accepted
           status: "True"
           type: Accepted
-        - lastTransitionTime: "2025-07-01T14:19:43Z"
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
           message: Service reference is valid
           reason: ResolvedRefs
           status: "True"
