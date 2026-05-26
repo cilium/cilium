@@ -631,7 +631,12 @@ func (m *Model) IsHTTPSListenerConfigured() bool {
 
 // IsTLSPassthroughListenerConfigured returns true if the model has any TLS Passthrough listeners.
 func (m *Model) IsTLSPassthroughListenerConfigured() bool {
-	return len(m.TLSPassthrough) > 0
+	for _, l := range m.TLSPassthrough {
+		if len(l.Routes) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // HTTPPorts returns a list of unique ports for all HTTP listeners.
@@ -660,7 +665,9 @@ func (m *Model) IsCORSFilterConfigured() bool {
 func (m *Model) TLSPassthroughPorts() []uint32 {
 	var ports []uint32
 	for _, l := range m.TLSPassthrough {
-		ports = append(ports, l.Port)
+		if len(l.Routes) > 0 {
+			ports = append(ports, l.Port)
+		}
 	}
 	return slices.SortedUnique(ports)
 }
