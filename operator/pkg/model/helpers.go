@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+
+	gatewayapihelpers "github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
 const (
@@ -187,6 +189,17 @@ func hostnameMatchesWildcardHostname(hostname, wildcardHostname string) bool {
 
 	wildcardMatch := strings.TrimSuffix(hostname, strings.TrimPrefix(wildcardHostname, allHosts))
 	return len(wildcardMatch) > 0
+}
+
+func normalizeHostname(hostname string) string {
+	if hostname == "" {
+		return allHosts
+	}
+	return hostname
+}
+
+func sniHostnamesIntersect(a, b string) bool {
+	return gatewayapihelpers.SNIHostnamesIntersect(a, b)
 }
 
 func wildcardHostnamesIntersect(routeHostname, listenerHostname string) bool {
