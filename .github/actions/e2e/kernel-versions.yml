@@ -6,7 +6,7 @@ kernels:
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   6.1: '6.1-20260310.122539'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  6.6: '6.6-20260310.122539'
+  6.6: '6.6-20260525.014435'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   6.12: '6.12-20260310.122539'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
