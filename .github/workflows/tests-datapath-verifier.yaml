@@ -146,7 +146,7 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "6.1") FULL_KERNEL="6.1-20260310.122539" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.6") FULL_KERNEL="6.6-20260310.122539" ;;
+            "6.6") FULL_KERNEL="6.6-20260525.014435" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "6.12") FULL_KERNEL="6.12-20260310.122539" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
