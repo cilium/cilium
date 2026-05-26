@@ -385,17 +385,6 @@ func deriveGatewayIP(subnetIP netip.Addr) string {
 	return subnetIP.Next().String()
 }
 
-// GetInstances returns the list of all instances including all attached
-// interfaces as instanceMap
-func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
-	networkInterfaces, err := c.ListAllNetworkInterfaces(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.ParseInterfacesIntoInstanceMap(networkInterfaces, subnets), nil
-}
-
 // ListAllNetworkInterfaces returns all network interfaces in the resource group
 // This is exposed to allow callers to fetch network interfaces once and parse them multiple times
 func (c *Client) ListAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.Interface, error) {
@@ -425,24 +414,6 @@ func (c *Client) ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.
 	}
 
 	return instances
-}
-
-// GetInstance returns the interfaces of a given instance
-func (c *Client) GetInstance(ctx context.Context, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
-	resourceID, err := arm.ParseResourceID(instanceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse instance ID %q", instanceID)
-	}
-	if strings.ToLower(resourceID.ResourceType.Type) != "virtualmachinescalesets/virtualmachines" {
-		return nil, fmt.Errorf("instance %q is not a virtual machine scale set instance", instanceID)
-	}
-
-	networkInterfaces, err := c.listVirtualMachineScaleSetVMNetworkInterfaces(ctx, resourceID.Parent.Name, resourceID.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.ParseInterfacesIntoInstance(networkInterfaces, subnets), nil
 }
 
 // ListVMNetworkInterfaces returns all network interfaces for a specific VMSS instance
