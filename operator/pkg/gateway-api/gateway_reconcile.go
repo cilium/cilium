@@ -125,6 +125,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	var namespaces []corev1.Namespace
+	if hasAllowedRoutesNamespaceSelector(gw) {
+		namespaceList := &corev1.NamespaceList{}
+		if err := r.Client.List(ctx, namespaceList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list Namespaces", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
+		namespaces = namespaceList.Items
+	}
+	namespaceLabels := helpers.NewNamespaceLabelIndex(namespaces)
+
 	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
@@ -171,23 +182,25 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
-	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items)
-	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items)
-	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items)
+	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items, namespaceLabels)
+	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items, namespaceLabels)
+	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items, namespaceLabels)
 
+	gatewayClassConfig := r.getGatewayClassConfig(ctx, gwc)
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
 		GatewayClass:       *gwc,
-		GatewayClassConfig: r.getGatewayClassConfig(ctx, gwc),
+		GatewayClassConfig: gatewayClassConfig,
 		Gateway:            *gw,
 		HTTPRoutes:         httpRoutes,
 		TLSRoutes:          tlsRoutes,
 		GRPCRoutes:         grpcRoutes,
+		Namespaces:         namespaces,
 		Services:           servicesList.Items,
 		ServiceImports:     serviceImportsList.Items,
 		ReferenceGrants:    grants.Items,
 	})
 
-	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList)
+	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, namespaceLabels)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to set listener status", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to set listener status", gatewayv1.GatewayReasonNoResources)
@@ -261,6 +274,21 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return controllerruntime.Success()
 }
 
+func hasAllowedRoutesNamespaceSelector(gw *gatewayv1.Gateway) bool {
+	for _, listener := range gw.Spec.Listeners {
+		if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
+			continue
+		}
+		if listener.AllowedRoutes.Namespaces.From != nil && *listener.AllowedRoutes.Namespaces.From == gatewayv1.NamespacesFromSelector {
+			return true
+		}
+		if listener.AllowedRoutes.Namespaces.From == nil && listener.AllowedRoutes.Namespaces.Selector != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.Service) error {
 	svc := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, svc, func() error {
@@ -310,34 +338,34 @@ func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv
 	return r.Client.Status().Update(ctx, new)
 }
 
-func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
+func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.HTTPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
 	allListenerHostNames := routechecks.GetAllListenerHostNames(gw.Spec.Listeners)
 	for _, route := range routes {
-		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route, r.logger) && len(computeHosts(gw, route.Spec.Hostnames, allListenerHostNames)) > 0 {
+		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(gw, &route, namespaceLabels) && len(computeHosts(gw, route.Spec.Hostnames, allListenerHostNames)) > 0 {
 			filtered = append(filtered, route)
 		}
 	}
 	return filtered
 }
 
-func (r *gatewayReconciler) filterGRPCRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
+func (r *gatewayReconciler) filterGRPCRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.GRPCRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1.GRPCRoute {
 	var filtered []gatewayv1.GRPCRoute
 	allListenerHostNames := routechecks.GetAllListenerHostNames(gw.Spec.Listeners)
 
 	for _, route := range routes {
-		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route, r.logger) && len(computeHosts(gw, route.Spec.Hostnames, allListenerHostNames)) > 0 {
+		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(gw, &route, namespaceLabels) && len(computeHosts(gw, route.Spec.Hostnames, allListenerHostNames)) > 0 {
 			filtered = append(filtered, route)
 		}
 	}
 	return filtered
 }
 
-func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
+func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1.HTTPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
-			listenerisAllowed(ctx, r.Client, gw, listener, &route, r.logger) &&
+			listenerisAllowed(gw, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -346,11 +374,11 @@ func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *
 	return filtered
 }
 
-func (r *gatewayReconciler) filterGRPCRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
+func (r *gatewayReconciler) filterGRPCRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1.GRPCRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1.GRPCRoute {
 	var filtered []gatewayv1.GRPCRoute
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
-			listenerisAllowed(ctx, r.Client, gw, listener, &route, r.logger) &&
+			listenerisAllowed(gw, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -399,10 +427,10 @@ func parentRefMatched(gw *gatewayv1.Gateway, listener *gatewayv1.Listener, route
 	return false
 }
 
-func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.TLSRoute) []gatewayv1alpha2.TLSRoute {
+func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.TLSRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.TLSRoute {
 	var filtered []gatewayv1alpha2.TLSRoute
 	for _, route := range routes {
-		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route, r.logger) &&
+		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(gw, &route, namespaceLabels) &&
 			len(computeHosts(gw, route.Spec.Hostnames, nil)) > 0 {
 			filtered = append(filtered, route)
 		}
@@ -410,11 +438,11 @@ func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *ga
 	return filtered
 }
 
-func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1alpha2.TLSRoute) []gatewayv1alpha2.TLSRoute {
+func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1alpha2.TLSRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.TLSRoute {
 	var filtered []gatewayv1alpha2.TLSRoute
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
-			listenerisAllowed(ctx, r.Client, gw, listener, &route, r.logger) &&
+			listenerisAllowed(gw, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -544,7 +572,7 @@ func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gate
 	return nil
 }
 
-func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1alpha2.TLSRouteList, grpcRoutes *gatewayv1.GRPCRouteList) (bool, error) {
+func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1alpha2.TLSRouteList, grpcRoutes *gatewayv1.GRPCRouteList, namespaceLabels helpers.NamespaceLabelIndex) (bool, error) {
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
 		return false, fmt.Errorf("failed to retrieve reference grants: %w", err)
@@ -660,9 +688,9 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 				gatewayListenerProgrammedCondition(gw, false, "Address not ready yet"))
 		}
 		var attachedRoutes int32
-		attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, httpRoutes.Items)))
-		attachedRoutes += int32(len(r.filterGRPCRoutesByListener(ctx, gw, &l, grpcRoutes.Items)))
-		attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, tlsRoutes.Items)))
+		attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, httpRoutes.Items, namespaceLabels)))
+		attachedRoutes += int32(len(r.filterGRPCRoutesByListener(ctx, gw, &l, grpcRoutes.Items, namespaceLabels)))
+		attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, tlsRoutes.Items, namespaceLabels)))
 
 		found := false
 		for i := range gw.Status.Listeners {
