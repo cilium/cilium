@@ -1,0 +1,77 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: multi-port-tls-passthrough
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: tls-443
+      protocol: TLS
+      port: 443
+      hostname: "tls.example.test"
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+    - name: tls-9443
+      protocol: TLS
+      port: 9443
+      hostname: "tls.example.test"
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tls-route-a
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: multi-port-tls-passthrough
+      namespace: gateway-conformance-infra
+      sectionName: tls-443
+  hostnames:
+    - tls.example.test
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tls-route-b
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: multi-port-tls-passthrough
+      namespace: gateway-conformance-infra
+      sectionName: tls-9443
+  hostnames:
+    - tls.example.test
+  rules:
+    - backendRefs:
+        - name: tls-backend-2
+          port: 443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-gateway-multi-port-tls-passthrough
+  namespace: gateway-conformance-infra
+spec:
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+      - ip: 172.18.255.200
+        ipMode: VIP
