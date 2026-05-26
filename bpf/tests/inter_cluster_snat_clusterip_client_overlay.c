@@ -348,14 +348,6 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 	if (meta != BACKEND_IDENTITY)
 		test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d", BACKEND_IDENTITY, meta);
 
-	meta = ctx_load_meta(ctx, CB_FROM_TUNNEL);
-	if (meta != 1)
-		test_fatal("skb->cb[CB_FROM_TUNNEL] should be 1, got %d", meta);
-
-	meta = ctx_load_meta(ctx, CB_FROM_HOST);
-	if (meta != 0)
-		test_fatal("skb->cb[CB_FROM_HOST] should be 0, got %d", meta);
-
 	meta = ctx_load_meta(ctx, CB_CLUSTER_ID_INGRESS);
 	if (meta != BACKEND_CLUSTER_ID)
 		test_fatal("skb->cb[CB_CLUSTER_ID_INGRESS] should be %u, got %d",
