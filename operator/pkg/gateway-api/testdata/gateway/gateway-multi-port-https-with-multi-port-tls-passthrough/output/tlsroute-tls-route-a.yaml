@@ -1,0 +1,35 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: tls-route-a
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  hostnames:
+    - tls.example.test
+  parentRefs:
+    - name: multi-port-https-with-multi-port-tls-passthrough
+      namespace: gateway-conformance-infra
+      sectionName: tls-8443
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          port: 443
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2026-05-05T13:26:39Z"
+          message: Accepted TLSRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2026-05-05T13:26:39Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: multi-port-https-with-multi-port-tls-passthrough
+        namespace: gateway-conformance-infra
+        sectionName: tls-8443

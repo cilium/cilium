@@ -1,0 +1,37 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api-route
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  hostnames:
+    - api.example.test
+  parentRefs:
+    - name: multi-port-https-with-multi-port-tls-passthrough
+      sectionName: https-50051
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2026-05-05T13:26:39Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2026-05-05T13:26:39Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: multi-port-https-with-multi-port-tls-passthrough
+        sectionName: https-50051
