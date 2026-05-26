@@ -65,12 +65,14 @@ func TestIPNotAvailableInPoolError(t *testing.T) {
 	assert.NotErrorIs(t, err, err2)
 }
 
-var testConfigurationCRD = &option.DaemonConfig{
-	EnableIPv4:              true,
-	EnableIPv6:              false,
-	EnableHealthChecking:    true,
-	EnableUnreachableRoutes: false,
-	IPAM:                    ipamOption.IPAMCRD,
+func testDaemonConfig() *option.DaemonConfig {
+	return &option.DaemonConfig{
+		EnableIPv4:              true,
+		EnableIPv6:              false,
+		EnableHealthChecking:    true,
+		EnableUnreachableRoutes: false,
+		IPAM:                    ipamOption.IPAMCRD,
+	}
 }
 
 func newFakeNodeStore(conf *option.DaemonConfig, t *testing.T) *nodeStore {
@@ -99,7 +101,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	}
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
-	conf := testConfigurationCRD
+	conf := testDaemonConfig()
 	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
 	sharedNodeStore = newFakeNodeStore(conf, t)
 	sharedNodeStore.ownNode = cn
@@ -171,7 +173,7 @@ func TestIPMasq(t *testing.T) {
 	}
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
-	conf := testConfigurationCRD
+	conf := testDaemonConfig()
 	conf.IPAM = ipamOption.IPAMENI
 	conf.EnableIPMasqAgent = true
 	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
@@ -244,7 +246,7 @@ func TestAzureIPMasq(t *testing.T) {
 	}
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
-	conf := testConfigurationCRD
+	conf := testDaemonConfig()
 	conf.IPAM = ipamOption.IPAMAzure
 	conf.EnableIPMasqAgent = true
 	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
