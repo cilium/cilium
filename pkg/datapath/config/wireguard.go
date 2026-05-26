@@ -15,6 +15,8 @@ func Wireguard(lnc *Config, link netlink.Link) any {
 
 	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
 
+	cfg.DeviceMTU = uint16(link.Attrs().MTU)
+
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 

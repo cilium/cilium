@@ -26,6 +26,8 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	}
 	cfg.InterfaceMAC.Addr = em.As6()
 
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
+
 	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
@@ -74,6 +76,8 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 		panic(fmt.Sprintf("invalid MAC address for %s: %q", link.Attrs().Name, em))
 	}
 	cfg.InterfaceMAC.Addr = em.As6()
+
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
@@ -124,6 +128,8 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	}
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
+
+	cfg.DeviceMTU = uint16(link.Attrs().MTU)
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfIndex = uint32(ifindex)

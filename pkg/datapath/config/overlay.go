@@ -22,6 +22,8 @@ func Overlay(lnc *Config, link netlink.Link) any {
 		cfg.InterfaceMAC.Addr = em.As6()
 	}
 
+	cfg.DeviceMTU = uint16(link.Attrs().MTU)
+
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = lnc.DatapathIsNetkit

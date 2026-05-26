@@ -28,6 +28,8 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 		cfg.InterfaceMAC.Addr = em.As6()
 	}
 
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
+
 	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
 
 	cfg.EndpointID = uint16(ep.GetID())
