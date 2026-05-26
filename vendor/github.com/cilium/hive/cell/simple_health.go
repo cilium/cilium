@@ -31,11 +31,16 @@ func (h *SimpleHealth) NewScope(name string) Health {
 	h.Lock()
 	defer h.Unlock()
 
+	scope := name
+	if len(h.Scope) > 0 {
+		scope = h.Scope + "." + name
+	}
+
 	h2 := &SimpleHealth{
 		simpleHealthRoot: h.simpleHealthRoot,
-		Scope:            h.Scope + "." + name,
+		Scope:            scope,
 	}
-	h.all[name] = h2
+	h.all[scope] = h2
 	return h2
 }
 

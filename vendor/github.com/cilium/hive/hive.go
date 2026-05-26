@@ -224,7 +224,7 @@ func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
 }
 
 // RunOptionFunc is a functional option type for configuring hive on Run stage.
-type RunOptionFunc func (*Hive)
+type RunOptionFunc func(*Hive)
 
 // WithStartTimeout overrides hive StartTimeout option.
 func WithStartTimeout(timeout time.Duration) RunOptionFunc {

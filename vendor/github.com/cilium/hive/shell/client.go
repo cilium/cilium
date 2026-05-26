@@ -235,12 +235,13 @@ repl:
 			}
 
 			line, ended := strings.CutSuffix(line, endMarker)
+			line, errored := strings.CutSuffix(line, errorMarker)
 			if isPrefix {
 				fmt.Fprint(console, line)
 			} else {
 				fmt.Fprintln(console, line)
 			}
-			if ended {
+			if ended || errored {
 				break
 			}
 		}

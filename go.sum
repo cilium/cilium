@@ -134,8 +134,8 @@ github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c h1
 github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c/go.mod h1:izWO5C3waDVkh/nt++nNyozXyJAPL6tfFpJSMtzVnwQ=
 github.com/cilium/fake v0.7.0 h1:4EKBtTweQrJoD4q45qDGu8udulmYMo48Y0BhEbrB1jc=
 github.com/cilium/fake v0.7.0/go.mod h1:hA1YsEjgIs5Gdeq/DVrDWGuhLCoVok7THTvQaGDO5bc=
-github.com/cilium/hive v1.0.1 h1:5PZpis3yw1ywfTnDVQ8AB7k/esVVeoE0cnWVyZDCxE0=
-github.com/cilium/hive v1.0.1/go.mod h1:NY1wD3TQ4sya7zkhkB4QX6eIZ4FjwZPG+lnUB2IH5Xs=
+github.com/cilium/hive v1.0.4-rc2 h1:IW98tggZDkut0i52pwWa5XTDe4/HvgshqYN3bCzDWN0=
+github.com/cilium/hive v1.0.4-rc2/go.mod h1:NY1wD3TQ4sya7zkhkB4QX6eIZ4FjwZPG+lnUB2IH5Xs=
 github.com/cilium/linters v0.4.0 h1:ViNciIgyKRMTAabKRN8GOFJB2LQvUE1GOYASApKEpRg=
 github.com/cilium/linters v0.4.0/go.mod h1:w5c2w86r0D5sib0Fei5q73izPuuAfQJc3t1K9VSQEcc=
 github.com/cilium/lumberjack/v2 v2.4.2 h1:Wea2z1+ikRhjS5z36I6vgeMlgh7xzvIzqW+t9tTvpkQ=
