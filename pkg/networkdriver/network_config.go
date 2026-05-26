@@ -161,6 +161,68 @@ func NewResourceNetworkConfigTable(db *statedb.DB) (statedb.RWTable[resourceNetw
 	)
 }
 
+func toResourceNetworkConfig(_ statedb.ReadTxn, obj any) (resourceNetworkConfig, bool) {
+	cfg, ok := obj.(*v2alpha1.CiliumResourceNetworkConfig)
+	if !ok {
+		return resourceNetworkConfig{}, false
+	}
+
+	specs := make([]spec, 0, len(cfg.Spec))
+	for _, sp := range cfg.Spec {
+		var nodeSel labels.Selector
+		if sp.NodeSelector == nil {
+			nodeSel = labels.Everything()
+		} else {
+			sel, err := slimv1.LabelSelectorAsSelector(sp.NodeSelector)
+			if err != nil {
+				return resourceNetworkConfig{}, false
+			}
+
+			nodeSel = sel
+		}
+
+		s := spec{
+			NodeSelector: nodeSel,
+			IPPool:       sp.IPPool,
+			Vlan:         sp.VLAN,
+		}
+
+		if sp.IPv4 != nil {
+			s.IPv4NetMask = int(sp.IPv4.NetMask)
+			s.IPv4Routes = make([]route, 0, len(sp.IPv4.StaticRoutes))
+			for _, r := range sp.IPv4.StaticRoutes {
+				r, err := parseRoute(r.Destination, r.Gateway)
+				if err != nil {
+					return resourceNetworkConfig{}, false
+				}
+
+				s.IPv4Routes = append(s.IPv4Routes, r)
+			}
+		}
+
+		if sp.IPv6 != nil {
+			s.IPv6NetMask = int(sp.IPv6.NetMask)
+			s.IPv6Routes = make([]route, 0, len(sp.IPv6.StaticRoutes))
+			for _, r := range sp.IPv6.StaticRoutes {
+				r, err := parseRoute(r.Destination, r.Gateway)
+				if err != nil {
+					return resourceNetworkConfig{}, false
+				}
+
+				s.IPv6Routes = append(s.IPv6Routes, r)
+			}
+		}
+
+		specs = append(specs, s)
+	}
+
+	return resourceNetworkConfig{
+		Name:      cfg.Name,
+		Specs:     specs,
+		UpdatedAt: time.Now(),
+	}, true
+}
+
 func resourceNetworkConfigReflectorConfig(cs client.Clientset, crdSync promise.Promise[synced.CRDSync], configs statedb.RWTable[resourceNetworkConfig]) k8s.ReflectorConfig[resourceNetworkConfig] {
 	lw := utils.ListerWatcherFromTyped(cs.CiliumV2alpha1().CiliumResourceNetworkConfigs())
 	return k8s.ReflectorConfig[resourceNetworkConfig]{
@@ -168,65 +230,8 @@ func resourceNetworkConfigReflectorConfig(cs client.Clientset, crdSync promise.P
 		Table:         configs,
 		ListerWatcher: lw,
 		MetricScope:   "CiliumResourceNetworkConfig",
-		Transform: func(_ statedb.ReadTxn, obj any) (resourceNetworkConfig, bool) {
-			cfg, ok := obj.(*v2alpha1.CiliumResourceNetworkConfig)
-			if !ok {
-				return resourceNetworkConfig{}, false
-			}
-
-			specs := make([]spec, 0, len(cfg.Spec))
-			for _, sp := range cfg.Spec {
-				var nodeSel labels.Selector
-				if sp.NodeSelector == nil {
-					nodeSel = labels.Everything()
-				} else {
-					sel, err := slimv1.LabelSelectorAsSelector(sp.NodeSelector)
-					if err != nil {
-						return resourceNetworkConfig{}, false
-					}
-					nodeSel = sel
-				}
-
-				s := spec{
-					NodeSelector: nodeSel,
-					IPPool:       sp.IPPool,
-					Vlan:         sp.VLAN,
-				}
-
-				if sp.IPv4 != nil {
-					s.IPv4NetMask = int(sp.IPv4.NetMask)
-					s.IPv4Routes = make([]route, 0, len(sp.IPv4.StaticRoutes))
-					for _, r := range sp.IPv4.StaticRoutes {
-						r, err := parseRoute(r.Destination, r.Gateway)
-						if err != nil {
-							return resourceNetworkConfig{}, false
-						}
-						s.IPv4Routes = append(s.IPv4Routes, r)
-					}
-				}
-
-				if sp.IPv6 != nil {
-					s.IPv6NetMask = int(sp.IPv6.NetMask)
-					s.IPv6Routes = make([]route, 0, len(sp.IPv6.StaticRoutes))
-					for _, r := range sp.IPv6.StaticRoutes {
-						r, err := parseRoute(r.Destination, r.Gateway)
-						if err != nil {
-							return resourceNetworkConfig{}, false
-						}
-						s.IPv6Routes = append(s.IPv6Routes, r)
-					}
-				}
-
-				specs = append(specs, s)
-			}
-
-			return resourceNetworkConfig{
-				Name:      cfg.Name,
-				Specs:     specs,
-				UpdatedAt: time.Now(),
-			}, true
-		},
-		CRDSync: crdSync,
+		Transform:     toResourceNetworkConfig,
+		CRDSync:       crdSync,
 	}
 }
 
