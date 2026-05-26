@@ -114,9 +114,9 @@ mock_ctx_get_ingress_ifindex(const struct __sk_buff *ctx __maybe_unused)
  */
 int mock_tail_policy(struct __ctx_buff *ctx)
 {
-	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	__u32 delivery_flags = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
+	bool from_host = delivery_flags & CB_DELIVERY_FLAGS_FROM_HOST;
 	bool use_redirect_peer = delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER;
 
 	/* We should always be from_host here. */
