@@ -36,6 +36,14 @@ type HookDescriptiveInterface interface {
 	HookInfo() string
 }
 
+// PreStopHook marks the hook as a pre-stop hook. This is used by the
+// [job.registry] to ensure that the jobs started at runtime are
+// stopped before anything else to ensure their dependencies are not
+// stopped before the jobs.
+type PreStopHook interface {
+	PreStopHookMarker()
+}
+
 // Hook is a pair of start and stop callbacks. Both are optional.
 // They're paired up to make sure that on failed start all corresponding
 // stop hooks are executed.
@@ -82,12 +90,13 @@ type DefaultLifecycle struct {
 type augmentedHook struct {
 	HookInterface
 	moduleID FullModuleID
+	stopped  bool
 }
 
 func NewDefaultLifecycle(hooks []HookInterface, numStarted int, logThreshold time.Duration) *DefaultLifecycle {
 	h := make([]augmentedHook, 0, len(hooks))
 	for _, hook := range hooks {
-		h = append(h, augmentedHook{hook, nil})
+		h = append(h, augmentedHook{hook, nil, false})
 	}
 	return &DefaultLifecycle{
 		mu:           sync.Mutex{},
@@ -101,7 +110,7 @@ func (lc *DefaultLifecycle) Append(hook HookInterface) {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
 
-	lc.hooks = append(lc.hooks, augmentedHook{hook, nil})
+	lc.hooks = append(lc.hooks, augmentedHook{hook, nil, false})
 }
 
 func (lc *DefaultLifecycle) Start(log *slog.Logger, ctx context.Context) error {
@@ -116,6 +125,8 @@ func (lc *DefaultLifecycle) Start(log *slog.Logger, ctx context.Context) error {
 
 	from := lc.numStarted
 	for i, hook := range lc.hooks[from:] {
+		lc.hooks[from+i].stopped = false
+
 		fnName, exists := getHookFuncName(hook, true)
 
 		if !exists {
@@ -164,15 +175,10 @@ func (lc *DefaultLifecycle) Stop(log *slog.Logger, ctx context.Context) error {
 	defer cancel()
 
 	var errs error
-	for ; lc.numStarted > 0; lc.numStarted-- {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		hook := lc.hooks[lc.numStarted-1]
-
+	runStopHook := func(hook augmentedHook) {
 		fnName, exists := getHookFuncName(hook, false)
 		if !exists {
-			continue
+			return
 		}
 
 		l := log.With("function", fnName)
@@ -195,6 +201,35 @@ func (lc *DefaultLifecycle) Stop(log *slog.Logger, ctx context.Context) error {
 			}
 		}
 	}
+
+	// Stop pre-stop hooks first. We can't update [lc.numStarted]
+	// since we're skipping hooks, so instead we mark the hook
+	// as already stopped to retain idempotency.
+	for i := lc.numStarted - 1; i >= 0; i-- {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		hook := lc.hooks[i]
+		if hook.stopped {
+			continue
+		}
+		if _, ok := hook.HookInterface.(PreStopHook); ok {
+			runStopHook(hook)
+			lc.hooks[i].stopped = true
+		}
+	}
+
+	// Finally stop the normal hooks.
+	for i := lc.numStarted - 1; i >= 0; i-- {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		hook := lc.hooks[i]
+		if !hook.stopped {
+			runStopHook(hook)
+		}
+		lc.numStarted--
+	}
 	return errs
 }
 
@@ -212,13 +247,24 @@ func (lc *DefaultLifecycle) PrintHooks(w io.Writer) {
 	}
 
 	fmt.Fprintf(w, "\nStop hooks:\n\n")
-	for i := len(lc.hooks) - 1; i >= 0; i-- {
-		hook := lc.hooks[i]
+	printHook := func(hook augmentedHook) {
 		fnName, exists := getHookFuncName(hook.HookInterface, false)
 		if !exists {
-			continue
+			return
 		}
 		fmt.Fprintf(w, "  • %s (%s)\n", fnName, hook.moduleID)
+	}
+	for i := len(lc.hooks) - 1; i >= 0; i-- {
+		hook := lc.hooks[i]
+		if _, ok := hook.HookInterface.(PreStopHook); ok {
+			printHook(hook)
+		}
+	}
+	for i := len(lc.hooks) - 1; i >= 0; i-- {
+		hook := lc.hooks[i]
+		if _, ok := hook.HookInterface.(PreStopHook); !ok {
+			printHook(hook)
+		}
 	}
 }
 
@@ -231,7 +277,7 @@ func (lc augmentedLifecycle) Append(hook HookInterface) {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
 
-	lc.hooks = append(lc.hooks, augmentedHook{hook, lc.moduleID})
+	lc.hooks = append(lc.hooks, augmentedHook{hook, lc.moduleID, false})
 }
 
 func getHookFuncName(hook HookInterface, start bool) (name string, hasHook bool) {

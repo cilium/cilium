@@ -102,7 +102,6 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 			fmt.Sprintf("shell-%d", connID),
 			func(ctx context.Context, h cell.Health) error {
 				sh.handleConn(ctx, connID, conn)
-				h.Close() // remove from health list
 				return nil
 			}))
 	}

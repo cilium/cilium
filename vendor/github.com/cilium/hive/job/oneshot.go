@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/cilium/hive"
@@ -112,16 +113,16 @@ func (jos *jobOneShot) start(ctx context.Context, health cell.Health, options op
 	}
 
 	jos.health = health.NewScope("job-" + jos.name)
-	defer jos.health.Stopped("one-shot job done")
+	defer jos.health.Close()
 
 	l := options.logger.With(
 		"name", jos.name,
 		"func", internal.FuncNameAndLocation(jos.fn))
 
 	var err error
+	var timeout time.Duration
 	for i := 0; jos.retry < 0 || i <= jos.retry; i++ {
 		if i != 0 {
-			timeout := jos.backoff.Wait()
 			options.logger.Debug("Delaying retry attempt",
 				"backoff", timeout,
 				"retry-count", i,
@@ -133,22 +134,40 @@ func (jos *jobOneShot) start(ctx context.Context, health cell.Health, options op
 			}
 		}
 
-		l.Debug("Starting one-shot job")
-
 		jos.health.OK("Running")
 		start := time.Now()
 		err = jos.fn(ctx, jos.health)
 
+		duration := time.Since(start)
 		if options.metrics != nil {
-			duration := time.Since(start)
 			options.metrics.OneShotRunDuration(jos.name, duration)
 		}
 
-		if err == nil {
+		switch {
+		case err == nil:
+			jos.health.OK("Finished (" + duration.String() + ")")
 			return
-		} else if !errors.Is(err, context.Canceled) {
-			jos.health.Degraded("one-shot job errored", err)
-			l.Error("one-shot job errored", "error", err)
+		case errors.Is(err, context.Canceled) || ctx.Err() != nil:
+			return
+		default:
+			if jos.backoff != nil && (jos.retry < 0 || i < jos.retry) {
+				timeout = jos.backoff.Wait()
+			}
+			retriesRemain := strconv.FormatInt(int64(jos.retry-i), 10)
+			if jos.retry < 0 {
+				retriesRemain = "<inf>"
+			} else if jos.retry == 0 {
+				retriesRemain = "<none>"
+			}
+			msg := fmt.Sprintf("Failed (duration %s, retry %d/%s in %s)", duration, i+1, retriesRemain, timeout)
+			jos.health.Degraded(msg, err)
+			l.Error("Failed",
+				"error", err,
+				"retry", i+1,
+				"remaining", retriesRemain,
+				"timeout", timeout,
+				"duration", duration,
+			)
 			if options.metrics != nil {
 				options.metrics.JobError(jos.name, err)
 			}

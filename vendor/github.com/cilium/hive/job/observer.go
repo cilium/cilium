@@ -42,6 +42,14 @@ type ObserverFunc[T any] func(ctx context.Context, event T) error
 
 type observerOpt[T any] func(*jobObserver[T])
 
+// WithObserverShutdown option configures an observer job to shutdown the whole
+// hive if the observer function returns a non-nil, non-context.Canceled error.
+func WithObserverShutdown[T any]() observerOpt[T] {
+	return func(jo *jobObserver[T]) {
+		jo.shutdownOnError = true
+	}
+}
+
 type jobObserver[T any] struct {
 	name string
 	fn   ObserverFunc[T]
@@ -52,7 +60,8 @@ type jobObserver[T any] struct {
 	observable stream.Observable[T]
 
 	// If not nil, call the shutdowner on error
-	shutdown hive.Shutdowner
+	shutdown        hive.Shutdowner
+	shutdownOnError bool
 }
 
 func (jo *jobObserver[T]) info() string {
@@ -64,7 +73,12 @@ func (jo *jobObserver[T]) start(ctx context.Context, health cell.Health, options
 		opt(jo)
 	}
 
+	if jo.shutdownOnError && options.shutdowner != nil {
+		jo.shutdown = options.shutdowner
+	}
+
 	jo.health = health.NewScope("observer-job-" + jo.name)
+	defer jo.health.Close()
 	reportTicker := time.NewTicker(10 * time.Second)
 	defer reportTicker.Stop()
 
@@ -72,7 +86,6 @@ func (jo *jobObserver[T]) start(ctx context.Context, health cell.Health, options
 		"name", jo.name,
 		"func", internal.FuncNameAndLocation(jo.fn))
 
-	l.Debug("Observer job started")
 	jo.health.OK("Primed")
 	var msgCount uint64
 
@@ -93,8 +106,12 @@ func (jo *jobObserver[T]) start(ctx context.Context, health cell.Health, options
 				return
 			}
 
-			jo.health.Degraded("observer job errored", err)
-			l.Error("Observer job errored", "error", err)
+			msg := fmt.Sprintf("Observer job failed (duration %s)", duration)
+			jo.health.Degraded(msg, err)
+			l.Error("Observer job errored",
+				"error", err,
+				"duration", duration,
+			)
 
 			if options.metrics != nil {
 				options.metrics.JobError(jo.name, err)
@@ -122,10 +139,7 @@ func (jo *jobObserver[T]) start(ctx context.Context, health cell.Health, options
 
 	<-done
 
-	jo.health.Stopped("observer job done")
 	if err != nil && !errors.Is(err, context.Canceled) {
 		l.Error("Observer job stopped with an error", "error", err)
-	} else {
-		l.Debug("Observer job stopped")
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"runtime/pprof"
 	"sync"
+	"time"
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
@@ -44,12 +45,20 @@ type registry struct {
 	logger     *slog.Logger
 	shutdowner hive.Shutdowner
 
-	mu      sync.Mutex
+	// appLifecycle is the main application appLifecycle. Jobs that are
+	// added before the registry is started are appended here. This ensures
+	// that the job starting order is interleaved with the start hooks and
+	// that we don't start the jobs before a dependency's start hook has ran.
+	appLifecycle cell.Lifecycle
+
+	// runtimeLifecycle is the lifecycle used after registry has started.
+	runtimeLifecycle jobLifecycle
+
+	// mu protects the fields below
+	mu sync.Mutex
+
 	groups  []*group
 	started bool
-
-	lifecycle cell.Lifecycle
-	dynamicLC *cell.DefaultLifecycle
 }
 
 var _ cell.HookInterface = (*registry)(nil)
@@ -60,9 +69,9 @@ func newRegistry(
 	lc cell.Lifecycle,
 ) Registry {
 	r := &registry{
-		logger:     logger,
-		shutdowner: shutdowner,
-		lifecycle:  lc,
+		logger:       logger,
+		shutdowner:   shutdowner,
+		appLifecycle: lc,
 	}
 	lc.Append(r)
 	return r
@@ -76,7 +85,6 @@ func (c *registry) Start(cell.HookContext) error {
 		return nil
 	}
 	c.started = true
-	c.dynamicLC = cell.NewDefaultLifecycle(nil, 0, 0)
 	return nil
 }
 
@@ -86,16 +94,18 @@ func (c *registry) Stop(ctx cell.HookContext) error {
 	if !c.started {
 		return nil
 	}
-	c.started = false
-	c.dynamicLC.Stop(c.logger, ctx)
-	return nil
+	return c.runtimeLifecycle.stop(ctx, c.logger)
 }
+
+// PreStopHookMarker tells [cell.DefaultLifecycle] that this
+// hook should be stopped before any other hook.
+func (c *registry) PreStopHookMarker() {}
 
 func (c *registry) WithLifecycle(lifecycle cell.Lifecycle) Registry {
 	r := &registry{
-		logger:     c.logger,
-		shutdowner: c.shutdowner,
-		lifecycle:  lifecycle,
+		logger:       c.logger,
+		shutdowner:   c.shutdowner,
+		appLifecycle: lifecycle,
 	}
 	lifecycle.Append(r)
 	return r
@@ -136,7 +146,7 @@ func (c *registry) addJobs(health cell.Health, opts options, jobs ...Job) {
 
 	if !c.started {
 		for _, job := range jobs {
-			c.lifecycle.Append(&queuedJob{
+			c.appLifecycle.Append(&queuedJob{
 				registry: c,
 				job:      job,
 				health:   health,
@@ -147,15 +157,15 @@ func (c *registry) addJobs(health cell.Health, opts options, jobs ...Job) {
 	}
 
 	for _, job := range jobs {
-		qj := &queuedJob{
-			registry: c,
-			job:      job,
-			health:   health,
-			options:  opts,
-		}
-		c.dynamicLC.Append(qj)
-		// Start the newly appended job immediately.
-		c.dynamicLC.Start(c.logger, context.Background())
+		c.runtimeLifecycle.insertAndStart(
+			&queuedJob{
+				registry:   c,
+				job:        job,
+				health:     health,
+				options:    opts,
+				runtimeJob: true,
+			},
+		)
 	}
 }
 
@@ -180,22 +190,40 @@ type Job interface {
 }
 
 type queuedJob struct {
-	registry *registry
-	job      Job
-	health   cell.Health
-	options  options
-	cancel   context.CancelFunc
-	done     chan struct{}
+	registry   *registry
+	job        Job
+	health     cell.Health
+	options    options
+	cancel     context.CancelFunc
+	done       chan struct{}
+	startedAt  time.Time
+	prev       *queuedJob
+	next       *queuedJob
+	runtimeJob bool
 }
 
 // Start implements cell.HookInterface.
 func (qj *queuedJob) Start(cell.HookContext) error {
+	qj.startedAt = time.Now()
 	qj.done = make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	qj.cancel = cancel
 	pprof.Do(ctx, qj.options.pprofLabels, func(ctx context.Context) {
 		go func() {
-			defer close(qj.done)
+			defer func() {
+				qj.registry.runtimeLifecycle.remove(qj)
+				if qj.runtimeJob {
+					qj.registry.logger.Info("Job stopped",
+						"job", qj.HookInfo(),
+						"duration", time.Since(qj.startedAt))
+				}
+				close(qj.done)
+			}()
+			if qj.runtimeJob {
+				// We only log this for runtime jobs since we already have the
+				// lifecycle logging for the jobs added before starting.
+				qj.registry.logger.Info("Job started", "job", qj.HookInfo())
+			}
 			qj.job.start(ctx, qj.health, qj.options)
 		}()
 	})
@@ -217,7 +245,7 @@ func (qj *queuedJob) Stop(ctx cell.HookContext) error {
 	}
 }
 
-var _ cell.HookInterface = &queuedJob{}
+var _ cell.HookDescriptiveInterface = &queuedJob{}
 
 type group struct {
 	registry *registry
