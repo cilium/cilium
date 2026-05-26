@@ -4,18 +4,15 @@
 package gateway_api
 
 import (
-	"context"
-	"log/slog"
 	"maps"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	gatewayapihelpers "github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -53,83 +50,26 @@ func groupDerefOr(group *gatewayv1.Group, defaultGroup string) string {
 }
 
 // isAllowed returns true if the provided Route is allowed to attach to given gateway
-func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, route metav1.Object, logger *slog.Logger) bool {
+func isAllowed(gw *gatewayv1.Gateway, route metav1.Object, namespaceLabels gatewayapihelpers.NamespaceLabelIndex) bool {
 	for _, listener := range gw.Spec.Listeners {
-
-		// all routes in the same namespace are allowed for this listener
-		if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
-			if route.GetNamespace() == gw.GetNamespace() {
-				return true
-			}
-			continue
-		}
-
-		// check if route is kind-allowed
-		if !isKindAllowed(listener, route) {
-			continue
-		}
-
-		// check if route is namespace-allowed
-		switch *listener.AllowedRoutes.Namespaces.From {
-		case gatewayv1.NamespacesFromAll:
+		if listenerisAllowed(gw, &listener, route, namespaceLabels) {
 			return true
-		case gatewayv1.NamespacesFromSame:
-			if route.GetNamespace() == gw.GetNamespace() {
-				return true
-			}
-		case gatewayv1.NamespacesFromSelector:
-			nsList := &corev1.NamespaceList{}
-			selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
-			if err := c.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
-				logger.ErrorContext(ctx, "Unable to list namespaces", logfields.Error, err)
-				continue
-			}
-
-			for _, ns := range nsList.Items {
-				if ns.Name == route.GetNamespace() {
-					return true
-				}
-			}
 		}
 	}
 	return false
 }
 
-// listenerisAllowed is a single listener check to see if a route and listerner are valid
-func listenerisAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, route metav1.Object, logger *slog.Logger) bool {
-	// all routes in the same namespace are allowed for this listener
+// listenerisAllowed reports whether route may attach to listener.
+func listenerisAllowed(gw *gatewayv1.Gateway, listener *gatewayv1.Listener, route metav1.Object, namespaceLabels gatewayapihelpers.NamespaceLabelIndex) bool {
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
-		return route.GetNamespace() == gw.GetNamespace()
+		return gatewayapihelpers.IsListenerNamespaceAllowed(*listener, route.GetNamespace(), gw.GetNamespace(), namespaceLabels)
 	}
 
 	// check if route is kind-allowed
 	if !isKindAllowed(*listener, route) {
 		return false
 	}
-	// check if route is namespace-allowed
-	switch *listener.AllowedRoutes.Namespaces.From {
-	case gatewayv1.NamespacesFromAll:
-		return true
-	case gatewayv1.NamespacesFromSame:
-		if route.GetNamespace() == gw.GetNamespace() {
-			return true
-		}
-		return false
-	case gatewayv1.NamespacesFromSelector:
-		nsList := &corev1.NamespaceList{}
-		selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
-		if err := c.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
-			logger.ErrorContext(ctx, "Unable to list namespaces", logfields.Error, err)
-			return false
-		}
-
-		for _, ns := range nsList.Items {
-			if ns.Name == route.GetNamespace() {
-				return true
-			}
-		}
-	}
-	return false
+	return gatewayapihelpers.IsListenerNamespaceAllowed(*listener, route.GetNamespace(), gw.GetNamespace(), namespaceLabels)
 }
 
 func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
