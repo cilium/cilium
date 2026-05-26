@@ -310,6 +310,16 @@ func extractRoutes(listenerPort int32, hostnames []string, hr gatewayv1.HTTPRout
 			case gatewayv1.HTTPRouteFilterURLRewrite:
 				rewriteFilter = toHTTPRewriteFilter(f.URLRewrite)
 			case gatewayv1.HTTPRouteFilterRequestMirror:
+				if f.RequestMirror == nil {
+					continue
+				}
+
+				if !helpers.IsBackendReferenceAllowed(hr.GetNamespace(),
+					gatewayv1.BackendRef{BackendObjectReference: f.RequestMirror.BackendRef},
+					gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute"), grants) {
+					continue
+				}
+
 				svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, hr.Namespace), services)
 				if svc != nil {
 					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, hr.Namespace))
@@ -482,6 +492,16 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 						HeadersToRemove: f.ResponseHeaderModifier.Remove,
 					}
 				case gatewayv1.GRPCRouteFilterRequestMirror:
+					if f.RequestMirror == nil {
+						continue
+					}
+
+					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(),
+						gatewayv1.BackendRef{BackendObjectReference: f.RequestMirror.BackendRef},
+						gatewayv1beta1.SchemeGroupVersion.WithKind("GRPCRoute"), grants) {
+						continue
+					}
+
 					svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, r.Namespace), services)
 					if svc != nil {
 						requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, r.Namespace))
