@@ -76,6 +76,7 @@ import (
 	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 
+	ciliumcel "github.com/cilium/cilium/pkg/cel"
 	// Side-effect import: registers the EC2 IMDS-based AWS metadata fetcher
 	// with pkg/nodediscovery so ENI IPAM works at runtime in the agent.
 	// Kept out of cilium-operator-generic (which does not import the daemon
@@ -175,6 +176,9 @@ var (
 
 		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
 		healthz.Cell,
+
+		// Cilium CEL package for compiling CEL expressions.
+		ciliumcel.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
