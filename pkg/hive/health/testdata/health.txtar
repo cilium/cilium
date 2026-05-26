@@ -19,9 +19,17 @@ health --output=out agent.m0
 sed ' \(.*\)' '' out
 cmp m0.expected.txt out
 
+health --output=out --match=c1 agent.m0
+sed ' \(.*\)' '' out
+cmp m0.c1.expected.txt out
+
 health --output=out --levels=degraded 
 sed ' \(.*\)' '' out
 cmp degraded.expected.txt out
+
+health --output=out --levels=degraded,stopped
+sed ' \(.*\)' '' out
+cmp degraded-stopped.expected.txt out
 
 -- allok.yaml --
 id:
@@ -92,7 +100,17 @@ agent
     ├── c0                                          [OK] ok
     └── c1                                          [DEGRADED] no!
 
+-- m0.c1.expected.txt --
+agent
+└── m0
+    └── c1                                          [DEGRADED] no!
+
 -- degraded.expected.txt --
+agent
+└── m0
+    └── c1                                          [DEGRADED] no!
+
+-- degraded-stopped.expected.txt --
 agent
 └── m0
     └── c1                                          [DEGRADED] no!

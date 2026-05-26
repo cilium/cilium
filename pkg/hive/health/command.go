@@ -34,7 +34,7 @@ func healthTreeCommand(db *statedb.DB, table statedb.Table[types.Status]) script
 			Args:    "[reporter-id-prefix]",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.StringP("match", "m", "", "Output only health reports where the reporter ID path contains the substring")
-				fs.StringArrayP("levels", "s", []string{types.LevelOK, types.LevelDegraded, types.LevelDegraded},
+				fs.StringSliceP("levels", "s", []string{types.LevelOK, types.LevelDegraded, types.LevelStopped},
 					"Output only health reports with the specified state (i.e. ok,degraded,stopped)")
 				fs.StringP("output", "o", "", "File to write output to")
 			},
@@ -55,7 +55,7 @@ func healthTreeCommand(db *statedb.DB, table statedb.Table[types.Status]) script
 				return nil, err
 			}
 
-			levels, err := s.Flags.GetStringArray("levels")
+			levels, err := s.Flags.GetStringSlice("levels")
 			if err != nil {
 				return nil, err
 			}
@@ -92,25 +92,17 @@ func healthTreeCommand(db *statedb.DB, table statedb.Table[types.Status]) script
 }
 
 func getHealth(db *statedb.DB, table statedb.Table[types.Status], prefix, match string, levels []string) []types.Status {
+	tx := db.ReadTxn()
+	results := table.Prefix(tx, PrimaryIndex.Query(types.HealthID(prefix)))
 	ss := []types.Status{}
-	if prefix != "" {
-		tx := db.ReadTxn()
-		for status := range table.Prefix(tx, PrimaryIndex.Query(types.HealthID(prefix))) {
-			ss = append(ss, status)
+	for status := range results {
+		if match != "" && !strings.Contains(status.ID.String(), match) {
+			continue
 		}
-	} else {
-		tx := db.ReadTxn()
-		for status := range table.All(tx) {
-			if match != "" && !strings.Contains(status.ID.String(), match) {
-				continue
-			}
-
-			if !slices.Contains(levels, strings.ToLower(status.Level.String())) {
-				continue
-			}
-
-			ss = append(ss, status)
+		if !slices.Contains(levels, strings.ToLower(status.Level.String())) {
+			continue
 		}
+		ss = append(ss, status)
 	}
 	return ss
 }
