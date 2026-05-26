@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -1901,6 +1902,10 @@ func (m *Manager) addCiliumAcceptEncryptionRules() error {
 		return nil
 	}
 
+	if m.sharedCfg.EnableWireguard {
+		return m.addCiliumAcceptWireguardRules()
+	}
+
 	insertAcceptEncrypt := func(ipt iptablesInterface, table, chain string) error {
 		matchDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 		matchEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
@@ -1944,6 +1949,10 @@ func (m *Manager) addCiliumAcceptEncryptionRules() error {
 }
 
 func (m *Manager) addCiliumNoTrackEncryptionRules() (err error) {
+	if m.sharedCfg.EnableWireguard {
+		return m.addCiliumNoTrackWireguardRules()
+	}
+
 	if m.sharedCfg.EnableIPv4 {
 		if err = m.ciliumNoTrackEncryptionRules(m.ip4tables, "-I"); err != nil {
 			return
@@ -2293,4 +2302,83 @@ func (m *Manager) setNoTrackHostPorts(currentState noTrackHostPortsByPod, podNam
 
 	return m.replaceNoTrackHostPortRules(oldPorts, newPorts)
 
+}
+
+func (m *Manager) addCiliumAcceptWireguardRules() error {
+	cmds := [][]string{{
+		"-t", "filter",
+		"-A", ciliumOutputChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(wgTypes.ListenPort)),
+		"-m", "comment", "--comment", "cilium: ACCEPT for wireguard traffic",
+		"-j", "ACCEPT",
+	}, {
+		"-t", "filter",
+		"-A", ciliumInputChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(wgTypes.ListenPort)),
+		"-m", "comment", "--comment", "cilium: ACCEPT for wireguard traffic",
+		"-j", "ACCEPT",
+	}}
+
+	for _, cmd := range cmds {
+		if m.sharedCfg.EnableIPv4 {
+			if err := m.ip4tables.runProg(cmd); err != nil {
+				return err
+			}
+		}
+
+		if m.sharedCfg.EnableIPv6 {
+			if err := m.ip6tables.runProg(cmd); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// ciliumNoTrackWireguardRules adds notrack rules for wireguard tunnel.
+// this way, the kernel doesn't keep CT state for wg tunnels, reducing the
+// performance impact in the packet forwarding.
+func (m *Manager) addCiliumNoTrackWireguardRules() error {
+	input := []string{
+		"-t", "raw",
+		"-A", ciliumPreRawChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(wgTypes.ListenPort)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for wireguard traffic",
+		"-j", "CT", "--notrack",
+	}
+
+	output := []string{
+		"-t", "raw",
+		"-A", ciliumOutputRawChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(wgTypes.ListenPort)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for wireguard traffic",
+		"-j", "CT", "--notrack",
+	}
+
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.ip4tables.runProg(input); err != nil {
+			return err
+		}
+
+		if err := m.ip4tables.runProg(output); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.ip6tables.runProg(input); err != nil {
+			return err
+		}
+
+		if err := m.ip6tables.runProg(output); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
