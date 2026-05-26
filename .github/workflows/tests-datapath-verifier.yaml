@@ -201,7 +201,10 @@ jobs:
         with:
           provision: 'false'
           cmd: |
-            cd /host/pull
+            cd /host/base
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              cd /host/pull
+            fi
             export TMPDIR=/var/tmp
             export GOCACHE=/host/gocache
             mkdir -p /host/datapath-verifier /host/gocache
