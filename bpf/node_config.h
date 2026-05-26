@@ -107,7 +107,6 @@
 #ifndef MONITOR_AGGREGATION
 #define MONITOR_AGGREGATION 5
 #endif
-#define MTU 1500
 
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
