@@ -27,6 +27,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.InterfaceMAC.Addr = em.As6()
 
 	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
@@ -81,6 +82,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfIndex = uint32(ifindex)
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
 
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
 
@@ -127,6 +129,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfIndex = uint32(ifindex)
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
 
 	// Enable masquerading on external interfaces.
 	if option.Config.EnableBPFMasquerade {

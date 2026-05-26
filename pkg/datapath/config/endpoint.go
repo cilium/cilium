@@ -29,6 +29,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	}
 
 	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
 
 	cfg.EndpointID = uint16(ep.GetID())
 	cfg.EndpointNetNSCookie = ep.GetEndpointNetNsCookie()

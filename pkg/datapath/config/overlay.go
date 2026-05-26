@@ -16,6 +16,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 	cfg := NewBPFOverlay(NodeConfig(lnc))
 
 	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
 
 	em := mac.MAC(link.Attrs().HardwareAddr)
 	if len(em) == 6 {

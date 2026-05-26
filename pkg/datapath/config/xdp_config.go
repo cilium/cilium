@@ -12,8 +12,7 @@ import "github.com/cilium/cilium/pkg/datapath/types"
 // Warning: do not instantiate directly! Always use [NewBPFXDP] to ensure the
 // default values configured in the ELF are honored.
 type BPFXDP struct {
-	// MTU of the device the bpf program is attached to (default: MTU set in
-	// node_config.h by agent).
+	// MTU of the device the bpf program is attached to.
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
@@ -48,7 +47,7 @@ type BPFXDP struct {
 }
 
 func NewBPFXDP(node Node) *BPFXDP {
-	return &BPFXDP{0x5dc, false, false, false, false, false, false, 0x0, 0x0,
+	return &BPFXDP{0x0, false, false, false, false, false, false, 0x0, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
