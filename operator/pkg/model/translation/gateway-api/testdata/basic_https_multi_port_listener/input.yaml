@@ -1,0 +1,61 @@
+http:
+- hostname: example.com
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: http-backend
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /web
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
+- hostname: example.com
+  name: https
+  port: 443
+  routes:
+  - backends:
+    - name: http-backend
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /web
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
+  tls:
+  - name: example-tls
+    namespace: default
+- hostname: example.com
+  name: grpc
+  port: 50051
+  routes:
+  - backends:
+    - name: grpc-backend
+      namespace: default
+      port:
+        port: 9090
+    path_match:
+      prefix: /com.example.echo
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
+  tls:
+  - name: example-tls
+    namespace: default
