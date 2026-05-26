@@ -36,4 +36,16 @@ have been processed by Cilium's datapath by checking the following metrics:
 These packets are the basis for path MTU discovery and indicate that packets
 along a network path are exceeding max MTU size of the network.
 
+Known limitations
+-----------------
+   
+   Currently fragmentation is supported as long as the first processed packet
+   is also the first fragment. This means that some out-of-order packets
+   will be dropped, even if they are valid.
+   This might create significant packet loss under certain conditions,
+   potentially rendering fragmentation unsupported for some links.
+   Alternatives are actively being discussed.
+
+   * Cilium drops out of order IP Fragments (see :gh-issue:`25709`)
+
 .. include:: ../../beta.rst
