@@ -4,7 +4,6 @@
 package translation
 
 import (
-	"maps"
 	goslices "slices"
 	"sort"
 	"strconv"
@@ -20,8 +19,8 @@ import (
 )
 
 const (
-	secureHost   = "secure"
 	insecureHost = "insecure"
+	secureHost   = "secure"
 
 	AppProtocolH2C = "kubernetes.io/h2c"
 	AppProtocolWS  = "kubernetes.io/ws"
@@ -158,22 +157,30 @@ func (i *cecTranslator) desiredBackendServices(m *model.Model) ([]*ciliumv2.Serv
 }
 
 func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, m *model.Model) ([]*ciliumv2.ServiceListener, error) {
-	// Find all the ports used in the model and build a set of them
+	if m.NeedsPerPortHTTPSListeners() {
+		return i.desiredServicesWithPortsSplit(namespace, name, m)
+	}
+	return i.desiredServicesWithPortsCombined(namespace, name, m)
+}
+
+// desiredServicesWithPortsCombined returns a single ServiceListener covering all ports.
+func (i *cecTranslator) desiredServicesWithPortsCombined(namespace string, name string, m *model.Model) ([]*ciliumv2.ServiceListener, error) {
 	allPorts := make(map[uint16]struct{})
 
 	for _, hl := range m.HTTP {
-		if _, ok := allPorts[uint16(hl.Port)]; !ok {
-			allPorts[uint16(hl.Port)] = struct{}{}
-		}
+		allPorts[uint16(hl.Port)] = struct{}{}
 	}
 	for _, tlsl := range m.TLSPassthrough {
-		if _, ok := allPorts[uint16(tlsl.Port)]; !ok {
+		if len(tlsl.Routes) > 0 {
 			allPorts[uint16(tlsl.Port)] = struct{}{}
 		}
 	}
 
-	// ensure the ports are stably sorted
-	ports := goslices.Sorted(maps.Keys(allPorts))
+	ports := make([]uint16, 0, len(allPorts))
+	for p := range allPorts {
+		ports = append(ports, p)
+	}
+	goslices.Sort(ports)
 
 	return []*ciliumv2.ServiceListener{
 		{
@@ -182,6 +189,61 @@ func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, 
 			Ports:     ports,
 		},
 	}, nil
+}
+
+// desiredServicesWithPortsSplit returns one ServiceListener per distinct HTTPS port.
+func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name string, m *model.Model) ([]*ciliumv2.ServiceListener, error) {
+	shortenedName := shortener.ShortenK8sResourceName(name)
+	var result []*ciliumv2.ServiceListener
+
+	// Plaintext HTTP ports.
+	var httpPorts []uint16
+	for _, hl := range m.HTTP {
+		if len(hl.TLS) == 0 {
+			httpPorts = append(httpPorts, uint16(hl.Port))
+		}
+	}
+	goslices.Sort(httpPorts)
+	httpPorts = goslices.Compact(httpPorts)
+	if len(httpPorts) > 0 {
+		result = append(result, &ciliumv2.ServiceListener{
+			Namespace: namespace,
+			Name:      shortenedName,
+			Ports:     httpPorts,
+			Listener:  listenerName,
+		})
+	}
+
+	// One entry per HTTPS port.
+	for _, port := range m.HTTPSPortsSorted() {
+		envoyListenerName := listenerNameForPort(port)
+		result = append(result, &ciliumv2.ServiceListener{
+			Namespace: namespace,
+			Name:      shortenedName,
+			Ports:     []uint16{uint16(port)},
+			Listener:  envoyListenerName,
+		})
+	}
+
+	// TLS passthrough ports.
+	var ptPorts []uint16
+	for _, tlsl := range m.TLSPassthrough {
+		if len(tlsl.Routes) > 0 {
+			ptPorts = append(ptPorts, uint16(tlsl.Port))
+		}
+	}
+	goslices.Sort(ptPorts)
+	ptPorts = goslices.Compact(ptPorts)
+	if len(ptPorts) > 0 {
+		result = append(result, &ciliumv2.ServiceListener{
+			Namespace: namespace,
+			Name:      shortenedName,
+			Ports:     ptPorts,
+			Listener:  listenerName,
+		})
+	}
+
+	return result, nil
 }
 
 func (i *cecTranslator) desiredResources(m *model.Model) ([]ciliumv2.XDSResource, error) {

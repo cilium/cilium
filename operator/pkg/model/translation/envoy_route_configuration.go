@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"fmt"
 	goslices "slices"
+	"strconv"
 
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/slices"
 )
 
+// RouteConfigurationMutator transforms a RouteConfiguration before serialization.
 type RouteConfigurationMutator func(*envoy_config_route_v3.RouteConfiguration) *envoy_config_route_v3.RouteConfiguration
 
 // desiredEnvoyHTTPRouteConfiguration returns the route configuration for the given model.
@@ -34,8 +36,12 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
 			port := insecureHost
-			if l.TLS != nil {
-				port = secureHost
+			if len(l.TLS) > 0 {
+				if m.NeedsPerPortHTTPSListeners() {
+					port = fmt.Sprintf("%d", l.Port)
+				} else {
+					port = secureHost
+				}
 			}
 
 			if len(r.Hostnames) == 0 {
@@ -64,16 +70,54 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 		}
 	}
 
-	for _, port := range []string{insecureHost, secureHost} {
+	// Collect all port keys in a deterministic order.
+	allPorts := make([]string, 0, len(portHostNameRedirect))
+	for p := range portHostNameRedirect {
+		allPorts = append(allPorts, p)
+	}
+	goslices.Sort(allPorts)
+
+	// Also emit an empty RouteConfiguration for configured ports with no routes.
+	if !goslices.Contains(allPorts, insecureHost) && m.IsHTTPListenerConfigured() {
+		allPorts = append([]string{insecureHost}, allPorts...)
+	}
+	for _, httpsPort := range httpsPortKeys(m) {
+		if !goslices.Contains(allPorts, httpsPort) {
+			allPorts = append(allPorts, httpsPort)
+		}
+	}
+	goslices.SortFunc(allPorts, func(a, b string) int {
+		// "insecure" always sorts first to preserve backward-compatible ordering.
+		if a == insecureHost {
+			return -1
+		}
+		if b == insecureHost {
+			return 1
+		}
+		return cmp.Compare(a, b)
+	})
+
+	for _, port := range allPorts {
 		// the route name should match the value in http connection manager
 		// otherwise the request will be dropped by envoy
 		routeName := fmt.Sprintf("listener-%s", port)
 
 		hostNames, exists := portHostNameRedirect[port]
 		if !exists {
-			if port == insecureHost && !m.IsHTTPListenerConfigured() ||
-				port == secureHost && !m.IsHTTPSListenerConfigured() {
-				continue
+			if port == insecureHost {
+				if !m.IsHTTPListenerConfigured() {
+					continue
+				}
+			} else if port == secureHost {
+				// Legacy single-HTTPS-port mode.
+				if !m.IsHTTPSListenerConfigured() {
+					continue
+				}
+			} else {
+				// per-port mode: skip if no HTTPS listener uses this port.
+				if !m.IsHTTPSPortConfigured(parseUint32(port)) {
+					continue
+				}
 			}
 			rc, err := routeConfiguration(routeName, nil)
 			if err != nil {
@@ -85,18 +129,23 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 		var virtualhosts []*envoy_config_route_v3.VirtualHost
 
 		redirectedHost := map[string]struct{}{}
-		// Add HTTPs redirect virtual host for secure host
+		// Add HTTPS redirect virtual hosts across all configured HTTPS ports.
 		if port == insecureHost {
-			for _, h := range slices.Unique(portHostNameRedirect[secureHost]) {
-				if h.redirect {
-					vhs := i.desiredVirtualHost(hostNamePortRoutes[h.hostname][secureHost], VirtualHostParameter{
-						HostNames:      []string{h.hostname},
-						HTTPSRedirect:  true,
-						ListenerPort:   m.HTTP[0].Port,
-						AllAuthFilters: allAuthFilters,
-					})
-					virtualhosts = append(virtualhosts, vhs)
-					redirectedHost[h.hostname] = struct{}{}
+			for _, httpsPort := range httpsPortKeys(m) {
+				for _, h := range slices.Unique(portHostNameRedirect[httpsPort]) {
+					if h.redirect {
+						if _, already := redirectedHost[h.hostname]; already {
+							continue
+						}
+						redirectedHost[h.hostname] = struct{}{}
+						vhs := i.desiredVirtualHost(hostNamePortRoutes[h.hostname][httpsPort], VirtualHostParameter{
+							HostNames:      []string{h.hostname},
+							HTTPSRedirect:  true,
+							ListenerPort:   m.HTTP[0].Port,
+							AllAuthFilters: allAuthFilters,
+						})
+						virtualhosts = append(virtualhosts, vhs)
+					}
 				}
 			}
 		}
@@ -128,6 +177,37 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 	}
 
 	return res, nil
+}
+
+// httpsPortKeys returns sorted, unique port strings for all HTTPS listeners in the model.
+func httpsPortKeys(m *model.Model) []string {
+	if !m.NeedsPerPortHTTPSListeners() {
+		// Single (or zero) HTTPS port: use the legacy "secure" key.
+		if m.IsHTTPSListenerConfigured() {
+			return []string{secureHost}
+		}
+		return nil
+	}
+	seen := map[string]struct{}{}
+	for _, l := range m.HTTP {
+		if len(l.TLS) > 0 {
+			seen[fmt.Sprintf("%d", l.Port)] = struct{}{}
+		}
+	}
+	keys := make([]string, 0, len(seen))
+	for k := range seen {
+		keys = append(keys, k)
+	}
+	goslices.Sort(keys)
+	return keys
+}
+
+// parseUint32 parses a base-10 uint32 string. The callers only pass strings
+// produced by fmt.Sprintf("%d", l.Port) where l.Port is already a uint32, so
+// parse failure is not possible in practice; zero is returned on error.
+func parseUint32(s string) uint32 {
+	v, _ := strconv.ParseUint(s, 10, 32)
+	return uint32(v)
 }
 
 // routeConfiguration returns a new route configuration for a given list of http routes.
