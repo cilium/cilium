@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 type expectation struct {
@@ -1108,14 +1110,14 @@ func TestEncryptionRules(t *testing.T) {
 		haveBPFSocketAssign:  false,
 		ipEarlyDemuxDisabled: false,
 		sharedCfg: SharedConfig{
-			EnableIPv4:      true,
-			EnableIPv6:      true,
-			EnableWireguard: true,
+			EnableIPv4:  true,
+			EnableIPv6:  true,
+			EnableIPSec: true,
 		},
 		ip4tables: mockIp4tables,
 		ip6tables: mockIp6tables,
 	}
-	t.Run("test adding iptables rules for wireguard encryption", func(t *testing.T) {
+	t.Run("test adding iptables rules for ipsec encryption", func(t *testing.T) {
 
 		mockIp4tables.expectations = []expectation{
 			{args: "-t filter -A CILIUM_INPUT -m mark --mark 0x00000e00/0x00000f00 -m comment --comment exclude encrypt/decrypt marks from filter CILIUM_INPUT chain -j ACCEPT"},
@@ -1162,6 +1164,39 @@ func TestEncryptionRules(t *testing.T) {
 		}
 
 		assert.NoError(t, testMgr.addCiliumNoTrackEncryptionRules())
+		assert.NoError(t, mockIp4tables.checkExpectations())
+		assert.NoError(t, mockIp6tables.checkExpectations())
+	})
+
+	t.Run("test adding iptables rules for wireguard encryption", func(t *testing.T) {
+		testMgr.sharedCfg = SharedConfig{
+			EnableIPv4:      true,
+			EnableIPv6:      true,
+			EnableWireguard: true,
+		}
+
+		port := wgTypes.ListenPort
+		expected := "%s -A %s -p udp --dport %d -m comment --comment %s"
+
+		mockIp4tables.expectations = []expectation{
+			{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, "cilium: NOTRACK for wireguard traffic -j CT --notrack")},
+			{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, "cilium: NOTRACK for wireguard traffic -j CT --notrack")},
+		}
+
+		mockIp6tables.expectations = mockIp4tables.expectations
+
+		assert.NoError(t, testMgr.addCiliumNoTrackEncryptionRules())
+		assert.NoError(t, mockIp4tables.checkExpectations())
+		assert.NoError(t, mockIp6tables.checkExpectations())
+
+		mockIp4tables.expectations = []expectation{
+			{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, "cilium: ACCEPT for wireguard traffic -j ACCEPT")},
+			{args: fmt.Sprintf(expected, "-t filter", "CILIUM_INPUT", port, "cilium: ACCEPT for wireguard traffic -j ACCEPT")},
+		}
+
+		mockIp6tables.expectations = mockIp4tables.expectations
+
+		assert.NoError(t, testMgr.addCiliumAcceptEncryptionRules())
 		assert.NoError(t, mockIp4tables.checkExpectations())
 		assert.NoError(t, mockIp6tables.checkExpectations())
 	})
