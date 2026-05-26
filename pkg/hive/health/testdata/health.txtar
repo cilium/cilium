@@ -28,9 +28,17 @@ health --output=out agent.m0
 sed ' \(.*\)' '' out
 cmp m0.expected.txt out
 
+health --output=out --match=c1 agent.m0
+sed ' \(.*\)' '' out
+cmp m0.c1.expected.txt out
+
 health --output=out --levels=degraded 
 sed ' \(.*\)' '' out
 cmp degraded.expected.txt out
+
+health --output=out --levels=degraded,stopped
+sed ' \(.*\)' '' out
+cmp degraded-stopped.expected.txt out
 
 -- allok.yaml --
 id:
@@ -94,8 +102,10 @@ agent
 │   └── c1                                          [DEGRADED] no!
 ├── m1
 │   └── c1                                          [OK] yay
-└── m2
-    └── degraded                                    [OK] ok
+├── m2
+│   └── degraded                                    [OK] ok
+└── m4
+    └── stopped                                     [STOPPED] ok
 
 -- m0.expected.txt --
 agent
@@ -103,10 +113,22 @@ agent
     ├── c0                                          [OK] ok
     └── c1                                          [DEGRADED] no!
 
+-- m0.c1.expected.txt --
+agent
+└── m0
+    └── c1                                          [DEGRADED] no!
+
 -- degraded.expected.txt --
 agent
 └── m0
     └── c1                                          [DEGRADED] no!
+
+-- degraded-stopped.expected.txt --
+agent
+├── m0
+│   └── c1                                          [DEGRADED] no!
+└── m4
+    └── stopped                                     [STOPPED] ok
 
 -- history.expected.txt --
 1970-01-01T00:00:01Z | Degraded         | agent.m2.degraded-closed: broken | err2
