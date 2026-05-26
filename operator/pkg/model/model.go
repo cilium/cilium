@@ -629,6 +629,33 @@ func (m *Model) IsHTTPSListenerConfigured() bool {
 	return false
 }
 
+// IsHTTPSPortConfigured returns true if the model contains an HTTPS listener
+// on the given port number.
+func (m *Model) IsHTTPSPortConfigured(port uint32) bool {
+	for _, l := range m.HTTP {
+		if len(l.TLS) > 0 && l.Port == port {
+			return true
+		}
+	}
+	return false
+}
+
+// HTTPSPortsSorted returns sorted, unique ports for all HTTPS listeners.
+func (m *Model) HTTPSPortsSorted() []uint32 {
+	var ports []uint32
+	for _, l := range m.HTTP {
+		if len(l.TLS) > 0 {
+			ports = append(ports, l.Port)
+		}
+	}
+	return slices.SortedUnique(ports)
+}
+
+// NeedsPerPortHTTPSListeners returns true if the model has more than one distinct HTTPS port.
+func (m *Model) NeedsPerPortHTTPSListeners() bool {
+	return len(m.HTTPSPortsSorted()) > 1
+}
+
 // IsTLSPassthroughListenerConfigured returns true if the model has any TLS Passthrough listeners.
 func (m *Model) IsTLSPassthroughListenerConfigured() bool {
 	for _, l := range m.TLSPassthrough {
@@ -718,6 +745,24 @@ func (m *Model) TLSSecretsToHostnames() map[TLSSecret][]string {
 	for _, h := range m.HTTP {
 		for _, s := range h.TLS {
 			res[s] = append(res[s], h.Hostname)
+		}
+	}
+	return res
+}
+
+// TLSListenerRef records a (hostname, port) pair for an HTTPS listener.
+type TLSListenerRef struct {
+	Hostname string
+	Port     uint32
+}
+
+// TLSSecretsToListeners returns, for each TLS secret, the set of
+// (hostname, port) pairs of all HTTPS listeners that reference it.
+func (m *Model) TLSSecretsToListeners() map[TLSSecret][]TLSListenerRef {
+	res := make(map[TLSSecret][]TLSListenerRef)
+	for _, l := range m.HTTP {
+		for _, s := range l.TLS {
+			res[s] = append(res[s], TLSListenerRef{Hostname: l.Hostname, Port: l.Port})
 		}
 	}
 	return res
