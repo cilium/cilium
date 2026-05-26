@@ -30,6 +30,12 @@
 
 static char pkt[100];
 
+#define SECLABEL    1
+
+#include <lib/nodeport.h>
+
+ASSIGN_CONFIG(__u16, device_mtu, 1500);
+
 __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, bool rfc4884)
 {
 	void *orig = dst;
@@ -65,7 +71,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, b
 		.code           = ICMP_FRAG_NEEDED,
 		.un = {
 			.frag = {
-				.mtu = bpf_htons(MTU),
+				.mtu = bpf_htons(CONFIG(device_mtu)),
 			},
 		},
 	};
