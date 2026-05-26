@@ -786,6 +786,94 @@ func TestDesiredEnvoyListenerPerPort(t *testing.T) {
 	require.Equal(t, tlsTransportSocketType, l2.FilterChains[0].TransportSocket.Name)
 }
 
+func TestDesiredEnvoyListenerCatchAllHTTPSWithMultiPortTLSPassthrough(t *testing.T) {
+	i := &cecTranslator{
+		Config: Config{
+			SecretsNamespace: "cilium-secrets",
+		},
+	}
+
+	m := &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Port:     443,
+				Hostname: "*",
+				TLS: []model.TLSSecret{
+					{Name: "example-tls", Namespace: "default"},
+				},
+			},
+		},
+		TLSPassthrough: []model.TLSPassthroughListener{
+			{
+				Port: 50051,
+				Routes: []model.TLSPassthroughRoute{
+					{
+						Hostnames: []string{"api.example.test"},
+						Backends: []model.Backend{
+							{Name: "tls-backend-50051", Namespace: "default", Port: &model.BackendPort{Port: 9443}},
+						},
+					},
+				},
+			},
+			{
+				Port: 9443,
+				Routes: []model.TLSPassthroughRoute{
+					{
+						Hostnames: []string{"api.example.test"},
+						Backends: []model.Backend{
+							{Name: "tls-backend-9443", Namespace: "default", Port: &model.BackendPort{Port: 9443}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	res, err := i.desiredEnvoyListener(m)
+	require.NoError(t, err)
+	require.Len(t, res, 3, "expected listener-443 plus one listener per TLS passthrough port")
+
+	decodeListener := func(r ciliumv2.XDSResource) *envoy_config_listener.Listener {
+		l := &envoy_config_listener.Listener{}
+		require.NoError(t, proto.Unmarshal(r.Value, l))
+		return l
+	}
+	decodeHCM := func(fc *envoy_config_listener.FilterChain) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
+		require.Len(t, fc.Filters, 1)
+		hcm := &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{}
+		require.NoError(t, proto.Unmarshal(fc.Filters[0].GetTypedConfig().GetValue(), hcm))
+		return hcm
+	}
+
+	// HTTPS catch-all listener on port 443.
+	l0 := decodeListener(res[0])
+	require.Equal(t, "listener-443", l0.Name)
+	require.Len(t, l0.FilterChains, 1)
+	require.Equal(t, tlsTransportProtocol, l0.FilterChains[0].FilterChainMatch.TransportProtocol)
+	require.Empty(t, l0.FilterChains[0].FilterChainMatch.ServerNames)
+	hcm := decodeHCM(l0.FilterChains[0])
+	require.Equal(t, "listener-443", hcm.GetRds().GetRouteConfigName())
+	require.Equal(t, tlsTransportSocketType, l0.FilterChains[0].TransportSocket.Name)
+
+	// TLS passthrough listener on port 9443.
+	l1 := decodeListener(res[1])
+	require.Equal(t, "listener-9443", l1.Name)
+	require.Len(t, l1.FilterChains, 1)
+	require.Equal(t, tlsTransportProtocol, l1.FilterChains[0].FilterChainMatch.TransportProtocol)
+	require.Equal(t, []string{"api.example.test"}, l1.FilterChains[0].FilterChainMatch.ServerNames)
+	tcpProxy1 := getTCPProxy(t, l1.FilterChains[0])
+	require.Equal(t, "default:tls-backend-9443:9443", tcpProxy1.GetCluster())
+
+	// TLS passthrough listener on port 50051.
+	l2 := decodeListener(res[2])
+	require.Equal(t, "listener-50051", l2.Name)
+	require.Len(t, l2.FilterChains, 1)
+	require.Equal(t, tlsTransportProtocol, l2.FilterChains[0].FilterChainMatch.TransportProtocol)
+	require.Equal(t, []string{"api.example.test"}, l2.FilterChains[0].FilterChainMatch.ServerNames)
+	tcpProxy2 := getTCPProxy(t, l2.FilterChains[0])
+	require.Equal(t, "default:tls-backend-50051:9443", tcpProxy2.GetCluster())
+}
+
 // TestDesiredEnvoyListenerSingleHTTPS checks that a single-HTTPS-port model
 // still produces one combined Listener, preserving the original behaviour.
 func TestDesiredEnvoyListenerSingleHTTPS(t *testing.T) {

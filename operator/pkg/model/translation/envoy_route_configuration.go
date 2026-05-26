@@ -37,7 +37,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 		for _, r := range l.Routes {
 			port := insecureHost
 			if len(l.TLS) > 0 {
-				if m.NeedsPerPortHTTPSListeners() {
+				if m.NeedsPerPortListeners() {
 					port = fmt.Sprintf("%d", l.Port)
 				} else {
 					port = secureHost
@@ -181,8 +181,8 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 
 // httpsPortKeys returns sorted, unique port strings for all HTTPS listeners in the model.
 func httpsPortKeys(m *model.Model) []string {
-	if !m.NeedsPerPortHTTPSListeners() {
-		// Single (or zero) HTTPS port: use the legacy "secure" key.
+	if !m.NeedsPerPortListeners() {
+		// No per-port splitting needed: use the legacy "secure" key for the HTTPS port.
 		if m.IsHTTPSListenerConfigured() {
 			return []string{secureHost}
 		}
