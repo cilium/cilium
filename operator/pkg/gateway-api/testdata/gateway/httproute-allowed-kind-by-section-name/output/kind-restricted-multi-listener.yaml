@@ -1,7 +1,6 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: kind-restricted-multi-listener
   namespace: gateway-conformance-infra
   resourceVersion: "1000"
@@ -47,12 +46,12 @@ status:
   listeners:
     - attachedRoutes: 1
       conditions:
-        - lastTransitionTime: "2025-07-01T05:52:17Z"
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
           message: Resolved Refs
           reason: ResolvedRefs
           status: "True"
           type: ResolvedRefs
-        - lastTransitionTime: "2025-07-01T05:52:17Z"
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
           message: Listener Accepted
           reason: Accepted
           status: "True"
@@ -68,12 +67,12 @@ status:
           kind: HTTPRoute
     - attachedRoutes: 1
       conditions:
-        - lastTransitionTime: "2025-07-01T05:52:17Z"
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
           message: Resolved Refs
           reason: ResolvedRefs
           status: "True"
           type: ResolvedRefs
-        - lastTransitionTime: "2025-07-01T05:52:17Z"
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
           message: Listener Accepted
           reason: Accepted
           status: "True"
