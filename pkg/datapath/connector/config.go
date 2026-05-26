@@ -247,22 +247,32 @@ func (cc *config) calculateTunedBufferMargins() error {
 		return err
 	}
 
+	prevHeadroom := cc.podDeviceHeadroom
+	prevTailroom := cc.podDeviceTailroom
+
 	// There's nothing technically stopping these discovered values from being
 	// to be on the high end of the underlying storage type. When combined, they
 	// may overflow a U16.
 	var totalHeadroom = uint32(wgHeadroom) + uint32(tunnelHeadroom)
 	if totalHeadroom > math.MaxUint16 {
-		cc.log.Warn("Total calculated headroom would exceed maximum value, using default",
+		cc.log.Warn("Total calculated headroom would exceed maximum value",
 			logfields.DeviceHeadroom, totalHeadroom)
 	} else {
 		cc.podDeviceHeadroom = uint16(totalHeadroom)
 	}
 	var totalTailroom = uint32(wgTailroom) + uint32(tunnelTailroom)
 	if totalTailroom > math.MaxUint16 {
-		cc.log.Warn("Total calculated tailroom would exceed maximum value, using default",
+		cc.log.Warn("Total calculated tailroom would exceed maximum value",
 			logfields.DeviceTailroom, totalTailroom)
 	} else {
 		cc.podDeviceTailroom = uint16(totalTailroom)
 	}
+
+	if cc.podDeviceHeadroom != prevHeadroom || cc.podDeviceTailroom != prevTailroom {
+		cc.log.Info("Updated datapath buffer margins",
+			logfields.DeviceHeadroom, cc.podDeviceHeadroom,
+			logfields.DeviceTailroom, cc.podDeviceTailroom)
+	}
+
 	return nil
 }
