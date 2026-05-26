@@ -23,7 +23,6 @@ var allowedLicenses = []string{
 var pkgExceptions = []string{
 	"github.com/hashicorp/errwrap",
 	"github.com/hashicorp/go-cleanhttp",
-	"github.com/hashicorp/go-immutable-radix",
 	"github.com/hashicorp/go-multierror",
 	"github.com/hashicorp/go-rootcerts",
 	"github.com/hashicorp/golang-lru",
