@@ -142,11 +142,8 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 		for i := range testCases {
 			expected := testCases[i]
 			t.Run(expected.GetTestCaseName(i), func(t *testing.T) {
-				initialExpected := expected
-				initialExpected.AddRequestIDQueryParam(uuid.NewString())
-
 				// Assert request succeeds before doing our distribution check
-				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, initialExpected)
+				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, expected)
 
 				// Override to not have more requests than expected
 				dedicatedTimeoutConfig := suite.TimeoutConfig
@@ -156,8 +153,10 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 				var wg sync.WaitGroup
 
 				for k := 0; k < numDistributionChecks; k++ {
-					distributionExpected := expected
-					distributionExpected.AddRequestIDQueryParam(uuid.NewString())
+					err := expected.AddRequestIDQueryParam(uuid.NewString())
+					if err != nil {
+						t.Fatalf("Invalid query in path: %v", err)
+					}
 					timeNow := time.Now()
 					for j := 0; j < totalRequests; j++ {
 						wg.Add(1)
@@ -166,10 +165,10 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 							defer wg.Done()
 							defer func() { <-semaphore }()
 							http.MakeRequestAndExpectEventuallyConsistentResponse(t, r, timeoutConfig, gwAddr, expected)
-						}(t, suite.RoundTripper, dedicatedTimeoutConfig, gwAddr, distributionExpected)
+						}(t, suite.RoundTripper, dedicatedTimeoutConfig, gwAddr, expected)
 					}
 					wg.Wait()
-					if err := testMirroredRequestsDistribution(t, suite, distributionExpected, timeNow); err != nil {
+					if err := testMirroredRequestsDistribution(t, suite, expected, timeNow); err != nil {
 						t.Logf("Traffic distribution test failed (%d/%d): %s", k+1, numDistributionChecks, err)
 						time.Sleep(2 * time.Second)
 					} else {

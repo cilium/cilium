@@ -85,25 +85,40 @@ const requestIDQueryParam = "gateway-api-conformance-request-id"
 
 // AddRequestIDQueryParam adds a request ID to the request URI so that echo
 // server logs for this request can be matched unambiguously.
-func (e *ExpectedResponse) AddRequestIDQueryParam(requestID string) {
-	e.Request.Path = addQueryParam(e.Request.Path, requestIDQueryParam, requestID)
-	if e.ExpectedRequest != nil {
-		if e.ExpectedRequest.Path == "" {
-			e.ExpectedRequest.Path = e.Request.Path
+// Returns a non-nil error if either Request.Path or ExpectedRequest.Path has an unparseable query.
+func (er *ExpectedResponse) AddRequestIDQueryParam(requestID string) error {
+	path, err := addQueryParam(er.Request.Path, requestIDQueryParam, requestID)
+	if err != nil {
+		return err
+	}
+	if er.ExpectedRequest != nil {
+		if er.ExpectedRequest.Path == "" {
+			er.ExpectedRequest.Path = path
 		} else {
-			e.ExpectedRequest.Path = addQueryParam(e.ExpectedRequest.Path, requestIDQueryParam, requestID)
+			er.ExpectedRequest.Path, err = addQueryParam(er.ExpectedRequest.Path, requestIDQueryParam, requestID)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	er.Request.Path = path
+	return nil
 }
 
-func addQueryParam(path, name, value string) string {
-	pathOnly, rawQuery, _ := strings.Cut(path, "?")
-	query, err := url.ParseQuery(rawQuery)
-	if err != nil {
-		query = url.Values{}
+// addQueryParam adds 'name'='value' query parameter to the given 'path'.
+// returns an error if existing query cannot be parsed.
+func addQueryParam(path, name, value string) (string, error) {
+	var query url.Values
+	pathOnly, rawQuery, found := strings.Cut(path, "?")
+	if found {
+		var err error
+		query, err = url.ParseQuery(rawQuery)
+		if err != nil {
+			return "", err
+		}
 	}
 	query.Set(name, value)
-	return pathOnly + "?" + query.Encode()
+	return pathOnly + "?" + query.Encode(), nil
 }
 
 // ExpectedRequest defines expected properties of a request that reaches a backend.

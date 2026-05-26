@@ -105,11 +105,14 @@ var HTTPRouteRequestMirror = suite.ConformanceTest{
 			tc := testCases[i]
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				tc.AddRequestIDQueryParam(uuid.NewString())
+				err := tc.AddRequestIDQueryParam(uuid.NewString())
+				if err != nil {
+					t.Fatalf("Invalid query in path: %v", err)
+				}
 				// Start inspecting logs before sending the request
 				waitForMirroredRequests := http.ExpectMirroredRequest(t, suite.Client, suite.Clientset, tc.MirroredTo, tc.Request.Path, suite.TimeoutConfig)
-				defer waitForMirroredRequests() // defer in case we exit below
 				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
+				waitForMirroredRequests()
 			})
 		}
 	},
