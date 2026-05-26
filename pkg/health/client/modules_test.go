@@ -48,6 +48,28 @@ func TestGetAndFormatModulesHealth(t *testing.T) {
 	}
 }
 
+func TestGetAndFormatModulesHealthMultipleRoots(t *testing.T) {
+	w := bytes.NewBufferString("")
+	client.GetAndFormatModulesHealth(w, []types.Status{
+		{
+			ID:      ident([]string{"operator", "operator-controlplane"}, "leader-election"),
+			Level:   types.LevelOK,
+			Message: "Leader",
+		},
+		{
+			ID:      ident([]string{"health"}, "job-module-status-metrics"),
+			Level:   types.LevelOK,
+			Message: "Running",
+		},
+	}, true, "")
+
+	out := strings.TrimSpace(w.String())
+	assert.Contains(t, out, "health\n└── job-module-status-metrics")
+	assert.Contains(t, out, "operator\n└── operator-controlplane")
+	assert.Contains(t, out, "[OK] Running")
+	assert.Contains(t, out, "[OK] Leader")
+}
+
 // Helpers
 
 func ident(mid []string, cid ...string) types.Identifier {
