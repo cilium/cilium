@@ -82,14 +82,9 @@ spec:
             - match:
                 prefix: /
               route:
+                cluster: gateway-conformance-infra:infra-backend-v1:8080
                 maxStreamDuration:
                   maxStreamDuration: 0s
-                weightedClusters:
-                  clusters:
-                  - name: "gateway-conformance-infra:infra-backend-v1:8080"
-                    weight: 1
-                  - name: "gateway-conformance-infra:infra-backend-v1:8080"
-                    weight: 1
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/infra-backend-v1:8080
