@@ -426,6 +426,259 @@ func TestNeedsPerPortHTTPSListeners(t *testing.T) {
 	}
 }
 
+func TestNeedsCrossProtocolSplit(t *testing.T) {
+	tests := []struct {
+		name  string
+		model Model
+		want  bool
+	}{
+		{
+			name:  "empty model",
+			model: Model{},
+			want:  false,
+		},
+		{
+			name: "HTTPS only",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "TLS passthrough only",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "api.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "same hostname across protocols",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "api.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "same hostname and port across protocols does not trigger per-port split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 443, Hostname: "api.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "disjoint hostnames across protocols",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "web.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"tls.example.test"}}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "overlap via route hostname",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "shared.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"shared.example.test"}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch-all hostnames on both protocols trigger split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"*"}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "empty catch-all hostnames on both protocols trigger split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "", Routes: []TLSPassthroughRoute{{Hostnames: []string{""}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch-all HTTPS with specific TLS passthrough hostname on same port does not collide",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"tls.example.test"}}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "catch-all HTTPS with specific TLS passthrough hostname on different ports triggers split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"tls.example.test"}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "specific HTTPS with catch-all TLS passthrough hostname on same port does not collide",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "web.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"*"}}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "specific HTTPS with catch-all TLS passthrough hostname on different ports triggers split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "web.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"*"}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch-all HTTPS with empty TLS passthrough route hostnames triggers split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSPassthroughRoute{{}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch-all HTTPS with catch-all TLS route hostname triggers split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"*"}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "HTTPS wildcard does not collide with TLS route exact hostname on same port",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "HTTPS wildcard with TLS route exact hostname on different ports triggers split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "HTTPS wildcard does not collide with TLS route different suffix",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.org"}}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "HTTPS exact hostname does not collide with TLS route wildcard on same port",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"*.example.test"}}}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "HTTPS exact hostname with TLS route wildcard on different ports triggers split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"*.example.test"}}}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "same wildcard across protocols triggers split",
+			model: Model{
+				HTTP: []HTTPListener{
+					{Port: 443, Hostname: "*.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"*.example.test"}}}},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.model.NeedsCrossProtocolSplit())
+		})
+	}
+}
+
 func TestIsHTTPSPortConfigured(t *testing.T) {
 	m := Model{
 		HTTP: []HTTPListener{
