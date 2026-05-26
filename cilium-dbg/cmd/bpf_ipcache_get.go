@@ -5,11 +5,10 @@ package cmd
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"strings"
 
-	iradix "github.com/hashicorp/go-immutable-radix/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/common"
@@ -31,8 +30,8 @@ var bpfIPCacheGetCmd = &cobra.Command{
 
 		arg := args[0]
 
-		ip := net.ParseIP(arg)
-		if ip == nil {
+		ip, err := netip.ParseAddr(arg)
+		if err != nil {
 			Usagef(cmd, "Invalid ip address. "+usage)
 		}
 
@@ -43,7 +42,7 @@ var bpfIPCacheGetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		value, exists := getLPMValue(ip, bpfIPCache)
+		value, exists := getLPMValue(ip.Unmap(), bpfIPCache)
 
 		if !exists {
 			fmt.Printf("%s does not map to any identity\n", arg)
@@ -79,22 +78,15 @@ func dumpIPCache() map[string][]string {
 // keys in entries. The keys in entries must be specified in CIDR notation.
 // If LPM is found, the value associated with that entry is returned
 // along with boolean true. Otherwise, false is returned.
-func getLPMValue(ip net.IP, entries map[string][]string) (any, bool) {
-	type lpmEntry struct {
-		prefix   []byte
-		identity []string
-	}
+func getLPMValue(ip netip.Addr, entries map[string][]string) (any, bool) {
+	var (
+		value   []string
+		longest = -1
+		found   bool
+	)
 
-	isV4 := isIPV4(ip)
-
-	// Convert ip to 4-byte representation if IPv4.
-	if isV4 {
-		ip = ip.To4()
-	}
-
-	lpmEntries := make([]lpmEntry, 0, len(entries))
 	for cidr, identity := range entries {
-		currIP, subnet, err := net.ParseCIDR(cidr)
+		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
 			log.Warn(
 				"unable to parse ipcache entry as a CIDR",
@@ -104,64 +96,20 @@ func getLPMValue(ip net.IP, entries map[string][]string) (any, bool) {
 			continue
 		}
 
+		prefix = prefix.Masked()
+
 		// No need to include IPv6 addresses if the argument is
 		// IPv4 and vice versa.
-		if isIPV4(currIP) != isV4 {
+		if prefix.Addr().Is4() != ip.Is4() {
 			continue
 		}
 
-		// Convert ip to 4-byte representation if IPv4.
-		if isV4 {
-			currIP = currIP.To4()
+		if prefix.Contains(ip) && prefix.Bits() > longest {
+			value = identity
+			longest = prefix.Bits()
+			found = true
 		}
-
-		ones, _ := subnet.Mask.Size()
-		prefix := getPrefix(currIP, ones)
-
-		lpmEntries = append(lpmEntries, lpmEntry{prefix, identity})
 	}
 
-	r := iradix.New[[]string]()
-	for _, e := range lpmEntries {
-		r, _, _ = r.Insert(e.prefix, e.identity)
-	}
-
-	// Look-up using all bits in the argument ip
-	var mask int
-	if isV4 {
-		mask = 8 * net.IPv4len
-	} else {
-		mask = 8 * net.IPv6len
-	}
-
-	_, v, exists := r.Root().LongestPrefix(getPrefix(ip, mask))
-	return v, exists
-}
-
-// getPrefix converts the most significant maskSize bits in ip
-// into a byte slice - each bit is represented using one byte.
-func getPrefix(ip net.IP, maskSize int) []byte {
-	bytes := make([]byte, maskSize)
-	var i, j uint8
-	var n int
-
-	for n < maskSize {
-		for j = 0; j < 8 && n < maskSize; j++ {
-			mask := uint8(128) >> uint8(j)
-
-			if mask&ip[i] == 0 {
-				bytes[i*8+j] = 0x0
-			} else {
-				bytes[i*8+j] = 0x1
-			}
-			n++
-		}
-		i++
-	}
-
-	return bytes
-}
-
-func isIPV4(ip net.IP) bool {
-	return ip.To4() != nil
+	return value, found
 }
