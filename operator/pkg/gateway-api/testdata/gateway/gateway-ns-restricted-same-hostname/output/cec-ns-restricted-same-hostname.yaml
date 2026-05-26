@@ -1,0 +1,185 @@
+metadata:
+  annotations:
+    cec.cilium.io/use-original-source-address: "false"
+  labels:
+    gateway.networking.k8s.io/gateway-name: ns-restricted-same-hostname
+  name: cilium-gateway-ns-restricted-same-hostname
+  namespace: gateway-conformance-infra
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1
+      controller: true
+      kind: Gateway
+      name: ns-restricted-same-hostname
+  resourceVersion: 1
+spec:
+  backendServices:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      number:
+        - "8080"
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      filterChains:
+        - filterChainMatch:
+            serverNames:
+              - api.example.test
+            transportProtocol: tls
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                commonHttpProtocolOptions:
+                  maxStreamDuration: 0s
+                httpFilters:
+                  - name: envoy.filters.http.grpc_web
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+                  - name: envoy.filters.http.grpc_stats
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+                      emitFilterState: true
+                      enableUpstreamStats: true
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                internalAddressConfig: {}
+                rds:
+                  routeConfigName: listener-443
+                statPrefix: listener-443
+                streamIdleTimeout: 300s
+                upgradeConfigs:
+                  - upgradeType: websocket
+                useRemoteAddress: true
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                tlsCertificateSdsSecretConfigs:
+                  - name: cilium-secrets/gateway-conformance-infra-ns-restricted-tls
+      listenerFilters:
+        - name: envoy.filters.listener.tls_inspector
+          typedConfig:
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+      name: listener-443
+      socketOptions:
+        - description: Enable TCP keep-alive (default to enabled)
+          intValue: "1"
+          level: "1"
+          name: "9"
+        - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+          intValue: "10"
+          level: "6"
+          name: "4"
+        - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+          intValue: "5"
+          level: "6"
+          name: "5"
+        - description: TCP keep-alive probe max failures.
+          intValue: "10"
+          level: "6"
+          name: "6"
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      filterChains:
+        - filterChainMatch:
+            serverNames:
+              - api.example.test
+            transportProtocol: tls
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                commonHttpProtocolOptions:
+                  maxStreamDuration: 0s
+                httpFilters:
+                  - name: envoy.filters.http.grpc_web
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+                  - name: envoy.filters.http.grpc_stats
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+                      emitFilterState: true
+                      enableUpstreamStats: true
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                internalAddressConfig: {}
+                rds:
+                  routeConfigName: listener-50051
+                statPrefix: listener-50051
+                streamIdleTimeout: 300s
+                upgradeConfigs:
+                  - upgradeType: websocket
+                useRemoteAddress: true
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                tlsCertificateSdsSecretConfigs:
+                  - name: cilium-secrets/gateway-conformance-infra-ns-restricted-tls
+      listenerFilters:
+        - name: envoy.filters.listener.tls_inspector
+          typedConfig:
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+      name: listener-50051
+      socketOptions:
+        - description: Enable TCP keep-alive (default to enabled)
+          intValue: "1"
+          level: "1"
+          name: "9"
+        - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+          intValue: "10"
+          level: "6"
+          name: "4"
+        - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+          intValue: "5"
+          level: "6"
+          name: "5"
+        - description: TCP keep-alive probe max failures.
+          intValue: "10"
+          level: "6"
+          name: "6"
+    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+      name: listener-insecure
+    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+      name: listener-443
+    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+      name: listener-50051
+      virtualHosts:
+        - domains:
+            - api.example.test
+            - api.example.test:*
+          name: api.example.test
+          routes:
+            - match:
+                pathSeparatedPrefix: /cross-ns
+              route:
+                cluster: gateway-conformance-infra:infra-backend-v1:8080
+                maxStreamDuration:
+                  maxStreamDuration: 0s
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      edsClusterConfig:
+        serviceName: gateway-conformance-infra/infra-backend-v1:8080
+      name: gateway-conformance-infra:infra-backend-v1:8080
+      outlierDetection:
+        splitExternalLocalOriginErrors: true
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            idleTimeout: 60s
+          useDownstreamProtocolConfig:
+            http2ProtocolOptions: {}
+  services:
+    - listener: listener-443
+      name: cilium-gateway-ns-restricted-same-hostname
+      namespace: gateway-conformance-infra
+      ports:
+        - 443
+    - listener: listener-50051
+      name: cilium-gateway-ns-restricted-same-hostname
+      namespace: gateway-conformance-infra
+      ports:
+        - 50051
