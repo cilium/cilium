@@ -273,6 +273,58 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "catch-all HTTPS with multi-port TLS passthrough",
+			fields: fields{
+				name:      "cilium-ingress",
+				namespace: "default",
+			},
+			model: &model.Model{
+				HTTP: []model.HTTPListener{
+					{
+						Port:     443,
+						Hostname: "*",
+						TLS: []model.TLSSecret{
+							{Name: "example-tls", Namespace: "default"},
+						},
+					},
+				},
+				TLSPassthrough: []model.TLSPassthroughListener{
+					{
+						Port: 50051,
+						Routes: []model.TLSPassthroughRoute{
+							{Hostnames: []string{"api.example.test"}},
+						},
+					},
+					{
+						Port: 9443,
+						Routes: []model.TLSPassthroughRoute{
+							{Hostnames: []string{"api.example.test"}},
+						},
+					},
+				},
+			},
+			want: []*ciliumv2.ServiceListener{
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{443},
+					Listener:  "listener-443",
+				},
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{9443},
+					Listener:  "listener-9443",
+				},
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{50051},
+					Listener:  "listener-50051",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
