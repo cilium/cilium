@@ -26,17 +26,14 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// AzureAPI is the API surface used of the Azure API
+// AzureAPI is the API surface used of the Azure API.
 type AzureAPI interface {
-	GetInstance(ctx context.Context, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error)
-	GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
 	GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
 	GetSubnetsByIDs(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.SubnetMap, error)
 	AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error
 	AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
 	AssignPublicIPAddressesVM(ctx context.Context, instanceID string, publicIpTags ipamTypes.Tags) (string, error)
 	AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vmssName string, publicIpTags ipamTypes.Tags) (string, error)
-	// New methods for optimization: fetch network interfaces once and parse multiple times
 	ListAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.Interface, error)
 	ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.InstanceMap
 	ListVMNetworkInterfaces(ctx context.Context, instanceID string) ([]*armnetwork.Interface, error)
@@ -107,18 +104,17 @@ func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
 }
 
 // resyncInstance only resyncs a given instance
-// Note: This function uses GetInstance directly (not optimized with separate fetch/parse)
-// because it already queries per-instance APIs which are relatively lightweight
 func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string) (time.Time, error) {
 	resyncStart := time.Now()
 
-	// First get the instance with empty subnet map to extract subnet IDs
-	instance, err := m.api.GetInstance(ctx, ipamTypes.SubnetMap{}, instanceID)
+	// Fetch network interfaces once from Azure API
+	networkInterfaces, err := m.api.ListVMNetworkInterfaces(ctx, instanceID)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("synchronize Azure instance %s interface list: %w", instanceID, err)
 	}
 
-	// Extract subnet IDs from this instance
+	// Parse with empty subnets to discover which subnets are actually in use
+	instance := m.api.ParseInterfacesIntoInstance(networkInterfaces, ipamTypes.SubnetMap{})
 	instanceMap := ipamTypes.NewInstanceMap()
 	instanceMap.UpdateInstance(instanceID, instance)
 	nodeSubnetIDs := m.extractSubnetIDs(instanceMap)
@@ -134,12 +130,10 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 		subnets = ipamTypes.SubnetMap{}
 	}
 
-	// Re-query instance with discovered subnets for complete information
+	// Re-parse the same network interface data with subnet details to populate
+	// CIDR and gateway info without making another Azure API call
 	if len(subnets) > 0 {
-		instance, err = m.api.GetInstance(ctx, subnets, instanceID)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("re-synchronize Azure instance %s with subnet details: %w", instanceID, err)
-		}
+		instance = m.api.ParseInterfacesIntoInstance(networkInterfaces, subnets)
 	}
 
 	m.logger.Info(
