@@ -40,6 +40,12 @@ health --output=out --levels=degraded,stopped
 sed ' \(.*\)' '' out
 cmp degraded-stopped.expected.txt out
 
+# Inserting a new root will show two trees
+db/insert health foo.yaml
+health --output=out
+sed ' \(.*\)' '' out
+cmp foo.expected.txt out
+
 -- allok.yaml --
 id:
     module:
@@ -87,6 +93,21 @@ id:
         - m1
     component:
         - c1
+level: OK
+message: yay
+error: ""
+lastok: 2025-04-01T21:28:00.000000000-07:00
+updated: 2025-04-01T21:28:00.000000000-07:00
+stopped: 0001-01-01T00:00:00Z
+final: ""
+count: 1
+
+-- foo.yaml --
+id:
+    module:
+        - foo
+    component:
+        - c1
 level: OK 
 message: yay 
 error: ""
@@ -95,6 +116,7 @@ updated: 2025-04-01T21:28:00.000000000-07:00
 stopped: 0001-01-01T00:00:00Z
 final: ""
 count: 1
+
 -- all.expected.txt --
 agent
 ├── m0
@@ -129,6 +151,20 @@ agent
 │   └── c1                                          [DEGRADED] no!
 └── m4
     └── stopped                                     [STOPPED] ok
+
+-- foo.expected.txt --
+agent
+├── m0
+│   ├── c0                                          [OK] ok
+│   └── c1                                          [DEGRADED] no!
+├── m1
+│   └── c1                                          [OK] yay
+├── m2
+│   └── degraded                                    [OK] ok
+└── m4
+    └── stopped                                     [STOPPED] ok
+foo
+└── c1                                          [OK] yay
 
 -- history.expected.txt --
 1970-01-01T00:00:01Z | Degraded         | agent.m2.degraded-closed: broken | err2

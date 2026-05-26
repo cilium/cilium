@@ -36,14 +36,25 @@ func GetAndFormatModulesHealth(w io.Writer, ss []types.Status, verbose bool, pre
 			stack := strings.Split(s.ID.String(), ".")
 			upsertTree(r, &s, stack)
 		}
-		if len(r.nodes) != 0 {
-			r = r.nodes[0]
-			r.parent = nil
-		} else {
+		if len(r.nodes) == 0 {
 			return
 		}
 
-		body := strings.ReplaceAll(r.String(), "\n", "\n"+prefix)
+		var body string
+		if len(r.nodes) == 1 {
+			r = r.nodes[0]
+			r.parent = nil
+			body = r.String()
+		} else {
+			var b strings.Builder
+			for _, n := range r.nodes {
+				n.parent = nil
+				b.WriteString(n.String())
+			}
+			body = b.String()
+		}
+
+		body = strings.ReplaceAll(body, "\n", "\n"+prefix)
 		fmt.Fprintln(w, prefix+body)
 		return
 	}
