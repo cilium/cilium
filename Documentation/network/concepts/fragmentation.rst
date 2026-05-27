@@ -36,9 +36,8 @@ have been processed by Cilium's datapath by checking the following metrics:
 These packets are the basis for path MTU discovery and indicate that packets
 along a network path are exceeding max MTU size of the network.
 
-.. attention::
-
-   **Known limitations:**
+Known limitations
+-----------------
    
    Currently fragmentation is supported as long as the first packet processed
    is also the first fragment. This means that some out-of-order packets
