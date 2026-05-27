@@ -83,6 +83,112 @@ func TestPrivilegedConfigureZeros(t *testing.T) {
 	})
 }
 
+// TestPrivilegedConfigureRevertsOnError verifies that Configure() cleans up
+// any rules it installed if it fails partway through. Without rollback,
+// a second attempt to attach the same IP would fail because stale rules
+// from the first attempt are still present (issue #39751).
+func TestPrivilegedConfigureRevertsOnError(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		ip, ri := getFakes(t, ipamOption.IPAMENI, true, false)
+		masterMAC := ri.MasterIfMAC
+		ifaceCleanup := createDummyDevice(t, masterMAC)
+		defer ifaceCleanup()
+
+		beforeRules, _ := listRulesAndRoutes(t, netlink.FAMILY_V4)
+
+		// Force installRoutes to fail by zeroing the gateway so that
+		// netlink.RouteReplace returns an error.
+		badRI := ri
+		badRI.Gateway = net.IPv4zero
+
+		err := badRI.Configure(ip.AsSlice(), 1500, false)
+		require.Error(t, err)
+
+		// After the failed Configure, the rule count must be exactly the same
+		// as before — no leaked ingress or egress rules.
+		afterRules, _ := listRulesAndRoutes(t, netlink.FAMILY_V4)
+		require.Len(t, afterRules, len(beforeRules),
+			"Configure() leaked ip rules after partial failure")
+
+		return nil
+	})
+}
+
+// TestPrivilegedConfigureRevertsOnErrorWithPreexistingRules verifies that if
+// Configure() was already called successfully once, a subsequent failing call
+// does not delete the rules installed by the first successful call.
+func TestPrivilegedConfigureRevertsOnErrorWithPreexistingRules(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		ip, ri := getFakes(t, ipamOption.IPAMENI, true, false)
+		masterMAC := ri.MasterIfMAC
+		ifaceCleanup := createDummyDevice(t, masterMAC)
+		defer ifaceCleanup()
+
+		// First call — succeeds, rules and routes are installed.
+		err := ri.Configure(ip.AsSlice(), 1500, false)
+		require.NoError(t, err)
+
+		afterFirstRules, _ := listRulesAndRoutes(t, netlink.FAMILY_V4)
+		require.NotEmpty(t, afterFirstRules)
+
+		// Second call with a bad gateway — fails at installRoutes.
+		// The rules installed by the first call must survive.
+		badRI := ri
+		badRI.Gateway = net.IPv4zero
+
+		err = badRI.Configure(ip.AsSlice(), 1500, false)
+		require.Error(t, err)
+
+		afterSecondRules, _ := listRulesAndRoutes(t, netlink.FAMILY_V4)
+		require.Len(t, afterSecondRules, len(afterFirstRules),
+			"Configure() deleted pre-existing rules during rollback")
+
+		return nil
+	})
+}
+
+// TestPrivilegedConfigureRevertsOnErrorWithPreexistingRulesAzure is the same
+// as TestPrivilegedConfigureRevertsOnErrorWithPreexistingRules but for Azure
+// IPAM mode, which uses RulePriorityEgress instead of RulePriorityEgressv2.
+func TestPrivilegedConfigureRevertsOnErrorWithPreexistingRulesAzure(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		ip, ri := getFakes(t, ipamOption.IPAMAzure, true, false)
+		masterMAC := ri.MasterIfMAC
+		ifaceCleanup := createDummyDevice(t, masterMAC)
+		defer ifaceCleanup()
+
+		// First call — succeeds, rules and routes are installed.
+		err := ri.Configure(ip.AsSlice(), 1500, false)
+		require.NoError(t, err)
+
+		afterFirstRules, _ := listRulesAndRoutes(t, netlink.FAMILY_V4)
+		require.NotEmpty(t, afterFirstRules)
+
+		// Second call with a bad gateway — fails at installRoutes.
+		// The rules installed by the first call must survive.
+		badRI := ri
+		badRI.Gateway = net.IPv4zero
+
+		err = badRI.Configure(ip.AsSlice(), 1500, false)
+		require.Error(t, err)
+
+		afterSecondRules, _ := listRulesAndRoutes(t, netlink.FAMILY_V4)
+		require.Len(t, afterSecondRules, len(afterFirstRules),
+			"Configure() deleted pre-existing rules during rollback")
+
+		return nil
+	})
+}
+
 func TestPrivilegedConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 

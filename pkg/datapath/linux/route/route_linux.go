@@ -390,7 +390,7 @@ func (r Rule) String() string {
 	return str
 }
 
-func lookupRule(spec Rule, family int) (bool, error) {
+func LookupRule(spec Rule, family int) (bool, error) {
 	rules, err := safenetlink.RuleList(family)
 	if err != nil {
 		return false, err
@@ -483,7 +483,7 @@ func ReplaceRuleIPv6(spec Rule) error {
 }
 
 func replaceRule(spec Rule, family int) error {
-	exists, err := lookupRule(spec, family)
+	exists, err := LookupRule(spec, family)
 	if err != nil {
 		return err
 	}

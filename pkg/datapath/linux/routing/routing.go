@@ -74,13 +74,41 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		}
 	}
 
+	var family int
+	if ip.To4() != nil {
+		family = netlink.FAMILY_V4
+	} else {
+		family = netlink.FAMILY_V6
+	}
+
+	var installedRules []route.Rule
+	defer func() {
+		for _, r := range installedRules {
+			_ = route.DeleteRule(family, r)
+		}
+	}()
+
+	installRule := func(r route.Rule) error {
+		existed, err := route.LookupRule(r, family)
+		if err != nil {
+			return err
+		}
+		if err := replaceRule(r); err != nil {
+			return err
+		}
+		if !existed {
+			installedRules = append(installedRules, r)
+		}
+		return nil
+	}
+
 	// Ingress rule. This rule is not installed for the cilium_host IP, because
 	// the cilium_host IP is a local IP and therefore must be routed via the
 	// 'local' table instead of 'main'.
 	if !host {
 		// On ingress, route all traffic to the endpoint IP via the main routing
 		// table. Egress rules are created in a per-ENI routing table.
-		if err := replaceRule(route.Rule{
+		if err := installRule(route.Rule{
 			Priority: linux_defaults.RulePriorityIngress,
 			To:       &ipWithMask,
 			Table:    route.MainTable,
@@ -107,7 +135,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		// ReplaceRule function doesn't handle all zeros cidr and return `file exists` error,
 		// so we need to normalize the rule to cidr here and in Delete
 		for _, cidr := range info.CIDRs {
-			if err := replaceRule(route.Rule{
+			if err := installRule(route.Rule{
 				Priority: egressPriority,
 				From:     &ipWithMask,
 				To:       normalizeRuleToCIDR(&cidr),
@@ -119,7 +147,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		}
 	} else {
 		// Lookup a VPC specific table for all traffic from an endpoint.
-		if err := replaceRule(route.Rule{
+		if err := installRule(route.Rule{
 			Priority: egressPriority,
 			From:     &ipWithMask,
 			Table:    tableID,
@@ -129,7 +157,12 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		}
 	}
 
-	return info.installRoutes(ifindex, tableID)
+	if err := info.installRoutes(ifindex, tableID); err != nil {
+		return err
+	}
+
+	installedRules = nil
+	return nil
 }
 
 func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {

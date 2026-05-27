@@ -129,12 +129,12 @@ func testReplaceRule(t *testing.T, mark uint32, from, to *net.IPNet, table int) 
 	err := ReplaceRule(rule)
 	require.NoError(t, err)
 
-	exists, err := lookupRule(rule, netlink.FAMILY_V4)
+	exists, err := LookupRule(rule, netlink.FAMILY_V4)
 	require.NoError(t, err)
 	require.True(t, exists)
 
 	rule.Mask++
-	exists, err = lookupRule(rule, netlink.FAMILY_V4)
+	exists, err = LookupRule(rule, netlink.FAMILY_V4)
 	require.NoError(t, err)
 	require.False(t, exists)
 	rule.Mask--
@@ -142,7 +142,7 @@ func testReplaceRule(t *testing.T, mark uint32, from, to *net.IPNet, table int) 
 	err = DeleteRule(netlink.FAMILY_V4, rule)
 	require.NoError(t, err)
 
-	exists, err = lookupRule(rule, netlink.FAMILY_V4)
+	exists, err = LookupRule(rule, netlink.FAMILY_V4)
 	require.NoError(t, err)
 	require.False(t, exists)
 }
@@ -157,14 +157,14 @@ func testReplaceRuleIPv6(t *testing.T, mark uint32, from, to *net.IPNet, table i
 	err := ReplaceRuleIPv6(rule)
 	require.NoError(t, err)
 
-	exists, err := lookupRule(rule, netlink.FAMILY_V6)
+	exists, err := LookupRule(rule, netlink.FAMILY_V6)
 	require.NoError(t, err)
 	require.True(t, exists)
 
 	err = DeleteRule(netlink.FAMILY_V6, rule)
 	require.NoError(t, err)
 
-	exists, err = lookupRule(rule, netlink.FAMILY_V6)
+	exists, err = LookupRule(rule, netlink.FAMILY_V6)
 	require.NoError(t, err)
 	require.False(t, exists)
 }
