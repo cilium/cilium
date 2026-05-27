@@ -89,7 +89,7 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 			return
 		}
 		for _, label := range ipc.labelsFilter {
-			if !id.Labels.Has(label) {
+			if !id.Labels.HasLabel(label) {
 				return
 			}
 		}
