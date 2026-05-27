@@ -575,13 +575,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}()
 
 	for _, result := range claim.Status.Allocation.Devices.Results {
-		cfg, found := deviceClaimConfigs[result.Request]
-		if !found {
-			err = fmt.Errorf("%w with ifname %s for %s", errDeviceClaimConfigNotFound, result.Device, path.Join(claim.Namespace, claim.Name))
-			return kubeletplugin.PrepareResult{
-				Err: err,
-			}
-		}
+		cfg := deviceClaimConfigs[result.Request] // zero-value DeviceConfig if no opaque config present
 
 		var thisAlloc allocation
 
