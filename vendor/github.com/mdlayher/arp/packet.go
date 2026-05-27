@@ -93,13 +93,8 @@ func NewPacket(op Operation, srcHW net.HardwareAddr, srcIP netip.Addr, dstHW net
 		return nil, ErrInvalidHardwareAddr
 	}
 
-	// Validate IP addresses to ensure they are IPv4 addresses, and
-	// correct length
-	var invalidIP netip.Addr
-	if !srcIP.IsValid() || !srcIP.Is4() {
-		return nil, ErrInvalidIP
-	}
-	if !dstIP.Is4() || dstIP == invalidIP {
+	// Validate IP addresses to ensure they are IPv4 addresses.
+	if !srcIP.Is4() || !dstIP.Is4() {
 		return nil, ErrInvalidIP
 	}
 
@@ -139,7 +134,7 @@ func (p *Packet) MarshalBinary() ([]byte, error) {
 	// Though an IPv4 address should always 4 bytes, go-fuzz
 	// very quickly created several crasher scenarios which
 	// indicated that these values can lie.
-	b := make([]byte, 2+2+1+1+2+(p.IPLength*2)+(p.HardwareAddrLength*2))
+	b := make([]byte, 2+2+1+1+2+(int(p.IPLength)*2)+(int(p.HardwareAddrLength)*2))
 
 	// Marshal fixed length data
 
@@ -161,15 +156,15 @@ func (p *Packet) MarshalBinary() ([]byte, error) {
 	copy(b[n:n+hal], p.SenderHardwareAddr)
 	n += hal
 
-	sender4 := p.SenderIP.As4()
-	copy(b[n:n+pl], sender4[:])
+	senderIP := p.SenderIP.As16()
+	copy(b[n:n+pl], senderIP[16-pl:])
 	n += pl
 
 	copy(b[n:n+hal], p.TargetHardwareAddr)
 	n += hal
 
-	target4 := p.TargetIP.As4()
-	copy(b[n:n+pl], target4[:])
+	targetIP := p.TargetIP.As16()
+	copy(b[n:n+pl], targetIP[16-pl:])
 
 	return b, nil
 }
@@ -221,7 +216,7 @@ func (p *Packet) UnmarshalBinary(b []byte) error {
 	copy(bb[ml:ml+il], b[n:n+il])
 	senderIP, ok := netip.AddrFromSlice(bb[ml : ml+il])
 	if !ok {
-		return errors.New("Invalid Sender IP address")
+		return ErrInvalidIP
 	}
 	p.SenderIP = senderIP
 	n += il
@@ -235,7 +230,7 @@ func (p *Packet) UnmarshalBinary(b []byte) error {
 	copy(bb[ml2+il:ml2+il2], b[n:n+il])
 	targetIP, ok := netip.AddrFromSlice(bb[ml2+il : ml2+il2])
 	if !ok {
-		return errors.New("Invalid Target IP address")
+		return ErrInvalidIP
 	}
 	p.TargetIP = targetIP
 

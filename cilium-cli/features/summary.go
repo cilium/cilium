@@ -24,8 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 
-	"github.com/google/go-github/v86/github"
-	"golang.org/x/oauth2"
+	"github.com/google/go-github/v88/github"
 )
 
 type perJobMetrics map[string]perDeployNodeMetrics
@@ -59,8 +58,10 @@ func (s *Feature) downloadWorkflowData(ctx context.Context) error {
 	}
 	owner, repoName := parts[0], parts[1]
 
-	tc := oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}))
-	ghClient := github.NewClient(tc)
+	ghClient, err := github.NewClient(github.WithAuthToken(token))
+	if err != nil {
+		return fmt.Errorf("creating github client: %w", err)
+	}
 
 	allRuns := map[int64]*github.WorkflowRun{}
 	// Fetch workflow runs for the specific commit

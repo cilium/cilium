@@ -66,9 +66,10 @@ type Entry struct {
 	// identity should be used by a workload when more than one SVID is returned.
 	Hint string `protobuf:"bytes,14,opt,name=hint,proto3" json:"hint,omitempty"`
 	// When the entry was created (seconds since Unix epoch).
-	CreatedAt     int64 `protobuf:"varint,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	CreatedAt            int64                       `protobuf:"varint,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	AdditionalAttributes *Entry_AdditionalAttributes `protobuf:"bytes,16,opt,name=additional_attributes,json=additionalAttributes,proto3,oneof" json:"additional_attributes,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Entry) Reset() {
@@ -206,6 +207,13 @@ func (x *Entry) GetCreatedAt() int64 {
 	return 0
 }
 
+func (x *Entry) GetAdditionalAttributes() *Entry_AdditionalAttributes {
+	if x != nil {
+		return x.AdditionalAttributes
+	}
+	return nil
+}
+
 // Field mask for Entry fields
 type EntryMask struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -236,9 +244,11 @@ type EntryMask struct {
 	// hint field mask
 	Hint bool `protobuf:"varint,14,opt,name=hint,proto3" json:"hint,omitempty"`
 	// created_at field mask
-	CreatedAt     bool `protobuf:"varint,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	CreatedAt bool `protobuf:"varint,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// additional_attributes field mask
+	AdditionalAttributes bool `protobuf:"varint,16,opt,name=additional_attributes,json=additionalAttributes,proto3" json:"additional_attributes,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *EntryMask) Reset() {
@@ -369,11 +379,72 @@ func (x *EntryMask) GetCreatedAt() bool {
 	return false
 }
 
+func (x *EntryMask) GetAdditionalAttributes() bool {
+	if x != nil {
+		return x.AdditionalAttributes
+	}
+	return false
+}
+
+// * This nested message is reserved to contain a number of optional fields
+// controlling the various aspects of the agent's behaviour with respect to a
+// given registration entry. It serves to enable introducing and testing out new
+// tunables, without having to modify the datastore schema. Over time, some of
+// the fields contained therein may be considered eligible for their dedicated
+// attributes in the datastore.
+type Entry_AdditionalAttributes struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// * Flag indicating whether the agent should prefetch and cache X509 SVID.
+	// Can be set to `true` if the workload is unlikely to request an X509 SVID.
+	// This is meant to prevent unnecessary effort spent on generating SVIDs of types,
+	// which are unlikely to be needed.
+	DisableX509SvidPrefetch bool `protobuf:"varint,1,opt,name=disable_x509_svid_prefetch,json=disableX509SvidPrefetch,proto3" json:"disable_x509_svid_prefetch,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *Entry_AdditionalAttributes) Reset() {
+	*x = Entry_AdditionalAttributes{}
+	mi := &file_spire_api_types_entry_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Entry_AdditionalAttributes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Entry_AdditionalAttributes) ProtoMessage() {}
+
+func (x *Entry_AdditionalAttributes) ProtoReflect() protoreflect.Message {
+	mi := &file_spire_api_types_entry_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Entry_AdditionalAttributes.ProtoReflect.Descriptor instead.
+func (*Entry_AdditionalAttributes) Descriptor() ([]byte, []int) {
+	return file_spire_api_types_entry_proto_rawDescGZIP(), []int{0, 0}
+}
+
+func (x *Entry_AdditionalAttributes) GetDisableX509SvidPrefetch() bool {
+	if x != nil {
+		return x.DisableX509SvidPrefetch
+	}
+	return false
+}
+
 var File_spire_api_types_entry_proto protoreflect.FileDescriptor
 
 const file_spire_api_types_entry_proto_rawDesc = "" +
 	"\n" +
-	"\x1bspire/api/types/entry.proto\x12\x0fspire.api.types\x1a\x1espire/api/types/selector.proto\x1a\x1espire/api/types/spiffeid.proto\"\x9a\x04\n" +
+	"\x1bspire/api/types/entry.proto\x12\x0fspire.api.types\x1a\x1espire/api/types/selector.proto\x1a\x1espire/api/types/spiffeid.proto\"\xf0\x05\n" +
 	"\x05Entry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\tspiffe_id\x18\x02 \x01(\v2\x19.spire.api.types.SPIFFEIDR\bspiffeId\x126\n" +
@@ -396,7 +467,11 @@ const file_spire_api_types_entry_proto_rawDesc = "" +
 	"jwtSvidTtl\x12\x12\n" +
 	"\x04hint\x18\x0e \x01(\tR\x04hint\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x0f \x01(\x03R\tcreatedAt\"\xbd\x03\n" +
+	"created_at\x18\x0f \x01(\x03R\tcreatedAt\x12e\n" +
+	"\x15additional_attributes\x18\x10 \x01(\v2+.spire.api.types.Entry.AdditionalAttributesH\x00R\x14additionalAttributes\x88\x01\x01\x1aS\n" +
+	"\x14AdditionalAttributes\x12;\n" +
+	"\x1adisable_x509_svid_prefetch\x18\x01 \x01(\bR\x17disableX509SvidPrefetchB\x18\n" +
+	"\x16_additional_attributes\"\xf2\x03\n" +
 	"\tEntryMask\x12\x1b\n" +
 	"\tspiffe_id\x18\x02 \x01(\bR\bspiffeId\x12\x1b\n" +
 	"\tparent_id\x18\x03 \x01(\bR\bparentId\x12\x1c\n" +
@@ -418,7 +493,8 @@ const file_spire_api_types_entry_proto_rawDesc = "" +
 	"jwtSvidTtl\x12\x12\n" +
 	"\x04hint\x18\x0e \x01(\bR\x04hint\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x0f \x01(\bR\tcreatedAtB7Z5github.com/spiffe/spire-api-sdk/proto/spire/api/typesb\x06proto3"
+	"created_at\x18\x0f \x01(\bR\tcreatedAt\x123\n" +
+	"\x15additional_attributes\x18\x10 \x01(\bR\x14additionalAttributesB7Z5github.com/spiffe/spire-api-sdk/proto/spire/api/typesb\x06proto3"
 
 var (
 	file_spire_api_types_entry_proto_rawDescOnce sync.Once
@@ -432,22 +508,24 @@ func file_spire_api_types_entry_proto_rawDescGZIP() []byte {
 	return file_spire_api_types_entry_proto_rawDescData
 }
 
-var file_spire_api_types_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_spire_api_types_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_spire_api_types_entry_proto_goTypes = []any{
-	(*Entry)(nil),     // 0: spire.api.types.Entry
-	(*EntryMask)(nil), // 1: spire.api.types.EntryMask
-	(*SPIFFEID)(nil),  // 2: spire.api.types.SPIFFEID
-	(*Selector)(nil),  // 3: spire.api.types.Selector
+	(*Entry)(nil),                      // 0: spire.api.types.Entry
+	(*EntryMask)(nil),                  // 1: spire.api.types.EntryMask
+	(*Entry_AdditionalAttributes)(nil), // 2: spire.api.types.Entry.AdditionalAttributes
+	(*SPIFFEID)(nil),                   // 3: spire.api.types.SPIFFEID
+	(*Selector)(nil),                   // 4: spire.api.types.Selector
 }
 var file_spire_api_types_entry_proto_depIdxs = []int32{
-	2, // 0: spire.api.types.Entry.spiffe_id:type_name -> spire.api.types.SPIFFEID
-	2, // 1: spire.api.types.Entry.parent_id:type_name -> spire.api.types.SPIFFEID
-	3, // 2: spire.api.types.Entry.selectors:type_name -> spire.api.types.Selector
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 0: spire.api.types.Entry.spiffe_id:type_name -> spire.api.types.SPIFFEID
+	3, // 1: spire.api.types.Entry.parent_id:type_name -> spire.api.types.SPIFFEID
+	4, // 2: spire.api.types.Entry.selectors:type_name -> spire.api.types.Selector
+	2, // 3: spire.api.types.Entry.additional_attributes:type_name -> spire.api.types.Entry.AdditionalAttributes
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_spire_api_types_entry_proto_init() }
@@ -457,13 +535,14 @@ func file_spire_api_types_entry_proto_init() {
 	}
 	file_spire_api_types_selector_proto_init()
 	file_spire_api_types_spiffeid_proto_init()
+	file_spire_api_types_entry_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_spire_api_types_entry_proto_rawDesc), len(file_spire_api_types_entry_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
