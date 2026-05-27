@@ -59,7 +59,7 @@ type IPIdentityPair struct {
 	NamedPorts        []NamedPort     `json:"NamedPorts,omitempty"`
 }
 
-type IdentityMap map[NumericIdentity]labels.LabelArray
+type IdentityMapOld map[NumericIdentity]labels.LabelArray
 
 // GetKeyName returns the kvstore key to be used for the IPIdentityPair
 func (pair *IPIdentityPair) GetKeyName() string { return pair.PrefixString() }
@@ -306,5 +306,5 @@ func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 
 // UpdateIdentities is an interface to be called when identities change
 type UpdateIdentities interface {
-	UpdateIdentities(added, deleted IdentityMap, wg *sync.WaitGroup) (mutated bool)
+	UpdateIdentities(added, deleted IdentityMapOld, wg *sync.WaitGroup) (mutated bool)
 }

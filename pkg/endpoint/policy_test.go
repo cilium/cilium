@@ -49,7 +49,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	policy.SetPolicyEnabled("always")
 	defer policy.SetPolicyEnabled(pe)
 
-	idcache := make(identity.IdentityMap, testfactor)
+	idcache := make(identity.IdentityMapOld, testfactor)
 	logger := hivetest.Logger(t)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
 	idManager := identitymanager.NewIDManager(hivetest.Logger(t))
@@ -69,7 +69,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		// t.Logf("allocated label %s id %d", labelKeys, id.ID) // commented out for speed
 
 		wg := &sync.WaitGroup{}
-		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{
+		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMapOld{
 			id.ID: id.LabelArray,
 		}, nil, wg)
 		wg.Wait()
@@ -216,7 +216,7 @@ func newPolicyTestFixture(t *testing.T) *policyTestFixture {
 	t.Cleanup(func() { policy.SetPolicyEnabled(pe) })
 
 	logger := hivetest.Logger(t)
-	idcache := make(identity.IdentityMap)
+	idcache := make(identity.IdentityMapOld)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
 	idManager := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
@@ -226,7 +226,7 @@ func newPolicyTestFixture(t *testing.T) *policyTestFixture {
 	podID, _, err := fakeAllocator.AllocateIdentity(context.Background(), podLbls, false, 0)
 	require.NoError(t, err)
 	wg := &sync.WaitGroup{}
-	repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{podID.ID: podID.LabelArray}, nil, wg)
+	repo.GetSelectorCache().UpdateIdentities(identity.IdentityMapOld{podID.ID: podID.LabelArray}, nil, wg)
 	wg.Wait()
 
 	idManager.Add(podID)

@@ -95,7 +95,7 @@ func (cache *policyCache) insert(identity *identityPkg.Identity) *cachedSelector
 	wg := sync.WaitGroup{}
 	// This is only used for updating identities in the subject selector cache, that is used to index and track
 	// policies selecting identities used on the local node
-	cache.repo.subjectSelectorCache.UpdateIdentities(identityPkg.IdentityMap{identity.ID: identity.LabelArray}, nil, &wg)
+	cache.repo.subjectSelectorCache.UpdateIdentities(identityPkg.IdentityMapOld{identity.ID: identity.LabelArray}, nil, &wg)
 
 	cip, ok := cache.lookupLocked(identity)
 	if !ok {
@@ -116,7 +116,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 	wg := sync.WaitGroup{}
 	// This is only used for updating identities in the subject selector cache, that is used to index and track
 	// policies selecting identities used on the local node
-	cache.repo.subjectSelectorCache.UpdateIdentities(nil, identityPkg.IdentityMap{identity.ID: identity.LabelArray}, &wg)
+	cache.repo.subjectSelectorCache.UpdateIdentities(nil, identityPkg.IdentityMapOld{identity.ID: identity.LabelArray}, &wg)
 
 	cip, ok := cache.policies[identity.ID]
 	if ok {

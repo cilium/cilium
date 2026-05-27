@@ -135,18 +135,18 @@ type dummyOwner struct {
 	logger  *slog.Logger
 	updated chan identity.NumericIdentity
 	mutex   lock.Mutex
-	cache   identity.IdentityMap
+	cache   identity.IdentityMapOld
 }
 
 func newDummyOwner(logger *slog.Logger) *dummyOwner {
 	return &dummyOwner{
 		logger:  logger,
-		cache:   identity.IdentityMap{},
+		cache:   identity.IdentityMapOld{},
 		updated: make(chan identity.NumericIdentity, 1024),
 	}
 }
 
-func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{} {
 	d.mutex.Lock()
 	d.logger.Debug(fmt.Sprintf("Dummy UpdateIdentities(added: %v, deleted: %v)", added, deleted))
 	for id, lbls := range added {

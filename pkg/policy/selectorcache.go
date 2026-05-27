@@ -38,7 +38,7 @@ type scIdentityCache struct {
 	byNamespace map[string]map[*scIdentity]struct{}
 }
 
-func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
+func newScIdentityCache(ids identity.IdentityMapOld) scIdentityCache {
 	idCache := scIdentityCache{
 		ids:         make(map[identity.NumericIdentity]*scIdentity, len(ids)),
 		byNamespace: make(map[string]map[*scIdentity]struct{}, len(ids)),
@@ -441,7 +441,7 @@ func (sc *SelectorCache) queueNotifiedUsersCommit(txn SelectorSnapshot, wg *sync
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
-func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
+func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMapOld) *SelectorCache {
 	sc := &SelectorCache{
 		logger:    logger,
 		idCache:   newScIdentityCache(ids),
@@ -685,7 +685,7 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 // CanSkipUpdate returns true if a proposed update is already known to the SelectorCache
 // and thus a no-op. Is used to de-dup an ID update stream, because identical updates
 // may come from multiple sources.
-func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool {
+func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMapOld) bool {
 	sc.mutex.RLock()
 	defer sc.mutex.RUnlock()
 
@@ -715,7 +715,7 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 // Returns:
 // - updated as true if any changes were made
 // - mutated as true if any identity was mutated
-func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.NumericIdentitySlice, deleted identity.IdentityMap, wg *sync.WaitGroup) (updated, mutated bool) {
+func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.NumericIdentitySlice, deleted identity.IdentityMapOld, wg *sync.WaitGroup) (updated, mutated bool) {
 	var adds, dels []identity.NumericIdentity
 	for numericID := range deleted {
 		if _, exists := sel.cachedSelections[numericID]; exists {
@@ -765,7 +765,7 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 // In this case the return value is 'true' and the caller should trigger policy updates on all
 // endpoints to remove the affected identity only from selectors that no longer select the mutated
 // identity.
-func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
+func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMapOld, wg *sync.WaitGroup) (mutated bool) {
 	// Map of namespaces to scan for updates with added identities in the map value. All
 	// identities are matched against selectors that have no namespace requirements.
 	namespaces := map[string]identity.NumericIdentitySlice{"": {}}

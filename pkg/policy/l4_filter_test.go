@@ -141,8 +141,8 @@ func (td *testData) assertEqualPolicies(t *testing.T, expected, actual any) {
 
 // withIDs loads the set of IDs in to the SelectorCache. Returns
 // the same testData for easy chaining.
-func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
-	initial := identity.IdentityMap{}
+func (td *testData) withIDs(initIDs ...identity.IdentityMapOld) *testData {
+	initial := identity.IdentityMapOld{}
 	for _, im := range initIDs {
 		maps.Copy(initial, im)
 	}
@@ -162,11 +162,11 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 func (td *testData) addIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
 	td.subjectSc.UpdateIdentities(
-		identity.IdentityMap{
+		identity.IdentityMapOld{
 			id.ID: id.LabelArray,
 		}, nil, wg)
 	td.sc.UpdateIdentities(
-		identity.IdentityMap{
+		identity.IdentityMapOld{
 			id.ID: id.LabelArray,
 		}, nil, wg)
 	wg.Wait()
@@ -177,12 +177,12 @@ func (td *testData) removeIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
 	td.subjectSc.UpdateIdentities(
 		nil,
-		identity.IdentityMap{
+		identity.IdentityMapOld{
 			id.ID: id.LabelArray,
 		}, wg)
 	td.sc.UpdateIdentities(
 		nil,
-		identity.IdentityMap{
+		identity.IdentityMapOld{
 			id.ID: id.LabelArray,
 		}, wg)
 	wg.Wait()
@@ -1405,7 +1405,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	option.Config.EnableHostFirewall = true
 
 	idHost := identity.NewIdentity(identity.ReservedIdentityHost, labels.NewFrom(labels.LabelHost))
-	td.withIDs(identity.IdentityMap{idHost.ID: idHost.LabelArray})
+	td.withIDs(identity.IdentityMapOld{idHost.ID: idHost.LabelArray})
 	td.repo.mustAdd(egressRule)
 	_, err := td.repo.resolvePolicyLocked(idHost)
 	require.ErrorContains(t, err, `Listener "test" in CCNP can not use Kind CiliumEnvoyConfig`)

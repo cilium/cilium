@@ -25,7 +25,7 @@ import (
 func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 
@@ -250,7 +250,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 
 	prioNormal := types.Priority(perTierRoundUp)
 
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identityFoo:       labelsFoo,
 		identityWorld:     labelsWorld,
 		identityWorldIPv4: labels.LabelWorldIPv4.LabelArray(),

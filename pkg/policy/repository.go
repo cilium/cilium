@@ -139,7 +139,7 @@ func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) Au
 // NewPolicyRepository creates a new policy repository.
 func NewPolicyRepository(
 	logger *slog.Logger,
-	initialIDs identity.IdentityMap,
+	initialIDs identity.IdentityMapOld,
 	certManager certificatemanager.CertificateManager,
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
 	idmgr identitymanager.IDManager,

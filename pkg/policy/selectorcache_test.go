@@ -23,7 +23,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
-func testNewSelectorCache(tb testing.TB, logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
+func testNewSelectorCache(tb testing.TB, logger *slog.Logger, ids identity.IdentityMapOld) *SelectorCache {
 	sc := NewSelectorCache(logger, ids)
 	sc.userHandlerDone = make(chan struct{})
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
@@ -306,11 +306,11 @@ func (cs *testCachedSelector) String() string {
 }
 
 func TestAddRemoveSelector(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMap{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(identity.IdentityMap{
+	sc.UpdateIdentities(identity.IdentityMapOld{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s),
 			k8sConst.PodNamespaceLabel: labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
@@ -358,13 +358,13 @@ func TestAddRemoveSelector(t *testing.T) {
 }
 
 func TestMultipleIdentitySelectors(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMap{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
 	li1 := identity.IdentityScopeLocal
 	li2 := li1 + 1
-	sc.UpdateIdentities(identity.IdentityMap{
+	sc.UpdateIdentities(identity.IdentityMapOld{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 
@@ -419,11 +419,11 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 }
 
 func TestIdentityUpdates(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMap{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(identity.IdentityMap{
+	sc.UpdateIdentities(identity.IdentityMapOld{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
@@ -452,7 +452,7 @@ func TestIdentityUpdates(t *testing.T) {
 	user1.Reset()
 	// Add some identities to the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(identity.IdentityMap{
+	sc.UpdateIdentities(identity.IdentityMapOld{
 		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
 	wg.Wait()
@@ -470,7 +470,7 @@ func TestIdentityUpdates(t *testing.T) {
 	user1.Reset()
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, identity.IdentityMap{
+	sc.UpdateIdentities(nil, identity.IdentityMapOld{
 		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 	}, wg)
 	wg.Wait()
@@ -492,11 +492,11 @@ func TestIdentityUpdates(t *testing.T) {
 }
 
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMap{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(identity.IdentityMap{
+	sc.UpdateIdentities(identity.IdentityMapOld{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
@@ -516,7 +516,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	user2.Reset()
 	// Add some identities to the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(identity.IdentityMap{
+	sc.UpdateIdentities(identity.IdentityMapOld{
 		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 		345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -543,7 +543,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	user2.Reset()
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, identity.IdentityMap{
+	sc.UpdateIdentities(nil, identity.IdentityMapOld{
 		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, wg)
@@ -572,13 +572,13 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 }
 
 func TestTransactionalUpdate(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMap{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
 	li1 := identity.IdentityScopeLocal
 	li2 := li1 + 1
-	sc.UpdateIdentities(identity.IdentityMap{
+	sc.UpdateIdentities(identity.IdentityMapOld{
 		li1: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.1/32")),
 		li2: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.0/8")),
 	}, nil, wg)
@@ -608,7 +608,7 @@ func TestTransactionalUpdate(t *testing.T) {
 	li3 := li2 + 1
 	li4 := li3 + 1
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(identity.IdentityMap{
+	sc.UpdateIdentities(identity.IdentityMapOld{
 		li3: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.0/31")),
 		li4: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.0/7")),
 	}, nil, wg)
@@ -630,7 +630,7 @@ func TestTransactionalUpdate(t *testing.T) {
 
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, identity.IdentityMap{
+	sc.UpdateIdentities(nil, identity.IdentityMapOld{
 		li1: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.1/32")),
 	}, wg)
 	wg.Wait()
@@ -667,15 +667,15 @@ func TestSelectorCacheCanSkipUpdate(t *testing.T) {
 	id1 := identity.NewIdentity(1001, labels.LabelArray{labels.NewLabel("id", "a", labels.LabelSourceK8s)}.Labels())
 	id2 := identity.NewIdentity(1002, labels.LabelArray{labels.NewLabel("id", "b", labels.LabelSourceK8s)}.Labels())
 
-	toIdentityMap := func(ids ...*identity.Identity) identity.IdentityMap {
-		idMap := identity.IdentityMap{}
+	toIdentityMap := func(ids ...*identity.Identity) identity.IdentityMapOld {
+		idMap := identity.IdentityMapOld{}
 		for _, id := range ids {
 			idMap[id.ID] = id.LabelArray
 		}
 		return idMap
 	}
 
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMap{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
 	wg := &sync.WaitGroup{}
 
 	require.False(t, sc.CanSkipUpdate(toIdentityMap(id1), nil))
@@ -715,7 +715,7 @@ func BenchmarkSelectorCacheIdentityUpdates(b *testing.B) {
 	ids := generateNumIdentities(10000)
 	wg := &sync.WaitGroup{}
 	for k, v := range ids {
-		td.sc.UpdateIdentities(identity.IdentityMap{k: v}, nil, wg)
+		td.sc.UpdateIdentities(identity.IdentityMapOld{k: v}, nil, wg)
 	}
 
 	wg.Wait()
@@ -723,9 +723,9 @@ func BenchmarkSelectorCacheIdentityUpdates(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		wg := &sync.WaitGroup{}
-		td.sc.UpdateIdentities(nil, identity.IdentityMap{fooIdentity.ID: fooIdentity.LabelArray}, wg)
+		td.sc.UpdateIdentities(nil, identity.IdentityMapOld{fooIdentity.ID: fooIdentity.LabelArray}, wg)
 		wg.Wait()
-		td.sc.UpdateIdentities(identity.IdentityMap{fooIdentity.ID: fooIdentity.LabelArray}, nil, wg)
+		td.sc.UpdateIdentities(identity.IdentityMapOld{fooIdentity.ID: fooIdentity.LabelArray}, nil, wg)
 		wg.Wait()
 
 	}

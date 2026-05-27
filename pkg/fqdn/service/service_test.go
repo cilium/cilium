@@ -105,7 +105,7 @@ func (b *bufconnListener) Listen(ctx context.Context, network, addr string) (net
 
 type mockUpdater struct{}
 
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
+func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMapOld) <-chan struct{} {
 	out := make(chan struct{})
 	close(out)
 	return out
@@ -755,7 +755,7 @@ func (sp *testSelectorPolicy) createSelectorCache() (policy.CachedSelector, *pol
 	dnsServerIdentity := destIdentity
 	// slogloggercheck: the default logger is enough for tests.
 	sc := policy.NewSelectorCache(logging.DefaultSlogLogger,
-		identity.IdentityMap{
+		identity.IdentityMapOld{
 			dnsServerIdentity: labels.LabelArray{
 				labels.Label{
 					Key:   "app",

@@ -516,7 +516,7 @@ func Test_MergeL3(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identityFoo: labelsFoo,
 		identityBar: labelsBar,
 	}
@@ -1151,7 +1151,7 @@ func Test_MergeRules(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
@@ -1266,7 +1266,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
@@ -1345,7 +1345,7 @@ func Test_AllowAll(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identityFoo: labelsFoo,
 		identityBar: labelsBar,
 	}
@@ -1679,7 +1679,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	lblWorldIP := labels.GetCIDRLabelArray(netip.MustParsePrefix(string(worldIPCIDR)))
 	lblWorldSubnet := labels.GetCIDRLabelArray(netip.MustParsePrefix(string(worldSubnet)))
 
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
 		identity.ReservedIdentityWorldIPv4:    labels.LabelWorldIPv4.LabelArray(),
@@ -1870,7 +1870,7 @@ func Test_Allowception(t *testing.T) {
 	one3Z8Lbls := labels.GetCIDRLabelArray(one3Z8Prefix)
 	one0Z32Lbls := labels.GetCIDRLabelArray(one0Z32Prefix)
 
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityWorld:        append(labels.LabelWorld.LabelArray(), lblAllIPv4...),
 		one3Z8Identity:                        one3Z8Lbls,  // 16331 (0x3fcb): ["1.0.0.0/8"]
@@ -1918,7 +1918,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	hostLabel := labels.NewFrom(labels.LabelHost)
 	hostLabel.MergeLabels(lblHostIPv4CIDR)
 	hostLabel.MergeLabels(lblHostIPv6CIDR)
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityHost:         hostLabel.LabelArray(),
 	}
@@ -1960,7 +1960,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	}
 }
 
-func addCIDRIdentity(prefix string, c identity.IdentityMap) identity.NumericIdentity {
+func addCIDRIdentity(prefix string, c identity.IdentityMapOld) identity.NumericIdentity {
 	lbls := labels.GetCIDRLabelArray(netip.MustParsePrefix(prefix))
 
 	// return an existing id?
@@ -1981,7 +1981,7 @@ func addCIDRIdentity(prefix string, c identity.IdentityMap) identity.NumericIden
 	}
 }
 
-func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMap) (id identity.NumericIdentity, adds identity.IdentityMap) {
+func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMapOld) (id identity.NumericIdentity, adds identity.IdentityMapOld) {
 	lbls := labels.Labels{}
 	l := fqdnSel.IdentityLabel()
 	lbls[l.Key] = l
@@ -1999,7 +1999,7 @@ func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMap) (id ident
 	id = identity.IdentityScopeLocal
 	for {
 		if _, exists := c[id]; !exists {
-			return id, identity.IdentityMap{id: lblA}
+			return id, identity.IdentityMapOld{id: lblA}
 		}
 		id++
 	}
@@ -2016,7 +2016,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 
 	// load in standard reserved identities
-	identityCache := identity.IdentityMap{
+	identityCache := identity.IdentityMapOld{
 		fooIdentity.ID: fooIdentity.LabelArray,
 	}
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
@@ -2033,7 +2033,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 		test     string
 		rules    api.Rules
 		expected MapStateMap
-		fqdnIds  identity.IdentityMap
+		fqdnIds  identity.IdentityMapOld
 		adds     MapStateMap
 	}{{
 		test: "incremental_fqdn_deletion",
