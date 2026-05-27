@@ -183,6 +183,15 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 			c.worker()
 			return nil
 		}),
+		// Add the shutdown job last so it stops first.
+		job.OneShot("shutdown", func(ctx context.Context, health cell.Health) error {
+			<-ctx.Done()
+			c.wp.Close()
+			c.fastQueue.ShutDown()
+			c.standardQueue.ShutDown()
+			c.contextCancel()
+			return nil
+		}),
 	)
 
 	return nil
@@ -231,6 +240,14 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 			c.worker()
 			return nil
 		}),
+		// Add the shutdown job last so it stops first.
+		job.OneShot("shutdown", func(ctx context.Context, health cell.Health) error {
+			<-ctx.Done()
+			c.fastQueue.ShutDown()
+			c.standardQueue.ShutDown()
+			c.contextCancel()
+			return nil
+		}),
 	)
 	// Start the work pools processing CEP events only after syncing CES in local cache.
 	// c.wp = workerpool.New(4)
@@ -251,17 +268,10 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 }
 
 func (c *DefaultController) Stop(ctx cell.HookContext) error {
-	c.wp.Close()
-	c.fastQueue.ShutDown()
-	c.standardQueue.ShutDown()
-	c.contextCancel()
 	return nil
 }
 
 func (c *SlimController) Stop(ctx cell.HookContext) error {
-	c.fastQueue.ShutDown()
-	c.standardQueue.ShutDown()
-	c.contextCancel()
 	return nil
 }
 
