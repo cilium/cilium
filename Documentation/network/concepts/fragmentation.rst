@@ -46,6 +46,6 @@ Known limitations
    potentially rendering fragmentation unsupported for some links.
    Alternatives are actively being discussed.
 
-   * :ref:`Cilium drops out of order IP Fragments` (see :gh-issue:`25709`)
+   * Cilium drops out of order IP Fragments (see :gh-issue:`25709`)
 
 .. include:: ../../beta.rst
