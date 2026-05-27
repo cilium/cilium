@@ -164,9 +164,17 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	val.rev_nat_index = rev_nat_id;
 
 	tmp = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
-	if (!tmp || memcmp(tmp, &val, sizeof(val)))
-		ret = map_update_elem(&cilium_lb4_reverse_sk, &key,
-				      &val, 0);
+	if (!tmp || memcmp(tmp, &val, sizeof(val))) {
+		ret = map_update_elem(&cilium_lb4_reverse_sk, &key, &val, 0);
+
+		/* Touch the reverse NAT entry after insertion to
+		 * prevent premature LRU eviction before the
+		 * reverse-path lookup arrives.
+		 */
+		if (ret == 0 && !tmp)
+			map_lookup_elem(&cilium_lb4_reverse_sk, &key);
+	}
+
 	return ret;
 }
 
@@ -677,9 +685,17 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 	val.rev_nat_index = rev_nat_index;
 
 	tmp = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
-	if (!tmp || memcmp(tmp, &val, sizeof(val)))
-		ret = map_update_elem(&cilium_lb6_reverse_sk, &key,
-				      &val, 0);
+	if (!tmp || memcmp(tmp, &val, sizeof(val))) {
+		ret = map_update_elem(&cilium_lb6_reverse_sk, &key, &val, 0);
+
+		/* Touch the reverse NAT entry after insertion to
+		 * prevent premature LRU eviction before the
+		 * reverse-path lookup arrives.
+		 */
+		if (ret == 0 && !tmp)
+			map_lookup_elem(&cilium_lb6_reverse_sk, &key);
+	}
+
 	return ret;
 }
 
