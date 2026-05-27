@@ -39,7 +39,7 @@ func TestPreviousMapStateSizesRace(t *testing.T) {
 	logger := hivetest.Logger(t)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(nil)
 	idManager := identitymanager.NewIDManager(logger)
-	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, fakeAllocator.GetIdentityCache().ToOld(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
 	polComputer := testcompute.InstantiateCellForTesting(t, logger, "endpoint-policy_race_test", t.Name(), repo, idManager)
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
