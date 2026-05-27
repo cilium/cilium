@@ -64,6 +64,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
 		hubbleQueueFull, reflectPanic, svcNotFound, gobgpv3Warnings, gobgpNotification, gobgpNoMatchingWithdrawPath,
+		gobgpReceivedNotification, gobgpFailedToSend,
 		endpointMapDeleteFailed, etcdReconnection, failedToRetrieveRemoteClusterCfg, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
@@ -460,6 +461,7 @@ const (
 	gobgpv3Warnings                  stringMatcher = "component=gobgp.BgpServerInstance"                                     // cf. https://github.com/cilium/cilium/issues/35799
 	gobgpNotification                stringMatcher = "sent notification"                                                     // cf. https://github.com/cilium/cilium/issues/35799
 	gobgpNoMatchingWithdrawPath      stringMatcher = "No matching path for withdraw found"                                   // cf. https://github.com/cilium/cilium/issues/35799
+	gobgpReceivedNotification        stringMatcher = "received notification"                                                 // cf. https://github.com/cilium/cilium/issues/35799
 	etcdReconnection                 stringMatcher = "Error observed on etcd connection, reconnecting etcd"                  // cf. https://github.com/cilium/cilium/issues/35865
 	failedToRetrieveRemoteClusterCfg stringMatcher = "failed to retrieve cluster configuration: not found"                   // Possible race condition in KVStoreMesh mode
 	epRestoreMissingState            stringMatcher = "Couldn't find state, ignoring endpoint"                                // cf. https://github.com/cilium/cilium/issues/35869
@@ -501,6 +503,9 @@ var (
 	bgpAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumBGP\w+ is deprecated`)}
 	// ccgAlphaResourceDeprecation is the same as bgpAlphaResourceDeprecation but for the CiliumCIDRGroup.
 	ccgAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumCIDRGroup is deprecated`)}
+	// gobgpFailedToSend ignores GoBGPv4's "failed to send" warning, but only when the write
+	// failed because the peer connection was torn down (closed connection or broken pipe);
+	gobgpFailedToSend = regexMatcher{regexp.MustCompile(`osrg/gobgp/v4/pkg/server.*msg="failed to send".*(use of closed network connection|broken pipe)`)}
 	// For https://github.com/cilium/cilium/issues/39370: Fixed only in cilium version >= 1.18
 	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
 )
