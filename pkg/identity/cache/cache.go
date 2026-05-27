@@ -29,26 +29,26 @@ func (s IdentitiesModel) Less(i, j int) bool {
 }
 
 // FromIdentityCache populates the provided model from an identity cache.
-func (s IdentitiesModel) FromIdentityCache(cache identity.IdentityMapOld) IdentitiesModel {
+func (s IdentitiesModel) FromIdentityCache(cache identity.IdentityMap) IdentitiesModel {
 	for id, lbls := range cache {
 		s = append(s, identitymodel.CreateModel(&identity.Identity{
 			ID:     id,
-			Labels: lbls.Labels(),
+			Labels: lbls,
 		}))
 	}
 	return s
 }
 
 // GetIdentityCache returns a cache of all known identities
-func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMapOld {
+func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 	m.logger.Debug("getting identity cache for identity allocator manager")
-	cache := identity.IdentityMapOld{}
+	cache := identity.IdentityMap{}
 
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
 				if gi, ok := val.(*key.GlobalIdentity); ok {
-					cache[identity.NumericIdentity(id)] = gi.LabelArray
+					cache[identity.NumericIdentity(id)] = gi.LabelArray.Labels()
 				} else {
 					m.logger.Warn(
 						"Ignoring unknown identity type",
@@ -61,14 +61,14 @@ func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMapOld {
 	}
 
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		cache[ni] = id.Labels.LabelArray()
+		cache[ni] = id.Labels
 	})
 
 	for _, identity := range m.localIdentities.GetIdentities() {
-		cache[identity.ID] = identity.Labels.LabelArray()
+		cache[identity.ID] = identity.Labels
 	}
 	for _, identity := range m.localNodeIdentities.GetIdentities() {
-		cache[identity.ID] = identity.Labels.LabelArray()
+		cache[identity.ID] = identity.Labels
 	}
 
 	return cache
