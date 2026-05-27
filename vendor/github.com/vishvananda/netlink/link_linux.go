@@ -2974,6 +2974,9 @@ func parseNetkitData(link Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_NETKIT_PEER_SCRUB:
 			netkit.supportsScrub = true
 			netkit.PeerScrub = NetkitScrub(native.Uint32(datum.Value[0:4]))
+		case nl.IFLA_NETKIT_DEV_SWITCH:
+			netkit.supportsDevSwitch = true
+			netkit.DevSwitch = NetkitDevSwitch(native.Uint32(datum.Value[0:4]))
 		case nl.IFLA_NETKIT_HEADROOM:
 			netkit.DesiredHeadroom = native.Uint16(datum.Value[0:2])
 		case nl.IFLA_NETKIT_TAILROOM:

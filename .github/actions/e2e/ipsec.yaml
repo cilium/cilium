@@ -56,9 +56,10 @@
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
 - name: 'ipsec-6'
-  kernel: '6.1'
+  kernel: '6.18'
   kube-proxy: 'none'
   kpr: 'true'
+  misc: 'bpf.datapathMode=netkit'
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   tunnel: 'disabled'
