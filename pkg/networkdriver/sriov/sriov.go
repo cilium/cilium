@@ -123,8 +123,11 @@ func (d PciDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool {
 		}
 	}
 
+	// ifNames matches against the kernel interface name (e.g. "eth0"), not the
+	// synthetic PCI-derived IfName(). KernelIfName may be empty for devices
+	// bound to userspace drivers (e.g. vfio-pci); in that case use pciAddrs.
 	if len(filter.IfNames) != 0 {
-		if !slices.Contains(filter.IfNames, d.IfName()) {
+		if !slices.Contains(filter.IfNames, d.KernelIfName()) {
 			return false
 		}
 	}

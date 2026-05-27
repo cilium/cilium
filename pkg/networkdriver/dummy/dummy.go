@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/utils/ptr"
@@ -106,13 +105,16 @@ func (d DummyDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 		return false
 	}
 
-	if len(filter.IfNames) != 0 {
-		for _, ifname := range filter.IfNames {
-			if strings.HasPrefix(d.IfName(), ifname) {
-				return true
-			}
-		}
+	// Dummy devices have no parent, PCI address, vendor/device ID, or kernel
+	// driver binding. A filter that specifies any of these fields cannot match
+	// a dummy device.
+	if len(filter.ParentIfNames) != 0 || len(filter.PCIAddrs) != 0 ||
+		len(filter.VendorIDs) != 0 || len(filter.DeviceIDs) != 0 ||
+		len(filter.Drivers) != 0 {
+		return false
+	}
 
+	if len(filter.IfNames) != 0 && !slices.Contains(filter.IfNames, d.IfName()) {
 		return false
 	}
 
