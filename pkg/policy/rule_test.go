@@ -1486,7 +1486,7 @@ var (
 	flowAToWorld80 = types.Flow{From: idA, To: identity.LookupReservedIdentity(identity.ReservedIdentityWorld), Proto: u8proto.TCP, Dport: 80}
 	flowAToWorld90 = types.Flow{From: idA, To: identity.LookupReservedIdentity(identity.ReservedIdentityWorld), Proto: u8proto.TCP, Dport: 90}
 
-	ruleTestIDs = identity.IdentityMap{
+	ruleTestIDs = identity.IdentityMapOld{
 		idA.ID: idA.LabelArray,
 		idB.ID: idB.LabelArray,
 		idC.ID: idC.LabelArray,

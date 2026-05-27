@@ -141,7 +141,7 @@ var (
 			labels.NewLabel("remote-node", "", labels.LabelSourceReserved),
 		}))
 
-	fuzzCorpusAggregateIDs = identity.IdentityMap{
+	fuzzCorpusAggregateIDs = identity.IdentityMapOld{
 		idA.ID:           idA.LabelArray,
 		idB.ID:           idB.LabelArray,
 		identity1111.ID:  identity1111.LabelArray,
