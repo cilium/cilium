@@ -45,8 +45,8 @@ func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessL
 	}
 }
 
-// start starts the access log server.
-func (s *AccessLogServer) start(ctx context.Context) error {
+// run runs the access log server.
+func (s *AccessLogServer) run(ctx context.Context) error {
 	socketListener, err := s.newSocketListener()
 	if err != nil {
 		return fmt.Errorf("failed to create socket listener: %w", err)
@@ -56,6 +56,14 @@ func (s *AccessLogServer) start(ctx context.Context) error {
 	s.logger.Info("Envoy: Starting access log server listening",
 		logfields.Address, socketListener.Addr(),
 	)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		socketListener.Close()
+	}()
+
 	for {
 		// Each Envoy listener opens a new connection over the Unix domain socket.
 		// Multiple worker threads serving the listener share that same connection
@@ -103,12 +111,6 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 		)
 	}
 	return accessLogListener, nil
-}
-
-func (s *AccessLogServer) stop() {
-	if s.socketListener != nil {
-		_ = s.socketListener.Close()
-	}
 }
 
 func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {

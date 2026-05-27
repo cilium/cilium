@@ -288,8 +288,8 @@ func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpoints
 	return xdsServer
 }
 
-func (s *xdsServer) start(ctx context.Context) error {
-	return s.startXDSGRPCServer(ctx, s.resourceConfig)
+func (s *xdsServer) run(ctx context.Context) error {
+	return s.runXDSGRPCServer(ctx, s.resourceConfig)
 }
 
 func (s *xdsServer) initializeXdsConfigs() {
@@ -385,15 +385,6 @@ func (s *xdsServer) newSocketListener() (*net.UnixListener, error) {
 		)
 	}
 	return socketListener, nil
-}
-
-func (s *xdsServer) stop() {
-	if s.stopFunc != nil {
-		s.stopFunc()
-	}
-	if s.socketPath != "" {
-		_ = os.Remove(s.socketPath)
-	}
 }
 
 func GetAccessLogSocketPath() string {

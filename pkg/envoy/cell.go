@@ -116,18 +116,9 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		return xdsServer, nil
 	}
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(_ cell.HookContext) error {
-			params.JobGroup.Add(job.OneShot("xds-server", func(ctx context.Context, _ cell.Health) error {
-				return xdsServer.start(ctx)
-			}, job.WithShutdown()))
-			return nil
-		},
-		OnStop: func(_ cell.HookContext) error {
-			xdsServer.stop()
-			return nil
-		},
-	})
+	params.JobGroup.Add(job.OneShot("xds-server", func(ctx context.Context, _ cell.Health) error {
+		return xdsServer.run(ctx)
+	}, job.WithShutdown()))
 
 	if !option.Config.ExternalEnvoyProxy {
 		return &onDemandXdsStarter{
@@ -187,19 +178,9 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 		params.EnvoyProxyConfig.EnvoyAccessLogBufferSize,
 	)
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(_ cell.HookContext) error {
-			params.JobGroup.Add(job.OneShot("accesslog-server", func(ctx context.Context, _ cell.Health) error {
-				return accessLogServer.start(ctx)
-			}, job.WithShutdown()))
-			return nil
-		},
-		OnStop: func(_ cell.HookContext) error {
-			accessLogServer.stop()
-			return nil
-		},
-	})
-
+	params.JobGroup.Add(job.OneShot("accesslog-server", func(ctx context.Context, _ cell.Health) error {
+		return accessLogServer.run(ctx)
+	}, job.WithShutdown()))
 	return accessLogServer
 }
 

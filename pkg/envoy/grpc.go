@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_cluster "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
@@ -27,9 +28,10 @@ import (
 // implemented by Cilium.
 var ErrNotImplemented = errors.New("not implemented")
 
-// startXDSGRPCServer starts a gRPC server to serve xDS APIs using the given
-// resource watcher and network listener.
-func (s *xdsServer) startXDSGRPCServer(ctx context.Context, config map[string]*xds.ResourceTypeConfiguration) error {
+// runXDSGRPCServer runs a gRPC server to serve xDS APIs using the given
+// resource watcher and network listener. Returns on error or when [ctx]
+// is cancelled.
+func (s *xdsServer) runXDSGRPCServer(ctx context.Context, config map[string]*xds.ResourceTypeConfiguration) error {
 	listener, err := s.newSocketListener()
 	if err != nil {
 		return fmt.Errorf("failed to create socket listener: %w", err)
@@ -54,16 +56,16 @@ func (s *xdsServer) startXDSGRPCServer(ctx context.Context, config map[string]*x
 
 	reflection.Register(grpcServer)
 
-	ctx, cancel := context.WithTimeout(ctx, s.config.policyRestoreTimeout)
+	restoreCtx, cancel := context.WithTimeout(ctx, s.config.policyRestoreTimeout)
 	defer cancel()
 	s.stopFunc = grpcServer.Stop
 
 	if s.restorerPromise != nil {
 		s.logger.Info("Envoy: Waiting for endpoint restorer before serving xDS resources...")
-		restorer, err := s.restorerPromise.Await(ctx)
+		restorer, err := s.restorerPromise.Await(restoreCtx)
 		if err == nil && restorer != nil {
 			s.logger.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
-			err = restorer.WaitForInitialPolicy(ctx)
+			err = restorer.WaitForInitialPolicy(restoreCtx)
 		}
 		if errors.Is(err, context.Canceled) {
 			s.logger.Debug("Envoy: xDS server stopped before started serving")
@@ -81,6 +83,17 @@ func (s *xdsServer) startXDSGRPCServer(ctx context.Context, config map[string]*x
 	s.logger.Info("Envoy: Starting xDS gRPC server listening",
 		logfields.Address, listener.Addr(),
 	)
+
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		grpcServer.Stop()
+		if s.socketPath != "" {
+			_ = os.Remove(s.socketPath)
+		}
+	}()
+
 	if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
 		s.logger.Error("Envoy: Failed to serve xDS gRPC API",
 			logfields.Error, err,
