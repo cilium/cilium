@@ -183,7 +183,7 @@ type IdentityAllocator interface {
 	// GetIdentityCache returns the current cache of identities that the
 	// allocator has allocated. The caller should not modify the resulting
 	// identities by pointer.
-	GetIdentityCache() identity.IdentityMapOld
+	GetIdentityCache() identity.IdentityMap
 
 	// GetIdentities returns a copy of the current cache of identities.
 	GetIdentities() IdentitiesModel
