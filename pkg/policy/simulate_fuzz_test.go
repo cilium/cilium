@@ -141,11 +141,11 @@ var (
 			labels.NewLabel("remote-node", "", labels.LabelSourceReserved),
 		}))
 
-	fuzzCorpusAggregateIDs = identity.IdentityMapOld{
-		idA.ID:           idA.LabelArray,
-		idB.ID:           idB.LabelArray,
-		identity1111.ID:  identity1111.LabelArray,
-		identityNodeC.ID: identityNodeC.LabelArray,
+	fuzzCorpusAggregateIDs = identity.IdentityMap{
+		idA.ID:           idA.Labels,
+		idB.ID:           idB.Labels,
+		identity1111.ID:  identity1111.Labels,
+		identityNodeC.ID: identityNodeC.Labels,
 	}
 
 	// All possible port ranges between 4-7

@@ -668,7 +668,7 @@ func newStandaloneTestPolicyRepo(t *testing.T, logger *slog.Logger, secretManage
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
 	}.Labels())
 	idCache := maps.Clone(IdentityCache)
-	idCache[localIdentity.ID] = localIdentity.LabelArray
+	idCache[localIdentity.ID] = localIdentity.Labels
 	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,

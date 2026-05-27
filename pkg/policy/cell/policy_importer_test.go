@@ -71,28 +71,28 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	epm := &fakeEPM{}
 	ipc := &fakeipcache{}
 
-	ids := identity.IdentityMapOld{
+	ids := identity.IdentityMap{
 		100: labels.LabelArray{
 			{
 				Source: labels.LabelSourceK8s,
 				Key:    "id",
 				Value:  "100",
 			},
-		},
+		}.Labels(),
 		101: labels.LabelArray{
 			{
 				Source: labels.LabelSourceK8s,
 				Key:    "id",
 				Value:  "101",
 			},
-		},
+		}.Labels(),
 		102: labels.LabelArray{
 			{
 				Source: labels.LabelSourceK8s,
 				Key:    "id",
 				Value:  "102",
 			},
-		},
+		}.Labels(),
 	}
 
 	logger := hivetest.Logger(t)
@@ -112,7 +112,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		prefixesByResource: map[ipcachetypes.ResourceID][]netip.Prefix{},
 	}
 	wg := &sync.WaitGroup{}
-	pi.repo.GetSubjectSelectorCache().UpdateIdentities(ids, nil, wg)
+	pi.repo.GetSubjectSelectorCache().UpdateIdentities(ids.ToOld(), nil, wg)
 	wg.Wait()
 	pi.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
