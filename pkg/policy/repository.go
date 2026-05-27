@@ -60,7 +60,7 @@ type PolicyRepository interface {
 
 	// UpdateIdentities updates the set of identities in the subject
 	// selectorcache, which ComputeSelectorPolicy reads. Must be called before it.
-	UpdateIdentities(added, deleted identity.IdentityMap)
+	UpdateIdentities(added, deleted identity.IdentityMapOld)
 
 	SetNamedPortsGetter(namedPortsGetter NamedPortsGetter)
 }
@@ -119,7 +119,7 @@ func (p *Repository) GetSubjectSelectorCache() *SelectorCache {
 // NewPolicyRepository creates a new policy repository.
 func NewPolicyRepository(
 	logger *slog.Logger,
-	initialIDs identity.IdentityMap,
+	initialIDs identity.IdentityMapOld,
 	certManager certificatemanager.CertificateManager,
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
 	idmgr identitymanager.IDManager,
@@ -151,7 +151,7 @@ func (p *Repository) SetNamedPortsGetter(namedPortsGetter NamedPortsGetter) {
 
 // UpdateIdentities updates the set of identities in the subject
 // selectorcache, which ComputeSelectorPolicy reads. Must be called before it.
-func (p *Repository) UpdateIdentities(added, deleted identity.IdentityMap) {
+func (p *Repository) UpdateIdentities(added, deleted identity.IdentityMapOld) {
 	p.subjectSelectorCache.UpdateIdentities(added, deleted, &sync.WaitGroup{})
 }
 
@@ -707,7 +707,7 @@ func RepositoryScriptCmds(p *Repository) map[string]script.Cmd {
 // It includes a static snapshot of the selectorcache and an empty policy cache.
 //
 // It has all existing rules and identities.
-func (p *Repository) Snapshot(logger *slog.Logger, cm certificatemanager.CertificateManager, rt envoypolicy.EnvoyL7RulesTranslator) (*Repository, identity.IdentityMap) {
+func (p *Repository) Snapshot(logger *slog.Logger, cm certificatemanager.CertificateManager, rt envoypolicy.EnvoyL7RulesTranslator) (*Repository, identity.IdentityMapOld) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 

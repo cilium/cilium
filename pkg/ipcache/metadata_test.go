@@ -1180,7 +1180,7 @@ type mockUpdater struct {
 	identities map[identity.NumericIdentity]labels.LabelArray
 }
 
-func (m *mockUpdater) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+func (m *mockUpdater) UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{} {
 	maps.Copy(m.identities, added)
 
 	for nid := range deleted {

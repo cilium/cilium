@@ -71,7 +71,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	epm := &fakeEPM{}
 	ipc := &fakeipcache{}
 
-	ids := identity.IdentityMap{
+	ids := identity.IdentityMapOld{
 		100: labels.LabelArray{
 			{
 				Source: labels.LabelSourceK8s,
