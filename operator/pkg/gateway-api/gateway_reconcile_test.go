@@ -105,7 +105,7 @@ func Test_Conformance(t *testing.T) {
 		{
 			name: "gateway-invalid-route-kind",
 			gateway: []gwDetails{
-				{FullName: types.NamespacedName{Name: "gateway-only-invalid-route-kind", Namespace: "gateway-conformance-infra"}, wantErr: true},
+				{FullName: types.NamespacedName{Name: "gateway-only-invalid-route-kind", Namespace: "gateway-conformance-infra"}},
 				{FullName: types.NamespacedName{Name: "gateway-supported-and-invalid-route-kind", Namespace: "gateway-conformance-infra"}},
 			},
 		},

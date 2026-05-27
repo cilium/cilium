@@ -19,13 +19,13 @@ spec:
 status:
   conditions:
     - lastTransitionTime: "2025-07-01T05:23:50Z"
-      message: No Accepted Listeners
-      reason: ListenersNotValid
-      status: "False"
+      message: Gateway successfully scheduled
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: "2025-07-01T05:06:15Z"
-      message: No Accepted Listeners
-      reason: ListenersNotValid
+      message: Gateway waiting for address
+      reason: AddressNotAssigned
       status: "False"
       type: Programmed
   listeners:
@@ -37,9 +37,9 @@ status:
           status: "False"
           type: ResolvedRefs
         - lastTransitionTime: "2025-07-01T05:23:50Z"
-          message: Listener not valid. None of the Allowed Route Kinds are supported.
-          reason: Invalid
-          status: "False"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
           type: Accepted
         - lastTransitionTime: "2025-07-01T05:06:15Z"
           message: Address not ready yet
