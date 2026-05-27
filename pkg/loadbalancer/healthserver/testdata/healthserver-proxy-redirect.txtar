@@ -5,7 +5,7 @@ db/insert node-addresses addrv4.yaml
 
 hive start
 
-env HEALTHPORT=40002
+env HEALTHPORT=40022
 replace '$HEALTHPORT' $HEALTHPORT service.yaml
 
 # Add endpoints first to avoid races with health server setup.
