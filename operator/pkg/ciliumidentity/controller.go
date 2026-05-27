@@ -160,8 +160,6 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 }
 
 func (c *Controller) Stop(_ cell.HookContext) error {
-	c.resourceQueue.ShutDown()
-
 	return nil
 }
 
@@ -229,6 +227,11 @@ func (c *Controller) initReconciler(ctx context.Context) error {
 func (c *Controller) runResourceWorker(ctx context.Context) error {
 	c.logger.InfoContext(ctx, "Starting resource worker")
 	defer c.logger.InfoContext(ctx, "Stopping resource worker")
+
+	go func() {
+		<-ctx.Done()
+		c.resourceQueue.ShutDown()
+	}()
 
 	for c.processNextItem() {
 		select {
