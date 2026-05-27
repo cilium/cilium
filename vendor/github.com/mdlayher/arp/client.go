@@ -231,6 +231,12 @@ func (c Client) HardwareAddr() net.HardwareAddr {
 	return c.ifi.HardwareAddr
 }
 
+// InterfaceName fetches the name for the interface associated
+// with the connection.
+func (c Client) InterfaceName() string {
+	return c.ifi.Name
+}
+
 // firstIPv4Addr attempts to retrieve the first detected IPv4 address from an
 // input slice of network addresses.
 func firstIPv4Addr(addrs []netip.Addr) (netip.Addr, error) {
