@@ -128,13 +128,13 @@ func (p *Repository) GetSubjectSelectorCache() *SelectorCache {
 func NewPolicyRepository(
 	logger *slog.Logger,
 	clusterInfo cmtypes.ClusterInfo,
-	initialIDs identity.IdentityMapOld,
+	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
 	idmgr identitymanager.IDManager,
 	metricsManager types.PolicyMetrics,
 ) *Repository {
-	selectorCache := NewSelectorCache(logger, initialIDs)
+	selectorCache := NewSelectorCache(logger, initialIDs.ToOld())
 	subjectSelectorCache := NewSelectorCache(logger, nil)
 	repo := &Repository{
 		logger:               logger,
@@ -717,7 +717,7 @@ func RepositoryScriptCmds(p *Repository) map[string]script.Cmd {
 // It includes a static snapshot of the selectorcache and an empty policy cache.
 //
 // It has all existing rules and identities.
-func (p *Repository) Snapshot(logger *slog.Logger, cm certificatemanager.CertificateManager, rt envoypolicy.EnvoyL7RulesTranslator) (*Repository, identity.IdentityMapOld) {
+func (p *Repository) Snapshot(logger *slog.Logger, cm certificatemanager.CertificateManager, rt envoypolicy.EnvoyL7RulesTranslator) (*Repository, identity.IdentityMap) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 

@@ -167,7 +167,7 @@ type stageCmd struct {
 
 	log *slog.Logger
 	pr  *policy.Repository
-	ids identity.IdentityMapOld
+	ids identity.IdentityMap
 
 	toAddPaths []string
 
@@ -405,7 +405,7 @@ prefixLoop:
 			}
 
 			toAllocate[nid] = lbls
-			s.ids[nid] = lbls
+			s.ids[nid] = lbls.Labels()
 			break
 		}
 	}
@@ -458,7 +458,7 @@ func toResult(before, after map[policytypes.Key]entryOut) result {
 	return out
 }
 
-func printDiffRow(tw *tabwriter.Writer, idm identity.IdentityMapOld, sigil rune, row entryOut) {
+func printDiffRow(tw *tabwriter.Writer, idm identity.IdentityMap, sigil rune, row entryOut) {
 	id := "unknown"
 	if row.Identity == 0 {
 		id = "*"

@@ -63,12 +63,12 @@ func IterateReservedIdentities(f func(_ NumericIdentity, _ *Identity)) {
 	}
 }
 
-func ListReservedIdentities() IdentityMapOld {
+func ListReservedIdentities() IdentityMap {
 	cacheMU.RLock()
 	defer cacheMU.RUnlock()
-	out := make(IdentityMapOld, len(reservedIdentityCache))
+	out := make(IdentityMap, len(reservedIdentityCache))
 	for ni, identity := range reservedIdentityCache {
-		out[ni] = identity.LabelArray
+		out[ni] = identity.Labels
 	}
 	return out
 }

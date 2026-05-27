@@ -877,14 +877,14 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMapOld
 
 // getIdentities captures the current set of identities.
 // Used for debugging, staging, and testing.
-func (sc *SelectorCache) getIdentities() identity.IdentityMapOld {
+func (sc *SelectorCache) getIdentities() identity.IdentityMap {
 	sc.mutex.RLock()
 	defer sc.mutex.RUnlock()
 
-	out := make(identity.IdentityMapOld, len(sc.idCache.ids))
+	out := make(identity.IdentityMap, len(sc.idCache.ids))
 
 	for nid, id := range sc.idCache.ids {
-		out[nid] = id.lbls
+		out[nid] = id.lbls.Labels()
 	}
 
 	return out
