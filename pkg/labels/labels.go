@@ -736,6 +736,44 @@ func (l Labels) IsGenerated() bool {
 	return l.HasSource(LabelSourceGenerated)
 }
 
+// Has returns whether the provided key exists in the label array.
+// Implementation of the
+// github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels.Labels interface.
+//
+// The key can be of source "any", in which case the source is
+// ignored. The inverse, however, is not true.
+// ["k8s:foo=bar"].Has("any:foo") => true
+// ["any:foo=bar"].Has("k8s:foo") => false
+//
+// If the key is of source "cidr", this will also match
+// broader keys.
+// ["cidr:1.1.1.1/32"].Has("cidr:1.0.0.0/8") => true
+// ["cidr:1.0.0.0/8"].Has("cidr:1.1.1.1/32") => false
+func (l Labels) Has(key string) bool {
+	// The key is submitted in the form of `source:key=value`
+	keyLabel := ParseSelectLabel(key)
+	_, exists := l.LookupLabel(&keyLabel)
+	return exists
+}
+
+// Get returns the value for the provided key.
+// Implementation of the
+// github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels.Labels interface.
+//
+// The key can be of source "any", in which case the source is
+// ignored. The inverse, however, is not true.
+// ["k8s:foo=bar"].Get("any:foo") => "bar"
+// ["any:foo=bar"].Get("k8s:foo") => ""
+//
+// Note that Get is not useful for labels that have no values,
+// as then Get will return an empty string whether or not key
+// matches any label in the array.
+func (l Labels) Get(key string) string {
+	keyLabel := ParseSelectLabel(key)
+	value, _ := l.LookupLabel(&keyLabel)
+	return value
+}
+
 // HasLabel returns true if l contains the given label, including value.
 //
 // label may contain the `any` source
