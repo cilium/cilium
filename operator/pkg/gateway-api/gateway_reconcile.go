@@ -628,11 +628,6 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 			if len(supportedKinds) != len(l.AllowedRoutes.Kinds) {
 				conds = merge(conds, gatewayListenerInvalidRouteKinds(gw, "Unsupported Route Kinds in allowedRoutes.kinds"))
 			}
-
-			if len(supportedKinds) == 0 {
-				invalidMessages = append(invalidMessages, "None of the Allowed Route Kinds are supported.")
-				isValid = false
-			}
 		} else {
 			// If there are no Kinds specified in AllowedRoutes, then supportedKinds should contain
 			// all the supported Kinds for that Protocol.
