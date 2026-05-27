@@ -84,7 +84,7 @@ func registerKubeProxyHealthzHTTPService(params kubeProxyHealthParams) error {
 	params.JobGroup.Add(job.OneShot("kube-proxy-healthz-server", func(ctx context.Context, health cell.Health) error {
 		addr := params.Config.KubeProxyReplacementHealthzBindAddress
 		lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
-		ln, err := lc.Listen(context.Background(), "tcp", addr)
+		ln, err := lc.Listen(ctx, "tcp", addr)
 		if errors.Is(err, unix.EADDRNOTAVAIL) {
 			params.Logger.Info("KubeProxy healthz server not available", logfields.Address, addr)
 		} else if err != nil {
@@ -108,6 +108,13 @@ func registerKubeProxyHealthzHTTPService(params kubeProxyHealthParams) error {
 		}
 
 		params.Logger.Info("Starting kube-proxy healthz server", logfields.Address, addr)
+
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go func() {
+			<-ctx.Done()
+			srv.Close()
+		}()
 
 		if err := srv.Serve(ln); errors.Is(err, http.ErrServerClosed) {
 			params.Logger.Info("kube-proxy healthz status API server shutdown", logfields.Address, addr)
