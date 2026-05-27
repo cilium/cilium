@@ -50,7 +50,7 @@ func TestPreviousMapStateSizesRace(t *testing.T) {
 		id, _, err := fakeAllocator.AllocateIdentity(context.Background(), lbls, false, 0)
 		assert.NoError(t, err)
 		wg := &sync.WaitGroup{}
-		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{
+		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMapOld{
 			id.ID: id.LabelArray,
 		}, nil, wg)
 		wg.Wait()

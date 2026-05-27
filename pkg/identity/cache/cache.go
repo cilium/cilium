@@ -29,7 +29,7 @@ func (s IdentitiesModel) Less(i, j int) bool {
 }
 
 // FromIdentityCache populates the provided model from an identity cache.
-func (s IdentitiesModel) FromIdentityCache(cache identity.IdentityMap) IdentitiesModel {
+func (s IdentitiesModel) FromIdentityCache(cache identity.IdentityMapOld) IdentitiesModel {
 	for id, lbls := range cache {
 		s = append(s, identitymodel.CreateModel(&identity.Identity{
 			ID:     id,
@@ -40,9 +40,9 @@ func (s IdentitiesModel) FromIdentityCache(cache identity.IdentityMap) Identitie
 }
 
 // GetIdentityCache returns a cache of all known identities
-func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
+func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMapOld {
 	m.logger.Debug("getting identity cache for identity allocator manager")
-	cache := identity.IdentityMap{}
+	cache := identity.IdentityMapOld{}
 
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
@@ -109,7 +109,7 @@ type identityWatcher struct {
 // identityBatch collects identity changes destined for a single owner update.
 // Added and deleted identities are kept in disjoint sets.
 type identityBatch struct {
-	added, deleted identity.IdentityMap
+	added, deleted identity.IdentityMapOld
 	toClose        []chan<- struct{}
 }
 
@@ -157,8 +157,8 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 	go func() {
 		for {
 			batch := identityBatch{
-				added:   identity.IdentityMap{},
-				deleted: identity.IdentityMap{},
+				added:   identity.IdentityMapOld{},
+				deleted: identity.IdentityMapOld{},
 			}
 
 			// Consume first event synchronously

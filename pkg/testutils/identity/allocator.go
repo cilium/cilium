@@ -14,7 +14,7 @@ import (
 
 type IdentityAllocatorOwnerMock struct{}
 
-func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{} {
 	out := make(chan struct{})
 	close(out)
 	return out
@@ -26,7 +26,7 @@ func (i *IdentityAllocatorOwnerMock) GetNodeSuffix() string {
 
 // MockIdentityAllocator is used as a mock identity allocator for unit tests.
 type MockIdentityAllocator struct {
-	identity.IdentityMap
+	identity.IdentityMapOld
 
 	// map from scope -> next ID
 	nextIDs map[identity.NumericIdentity]int
@@ -42,12 +42,12 @@ type MockIdentityAllocator struct {
 // NewMockIdentityAllocator returns a new mock identity allocator to be used
 // for unit testing purposes. It can be used as a drop-in for "real" identity
 // allocation in a testing context.
-func NewMockIdentityAllocator(c identity.IdentityMap) *MockIdentityAllocator {
+func NewMockIdentityAllocator(c identity.IdentityMapOld) *MockIdentityAllocator {
 	if c == nil {
-		c = identity.IdentityMap{}
+		c = identity.IdentityMapOld{}
 	}
 	return &MockIdentityAllocator{
-		IdentityMap: c,
+		IdentityMapOld: c,
 
 		nextIDs: map[identity.NumericIdentity]int{
 			identity.IdentityScopeGlobal:     1000,
@@ -71,7 +71,7 @@ func (f *MockIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) 
 // GetIdentities returns the identities from the identity cache.
 func (f *MockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 	result := cache.IdentitiesModel{}
-	return result.FromIdentityCache(f.IdentityMap)
+	return result.FromIdentityCache(f.IdentityMapOld)
 }
 
 // Reject programs the mock allocator to reject an identity
@@ -120,7 +120,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 		f.nextIDs[scope]++
 	}
 
-	f.IdentityMap[identity.NumericIdentity(id)] = lbls.LabelArray()
+	f.IdentityMapOld[identity.NumericIdentity(id)] = lbls.LabelArray()
 	f.labelsToIdentity[lbls.String()] = int(id)
 
 	realID := &identity.Identity{
@@ -169,7 +169,7 @@ func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity
 	}
 	if realID.ReferenceCount == 1 {
 		delete(f.idToIdentity, int(id.ID))
-		delete(f.IdentityMap, id.ID)
+		delete(f.IdentityMapOld, id.ID)
 		for key, lblID := range f.labelsToIdentity {
 			if lblID == int(id.ID) {
 				delete(f.labelsToIdentity, key)
@@ -212,8 +212,8 @@ func (f *MockIdentityAllocator) LookupIdentityByID(ctx context.Context, id ident
 }
 
 // GetIdentityCache returns the identity cache.
-func (f *MockIdentityAllocator) GetIdentityCache() identity.IdentityMap {
-	return f.IdentityMap
+func (f *MockIdentityAllocator) GetIdentityCache() identity.IdentityMapOld {
+	return f.IdentityMapOld
 }
 
 func (f *MockIdentityAllocator) Observe(ctx context.Context, next func(cache.IdentityChange), complete func(error)) {

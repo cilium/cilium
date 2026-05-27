@@ -134,7 +134,7 @@ var (
 )
 
 func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) (identitymanager.IDManager, *policy.Repository) {
-	idmap := identity.IdentityMap{}
+	idmap := identity.IdentityMapOld{}
 	for _, id := range initialIDs {
 		idmap[id.ID] = id.LabelArray
 	}

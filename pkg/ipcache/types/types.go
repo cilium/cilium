@@ -15,7 +15,7 @@ import (
 // IdentityUpdater is responsible for handling identity updates into the core
 // policy engine. See SelectorCache.UpdateIdentities() for more details.
 type IdentityUpdater interface {
-	UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{}
+	UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{}
 }
 
 // ResourceID identifies a unique copy of a resource that provides a source for
