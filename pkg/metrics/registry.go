@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/prometheus/client_golang/prometheus"
@@ -50,10 +49,9 @@ func (rc RegistryConfig) Flags(flags *pflag.FlagSet) {
 type RegistryParams struct {
 	cell.In
 
-	Logger     *slog.Logger
-	Shutdowner hive.Shutdowner
-	Lifecycle  cell.Lifecycle
-	JobGroup   job.Group
+	Logger    *slog.Logger
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
 
 	AutoMetrics []metricpkg.WithMetadata `group:"hive-metrics"`
 	Config      RegistryConfig
@@ -85,17 +83,21 @@ func (reg *Registry) Gather() ([]*dto.MetricFamily, error) {
 }
 
 func (reg *Registry) AddServerRuntimeHooks(serverId string, tlsConfigPromise TLSConfigPromise, listenConfig net.ListenConfig) {
-	if reg.params.Config.PrometheusServeAddr != "" {
-		// The Handler function provides a default handler to expose metrics
-		// via an HTTP server. "/metrics" is the usual endpoint for that.
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-		srv := http.Server{
-			Addr:    reg.params.Config.PrometheusServeAddr,
-			Handler: mux,
-		}
+	if reg.params.Config.PrometheusServeAddr == "" {
+		return
+	}
 
-		reg.params.JobGroup.Add(job.OneShot(serverId, func(ctx context.Context, _ cell.Health) error {
+	// The Handler function provides a default handler to expose metrics
+	// via an HTTP server. "/metrics" is the usual endpoint for that.
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	srv := http.Server{
+		Addr:    reg.params.Config.PrometheusServeAddr,
+		Handler: mux,
+	}
+
+	reg.params.JobGroup.Add(
+		job.OneShot(serverId, func(ctx context.Context, _ cell.Health) error {
 			tlsEnabled := tlsConfigPromise != nil
 			reg.params.Logger.Info("Serving prometheus metrics",
 				logfields.Server, serverId,
@@ -105,8 +107,7 @@ func (reg *Registry) AddServerRuntimeHooks(serverId string, tlsConfigPromise TLS
 
 			ln, err := listenConfig.Listen(ctx, "tcp", reg.params.Config.PrometheusServeAddr)
 			if err != nil {
-				reg.params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
-				return nil
+				return err
 			}
 
 			var serveFn func() error
@@ -123,17 +124,19 @@ func (reg *Registry) AddServerRuntimeHooks(serverId string, tlsConfigPromise TLS
 				serveFn = func() error { return srv.Serve(ln) }
 			}
 
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			go func() {
+				<-ctx.Done()
+				srv.Close()
+			}()
+
 			if err := serveFn(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				reg.params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
+				return err
 			}
 			return nil
-		}))
-		reg.params.Lifecycle.Append(cell.Hook{
-			OnStop: func(hc cell.HookContext) error {
-				return srv.Shutdown(hc)
-			},
-		})
-	}
+		}, job.WithShutdown()),
+	)
 }
 
 // NewRegistry constructs a new registry that is not initialized with
