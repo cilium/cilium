@@ -145,7 +145,7 @@ func NewPolicyRepository(
 	idmgr identitymanager.IDManager,
 	metricsManager types.PolicyMetrics,
 ) *Repository {
-	selectorCache := NewSelectorCache(logger, initialIDs.ToOld())
+	selectorCache := NewSelectorCache(logger, initialIDs)
 	subjectSelectorCache := NewSelectorCache(logger, nil)
 	repo := &Repository{
 		logger:               logger,

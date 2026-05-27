@@ -595,9 +595,14 @@ func NewLabelsFromSortedList(list string) Labels {
 }
 
 // NewFrom creates a new Labels from the given labels by creating a copy.
-func NewFrom(l Labels) Labels {
-	nl := make(Labels, len(l))
-	nl.MergeLabels(l)
+func NewFrom(ll ...Labels) Labels {
+	if len(ll) == 0 {
+		return Labels{}
+	}
+	nl := make(Labels, len(ll[0]))
+	for _, l := range ll {
+		nl.MergeLabels(l)
+	}
 	return nl
 }
 
@@ -903,6 +908,18 @@ func parseLabel(str string, delim labelSourceDelimiter) (lbl Label) {
 // LabelSourceAny
 func ParseSelectLabel(str string) Label {
 	return parseSelectLabel(str, sourceDelimiter)
+}
+
+// ParseSelectLabel returns a selecting label representation of the given
+// string. Unlike ParseLabel, if source is unspecified, the source defaults to
+// LabelSourceAny
+func ParseSelectLabels(strs ...string) Labels {
+	out := make(Labels, len(strs))
+	for _, str := range strs {
+		lbl := parseSelectLabel(str, sourceDelimiter)
+		out[lbl.Key] = lbl
+	}
+	return out
 }
 
 // parseSelectLabel returns a selecting label representation of the given

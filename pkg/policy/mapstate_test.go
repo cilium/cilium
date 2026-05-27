@@ -1110,7 +1110,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
-	identityCache := identity.IdentityMapOld{
+	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
@@ -1450,7 +1450,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	csBar := newTestCachedSelector("Bar", false)
 	csWildcard := newTestCachedSelector("wildcard", true)
 
-	identityCache := identity.IdentityMapOld{
+	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
@@ -3175,9 +3175,9 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 func TestMapState_passValidation(t *testing.T) {
 	// identities used in tests
 	identity1111 := localIdentity(1111)
-	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))).LabelArray()
+	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32"))))
 
-	identityCache := identity.IdentityMapOld{
+	identityCache := identity.IdentityMap{
 		identity1111: labels1111,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
@@ -3192,14 +3192,14 @@ func TestMapState_passValidation(t *testing.T) {
 		entries      []keyEntry
 	}
 	tests := []struct {
-		name       string                  // test name
-		identities identity.IdentityMapOld // Identities used in the test
-		tiers      []TierEntries           // Explicitly ordered sets of implicitly ordered entries
-		want       mapStateMap             // expected MapState, optional
-		probes     []probe                 // probes to test the policy, optional
+		name       string               // test name
+		identities identity.IdentityMap // Identities used in the test
+		tiers      []TierEntries        // Explicitly ordered sets of implicitly ordered entries
+		want       mapStateMap          // expected MapState, optional
+		probes     []probe              // probes to test the policy, optional
 	}{{
 		name: "PASS 1.1.1.1 over deny all",
-		identities: identity.IdentityMapOld{
+		identities: identity.IdentityMap{
 			identity1111: labels1111,
 		},
 		tiers: []TierEntries{{
@@ -3225,7 +3225,7 @@ func TestMapState_passValidation(t *testing.T) {
 		probes: []probe{},
 	}, {
 		name: "wildcard PASS over deny 1.1.1.1",
-		identities: identity.IdentityMapOld{
+		identities: identity.IdentityMap{
 			identity1111: labels1111,
 		},
 		tiers: []TierEntries{{
@@ -3250,7 +3250,7 @@ func TestMapState_passValidation(t *testing.T) {
 		probes: []probe{},
 	}, {
 		name: "PASS 1.1.1.1 over deny all, with wildcard and probes",
-		identities: identity.IdentityMapOld{
+		identities: identity.IdentityMap{
 			identity1111: labels1111,
 		},
 		tiers: []TierEntries{{
