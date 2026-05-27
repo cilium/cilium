@@ -321,13 +321,8 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 
 				rtxn := f.db.ReadTxn()
 
-				o, _, found := f.healthTable.Get(rtxn, health.PrimaryIndex.Query(healthTypes.HealthID("test.job-cleanup-peer-config-status")))
-				if !assert.True(ct, found, "Health status for the job is not found") {
-					return
-				}
-
-				assert.Equal(ct, healthTypes.Level(healthTypes.LevelStopped), o.Level)
-				assert.Equal(ct, "Cleanup job is done successfully", o.Message)
+				_, _, found := f.healthTable.Get(rtxn, health.PrimaryIndex.Query(healthTypes.HealthID("test.job-cleanup-peer-config-status")))
+				assert.False(ct, found, "expected job to be done")
 			}, time.Second*3, time.Millisecond*100)
 		})
 	}
