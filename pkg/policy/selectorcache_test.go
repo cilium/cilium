@@ -23,7 +23,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
-func testNewSelectorCache(tb testing.TB, logger *slog.Logger, ids identity.IdentityMapOld) *SelectorCache {
+func testNewSelectorCache(tb testing.TB, logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
 	sc := NewSelectorCache(logger, ids)
 	sc.userHandlerDone = make(chan struct{})
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
@@ -311,7 +311,7 @@ func (cs *testCachedSelector) String() string {
 }
 
 func TestAddRemoveSelector(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -363,7 +363,7 @@ func TestAddRemoveSelector(t *testing.T) {
 }
 
 func TestMultipleIdentitySelectors(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -424,7 +424,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 }
 
 func TestIdentityUpdates(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -497,7 +497,7 @@ func TestIdentityUpdates(t *testing.T) {
 }
 
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -577,7 +577,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 }
 
 func TestTransactionalUpdate(t *testing.T) {
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -680,7 +680,7 @@ func TestSelectorCacheCanSkipUpdate(t *testing.T) {
 		return idMap
 	}
 
-	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMapOld{})
+	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
 	wg := &sync.WaitGroup{}
 
 	require.False(t, sc.CanSkipUpdate(toIdentityMap(id1), nil))
