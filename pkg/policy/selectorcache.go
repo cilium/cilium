@@ -38,14 +38,14 @@ type scIdentityCache struct {
 	byNamespace map[string]map[*scIdentity]struct{}
 }
 
-func newScIdentityCache(ids identity.IdentityMapOld) scIdentityCache {
+func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
 	idCache := scIdentityCache{
 		ids:         make(map[identity.NumericIdentity]*scIdentity, len(ids)),
 		byNamespace: make(map[string]map[*scIdentity]struct{}, len(ids)),
 	}
 
 	for nid, lbls := range ids {
-		idCache.insert(nid, lbls)
+		idCache.insert(nid, lbls.LabelArray()) // TEMPORARY
 	}
 
 	return idCache
@@ -441,7 +441,7 @@ func (sc *SelectorCache) queueNotifiedUsersCommit(txn SelectorSnapshot, wg *sync
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
-func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMapOld) *SelectorCache {
+func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
 		logger:    logger,
 		idCache:   newScIdentityCache(ids),
