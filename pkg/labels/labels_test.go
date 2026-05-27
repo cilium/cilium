@@ -394,6 +394,35 @@ func TestLabels_HasLabel(t *testing.T) {
 	}
 }
 
+// Labels.Has() is a specific interface
+// that is required for kubernetes selectors to work
+func TestLabels_Has(t *testing.T) {
+	lbls := LabelArray{
+		NewLabel("foo", "bar", "k8s"),
+		NewLabel("foo1", "bar1", "any"), // not valid, but good to capture
+		NewLabel("kube-apiserver", "", "reserved"),
+	}.Labels()
+	lbls.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.1.2.0/24")))
+	lbls.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("2001:db8:cafe::/54")))
+
+	for key, expected := range map[string]bool{
+		"any:foo":                 true,
+		"k8s:foo":                 true,
+		"k8s:foo1":                false,
+		"reserved:kube-apiserver": true,
+
+		"cidr:10.1.2.0/24": true,  // exact match
+		"cidr:10.1.0.0/22": true,  // larger cidr: OK
+		"cidr:10.1.2.0/25": false, // smaller cidr: no
+
+		"cidr:2001-db8-cafe--0/54": true,  // exact
+		"cidr:2001-db8-cafe--0/53": true,  // larger
+		"cidr:2001-db8-cafe--0/55": false, // smaller
+	} {
+		assert.Equal(t, expected, lbls.Has(key), key)
+	}
+}
+
 func TestLabels_GetFromSource(t *testing.T) {
 	type args struct {
 		source string
