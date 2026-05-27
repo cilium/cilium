@@ -239,7 +239,7 @@ var ExpectedHeaders3 = []*envoy_config_route.HeaderMatcher{
 var (
 	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 
-	IdentityCache = identity.IdentityMap{
+	IdentityCache = identity.IdentityMapOld{
 		1001: labels.LabelArray{
 			labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
@@ -1454,7 +1454,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 	repo := policy.NewPolicyRepository(
 		logger,
 		cmtypes.DefaultClusterInfo.ID,
-		identity.IdentityMap{localIdentity.ID: localIdentity.LabelArray},
+		identity.IdentityMapOld{localIdentity.ID: localIdentity.LabelArray},
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),
 		idMgr,
@@ -2583,7 +2583,7 @@ func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.
 	repo := policy.NewPolicyRepository(
 		logger,
 		cmtypes.DefaultClusterInfo.ID,
-		identity.IdentityMap{localIdentity.ID: localIdentity.LabelArray},
+		identity.IdentityMapOld{localIdentity.ID: localIdentity.LabelArray},
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),
 		idMgr,

@@ -167,7 +167,7 @@ type stageCmd struct {
 
 	log *slog.Logger
 	pr  *policy.Repository
-	ids identity.IdentityMap
+	ids identity.IdentityMapOld
 
 	toAddPaths []string
 
@@ -223,7 +223,7 @@ func newStageCmd(params CmdParams, state *script.State) (*stageCmd, error) {
 
 	// add this endpoint to the subject selector cache
 	wg := sync.WaitGroup{}
-	s.pr.GetSubjectSelectorCache().UpdateIdentities(identity.IdentityMap{s.epID.ID: s.epID.LabelArray}, nil, &wg)
+	s.pr.GetSubjectSelectorCache().UpdateIdentities(identity.IdentityMapOld{s.epID.ID: s.epID.LabelArray}, nil, &wg)
 	wg.Wait()
 
 	return s, nil
@@ -382,7 +382,7 @@ func (s *stageCmd) getEPEntries() (map[policytypes.Key]entryOut, error) {
 func (s *stageCmd) ensureCIDRIdentities(e policytypes.PolicyEntries) {
 	prefixes := policy.GetCIDRPrefixes(e)
 
-	toAllocate := identity.IdentityMap{}
+	toAllocate := identity.IdentityMapOld{}
 
 	// For every prefix, see if the IDMap already has an identity with exactly
 	// this CIDR
@@ -458,7 +458,7 @@ func toResult(before, after map[policytypes.Key]entryOut) result {
 	return out
 }
 
-func printDiffRow(tw *tabwriter.Writer, idm identity.IdentityMap, sigil rune, row entryOut) {
+func printDiffRow(tw *tabwriter.Writer, idm identity.IdentityMapOld, sigil rune, row entryOut) {
 	id := "unknown"
 	if row.Identity == 0 {
 		id = "*"

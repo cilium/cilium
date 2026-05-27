@@ -1115,7 +1115,7 @@ type testParams struct {
 
 type mockUpdater struct{}
 
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
+func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMapOld) <-chan struct{} {
 	out := make(chan struct{})
 	close(out)
 	return out
