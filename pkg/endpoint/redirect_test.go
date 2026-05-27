@@ -63,9 +63,9 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	s.mgr = cache.NewCachingIdentityAllocator(logger, s.do, cache.NewTestAllocatorConfig())
 	<-s.mgr.InitIdentityAllocator(nil, client)
 
-	identityCache := identity.IdentityMapOld{
-		identityFoo: labelsFoo,
-		identityBar: labelsBar,
+	identityCache := identity.IdentityMap{
+		identityFoo: labelsFoo.Labels(),
+		identityBar: labelsBar.Labels(),
 	}
 
 	s.do.idmgr = identitymanager.NewIDManager(logger)

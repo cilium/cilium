@@ -139,13 +139,13 @@ func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) Au
 // NewPolicyRepository creates a new policy repository.
 func NewPolicyRepository(
 	logger *slog.Logger,
-	initialIDs identity.IdentityMapOld,
+	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
 	idmgr identitymanager.IDManager,
 	metricsManager types.PolicyMetrics,
 ) *Repository {
-	selectorCache := NewSelectorCache(logger, initialIDs)
+	selectorCache := NewSelectorCache(logger, initialIDs.ToOld())
 	subjectSelectorCache := NewSelectorCache(logger, nil)
 	repo := &Repository{
 		logger:               logger,

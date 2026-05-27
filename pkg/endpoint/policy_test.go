@@ -53,7 +53,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	logger := hivetest.Logger(t)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
 	idManager := identitymanager.NewIDManager(hivetest.Logger(t))
-	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache().ToOld(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
 	polComputer := testcompute.InstantiateCellForTesting(t, logger, "endpoint-policy_test", "TestIncrementalUpdatesDuringPolicyGeneration", repo, idManager)
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
@@ -219,7 +219,7 @@ func newPolicyTestFixture(t *testing.T) *policyTestFixture {
 	idcache := make(identity.IdentityMap)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
 	idManager := identitymanager.NewIDManager(logger)
-	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache().ToOld(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
 	polComputer := testcompute.InstantiateCellForTesting(t, logger, "endpoint-policy_test", t.Name(), repo, idManager)
 
 	podLbls := labels.Labels{"pod": labels.NewLabel("k8s:pod", "", "")}
