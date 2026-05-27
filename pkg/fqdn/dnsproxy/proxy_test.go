@@ -231,7 +231,7 @@ var (
 	// slogloggercheck: the default logger is enough for tests.
 	cacheAllocator = cache.NewCachingIdentityAllocator(logging.DefaultSlogLogger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
 	// slogloggercheck: the default logger is enough for tests.
-	testSelectorCache       = policy.NewSelectorCache(logging.DefaultSlogLogger, cacheAllocator.GetIdentityCache().ToOld())
+	testSelectorCache       = policy.NewSelectorCache(logging.DefaultSlogLogger, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &testpolicy.DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
 	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID1Selector)

@@ -254,7 +254,7 @@ var (
 		}.Labels(),
 	}
 	// slogloggercheck: the default logger is enough for tests.
-	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache.ToOld())
+	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache)
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
 
