@@ -239,22 +239,22 @@ var ExpectedHeaders3 = []*envoy_config_route.HeaderMatcher{
 var (
 	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 
-	IdentityCache = identity.IdentityMapOld{
+	IdentityCache = identity.IdentityMap{
 		1001: labels.LabelArray{
 			labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
-		},
+		}.Labels(),
 		1002: labels.LabelArray{
 			labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v2", labels.LabelSourceK8s),
-		},
+		}.Labels(),
 		1003: labels.LabelArray{
 			labels.NewLabel("app", "cassandra", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
-		},
+		}.Labels(),
 	}
 	// slogloggercheck: the default logger is enough for tests.
-	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache)
+	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache.ToOld())
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
 
@@ -1454,7 +1454,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 	repo := policy.NewPolicyRepository(
 		logger,
 		cmtypes.DefaultClusterInfo.ID,
-		identity.IdentityMapOld{localIdentity.ID: localIdentity.LabelArray},
+		identity.IdentityMap{localIdentity.ID: localIdentity.Labels},
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),
 		idMgr,
@@ -2583,7 +2583,7 @@ func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.
 	repo := policy.NewPolicyRepository(
 		logger,
 		cmtypes.DefaultClusterInfo.ID,
-		identity.IdentityMapOld{localIdentity.ID: localIdentity.LabelArray},
+		identity.IdentityMap{localIdentity.ID: localIdentity.Labels},
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),
 		idMgr,
