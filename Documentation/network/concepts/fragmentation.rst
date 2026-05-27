@@ -44,8 +44,6 @@ Known limitations
    will be dropped, even if they are valid.
    This might create significant packet loss under certain conditions,
    potentially rendering fragmentation unsupported for some links.
-   Alternatives are actively being discussed.
-
-   * Cilium drops out of order IP Fragments (see :gh-issue:`25709`)
+   Alternatives are discussed in :gh-issue:`25709`.
 
 .. include:: ../../beta.rst
