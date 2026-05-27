@@ -485,7 +485,7 @@ func makeIPs(count uint32) []netip.Addr {
 
 type dummyIdentityUpdater struct{}
 
-func (*dummyIdentityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+func (*dummyIdentityUpdater) UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{} {
 	c := make(chan struct{})
 	close(c)
 	return c

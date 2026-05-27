@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
-func GenerateL3IngressDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
+func GenerateL3IngressDenyRules(numRules int) (api.Rules, identity.IdentityMapOld) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -49,8 +49,8 @@ func GenerateL3IngressDenyRules(numRules int) (api.Rules, identity.IdentityMap) 
 }
 
 // generate a CIDR identity for each unique CIDR rule in 'rules'
-func generateCIDRIdentities(rules api.Rules) identity.IdentityMap {
-	c := make(identity.IdentityMap, len(rules))
+func generateCIDRIdentities(rules api.Rules) identity.IdentityMapOld {
+	c := make(identity.IdentityMapOld, len(rules))
 	prefixes := make(map[string]identity.NumericIdentity)
 	id := identity.IdentityScopeLocal
 	addPrefix := func(prefix string) {
@@ -162,7 +162,7 @@ func generateCIDREgressDenyRule(i int) api.EgressDenyRule {
 	}
 }
 
-func GenerateCIDRDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
+func GenerateCIDRDenyRules(numRules int) (api.Rules, identity.IdentityMapOld) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 
@@ -446,7 +446,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	}
 
 	// Add new identity to test accumulation of MapChanges
-	added1 := identity.IdentityMap{
+	added1 := identity.IdentityMapOld{
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
 	}
 	wg := &sync.WaitGroup{}
@@ -522,7 +522,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges
-	added1 := identity.IdentityMap{
+	added1 := identity.IdentityMapOld{
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
@@ -532,7 +532,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	wg.Wait()
 	require.Len(t, policy.policyMapChanges.synced, 3)
 
-	deleted1 := identity.IdentityMap{
+	deleted1 := identity.IdentityMapOld{
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 	}
 	wg = &sync.WaitGroup{}

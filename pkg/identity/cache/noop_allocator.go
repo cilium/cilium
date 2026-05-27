@@ -71,10 +71,10 @@ func (n *NoopIdentityAllocator) LookupIdentityByID(ctx context.Context, id ident
 	return identity.LookupReservedIdentity(id)
 }
 
-func (n *NoopIdentityAllocator) GetIdentityCache() identity.IdentityMap {
+func (n *NoopIdentityAllocator) GetIdentityCache() identity.IdentityMapOld {
 	// Return only reserved identities, because reserved identities are
 	// statically initialized and are not managed by identity allocator.
-	cache := identity.IdentityMap{}
+	cache := identity.IdentityMapOld{}
 
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
 		cache[ni] = id.Labels.LabelArray()
