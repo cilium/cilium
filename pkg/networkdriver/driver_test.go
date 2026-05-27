@@ -40,12 +40,7 @@ func (d *mockDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 	if len(filter.DeviceManagers) != 0 && !slices.Contains(filter.DeviceManagers, d.managerType.String()) {
 		return false
 	}
-	if len(filter.IfNames) != 0 {
-		for _, prefix := range filter.IfNames {
-			if len(d.name) >= len(prefix) && d.name[:len(prefix)] == prefix {
-				return true
-			}
-		}
+	if len(filter.IfNames) != 0 && !slices.Contains(filter.IfNames, d.name) {
 		return false
 	}
 	return true
@@ -257,9 +252,9 @@ func TestFilterDevices(t *testing.T) {
 		mkDevice("dummy0", types.DeviceManagerTypeDummy),
 	}
 
-	t.Run("match by ifName prefix", func(t *testing.T) {
+	t.Run("match by exact ifName", func(t *testing.T) {
 		got := filterDevices(devices, v2alpha1.CiliumNetworkDriverDeviceFilter{
-			IfNames: []string{"eth"},
+			IfNames: []string{"eth0", "eth1"},
 		})
 
 		require.Len(t, got, 2)

@@ -159,8 +159,28 @@ func (d MacvlanDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bo
 		return false
 	}
 
-	if len(filter.IfNames) != 0 && !slices.Contains(filter.IfNames, d.IfName()) {
+	// Macvlan devices have no PCI address, vendor/device ID, or kernel driver
+	// binding. A filter specifying any of these fields cannot match a macvlan device.
+	if len(filter.PCIAddrs) != 0 || len(filter.VendorIDs) != 0 ||
+		len(filter.DeviceIDs) != 0 || len(filter.Drivers) != 0 {
 		return false
+	}
+
+	// ifNames are compared after normalising dots to dashes, because macvlan
+	// kernel names (e.g. "eth0.0") are stored with dots replaced by dashes
+	// ("eth0-0") to satisfy DRA device-name constraints. Users may write either
+	// form in the filter.
+	if len(filter.IfNames) != 0 {
+		matched := false
+		for _, name := range filter.IfNames {
+			if strings.ReplaceAll(name, ".", "-") == d.IfName() {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
 	}
 
 	if len(filter.ParentIfNames) != 0 && !slices.Contains(filter.ParentIfNames, d.ParentName) {
