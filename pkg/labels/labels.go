@@ -736,23 +736,31 @@ func (l Labels) IsGenerated() bool {
 	return l.HasSource(LabelSourceGenerated)
 }
 
-// Has returns true if l contains the given label.
-func (l Labels) Has(label Label) bool {
-	_, exists := l.LookupLabel(&label)
-	return exists
+// HasLabel returns true if l contains the given label, including value.
+//
+// label may contain the `any` source
+func (l Labels) HasLabel(label Label) bool {
+	val, exists := l.LookupLabel(&label)
+	return exists && val == label.Value
 }
 
-func (l Labels) LookupLabel(label *Label) (value string, exists bool) {
-	if label.Source != LabelSourceCIDR {
-		lbl, ok := l[label.Key]
-		if ok && lbl.Has(label) {
+// LookupLabel looks up a value by label. The keyLabel's value is ignored,
+// only the key and source are considered.
+//
+// keyLabel may contain the `any` source.
+func (l Labels) LookupLabel(keyLabel *Label) (value string, exists bool) {
+	if keyLabel.Source != LabelSourceCIDR {
+		lbl, ok := l[keyLabel.Key]
+		if ok && lbl.HasKey(keyLabel) {
 			return lbl.Value, true
 		}
 		return "", false
 	}
 
+	// CIDR labels require iteration, as the keys
+	// can have logical "contains"
 	for _, lbl := range l {
-		if lbl.Has(label) {
+		if lbl.HasKey(keyLabel) {
 			return lbl.Value, true
 		}
 	}

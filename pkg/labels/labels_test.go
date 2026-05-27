@@ -337,7 +337,7 @@ func TestLabelsK8sStringMap(t *testing.T) {
 	require.Equal(t, map[string]string{"container.a": "2", "reserved.b": "2"}, lblsAll.K8sStringMap())
 }
 
-func TestLabels_Has(t *testing.T) {
+func TestLabels_HasLabel(t *testing.T) {
 	tests := []struct {
 		name string
 		l    Labels
@@ -377,10 +377,19 @@ func TestLabels_Has(t *testing.T) {
 			in:   NewLabel("nope", "", ""),
 			want: false,
 		},
+		{
+			name: "value mismatch",
+			l: Labels{
+				"foo":   NewLabel("foo", "bar", "any"),
+				"other": NewLabel("other", "bar", ""),
+			},
+			in:   NewLabel("foo", "baz", "any"),
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.l.Has(tt.in))
+			assert.Equal(t, tt.want, tt.l.HasLabel(tt.in))
 		})
 	}
 }
