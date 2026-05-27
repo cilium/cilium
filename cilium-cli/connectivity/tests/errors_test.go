@@ -124,6 +124,46 @@ time=2025-04-08T14:27:09Z level=error msg="bar" serviceID=2 source=/go/src/githu
 	}
 }
 
+func TestGoBGPv4FailedToSendMatcher(t *testing.T) {
+	const src = "/go/src/github.com/cilium/cilium/vendor/github.com/osrg/gobgp/v4/pkg/server/fsm.go"
+
+	for _, tt := range []struct {
+		name      string
+		log       string
+		wantMatch bool
+	}{
+		{
+			name:      "ignored: failed to send due to closed network connection",
+			log:       `time=2026-05-25T23:16:20Z level=warn source=` + src + `:1739 msg="failed to send" component=gobgp-server State=BGP_FSM_ESTABLISHED Data="write tcp 192.168.10.7:47615->192.168.10.8:11179: use of closed network connection"`,
+			wantMatch: true,
+		},
+		{
+			name:      "ignored: failed to send due to broken pipe",
+			log:       `time=2026-05-26T07:33:03Z level=warn source=` + src + `:1739 msg="failed to send" component=gobgp-server State=BGP_FSM_ESTABLISHED Data="write tcp4 192.168.10.8:11179->192.168.10.6:45369: write: broken pipe"`,
+			wantMatch: true,
+		},
+		{
+			name:      "reported: failed to send due to another error",
+			log:       `time=2026-05-26T07:33:03Z level=warn source=` + src + `:1739 msg="failed to send" component=gobgp-server State=BGP_FSM_ESTABLISHED Data="write tcp 192.168.10.7:47615->192.168.10.8:11179: i/o timeout"`,
+			wantMatch: false,
+		},
+		{
+			name:      "reported: failed to send keepalive (distinct msg) even on broken pipe",
+			log:       `time=2026-05-26T07:33:03Z level=warn source=` + src + `:997 msg="failed to send keepalive on outgoing connection" component=gobgp-server Error="write tcp 192.168.10.7:47615->192.168.10.8:11179: write: broken pipe"`,
+			wantMatch: false,
+		},
+		{
+			name:      "reported: failed to send on broken pipe from another subsystem",
+			log:       `time=2026-05-26T07:33:03Z level=warn source=/go/src/github.com/cilium/cilium/pkg/hubble/relay/relay.go:42 msg="failed to send" subsys=hubble error="broken pipe"`,
+			wantMatch: false,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantMatch, gobgpFailedToSend.IsMatch(tt.log))
+		})
+	}
+}
+
 func TestExtractPathFromLog(t *testing.T) {
 	_, thisPath, _, _ := runtime.Caller(0)
 	repoDir, _ := filepath.Abs(filepath.Join(thisPath, "..", "..", "..", ".."))
