@@ -270,18 +270,6 @@ the object under test to make the override take precedence.
 This is somewhat surprising, so use sparingly and consider refactoring the code
 to avoid the need for this.
 
-Known Limitations
-~~~~~~~~~~~~~~~~~
-
-- Runtime-based configuration cannot currently be set during verifier tests.
-  This means that if you have a branch behind a (boolean) config, it will
-  currently not be evaluated by the verifier, and there may be latent verifier
-  errors that pop up when enabled through agent configuration. However, with the
-  new configuration mechanism, we can now fully automate testing all
-  permutations of config flags, without having to maintain them manually going
-  forward. Hold off on migrating ``ENABLE_`` defines until this is resolved.
-- Generating Go scaffolding for struct variables is not yet supported.
-
 Background
 ~~~~~~~~~~
 
