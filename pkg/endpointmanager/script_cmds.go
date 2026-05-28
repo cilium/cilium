@@ -43,7 +43,7 @@ func ScriptCmds(epm EndpointManager, template *endpoint.Endpoint) map[string]scr
 
 				id := &identity.Identity{
 					ID:         identity.NumericIdentity(num),
-					Labels:     labels.FromSlice(labelArr),
+					Labels:     labels.FromSlice(labelArr...),
 					LabelArray: labels.LabelArray(labelArr),
 				}
 
