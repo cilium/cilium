@@ -35,7 +35,7 @@ type IdentityUpdater interface {
 	//
 	// Returns a channel that is closed when all identities have been completely
 	// programmed in the policy maps.
-	UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{}
+	UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{}
 }
 
 type identityAllocatorParams struct {
@@ -115,7 +115,7 @@ func newIdentityUpdater(params identityAllocatorParams) IdentityUpdater {
 //
 // Returns a channel that is closed when all identities have been completely
 // programmed in the policy maps.
-func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{} {
+func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
 	// Have we already seen this exact set of updates? If so, we can skip.
 	// This happens when a global identity is allocated locally (for an Endpoint).
 	// We will add the identity twice; once directly from the endpoint creation,
@@ -145,7 +145,7 @@ func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMapOl
 
 	wg := &sync.WaitGroup{}
 	for _, handler := range i.identityHandlers {
-		handler.UpdateIdentities(added, deleted, wg)
+		handler.UpdateIdentities(added.ToOld(), deleted.ToOld(), wg) // TEMPORARY
 	}
 	// Invoke policy selector cache always as the last handler
 	// This synchronously updates the SelectorCache and queues an incremental

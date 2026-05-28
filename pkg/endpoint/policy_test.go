@@ -69,8 +69,8 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		// t.Logf("allocated label %s id %d", labelKeys, id.ID) // commented out for speed
 
 		wg := &sync.WaitGroup{}
-		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMapOld{
-			id.ID: id.LabelArray,
+		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{
+			id.ID: id.Labels,
 		}, nil, wg)
 		wg.Wait()
 		return id
@@ -226,7 +226,7 @@ func newPolicyTestFixture(t *testing.T) *policyTestFixture {
 	podID, _, err := fakeAllocator.AllocateIdentity(context.Background(), podLbls, false, 0)
 	require.NoError(t, err)
 	wg := &sync.WaitGroup{}
-	repo.GetSelectorCache().UpdateIdentities(identity.IdentityMapOld{podID.ID: podID.LabelArray}, nil, wg)
+	repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{podID.ID: podID.Labels}, nil, wg)
 	wg.Wait()
 
 	idManager.Add(podID)

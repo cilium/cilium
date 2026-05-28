@@ -14,7 +14,7 @@ import (
 
 type IdentityAllocatorOwnerMock struct{}
 
-func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{} {
+func (i *IdentityAllocatorOwnerMock) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
 	out := make(chan struct{})
 	close(out)
 	return out

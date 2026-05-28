@@ -112,7 +112,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		prefixesByResource: map[ipcachetypes.ResourceID][]netip.Prefix{},
 	}
 	wg := &sync.WaitGroup{}
-	pi.repo.GetSubjectSelectorCache().UpdateIdentities(ids.ToOld(), nil, wg)
+	pi.repo.GetSubjectSelectorCache().UpdateIdentities(ids, nil, wg)
 	wg.Wait()
 	pi.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 

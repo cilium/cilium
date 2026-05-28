@@ -267,7 +267,7 @@ func TestUpdateLocalNode(t *testing.T) {
 		t.Helper()
 		id := s.PolicyHandler.identities[identity.ReservedIdentityHost]
 		assert.NotNil(t, id)
-		assert.Equal(t, lbls.LabelArray(), id)
+		assert.Equal(t, lbls, id)
 	}
 
 	injectLabels := func(ip cmtypes.PrefixCluster) {
@@ -380,7 +380,7 @@ func TestInjectExisting(t *testing.T) {
 	// Ensure the SelectorCache has the correct labels
 	selectorID := s.PolicyHandler.identities[id.ID]
 	assert.NotNil(t, selectorID)
-	assert.True(t, selectorID.Contains(labels.LabelKubeAPIServer.LabelArray()))
+	assert.True(t, selectorID.Contains(labels.LabelKubeAPIServer))
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
@@ -1172,15 +1172,15 @@ func TestUpsertMetadataCIDRGroup(t *testing.T) {
 
 func newMockUpdater() *mockUpdater {
 	return &mockUpdater{
-		identities: make(map[identity.NumericIdentity]labels.LabelArray),
+		identities: make(map[identity.NumericIdentity]labels.Labels),
 	}
 }
 
 type mockUpdater struct {
-	identities map[identity.NumericIdentity]labels.LabelArray
+	identities map[identity.NumericIdentity]labels.Labels
 }
 
-func (m *mockUpdater) UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{} {
+func (m *mockUpdater) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
 	maps.Copy(m.identities, added)
 
 	for nid := range deleted {
