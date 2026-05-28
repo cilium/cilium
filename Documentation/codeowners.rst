@@ -227,3 +227,12 @@ external software and protocols:
   Maintain the ztunnel mTLS-proxy integration in Cilium to ensure the ztunnel
   agent receives the necessary information to successfully proxy pod-to-pod
   traffic through mTLS tunnels.
+- `@cilium/network-driver <https://github.com/orgs/cilium/teams/network-driver>`__:
+  Maintain the Cilium Network Driver feature, that allows to request and share
+  networking resources, like SR-IOV devices, among workloads. Responsible for all
+  interactions between the driver and the Kubelet via the Dynamic Resource
+  Allocation (DRA) API as well as between the driver and the Container Runtime
+  via the Node Resource Interface (NRI) API. Ensure the consistency of the
+  dedicated IPAM modes with the Network Driver resources management.
+  This code owner is not related to the low level interactions with the Linux
+  network drivers.
