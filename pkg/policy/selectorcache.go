@@ -685,7 +685,7 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 // CanSkipUpdate returns true if a proposed update is already known to the SelectorCache
 // and thus a no-op. Is used to de-dup an ID update stream, because identical updates
 // may come from multiple sources.
-func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMapOld) bool {
+func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool {
 	sc.mutex.RLock()
 	defer sc.mutex.RUnlock()
 
@@ -700,7 +700,7 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMapOld) b
 		if !exists { // id not known to us: cannot skip
 			return false
 		}
-		if !haslbls.lbls.Equals(lbls) {
+		if !haslbls.lbls.Equals(lbls.LabelArray()) { // TEMPORARY
 			// labels are not equal: cannot skip
 			return false
 		}
@@ -765,7 +765,9 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 // In this case the return value is 'true' and the caller should trigger policy updates on all
 // endpoints to remove the affected identity only from selectors that no longer select the mutated
 // identity.
-func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMapOld, wg *sync.WaitGroup) (mutated bool) {
+func (sc *SelectorCache) UpdateIdentities(addedN, deletedN identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
+	added := addedN.ToOld() // TEMPORARY
+	deleted := deletedN.ToOld()
 	// Map of namespaces to scan for updates with added identities in the map value. All
 	// identities are matched against selectors that have no namespace requirements.
 	namespaces := map[string]identity.NumericIdentitySlice{"": {}}

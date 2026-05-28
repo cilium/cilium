@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
-func GenerateL3IngressDenyRules(numRules int) (api.Rules, identity.IdentityMapOld) {
+func GenerateL3IngressDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -49,15 +49,15 @@ func GenerateL3IngressDenyRules(numRules int) (api.Rules, identity.IdentityMapOl
 }
 
 // generate a CIDR identity for each unique CIDR rule in 'rules'
-func generateCIDRIdentities(rules api.Rules) identity.IdentityMapOld {
-	c := make(identity.IdentityMapOld, len(rules))
+func generateCIDRIdentities(rules api.Rules) identity.IdentityMap {
+	c := make(identity.IdentityMap, len(rules))
 	prefixes := make(map[string]identity.NumericIdentity)
 	id := identity.IdentityScopeLocal
 	addPrefix := func(prefix string) {
 		if _, exists := prefixes[prefix]; !exists {
 			lbls := labels.GetCIDRLabels(netip.MustParsePrefix(prefix))
 			id++
-			c[id] = lbls.LabelArray()
+			c[id] = lbls
 			prefixes[prefix] = id
 		}
 	}
@@ -162,7 +162,7 @@ func generateCIDREgressDenyRule(i int) api.EgressDenyRule {
 	}
 }
 
-func GenerateCIDRDenyRules(numRules int) (api.Rules, identity.IdentityMapOld) {
+func GenerateCIDRDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 
@@ -446,8 +446,8 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	}
 
 	// Add new identity to test accumulation of MapChanges
-	added1 := identity.IdentityMapOld{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
+	added1 := identity.IdentityMap{
+		identity.NumericIdentity(192): labels.ParseSelectLabels("id=resolve_test_1"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
@@ -522,18 +522,18 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges
-	added1 := identity.IdentityMapOld{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
-		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
+	added1 := identity.IdentityMap{
+		identity.NumericIdentity(192): labels.ParseSelectLabels("id=resolve_test_1", "num=1"),
+		identity.NumericIdentity(193): labels.ParseSelectLabels("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(194): labels.ParseSelectLabels("id=resolve_test_1", "num=3"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
 	wg.Wait()
 	require.Len(t, policy.policyMapChanges.synced, 3)
 
-	deleted1 := identity.IdentityMapOld{
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
+	deleted1 := identity.IdentityMap{
+		identity.NumericIdentity(193): labels.ParseSelectLabels("id=resolve_test_1", "num=2"),
 	}
 	wg = &sync.WaitGroup{}
 	td.sc.UpdateIdentities(nil, deleted1, wg)
