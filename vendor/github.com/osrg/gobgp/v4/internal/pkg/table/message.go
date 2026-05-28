@@ -682,13 +682,38 @@ func newPacker(f bgp.Family) packerInterface {
 func CreateUpdateMsgFromPaths(pathList []*Path, options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 	msgs := make([]*bgp.BGPMessage, 0, len(pathList))
 
-	m := make(map[bgp.Family]packerInterface)
+	// Since sendMessageloop coalesces outgoing BGP UPDATE messages and
+	// the packers emit withdrawals before announcements, we should keep only the
+	// last action for each NLRI/path-id within one packing pass.
+	last := make(map[PathLocalKey]*Path, len(pathList))
 	for _, path := range pathList {
+		if path == nil || path.IsEOR() {
+			continue
+		}
+		last[path.GetLocalKey()] = path
+	}
+
+	m := make(map[bgp.Family]packerInterface)
+	add := func(path *Path) {
 		f := path.GetFamily()
 		if _, y := m[f]; !y {
 			m[f] = newPacker(f)
 		}
 		m[f].add(path)
+	}
+
+	for _, path := range pathList {
+		if path == nil {
+			continue
+		}
+		if path.IsEOR() {
+			add(path)
+			continue
+		}
+		if last[path.GetLocalKey()] != path {
+			continue
+		}
+		add(path)
 	}
 
 	for _, p := range m {

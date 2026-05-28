@@ -504,11 +504,11 @@ func (c *CapMultiProtocol) DecodeFromBytes(data []byte) error {
 	if err := c.DefaultParameterCapability.DecodeFromBytes(data); err != nil {
 		return err
 	}
-	data = data[2:]
-	if len(data) < 4 {
-		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityMultiProtocol bytes available")
+	if c.CapLen != 4 {
+		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "CapMultiProtocol requires exactly 4 bytes")
 	}
-	c.CapValue = NewFamily(binary.BigEndian.Uint16(data[:2]), data[3])
+	v := c.DefaultParameterCapability.CapValue
+	c.CapValue = NewFamily(binary.BigEndian.Uint16(v[:2]), v[3])
 	return nil
 }
 
@@ -685,27 +685,27 @@ func (c *CapGracefulRestart) DecodeFromBytes(data []byte) error {
 	if err := c.DefaultParameterCapability.DecodeFromBytes(data); err != nil {
 		return err
 	}
-	data = data[2:]
-	if len(data) < 2 {
+	if c.CapLen < 2 {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityGracefulRestart bytes available")
 	}
-	restart := binary.BigEndian.Uint16(data[:2])
+	v := c.CapValue
+	restart := binary.BigEndian.Uint16(v[:2])
 	c.Flags = uint8(restart >> 12)
 	c.Time = restart & 0xfff
-	data = data[2:]
+	v = v[2:]
 
 	valueLen := int(c.CapLen) - 2
 
-	if valueLen >= 4 && len(data) >= valueLen {
+	if valueLen >= 4 && len(v) >= valueLen {
 		c.Tuples = make([]*CapGracefulRestartTuple, 0, valueLen/4)
 
 		for i := valueLen; i >= 4; i -= 4 {
 			t := &CapGracefulRestartTuple{
-				binary.BigEndian.Uint16(data[:2]),
-				data[2], data[3],
+				binary.BigEndian.Uint16(v[:2]),
+				v[2], v[3],
 			}
 			c.Tuples = append(c.Tuples, t)
-			data = data[4:]
+			v = v[4:]
 		}
 	}
 	return nil
@@ -766,11 +766,10 @@ func (c *CapFourOctetASNumber) DecodeFromBytes(data []byte) error {
 	if err := c.DefaultParameterCapability.DecodeFromBytes(data); err != nil {
 		return err
 	}
-	data = data[2:]
-	if len(data) < 4 {
-		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFourOctetASNumber bytes available")
+	if c.CapLen != 4 {
+		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "CapFourOctetASNumber requires exactly 4 bytes")
 	}
-	c.CapValue = binary.BigEndian.Uint32(data[:4])
+	c.CapValue = binary.BigEndian.Uint32(c.DefaultParameterCapability.CapValue)
 	return nil
 }
 
@@ -1033,35 +1032,22 @@ func (c *CapFQDN) DecodeFromBytes(data []byte) error {
 	if err := c.DefaultParameterCapability.DecodeFromBytes(data); err != nil {
 		return err
 	}
-	if len(data) < 2 {
+	v := c.CapValue
+	if len(v) < 1 {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
 	}
-	data = data[2:]
-	rest := len(data)
-	if rest < 1 {
-		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
-	}
-	rest -= 1
-	c.HostNameLen = data[0]
+	c.HostNameLen = v[0]
 	hostNameLen := int(c.HostNameLen)
-	if rest < hostNameLen {
+	if len(v) < 1+hostNameLen+1 {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
 	}
-	if len(data) < hostNameLen+2 {
-		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
-	}
-	c.HostName = string(data[1 : hostNameLen+1])
-	rest -= hostNameLen
-	if rest < 1 {
-		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
-	}
-	rest -= 1
-	domainNameLen := data[hostNameLen+1]
-	if rest < int(domainNameLen) {
+	c.HostName = string(v[1 : hostNameLen+1])
+	domainNameLen := v[hostNameLen+1]
+	if len(v) < 1+hostNameLen+1+int(domainNameLen) {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
 	}
 	c.DomainNameLen = domainNameLen
-	c.DomainName = string(data[hostNameLen+2 : hostNameLen+2+int(domainNameLen)])
+	c.DomainName = string(v[hostNameLen+2 : hostNameLen+2+int(domainNameLen)])
 	return nil
 }
 
@@ -1117,16 +1103,16 @@ func (c *CapSoftwareVersion) DecodeFromBytes(data []byte) error {
 	if err := c.DefaultParameterCapability.DecodeFromBytes(data); err != nil {
 		return err
 	}
-	data = data[2:]
-	if len(data) < 2 {
+	v := c.CapValue
+	if len(v) < 2 {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilitySoftwareVersion bytes allowed")
 	}
-	softwareVersionLen := data[0]
-	if len(data[1:]) < int(softwareVersionLen) || softwareVersionLen > 64 || softwareVersionLen == 0 {
+	softwareVersionLen := v[0]
+	if len(v[1:]) < int(softwareVersionLen) || softwareVersionLen > 64 || softwareVersionLen == 0 {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "invalid length of software version capablity")
 	}
 	c.SoftwareVersionLen = softwareVersionLen
-	c.SoftwareVersion = string(data[1 : 1+c.SoftwareVersionLen])
+	c.SoftwareVersion = string(v[1 : 1+c.SoftwareVersionLen])
 	return nil
 }
 
@@ -1833,6 +1819,9 @@ func (l *MPLSLabelStack) DecodeFromBytes(data []byte, options ...*MarshallingOpt
 	}
 
 	if !foundBottom {
+		if len(labels) > 0 {
+			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "MPLS label stack missing bottom-of-stack bit")
+		}
 		l.Labels = []uint32{}
 		return nil
 	}
@@ -1841,6 +1830,9 @@ func (l *MPLSLabelStack) DecodeFromBytes(data []byte, options ...*MarshallingOpt
 }
 
 func (l *MPLSLabelStack) Serialize(options ...*MarshallingOption) ([]byte, error) {
+	if len(l.Labels) == 0 {
+		return nil, fmt.Errorf("empty MPLS label stack")
+	}
 	buf := make([]byte, len(l.Labels)*3)
 	for i, label := range l.Labels {
 		if label == WITHDRAW_LABEL {
@@ -1940,7 +1932,7 @@ func (l *LabeledVPNIPAddrPrefix) decodeFromBytes(data []byte, addrlen int, optio
 		return err
 	}
 	if bits-8*l.Labels.Len() < 0 {
-		l.Labels.Labels = []uint32{}
+		return NewMessageError(uint8(BGP_ERROR_UPDATE_MESSAGE_ERROR), uint8(BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST), nil, "LabeledVPNIPAddrPrefix declared length too short for label stack")
 	}
 	if len(data) < l.Labels.Len()+8 {
 		return NewMessageError(uint8(BGP_ERROR_UPDATE_MESSAGE_ERROR), uint8(BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST), nil, "LabeledVPNIPAddrPrefix not enough data")
@@ -2039,7 +2031,7 @@ func (l *LabeledIPAddrPrefix) decodeFromBytes(data []byte, addrlen int, options 
 	}
 
 	if bits-8*l.Labels.Len() < 0 {
-		l.Labels.Labels = []uint32{}
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "LabeledIPAddrPrefix declared length too short for label stack")
 	}
 	if len(data) < l.Labels.Len() {
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "LabeledIPAddrPrefix not enough data")
@@ -2586,17 +2578,16 @@ func (er *EVPNMacIPAdvertisementRoute) DecodeFromBytes(data []byte) error {
 	er.MacAddress = net.HardwareAddr(data[1:7])
 	er.IPAddressLength = data[7]
 	data = data[8:]
-	if er.IPAddressLength == 32 || er.IPAddressLength == 128 {
+	switch er.IPAddressLength {
+	case 32, 128:
 		if len(data) < int(er.IPAddressLength/8) {
 			return malformedAttrListErr("bad length of MAC/IP Advertisement Route")
 		}
-		// The length was validated above
 		er.IPAddress, _ = netip.AddrFromSlice(data[:er.IPAddressLength/8])
-	} else if er.IPAddressLength != 0 {
+	case 0:
+		// IP address omitted
+	default:
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid IP address length: %d", er.IPAddressLength))
-	}
-	if len(data) < int(er.IPAddressLength/8) {
-		return malformedAttrListErr("bad length of MAC/IP Advertisement Route")
 	}
 	data = data[er.IPAddressLength/8:]
 	var label uint32
@@ -2675,23 +2666,30 @@ func (er *EVPNMacIPAdvertisementRoute) String() string {
 	// The Ethernet Segment Identifier, MPLS Label1, and MPLS Label2 fields
 	// are to be treated as route attributes as opposed to being part of the
 	// "route".
+	if er.IPAddressLength == 0 {
+		return fmt.Sprintf("[type:macadv][rd:%s][etag:%d][mac:%s]", er.RD, er.ETag, er.MacAddress)
+	}
 	return fmt.Sprintf("[type:macadv][rd:%s][etag:%d][mac:%s][ip:%s]", er.RD, er.ETag, er.MacAddress, er.IPAddress)
 }
 
 func (er *EVPNMacIPAdvertisementRoute) MarshalJSON() ([]byte, error) {
+	ipAddr := ""
+	if er.IPAddressLength != 0 {
+		ipAddr = er.IPAddress.String()
+	}
 	return json.Marshal(struct {
 		RD         RouteDistinguisherInterface `json:"rd"`
 		ESI        string                      `json:"esi"`
 		Etag       uint32                      `json:"etag"`
 		MacAddress string                      `json:"mac"`
-		IPAddress  string                      `json:"ip"`
+		IPAddress  string                      `json:"ip,omitempty"`
 		Labels     []uint32                    `json:"labels"`
 	}{
 		RD:         er.RD,
 		ESI:        er.ESI.String(),
 		Etag:       er.ETag,
 		MacAddress: er.MacAddress.String(),
-		IPAddress:  er.IPAddress.String(),
+		IPAddress:  ipAddr,
 		Labels:     er.Labels,
 	})
 }
@@ -2702,10 +2700,6 @@ func (er *EVPNMacIPAdvertisementRoute) rd() RouteDistinguisherInterface {
 
 func NewEVPNMacIPAdvertisementRoute(rd RouteDistinguisherInterface, esi EthernetSegmentIdentifier, etag uint32, macAddress string, ipAddress netip.Addr, labels []uint32) (*EVPNNLRI, error) {
 	mac, _ := net.ParseMAC(macAddress)
-	if !ipAddress.IsValid() {
-		return nil, fmt.Errorf("invalid IP address")
-	}
-
 	return NewEVPNNLRI(EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT, &EVPNMacIPAdvertisementRoute{
 		RD:               rd,
 		ESI:              esi,
@@ -4934,7 +4928,7 @@ type LsNodeNLRI struct {
 
 func (l *LsNodeNLRI) DecodeFromBytes(data []byte) error {
 	if err := l.LsNLRI.DecodeFromBytes(data); err != nil {
-		return nil
+		return err
 	}
 
 	tlv := data[lsNLRIHdrLen:]
@@ -5147,7 +5141,7 @@ func (l *LsLinkNLRI) String() string {
 
 func (l *LsLinkNLRI) DecodeFromBytes(data []byte) error {
 	if err := l.LsNLRI.DecodeFromBytes(data); err != nil {
-		return nil
+		return err
 	}
 
 	tlv := data[lsNLRIHdrLen:]
@@ -5331,7 +5325,7 @@ func (l *LsPrefixV4NLRI) String() string {
 
 func (l *LsPrefixV4NLRI) DecodeFromBytes(data []byte) error {
 	if err := l.LsNLRI.DecodeFromBytes(data); err != nil {
-		return nil
+		return err
 	}
 
 	tlv := data[lsNLRIHdrLen:]
@@ -5508,7 +5502,7 @@ func (l *LsPrefixV6NLRI) String() string {
 
 func (l *LsPrefixV6NLRI) DecodeFromBytes(data []byte) error {
 	if err := l.LsNLRI.DecodeFromBytes(data); err != nil {
-		return nil
+		return err
 	}
 
 	tlv := data[lsNLRIHdrLen:]
@@ -5738,7 +5732,7 @@ func (l *LsSrv6SIDNLRI) String() string {
 
 func (l *LsSrv6SIDNLRI) DecodeFromBytes(data []byte) error {
 	if err := l.LsNLRI.DecodeFromBytes(data); err != nil {
-		return nil
+		return err
 	}
 
 	tlvs := data[lsNLRIHdrLen:]
@@ -10212,7 +10206,10 @@ func (l *LsAddrPrefix) decodeFromBytes(data []byte, options ...*MarshallingOptio
 	}
 
 	if l.NLRI != nil {
-		return l.NLRI.DecodeFromBytes(data[4:])
+		if len(data) < 4+int(l.Length) {
+			return malformedAttrListErr("Malformed BGP-LS NLRI: declared length exceeds available data")
+		}
+		return l.NLRI.DecodeFromBytes(data[4 : 4+int(l.Length)])
 	}
 
 	return nil
@@ -14032,9 +14029,11 @@ func parseIP6FlowSpecExtended(data []byte) (ExtendedCommunityInterface, error) {
 			return NewRedirectIPv6AddressSpecificExtended(ipv6, localAdmin)
 		}
 	}
-	return &UnknownExtended{
+	v := make([]byte, 19)
+	copy(v, data[1:20])
+	return &UnknownIP6Extended{
 		Type:  ExtendedCommunityAttrType(data[0]),
-		Value: data[1:20],
+		Value: v,
 	}, nil
 }
 
@@ -14088,6 +14087,52 @@ func NewUnknownExtended(typ ExtendedCommunityAttrType, value []byte) *UnknownExt
 		Type:  typ,
 		Value: v,
 	}
+}
+
+// UnknownIP6Extended represents an unknown IPv6 Extended Community (type 25).
+// IPv6 Extended Communities are 20 bytes long, unlike the 8-byte regular Extended Communities.
+type UnknownIP6Extended struct {
+	Type  ExtendedCommunityAttrType
+	Value []byte // 19 bytes (type byte is separate)
+}
+
+func (e *UnknownIP6Extended) Serialize() ([]byte, error) {
+	if len(e.Value) != 19 {
+		return nil, fmt.Errorf("invalid value length for unknown IPv6 extended community: %d", len(e.Value))
+	}
+	buf := make([]byte, 20)
+	buf[0] = uint8(e.Type)
+	copy(buf[1:], e.Value)
+	return buf, nil
+}
+
+func (e *UnknownIP6Extended) String() string {
+	return fmt.Sprintf("%d %x", e.Type, e.Value)
+}
+
+func (e *UnknownIP6Extended) MarshalJSON() ([]byte, error) {
+	t, s := e.GetTypes()
+	return json.Marshal(struct {
+		Type    ExtendedCommunityAttrType    `json:"type"`
+		Subtype ExtendedCommunityAttrSubType `json:"subtype"`
+		Value   []byte                       `json:"value"`
+	}{
+		Type:    t,
+		Subtype: s,
+		Value:   e.Value,
+	})
+}
+
+func (e *UnknownIP6Extended) GetTypes() (ExtendedCommunityAttrType, ExtendedCommunityAttrSubType) {
+	var subType ExtendedCommunityAttrSubType
+	if len(e.Value) > 0 {
+		subType = ExtendedCommunityAttrSubType(e.Value[0])
+	}
+	return e.Type, subType
+}
+
+func (e *UnknownIP6Extended) Flat() map[string]string {
+	return map[string]string{}
 }
 
 type PathAttributeExtendedCommunities struct {
@@ -15159,9 +15204,11 @@ func ParseIP6Extended(data []byte) (ExtendedCommunityInterface, error) {
 	case EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL:
 		return parseIP6FlowSpecExtended(data)
 	default:
-		return &UnknownExtended{
+		v := make([]byte, 19)
+		copy(v, data[1:20])
+		return &UnknownIP6Extended{
 			Type:  ExtendedCommunityAttrType(data[0]),
-			Value: data[1:8],
+			Value: v,
 		}, nil
 	}
 }
