@@ -237,6 +237,9 @@ clean:
 	@$(ECHO_CLEAN)
 	$(QUIET)rm -fr *.o *.ll *.i *.s
 	$(QUIET)rm -f $(TARGET)
+	$(QUIET)rm -f $(wildcard .cache/clangd/index/*.idx)
+	$(QUIET)rm -f compile_commands.json
+	$(QUIET)$(MAKE) $(SUBMAKEOPTS) -C tests clean
 
 
 BEAR_CLI   = $(shell which bear 2> /dev/null)
