@@ -605,6 +605,16 @@ func FromSlice(labels ...Label) Labels {
 	return lbls
 }
 
+// ParseLabels parses a list of labels and returns a Labels map
+func ParseLabels(labels ...string) Labels {
+	out := make(Labels, len(labels))
+	for _, str := range labels {
+		lbl := ParseLabel(str)
+		out[lbl.Key] = lbl
+	}
+	return out
+}
+
 // NewLabelsFromSortedList returns labels based on the output of SortedList()
 func NewLabelsFromSortedList(list string) Labels {
 	return NewLabelsFromModel(strings.Split(list, ";"))

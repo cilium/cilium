@@ -40,7 +40,7 @@ var (
 // Selectors is a slice of Selectors.
 type Selectors []Selector
 
-func (ps Selectors) Matches(lbls labels.LabelArray) bool {
+func (ps Selectors) Matches(lbls labels.Labels) bool {
 	for i := range ps {
 		if ps[i].Matches(lbls) {
 			return true
@@ -254,7 +254,7 @@ type Selector interface {
 
 	SelectedNamespaces() []string // allowed namespaces, or nil for no requirement
 
-	Matches(labels labels.LabelArray) bool
+	Matches(labels labels.Labels) bool
 
 	GetFQDNSelector() (*api.FQDNSelector, bool)
 
@@ -332,7 +332,7 @@ func (p *LabelSelector) SelectedNamespaces() []string {
 }
 
 // matchesLabels returns true if the CachedSelector matches given labels.
-func (p *LabelSelector) Matches(lbls labels.LabelArray) bool {
+func (p *LabelSelector) Matches(lbls labels.Labels) bool {
 	return MatchesRequirements(p.requirements, lbls)
 }
 
@@ -416,8 +416,8 @@ func (p *FQDNSelector) GetCIDRPrefixes() []netip.Prefix {
 
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
-func (p *FQDNSelector) Matches(lbls labels.LabelArray) bool {
-	return lbls.IntersectsLabel(p.label)
+func (p *FQDNSelector) Matches(lbls labels.Labels) bool {
+	return lbls.HasLabel(p.label)
 }
 
 func (p *FQDNSelector) MetricsClass() string {
@@ -510,7 +510,7 @@ func (p *CIDRSelector) SelectedNamespaces() []string {
 	return nil
 }
 
-func (p *CIDRSelector) Matches(ls labels.LabelArray) bool {
+func (p *CIDRSelector) Matches(ls labels.Labels) bool {
 	if p.encoded {
 		return matchesEncodedRequirements(p.requirements, ls)
 	}
