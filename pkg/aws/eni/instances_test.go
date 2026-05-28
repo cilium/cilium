@@ -73,11 +73,11 @@ var (
 	vpcs = []*ipamTypes.VirtualNetwork{
 		{
 			ID:          "vpc-0",
-			PrimaryCIDR: "1.1.0.0/16",
+			PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("1.1.0.0/16")),
 		},
 		{
 			ID:          "vpc-1",
-			PrimaryCIDR: "2.2.0.0/16",
+			PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("2.2.0.0/16")),
 		},
 	}
 	routeTables = []*ipamTypes.RouteTable{

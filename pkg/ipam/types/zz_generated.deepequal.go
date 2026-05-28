@@ -572,9 +572,10 @@ func (in *VirtualNetwork) DeepEqual(other *VirtualNetwork) bool {
 	if in.ID != other.ID {
 		return false
 	}
-	if in.PrimaryCIDR != other.PrimaryCIDR {
+	if !in.PrimaryCIDR.DeepEqual(&other.PrimaryCIDR) {
 		return false
 	}
+
 	if ((in.CIDRs != nil) && (other.CIDRs != nil)) || ((in.CIDRs == nil) != (other.CIDRs == nil)) {
 		in, other := &in.CIDRs, &other.CIDRs
 		if other == nil {
@@ -585,7 +586,7 @@ func (in *VirtualNetwork) DeepEqual(other *VirtualNetwork) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -602,7 +603,7 @@ func (in *VirtualNetwork) DeepEqual(other *VirtualNetwork) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}

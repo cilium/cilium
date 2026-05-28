@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/slices"
+	cslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -177,11 +178,7 @@ func (c *Client) GetVPC(ctx context.Context, vpcID string) (*ipamTypes.VirtualNe
 		return nil, fmt.Errorf("cannot find VPC by ID %s", vpcID)
 	}
 
-	return &ipamTypes.VirtualNetwork{
-		ID:          resp.Vpcs.Vpc[0].VpcId,
-		PrimaryCIDR: resp.Vpcs.Vpc[0].CidrBlock,
-		CIDRs:       resp.Vpcs.Vpc[0].SecondaryCidrBlocks.SecondaryCidrBlock,
-	}, nil
+	return parseVPC(&resp.Vpcs.Vpc[0])
 }
 
 // GetVPCs retrieves and returns all VPCs
@@ -201,12 +198,12 @@ func (c *Client) GetVPCs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 		if result == nil {
 			result = make(ipamTypes.VirtualNetworkMap, resp.TotalCount)
 		}
-		for _, v := range resp.Vpcs.Vpc {
-			result[v.VpcId] = &ipamTypes.VirtualNetwork{
-				ID:          v.VpcId,
-				PrimaryCIDR: v.CidrBlock,
-				CIDRs:       v.SecondaryCidrBlocks.SecondaryCidrBlock,
+		for i := range resp.Vpcs.Vpc {
+			vn, err := parseVPC(&resp.Vpcs.Vpc[i])
+			if err != nil {
+				return nil, err
 			}
+			result[vn.ID] = vn
 		}
 		if resp.TotalCount < resp.PageNumber*resp.PageSize {
 			break
@@ -214,6 +211,28 @@ func (c *Client) GetVPCs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 		i++
 	}
 	return result, nil
+}
+
+// parseVPC converts a vpc.Vpc into an ipamTypes.VirtualNetwork, parsing CIDR
+// strings into iputil.Prefix.
+func parseVPC(v *vpc.Vpc) (*ipamTypes.VirtualNetwork, error) {
+	primary, err := netip.ParsePrefix(v.CidrBlock)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse VPC %s primary CIDR %q: %w", v.VpcId, v.CidrBlock, err)
+	}
+	var cidrs []iputil.Prefix
+	for _, s := range v.SecondaryCidrBlocks.SecondaryCidrBlock {
+		p, err := netip.ParsePrefix(s)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse VPC %s secondary CIDR %q: %w", v.VpcId, s, err)
+		}
+		cidrs = append(cidrs, iputil.PrefixFrom(p))
+	}
+	return &ipamTypes.VirtualNetwork{
+		ID:          v.VpcId,
+		PrimaryCIDR: iputil.PrefixFrom(primary),
+		CIDRs:       cidrs,
+	}, nil
 }
 
 // GetInstanceTypes returns all the known ECS instance types in the configured region
@@ -476,7 +495,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		instanceIds = append(instanceIds, t.ResourceId)
 	}
 	// The response of ListTagResources can have duplicate instanceId
-	slices.Unique(instanceIds)
+	cslices.Unique(instanceIds)
 
 	if len(instanceIds) == 0 {
 		return result, nil
@@ -691,31 +710,12 @@ func parseENI(logger *slog.Logger, iface *ecs.NetworkInterfaceSet, vpcs ipamType
 	}
 	vpc, ok := vpcs[iface.VpcId]
 	if ok {
-		if p, err := netip.ParsePrefix(vpc.PrimaryCIDR); err != nil {
-			logger.Warn(
-				"Ignoring VPC primary CIDR with unparseable value",
-				logfields.CIDR, vpc.PrimaryCIDR,
-				logfields.VPCID, iface.VpcId,
-				logfields.Error, err,
-			)
-		} else {
-			eni.VPC.CIDRBlock = iputil.PrefixFrom(p)
+		if vpc.PrimaryCIDR.IsValid() {
+			eni.VPC.CIDRBlock = vpc.PrimaryCIDR
 		}
-		var secondaryCIDRs []iputil.Prefix
-		for _, s := range vpc.CIDRs {
-			p, err := netip.ParsePrefix(s)
-			if err != nil {
-				logger.Warn(
-					"Ignoring VPC secondary CIDR with unparseable value",
-					logfields.CIDR, s,
-					logfields.VPCID, iface.VpcId,
-					logfields.Error, err,
-				)
-				continue
-			}
-			secondaryCIDRs = append(secondaryCIDRs, iputil.PrefixFrom(p))
+		if len(vpc.CIDRs) > 0 {
+			eni.VPC.SecondaryCIDRs = slices.Clone(vpc.CIDRs)
 		}
-		eni.VPC.SecondaryCIDRs = secondaryCIDRs
 	}
 
 	subnet, ok := subnets[iface.VSwitchId]
