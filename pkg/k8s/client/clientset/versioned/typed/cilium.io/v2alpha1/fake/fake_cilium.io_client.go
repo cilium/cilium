@@ -59,8 +59,20 @@ func (c *FakeCiliumV2alpha1) CiliumLoadBalancerIPPools() v2alpha1.CiliumLoadBala
 	return newFakeCiliumLoadBalancerIPPools(c)
 }
 
+func (c *FakeCiliumV2alpha1) CiliumNetworkDriverClusterConfigs() v2alpha1.CiliumNetworkDriverClusterConfigInterface {
+	return newFakeCiliumNetworkDriverClusterConfigs(c)
+}
+
+func (c *FakeCiliumV2alpha1) CiliumNetworkDriverNodeConfigs() v2alpha1.CiliumNetworkDriverNodeConfigInterface {
+	return newFakeCiliumNetworkDriverNodeConfigs(c)
+}
+
 func (c *FakeCiliumV2alpha1) CiliumPodIPPools() v2alpha1.CiliumPodIPPoolInterface {
 	return newFakeCiliumPodIPPools(c)
+}
+
+func (c *FakeCiliumV2alpha1) CiliumResourceIPPools() v2alpha1.CiliumResourceIPPoolInterface {
+	return newFakeCiliumResourceIPPools(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
