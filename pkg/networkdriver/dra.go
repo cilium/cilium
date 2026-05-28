@@ -333,7 +333,7 @@ func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg
 		devCfg.routes = append(devCfg.routes, targetCfg.IPv6Routes...)
 	}
 
-	// Overwrite VLAN only when it is not configured directly in the DeviceConfiga
+	// Overwrite VLAN only when it is not configured directly in the DeviceConfig
 	if devCfg.vlan == 0 {
 		devCfg.vlan = targetCfg.Vlan
 	}
