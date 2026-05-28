@@ -1213,7 +1213,7 @@ func TestL3RuleLabels(t *testing.T) {
 
 						matches = false
 						for sel := range filter.PerSelectorPolicies {
-							cidrLabels := labels.ParseLabelArray("cidr:"+cidr, "reserved:world")
+							cidrLabels := labels.ParseLabels("cidr:"+cidr, "reserved:world")
 							t.Logf("Testing %+v", cidrLabels)
 							cidr, ok := sel.(*identitySelector).source.(*types.CIDRSelector)
 							if ok {
