@@ -149,7 +149,7 @@ func (d *DummyOwner) GetNodeSuffix() string {
 	return ""
 }
 
-func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{} {
+func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
 	wg := &sync.WaitGroup{}
 	d.repo.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	wg.Wait()

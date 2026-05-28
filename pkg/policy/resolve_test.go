@@ -45,8 +45,8 @@ var testRedirects = map[string]uint16{
 	"1234:ingress:TCP:80:": 1,
 }
 
-func generateNumIdentities(numIdentities int) identity.IdentityMapOld {
-	c := make(identity.IdentityMapOld, numIdentities)
+func generateNumIdentities(numIdentities int) identity.IdentityMap {
+	c := make(identity.IdentityMap, numIdentities)
 	for i := range numIdentities {
 		identityLabel := labels.NewLabel(fmt.Sprintf("k8s:foo%d", i), "", "")
 		clusterLabel := labels.NewLabel("io.cilium.k8s.policy.cluster=default", "", labels.LabelSourceK8s)
@@ -65,12 +65,12 @@ func generateNumIdentities(numIdentities int) identity.IdentityMapOld {
 		bumpedIdentity := i + 1000
 		numericIdentity := identity.NumericIdentity(bumpedIdentity)
 
-		c[numericIdentity] = identityLabels.LabelArray()
+		c[numericIdentity] = identityLabels
 	}
 	return c
 }
 
-func GenerateL3IngressRules(numRules int) (api.Rules, identity.IdentityMapOld) {
+func GenerateL3IngressRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -97,7 +97,7 @@ func GenerateL3IngressRules(numRules int) (api.Rules, identity.IdentityMapOld) {
 	return rules, generateNumIdentities(3000)
 }
 
-func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMapOld) {
+func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -123,7 +123,7 @@ func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMapOld) {
 	}
 	return rules, generateNumIdentities(3000)
 }
-func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMapOld) {
+func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	// barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -142,7 +142,7 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMapOld) {
 	return rules, generateCIDRIdentities(rules)
 }
 
-func GenerateUniqueRules(numRules int) (api.Rules, identity.IdentityMapOld) {
+func GenerateUniqueRules(numRules int) (api.Rules, identity.IdentityMap) {
 	var rules api.Rules
 	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
 	for i := 1; i <= numRules; i++ {
@@ -158,7 +158,7 @@ func GenerateUniqueRules(numRules int) (api.Rules, identity.IdentityMapOld) {
 	return rules, generateCIDRIdentities(rules)
 }
 
-func GenerateMatchAllRules(numRules int) (api.Rules, identity.IdentityMapOld) {
+func GenerateMatchAllRules(numRules int) (api.Rules, identity.IdentityMap) {
 	var rules api.Rules
 	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
 	for i := 1; i <= numRules; i++ {
@@ -208,15 +208,15 @@ func (d DummyOwner) PolicyDebug(msg string, attrs ...any) {
 	d.logger.Debug(msg, attrs...)
 }
 
-func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.IdentityMapOld), numRules int, tb testing.TB) {
+func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.IdentityMap), numRules int, tb testing.TB) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	wg := &sync.WaitGroup{}
 	// load in standard reserved identities
-	c := identity.IdentityMapOld{
-		fooIdentity.ID: fooIdentity.LabelArray,
+	c := identity.IdentityMap{
+		fooIdentity.ID: fooIdentity.Labels,
 	}
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		c[ni] = id.Labels.LabelArray()
+		c[ni] = id.Labels
 	})
 	td.sc.UpdateIdentities(c, nil, wg)
 	td.subjectSc.UpdateIdentities(c, nil, wg)
@@ -770,8 +770,8 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	}
 
 	// Add new identity to test accumulation of MapChanges
-	added1 := identity.IdentityMapOld{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
+	added1 := identity.IdentityMap{
+		identity.NumericIdentity(192): labels.ParseSelectLabels("id=resolve_test_1"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
@@ -849,18 +849,18 @@ func TestMapStateWithIngress(t *testing.T) {
 	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges
-	added1 := identity.IdentityMapOld{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
-		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
+	added1 := identity.IdentityMap{
+		identity.NumericIdentity(192): labels.ParseSelectLabels("id=resolve_test_1", "num=1"),
+		identity.NumericIdentity(193): labels.ParseSelectLabels("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(194): labels.ParseSelectLabels("id=resolve_test_1", "num=3"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
 	wg.Wait()
 	require.Len(t, policy.policyMapChanges.synced, 3)
 
-	deleted1 := identity.IdentityMapOld{
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
+	deleted1 := identity.IdentityMap{
+		identity.NumericIdentity(193): labels.ParseSelectLabels("id=resolve_test_1", "num=2"),
 	}
 	wg = &sync.WaitGroup{}
 	td.sc.UpdateIdentities(nil, deleted1, wg)

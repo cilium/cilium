@@ -330,6 +330,22 @@ func (l Labels) RemoveFromSource(source string) {
 	})
 }
 
+// Contains returns true if all ls contains all the labels in needed. If
+// needed contains no labels, Contains() will always return true
+func (l Labels) Contains(needed Labels) bool {
+	for k, needlbl := range needed {
+		lbl, ok := l[k]
+		if !ok {
+			return false
+		}
+		if !lbl.Has(&needlbl) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // NewLabel returns a new label from the given key, value and source.
 //
 // * If source is empty, the default value will be LabelSourceUnspec.

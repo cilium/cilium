@@ -150,7 +150,7 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 		td.identityManager.Add(&identity.Identity{ID: id, Labels: lbls, LabelArray: lbls.LabelArray()})
 	}
 	wg := &sync.WaitGroup{}
-	td.sc.UpdateIdentities(initial.ToOld(), nil, wg)
+	td.sc.UpdateIdentities(initial, nil, wg)
 	wg.Wait()
 
 	for id := range initial {
@@ -162,12 +162,12 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 func (td *testData) addIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
 	td.subjectSc.UpdateIdentities(
-		identity.IdentityMapOld{
-			id.ID: id.LabelArray,
+		identity.IdentityMap{
+			id.ID: id.Labels,
 		}, nil, wg)
 	td.sc.UpdateIdentities(
-		identity.IdentityMapOld{
-			id.ID: id.LabelArray,
+		identity.IdentityMap{
+			id.ID: id.Labels,
 		}, nil, wg)
 	wg.Wait()
 	td.idSet.Insert(id.ID)
@@ -177,13 +177,13 @@ func (td *testData) removeIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
 	td.subjectSc.UpdateIdentities(
 		nil,
-		identity.IdentityMapOld{
-			id.ID: id.LabelArray,
+		identity.IdentityMap{
+			id.ID: id.Labels,
 		}, wg)
 	td.sc.UpdateIdentities(
 		nil,
-		identity.IdentityMapOld{
-			id.ID: id.LabelArray,
+		identity.IdentityMap{
+			id.ID: id.Labels,
 		}, wg)
 	wg.Wait()
 	td.idSet.Remove(id.ID)

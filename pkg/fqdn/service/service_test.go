@@ -105,7 +105,7 @@ func (b *bufconnListener) Listen(ctx context.Context, network, addr string) (net
 
 type mockUpdater struct{}
 
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMapOld) <-chan struct{} {
+func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
 	out := make(chan struct{})
 	close(out)
 	return out

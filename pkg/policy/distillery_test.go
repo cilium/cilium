@@ -2088,7 +2088,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 			}
 
 			wg := &sync.WaitGroup{}
-			selectorCache.UpdateIdentities(tt.fqdnIds.ToOld(), nil, wg)
+			selectorCache.UpdateIdentities(tt.fqdnIds, nil, wg)
 			wg.Wait()
 
 			closer, changes := epp.ConsumeMapChanges()
@@ -2104,7 +2104,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 
 			// let fqdn ID expire
 			wg = &sync.WaitGroup{}
-			selectorCache.UpdateIdentities(nil, tt.fqdnIds.ToOld(), wg)
+			selectorCache.UpdateIdentities(nil, tt.fqdnIds, wg)
 			wg.Wait()
 
 			closer, changes = epp.ConsumeMapChanges()

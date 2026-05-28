@@ -132,7 +132,7 @@ type IdentityAllocatorOwner interface {
 	// The caller is responsible for making sure the same identity
 	// is not present in both 'added' and 'deleted', so that they
 	// can be processed in either order.
-	UpdateIdentities(added, deleted identity.IdentityMapOld) <-chan struct{}
+	UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{}
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string
@@ -514,8 +514,8 @@ func (m *CachingIdentityAllocator) allocateLocalIdentityLocked(lbls labels.Label
 		}
 
 		if notifyOwner {
-			added := identity.IdentityMapOld{
-				id.ID: id.LabelArray,
+			added := identity.IdentityMap{
+				id.ID: id.Labels,
 			}
 			m.owner.UpdateIdentities(added, nil)
 		}
@@ -599,8 +599,8 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	// cached identities can be updated ASAP, rather than just
 	// relying on the kv-store update events.
 	if allocated && notifyOwner {
-		added := identity.IdentityMapOld{
-			id.ID: id.LabelArray,
+		added := identity.IdentityMap{
+			id.ID: id.Labels,
 		}
 		m.owner.UpdateIdentities(added, nil)
 	}
@@ -721,7 +721,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 
 	scopedLog.Info("Restoring checkpointed local identities", logfields.Count, len(ids))
 	m.restoredIdentities = make(map[identity.NumericIdentity]*identity.Identity, len(ids))
-	added := make(identity.IdentityMapOld, len(ids))
+	added := make(identity.IdentityMap, len(ids))
 
 	// Withhold restored local identities from allocation (except by request).
 	// This is insurance against a code change causing identities to be allocated
@@ -760,7 +760,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 			)
 		} else {
 			m.restoredIdentities[newID.ID] = newID
-			added[newID.ID] = newID.LabelArray
+			added[newID.ID] = newID.Labels
 			if newID.ID != oldID.ID {
 				// Paranoia, shouldn't happen
 				scopedLog.Warn(
@@ -854,8 +854,8 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 
 	// Remove this ID from the selectorcache and any other identity "watchers"
 	if m.owner != nil && released && notifyOwner {
-		deleted := identity.IdentityMapOld{
-			id.ID: id.LabelArray,
+		deleted := identity.IdentityMap{
+			id.ID: id.Labels,
 		}
 		m.owner.UpdateIdentities(nil, deleted)
 	}
@@ -873,7 +873,7 @@ func (m *CachingIdentityAllocator) ReleaseLocalIdentities(nids ...identity.Numer
 	m.localLock.Lock()
 	defer m.localLock.Unlock()
 
-	deleted := make(identity.IdentityMapOld, len(nids))
+	deleted := make(identity.IdentityMap, len(nids))
 
 	for _, nid := range nids {
 		if rid := identity.LookupReservedIdentity(nid); rid != nil {
@@ -901,7 +901,7 @@ func (m *CachingIdentityAllocator) ReleaseLocalIdentities(nids ...identity.Numer
 		released := alloc.release(id)
 		if released {
 			dealloc = append(dealloc, nid)
-			deleted[nid] = id.LabelArray
+			deleted[nid] = id.Labels
 			for labelSource := range id.Labels.CollectSources() {
 				metrics.IdentityLabelSources.WithLabelValues(labelSource).Dec()
 			}

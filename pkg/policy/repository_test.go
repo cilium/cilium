@@ -1338,16 +1338,16 @@ func TestReplaceByResource(t *testing.T) {
 
 	numRules := 10
 	rules := make(policytypes.PolicyEntries, 0, numRules)
-	ids := identity.IdentityMapOld{}
+	ids := identity.IdentityMap{}
 	// share the dest selector
 	destSelector := api.NewESFromLabels(labels.NewLabel("peer", "pod", "k8s"))
 	for i := range numRules {
 		it := fmt.Sprintf("num-%d", i)
-		ids[identity.NumericIdentity(i+100)] = labels.LabelArray{labels.Label{
+		ids[identity.NumericIdentity(i+100)] = labels.FromSlice(labels.Label{
 			Source: labels.LabelSourceK8s,
 			Key:    "subject-pod",
 			Value:  it,
-		}}
+		})
 		epSelector := types.NewLabelSelectorFromLabels(
 			labels.NewLabel(
 				"subject-pod",

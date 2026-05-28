@@ -388,7 +388,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		previouslyAllocatedIdentities = make(map[cmtypes.PrefixCluster]Identity)
 		// idsToAdd stores the identities that must be updated via the
 		// selector cache.
-		idsToAdd = make(map[identity.NumericIdentity]labels.LabelArray)
+		idsToAdd = make(map[identity.NumericIdentity]labels.Labels)
 		// entriesToReplace stores the identity to replace in the ipcache.
 		entriesToReplace = make(map[cmtypes.PrefixCluster]ipcacheEntry)
 		entriesToDelete  = make(map[cmtypes.PrefixCluster]Identity)
@@ -464,7 +464,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 
 			// If this ID was newly allocated, we must add it to the SelectorCache
 			if isNew {
-				idsToAdd[newID.ID] = newID.Labels.LabelArray()
+				idsToAdd[newID.ID] = newID.Labels
 			}
 			entriesToReplace[prefix] = ipcacheEntry{
 				identity: Identity{
@@ -567,7 +567,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		// we must always update the SelectorCache (normally, this is elided
 		// when no changes are present).
 		if newID != nil && newID.ID == identity.ReservedIdentityHost {
-			idsToAdd[newID.ID] = newID.Labels.LabelArray()
+			idsToAdd[newID.ID] = newID.Labels
 		}
 
 		// Again, more reserved:host bookkeeping: if this prefix is no longer ID 1 (because
@@ -576,7 +576,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		if entryExists && oldID.ID == identity.ReservedIdentityHost &&
 			(newID == nil || newID.ID != identity.ReservedIdentityHost) && prefix.ClusterID() == 0 {
 			i := ipc.updateReservedHostLabels(prefix.AsPrefix(), nil)
-			idsToAdd[i.ID] = i.Labels.LabelArray()
+			idsToAdd[i.ID] = i.Labels
 		}
 
 	}
