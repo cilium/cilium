@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -48,10 +49,10 @@ func TestPoolAllocator(t *testing.T) {
 					Allocated: []ipamTypes.IPAMPoolAllocation{
 						{
 							Pool: "default",
-							CIDRs: []ipamTypes.IPAMCIDR{
-								"fd00:100:0:0:0:10::/96",
-								"10.100.20.0/24",
-								"10.100.10.0/24",
+							CIDRs: []iputil.Prefix{
+								iputil.PrefixFrom(netip.MustParsePrefix("fd00:100:0:0:0:10::/96")),
+								iputil.PrefixFrom(netip.MustParsePrefix("10.100.20.0/24")),
+								iputil.PrefixFrom(netip.MustParsePrefix("10.100.10.0/24")),
 							},
 						},
 					},
@@ -91,8 +92,8 @@ func TestPoolAllocator(t *testing.T) {
 					Allocated: []ipamTypes.IPAMPoolAllocation{
 						{
 							Pool: "default",
-							CIDRs: []ipamTypes.IPAMCIDR{
-								"10.100.10.0/24", // already allocated to node1
+							CIDRs: []iputil.Prefix{
+								iputil.PrefixFrom(netip.MustParsePrefix("10.100.10.0/24")), // already allocated to node1
 							},
 						},
 					},
@@ -106,10 +107,10 @@ func TestPoolAllocator(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []ipamTypes.IPAMCIDR{ // must be sorted
-				"10.100.10.0/24",
-				"10.100.20.0/24",
-				"fd00:100::10:0:0/96",
+			CIDRs: []iputil.Prefix{ // must be sorted
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.10.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.20.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::10:0:0/96")),
 			},
 		},
 	}, p.AllocatedPools(node1.Name))
@@ -134,10 +135,10 @@ func TestPoolAllocator(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []ipamTypes.IPAMCIDR{ // must be sorted
-				"10.100.10.0/24",
-				"10.100.20.0/24",
-				"fd00:100::10:0:0/96",
+			CIDRs: []iputil.Prefix{ // must be sorted
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.10.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.20.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::10:0:0/96")),
 			},
 		},
 	}, node1.Spec.IPAM.Pools.Allocated)
@@ -149,9 +150,9 @@ func TestPoolAllocator(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, node2.Spec.IPAM.Pools.Allocated)
@@ -165,9 +166,9 @@ func TestPoolAllocator(t *testing.T) {
 	node1.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.20.0/24",
-				"fd00:100::10:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.20.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::10:0:0/96")),
 			},
 		},
 	}
@@ -182,8 +183,8 @@ func TestPoolAllocator(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.10.0/24",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.10.0/24")),
 			},
 		},
 	}, node3.Spec.IPAM.Pools.Allocated)
@@ -197,9 +198,9 @@ func TestPoolAllocator(t *testing.T) {
 	node3.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"10.100.10.0/24",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.10.0/24")),
 			},
 		},
 	}
@@ -223,10 +224,10 @@ func TestPoolAllocator(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.1.0/24",
-				"10.100.20.0/24",
-				"fd00:100::10:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.1.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.20.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::10:0:0/96")),
 			},
 		},
 	}, node1.Spec.IPAM.Pools.Allocated)
@@ -319,20 +320,20 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	node.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "ipv4-only",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.0.0.0/24",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
 			},
 		},
 		{
 			Pool: "ipv4-only-same-cidr",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.0.0.0/24",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
 			},
 		},
 		{
 			Pool: "ipv6-only",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}
@@ -341,13 +342,13 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	// Try to occupy invalid CIDR
 	node.Spec.IPAM.Pools.Allocated[0] = ipamTypes.IPAMPoolAllocation{
 		Pool: "ipv4-only",
-		CIDRs: []ipamTypes.IPAMCIDR{
-			"10.0.0.0/24",
-			"333.444.555.666/77",
+		CIDRs: []iputil.Prefix{
+			iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+			{}, // zero-value Prefix: invalid
 		},
 	}
 	err = p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
-	assert.ErrorContains(t, err, `failed to parse CIDR of pool "ipv4-only"`)
+	assert.ErrorContains(t, err, `invalid CIDR`)
 }
 
 func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
@@ -574,9 +575,9 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, p.AllocatedPools(node.Name))
@@ -694,9 +695,9 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, p.AllocatedPools(node1.Name))
@@ -713,9 +714,9 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.1.0/24",
-				"fd00:100::1:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.1.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::1:0:0/96")),
 			},
 		},
 	}, p.AllocatedPools(node2.Name))
@@ -750,18 +751,18 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, p.AllocatedPools(node1.Name))
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.1.0/24",
-				"fd00:100::1:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.1.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::1:0:0/96")),
 			},
 		},
 	}, p.AllocatedPools(node2.Name))
@@ -790,18 +791,18 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, p.AllocatedPools(node1.Name))
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.1.0/24",
-				"fd00:100::1:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.1.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::1:0:0/96")),
 			},
 		},
 	}, p.AllocatedPools(node2.Name))
@@ -841,18 +842,18 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, p.AllocatedPools(node1.Name))
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.1.0/24",
-				"fd00:100::1:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.1.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::1:0:0/96")),
 			},
 		},
 	}, p.AllocatedPools(node2.Name))
@@ -863,8 +864,8 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"fd00:100::2:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::2:0:0/96")),
 			},
 		},
 	}, p.AllocatedPools(node3.Name))
@@ -893,18 +894,18 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, p.AllocatedPools(node1.Name))
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.1.0/24",
-				"fd00:100::1:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.1.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::1:0:0/96")),
 			},
 		},
 	}, p.AllocatedPools(node2.Name))
@@ -923,9 +924,9 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.2.0/24",
-				"fd00:100::3:0:0/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.2.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::3:0:0/96")),
 			},
 		},
 	}, p.AllocatedPools(node3.Name))
@@ -957,9 +958,9 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 					Allocated: []ipamTypes.IPAMPoolAllocation{
 						{
 							Pool: "test-pool",
-							CIDRs: []ipamTypes.IPAMCIDR{
-								"10.100.0.0/24",
-								"fd00:100::/96",
+							CIDRs: []iputil.Prefix{
+								iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+								iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 							},
 						},
 					},
@@ -986,9 +987,9 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, p.AllocatedPools(node1.Name))
@@ -1020,9 +1021,9 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.100.0.0/24",
-				"fd00:100::/96",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
 			},
 		},
 	}, p.AllocatedPools(node1.Name))
@@ -1064,8 +1065,8 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
 			Pool: "test-pool",
-			CIDRs: []ipamTypes.IPAMCIDR{
-				"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/28")), iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")), iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.32/28")), iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.48/28")),
 			},
 		},
 	}, p.AllocatedPools(node.Name))

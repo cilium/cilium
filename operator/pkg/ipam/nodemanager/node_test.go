@@ -218,7 +218,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 	t.Run("seed with no ENI orphans does not mark release", func(t *testing.T) {
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
+			}},
 		}, nil)
 
 		n.trackMultiPoolAllocatedLocked()
@@ -237,7 +240,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 			}},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
+			}},
 		}, enis)
 
 		// First call: seed.
@@ -245,7 +251,9 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 		// Agent removes 10.0.0.2/32 from Allocated.
 		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+			}},
 		}
 		n.trackMultiPoolAllocatedLocked()
 
@@ -261,7 +269,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 			}},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
+			}},
 		}, enis)
 
 		// First call: seed.
@@ -269,14 +280,17 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 		// Remove 10.0.0.2/32.
 		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32"))}},
 		}
 		n.trackMultiPoolAllocatedLocked()
 		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, netip.MustParsePrefix("10.0.0.2/32"))
 
 		// Agent re-adds 10.0.0.2/32.
 		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
+			}},
 		}
 		n.trackMultiPoolAllocatedLocked()
 		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
@@ -290,7 +304,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 			}},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
+			}},
 		}, enis)
 
 		// First call: seed.
@@ -298,7 +315,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 		// Agent removes 10.0.0.2/32.
 		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32"))}},
 		}
 		n.trackMultiPoolAllocatedLocked()
 		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, netip.MustParsePrefix("10.0.0.2/32"))
@@ -321,7 +338,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 			}},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.2/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")),
+			}},
 		}, enis)
 
 		// First call: seed.
@@ -329,7 +349,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 		// Remove 10.0.0.2/32.
 		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32"))}},
 		}
 		n.trackMultiPoolAllocatedLocked()
 		firstTS := n.multiPoolCIDRsMarkedForRelease[netip.MustParsePrefix("10.0.0.2/32")]
@@ -351,7 +371,10 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 			},
 		}
 		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32", "10.0.0.16/28"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")),
+			}},
 		}, enis)
 
 		// First call: seed.
@@ -359,7 +382,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 
 		// Agent releases the /28 prefix.
 		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.1/32"}},
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32"))}},
 		}
 		n.trackMultiPoolAllocatedLocked()
 

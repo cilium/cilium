@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -26,10 +27,10 @@ import (
 var (
 	redPoolCIDRv4        = v2alpha1.PoolCIDR("10.0.0.0/16")
 	redPoolCIDRv6        = v2alpha1.PoolCIDR("2001:db8::/64")
-	redPoolNodePrefix1v4 = ipamtypes.IPAMCIDR("10.0.1.0/24")
-	redPoolNodePrefix2v4 = ipamtypes.IPAMCIDR("10.0.2.0/24")
-	redPoolNodePrefix1v6 = ipamtypes.IPAMCIDR("2001:db8:0:0:1234::/96")
-	redPoolNodePrefix2v6 = ipamtypes.IPAMCIDR("2001:db8:0:0:1235::/96")
+	redPoolNodePrefix1v4 = iputil.PrefixFrom(netip.MustParsePrefix("10.0.1.0/24"))
+	redPoolNodePrefix2v4 = iputil.PrefixFrom(netip.MustParsePrefix("10.0.2.0/24"))
+	redPoolNodePrefix1v6 = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:0:0:1234::/96"))
+	redPoolNodePrefix2v6 = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:0:0:1235::/96"))
 
 	redPoolName       = "red-pool"
 	redLabelSelector  = slimv1.LabelSelector{MatchLabels: map[string]string{"pool": "red"}}
@@ -67,12 +68,12 @@ var (
 						Type: types.RoutePolicyMatchAny,
 						Prefixes: []types.RoutePolicyPrefix{
 							{
-								CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix1v4)),
+								CIDR:         redPoolNodePrefix1v4.Prefix,
 								PrefixLenMin: 24,
 								PrefixLenMax: 24,
 							},
 							{
-								CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix2v4)),
+								CIDR:         redPoolNodePrefix2v4.Prefix,
 								PrefixLenMin: 24,
 								PrefixLenMax: 24,
 							},
@@ -101,12 +102,12 @@ var (
 						Type: types.RoutePolicyMatchAny,
 						Prefixes: []types.RoutePolicyPrefix{
 							{
-								CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix1v6)),
+								CIDR:         redPoolNodePrefix1v6.Prefix,
 								PrefixLenMin: 96,
 								PrefixLenMax: 96,
 							},
 							{
-								CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix2v6)),
+								CIDR:         redPoolNodePrefix2v6.Prefix,
 								PrefixLenMin: 96,
 								PrefixLenMax: 96,
 							},
@@ -122,14 +123,14 @@ var (
 	}
 
 	bluePoolCIDR1v4       = v2alpha1.PoolCIDR("10.1.0.0/16")
-	bluePoolNodePrefix1v4 = ipamtypes.IPAMCIDR("10.1.1.0/24")
+	bluePoolNodePrefix1v4 = iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24"))
 	bluePoolCIDR2v4       = v2alpha1.PoolCIDR("10.2.0.0/16")
-	bluePoolNodePrefix2v4 = ipamtypes.IPAMCIDR("10.2.1.0/24")
+	bluePoolNodePrefix2v4 = iputil.PrefixFrom(netip.MustParsePrefix("10.2.1.0/24"))
 	bluePoolCIDR3v4       = v2alpha1.PoolCIDR("10.3.0.0/16")
 	bluePoolCIDR1v6       = v2alpha1.PoolCIDR("2001:db8:1::/64")
-	bluePoolNodePrefix1v6 = ipamtypes.IPAMCIDR("2001:db8:1:0:1234::/96")
+	bluePoolNodePrefix1v6 = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1:0:1234::/96"))
 	bluePoolCIDR2v6       = v2alpha1.PoolCIDR("2001:db8:2::/64")
-	bluePoolNodePrefix2v6 = ipamtypes.IPAMCIDR("2001:db8:2:0:1234::/96")
+	bluePoolNodePrefix2v6 = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:2:0:1234::/96"))
 	bluePoolCIDR3v6       = v2alpha1.PoolCIDR("2001:db8:3::/64")
 
 	bluePoolName       = "blue-pool"
@@ -176,12 +177,12 @@ var (
 						Type: types.RoutePolicyMatchAny,
 						Prefixes: []types.RoutePolicyPrefix{
 							{
-								CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix1v4)),
+								CIDR:         bluePoolNodePrefix1v4.Prefix,
 								PrefixLenMin: 24,
 								PrefixLenMax: 24,
 							},
 							{
-								CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix2v4)),
+								CIDR:         bluePoolNodePrefix2v4.Prefix,
 								PrefixLenMin: 24,
 								PrefixLenMax: 24,
 							},
@@ -210,12 +211,12 @@ var (
 						Type: types.RoutePolicyMatchAny,
 						Prefixes: []types.RoutePolicyPrefix{
 							{
-								CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix1v6)),
+								CIDR:         bluePoolNodePrefix1v6.Prefix,
 								PrefixLenMin: 96,
 								PrefixLenMax: 96,
 							},
 							{
-								CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix2v6)),
+								CIDR:         bluePoolNodePrefix2v6.Prefix,
 								PrefixLenMin: 96,
 								PrefixLenMax: 96,
 							},
@@ -270,7 +271,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool: redPoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{
+									CIDRs: []iputil.Prefix{
 										redPoolNodePrefix1v4,
 										redPoolNodePrefix2v4,
 										redPoolNodePrefix1v6,
@@ -279,7 +280,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 								},
 								{
 									Pool: bluePoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{
+									CIDRs: []iputil.Prefix{
 										bluePoolNodePrefix1v4,
 										bluePoolNodePrefix2v4,
 										bluePoolNodePrefix1v6,
@@ -300,22 +301,22 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 			expectedPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
 				{Name: redPoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-						string(redPoolNodePrefix1v4): struct{}{},
-						string(redPoolNodePrefix2v4): struct{}{},
+						redPoolNodePrefix1v4.String(): struct{}{},
+						redPoolNodePrefix2v4.String(): struct{}{},
 					},
 					{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-						string(redPoolNodePrefix1v6): struct{}{},
-						string(redPoolNodePrefix2v6): struct{}{},
+						redPoolNodePrefix1v6.String(): struct{}{},
+						redPoolNodePrefix2v6.String(): struct{}{},
 					},
 				},
 				{Name: bluePoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-						string(bluePoolNodePrefix1v4): struct{}{},
-						string(bluePoolNodePrefix2v4): struct{}{},
+						bluePoolNodePrefix1v4.String(): struct{}{},
+						bluePoolNodePrefix2v4.String(): struct{}{},
 					},
 					{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-						string(bluePoolNodePrefix1v6): struct{}{},
-						string(bluePoolNodePrefix2v6): struct{}{},
+						bluePoolNodePrefix1v6.String(): struct{}{},
+						bluePoolNodePrefix2v6.String(): struct{}{},
 					},
 				},
 			},
@@ -356,7 +357,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool: redPoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{
+									CIDRs: []iputil.Prefix{
 										redPoolNodePrefix1v4,
 										redPoolNodePrefix2v4,
 										redPoolNodePrefix1v6,
@@ -365,7 +366,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 								},
 								{
 									Pool: bluePoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{
+									CIDRs: []iputil.Prefix{
 										bluePoolNodePrefix1v4,
 										bluePoolNodePrefix2v4,
 										bluePoolNodePrefix1v6,
@@ -386,22 +387,22 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 			expectedPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
 				{Name: redPoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-						string(redPoolNodePrefix1v4): struct{}{},
-						string(redPoolNodePrefix2v4): struct{}{},
+						redPoolNodePrefix1v4.String(): struct{}{},
+						redPoolNodePrefix2v4.String(): struct{}{},
 					},
 					{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-						string(redPoolNodePrefix1v6): struct{}{},
-						string(redPoolNodePrefix2v6): struct{}{},
+						redPoolNodePrefix1v6.String(): struct{}{},
+						redPoolNodePrefix2v6.String(): struct{}{},
 					},
 				},
 				{Name: bluePoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-						string(bluePoolNodePrefix1v4): struct{}{},
-						string(bluePoolNodePrefix2v4): struct{}{},
+						bluePoolNodePrefix1v4.String(): struct{}{},
+						bluePoolNodePrefix2v4.String(): struct{}{},
 					},
 					{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-						string(bluePoolNodePrefix1v6): struct{}{},
-						string(bluePoolNodePrefix2v6): struct{}{},
+						bluePoolNodePrefix1v6.String(): struct{}{},
+						bluePoolNodePrefix2v6.String(): struct{}{},
 					},
 				},
 			},
@@ -441,7 +442,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool: redPoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{
+									CIDRs: []iputil.Prefix{
 										redPoolNodePrefix1v4,
 										redPoolNodePrefix2v4,
 										redPoolNodePrefix1v6,
@@ -450,7 +451,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 								},
 								{
 									Pool: bluePoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{
+									CIDRs: []iputil.Prefix{
 										bluePoolNodePrefix1v4,
 										bluePoolNodePrefix2v4,
 										bluePoolNodePrefix1v6,
@@ -495,11 +496,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool:  redPoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{},
+									CIDRs: []iputil.Prefix{},
 								},
 								{
 									Pool:  bluePoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{},
+									CIDRs: []iputil.Prefix{},
 								},
 							},
 						},
@@ -559,7 +560,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool: redPoolName,
-									CIDRs: []ipamtypes.IPAMCIDR{
+									CIDRs: []iputil.Prefix{
 										redPoolNodePrefix1v4,
 										redPoolNodePrefix2v4,
 										redPoolNodePrefix1v6,
@@ -580,12 +581,12 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 			expectedPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
 				{Name: redPoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-						string(redPoolNodePrefix1v4): struct{}{},
-						string(redPoolNodePrefix2v4): struct{}{},
+						redPoolNodePrefix1v4.String(): struct{}{},
+						redPoolNodePrefix2v4.String(): struct{}{},
 					},
 					{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-						string(redPoolNodePrefix1v6): struct{}{},
-						string(redPoolNodePrefix2v6): struct{}{},
+						redPoolNodePrefix1v6.String(): struct{}{},
+						redPoolNodePrefix2v6.String(): struct{}{},
 					},
 				},
 			},

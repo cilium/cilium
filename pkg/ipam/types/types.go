@@ -56,24 +56,6 @@ type AllocationIP struct {
 // AllocationMap is a map of allocated IPs indexed by IP
 type AllocationMap map[string]AllocationIP
 
-// IPAMCIDR is a CIDR used for IPAM
-//
-// +kubebuilder:validation:Format=cidr
-type IPAMCIDR string
-
-func (c *IPAMCIDR) ToPrefix() (*netip.Prefix, error) {
-	if c == nil {
-		return nil, fmt.Errorf("nil ipam cidr")
-	}
-
-	prefix, err := netip.ParsePrefix(string(*c))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ipam cidr %v: %w", c, err)
-	}
-
-	return &prefix, nil
-}
-
 // IPAMPoolAllocation describes an allocation of an IPAM pool from the operator to the
 // node. It contains the assigned PodCIDRs allocated from this pool
 type IPAMPoolAllocation struct {
@@ -85,7 +67,7 @@ type IPAMPoolAllocation struct {
 	// CIDRs contains a list of pod CIDRs currently allocated from this pool
 	//
 	// +optional
-	CIDRs []IPAMCIDR `json:"cidrs,omitempty"`
+	CIDRs []iputil.Prefix `json:"cidrs,omitempty"`
 }
 
 type IPAMPoolRequest struct {

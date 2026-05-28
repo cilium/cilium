@@ -15,8 +15,8 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
-	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -126,16 +126,16 @@ func (p *cidrPool) inUseIPCount() (count int) {
 	return count
 }
 
-func (p *cidrPool) inUseCIDRs() []types.IPAMCIDR {
+func (p *cidrPool) inUseCIDRs() []iputil.Prefix {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	return p.inUseCIDRsLocked()
 }
 
-func (p *cidrPool) inUseCIDRsLocked() []types.IPAMCIDR {
-	CIDRs := make([]types.IPAMCIDR, 0, len(p.ipAllocators))
+func (p *cidrPool) inUseCIDRsLocked() []iputil.Prefix {
+	CIDRs := make([]iputil.Prefix, 0, len(p.ipAllocators))
 	for _, ipAllocator := range p.ipAllocators {
-		CIDRs = append(CIDRs, types.IPAMCIDR(ipAllocator.CIDR().String()))
+		CIDRs = append(CIDRs, iputil.PrefixFrom(ipAllocator.CIDR()))
 	}
 	return CIDRs
 }
