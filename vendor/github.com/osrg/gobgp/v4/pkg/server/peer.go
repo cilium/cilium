@@ -335,8 +335,23 @@ func (peer *peer) setRtcEORWait(waiting bool) {
 	peer.fsm.logger.Debug("Set rtcEORWait", slog.Bool("Data", waiting))
 }
 
-func (peer *peer) recvedAllEOR() bool {
+// receivedAllEOR reports whether the restarting speaker has received EOR from
+// this peer for all negotiated GR address families. Per RFC 4724 Section 4.1,
+// a peer that does not advertise GR capability is excluded from the EOR wait.
+// A peer that has GR configured but has not yet reached ESTABLISHED is treated
+// as pending: its EOR has not been received and cannot be skipped.
+func (peer *peer) receivedAllEOR() bool {
 	conf := peer.fsm.pConf.ReadOnly()
+	if peer.fsm.state.Load() != bgp.BGP_FSM_ESTABLISHED {
+		// Session not yet established: if GR is configured for any family,
+		// we must wait — the peer may still advertise GR capability in its OPEN.
+		for _, a := range conf.AfiSafis {
+			if a.MpGracefulRestart.Config.Enabled {
+				return false
+			}
+		}
+		return true
+	}
 	for _, a := range conf.AfiSafis {
 		if s := a.MpGracefulRestart.State; s.Enabled && s.Received && !s.EndOfRibReceived {
 			return false

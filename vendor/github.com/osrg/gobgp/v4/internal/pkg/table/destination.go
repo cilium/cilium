@@ -78,17 +78,43 @@ func (r *BestPathReason) String() string {
 	return BestPathReasonStringMap[*r]
 }
 
+// PeerInfo contains a chunk of peer configuration that is used by table code to determine
+// how to handle path attributes. PeerInfo struct can be used both for individual peers
+// and peer groups when peer group is in shared policy mode and handles paths in bulk.
+//
+// It is also used to identify source of path to determine best path, but in that case it
+// can only be a peer, not a peer group.
+//
+// Zero PeerInfo value denotes localSource (paths originated locally) - use localSource
 type PeerInfo struct {
-	AS                      uint32
-	LocalAS                 uint32
-	ID                      netip.Addr
-	LocalID                 netip.Addr
-	Address                 netip.Addr
-	LocalAddress            netip.Addr
-	RouteReflectorClusterID netip.Addr
+	// PeerType: INTERNAL for iBGP peers or EXTERNAL for eBGP peers. Computed from
+	// a state based on AS/LocalAS Comparison
+	PeerType oc.PeerType
+
+	// AS Number, Address and BGP Identifier (not specified for peer groups) of the remote peer
+	AS      uint32
+	ID      netip.Addr
+	Address netip.Addr
+
+	// Local AS Number, Address and BGP Identifier of local router.
+	//
+	// AS Number can be overridden using local-as config option on per-peer basis and
+	// used for AS_PATH prepending for eBGP peers and for path filtering
+	LocalAS      uint32
+	LocalID      netip.Addr
+	LocalAddress netip.Addr
+
+	// A view of peer/peer group configuration used to compute path attributes correctly
 	RouteReflectorClient    bool
+	RouteReflectorClusterID netip.Addr
+	RouteServerClient       bool
 	MultihopTtl             uint8
 	Confederation           bool
+	RemovePrivateAs         oc.RemovePrivateAsOption
+
+	// PeerGroup contains name for peer group itself if this is PeerInfo for a peer group
+	// or the name of peer group this peer belongs to. Used for informational purposes.
+	PeerGroup string
 }
 
 func (lhs *PeerInfo) Equal(rhs *PeerInfo) bool {
@@ -107,9 +133,11 @@ func (lhs *PeerInfo) Equal(rhs *PeerInfo) bool {
 }
 
 func (i *PeerInfo) String() string {
-	if !i.Address.IsValid() {
+	const peerTypeUnspecified = oc.PeerType("")
+	if i.PeerType == peerTypeUnspecified {
 		return "local"
 	}
+
 	s := bytes.NewBuffer(make([]byte, 0, 64))
 	fmt.Fprintf(s, "{ %s | ", i.Address)
 	fmt.Fprintf(s, "as: %d", i.AS)
@@ -123,16 +151,42 @@ func (i *PeerInfo) String() string {
 
 func NewPeerInfo(g *oc.Global, p *oc.Neighbor, AS, localAS uint32, ID, localID netip.Addr, addr, localAddr netip.Addr) *PeerInfo {
 	return &PeerInfo{
-		AS:                      AS,
-		LocalAS:                 localAS,
+		PeerType:                p.State.PeerType,
 		ID:                      ID,
-		LocalID:                 localID,
+		AS:                      AS,
 		Address:                 addr,
+		LocalAS:                 localAS,
+		LocalID:                 localID,
 		LocalAddress:            localAddr,
-		RouteReflectorClusterID: p.RouteReflector.State.RouteReflectorClusterId,
 		RouteReflectorClient:    p.RouteReflector.Config.RouteReflectorClient,
+		RouteReflectorClusterID: p.RouteReflector.State.RouteReflectorClusterId,
+		RouteServerClient:       p.RouteServer.Config.RouteServerClient,
 		MultihopTtl:             p.EbgpMultihop.Config.MultihopTtl,
-		Confederation:           p.IsConfederationMember(g),
+		Confederation:           g.IsConfederationMember(AS),
+		RemovePrivateAs:         p.State.RemovePrivateAs,
+		PeerGroup:               p.Config.PeerGroup,
+	}
+}
+
+func NewPeerGroupInfo(g *oc.Global, p *oc.PeerGroup) *PeerInfo {
+	localAddr := p.Transport.Config.LocalAddress
+	if !localAddr.IsValid() {
+		localAddr = g.Config.RouterId
+	}
+
+	return &PeerInfo{
+		PeerType:                p.State.PeerType,
+		AS:                      p.Config.PeerAs,
+		LocalAS:                 p.Config.LocalAs,
+		LocalID:                 g.Config.RouterId,
+		LocalAddress:            localAddr,
+		RouteReflectorClient:    p.RouteReflector.Config.RouteReflectorClient,
+		RouteReflectorClusterID: p.RouteReflector.State.RouteReflectorClusterId,
+		RouteServerClient:       p.RouteServer.Config.RouteServerClient,
+		MultihopTtl:             p.EbgpMultihop.Config.MultihopTtl,
+		Confederation:           g.IsConfederationMember(p.Config.PeerAs),
+		RemovePrivateAs:         p.State.RemovePrivateAs,
+		PeerGroup:               p.Config.PeerGroupName,
 	}
 }
 
@@ -318,9 +372,10 @@ func (dest *destination) explicitWithdraw(logger *slog.Logger, withdraw *Path) *
 		}
 	}
 
-	// We do no have any match for this withdraw.
+	// We do not have any match for this withdraw.
+	// May be caused by bgp policy if not all paths got installed into the table.
 	if isFound == -1 {
-		logger.Warn("No matching path for withdraw found, may be path was not installed into table",
+		logger.Debug("No matching path for withdraw found, may be path was not installed into table",
 			slog.String("Topic", "Table"),
 			slog.String("Key", dest.GetNlri().String()),
 			slog.String("Path", withdraw.String()))

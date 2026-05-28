@@ -738,7 +738,7 @@ func (fsm *fsm) stateChange(nextState bgp.FSMState, reason *fsmStateReason) {
 		}
 
 		fsm.isEBGP = conf.IsEBGPPeer(fsm.gConf)
-		fsm.isConfed = conf.IsConfederationMember(fsm.gConf)
+		fsm.isConfed = fsm.gConf.IsConfederationMember(conf.Config.PeerAs)
 		fsm.isTreatAsWithdraw = conf.ErrorHandling.Config.TreatAsWithdraw
 		// reset the state set by the previous session
 		fsm.twoByteAsTrans = false
@@ -767,7 +767,7 @@ func (fsm *fsm) sendNotification(conn net.Conn, msg *bgp.BGPMessage) error {
 	body := msg.Body.(*bgp.BGPNotification)
 	if body.ErrorCode == bgp.BGP_ERROR_CEASE && (body.ErrorSubcode == bgp.BGP_ERROR_SUB_ADMINISTRATIVE_SHUTDOWN || body.ErrorSubcode == bgp.BGP_ERROR_SUB_ADMINISTRATIVE_RESET) {
 		communication, rest := decodeAdministrativeCommunication(body.Data)
-		fsm.logger.Warn("sent notification",
+		fsm.logger.Info("sent notification",
 			slog.String("State", fsm.state.String()),
 			slog.Int("Code", int(body.ErrorCode)),
 			slog.Int("Subcode", int(body.ErrorSubcode)),
@@ -781,7 +781,7 @@ func (fsm *fsm) sendNotification(conn net.Conn, msg *bgp.BGPMessage) error {
 			fsm.lock.Unlock()
 		}
 	} else {
-		fsm.logger.Warn("sent notification",
+		fsm.logger.Info("sent notification",
 			slog.String("State", fsm.state.String()),
 			slog.Int("Code", int(body.ErrorCode)),
 			slog.Int("Subcode", int(body.ErrorSubcode)),

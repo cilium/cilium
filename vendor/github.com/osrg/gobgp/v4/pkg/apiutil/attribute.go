@@ -1344,12 +1344,17 @@ func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 				return nil, err
 			}
 
+			ipAddr := ""
+			if r.IPAddressLength != 0 {
+				ipAddr = r.IPAddress.String()
+			}
+
 			nlri.Nlri = &api.NLRI_EvpnMacadv{EvpnMacadv: &api.EVPNMACIPAdvertisementRoute{
 				Rd:          rd,
 				Esi:         esi,
 				EthernetTag: r.ETag,
 				MacAddress:  r.MacAddress.String(),
-				IpAddress:   r.IPAddress.String(),
+				IpAddress:   ipAddr,
 				Labels:      r.Labels,
 			}}
 		case *bgp.EVPNMulticastEthernetTagRoute:
@@ -1660,9 +1665,12 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			if err != nil {
 				return nil, err
 			}
-			addr, err := netip.ParseAddr(v.IpAddress)
-			if err != nil {
-				return nil, err
+			var addr netip.Addr
+			if v.IpAddress != "" {
+				addr, err = netip.ParseAddr(v.IpAddress)
+				if err != nil {
+					return nil, err
+				}
 			}
 			nlri, _ = bgp.NewEVPNMacIPAdvertisementRoute(rd, *esi, v.EthernetTag, v.MacAddress, addr, v.Labels)
 		}
@@ -3124,16 +3132,19 @@ func UnmarshalSRSegments(s []*api.TunnelEncapSubTLVSRSegmentList_Segment) ([]bgp
 				},
 				Label: v.A.Label,
 			}
-			if v.A.Flags.VFlag {
+			// Flags is an optional sub-message; chain through the
+			// generated nil-safe getters so that an unset Flags does
+			// not panic with a nil pointer dereference.
+			if v.A.GetFlags().GetVFlag() {
 				seg.Flags += 0x80
 			}
-			if v.A.Flags.AFlag {
+			if v.A.GetFlags().GetAFlag() {
 				seg.Flags += 0x40
 			}
-			if v.A.Flags.SFlag {
+			if v.A.GetFlags().GetSFlag() {
 				seg.Flags += 0x20
 			}
-			if v.A.Flags.BFlag {
+			if v.A.GetFlags().GetBFlag() {
 				seg.Flags += 0x10
 			}
 			segments[i] = seg
@@ -3145,16 +3156,16 @@ func UnmarshalSRSegments(s []*api.TunnelEncapSubTLVSRSegmentList_Segment) ([]bgp
 				},
 				SID: v.B.GetSid(),
 			}
-			if v.B.Flags.VFlag {
+			if v.B.GetFlags().GetVFlag() {
 				seg.Flags += 0x80
 			}
-			if v.B.Flags.AFlag {
+			if v.B.GetFlags().GetAFlag() {
 				seg.Flags += 0x40
 			}
-			if v.B.Flags.SFlag {
+			if v.B.GetFlags().GetSFlag() {
 				seg.Flags += 0x20
 			}
-			if v.B.Flags.BFlag {
+			if v.B.GetFlags().GetBFlag() {
 				seg.Flags += 0x10
 			}
 			if v.B.EndpointBehaviorStructure != nil {

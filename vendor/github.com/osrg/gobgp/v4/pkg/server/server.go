@@ -59,6 +59,13 @@ const (
 	FSMOperationTypeCount
 )
 
+// RFC 5881 requires the BFD server to listen on port 3784.
+// Per-peer BfdConfig.Port configures the destination port for outgoing
+// packets and may differ, but the listen port is not user-configurable.
+const (
+	BfdServerPort = 3784
+)
+
 type FSMTimingHook interface {
 	Observe(op FSMOperation, tOp, tWait time.Duration)
 }
@@ -146,6 +153,7 @@ type BgpServer struct {
 	mrtManager   *mrtManager
 	roaTable     *table.ROATable
 	uuidMap      map[string]uuid.UUID
+	bfdServer    *bfdServer
 	logger       *slog.Logger
 	logLevelVar  *slog.LevelVar
 	timingHook   FSMTimingHook
@@ -190,6 +198,7 @@ func NewBgpServer(opt ...ServerOption) *BgpServer {
 	}
 	s.bmpManager = newBmpClientManager(s)
 	s.mrtManager = newMrtManager(s)
+	s.bfdServer = NewBfdServer(s, logger)
 	if len(opts.grpcAddress) != 0 {
 		grpc.EnableTracing = false
 		s.apiServer = newAPIserver(s, shared, grpc.NewServer(opts.grpcOption...), opts.grpcAddress)
@@ -208,6 +217,10 @@ func (s *BgpServer) Stop() {
 			slog.String("Topic", "BgpServer"),
 			slog.Any("Error", err),
 		)
+	}
+
+	if s.bfdServer != nil {
+		s.bfdServer.Stop()
 	}
 
 	if s.apiServer != nil {
@@ -637,7 +650,6 @@ func (s *BgpServer) prePolicyFilterpath(peer *peer, path, old *table.Path) (*tab
 	options := &table.PolicyOptions{
 		Info: peerInfo,
 	}
-	peer.fsm.lock.Lock()
 	if path.IsLocal() && path.GetNexthop().IsUnspecified() {
 		// We need a special treatment for the locally-originated path
 		// with unspecified nexthop (0.0.0.0 or ::). In this case, the
@@ -647,12 +659,11 @@ func (s *BgpServer) prePolicyFilterpath(peer *peer, path, old *table.Path) (*tab
 		//
 		// When the local address contains zone, we need to strip it
 		// because BGP nexthop cannot contain zone information.
-		options.OldNextHop = conf.Transport.State.LocalAddress.WithZone("")
+		options.OldNextHop = peerInfo.LocalAddress.WithZone("")
 	} else {
 		options.OldNextHop = path.GetNexthop()
 	}
-	path = table.UpdatePathAttrs(peer.fsm.logger, peer.fsm.gConf, conf, peerInfo, path)
-	peer.fsm.lock.Unlock()
+	path = table.UpdatePathAttrs(peer.fsm.logger, peer.fsm.gConf, peerInfo, path)
 
 	return path, options, false
 }
@@ -813,6 +824,21 @@ func (s *BgpServer) toConfig(peer *peer, getAdvertised bool) *oc.Neighbor {
 	conf.State.Messages.Sent.Discarded = atomic.LoadUint64(&peer.fsm.counterStats.Sent.Discarded)
 	conf.Timers.State.UpdateRecvTime = atomic.LoadInt64(&peer.fsm.timerStats.State.UpdateRecvTime)
 
+	if s.bfdServer != nil {
+		bfdPeer, err := s.bfdServer.GetPeerState(conf.State.NeighborAddress)
+		if err == nil {
+			st := &bfdPeer.state
+			conf.Bfd.State.SessionState = apiBfdSessionStateToOC(st.SessionState)
+			conf.Bfd.State.LastFailureTime = st.LastFailureTime
+			conf.Bfd.State.FailureTransitions = st.FailureTransitions
+			conf.Bfd.State.LocalDiscriminator = st.LocalDiscriminator
+			if st.BfdAsync != nil {
+				conf.Bfd.State.BfdAsync.TransmittedPackets = st.BfdAsync.TransmittedPackets
+				conf.Bfd.State.BfdAsync.ReceivedPackets = st.BfdAsync.ReceivedPackets
+			}
+		}
+	}
+
 	return &conf
 }
 
@@ -880,7 +906,6 @@ func newWatchEventPeer(peer *peer, m *fsmMsg, newState, oldState bgp.FSMState, t
 	peer.fsm.lock.Lock()
 	conf := peer.fsm.pConf.ReadCopy()
 	sentOpen := buildopen(peer.fsm.gConf, &conf)
-	peer.fsm.pConf.Update(&conf)
 	capList := make([]bgp.ParameterCapabilityInterface, 0, len(peer.fsm.capMap))
 	if newState >= bgp.BGP_FSM_OPENCONFIRM {
 		// Adding peer remote capabilities to the event
@@ -892,6 +917,10 @@ func newWatchEventPeer(peer *peer, m *fsmMsg, newState, oldState bgp.FSMState, t
 			capList = append(capList, caps...)
 		}
 	}
+	localCaps := capabilitiesFromConfig(&conf)
+	// Publish conf only after buildopen and capabilitiesFromConfig finish mutating it
+	// (capabilitiesFromConfig updates per-AFI GR advertised state).
+	peer.fsm.pConf.Update(&conf)
 	peer.fsm.lock.Unlock()
 
 	recvOpen := peer.fsm.recvOpen
@@ -912,6 +941,8 @@ func newWatchEventPeer(peer *peer, m *fsmMsg, newState, oldState bgp.FSMState, t
 		Timestamp:     time.Now(),
 		PeerInterface: conf.Config.NeighborInterface,
 		RemoteCap:     capList,
+		LocalCap:      localCaps,
+		PeerGroup:     conf.Config.PeerGroup,
 	}
 
 	if m != nil {
@@ -1702,7 +1733,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				// the Selection_Deferral_Timer referred to below has expired.
 				allEnd := func() bool {
 					for _, p := range s.neighborMap {
-						if !p.recvedAllEOR() {
+						if !p.receivedAllEOR() {
 							return false
 						}
 					}
@@ -1818,7 +1849,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				if localRestarting {
 					allEnd := func() bool {
 						for _, p := range s.neighborMap {
-							if !p.recvedAllEOR() {
+							if !p.receivedAllEOR() {
 								return false
 							}
 						}
@@ -1852,7 +1883,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				conf := peer.fsm.pConf.ReadOnly()
 				peerRestarting := conf.GracefulRestart.State.PeerRestarting
 				if peerRestarting {
-					if peer.recvedAllEOR() {
+					if peer.receivedAllEOR() {
 						peer.stopPeerRestarting()
 						pathList := peer.adjRibIn.DropStale(peer.configuredRFlist())
 
@@ -2511,6 +2542,11 @@ func (s *BgpServer) StartBgp(ctx context.Context, r *api.StartBgpRequest) error 
 		// update route selection options
 		table.SelectionOptions = c.RouteSelectionOptions.Config
 		table.UseMultiplePaths = c.UseMultiplePaths.Config
+		if s.bfdServer != nil {
+			if err := s.bfdServer.Start(ctx, oc.BfdConfig{Port: BfdServerPort}); err != nil {
+				return err
+			}
+		}
 		return nil
 	}, false)
 }
@@ -2940,7 +2976,7 @@ func (s *BgpServer) ListPath(r apiutil.ListPathRequest, fn func(prefix bgp.NLRI,
 						case api.TableType_TABLE_TYPE_LOCAL, api.TableType_TABLE_TYPE_GLOBAL:
 							p.Best = true
 						}
-					} else if s.bgpConfig.Global.UseMultiplePaths.Config.Enabled && path.Compare(knownPathList[i-1]) == 0 {
+					} else if s.bgpConfig.Global.UseMultiplePaths.Config.Enabled && path.Compare(knownPathList[0]) == 0 {
 						p.Best = true
 					}
 				}
@@ -3334,7 +3370,59 @@ func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
 	if name := c.Config.PeerGroup; name != "" {
 		s.peerGroupMap[name].AddMember(*c)
 	}
+	if s.bfdServer != nil {
+		ipAddr, err := netip.ParseAddr(addr)
+		if err != nil {
+			return fmt.Errorf("failed to parse IP address: %v", err)
+		}
+		if err := s.bfdServer.AddPeer(context.Background(), ipAddr, c.Bfd.Config); err != nil {
+			s.logger.Warn("failed to add BFD peer",
+				slog.String("Topic", "Peer"),
+				slog.String("Key", addr),
+				slog.String("Err", err.Error()))
+		}
+	}
 	s.startFsmHandler(peer)
+	return nil
+}
+
+func apiBfdSessionStateToOC(state api.BfdSessionState) oc.BfdSessionState {
+	switch state {
+	case api.BfdSessionState_BFD_SESSION_STATE_UP:
+		return oc.BFD_SESSION_STATE_UP
+	case api.BfdSessionState_BFD_SESSION_STATE_DOWN:
+		return oc.BFD_SESSION_STATE_DOWN
+	case api.BfdSessionState_BFD_SESSION_STATE_ADMIN_DOWN:
+		return oc.BFD_SESSION_STATE_ADMIN_DOWN
+	case api.BfdSessionState_BFD_SESSION_STATE_INIT:
+		return oc.BFD_SESSION_STATE_INIT
+	default:
+		return oc.BFD_SESSION_STATE_DOWN
+	}
+}
+
+func (s *BgpServer) updateBfdPeer(addr string, oldConfig, newConfig oc.BfdConfig) error {
+	if s.bfdServer == nil || oldConfig.Equal(&newConfig) {
+		return nil
+	}
+
+	ipAddr, err := netip.ParseAddr(addr)
+	if err != nil {
+		return fmt.Errorf("failed to parse IP address: %v", err)
+	}
+
+	if oldConfig.Enabled {
+		if err := s.bfdServer.DeletePeer(context.Background(), ipAddr); err != nil {
+			return err
+		}
+	}
+
+	if newConfig.Enabled {
+		if err := s.bfdServer.AddPeer(context.Background(), ipAddr, newConfig); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -3450,6 +3538,18 @@ func (s *BgpServer) deleteNeighbor(c *oc.Neighbor, code, subcode uint8, sendNoti
 	}
 	n.fsm.logger.Info("Delete a peer configuration")
 
+	if s.bfdServer != nil {
+		ipAddr, err := netip.ParseAddr(addr)
+		if err != nil {
+			return fmt.Errorf("failed to parse IP address: %v", err)
+		}
+		if err := s.bfdServer.DeletePeer(context.Background(), ipAddr); err != nil {
+			s.logger.Warn("failed to delete BFD peer",
+				slog.String("Topic", "Peer"),
+				slog.String("Key", addr),
+				slog.String("Err", err.Error()))
+		}
+	}
 	if sendNotification {
 		n.fsm.deconfiguredNotification <- bgp.NewBGPNotificationMessage(code, subcode, nil)
 	}
@@ -3601,6 +3701,12 @@ func (s *BgpServer) updateNeighbor(c *oc.Neighbor) (needsSoftResetIn bool, err e
 		needsSoftResetIn = true
 	}
 
+	bfdConfigChanged := !original.Bfd.Config.Equal(&c.Bfd.Config)
+	if bfdConfigChanged {
+		peer.fsm.logger.Info("Update BFD configuration")
+		conf.Bfd.Config = c.Bfd.Config
+	}
+
 	if original.NeedsResendOpenMessage(c) {
 		sub := uint8(bgp.BGP_ERROR_SUB_OTHER_CONFIGURATION_CHANGE)
 		if original.Config.AdminDown != c.Config.AdminDown {
@@ -3644,8 +3750,13 @@ func (s *BgpServer) updateNeighbor(c *oc.Neighbor) (needsSoftResetIn bool, err e
 	if err == nil {
 		peer.fsm.pConf.Update(&conf)
 		peer.fsm.lock.Unlock()
+		if bfdConfigChanged {
+			err = s.updateBfdPeer(addr, original.Bfd.Config, c.Bfd.Config)
+		}
 		if isLimit {
-			err = s.setAdminState(addr, "", adminStatePfxCt)
+			if err == nil {
+				err = s.setAdminState(addr, "", adminStatePfxCt)
+			}
 		}
 	} else {
 		// rollback to original ApplyPolicy
@@ -4476,6 +4587,7 @@ func (s *BgpServer) WatchEvent(ctx context.Context, callbacks WatchEventMessageC
 									LocalASN:          msg.LocalAS,
 									NeighborAddress:   msg.PeerAddress,
 									NeighborInterface: msg.PeerInterface,
+									PeerGroup:         msg.PeerGroup,
 								},
 								State: apiutil.PeerState{
 									PeerASN:           msg.PeerAS,
@@ -4484,7 +4596,9 @@ func (s *BgpServer) WatchEvent(ctx context.Context, callbacks WatchEventMessageC
 									SessionState:      msg.State,
 									AdminState:        admin_state,
 									RouterID:          msg.PeerID,
+									PeerGroup:         msg.PeerGroup,
 									RemoteCap:         msg.RemoteCap,
+									LocalCap:          msg.LocalCap,
 									DisconnectReason:  disconnectReason,
 									DisconnectMessage: disconnectMessage,
 								},
@@ -4581,6 +4695,7 @@ type watchEventPeer struct {
 	PeerPort      uint16
 	LocalPort     uint16
 	PeerID        netip.Addr
+	PeerGroup     string
 	SentOpen      *bgp.BGPMessage
 	RecvOpen      *bgp.BGPMessage
 	State         bgp.FSMState
@@ -4590,6 +4705,7 @@ type watchEventPeer struct {
 	Timestamp     time.Time
 	PeerInterface string
 	RemoteCap     []bgp.ParameterCapabilityInterface
+	LocalCap      []bgp.ParameterCapabilityInterface
 }
 
 type watchEventBestPath struct {
@@ -4680,10 +4796,10 @@ func WatchPostUpdate(current bool, peerAddress string, peerGroup string) WatchOp
 				if !ok || ev == nil {
 					return false
 				}
-				if len(peerAddress) > 0 && ev.Neighbor.State.NeighborAddress == netip.MustParseAddr(peerAddress) {
+				if len(peerAddress) > 0 && ev.Neighbor != nil && ev.Neighbor.State.NeighborAddress == netip.MustParseAddr(peerAddress) {
 					return true
 				}
-				if len(peerGroup) > 0 && ev.Neighbor.State.PeerGroup == peerGroup {
+				if len(peerGroup) > 0 && ev.Neighbor != nil && ev.Neighbor.State.PeerGroup == peerGroup {
 					return true
 				}
 				return false
@@ -4982,4 +5098,21 @@ func (s *BgpServer) watch(opts ...WatchOption) (w *watcher) {
 		return nil
 	}, false)
 	return w
+}
+
+func (s *BgpServer) GetBfdServerStats() *api.BfdState {
+	if s.bfdServer == nil {
+		return nil
+	}
+	return s.bfdServer.GetServerStats()
+}
+
+func (s *BgpServer) ListBfdPeer(ctx context.Context, fn func(string, *api.BfdPeerState)) {
+	if s.bfdServer == nil {
+		return
+	}
+	list := s.bfdServer.GetPeerStateList()
+	for _, state := range list {
+		fn(state.peerAddress.String(), &state.state)
+	}
 }
