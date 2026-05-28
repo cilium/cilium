@@ -55,8 +55,10 @@ func (in *IPAMPoolAllocation) DeepCopyInto(out *IPAMPoolAllocation) {
 	*out = *in
 	if in.CIDRs != nil {
 		in, out := &in.CIDRs, &out.CIDRs
-		*out = make([]IPAMCIDR, len(*in))
-		copy(*out, *in)
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }

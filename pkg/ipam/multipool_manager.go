@@ -21,6 +21,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -569,7 +570,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	for poolName, pool := range m.pools {
 		neededIPs := neededIPsPerPool[poolName]
 
-		cidrs := []types.IPAMCIDR{}
+		cidrs := []iputil.Prefix{}
 		if v4Pool := pool.v4; v4Pool != nil {
 			if m.isRestoreFinishedLocked(IPv4) {
 				// releaseExcessCIDRsMultiPool interprets neededIPs as how many
@@ -580,7 +581,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 			}
 			v4CIDRs := v4Pool.inUseCIDRs()
 
-			slices.Sort(v4CIDRs)
+			slices.SortFunc(v4CIDRs, func(a, b iputil.Prefix) int { return a.Prefix.Compare(b.Prefix) })
 			cidrs = append(cidrs, v4CIDRs...)
 		}
 		if v6Pool := pool.v6; v6Pool != nil {
@@ -590,7 +591,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 			}
 			v6CIDRs := v6Pool.inUseCIDRs()
 
-			slices.Sort(v6CIDRs)
+			slices.SortFunc(v6CIDRs, func(a, b iputil.Prefix) int { return a.Prefix.Compare(b.Prefix) })
 			cidrs = append(cidrs, v6CIDRs...)
 		}
 
@@ -668,7 +669,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	return nil
 }
 
-func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCIDR) {
+func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix) {
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{}
@@ -681,17 +682,15 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCID
 	}
 
 	var ipv4Prefixes, ipv6Prefixes []netip.Prefix
-	for _, ipamCIDR := range cidrs {
-		prefix, err := netip.ParsePrefix(string(ipamCIDR))
-		if err != nil {
+	for _, c := range cidrs {
+		if !c.IsValid() {
 			m.logger.Error(
 				"ignoring invalid CIDR",
-				logfields.Error, err,
-				logfields.CIDR, ipamCIDR,
+				logfields.CIDR, c,
 			)
 			continue
 		}
-		prefix = prefix.Masked()
+		prefix := c.Prefix.Masked()
 		if prefix.Addr().Is6() {
 			ipv6Prefixes = append(ipv6Prefixes, prefix)
 		} else {

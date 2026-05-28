@@ -441,12 +441,11 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 
 	currentCIDRs := sets.New[netip.Prefix]()
 	for _, alloc := range n.resource.Spec.IPAM.Pools.Allocated {
-		for _, cidr := range alloc.CIDRs {
-			prefix, err := cidr.ToPrefix()
-			if err != nil {
+		for _, c := range alloc.CIDRs {
+			if !c.IsValid() {
 				continue
 			}
-			currentCIDRs.Insert(*prefix)
+			currentCIDRs.Insert(c.Prefix)
 		}
 	}
 

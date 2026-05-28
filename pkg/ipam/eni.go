@@ -565,7 +565,7 @@ func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 		return pools
 	}
 
-	var cidrs []ipamTypes.IPAMCIDR
+	var cidrs []iputil.Prefix
 	for _, eni := range node.Status.ENI.ENIs {
 		if eni.IsExcludedBySpec(node.Spec.ENI) {
 			continue
@@ -573,7 +573,7 @@ func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 
 		var prefixes []netip.Prefix
 		for _, p := range eni.Prefixes {
-			cidrs = append(cidrs, ipamTypes.IPAMCIDR(p.String()))
+			cidrs = append(cidrs, p)
 			if p.IsValid() {
 				prefixes = append(prefixes, p.Prefix)
 			}
@@ -591,7 +591,7 @@ func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 			if addressCoveredByPrefix(addr.Addr, prefixes) {
 				continue
 			}
-			cidrs = append(cidrs, ipamTypes.IPAMCIDR(netip.PrefixFrom(addr.Addr, addr.BitLen()).String()))
+			cidrs = append(cidrs, iputil.PrefixFrom(netip.PrefixFrom(addr.Addr, addr.BitLen())))
 		}
 	}
 

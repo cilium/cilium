@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -289,14 +288,13 @@ func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2.CiliumNode) map[s
 	lp := make(map[string][]netip.Prefix)
 	for _, pool := range localNode.Spec.IPAM.Pools.Allocated {
 		var prefixes []netip.Prefix
-		for _, cidr := range pool.CIDRs {
-			if p, err := cidr.ToPrefix(); err == nil {
-				prefixes = append(prefixes, *p)
+		for _, c := range pool.CIDRs {
+			if c.IsValid() {
+				prefixes = append(prefixes, c.Prefix)
 			} else {
 				r.logger.Error(
 					"invalid IPAM pool CIDR",
-					logfields.Error, err,
-					types.PrefixLogField, cidr,
+					types.PrefixLogField, c,
 				)
 			}
 		}

@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumFake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
@@ -297,8 +298,10 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 					Allocated: []ipamTypes.IPAMPoolAllocation{
 						{
 							Pool: "test-pool",
-							CIDRs: []ipamTypes.IPAMCIDR{
-								"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24",
+							CIDRs: []iputil.Prefix{
+								iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+								iputil.PrefixFrom(netip.MustParsePrefix("10.0.1.0/24")),
+								iputil.PrefixFrom(netip.MustParsePrefix("10.0.2.0/24")),
 							},
 						},
 					},
@@ -434,8 +437,11 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 	assert.Equal(t, node.Name, nodeUpdate.node.Name)
 	assert.Len(t, nodeUpdate.node.Spec.IPAM.Pools.Allocated, 1)
 	assert.Equal(t, "test-pool", nodeUpdate.node.Spec.IPAM.Pools.Allocated[0].Pool)
-	assert.ElementsMatch(t, []ipamTypes.IPAMCIDR{
-		"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28",
+	assert.ElementsMatch(t, []iputil.Prefix{
+		iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/28")),
+		iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")),
+		iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.32/28")),
+		iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.48/28")),
 	}, nodeUpdate.node.Spec.IPAM.Pools.Allocated[0].CIDRs)
 	onUpdateResult <- mockResult{node: nodeUpdate.node}
 
@@ -468,8 +474,11 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 		Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 24},
 	}}
 	node.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{{
-		Pool:  "test-pool",
-		CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.0/28", "10.0.0.16/28"},
+		Pool: "test-pool",
+		CIDRs: []iputil.Prefix{
+			iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/28")),
+			iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")),
+		},
 	}}
 	nh.Upsert(node)
 
@@ -590,7 +599,7 @@ func TestNodeHandlerRetries(t *testing.T) {
 						Allocated: []ipamTypes.IPAMPoolAllocation{
 							{
 								Pool:  "default",
-								CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.0/24"},
+								CIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24"))},
 							},
 						},
 						Requested: []ipamTypes.IPAMPoolRequest{
