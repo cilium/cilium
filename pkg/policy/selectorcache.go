@@ -105,7 +105,7 @@ func (c *scIdentityCache) selections(sel *identitySelector) iter.Seq[identity.Nu
 			// iterate identities in selected namespaces
 			for _, ns := range namespaces {
 				for id := range c.byNamespace[ns] {
-					if sel.source.Matches(id.lbls.LabelArray()) { // TEMPORARY
+					if sel.source.Matches(id.lbls) {
 						if !yield(id.NID) {
 							return
 						}
@@ -115,7 +115,7 @@ func (c *scIdentityCache) selections(sel *identitySelector) iter.Seq[identity.Nu
 		} else {
 			// no namespaces selected, iterate through all identities
 			for nid, id := range c.ids {
-				if sel.source.Matches(id.lbls.LabelArray()) { // TEMPORARY
+				if sel.source.Matches(id.lbls) {
 					if !yield(nid) {
 						return
 					}
@@ -725,7 +725,7 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 	}
 	for _, numericID := range added {
 		identity, _ := sc.idCache.find(numericID)
-		matches := sel.source.Matches(identity.lbls.LabelArray()) // TEMPORARY
+		matches := sel.source.Matches(identity.lbls)
 		_, exists := sel.cachedSelections[numericID]
 		if matches && !exists {
 			adds = append(adds, numericID)
