@@ -641,7 +641,7 @@ func TestEntityLabelSelectorMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("Entity '%s' match '%s' [%t]", tt.entity, strings.Join(tt.labels, ", "), tt.match), func(t *testing.T) {
-			labelsToMatch := labels.ParseLabelArray(tt.labels...)
+			labelsToMatch := labels.ParseLabels(tt.labels...)
 			selectors := types.ToSelectors(api.EntitySlice{tt.entity}.GetAsEndpointSelectors()...)
 
 			require.Equal(t, tt.match, selectors.Matches(labelsToMatch))
@@ -677,7 +677,7 @@ func TestEntitySliceLabelSelectorMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("EntitySlice '%#v' match '%s' [%t]", tt.entities, strings.Join(tt.labels, ", "), tt.match), func(t *testing.T) {
-			labelsToMatch := labels.ParseLabelArray(tt.labels...)
+			labelsToMatch := labels.ParseLabels(tt.labels...)
 			selectors := types.ToSelectors(tt.entities.GetAsEndpointSelectors()...)
 			require.Equal(t, tt.match, selectors.Matches(labelsToMatch))
 		})
