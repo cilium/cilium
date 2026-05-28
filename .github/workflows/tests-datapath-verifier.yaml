@@ -152,7 +152,7 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "6.18") FULL_KERNEL="6.18-20260310.122539" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "bpf-next") FULL_KERNEL="bpf-next-20260310.122539" ;;
+            "bpf-next") FULL_KERNEL="bpf-next-20260525.014435" ;;
             *) FULL_KERNEL="$KERNEL" ;;
           esac
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
