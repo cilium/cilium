@@ -213,7 +213,7 @@ func resourceNetworkConfigReflectorConfig(cs client.Clientset, crdSync promise.P
 						if err != nil {
 							return resourceNetworkConfig{}, false
 						}
-						s.IPv4Routes = append(s.IPv4Routes, r)
+						s.IPv6Routes = append(s.IPv6Routes, r)
 					}
 				}
 
