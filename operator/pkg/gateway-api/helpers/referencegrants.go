@@ -13,10 +13,10 @@ import (
 // IsBackendReferenceAllowed returns true if the backend reference is allowed by the reference grant.
 func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1.BackendRef, gvk schema.GroupVersionKind, grants []gatewayv1.ReferenceGrant) bool {
 	if IsService(be.BackendObjectReference) {
-		return isReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Service"), grants)
+		return IsReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Service"), grants)
 	}
 	if IsServiceImport(be.BackendObjectReference) {
-		return isReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, mcsapiv1beta1.SchemeGroupVersion.WithKind("ServiceImport"), grants)
+		return IsReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, mcsapiv1beta1.SchemeGroupVersion.WithKind("ServiceImport"), grants)
 	}
 
 	return false
@@ -24,10 +24,13 @@ func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1.Backend
 
 // IsSecretReferenceAllowed returns true if the secret reference is allowed by the reference grant.
 func IsSecretReferenceAllowed(originatingNamespace string, sr gatewayv1.SecretObjectReference, gvk schema.GroupVersionKind, grants []gatewayv1.ReferenceGrant) bool {
-	return isReferenceAllowed(originatingNamespace, string(sr.Name), sr.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Secret"), grants)
+	return IsReferenceAllowed(originatingNamespace, string(sr.Name), sr.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Secret"), grants)
 }
 
-func isReferenceAllowed(originatingNamespace, name string, namespace *gatewayv1.Namespace, fromGVK, toGVK schema.GroupVersionKind, grants []gatewayv1.ReferenceGrant) bool {
+// IsReferenceAllowed returns true if a reference from originatingNamespace to
+// name/namespace is allowed by ReferenceGrant. Same-namespace references are
+// always allowed.
+func IsReferenceAllowed(originatingNamespace, name string, namespace *gatewayv1.Namespace, fromGVK, toGVK schema.GroupVersionKind, grants []gatewayv1.ReferenceGrant) bool {
 	ns := NamespaceDerefOr(namespace, originatingNamespace)
 	if originatingNamespace == ns {
 		return true // same namespace is always allowed

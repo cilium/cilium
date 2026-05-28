@@ -1,0 +1,36 @@
+- metadata:
+    creationTimestamp: null
+    name: http-extension-ref
+    namespace: default
+  spec:
+    parentRefs:
+      - name: my-gateway
+    rules:
+      - backendRefs:
+          - name: backend-service
+            port: 8080
+        filters:
+          - type: ExtensionRef
+            extensionRef:
+              group: cilium.io
+              kind: CiliumEnvoyExtProcFilter
+              name: permitted-ext-proc
+        matches:
+          - path:
+              type: PathPrefix
+              value: /permitted
+      - backendRefs:
+          - name: backend-service
+            port: 8080
+        filters:
+          - type: ExtensionRef
+            extensionRef:
+              group: cilium.io
+              kind: CiliumEnvoyExtProcFilter
+              name: denied-ext-proc
+        matches:
+          - path:
+              type: PathPrefix
+              value: /denied
+  status:
+    parents: null

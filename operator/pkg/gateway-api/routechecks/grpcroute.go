@@ -19,18 +19,21 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 var _ Input = (*GRPCRouteInput)(nil)
 
 // GRPCRouteInput is used to implement the Input interface for GRPCRoute
 type GRPCRouteInput struct {
-	Ctx            context.Context
-	Logger         *slog.Logger
-	Client         client.Client
-	Grants         *gatewayv1.ReferenceGrantList
-	GRPCRoute      *gatewayv1.GRPCRoute
-	ControllerName string
+	Ctx                        context.Context
+	Logger                     *slog.Logger
+	Client                     client.Client
+	Grants                     *gatewayv1.ReferenceGrantList
+	ExtensionRefFilters        []v2alpha1.CiliumEnvoyExtProcFilter
+	ExtensionRefFiltersEnabled bool
+	GRPCRoute                  *gatewayv1.GRPCRoute
+	ControllerName             string
 
 	gateways      map[gatewayv1.ParentReference]ListenerOwner
 	gammaServices map[gatewayv1.ParentReference]*corev1.Service
@@ -61,6 +64,16 @@ func (g *GRPCRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 	return refs
 }
 
+func (g *GRPCRouteRule) GetExtensionRefs() []gatewayv1.LocalObjectReference {
+	var refs []gatewayv1.LocalObjectReference
+	for _, f := range g.Rule.Filters {
+		if f.Type == gatewayv1.GRPCRouteFilterExtensionRef && f.ExtensionRef != nil {
+			refs = append(refs, *f.ExtensionRef)
+		}
+	}
+	return refs
+}
+
 func (g *GRPCRouteInput) GetRules() []GenericRule {
 	var rules []GenericRule
 	for _, rule := range g.GRPCRoute.Spec.Rules {
@@ -86,7 +99,18 @@ func (g *GRPCRouteInput) GetGVK() schema.GroupVersionKind {
 }
 
 func (g *GRPCRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
+	if g.Grants == nil {
+		return nil
+	}
 	return g.Grants.Items
+}
+
+func (g *GRPCRouteInput) GetExtensionRefFilters() []v2alpha1.CiliumEnvoyExtProcFilter {
+	return g.ExtensionRefFilters
+}
+
+func (g *GRPCRouteInput) GetExtensionRefFiltersEnabled() bool {
+	return g.ExtensionRefFiltersEnabled
 }
 
 func (g *GRPCRouteInput) GetListenerOwner(parent gatewayv1.ParentReference) (ListenerOwner, error) {

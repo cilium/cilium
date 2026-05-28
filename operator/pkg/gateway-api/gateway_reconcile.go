@@ -299,7 +299,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Run the HTTPRoute route checks here and update the status accordingly.
-	if err := r.setHTTPRouteStatuses(scopedLog, ctx, httpRouteList, grants); err != nil {
+	if err := r.setHTTPRouteStatuses(scopedLog, ctx, httpRouteList, grants, extProcFilters); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
@@ -329,7 +329,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Run the GRPCRoute route checks here and update the status accordingly.
-	if err := r.setGRPCRouteStatuses(scopedLog, ctx, grpcRouteList, grants); err != nil {
+	if err := r.setGRPCRouteStatuses(scopedLog, ctx, grpcRouteList, grants, extProcFilters); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
@@ -1678,6 +1678,25 @@ func (r *gatewayReconciler) runCommonRouteChecks(ctx context.Context, input rout
 				return err
 			}
 		}
+
+		// Run the Rule validators, these need to be run per-parent so that we
+		// don't update status for parents we don't own.
+		for _, fn := range []routechecks.CheckWithParentFunc{
+			routechecks.CheckAgainstCrossNamespaceBackendReferences,
+			routechecks.CheckBackend,
+			routechecks.CheckHasServiceImportSupport,
+			routechecks.CheckBackendIsExistingService,
+			routechecks.CheckExtensionRefs,
+		} {
+			continueCheck, err := fn(input, parent)
+			if err != nil {
+				return fmt.Errorf("failed to apply Backend check: %w", err)
+			}
+
+			if !continueCheck {
+				break
+			}
+		}
 	}
 
 	return nil
@@ -1784,7 +1803,7 @@ func (r *gatewayReconciler) parentIsMatchingGateway(ctx context.Context, parent 
 	return hasMatchingControllerFn(gw)
 }
 
-func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1.ReferenceGrantList) error {
+func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) error {
 	scopedLog.DebugContext(ctx, "Updating HTTPRoute statuses for Gateway", numRoutes, len(httpRoutes.Items))
 	for httpRouteIndex, original := range httpRoutes.Items {
 
@@ -1794,12 +1813,14 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 		// input for the validators
 		// The validators will mutate the HTTPRoute as required, setting its status correctly.
 		i := &routechecks.HTTPRouteInput{
-			Ctx:            ctx,
-			Logger:         scopedLog.With(logfields.HTTPRoute, hr),
-			Client:         r.Client,
-			Grants:         grants,
-			HTTPRoute:      hr,
-			ControllerName: r.controllerName,
+			Ctx:                        ctx,
+			Logger:                     scopedLog.With(logfields.HTTPRoute, hr),
+			Client:                     r.Client,
+			Grants:                     grants,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+			HTTPRoute:                  hr,
+			ControllerName:             r.controllerName,
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, hr.Spec.ParentRefs, hr.Namespace); err != nil {
@@ -1861,7 +1882,7 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 	return nil
 }
 
-func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx context.Context, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1.ReferenceGrantList) error {
+func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx context.Context, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) error {
 	scopedLog.Debug("Updating GRPCRoute statuses for Gateway", numRoutes, len(grpcRoutes.Items))
 	for grpcRouteIndex, original := range grpcRoutes.Items {
 
@@ -1871,12 +1892,14 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 		// input for the validators
 		// The validators will mutate the GRPCRoute as required, setting its status correctly.
 		i := &routechecks.GRPCRouteInput{
-			Ctx:            ctx,
-			Logger:         scopedLog.With(logfields.GRPCRoute, grpcr),
-			Client:         r.Client,
-			Grants:         grants,
-			GRPCRoute:      grpcr,
-			ControllerName: r.controllerName,
+			Ctx:                        ctx,
+			Logger:                     scopedLog.With(logfields.GRPCRoute, grpcr),
+			Client:                     r.Client,
+			Grants:                     grants,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+			GRPCRoute:                  grpcr,
+			ControllerName:             r.controllerName,
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, grpcr.Spec.ParentRefs, grpcr.Namespace); err != nil {

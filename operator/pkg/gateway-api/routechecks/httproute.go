@@ -18,16 +18,19 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 // HTTPRouteInput is used to implement the Input interface for HTTPRoute
 type HTTPRouteInput struct {
-	Ctx            context.Context
-	Logger         *slog.Logger
-	Client         client.Client
-	Grants         *gatewayv1.ReferenceGrantList
-	HTTPRoute      *gatewayv1.HTTPRoute
-	ControllerName string
+	Ctx                        context.Context
+	Logger                     *slog.Logger
+	Client                     client.Client
+	Grants                     *gatewayv1.ReferenceGrantList
+	ExtensionRefFilters        []v2alpha1.CiliumEnvoyExtProcFilter
+	ExtensionRefFiltersEnabled bool
+	HTTPRoute                  *gatewayv1.HTTPRoute
+	ControllerName             string
 
 	gateways      map[gatewayv1.ParentReference]ListenerOwner
 	gammaServices map[gatewayv1.ParentReference]*corev1.Service
@@ -75,7 +78,18 @@ func (h *HTTPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferen
 }
 
 func (h *HTTPRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
+	if h.Grants == nil {
+		return nil
+	}
 	return h.Grants.Items
+}
+
+func (h *HTTPRouteInput) GetExtensionRefFilters() []v2alpha1.CiliumEnvoyExtProcFilter {
+	return h.ExtensionRefFilters
+}
+
+func (h *HTTPRouteInput) GetExtensionRefFiltersEnabled() bool {
+	return h.ExtensionRefFiltersEnabled
 }
 
 func (h *HTTPRouteInput) GetNamespace() string {
@@ -178,6 +192,16 @@ func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 			refs = append(refs, gatewayv1.BackendRef{
 				BackendObjectReference: f.RequestMirror.BackendRef,
 			})
+		}
+	}
+	return refs
+}
+
+func (t *HTTPRouteRule) GetExtensionRefs() []gatewayv1.LocalObjectReference {
+	var refs []gatewayv1.LocalObjectReference
+	for _, f := range t.Rule.Filters {
+		if f.Type == gatewayv1.HTTPRouteFilterExtensionRef && f.ExtensionRef != nil {
+			refs = append(refs, *f.ExtensionRef)
 		}
 	}
 	return refs

@@ -123,13 +123,13 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	// Run the HTTPRoute route checks here and update the status accordingly.
-	if err := r.setHTTPRouteStatuses(scopedLog, ctx, originalSvc, httpRouteList, grants); err != nil {
+	if err := r.setHTTPRouteStatuses(scopedLog, ctx, originalSvc, httpRouteList, grants, extProcFilters); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
 
 	// Run the GRPCRoute route checks here and update the status accordingly.
-	if err := r.setGRPCRouteStatuses(scopedLog, ctx, originalSvc, grpcRouteList, grants); err != nil {
+	if err := r.setGRPCRouteStatuses(scopedLog, ctx, originalSvc, grpcRouteList, grants, extProcFilters); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
@@ -180,7 +180,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return controllerruntime.Success()
 }
 
-func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1.ReferenceGrantList) error {
+func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) error {
 	gammaLogger.DebugContext(ctx, "Updating HTTPRoute statuses for GAMMA Service", numRoutes, len(httpRoutes.Items))
 	for httpRouteIndex, original := range httpRoutes.Items {
 
@@ -193,12 +193,14 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 		}
 		// input for the validators
 		i := &routechecks.HTTPRouteInput{
-			Ctx:            ctx,
-			Logger:         gammaLogger.With(httpRoute, hrName),
-			Client:         r.Client,
-			Grants:         grants,
-			HTTPRoute:      hr,
-			ControllerName: r.controllerName,
+			Ctx:                        ctx,
+			Logger:                     gammaLogger.With(httpRoute, hrName),
+			Client:                     r.Client,
+			Grants:                     grants,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+			HTTPRoute:                  hr,
+			ControllerName:             r.controllerName,
 		}
 
 		// Route validators
@@ -241,6 +243,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 				routechecks.CheckAgainstCrossNamespaceBackendReferences,
 				routechecks.CheckBackend,
 				routechecks.CheckBackendIsExistingService,
+				routechecks.CheckExtensionRefs,
 			} {
 				continueCheck, err := fn(i, parent)
 				if err != nil {
@@ -284,7 +287,7 @@ func (r *gammaReconciler) filterGRPCRoutesByService(ctx context.Context, gammaSe
 	return filtered
 }
 
-func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1.ReferenceGrantList) error {
+func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) error {
 	gammaLogger.DebugContext(ctx, "Updating GRPCRoute statuses for GAMMA Service", numRoutes, len(grpcRoutes.Items))
 	for grpcRouteIndex, original := range grpcRoutes.Items {
 
@@ -297,12 +300,14 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 		}
 		// input for the validators
 		i := &routechecks.GRPCRouteInput{
-			Ctx:            ctx,
-			Logger:         gammaLogger.With(grpcRoute, grpcName),
-			Client:         r.Client,
-			Grants:         grants,
-			GRPCRoute:      grpc,
-			ControllerName: r.controllerName,
+			Ctx:                        ctx,
+			Logger:                     gammaLogger.With(grpcRoute, grpcName),
+			Client:                     r.Client,
+			Grants:                     grants,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+			GRPCRoute:                  grpc,
+			ControllerName:             r.controllerName,
 		}
 
 		// Route validators
@@ -345,6 +350,7 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 				routechecks.CheckAgainstCrossNamespaceBackendReferences,
 				routechecks.CheckBackend,
 				routechecks.CheckBackendIsExistingService,
+				routechecks.CheckExtensionRefs,
 			} {
 				continueCheck, err := fn(i, parent)
 				if err != nil {
