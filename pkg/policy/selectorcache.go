@@ -28,7 +28,7 @@ var (
 // scIdentity is the information we need about a an identity that rules can select
 type scIdentity struct {
 	NID       identity.NumericIdentity
-	lbls      labels.LabelArray
+	lbls      labels.Labels
 	namespace string // value of the namespace label, or ""
 }
 
@@ -45,7 +45,7 @@ func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
 	}
 
 	for nid, lbls := range ids {
-		idCache.insert(nid, lbls.LabelArray()) // TEMPORARY
+		idCache.insert(nid, lbls)
 	}
 
 	return idCache
@@ -55,7 +55,7 @@ func (c *scIdentityCache) Len() int {
 	return len(c.ids)
 }
 
-func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.LabelArray) *scIdentity {
+func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.Labels) *scIdentity {
 	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	id := &scIdentity{
 		NID:       nid,
@@ -105,7 +105,7 @@ func (c *scIdentityCache) selections(sel *identitySelector) iter.Seq[identity.Nu
 			// iterate identities in selected namespaces
 			for _, ns := range namespaces {
 				for id := range c.byNamespace[ns] {
-					if sel.source.Matches(id.lbls) {
+					if sel.source.Matches(id.lbls.LabelArray()) { // TEMPORARY
 						if !yield(id.NID) {
 							return
 						}
@@ -115,7 +115,7 @@ func (c *scIdentityCache) selections(sel *identitySelector) iter.Seq[identity.Nu
 		} else {
 			// no namespaces selected, iterate through all identities
 			for nid, id := range c.ids {
-				if sel.source.Matches(id.lbls) {
+				if sel.source.Matches(id.lbls.LabelArray()) { // TEMPORARY
 					if !yield(nid) {
 						return
 					}
@@ -700,7 +700,7 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 		if !exists { // id not known to us: cannot skip
 			return false
 		}
-		if !haslbls.lbls.Equals(lbls.LabelArray()) { // TEMPORARY
+		if !haslbls.lbls.Equals(lbls) {
 			// labels are not equal: cannot skip
 			return false
 		}
@@ -715,7 +715,7 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 // Returns:
 // - updated as true if any changes were made
 // - mutated as true if any identity was mutated
-func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.NumericIdentitySlice, deleted identity.IdentityMapOld, wg *sync.WaitGroup) (updated, mutated bool) {
+func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.NumericIdentitySlice, deleted identity.IdentityMap, wg *sync.WaitGroup) (updated, mutated bool) {
 	var adds, dels []identity.NumericIdentity
 	for numericID := range deleted {
 		if _, exists := sel.cachedSelections[numericID]; exists {
@@ -725,7 +725,7 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 	}
 	for _, numericID := range added {
 		identity, _ := sc.idCache.find(numericID)
-		matches := sel.source.Matches(identity.lbls)
+		matches := sel.source.Matches(identity.lbls.LabelArray()) // TEMPORARY
 		_, exists := sel.cachedSelections[numericID]
 		if matches && !exists {
 			adds = append(adds, numericID)
@@ -765,9 +765,7 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 // In this case the return value is 'true' and the caller should trigger policy updates on all
 // endpoints to remove the affected identity only from selectors that no longer select the mutated
 // identity.
-func (sc *SelectorCache) UpdateIdentities(addedN, deletedN identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
-	added := addedN.ToOld() // TEMPORARY
-	deleted := deletedN.ToOld()
+func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
 	// Map of namespaces to scan for updates with added identities in the map value. All
 	// identities are matched against selectors that have no namespace requirements.
 	namespaces := map[string]identity.NumericIdentitySlice{"": {}}
