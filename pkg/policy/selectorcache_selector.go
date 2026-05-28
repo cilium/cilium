@@ -70,6 +70,16 @@ type identitySelector struct {
 
 var lastSelectorId types.SelectorId
 
+const (
+	selectorOriginDirectionEgress  = "egress"
+	selectorOriginDirectionIngress = "ingress"
+)
+
+type selectorOrigin struct {
+	direction string
+	labels    labels.LabelArray
+}
+
 func newIdentitySelector(sc *SelectorCache, key string, source Selector) *identitySelector {
 	lastSelectorId++
 	return &identitySelector{
@@ -148,6 +158,45 @@ func (i *identitySelector) GetMetadataLabels() labels.LabelArrayList {
 		list.MergeSorted(lal)
 	}
 	return list
+}
+
+func (i *identitySelector) GetMetadataOrigins() []selectorOrigin {
+	origins := []selectorOrigin{}
+	for user := range i.users {
+		direction := selectorOriginDirection(user)
+		for _, lbls := range user.GetRuleLabels(i) {
+			origins = append(origins, selectorOrigin{
+				direction: direction,
+				labels:    lbls,
+			})
+		}
+	}
+
+	sort.Slice(origins, func(i, j int) bool {
+		if origins[i].direction != origins[j].direction {
+			return origins[i].direction < origins[j].direction
+		}
+		return origins[i].labels.String() < origins[j].labels.String()
+	})
+	return origins
+}
+
+func selectorOriginDirection(user CachedSelectionUser) string {
+	switch u := user.(type) {
+	case *L4Filter:
+		return ingressDirection(u.Ingress)
+	case *rule:
+		return ingressDirection(u.Ingress)
+	default:
+		return ""
+	}
+}
+
+func ingressDirection(ingress bool) string {
+	if ingress {
+		return selectorOriginDirectionIngress
+	}
+	return selectorOriginDirectionEgress
 }
 
 // Selects return 'true' if the CachedSelector selects the given

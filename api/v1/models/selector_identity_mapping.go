@@ -8,6 +8,7 @@ package models
 import (
 	"context"
 	stderrors "errors"
+	"strconv"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -25,6 +26,9 @@ type SelectorIdentityMapping struct {
 	// Labels is a list of labels of the policy rules currently using this selector
 	Labels LabelArrayList `json:"labels,omitempty"`
 
+	// Origins is a list of policy rule origins currently using this selector
+	Origins []*SelectorIdentityMappingOrigin `json:"origins"`
+
 	// string form of selector
 	Selector string `json:"selector,omitempty"`
 
@@ -37,6 +41,10 @@ func (m *SelectorIdentityMapping) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateLabels(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateOrigins(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -67,11 +75,45 @@ func (m *SelectorIdentityMapping) validateLabels(formats strfmt.Registry) error 
 	return nil
 }
 
+func (m *SelectorIdentityMapping) validateOrigins(formats strfmt.Registry) error {
+	if swag.IsZero(m.Origins) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Origins); i++ {
+		if swag.IsZero(m.Origins[i]) { // not required
+			continue
+		}
+
+		if m.Origins[i] != nil {
+			if err := m.Origins[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("origins" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("origins" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 // ContextValidate validate this selector identity mapping based on the context it is used
 func (m *SelectorIdentityMapping) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.contextValidateLabels(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateOrigins(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -94,6 +136,35 @@ func (m *SelectorIdentityMapping) contextValidateLabels(ctx context.Context, for
 		}
 
 		return err
+	}
+
+	return nil
+}
+
+func (m *SelectorIdentityMapping) contextValidateOrigins(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Origins); i++ {
+
+		if m.Origins[i] != nil {
+
+			if swag.IsZero(m.Origins[i]) { // not required
+				return nil
+			}
+
+			if err := m.Origins[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("origins" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("origins" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
 	}
 
 	return nil

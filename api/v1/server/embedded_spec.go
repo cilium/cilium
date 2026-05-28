@@ -4520,6 +4520,13 @@ func init() {
           "description": "Labels is a list of labels of the policy rules currently using this selector",
           "$ref": "#/definitions/LabelArrayList"
         },
+        "origins": {
+          "description": "Origins is a list of policy rule origins currently using this selector",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SelectorIdentityMappingOrigin"
+          }
+        },
         "selector": {
           "description": "string form of selector",
           "type": "string"
@@ -4527,6 +4534,20 @@ func init() {
         "users": {
           "description": "number of users of this selector in the cache",
           "type": "integer"
+        }
+      }
+    },
+    "SelectorIdentityMappingOrigin": {
+      "description": "policy rule origin metadata for a selector",
+      "type": "object",
+      "properties": {
+        "direction": {
+          "description": "direction of the policy rule using this selector",
+          "type": "string"
+        },
+        "labels": {
+          "description": "labels of the policy rule using this selector",
+          "$ref": "#/definitions/LabelArray"
         }
       }
     },
@@ -10305,6 +10326,13 @@ func init() {
           "description": "Labels is a list of labels of the policy rules currently using this selector",
           "$ref": "#/definitions/LabelArrayList"
         },
+        "origins": {
+          "description": "Origins is a list of policy rule origins currently using this selector",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SelectorIdentityMappingOrigin"
+          }
+        },
         "selector": {
           "description": "string form of selector",
           "type": "string"
@@ -10312,6 +10340,20 @@ func init() {
         "users": {
           "description": "number of users of this selector in the cache",
           "type": "integer"
+        }
+      }
+    },
+    "SelectorIdentityMappingOrigin": {
+      "description": "policy rule origin metadata for a selector",
+      "type": "object",
+      "properties": {
+        "direction": {
+          "description": "direction of the policy rule using this selector",
+          "type": "string"
+        },
+        "labels": {
+          "description": "labels of the policy rule using this selector",
+          "$ref": "#/definitions/LabelArray"
         }
       }
     },

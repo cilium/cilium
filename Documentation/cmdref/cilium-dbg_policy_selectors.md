@@ -11,9 +11,14 @@ cilium-dbg policy selectors [flags]
 ### Options
 
 ```
-  -h, --help            help for selectors
-  -o, --output string   json| yaml| jsonpath='{}'
-  -v, --verbose         Show the full labels
+  -h, --help                     help for selectors
+      --identity-threshold int   Minimum identity count shown with --top-identities or --top-endpoints
+      --limit int                Limit number of rows shown with --top-identities or --top-endpoints (0 for all) (default 20)
+  -o, --output string            json| yaml| jsonpath='{}'
+      --show-direction           Show ingress and egress identity counts separately
+      --top-endpoints            Show endpoints with the highest selected identity count
+      --top-identities           Show policies with the highest selector identity count
+  -v, --verbose                  Show the full labels
 ```
 
 ### Options inherited from parent commands

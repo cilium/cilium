@@ -321,6 +321,7 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 			Identities: ids,
 			Users:      int64(sel.numUsers()),
 			Labels:     labelArrayListToModel(sel.GetMetadataLabels()),
+			Origins:    selectorOriginsToModel(sel.GetMetadataOrigins()),
 		}
 		selCacheMdl = append(selCacheMdl, selMdl)
 	}
@@ -360,17 +361,32 @@ func (sc *SelectorCache) Stats() selectorStats {
 func labelArrayListToModel(list labels.LabelArrayList) models.LabelArrayList {
 	lbls := make(models.LabelArrayList, 0, len(list))
 	for _, arr := range list {
-		lblArray := make(models.LabelArray, 0, len(arr))
-		for _, l := range arr {
-			lblArray = append(lblArray, &models.Label{
-				Key:    l.Key,
-				Value:  l.Value,
-				Source: l.Source,
-			})
-		}
-		lbls = append(lbls, lblArray)
+		lbls = append(lbls, labelArrayToModel(arr))
 	}
 	return lbls
+}
+
+func selectorOriginsToModel(origins []selectorOrigin) []*models.SelectorIdentityMappingOrigin {
+	out := make([]*models.SelectorIdentityMappingOrigin, 0, len(origins))
+	for _, origin := range origins {
+		out = append(out, &models.SelectorIdentityMappingOrigin{
+			Direction: origin.direction,
+			Labels:    labelArrayToModel(origin.labels),
+		})
+	}
+	return out
+}
+
+func labelArrayToModel(arr labels.LabelArray) models.LabelArray {
+	lblArray := make(models.LabelArray, 0, len(arr))
+	for _, l := range arr {
+		lblArray = append(lblArray, &models.Label{
+			Key:    l.Key,
+			Value:  l.Value,
+			Source: l.Source,
+		})
+	}
+	return lblArray
 }
 
 func (sc *SelectorCache) handleUserNotifications() {
