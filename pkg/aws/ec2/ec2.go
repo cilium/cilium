@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
@@ -509,22 +510,11 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 
 		if vpcs != nil {
 			if vpc, ok := vpcs[eni.VPC.ID]; ok {
-				if vpc.PrimaryCIDR != "" {
-					p, err := netip.ParsePrefix(vpc.PrimaryCIDR)
-					if err != nil {
-						return "", nil, fmt.Errorf("unable to parse VPC primary CIDR %q: %w", vpc.PrimaryCIDR, err)
-					}
-					eni.VPC.PrimaryCIDR = iputil.PrefixFrom(p)
+				if vpc.PrimaryCIDR.IsValid() {
+					eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
 				}
 				if len(vpc.CIDRs) > 0 {
-					eni.VPC.CIDRs = make([]iputil.Prefix, 0, len(vpc.CIDRs))
-					for _, s := range vpc.CIDRs {
-						p, err := netip.ParsePrefix(s)
-						if err != nil {
-							return "", nil, fmt.Errorf("unable to parse VPC CIDR %q: %w", s, err)
-						}
-						eni.VPC.CIDRs = append(eni.VPC.CIDRs, iputil.PrefixFrom(p))
-					}
+					eni.VPC.CIDRs = slices.Clone(vpc.CIDRs)
 				}
 			}
 		}
@@ -675,12 +665,23 @@ func (c *Client) GetVpcs(ctx context.Context, vpcID string) (ipamTypes.VirtualNe
 		vpc := &ipamTypes.VirtualNetwork{ID: aws.ToString(v.VpcId)}
 
 		if v.CidrBlock != nil {
-			vpc.PrimaryCIDR = aws.ToString(v.CidrBlock)
+			p, err := netip.ParsePrefix(aws.ToString(v.CidrBlock))
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse VPC primary CIDR %q: %w", aws.ToString(v.CidrBlock), err)
+			}
+			vpc.PrimaryCIDR = iputil.PrefixFrom(p)
 		}
 
 		for _, c := range v.CidrBlockAssociationSet {
-			if cidr := aws.ToString(c.CidrBlock); cidr != vpc.PrimaryCIDR {
-				vpc.CIDRs = append(vpc.CIDRs, cidr)
+			if c.CidrBlock == nil {
+				continue
+			}
+			p, err := netip.ParsePrefix(aws.ToString(c.CidrBlock))
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse VPC CIDR %q: %w", aws.ToString(c.CidrBlock), err)
+			}
+			if p != vpc.PrimaryCIDR.Prefix {
+				vpc.CIDRs = append(vpc.CIDRs, iputil.PrefixFrom(p))
 			}
 		}
 

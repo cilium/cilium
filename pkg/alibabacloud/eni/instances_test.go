@@ -20,7 +20,7 @@ var (
 	vpcs = []*ipamTypes.VirtualNetwork{
 		{
 			ID:          "vpc-1",
-			PrimaryCIDR: "1.1.0.0/16",
+			PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("1.1.0.0/16")),
 		},
 	}
 

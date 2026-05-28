@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -106,18 +107,12 @@ func (a *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 
 			if vpcs != nil {
 				if vpc, ok := vpcs[eni.VPC.VPCID]; ok {
-					if p, err := netip.ParsePrefix(vpc.PrimaryCIDR); err == nil {
-						eni.VPC.CIDRBlock = iputil.PrefixFrom(p)
+					if vpc.PrimaryCIDR.IsValid() {
+						eni.VPC.CIDRBlock = vpc.PrimaryCIDR
 					}
-					var secondaryCIDRs []iputil.Prefix
-					for _, s := range vpc.CIDRs {
-						p, err := netip.ParsePrefix(s)
-						if err != nil {
-							continue
-						}
-						secondaryCIDRs = append(secondaryCIDRs, iputil.PrefixFrom(p))
+					if len(vpc.CIDRs) > 0 {
+						eni.VPC.SecondaryCIDRs = slices.Clone(vpc.CIDRs)
 					}
-					eni.VPC.SecondaryCIDRs = secondaryCIDRs
 				}
 			}
 
@@ -145,18 +140,12 @@ func (a *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 
 			if vpcs != nil {
 				if vpc, ok := vpcs[eni.VPC.VPCID]; ok {
-					if p, err := netip.ParsePrefix(vpc.PrimaryCIDR); err == nil {
-						eni.VPC.CIDRBlock = iputil.PrefixFrom(p)
+					if vpc.PrimaryCIDR.IsValid() {
+						eni.VPC.CIDRBlock = vpc.PrimaryCIDR
 					}
-					var secondaryCIDRs []iputil.Prefix
-					for _, s := range vpc.CIDRs {
-						p, err := netip.ParsePrefix(s)
-						if err != nil {
-							continue
-						}
-						secondaryCIDRs = append(secondaryCIDRs, iputil.PrefixFrom(p))
+					if len(vpc.CIDRs) > 0 {
+						eni.VPC.SecondaryCIDRs = slices.Clone(vpc.CIDRs)
 					}
-					eni.VPC.SecondaryCIDRs = secondaryCIDRs
 				}
 			}
 
