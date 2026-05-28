@@ -35,6 +35,9 @@ func init() {
 		"Multi Pool IP Allocator",
 
 		cell.Config(multipool.DefaultConfig),
+		cell.Provide(func(logger *slog.Logger, daemonCfg *option.DaemonConfig) *multipool.PoolAllocator {
+			return multipool.NewPoolAllocator(logger, daemonCfg.EnableIPv4, daemonCfg.EnableIPv6)
+		}),
 		cell.Invoke(multipool.StartAllocator),
 	))
 }
