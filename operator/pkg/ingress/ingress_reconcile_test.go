@@ -95,6 +95,7 @@ func TestReconcile(t *testing.T) {
 		eps := discoveryv1.EndpointSlice{}
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &eps)
 		require.NoError(t, err, "Dedicated loadbalancer service endpoints should exist")
+		require.Equal(t, "cilium-ingress-test", eps.Labels[discoveryv1.LabelServiceName])
 
 		cec := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &cec)
@@ -910,6 +911,7 @@ func TestReconcile(t *testing.T) {
 		eps := discoveryv1.EndpointSlice{}
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &eps)
 		require.NoError(t, err)
+		require.Equal(t, "cilium-ingress-test", eps.Labels[discoveryv1.LabelServiceName])
 
 		require.Contains(t, eps.Labels, "additional.label/test-label", "Existing labels should not be deleted")
 		require.Contains(t, eps.Annotations, "additional.annotation/test-annotation", "Existing annotations should not be deleted")

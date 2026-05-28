@@ -202,7 +202,10 @@ func Test_getEndpointForIngress(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cilium-ingress-dummy-ingress",
 			Namespace: "dummy-namespace",
-			Labels:    map[string]string{"cilium.io/ingress": "true"},
+			Labels: map[string]string{
+				"cilium.io/ingress":          "true",
+				discoveryv1.LabelServiceName: "cilium-ingress-dummy-ingress",
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: "networking.k8s.io/v1",
