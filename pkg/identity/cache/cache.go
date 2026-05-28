@@ -105,7 +105,7 @@ type identityWatcher struct {
 	logger *slog.Logger
 	owner  IdentityAllocatorOwner
 
-	added, deleted identity.IdentityMapOld
+	added, deleted identity.IdentityMap
 	toClose        []chan<- struct{}
 }
 
@@ -129,7 +129,7 @@ func (w *identityWatcher) collectEvent(event allocator.AllocatorEvent) {
 			// 'deleted' so that collected events can be
 			// processed in any order.
 			delete(w.deleted, id)
-			w.added[id] = gi.LabelArray
+			w.added[id] = gi.Labels()
 		} else {
 			w.logger.Warn(
 				"collectEvent: Ignoring unknown identity type",
@@ -144,7 +144,7 @@ func (w *identityWatcher) collectEvent(event allocator.AllocatorEvent) {
 	// record the id deleted even if an add was reversed, as the
 	// id may also have previously existed, in which case the
 	// result is not no-op!
-	w.deleted[id] = labels.LabelArray{}
+	w.deleted[id] = labels.Labels{}
 }
 
 // watch starts the identity watcher
@@ -152,8 +152,8 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 
 	go func() {
 		for {
-			w.added = identity.IdentityMapOld{}
-			w.deleted = identity.IdentityMapOld{}
+			w.added = identity.IdentityMap{}
+			w.deleted = identity.IdentityMap{}
 			w.toClose = nil
 
 			// Consume first event synchronously
