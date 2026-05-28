@@ -581,7 +581,7 @@ func NewLabelsFromModel(base []string) Labels {
 }
 
 // FromSlice creates labels from a slice of labels.
-func FromSlice(labels []Label) Labels {
+func FromSlice(labels ...Label) Labels {
 	lbls := make(Labels, len(labels))
 	for _, lbl := range labels {
 		lbls[lbl.Key] = lbl

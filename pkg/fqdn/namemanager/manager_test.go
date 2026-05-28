@@ -159,7 +159,7 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	id, found := ipc.LookupByPrefix(prefix.String())
 	require.True(t, found)
 	ident := ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 
 	// Add match pattern
 	err = ipc.WaitForRevision(t.Context(), nameManager.RegisterFQDNSelector(ciliumIOSelMatchPattern))
@@ -168,7 +168,7 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefix.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), ciliumIOSelMatchPattern.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), ciliumIOSelMatchPattern.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 
 	// Remove cilium.io matchname, add github.com match name
 	nameManager.RegisterFQDNSelector(githubSel)
@@ -178,14 +178,14 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefix.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSelMatchPattern.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 
 	// Same IP matched by two selectors
 	<-nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.AsPrefix().Addr()}})
 	id, found = ipc.LookupByPrefix(prefix.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 
 	// Additional unique IPs for each selector
 	githubPrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.0.0.2/32"))
@@ -196,15 +196,15 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefix.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 	id, found = ipc.LookupByPrefix(githubPrefix.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 	id, found = ipc.LookupByPrefix(awesomePrefix.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSelMatchPattern.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 
 	// Removing selector should remove from IPCache
 	err = ipc.WaitForRevision(t.Context(), nameManager.UnregisterFQDNSelector(ciliumIOSelMatchPattern))
@@ -215,12 +215,12 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefix.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 
 	id, found = ipc.LookupByPrefix(githubPrefix.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 
 }
 
@@ -291,7 +291,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	id, found := ipc.LookupByPrefix(prefixOne.String())
 	require.True(t, found)
 	ident := ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Run GC and ensure it's still present
@@ -305,7 +305,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefixOne.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Add endpoint to the manager
@@ -321,7 +321,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefixOne.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Insert old prefix that will end up as zombie
@@ -338,7 +338,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefixTwo.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 	require.Contains(t, nameManager.cache.LookupIP(prefixTwo.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Add another prefix to local cache
@@ -363,7 +363,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefixThree.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 	require.Contains(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Run GC and ensure it's still present
@@ -376,7 +376,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefixThree.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 
 	// Lock endpoint manager to freeze GC in time
 	epMgr.mu.Lock()
@@ -398,7 +398,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	id, found = ipc.LookupByPrefix(prefixFour.String())
 	require.True(t, found)
 	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Equal(t, labels.FromSlice(ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")), ident.Labels)
 	require.Contains(t, nameManager.cache.LookupIP(prefixFour.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Explicitly GC the local cache to ensure the IP goes fully unused by any endpoint - except for the zombie.
