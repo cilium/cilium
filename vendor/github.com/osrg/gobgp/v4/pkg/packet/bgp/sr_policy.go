@@ -414,7 +414,8 @@ func (t *TunnelEncapSubTLVSRBSID) DecodeFromBytes(data []byte) error {
 	}
 	// Check Sub TLV length, only 3 possible length are allowed
 	switch t.Length {
-	case 2: // No BSID, do not initializing BSID struct
+	case 2: // No BSID; initialize with empty value so String/MarshalJSON are safe
+		t.BSID = &BSID{Value: make([]byte, 0)}
 	case 6:
 		fallthrough
 	case 18:

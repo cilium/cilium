@@ -420,6 +420,10 @@ func (s *server) watchEvent(ctx context.Context, r *api.WatchEventRequest, fn fu
 			if err != nil {
 				remoteCaps = []*api.Capability{}
 			}
+			localCaps, err := apiutil.MarshalCapabilities(p.State.LocalCap)
+			if err != nil {
+				localCaps = []*api.Capability{}
+			}
 			fn(&api.WatchEventResponse{
 				Event: &api.WatchEventResponse_Peer{
 					Peer: &api.WatchEventResponse_PeerEvent{
@@ -430,6 +434,7 @@ func (s *server) watchEvent(ctx context.Context, r *api.WatchEventRequest, fn fu
 								LocalAsn:          p.Conf.LocalASN,
 								NeighborAddress:   p.Conf.NeighborAddress.String(),
 								NeighborInterface: p.Conf.NeighborInterface,
+								PeerGroup:         p.Conf.PeerGroup,
 							},
 							State: &api.PeerState{
 								PeerAsn:         p.State.PeerASN,
@@ -438,7 +443,9 @@ func (s *server) watchEvent(ctx context.Context, r *api.WatchEventRequest, fn fu
 								SessionState:    api.PeerState_SessionState(int(p.State.SessionState) + 1),
 								AdminState:      p.State.AdminState,
 								RouterId:        p.State.RouterID.String(),
+								PeerGroup:       p.State.PeerGroup,
 								RemoteCap:       remoteCaps,
+								LocalCap:        localCaps,
 							},
 							Transport: &api.Transport{
 								LocalAddress: p.Transport.LocalAddress.String(),
@@ -519,9 +526,13 @@ func api2Path(resource api.TableType, path *api.Path, isWithdraw bool) (*table.P
 	var nexthop netip.Addr
 
 	if path.SourceAsn != 0 {
+		id, err := netip.ParseAddr(path.SourceId)
+		if err != nil {
+			return nil, fmt.Errorf("invalid source ID: %w", err)
+		}
 		pi = &table.PeerInfo{
 			AS: path.SourceAsn,
-			ID: netip.MustParseAddr(path.SourceId),
+			ID: id,
 		}
 	}
 
@@ -970,6 +981,26 @@ func PeerTypeFromApi(a api.PeerType) (oc.PeerType, error) {
 	}
 }
 
+func newBfdConfigFromAPIStruct(a *api.BfdPeerConfig) (oc.BfdConfig, error) {
+	if a == nil {
+		return oc.BfdConfig{}, nil
+	}
+	if a.Port > uint32(^uint16(0)) {
+		return oc.BfdConfig{}, fmt.Errorf("invalid BFD port: %d", a.Port)
+	}
+	if a.DetectionMultiplier > uint32(^uint8(0)) {
+		return oc.BfdConfig{}, fmt.Errorf("invalid BFD detection multiplier: %d", a.DetectionMultiplier)
+	}
+
+	return oc.BfdConfig{
+		Enabled:                  a.Enabled,
+		Port:                     uint16(a.Port),
+		DesiredMinimumTxInterval: a.DesiredMinimumTxInterval,
+		RequiredMinimumReceive:   a.RequiredMinimumReceive,
+		DetectionMultiplier:      uint8(a.DetectionMultiplier),
+	}, nil
+}
+
 func newNeighborFromAPIStruct(a *api.Peer) (*oc.Neighbor, error) {
 	pconf := &oc.Neighbor{}
 	if a.Conf != nil {
@@ -1089,6 +1120,13 @@ func newNeighborFromAPIStruct(a *api.Peer) (*oc.Neighbor, error) {
 		pconf.TtlSecurity.Config.Enabled = a.TtlSecurity.Enabled
 		pconf.TtlSecurity.Config.TtlMin = uint8(a.TtlSecurity.TtlMin)
 	}
+	if a.Bfd != nil {
+		bfdConfig, err := newBfdConfigFromAPIStruct(a.Bfd)
+		if err != nil {
+			return nil, err
+		}
+		pconf.Bfd.Config = bfdConfig
+	}
 	if a.State != nil {
 		var sessionState oc.SessionState
 		switch a.State.SessionState {
@@ -1154,6 +1192,12 @@ func newPeerGroupFromAPIStruct(a *api.PeerGroup) (*oc.PeerGroup, error) {
 		pconf.Config.Description = a.Conf.Description
 		pconf.Config.PeerGroupName = a.Conf.PeerGroupName
 		pconf.Config.SendSoftwareVersion = a.Conf.SendSoftwareVersion
+		if a.Conf.AllowOwnAsn > math.MaxUint8 {
+			return nil, fmt.Errorf("allow_own_asn is out of range: %d", a.Conf.AllowOwnAsn)
+		}
+		pconf.AsPathOptions.Config.AllowOwnAs = uint8(a.Conf.AllowOwnAsn)
+		pconf.AsPathOptions.Config.ReplacePeerAs = a.Conf.ReplacePeerAsn
+		pconf.AsPathOptions.Config.AllowAsPathLoopLocal = a.Conf.AllowAspathLoopLocal
 
 		switch a.Conf.RemovePrivate {
 		case api.RemovePrivate_REMOVE_PRIVATE_ALL:
@@ -1229,6 +1273,13 @@ func newPeerGroupFromAPIStruct(a *api.PeerGroup) (*oc.PeerGroup, error) {
 	if a.TtlSecurity != nil {
 		pconf.TtlSecurity.Config.Enabled = a.TtlSecurity.Enabled
 		pconf.TtlSecurity.Config.TtlMin = uint8(a.TtlSecurity.TtlMin)
+	}
+	if a.Bfd != nil {
+		bfdConfig, err := newBfdConfigFromAPIStruct(a.Bfd)
+		if err != nil {
+			return nil, err
+		}
+		pconf.Bfd.Config = bfdConfig
 	}
 	if a.Info != nil {
 		pconf.State.TotalPaths = a.Info.TotalPaths

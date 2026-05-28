@@ -1018,8 +1018,319 @@ func (lhs *regExpSet) Replace(arg DefinedSet) error {
 	return nil
 }
 
+// localAdminBitmapWords is ceil(65536/64): one bit per 16-bit BGP community local-admin value.
+const localAdminBitmapWords = 1024
+
+type localAdminBitmap [localAdminBitmapWords]uint64
+
+func (b *localAdminBitmap) isSet(v uint16) bool { return b[v>>6]&(1<<(v&63)) != 0 }
+func (b *localAdminBitmap) set(v uint16)        { b[v>>6] |= 1 << (v & 63) }
+func (b *localAdminBitmap) or(src *localAdminBitmap) {
+	for i := range b {
+		b[i] |= src[i]
+	}
+}
+
+func (b *localAdminBitmap) fillAll() {
+	for i := range b {
+		b[i] = ^uint64(0)
+	}
+}
+
+type communityMatchMode uint8
+
+const (
+	communityMatchExact communityMatchMode = iota
+	communityMatchFixedASWildcard
+	communityMatchFixedASBitmap
+	communityMatchLocalIndependent
+	communityMatchRegexp
+)
+
+const communityMatcherNoListIdx = -1
+
+// communityMatcher is a compiled BGP standard-community pattern.
+//
+// compileCommunityMatcher analyses each regexp at construction time and
+// promotes it to the fastest representation that is semantically equivalent:
+//
+//	Exact (communityMatchExact)
+//	  Pattern: ^<decimal-ASN>:<decimal-local>$
+//	  Match:   c == m.exact
+//
+//	Fixed-AS wildcard (communityMatchFixedASWildcard)
+//	  Pattern: ^<decimal-ASN>:(\d+|[0-9]+|.*)$  — any local-admin value
+//	  Match:   uint16(c>>16) == m.asn
+//
+//	Fixed-AS bitmap (communityMatchFixedASBitmap)
+//	  Pattern: ^<decimal-ASN>:<regexp>$  — ASN is literal, local-admin set is finite
+//	  Match:   uint16(c>>16) == m.asn && m.bitmap.isSet(uint16(c))
+//
+//	Wildcard-AS bitmap (communityMatchLocalIndependent)
+//	  Pattern: ^(\d+|[0-9]+):<finite-local-set>$  — any ASN, fixed local-admin set
+//	  Match:   m.bitmap.isSet(uint16(c))
+//
+//	Regexp fallback (communityMatchRegexp)
+//	  Everything else: format c as "ASN:local" and evaluate the NFA.
+//	  m.listIndex points to the corresponding entry in regExpSet.list.
+type communityMatcher struct {
+	mode      communityMatchMode
+	listIndex int
+	asn       uint16
+	exact     uint32
+	bitmap    *localAdminBitmap
+}
+
+func anchoredBody(s string) (body string, ok bool) {
+	if len(s) < 3 || s[0] != '^' || s[len(s)-1] != '$' {
+		return "", false
+	}
+	return s[1 : len(s)-1], true
+}
+
+func parseExactASColonLocal(body string, localBits int) (asn uint16, local uint32, ok bool) {
+	idx := strings.IndexByte(body, ':')
+	if idx <= 0 || idx != strings.LastIndexByte(body, ':') {
+		return 0, 0, false
+	}
+	asn64, err1 := strconv.ParseUint(body[:idx], 10, 16)
+	loc64, err2 := strconv.ParseUint(body[idx+1:], 10, localBits)
+	if err1 != nil || err2 != nil {
+		return 0, 0, false
+	}
+	return uint16(asn64), uint32(loc64), true
+}
+
+func isWildcardASN(lhs string) bool {
+	return lhs == `[0-9]*` || lhs == `[0-9]+` || lhs == `\d*` || lhs == `\d+`
+}
+
+func isWildcardLocal(s string) bool {
+	s = strings.TrimSuffix(s, "$")
+	return strings.HasSuffix(s, `:\d+`) || strings.HasSuffix(s, `:[0-9]+`) || strings.HasSuffix(s, `:.*`)
+}
+
+func parseLocalAdminSet(rhs string) (*localAdminBitmap, bool) {
+	rhs = strings.TrimSpace(rhs)
+	var locals []uint16
+	switch {
+	case strings.HasPrefix(rhs, "(") && strings.HasSuffix(rhs, ")"):
+		for _, tok := range strings.Split(rhs[1:len(rhs)-1], "|") {
+			n, err := strconv.ParseUint(strings.TrimSpace(tok), 10, 16)
+			if err != nil {
+				return nil, false
+			}
+			locals = append(locals, uint16(n))
+		}
+	default:
+		n, err := strconv.ParseUint(rhs, 10, 16)
+		if err != nil {
+			return nil, false
+		}
+		locals = []uint16{uint16(n)}
+	}
+	if len(locals) == 0 {
+		return nil, false
+	}
+	bm := new(localAdminBitmap)
+	for _, loc := range locals {
+		if bm.isSet(loc) {
+			return nil, false
+		}
+		bm.set(loc)
+	}
+	return bm, true
+}
+
+func tryWildcardASNBitmap(re *regexp.Regexp) (*localAdminBitmap, bool) {
+	body, ok := anchoredBody(re.String())
+	if !ok {
+		return nil, false
+	}
+	idx := strings.IndexByte(body, ':')
+	if idx <= 0 || idx >= len(body)-1 || strings.LastIndexByte(body, ':') != idx {
+		return nil, false
+	}
+	asPart, rhsPart := body[:idx], body[idx+1:]
+	if !isWildcardASN(asPart) {
+		return nil, false
+	}
+	return parseLocalAdminSet(rhsPart)
+}
+
+func scanLocalAdminBitmap(re *regexp.Regexp, asn uint16) *localAdminBitmap {
+	bm := new(localAdminBitmap)
+	var buf [32]byte
+	pfx := strconv.AppendUint(buf[:0], uint64(asn), 10)
+	pfx = append(pfx, ':')
+	pfxLen := len(pfx)
+	for local := range uint32(0x10000) {
+		b := strconv.AppendUint(pfx[:pfxLen], uint64(local), 10)
+		if re.Match(b) {
+			bm.set(uint16(local))
+		}
+	}
+	return bm
+}
+
+func extractLiteralASN(s string) (uint16, bool) {
+	if len(s) == 0 || s[0] != '^' {
+		return 0, false
+	}
+	start := 1
+	idx := strings.IndexByte(s[start:], ':')
+	if idx <= 0 {
+		return 0, false
+	}
+	asn, err := strconv.ParseUint(s[start:start+idx], 10, 16)
+	return uint16(asn), err == nil
+}
+
+func compileCommunityMatcher(re *regexp.Regexp, listIndex int) communityMatcher {
+	s := re.String()
+	if inner, ok := anchoredBody(s); ok {
+		if asn, loc, ok2 := parseExactASColonLocal(inner, 16); ok2 {
+			return communityMatcher{
+				mode:      communityMatchExact,
+				listIndex: communityMatcherNoListIdx,
+				exact:     uint32(asn)<<16 | loc,
+			}
+		}
+	}
+	if asn, ok := extractLiteralASN(s); ok {
+		if isWildcardLocal(s) {
+			return communityMatcher{
+				mode:      communityMatchFixedASWildcard,
+				listIndex: communityMatcherNoListIdx,
+				asn:       asn,
+			}
+		}
+		return communityMatcher{
+			mode:      communityMatchFixedASBitmap,
+			listIndex: communityMatcherNoListIdx,
+			asn:       asn,
+			bitmap:    scanLocalAdminBitmap(re, asn),
+		}
+	}
+	if bm, ok := tryWildcardASNBitmap(re); ok {
+		return communityMatcher{
+			mode:      communityMatchLocalIndependent,
+			listIndex: communityMatcherNoListIdx,
+			bitmap:    bm,
+		}
+	}
+	return communityMatcher{mode: communityMatchRegexp, listIndex: listIndex}
+}
+
+func (m communityMatcher) matchesCommunity(c uint32, patterns []*regexp.Regexp) bool {
+	switch m.mode {
+	case communityMatchExact:
+		return c == m.exact
+	case communityMatchFixedASWildcard:
+		return uint16(c>>16) == m.asn
+	case communityMatchFixedASBitmap:
+		if uint16(c>>16) != m.asn {
+			return false
+		}
+		return m.bitmap.isSet(uint16(c))
+	case communityMatchLocalIndependent:
+		return m.bitmap.isSet(uint16(c))
+	case communityMatchRegexp:
+		if m.listIndex < 0 || m.listIndex >= len(patterns) {
+			panic(fmt.Sprintf("table: community regexp listIndex %d (len(patterns)=%d)", m.listIndex, len(patterns)))
+		}
+		re := patterns[m.listIndex]
+		var buf [32]byte
+		b := strconv.AppendUint(buf[:0], uint64(c>>16), 10)
+		b = append(b, ':')
+		b = strconv.AppendUint(b, uint64(c&0xffff), 10)
+		return re.Match(b)
+	default:
+		panic(fmt.Sprintf("table: invalid communityMatchMode %d", m.mode))
+	}
+}
+
+func buildCommunityMatchers(list []*regexp.Regexp) ([]communityMatcher, communityAnyIndex) {
+	ms := make([]communityMatcher, len(list))
+	for i, re := range list {
+		ms[i] = compileCommunityMatcher(re, i)
+	}
+	return ms, buildCommunityMatcherBitmaps(ms)
+}
+
+// asBitmapEntry pairs an AS number with its combined OR-bitmap for fast lookup.
+type asBitmapEntry struct {
+	asn uint16
+	bm  *localAdminBitmap
+}
+
+// communityAnyIndex is the precomputed OR-index used for MATCH_OPTION_ANY / MATCH_OPTION_INVERT.
+// It is rebuilt whenever the pattern set changes.
+type communityAnyIndex struct {
+	perAS          []asBitmapEntry   // per-AS OR-bitmaps for fixed-ASN patterns
+	asnIndependent *localAdminBitmap // OR-bitmap for wildcard-ASN patterns (e.g. \d+:100)
+	hasRegexp      bool              // true → fast path unavailable, caller must use slow scan
+}
+
+// matchesAny reports whether any community in cs matches the index.
+// Returns false immediately when hasRegexp is set; the caller must fall back to slow scan.
+func (idx *communityAnyIndex) matchesAny(cs []uint32) bool {
+	if idx.hasRegexp {
+		return false
+	}
+	for _, y := range cs {
+		local := uint16(y)
+		if idx.asnIndependent != nil && idx.asnIndependent.isSet(local) {
+			return true
+		}
+		asn := uint16(y >> 16)
+		for i := range idx.perAS {
+			if idx.perAS[i].asn == asn && idx.perAS[i].bm.isSet(local) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 type CommunitySet struct {
 	regExpSet
+	matchers []communityMatcher
+	anyIdx   communityAnyIndex // precomputed index for ANY/INVERT fast path
+}
+
+func buildCommunityMatcherBitmaps(matchers []communityMatcher) communityAnyIndex {
+	var idx communityAnyIndex
+	for _, m := range matchers {
+		switch m.mode {
+		case communityMatchExact:
+			asn := uint16(m.exact >> 16)
+			orBitmapSliceGet(&idx.perAS, asn).set(uint16(m.exact))
+		case communityMatchFixedASWildcard:
+			orBitmapSliceGet(&idx.perAS, m.asn).fillAll()
+		case communityMatchFixedASBitmap:
+			orBitmapSliceGet(&idx.perAS, m.asn).or(m.bitmap)
+		case communityMatchLocalIndependent:
+			if idx.asnIndependent == nil {
+				idx.asnIndependent = new(localAdminBitmap)
+			}
+			idx.asnIndependent.or(m.bitmap)
+		default:
+			idx.hasRegexp = true
+		}
+	}
+	return idx
+}
+
+func orBitmapSliceGet(entries *[]asBitmapEntry, asn uint16) *localAdminBitmap {
+	for i := range *entries {
+		if (*entries)[i].asn == asn {
+			return (*entries)[i].bm
+		}
+	}
+	bm := new(localAdminBitmap)
+	*entries = append(*entries, asBitmapEntry{asn: asn, bm: bm})
+	return bm
 }
 
 func (s *CommunitySet) List() []string {
@@ -1078,7 +1389,7 @@ func ParseExtCommunity(arg string) (bgp.ExtendedCommunityInterface, error) {
 		r = r || s == bgp.VALIDATION_STATE_NOT_FOUND.String()
 		return r || s == bgp.VALIDATION_STATE_INVALID.String()
 	}
-	if len(elems) < 2 && (len(elems) < 1 && !isValidationState(elems[0])) {
+	if len(elems) < 2 && !isValidationState(elems[0]) {
 		return nil, fmt.Errorf("invalid ext-community (rt|soo|encap|lb):<value> | valid | not-found | invalid")
 	}
 	if isValidationState(elems[0]) {
@@ -1161,18 +1472,240 @@ func NewCommunitySet(c oc.CommunitySet) (*CommunitySet, error) {
 		}
 		list = append(list, exp)
 	}
+	ms, anyIdx := buildCommunityMatchers(list)
 	return &CommunitySet{
 		regExpSet: regExpSet{
 			typ:  DEFINED_TYPE_COMMUNITY,
 			name: name,
 			list: list,
 		},
+		matchers: ms,
+		anyIdx:   anyIdx,
 	}, nil
+}
+
+func (s *CommunitySet) rebuildMatchers() {
+	s.matchers, s.anyIdx = buildCommunityMatchers(s.list)
+}
+
+func (s *CommunitySet) Append(arg DefinedSet) error {
+	if err := s.regExpSet.Append(arg); err != nil {
+		return err
+	}
+	s.rebuildMatchers()
+	return nil
+}
+
+func (s *CommunitySet) Remove(arg DefinedSet) error {
+	if err := s.regExpSet.Remove(arg); err != nil {
+		return err
+	}
+	s.rebuildMatchers()
+	return nil
+}
+
+func (s *CommunitySet) Replace(arg DefinedSet) error {
+	if err := s.regExpSet.Replace(arg); err != nil {
+		return err
+	}
+	s.rebuildMatchers()
+	return nil
+}
+
+type extCommunityMatchMode uint8
+
+const (
+	extCommMatchExact extCommunityMatchMode = iota
+	extCommMatchASOnly
+	extCommMatchASBitmap
+	extCommMatchLocalBitmap
+	extCommMatchRegexp
+)
+
+// extCommunityMatcher is a compiled EC pattern. Follows the same promotion strategy as
+// communityMatcher: anchored decimal exact → AS-only wildcard → fixed/wildcard-AS bitmap →
+// regexp fallback. Non-regexp modes only handle TwoOctetAsSpecificExtended; everything else
+// falls to regexp. The regexp mode checks the subtype field before evaluating the regexp.
+type extCommunityMatcher struct {
+	subtype         bgp.ExtendedCommunityAttrSubType
+	mode            extCommunityMatchMode
+	exactAS         uint16
+	exactLocalAdmin uint32
+	bitmap          *localAdminBitmap
+	re              *regexp.Regexp
+}
+
+func compileExtCommunityMatcher(subtype bgp.ExtendedCommunityAttrSubType, re *regexp.Regexp) extCommunityMatcher {
+	s := re.String()
+	body, anchored := anchoredBody(s)
+	if anchored {
+		if asn, la, ok := parseExactASColonLocal(body, 32); ok {
+			return extCommunityMatcher{subtype: subtype, mode: extCommMatchExact, exactAS: asn, exactLocalAdmin: la}
+		}
+	}
+	if asn, ok := extractLiteralASN(s); ok {
+		if isWildcardLocal(s) {
+			return extCommunityMatcher{subtype: subtype, mode: extCommMatchASOnly, exactAS: asn}
+		}
+		if anchored {
+			if colon := strings.IndexByte(body, ':'); colon > 0 {
+				if bm, ok2 := parseLocalAdminSet(body[colon+1:]); ok2 {
+					return extCommunityMatcher{subtype: subtype, mode: extCommMatchASBitmap, exactAS: asn, bitmap: bm}
+				}
+			}
+		}
+		return extCommunityMatcher{subtype: subtype, mode: extCommMatchRegexp, re: re}
+	}
+	if anchored {
+		if bm, ok := tryWildcardASNBitmap(re); ok {
+			return extCommunityMatcher{subtype: subtype, mode: extCommMatchLocalBitmap, bitmap: bm}
+		}
+	}
+	return extCommunityMatcher{subtype: subtype, mode: extCommMatchRegexp, re: re}
+}
+
+func (m extCommunityMatcher) matchesExtCommunity(x bgp.ExtendedCommunityInterface, xStr *string) bool {
+	switch m.mode {
+	case extCommMatchExact:
+		ec, ok := x.(*bgp.TwoOctetAsSpecificExtended)
+		return ok && subTypeEqual(x, m.subtype) && ec.AS == m.exactAS && ec.LocalAdmin == m.exactLocalAdmin
+	case extCommMatchASOnly:
+		ec, ok := x.(*bgp.TwoOctetAsSpecificExtended)
+		return ok && subTypeEqual(x, m.subtype) && ec.AS == m.exactAS
+	case extCommMatchASBitmap:
+		ec, ok := x.(*bgp.TwoOctetAsSpecificExtended)
+		return ok && subTypeEqual(x, m.subtype) && ec.AS == m.exactAS && ec.LocalAdmin <= 0xffff && m.bitmap.isSet(uint16(ec.LocalAdmin))
+	case extCommMatchLocalBitmap:
+		ec, ok := x.(*bgp.TwoOctetAsSpecificExtended)
+		return ok && subTypeEqual(x, m.subtype) && ec.LocalAdmin <= 0xffff && m.bitmap.isSet(uint16(ec.LocalAdmin))
+	case extCommMatchRegexp:
+		if !subTypeEqual(x, m.subtype) {
+			return false
+		}
+		if *xStr == "" {
+			*xStr = x.String()
+		}
+		return m.re.MatchString(*xStr)
+	default:
+		panic(fmt.Sprintf("table: invalid extCommunityMatchMode %d", m.mode))
+	}
+}
+
+func buildExtCommunityMatchers(list []*regexp.Regexp, subtypes []bgp.ExtendedCommunityAttrSubType) []extCommunityMatcher {
+	ms := make([]extCommunityMatcher, len(list))
+	for i, re := range list {
+		ms[i] = compileExtCommunityMatcher(subtypes[i], re)
+	}
+	return ms
+}
+
+type twoOctetExactKey struct {
+	as uint16
+	la uint32
+}
+
+// extSubtypeAnyIndex is the precomputed fast-path index for MATCH_OPTION_ANY on one EC subtype.
+// Exact matches with LA ≤ 65535 and ASBitmap patterns share the perAS bitmap structure.
+// LA > 65535 exact matches go into highLA; ASOnly patterns go into asOnly.
+type extSubtypeAnyIndex struct {
+	subtype bgp.ExtendedCommunityAttrSubType
+	perAS   []asBitmapEntry               // Exact (LA≤65535) + ASBitmap matchers
+	global  *localAdminBitmap             // LocalBitmap matchers (wildcard ASN)
+	asOnly  map[uint16]struct{}           // ASOnly matchers
+	highLA  map[twoOctetExactKey]struct{} // Exact matchers with LA > 65535
+}
+
+func (idx *extSubtypeAnyIndex) matchesTwoOctet(ec *bgp.TwoOctetAsSpecificExtended) bool {
+	if _, ok := idx.asOnly[ec.AS]; ok {
+		return true
+	}
+	la := ec.LocalAdmin
+	if la <= 0xffff {
+		local := uint16(la)
+		if idx.global != nil && idx.global.isSet(local) {
+			return true
+		}
+		for i := range idx.perAS {
+			if idx.perAS[i].asn == ec.AS && idx.perAS[i].bm.isSet(local) {
+				return true
+			}
+		}
+	} else {
+		_, ok := idx.highLA[twoOctetExactKey{ec.AS, la}]
+		return ok
+	}
+	return false
+}
+
+func buildExtCommunityAnyIndexes(matchers []extCommunityMatcher) ([]*extSubtypeAnyIndex, bool) {
+	type merge struct {
+		perAS  []asBitmapEntry
+		global *localAdminBitmap
+		asOnly map[uint16]struct{}
+		highLA map[twoOctetExactKey]struct{}
+	}
+	bySubtype := make(map[bgp.ExtendedCommunityAttrSubType]*merge)
+	needSlowScan := false
+	get := func(st bgp.ExtendedCommunityAttrSubType) *merge {
+		if m, ok := bySubtype[st]; ok {
+			return m
+		}
+		m := &merge{}
+		bySubtype[st] = m
+		return m
+	}
+	for _, m := range matchers {
+		switch m.mode {
+		case extCommMatchExact:
+			g := get(m.subtype)
+			if m.exactLocalAdmin <= 0xffff {
+				orBitmapSliceGet(&g.perAS, m.exactAS).set(uint16(m.exactLocalAdmin))
+			} else {
+				if g.highLA == nil {
+					g.highLA = make(map[twoOctetExactKey]struct{})
+				}
+				g.highLA[twoOctetExactKey{m.exactAS, m.exactLocalAdmin}] = struct{}{}
+			}
+		case extCommMatchASOnly:
+			g := get(m.subtype)
+			if g.asOnly == nil {
+				g.asOnly = make(map[uint16]struct{})
+			}
+			g.asOnly[m.exactAS] = struct{}{}
+		case extCommMatchASBitmap:
+			orBitmapSliceGet(&get(m.subtype).perAS, m.exactAS).or(m.bitmap)
+		case extCommMatchLocalBitmap:
+			g := get(m.subtype)
+			if g.global == nil {
+				g.global = new(localAdminBitmap)
+			}
+			g.global.or(m.bitmap)
+		default:
+			needSlowScan = true
+		}
+	}
+	out := make([]*extSubtypeAnyIndex, 0, len(bySubtype))
+	for st, g := range bySubtype {
+		out = append(out, &extSubtypeAnyIndex{subtype: st, perAS: g.perAS, global: g.global, asOnly: g.asOnly, highLA: g.highLA})
+	}
+	return out, needSlowScan
+}
+
+func findExtSubtypeAnyIndex(indexes []*extSubtypeAnyIndex, st bgp.ExtendedCommunityAttrSubType) *extSubtypeAnyIndex {
+	for _, idx := range indexes {
+		if idx.subtype == st {
+			return idx
+		}
+	}
+	return nil
 }
 
 type ExtCommunitySet struct {
 	regExpSet
-	subtypeList []bgp.ExtendedCommunityAttrSubType
+	subtypeList  []bgp.ExtendedCommunityAttrSubType
+	matchers     []extCommunityMatcher
+	anyIndex     []*extSubtypeAnyIndex
+	needSlowScan bool
 }
 
 func (s *ExtCommunitySet) List() []string {
@@ -1214,6 +1747,11 @@ func (s *ExtCommunitySet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.ToConfig())
 }
 
+func (s *ExtCommunitySet) rebuildExtMatchers() {
+	s.matchers = buildExtCommunityMatchers(s.list, s.subtypeList)
+	s.anyIndex, s.needSlowScan = buildExtCommunityAnyIndexes(s.matchers)
+}
+
 func NewExtCommunitySet(c oc.ExtCommunitySet) (*ExtCommunitySet, error) {
 	name := c.ExtCommunitySetName
 	if name == "" {
@@ -1232,23 +1770,61 @@ func NewExtCommunitySet(c oc.ExtCommunitySet) (*ExtCommunitySet, error) {
 		list = append(list, exp)
 		subtypeList = append(subtypeList, subtype)
 	}
-	return &ExtCommunitySet{
+	s := &ExtCommunitySet{
 		regExpSet: regExpSet{
 			typ:  DEFINED_TYPE_EXT_COMMUNITY,
 			name: name,
 			list: list,
 		},
 		subtypeList: subtypeList,
-	}, nil
+	}
+	s.rebuildExtMatchers()
+	return s, nil
 }
 
 func (s *ExtCommunitySet) Append(arg DefinedSet) error {
-	err := s.regExpSet.Append(arg)
-	if err != nil {
+	if err := s.regExpSet.Append(arg); err != nil {
 		return err
 	}
-	sList := arg.(*ExtCommunitySet).subtypeList
-	s.subtypeList = append(s.subtypeList, sList...)
+	s.subtypeList = append(s.subtypeList, arg.(*ExtCommunitySet).subtypeList...)
+	s.rebuildExtMatchers()
+	return nil
+}
+
+func (s *ExtCommunitySet) Remove(arg DefinedSet) error {
+	if s.Type() != arg.Type() {
+		return fmt.Errorf("can't remove from different type of defined-set")
+	}
+	other := arg.(*ExtCommunitySet)
+	newList := make([]*regexp.Regexp, 0, len(s.list))
+	newSubtypes := make([]bgp.ExtendedCommunityAttrSubType, 0, len(s.subtypeList))
+	for i, x := range s.list {
+		found := false
+		for _, y := range other.list {
+			if x.String() == y.String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			newList = append(newList, x)
+			newSubtypes = append(newSubtypes, s.subtypeList[i])
+		}
+	}
+	s.list = newList
+	s.subtypeList = newSubtypes
+	s.rebuildExtMatchers()
+	return nil
+}
+
+func (s *ExtCommunitySet) Replace(arg DefinedSet) error {
+	other, ok := arg.(*ExtCommunitySet)
+	if !ok {
+		return fmt.Errorf("type cast failed")
+	}
+	s.list = other.list
+	s.subtypeList = other.subtypeList
+	s.rebuildExtMatchers()
 	return nil
 }
 
@@ -1620,11 +2196,26 @@ func (c *CommunityCondition) Option() MatchOption {
 
 func (c *CommunityCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 	cs := path.GetCommunities()
+
+	// Fast path for ANY / INVERT: bitmap index eliminates the pattern loop entirely.
+	if c.option == MATCH_OPTION_ANY || c.option == MATCH_OPTION_INVERT {
+		if idx := &c.set.anyIdx; len(idx.perAS) > 0 || idx.asnIndependent != nil {
+			found := idx.matchesAny(cs)
+			if !idx.hasRegexp {
+				if c.option == MATCH_OPTION_INVERT {
+					return !found
+				}
+				return found
+			}
+		}
+	}
+
+	// General path: MATCH_OPTION_ALL or sets with re-only patterns.
 	result := false
-	for _, x := range c.set.list {
+	for _, m := range c.set.matchers {
 		result = false
 		for _, y := range cs {
-			if x.MatchString(fmt.Sprintf("%d:%d", y>>16, y&0x0000ffff)) {
+			if m.matchesCommunity(y, c.set.list) {
 				result = true
 				break
 			}
@@ -1681,6 +2272,31 @@ func (c *ExtCommunityCondition) Option() MatchOption {
 
 func (c *ExtCommunityCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 	es := path.GetExtCommunities()
+
+	// Fast path for ANY / INVERT: bitmap/map index, no regexp evaluation.
+	if (c.option == MATCH_OPTION_ANY || c.option == MATCH_OPTION_INVERT) &&
+		!c.set.needSlowScan && len(c.set.anyIndex) > 0 {
+		found := false
+		for _, x := range es {
+			if !isTransitiveType(x) {
+				continue
+			}
+			ec, ok := x.(*bgp.TwoOctetAsSpecificExtended)
+			if !ok {
+				continue
+			}
+			if idx := findExtSubtypeAnyIndex(c.set.anyIndex, ec.SubType); idx != nil && idx.matchesTwoOctet(ec) {
+				found = true
+				break
+			}
+		}
+		if c.option == MATCH_OPTION_INVERT {
+			return !found
+		}
+		return found
+	}
+
+	// General path: loop over path ECs, try each matcher. Semantics preserved from original.
 	result := false
 	for _, x := range es {
 		result = false
@@ -1689,17 +2305,10 @@ func (c *ExtCommunityCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 			continue
 		}
 		var xStr string
-		for idx, y := range c.set.list {
-			if subTypeEqual(x, c.set.subtypeList[idx]) {
-				if len(xStr) == 0 {
-					// caching x.String() saves a lot of resources when matching against
-					// a lot of conditions, link hundreds of RTs.
-					xStr = x.String()
-				}
-				if y.MatchString(xStr) {
-					result = true
-					break
-				}
+		for _, m := range c.set.matchers {
+			if m.matchesExtCommunity(x, &xStr) {
+				result = true
+				break
 			}
 		}
 		if c.option == MATCH_OPTION_ALL && !result {
