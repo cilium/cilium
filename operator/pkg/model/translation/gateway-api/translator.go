@@ -312,8 +312,9 @@ func (t *gatewayAPITranslator) desiredEndpointSlice(owner *model.FullyQualifiedR
 			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + owner.Name),
 			Namespace: owner.Namespace,
 			Labels: mergeMap(map[string]string{
-				owningGatewayLabel: shortedName,
-				gatewayNameLabel:   shortedName,
+				owningGatewayLabel:           shortedName,
+				gatewayNameLabel:             shortedName,
+				discoveryv1.LabelServiceName: shortener.ShortenK8sResourceName(ciliumGatewayPrefix + owner.Name),
 			}, labels),
 			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
