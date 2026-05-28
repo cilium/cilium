@@ -669,6 +669,8 @@ func (n *Node) recalculate(ctx context.Context) {
 	n.ipv4Alloc.available = a
 	if stats.AssignedStaticIP != "" {
 		n.stats.IPv4.AssignedStaticIP = stats.AssignedStaticIP
+	} else if n.stats.IPv4.AssignedStaticIP == "" && n.resource != nil {
+		n.stats.IPv4.AssignedStaticIP = n.resource.Status.IPAM.AssignedStaticIP
 	}
 
 	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
