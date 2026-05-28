@@ -145,7 +145,7 @@ func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) 
 
 	wg := &sync.WaitGroup{}
 	for _, handler := range i.identityHandlers {
-		handler.UpdateIdentities(added.ToOld(), deleted.ToOld(), wg) // TEMPORARY
+		handler.UpdateIdentities(added, deleted, wg)
 	}
 	// Invoke policy selector cache always as the last handler
 	// This synchronously updates the SelectorCache and queues an incremental
