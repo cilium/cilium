@@ -93,6 +93,30 @@ const (
 	CDPPPluralName     = "ciliumdatapathplugins"
 	CDPPKindDefinition = "CiliumDatapathPlugin"
 	CDPPName           = CDPPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumNetworkDriverClusterConfig
+	CiliumNetworkDriverClusterConfigSingularName   = "ciliumnetworkdriverclusterconfig"
+	CiliumNetworkDriverClusterConfigPluralName     = "ciliumnetworkdriverclusterconfigs"
+	CiliumNetworkDriverClusterConfigKindDefinition = "CiliumNetworkDriverClusterConfig"
+
+	CiliumNetworkDriverClusterConfigName = CiliumNetworkDriverClusterConfigPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumNetworkDriverNodeConfig
+	CiliumNetworkDriverNodeConfigSingularName   = "ciliumnetworkdrivernodeconfig"
+	CiliumNetworkDriverNodeConfigPluralName     = "ciliumnetworkdrivernodeconfigs"
+	CiliumNetworkDriverNodeConfigKindDefinition = "CiliumNetworkDriverNodeConfig"
+
+	CiliumNetworkDriverNodeConfigName = CiliumNetworkDriverNodeConfigPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumResourcePPool (CRIP)
+	CRIPPluralName     = "ciliumresourceippools"
+	CRIPKindDefinition = "CiliumResourceIPPool"
+	CRIPName           = CRIPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumResourceNetworkConfig (CRNC)
+	CRNCPluralName     = "ciliumresourcenetworkconfigs"
+	CRNCKindDefinition = "CiliumResourceNetworkConfig"
+	CRNCName           = CRNCPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -161,6 +185,16 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumGatewayClassConfigList{},
 
 		&CiliumDatapathPlugin{},
+
+		// Cilium Network Driver types
+		&CiliumNetworkDriverClusterConfig{},
+		&CiliumNetworkDriverClusterConfigList{},
+		&CiliumNetworkDriverNodeConfig{},
+		&CiliumNetworkDriverNodeConfigList{},
+		&CiliumResourceIPPool{},
+		&CiliumResourceIPPoolList{},
+		&CiliumResourceNetworkConfig{},
+		&CiliumResourceNetworkConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

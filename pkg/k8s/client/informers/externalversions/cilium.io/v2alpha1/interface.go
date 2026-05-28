@@ -33,8 +33,16 @@ type Interface interface {
 	CiliumL2AnnouncementPolicies() CiliumL2AnnouncementPolicyInformer
 	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
 	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
+	// CiliumNetworkDriverClusterConfigs returns a CiliumNetworkDriverClusterConfigInformer.
+	CiliumNetworkDriverClusterConfigs() CiliumNetworkDriverClusterConfigInformer
+	// CiliumNetworkDriverNodeConfigs returns a CiliumNetworkDriverNodeConfigInformer.
+	CiliumNetworkDriverNodeConfigs() CiliumNetworkDriverNodeConfigInformer
 	// CiliumPodIPPools returns a CiliumPodIPPoolInformer.
 	CiliumPodIPPools() CiliumPodIPPoolInformer
+	// CiliumResourceIPPools returns a CiliumResourceIPPoolInformer.
+	CiliumResourceIPPools() CiliumResourceIPPoolInformer
+	// CiliumResourceNetworkConfigs returns a CiliumResourceNetworkConfigInformer.
+	CiliumResourceNetworkConfigs() CiliumResourceNetworkConfigInformer
 }
 
 type version struct {
@@ -103,7 +111,27 @@ func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
 	return &ciliumLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// CiliumNetworkDriverClusterConfigs returns a CiliumNetworkDriverClusterConfigInformer.
+func (v *version) CiliumNetworkDriverClusterConfigs() CiliumNetworkDriverClusterConfigInformer {
+	return &ciliumNetworkDriverClusterConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumNetworkDriverNodeConfigs returns a CiliumNetworkDriverNodeConfigInformer.
+func (v *version) CiliumNetworkDriverNodeConfigs() CiliumNetworkDriverNodeConfigInformer {
+	return &ciliumNetworkDriverNodeConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // CiliumPodIPPools returns a CiliumPodIPPoolInformer.
 func (v *version) CiliumPodIPPools() CiliumPodIPPoolInformer {
 	return &ciliumPodIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumResourceIPPools returns a CiliumResourceIPPoolInformer.
+func (v *version) CiliumResourceIPPools() CiliumResourceIPPoolInformer {
+	return &ciliumResourceIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumResourceNetworkConfigs returns a CiliumResourceNetworkConfigInformer.
+func (v *version) CiliumResourceNetworkConfigs() CiliumResourceNetworkConfigInformer {
+	return &ciliumResourceNetworkConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
