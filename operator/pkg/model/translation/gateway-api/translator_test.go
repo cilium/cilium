@@ -85,10 +85,12 @@ func Test_translator_Translate(t *testing.T) {
 			expectedService := &corev1.Service{}
 			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, svc, _, err := trans.Translate(input)
+			cec, svc, ep, err := trans.Translate(input)
 
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 			require.Equal(t, expectedService, svc, "Service mismatch")
+			require.NotNil(t, ep)
+			require.Equal(t, svc.Name, ep.Labels[discoveryv1.LabelServiceName], "EndpointSlice must carry the Service association label")
 
 			diffOutput := cmp.Diff(expectedCEC, cec, protocmp.Transform())
 			if len(diffOutput) != 0 {
@@ -202,12 +204,13 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					cec, svc, ep, err := trans.Translate(input)
 					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 					require.Equal(t, expectedService, svc, "Service mismatch")
+					require.NotNil(t, ep)
+					require.Equal(t, svc.Name, ep.Labels[discoveryv1.LabelServiceName], "EndpointSlice must carry the Service association label")
 
 					diffOutput := cmp.Diff(output, cec, protocmp.Transform())
 					if len(diffOutput) != 0 {
 						t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
 					}
-					require.NotNil(t, ep)
 				})
 			}
 		})
@@ -402,8 +405,9 @@ func Test_desiredEndpointSlice(t *testing.T) {
 			Name:      "cilium-gateway-dummy-gateway",
 			Namespace: "dummy-namespace",
 			Labels: map[string]string{
-				owningGatewayLabel: "dummy-gateway",
-				gatewayNameLabel:   "dummy-gateway",
+				owningGatewayLabel:           "dummy-gateway",
+				gatewayNameLabel:             "dummy-gateway",
+				discoveryv1.LabelServiceName: "cilium-gateway-dummy-gateway",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
