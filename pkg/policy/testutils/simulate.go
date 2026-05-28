@@ -81,7 +81,7 @@ func findEntries(entries types.PolicyEntries, flow types.Flow, ingress bool) (ty
 		if entry.Ingress != ingress {
 			continue
 		}
-		if !entry.Subject.Matches(subject.LabelArray) {
+		if !entry.Subject.Matches(subject.Labels) {
 			continue
 		}
 
@@ -94,7 +94,7 @@ func findEntries(entries types.PolicyEntries, flow types.Flow, ingress bool) (ty
 		}
 
 		// Check if peer matches
-		if !entry.L3.SelectsAllEndpoints() && !entry.L3.Matches(peer.LabelArray) {
+		if !entry.L3.SelectsAllEndpoints() && !entry.L3.Matches(peer.Labels) {
 			continue
 		}
 

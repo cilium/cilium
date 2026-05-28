@@ -5,7 +5,6 @@ package k8s
 
 import (
 	"log/slog"
-	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,13 +49,8 @@ func TestCIDRGroupDuplicateLabelKeys(t *testing.T) {
 	// Simulate ipcache label merge: labels from different resources for the
 	// same prefix are unioned into one Labels map. maps.Copy uses last-write-wins,
 	// so if both CCGs produced the same map key, one label is silently dropped.
-	merged := maps.Clone(lblsBar)
-	maps.Copy(merged, lblsFoo)
-
-	// CIDR selectors require a world label by default
+	merged := labels.NewFrom(lblsBar, lblsFoo)
 	merged[labels.IDNameWorldIPv4] = labels.NewLabel(labels.IDNameWorldIPv4, "", labels.LabelSourceReserved)
-
-	arr := merged.LabelArray()
 
 	barSelector := policyTypes.ToSelector(api.CIDRRule{
 		CIDRGroupSelector: api.EndpointSelector{
@@ -73,8 +67,8 @@ func TestCIDRGroupDuplicateLabelKeys(t *testing.T) {
 		},
 	})
 
-	assert.True(t, barSelector.Matches(arr),
-		"CIDRGroupSelector app=bar must match after merge; labels: %v", arr)
-	assert.True(t, fooSelector.Matches(arr),
-		"CIDRGroupSelector app=foo must match after merge; labels: %v", arr)
+	assert.True(t, barSelector.Matches(merged),
+		"CIDRGroupSelector app=bar must match after merge; labels: %v", merged)
+	assert.True(t, fooSelector.Matches(merged),
+		"CIDRGroupSelector app=foo must match after merge; labels: %v", merged)
 }
