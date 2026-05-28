@@ -146,6 +146,9 @@ func (pf *PortForwarder) PortForwardService(ctx context.Context, namespace, name
 	}
 
 	if svcPort == 0 {
+		if len(svc.Spec.Ports) == 0 {
+			return nil, fmt.Errorf("service %q doesn't have any ports", name)
+		}
 		svcPort = svc.Spec.Ports[0].Port
 	}
 
