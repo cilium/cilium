@@ -333,6 +333,11 @@ func (t *gatewayAPITranslator) desiredEndpointSlice(owner *model.FullyQualifiedR
 				// to the lb map when the service has no backends.
 				// Related github issue https://github.com/cilium/cilium/issues/19262
 				Addresses: []string{"192.192.192.192"}, // dummy
+				// Ready must be explicit: K8s treats nil as ready, but some
+				// consumers (e.g. GKE NEG controller) require it set. See #44611.
+				Conditions: discoveryv1.EndpointConditions{
+					Ready: ptr.To(true),
+				},
 			},
 		},
 		Ports: []discoveryv1.EndpointPort{

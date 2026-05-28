@@ -70,6 +70,8 @@ addressType: IPv4
 endpoints:
 - addresses:
   - "192.192.192.192"
+  conditions:
+    ready: true
 ports:
 - port: 9999
 {{- end }}
