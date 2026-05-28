@@ -109,7 +109,7 @@ type identityWatcher struct {
 // identityBatch collects identity changes destined for a single owner update.
 // Added and deleted identities are kept in disjoint sets.
 type identityBatch struct {
-	added, deleted identity.IdentityMapOld
+	added, deleted identity.IdentityMap
 	toClose        []chan<- struct{}
 }
 
@@ -133,7 +133,7 @@ func (w *identityWatcher) collectEvent(batch *identityBatch, event allocator.All
 			// 'deleted' so that collected events can be
 			// processed in any order.
 			delete(batch.deleted, id)
-			batch.added[id] = gi.LabelArray
+			batch.added[id] = gi.Labels()
 		} else {
 			w.logger.Warn(
 				"collectEvent: Ignoring unknown identity type",
@@ -148,7 +148,7 @@ func (w *identityWatcher) collectEvent(batch *identityBatch, event allocator.All
 	// record the id deleted even if an add was reversed, as the
 	// id may also have previously existed, in which case the
 	// result is not no-op!
-	batch.deleted[id] = labels.LabelArray{}
+	batch.deleted[id] = labels.Labels{}
 }
 
 // watch starts the identity watcher
@@ -157,8 +157,8 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 	go func() {
 		for {
 			batch := identityBatch{
-				added:   identity.IdentityMapOld{},
-				deleted: identity.IdentityMapOld{},
+				added:   identity.IdentityMap{},
+				deleted: identity.IdentityMap{},
 			}
 
 			// Consume first event synchronously
