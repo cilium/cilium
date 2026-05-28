@@ -61,17 +61,6 @@ type IPIdentityPair struct {
 
 type IdentityMap map[NumericIdentity]labels.Labels
 
-// ToOld will be removed in a subsequent commit.
-func (im IdentityMap) ToOld() IdentityMapOld {
-	out := make(IdentityMapOld, len(im))
-	for k, v := range im {
-		out[k] = v.LabelArray()
-	}
-	return out
-}
-
-type IdentityMapOld map[NumericIdentity]labels.LabelArray
-
 // GetKeyName returns the kvstore key to be used for the IPIdentityPair
 func (pair *IPIdentityPair) GetKeyName() string { return pair.PrefixString() }
 
