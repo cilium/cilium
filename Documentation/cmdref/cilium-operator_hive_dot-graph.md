@@ -54,6 +54,7 @@ cilium-operator hive dot-graph [flags]
       --double-write-metric-reporter-interval duration             Refresh interval for the Double Write Metric Reporter (default 1m0s)
       --ec2-api-endpoint string                                    AWS API endpoint for the EC2 service
       --enable-cilium-operator-server-access strings               List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-cluster-pool-to-multi-pool-migration                Enable the migration of all nodes from cluster-pool IPAM to multi-pool IPAM
       --enable-gateway-api-alpn                                    Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API
       --enable-gateway-api-app-protocol                            Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol
       --enable-gateway-api-proxy-protocol                          Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
@@ -103,6 +104,7 @@ cilium-operator hive dot-graph [flags]
       --ingress-secrets-namespace string                           Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
       --ingress-shared-lb-service-name string                      Name of shared LB service name for Ingress. (default "cilium-ingress")
       --ingress-use-remote-address                                 Use the immediate client's IP address as the origin client's IP address (default true)
+      --ipam-default-ip-pool string                                Name of the default IP Pool when using multi-pool (default "default")
       --k8s-api-server-urls strings                                Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration                  Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                     Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
@@ -130,6 +132,7 @@ cilium-operator hive dot-graph [flags]
       --mesh-auth-spire-server-address string                      SPIRE server endpoint. (default "spire-server.spire.svc:8081")
       --mesh-auth-spire-server-connection-timeout duration         SPIRE server connection timeout. (default 10s)
       --metrics-sampling-interval duration                         Set the internal metrics sampling interval (default 5m0s)
+      --multi-pool-migration-workers int                           Number of workers to use for migrating nodes from cluster-pool IPAM to multi-pool IPAM (default 16)
       --nodes-gc-interval duration                                 GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string                             Address to serve API requests (default "localhost:9234")
       --operator-k8s-client-burst int                              Burst value allowed for the K8s client (default 200)
