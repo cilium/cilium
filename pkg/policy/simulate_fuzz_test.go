@@ -136,10 +136,10 @@ var (
 		labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))))
 
 	identityNodeC = identity.NewIdentity(identity.IdentityScopeRemoteNode+1,
-		labels.FromSlice([]labels.Label{
+		labels.FromSlice(
 			labels.NewLabel("nodename", "nodeC", labels.LabelSourceK8s),
 			labels.NewLabel("remote-node", "", labels.LabelSourceReserved),
-		}))
+		))
 
 	fuzzCorpusAggregateIDs = identity.IdentityMap{
 		idA.ID:           idA.Labels,
