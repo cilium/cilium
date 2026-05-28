@@ -4584,3 +4584,6 @@ standaloneDnsProxy:
     digest: ""
     useDigest: false
     pullPolicy: "Always"
+# -- Enable the Network Driver feature
+networkDriver:
+  enabled: false
