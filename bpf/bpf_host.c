@@ -222,7 +222,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			need_hostfw = true;
 			is_host_id = secctx == HOST_ID;
 		}
-	} else if (!ctx_skip_host_fw(ctx)) {
+	} else {
 		/* Verifier workaround: R5 invalid mem access 'scalar'. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
@@ -651,7 +651,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			need_hostfw = true;
 			is_host_id = secctx == HOST_ID;
 		}
-	} else if (!ctx_skip_host_fw(ctx)) {
+	} else {
 		/* Verifier workaround: R5 invalid mem access 'scalar'. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
