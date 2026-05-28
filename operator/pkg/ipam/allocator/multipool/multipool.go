@@ -85,6 +85,8 @@ type multiPoolParams struct {
 	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 	CiliumNodes        resource.Resource[*v2.CiliumNode]
 
+	Allocator *PoolAllocator
+
 	MultiPoolCfg Config
 }
 
@@ -93,14 +95,10 @@ func StartAllocator(p multiPoolParams) {
 		return
 	}
 
-	logger := p.Logger.With([]any{logfields.LogSubsys, "ipam-allocator-multi-pool"}...)
-
-	allocator := NewPoolAllocator(logger, p.DaemonCfg.EnableIPv4, p.DaemonCfg.EnableIPv6)
-
 	p.Lifecycle.Append(
 		cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				if err := multiPoolAutoCreatePools(ctx, p.Clientset, p.MultiPoolCfg.AutoCreatePools, logger); err != nil {
+				if err := multiPoolAutoCreatePools(ctx, p.Clientset, p.MultiPoolCfg.AutoCreatePools, p.Logger); err != nil {
 					return err
 				}
 
@@ -175,17 +173,14 @@ func StartAllocator(p multiPoolParams) {
 					func(ctx context.Context) (allocatorTypes.NodeEventHandler, error) {
 						// The following operation will block until all pools are restored, thus it
 						// is safe to continue starting node allocation right after return.
-						startIPPoolAllocator(
-							ctx, allocator, p.CiliumPodIPPools,
-							p.Logger.With(logfields.LogSubsys, "ip-pool-watcher"),
-						)
+						startIPPoolAllocator(ctx, p.Allocator, p.CiliumPodIPPools, p.Logger)
 
 						// Wait for all nodes to be migrated to multi-pool
 						<-migrationDone
 
 						nm := NewNodeHandler(
 							"ipam-multi-pool-sync",
-							logger, allocator, p.Clientset.CiliumV2().CiliumNodes(),
+							p.Logger, p.Allocator, p.Clientset.CiliumV2().CiliumNodes(),
 							func(cn *v2.CiliumNode) *types.IPAMPoolSpec {
 								return &cn.Spec.IPAM.Pools
 							},
