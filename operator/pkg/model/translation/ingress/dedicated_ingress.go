@@ -163,7 +163,10 @@ func getEndpointSlice(resource model.FullyQualifiedResource) *discoveryv1.Endpoi
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
 			Namespace: resource.Namespace,
-			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
+			Labels: map[string]string{
+				ciliumIngressLabelKey:        "true",
+				discoveryv1.LabelServiceName: fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
