@@ -1917,6 +1917,7 @@ var backendCheckFuncs = []routechecks.CheckWithParentFunc{
 	routechecks.CheckBackend,
 	routechecks.CheckHasServiceImportSupport,
 	routechecks.CheckBackendIsExistingService,
+	routechecks.CheckExtensionRefs,
 }
 
 func runCheckFuncs(input routechecks.Input, parent gatewayv1.ParentReference, fns []routechecks.CheckWithParentFunc, errPrefix string) error {
@@ -2022,12 +2023,14 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 		// input for the validators
 		// The validators will mutate the HTTPRoute as required, setting its status correctly.
 		i := &routechecks.HTTPRouteInput{
-			Ctx:            ctx,
-			Logger:         scopedLog.With(logfields.HTTPRoute, hr),
-			Client:         r.Client,
-			Grants:         grants,
-			HTTPRoute:      hr,
-			ControllerName: r.controllerName,
+			Ctx:                        ctx,
+			Logger:                     scopedLog.With(logfields.HTTPRoute, hr),
+			Client:                     r.Client,
+			Grants:                     grants,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+			HTTPRoute:                  hr,
+			ControllerName:             r.controllerName,
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, hr.Spec.ParentRefs, hr.Namespace); err != nil {
@@ -2105,12 +2108,14 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 		// input for the validators
 		// The validators will mutate the GRPCRoute as required, setting its status correctly.
 		i := &routechecks.GRPCRouteInput{
-			Ctx:            ctx,
-			Logger:         scopedLog.With(logfields.GRPCRoute, grpcr),
-			Client:         r.Client,
-			Grants:         grants,
-			GRPCRoute:      grpcr,
-			ControllerName: r.controllerName,
+			Ctx:                        ctx,
+			Logger:                     scopedLog.With(logfields.GRPCRoute, grpcr),
+			Client:                     r.Client,
+			Grants:                     grants,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+			GRPCRoute:                  grpcr,
+			ControllerName:             r.controllerName,
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, grpcr.Spec.ParentRefs, grpcr.Namespace); err != nil {

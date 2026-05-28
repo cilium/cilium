@@ -61,6 +61,9 @@ func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferenc
 }
 
 func (t *TLSRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
+	if t.Grants == nil {
+		return nil
+	}
 	return t.Grants.Items
 }
 

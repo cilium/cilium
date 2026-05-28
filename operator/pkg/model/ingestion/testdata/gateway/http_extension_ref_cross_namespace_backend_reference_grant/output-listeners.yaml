@@ -1,0 +1,35 @@
+- hostname: "*"
+  name: prod-web-gw
+  port: 80
+  routes:
+    - backends:
+        - name: backend-service
+          namespace: default
+          port:
+            port: 8080
+      extension_ref_filters:
+        - backend:
+            name: ext-proc-service
+            namespace: ext-proc
+            port:
+              port: 4317
+          config: CjkKNwoeZXh0LXByb2M6ZXh0LXByb2Mtc2VydmljZTo0MzE3EhVleHQtcHJvYy1zZXJ2aWNlOjQzMTdCIWNlZXBmLmRlZmF1bHQucGVybWl0dGVkX2V4dF9wcm9jLg==
+          name: envoy.filters.http.ext_proc/default/permitted-ext-proc
+          type_url: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+      path_match:
+        prefix: /permitted
+      timeout: {}
+    - direct_response:
+        status_code: 500
+      path_match:
+        prefix: /denied
+      timeout: {}
+  service:
+    type: LoadBalancer
+    load_balancer_source_ranges_policy: Allow
+  sources:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: my-gateway
+      namespace: default
+      version: v1
