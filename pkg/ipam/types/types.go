@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/netip"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -407,13 +408,13 @@ type VirtualNetwork struct {
 	ID string
 
 	// PrimaryCIDR is the primary IPv4 CIDR
-	PrimaryCIDR string
+	PrimaryCIDR iputil.Prefix
 
 	// CIDRs is the list of secondary IPv4 CIDR ranges associated with the VPC
-	CIDRs []string
+	CIDRs []iputil.Prefix
 
 	// IPv6CIDRs is the list of IPv6 CIDR ranges associated with the VPC
-	IPv6CIDRs []string
+	IPv6CIDRs []iputil.Prefix
 }
 
 // VirtualNetworkMap indexes virtual networks by their ID

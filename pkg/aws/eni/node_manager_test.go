@@ -6,6 +6,7 @@ package eni
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -35,7 +37,7 @@ var (
 	}
 	testVpc = &ipamTypes.VirtualNetwork{
 		ID:          "vpc-1",
-		PrimaryCIDR: "10.10.0.0/16",
+		PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.10.0.0/16")),
 	}
 	testSecurityGroups = []*types.SecurityGroup{
 		{
