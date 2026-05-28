@@ -807,15 +807,13 @@ func (c *Client) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vm
 				return "", fmt.Errorf("failed to delete public IP address configuration for VM %s from VMSS %s: %w", instanceID, vmssName, err)
 			}
 		} else {
-			netIfName := "<unknown>"
-			if primaryNetIfConfig.Name != nil {
-				netIfName = *primaryNetIfConfig.Name
+			// Public IP already successfully provisioned, return the existing prefix ID
+			// so the caller can record the assignment without re-attempting allocation.
+			cfg := primaryIPConfig.Properties.PublicIPAddressConfiguration
+			if cfg.Properties != nil && cfg.Properties.PublicIPPrefix != nil && cfg.Properties.PublicIPPrefix.ID != nil {
+				return *cfg.Properties.PublicIPPrefix.ID, nil
 			}
-			return "", fmt.Errorf("public IP address already assigned to primary IP configuration for network configuration %s from VM %s from VMSS %s",
-				netIfName,
-				instanceID,
-				vmssName,
-			)
+			return "", fmt.Errorf("public IP already assigned to VM %s from VMSS %s but prefix ID is unavailable", instanceID, vmssName)
 		}
 	}
 
@@ -950,7 +948,12 @@ func (c *Client) AssignPublicIPAddressesVM(ctx context.Context, instanceID strin
 				return "", fmt.Errorf("failed to delete public IP address configuration for interface %s for VM %s: %w", interfaceName, vmName, err)
 			}
 		} else {
-			return "", fmt.Errorf("public IP address already assigned to primary IP configuration for interface %s", interfaceName)
+			// Public IP already successfully provisioned, return the existing IP resource
+			// ID so the caller can record the assignment without re-attempting allocation.
+			if primaryIPConfig.Properties.PublicIPAddress.ID != nil {
+				return *primaryIPConfig.Properties.PublicIPAddress.ID, nil
+			}
+			return "", fmt.Errorf("public IP already assigned to VM %s but resource ID is unavailable", vmName)
 		}
 	}
 
