@@ -32,8 +32,8 @@ and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
    <a href="https://cncf.io/">
       <picture>
-         <source media="(prefers-color-scheme: light)" srcset="https://github.com/cncf/artwork/blob/main/other/cncf-member/graduated/color/cncf-graduated-color.svg" />
-         <img src="https://github.com/cncf/artwork/blob/main/other/cncf-member/graduated/white/cncf-graduated-white.svg" alt="CNCF Graduated Project" height="80" />
+         <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/cncf/artwork/main/other/cncf-member/graduated/color/cncf-graduated-color.svg" />
+         <img src="https://raw.githubusercontent.com/cncf/artwork/main/other/cncf-member/graduated/white/cncf-graduated-white.svg" alt="CNCF Graduated Project" height="80" />
       </picture>
    </a>
    <a href="https://ebpf.io/">
@@ -173,7 +173,7 @@ manipulated whenever a container is started anywhere in the cluster.
 In order to avoid this situation which limits scale, Cilium assigns a
 security identity to groups of application containers which share identical
 security policies. The identity is then associated with all network packets
-emitted by the application containers, allowing the identity to be validated 
+emitted by the application containers, allowing the identity to be validated
 at the receiving node.
 
 * **Identity-based security** removes reliance on brittle IP addresses.
