@@ -67,5 +67,6 @@ clean:
 	rm -f $(wildcard *.o)
 	rm -f $(wildcard *.i)
 	rm -f $(wildcard *.d)
+	rm -f $(wildcard scapy/__pycache__/*.pyc)
 
 -include $(TEST_OBJECTS:.o=.d)
