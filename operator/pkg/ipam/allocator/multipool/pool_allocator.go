@@ -14,6 +14,7 @@ import (
 	"sort"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -29,12 +30,12 @@ type cidrPool struct {
 
 type cidrSet map[netip.Prefix]struct{}
 
-func (c cidrSet) CIDRSlice() []types.IPAMCIDR {
-	cidrs := make([]types.IPAMCIDR, 0, len(c))
+func (c cidrSet) CIDRSlice() []iputil.Prefix {
+	cidrs := make([]iputil.Prefix, 0, len(c))
 	for cidr := range c {
-		cidrs = append(cidrs, types.IPAMCIDR(cidr.String()))
+		cidrs = append(cidrs, iputil.PrefixFrom(cidr))
 	}
-	slices.Sort(cidrs)
+	slices.SortFunc(cidrs, func(a, b iputil.Prefix) int { return a.Prefix.Compare(b.Prefix) })
 	return cidrs
 }
 
@@ -352,13 +353,13 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools *types.IPAMPoolSpe
 	for _, allocatedPool := range pools.Allocated {
 		allocatedSet[allocatedPool.Pool] = make(map[netip.Prefix]struct{}, len(allocatedPool.CIDRs))
 
-		for _, cidrStr := range allocatedPool.CIDRs {
-			prefix, parseErr := netip.ParsePrefix(string(cidrStr))
-			if parseErr != nil {
+		for _, c := range allocatedPool.CIDRs {
+			if !c.IsValid() {
 				err = errors.Join(err,
-					fmt.Errorf("failed to parse CIDR of pool %q: %w", allocatedPool.Pool, parseErr))
+					fmt.Errorf("invalid CIDR %q in pool %q", c, allocatedPool.Pool))
 				continue
 			}
+			prefix := c.Prefix
 
 			if _, found := p.pools[allocatedPool.Pool]; found {
 				if occupyErr := p.occupyCIDR(nodeName, allocatedPool.Pool, prefix); occupyErr != nil {
