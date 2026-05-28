@@ -1170,14 +1170,6 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
     (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
-# if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
-	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
-	if (IS_ERR(ret))
-		goto drop_err;
-
-	ctx_skip_host_fw_set(ctx);
-# endif
-
 	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
 	    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
@@ -2477,17 +2469,6 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
     (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
      (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
-
-# if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
-	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
-	if (IS_ERR(ret))
-		goto drop_err;
-
-	/* We don't want to enforce host policies a second time,
-	 * on recircle / after RevDNAT.
-	 */
-	ctx_skip_host_fw_set(ctx);
-# endif
 
 	/* If we're not in full DSR mode, reply traffic from remote backends
 	 * might pass back through the LB node and requires revDNAT.
