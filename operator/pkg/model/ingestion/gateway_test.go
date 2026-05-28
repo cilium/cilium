@@ -71,7 +71,9 @@ func setTestMergedListeners(input *Input, namespaces []corev1.Namespace) {
 }
 
 func TestHTTPGatewayAPI(t *testing.T) {
-	tests := map[string]struct{}{
+	tests := map[string]struct {
+		enableExtensionRefFilters bool
+	}{
 		"basic http":                                              {},
 		"basic http nodeport service":                             {},
 		"basic http external traffic policy":                      {},
@@ -105,13 +107,17 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"http external auth http tls":                             {},
 		"http external auth grpc tls":                             {},
 		"http external auth shared and no auth":                   {},
+		"http extension ref cross namespace backend reference grant": {
+			enableExtensionRefFilters: true,
+		},
 	}
 
-	for name := range tests {
+	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			input := readGatewayInput(t, name)
+			input.EnableExtensionRefFilters = tc.enableExtensionRefFilters
 			m := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
@@ -1892,6 +1898,8 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-udproute.yaml"), &input.UDPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-serviceimport.yaml"), &input.ServiceImports)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-referencegrant.yaml"), &input.ReferenceGrants)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-ciliumenvoyextprocfilter.yaml"), &input.CiliumEnvoyExtProcFilters)
 
 	// namespaces are used to construct mergedListeners
 	var namespaces []corev1.Namespace

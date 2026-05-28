@@ -145,14 +145,19 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			" At a future date this annotation will be removed if no spec.addresses are set.", gw.GetNamespace(), gw.GetName(), annotation.LBIPAMIPKeyAlias))
 	}
 
-	if err := r.routeStatusManager.SetRouteStatuses(scopedLog, ctx, RouteStatusInputs{
-		HTTPRoutes:      inputs.HTTPRoutes,
-		TLSRoutes:       inputs.TLSRoutes,
-		GRPCRoutes:      inputs.GRPCRoutes,
-		TCPRoutes:       inputs.TCPRoutes,
-		UDPRoutes:       inputs.UDPRoutes,
-		ReferenceGrants: inputs.ReferenceGrants,
-	}); err != nil {
+	originalHTTPRoutes := cloneHTTPRoutes(inputs.HTTPRoutes)
+	originalGRPCRoutes := cloneGRPCRoutes(inputs.GRPCRoutes)
+
+	if err := r.routeStatusManager.setRouteStatuses(scopedLog, ctx, RouteStatusInputs{
+		HTTPRoutes:                 inputs.HTTPRoutes,
+		TLSRoutes:                  inputs.TLSRoutes,
+		GRPCRoutes:                 inputs.GRPCRoutes,
+		TCPRoutes:                  inputs.TCPRoutes,
+		UDPRoutes:                  inputs.UDPRoutes,
+		ReferenceGrants:            inputs.ReferenceGrants,
+		ExtensionRefFilters:        extProcFilters,
+		ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+	}, false); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update route status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
@@ -188,6 +193,12 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		EnableExtensionRefFilters: r.enableExtensionRefFilters,
 		CiliumEnvoyExtProcFilters: extProcFilters,
 	})
+
+	r.overlayExtProcOrderingConflictsInMemory(m, inputs.HTTPRoutes, inputs.GRPCRoutes)
+	if err := r.routeStatusManager.persistGatewayRouteStatuses(ctx, scopedLog, originalHTTPRoutes, inputs.HTTPRoutes, originalGRPCRoutes, inputs.GRPCRoutes); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update Route status", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
 
 	namespaceLabels := helpers.NewNamespaceLabelIndex(inputs.Namespaces)
 
