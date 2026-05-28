@@ -372,7 +372,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 // The subject selectorcache must be updated with the identity before
 // recomputation, otherwise policy will not be computed properly.
 func (r *IdentityPolicyComputer) LocalEndpointIdentityAdded(id *identity.Identity) {
-	r.repo.UpdateIdentities(identity.IdentityMapOld{id.ID: id.LabelArray}, nil)
+	r.repo.UpdateIdentities(identity.IdentityMap{id.ID: id.Labels}, nil)
 	_, _ = r.RecomputeIdentityPolicy(id, 0)
 }
 
@@ -381,7 +381,7 @@ func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Ident
 	r.logger.Debug("Identity removed", logfields.Identity, id.ID)
 
 	// See comment on LocalEndpointIdentityAdded.
-	r.repo.UpdateIdentities(nil, identity.IdentityMapOld{id.ID: id.LabelArray})
+	r.repo.UpdateIdentities(nil, identity.IdentityMap{id.ID: id.Labels})
 
 	// Drop any pending compute requests for this identity so we don't keep
 	// re-running a stale computation.

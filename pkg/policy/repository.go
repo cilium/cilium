@@ -62,7 +62,7 @@ type PolicyRepository interface {
 
 	// UpdateIdentities updates the set of identities in the subject
 	// selectorcache, which ComputeSelectorPolicy reads. Must be called before it.
-	UpdateIdentities(added, deleted identity.IdentityMapOld)
+	UpdateIdentities(added, deleted identity.IdentityMap)
 
 	SetNamedPortsGetter(namedPortsGetter NamedPortsGetter)
 }
@@ -161,7 +161,7 @@ func (p *Repository) SetNamedPortsGetter(namedPortsGetter NamedPortsGetter) {
 
 // UpdateIdentities updates the set of identities in the subject
 // selectorcache, which ComputeSelectorPolicy reads. Must be called before it.
-func (p *Repository) UpdateIdentities(added, deleted identity.IdentityMapOld) {
+func (p *Repository) UpdateIdentities(added, deleted identity.IdentityMap) {
 	p.subjectSelectorCache.UpdateIdentities(added, deleted, &sync.WaitGroup{})
 }
 
