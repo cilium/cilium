@@ -506,6 +506,7 @@ func extractRoutes(logger *slog.Logger,
 						hr.Namespace,
 						f.ExtensionRef,
 						extProcFilters,
+						grants,
 					)
 					if ok {
 						extensionRefFilter.SourceRouteRule = sourceHTTPRouteRule(hr, ruleIndex, 0)
@@ -923,6 +924,7 @@ func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.
 						grpcr.Namespace,
 						f.ExtensionRef,
 						extProcFilters,
+						grants,
 					)
 					if ok {
 						extensionRefFilter.SourceRouteRule = sourceGRPCRouteRule(grpcr, ruleIndex)
@@ -1312,14 +1314,15 @@ func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirror
 
 // resolveExtensionRef resolves a Gateway API ExtensionRef filter to a
 // ExtensionRefFilter. Returns nil, false when the filter cannot be resolved
-// (disabled, wrong group/kind, or CRD not found), which signals a fail-closed
-// 500 DirectResponse.
+// (disabled, wrong group/kind, CRD not found, or backendRef not permitted),
+// which signals a fail-closed 500 DirectResponse.
 func resolveExtensionRef(
 	log *slog.Logger,
 	enableExtensionRefFilters bool,
 	namespace string,
 	ref *gatewayv1.LocalObjectReference,
 	extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter,
+	grants []gatewayv1.ReferenceGrant,
 ) (*model.ExtensionRefFilter, bool) {
 	if !enableExtensionRefFilters {
 		log.Debug(
@@ -1349,13 +1352,32 @@ func resolveExtensionRef(
 		return nil, false
 	}
 
-	return crdToExtensionRefFilter(log, found)
+	return crdToExtensionRefFilter(log, found, grants)
 }
 
 // crdToExtensionRefFilter converts a CiliumEnvoyExtProcFilter CRD to a
 // model.ExtensionRefFilter by building an ExternalProcessor protobuf config.
-func crdToExtensionRefFilter(log *slog.Logger, crd *v2alpha1.CiliumEnvoyExtProcFilter) (*model.ExtensionRefFilter, bool) {
-	ns := helpers.NamespaceDerefOr(helpers.ExtProcBackendRefNamespace(crd.Spec.BackendRef), crd.Namespace)
+func crdToExtensionRefFilter(log *slog.Logger, crd *v2alpha1.CiliumEnvoyExtProcFilter, grants []gatewayv1.ReferenceGrant) (*model.ExtensionRefFilter, bool) {
+	backendNamespace := helpers.ExtProcBackendRefNamespace(crd.Spec.BackendRef)
+	if !helpers.IsReferenceAllowed(
+		crd.Namespace,
+		crd.Spec.BackendRef.Name,
+		backendNamespace,
+		v2alpha1.SchemeGroupVersion.WithKind("CiliumEnvoyExtProcFilter"),
+		corev1.SchemeGroupVersion.WithKind("Service"),
+		grants,
+	) {
+		log.Debug(
+			"CiliumEnvoyExtProcFilter backendRef is not allowed by ReferenceGrant",
+			logfields.ResourceName, crd.Name,
+			logfields.K8sNamespace, crd.Namespace,
+			logfields.BackendName, crd.Spec.BackendRef.Name,
+			logfields.ServiceNamespace, helpers.NamespaceDerefOr(backendNamespace, crd.Namespace),
+		)
+		return nil, false
+	}
+
+	ns := helpers.NamespaceDerefOr(backendNamespace, crd.Namespace)
 
 	backend := &model.Backend{
 		Name:      crd.Spec.BackendRef.Name,

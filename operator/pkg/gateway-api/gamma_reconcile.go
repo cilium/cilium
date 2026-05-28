@@ -122,25 +122,24 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		extProcFilters = extProcFilterList.Items
 	}
 
-	// Run the HTTPRoute route checks here and update the status accordingly.
-	if err := r.setHTTPRouteStatuses(scopedLog, ctx, originalSvc, httpRouteList, grants); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
+	originalHTTPRoutes := httpRouteList
+	originalGRPCRoutes := grpcRouteList
+
+	routeStatusResult, err := r.setRouteStatuses(ctx, scopedLog, originalSvc, httpRouteList.Items, grpcRouteList.Items, grants, extProcFilters)
+	if err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update Route status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
+	desiredHTTPRoutes := &gatewayv1.HTTPRouteList{Items: routeStatusResult.HTTPRoutes}
+	desiredGRPCRoutes := &gatewayv1.GRPCRouteList{Items: routeStatusResult.GRPCRoutes}
 
-	// Run the GRPCRoute route checks here and update the status accordingly.
-	if err := r.setGRPCRouteStatuses(scopedLog, ctx, originalSvc, grpcRouteList, grants); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
-		return controllerruntime.Fail(err)
-	}
-
-	httpRoutes := r.filterHTTPRoutesByService(originalSvc, httpRouteList.Items)
-	grpcRoutes := r.filterGRPCRoutesByService(originalSvc, grpcRouteList.Items)
+	httpRoutes := r.filterHTTPRoutesByService(originalSvc, desiredHTTPRoutes.Items)
+	grpcRoutes := r.filterGRPCRoutesByService(originalSvc, desiredGRPCRoutes.Items)
 
 	// TODO(youngnick): GammaHTTPRoutes needs to be updated now that we have a source Service.
 	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
-		HTTPRoutes: httpRoutes,
-		GRPCRoutes: grpcRoutes,
+		HTTPRoutes:    httpRoutes,
+		GRPCRoutes:    grpcRoutes,
 		Services:      servicesList.Items,
 		SourceService: originalSvc,
 
@@ -149,6 +148,12 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		EnableExtensionRefFilters: r.enableExtensionRefFilters,
 		CiliumEnvoyExtProcFilters: extProcFilters,
 	})
+
+	r.overlayExtProcOrderingConflictsInMemory(&model.Model{HTTP: httpListeners}, desiredHTTPRoutes, desiredGRPCRoutes)
+	if err := r.persistRouteStatuses(ctx, originalHTTPRoutes, desiredHTTPRoutes, originalGRPCRoutes, desiredGRPCRoutes); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update Route status", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
 
 	setGammaServiceAccepted(svc, true, "Gamma Service has routes attached", CiliumGammaReasonAccepted)
 
@@ -181,45 +186,49 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return controllerruntime.Success()
 }
 
-func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1.ReferenceGrantList) error {
-	gammaLogger.DebugContext(ctx, "Updating HTTPRoute statuses for GAMMA Service", numRoutes, len(httpRoutes.Items))
-	for httpRouteIndex, original := range httpRoutes.Items {
+func (r *gammaReconciler) setRouteStatuses(ctx context.Context, gammaLogger *slog.Logger, gammaService *corev1.Service, httpRoutes []gatewayv1.HTTPRoute, grpcRoutes []gatewayv1.GRPCRoute, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) (*RouteStatusResult, error) {
+	desiredHTTPRoutes, err := r.setHTTPRouteStatuses(ctx, gammaLogger, gammaService, httpRoutes, grants, extProcFilters)
+	if err != nil {
+		return nil, err
+	}
+	desiredGRPCRoutes, err := r.setGRPCRouteStatuses(ctx, gammaLogger, gammaService, grpcRoutes, grants, extProcFilters)
+	if err != nil {
+		return nil, err
+	}
+	return &RouteStatusResult{HTTPRoutes: desiredHTTPRoutes, GRPCRoutes: desiredGRPCRoutes}, nil
+}
 
+func (r *gammaReconciler) setHTTPRouteStatuses(ctx context.Context, gammaLogger *slog.Logger, gammaService *corev1.Service, httpRoutes []gatewayv1.HTTPRoute, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) ([]gatewayv1.HTTPRoute, error) {
+	gammaLogger.DebugContext(ctx, "Updating HTTPRoute statuses for GAMMA Service", numRoutes, len(httpRoutes))
+	desiredRoutes := make([]gatewayv1.HTTPRoute, len(httpRoutes))
+	for httpRouteIndex, original := range httpRoutes {
 		hr := original.DeepCopy()
 		hr.Status.Parents = pruneRouteParentStatuses(hr.Status.Parents, hr.Spec.ParentRefs, r.controllerName)
 
-		hrName := types.NamespacedName{
-			Name:      hr.Name,
-			Namespace: hr.Namespace,
-		}
-		// input for the validators
+		hrName := types.NamespacedName{Name: hr.Name, Namespace: hr.Namespace}
 		i := &routechecks.HTTPRouteInput{
-			Ctx:            ctx,
-			Logger:         gammaLogger.With(httpRoute, hrName),
-			Client:         r.Client,
-			Grants:         grants.Items,
-			HTTPRoute:      hr,
-			ControllerName: r.controllerName,
+			Ctx:                        ctx,
+			Logger:                     gammaLogger.With(httpRoute, hrName),
+			Client:                     r.Client,
+			Grants:                     grants.Items,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+			HTTPRoute:                  hr,
+			ControllerName:             r.controllerName,
 		}
 
 		badRegexCond, hasBadRegex := i.ValidateMatchRegexps()
-
-		// Route validators
 		for _, parent := range hr.Spec.ParentRefs {
-
 			if !helpers.IsGammaServiceEqual(parent, gammaService, hr.Namespace) {
 				continue
 			}
 
-			// set acceptance to okay, this wil be overwritten in checks if needed
 			i.SetParentCondition(parent, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionAccepted),
 				Status:  metav1.ConditionTrue,
 				Reason:  string(gatewayv1.RouteReasonAccepted),
 				Message: fmt.Sprintf("Accepted %s", i.GetGVK().Kind),
 			})
-
-			// set status to okay, this wil be overwritten in checks if needed
 			i.SetParentCondition(parent, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionResolvedRefs),
 				Status:  metav1.ConditionTrue,
@@ -227,14 +236,11 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 				Message: "Service reference is valid",
 			})
 
-			for _, fn := range []routechecks.CheckWithParentFunc{
-				routechecks.CheckGammaServiceAllowedForNamespace,
-			} {
+			for _, fn := range []routechecks.CheckWithParentFunc{routechecks.CheckGammaServiceAllowedForNamespace} {
 				continueCheck, err := fn(i, parent)
 				if err != nil {
-					return r.handleHTTPRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply parentRef check: %w", err), &original, hr)
+					return nil, r.handleHTTPRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply parentRef check: %w", err), &original, hr)
 				}
-
 				if !continueCheck {
 					break
 				}
@@ -244,12 +250,12 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 				routechecks.CheckAgainstCrossNamespaceBackendReferences,
 				routechecks.CheckBackend,
 				routechecks.CheckBackendIsExistingService,
+				routechecks.CheckExtensionRefs,
 			} {
 				continueCheck, err := fn(i, parent)
 				if err != nil {
-					return r.handleHTTPRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply route rule check: %w", err), &original, hr)
+					return nil, r.handleHTTPRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply route rule check: %w", err), &original, hr)
 				}
-
 				if !continueCheck {
 					break
 				}
@@ -258,17 +264,10 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 			if hasBadRegex {
 				i.SetParentCondition(parent, badRegexCond)
 			}
-
-			// Update the cached copy with the same status changes to prevent re-fetching from client cache.
-			httpRoutes.Items[httpRouteIndex].Status = hr.Status
 		}
-
-		if err := r.updateHTTPRouteStatus(ctx, &original, hr); err != nil {
-			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
-		}
+		desiredRoutes[httpRouteIndex] = *hr
 	}
-
-	return nil
+	return desiredRoutes, nil
 }
 
 func (r *gammaReconciler) filterHTTPRoutesByService(gammaService *corev1.Service, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
@@ -291,45 +290,37 @@ func (r *gammaReconciler) filterGRPCRoutesByService(gammaService *corev1.Service
 	return filtered
 }
 
-func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1.ReferenceGrantList) error {
-	gammaLogger.DebugContext(ctx, "Updating GRPCRoute statuses for GAMMA Service", numRoutes, len(grpcRoutes.Items))
-	for grpcRouteIndex, original := range grpcRoutes.Items {
-
+func (r *gammaReconciler) setGRPCRouteStatuses(ctx context.Context, gammaLogger *slog.Logger, gammaService *corev1.Service, grpcRoutes []gatewayv1.GRPCRoute, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) ([]gatewayv1.GRPCRoute, error) {
+	gammaLogger.DebugContext(ctx, "Updating GRPCRoute statuses for GAMMA Service", numRoutes, len(grpcRoutes))
+	desiredRoutes := make([]gatewayv1.GRPCRoute, len(grpcRoutes))
+	for grpcRouteIndex, original := range grpcRoutes {
 		grpc := original.DeepCopy()
 		grpc.Status.Parents = pruneRouteParentStatuses(grpc.Status.Parents, grpc.Spec.ParentRefs, r.controllerName)
 
-		grpcName := types.NamespacedName{
-			Name:      grpc.Name,
-			Namespace: grpc.Namespace,
-		}
-		// input for the validators
+		grpcName := types.NamespacedName{Name: grpc.Name, Namespace: grpc.Namespace}
 		i := &routechecks.GRPCRouteInput{
-			Ctx:            ctx,
-			Logger:         gammaLogger.With(grpcRoute, grpcName),
-			Client:         r.Client,
-			Grants:         grants.Items,
-			GRPCRoute:      grpc,
-			ControllerName: r.controllerName,
+			Ctx:                        ctx,
+			Logger:                     gammaLogger.With(grpcRoute, grpcName),
+			Client:                     r.Client,
+			Grants:                     grants.Items,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: r.enableExtensionRefFilters,
+			GRPCRoute:                  grpc,
+			ControllerName:             r.controllerName,
 		}
 
 		badRegexCond, hasBadRegex := i.ValidateMatchRegexps()
-
-		// Route validators
 		for _, parent := range grpc.Spec.ParentRefs {
-
 			if !helpers.IsGammaServiceEqual(parent, gammaService, grpc.Namespace) {
 				continue
 			}
 
-			// set acceptance to okay, this wil be overwritten in checks if needed
 			i.SetParentCondition(parent, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionAccepted),
 				Status:  metav1.ConditionTrue,
 				Reason:  string(gatewayv1.RouteReasonAccepted),
 				Message: "Accepted GRPCRoute",
 			})
-
-			// set status to okay, this wil be overwritten in checks if needed
 			i.SetParentCondition(parent, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionResolvedRefs),
 				Status:  metav1.ConditionTrue,
@@ -337,14 +328,11 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 				Message: "Service reference is valid",
 			})
 
-			for _, fn := range []routechecks.CheckWithParentFunc{
-				routechecks.CheckGammaServiceAllowedForNamespace,
-			} {
+			for _, fn := range []routechecks.CheckWithParentFunc{routechecks.CheckGammaServiceAllowedForNamespace} {
 				continueCheck, err := fn(i, parent)
 				if err != nil {
-					return r.handleGRPCRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply parentRef check: %w", err), &original, grpc)
+					return nil, r.handleGRPCRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply parentRef check: %w", err), &original, grpc)
 				}
-
 				if !continueCheck {
 					break
 				}
@@ -354,12 +342,12 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 				routechecks.CheckAgainstCrossNamespaceBackendReferences,
 				routechecks.CheckBackend,
 				routechecks.CheckBackendIsExistingService,
+				routechecks.CheckExtensionRefs,
 			} {
 				continueCheck, err := fn(i, parent)
 				if err != nil {
-					return r.handleGRPCRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply route rule check: %w", err), &original, grpc)
+					return nil, r.handleGRPCRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply route rule check: %w", err), &original, grpc)
 				}
-
 				if !continueCheck {
 					break
 				}
@@ -368,18 +356,10 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 			if hasBadRegex {
 				i.SetParentCondition(parent, badRegexCond)
 			}
-
-			// Update the cached copy with the same status changes to prevent re-fetching from client cache.
-			grpcRoutes.Items[grpcRouteIndex].Status = grpc.Status
-
 		}
-
-		if err := r.updateGRPCRouteStatus(ctx, &original, grpc); err != nil {
-			return fmt.Errorf("failed to update GRPCRoute status: %w", err)
-		}
+		desiredRoutes[grpcRouteIndex] = *grpc
 	}
-
-	return nil
+	return desiredRoutes, nil
 }
 
 func (r *gammaReconciler) ensureEndpointSlice(ctx context.Context, desired *discoveryv1.EndpointSlice) error {

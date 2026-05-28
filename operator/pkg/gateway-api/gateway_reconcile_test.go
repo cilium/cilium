@@ -1390,7 +1390,10 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 
 		hrList := &gatewayv1.HTTPRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
-		require.NoError(t, r.routeStatusManager.setHTTPRouteStatuses(ctx, r.logger, hrList.Items, nil))
+		originalHTTPRoutes := hrList.DeepCopy().Items
+		desiredHTTPRoutes, err := r.routeStatusManager.setHTTPRouteStatuses(ctx, r.logger, hrList.Items, nil, nil)
+		require.NoError(t, err)
+		require.NoError(t, r.routeStatusManager.persistGatewayRouteStatuses(ctx, r.logger, originalHTTPRoutes, desiredHTTPRoutes, nil, nil))
 
 		var updatedValidRoute, updatedInvalidRoute gatewayv1.HTTPRoute
 		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))
@@ -1458,7 +1461,10 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 
 		hrList := &gatewayv1.GRPCRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
-		require.NoError(t, r.routeStatusManager.setGRPCRouteStatuses(ctx, r.logger, hrList.Items, nil))
+		originalGRPCRoutes := hrList.DeepCopy().Items
+		desiredGRPCRoutes, err := r.routeStatusManager.setGRPCRouteStatuses(ctx, r.logger, hrList.Items, nil, nil)
+		require.NoError(t, err)
+		require.NoError(t, r.routeStatusManager.persistGatewayRouteStatuses(ctx, r.logger, nil, nil, originalGRPCRoutes, desiredGRPCRoutes))
 
 		var updatedValidRoute, updatedInvalidRoute gatewayv1.GRPCRoute
 		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))

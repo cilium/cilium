@@ -138,17 +138,32 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			" At a future date this annotation will be removed if no spec.addresses are set.", gw.GetNamespace(), gw.GetName(), annotation.LBIPAMIPKeyAlias))
 	}
 
-	if err := r.routeStatusManager.SetRouteStatuses(ctx, scopedLog, RouteStatusInputs{
-		HTTPRoutes:      inputs.HTTPRoutes,
-		TLSRoutes:       inputs.TLSRoutes,
-		GRPCRoutes:      inputs.GRPCRoutes,
-		TCPRoutes:       inputs.TCPRoutes,
-		UDPRoutes:       inputs.UDPRoutes,
-		ReferenceGrants: inputs.ReferenceGrants,
-	}); err != nil {
+	originalHTTPRoutes := inputs.HTTPRoutes
+	originalGRPCRoutes := inputs.GRPCRoutes
+
+	routeStatusResult, err := r.routeStatusManager.SetRouteStatuses(ctx, scopedLog, RouteStatusInputs{
+		HTTPRoutes:          inputs.HTTPRoutes,
+		TLSRoutes:           inputs.TLSRoutes,
+		GRPCRoutes:          inputs.GRPCRoutes,
+		TCPRoutes:           inputs.TCPRoutes,
+		UDPRoutes:           inputs.UDPRoutes,
+		ReferenceGrants:     inputs.ReferenceGrants,
+		ExtensionRefFilters: extProcFilters,
+	})
+	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update route status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
+	r.preserveExtProcOrderingConflictsOutsideGateway(
+		gw,
+		inputs.AttachedListenerSets,
+		originalHTTPRoutes,
+		routeStatusResult.HTTPRoutes,
+		originalGRPCRoutes,
+		routeStatusResult.GRPCRoutes,
+	)
+	inputs.HTTPRoutes = routeStatusResult.HTTPRoutes
+	inputs.GRPCRoutes = routeStatusResult.GRPCRoutes
 
 	// Attached*Routes() relies on route status parents populated by the status
 	// update helpers above, so it must only be used after route status has been
@@ -187,6 +202,10 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	switch listenerStatusResult.GatewayStatus {
 	case ListenersStatusNoneValid:
+		if err := r.routeStatusManager.persistGatewayRouteStatuses(ctx, scopedLog, originalHTTPRoutes, inputs.HTTPRoutes, originalGRPCRoutes, inputs.GRPCRoutes); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to update Route status", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
 		err := fmt.Errorf("No Accepted Listeners for Gateway")
 		scopedLog.ErrorContext(ctx, "No Accepted Listeners for Gateway", logfields.Error, err)
 		setGatewayAccepted(gw, false, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
@@ -216,6 +235,12 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		EnableExtensionRefFilters: r.enableExtensionRefFilters,
 		CiliumEnvoyExtProcFilters: extProcFilters,
 	})
+
+	r.overlayExtProcOrderingConflictsInMemory(m, inputs.HTTPRoutes, inputs.GRPCRoutes)
+	if err := r.routeStatusManager.persistGatewayRouteStatuses(ctx, scopedLog, originalHTTPRoutes, inputs.HTTPRoutes, originalGRPCRoutes, inputs.GRPCRoutes); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update Route status", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
 
 	// Step 4: Translate the listeners into Cilium model
 	cec, svc, eps, err := r.translator.Translate(m)

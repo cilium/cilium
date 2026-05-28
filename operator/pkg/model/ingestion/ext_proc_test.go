@@ -56,7 +56,11 @@ func Test_resolveExtensionRef(t *testing.T) {
 		enableExtensionRefFilters bool
 		namespace                 string
 		ref                       *gatewayv1.LocalObjectReference
-		expectedFilter            *model.ExtensionRefFilter
+		grants                    []gatewayv1.ReferenceGrant
+		expectedName              string
+		expectedBackendName       string
+		expectedBackendNamespace  string
+		expectedBackendPort       uint32
 		expectedOK                bool
 	}{
 		"feature disabled": {
@@ -67,8 +71,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
 				Name:  "my-ext-proc",
 			},
-			expectedFilter: nil,
-			expectedOK:     false,
+			expectedOK: false,
 		},
 		"wrong group": {
 			enableExtensionRefFilters: true,
@@ -78,8 +81,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
 				Name:  "my-ext-proc",
 			},
-			expectedFilter: nil,
-			expectedOK:     false,
+			expectedOK: false,
 		},
 		"wrong kind": {
 			enableExtensionRefFilters: true,
@@ -89,8 +91,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 				Kind:  gatewayv1.Kind("WrongKind"),
 				Name:  "my-ext-proc",
 			},
-			expectedFilter: nil,
-			expectedOK:     false,
+			expectedOK: false,
 		},
 		"CRD not found": {
 			enableExtensionRefFilters: true,
@@ -100,8 +101,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
 				Name:  "nonexistent",
 			},
-			expectedFilter: nil,
-			expectedOK:     false,
+			expectedOK: false,
 		},
 		"wrong namespace": {
 			enableExtensionRefFilters: true,
@@ -111,8 +111,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
 				Name:  "my-ext-proc",
 			},
-			expectedFilter: nil,
-			expectedOK:     false,
+			expectedOK: false,
 		},
 		"success": {
 			enableExtensionRefFilters: true,
@@ -122,9 +121,13 @@ func Test_resolveExtensionRef(t *testing.T) {
 				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
 				Name:  "my-ext-proc",
 			},
-			expectedOK: true,
+			expectedName:             "envoy.filters.http.ext_proc/default/my-ext-proc",
+			expectedBackendName:      "ext-proc-service",
+			expectedBackendNamespace: "default",
+			expectedBackendPort:      9001,
+			expectedOK:               true,
 		},
-		"success with cross-namespace backendRef": {
+		"cross-namespace backendRef without ReferenceGrant": {
 			enableExtensionRefFilters: true,
 			namespace:                 "default",
 			ref: &gatewayv1.LocalObjectReference{
@@ -132,14 +135,40 @@ func Test_resolveExtensionRef(t *testing.T) {
 				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
 				Name:  "cross-ns-ext-proc",
 			},
-			expectedOK: true,
+			expectedOK: false,
+		},
+		"cross-namespace backendRef with ReferenceGrant": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "cross-ns-ext-proc",
+			},
+			grants:                   []gatewayv1.ReferenceGrant{extProcServiceReferenceGrant("other-namespace", "default", "ext-proc-service")},
+			expectedName:             "envoy.filters.http.ext_proc/default/cross-ns-ext-proc",
+			expectedBackendName:      "ext-proc-service",
+			expectedBackendNamespace: "other-namespace",
+			expectedBackendPort:      9002,
+			expectedOK:               true,
+		},
+		"cross-namespace backendRef with ReferenceGrant for different service": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "cross-ns-ext-proc",
+			},
+			grants:     []gatewayv1.ReferenceGrant{extProcServiceReferenceGrant("other-namespace", "default", "different-service")},
+			expectedOK: false,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-			filter, ok := resolveExtensionRef(logger, tc.enableExtensionRefFilters, tc.namespace, tc.ref, extProcFilters)
+			filter, ok := resolveExtensionRef(logger, tc.enableExtensionRefFilters, tc.namespace, tc.ref, extProcFilters, tc.grants)
 			assert.Equal(t, tc.expectedOK, ok)
 
 			if !tc.expectedOK {
@@ -148,31 +177,46 @@ func Test_resolveExtensionRef(t *testing.T) {
 			}
 
 			require.NotNil(t, filter)
+			assert.Equal(t, tc.expectedName, filter.Name)
 			assert.Equal(t, model.ExtProcExternalProcessorTypeURL, filter.TypeURL)
 			require.NotNil(t, filter.Backend)
-
-			if name == "success" {
-				assert.Equal(t, "envoy.filters.http.ext_proc/default/my-ext-proc", filter.Name)
-				assert.Equal(t, "ext-proc-service", filter.Backend.Name)
-				assert.Equal(t, "default", filter.Backend.Namespace)
-				require.NotNil(t, filter.Backend.Port)
-				assert.Equal(t, uint32(9001), filter.Backend.Port.Port)
-			}
-
-			if name == "success with cross-namespace backendRef" {
-				assert.Equal(t, "envoy.filters.http.ext_proc/default/cross-ns-ext-proc", filter.Name)
-				assert.Equal(t, "ext-proc-service", filter.Backend.Name)
-				assert.Equal(t, "other-namespace", filter.Backend.Namespace)
-				require.NotNil(t, filter.Backend.Port)
-				assert.Equal(t, uint32(9002), filter.Backend.Port.Port)
-			}
+			assert.Equal(t, tc.expectedBackendName, filter.Backend.Name)
+			assert.Equal(t, tc.expectedBackendNamespace, filter.Backend.Namespace)
+			require.NotNil(t, filter.Backend.Port)
+			assert.Equal(t, tc.expectedBackendPort, filter.Backend.Port.Port)
 		})
+	}
+}
+
+func extProcServiceReferenceGrant(targetNamespace, fromNamespace, serviceName string) gatewayv1.ReferenceGrant {
+	return gatewayv1.ReferenceGrant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "allow-ext-proc",
+			Namespace: targetNamespace,
+		},
+		Spec: gatewayv1.ReferenceGrantSpec{
+			From: []gatewayv1.ReferenceGrantFrom{
+				{
+					Group:     gatewayv1.Group("cilium.io"),
+					Kind:      gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+					Namespace: gatewayv1.Namespace(fromNamespace),
+				},
+			},
+			To: []gatewayv1.ReferenceGrantTo{
+				{
+					Group: gatewayv1.Group(""),
+					Kind:  gatewayv1.Kind("Service"),
+					Name:  ptr.To(gatewayv1.ObjectName(serviceName)),
+				},
+			},
+		},
 	}
 }
 
 func Test_crdToExtensionRefFilter(t *testing.T) {
 	tests := map[string]struct {
 		crd       *v2alpha1.CiliumEnvoyExtProcFilter
+		grants    []gatewayv1.ReferenceGrant
 		checkFunc func(t *testing.T, filter *model.ExtensionRefFilter)
 		expectOK  bool
 	}{
@@ -296,7 +340,7 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 			expectOK: false,
 		},
 
-		"cross-namespace backendRef": {
+		"cross-namespace backendRef without ReferenceGrant": {
 			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cross-ns-filter",
@@ -310,6 +354,23 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 					},
 				},
 			},
+			expectOK: false,
+		},
+		"cross-namespace backendRef with ReferenceGrant": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cross-ns-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name:      "ext-proc-svc",
+						Namespace: ptr.To("other-namespace"),
+						Port:      50051,
+					},
+				},
+			},
+			grants:   []gatewayv1.ReferenceGrant{extProcServiceReferenceGrant("other-namespace", "default", "ext-proc-svc")},
 			expectOK: true,
 			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
 				assert.Equal(t, "envoy.filters.http.ext_proc/default/cross-ns-filter", filter.Name)
@@ -351,7 +412,7 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-			filter, ok := crdToExtensionRefFilter(logger, tc.crd)
+			filter, ok := crdToExtensionRefFilter(logger, tc.crd, tc.grants)
 			assert.Equal(t, tc.expectOK, ok)
 
 			if !tc.expectOK {
