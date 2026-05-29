@@ -351,7 +351,7 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
  * 'ct_state', if not nullptr, will be filled in only if CT_ESTABLISHED is returned.
  */
 static __always_inline enum ct_status
-__ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
+__ct_lookup(const void *map, const struct __ctx_buff *ctx, const void *tuple,
 	    enum ct_action action, enum ct_dir dir, __u32 ct_entry_types,
 	    struct ct_state *ct_state, bool is_tcp, union tcp_flags seen_flags,
 	    __u32 *monitor)
@@ -495,7 +495,7 @@ ct_is_reply ## FAMILY(const void *map,						\
 }
 
 static __always_inline int
-ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
+ipv6_extract_tuple(const struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -584,7 +584,7 @@ ipv6_ct_reverse_tuple_daddr(const struct ipv6_ct_tuple *rtuple)
 }
 
 static __always_inline int
-ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fraginfo,
+ct_extract_ports6(const struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fraginfo,
 		  int off, enum ct_dir dir, struct ipv6_ct_tuple *tuple)
 {
 	switch (tuple->nexthdr) {
@@ -662,7 +662,7 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 DEFINE_FUNC_CT_IS_REPLY(6)
 
 static __always_inline int
-__ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx,
+__ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, const struct __ctx_buff *ctx,
 	     fraginfo_t fraginfo, int l4_off, enum ct_dir dir, enum ct_scope scope,
 	     __u32 ct_entry_types, struct ct_state *ct_state, __u32 *monitor)
 {
@@ -721,7 +721,7 @@ out:
 
 /* An IPv6 version of ct_lazy_lookup4. */
 static __always_inline int
-ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx,
+ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple, const struct __ctx_buff *ctx,
 		fraginfo_t fraginfo, int l4_off, enum ct_dir dir, enum ct_scope scope,
 		__u32 ct_entry_types, struct ct_state *ct_state, __u32 *monitor)
 {
@@ -734,7 +734,7 @@ ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff 
 /* Offset must point to IPv6 */
 static __always_inline int ct_lookup6(const void *map,
 				      struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+				      const struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				      fraginfo_t fraginfo, int l4_off,
 				      enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state,
@@ -756,7 +756,7 @@ static __always_inline int ct_lookup6(const void *map,
 }
 
 static __always_inline int
-ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
+ipv4_extract_tuple(const struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -842,7 +842,7 @@ ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
 }
 
 static __always_inline int
-ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo,
+ct_extract_ports4(const struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo,
 		  int off, enum ct_dir dir, struct ipv4_ct_tuple *tuple)
 {
 	switch (tuple->nexthdr) {
@@ -920,7 +920,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 DEFINE_FUNC_CT_IS_REPLY(4)
 
 static __always_inline int
-__ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
+__ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, const struct __ctx_buff *ctx,
 	     fraginfo_t fraginfo, int l4_off, enum ct_dir dir, enum ct_scope scope,
 	     __u32 ct_entry_types, struct ct_state *ct_state, __u32 *monitor)
 {
@@ -1002,7 +1002,7 @@ out:
  * ICMP types to ct_lazy_lookup4.
  */
 static __always_inline int
-ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
+ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple, const struct __ctx_buff *ctx,
 		fraginfo_t fraginfo, int l4_off, enum ct_dir dir, enum ct_scope scope,
 		__u32 ct_entry_types, struct ct_state *ct_state, __u32 *monitor)
 {
@@ -1015,7 +1015,7 @@ ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff 
 /* Offset must point to IPv4 header */
 static __always_inline int ct_lookup4(const void *map,
 				      struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, struct iphdr *ip4,
+				      const struct __ctx_buff *ctx, struct iphdr *ip4,
 				      int off, enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
@@ -1066,7 +1066,7 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, const enum ct_dir dir,
+				      const struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state, __s8 *ext_err)
 {
 	/* Create entry in original direction */
@@ -1121,7 +1121,7 @@ drop_err:
 static __always_inline int ct_create4(const void *map_main,
 				      const void *map_related,
 				      struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, const enum ct_dir dir,
+				      const struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
 				      __s8 *ext_err)
 {
