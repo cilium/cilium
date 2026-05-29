@@ -10,9 +10,6 @@
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
 
-/* Skip ingress policy checks */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -26,6 +23,8 @@
 #define BACKEND_PORT		__bpf_htons(8080)
 
 #include "lib/bpf_xdp.h"
+
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

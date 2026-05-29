@@ -15,9 +15,6 @@
 
 #define ENCAP6_IFINDEX		42
 
-/* Skip ingress policy checks */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY
-
 #define CLIENT_IP		{ .addr = { 0x1 } }
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -91,6 +88,8 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 }
 
 #include "lib/bpf_host.h"
+
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

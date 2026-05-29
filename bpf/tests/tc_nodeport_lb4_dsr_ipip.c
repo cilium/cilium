@@ -14,9 +14,6 @@
 
 #define ENCAP4_IFINDEX		42
 
-/* Skip ingress policy checks */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -85,6 +82,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 }
 
 #include "lib/bpf_host.h"
+
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
