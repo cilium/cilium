@@ -489,3 +489,118 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		})
 	}
 }
+
+// TestToSlimLabelSelectorMatchExpressionsValues is a regression test ensuring that the
+// Values of a matchExpression survive the metav1 -> slim conversion. A previous
+// implementation allocated the destination slice with make([]string, 0, len(values))
+// and then copy()ed into it; because copy is bounded by the destination length (0), the
+// values were silently dropped. That turned every In/Equals requirement into one that
+// matches nothing and every NotIn/NotEquals requirement into one that matches
+// everything, silently corrupting ClusterNetworkPolicy enforcement (policy bypass).
+func TestToSlimLabelSelectorMatchExpressionsValues(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *metav1.LabelSelector
+		want *slim_metav1.LabelSelector
+	}{
+		{
+			name: "nil selector",
+			in:   nil,
+			want: nil,
+		},
+		{
+			name: "In operator preserves all values",
+			in: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "tier",
+						Operator: metav1.LabelSelectorOpIn,
+						Values:   []string{"untrusted", "external"},
+					},
+				},
+			},
+			want: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]slim_metav1.MatchLabelsValue{},
+				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+					{
+						Key:      "tier",
+						Operator: slim_metav1.LabelSelectorOpIn,
+						Values:   []string{"untrusted", "external"},
+					},
+				},
+			},
+		},
+		{
+			name: "NotIn operator preserves all values",
+			in: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "env",
+						Operator: metav1.LabelSelectorOpNotIn,
+						Values:   []string{"prod"},
+					},
+				},
+			},
+			want: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]slim_metav1.MatchLabelsValue{},
+				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+					{
+						Key:      "env",
+						Operator: slim_metav1.LabelSelectorOpNotIn,
+						Values:   []string{"prod"},
+					},
+				},
+			},
+		},
+		{
+			name: "Exists operator has no values",
+			in: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "tier",
+						Operator: metav1.LabelSelectorOpExists,
+					},
+				},
+			},
+			want: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]slim_metav1.MatchLabelsValue{},
+				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+					{
+						Key:      "tier",
+						Operator: slim_metav1.LabelSelectorOpExists,
+					},
+				},
+			},
+		},
+		{
+			name: "MatchLabels and MatchExpressions combined",
+			in: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "subject"},
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "tier",
+						Operator: metav1.LabelSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					},
+				},
+			},
+			want: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]slim_metav1.MatchLabelsValue{"app": "subject"},
+				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+					{
+						Key:      "tier",
+						Operator: slim_metav1.LabelSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toSlimLabelSelector(tt.in)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

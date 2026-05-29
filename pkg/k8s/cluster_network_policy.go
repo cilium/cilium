@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -43,10 +44,11 @@ func toSlimLabelSelector(ls *metav1.LabelSelector) *slim_metav1.LabelSelector {
 			lsr := slim_metav1.LabelSelectorRequirement{
 				Key:      matchExp.Key,
 				Operator: slim_metav1.LabelSelectorOperator(string(matchExp.Operator)),
-			}
-			if matchExp.Values != nil {
-				lsr.Values = make([]string, 0, len(matchExp.Values))
-				copy(lsr.Values, matchExp.Values)
+				// slices.Clone copies all values (and returns nil for a nil
+				// input). This previously used make([]string, 0, len)+copy,
+				// which silently dropped every value because copy is bounded by
+				// the destination length (0).
+				Values: slices.Clone(matchExp.Values),
 			}
 			result.MatchExpressions = append(result.MatchExpressions, lsr)
 		}
