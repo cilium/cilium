@@ -140,13 +140,20 @@ ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 #endif
 
+#ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
+#else
+ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
+#endif
+
 /* Source identity so we can validate skb mark. With ingress_ifindex > 0 the
  * enforce-at-source block runs whenever endpoint routes are enabled, on both
  * veth and netkit, stamping the identity mark. (Without it, only the policy
  * tail-call runs and the mark stays 0.)
  */
 #define TEST_SRC_IDENTITY 0xCAFE
-#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
+
+#ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
 #define TEST_SKB_MARK (__u32)((TEST_SRC_IDENTITY << 16) | MARK_MAGIC_IDENTITY)
 #else
 #define TEST_SKB_MARK (__u32)0x0
@@ -211,7 +218,7 @@ int tc_redirect_host_ipv4_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_redirect_host_ipv4")
 int tc_redirect_host_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
+#ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
 	/* from_host + ingress_ifindex > 0: the enforce-at-source block is taken
 	 * on both veth and netkit, so a single plain redirect() and no policy
 	 * tail-call. On netkit this is the regression guard for 210b5866e0: the
@@ -325,7 +332,7 @@ int tc_redirect_host_ipv6_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_redirect_host_ipv6")
 int tc_redirect_host_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY)
+#ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
 	/* See tc_redirect_host_ipv4_check: enforce-at-source on both drivers,
 	 * single plain redirect(), no policy tail-call. Regression guard for
 	 * netkit double policy enforcement (210b5866e0).

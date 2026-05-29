@@ -644,10 +644,6 @@ return false;`))
 
 func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, opts *option.IntOptions) {
 	fmt.Fprint(w, opts.GetFmtList())
-
-	if option.Config.EnableEndpointRoutes {
-		fmt.Fprint(w, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
-	}
 }
 
 // WriteNetdevConfig writes the BPF configuration for the endpoint to a writer.
