@@ -564,15 +564,13 @@ snat_v4_calc_icmp_error_csum_diff(__be32 old_addr, __be32 new_addr,
 		 * into diff_for_csum.
 		 * All the other changes in inner packet cancel each other out.
 		 */
-		if (old_addr != new_addr)
-			*diff_for_csum = csum_diff(&new_addr, 4, &old_addr, 4, 0);
+		*diff_for_csum = csum_diff(&new_addr, 4, &old_addr, 4, 0);
 	} else {
 		/* Calculate diff value for checksum.
 		 * If the inner L4 header does not include the L4 checksum,
 		 * only the port is modified within the inner L4 header.
 		 */
-		if (old_port != new_port)
-			*diff_for_csum = csum_diff(&old_port32, 4, &new_port32, 4, 0);
+		*diff_for_csum = csum_diff(&old_port32, 4, &new_port32, 4, 0);
 	}
 }
 
