@@ -18,6 +18,7 @@ ifeq ($(RELEASE),yes)
     export CILIUM_OPERATOR_BASE_REPO ?= ${REGISTRY_REPO_PREFIX}/operator
     export CLUSTERMESH_APISERVER_REPO ?= ${REGISTRY_REPO_PREFIX}/clustermesh-apiserver
     export HUBBLE_RELAY_REPO?=${REGISTRY_REPO_PREFIX}/hubble-relay
+    export STANDALONE_DNS_PROXY_REPO ?= ${REGISTRY_REPO_PREFIX}/standalone-dns-proxy
 else
     export PULL_POLICY:=Always
     export REGISTRY_REPO_PREFIX ?= ${CI_REGISTRY}/${CI_ORG}
@@ -27,6 +28,7 @@ else
     export CILIUM_OPERATOR_SUFFIX = -ci
     export CLUSTERMESH_APISERVER_REPO ?= ${REGISTRY_REPO_PREFIX}/clustermesh-apiserver-ci
     export HUBBLE_RELAY_REPO ?= ${REGISTRY_REPO_PREFIX}/hubble-relay-ci
+    export STANDALONE_DNS_PROXY_REPO ?= ${REGISTRY_REPO_PREFIX}/standalone-dns-proxy-ci
 endif
 
 # renovate: datasource=docker

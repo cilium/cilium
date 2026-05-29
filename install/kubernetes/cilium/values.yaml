@@ -4559,8 +4559,8 @@ standaloneDnsProxy:
     # type: [null, string]
     # @schema
     override: ~
-    repository: ""
-    tag: ""
+    repository: "quay.io/cilium/standalone-dns-proxy-ci"
+    tag: "latest"
     digest: ""
     useDigest: false
     pullPolicy: "Always"
