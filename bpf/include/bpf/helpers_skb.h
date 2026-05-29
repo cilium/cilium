@@ -22,7 +22,7 @@ static int BPF_FUNC(redirect_peer, int ifindex, __u32 flags);
 static int BPF_FUNC(clone_redirect, struct __sk_buff *skb, __u32 ifindex, __u64 flags);
 
 /* Packet manipulation */
-static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, __u32 off,
+static int BPF_FUNC(skb_load_bytes, const struct __sk_buff *skb, __u32 off,
 		    void *to, __u32 len);
 static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, __u32 off,
 		    const void *from, __u32 len, __u32 flags);
@@ -43,7 +43,7 @@ static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, __u32 nlen,
 static int BPF_FUNC(skb_change_head, struct __sk_buff *skb, __u32 head_room,
 		    __u64 flags);
 
-static int BPF_FUNC(skb_pull_data, struct __sk_buff *skb, __u32 len);
+static int BPF_FUNC(skb_pull_data, const struct __sk_buff *skb, __u32 len);
 
 /* Packet tunnel encap/decap */
 static int BPF_FUNC(skb_get_tunnel_key, struct __sk_buff *skb,
@@ -57,7 +57,7 @@ static int BPF_FUNC(skb_set_tunnel_opt, struct __sk_buff *skb,
 		    void *opt, __u32 size);
 
 /* Events for user space */
-static int BPF_FUNC_REMAP(skb_event_output, struct __sk_buff *skb, void *map,
+static int BPF_FUNC_REMAP(skb_event_output, const struct __sk_buff *skb, void *map,
 			  __u64 index, const void *data, __u32 size) =
 			 (void *)BPF_FUNC_perf_event_output;
 

@@ -22,10 +22,10 @@ static int BPF_FUNC(redirect, int ifindex, __u32 flags);
 /* Packet manipulation */
 
 #ifdef HAVE_XDP_LOAD_BYTES
-static int BPF_FUNC(xdp_load_bytes, struct xdp_md *xdp, __u32 off,
+static int BPF_FUNC(xdp_load_bytes, const struct xdp_md *xdp, __u32 off,
 		    void *to, __u32 len);
 #else
-static int BPF_STUB(xdp_load_bytes, struct xdp_md *xdp, __u32 off,
+static int BPF_STUB(xdp_load_bytes, const struct xdp_md *xdp, __u32 off,
 		    void *to, __u32 len);
 #endif
 
@@ -63,6 +63,6 @@ static int BPF_STUB(xdp_get_tunnel_opt, struct xdp_md *xdp, void *opt,
 		    __u32 size);
 
 /* Events for user space */
-static int BPF_FUNC_REMAP(xdp_event_output, struct xdp_md *xdp, void *map,
+static int BPF_FUNC_REMAP(xdp_event_output, const struct xdp_md *xdp, void *map,
 			  __u64 index, const void *data, __u32 size) =
 			 (void *)BPF_FUNC_perf_event_output;
