@@ -80,6 +80,44 @@ func TestCalculateExcessIPs(t *testing.T) {
 	}
 }
 
+func TestStaticIPNeedsResolution(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		assignedStaticIP string
+		want             bool
+	}{
+		{
+			name:             "empty value not yet assigned",
+			assignedStaticIP: "",
+			want:             true,
+		},
+		{
+			name:             "legacy azure public IP prefix resource ID",
+			assignedStaticIP: "/subscriptions/0000/resourceGroups/rg/providers/Microsoft.Network/publicIPPrefixes/prefix",
+			want:             true,
+		},
+		{
+			name:             "legacy azure public IP resource ID",
+			assignedStaticIP: "/subscriptions/0000/resourceGroups/rg/providers/Microsoft.Network/publicIPAddresses/cilium-managed-public-ip",
+			want:             true,
+		},
+		{
+			name:             "valid IPv4 address",
+			assignedStaticIP: "203.0.113.7",
+			want:             false,
+		},
+		{
+			name:             "valid IPv6 address",
+			assignedStaticIP: "2001:db8::1",
+			want:             false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, staticIPNeedsResolution(tc.assignedStaticIP))
+		})
+	}
+}
+
 type k8sMockNode struct{}
 
 func (k *k8sMockNode) Update(origNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
