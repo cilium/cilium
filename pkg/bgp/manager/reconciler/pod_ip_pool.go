@@ -339,7 +339,10 @@ func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, 
 					// on the local node we have this pool configured.
 					// add the prefixes to the desiredPaths.
 					for _, prefix := range prefixes {
-						path := types.NewPathForPrefix(prefix)
+						path, err := types.NewPathForPrefix(prefix)
+						if err != nil {
+							return nil, fmt.Errorf("failed to create path for prefix %s: %w", prefix, err)
+						}
 						path.Family = agentFamily
 
 						// we only add path corresponding to the family of the prefix.

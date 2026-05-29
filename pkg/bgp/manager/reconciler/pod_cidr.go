@@ -116,7 +116,10 @@ func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 	metadata := r.getMetadata(p.BGPInstance)
 
 	// get desired paths per address family
-	desiredFamilyAdverts := r.getDesiredPathsPerFamily(desiredPeerAdverts, podPrefixes)
+	desiredFamilyAdverts, err := r.getDesiredPathsPerFamily(desiredPeerAdverts, podPrefixes)
+	if err != nil {
+		return err
+	}
 
 	// reconcile family advertisements
 	updatedAFPaths, err := ReconcileAFPaths(&ReconcileAFPathsParams{
@@ -158,7 +161,7 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Reconc
 // getDesiredPathsPerFamily returns a map of desired paths per address family.
 // Note: This returns prefixes per address family. Global routing table will contain prefix per family not per neighbor.
 // Per neighbor advertisement will be controlled by BGP Policy.
-func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) AFPathsMap {
+func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (AFPathsMap, error) {
 	// Calculate desired paths per address family, collapsing per-peer advertisements into per-family advertisements.
 	desiredFamilyAdverts := make(AFPathsMap)
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
@@ -174,7 +177,10 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdve
 			// we need to add podCIDR prefixes to the desiredFamilyAdverts.
 			if len(familyAdverts) != 0 {
 				for _, prefix := range desiredPrefixes {
-					path := types.NewPathForPrefix(prefix)
+					path, err := types.NewPathForPrefix(prefix)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create path for prefix %s: %w", prefix, err)
+					}
 					path.Family = agentFamily
 
 					// we only add path corresponding to the family of the prefix.
@@ -188,7 +194,7 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdve
 			}
 		}
 	}
-	return desiredFamilyAdverts
+	return desiredFamilyAdverts, nil
 }
 
 func (r *PodCIDRReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (RoutePolicyMap, error) {

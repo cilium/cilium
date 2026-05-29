@@ -459,7 +459,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			for preAdvertFam, preAdverts := range tt.preconfiguredPaths {
 				pathSet := make(map[string]*types.Path)
 				for preAdvert := range preAdverts {
-					path := types.NewPathForPrefix(netip.MustParsePrefix(preAdvert))
+					path := types.MustNewPathForPrefix(netip.MustParsePrefix(preAdvert))
 					path.Family = preAdvertFam
 					pathSet[preAdvert] = path
 				}
