@@ -2210,6 +2210,21 @@ func (c *Collector) getGatewayAPITasks() []Task {
 				return nil
 			},
 		},
+		{
+			Description: "Collecting CiliumGatewayClassConfig entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, ciliumGatewayClassConfig, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect CiliumGatewayClassConfig entries: %w", err)
+				}
+				if err := c.WriteYAML(ciliumGatewayClassConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect CiliumGatewayClassConfig entries: %w", err)
+				}
+				return nil
+			},
+		},
 	}
 }
 

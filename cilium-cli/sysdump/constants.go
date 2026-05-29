@@ -122,6 +122,7 @@ const (
 	tcpRoutesFileName                        = "gatewayapi-tcroutes-<ts>.yaml"
 	udpRoutesFileName                        = "gatewayapi-udproutes-<ts>.yaml"
 	referenceGrantsFileName                  = "gatewayapi-referencegrants-<ts>.yaml"
+	ciliumGatewayClassConfigsFileName        = "ciliumgatewayclassconfigs-<ts>.yaml"
 	ingressClassesFileName                   = "ingressclasses-<ts>.yaml"
 	k8sResourceFileName                      = "%s-<ts>.yaml"
 )
@@ -220,5 +221,11 @@ var (
 		Group:    "gateway.networking.k8s.io",
 		Resource: "grpcroutes",
 		Version:  "v1alpha2",
+	}
+
+	ciliumGatewayClassConfig = schema.GroupVersionResource{
+		Group:    "cilium.io",
+		Resource: "ciliumgatewayclassconfigs",
+		Version:  "v2alpha1",
 	}
 )
