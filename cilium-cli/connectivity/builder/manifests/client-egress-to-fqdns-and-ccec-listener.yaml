@@ -1,5 +1,9 @@
-# CiliumEnvoyConfig to proxy any incoming HTTP request on the listener to the
-# configured destination.
+# CiliumEnvoyConfig to proxy any incoming TCP connection on the listener to the
+# configured destination, but only if destination port is 80. Connenctions with
+# other destination ports are accepted (downstream connection established), but
+# not connected anywhere in upstream, so the downstream connection is closed.
+# If the connection was a TLS connection, it will get a TLS error as the handshake
+# cannot be finished.
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideEnvoyConfig
 metadata:
@@ -9,26 +13,14 @@ spec:
   - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
     name: proxy-{{trimSuffix .ExternalTarget "."}}-listener
     filter_chains:
-    - filters:
-      - name: envoy.filters.network.http_connection_manager
+    - filter_chain_match:
+        destination_port: 80
+      filters:
+      - name: envoy.filters.network.tcp_proxy
         typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
           stat_prefix: test-listener
-          route_config:
-            name: default-route
-            virtual_hosts:
-            - name: default-vhost
-              domains: ["*"]
-              routes:
-              - match:
-                  prefix: "/"
-                route:
-                  cluster: proxy-{{trimSuffix .ExternalTarget "."}}-cluster
-          http_filters:
-          - name: envoy.filters.http.router
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-
+          cluster: proxy-{{trimSuffix .ExternalTarget "."}}-cluster
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
     connectTimeout: 55s
     name: proxy-{{trimSuffix .ExternalTarget "."}}-cluster
@@ -56,5 +48,5 @@ spec:
         name: proxy-{{trimSuffix .ExternalTarget "."}}-listener
         priority: 1
       ports:
-      - port: "80"
+      - port: "0"
         protocol: TCP
