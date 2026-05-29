@@ -959,7 +959,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		return DROP_INVALID;
 
 #if !defined(IS_BPF_LXC) && defined(ENABLE_NAT_46X64_GATEWAY)
-	if (nat46x64_cb_route(ctx))
+	if (dir == CT_INGRESS && nat46x64_cb_route(ctx))
 		goto fib_lookup;
 #endif
 
@@ -1013,7 +1013,7 @@ out:
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
 	 */
-	if (egress_gw_reply_needs_redirect_hook_v6(ip6, &info)) {
+	if (dir == CT_INGRESS && egress_gw_reply_needs_redirect_hook_v6(ip6, &info)) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		src_sec_identity = WORLD_ID;
 		goto encap_redirect;
