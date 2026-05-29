@@ -142,10 +142,17 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 }
 
 func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+	var addr netip.Addr
+	var err error
 	if n.vmss == "" {
-		return n.manager.api.AssignPublicIPAddressesVM(ctx, n.node.InstanceID(), staticIPTags)
+		addr, err = n.manager.api.AssignPublicIPAddressesVM(ctx, n.node.InstanceID(), staticIPTags)
+	} else {
+		addr, err = n.manager.api.AssignPublicIPAddressesVMSS(ctx, n.node.InstanceID(), n.vmss, staticIPTags)
 	}
-	return n.manager.api.AssignPublicIPAddressesVMSS(ctx, n.node.InstanceID(), n.vmss, staticIPTags)
+	if err != nil {
+		return "", err
+	}
+	return addr.String(), nil
 }
 
 // CreateInterface is called to create a new interface. This operation is
