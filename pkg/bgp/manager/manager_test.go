@@ -191,7 +191,7 @@ func TestGetRoutesLegacy(t *testing.T) {
 			// advertise test-provided prefixes
 			for _, cidr := range tt.advertisedPrefixes {
 				_, err := testInstance.Router.AdvertisePath(context.Background(), types.PathRequest{
-					Path: types.NewPathForPrefix(cidr),
+					Path: types.MustNewPathForPrefix(cidr),
 				})
 				require.NoError(t, err)
 			}

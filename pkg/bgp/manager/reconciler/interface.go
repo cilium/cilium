@@ -113,7 +113,7 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	return r.reconcilePaths(ctx, p, desiredPeerAdverts, txn)
 }
 
-func (r *InterfaceReconciler) getDesiredPaths(desiredPeerAdverts PeerAdvertisements, txn statedb.ReadTxn) AFPathsMap {
+func (r *InterfaceReconciler) getDesiredPaths(desiredPeerAdverts PeerAdvertisements, txn statedb.ReadTxn) (AFPathsMap, error) {
 	desiredAdverts := make(AFPathsMap)
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
@@ -125,14 +125,17 @@ func (r *InterfaceReconciler) getDesiredPaths(desiredPeerAdverts PeerAdvertiseme
 			}
 			for _, advert := range familyAdverts {
 				for _, prefix := range r.getInterfacePrefixes(advert, agentFamily, txn) {
-					path := types.NewPathForPrefix(prefix)
+					path, err := types.NewPathForPrefix(prefix)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create path for prefix %s: %w", prefix, err)
+					}
 					path.Family = agentFamily
 					pathsPerFamily[path.NLRI.String()] = path
 				}
 			}
 		}
 	}
-	return desiredAdverts
+	return desiredAdverts, nil
 }
 
 func (r *InterfaceReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdvertisements, txn statedb.ReadTxn) (RoutePolicyMap, error) {
@@ -212,7 +215,10 @@ func (r *InterfaceReconciler) reconcilePaths(ctx context.Context, p ReconcilePar
 	metadata := r.getMetadata(p.BGPInstance)
 
 	// get desired paths per address family
-	desiredFamilyAdverts := r.getDesiredPaths(desiredPeerAdverts, txn)
+	desiredFamilyAdverts, err := r.getDesiredPaths(desiredPeerAdverts, txn)
+	if err != nil {
+		return err
+	}
 
 	// reconcile family advertisements
 	updatedAFPaths, err := ReconcileAFPaths(&ReconcileAFPathsParams{

@@ -526,7 +526,10 @@ func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, desiredPeerAdve
 					for _, prefix := range prefixes.UnsortedList() {
 						// we only add path corresponding to the family of the prefix.
 						if agentFamily.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
-							path := types.NewPathForPrefix(prefix)
+							path, err := types.NewPathForPrefix(prefix)
+							if err != nil {
+								return nil, fmt.Errorf("failed to create path for prefix %s: %w", prefix, err)
+							}
 							// For LoadBalancer IP prefixes, set origin to INCOMPLETE for legacy compatibility.
 							if r.legacyOriginAttributeEnabled && advertType == v2.BGPLoadBalancerIPAddr {
 								path = types.SetPathOriginAttrIncomplete(path)
@@ -535,7 +538,10 @@ func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, desiredPeerAdve
 							addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
 						}
 						if agentFamily.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
-							path := types.NewPathForPrefix(prefix)
+							path, err := types.NewPathForPrefix(prefix)
+							if err != nil {
+								return nil, fmt.Errorf("failed to create path for prefix %s: %w", prefix, err)
+							}
 							// For LoadBalancer IP prefixes, set origin to INCOMPLETE for legacy compatibility.
 							if r.legacyOriginAttributeEnabled && advertType == v2.BGPLoadBalancerIPAddr {
 								path = types.SetPathOriginAttrIncomplete(path)

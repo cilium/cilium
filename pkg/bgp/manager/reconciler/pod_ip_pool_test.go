@@ -623,7 +623,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				for fam, afPaths := range prePoolAFPaths {
 					pathSet := make(PathMap)
 					for prePath := range afPaths {
-						path := types.NewPathForPrefix(netip.MustParsePrefix(prePath))
+						path := types.MustNewPathForPrefix(netip.MustParsePrefix(prePath))
 						path.Family = fam
 						pathSet[prePath] = path
 					}
