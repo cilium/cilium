@@ -502,9 +502,9 @@ func GoBGPAdvertiseRouteCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			}
 
 			return func(s *script.State) (stdout, stderr string, err error) {
-				agentPath := types.NewPathForPrefix(prefix)
-				if agentPath == nil {
-					return "", "", fmt.Errorf("could not create path for prefix %s", prefix)
+				agentPath, err := types.NewPathForPrefix(prefix)
+				if err != nil {
+					return "", "", fmt.Errorf("could not create path for prefix %s: %w", prefix, err)
 				}
 				path, err := gobgp.ToGoBGPPath(agentPath)
 				if err != nil {

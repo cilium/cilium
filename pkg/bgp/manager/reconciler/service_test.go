@@ -765,10 +765,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -800,10 +800,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4PrefixAggr)),
+							ingressV4PrefixAggr: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4PrefixAggr)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6PrefixAggr)),
+							ingressV6PrefixAggr: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6PrefixAggr)),
 						},
 					},
 				},
@@ -836,10 +836,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -872,10 +872,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -908,10 +908,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -992,10 +992,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -1033,10 +1033,10 @@ func Test_ServiceLBReconcilerWithLegacyOriginAttr(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.SetPathOriginAttrIncomplete(types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix))),
+							ingressV4Prefix: types.SetPathOriginAttrIncomplete(types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix))),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.SetPathOriginAttrIncomplete(types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix))),
+							ingressV6Prefix: types.SetPathOriginAttrIncomplete(types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix))),
 						},
 					},
 				},
@@ -1111,10 +1111,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
+							externalV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							externalV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
+							externalV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
 						},
 					},
 				},
@@ -1146,10 +1146,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							externalV4PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(externalV4PrefixAggr)),
+							externalV4PrefixAggr: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV4PrefixAggr)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							externalV6PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(externalV6PrefixAggr)),
+							externalV6PrefixAggr: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV6PrefixAggr)),
 						},
 					},
 				},
@@ -1182,10 +1182,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
+							externalV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							externalV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
+							externalV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
 						},
 					},
 				},
@@ -1218,10 +1218,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
+							externalV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							externalV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
+							externalV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
 						},
 					},
 				},
@@ -1254,10 +1254,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
+							externalV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							externalV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
+							externalV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
 						},
 					},
 				},
@@ -1315,10 +1315,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
+							externalV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							externalV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
+							externalV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
 						},
 					},
 				},
@@ -1425,10 +1425,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
+							clusterV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
+							clusterV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
 						},
 					},
 				},
@@ -1460,10 +1460,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4PrefixAggr)),
+							clusterV4PrefixAggr: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4PrefixAggr)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6PrefixAggr: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6PrefixAggr)),
+							clusterV6PrefixAggr: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6PrefixAggr)),
 						},
 					},
 				},
@@ -1496,10 +1496,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
+							clusterV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
+							clusterV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
 						},
 					},
 				},
@@ -1532,10 +1532,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
+							clusterV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
+							clusterV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
 						},
 					},
 				},
@@ -1568,10 +1568,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
+							clusterV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
+							clusterV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
 						},
 					},
 				},
@@ -1629,10 +1629,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
+							clusterV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
+							clusterV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
 						},
 					},
 				},
@@ -1735,10 +1735,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
+							clusterV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
+							clusterV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
 						},
 					},
 				},
@@ -1809,12 +1809,12 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4Prefix:  types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
-							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
+							clusterV4Prefix:  types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
+							externalV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6Prefix:  types.NewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
-							externalV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
+							clusterV6Prefix:  types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
+							externalV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
 						},
 					},
 				},
@@ -1932,12 +1932,12 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							clusterV4Prefix:  types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
-							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
+							clusterV4Prefix:  types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
+							externalV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							clusterV6Prefix:  types.NewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
-							externalV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
+							clusterV6Prefix:  types.MustNewPathForPrefix(netip.MustParsePrefix(clusterV6Prefix)),
+							externalV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(externalV6Prefix)),
 						},
 					},
 				},
@@ -2075,10 +2075,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -2134,18 +2134,18 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 					redSvc2Key: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -2205,10 +2205,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvc2Key: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -2315,10 +2315,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -2407,10 +2407,10 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -2523,10 +2523,10 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+							ingressV4Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+							ingressV6Prefix: types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
@@ -2978,7 +2978,7 @@ func TestServiceReconcilerMetadataPartialFailure(t *testing.T) {
 			FakeRouter: fake.NewFakeRouter(),
 			failPrefix: ingressV4PrefixAggr, // aggregation prefix will fail during reconcile
 		}
-		oldPath := types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)) // non-aggregated prefix
+		oldPath := types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)) // non-aggregated prefix
 
 		req.NoError(router.FakeRouter.AddRoutePolicy(t.Context(), types.RoutePolicyRequest{
 			Policy: redPeer65001v4LBRP,
