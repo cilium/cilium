@@ -650,6 +650,15 @@ func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 	return pools
 }
 
+// eniWritablePoolsFromResource returns a live pointer to the pool spec the
+// agent owns in ENI mode. Unlike eniPoolsFromResource, which synthesizes
+// Allocated from Status.ENI.ENIs for reads and therefore returns a copy
+// detached from the node. This returns the actual Spec.IPAM.Pools so the
+// agent's writes are persisted when the CiliumNode is updated.
+func eniWritablePoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
+	return &node.Spec.IPAM.Pools
+}
+
 // addressCoveredByPrefix returns true if the given IP address falls
 // within any of the provided prefixes.
 func addressCoveredByPrefix(addr netip.Addr, prefixes []netip.Prefix) bool {
@@ -738,17 +747,18 @@ func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Alloca
 	}
 
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
-		Logger:               p.Logger,
-		IPv4Enabled:          p.IPv4Enabled,
-		IPv6Enabled:          p.IPv6Enabled,
-		CiliumNodeUpdateRate: p.CiliumNodeUpdateRate,
-		PreallocMap:          preallocMap,
-		Node:                 p.Node,
-		CNClient:             p.CNClient,
-		JobGroup:             p.JobGroup,
-		PoolsFromResource:    eniPoolsFromResource,
-		AllowFirstLastIPs:    true,
-		LinearPreAlloc:       true,
+		Logger:                    p.Logger,
+		IPv4Enabled:               p.IPv4Enabled,
+		IPv6Enabled:               p.IPv6Enabled,
+		CiliumNodeUpdateRate:      p.CiliumNodeUpdateRate,
+		PreallocMap:               preallocMap,
+		Node:                      p.Node,
+		CNClient:                  p.CNClient,
+		JobGroup:                  p.JobGroup,
+		PoolsFromResource:         eniPoolsFromResource,
+		WritablePoolsFromResource: eniWritablePoolsFromResource,
+		AllowFirstLastIPs:         true,
+		LinearPreAlloc:            true,
 	})
 
 	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)

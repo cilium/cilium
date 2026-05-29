@@ -74,6 +74,9 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
 			return &cn.Spec.IPAM.Pools
 		},
+		WritablePoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+			return &cn.Spec.IPAM.Pools
+		},
 	})
 
 	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)

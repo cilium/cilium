@@ -236,6 +236,16 @@ type MultiPoolManagerParams struct {
 
 	PoolsFromResource ciliumv2.PoolsFromResourceFunc
 
+	// WritablePoolsFromResource returns a live pointer to the pool spec section
+	// of the CiliumNode that the agent owns and writes back.
+	// Pods: .Spec.IPAM.Pools
+	// DRA: .Spec.IPAM.ResourcePools
+	// Unlike PoolsFromResource, which in ENI mode synthesizes Allocated from
+	// Status.ENI.ENIs and may therefore return a copy, mutating the returned
+	// value mutates the node in place, so it is safe to use as the target of
+	// an Update.
+	WritablePoolsFromResource ciliumv2.PoolsFromResourceFunc
+
 	SkipMasqueradeForPool SkipMasqueradeForPoolFn
 
 	// AllowFirstLastIPs makes CIDR pools include the first and last IPs.
@@ -273,8 +283,9 @@ type multiPoolManager struct {
 
 	logger *slog.Logger
 
-	poolsFromResource     ciliumv2.PoolsFromResourceFunc
-	skipMasqueradeForPool SkipMasqueradeForPoolFn
+	poolsFromResource         ciliumv2.PoolsFromResourceFunc
+	writablePoolsFromResource ciliumv2.PoolsFromResourceFunc
+	skipMasqueradeForPool     SkipMasqueradeForPoolFn
 
 	allowFirstLastIPs bool
 	linearPreAlloc    bool
@@ -298,9 +309,10 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		localNodeUpdateFn: sync.OnceFunc(func() {
 			close(localNodeUpdated)
 		}),
-		poolsFromResource: p.PoolsFromResource,
-		allowFirstLastIPs: p.AllowFirstLastIPs,
-		linearPreAlloc:    p.LinearPreAlloc,
+		poolsFromResource:         p.PoolsFromResource,
+		writablePoolsFromResource: p.WritablePoolsFromResource,
+		allowFirstLastIPs:         p.AllowFirstLastIPs,
+		linearPreAlloc:            p.LinearPreAlloc,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
 		},
@@ -606,7 +618,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		})
 	}
 
-	newPools := m.poolsFromResource(newNode)
+	newPools := m.writablePoolsFromResource(newNode)
 
 	sort.Slice(requested, func(i, j int) bool {
 		return requested[i].Pool < requested[j].Pool
@@ -628,7 +640,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 
 	m.poolsMutex.Unlock()
 
-	pools := m.poolsFromResource(curNode)
+	pools := m.writablePoolsFromResource(curNode)
 
 	if !newPools.DeepEqual(pools) {
 		updatedNode, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})

@@ -132,6 +132,9 @@ func Test_MultiPoolManager(t *testing.T) {
 		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
 			return &cn.Spec.IPAM.Pools
 		},
+		WritablePoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+			return &cn.Spec.IPAM.Pools
+		},
 	})
 
 	// assert initial CiliumNode upsert has been sent to the events chan
@@ -543,6 +546,9 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
 			return &cn.Spec.IPAM.Pools
 		},
+		WritablePoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+			return &cn.Spec.IPAM.Pools
+		},
 	})
 
 	<-events // first upsert (initial node)
@@ -662,6 +668,9 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
 		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+			return &cn.Spec.IPAM.Pools
+		},
+		WritablePoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
 			return &cn.Spec.IPAM.Pools
 		},
 	})
@@ -921,6 +930,9 @@ func Test_MultiPoolManager_UpdateNodeRetries(t *testing.T) {
 			CNClient:             clientset.CiliumV2().CiliumNodes(),
 			JobGroup:             jg,
 			PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+				return &cn.Spec.IPAM.Pools
+			},
+			WritablePoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
 				return &cn.Spec.IPAM.Pools
 			},
 		})
