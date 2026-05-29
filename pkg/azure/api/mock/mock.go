@@ -214,14 +214,14 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 	return nil
 }
 
-func (a *API) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vmssName string, publicIpTags ipamTypes.Tags) (string, error) {
+func (a *API) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vmssName string, publicIpTags ipamTypes.Tags) (netip.Addr, error) {
 	a.rateLimit()
-	return "mock-public-ip-prefix-id", nil
+	return netip.MustParseAddr("192.0.2.1"), nil
 }
 
-func (a *API) AssignPublicIPAddressesVM(ctx context.Context, instanceID string, publicIpTags ipamTypes.Tags) (string, error) {
+func (a *API) AssignPublicIPAddressesVM(ctx context.Context, instanceID string, publicIpTags ipamTypes.Tags) (netip.Addr, error) {
 	a.rateLimit()
-	return "mock-public-ip-prefix-id", nil
+	return netip.MustParseAddr("192.0.2.1"), nil
 }
 
 // ListAllNetworkInterfaces returns a dummy slice since mock doesn't use real network interfaces
