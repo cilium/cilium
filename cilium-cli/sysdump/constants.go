@@ -121,6 +121,7 @@ const (
 	grpcRoutesFileName                       = "gatewayapi-grpcroutes-<ts>.yaml"
 	tcpRoutesFileName                        = "gatewayapi-tcroutes-<ts>.yaml"
 	udpRoutesFileName                        = "gatewayapi-udproutes-<ts>.yaml"
+	backendTLSPoliciesFileName               = "gatewayapi-backendtlspolicies-<ts>.yaml"
 	referenceGrantsFileName                  = "gatewayapi-referencegrants-<ts>.yaml"
 	ciliumGatewayClassConfigsFileName        = "ciliumgatewayclassconfigs-<ts>.yaml"
 	ingressClassesFileName                   = "ingressclasses-<ts>.yaml"
@@ -191,6 +192,12 @@ var (
 		Group:    "gateway.networking.k8s.io",
 		Resource: "referencegrants",
 		Version:  "v1beta1",
+	}
+
+	backendTLSPolicy = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "backendtlspolicies",
+		Version:  "v1",
 	}
 
 	httpRoute = schema.GroupVersionResource{
