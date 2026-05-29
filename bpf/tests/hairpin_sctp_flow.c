@@ -12,9 +12,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_SCTP 1
 
-/* Use to-container for ingress policy: */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY 1
-
 #define ctx_redirect_peer mock_ctx_redirect_peer
 static __always_inline __maybe_unused int
 mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
@@ -27,6 +24,7 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one })
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

@@ -165,7 +165,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	 * policy (the cil_to_container BPF program) is bypassed.
 	 */
 	use_redirect_peer = should_redirect_peer(ctx, from_host);
-	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && !use_redirect_peer &&
+	if (CONFIG(enable_endpoint_routes) && !use_redirect_peer &&
 	    /* We need to enforce policies at the source in case of netkit
 	     * devices because we can't redirect to proxy from bpf_lxc. That
 	     * needs a fix upstream. This must stay in sync with the predicate

@@ -147,6 +147,12 @@ ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 #endif
 
+#ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
+#else
+ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
+#endif
+
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"

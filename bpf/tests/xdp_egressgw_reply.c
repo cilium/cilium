@@ -17,9 +17,6 @@
 
 #define ENCAP_IFINDEX		42
 
-/* Skip ingress policy checks */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY
-
 #define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
 #define MASQ_PORT		__bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
 #define DIRECT_ROUTING_IFINDEX	25
@@ -39,6 +36,7 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
 
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 
 /* Set port ranges to have deterministic source port selection */

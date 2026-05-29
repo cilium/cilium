@@ -15,10 +15,9 @@
 #define ENCAP4_IFINDEX		42
 #define ENCAP6_IFINDEX		42
 
-/* Skip ingress policy checks */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY
-
 #include "lib/bpf_host.h"
+
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
 CHECK("tc", "test_nodeport_uses_dsr_ipv4_with_flag")
 int test_nodeport_uses_dsr_ipv4_with_flag(__maybe_unused struct __ctx_buff *ctx)
