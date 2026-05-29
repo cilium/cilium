@@ -606,13 +606,15 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		})
 	}
 
+	newPools := m.poolsFromResource(newNode)
+
 	sort.Slice(requested, func(i, j int) bool {
 		return requested[i].Pool < requested[j].Pool
 	})
 	sort.Slice(allocated, func(i, j int) bool {
 		return allocated[i].Pool < allocated[j].Pool
 	})
-	newNode.Spec.IPAM.Pools.Requested = requested
+	newPools.Requested = requested
 	// Only write Allocated once local pools have been populated. Before
 	// that, the agent has no CIDRs of its own and writing an empty
 	// Allocated would clear CIDRs that may still be in use from a
@@ -621,12 +623,14 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	// standard multi-pool mode), it writes Allocated to communicate
 	// in-use CIDRs back to the operator.
 	if len(m.pools) > 0 {
-		newNode.Spec.IPAM.Pools.Allocated = allocated
+		newPools.Allocated = allocated
 	}
 
 	m.poolsMutex.Unlock()
 
-	if !newNode.Spec.IPAM.Pools.DeepEqual(&curNode.Spec.IPAM.Pools) {
+	pools := m.poolsFromResource(curNode)
+
+	if !newPools.DeepEqual(pools) {
 		updatedNode, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})
 		switch {
 		case k8sErrors.IsConflict(err):
