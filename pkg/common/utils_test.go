@@ -4,9 +4,12 @@
 package common
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestC2GoArray(t *testing.T) {
@@ -47,4 +50,49 @@ func TestGoArray2C(t *testing.T) {
 	for _, test := range tests {
 		require.Equal(t, test.output, GoArray2C(test.input))
 	}
+}
+
+func TestMergeChannels(t *testing.T) {
+	t.Run("forwards the first received value", func(t *testing.T) {
+		a := make(chan int, 1)
+		b := make(chan int, 1)
+		out := MergeChannels(context.Background(), a, b)
+
+		b <- 42
+		require.Equal(t, 42, <-out)
+
+		// Only a single value is forwarded; the output channel is then closed.
+		_, ok := <-out
+		require.False(t, ok)
+	})
+
+	t.Run("closed input closes the output", func(t *testing.T) {
+		a := make(chan struct{})
+		b := make(chan struct{})
+		out := MergeChannels(context.Background(), a, b)
+
+		close(b)
+		_, ok := <-out
+		require.False(t, ok, "output channel should be closed once an input is closed")
+	})
+
+	t.Run("does not leak when context is cancelled", func(t *testing.T) {
+		// Regression test for https://github.com/cilium/cilium/issues/46254.
+		defer testutils.GoleakVerifyNone(t)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		// Inputs that never fire, mimicking abandoned statedb watch channels.
+		a := make(chan struct{})
+		b := make(chan struct{})
+		c := make(chan struct{})
+		out := MergeChannels(ctx, a, b, c)
+
+		cancel()
+
+		// The output channel is closed once the goroutine observes the
+		// cancellation; this blocks until the goroutine has exited.
+		_, ok := <-out
+		require.False(t, ok)
+	})
 }

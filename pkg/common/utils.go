@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -75,22 +76,33 @@ func RequireRootPrivilege(cmd string) {
 	}
 }
 
-func MergeChannels[T any](chans ...<-chan T) <-chan T {
+// MergeChannels forwards the first value received on any of the input channels.
+// The goroutine it starts is bound to ctx, so it is reclaimed on cancellation
+// even if no input ever fires and the caller abandons the returned channel.
+func MergeChannels[T any](ctx context.Context, chans ...<-chan T) <-chan T {
 	out := make(chan T)
-	cases := make([]reflect.SelectCase, len(chans))
-	for i, ch := range chans {
-		cases[i] = reflect.SelectCase{
+	cases := make([]reflect.SelectCase, 0, len(chans)+1)
+	for _, ch := range chans {
+		cases = append(cases, reflect.SelectCase{
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(ch),
-		}
+		})
 	}
+	ctxCase := len(cases)
+	cases = append(cases, reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(ctx.Done()),
+	})
 	go func() {
 		defer close(out)
-		_, value, ok := reflect.Select(cases)
-		if !ok {
+		chosen, value, ok := reflect.Select(cases)
+		if chosen == ctxCase || !ok {
 			return
 		}
-		out <- value.Interface().(T)
+		select {
+		case out <- value.Interface().(T):
+		case <-ctx.Done():
+		}
 	}()
 	return out
 }

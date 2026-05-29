@@ -221,6 +221,11 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		retryChan <-chan time.Time
 	)
 	for {
+		// Per-iteration context for the watch goroutine started by
+		// newLocalNodeConfig, cancelled below so it does not leak if we proceed
+		// via a different event source than localNodeConfigWatch.
+		watchCtx, cancelWatch := context.WithCancel(ctx)
+
 		var (
 			localNodeConfig      config.Config
 			localNodeConfigWatch <-chan struct{}
@@ -238,7 +243,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			retryChan = time.After(reinitRetryDuration)
 		} else {
 			localNodeConfig, localNodeConfigWatch, err = newLocalNodeConfig(
-				ctx,
+				watchCtx,
 				option.Config,
 				localNode,
 				o.params.Sysctl,
@@ -292,6 +297,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 
 		select {
 		case <-ctx.Done():
+			cancelWatch()
 			return ctx.Err()
 		case <-ipipWatch:
 		case <-localNodeConfigWatch:
@@ -299,6 +305,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		case localNode = <-localNodes:
 		case request = <-o.trigger:
 		}
+
+		// Stop this iteration's watch goroutine now that we no longer need it.
+		cancelWatch()
 
 		// Limit the rate at which we reinitialize and to give the devs&addrs
 		// a chance to settle down.

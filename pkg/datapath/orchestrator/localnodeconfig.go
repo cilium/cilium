@@ -247,7 +247,7 @@ func newLocalNodeConfig(
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		VLANFilter:                   vlanFilter,
 		Plugins:                      plugins,
-	}, common.MergeChannels(watchChans...), nil
+	}, common.MergeChannels(ctx, watchChans...), nil
 }
 
 // podSubnets returns the explicitly configured pod subnets, falling back to
