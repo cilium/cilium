@@ -123,13 +123,25 @@ func (t toFqdnsWithProxy) build(ct *check.ConnectivityTest, templates map[string
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			extTarget := ct.Params().ExternalTarget
-			if a.Destination().Port() == 80 && a.Destination().Address(features.GetIPFamily(extTarget)) == extTarget {
-				egress = check.ResultDNSOK
-				egress.HTTP = check.HTTP{
-					Method: "GET",
-					URL:    fmt.Sprintf("http://%s/", strings.TrimSuffix(extTarget, ".")),
+			// All ports on the extTarget get redirected to Envoy listener,
+			// but the listener has filter chain match on the TcpProxy filter chain,
+			// only matching connections with destination port 80.
+			if a.Destination().Address(features.GetIPFamily(extTarget)) == extTarget {
+				if a.Destination().Port() == 80 {
+					egress = check.ResultDNSOK
+					egress.HTTP = check.HTTP{
+						Method: "GET",
+						URL:    fmt.Sprintf("http://%s/", strings.TrimSuffix(extTarget, ".")),
+					}
+					return egress, check.ResultNone
 				}
-				return egress, check.ResultNone
+				// other ports miss the destination port match on the Envoy
+				// filter chain, so they get connected, but not forwarded.
+				if a.Destination().Port() == 443 {
+					// port 443 gets the Curl SSL connect error
+					return check.ResultCurlSSLError, check.ResultNone
+				}
+				// other ports get the curl timeout
 			}
 			// No HTTP proxy on other ports/target
 			return check.ResultDNSOKDropCurlTimeout, check.ResultNone
