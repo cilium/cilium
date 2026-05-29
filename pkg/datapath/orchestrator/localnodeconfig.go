@@ -205,7 +205,7 @@ func newLocalNodeConfig(
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		Plugins:                      plugins,
-	}, common.MergeChannels(watchChans...), nil
+	}, common.MergeChannels(ctx, watchChans...), nil
 }
 
 // getEphemeralPortRangeMin returns the minimum ephemeral port from
