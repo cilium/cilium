@@ -220,8 +220,9 @@ set_v4_rtuple(const struct ipv4_ct_tuple *otuple,
 	rtuple->dport = ostate->to_sport;
 }
 
-static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map,
-					       struct ipv4_ct_tuple *otuple,
+static __always_inline int snat_v4_new_mapping(const struct __ctx_buff *ctx,
+					       const void *map,
+					       const struct ipv4_ct_tuple *otuple,
 					       struct ipv4_nat_entry *ostate,
 					       const struct ipv4_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
@@ -304,8 +305,8 @@ out:
 }
 
 static __always_inline int
-snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
-			   struct ipv4_ct_tuple *tuple,
+snat_v4_nat_handle_mapping(const struct __ctx_buff *ctx,
+			   const struct ipv4_ct_tuple *tuple,
 			   fraginfo_t fraginfo,
 			   struct ipv4_nat_entry **state,
 			   struct ipv4_nat_entry *tmp,
@@ -399,8 +400,8 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 }
 
 static __always_inline int
-snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
-			       struct ipv4_ct_tuple *tuple,
+snat_v4_rev_nat_handle_mapping(const struct __ctx_buff *ctx,
+			       const struct ipv4_ct_tuple *tuple,
 			       fraginfo_t fraginfo,
 			       struct ipv4_nat_entry **state,
 			       __u32 off,
@@ -1345,8 +1346,8 @@ set_v6_rtuple(const struct ipv6_ct_tuple *otuple,
 	rtuple->dport = ostate->to_sport;
 }
 
-static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
-					       struct ipv6_ct_tuple *otuple,
+static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
+					       const struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
 					       const struct ipv6_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
@@ -1425,8 +1426,8 @@ DEFINE_AUX(struct ipv6_nat_entry, snat_v6_nhm_nat_entry)
 DEFINE_AUX(struct ipv6_ct_tuple, snat_v6_nhm_tuple)
 
 static __always_inline int
-snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
-			   struct ipv6_ct_tuple *tuple,
+snat_v6_nat_handle_mapping(const struct __ctx_buff *ctx,
+			   const struct ipv6_ct_tuple *tuple,
 			   fraginfo_t fraginfo,
 			   struct ipv6_nat_entry **state,
 			   __u32 off,
@@ -1510,8 +1511,8 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 }
 
 static __always_inline int
-snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
-			       struct ipv6_ct_tuple *tuple,
+snat_v6_rev_nat_handle_mapping(const struct __ctx_buff *ctx,
+			       const struct ipv6_ct_tuple *tuple,
 			       fraginfo_t fraginfo,
 			       struct ipv6_nat_entry **state,
 			       __u32 off,
