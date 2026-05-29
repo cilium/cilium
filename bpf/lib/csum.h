@@ -7,8 +7,9 @@
 #include <linux/udp.h>
 #include <linux/icmpv6.h>
 
-#define TCP_CSUM_OFF (offsetof(struct tcphdr, check))
-#define UDP_CSUM_OFF (offsetof(struct udphdr, check))
+#define TCP_CSUM_OFF	(offsetof(struct tcphdr, check))
+#define TCP_CSUM_SIZE	(field_sizeof(struct tcphdr, check))
+#define UDP_CSUM_OFF	(offsetof(struct udphdr, check))
 
 struct csum_offset {
 	__u16 offset;
