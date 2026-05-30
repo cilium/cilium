@@ -136,7 +136,6 @@ type Manager struct {
 	identityAllocator identityCache.IdentityAllocator
 
 	// policyMap4 communicates the active IPv4 policies to the datapath.
-	policyMap4   *egressmap.PolicyMap4
 	policyMap4V2 *egressmap.PolicyMap4V2
 
 	// policyMap6 communicates the active IPv6 policies to the datapath.
@@ -175,7 +174,6 @@ type Params struct {
 	DaemonConfig      *option.DaemonConfig
 	TunnelConfig      tunnel.Config
 	IdentityAllocator identityCache.IdentityAllocator
-	PolicyMap4        *egressmap.PolicyMap4
 	PolicyMap4V2      *egressmap.PolicyMap4V2
 	PolicyMap6        *egressmap.PolicyMap6
 	Policies          resource.Resource[*Policy]
@@ -242,7 +240,6 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
-		policyMap4:                    p.PolicyMap4,
 		policyMap4V2:                  p.PolicyMap4V2,
 		policyMap6:                    p.PolicyMap6,
 		policies:                      p.Policies,
@@ -637,85 +634,6 @@ func (manager *Manager) relaxRPFilter() error {
 }
 
 func (manager *Manager) updateEgressRules4() {
-	if manager.policyMap4 == nil {
-		return
-	}
-
-	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
-	manager.policyMap4.IterateWithCallback(
-		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
-			egressPolicies[*key] = *val
-		})
-
-	// Start with the assumption that all the entries currently present in the
-	// BPF map are stale. Then as we walk the entries below and discover which
-	// entries are actually still needed, shrink this set down.
-	stale := sets.KeySet(egressPolicies)
-
-	addEgressRule := func(endpointIP netip.Addr, dstCIDR netip.Prefix, excludedCIDR bool, gwc *gatewayConfig) {
-		if !endpointIP.Is4() || !dstCIDR.Addr().Is4() {
-			return
-		}
-
-		policyKey := egressmap.NewEgressPolicyKey4(endpointIP, dstCIDR)
-		// This key needs to be present in the BPF map, hence remove it from
-		// the list of stale ones.
-		stale.Delete(policyKey)
-
-		policyVal, policyPresent := egressPolicies[policyKey]
-
-		gatewayIP := gwc.gatewayIP
-		if excludedCIDR {
-			gatewayIP = ExcludedCIDRIPv4
-		}
-
-		if policyPresent && policyVal.Match(gwc.egressIP4, gatewayIP) {
-			return
-		}
-
-		if err := manager.policyMap4.Update(endpointIP, dstCIDR, gwc.egressIP4, gatewayIP); err != nil {
-			manager.logger.Error(
-				"Error applying IPv4 egress gateway policy",
-				logfields.Error, err,
-				logfields.SourceIP, endpointIP,
-				logfields.DestinationCIDR, dstCIDR,
-				logfields.EgressIP, gwc.egressIP4,
-				logfields.GatewayIP, gatewayIP,
-			)
-		} else {
-			manager.logger.Debug("IPv4 egress gateway policy applied",
-				logfields.SourceIP, endpointIP,
-				logfields.DestinationCIDR, dstCIDR,
-				logfields.EgressIP, gwc.egressIP4,
-				logfields.GatewayIP, gatewayIP,
-			)
-		}
-	}
-
-	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndCIDR(addEgressRule)
-	}
-
-	// Remove all the entries marked as stale.
-	for policyKey := range stale {
-		if err := manager.policyMap4.Delete(policyKey.GetSourceIP(), policyKey.GetDestCIDR()); err != nil {
-			manager.logger.Error(
-				"Error removing IPv4 egress gateway policy",
-				logfields.Error, err,
-				logfields.SourceIP, policyKey.GetSourceIP(),
-				logfields.DestinationCIDR, policyKey.GetDestCIDR(),
-			)
-		} else {
-			manager.logger.Debug(
-				"IPv4 egress gateway policy removed",
-				logfields.SourceIP, policyKey.GetSourceIP(),
-				logfields.DestinationCIDR, policyKey.GetDestCIDR(),
-			)
-		}
-	}
-}
-
-func (manager *Manager) updateEgressRules4V2() {
 	if manager.policyMap4V2 == nil {
 		return
 	}
@@ -915,7 +833,6 @@ func (manager *Manager) reconcileLocked() {
 
 	// Update the content of the BPF maps.
 	manager.updateEgressRules4()
-	manager.updateEgressRules4V2()
 	manager.updateEgressRules6()
 
 	// clear the events bitmap
