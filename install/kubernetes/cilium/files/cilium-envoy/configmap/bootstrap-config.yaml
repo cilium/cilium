@@ -204,10 +204,6 @@ staticResources:
         upstreamHttpProtocolOptions: {}
         useDownstreamProtocolConfig: {}
     cleanupInterval: "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
-    transportSocket:
-      name: "cilium.tls_wrapper"
-      typedConfig:
-        "@type": "type.googleapis.com/cilium.UpstreamTlsWrapperContext"
   - name: "egress-cluster"
     type: "ORIGINAL_DST"
     connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
@@ -245,10 +241,6 @@ staticResources:
         upstreamHttpProtocolOptions: {}
         useDownstreamProtocolConfig: {}
     cleanupInterval: "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
-    transportSocket:
-      name: "cilium.tls_wrapper"
-      typedConfig:
-        "@type": "type.googleapis.com/cilium.UpstreamTlsWrapperContext"
   - name: "xds-grpc-cilium"
     type: "STATIC"
     connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
@@ -323,6 +315,11 @@ bootstrapExtensions:
 - name: "envoy.bootstrap.internal_listener"
   typedConfig:
     "@type": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener"
+- name: "envoy.bootstrap.dynamic_modules"
+  typedConfig:
+    "@type": "type.googleapis.com/envoy.extensions.dynamic_modules.v3.DynamicModuleConfig"
+    name: "cilium_dynamic_modules"
+    do_not_close: true
 overloadManager:
   resourceMonitors:
   - name: "envoy.resource_monitors.global_downstream_max_connections"

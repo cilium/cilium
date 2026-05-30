@@ -398,15 +398,10 @@ func GetAccessLogSocketPath() string {
 }
 
 func GetCiliumHttpFilter(accessLogPath string) *envoy_config_http.HttpFilter {
-	return &envoy_config_http.HttpFilter{
-		Name: "cilium.l7policy",
-		ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
-			TypedConfig: toAny(&cilium.L7Policy{
-				AccessLogPath:  accessLogPath,
-				Denied_403Body: option.Config.HTTP403Message,
-			}),
-		},
-	}
+	return wrapHttpFilterAsDynamicModule("cilium.l7policy", &cilium.L7Policy{
+		AccessLogPath:  accessLogPath,
+		Denied_403Body: option.Config.HTTP403Message,
+	})
 }
 
 func GetUpstreamCodecFilter() *envoy_config_http.HttpFilter {
@@ -514,28 +509,20 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 	}
 
 	chain := &envoy_config_listener.FilterChain{
-		Filters: []*envoy_config_listener.Filter{{
-			Name: "cilium.network",
-			ConfigType: &envoy_config_listener.Filter_TypedConfig{
-				TypedConfig: toAny(&cilium.NetworkFilter{}),
+		Filters: []*envoy_config_listener.Filter{
+			wrapNetworkFilterAsDynamicModule("cilium.network", &cilium.NetworkFilter{}),
+			{
+				Name: "envoy.filters.network.http_connection_manager",
+				ConfigType: &envoy_config_listener.Filter_TypedConfig{
+					TypedConfig: toAny(hcmConfig),
+				},
 			},
-		}, {
-			Name: "envoy.filters.network.http_connection_manager",
-			ConfigType: &envoy_config_listener.Filter_TypedConfig{
-				TypedConfig: toAny(hcmConfig),
-			},
-		}},
+		},
 	}
 
 	if tls {
 		chain.FilterChainMatch = &envoy_config_listener.FilterChainMatch{
 			TransportProtocol: "tls",
-		}
-		chain.TransportSocket = &envoy_config_core.TransportSocket{
-			Name: "cilium.tls_wrapper",
-			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-				TypedConfig: toAny(&cilium.DownstreamTlsWrapperContext{}),
-			},
 		}
 	}
 
@@ -554,12 +541,7 @@ func (s *xdsServer) getTcpFilterChainProto(clusterName string, tls bool) *envoy_
 		AccessLogPath: s.accessLogPath,
 	}
 
-	filters = append(filters, &envoy_config_listener.Filter{
-		Name: "cilium.network",
-		ConfigType: &envoy_config_listener.Filter_TypedConfig{
-			TypedConfig: toAny(ciliumConfig),
-		},
-	})
+	filters = append(filters, wrapNetworkFilterAsDynamicModule("cilium.network", ciliumConfig))
 
 	// 2. Add the TCP proxy filter.
 	filters = append(filters, &envoy_config_listener.Filter{
@@ -581,12 +563,6 @@ func (s *xdsServer) getTcpFilterChainProto(clusterName string, tls bool) *envoy_
 	if tls {
 		chain.FilterChainMatch = &envoy_config_listener.FilterChainMatch{
 			TransportProtocol: "tls",
-		}
-		chain.TransportSocket = &envoy_config_core.TransportSocket{
-			Name: "cilium.tls_wrapper",
-			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-				TypedConfig: toAny(&cilium.DownstreamTlsWrapperContext{}),
-			},
 		}
 	} else {
 		chain.FilterChainMatch = &envoy_config_listener.FilterChainMatch{
@@ -623,7 +599,7 @@ func GetLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core
 		addresses = append(addresses, &envoy_config_core.Address_SocketAddress{
 			SocketAddress: &envoy_config_core.SocketAddress{
 				Protocol:      envoy_config_core.SocketAddress_TCP,
-				Address:       "127.0.0.1",
+				Address:       "0.0.0.0",
 				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
 			},
 		})
@@ -633,7 +609,7 @@ func GetLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core
 		addresses = append(addresses, &envoy_config_core.Address_SocketAddress{
 			SocketAddress: &envoy_config_core.SocketAddress{
 				Protocol:      envoy_config_core.SocketAddress_TCP,
-				Address:       "::1",
+				Address:       "::",
 				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
 			},
 		})
@@ -842,6 +818,7 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	defer s.mutex.Unlock()
 
 	listenerConfig := listenerConf()
+	listenerConfig.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 	if option.Config.EnableBPFTProxy {
 		// Envoy since 1.20.0 uses SO_REUSEPORT on listeners by default.
 		// BPF TPROXY is currently not compatible with SO_REUSEPORT, so disable it.
@@ -990,12 +967,7 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 		conf.OriginalSourceSoLingerTime = &lingerTime
 	}
 
-	return &envoy_config_listener.ListenerFilter{
-		Name: "cilium.bpf_metadata",
-		ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
-			TypedConfig: toAny(conf),
-		},
-	}
+	return wrapListenerFilterAsDynamicModule("cilium.bpf_metadata", conf)
 }
 
 func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
@@ -1016,6 +988,14 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		Name:                name,
 		Address:             addr,
 		AdditionalAddresses: additionalAddr,
+		Transparent:         &wrapperspb.BoolValue{Value: true},
+		SocketOptions: []*envoy_config_core.SocketOption{{
+			Description: "cilium-proxy-mark",
+			Level:       1,  // SOL_SOCKET
+			Name:        36, // SO_MARK
+			Value:       &envoy_config_core.SocketOption_IntValue{IntValue: 0x0A00},
+			State:       envoy_config_core.SocketOption_STATE_PREBIND,
+		}},
 		// FilterChains: []*envoy_config_listener.FilterChain
 		ListenerFilters: []*envoy_config_listener.ListenerFilter{
 			// Always insert tls_inspector as the first filter
