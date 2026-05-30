@@ -1081,6 +1081,63 @@ func TestAllocSharedOnInit(t *testing.T) {
 	}
 }
 
+func TestAllocSharedOnInitPreservesExistingSharedIP(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(t, true, true)
+	fixture.UpsertPool(t, poolA)
+
+	policy := slim_core_v1.IPFamilyPolicySingleStack
+	sharedSvc := func(name string, uid types.UID, ip string, ports ...int32) *slim_core_v1.Service {
+		svcPorts := make([]slim_core_v1.ServicePort, 0, len(ports))
+		for _, port := range ports {
+			svcPorts = append(svcPorts, slim_core_v1.ServicePort{
+				Port:     port,
+				Protocol: slim_core_v1.ProtocolTCP,
+			})
+		}
+
+		return &slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				UID:       uid,
+				Annotations: map[string]string{
+					annotation.LBIPAMSharingKey: "key-1",
+				},
+			},
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
+				IPFamilyPolicy: &policy,
+				IPFamilies: []slim_core_v1.IPFamily{
+					slim_core_v1.IPv4Protocol,
+				},
+				Ports: svcPorts,
+			},
+			Status: slim_core_v1.ServiceStatus{
+				LoadBalancer: slim_core_v1.LoadBalancerStatus{
+					Ingress: []slim_core_v1.LoadBalancerIngress{{
+						IP: ip,
+					}},
+				},
+			},
+		}
+	}
+
+	fixture.UpsertSvc(t, sharedSvc("service-a", serviceAUID, "10.0.10.123", 80))
+	fixture.UpsertSvc(t, sharedSvc("service-b", serviceBUID, "10.0.10.124", 80))
+
+	svcC := sharedSvc("service-c", serviceCUID, "10.0.10.124", 81, 82)
+	fixture.UpsertSvc(t, svcC)
+	svcC = fixture.GetSvc("default", "service-c")
+
+	require.Len(t, svcC.Status.LoadBalancer.Ingress, 1)
+	require.Equal(t, "10.0.10.124", svcC.Status.LoadBalancer.Ingress[0].IP)
+
+	sharingCluster, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.124"))
+	require.True(t, has)
+	require.Len(t, sharingCluster.Services, 2)
+}
+
 // TestPoolSelector tests that an IP Pool will only allocate IPs to services which match its service selector.
 // The selector in this case is a very simple label.
 func TestPoolSelectorBasic(t *testing.T) {
