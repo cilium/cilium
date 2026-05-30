@@ -689,6 +689,15 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 			err = lbRange.alloc.Alloc(ip, sharingCluster)
 			if err != nil {
 				if errors.Is(err, ipalloc.ErrInUse) {
+					if existingCluster, ok := lbRange.alloc.Get(ip); ok && existingCluster != nil && sv.SharingKey != "" {
+						if compatible, _ := existingCluster.IsCompatible(sv); compatible {
+							existingCluster.Add(sv)
+							sv.AllocatedIPs = append(sv.AllocatedIPs, existingCluster.SVIP)
+							newIngresses = append(newIngresses, ingress)
+							continue
+						}
+					}
+
 					ipam.logger.Warn(
 						"Current IP is already allocated by another service, deferring to regular allocation logic",
 						logfields.IPAddr, ingress.IP,
