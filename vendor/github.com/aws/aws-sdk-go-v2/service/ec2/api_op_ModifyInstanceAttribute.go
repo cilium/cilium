@@ -102,6 +102,12 @@ type ModifyInstanceAttributeInput struct {
 	// PV instance can make it unreachable.
 	EnaSupport *types.AttributeBooleanValue
 
+	// Enables or disables the instance for Amazon Web Services Nitro Enclaves. For
+	// more information, see the [Amazon Web Services Nitro Enclaves User Guide].
+	//
+	// [Amazon Web Services Nitro Enclaves User Guide]: https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave.html
+	EnclaveOptions *types.EnclaveOptionsRequest
+
 	// Replaces the security groups of the instance with the specified security
 	// groups. You must specify the ID of at least one security group, even if it's
 	// just the default security group for the VPC.

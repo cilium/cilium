@@ -481,46 +481,6 @@ func (c *Context) ResetAuth(request *http.Request) *http.Request {
 	return request.WithContext(rctx)
 }
 
-// Authorize authorizes the request.
-//
-// Returns the principal object and a shallow copy of the request when its
-// context doesn't contain the principal, otherwise the same request or an error
-// (the last) if one of the authenticators returns one or an Unauthenticated error.
-func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (any, *http.Request, error) {
-	if route == nil || !route.HasAuth() {
-		return nil, nil, nil
-	}
-
-	var rCtx = request.Context()
-	if v := rCtx.Value(ctxSecurityPrincipal); v != nil {
-		return v, request, nil
-	}
-
-	applies, usr, err := route.Authenticators.Authenticate(request, route)
-	if !applies || err != nil || !route.Authenticators.AllowsAnonymous() && typeutils.IsZero(usr) {
-		if err != nil {
-			return nil, nil, err
-		}
-		return nil, nil, errors.Unauthenticated("invalid credentials")
-	}
-	if route.Authorizer != nil {
-		if err := route.Authorizer.Authorize(request, usr); err != nil {
-			var apiError errors.Error
-			if stderrors.As(err, &apiError) {
-				return nil, nil, err
-			}
-
-			return nil, nil, errors.New(http.StatusForbidden, "%v", err)
-		}
-	}
-
-	rCtx = request.Context()
-
-	rCtx = stdContext.WithValue(rCtx, ctxSecurityPrincipal, usr)
-	rCtx = stdContext.WithValue(rCtx, ctxSecurityScopes, route.Authenticator.AllScopes())
-	return usr, request.WithContext(rCtx), nil
-}
-
 // BindAndValidate binds and validates the request
 // Returns the validation map and a shallow copy of the request when its context
 // doesn't contain the validation, otherwise it returns the same request or an
@@ -665,6 +625,49 @@ func (c *Context) RoutesHandler(builder Builder) http.Handler {
 		b = PassthroughBuilder
 	}
 	return NewRouter(c, b(NewOperationExecutor(c)))
+}
+
+// authorizeImpl is the real authentication+authorization body shared
+// between the production and dev-only variants of [Context.Authorize].
+// See context_skipauth_disabled.go (default build) and
+// context_skipauth_enabled.go (the `openapi_unsafe_skipauth` build tag).
+//
+// The doc on the exported Authorize describes the user-facing
+// contract; this function MUST NOT change semantics for the
+// production path.
+func (c *Context) authorizeImpl(request *http.Request, route *MatchedRoute) (any, *http.Request, error) {
+	if route == nil || !route.HasAuth() {
+		return nil, nil, nil
+	}
+
+	var rCtx = request.Context()
+	if v := rCtx.Value(ctxSecurityPrincipal); v != nil {
+		return v, request, nil
+	}
+
+	applies, usr, err := route.Authenticators.Authenticate(request, route)
+	if !applies || err != nil || !route.Authenticators.AllowsAnonymous() && typeutils.IsZero(usr) {
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, nil, errors.Unauthenticated("invalid credentials")
+	}
+	if route.Authorizer != nil {
+		if err := route.Authorizer.Authorize(request, usr); err != nil {
+			var apiError errors.Error
+			if stderrors.As(err, &apiError) {
+				return nil, nil, err
+			}
+
+			return nil, nil, errors.New(http.StatusForbidden, "%v", err)
+		}
+	}
+
+	rCtx = request.Context()
+
+	rCtx = stdContext.WithValue(rCtx, ctxSecurityPrincipal, usr)
+	rCtx = stdContext.WithValue(rCtx, ctxSecurityScopes, route.Authenticator.AllScopes())
+	return usr, request.WithContext(rCtx), nil
 }
 
 func (c *Context) bindRequestBody(request *http.Request, route *MatchedRoute) (string, runtime.Consumer, error) {
