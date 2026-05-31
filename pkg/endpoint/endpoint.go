@@ -258,6 +258,10 @@ type Endpoint struct {
 	// reference to all policy related BPF
 	policyMap policymap.PolicyMap
 
+	// lastPolicyMapOmittedEntries tracks the number of entries omitted
+	// in the last policy map sync due to overflow.
+	lastPolicyMapOmittedEntries int
+
 	// PolicyMapPressureUpdater updates the policymap pressure metric.
 	PolicyMapPressureUpdater policyMapPressureUpdater
 

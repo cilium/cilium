@@ -5,12 +5,15 @@ package endpoint
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -27,6 +30,10 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
+	"github.com/cilium/cilium/pkg/identity"
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -35,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
@@ -959,6 +967,122 @@ func (e *Endpoint) updatePolicyMapPressureMetric(len int) {
 	})
 }
 
+// prioritizedPolicyMapEntry keeps a desired policy entry with its precomputed
+// overflow ranking fields.
+type prioritizedPolicyMapEntry struct {
+	key     policy.Key
+	entry   policy.MapStateEntry
+	traffic bool
+	tcpUDP  bool
+	current bool
+	ccnp    bool
+}
+
+func policyKeyFromPolicyMapKey(key policymap.PolicyKey) policy.Key {
+	return policy.KeyForDirection(trafficdirection.TrafficDirection(key.TrafficDirection)).
+		WithIdentity(identity.NumericIdentity(key.Identity)).
+		WithPortProtoPrefix(u8proto.U8proto(key.Nexthdr), key.GetDestPort(), key.GetPortPrefixLen())
+}
+
+func policyEntryFromPolicyMapEntry(key policymap.PolicyKey, entry policymap.PolicyEntry) policy.MapStateEntry {
+	policyEntry := policy.MapStateEntry{
+		Precedence:      entry.Precedence,
+		ProxyPort:       entry.GetProxyPort(),
+		AuthRequirement: entry.AuthRequirement,
+		Cookie:          entry.Cookie,
+	}.WithDeny(entry.IsDeny())
+	if !entry.IsValid(&key) {
+		policyEntry.Invalidate()
+	}
+	return policyEntry
+}
+
+func policyMapEntryHasTraffic(entry policymap.PolicyEntryDump) bool {
+	return (entry.Packets != policymap.StatNotAvailable && entry.Packets > 0) ||
+		(entry.Bytes != policymap.StatNotAvailable && entry.Bytes > 0)
+}
+
+func currentPolicyMapState(entries policymap.PolicyEntriesDump) (policy.MapStateMap, map[policy.Key]bool) {
+	current := make(policy.MapStateMap, len(entries))
+	traffic := make(map[policy.Key]bool, len(entries))
+	for _, entry := range entries {
+		key := policyKeyFromPolicyMapKey(entry.Key)
+		current[key] = policyEntryFromPolicyMapEntry(entry.Key, entry.PolicyEntry)
+		traffic[key] = policyMapEntryHasTraffic(entry)
+	}
+	return current, traffic
+}
+
+func endpointPolicyMapEntries(p *policy.EndpointPolicy) policy.MapStateMap {
+	entries := make(policy.MapStateMap, p.Len())
+	maps.Insert(entries, p.Entries())
+	return entries
+}
+
+func isCCNPDerived(lblsList labels.LabelArrayList) bool {
+	for _, lbls := range lblsList {
+		for _, lbl := range lbls {
+			if lbl.Key == k8sconst.PolicyLabelDerivedFrom &&
+				lbl.Value == k8sCiliumUtils.ResourceTypeCiliumClusterwideNetworkPolicy {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func policyKeyCompare(a, b policy.Key) int {
+	return cmp.Or(
+		cmp.Compare(a.TrafficDirection(), b.TrafficDirection()),
+		cmp.Compare(a.Identity, b.Identity),
+		cmp.Compare(a.Nexthdr, b.Nexthdr),
+		cmp.Compare(a.DestPort, b.DestPort),
+		cmp.Compare(a.PortPrefixLen(), b.PortPrefixLen()),
+	)
+}
+
+// prioritizedPolicyMapEntries returns desired entries sorted by overflow
+// priority: traffic, TCP/UDP, current BPF map presence, CCNP origin, then key.
+func prioritizedPolicyMapEntries(
+	desired policy.MapStateMap,
+	current policy.MapStateMap,
+	traffic map[policy.Key]bool,
+	ruleLabels func(policy.Key) (labels.LabelArrayList, bool),
+) []prioritizedPolicyMapEntry {
+	entries := make([]prioritizedPolicyMapEntry, 0, len(desired))
+	for key, entry := range desired {
+		lbls, hasLabels := ruleLabels(key)
+		_, isCurrent := current[key]
+		entries = append(entries, prioritizedPolicyMapEntry{
+			key:     key,
+			entry:   entry,
+			traffic: traffic[key],
+			tcpUDP:  key.Nexthdr == u8proto.TCP || key.Nexthdr == u8proto.UDP,
+			current: isCurrent,
+			ccnp:    hasLabels && isCCNPDerived(lbls),
+		})
+	}
+	slices.SortFunc(entries, func(a, b prioritizedPolicyMapEntry) int {
+		cmpBool := func(a, b bool) int {
+			if a == b {
+				return 0
+			}
+			if a {
+				return -1
+			}
+			return 1
+		}
+		return cmp.Or(
+			cmpBool(a.traffic, b.traffic),
+			cmpBool(a.tcpUDP, b.tcpUDP),
+			cmpBool(a.current, b.current),
+			cmpBool(a.ccnp, b.ccnp),
+			policyKeyCompare(a.key, b.key),
+		)
+	})
+	return entries
+}
+
 func (e *Endpoint) deletePolicyKeys(deletes, adds policy.Keys) int {
 	var errors int
 	for k := range deletes {
@@ -1042,6 +1166,125 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 		logfields.BPFMapValue, entry,
 	)
 	return true
+}
+
+func (e *Endpoint) addPolicyMapEntries(entries []prioritizedPolicyMapEntry, current policy.MapStateMap, diffs *[]policy.MapChange) int {
+	errors := 0
+	for _, entry := range entries {
+		if currentEntry, ok := current[entry.key]; ok && currentEntry == entry.entry {
+			continue
+		}
+		if !e.addPolicyKey(entry.key, entry.entry) {
+			errors++
+			continue
+		}
+		if diffs != nil {
+			*diffs = append(*diffs, policy.MapChange{
+				Add:   true,
+				Key:   entry.key,
+				Value: entry.entry,
+			})
+		}
+	}
+	return errors
+}
+
+func (e *Endpoint) deletePolicyMapEntries(desired, current policy.MapStateMap, diffs *[]policy.MapChange) int {
+	errors := 0
+	for key, entry := range current {
+		if _, ok := desired[key]; ok {
+			continue
+		}
+		if !e.deletePolicyKey(key) {
+			errors++
+			continue
+		}
+		if diffs != nil {
+			*diffs = append(*diffs, policy.MapChange{
+				Key:   key,
+				Value: entry,
+			})
+		}
+	}
+	return errors
+}
+
+// syncPolicyMapEntries writes an already-prioritized desired set to the BPF map.
+func (e *Endpoint) syncPolicyMapEntries(
+	prioritized []prioritizedPolicyMapEntry,
+	current policy.MapStateMap,
+	withDiffs bool,
+) (diffCount int, diffs []policy.MapChange, err error) {
+	var collectedDiffs *[]policy.MapChange
+	if withDiffs {
+		collectedDiffs = &diffs
+	}
+
+	desired := make(policy.MapStateMap, len(prioritized))
+	adds := 0
+	for _, entry := range prioritized {
+		desired[entry.key] = entry.entry
+		if _, ok := current[entry.key]; !ok {
+			adds++
+		}
+	}
+	addErrors, deleteErrors := 0, 0
+	deleteFirst := len(current)+adds > int(e.policyMap.MaxEntries())
+	if deleteFirst {
+		deleteErrors = e.deletePolicyMapEntries(desired, current, collectedDiffs)
+		addErrors = e.addPolicyMapEntries(prioritized, current, collectedDiffs)
+	} else {
+		addErrors = e.addPolicyMapEntries(prioritized, current, collectedDiffs)
+		deleteErrors = e.deletePolicyMapEntries(desired, current, collectedDiffs)
+	}
+	if addErrors > 0 || deleteErrors > 0 {
+		return 0, diffs, fmt.Errorf("syncPolicyMapEntries failed")
+	}
+	if withDiffs {
+		diffCount = len(diffs)
+	}
+	return diffCount, diffs, nil
+}
+
+func (e *Endpoint) syncPolicyMapWithOverflow(withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
+	dump, err := e.policyMap.DumpToSlice()
+	if err != nil {
+		return 0, nil, fmt.Errorf("dump PolicyMap for overflow prioritization: %w", err)
+	}
+	current, traffic := currentPolicyMapState(dump)
+	return e.syncPolicyMapWithOverflowState(current, traffic, withDiffs)
+}
+
+func (e *Endpoint) syncPolicyMapWithOverflowState(
+	current policy.MapStateMap,
+	traffic map[policy.Key]bool,
+	withDiffs bool,
+) (diffCount int, diffs []policy.MapChange, err error) {
+	maxEntries := int(e.policyMap.MaxEntries())
+	desired := endpointPolicyMapEntries(e.desiredPolicy)
+	prioritized := prioritizedPolicyMapEntries(desired, current, traffic, func(key policy.Key) (labels.LabelArrayList, bool) {
+		meta, err := e.desiredPolicy.GetRuleMeta(key)
+		return meta.LabelArray(), err == nil
+	})
+	omitted := 0
+	if len(prioritized) > maxEntries {
+		omitted = len(prioritized) - maxEntries
+		prioritized = prioritized[:maxEntries]
+	}
+	if omitted > 0 && omitted != e.lastPolicyMapOmittedEntries {
+		e.getLogger().Warn(
+			"Policy map exceeds max entries, applying prioritized subset",
+			logfields.Entries, len(desired),
+			logfields.Maximum, maxEntries,
+			logfields.OmittedEntries, omitted,
+		)
+	}
+
+	diffCount, diffs, err = e.syncPolicyMapEntries(prioritized, current, withDiffs)
+	if err == nil {
+		e.lastPolicyMapOmittedEntries = omitted
+	}
+	return diffCount, diffs, err
 }
 
 // ApplyPolicyMapChanges updates the Endpoint's PolicyMap with the changes
@@ -1189,6 +1432,11 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	if e.policyMap == nil {
 		e.getLogger().Debug("Skipping bpf updates due to endpoint not having policy map yet")
 		return nil
+	}
+
+	if e.desiredPolicy.Len() > int(e.policyMap.MaxEntries()) {
+		_, _, err := e.syncPolicyMapWithOverflow(false)
+		return err
 	}
 
 	// Add policy map entries before deleting to avoid transient drops. If there
@@ -1350,6 +1598,11 @@ func (e *Endpoint) syncPolicyMap() error {
 		return ErrComingOutOfLockdown
 	}
 
+	if e.desiredPolicy.Len() > int(e.policyMap.MaxEntries()) {
+		_, _, err := e.syncPolicyMapWithOverflow(false)
+		return err
+	}
+
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
 		if !e.addPolicyKey(k, v) {
@@ -1396,6 +1649,11 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 	}
 	if e.stopLockdownLocked() {
 		err = ErrComingOutOfLockdown
+		return
+	}
+
+	if e.desiredPolicy.Len() > int(e.policyMap.MaxEntries()) {
+		diffCount, diffs, err = e.syncPolicyMapWithOverflow(withDiffs)
 		return
 	}
 

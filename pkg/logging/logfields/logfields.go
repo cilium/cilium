@@ -1644,6 +1644,8 @@ const (
 
 	AliveEntries = "aliveEntries"
 
+	OmittedEntries = "omittedEntries"
+
 	Scope = "scope"
 
 	NewLocally = "newLocally"
