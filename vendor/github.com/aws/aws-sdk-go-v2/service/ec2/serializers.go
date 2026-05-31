@@ -85065,6 +85065,13 @@ func awsEc2query_serializeOpDocumentModifyInstanceAttributeInput(v *ModifyInstan
 		}
 	}
 
+	if v.EnclaveOptions != nil {
+		objectKey := object.Key("EnclaveOptions")
+		if err := awsEc2query_serializeDocumentEnclaveOptionsRequest(v.EnclaveOptions, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.Groups != nil {
 		objectKey := object.FlatKey("GroupId")
 		if err := awsEc2query_serializeDocumentGroupIdStringList(v.Groups, objectKey); err != nil {

@@ -1895,14 +1895,14 @@ func (h *fsmHandler) recvMessageloop(ctx context.Context, conn net.Conn, holdtim
 					body := m.Body.(*bgp.BGPNotification)
 					if body.ErrorCode == bgp.BGP_ERROR_CEASE && (body.ErrorSubcode == bgp.BGP_ERROR_SUB_ADMINISTRATIVE_SHUTDOWN || body.ErrorSubcode == bgp.BGP_ERROR_SUB_ADMINISTRATIVE_RESET) {
 						communication, rest := decodeAdministrativeCommunication(body.Data)
-						h.fsm.logger.Warn("received notification",
+						h.fsm.logger.Info("received notification",
 							slog.Int("Code", int(body.ErrorCode)),
 							slog.Int("Subcode", int(body.ErrorSubcode)),
 							slog.String("Communicated-Reason", communication),
 							slog.Any("Data", rest),
 						)
 					} else {
-						h.fsm.logger.Warn("received notification",
+						h.fsm.logger.Info("received notification",
 							slog.Int("Code", int(body.ErrorCode)),
 							slog.Int("Subcode", int(body.ErrorSubcode)),
 							slog.Any("Data", body.Data))
