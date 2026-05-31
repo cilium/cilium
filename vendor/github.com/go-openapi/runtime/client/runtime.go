@@ -44,7 +44,8 @@ type Runtime struct {
 	Host     string
 	BasePath string
 	Formats  strfmt.Registry
-	Context  context.Context //nolint:containedctx  // we precisely want this type to contain the request context
+	// Deprecated: prefer [runtime.ContextualTransport.SubmitContext] to pass the request context explicitly.
+	Context context.Context //nolint:containedctx  // we precisely want this type to contain the request context
 
 	Debug bool
 
@@ -84,6 +85,8 @@ type Runtime struct {
 	schemes    []string
 	response   ClientResponseFunc
 }
+
+var _ runtime.ContextualTransport = &Runtime{}
 
 // New creates a new default runtime for a swagger api runtime.Client.
 func New(host, basePath string, schemes []string) *Runtime {
@@ -293,7 +296,7 @@ func (r *Runtime) SetResponseReader(f ClientResponseFunc) {
 
 func (r *Runtime) ensureContext(operation *runtime.ClientOperation) context.Context {
 	switch {
-	case operation.Context != nil:
+	case operation.Context != nil: //nolint:staticcheck // kept for backward compatibility
 		return operation.Context
 	case r.Context != nil:
 		return r.Context

@@ -131,13 +131,19 @@ func (p *untypedParamBinder) bindFormData(request *http.Request, _ RouteParams, 
 	}
 
 	if p.parameter.Type == "file" {
-		file, header, ffErr := request.FormFile(p.parameter.Name)
+		// runtime.FormFile handles both multipart/form-data and
+		// application/x-www-form-urlencoded (OpenAPI 2.0 permits
+		// either consumes for `type: file`), and surfaces a
+		// missing field as http.ErrMissingFile under both.
+		file, header, ffErr := runtime.FormFile(request, p.parameter.Name)
 		if ffErr != nil {
-			if p.parameter.Required {
-				return errors.NewParseError(p.Name, p.parameter.In, "", ffErr)
+			if stderrors.Is(ffErr, http.ErrMissingFile) {
+				if p.parameter.Required {
+					return errors.NewParseError(p.Name, p.parameter.In, "", http.ErrMissingFile)
+				}
+				return nil
 			}
-
-			return nil
+			return errors.NewParseError(p.Name, p.parameter.In, "", ffErr)
 		}
 
 		// Mirror the FileHeader.Filename length cap that BindForm
