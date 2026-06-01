@@ -10,9 +10,11 @@ import (
 	"path"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -167,7 +169,7 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, 
 		return err
 	}
 
-	err = nodeStore.UpdateLocalKeySync(ctx, n.DeepCopy())
+	err = nodeStore.UpdateLocalKeySync(ctx, copyForRemoteNodes(n))
 	if err != nil {
 		nodeStore.Release()
 		return err
@@ -183,5 +185,23 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, 
 // UpdateLocalKeySync synchronizes the local key for the node using the
 // SharedStore.
 func (nr *NodeRegistrar) UpdateLocalKeySync(ctx context.Context, n *nodeTypes.Node) error {
-	return nr.SharedStore.UpdateLocalKeySync(ctx, n.DeepCopy())
+	return nr.SharedStore.UpdateLocalKeySync(ctx, copyForRemoteNodes(n))
+}
+
+func copyForRemoteNodes(n *nodeTypes.Node) *nodeTypes.Node {
+	node := n.DeepCopy()
+	switch option.Config.IPAM {
+	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMMultiPool:
+		// Keep the PodCIDRs as they are valid.
+	default:
+		// Strip the PodCIDRs on non-podCIDR based IPAM modes (e.g. ENI, Azure, AlibabaCloud). In
+		// those cases, the IPv4/IPv6AllocRange is auto-generated and otherwise unused, so it does
+		// not make sense to copy it to the kvstore.
+		// See NodeDiscovery.mutateNodeResource() for the equivalent CRD mode logic.
+		node.IPv4AllocCIDR = nil
+		node.IPv4SecondaryAllocCIDRs = nil
+		node.IPv6AllocCIDR = nil
+		node.IPv6SecondaryAllocCIDRs = nil
+	}
+	return node
 }
