@@ -522,10 +522,12 @@ func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 	}
 	expectedRules := policytypes.PolicyEntries{expectedRule}
 
-	rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, &np)
-	require.NoError(t, err)
-	require.NotNil(t, rules)
-	require.Equal(t, expectedRules, rules)
+	for _, clusterName := range []string{cmtypes.PolicyAnyCluster, "my-cluster"} {
+		rules, err := ParseNetworkPolicy(hivetest.Logger(t), clusterName, &np)
+		require.NoError(t, err)
+		require.NotNil(t, rules)
+		require.Equal(t, expectedRules, rules)
+	}
 }
 
 func TestParseNetworkPolicyEgress(t *testing.T) {
