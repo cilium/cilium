@@ -181,8 +181,10 @@ PREPULL_IMAGES ?= quay.io/cilium/cilium-ci:latest  quay.io/cilium/operator-gener
 .PHONY: kind-load-base-images
 kind-load-base-images:
 	@echo "  PULL cluster images"
-	for image in $(PREPULL_IMAGES); do docker pull $$image; done
-	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+	for image in $(PREPULL_IMAGES); do \
+		docker pull $$image || docker image inspect $$image >/dev/null 2>&1; \
+	done
+	for cluster_name in $${KIND_CLUSTERS:-$$(kind get clusters)}; do \
 		kind load docker-image $(PREPULL_IMAGES) -n $$cluster_name; \
 	done
 
