@@ -38,29 +38,18 @@ veth peer, and routing uses a proxy-ARP gateway at ``169.254.1.1``. This model
 is functionally identical to AWS VPC CNI.
 
 Cilium runs as the third plugin in the chain via the ``generic-veth`` chaining
-mode. When ``cni.chainingTarget=oci`` is set, the Cilium agent automatically
-discovers the existing OCI conflist named ``"oci"`` on each node and injects
-itself at the end of the plugin array. No manual CNI ConfigMap is required.
-
-The final conflist on each node looks like:
-
-.. code-block:: json
-
-   {
-     "name": "oci",
-     "cniVersion": "0.3.1",
-     "plugins": [
-       {"type": "oci-ipvlan", "mode": "l2", "ipam": {"type": "oci-ipam"}},
-       {"type": "oci-ptp", "containerInterface": "ptp-veth0", "mtu": 9000},
-       {"type": "cilium-cni", "chaining-mode": "generic-veth"}
-     ]
-   }
+mode. When ``cni.chainingTarget=oci`` is set, the Cilium agent discovers the
+existing OCI conflist named ``"oci"`` on each node, merges itself into the
+plugin array, and writes the result to ``/etc/cni/net.d/05-cilium.conflist``.
+The original ``10-oci.conflist`` is not modified — checking that file will not
+show the ``cilium-cni`` entry. Because ``05-cilium.conflist`` sorts before
+``10-oci.conflist``, the kubelet picks it up automatically for all new pods.
+No manual CNI ConfigMap is required.
 
 Prerequisites
 =============
 
 - OKE cluster with VCN-Native Pod Networking enabled (not Flannel)
-- Oracle Linux 8+ with kernel 5.15 UEK (standard OKE managed node images)
 - ``kubectl`` configured and pointing at the cluster
 - Helm v3+
 
