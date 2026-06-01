@@ -6,9 +6,9 @@
 
 .. _chaining_oracle_oke:
 
-*******************************************************
+********************************************************
 Oracle Kubernetes Engine (OKE) VCN-Native Pod Networking
-*******************************************************
+********************************************************
 
 This guide explains how to set up Cilium on top of Oracle Kubernetes Engine
 (OKE) with VCN-Native Pod Networking. In this hybrid mode, Oracle's CNI stack
