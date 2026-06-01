@@ -1,0 +1,58 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-mixed
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: HTTPRoute
+    - name: tcp
+      port: 3000
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TCPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mixed-http
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-mixed
+      namespace: gateway-conformance-infra
+      sectionName: http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: mixed-tcp
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-mixed
+      namespace: gateway-conformance-infra
+      sectionName: tcp
+  rules:
+    - backendRefs:
+        - name: tcp-backend
+          port: 3000

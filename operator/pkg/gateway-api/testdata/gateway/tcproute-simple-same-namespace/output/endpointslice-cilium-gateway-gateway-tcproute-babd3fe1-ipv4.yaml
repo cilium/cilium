@@ -1,0 +1,24 @@
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: cilium-gateway-gateway-tcproute-babd3fe1-ipv4
+  namespace: gateway-conformance-infra
+  labels:
+    endpointslice.kubernetes.io/managed-by: cilium-operator
+    gateway.networking.k8s.io/gateway-name: gateway-tcproute
+    kubernetes.io/service-name: cilium-gateway-gateway-tcproute
+  annotations:
+    gateway.cilium.io/backend-port: "8080"
+    gateway.cilium.io/backend-service: gateway-conformance-infra/tcp-backend-simple
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      name: gateway-tcproute
+      controller: true
+      uid: ""
+addressType: IPv4
+endpoints: []
+ports:
+  - name: port-8080
+    port: 8080
+    protocol: TCP

@@ -42,7 +42,7 @@ func NewDedicatedIngressTranslator(log *slog.Logger, cecTranslator translation.C
 	}
 }
 
-func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
+func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, []*discoveryv1.EndpointSlice, error) {
 	if m == nil || (len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0) {
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
 	}
@@ -156,42 +156,44 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 	}
 }
 
-func getEndpointSlice(resource model.FullyQualifiedResource) *discoveryv1.EndpointSlice {
-	return &discoveryv1.EndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
-			Namespace: resource.Namespace,
-			Labels: map[string]string{
-				ciliumIngressLabelKey:        "true",
-				discoveryv1.LabelServiceName: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
+func getEndpointSlice(resource model.FullyQualifiedResource) []*discoveryv1.EndpointSlice {
+	return []*discoveryv1.EndpointSlice{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
+				Namespace: resource.Namespace,
+				Labels: map[string]string{
+					ciliumIngressLabelKey:        "true",
+					discoveryv1.LabelServiceName: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
+						Kind:       "Ingress",
+						Name:       resource.Name,
+						UID:        types.UID(resource.UID),
+						Controller: ptr.To(true),
+					},
+				},
 			},
-			OwnerReferences: []metav1.OwnerReference{
+			AddressType: discoveryv1.AddressTypeIPv4,
+			Endpoints: []discoveryv1.Endpoint{
 				{
-					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
-					Kind:       "Ingress",
-					Name:       resource.Name,
-					UID:        types.UID(resource.UID),
-					Controller: ptr.To(true),
+					// This dummy endpoint is required as agent refuses to push service entry
+					// to the lb map when the service has no backends.
+					// Related github issue https://github.com/cilium/cilium/issues/19262
+					Addresses: []string{"192.192.192.192"}, // dummy
+					// Ready must be explicit: K8s treats nil as ready, but some
+					// consumers (e.g. GKE NEG controller) require it set. See #44611.
+					Conditions: discoveryv1.EndpointConditions{
+						Ready: ptr.To(true),
+					},
 				},
 			},
-		},
-		AddressType: discoveryv1.AddressTypeIPv4,
-		Endpoints: []discoveryv1.Endpoint{
-			{
-				// This dummy endpoint is required as agent refuses to push service entry
-				// to the lb map when the service has no backends.
-				// Related github issue https://github.com/cilium/cilium/issues/19262
-				Addresses: []string{"192.192.192.192"}, // dummy
-				// Ready must be explicit: K8s treats nil as ready, but some
-				// consumers (e.g. GKE NEG controller) require it set. See #44611.
-				Conditions: discoveryv1.EndpointConditions{
-					Ready: ptr.To(true),
+			Ports: []discoveryv1.EndpointPort{
+				{
+					Port: ptr.To[int32](9999), // dummy
 				},
-			},
-		},
-		Ports: []discoveryv1.EndpointPort{
-			{
-				Port: ptr.To[int32](9999), // dummy
 			},
 		},
 	}

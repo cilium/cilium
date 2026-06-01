@@ -1,0 +1,33 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: mixed-tcp
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: gateway-mixed
+    namespace: gateway-conformance-infra
+    sectionName: tcp
+  rules:
+  - backendRefs:
+    - name: tcp-backend
+      port: 3000
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2026-06-05T07:01:22Z"
+      message: Accepted TCPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-05T07:01:22Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: gateway-mixed
+      namespace: gateway-conformance-infra
+      sectionName: tcp
