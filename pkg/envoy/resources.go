@@ -83,8 +83,7 @@ var CiliumAdsConfigSource = &envoy_config_core.ApiConfigSource{
 func CiliumConfigSource(mode config.XDSMode) *envoy_config_core.ConfigSource {
 	switch mode {
 	case config.EnvoyXDSModeDeltaSplit:
-		// Delta mode not supported yet
-		return nil
+		return CiliumDeltaXDSConfigSource
 	case config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS:
 		return CiliumXdsWithAdsConfigSource
 	case config.EnvoyXDSModeDeltaADS, config.EnvoyXDSModeStrictDeltaADS:
@@ -125,8 +124,30 @@ var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
 	},
 }
 
+var CiliumDeltaXDSConfigSource = &envoy_config_core.ConfigSource{
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 30},
+	ResourceApiVersion:  envoy_config_core.ApiVersion_V3,
+	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
+		ApiConfigSource: &envoy_config_core.ApiConfigSource{
+			ApiType:                   envoy_config_core.ApiConfigSource_DELTA_GRPC,
+			TransportApiVersion:       envoy_config_core.ApiVersion_V3,
+			SetNodeOnFirstMessageOnly: true,
+			GrpcServices: []*envoy_config_core.GrpcService{
+				{
+					TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
+							ClusterName: CiliumXDSClusterName,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func SetXDSConfigSourceInitialFetchTimeout(proxyInitialFetchTimeout uint) {
 	CiliumXDSConfigSource.InitialFetchTimeout = durationpb.New(time.Duration(proxyInitialFetchTimeout) * time.Second)
+	CiliumDeltaXDSConfigSource.InitialFetchTimeout = durationpb.New(time.Duration(proxyInitialFetchTimeout) * time.Second)
 
 	// Initial fetch timeout is not set on the ADS config sources.
 	// ADS resources are published on one stream, but Cilium may reconcile a
@@ -172,7 +193,7 @@ func (cache *NPHDSCache) WaitForFirstAck(ctx context.Context, node string, typeU
 // We use this to start the IP Cache listener on the first ACK so that we only
 // start the IP Cache listener if there is an Envoy node that uses NPHDS
 // (e.g. Cilium host proxy running on kernel w/o LPM bpf map support).
-func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
+func (cache *NPHDSCache) HandleResourceVersionAck(nodeIP string, ackVersion uint64, responseVersion uint64, isNACK bool, errorDetail string, typeURL string, resourceNames []string) {
 	// Start caching for IP/ID mappings on the first indication someone wants them
 	observerOnce.Do(func() {
 		cache.ipcache.AddListener(cache)

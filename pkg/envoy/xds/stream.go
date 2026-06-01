@@ -16,3 +16,13 @@ type Stream interface {
 	// Recv receives a xDS request from the client.
 	Recv() (*envoy_service_discovery.DiscoveryRequest, error)
 }
+
+// DeltaStream is the subset of the gRPC bi-directional stream types which is used
+// by Server.
+type DeltaStream interface {
+	// Send sends a xDS response back to the client.
+	Send(*envoy_service_discovery.DeltaDiscoveryResponse) error
+
+	// Recv receives a xDS request from the client.
+	Recv() (*envoy_service_discovery.DeltaDiscoveryRequest, error)
+}

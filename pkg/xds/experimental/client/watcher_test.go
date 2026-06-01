@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -34,6 +35,10 @@ func newFakeResourceSource() *fakeResourceSource {
 
 func (f *fakeResourceSource) GetResources(typeURL string, latestVersion uint64, resourceNames []string) *xds.VersionedResources {
 	return f.getResources(typeURL, latestVersion, resourceNames)
+}
+
+func (f *fakeResourceSource) GetDeltaResources(typeURL string, latestAckedVersion uint64, subscriptions, ackedResourceNames, forceResponseNames set.Set[string], forceEmptyResponse bool) *xds.VersionedResources {
+	return f.GetResources(typeURL, latestAckedVersion, subscriptions.AsSlice())
 }
 
 func (f *fakeResourceSource) EnsureVersion(string, uint64) {}
