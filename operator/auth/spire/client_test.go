@@ -203,12 +203,15 @@ func TestClient_Upsert(t *testing.T) {
 							},
 						}, in)
 						return &entryv1.ListEntriesResponse{
-							Entries: []*types.Entry{{}},
+							Entries: []*types.Entry{{Id: "existing-entry-id"}},
 						}, nil
 					},
 					BatchUpdateEntryFunc: func(ctx context.Context, in *entryv1.BatchUpdateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchUpdateEntryResponse, error) {
+						// The update entry must carry the Id of the existing
+						// entry; otherwise SPIRE cannot resolve the row.
 						require.ElementsMatch(t, in.Entries, []*types.Entry{
 							{
+								Id: "existing-entry-id",
 								SpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
 									Path:        "/identity/dummy-id",
@@ -220,10 +223,43 @@ func TestClient_Upsert(t *testing.T) {
 								Selectors: defaultSelectors,
 							},
 						})
-						return &entryv1.BatchUpdateEntryResponse{}, nil
+						return &entryv1.BatchUpdateEntryResponse{
+							Results: []*entryv1.BatchUpdateEntryResponse_Result{
+								{Status: &types.Status{Code: int32(codes.OK)}},
+							},
+						}, nil
 					},
 				},
 			},
+		},
+		{
+			name: "entry exists but update returns per-entry failure",
+			args: args{
+				id: "dummy-id",
+			},
+			fields: fields{
+				entry: mockEntryClient{
+					ListEntriesFunc: func(ctx context.Context, in *entryv1.ListEntriesRequest, opts ...grpc.CallOption) (*entryv1.ListEntriesResponse, error) {
+						return &entryv1.ListEntriesResponse{
+							Entries: []*types.Entry{{Id: "existing-entry-id"}},
+						}, nil
+					},
+					BatchUpdateEntryFunc: func(ctx context.Context, in *entryv1.BatchUpdateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchUpdateEntryResponse, error) {
+						require.Equal(t, "existing-entry-id", in.Entries[0].Id)
+						// Top-level err is nil but the per-entry status fails;
+						// the caller must surface this as an error.
+						return &entryv1.BatchUpdateEntryResponse{
+							Results: []*entryv1.BatchUpdateEntryResponse_Result{
+								{Status: &types.Status{
+									Code:    int32(codes.NotFound),
+									Message: "Failed to update entry",
+								}},
+							},
+						}, nil
+					},
+				},
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -554,18 +590,74 @@ func TestClient_UpsertBatch(t *testing.T) {
 					return &entryv1.BatchCreateEntryResponse{
 						Results: []*entryv1.BatchCreateEntryResponse_Result{
 							{Status: &types.Status{Code: int32(codes.OK)}},
-							{Status: &types.Status{Code: int32(codes.AlreadyExists)}},
+							{
+								Status: &types.Status{Code: int32(codes.AlreadyExists)},
+								// SPIRE returns the existing entry (with its Id)
+								// on AlreadyExists.
+								Entry: &types.Entry{Id: "existing-id2"},
+							},
 						},
 					}, nil
 				},
 				BatchUpdateEntryFunc: func(ctx context.Context, in *entryv1.BatchUpdateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchUpdateEntryResponse, error) {
 					require.Len(t, in.Entries, 1)
 					require.Equal(t, "/identity/id2", in.Entries[0].SpiffeId.Path)
-					return &entryv1.BatchUpdateEntryResponse{}, nil
+					// The update entry must carry the existing Id.
+					require.Equal(t, "existing-id2", in.Entries[0].Id)
+					return &entryv1.BatchUpdateEntryResponse{
+						Results: []*entryv1.BatchUpdateEntryResponse_Result{
+							{Status: &types.Status{Code: int32(codes.OK)}},
+						},
+					}, nil
 				},
 			},
 			ids:     []string{"id1", "id2"},
 			wantErr: false,
+		},
+		{
+			name: "batch update per-entry failure surfaces error",
+			entry: mockEntryClient{
+				BatchCreateEntryFunc: func(ctx context.Context, in *entryv1.BatchCreateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchCreateEntryResponse, error) {
+					return &entryv1.BatchCreateEntryResponse{
+						Results: []*entryv1.BatchCreateEntryResponse_Result{
+							{
+								Status: &types.Status{Code: int32(codes.AlreadyExists)},
+								Entry:  &types.Entry{Id: "existing-id1"},
+							},
+						},
+					}, nil
+				},
+				BatchUpdateEntryFunc: func(ctx context.Context, in *entryv1.BatchUpdateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchUpdateEntryResponse, error) {
+					require.Equal(t, "existing-id1", in.Entries[0].Id)
+					// Top-level err is nil; failure is per-entry only.
+					return &entryv1.BatchUpdateEntryResponse{
+						Results: []*entryv1.BatchUpdateEntryResponse_Result{
+							{Status: &types.Status{
+								Code:    int32(codes.NotFound),
+								Message: "Failed to update entry",
+							}},
+						},
+					}, nil
+				},
+			},
+			ids:     []string{"id1"},
+			wantErr: true,
+		},
+		{
+			name: "batch upsert AlreadyExists without returned Id surfaces error",
+			entry: mockEntryClient{
+				BatchCreateEntryFunc: func(ctx context.Context, in *entryv1.BatchCreateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchCreateEntryResponse, error) {
+					return &entryv1.BatchCreateEntryResponse{
+						Results: []*entryv1.BatchCreateEntryResponse_Result{
+							// AlreadyExists but no Entry returned: we must not
+							// attempt an Id-less update (which would loop).
+							{Status: &types.Status{Code: int32(codes.AlreadyExists)}},
+						},
+					}, nil
+				},
+			},
+			ids:     []string{"id1"},
+			wantErr: true,
 		},
 		{
 			name: "batch create RPC error",
@@ -583,7 +675,10 @@ func TestClient_UpsertBatch(t *testing.T) {
 				BatchCreateEntryFunc: func(ctx context.Context, in *entryv1.BatchCreateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchCreateEntryResponse, error) {
 					return &entryv1.BatchCreateEntryResponse{
 						Results: []*entryv1.BatchCreateEntryResponse_Result{
-							{Status: &types.Status{Code: int32(codes.AlreadyExists)}},
+							{
+								Status: &types.Status{Code: int32(codes.AlreadyExists)},
+								Entry:  &types.Entry{Id: "existing-id1"},
+							},
 						},
 					}, nil
 				},
