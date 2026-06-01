@@ -1,0 +1,31 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: reference-grant
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tcproute-referencegrant
+      namespace: gateway-conformance-infra
+  rules:
+    - backendRefs:
+        - name: web-backend
+          namespace: gateway-conformance-web-backend
+          port: 8080
+status:
+  parents:
+    - conditions:
+        - message: Accepted TCPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+          lastTransitionTime: "2026-02-25T00:00:00Z"
+        - message: Cross namespace references are not allowed
+          reason: RefNotPermitted
+          status: "False"
+          type: ResolvedRefs
+          lastTransitionTime: "2026-02-25T00:00:00Z"
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: gateway-tcproute-referencegrant
+        namespace: gateway-conformance-infra

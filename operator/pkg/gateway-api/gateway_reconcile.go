@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
@@ -147,6 +148,26 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	btlspMap := helpers.BuildBackendTLSPolicyLookup(btlspList)
 
+	tcpRouteList := &gatewayv1alpha2.TCPRouteList{}
+	if helpers.HasTCPRouteSupport(r.Client.Scheme()) {
+		if err := r.Client.List(ctx, tcpRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.GatewayTCPRouteIndex, client.ObjectKeyFromObject(original).String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list TCPRoutes", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
+	}
+
+	udpRouteList := &gatewayv1alpha2.UDPRouteList{}
+	if helpers.HasUDPRouteSupport(r.Client.Scheme()) {
+		if err := r.Client.List(ctx, udpRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.GatewayUDPRouteIndex, client.ObjectKeyFromObject(original).String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list UDPRoutes", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
+	}
+
 	var namespaces []corev1.Namespace
 	if hasAllowedRoutesNamespaceSelector(gw) {
 		namespaceList := &corev1.NamespaceList{}
@@ -198,6 +219,22 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	// Run the TCPRoute route checks here and update the status accordingly.
+	if helpers.HasTCPRouteSupport(r.Client.Scheme()) {
+		if err := r.setTCPRouteStatuses(scopedLog, ctx, tcpRouteList, grants); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to update TCPRoute Status", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
+	}
+
+	// Run the UDPRoute route checks here and update the status accordingly.
+	if helpers.HasUDPRouteSupport(r.Client.Scheme()) {
+		if err := r.setUDPRouteStatuses(scopedLog, ctx, udpRouteList, grants); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to update UDPRoute Status", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
+	}
+
 	// Run the GRPCRoute route checks here and update the status accordingly.
 	if err := r.setGRPCRouteStatuses(scopedLog, ctx, grpcRouteList, grants); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
@@ -207,6 +244,8 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items, namespaceLabels)
 	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items, namespaceLabels)
 	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items, namespaceLabels)
+	tcpRoutes := r.filterTCPRoutesByGateway(ctx, gw, tcpRouteList.Items, namespaceLabels)
+	udpRoutes := r.filterUDPRoutesByGateway(ctx, gw, udpRouteList.Items, namespaceLabels)
 
 	if err := r.setBackendTLSPolicyStatuses(scopedLog, ctx, httpRoutes, btlspMap, req.NamespacedName); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update BackendTLSPolicy Status", logfields.Error, err)
@@ -220,6 +259,8 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		HTTPRoutes:          httpRoutes,
 		TLSRoutes:           tlsRoutes,
 		GRPCRoutes:          grpcRoutes,
+		TCPRoutes:           tcpRoutes,
+		UDPRoutes:           udpRoutes,
 		Namespaces:          namespaces,
 		Services:            servicesList.Items,
 		ServiceImports:      serviceImportsList.Items,
@@ -227,7 +268,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		BackendTLSPolicyMap: btlspMap,
 	})
 
-	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, namespaceLabels)
+	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, tcpRouteList, udpRouteList, namespaceLabels)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to set listener status", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to set listener status", gatewayv1.GatewayReasonNoResources)
@@ -244,7 +285,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled", gatewayv1.GatewayReasonAccepted)
 
 	// Step 3: Translate the listeners into Cilium model
-	cec, svc, ep, err := r.translator.Translate(m)
+	cec, svc, eps, err := r.translator.Translate(m)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to translate resources", gatewayv1.GatewayReasonNoResources)
@@ -264,14 +305,14 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	if err = r.ensureEndpointSlice(ctx, ep); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
-		setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource", gatewayv1.GatewayReasonNoResources)
-		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create Endpoints resource", gatewayv1.GatewayReasonNoResources)
+	if err = r.reconcileEndpointSlices(ctx, gw, svc, eps); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to reconcile EndpointSlices", logfields.Error, err)
+		setGatewayAccepted(gw, false, "Unable to reconcile EndpointSlices", gatewayv1.GatewayReasonNoResources)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to reconcile EndpointSlices", gatewayv1.GatewayReasonNoResources)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
+	if err = r.ensureEnvoyConfig(ctx, gw, cec); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to ensure CEC resource", gatewayv1.GatewayReasonNoResources)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create CEC resource", gatewayv1.GatewayReasonNoResources)
@@ -333,11 +374,25 @@ func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.S
 	return err
 }
 
+// ensureEndpointSlice creates or updates a managed frontend EndpointSlice.
+// Endpoints and the numeric Ports[0].Port are owned by endpointSliceReconciler
+// once it has populated Endpoints; this avoids a write-fight between the two.
 func (r *gatewayReconciler) ensureEndpointSlice(ctx context.Context, desired *discoveryv1.EndpointSlice) error {
-	eps := desired.DeepCopy()
+	eps := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      desired.Name,
+			Namespace: desired.Namespace,
+		},
+	}
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, eps, func() error {
-		eps.Endpoints = desired.Endpoints
-		eps.Ports = desired.Ports
+		if eps.ResourceVersion == "" {
+			eps.AddressType = desired.AddressType
+			eps.Endpoints = desired.Endpoints
+			eps.Ports = desired.Ports
+		} else {
+			resolved := len(eps.Endpoints) > 0
+			eps.Ports = mergeEndpointPorts(eps.Ports, desired.Ports, resolved)
+		}
 		eps.OwnerReferences = desired.OwnerReferences
 		setMergedLabelsAndAnnotations(eps, desired)
 		return nil
@@ -345,7 +400,30 @@ func (r *gatewayReconciler) ensureEndpointSlice(ctx context.Context, desired *di
 	return err
 }
 
-func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, desired *ciliumv2.CiliumEnvoyConfig) error {
+// mergeEndpointPorts takes Name and Protocol from desired; the numeric Port
+// is kept from existing when preservePort is true (owned by
+// endpointSliceReconciler), otherwise taken from desired.
+func mergeEndpointPorts(existing, desired []discoveryv1.EndpointPort, preservePort bool) []discoveryv1.EndpointPort {
+	if len(existing) != len(desired) {
+		return desired
+	}
+	out := make([]discoveryv1.EndpointPort, len(desired))
+	for i := range desired {
+		out[i] = desired[i]
+		if preservePort && existing[i].Port != nil {
+			out[i].Port = existing[i].Port
+		}
+	}
+	return out
+}
+
+func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, gw *gatewayv1.Gateway, desired *ciliumv2.CiliumEnvoyConfig) error {
+	if desired == nil {
+		// No Envoy config is needed (e.g. the Gateway only has L4 TCP/UDP
+		// Routes attached). Delete any CiliumEnvoyConfig left over from a
+		// previous state where HTTP/TLS listeners were configured.
+		return r.ensureOwnedEnvoyConfigDeleted(ctx, gw)
+	}
 	cec := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, cec, func() error {
 		cec.Spec = desired.Spec
@@ -355,8 +433,109 @@ func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, desired *cili
 	return err
 }
 
+// reconcileEndpointSlices applies the desired EndpointSlices and deletes
+// stale ones owned by the Gateway. Endpoints are populated later by
+// endpointSliceReconciler from the backend Service's own EndpointSlices.
+func (r *gatewayReconciler) reconcileEndpointSlices(ctx context.Context, gw *gatewayv1.Gateway, svc *corev1.Service, desired []*discoveryv1.EndpointSlice) error {
+	desired = r.filterEndpointSlicesByBackendFamilies(ctx, desired)
+
+	desiredByName := make(map[string]*discoveryv1.EndpointSlice, len(desired))
+	for _, d := range desired {
+		desiredByName[d.Name] = d
+		if err := r.ensureEndpointSlice(ctx, d); err != nil {
+			return err
+		}
+	}
+
+	if svc == nil {
+		return nil
+	}
+
+	existing := &discoveryv1.EndpointSliceList{}
+	if err := r.Client.List(ctx, existing,
+		client.InNamespace(gw.Namespace),
+		client.MatchingLabels{
+			gatewayApiTranslation.EndpointSliceServiceNameLabel: svc.Name,
+			gatewayApiTranslation.EndpointSliceManagedByLabel:   gatewayApiTranslation.EndpointSliceManagedByValue,
+		},
+	); err != nil {
+		return fmt.Errorf("failed to list managed EndpointSlices: %w", err)
+	}
+
+	for i := range existing.Items {
+		eps := existing.Items[i]
+		if !metav1.IsControlledBy(&eps, gw) {
+			continue
+		}
+		if _, ok := desiredByName[eps.Name]; ok {
+			continue
+		}
+		if err := client.IgnoreNotFound(r.Client.Delete(ctx, &eps)); err != nil {
+			return fmt.Errorf("failed to delete stale EndpointSlice %s/%s: %w", eps.Namespace, eps.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// filterEndpointSlicesByBackendFamilies drops slices whose AddressType is not
+// in the referenced backend Service's IPFamilies, mirroring how
+// kube-controller-manager only emits slices for supported families. Slices
+// are kept when the backend Service is missing or its IPFamilies is unset so
+// the next reconcile can correct them.
+func (r *gatewayReconciler) filterEndpointSlicesByBackendFamilies(ctx context.Context, desired []*discoveryv1.EndpointSlice) []*discoveryv1.EndpointSlice {
+	type backendKey struct{ ns, name string }
+	cache := map[backendKey]map[corev1.IPFamily]struct{}{}
+
+	out := make([]*discoveryv1.EndpointSlice, 0, len(desired))
+	for _, s := range desired {
+		ref := s.Annotations[gatewayApiTranslation.BackendServiceAnnotation]
+		ns, name, ok := strings.Cut(ref, "/")
+		if !ok || ns == "" || name == "" {
+			out = append(out, s)
+			continue
+		}
+		key := backendKey{ns, name}
+		fams, cached := cache[key]
+		if !cached {
+			be := &corev1.Service{}
+			if err := r.Client.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, be); err != nil {
+				cache[key] = nil
+				out = append(out, s)
+				continue
+			}
+			fams = make(map[corev1.IPFamily]struct{}, len(be.Spec.IPFamilies))
+			for _, f := range be.Spec.IPFamilies {
+				fams[f] = struct{}{}
+			}
+			cache[key] = fams
+		}
+		if len(fams) == 0 {
+			out = append(out, s)
+			continue
+		}
+		var want corev1.IPFamily
+		switch s.AddressType {
+		case discoveryv1.AddressTypeIPv4:
+			want = corev1.IPv4Protocol
+		case discoveryv1.AddressTypeIPv6:
+			want = corev1.IPv6Protocol
+		default:
+			out = append(out, s)
+			continue
+		}
+		if _, ok := fams[want]; ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func (r *gatewayReconciler) cleanupOwnedResources(ctx context.Context, gw *gatewayv1.Gateway) error {
 	if err := r.ensureOwnedServiceDeleted(ctx, gw); err != nil {
+		return err
+	}
+	if err := r.ensureOwnedEndpointSlicesDeleted(ctx, gw); err != nil {
 		return err
 	}
 	if err := r.ensureOwnedEnvoyConfigDeleted(ctx, gw); err != nil {
@@ -380,6 +559,30 @@ func (r *gatewayReconciler) ensureOwnedServiceDeleted(ctx context.Context, gw *g
 	}
 
 	return client.IgnoreNotFound(r.Client.Delete(ctx, svc))
+}
+
+func (r *gatewayReconciler) ensureOwnedEndpointSlicesDeleted(ctx context.Context, gw *gatewayv1.Gateway) error {
+	eps := &discoveryv1.EndpointSliceList{}
+	matchingLabels := client.MatchingLabels{
+		gatewayApiTranslation.EndpointSliceServiceNameLabel: shortener.ShortenK8sResourceName(
+			gatewayApiTranslation.CiliumGatewayPrefix + gw.Name,
+		),
+	}
+
+	if err := r.Client.List(ctx, eps, client.InNamespace(gw.Namespace), matchingLabels); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+
+	for _, ep := range eps.Items {
+		if !metav1.IsControlledBy(&ep, gw) {
+			continue
+		}
+		if err := client.IgnoreNotFound(r.Client.Delete(ctx, &ep)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *gatewayReconciler) ensureOwnedEnvoyConfigDeleted(ctx context.Context, gw *gatewayv1.Gateway) error {
@@ -509,12 +712,56 @@ func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *ga
 	return filtered
 }
 
+func (r *gatewayReconciler) filterTCPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.TCPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.TCPRoute {
+	var filtered []gatewayv1alpha2.TCPRoute
+	for _, route := range routes {
+		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(gw, &route, namespaceLabels) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *gatewayReconciler) filterUDPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.UDPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.UDPRoute {
+	var filtered []gatewayv1alpha2.UDPRoute
+	for _, route := range routes {
+		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(gw, &route, namespaceLabels) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
 func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1.TLSRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1.TLSRoute {
 	var filtered []gatewayv1.TLSRoute
 	for _, route := range routes {
 		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents) &&
 			listenerisAllowed(gw, listener, &route, namespaceLabels) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
+			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *gatewayReconciler) filterTCPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1alpha2.TCPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.TCPRoute {
+	var filtered []gatewayv1alpha2.TCPRoute
+	for _, route := range routes {
+		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents) &&
+			listenerisAllowed(gw, listener, &route, namespaceLabels) &&
+			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *gatewayReconciler) filterUDPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1alpha2.UDPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.UDPRoute {
+	var filtered []gatewayv1alpha2.UDPRoute
+	for _, route := range routes {
+		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents) &&
+			listenerisAllowed(gw, listener, &route, namespaceLabels) &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}
@@ -623,7 +870,7 @@ func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gate
 	return nil
 }
 
-func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1.TLSRouteList, grpcRoutes *gatewayv1.GRPCRouteList, namespaceLabels helpers.NamespaceLabelIndex) (bool, error) {
+func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1.TLSRouteList, grpcRoutes *gatewayv1.GRPCRouteList, tcpRoutes *gatewayv1alpha2.TCPRouteList, udpRoutes *gatewayv1alpha2.UDPRouteList, namespaceLabels helpers.NamespaceLabelIndex) (bool, error) {
 	grants := &gatewayv1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
 		return false, fmt.Errorf("failed to retrieve reference grants: %w", err)
@@ -759,6 +1006,8 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, httpRoutes.Items, namespaceLabels)))
 		attachedRoutes += int32(len(r.filterGRPCRoutesByListener(ctx, gw, &l, grpcRoutes.Items, namespaceLabels)))
 		attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, tlsRoutes.Items, namespaceLabels)))
+		attachedRoutes += int32(len(r.filterTCPRoutesByListener(ctx, gw, &l, tcpRoutes.Items, namespaceLabels)))
+		attachedRoutes += int32(len(r.filterUDPRoutesByListener(ctx, gw, &l, udpRoutes.Items, namespaceLabels)))
 
 		found := false
 		for i := range gw.Status.Listeners {
@@ -1349,6 +1598,68 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 	return nil
 }
 
+func (r *gatewayReconciler) setTCPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, tcpRoutes *gatewayv1alpha2.TCPRouteList, grants *gatewayv1.ReferenceGrantList) error {
+	scopedLog.Debug("Updating TCPRoute statuses for Gateway", numRoutes, len(tcpRoutes.Items))
+	for tcpRouteIndex, original := range tcpRoutes.Items {
+
+		tcpr := original.DeepCopy()
+
+		i := &routechecks.TCPRouteInput{
+			Ctx:            ctx,
+			Logger:         scopedLog.With(logfields.TCPRoute, tcpr),
+			Client:         r.Client,
+			Grants:         grants,
+			TCPRoute:       tcpr,
+			ControllerName: r.controllerName,
+		}
+
+		if err := r.runCommonRouteChecks(i, tcpr.Spec.ParentRefs, tcpr.Namespace); err != nil {
+			return r.handleTCPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, tcpr)
+		}
+
+		// TODO: warn in TCPRoute when conditions for weight are not met.
+
+		if err := r.updateTCPRouteStatus(ctx, scopedLog, &original, tcpr); err != nil {
+			return fmt.Errorf("failed to update TCPRoute status: %w", err)
+		}
+
+		tcpRoutes.Items[tcpRouteIndex].Status = tcpr.Status
+	}
+
+	return nil
+}
+
+func (r *gatewayReconciler) setUDPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, udpRoutes *gatewayv1alpha2.UDPRouteList, grants *gatewayv1.ReferenceGrantList) error {
+	scopedLog.Debug("Updating UDPRoute statuses for Gateway", numRoutes, len(udpRoutes.Items))
+	for udpRouteIndex, original := range udpRoutes.Items {
+
+		udpr := original.DeepCopy()
+
+		i := &routechecks.UDPRouteInput{
+			Ctx:            ctx,
+			Logger:         scopedLog.With(logfields.UDPRoute, udpr),
+			Client:         r.Client,
+			Grants:         grants,
+			UDPRoute:       udpr,
+			ControllerName: r.controllerName,
+		}
+
+		if err := r.runCommonRouteChecks(i, udpr.Spec.ParentRefs, udpr.Namespace); err != nil {
+			return r.handleUDPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, udpr)
+		}
+
+		// TODO: warn in UDPRoute when conditions for weight are not met.
+
+		if err := r.updateUDPRouteStatus(ctx, scopedLog, &original, udpr); err != nil {
+			return fmt.Errorf("failed to update UDPRoute status: %w", err)
+		}
+
+		udpRoutes.Items[udpRouteIndex].Status = udpr.Status
+	}
+
+	return nil
+}
+
 func (r *gatewayReconciler) handleHTTPRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) error {
 	if err := r.updateHTTPRouteStatus(ctx, scopedLog, original, modified); err != nil {
 		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
@@ -1374,6 +1685,20 @@ func (r *gatewayReconciler) handleTLSRouteReconcileErrorWithStatus(ctx context.C
 	return nil
 }
 
+func (r *gatewayReconciler) handleTCPRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1alpha2.TCPRoute, modified *gatewayv1alpha2.TCPRoute) error {
+	if err := r.updateTCPRouteStatus(ctx, scopedLog, original, modified); err != nil {
+		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
+	}
+	return nil
+}
+
+func (r *gatewayReconciler) handleUDPRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1alpha2.UDPRoute, modified *gatewayv1alpha2.UDPRoute) error {
+	if err := r.updateUDPRouteStatus(ctx, scopedLog, original, modified); err != nil {
+		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
+	}
+	return nil
+}
+
 func (r *gatewayReconciler) updateTLSRouteStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1.TLSRoute, new *gatewayv1.TLSRoute) error {
 	oldStatus := original.Status.DeepCopy()
 	newStatus := new.Status.DeepCopy()
@@ -1382,6 +1707,28 @@ func (r *gatewayReconciler) updateTLSRouteStatus(ctx context.Context, scopedLog 
 		return nil
 	}
 	scopedLog.Debug("Updating TLSRoute status", tlsRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) updateTCPRouteStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1alpha2.TCPRoute, new *gatewayv1alpha2.TCPRoute) error {
+	oldStatus := original.Status.DeepCopy()
+	newStatus := new.Status.DeepCopy()
+
+	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
+		return nil
+	}
+	scopedLog.Debug("Updating TCPRoute status", tcpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) updateUDPRouteStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1alpha2.UDPRoute, new *gatewayv1alpha2.UDPRoute) error {
+	oldStatus := original.Status.DeepCopy()
+	newStatus := new.Status.DeepCopy()
+
+	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
+		return nil
+	}
+	scopedLog.Debug("Updating UDPRoute status", udpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
 }
 

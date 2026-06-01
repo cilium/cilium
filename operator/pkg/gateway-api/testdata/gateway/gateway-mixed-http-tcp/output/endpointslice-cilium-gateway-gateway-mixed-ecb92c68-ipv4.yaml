@@ -1,0 +1,24 @@
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints: []
+kind: EndpointSlice
+metadata:
+  annotations:
+    gateway.cilium.io/backend-port: "3000"
+    gateway.cilium.io/backend-service: gateway-conformance-infra/tcp-backend
+  labels:
+    endpointslice.kubernetes.io/managed-by: cilium-operator
+    gateway.networking.k8s.io/gateway-name: gateway-mixed
+    kubernetes.io/service-name: cilium-gateway-gateway-mixed
+  name: cilium-gateway-gateway-mixed-ecb92c68-ipv4
+  namespace: gateway-conformance-infra
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    controller: true
+    kind: Gateway
+    name: gateway-mixed
+    uid: ""
+ports:
+- name: port-3000
+  port: 3000
+  protocol: TCP

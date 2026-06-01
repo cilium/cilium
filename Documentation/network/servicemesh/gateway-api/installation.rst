@@ -17,6 +17,12 @@ Prerequisites
     - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
     - `TLSRoute <https://gateway-api.sigs.k8s.io/api-types/tlsroute/>`_
 
+  If you wish to use the TCPRoute and UDPRoute functionality, you also need to install the TCPRoute and UDPRoute resource.
+  If this CRD is not installed, then Cilium will disable TCPRoute and UDPRoute support.
+
+    - `TCPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#tcproute>`__
+    - `UDPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#udproute>`__
+
   You can install the required CRDs like this:
 
     .. code-block:: shell-session
@@ -28,6 +34,13 @@ Prerequisites
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_backendtlspolicies.yaml
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_tlsroutes.yaml
+
+  For TCPRoute and UDPRoute, also add the related CRDs with the following snippet:
+
+    .. code-block:: shell-session
+
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/experimental/gateway.networking.k8s.io_tcproutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/experimental/gateway.networking.k8s.io_udproutes.yaml
 
 * By default, the Gateway API controller creates a service of LoadBalancer type,
   so your environment will need to support this. Alternatively, since Cilium 1.16+,

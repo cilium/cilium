@@ -1,0 +1,24 @@
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: cilium-gateway-gateway-udproute-fe390332-ipv4
+  namespace: gateway-conformance-infra
+  labels:
+    endpointslice.kubernetes.io/managed-by: cilium-operator
+    gateway.networking.k8s.io/gateway-name: gateway-udproute
+    kubernetes.io/service-name: cilium-gateway-gateway-udproute
+  annotations:
+    gateway.cilium.io/backend-port: "5353"
+    gateway.cilium.io/backend-service: gateway-conformance-infra/udp-backend
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      name: gateway-udproute
+      controller: true
+      uid: ""
+addressType: IPv4
+endpoints: []
+ports:
+  - name: port-5353-udp
+    port: 5353
+    protocol: UDP

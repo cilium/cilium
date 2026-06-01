@@ -1,0 +1,43 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: gateway-conformance-infra-tcp-test
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tcproute
+      namespace: gateway-conformance-infra
+  rules:
+    - backendRefs:
+        - name: tcp-backend-simple
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tcproute
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: tcp
+      port: 8080
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TCPRoute
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-backend-simple
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: tcp-backend-simple
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

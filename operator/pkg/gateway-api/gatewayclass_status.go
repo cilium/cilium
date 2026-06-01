@@ -22,6 +22,19 @@ var supportedFeatures = features.AllFeatures
 
 var gatewayClassSupportedFeatures = getSupportedFeatures()
 
+// extraFeatures lists features that Cilium supports but are missing from
+// features.AllFeatures in the pinned gateway-api version: UDPRoute is defined
+// but not yet added to AllFeatures, and TCPRoute does not exist as a Feature
+// constant.
+// TODO: Remove entries here once the gateway-api bump exposes them.
+var extraFeatures = []features.Feature{
+	features.UDPRouteFeature,
+	{
+		Name:    features.FeatureName("TCPRoute"),
+		Channel: features.FeatureChannelExperimental,
+	},
+}
+
 // This lists the features we do _not_ support, so that we can skip
 // them in the supportedFeatures list in the GatewayClass.
 var exemptFeatures = []features.Feature{
@@ -41,6 +54,9 @@ var exemptFeatures = []features.Feature{
 // List of Gateway API features supported by Cilium.
 // The same should stay in sync with GHA CI in .github/workflows/conformance-gateway-api.yaml
 func getSupportedFeatures() []gatewayv1.SupportedFeature {
+	for _, feature := range extraFeatures {
+		supportedFeatures.Insert(feature)
+	}
 	for _, feature := range exemptFeatures {
 		supportedFeatures.Delete(feature)
 	}

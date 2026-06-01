@@ -226,6 +226,26 @@ func TestGRPCGatewayAPI(t *testing.T) {
 	}
 }
 
+func TestL4GatewayAPI(t *testing.T) {
+	tests := map[string]struct{}{
+		"basic l4": {},
+	}
+
+	for name := range tests {
+		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+			input := readGatewayInput(t, name)
+			m := GatewayAPI(logger, input)
+
+			expected := []model.L4Listener{}
+			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
+
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.L4), "Listeners did not match")
+		})
+	}
+}
+
 func TestGPRCPathMatch(t *testing.T) {
 	tests := map[string]struct {
 		input gatewayv1.GRPCRouteMatch
@@ -329,6 +349,8 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tlsroute.yaml"), &input.TLSRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-grpcroute.yaml"), &input.GRPCRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-namespace.yaml"), &input.Namespaces)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tcproute.yaml"), &input.TCPRoutes)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-udproute.yaml"), &input.UDPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-serviceimport.yaml"), &input.ServiceImports)
 

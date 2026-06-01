@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func TestIsGammaService(t *testing.T) {
@@ -286,6 +287,42 @@ func TestGetConcreteObject(t *testing.T) {
 				Kind:    TLSRouteListKind,
 			},
 			want: &gatewayv1.TLSRouteList{},
+		},
+		{
+			name: "TCPRoute",
+			gvk: schema.GroupVersionKind{
+				Group:   gatewayv1alpha2.GroupVersion.Group,
+				Version: gatewayv1alpha2.GroupVersion.Version,
+				Kind:    TCPRouteKind,
+			},
+			want: &gatewayv1alpha2.TCPRoute{},
+		},
+		{
+			name: "TCPRouteList",
+			gvk: schema.GroupVersionKind{
+				Group:   gatewayv1alpha2.GroupVersion.Group,
+				Version: gatewayv1alpha2.GroupVersion.Version,
+				Kind:    TCPRouteListKind,
+			},
+			want: &gatewayv1alpha2.TCPRouteList{},
+		},
+		{
+			name: "UDPRoute",
+			gvk: schema.GroupVersionKind{
+				Group:   gatewayv1alpha2.GroupVersion.Group,
+				Version: gatewayv1alpha2.GroupVersion.Version,
+				Kind:    UDPRouteKind,
+			},
+			want: &gatewayv1alpha2.UDPRoute{},
+		},
+		{
+			name: "UDPRouteList",
+			gvk: schema.GroupVersionKind{
+				Group:   gatewayv1alpha2.GroupVersion.Group,
+				Version: gatewayv1alpha2.GroupVersion.Version,
+				Kind:    UDPRouteListKind,
+			},
+			want: &gatewayv1alpha2.UDPRouteList{},
 		},
 	}
 	for _, tt := range tests {
