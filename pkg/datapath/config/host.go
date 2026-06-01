@@ -10,6 +10,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/cidr"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -58,6 +59,23 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
 
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPv4Masquerade {
+		var excludeCIDR *cidr.CIDR
+		if option.Config.EnableIPMasqAgent {
+
+			// native-routing-cidr is optional with ip-masq-agent and may be nil
+			excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+		} else {
+			excludeCIDR = lnc.NativeRoutingCIDRIPv4
+		}
+
+		if excludeCIDR != nil {
+			cfg.IPv4SNATExclusionDstCIDR = byteorder.NetIPv4ToHost32(excludeCIDR.IP)
+			ones, _ := excludeCIDR.Mask.Size()
+			cfg.IPv4SNATExclusionDstCIDRLen = uint16(ones)
+		}
+	}
+
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
@@ -104,6 +122,23 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
+
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPv4Masquerade {
+		var excludeCIDR *cidr.CIDR
+		if option.Config.EnableIPMasqAgent {
+
+			// native-routing-cidr is optional with ip-masq-agent and may be nil
+			excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+		} else {
+			excludeCIDR = lnc.NativeRoutingCIDRIPv4
+		}
+
+		if excludeCIDR != nil {
+			cfg.IPv4SNATExclusionDstCIDR = byteorder.NetIPv4ToHost32(excludeCIDR.IP)
+			ones, _ := excludeCIDR.Mask.Size()
+			cfg.IPv4SNATExclusionDstCIDRLen = uint16(ones)
+		}
+	}
 
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
@@ -171,6 +206,23 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
+
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPv4Masquerade {
+		var excludeCIDR *cidr.CIDR
+		if option.Config.EnableIPMasqAgent {
+
+			// native-routing-cidr is optional with ip-masq-agent and may be nil
+			excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+		} else {
+			excludeCIDR = lnc.NativeRoutingCIDRIPv4
+		}
+
+		if excludeCIDR != nil {
+			cfg.IPv4SNATExclusionDstCIDR = byteorder.NetIPv4ToHost32(excludeCIDR.IP)
+			ones, _ := excludeCIDR.Mask.Size()
+			cfg.IPv4SNATExclusionDstCIDRLen = uint16(ones)
+		}
+	}
 
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking

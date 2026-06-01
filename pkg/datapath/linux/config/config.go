@@ -447,20 +447,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
 
 			// ip-masq-agent depends on bpf-masq
-			var excludeCIDR *cidr.CIDR
 			if option.Config.EnableIPMasqAgent {
 				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
-
-				// native-routing-cidr is optional with ip-masq-agent and may be nil
-				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
-			} else {
-				excludeCIDR = cfg.NativeRoutingCIDRIPv4
-			}
-
-			if excludeCIDR != nil {
-				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(excludeCIDR.IP))
-				ones, _ := excludeCIDR.Mask.Size()
-				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
 			}
 		}
 		if option.Config.EnableIPv6Masquerade {

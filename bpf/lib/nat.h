@@ -37,6 +37,10 @@ DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 t
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
 DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
+DECLARE_CONFIG(__u32, ipv4_snat_exclusion_dst_cidr, "IPv4 SNAT exclusion destination CIDR")
+DECLARE_CONFIG(__u16, ipv4_snat_exclusion_dst_cidr_len,
+	       "IPv4 SNAT exclusion destination CIDR length")
+
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -726,11 +730,11 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
 	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
 	 */
-#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
-	if (ipv4_is_in_subnet(tuple->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
-			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
-		return NAT_PUNT_TO_STACK;
-#endif
+	if (CONFIG(ipv4_snat_exclusion_dst_cidr_len) > 0) {
+		if (ipv4_is_in_subnet(tuple->daddr, CONFIG(ipv4_snat_exclusion_dst_cidr),
+				      CONFIG(ipv4_snat_exclusion_dst_cidr_len)))
+			return NAT_PUNT_TO_STACK;
+	}
 
 	/* Do not SNAT if this is a localhost endpoint or
 	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
