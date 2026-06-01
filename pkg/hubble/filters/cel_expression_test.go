@@ -6,6 +6,9 @@ package filters
 import (
 	"testing"
 
+	"github.com/google/cel-go/cel"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cilium/hive/hivetest"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -136,6 +139,99 @@ func TestCELExpressionFilter(t *testing.T) {
 					t.Errorf("filterResult %d = %v, want %v", i, filterResult, tt.want[i])
 				}
 			}
+		})
+	}
+}
+
+func setCELProgramMaxRuntimeCost(cost uint64) func() {
+	orig := celProgramMaxRuntimeCost
+	celProgramMaxRuntimeCost = cost
+	return func() { celProgramMaxRuntimeCost = orig }
+}
+
+func TestCELExpressionCostLimits(t *testing.T) {
+	// evalProgram evaluates prg against flow and returns the boolean result.
+	evalProgram := func(t *testing.T, prg cel.Program, flow *flowpb.Flow) (bool, error) {
+		t.Helper()
+		out, _, err := prg.ContextEval(t.Context(), map[string]any{flowVariableName: flow})
+		if err != nil {
+			return false, err
+		}
+		v, err := out.ConvertToNative(goBoolType)
+		if err != nil {
+			return false, err
+		}
+		b, _ := v.(bool)
+		return b, nil
+	}
+
+	const (
+		simpleExpr  = "['10.0.0.1','10.0.0.2','10.0.0.3'].exists(ip, ip == _flow.IP.source)"
+		complexExpr = "_flow.source_names.exists(n, ['default','kube-system','production','staging','dev'].exists(ns, n.contains(ns))) && _flow.destination_names.filter(n, n.startsWith('backend')).map(n, n).size() > 0"
+
+		evalErrMsg = "operation cancelled: actual cost limit exceeded"
+	)
+
+	tests := []struct {
+		name           string
+		maxRuntimeCost uint64
+		expr           string
+		flow           *flowpb.Flow
+		wantEvalErrMsg string
+		wantResult     bool
+	}{
+		{
+			// Source IP absent from list forces full iteration, exhausting the budget.
+			name:           "simple - runtime cost limit exceeded",
+			maxRuntimeCost: 16,
+			expr:           simpleExpr,
+			flow:           &flowpb.Flow{IP: &flowpb.IP{Source: "9.9.9.9", Destination: "10.0.0.1"}},
+			wantEvalErrMsg: evalErrMsg,
+		},
+		{
+			// Runtime limit is sufficient: eval succeeds with a matching flow.
+			name:           "simple - runtime cost within limit",
+			maxRuntimeCost: 64,
+			expr:           simpleExpr,
+			flow:           &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "10.0.0.9"}},
+			wantResult:     true,
+		},
+		{
+			name:           "complex - runtime cost limit exceeded",
+			maxRuntimeCost: 32,
+			expr:           complexExpr,
+			flow: &flowpb.Flow{
+				SourceNames:      []string{"frontend.default.svc.cluster.local", "frontend.default"},
+				DestinationNames: []string{"backend.production.svc.cluster.local"},
+			},
+			wantEvalErrMsg: evalErrMsg,
+		},
+		{
+			name:           "complex - runtime cost within limit",
+			maxRuntimeCost: 128,
+			expr:           complexExpr,
+			flow: &flowpb.Flow{
+				SourceNames:      []string{"frontend.default.svc.cluster.local", "frontend.default"},
+				DestinationNames: []string{"backend.production.svc.cluster.local"},
+			},
+			wantResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(setCELProgramMaxRuntimeCost(tt.maxRuntimeCost))
+
+			programs, err := compileCELFilters([]string{tt.expr})
+			require.NoError(t, err)
+
+			result, evalErr := evalProgram(t, programs[0], tt.flow)
+			if tt.wantEvalErrMsg != "" {
+				require.EqualError(t, evalErr, tt.wantEvalErrMsg)
+				return
+			}
+			require.NoError(t, evalErr)
+			require.Equal(t, tt.wantResult, result)
 		})
 	}
 }
