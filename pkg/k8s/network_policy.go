@@ -109,7 +109,7 @@ func processNamespaceSelector(ns *slim_metav1.LabelSelector) *slim_metav1.LabelS
 }
 
 func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networkingv1.NetworkPolicyPeer) types.Selector {
-	if peer == nil {
+	if peer == nil || (peer.PodSelector == nil && peer.NamespaceSelector == nil) {
 		return nil
 	}
 
