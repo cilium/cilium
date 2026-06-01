@@ -1,4 +1,4 @@
-#! --ipam=multi-pool --test-peering-ips=10.99.2.1,10.99.2.2
+#! --ipam=multi-pool --test-peering-ips=fd00::99:2:1,fd00::99:2:2
 
 # Tests CiliumPodIPPool advertisements across multiple pools including partial allocation from the pool.
 
@@ -6,8 +6,8 @@
 hive start
 
 # Configure GoBGP server
-gobgp/add-server test 65010 10.99.2.1 1790
-gobgp/add-peer 10.99.2.2 65001
+gobgp/add-server test --router-id=10.99.2.1 65010 fd00::99:2:1 1790
+gobgp/add-peer fd00::99:2:2 65001
 
 # Configure BGP on Cilium
 k8s/add bgp-node-config.yaml bgp-peer-config.yaml
@@ -20,7 +20,7 @@ k8s/add cilium-node-partial.yaml
 k8s/add pod-pool-red.yaml pod-pool-green.yaml
 
 # Wait for peering to be established
-gobgp/wait-state 10.99.2.2 ESTABLISHED
+gobgp/wait-state fd00::99:2:2 ESTABLISHED
 
 # Validate red pool IPv4 routes
 gobgp/routes -o routes.actual ipv4 unicast
@@ -75,7 +75,7 @@ metadata:
   name: test-node
 spec:
   addresses:
-  - ip: 10.99.2.2
+  - ip: fd00::99:2:2
     type: InternalIP
   ipam:
     podCIDRs:
@@ -100,7 +100,7 @@ metadata:
   name: test-node
 spec:
   addresses:
-  - ip: 10.99.2.2
+  - ip: fd00::99:2:2
     type: InternalIP
   ipam:
     podCIDRs:
@@ -126,12 +126,13 @@ metadata:
 spec:
   bgpInstances:
   - localASN: 65001
+    routerID: 10.99.2.2
     name: tor
     peers:
     - name: gobgp-peer
       peerASN: 65010
-      peerAddress: 10.99.2.1
-      localAddress: 10.99.2.2
+      peerAddress: fd00::99:2:1
+      localAddress: fd00::99:2:2
       peerConfigRef:
         name: gobgp-peer-config
 
@@ -228,21 +229,21 @@ spec:
     maskSize: 120
 
 -- gobgp-routes-red-ipv4.expected --
-Prefix         NextHop     Attrs
-10.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: 65001:100}]
-10.30.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: 65001:100}]
+Prefix         NextHop        Attrs
+10.20.0.0/24   fd00::99:2:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::99:2:2, NLRIs: [10.20.0.0/24:0]}}]
+10.30.0.0/24   fd00::99:2:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::99:2:2, NLRIs: [10.30.0.0/24:0]}}]
 -- gobgp-routes-red-ipv6.expected --
-Prefix       NextHop            Attrs
-fd00::/120   ::ffff:10.99.2.2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.2.2, NLRIs: [fd00::/120:0]}}]
+Prefix       NextHop        Attrs
+fd00::/120   fd00::99:2:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00::99:2:2, NLRIs: [fd00::/120:0]}}]
 -- gobgp-routes-green-partial-ipv4.expected --
-Prefix         NextHop     Attrs
-11.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
+Prefix         NextHop        Attrs
+11.20.0.0/24   fd00::99:2:2   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv4-unicast): {Nexthop: fd00::99:2:2, NLRIs: [11.20.0.0/24:0]}}]
 -- gobgp-routes-green-full-ipv4.expected --
-Prefix         NextHop     Attrs
-11.20.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
-11.30.0.0/24   10.99.2.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.2.2} {Communities: no-export}]
+Prefix         NextHop        Attrs
+11.20.0.0/24   fd00::99:2:2   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv4-unicast): {Nexthop: fd00::99:2:2, NLRIs: [11.20.0.0/24:0]}}]
+11.30.0.0/24   fd00::99:2:2   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv4-unicast): {Nexthop: fd00::99:2:2, NLRIs: [11.30.0.0/24:0]}}]
 -- gobgp-routes-green-ipv6.expected --
-Prefix       NextHop            Attrs
-fd11::/120   ::ffff:10.99.2.2   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv6-unicast): {Nexthop: ::ffff:10.99.2.2, NLRIs: [fd11::/120:0]}}]
+Prefix       NextHop        Attrs
+fd11::/120   fd00::99:2:2   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv6-unicast): {Nexthop: fd00::99:2:2, NLRIs: [fd11::/120:0]}}]
 -- gobgp-routes-empty.expected --
 Prefix   NextHop   Attrs
