@@ -1,5 +1,5 @@
 - name: 'kube-proxy-1'
-  kernel: 'rhel8.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
@@ -51,7 +51,7 @@
   # L7 testing: WireGuard encryption in kube-proxy mode - covered by wireguard.yaml, test on schedule only
   test-l7: 'false'
 - name: 'kube-proxy-6'
-  kernel: 'rhel8.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
