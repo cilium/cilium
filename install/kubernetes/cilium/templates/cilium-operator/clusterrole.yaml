@@ -347,6 +347,8 @@ rules:
   resources:
   - gatewayclasses
   - gateways
+  - tcproutes
+  - udproutes
   - tlsroutes
   - httproutes
   - grpcroutes
@@ -372,6 +374,8 @@ rules:
   - grpcroutes/status
   - tlsroutes/status
   - backendtlspolicies/status
+  - tcproutes/status
+  - udproutes/status
   verbs:
   - update
   - patch

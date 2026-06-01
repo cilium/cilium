@@ -10,8 +10,11 @@ const (
 	httpRoute          = "httpRoute"
 	grpcRoute          = "grpcRoute"
 	tlsRoute           = "tlsRoute"
+	tcpRoute           = "tcpRoute"
+	udpRoute           = "udpRoute"
 	relevantHTTPRoutes = "relevantHTTPRoutes"
 	numRoutes          = "numRoutes"
 	policies           = "policies"
 	backendTLSPolicy   = "BackendTLSPolicy"
+	endpointSlice      = "endpointSlice"
 )

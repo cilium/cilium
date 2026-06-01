@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 // EnqueueRequestForOwningHTTPRoute returns an event handler that, when passed a HTTPRoute, returns reconcile.Requests
@@ -49,5 +50,31 @@ func EnqueueRequestForOwningGRPCRoute(c client.Client, logger *slog.Logger, cont
 		}
 
 		return getGatewayReconcileRequestsForRoute(ctx, c, a, gr.Spec.CommonRouteSpec, logger, controllerName)
+	})
+}
+
+// EnqueueRequestForOwningTCPRoute returns an event handler that, when passed a TCPRoute, returns reconcile.Requests
+// for any Cilium-relevant Gateways associated with that TCPRoute.
+func EnqueueRequestForOwningTCPRoute(c client.Client, logger *slog.Logger, controllerName string) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		tr, ok := a.(*gatewayv1alpha2.TCPRoute)
+		if !ok {
+			return nil
+		}
+
+		return getGatewayReconcileRequestsForRoute(context.Background(), c, a, tr.Spec.CommonRouteSpec, logger, controllerName)
+	})
+}
+
+// EnqueueRequestForOwningUDPRoute returns an event handler that, when passed a UDPRoute, returns reconcile.Requests
+// for any Cilium-relevant Gateways associated with that UDPRoute.
+func EnqueueRequestForOwningUDPRoute(c client.Client, logger *slog.Logger, controllerName string) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		ur, ok := a.(*gatewayv1alpha2.UDPRoute)
+		if !ok {
+			return nil
+		}
+
+		return getGatewayReconcileRequestsForRoute(context.Background(), c, a, ur.Spec.CommonRouteSpec, logger, controllerName)
 	})
 }

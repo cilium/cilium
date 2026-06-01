@@ -13,6 +13,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -31,6 +32,8 @@ var RequiredGVKs = []schema.GroupVersionKind{
 
 var AllOptionalKinds = []schema.GroupVersionKind{
 	mcsapiv1beta1.SchemeGroupVersion.WithKind(ServiceImportKind),
+	gatewayv1alpha2.SchemeGroupVersion.WithKind(TCPRouteKind),
+	gatewayv1alpha2.SchemeGroupVersion.WithKind(UDPRouteKind),
 }
 
 func TestScheme(optionalKinds []schema.GroupVersionKind) *runtime.Scheme {

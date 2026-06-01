@@ -14,13 +14,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
@@ -32,8 +35,9 @@ import (
 )
 
 var (
-	gatewayv1APIVersion = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
-	gatewayTypeMeta     = metav1.TypeMeta{
+	gatewayv1APIVersion       = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
+	gatewayv1alpha2APIVersion = gatewayv1alpha2.GroupVersion.Group + "/" + gatewayv1alpha2.GroupVersion.Version
+	gatewayTypeMeta           = metav1.TypeMeta{
 		Kind:       "Gateway",
 		APIVersion: gatewayv1APIVersion,
 	}
@@ -52,6 +56,18 @@ var (
 	backendTLSPolicyTypeMeta = metav1.TypeMeta{
 		Kind:       "BackendTLSPolicy",
 		APIVersion: gatewayv1APIVersion,
+	}
+	tcpRouteTypeMeta = metav1.TypeMeta{
+		Kind:       "TCPRoute",
+		APIVersion: gatewayv1alpha2APIVersion,
+	}
+	udpRouteTypeMeta = metav1.TypeMeta{
+		Kind:       "UDPRoute",
+		APIVersion: gatewayv1alpha2APIVersion,
+	}
+	endpointSliceTypeMeta = metav1.TypeMeta{
+		Kind:       "EndpointSlice",
+		APIVersion: discoveryv1.SchemeGroupVersion.String(),
 	}
 )
 
@@ -84,6 +100,7 @@ func Test_Conformance(t *testing.T) {
 	type gwDetails struct {
 		FullName types.NamespacedName
 		wantErr  bool
+		skipCEC  bool
 	}
 
 	var (
@@ -96,6 +113,8 @@ func Test_Conformance(t *testing.T) {
 		name                 string
 		gateway              []gwDetails
 		disableServiceImport bool
+		disableTCPRoute      bool
+		disableUDPRoute      bool
 		wantErr              bool
 	}{
 		{
@@ -281,6 +300,17 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-backendtlspolicy-invalid-ca-cert", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-backendtlspolicy-invalid-kind", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "gateway-multi-port-https", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "multi-port-https", Namespace: "gateway-conformance-infra"}}}},
+		{name: "tcproute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tcproute-referencegrant", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
+		{name: "tcproute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tcproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
+		{name: "udproute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute-referencegrant", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
+		{name: "udproute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
+		// A single Gateway mixing an L7 (HTTP) and an L4 (TCP) listener: the
+		// L7 path produces a CiliumEnvoyConfig while the L4 path produces a
+		// managed EndpointSlice for the TCP backend (no dummy slice is added
+		// because a real L4 slice already exists).
+		{name: "gateway-mixed-http-tcp", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-mixed", Namespace: "gateway-conformance-infra"}}}},
+		{name: "tcproute-crd-not-installed", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tcproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}, disableTCPRoute: true},
+		{name: "udproute-crd-not-installed", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}, disableUDPRoute: true},
 		{name: "tlsroute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute-referencegrant", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tlsroute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tlsroute-hostname-intersection", gateway: []gwDetails{
@@ -320,17 +350,35 @@ func Test_Conformance(t *testing.T) {
 				WithStatusSubresource(&gatewayv1.GatewayClass{}).
 				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{})
 
-			if tt.disableServiceImport {
-				clientBuilder.WithScheme(helpers.TestScheme(nil))
-			} else {
-				clientBuilder.WithScheme(helpers.TestScheme(helpers.AllOptionalKinds))
+			disabledKinds := map[string]bool{
+				helpers.ServiceImportKind: tt.disableServiceImport,
+				helpers.TCPRouteKind:      tt.disableTCPRoute,
+				helpers.UDPRouteKind:      tt.disableUDPRoute,
 			}
+			optionalKinds := make([]schema.GroupVersionKind, 0, len(helpers.AllOptionalKinds))
+			for _, k := range helpers.AllOptionalKinds {
+				if disabledKinds[k.Kind] {
+					continue
+				}
+				optionalKinds = append(optionalKinds, k)
+			}
+			clientBuilder.WithScheme(helpers.TestScheme(optionalKinds))
 
 			// Add any required indexes here
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
 			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
 			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
+			// TCPRoute/UDPRoute types are only registered in the scheme when their
+			// CRDs are installed, so only set their status subresource and index then.
+			if !tt.disableTCPRoute {
+				clientBuilder.WithStatusSubresource(&gatewayv1alpha2.TCPRoute{})
+				clientBuilder.WithIndex(&gatewayv1alpha2.TCPRoute{}, indexers.GatewayTCPRouteIndex, indexers.IndexTCPRouteByGateway)
+			}
+			if !tt.disableUDPRoute {
+				clientBuilder.WithStatusSubresource(&gatewayv1alpha2.UDPRoute{})
+				clientBuilder.WithIndex(&gatewayv1alpha2.UDPRoute{}, indexers.GatewayUDPRouteIndex, indexers.IndexUDPRouteByGateway)
+			}
 
 			c := clientBuilder.Build()
 
@@ -361,6 +409,20 @@ func Test_Conformance(t *testing.T) {
 			err = c.List(t.Context(), btlspList)
 			require.NoError(t, err)
 
+			// Reconcile all TCPRoute objects
+			tcprList := &gatewayv1alpha2.TCPRouteList{}
+			if !tt.disableTCPRoute {
+				err = c.List(t.Context(), tcprList)
+				require.NoError(t, err)
+			}
+
+			// Reconcile all UDPRoute objects
+			udprList := &gatewayv1alpha2.UDPRouteList{}
+			if !tt.disableUDPRoute {
+				err = c.List(t.Context(), udprList)
+				require.NoError(t, err)
+			}
+
 			for _, gwDetail := range tt.gateway {
 				// Reconcile the gateway under test
 				result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
@@ -376,7 +438,7 @@ func Test_Conformance(t *testing.T) {
 				expectedGateway := &gatewayv1.Gateway{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
 				require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
-				if !gwDetail.wantErr {
+				if !gwDetail.wantErr && !gwDetail.skipCEC {
 					// Checking the output for CiliumEnvoyConfig
 					actualCEC := &ciliumv2.CiliumEnvoyConfig{}
 					err = c.Get(t.Context(), client.ObjectKey{
@@ -391,6 +453,23 @@ func Test_Conformance(t *testing.T) {
 				}
 
 			}
+
+			// Checking the output for EndpointSlices
+			epsList := &discoveryv1.EndpointSliceList{}
+			err = c.List(t.Context(), epsList, client.MatchingLabels{
+				gatewayApiTranslation.EndpointSliceManagedByLabel: gatewayApiTranslation.EndpointSliceManagedByValue,
+			})
+			require.NoError(t, err)
+			for _, eps := range epsList.Items {
+				actualEPS := &discoveryv1.EndpointSlice{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&eps), actualEPS)
+				actualEPS.TypeMeta = endpointSliceTypeMeta
+				require.NoError(t, err, "error getting EndpointSlice %s/%s: %v", eps.Namespace, eps.Name, err)
+				expectedEPS := &discoveryv1.EndpointSlice{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/endpointslice-%s.yaml", tt.name, eps.Name), expectedEPS)
+				require.Empty(t, cmp.Diff(expectedEPS, actualEPS, cmpIgnoreFields...))
+			}
+
 			// Checking the output for related HTTPRoute objects
 			for _, hr := range hrList.Items {
 				actualHR := &gatewayv1.HTTPRoute{}
@@ -432,6 +511,26 @@ func Test_Conformance(t *testing.T) {
 				expectedBTLSP := &gatewayv1.BackendTLSPolicy{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", tt.name, btlsp.Name), expectedBTLSP)
 				require.Empty(t, cmp.Diff(expectedBTLSP, actualBTLSP, cmpIgnoreFields...))
+			}
+
+			for _, tcpr := range tcprList.Items {
+				actualTCPR := &gatewayv1alpha2.TCPRoute{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tcpr), actualTCPR)
+				actualTCPR.TypeMeta = tcpRouteTypeMeta
+				require.NoError(t, err, "error getting TCPRoute %s/%s: %v", tcpr.Namespace, tcpr.Name, err)
+				expectedTCPR := &gatewayv1alpha2.TCPRoute{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tcproute-%s.yaml", tt.name, tcpr.Name), expectedTCPR)
+				require.Empty(t, cmp.Diff(expectedTCPR, actualTCPR, cmpIgnoreFields...))
+			}
+
+			for _, udpr := range udprList.Items {
+				actualUDPR := &gatewayv1alpha2.UDPRoute{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&udpr), actualUDPR)
+				actualUDPR.TypeMeta = udpRouteTypeMeta
+				require.NoError(t, err, "error getting UDPRoute %s/%s: %v", udpr.Namespace, udpr.Name, err)
+				expectedUDPR := &gatewayv1alpha2.UDPRoute{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/udproute-%s.yaml", tt.name, udpr.Name), expectedUDPR)
+				require.Empty(t, cmp.Diff(expectedUDPR, actualUDPR, cmpIgnoreFields...))
 			}
 		})
 	}
@@ -601,6 +700,92 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(gw), actualGateway))
 		})
 	}
+}
+
+// Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC verifies that a
+// CiliumEnvoyConfig left over from a previous HTTP/TLS state is cleaned up when
+// the Gateway no longer needs Envoy (e.g. it switches to pure L4 TCP/UDP
+// Routes, so the translator returns a nil desired CEC).
+func Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC(t *testing.T) {
+	t.Parallel()
+
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "l4-gateway",
+			Namespace: "default",
+			UID:       types.UID("gateway-uid"),
+		},
+	}
+
+	cecKey := types.NamespacedName{
+		Namespace: gw.Namespace,
+		Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
+	}
+
+	ownedCEC := func() *ciliumv2.CiliumEnvoyConfig {
+		return &ciliumv2.CiliumEnvoyConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cecKey.Name,
+				Namespace: cecKey.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: gatewayv1.GroupVersion.String(),
+						Kind:       "Gateway",
+						Name:       gw.Name,
+						UID:        gw.UID,
+						Controller: ptr.To(true),
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("deletes owned stale CEC when desired is nil", func(t *testing.T) {
+		c := fake.NewClientBuilder().
+			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			WithObjects(gw, ownedCEC()).
+			Build()
+		r := &gatewayReconciler{
+			Client: c,
+			logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+		}
+
+		require.NoError(t, r.ensureEnvoyConfig(t.Context(), gw, nil))
+
+		err := c.Get(t.Context(), cecKey, &ciliumv2.CiliumEnvoyConfig{})
+		require.ErrorContains(t, err, "not found")
+	})
+
+	t.Run("keeps CEC not owned by the Gateway", func(t *testing.T) {
+		foreign := ownedCEC()
+		foreign.OwnerReferences[0].UID = types.UID("other-uid")
+		foreign.OwnerReferences[0].Name = "other-gateway"
+		c := fake.NewClientBuilder().
+			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			WithObjects(gw, foreign).
+			Build()
+		r := &gatewayReconciler{
+			Client: c,
+			logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+		}
+
+		require.NoError(t, r.ensureEnvoyConfig(t.Context(), gw, nil))
+
+		require.NoError(t, c.Get(t.Context(), cecKey, &ciliumv2.CiliumEnvoyConfig{}))
+	})
+
+	t.Run("no error when no CEC exists", func(t *testing.T) {
+		c := fake.NewClientBuilder().
+			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			WithObjects(gw).
+			Build()
+		r := &gatewayReconciler{
+			Client: c,
+			logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+		}
+
+		require.NoError(t, r.ensureEnvoyConfig(t.Context(), gw, nil))
+	})
 }
 
 func filterHTTPRoute(hrList *gatewayv1.HTTPRouteList, gatewayName string, namespace string) []gatewayv1.HTTPRoute {
