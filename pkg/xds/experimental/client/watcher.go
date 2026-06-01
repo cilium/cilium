@@ -18,7 +18,7 @@ type watcherHandle uint64
 type callbackManager struct {
 	log *slog.Logger
 
-	src xds.ObservableResourceSource
+	src xds.ResourceSource
 
 	// mux protects all fields below.
 	mux lock.Mutex
@@ -27,7 +27,7 @@ type callbackManager struct {
 	lastID   watcherHandle
 }
 
-func newCallbackManager(log *slog.Logger, src xds.ObservableResourceSource) *callbackManager {
+func newCallbackManager(log *slog.Logger, src xds.ResourceSource) *callbackManager {
 	return &callbackManager{
 		log:      log,
 		src:      src,
@@ -47,15 +47,17 @@ func (c *callbackManager) Add(typeUrl string, cb WatcherCallback) watcherHandle 
 
 	c.lastID++
 
+	lastSeenVersion, changed := c.src.VersionState()
 	l := &watcher{
-		typeUrl:   typeUrl,
-		cb:        cb,
-		log:       c.log.With(logfields.ListenerID, c.lastID),
-		resources: c.src,
-		trigger:   make(chan struct{}, 1),
+		typeUrl:         typeUrl,
+		cb:              cb,
+		log:             c.log.With(logfields.ListenerID, c.lastID),
+		resources:       c.src,
+		stop:            make(chan struct{}),
+		lastSeenVersion: lastSeenVersion,
+		changed:         changed,
 	}
 	go l.process()
-	c.src.AddResourceVersionObserver(l)
 	c.watchers[c.lastID] = l
 
 	return watcherHandle(c.lastID)
@@ -71,9 +73,8 @@ func (c *callbackManager) Remove(id watcherHandle) {
 		// Not found or already deleted.
 		return
 	}
-	c.src.RemoveResourceVersionObserver(l)
 	delete(c.watchers, id)
-	close(l.trigger)
+	close(l.stop)
 }
 
 // watcher is a helper structure for callbackManager focused on handling
@@ -81,45 +82,32 @@ func (c *callbackManager) Remove(id watcherHandle) {
 type watcher struct {
 	typeUrl string
 	cb      WatcherCallback
-	trigger chan struct{}
+	stop    chan struct{}
 
-	log       *slog.Logger
-	resources xds.ResourceSource
+	log             *slog.Logger
+	resources       xds.ResourceSource
+	lastSeenVersion uint64
+	changed         <-chan struct{}
 }
 
-// watcher implements xds.ResourceVersionObserver.
-var _ xds.ResourceVersionObserver = (*watcher)(nil)
+// process waits for a new source version and invokes the callback function.
+func (w *watcher) process() {
+	for {
+		select {
+		case <-w.stop:
+			return
+		case <-w.changed:
+		}
 
-// HandleNewResourceVersion implements xds.ResourceVersionObserver.
-// It triggers the callback process.
-func (w *watcher) HandleNewResourceVersion(typeUrl string, _ uint64) {
-	if typeUrl != w.typeUrl {
-		w.log.Error("Called with wrong type URL",
-			logfields.Got, typeUrl,
-			logfields.Want, w.typeUrl)
-		return
-	}
-	select {
-	case w.trigger <- struct{}{}:
-	default:
-		// As l.trigger is a buffered channel, it means that:
-		//   - process is currently executing a callback
-		//   - trigger is queued, so callback will be invoked right after the
-		//     current execution returns
-		//
-		// There is no need to queue another trigger as the current one will
-		// fetch the latest version of the resources. The result is the same as
-		// if we maneged to queue up another trigger.
-	}
-}
+		version, changed := w.resources.VersionState()
+		w.changed = changed
+		if version <= w.lastSeenVersion {
+			continue
+		}
 
-// process waits for the trigger (new resource version) and invokes the callback
-// function. It needs to be done asynchronously from HandleNewResourceVersion,
-// because the cache invoking the function holds a lock on the resources.
-func (l *watcher) process() {
-	for range l.trigger {
-		resVer := l.resources.GetResources(l.typeUrl, 0, nil)
-		l.log.Debug("Invoke callback")
-		l.cb(resVer)
+		w.lastSeenVersion = version
+		resVer := w.resources.GetResources(w.typeUrl, 0, nil)
+		w.log.Debug("Invoke callback")
+		w.cb(resVer)
 	}
 }

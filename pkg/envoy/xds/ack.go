@@ -352,8 +352,11 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	m.version, updated, revert = m.mutator.Upsert(typeURL, resourceName, resource)
 
 	if !updated {
-		// Add a completion object for the current version so that the caller may wait for
-		// the N/ACK
+		// Add a completion object for the current version so that the caller may
+		// wait for the N/ACK even when this particular resource is unchanged.
+		// This still matters for callers that reuse the low-level mutator
+		// directly and want an ACK for the current published version without
+		// changing the bytes stored under this resource name.
 		m.maybeAddCurrentVersionCompletion(wait, typeURL, nodeIDs, wg, callback)
 		return func() {}
 	}

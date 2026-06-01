@@ -9,18 +9,23 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Cache is a key-value container which allows atomically updating entries and
-// incrementing a version number and notifying observers if the cache is actually
-// modified.
-// Cache implements the ObservableResourceSet interface.
+// incrementing a version number if the cache is actually modified.
+// Cache implements the ResourceSet interface.
 // This cache implementation ignores the proxy node identifiers, i.e. the same
 // resources are available under the same names to all nodes.
 type Cache struct {
 	logger *slog.Logger
-	*BaseObservableResourceSource
+	locker lock.RWMutex
+
+	// versionCh is closed whenever version is increased and then replaced with a
+	// fresh open channel for future waiters.
+	versionCh chan struct{}
 
 	// resources is the map of cached resource name to resource entry.
 	resources map[cacheKey]cacheValue
@@ -51,14 +56,33 @@ type cacheValue struct {
 	lastModifiedVersion uint64
 }
 
-// NewCache creates a new, empty cache with 0 as its current version.
+// NewCache creates a new, empty cache with 1 as its current version.
 func NewCache(logger *slog.Logger) *Cache {
 	return &Cache{
-		logger:                       logger,
-		BaseObservableResourceSource: NewBaseObservableResourceSource(),
-		resources:                    make(map[cacheKey]cacheValue),
-		version:                      1,
+		logger:    logger,
+		versionCh: make(chan struct{}),
+		resources: make(map[cacheKey]cacheValue),
+		version:   1,
 	}
+}
+
+func (c *Cache) advanceVersionLocked(version uint64) bool {
+	if version < c.version {
+		logging.Fatal(c.logger,
+			"decreasing version number found for resources: newVersion < xdsCachedVersion",
+			logfields.NewVersion, version,
+			logfields.XDSCachedVersion, c.version,
+		)
+	}
+	if version == c.version {
+		return false
+	}
+
+	oldVersionCh := c.versionCh
+	c.version = version
+	c.versionCh = make(chan struct{})
+	close(oldVersionCh)
+	return true
 }
 
 // TX inserts/updates a set of resources, then deletes a set of resources, then
@@ -150,10 +174,9 @@ func (c *Cache) TX(typeURL string, upsertedResources map[string]proto.Message, d
 
 	if cacheIsUpdated {
 		scopedLog.Debug(
-			"committing cache transaction and notifying of new version",
+			"committing cache transaction with new version",
 		)
-		c.version = newVersion
-		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+		c.advanceVersionLocked(newVersion)
 
 		revert = func() (version uint64, updated bool) {
 			version, updated, _ = c.TX(typeURL, revertUpsertedResources, revertDeletedNames)
@@ -202,9 +225,8 @@ func (c *Cache) Clear(typeURL string) (version uint64, updated bool) {
 	}
 
 	if cacheIsUpdated {
-		scopedLog.Debug("committing cache transaction and notifying of new version")
-		c.version = newVersion
-		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+		scopedLog.Debug("committing cache transaction with new version")
+		c.advanceVersionLocked(newVersion)
 	} else {
 		scopedLog.Debug("cache unmodified by transaction; aborting")
 	}
@@ -224,6 +246,16 @@ func (c *Cache) HasAny(typeURL string) bool {
 	return false
 }
 
+func compareVersionedResource(a, b VersionedResource) int {
+	if a.Name < b.Name {
+		return -1
+	}
+	if a.Name > b.Name {
+		return 1
+	}
+	return 0
+}
+
 func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
@@ -233,30 +265,28 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 		logfields.XDSTypeURL, typeURL,
 	)
 
+	if lastVersion > 0 && c.version <= lastVersion {
+		// nothing has changed in the cache
+		return nil
+	}
+
 	res := &VersionedResources{
 		Version: c.version,
 		Canary:  false,
 	}
 
 	// Return all resources of given typeURL.
-	// TODO: return nil if no changes since the last version?
 	if len(resourceNames) == 0 {
 		res.VersionedResources = make([]VersionedResource, 0, len(c.resources))
 		for k, v := range c.resources {
 			if k.typeURL != typeURL {
 				continue
 			}
-			res.VersionedResources = append(res.VersionedResources,
-				VersionedResource{
-					Name:     k.resourceName,
-					Version:  v.lastModifiedVersion,
-					Resource: v.resource,
-				})
+			res.appendResource(k.resourceName, v.lastModifiedVersion, v.resource)
 		}
 		scopedLog.Debug(
 			"no resource names requested",
 			logfields.Resources, len(res.VersionedResources),
-			logfields.Type, typeURL,
 		)
 		return res
 	}
@@ -293,12 +323,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 			if lastVersion == 0 || (lastVersion < v.lastModifiedVersion) {
 				updatedSinceLastVersion = true
 			}
-			res.VersionedResources = append(res.VersionedResources,
-				VersionedResource{
-					Name:     k.resourceName,
-					Version:  v.lastModifiedVersion,
-					Resource: v.resource,
-				})
+			res.appendResource(name, v.lastModifiedVersion, v.resource)
 		} else {
 			scopedLog.Debug(
 				"resource not found",
@@ -307,21 +332,12 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 			allResourcesFound = false
 		}
 	}
-
 	if allResourcesFound && !updatedSinceLastVersion {
 		scopedLog.Debug("all requested resources found but not updated since last version, returning no response")
 		return nil
 	}
 
-	slices.SortFunc(res.VersionedResources, func(a, b VersionedResource) int {
-		if a.Name < b.Name {
-			return -1
-		}
-		if a.Name > b.Name {
-			return 1
-		}
-		return 0
-	})
+	slices.SortFunc(res.VersionedResources, compareVersionedResource)
 
 	scopedLog.Debug(
 		"returning resources",
@@ -331,18 +347,25 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 	return res
 }
 
+func (c *Cache) VersionState() (version uint64, changed <-chan struct{}) {
+	c.locker.RLock()
+	defer c.locker.RUnlock()
+
+	return c.version, c.versionCh
+}
+
 func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
 	if c.version < version {
 		c.logger.Debug(
-			"increasing version to match client and notifying of new version",
+			"increasing version to match client",
 			logfields.XDSTypeURL, typeURL,
 			logfields.XDSAckedVersion, version,
 		)
 
-		// bump the lastUpdatedVersion of each resource
+		// bump the lastUpdatedVersion of each resource of this typeURL
 		for k, v := range c.resources {
 			if k.typeURL != typeURL {
 				continue
@@ -354,8 +377,7 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 			}
 		}
 
-		c.version = version
-		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+		c.advanceVersionLocked(version)
 	}
 }
 

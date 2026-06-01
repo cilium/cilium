@@ -7,141 +7,104 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sync"
 
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-// ResourceWatcher watches and retrieves new versions of resources from a
-// resource set.
-// ResourceWatcher implements ResourceVersionObserver to get notified when new
-// resource versions are available in the set.
-type ResourceWatcher struct {
-	logger *slog.Logger
-	// typeURL is the URL that uniquely identifies the resource type.
-	typeURL string
-
-	// resourceSet is the set of resources to watch.
-	resourceSet ResourceSource
-
-	// version is the current version of the resources. Updated in calls to
-	// NotifyNewVersion.
-	// Versioning starts at 1.
-	version uint64
-
-	// versionLocker is used to lock all accesses to version.
-	versionLocker lock.Mutex
-
-	// versionCond is a condition that is broadcast whenever the source's
-	// current version is increased.
-	// versionCond is associated with versionLocker.
-	versionCond *sync.Cond
+type sotwWatchRequest struct {
+	logger              *slog.Logger
+	source              ResourceSource
+	typeURL             string
+	lastReceivedVersion uint64
+	lastAckedVersion    uint64
+	resourceNames       []string
+	interestExpanded    bool
 }
 
-// NewResourceWatcher creates a new ResourceWatcher backed by the given
-// resource set.
-func NewResourceWatcher(logger *slog.Logger, typeURL string, resourceSet ResourceSource) *ResourceWatcher {
-	w := &ResourceWatcher{
-		logger:      logger,
-		version:     1,
-		typeURL:     typeURL,
-		resourceSet: resourceSet,
-	}
-	w.versionCond = sync.NewCond(&w.versionLocker)
-	return w
-}
+func waitForVersion(ctx context.Context, logger *slog.Logger, source ResourceSource, waitVersion uint64) error {
+	for {
+		currentVersion, changed := source.VersionState()
+		if currentVersion > waitVersion {
+			return nil
+		}
 
-func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint64) {
-	w.versionLocker.Lock()
-	defer w.versionLocker.Unlock()
-
-	if typeURL != w.typeURL {
-		return
-	}
-
-	if version < w.version {
-		logging.Fatal(w.logger,
-			"decreasing version number found for resources: xdsCachedVersion < resourceWatcherVersion",
-			logfields.XDSCachedVersion, version,
-			logfields.ResourceWatcherVersion, w.version,
-			logfields.XDSTypeURL, typeURL,
+		logger.Debug("waiting for current version to increase up to waitVersion",
+			logfields.WaitVersion, waitVersion,
+			logfields.CurrentVersion, currentVersion,
 		)
-	}
-	w.version = version
 
-	w.versionCond.Broadcast()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-changed:
+		}
+	}
 }
 
-// WatchResources watches for new versions of specific resources and sends them
-// into the given out channel.
+// WatchResources watches for new versions of specific resources and sends them into the
+// given out channel.
 //
-// A call to this method blocks until a version greater than lastVersion is
+// A call to this method blocks until a version greater than lastReceivedVersion is
 // available. Therefore, every call must be done in a separate goroutine.
 // A watch can be canceled by canceling the given context.
 //
-// lastVersion is the last version successfully applied by the
-// client; nil if this is the first request for resources.
+// lastAckedVersion is the last version successfully applied by the
+// client; zero if this is the first request for resources.
+// interestExpanded indicates that the tracked request expanded and therefore needs
+// one immediate snapshot before waiting for a newer cache version.
 // This method call must always close the out channel.
-func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion, previouslyAckedVersion uint64, resourceNames []string, out chan<- *VersionedResources) {
+func (r sotwWatchRequest) WatchResources(ctx context.Context, out chan<- *VersionedResources) {
 	defer close(out)
 
-	scopedLog := w.logger.With(
-		logfields.XDSAckedVersion, lastVersion,
-		logfields.XDSTypeURL, typeURL,
+	scopedLog := r.logger.With(
+		logfields.XDSAckedVersion, r.lastReceivedVersion,
+		logfields.XDSTypeURL, r.typeURL,
 	)
 
 	var res *VersionedResources
 
-	var waitVersion uint64
-	var waitForVersion bool
-	if lastVersion != 0 {
-		waitForVersion = true
-		waitVersion = lastVersion
+	waitVersion := r.lastReceivedVersion
+	waitForNextVersion := !r.interestExpanded && r.lastReceivedVersion != 0
+
+	queryVersion := uint64(0)
+	if waitForNextVersion {
+		queryVersion = r.lastReceivedVersion
 	}
 
 	for ctx.Err() == nil && res == nil {
-		w.versionLocker.Lock()
-		// lastVersion == 0 indicates that this is a new stream and
-		// previouslyAckedVersion comes from previous instance of xDS client.
+		currentVersion, _ := r.source.VersionState()
+
+		// lastReceivedVersion == 0 indicates that this is a new stream and
+		// lastAckedVersion comes from previous instance of xDS client.
 		// In this case, we artificially increase the version of the resource set
 		// to trigger sending a new version to the client.
-		if w.version <= previouslyAckedVersion && lastVersion == 0 {
-			w.versionLocker.Unlock()
-			// Calling EnsureVersion will increase the version of the resource
-			// set, which in turn will callback w.HandleNewResourceVersion with
-			// that new version number. In order for that callback to not
-			// deadlock, temporarily unlock w.versionLocker.
-			// The w.HandleNewResourceVersion callback will update w.version to
-			// the new resource set version.
-			w.resourceSet.EnsureVersion(typeURL, previouslyAckedVersion+1)
-			w.versionLocker.Lock()
+		if currentVersion <= r.lastAckedVersion && r.lastReceivedVersion == 0 {
+			r.source.EnsureVersion(r.typeURL, r.lastAckedVersion+1)
+			continue
+		}
+		if r.interestExpanded && currentVersion <= r.lastReceivedVersion {
+			// When the requested resource set expands without any underlying cache
+			// update, bump the resource-set version once so the immediate response
+			// carries a fresh nonce/version for its different resource contents.
+			r.source.EnsureVersion(r.typeURL, r.lastReceivedVersion+1)
+			continue
 		}
 
-		// Re-check w.version, since it may have been modified by calling
-		// EnsureVersion above.
-		for ctx.Err() == nil && waitForVersion && w.version <= waitVersion {
-			scopedLog.Debug("waiting for current version to increase up to waitVersion",
-				logfields.WaitVersion, waitVersion,
-				logfields.CurrentVersion, w.version,
-			)
-			w.versionCond.Wait()
+		if waitForNextVersion {
+			if err := waitForVersion(ctx, scopedLog, r.source, waitVersion); err != nil {
+				break
+			}
 		}
-		// In case we need to loop again, wait for any version more recent than
-		// the current one.
-		waitForVersion = true
-		waitVersion = w.version
-		w.versionLocker.Unlock()
+		waitForNextVersion = true
 
-		if ctx.Err() != nil {
-			break
-		}
+		currentVersion, _ = r.source.VersionState()
+		waitVersion = currentVersion
 
 		scopedLog.Debug("getting resources from set",
-			logfields.Resources, len(resourceNames),
+			logfields.Resources, len(r.resourceNames),
 		)
-		res = w.resourceSet.GetResources(typeURL, lastVersion, resourceNames)
+
+		res = r.source.GetResources(r.typeURL, queryVersion, r.resourceNames)
 	}
 
 	if res != nil {
