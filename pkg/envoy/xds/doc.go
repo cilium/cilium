@@ -35,8 +35,7 @@
 // access to resources of one or multiple resource types:
 //
 //	type ResourceSource interface {
-//	    GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
-//	        resourceNames []string) *VersionedResources
+//	    GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources
 //	}
 //
 // Resource sets should implement the ResourceSet interface to provide

@@ -3,11 +3,7 @@
 
 package xds
 
-import (
-	"google.golang.org/protobuf/proto"
-
-	"github.com/cilium/cilium/pkg/lock"
-)
+import "google.golang.org/protobuf/proto"
 
 // ResourceSource provides read access to a versioned set of resources.
 // A single version is associated to all the contained resources.
@@ -20,6 +16,11 @@ type ResourceSource interface {
 	// Should not be blocking.
 	GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources
 
+	// VersionState returns the current overall cache version together with a
+	// channel that is closed when a strictly newer version becomes available.
+	// The version and channel are sampled atomically.
+	VersionState() (version uint64, changed <-chan struct{})
+
 	// EnsureVersion increases this resource set's version to be past the
 	// given version. If the current version is already higher than that, this has no effect.
 	EnsureVersion(typeURL string, version uint64)
@@ -30,7 +31,7 @@ type VersionedResource struct {
 	// Name is the name of a resource. May be empty.
 	Name string
 	// Version is the version of this specific resource.
-	// Zero if not tracked.
+	// Zero if not-tracked.
 	// Must be non-zero for Delta xDS
 	Version uint64
 	// Resource is the protobuf resource.
@@ -51,6 +52,15 @@ type VersionedResources struct {
 	// using  the resources.
 	// Only used for state-of-the-world xDS
 	Canary bool
+}
+
+func (r *VersionedResources) appendResource(name string, version uint64, resource proto.Message) {
+	r.VersionedResources = append(r.VersionedResources,
+		VersionedResource{
+			Name:     name,
+			Version:  version,
+			Resource: resource,
+		})
 }
 
 // ResourceMutatorRevertFunc is a function which reverts the effects of an update on a
@@ -104,79 +114,4 @@ type ResourceMutator interface {
 type ResourceSet interface {
 	ResourceSource
 	ResourceMutator
-}
-
-// ObservableResourceSource is a ResourceSource that allows registering observers of
-// new resource versions from this source.
-type ObservableResourceSource interface {
-	ResourceSource
-
-	// AddResourceVersionObserver registers an observer of new versions of
-	// resources from this source.
-	AddResourceVersionObserver(listener ResourceVersionObserver)
-
-	// RemoveResourceVersionObserver unregisters an observer of new versions of
-	// resources from this source.
-	RemoveResourceVersionObserver(listener ResourceVersionObserver)
-}
-
-// ObservableResourceSet is a ResourceSet that allows registering observers of
-// new resource versions from this source.
-type ObservableResourceSet interface {
-	ObservableResourceSource
-	ResourceMutator
-}
-
-// ResourceVersionObserver defines the HandleNewResourceVersion method which is
-// called whenever the version of the resources of a given type has changed.
-type ResourceVersionObserver interface {
-	// HandleNewResourceVersion notifies of a new version of the resources of
-	// the given type.
-	HandleNewResourceVersion(typeURL string, version uint64)
-}
-
-// BaseObservableResourceSource implements the AddResourceVersionObserver and
-// RemoveResourceVersionObserver methods to handle the notification of new
-// resource versions. This is meant to be used as a base to implement
-// ObservableResourceSource.
-type BaseObservableResourceSource struct {
-	// locker is the locker used to synchronize all accesses to this source.
-	locker lock.RWMutex
-
-	// observers is the set of registered observers.
-	observers map[ResourceVersionObserver]struct{}
-}
-
-// NewBaseObservableResourceSource initializes the given set.
-func NewBaseObservableResourceSource() *BaseObservableResourceSource {
-	return &BaseObservableResourceSource{
-		observers: make(map[ResourceVersionObserver]struct{}),
-	}
-}
-
-// AddResourceVersionObserver registers an observer to be notified of new
-// resource version.
-func (s *BaseObservableResourceSource) AddResourceVersionObserver(observer ResourceVersionObserver) {
-	s.locker.Lock()
-	defer s.locker.Unlock()
-
-	s.observers[observer] = struct{}{}
-}
-
-// RemoveResourceVersionObserver unregisters an observer that was previously
-// registered by calling AddResourceVersionObserver.
-func (s *BaseObservableResourceSource) RemoveResourceVersionObserver(observer ResourceVersionObserver) {
-	s.locker.Lock()
-	defer s.locker.Unlock()
-
-	delete(s.observers, observer)
-}
-
-// NotifyNewResourceVersionRLocked notifies registered observers that a new version of
-// the resources of the given type is available.
-// This function MUST be called with locker's lock acquired.
-func (s *BaseObservableResourceSource) NotifyNewResourceVersionRLocked(typeURL string, version uint64) {
-	for o := range s.observers {
-		o.HandleNewResourceVersion(typeURL, version)
-	}
 }
