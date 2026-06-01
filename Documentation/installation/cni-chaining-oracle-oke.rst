@@ -114,6 +114,34 @@ Use the following to identify pods that need restarting:
         done
    done
 
+Uninstall
+=========
+
+.. code-block:: shell-session
+
+   $ helm uninstall cilium -n kube-system
+
+.. warning::
+
+   ``helm uninstall`` removes Kubernetes resources but does not clean up files
+   written to node host paths. The ``/etc/cni/net.d/05-cilium.conflist`` file
+   remains on every node after uninstall. Because it sorts before
+   ``10-oci.conflist``, the kubelet continues to use it for new pod creations.
+   With the Cilium agent gone, ``cilium-cni`` cannot reach its socket and
+   **new pods will be stuck in ContainerCreating** with the error
+   ``dial unix /var/run/cilium/cilium.sock: connect: no such file or directory``.
+   Existing running pods are not affected since CNI is only called at pod
+   creation time.
+
+   After uninstalling, SSH into each node and remove the file:
+
+   .. code-block:: shell-session
+
+      $ sudo rm -f /etc/cni/net.d/05-cilium.conflist
+
+   OKE's ``vcn-native-ip-cni`` DaemonSet will then handle all new pod
+   networking via ``10-oci.conflist``.
+
 .. include:: k8s-install-validate.rst
 
 .. include:: next-steps.rst
