@@ -39,6 +39,7 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			args, stderr := defaultGetRoutesArgs(args)
 			if len(args) < 3 {
 				return nil, fmt.Errorf("BGP routes command requires <table type> <afi> <safi>")
 			}
@@ -61,7 +62,7 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 					Safi: safi,
 				},
 			}
-			return func(*script.State) (stdout, stderr string, err error) {
+			return func(*script.State) (string, string, error) {
 				noAge, err := s.Flags.GetBool("no-age")
 				if err != nil {
 					return "", "", err
@@ -90,10 +91,26 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 				PrintRoutes(tw, res.Instances, printPeer, noAge, printAttr)
 				tw.Flush()
 
-				return buf.String(), "", nil
+				return buf.String(), stderr, nil
 			}, nil
 		},
 	)
+}
+
+func defaultGetRoutesArgs(args []string) ([]string, string) {
+	if len(args) < 1 {
+		return []string{"loc", types.AfiIPv4.String(), types.SafiUnicast.String()},
+			fmt.Sprintf("(Defaulting to `%s %s %s` routes, please see help for more options)\n\n", "loc", types.AfiIPv4, types.SafiUnicast)
+	}
+	if len(args) < 2 {
+		return []string{args[0], types.AfiIPv4.String(), types.SafiUnicast.String()},
+			fmt.Sprintf("(Defaulting to `%s %s` AFI & SAFI, please see help for more options)\n\n", types.AfiIPv4, types.SafiUnicast)
+	}
+	if len(args) < 3 {
+		return []string{args[0], args[1], types.SafiUnicast.String()},
+			fmt.Sprintf("(Defaulting to `%s` SAFI, please see help for more options)\n\n", types.SafiUnicast)
+	}
+	return args, ""
 }
 
 func parseTableTypeArg(arg string) (types.TableType, error) {
