@@ -41,6 +41,12 @@ type Input struct {
 	Services            []corev1.Service
 	ServiceImports      []mcsapiv1beta1.ServiceImport
 	BackendTLSPolicyMap helpers.BackendTLSPolicyServiceMap
+	ListenerSets        []ListenerSetInput
+}
+
+type ListenerSetInput struct {
+	ListenerSet gatewayv1.ListenerSet
+	HTTPRoutes  []gatewayv1.HTTPRoute // routes whose parentRef = this ListenerSet
 }
 
 // GatewayAPI translates Gateway API resources into a model.
@@ -75,16 +81,11 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 
 	// Find all the listener host names, so that we can match them with the routes
 	// Gateway API spec guarantees that the hostnames are unique across all listeners
-	listenerHostnamesByProtocol := make(map[gatewayv1.ProtocolType][]string)
-	for _, l := range input.Gateway.Spec.Listeners {
-		if l.Hostname != nil {
-			_, ok := listenerHostnamesByProtocol[l.Protocol]
-			if !ok {
-				listenerHostnamesByProtocol[l.Protocol] = []string{}
-			}
-			listenerHostnamesByProtocol[l.Protocol] = append(listenerHostnamesByProtocol[l.Protocol], toHostname(l.Hostname))
-		}
+	mergedListeners := append([]gatewayv1.Listener{}, input.Gateway.Spec.Listeners...)
+	for _, lsIn := range input.ListenerSets {
+		mergedListeners = append(mergedListeners, toListeners(lsIn.ListenerSet.Spec.Listeners)...)
 	}
+	listenerHostnamesByProtocol := hostnamesByProtocol(mergedListeners)
 
 	for _, l := range input.Gateway.Spec.Listeners {
 		if l.Protocol != gatewayv1.HTTPProtocolType &&
@@ -132,6 +133,34 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 				Port:           uint32(l.Port),
 				Hostname:       toHostname(l.Hostname),
 				Routes:         toTLSRoutes(l, listenerHostnamesByProtocol, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
+				Infrastructure: infra,
+				Service:        toServiceModel(input.GatewayClassConfig),
+			})
+		}
+	}
+
+	for _, lsIn := range input.ListenerSets {
+		for _, listener := range toListeners(lsIn.ListenerSet.Spec.Listeners) {
+			if listener.Protocol != gatewayv1.HTTPProtocolType && listener.Protocol != gatewayv1.HTTPSProtocolType {
+				continue // GRPC/TLS deferred
+			}
+
+			resHTTP = append(resHTTP, model.HTTPListener{
+				Name: fmt.Sprintf("%s-%s-%s", lsIn.ListenerSet.Namespace, lsIn.ListenerSet.Name, listener.Name),
+				Sources: []model.FullyQualifiedResource{
+					{
+						Name:      input.Gateway.GetName(),
+						Namespace: input.Gateway.GetNamespace(),
+						Group:     gatewayv1.SchemeGroupVersion.Group,
+						Version:   gatewayv1.SchemeGroupVersion.Version,
+						Kind:      "Gateway",
+						UID:       string(input.Gateway.GetUID()),
+					},
+				},
+				Port:           uint32(listener.Port),
+				Hostname:       toHostname(listener.Hostname),
+				TLS:            toTLS(listener.TLS, input.ReferenceGrants, lsIn.ListenerSet.GetNamespace()), // certs from LS's own ns
+				Routes:         toHTTPRoutes(log, listener, listenerHostnamesByProtocol, lsIn.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap),
 				Infrastructure: infra,
 				Service:        toServiceModel(input.GatewayClassConfig),
 			})
@@ -941,6 +970,24 @@ func backendRefToAppProtocol(svc corev1.Service, backendPort int32) *string {
 	return nil
 }
 
+func hostnamesByProtocol(listeners []gatewayv1.Listener) map[gatewayv1.ProtocolType][]string {
+	hostnames := make(map[gatewayv1.ProtocolType][]string)
+
+	for _, l := range listeners {
+		if l.Hostname == nil {
+			continue
+		}
+
+		if _, ok := hostnames[l.Protocol]; !ok {
+			hostnames[l.Protocol] = []string{}
+		}
+
+		hostnames[l.Protocol] = append(hostnames[l.Protocol], toHostname(l.Hostname))
+	}
+
+	return hostnames
+}
+
 func toPathMatch(match gatewayv1.HTTPRouteMatch) model.StringMatch {
 	if match.Path == nil {
 		return model.StringMatch{}
@@ -1148,4 +1195,25 @@ func toStringSlice[S ~string](s []S) []string {
 		res = append(res, string(h))
 	}
 	return res
+}
+
+func toListener(entry gatewayv1.ListenerEntry) gatewayv1.Listener {
+	return gatewayv1.Listener{
+		Name:          entry.Name,
+		Hostname:      entry.Hostname,
+		Port:          entry.Port,
+		Protocol:      entry.Protocol,
+		TLS:           entry.TLS,
+		AllowedRoutes: entry.AllowedRoutes,
+	}
+}
+
+func toListeners(entries []gatewayv1.ListenerEntry) []gatewayv1.Listener {
+	listeners := make([]gatewayv1.Listener, 0, len(entries))
+
+	for _, entry := range entries {
+		listeners = append(listeners, toListener(entry))
+	}
+
+	return listeners
 }

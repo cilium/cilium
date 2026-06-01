@@ -114,6 +114,10 @@ func (g *GRPCRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv
 	return gw, nil
 }
 
+func (g *GRPCRouteInput) GetListenerSet(parent gatewayv1.ParentReference) (*gatewayv1.ListenerSet, error) {
+	return nil, fmt.Errorf("ListenerSet parent is not supported for GRPCRoute")
+}
+
 func (g *GRPCRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
 	if g.gammaServices == nil {
 		g.gammaServices = make(map[gatewayv1.ParentReference]*corev1.Service)

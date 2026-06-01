@@ -29,6 +29,7 @@ type HTTPRouteInput struct {
 	HTTPRoute *gatewayv1.HTTPRoute
 
 	gateways      map[gatewayv1.ParentReference]*gatewayv1.Gateway
+	listenerSets  map[gatewayv1.ParentReference]*gatewayv1.ListenerSet
 	gammaServices map[gatewayv1.ParentReference]*corev1.Service
 }
 
@@ -130,6 +131,31 @@ func (h *HTTPRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv
 	h.gateways[parent] = gw
 
 	return gw, nil
+}
+
+func (h *HTTPRouteInput) GetListenerSet(parent gatewayv1.ParentReference) (*gatewayv1.ListenerSet, error) {
+	if h.listenerSets == nil {
+		h.listenerSets = make(map[gatewayv1.ParentReference]*gatewayv1.ListenerSet)
+	}
+
+	if ls, exists := h.listenerSets[parent]; exists {
+		return ls, nil
+	}
+
+	ns := helpers.NamespaceDerefOr(parent.Namespace, h.GetNamespace())
+	ls := &gatewayv1.ListenerSet{}
+
+	if err := h.Client.Get(h.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, ls); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return nil, fmt.Errorf("error while getting listenerset: %w", err)
+		}
+
+		return nil, fmt.Errorf("listenerset %q does not exist: %w", parent.Name, err)
+	}
+
+	h.listenerSets[parent] = ls
+
+	return ls, nil
 }
 
 func (h *HTTPRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {

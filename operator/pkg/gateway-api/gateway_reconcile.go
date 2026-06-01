@@ -40,6 +40,39 @@ import (
 	"github.com/cilium/cilium/pkg/shortener"
 )
 
+type listenerSetResult struct {
+	ls       *gatewayv1.ListenerSet
+	accepted bool
+	reason   gatewayv1.ListenerSetConditionReason
+	message  string
+	routes   []gatewayv1.HTTPRoute
+}
+
+var gatewayParentChecks = []routechecks.CheckWithParentFunc{
+	routechecks.CheckGatewayMatchingProtocol,
+	routechecks.CheckGatewayRouteKindAllowed,
+	routechecks.CheckGatewayMatchingPorts,
+	routechecks.CheckGatewayMatchingHostnames,
+	routechecks.CheckGatewayMatchingSection,
+	routechecks.CheckGatewayAllowedForNamespace,
+}
+
+var listenerSetParentChecks = []routechecks.CheckWithParentFunc{
+	routechecks.CheckListenerSetMatchingProtocol,
+	routechecks.CheckListenerSetRouteKindAllowed,
+	routechecks.CheckListenerSetMatchingPorts,
+	routechecks.CheckListenerSetMatchingHostnames,
+	routechecks.CheckListenerSetMatchingSection,
+	routechecks.CheckListenerSetAllowedForNamespace,
+}
+
+var backendChecks = []routechecks.CheckWithParentFunc{
+	routechecks.CheckAgainstCrossNamespaceBackendReferences,
+	routechecks.CheckBackend,
+	routechecks.CheckHasServiceImportSupport,
+	routechecks.CheckBackendIsExistingService,
+}
+
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 //
@@ -188,6 +221,16 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
+	var listenerSets []listenerSetResult
+
+	if r.enableListenerSet {
+		var err error
+		if listenerSets, err = r.gatherListenerSets(ctx, gw); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to gather ListenerSets", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
+	}
+
 	gatewayClassConfig := r.getGatewayClassConfig(ctx, gwc)
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(scopedLog, ingestion.Input{
 		GatewayClass:        *gwc,
@@ -200,6 +243,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ServiceImports:      serviceImportsList.Items,
 		ReferenceGrants:     grants.Items,
 		BackendTLSPolicyMap: btlspMap,
+		ListenerSets:        listenerSetInputs(listenerSets),
 	})
 
 	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList)
@@ -214,9 +258,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.ErrorContext(ctx, "No Accepted Listeners for Gateway", logfields.Error, err)
 		setGatewayAccepted(gw, false, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
+		if lsErr := r.updateListenerSetStatuses(ctx, listenerSets, false); lsErr != nil {
+			scopedLog.ErrorContext(ctx, "Unable to update ListenerSet statuses", logfields.Error, lsErr)
+		}
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled", gatewayv1.GatewayReasonAccepted)
+	setGatewayAttachedListenerSets(gw, listenerSets)
 
 	// Step 3: Translate the listeners into Cilium model
 	cec, svc, ep, err := r.translator.Translate(&model.Model{
@@ -258,6 +306,11 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to ensure CEC resource", gatewayv1.GatewayReasonNoResources)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create CEC resource", gatewayv1.GatewayReasonNoResources)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+
+	if err := r.updateListenerSetStatuses(ctx, listenerSets, true); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update ListenerSet statuses", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
@@ -810,15 +863,28 @@ func (r *gatewayReconciler) verifyGatewayStaticAddresses(gw *gatewayv1.Gateway) 
 // Uses the helpers.Input interface to ensure that this still applies as new types are added.
 func (r *gatewayReconciler) runCommonRouteChecks(input routechecks.Input, parentRefs []gatewayv1.ParentReference, objNamespace string) error {
 	for _, parent := range parentRefs {
-		// If this parentRef is not a Gateway parentRef, skip it.
-		if !helpers.IsGateway(parent) {
+		var checks []routechecks.CheckWithParentFunc
+
+		switch {
+		case helpers.IsGateway(parent):
+			if !r.parentIsMatchingGateway(parent, objNamespace) {
+				continue
+			}
+
+			checks = append(checks, gatewayParentChecks...)
+		case r.enableListenerSet && helpers.IsListenerSet(parent) && input.GetGVK().Kind == "HTTPRoute": // TODO: gate behind the ListenerSet feature flag
+			if !r.parentIsMatchingListenerSet(parent, objNamespace) {
+				continue
+			}
+
+			checks = append(checks, listenerSetParentChecks...)
+		default:
+			// Skip all other parent types.
 			continue
 		}
 
-		// Similarly, if this Gateway is not a matching one, skip it.
-		if !r.parentIsMatchingGateway(parent, objNamespace) {
-			continue
-		}
+		// Ensure backend checks run after parent checks
+		checks = append(checks, backendChecks...)
 
 		// set Accepted to okay, this wil be overwritten in checks if needed
 		input.SetParentCondition(parent, metav1.Condition{
@@ -836,43 +902,19 @@ func (r *gatewayReconciler) runCommonRouteChecks(input routechecks.Input, parent
 			Message: "Service reference is valid",
 		})
 
-		// run the Gateway validators
-		for _, fn := range []routechecks.CheckWithParentFunc{
-			routechecks.CheckGatewayMatchingProtocol,
-			routechecks.CheckGatewayRouteKindAllowed,
-			routechecks.CheckGatewayMatchingPorts,
-			routechecks.CheckGatewayMatchingHostnames,
-			routechecks.CheckGatewayMatchingSection,
-			routechecks.CheckGatewayAllowedForNamespace,
-		} {
-			continueCheck, err := fn(input, parent)
-			if err != nil {
-				return fmt.Errorf("failed to apply Gateway check: %w", err)
-			}
-
-			if !continueCheck {
-				break
-			}
-		}
-
 		// Run the Rule validators, these need to be run per-parent so that we
 		// don't update status for parents we don't own.
-		for _, fn := range []routechecks.CheckWithParentFunc{
-			routechecks.CheckAgainstCrossNamespaceBackendReferences,
-			routechecks.CheckBackend,
-			routechecks.CheckHasServiceImportSupport,
-			routechecks.CheckBackendIsExistingService,
-		} {
+		for _, fn := range checks {
 			continueCheck, err := fn(input, parent)
+
 			if err != nil {
-				return fmt.Errorf("failed to apply Backend check: %w", err)
+				return fmt.Errorf("failed to apply route check: %w", err)
 			}
 
 			if !continueCheck {
 				break
 			}
 		}
-
 	}
 
 	return nil
@@ -890,6 +932,31 @@ func (r *gatewayReconciler) parentIsMatchingGateway(parent gatewayv1.ParentRefer
 	}, gw); err != nil {
 		return false
 	}
+	return hasMatchingControllerFn(gw)
+}
+
+func (r *gatewayReconciler) parentIsMatchingListenerSet(parent gatewayv1.ParentReference, namespace string) bool {
+	if !helpers.IsListenerSet(parent) {
+		return false
+	}
+
+	ls := &gatewayv1.ListenerSet{}
+	if err := r.Client.Get(context.Background(), types.NamespacedName{
+		Namespace: helpers.NamespaceDerefOr(parent.Namespace, namespace),
+		Name:      string(parent.Name),
+	}, ls); err != nil {
+		return false
+	}
+
+	gw := &gatewayv1.Gateway{}
+	if err := r.Client.Get(context.Background(), types.NamespacedName{
+		Namespace: helpers.NamespaceDerefOr(ls.Spec.ParentRef.Namespace, ls.GetNamespace()),
+		Name:      string(ls.Spec.ParentRef.Name),
+	}, gw); err != nil {
+		return false
+	}
+
+	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.Client, helpers.CiliumDefaultControllerName, r.logger)
 	return hasMatchingControllerFn(gw)
 }
 
@@ -1330,4 +1397,141 @@ func (r *gatewayReconciler) updateBackendTLSPolicyStatus(ctx context.Context, sc
 	}
 	scopedLog.Debug("BackendTLSPolicy status", backendTLSPolicy, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
+}
+func (r *gatewayReconciler) gatherListenerSets(ctx context.Context, gw *gatewayv1.Gateway) ([]listenerSetResult, error) {
+	lsList := &gatewayv1.ListenerSetList{}
+	if err := r.Client.List(ctx, lsList); err != nil {
+		return nil, err
+	}
+
+	var results []listenerSetResult
+	for i := range lsList.Items {
+		ls := &lsList.Items[i]
+		if !listenerSetTargetsGateway(ls, gw) {
+			continue // ListenerSet is not pointing at our Gateway. Skip it.
+		}
+
+		res := listenerSetResult{ls: ls}
+
+		allowed, err := r.listenerSetAllowedByGateway(ctx, gw, ls.GetNamespace())
+		if err != nil {
+			return nil, err
+		}
+		if !allowed {
+			res.accepted = false
+			res.reason = gatewayv1.ListenerSetReasonNotAllowed
+			res.message = "ListenerSet is not allowed to attach to this Gateway"
+			results = append(results, res)
+			continue
+		}
+
+		hrList := &gatewayv1.HTTPRouteList{}
+		if err := r.Client.List(ctx, hrList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.ListenerSetHTTPRouteIndex, client.ObjectKeyFromObject(ls).String()),
+		}); err != nil {
+			return nil, err
+		}
+
+		for j := range hrList.Items {
+			route := hrList.Items[j]
+
+			if !helpers.IsParentAttachable(ctx, ls, &route, route.Status.Parents) {
+				continue
+			}
+
+			res.routes = append(res.routes, route)
+		}
+
+		res.accepted = true
+		res.reason = gatewayv1.ListenerSetReasonAccepted
+		res.message = "ListenerSet Accepted"
+		results = append(results, res)
+	}
+
+	return results, nil
+}
+
+func listenerSetInputs(results []listenerSetResult) []ingestion.ListenerSetInput {
+	var inputs []ingestion.ListenerSetInput
+	for _, res := range results {
+		if !res.accepted {
+			continue
+		}
+		inputs = append(inputs, ingestion.ListenerSetInput{ListenerSet: *res.ls, HTTPRoutes: res.routes})
+	}
+	return inputs
+}
+
+func listenerSetTargetsGateway(ls *gatewayv1.ListenerSet, gw *gatewayv1.Gateway) bool {
+	pr := ls.Spec.ParentRef
+
+	if pr.Kind != nil && *pr.Kind != "Gateway" {
+		return false
+	}
+
+	if pr.Group != nil && *pr.Group != gatewayv1.GroupName {
+		return false
+	}
+
+	ns := ls.GetNamespace()
+
+	if pr.Namespace != nil {
+		ns = string(*pr.Namespace)
+	}
+
+	return string(pr.Name) == gw.GetName() && ns == gw.GetNamespace()
+}
+
+func filterHTTPRoutesByListenerSetEntry(ls *gatewayv1.ListenerSet, entry gatewayv1.ListenerEntry, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
+	var filtered []gatewayv1.HTTPRoute
+	for _, route := range routes {
+		for _, parent := range route.Spec.ParentRefs {
+			ns := helpers.NamespaceDerefOr(parent.Namespace, route.GetNamespace())
+			if !helpers.IsListenerSet(parent) || string(parent.Name) != ls.GetName() || ns != ls.GetNamespace() {
+				continue
+			}
+			if parent.SectionName == nil || *parent.SectionName == entry.Name {
+				filtered = append(filtered, route)
+				break
+			}
+		}
+	}
+	return filtered
+}
+
+// listenerSetAllowedByGateway reports whether the Gateway's spec.allowedListeners
+// permits this ListenerSet (which lives in lsNamespace) to attach.
+// Default (nil / From: None) => not allowed.
+func (r *gatewayReconciler) listenerSetAllowedByGateway(ctx context.Context, gw *gatewayv1.Gateway, lsNamespace string) (bool, error) {
+	al := gw.Spec.AllowedListeners
+	if al == nil || al.Namespaces == nil || al.Namespaces.From == nil {
+		return false, nil // default: None
+	}
+	switch *al.Namespaces.From {
+	case gatewayv1.NamespacesFromNone:
+		return false, nil
+	case gatewayv1.NamespacesFromAll:
+		return true, nil
+	case gatewayv1.NamespacesFromSame:
+		return lsNamespace == gw.GetNamespace(), nil
+	case gatewayv1.NamespacesFromSelector:
+		if al.Namespaces.Selector == nil {
+			return false, nil
+		}
+		selector, err := metav1.LabelSelectorAsSelector(al.Namespaces.Selector)
+		if err != nil {
+			return false, fmt.Errorf("invalid allowedListeners selector: %w", err)
+		}
+		nsList := &corev1.NamespaceList{}
+		if err := r.Client.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
+			return false, fmt.Errorf("unable to list namespaces: %w", err)
+		}
+		for _, ns := range nsList.Items {
+			if ns.Name == lsNamespace {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	return false, nil
 }

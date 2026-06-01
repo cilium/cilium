@@ -140,6 +140,10 @@ func (t *TLSRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv1
 	return gw, nil
 }
 
+func (t *TLSRouteInput) GetListenerSet(parent gatewayv1.ParentReference) (*gatewayv1.ListenerSet, error) {
+	return nil, fmt.Errorf("ListenerSet parent is not supported for TLSRoute")
+}
+
 func (t *TLSRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
 	return nil, fmt.Errorf("GAMMA support is not implemented in this reconciler")
 }

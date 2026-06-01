@@ -35,6 +35,24 @@ func IndexHTTPRouteByGateway(rawObj client.Object) []string {
 	return gateways
 }
 
+// IndexHTTPRouteByListenerSet indexes an HTTPRoute by the ListenerSet parents it references.
+func IndexHTTPRouteByListenerSet(rawObj client.Object) []string {
+	hr := rawObj.(*gatewayv1.HTTPRoute)
+	var listenerSets []string
+	for _, parent := range hr.Spec.ParentRefs {
+		if !helpers.IsListenerSet(parent) {
+			continue
+		}
+		listenerSets = append(listenerSets,
+			types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
+				Name:      string(parent.Name),
+			}.String(),
+		)
+	}
+	return listenerSets
+}
+
 // IndexHTTPRouteByGammaService is a client.IndexerFunc that takes a single HTTPRoute and returns all
 // referenced Service object full names (`namespace/name`) to add to the relevant index.
 func IndexHTTPRouteByGammaService(rawObj client.Object) []string {

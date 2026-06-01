@@ -31,6 +31,7 @@ type Input interface {
 	GetGVK() schema.GroupVersionKind
 	GetGrants() []gatewayv1.ReferenceGrant
 	GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error)
+	GetListenerSet(parent gatewayv1.ParentReference) (*gatewayv1.ListenerSet, error)
 	GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error)
 	GetHostnames() []gatewayv1.Hostname
 	GetValidProtocols() []gatewayv1.ProtocolType

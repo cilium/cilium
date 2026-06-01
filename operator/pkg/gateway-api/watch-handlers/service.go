@@ -88,17 +88,17 @@ func EnqueueRequestForBackendService(c client.Client, logger slog.Logger) handle
 
 		// iterate through the HTTPRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, hr := range hrList.Items {
-			updateReconcileRequestsForParentRefs(hr.Spec.ParentRefs, hr.Namespace, allCiliumGatewaysSet, reconcileRequests)
+			updateReconcileRequestsForParentRefs(ctx, c, scopedLog, hr.Spec.ParentRefs, hr.Namespace, allCiliumGatewaysSet, reconcileRequests)
 		}
 
 		// iterate through the TLSRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, tlsr := range tlsrList.Items {
-			updateReconcileRequestsForParentRefs(tlsr.Spec.ParentRefs, tlsr.Namespace, allCiliumGatewaysSet, reconcileRequests)
+			updateReconcileRequestsForParentRefs(ctx, c, scopedLog, tlsr.Spec.ParentRefs, tlsr.Namespace, allCiliumGatewaysSet, reconcileRequests)
 		}
 
 		// iterate through the TLSRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, grpcr := range grpcRouteList.Items {
-			updateReconcileRequestsForParentRefs(grpcr.Spec.ParentRefs, grpcr.Namespace, allCiliumGatewaysSet, reconcileRequests)
+			updateReconcileRequestsForParentRefs(ctx, c, scopedLog, grpcr.Spec.ParentRefs, grpcr.Namespace, allCiliumGatewaysSet, reconcileRequests)
 		}
 
 		// return the keys of the set, since that's the actual reconcile.Requests.

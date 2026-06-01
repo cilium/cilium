@@ -21,15 +21,44 @@ import (
 )
 
 // updateReconcileRequestsForParentRefs mutates the passed reconcile.Request set to add all
-func updateReconcileRequestsForParentRefs(parentRefs []gatewayv1.ParentReference, ns string, allGatewaysSet map[string]struct{}, rrSet map[reconcile.Request]struct{}) {
+func updateReconcileRequestsForParentRefs(ctx context.Context, c client.Client, logger *slog.Logger, parentRefs []gatewayv1.ParentReference, ns string, allGatewaysSet map[string]struct{}, rrSet map[reconcile.Request]struct{}) {
 	for _, parent := range parentRefs {
-		if !helpers.IsGateway(parent) {
+		var parentFullName types.NamespacedName
+
+		switch {
+		case helpers.IsGateway(parent):
+			parentFullName = types.NamespacedName{
+				Name:      string(parent.Name),
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, ns),
+			}
+
+		case helpers.IsListenerSet(parent):
+			// A ListenerSet parent attaches to the Gateway named in its own
+			// spec.parentRef, so follow that to find the Gateway to reconcile.
+			ls := &gatewayv1.ListenerSet{}
+			if err := c.Get(ctx, types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, ns),
+				Name:      string(parent.Name),
+			}, ls); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					logger.ErrorContext(ctx, "Failed to get ListenerSet parent", logfields.Error, err)
+				}
+				continue
+			}
+			pr := ls.Spec.ParentRef
+			lsGwNS := ls.GetNamespace()
+			if pr.Namespace != nil {
+				lsGwNS = string(*pr.Namespace)
+			}
+			parentFullName = types.NamespacedName{
+				Name:      string(pr.Name),
+				Namespace: lsGwNS,
+			}
+
+		default:
 			continue
 		}
-		parentFullName := types.NamespacedName{
-			Name:      string(parent.Name),
-			Namespace: helpers.NamespaceDerefOr(parent.Namespace, ns),
-		}
+
 		if _, found := allGatewaysSet[parentFullName.String()]; found {
 			rrSet[reconcile.Request{NamespacedName: parentFullName}] = struct{}{}
 		}
@@ -68,17 +97,35 @@ func getGatewayReconcileRequestsForRoute(ctx context.Context, c client.Client, o
 	)
 
 	for _, parent := range route.ParentRefs {
-		if !helpers.IsGateway(parent) {
+		var gwNS, gwName string
+
+		switch {
+		case helpers.IsGateway(parent):
+			gwNS = helpers.NamespaceDerefOr(parent.Namespace, object.GetNamespace())
+			gwName = string(parent.Name)
+
+		case helpers.IsListenerSet(parent):
+			lsNS := helpers.NamespaceDerefOr(parent.Namespace, object.GetNamespace())
+			ls := &gatewayv1.ListenerSet{}
+			if err := c.Get(ctx, types.NamespacedName{Namespace: lsNS, Name: string(parent.Name)}, ls); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					scopedLog.ErrorContext(ctx, "Failed to get ListenerSet parent", logfields.Error, err)
+				}
+				continue
+			}
+			pr := ls.Spec.ParentRef
+			gwNS = lsNS
+			if pr.Namespace != nil {
+				gwNS = string(*pr.Namespace)
+			}
+			gwName = string(pr.Name)
+
+		default:
 			continue
 		}
 
-		ns := helpers.NamespaceDerefOr(parent.Namespace, object.GetNamespace())
-
 		gw := &gatewayv1.Gateway{}
-		if err := c.Get(ctx, types.NamespacedName{
-			Namespace: ns,
-			Name:      string(parent.Name),
-		}, gw); err != nil {
+		if err := c.Get(ctx, types.NamespacedName{Namespace: gwNS, Name: gwName}, gw); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				scopedLog.ErrorContext(ctx, "Failed to get Gateway", logfields.Error, err)
 			}
@@ -90,18 +137,10 @@ func getGatewayReconcileRequestsForRoute(ctx context.Context, c client.Client, o
 			continue
 		}
 
-		scopedLog.InfoContext(ctx,
-			"Enqueued gateway for Route",
-			logfields.K8sNamespace, ns,
-			logfields.ParentResource, parent.Name,
-			logfields.Route, object.GetName())
+		scopedLog.InfoContext(ctx, "Enqueued gateway for Route",
+			logfields.K8sNamespace, gwNS, logfields.ParentResource, parent.Name, logfields.Route, object.GetName())
 
-		reqs = append(reqs, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: ns,
-				Name:      string(parent.Name),
-			},
-		})
+		reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: gwNS, Name: gwName}})
 	}
 
 	return reqs

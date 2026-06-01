@@ -41,19 +41,21 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger        *slog.Logger
-	installedCRDs []schema.GroupVersionKind
+	logger            *slog.Logger
+	installedCRDs     []schema.GroupVersionKind
+	enableListenerSet bool
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind, enableListenerSet bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		translator:    translator,
-		logger:        scopedLog,
-		installedCRDs: installedCRDs,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		translator:        translator,
+		logger:            scopedLog,
+		installedCRDs:     installedCRDs,
+		enableListenerSet: enableListenerSet,
 	}
 }
 
@@ -77,6 +79,12 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+		}
+	}
+
+	if r.enableListenerSet {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.ListenerSetHTTPRouteIndex, indexers.IndexHTTPRouteByListenerSet); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ListenerSetHTTPRouteIndex, err)
 		}
 	}
 
@@ -155,6 +163,11 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if serviceImportEnabled {
 		// Watch for changes to Backend Service Imports
 		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.Client, *r.logger))
+	}
+
+	if r.enableListenerSet {
+		// Watch ListenerSet linked to Gateway
+		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.ListenerSet{}, watchhandlers.EnqueueRequestForOwningListenerSet(r.Client, r.logger, helpers.CiliumDefaultControllerName))
 	}
 
 	return gatewayBuilder.Complete(r)

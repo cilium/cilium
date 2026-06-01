@@ -13,6 +13,9 @@ const (
 	// Indexes HTTPRoutes by all the Gateway parents referenced in the object.
 	GatewayHTTPRouteIndex = "gatewayHTTPRouteIndex"
 
+	// Indexes HTTPRoutes by all the ListenerSet parents referenced in the object.
+	ListenerSetHTTPRouteIndex = "listenerSetHTTPRouteIndex"
+
 	// Indexes Gateways and records if the Gateway is relevant for Cilium.
 	ImplementationGatewayIndex = "implementationGatewayIndex"
 
