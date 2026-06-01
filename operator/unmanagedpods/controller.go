@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/watchers"
@@ -173,6 +174,41 @@ func (c *unmanagedPodsController) enableUnmanagedController() {
 										)
 										continue
 									}
+								}
+
+								// Verify the pod is still Running via a live API call
+								// before deleting it. The UnmanagedPodStore is eventually
+								// consistent — it can still contain a pod that has already
+								// transitioned to Succeeded or Failed, or is being terminated.
+								currentPod, err := c.clientset.CoreV1().Pods(pod.Namespace).Get(
+									ctx, pod.Name, metav1.GetOptions{},
+								)
+								if err != nil {
+									if ctx.Err() != nil {
+										// Context cancelled — operator is shutting down, stop the loop.
+										return ctx.Err()
+									}
+									c.logger.WarnContext(ctx,
+										"Unable to verify pod phase before restart, skipping",
+										logfields.Error, err,
+										logfields.K8sPodName, podID,
+									)
+									continue
+								}
+								if currentPod.Status.Phase != corev1.PodRunning {
+									c.logger.DebugContext(ctx,
+										"Skipping pod restart, pod is no longer Running",
+										logfields.K8sPodName, podID,
+										"phase", currentPod.Status.Phase,
+									)
+									continue
+								}
+								if currentPod.DeletionTimestamp != nil {
+									c.logger.DebugContext(ctx,
+										"Skipping pod restart, pod is already being terminated",
+										logfields.K8sPodName, podID,
+									)
+									continue
 								}
 
 								c.logger.InfoContext(ctx,
