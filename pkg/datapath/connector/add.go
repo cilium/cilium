@@ -57,7 +57,25 @@ func truncateString(epID string, maxLen uint) string {
 	return epID
 }
 
-// DisableRpFilter tries to disable rpfilter on specified interface
+// DisableRpFilter relaxes the reverse-path filter on the specified host-side
+// endpoint interface so the datapath can use container addresses as source
+// when the Linux stack performs routing.
+//
+// In addition to disabling rp_filter, it enables accept_local. Proxy-redirected
+// (stack-TPROXY) packets are marked and routed via the proxy's
+// "local default dev lo" table, which makes the kernel treat them as locally
+// destined and run fib_validate_source on the *source*. With
+// net.ipv4.conf.all.src_valid_mark=1 (set by Cilium), that reverse-path lookup
+// also follows the proxy fwmark to the same local table, so the client source
+// resolves as "local" and is dropped as a martian source unless accept_local is
+// set on the ingress device. Cilium already applies both relaxations together
+// on its own devices (see pkg/datapath/loader/netlink.go); applying them here
+// extends the same treatment to endpoint veth/netkit peers, which is where
+// pod-origin proxy traffic (e.g. egress toFQDNs DNS proxy, L7LB) is validated.
+// See https://github.com/cilium/cilium/issues/46260.
 func DisableRpFilter(sysctl sysctl.Sysctl, ifName string) error {
-	return sysctl.Disable([]string{"net", "ipv4", "conf", ifName, "rp_filter"})
+	if err := sysctl.Disable([]string{"net", "ipv4", "conf", ifName, "rp_filter"}); err != nil {
+		return err
+	}
+	return sysctl.Enable([]string{"net", "ipv4", "conf", ifName, "accept_local"})
 }
