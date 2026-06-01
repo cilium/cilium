@@ -49,6 +49,7 @@ var BgpRoutePoliciesCmd = &cobra.Command{
 				Fatalf("error getting output in JSON: %s\n", err)
 			}
 		} else {
+			fmt.Fprint(cmd.OutOrStderr(), "Command \"route-policies\" is deprecated, Use the subcommand: \"shell bgp/route-policies\"\n")
 			w := NewTabWriter()
 			api.PrintBGPRoutePoliciesTable(w, res.GetPayload())
 		}

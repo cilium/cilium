@@ -40,6 +40,7 @@ var (
 					Fatalf("error getting output in JSON: %s\n", err)
 				}
 			} else {
+				fmt.Fprint(cmd.OutOrStderr(), "Command \"peers\" is deprecated, Use the subcommand: \"shell bgp/peers\"\n")
 				w := NewTabWriter()
 				payload := res.GetPayload()
 				if showCaps {
