@@ -342,6 +342,7 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// is no such thing as a podCIDR to begin with. In those cases, the
 		// IPv4/IPv6AllocRange is auto-generated and otherwise unused, so it does not
 		// make sense to copy it into the CiliumNode it either.
+		// See NodeRegistrar.RegisterNode() for the equivalent kvstore mode logic.
 		nodeResource.Spec.IPAM.PodCIDRs = []string{}
 		if cidr := ln.IPv4AllocCIDR; cidr != nil {
 			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
