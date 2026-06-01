@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -19,6 +20,19 @@ type sotwWatchRequest struct {
 	lastAckedVersion    uint64
 	resourceNames       []string
 	interestExpanded    bool
+}
+
+type deltaWatchRequest struct {
+	logger              *slog.Logger
+	source              ResourceSource
+	typeURL             string
+	lastReceivedVersion uint64
+	lastAckedVersion    uint64
+	subscriptions       set.Set[string]
+	ackedResourceNames  set.Set[string]
+	forceResponseNames  set.Set[string]
+	immediate           bool
+	forceEmptyResponse  bool
 }
 
 func waitForVersion(ctx context.Context, logger *slog.Logger, source ResourceSource, waitVersion uint64) error {
@@ -58,7 +72,6 @@ func (r sotwWatchRequest) WatchResources(ctx context.Context, out chan<- *Versio
 
 	scopedLog := r.logger.With(
 		logfields.XDSAckedVersion, r.lastReceivedVersion,
-		logfields.XDSTypeURL, r.typeURL,
 	)
 
 	var res *VersionedResources
@@ -110,6 +123,65 @@ func (r sotwWatchRequest) WatchResources(ctx context.Context, out chan<- *Versio
 	if res != nil {
 		// Resources have changed since the last version returned to the
 		// client. Send out the new version.
+		select {
+		case <-ctx.Done():
+		case out <- res:
+			return
+		}
+	}
+
+	err := ctx.Err()
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			scopedLog.Debug("context canceled, terminating resource watch")
+		} else {
+			scopedLog.Error("context error, terminating resource watch", logfields.Error, err)
+		}
+	}
+}
+
+// WatchResources watches for delta xDS changes for the tracked subscriptions and sends
+// them into the given out channel.
+//
+// immediate indicates whether the current request changed the tracked set and
+// therefore needs an immediate diff before waiting for a newer cache version.
+// When 'r.forceEmptyResponse' is 'true' a response is sent even if the set of
+// resources is empty. This is needed for initial sync with Envoy.
+// This method call must always close the out channel.
+func (r deltaWatchRequest) WatchResources(ctx context.Context, out chan<- *VersionedResources) {
+	defer close(out)
+
+	scopedLog := r.logger.With(
+		logfields.XDSAckedVersion, r.lastReceivedVersion,
+	)
+
+	var res *VersionedResources
+	waitForNextVersion := !r.immediate && r.lastReceivedVersion != 0
+	waitVersion := r.lastReceivedVersion
+	forceResponseNames := r.forceResponseNames
+
+	for ctx.Err() == nil && res == nil {
+		if waitForNextVersion {
+			if err := waitForVersion(ctx, scopedLog, r.source, waitVersion); err != nil {
+				break
+			}
+		}
+		waitForNextVersion = true
+
+		currentVersion, _ := r.source.VersionState()
+		waitVersion = currentVersion
+
+		scopedLog.Debug("getting delta resources from set",
+			logfields.Resources, r.subscriptions.Len(),
+		)
+		res = r.source.GetDeltaResources(r.typeURL, r.lastAckedVersion, r.subscriptions, r.ackedResourceNames, forceResponseNames, r.forceEmptyResponse)
+		// No point forcing response names if the first round gets nothing.
+		// forceResponseNames is a local shallow copy of the read-only r.forceResponseNames,
+		// this does not mutate the watch request.
+		forceResponseNames.Clear()
+	}
+
+	if res != nil {
 		select {
 		case <-ctx.Done():
 		case out <- res:

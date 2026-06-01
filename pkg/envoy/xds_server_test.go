@@ -2562,7 +2562,7 @@ func TestUpdateNetworkPolicyLegacyACKUsesNodeIP(t *testing.T) {
 	require.True(t, ok)
 	resourceName := strconv.FormatUint(currentEP.GetID(), 10)
 	resources := xdsServer.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
-	acker.HandleResourceVersionAck(resources.Version, resources.Version, "127.0.0.1", []string{resourceName}, NetworkPolicyTypeURL, "")
+	acker.HandleResourceVersionAck("127.0.0.1", resources.Version, resources.Version, false, "", NetworkPolicyTypeURL, []string{resourceName})
 
 	require.NoError(t, wg.Wait())
 	finalize()

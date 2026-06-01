@@ -37,10 +37,10 @@ var ErrNackReceived = errors.New("NACK received")
 // which is called whenever a node acknowledges having applied a version of
 // the resources of a given type.
 type ResourceVersionAckObserver interface {
-	// HandleResourceVersionAck notifies that the node with the given NodeIP
-	// has acknowledged having applied the resources.
+	// HandleResourceVersionAck reports whether the node with the given NodeIP
+	// ACKed or NACKed the resources included in a response.
 	// Calls to this function must not block.
-	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string)
+	HandleResourceVersionAck(nodeIP string, ackVersion uint64, responseVersion uint64, isNACK bool, errorDetail string, typeURL string, resourceNames []string)
 
 	// MarkRestorePending informs the observer about a pending state restoration.
 	MarkRestorePending()
@@ -459,11 +459,14 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	return func() {}
 }
 
-// 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'ackVersion', is the last version that was NACKed.
-func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
+// ackVersion is the last version accepted by the client. responseVersion is
+// the version of the response being ACKed or NACKed. The explicit nack flag is
+// needed because subscription changes can produce a NACK without advancing the
+// cache version, making ackVersion and responseVersion equal.
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(nodeIP string, ackVersion uint64, responseVersion uint64, isNACK bool, errorDetail string, typeURL string, resourceNames []string) {
 	scopedLogger := m.logger.With(
 		logfields.XDSAckedVersion, ackVersion,
-		logfields.XDSNonce, nackVersion,
+		logfields.XDSVersion, responseVersion,
 		logfields.XDSClientNode, nodeIP,
 		logfields.XDSTypeURL, typeURL,
 	)
@@ -511,7 +514,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 		}
 
 		if pending.typeURL == typeURL {
-			if pending.version <= nackVersion {
+			if pending.version <= responseVersion {
 				// Get the set of resource names we are still waiting for the node
 				// to ACK.
 				remainingResourceNames, found := pending.remainingNodesResources[nodeIP]
@@ -520,6 +523,14 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 						delete(remainingResourceNames, name)
 					}
 					if len(remainingResourceNames) == 0 {
+						// Complete as NACK without waiting for all the
+						// nodes; it is a NACK if at least one node says so.
+						if isNACK {
+							m.metrics.IncreaseNACK(typeURL)
+							scopedLogger.Warn(fmt.Sprintf("completing NACK: %v", pending))
+							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: errorDetail})
+							continue
+						}
 						delete(pending.remainingNodesResources, nodeIP)
 					}
 					if len(pending.remainingNodesResources) == 0 {
@@ -528,12 +539,8 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 							m.metrics.IncreaseACK(typeURL)
 							scopedLogger.Debug(fmt.Sprintf("completing ACK: %v", pending))
 							comp.Complete(nil)
-						} else {
-							m.metrics.IncreaseNACK(typeURL)
-							scopedLogger.Warn(fmt.Sprintf("completing NACK: %v", pending))
-							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
+							continue
 						}
-						continue
 					}
 				}
 			}
