@@ -75,7 +75,7 @@ func isPodSelectorSelectingCluster(podSelector *slim_metav1.LabelSelector) bool 
 }
 
 func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networkingv1.NetworkPolicyPeer) types.Selector {
-	if peer == nil {
+	if peer == nil || (peer.PodSelector == nil && peer.NamespaceSelector == nil) {
 		return nil
 	}
 
