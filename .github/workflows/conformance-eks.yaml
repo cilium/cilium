@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@11ecd4e2cd4524f321a430af48614734093f8041 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@5a9de654d0910da098a23803350fcde6c7b144ab # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -193,7 +193,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5 # v6.1.2
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
@@ -260,7 +260,7 @@ jobs:
 
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@11ecd4e2cd4524f321a430af48614734093f8041 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@5a9de654d0910da098a23803350fcde6c7b144ab # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -380,7 +380,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5 # v6.1.2
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
