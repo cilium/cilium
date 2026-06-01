@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +55,7 @@ func (t *TLSRouteInput) SetAllParentCondition(condition metav1.Condition) {
 func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range t.TLSRoute.Status.RouteStatus.Parents {
-		if reflect.DeepEqual(parent.ParentRef, parentRef) {
+		if parent.ParentRef == parentRef {
 			index = i
 			break
 		}
