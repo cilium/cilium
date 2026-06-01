@@ -107,6 +107,11 @@ jobs:
 
     timeout-minutes: 75
     steps:
+      - name: Set commit status to pending
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
         with:
