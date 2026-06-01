@@ -90,6 +90,7 @@ var BgpRoutesCmd = &cobra.Command{
 				Fatalf("failed getting output in JSON: %s\n", err)
 			}
 		} else {
+			fmt.Fprint(cmd.OutOrStderr(), "Command \"routes\" is deprecated, Use the subcommand: \"shell bgp/routes\"\n")
 			// print peer addresses for `advertised` routes without specifying a peer
 			printPeer := (params.TableType == adjRIBOutTableType) && (params.Neighbor == nil || *params.Neighbor == "")
 			w := NewTabWriter()
