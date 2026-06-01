@@ -3,7 +3,11 @@
 
 package xds
 
-import "google.golang.org/protobuf/proto"
+import (
+	"google.golang.org/protobuf/proto"
+
+	"github.com/cilium/cilium/pkg/container/set"
+)
 
 // ResourceSource provides read access to a versioned set of resources.
 // A single version is associated to all the contained resources.
@@ -21,6 +25,14 @@ type ResourceSource interface {
 	// The version and channel are sampled atomically.
 	VersionState() (version uint64, changed <-chan struct{})
 
+	// GetDeltaResources returns the delta xDS changes for the currently tracked
+	// subscriptions relative to the client's last ACKed cache version.
+	// Empty subscriptions and "*" both track all resources.
+	// forceResponseNames forces the named resources, or all resources when it
+	// contains "*", into the next response even if their version is not newer
+	// than lastAckedVersion.
+	GetDeltaResources(typeURL string, lastAckedVersion uint64, subscriptions set.Set[string], ackedResourceNames set.Set[string], forceResponseNames set.Set[string], forceEmptyResponse bool) *VersionedResources
+
 	// EnsureVersion increases this resource set's version to be past the
 	// given version. If the current version is already higher than that, this has no effect.
 	EnsureVersion(typeURL string, version uint64)
@@ -28,7 +40,7 @@ type ResourceSource interface {
 
 // VersionedResource is a single protobuf-encoded resource along with it's version.
 type VersionedResource struct {
-	// Name is the name of a resource. May be empty.
+	// Name is the name of a resource. Must not be empty for Delta xDS.
 	Name string
 	// Version is the version of this specific resource.
 	// Zero if not-tracked.
@@ -47,6 +59,9 @@ type VersionedResources struct {
 	// VersionedResources is a set of versioned resources
 	// May be empty.
 	VersionedResources []VersionedResource
+
+	// RemovedNames is only populated for delta protocol
+	RemovedNames []string
 
 	// Canary indicates whether the client should only do a dry run of
 	// using  the resources.

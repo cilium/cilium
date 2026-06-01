@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -352,6 +353,80 @@ func (c *Cache) VersionState() (version uint64, changed <-chan struct{}) {
 	defer c.locker.RUnlock()
 
 	return c.version, c.versionCh
+}
+
+func (c *Cache) GetDeltaResources(typeURL string, lastAckedVersion uint64, subscriptions set.Set[string], ackedResourceNames set.Set[string], forceResponseNames set.Set[string], forceEmptyResponse bool) *VersionedResources {
+	c.locker.RLock()
+	defer c.locker.RUnlock()
+
+	scopedLog := c.logger.With(
+		logfields.XDSAckedVersion, lastAckedVersion,
+		logfields.XDSTypeURL, typeURL,
+	)
+
+	res := &VersionedResources{
+		Version: c.version,
+		Canary:  false,
+	}
+
+	key := cacheKey{typeURL: typeURL}
+	wildcard := subscriptions.Empty() || subscriptions.Has("*")
+
+	appendIfNeeded := func(name string, v cacheValue) {
+		if v.lastModifiedVersion > lastAckedVersion ||
+			forceResponseNames.Has(name) || forceResponseNames.Has("*") {
+			res.appendResource(name, v.lastModifiedVersion, v.resource)
+		}
+	}
+
+	if wildcard {
+		for k, v := range c.resources {
+			if k.typeURL != typeURL {
+				continue
+			}
+			appendIfNeeded(k.resourceName, v)
+		}
+	} else {
+		for name := range subscriptions.Members() {
+			key.resourceName = name
+			v, found := c.resources[key]
+			if !found {
+				continue
+			}
+			appendIfNeeded(name, v)
+		}
+	}
+
+	// record removed resources if previously acknowledged and still subscribed
+	for name := range ackedResourceNames.Members() {
+		if wildcard || subscriptions.Has(name) {
+			key.resourceName = name
+			if _, exists := c.resources[key]; !exists {
+				res.RemovedNames = append(res.RemovedNames, name)
+			}
+		}
+	}
+
+	if len(res.VersionedResources) == 0 && len(res.RemovedNames) == 0 && !forceEmptyResponse {
+		scopedLog.Debug("Delta xDS: no changes")
+		return nil
+	}
+
+	if len(res.VersionedResources) > 1 {
+		slices.SortFunc(res.VersionedResources, compareVersionedResource)
+	}
+
+	if len(res.RemovedNames) > 1 {
+		slices.Sort(res.RemovedNames)
+	}
+
+	scopedLog.Debug(
+		"returning delta resources",
+		logfields.ReturningResources, len(res.VersionedResources),
+		logfields.Removed, len(res.RemovedNames),
+	)
+
+	return res
 }
 
 func (c *Cache) EnsureVersion(typeURL string, version uint64) {

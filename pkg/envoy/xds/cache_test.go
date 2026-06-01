@@ -10,6 +10,8 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/cilium/cilium/pkg/container/set"
 )
 
 func versionedResourceNames(resources []VersionedResource) []string {
@@ -80,6 +82,99 @@ func TestGetResourcesSotW(t *testing.T) {
 			names := versionedResourceNames(got.VersionedResources)
 			if diff := cmp.Diff(names, tc.wantNames); diff != "" {
 				t.Fatalf("returned resources mismatch (-got/+want): %v", diff)
+			}
+		})
+	}
+}
+
+func TestGetDeltaResources(t *testing.T) {
+	logger := hivetest.Logger(t)
+	c := NewCache(logger)
+	c.version = 5
+	c.resources[cacheKey{typeURL: "a", resourceName: "a1"}] = cacheValue{lastModifiedVersion: 2}
+	c.resources[cacheKey{typeURL: "a", resourceName: "a2"}] = cacheValue{lastModifiedVersion: 5}
+	c.resources[cacheKey{typeURL: "a", resourceName: "a3"}] = cacheValue{lastModifiedVersion: 4}
+
+	for _, tc := range []struct {
+		desc               string
+		subscriptions      []string
+		lastAckedVersion   uint64
+		ackedResourceNames []string
+		forceResponseNames []string
+		forceEmptyResponse bool
+		wantNames          []string
+		wantRemoved        []string
+		wantNilResponse    bool
+	}{
+		{
+			desc:             "empty subscriptions are wildcard",
+			subscriptions:    nil,
+			lastAckedVersion: 0,
+			wantNames:        []string{"a1", "a2", "a3"},
+		},
+		{
+			desc:             "wildcard returns all newer resources",
+			subscriptions:    []string{"*"},
+			lastAckedVersion: 0,
+			wantNames:        []string{"a1", "a2", "a3"},
+		},
+		{
+			desc:             "wildcard with named subscription still behaves as wildcard",
+			subscriptions:    []string{"*", "a1"},
+			lastAckedVersion: 0,
+			wantNames:        []string{"a1", "a2", "a3"},
+		},
+		{
+			desc:               "force response names resend unchanged resources",
+			subscriptions:      []string{"a1"},
+			lastAckedVersion:   5,
+			forceResponseNames: []string{"a1"},
+			wantNames:          []string{"a1"},
+		},
+		{
+			desc:               "force response names resend unchanged resources with wildcard",
+			subscriptions:      []string{"*"},
+			lastAckedVersion:   5,
+			forceResponseNames: []string{"a1"},
+			wantNames:          []string{"a1"},
+		},
+		{
+			desc:               "removed names only from still tracked acked names",
+			subscriptions:      []string{"a1", "a4"},
+			lastAckedVersion:   5,
+			ackedResourceNames: []string{"a1", "a3", "a4"},
+			wantNames:          []string{},
+			wantRemoved:        []string{"a4"},
+		},
+		{
+			desc:               "wildcard removals are not filtered by explicit names",
+			subscriptions:      []string{"*", "a1"},
+			lastAckedVersion:   5,
+			ackedResourceNames: []string{"a4"},
+			wantNames:          []string{},
+			wantRemoved:        []string{"a4"},
+		},
+		{
+			desc:               "unsubscribed names do not produce removals",
+			subscriptions:      []string{"a1"},
+			lastAckedVersion:   5,
+			ackedResourceNames: []string{"a2"},
+			wantNilResponse:    true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			got := c.GetDeltaResources("a", tc.lastAckedVersion, set.NewSet(tc.subscriptions...), set.NewSet(tc.ackedResourceNames...), set.NewSet(tc.forceResponseNames...), tc.forceEmptyResponse)
+			if (got == nil) != tc.wantNilResponse {
+				t.Fatalf("GetDeltaResources() nil response mismatch: got %v wantNil %v", got == nil, tc.wantNilResponse)
+			}
+			if got == nil {
+				return
+			}
+			if diff := cmp.Diff(versionedResourceNames(got.VersionedResources), tc.wantNames); diff != "" {
+				t.Fatalf("returned resources mismatch (-got/+want): %s", diff)
+			}
+			if diff := cmp.Diff(got.RemovedNames, tc.wantRemoved); diff != "" {
+				t.Fatalf("returned removed names mismatch (-got/+want): %s", diff)
 			}
 		})
 	}
