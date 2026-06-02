@@ -10,10 +10,6 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"syscall"
-	"unsafe"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -81,26 +77,47 @@ type l2ResponderReconciler struct {
 	params params
 }
 
-// Used for IPv6 L2 Sol. Node. MC MAC sync
+// Used for IPv6 Solicited node Group membership tracking.
 type McMACEntry struct {
 	IfIndex int
 	MAC     [6]byte
 }
 
-type McMACMap map[McMACEntry]mac.MAC
+// McMACMap stores a solicited node multicast l2 entry with
+// their ifindex
+type McMACMap map[McMACEntry]struct{}
 
 func (m McMACMap) Add(ifIndex int, ip netip.Addr) {
 	mac := multicast.SolicitedNodeMACAddr(ip)
 	key := McMACEntry{
+		MAC:     mac.As6(),
 		IfIndex: ifIndex,
 	}
-	copy(key.MAC[:], mac[:6])
-	m[key] = mac
+
+	m[key] = struct{}{}
 }
 
 func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 	if params.AddRemMcMACFunc == nil {
-		params.AddRemMcMACFunc = addRemoveIpv6SolNodeMACAddr
+		log := params.Logger
+		params.AddRemMcMACFunc = func(ifindex int, m mac.MAC, add bool) error {
+			ifi, err := net.InterfaceByIndex(ifindex)
+			if err != nil {
+				return fmt.Errorf("interface by index %d: %w", ifindex, err)
+			}
+			// Derive the solicited-node multicast IPv6 address from the MAC.
+			// The solicited-node MAC is 33:33:FF:XX:XX:XX and the solicited-node
+			// multicast address is ff02::1:ffXX:XXXX — the last 3 bytes are identical.
+			raw := multicast.SolicitedNodeMaddrPrefix.As16()
+			raw[13], raw[14], raw[15] = m[3], m[4], m[5]
+			solAddr := netip.AddrFrom16(raw)
+
+			if add {
+				return multicast.JoinGroup(log, ifi.Name, solAddr)
+			}
+
+			return multicast.LeaveGroup(log, ifi.Name, solAddr)
+		}
 	}
 
 	reconciler := l2ResponderReconciler{
@@ -180,8 +197,8 @@ func (p *l2ResponderReconciler) cycle(
 	}
 
 	// Note: at this point we ONLY support partial reconciliation for v4
-	//       VIPs. Changes in IPv6 require full reconciliation (due to L2
-	//       Sol. Nod. multicast address synchronization.
+	//       VIPs. Changes in IPv6 require full reconciliation because
+	//       solicited-node multicast group membership must be kept consistent.
 	v6Changes := false
 
 	// Partial reconciliation
@@ -237,7 +254,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	ndMap := p.params.L2V6ResponderMap
 	lr := cachingLinkResolver{nl: p.params.NetLink}
 
-	log.Debug("l2 announcer table full reconciliation")
+	log.Debug("l2 responder full reconciliation")
 
 	// Prepare index for desired entries based on map key
 	type desiredEntry struct {
@@ -247,13 +264,9 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	desiredMap := make(map[l2respondermap.L2ResponderKey]desiredEntry)
 	desiredMap6 := make(map[l2v6respondermap.L2V6ResponderKey]desiredEntry)
 
-	// Note that multiple IPv6 addresses may have the same Sol. Node MC MAC
-	// address (and IPv6 Sol. Node addr) if they share the same last 24bits.
-	// Therefore, and in absence of a more refined approach (see TODO), loop
-	// through all entries and aggregate.
-	//
-	// TODO: improve this by having a secondary index with last 3 bytes
-	// of the IP address (suggested by Dylan)
+	// Multiple IPv6 VIPs may share the same solicited-node multicast group
+	// when their last 24 bits are identical. McMACMap aggregates them so
+	// we issue exactly one join/leave per group, not one per VIP.
 
 	currMcMACMap := make(McMACMap)
 	desiredMcMACMap := make(McMACMap)
@@ -353,7 +366,8 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 		}
 	}
 
-	// Now sync IPv6 L2 MC MACs
+	// Sync solicited-node multicast group memberships based on the diff
+	// between curr (derived from the BPF map) and desired (from the state table).
 	err = p.reconcileMcMACEntries(currMcMACMap, desiredMcMACMap)
 	if err != nil {
 		errs = errors.Join(errs, err)
@@ -432,91 +446,29 @@ func (clr *cachingLinkResolver) LinkIndex(name string) (int, error) {
 	return idx, nil
 }
 
-// L2 Sol. Node MC MAC address sync. First add unconditionallty all
-// desired, and remove what's in curr but not in desired remove
+// reconcileMcMACEntries syncs IPv6 solicited-node multicast group memberships.
+// It joins groups that are in desired but not in curr, and leaves groups that
+// are in curr but no longer in desired. Groups present in both are left alone.
 func (p *l2ResponderReconciler) reconcileMcMACEntries(curr McMACMap, desired McMACMap) (err error) {
 	var errs error
 
-	for key, mac := range desired {
-		err := p.params.AddRemMcMACFunc(key.IfIndex, mac, true)
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("Add L2 MC Sol. Node MAC address %s@%d: %w", key.MAC, key.IfIndex, err))
-		}
-
-		_, found := curr[key]
-		if found {
+	for key := range desired {
+		if _, found := curr[key]; found {
+			// Group already joined; nothing to do.
 			delete(curr, key)
+			continue
+		}
+		// New group — join it.
+		if err := p.params.AddRemMcMACFunc(key.IfIndex, key.MAC[:], true); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("join solicited-node multicast group %s@%d: %w", key.MAC, key.IfIndex, err))
 		}
 	}
-	for key, mac := range curr {
-		err := p.params.AddRemMcMACFunc(key.IfIndex, mac, false)
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("Remove L2 MC Sol. Node MAC address %s@%d: %w", key.MAC, key.IfIndex, err))
+	for key := range curr {
+		// Group no longer desired — leave it.
+		if err := p.params.AddRemMcMACFunc(key.IfIndex, key.MAC[:], false); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("leave solicited-node multicast group %s@%d: %w", key.MAC, key.IfIndex, err))
 		}
 	}
 
 	return errs
-}
-
-// from linux headers, necessary for ioctl
-const (
-	SIOCADDMULTI = 0x8931
-	SIOCDELMULTI = 0x8932
-	ETH_ALEN     = 6
-)
-
-type ifreq struct {
-	Name   [unix.IFNAMSIZ]byte
-	Hwaddr unix.RawSockaddr
-}
-
-// For VIPs, some NICs implement L2 MCAST MAC filtering
-//
-// Add/remove L2 announced VIPs' Solicited Node MCAST MAC address
-// so that NICs pass the packet up to the Kernel stack and we can intercept it
-// from BPF.
-//
-// Unfortunately we can't do this via netlink, so ioctl it is
-func addRemoveIpv6SolNodeMACAddr(ifindex int, mac mac.MAC, add bool) error {
-	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, syscall.ETH_P_ALL)
-	if err != nil {
-		return fmt.Errorf("Unable to open socket to ifindex %d. Error: %w", ifindex, err)
-	}
-	defer syscall.Close(fd)
-
-	ifi, err := net.InterfaceByIndex(ifindex)
-	if err != nil {
-		return fmt.Errorf("unable to find interface with ifindex: %d. Is it gone?: %w", ifindex, err)
-	}
-
-	// Note: multiple IP addresses (e.g. assigned and VIPs) can share the
-	//       same sol-node MAC address. The kernel handles refcnting between
-	//       the assigned IP addresses and _a single_ static entry.
-	//       Therefore, we need to make sure we refcnt our VIPs' sol-
-	//       node MAC addresses for that single static entry, to make it
-	//       consistent.
-	//
-	//       The caller of this function is expected to have done the refcnt
-
-	var ifr ifreq
-	copy(ifr.Name[:], ifi.Name)
-	ifr.Hwaddr.Family = syscall.AF_UNSPEC
-	for i := range ETH_ALEN {
-		ifr.Hwaddr.Data[i] = int8(mac[i])
-	}
-
-	op := SIOCADDMULTI
-	if !add {
-		op = SIOCDELMULTI
-	}
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(op), uintptr(unsafe.Pointer(&ifr)))
-	if errno != 0 {
-		if add && errno != unix.EEXIST {
-			return fmt.Errorf("ioctl SIOCADDMULTI for iface %s failed: %w", ifi.Name, errno)
-		} else if !add && errno != unix.ENOENT {
-			return fmt.Errorf("ioctl SIOCDELMULTI for iface %s failed: %w", ifi.Name, errno)
-		}
-	}
-
-	return nil
 }
