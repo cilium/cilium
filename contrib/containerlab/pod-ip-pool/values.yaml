@@ -16,10 +16,22 @@ ipv6NativeRoutingCIDR: fd00::/16
 
 ipam:
   mode: multi-pool
+  operator:
+    autoCreateCiliumPodIPPools:
+      default:
+        ipv4:
+          cidrs:
+            - 10.10.0.0/16
+          maskSize: 24
+        ipv6:
+          cidrs:
+            - fd00:10:1::/48
+          maskSize: 64
 
-k8s:
-  requireIPv4PodCIDR: true
-  requireIPv6PodCIDR: true
+kubeProxyReplacement: true
+
+bpf:
+  masquerade: true
 
 operator:
   enabled: true

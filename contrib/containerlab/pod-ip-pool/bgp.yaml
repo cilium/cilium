@@ -1,7 +1,7 @@
 apiVersion: cilium.io/v2alpha1
 kind: CiliumPodIPPool
 metadata:
-  name: default
+  name: blue-pool
   labels:
     pool: blue
 spec:
@@ -93,6 +93,26 @@ spec:
       attributes:
         communities:
           standard: [ "65000:200" ]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: curl-blue
+spec:
+  selector:
+    matchLabels:
+      app: curl-blue
+  template:
+    metadata:
+      labels:
+        app: curl-blue
+      annotations:
+        "ipam.cilium.io/ip-pool": "blue-pool"
+    spec:
+      containers:
+        - name: curl
+          image: curlimages/curl
+          command: ["sleep", "infinit"]
 ---
 apiVersion: apps/v1
 kind: DaemonSet
