@@ -1229,6 +1229,28 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	return value, nil
 }
 
+func (m *Map) LookupTo(key MapKey, value MapValue) error {
+	if err := m.Open(); err != nil {
+		return err
+	}
+
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	var duration *spanstat.SpanStat
+	if metrics.BPFSyscallDuration.IsEnabled() {
+		duration = spanstat.Start()
+	}
+
+	err := m.m.Lookup(key, value)
+
+	if metrics.BPFSyscallDuration.IsEnabled() {
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpLookup, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
+	}
+
+	return err
+}
+
 func (m *Map) Update(key MapKey, value MapValue) error {
 	var err error
 

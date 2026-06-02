@@ -352,6 +352,76 @@ func TestPrivilegedCtGcTcp(t *testing.T) {
 	require.Empty(t, buf)
 }
 
+// TestPrivilegedCtGcReopenedEntry verifies purgeCtEntry's contract: before
+// deleting, it re-looks-up the entry and compares the live Lifetime against the
+// snapshot value the GC iterator captured during the batch read. If the datapath
+// reopened the entry in between (Lifetime changed), the delete is deferred; if
+// the entry is unchanged, it is deleted.
+//
+// The snapshot is passed to purgeCtEntry as a separate argument from the live
+// map value, which is exactly the divergence the re-lookup guards against, so
+// the two branches can be exercised directly and deterministically.
+func TestPrivilegedCtGcReopenedEntry(t *testing.T) {
+	setupCTMap(t)
+
+	ctMapName := MapNameTCP4Global + "_test"
+	ctMap := newMap(ctMapName, mapTypeIPv4TCPGlobal)
+	err := ctMap.OpenOrCreate()
+	require.NoError(t, err)
+	defer ctMap.Map.Unpin()
+
+	key := &CtKey4Global{
+		tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				SourceAddr: types.IPv4{192, 168, 61, 12},
+				DestAddr:   types.IPv4{192, 168, 61, 11},
+				SourcePort: 0x3195,
+				DestPort:   0x50,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
+		},
+	}
+
+	t.Run("reopened entry is not deleted", func(t *testing.T) {
+		// Live value as it currently exists in the map: the datapath reopened the
+		// connection and refreshed its Lifetime past expiry.
+		err := ctMap.Map.Update(key, &CtEntry{Packets: 5, Bytes: 600, Lifetime: 50000})
+		require.NoError(t, err)
+
+		// Snapshot is the older, expired value the GC iterator handed us; that is
+		// why GC selected the entry for deletion in the first place.
+		snapshot := &CtEntry{Packets: 1, Bytes: 216, Lifetime: 38000}
+		scratch := &CtEntry{}
+
+		err = ctMap.purgeCtEntry(key, snapshot, scratch, nil, func(GCEvent) {}, nil)
+		require.ErrorIs(t, err, errDeferredReopened)
+
+		// The reopened entry must still be present.
+		_, err = ctMap.Map.Lookup(key)
+		require.NoError(t, err, "reopened entry must not be deleted")
+
+		require.NoError(t, ctMap.Map.Delete(key))
+	})
+
+	t.Run("unchanged entry is deleted", func(t *testing.T) {
+		live := &CtEntry{Packets: 1, Bytes: 216, Lifetime: 38000}
+		err := ctMap.Map.Update(key, live)
+		require.NoError(t, err)
+
+		// Snapshot matches the live value: the datapath did not touch the entry,
+		// so purgeCtEntry proceeds with the delete.
+		snapshot := &CtEntry{Packets: 1, Bytes: 216, Lifetime: 38000}
+		scratch := &CtEntry{}
+
+		err = ctMap.purgeCtEntry(key, snapshot, scratch, nil, func(GCEvent) {}, nil)
+		require.NoError(t, err)
+
+		_, err = ctMap.Map.Lookup(key)
+		require.Error(t, err, "unchanged entry must be deleted")
+	})
+}
+
 // TestPrivilegedCtGcDsr tests whether DSR NAT entries are removed upon a removal of
 // their CT entry (== CT_EGRESS).
 func TestPrivilegedCtGcDsr(t *testing.T) {
@@ -964,18 +1034,30 @@ func populateFakeDataCTMap4(tb testing.TB, m CtMap, size int) map[*CtKey4Global]
 }
 
 func BenchmarkPrivilegedCtGcTcpXL(t *testing.B) {
-	benchmarkCtGc(t, 1<<24) // max size
+	benchmarkCtGc(t, 1<<24, false) // max size
 }
 
 func BenchmarkPrivilegedCtGcTcpL(t *testing.B) {
-	benchmarkCtGc(t, 1<<22)
+	benchmarkCtGc(t, 1<<22, false)
 }
 
 func BenchmarkPrivilegedCtGcTcpM(t *testing.B) {
-	benchmarkCtGc(t, 1<<17)
+	benchmarkCtGc(t, 1<<17, false)
 }
 
-func benchmarkCtGc(t *testing.B, size int) {
+func BenchmarkPrivilegedCtGcTcpXLExpired(t *testing.B) {
+	benchmarkCtGc(t, 1<<24, true) // max size
+}
+
+func BenchmarkPrivilegedCtGcTcpLExpired(t *testing.B) {
+	benchmarkCtGc(t, 1<<22, true)
+}
+
+func BenchmarkPrivilegedCtGcTcpMExpired(t *testing.B) {
+	benchmarkCtGc(t, 1<<17, true)
+}
+
+func benchmarkCtGc(t *testing.B, size int, expireAll bool) {
 	for t.Loop() {
 		t.StopTimer()
 		setupCTMap(t)
@@ -1023,6 +1105,9 @@ func benchmarkCtGc(t *testing.B, size int) {
 				Packets:  1,
 				Bytes:    216,
 				Lifetime: 2,
+			}
+			if expireAll {
+				ctVal.Lifetime = 0
 			}
 			err = ctMap.Map.Update(ctKey, ctVal)
 			assert.NoError(t, err)
