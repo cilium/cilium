@@ -195,12 +195,12 @@ jobs:
           # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
           - focus: "datapath"
             cliFocus: "RuntimeDatapathMonitorTest"
-            # TODO: not updated by by renovate, investigate why the tests fail on newer images
+            # TODO: not updated by renovate, investigate why the tests fail on newer images
             #  see https://github.com/cilium/cilium/issues/38058
             lvhImage: "6.12-20241218.004849"
 
           - focus: "privileged"
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            # TODO: not updated by renovate, investigate why the tests fail on newer images
             lvhImage: "6.18-20260504.013701"
 
     timeout-minutes: 50
