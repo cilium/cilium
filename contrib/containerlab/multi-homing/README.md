@@ -99,12 +99,12 @@ Verification
 **BGP Peering**
 
 ```
-root@bgp-cplane-dev-multi-homing-worker:/home/cilium# cilium bgp peers
-Local AS   Peer AS   Peer Address     Session       Uptime   Family         Received   Advertised
-65001      65000     fd00:10::1:179   established   4m45s    ipv4/unicast   0          2
-                                                             ipv6/unicast   0          2
-65001      65011     fd00:11::1:179   established   4m47s    ipv4/unicast   0          2
-                                                             ipv6/unicast   0          2
+root@bgp-cplane-dev-multi-homing-worker:/home/cilium# cilium-dbg shell -- bgp/peers
+Instance   Peer    Session State   Uptime   Family         Received   Accepted   Advertised
+65001      65000   established     1m9s     ipv4-unicast   0          0          1
+                                            ipv6-unicast   0          0          1
+           65011   established     1m9s     ipv4-unicast   0          0          1
+                                            ipv6-unicast   0          0          1
 
 ```
 
@@ -113,10 +113,10 @@ Local AS   Peer AS   Peer Address     Session       Uptime   Family         Rece
 PodCIDR is 10.1.1.0 on this node, which is advertised with communities attribute 'no-export'.
 
 ```
-root@bgp-cplane-dev-multi-homing-worker:/home/cilium# cilium bgp routes advertised ipv4 unicast
-VRouter   Peer         Prefix        NextHop          Age     Attrs
-65001     fd00:10::1   10.1.1.0/24   fd00:10:0:2::2   5m35s   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.1.1.0/24]}}]
-65001     fd00:11::1   10.1.1.0/24   fd00:11:0:2::2   5m35s   [{Origin: i} {AsPath: 65001} {Communities: no-export} {MpReach(ipv4-unicast): {Nexthop: fd00:11:0:2::2, NLRIs: [10.1.1.0/24]}}]
+root@bgp-cplane-dev-multi-homing-worker:/home/cilium# cilium-dbg shell -- bgp/routes out ipv4 unicast -a
+Instance   Peer    Prefix        NextHop          Age     Attrs
+65001      65000   10.1.1.0/24   fd00:10:0:2::2   1m24s   [{Origin: i} {AsPath: 65001} {Communities: no-export}]
+           65011   10.1.1.0/24   fd00:11:0:2::2   1m24s   [{Origin: i} {AsPath: 65001} {Communities: no-export}]
 ```
 
 On peering routers we can see 10.1.1.0/24 prefix with appropriate route attributes and configured router ID.
