@@ -81,19 +81,19 @@ Verification
 ------------
 **BGP Peering**
 ```
-root@bgp-cplane-dev-mh-worker:/home/cilium# cilium bgp peers
-Local AS   Peer AS   Peer Address         Session       Uptime   Family         Received   Advertised
-65001      65000     fd00:11:0:2::1:179   established   21m55s   ipv4/unicast   2          2    
-                                                                 ipv6/unicast   2          2 
+root@bgp-cplane-dev-mh-worker:/home/cilium# cilium-dbg shell -- bgp/peers         
+Instance   Peer         Session State   Uptime   Family         Received   Accepted   Advertised
+65001      ipv6-65000   established     1m27s    ipv4-unicast   2          0          1
+                                                 ipv6-unicast   2          0          1
 
 ```
 
 **BGP Routes**
 
 ```
-root@bgp-cplane-dev-mh-worker:/home/cilium# cilium bgp routes advertised ipv4 unicast
-VRouter   Peer             Prefix        NextHop          Age      Attrs
-65001     fd00:11:0:2::1   10.1.1.0/24   fd00:11:0:2::2   22m18s   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00:11:0:2::2, NLRIs: [10.1.1.0/24]}}] 
+root@bgp-cplane-dev-mh-worker:/home/cilium# cilium-dbg shell -- bgp/routes out ipv4 unicast -a
+Instance   Peer         Prefix        NextHop          Age     Attrs
+65001      ipv6-65000   10.1.1.0/24   fd00:11:0:2::2   2m21s   [{Origin: i} {AsPath: 65001}]
 ```
 
 On peering routers we can see 10.1.1.0/24 prefix with appropriate route attributes and configured router ID.
@@ -127,18 +127,18 @@ if the default route fails for any reason like interface going down, it will tri
 **BGP Peering**
 
 ```
-root@bgp-cplane-dev-mh-worker:/home/cilium# cilium bgp peers
-Local AS   Peer AS   Peer Address         Session       Uptime   Family         Received   Advertised
-65001      65000     fd00:10:0:2::1:179   established   42s      ipv4/unicast   2          2    
-                                                                 ipv6/unicast   2          2  
+root@bgp-cplane-dev-mh-worker:/home/cilium# cilium-dbg shell -- bgp/peers
+Instance   Peer         Session State   Uptime   Family         Received   Accepted   Advertised
+65001      ipv6-65000   established     9s       ipv4-unicast   1          0          1
+                                                 ipv6-unicast   1          0          1
 ```
 
 **BGP Routes**
 
 ```
-root@bgp-cplane-dev-mh-worker:/home/cilium# cilium bgp routes advertised ipv4 unicast
-VRouter   Peer             Prefix        NextHop          Age     Attrs
-65001     fd00:10:0:2::1   10.1.1.0/24   fd00:10:0:2::2   3m26s   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.1.1.0/24]}}] 
+root@bgp-cplane-dev-mh-worker:/home/cilium# cilium-dbg shell -- bgp/routes out ipv4 unicast -a
+Instance   Peer         Prefix        NextHop          Age      Attrs
+65001      ipv6-65000   10.1.1.0/24   fd00:10:0:2::2   10m39s   [{Origin: i} {AsPath: 65001}]
 ```
 
 On one of the peering router we can see 10.1.1.0/24 prefix with appropriate route attributes and configured router ID.
