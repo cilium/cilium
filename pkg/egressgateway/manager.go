@@ -57,21 +57,6 @@ var (
 	EgressIPNotFoundIPv6 = netip.IPv6Unspecified()
 )
 
-// Cell provides a [Manager] for consumption with hive.
-var Cell = cell.Module(
-	"egressgateway",
-	"Egress Gateway allows originating traffic from specific IPv4 addresses",
-	cell.Config(defaultConfig),
-	cell.Provide(NewEgressGatewayManager),
-	cell.Provide(newPolicyResource),
-	cell.Provide(func(dcfg *option.DaemonConfig) tunnel.EnablerOut {
-		if !dcfg.EnableEgressGateway {
-			return tunnel.EnablerOut{}
-		}
-		return tunnel.NewEnabler(true)
-	}),
-)
-
 type eventType int
 
 const (
