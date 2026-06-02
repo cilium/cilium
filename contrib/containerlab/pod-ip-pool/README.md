@@ -90,15 +90,15 @@ Verification
 **BGP Advertisement**
 
 ```
-root@bgp-cplane-dev-pod-ip-pool-worker:/home/cilium# cilium bgp routes advertised ipv4 unicast
-VRouter   Peer         Prefix          NextHop          Age     Attrs
-65001     fd00:10::1   10.100.1.0/24   fd00:10:0:2::2   4m14s   [{Origin: i} {AsPath: 65001} {Communities: 65000:100} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.100.1.0/24]}}]
-65001     fd00:10::1   10.200.0.0/24   fd00:10:0:2::2   3m57s   [{Origin: i} {AsPath: 65001} {Communities: 65000:200} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.200.0.0/24]}}]
+root@bgp-cplane-dev-pod-ip-pool-worker:/home/cilium# cilium-dbg shell -- bgp/routes out ipv4 unicast -a
+Instance   Peer    Prefix          NextHop          Age    Attrs
+65001      65000   10.100.0.0/24   fd00:10:0:2::2   1m6s   [{Origin: i} {AsPath: 65001} {Communities: 65000:100}]
+                   10.200.1.0/24   fd00:10:0:2::2   1m6s   [{Origin: i} {AsPath: 65001} {Communities: 65000:200}]
 
-root@bgp-cplane-dev-pod-ip-pool-worker:/home/cilium# cilium bgp routes advertised ipv6 unicast
-VRouter   Peer         Prefix              NextHop          Age     Attrs
-65001     fd00:10::1   fd00:100:1:1::/64   fd00:10:0:2::2   4m43s   [{Origin: i} {AsPath: 65001} {Communities: 65000:100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [fd00:100:1:1::/64]}}]
-65001     fd00:10::1   fd00:200:1:2::/64   fd00:10:0:2::2   4m11s   [{Origin: i} {AsPath: 65001} {Communities: 65000:200} {MpReach(ipv6-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [fd00:200:1:2::/64]}}]
+root@bgp-cplane-dev-pod-ip-pool-worker:/home/cilium# cilium-dbg shell -- bgp/routes out ipv6 unicast -a
+Instance   Peer    Prefix              NextHop          Age    Attrs
+65001      65000   fd00:100:1:2::/64   fd00:10:0:2::2   1m9s   [{Origin: i} {AsPath: 65001} {Communities: 65000:100}]
+                   fd00:200:1:3::/64   fd00:10:0:2::2   1m9s   [{Origin: i} {AsPath: 65001} {Communities: 65000:200}]
 ```
 
 **Router0**
