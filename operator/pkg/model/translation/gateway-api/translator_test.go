@@ -413,8 +413,9 @@ func Test_desiredEndpointSlice(t *testing.T) {
 			Name:      "cilium-gateway-dummy-gateway",
 			Namespace: "dummy-namespace",
 			Labels: map[string]string{
-				owningGatewayLabel: "dummy-gateway",
-				gatewayNameLabel:   "dummy-gateway",
+				owningGatewayLabel:           "dummy-gateway",
+				gatewayNameLabel:             "dummy-gateway",
+				discoveryv1.LabelServiceName: "cilium-gateway-dummy-gateway",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
