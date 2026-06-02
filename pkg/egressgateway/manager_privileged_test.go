@@ -1249,14 +1249,14 @@ func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string, egressIfind
 	}
 }
 
-func assertEgressRules4(t *testing.T, policyMap *egressmap.PolicyMap4V2, rules []egressRule) {
+func assertEgressRules4(t *testing.T, policyMap egressmap.PolicyMap4V2, rules []egressRule) {
 	t.Helper()
 
 	err := tryAssertEgressRules4(policyMap, rules)
 	require.NoError(t, err)
 }
 
-func tryAssertEgressRules4(policyMap *egressmap.PolicyMap4V2, rules []egressRule) error {
+func tryAssertEgressRules4(policyMap egressmap.PolicyMap4V2, rules []egressRule) error {
 	parsedRules := []parsedEgressRule{}
 	for _, r := range rules {
 		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP, r.egressIfindex))
@@ -1299,14 +1299,14 @@ func tryAssertEgressRules4(policyMap *egressmap.PolicyMap4V2, rules []egressRule
 
 	return nil
 }
-func assertEgressRules6(t *testing.T, policyMap *egressmap.PolicyMap6, rules []egressRule) {
+func assertEgressRules6(t *testing.T, policyMap egressmap.PolicyMap6, rules []egressRule) {
 	t.Helper()
 
 	err := tryAssertEgressRules6(policyMap, rules)
 	require.NoError(t, err)
 }
 
-func tryAssertEgressRules6(policyMap *egressmap.PolicyMap6, rules []egressRule) error {
+func tryAssertEgressRules6(policyMap egressmap.PolicyMap6, rules []egressRule) error {
 	parsedRules := []parsedEgressRule{}
 	for _, r := range rules {
 		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP, r.egressIfindex))

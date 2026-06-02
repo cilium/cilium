@@ -121,11 +121,11 @@ type Manager struct {
 	identityAllocator identityCache.IdentityAllocator
 
 	// policyMap4 communicates the active IPv4 policies to the datapath.
-	policyMap4   *egressmap.PolicyMap4
-	policyMap4V2 *egressmap.PolicyMap4V2
+	policyMap4   egressmap.PolicyMap4
+	policyMap4V2 egressmap.PolicyMap4V2
 
 	// policyMap6 communicates the active IPv6 policies to the datapath.
-	policyMap6 *egressmap.PolicyMap6
+	policyMap6 egressmap.PolicyMap6
 
 	// reconciliationTriggerInterval is the amount of time between triggers
 	// of reconciliations are invoked
@@ -160,9 +160,9 @@ type Params struct {
 	DaemonConfig      *option.DaemonConfig
 	TunnelConfig      tunnel.Config
 	IdentityAllocator identityCache.IdentityAllocator
-	PolicyMap4        *egressmap.PolicyMap4
-	PolicyMap4V2      *egressmap.PolicyMap4V2
-	PolicyMap6        *egressmap.PolicyMap6
+	PolicyMap4        egressmap.PolicyMap4
+	PolicyMap4V2      egressmap.PolicyMap4V2
+	PolicyMap6        egressmap.PolicyMap6
 	Policies          resource.Resource[*Policy]
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
