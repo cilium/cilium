@@ -397,13 +397,14 @@ func Test1ExistingAddFullSync(t *testing.T) {
 	assert.NotNil(t, stats)
 }
 
-// Test consistent overlapping Solicited Node MAC management
-var macAdd = make(McMACMap)
-var macRem = make(McMACMap)
+// Test consistent overlapping Solicited Node MAC management.
+// macAdd/macRem track which McMACEntry keys were joined/left by the mock func.
+var macAdd = make(map[McMACEntry]struct{})
+var macRem = make(map[McMACEntry]struct{})
 
 func clearMACMaps() {
-	macAdd = make(McMACMap)
-	macRem = make(McMACMap)
+	macAdd = make(map[McMACEntry]struct{})
+	macRem = make(map[McMACEntry]struct{})
 }
 
 func makeMcMACKey(ifindex int, mac mac.MAC) McMACEntry {
@@ -416,9 +417,9 @@ func makeMcMACKey(ifindex int, mac mac.MAC) McMACEntry {
 func addRemMcMACMock(ifindex int, mac mac.MAC, add bool) error {
 	key := makeMcMACKey(ifindex, mac)
 	if add {
-		macAdd[key] = mac
+		macAdd[key] = struct{}{}
 	} else {
-		macRem[key] = mac
+		macRem[key] = struct{}{}
 	}
 	return nil
 }
@@ -453,16 +454,18 @@ func TestIpv6McasMAC(t *testing.T) {
 	_, ok := macAdd[key]
 	assert.True(t, ok, "expected key %v to exist in map", key)
 
+	// Second reconciliation with same state: group already in BPF map (curr),
+	// so no join or leave should be issued.
 	clearMACMaps()
 	err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
 	assert.NoError(t, err)
 
-	assert.Len(t, macAdd, 1)
+	assert.Empty(t, macAdd, "expected no join on steady-state reconciliation")
 	assert.Empty(t, macRem)
 
-	_, ok = macAdd[key]
-	assert.True(t, ok, "expected key %v to exist in map", key)
-
+	// Add ipv6_2, which shares the same solicited-node multicast group as
+	// ipv6_1 (last 24 bits are identical). The group is already joined, so
+	// no new join should be issued.
 	txn = fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	_, _, err = fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
 		L2AnnounceKey: tables.L2AnnounceKey{
@@ -478,12 +481,14 @@ func TestIpv6McasMAC(t *testing.T) {
 	err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
 	assert.NoError(t, err)
 
-	assert.Len(t, macAdd, 1)
+	// The multicast group for ns_mac is already joined (ipv6_1 is in the BPF
+	// map), so adding a second VIP sharing the same group must not issue another
+	// join or any leave.
+	assert.Empty(t, macAdd, "expected no join when group already active")
 	assert.Empty(t, macRem)
 
-	_, ok = macAdd[key]
-	assert.True(t, ok, "expected key %v to exist in map", key)
-
+	// Remove ipv6_2: ipv6_1 is still in the BPF map, so the group remains
+	// active — no join or leave expected.
 	txn = fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	_, _, err = fix.proxyNeighborTable.Delete(txn, &tables.L2AnnounceEntry{
 		L2AnnounceKey: tables.L2AnnounceKey{
@@ -499,11 +504,10 @@ func TestIpv6McasMAC(t *testing.T) {
 	err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
 	assert.NoError(t, err)
 
-	assert.Len(t, macAdd, 1)
+	// ipv6_1 is still desired and its BPF entry is still in curr, so the group
+	// stays joined — no join or leave expected.
+	assert.Empty(t, macAdd, "expected no join when group still active")
 	assert.Empty(t, macRem)
-
-	_, ok = macAdd[key]
-	assert.True(t, ok, "expected key %v to exist in map", key)
 
 	txn = fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	_, _, err = fix.proxyNeighborTable.Delete(txn, &tables.L2AnnounceEntry{
