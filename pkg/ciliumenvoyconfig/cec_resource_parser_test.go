@@ -877,6 +877,102 @@ func TestCiliumEnvoyConfigMissingInternalListener(t *testing.T) {
 	assert.ErrorContains(t, err, "missing internal listener: internal-listener")
 }
 
+var ciliumEnvoyConfigReusePortInternalListener = `apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: reuseport-internal-listener
+spec:
+  version_info: "0"
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: regular-listener
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 10000
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          stat_prefix: tcp_stats
+          cluster: "cluster_0"
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: internal-listener
+    internal_listener: {}
+`
+
+// TestCiliumEnvoyConfigReusePortWithInternalListener verifies that, when BPF
+// TProxy is enabled, SO_REUSEPORT (enable_reuse_port) is disabled on regular
+// (socket-bound) listeners but left untouched on internal listeners. Internal
+// listeners do not bind to a socket and Envoy rejects them outright if the
+// enable_reuse_port field is set ("has unsupported tcp listener feature").
+//
+// The parser's enableBPFTProxy field is set directly on the struct so the test
+// does not have to mutate the global option.Config.EnableBPFTProxy.
+func TestCiliumEnvoyConfigReusePortWithInternalListener(t *testing.T) {
+	parseListeners := func(t *testing.T, enableBPFTProxy bool) []*envoy_config_listener.Listener {
+		t.Helper()
+
+		parser := CECResourceParser{
+			logger:          hivetest.Logger(t),
+			portAllocator:   NewMockPortAllocator(),
+			enableBPFTProxy: enableBPFTProxy,
+		}
+
+		jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigReusePortInternalListener))
+		require.NoError(t, err)
+		cec := &cilium_v2.CiliumEnvoyConfig{}
+		err = json.Unmarshal(jsonBytes, cec)
+		require.NoError(t, err)
+		require.Len(t, cec.Spec.Resources, 2)
+
+		resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+		require.NoError(t, err)
+		require.Len(t, resources.Listeners, 2)
+
+		return resources.Listeners
+	}
+
+	findListener := func(t *testing.T, listeners []*envoy_config_listener.Listener, name string) *envoy_config_listener.Listener {
+		t.Helper()
+		for _, l := range listeners {
+			if l.Name == name {
+				return l
+			}
+		}
+		t.Fatalf("listener %q not found", name)
+		return nil
+	}
+
+	t.Run("BPF TProxy enabled", func(t *testing.T) {
+		listeners := parseListeners(t, true)
+
+		// Regular (socket-bound) listener must have SO_REUSEPORT disabled.
+		regular := findListener(t, listeners, "namespace/name/regular-listener")
+		assert.Nil(t, regular.GetInternalListener())
+		require.NotNil(t, regular.GetEnableReusePort())
+		assert.False(t, regular.GetEnableReusePort().GetValue())
+
+		// Internal listener must NOT have the EnableReusePort field set, otherwise
+		// Envoy rejects it with "has unsupported tcp listener feature".
+		internal := findListener(t, listeners, "namespace/name/internal-listener")
+		assert.NotNil(t, internal.GetInternalListener())
+		assert.Nil(t, internal.GetEnableReusePort())
+	})
+
+	t.Run("BPF TProxy disabled", func(t *testing.T) {
+		listeners := parseListeners(t, false)
+
+		// Without BPF TProxy, EnableReusePort is left untouched on all listeners.
+		regular := findListener(t, listeners, "namespace/name/regular-listener")
+		assert.Nil(t, regular.GetEnableReusePort())
+
+		internal := findListener(t, listeners, "namespace/name/internal-listener")
+		assert.Nil(t, internal.GetEnableReusePort())
+	})
+}
+
 func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
