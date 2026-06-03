@@ -4,11 +4,13 @@
 package gateway_api
 
 import (
+	"bytes"
 	"context"
 	"encoding/pem"
 	"fmt"
 	"log/slog"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -438,28 +440,65 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	if len(svcList.Items) == 0 {
 		return fmt.Errorf("no service found")
 	}
-
 	svc := svcList.Items[0]
-	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		// Potential loadbalancer service isn't ready yet. No need to report as an error, because
-		// reconciliation should be triggered when the loadbalancer services gets updated.
-		return nil
-	}
 
 	var addresses []gatewayv1.GatewayStatusAddress
-	for _, s := range svc.Status.LoadBalancer.Ingress {
-		if len(s.IP) != 0 {
+	// Check the svc type
+	switch svcType := svc.Spec.Type; svcType {
+	case "NodePort":
+		// NodePort service gets as many Node
+		// IP addresses as we can fit into Status
+		nodes := &corev1.NodeList{}
+		if err := r.Client.List(ctx, nodes); err != nil {
+			return fmt.Errorf("unable to list nodes")
+		}
+
+		ips := make([]net.IP, 0)
+		for _, node := range nodes.Items {
+			if len(node.Status.Addresses) == 0 {
+				continue
+			}
+			nodeAddress := node.Status.Addresses[0]
+			ips = append(ips, net.ParseIP(nodeAddress.Address))
+		}
+
+		// sort the addresses for consistent ip addresses assigned
+		sort.Slice(ips, func(i, j int) bool {
+			return bytes.Compare(ips[i], ips[j]) < 0
+		})
+
+		// allows for only a max of 16 addresses
+		if len(ips) > 16 {
+			ips = ips[:16]
+		}
+		for _, ipAddress := range ips {
 			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
 				Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
-				Value: s.IP,
+				Value: ipAddress.String(),
 			})
 		}
-		if len(s.Hostname) != 0 {
-			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
-				Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
-				Value: s.Hostname,
-			})
+	case "LoadBalancer":
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			// Potential loadbalancer service isn't ready yet. No need to report as an error, because
+			// reconciliation should be triggered when the loadbalancer services gets updated.
+			return nil
 		}
+		for _, s := range svc.Status.LoadBalancer.Ingress {
+			if len(s.IP) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
+					Value: s.IP,
+				})
+			}
+			if len(s.Hostname) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
+					Value: s.Hostname,
+				})
+			}
+		}
+	default:
+		return fmt.Errorf("Invalid service type for gateway")
 	}
 
 	if len(addresses) > 0 {

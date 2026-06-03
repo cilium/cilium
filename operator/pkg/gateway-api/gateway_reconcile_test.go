@@ -63,6 +63,7 @@ func Test_Conformance(t *testing.T) {
 		gateway              []gwDetails
 		disableServiceImport bool
 		wantErr              bool
+		hostNetwork          bool
 	}{
 		{
 			name: "gateway-http-listener-isolation",
@@ -210,6 +211,9 @@ func Test_Conformance(t *testing.T) {
 		{name: "tlsroute-mixed-protocol-listeners", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-mixed", Namespace: "gateway-conformance-infra"}},
 		}},
+		{name: "hostNetwork-enabled-valid", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
+		{name: "hostNetwork-enabled-exceed-max-address", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
+		{name: "gatewayclassconfig-nodeport", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "nodeport-gateway", Namespace: "gateway-conformance-infra"}}}},
 	}
 
 	for _, tt := range tests {
@@ -241,7 +245,19 @@ func Test_Conformance(t *testing.T) {
 					clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, gatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
 
 					c := clientBuilder.Build()
-
+					if tt.hostNetwork {
+						gatewayAPITranslator = gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
+							ServiceConfig: translation.ServiceConfig{
+								ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+							},
+							OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+								UseRemoteAddress: true,
+							},
+							HostNetworkConfig: translation.HostNetworkConfig{
+								Enabled: true,
+							},
+						})
+					}
 					r := &gatewayReconciler{
 						Client:     c,
 						translator: gatewayAPITranslator,
