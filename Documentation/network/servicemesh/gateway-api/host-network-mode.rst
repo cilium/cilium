@@ -35,7 +35,9 @@ resource and you should choose a port number higher than ``1023`` (see
 `Bind to privileged port`_).
 
 .. warning::
-    Be aware that misconfiguration might result in port clashes. Configure unique ports that are still available on all Cilium Nodes where Gateway API listeners are exposed.
+    Be aware that misconfiguration might result in port clashes. For each gateway, configure unique ports that are still available on all Cilium Nodes where Gateway API listeners are exposed.
+
+The ``GatewayStatusAddress`` field for a gateway has a maximum of 16 addresses. Cilium with host network mode enabled will automatically sort the node addresses to allow for consistency, ensuring that the same addresses are selected.
 
 Bind to privileged port
 =======================

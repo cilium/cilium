@@ -295,7 +295,7 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 			}
 
 			require.NotNil(t, svc)
-			assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
+			assert.Equal(t, corev1.ServiceTypeNodePort, svc.Spec.Type)
 
 			require.NotNil(t, ep)
 		})
