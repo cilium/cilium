@@ -71,6 +71,10 @@ func initializeMetrics(p params) {
 		metrics.WorkQueueUnfinishedWork,
 		metrics.WorkQueueLongestRunningProcessor,
 		metrics.WorkQueueRetries,
+
+		metrics.KubernetesAPIInteractions,
+		metrics.KubernetesAPIRateLimiterLatency,
+		metrics.KubernetesAPICallsTotal,
 	)
 
 	p.Registry.Register(k8sCtrlMetrics.ReadCertificateTotal)
