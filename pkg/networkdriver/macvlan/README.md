@@ -1,8 +1,8 @@
-# Macvlan Device Manager Implementation
+# Macvlan Device Manager
 
 ## Overview
 
-This implementation adds a macvlan device manager to the Cilium Network Driver, following the same pattern as the existing SR-IOV and dummy device managers. The macvlan device manager allows users to specify a parent interface and the number of macvlan sub-interfaces to create.
+The macvlan device manager creates and manages macvlan sub-interfaces on behalf of the Cilium Network Driver, following the same pattern as the SR-IOV and dummy device managers. It allows users to specify one or more parent interfaces and the number of macvlan sub-interfaces to create on each.
 
 ## Features
 
@@ -15,21 +15,29 @@ This implementation adds a macvlan device manager to the Cilium Network Driver, 
 
 ## Configuration
 
-### CRD Configuration
+Macvlan is configured via the `deviceManagerConfigs.macvlan` section of a
+`CiliumNetworkDriverNodeConfig` (per-node) or `CiliumNetworkDriverClusterConfig`
+(cluster-wide, distributed to matched nodes by the operator).
 
 ```yaml
 apiVersion: cilium.io/v2alpha1
-kind: CiliumNetworkDriver
+kind: CiliumNetworkDriverNodeConfig
 metadata:
-  name: network-driver-config
+  name: worker-node-1
 spec:
-  deviceManagers:
+  driverName: "networkdriver.cilium.io"
+  deviceManagerConfigs:
     macvlan:
       enabled: true
       ifaces:
         - parentIfName: eth0     # Parent interface name
-          count: 10              # Number of sub-interfaces
+          count: 10              # Number of sub-interfaces to create
           mode: bridge           # Macvlan mode (optional, default: bridge)
+  pools:
+    - name: macvlan-pool
+      filter:
+        parentIfNames:
+          - eth0
 ```
 
 ### Configuration Fields
@@ -41,7 +49,7 @@ spec:
 **MacvlanDeviceConfig:**
 - `parentIfName` (string, required): Name of the parent interface
 - `count` (int): Number of macvlan sub-interfaces to create
-- `mode` (string, optional): Macvlan mode - one of:
+- `mode` (string, optional): Macvlan mode — one of:
   - `private`: No communication between macvlan devices
   - `vepa`: Virtual Ethernet Port Aggregator mode
   - `bridge`: All endpoints are directly connected (default)
@@ -60,85 +68,18 @@ spec:
 
 5. **Source Mode**: Allows filtering based on a list of allowed source MAC addresses.
 
-## Usage Example
-
-### 1. Configure the Device Manager
-
-Apply the CiliumNetworkDriver configuration:
-
-```yaml
-apiVersion: cilium.io/v2alpha1
-kind: CiliumNetworkDriver
-metadata:
-  name: network-driver-config
-spec:
-  deviceManagers:
-    macvlan:
-      enabled: true
-      ifaces:
-        - parentIfName: eth0
-          count: 10
-          mode: bridge
-```
-
-This will create 10 macvlan sub-interfaces: `eth0.0`, `eth0.1`, ..., `eth0.9`
-
-### 2. Create a ResourceClass
-
-```yaml
-apiVersion: resource.k8s.io/v1alpha3
-kind: ResourceClass
-metadata:
-  name: macvlan-network
-spec:
-  driverName: network.cilium.io
-  selectors:
-    - cel:
-        expression: device.attributes["deviceManager"].string == "macvlan"
-```
-
-### 3. Create a ResourceClaimTemplate
-
-```yaml
-apiVersion: resource.k8s.io/v1alpha3
-kind: ResourceClaimTemplate
-metadata:
-  name: macvlan-claim
-spec:
-  spec:
-    devices:
-      requests:
-        - name: network
-          deviceClassName: macvlan-network
-```
-
-### 4. Use in a Pod
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-pod
-spec:
-  resourceClaims:
-    - name: network
-      resourceClaimTemplateName: macvlan-claim
-  containers:
-    - name: test
-      image: debian:bookworm
-      command: ["sleep", "6000"]
-      resources:
-        claims:
-          - name: network
-```
-
 ### Filtering
 
-Devices can be filtered by:
-- Device manager type (`deviceManager`)
-- Interface name (`ifName`)
-- Parent interface name (`parentIfName`)
-- Macvlan mode (`macvlanMode`)
+Macvlan devices can be filtered using the following `CiliumNetworkDriverDeviceFilter` fields:
+
+| Filter field     | Matches on                                                                                     |
+|------------------|-----------------------------------------------------------------------------------------------|
+| `deviceManagers` | Match when set to `macvlan`                                                                   |
+| `ifNames`        | Device name with dots replaced by dashes (e.g. `eth0.0` → `eth0-0`; either form accepted)    |
+| `parentIfNames`  | Parent interface kernel name (the interface the macvlan is attached to)                       |
+
+The fields `pfNames`, `pciAddrs`, `vendorIDs`, `deviceIDs`, and `drivers` are not applicable
+to macvlan devices — a filter specifying any of those fields will never match a macvlan device.
 
 ## Future Enhancements
 
