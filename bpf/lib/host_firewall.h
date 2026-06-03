@@ -48,8 +48,8 @@ need_apply_host_policy_egress(bool is_host_id, bool is_from_proxy)
 
 # ifdef ENABLE_IPV6
 static __always_inline bool
-ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
-			       __u32 ipcache_srcid, struct ipv6hdr *ip6,
+ipv6_host_policy_egress_lookup(const struct __ctx_buff *ctx, __u32 src_sec_identity,
+			       __u32 ipcache_srcid, const struct ipv6hdr *ip6,
 			       struct ct_buffer6 *ct_buffer)
 {
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
@@ -83,10 +83,10 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 
 static __always_inline int
 __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_proxy,
-			  struct ipv6hdr *ip6, struct ct_buffer6 *ct_buffer,
+			  const struct ipv6hdr *ip6, const struct ct_buffer6 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
+	const struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -170,7 +170,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 
 static __always_inline int
 ipv6_host_policy_egress(struct __ctx_buff *ctx,  bool is_from_proxy, __u32 src_id,
-			__u32 ipcache_srcid, struct ipv6hdr *ip6,
+			__u32 ipcache_srcid, const struct ipv6hdr *ip6,
 			struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_buffer6 ct_buffer = {};
@@ -185,7 +185,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx,  bool is_from_proxy, __u32 src_i
 }
 
 static __always_inline bool
-ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+ipv6_host_policy_ingress_lookup(const struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				struct ct_buffer6 *ct_buffer)
 {
 	__u32 dst_sec_identity = WORLD_IPV6_ID;
@@ -224,11 +224,11 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 }
 
 static __always_inline int
-__ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-			   struct ct_buffer6 *ct_buffer, __u32 *src_sec_identity,
+__ipv6_host_policy_ingress(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
+			   const struct ct_buffer6 *ct_buffer, __u32 *src_sec_identity,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
+	const struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
@@ -328,8 +328,8 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 # ifdef ENABLE_IPV4
 static __always_inline bool
-ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
-			       __u32 ipcache_srcid, struct iphdr *ip4,
+ipv4_host_policy_egress_lookup(const struct __ctx_buff *ctx, __u32 src_sec_identity,
+			       __u32 ipcache_srcid, const struct iphdr *ip4,
 			       struct ct_buffer4 *ct_buffer)
 {
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
@@ -355,10 +355,10 @@ ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 
 static __always_inline int
 __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_proxy,
-			  struct iphdr *ip4, struct ct_buffer4 *ct_buffer,
+			  const struct iphdr *ip4, const struct ct_buffer4 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
+	const struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -442,7 +442,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 
 static __always_inline int
 ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_id,
-			__u32 ipcache_srcid, struct iphdr *ip4,
+			__u32 ipcache_srcid, const struct iphdr *ip4,
 			struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_buffer4 ct_buffer = {};
@@ -457,7 +457,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_id
 }
 
 static __always_inline bool
-ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
+ipv4_host_policy_ingress_lookup(const struct __ctx_buff *ctx, const struct iphdr *ip4,
 				struct ct_buffer4 *ct_buffer)
 {
 	__u32 dst_sec_identity = WORLD_IPV4_ID;
@@ -488,11 +488,11 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 }
 
 static __always_inline int
-__ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
-			   struct ct_buffer4 *ct_buffer, __u32 *src_sec_identity,
+__ipv4_host_policy_ingress(struct __ctx_buff *ctx, const struct iphdr *ip4,
+			   const struct ct_buffer4 *ct_buffer, __u32 *src_sec_identity,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
+	const struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;

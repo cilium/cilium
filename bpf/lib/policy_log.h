@@ -55,7 +55,7 @@ static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 }
 
 static __always_inline void
-send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
+send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict, __u16 proxy_port,
 			   __u8 match_type, __u8 is_audited, __u8 auth_type, __u32 cookie)
 {
@@ -123,7 +123,7 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 }
 #else
 static __always_inline void
-send_policy_verdict_notify(struct __ctx_buff *ctx __maybe_unused,
+send_policy_verdict_notify(const struct __ctx_buff *ctx __maybe_unused,
 			   __u32 remote_label __maybe_unused, __u16 dst_port __maybe_unused,
 			   __u8 proto __maybe_unused, __u8 dir __maybe_unused,
 			   __u8 is_ipv6 __maybe_unused, int verdict __maybe_unused,
