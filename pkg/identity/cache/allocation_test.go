@@ -33,10 +33,6 @@ import (
 )
 
 var (
-	fakeConfig = &option.DaemonConfig{
-		K8sNamespace: "kube-system",
-	}
-
 	testConfigs = []testConfig{
 		{
 			name:            "disable_operator_manages_identities",
@@ -271,7 +267,7 @@ func testAllocator(t *testing.T, client kvstore.Client) {
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
 	owner := newDummyOwner(logger)
-	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
+	identity.InitStaticIdentities("kube-system", cmtypes.ClusterInfo{Name: "default", ID: 5}, true)
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(logger, owner, NewTestAllocatorConfig())
 	<-mgr.InitIdentityAllocator(nil, client)
@@ -404,7 +400,7 @@ func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 			_, kubeClient := k8sClient.NewFakeClientset(logger)
 
 			owner := newDummyOwner(logger)
-			identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
+			identity.InitStaticIdentities("kube-system", cmtypes.ClusterInfo{Name: "default", ID: 5}, true)
 			mgr := NewCachingIdentityAllocator(logger, owner, testAllocatorConfig(true, 2))
 			<-mgr.InitIdentityAllocator(kubeClient, cl)
 			defer mgr.Close()
@@ -519,7 +515,7 @@ func testLocalAllocation(t *testing.T, testConfig testConfig, client kvstore.Cli
 	logger := hivetest.Logger(t)
 
 	owner := newDummyOwner(logger)
-	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
+	identity.InitStaticIdentities("kube-system", cmtypes.ClusterInfo{Name: "default", ID: 5}, true)
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(logger, owner, testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil, client)

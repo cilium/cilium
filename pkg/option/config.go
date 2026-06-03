@@ -2113,12 +2113,6 @@ func (c *DaemonConfig) UnreachableRoutesEnabled() bool {
 	return c.EnableUnreachableRoutes
 }
 
-// CiliumNamespaceName returns the name of the namespace in which Cilium is
-// deployed in
-func (c *DaemonConfig) CiliumNamespaceName() string {
-	return c.K8sNamespace
-}
-
 // AgentNotReadyNodeTaintValue returns the value of the taint key that cilium agents
 // will manage on their nodes
 func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
