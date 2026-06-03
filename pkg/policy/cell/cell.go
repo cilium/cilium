@@ -62,6 +62,7 @@ type policyRepoParams struct {
 	Logger            *slog.Logger
 	Lifecycle         cell.Lifecycle
 	Config            Config
+	DaemonConfig      *option.DaemonConfig
 	CertManager       certificatemanager.CertificateManager
 	IdentityManager   identitymanager.IDManager
 	ClusterInfo       cmtypes.ClusterInfo
@@ -70,16 +71,14 @@ type policyRepoParams struct {
 }
 
 func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
-	if params.Config.EnableWellKnownIdentities {
-		// Must be done before calling policy.NewPolicyRepository() below.
-		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
-		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
-		identity.WellKnown.ForEach(func(i *identity.Identity) {
-			for labelSource := range i.Labels.CollectSources() {
-				metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
-			}
-		})
-	}
+	// Must be done before calling policy.NewPolicyRepository() below.
+	num := identity.InitStaticIdentities(params.DaemonConfig.K8sNamespace, params.ClusterInfo, params.Config.EnableWellKnownIdentities)
+	metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
+	identity.WellKnown.ForEach(func(i *identity.Identity) {
+		for labelSource := range i.Labels.CollectSources() {
+			metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
+		}
+	})
 
 	policyapi.InitEntities(params.ClusterInfo.Name)
 
