@@ -126,16 +126,37 @@ Pools group devices that share a common purpose. Only devices matched by
 the pool's filter are advertised in the corresponding `ResourceSlice`.
 All specified filter fields are ANDed together.
 
-| Filter field      | Matches on                                          |
-|-------------------|-----------------------------------------------------|
-| `ifNames`         | Exact device interface name                         |
-| `pfNames`         | SR-IOV Physical Function kernel ifname              |
-| `pciAddrs`        | PCI address (e.g. `0000:03:00.1`)                   |
-| `vendorIDs`       | PCI vendor ID                                       |
-| `deviceIDs`       | PCI device ID                                       |
-| `drivers`         | Kernel driver bound to the device                   |
-| `deviceManagers`  | Device manager type (`sr-iov`, `dummy`, `macvlan`)  |
-| `parentIfNames`   | Macvlan parent interface kernel ifname              |
+| Filter field     | SR-IOV                                                                                 | Macvlan                                                                                      |
+|------------------|----------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `deviceManagers` | Match when set to `sr-iov`                                                             | Match when set to `macvlan`                                                                  |
+| `ifNames`        | Kernel interface name of the VF (empty for DPDK/vfio devices — use `pciAddrs` instead) | Device name with dots replaced by dashes (e.g. `eth0.0` → `eth0-0`; either form accepted)   |
+| `pfNames`        | Physical Function kernel interface name                                                | Not applicable — macvlan devices never match a filter that sets this field                   |
+| `parentIfNames`  | Not applicable — SR-IOV devices never match a filter that sets this field              | Parent interface kernel name (the interface the macvlan is attached to)                      |
+| `pciAddrs`       | PCI address of the VF (e.g. `0000:03:00.1`)                                           | Not applicable — macvlan devices never match a filter that sets this field                   |
+| `vendorIDs`      | PCI vendor ID                                                                          | Not applicable — macvlan devices never match a filter that sets this field                   |
+| `deviceIDs`      | PCI device ID                                                                          | Not applicable — macvlan devices never match a filter that sets this field                   |
+| `drivers`        | Kernel driver bound to the VF (e.g. `mlx5_core`, `vfio-pci`)                         | Not applicable — macvlan devices never match a filter that sets this field                   |
+
+#### Filter conflict rules
+
+Filters are validated at configuration load time and enforced at runtime.
+
+**Config-time validation** rejects a configuration where the same value appears
+in `ifNames`, `pciAddrs`, or `parentIfNames` across more than one pool, since
+those fields uniquely identify a single device.
+
+**Runtime conflict resolution** handles cases where a device matches more than
+one pool despite passing config-time validation (e.g. when pools overlap via
+`pfNames`, `drivers`, or `vendorIDs`). The device is assigned to exactly one
+pool using the following priority:
+
+1. **Previous assignment** — if the device was assigned to a pool in a prior
+   reconcile cycle and that pool still matches the device, the assignment is
+   kept unchanged. This ensures stability across reconcile cycles.
+2. **Alphabetically first matching pool** — deterministic tie-break for devices
+   that have no prior assignment.
+
+An error is logged whenever a device matches more than one pool.
 
 #### Device configuration options
 
@@ -147,7 +168,7 @@ Device-specific configuration is passed as opaque parameters in the
 | `vlan`          | `uint16` | 802.1q VLAN ID to configure on the device                |
 | `ipv4Addr`      | CIDR     | Static IPv4 address/prefix (e.g. `192.168.1.5/24`)      |
 | `ipv6Addr`      | CIDR     | Static IPv6 address/prefix                               |
-| `ipPool`        | `string` | `CiliumResourceIPPool` name for dynamic address allocation|
+| `ip-pool`       | `string` | `CiliumResourceIPPool` name for dynamic address allocation|
 | `routes`        | list     | Static routes to add (destination + gateway)             |
 | `podIfName`     | `string` | Rename the interface inside the pod namespace            |
 | `networkConfig` | `string` | Reference to a `CiliumResourceNetworkConfig` resource    |
@@ -256,7 +277,7 @@ spec:
           driver: networkdriver.cilium.k8s.io
           parameters:
             vlan: 1001
-            ipPool: my-pool
+            ip-pool: my-pool
 ```
 
 ### 5. Request a device from a pod
@@ -298,7 +319,7 @@ metadata:
       }
 ```
 
-### 6. IPAM — dynamic IP address allocation
+### 7. IPAM — dynamic IP address allocation
 
 The operator can manage IP pools for network driver devices using
 `CiliumResourceIPPool`. Pools can be created manually or auto-created at
@@ -328,11 +349,11 @@ spec:
 --auto-create-cilium-resource-ip-pools=my-pool=ipv4-cidrs:192.168.100.0/24;ipv4-mask-size:32
 ```
 
-Nodes request allocations by setting `spec.ipam.resourcePools` in their
+Nodes request allocations by setting `spec.ipam.resourcepools` in their
 `CiliumNode` resource. The operator allocates addresses and writes them back
 to `CiliumNode.status`.
 
-### 7. Shared network configuration (CiliumResourceNetworkConfig)
+### 8. Shared network configuration (CiliumResourceNetworkConfig)
 
 `CiliumResourceNetworkConfig` allows you to define reusable network
 parameters (VLAN, IP pool, netmask, static routes) that are applied to
@@ -403,7 +424,7 @@ kubectl get ciliumnetworkdriverclusterconfig my-config -o jsonpath='{.status.con
 # from CiliumNetworkDriverNodeConfig
 kubectl get resourceslice -l resource.kubernetes.io/driver=networkdriver.cilium.io
 
-# Or for a another DRA driver
+# Or for another DRA driver
 kubectl get resourceslice -l resource.kubernetes.io/driver=<name>
 
 # Or for all DRA drivers
@@ -415,8 +436,8 @@ kubectl get resourceslice <name> -o yaml
 
 Example output:
 ```
-NAME                                        NODE           DRIVER                      POOL         AGE
-worker-node-1-sriov.cilium.k8s.io-abc12    worker-node-1  sriov.cilium.k8s.io         sriov-pool   30s
+NAME                                                  NODE           DRIVER                         POOL         AGE
+worker-node-1-networkdriver.cilium.k8s.io-abc12       worker-node-1  networkdriver.cilium.k8s.io    sriov-pool   30s
 ```
 
 ### Verify ResourceClaims and allocations
@@ -443,7 +464,7 @@ kubectl get crip       # short name
 kubectl get ciliumresourceippool my-pool -o yaml
 
 # Check per-node IP allocations in CiliumNode
-kubectl get ciliumnode worker-node-1 -o jsonpath='{.spec.ipam.resourcePools}'
+kubectl get ciliumnode worker-node-1 -o jsonpath='{.spec.ipam.resourcepools}'
 ```
 
 ### Verify DeviceClasses
@@ -456,14 +477,14 @@ kubectl get deviceclasses
 
 The following resources are automatically collected by `cilium sysdump`:
 
-| Collected resource                    | File in sysdump                              |
-|---------------------------------------|----------------------------------------------|
-| `CiliumNetworkDriverNodeConfig`       | `network-driver-nodeconfigs.yaml`            |
-| `CiliumNetworkDriverClusterConfig`    | `network-driver-clusterconfigs.yaml`         |
-| `ResourceSlice`                       | `network-driver-resourceslices.yaml`         |
-| `DeviceClass`                         | `network-driver-deviceclasses.yaml`          |
-| `ResourceClaim`                       | `network-driver-resourceclaims.yaml`         |
-| `ResourceClaimTemplate`               | `network-driver-resourceclaimTemplates.yaml` |
+| Collected resource                    | File in sysdump                                            |
+|---------------------------------------|------------------------------------------------------------|
+| `CiliumNetworkDriverNodeConfig`       | `ciliumnetworkdriver-nodeconfigs-<ts>.yaml`                |
+| `CiliumNetworkDriverClusterConfig`    | `ciliumnetworkdriver-clusterconfigs-<ts>.yaml`             |
+| `ResourceSlice`                       | `ciliumnetworkdriver-resourceslices-<ts>.yaml`             |
+| `DeviceClass`                         | `ciliumnetworkdriver-deviceclasses-<ts>.yaml`              |
+| `ResourceClaim`                       | `ciliumnetworkdriver-resourceclaims-<ts>.yaml`             |
+| `ResourceClaimTemplate`               | `ciliumnetworkdriver-resourceclaimTemplates-<ts>.yaml`     |
 
 > **Note:** `CiliumResourceIPPool` is not yet collected by sysdump. Collect
 > it manually:
