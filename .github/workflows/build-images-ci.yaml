@@ -2,15 +2,24 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-    branches-ignore:
-      - v1.19
-      - v1.18
-      - v1.17
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
   push:
     branches:
       - main
@@ -27,20 +36,46 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || (github.event_name == 'merge_group' && github.run_id) }}
+  group: ${{ github.workflow }}-${{ inputs.PR-number || github.event.after || (github.event_name == 'merge_group' && github.run_id) }}
   cancel-in-progress: true
 
 jobs:
+  pr-info:
+    name: Get PR Info
+    runs-on: ubuntu-24.04
+    outputs:
+      same-repo: ${{ steps.pr.outputs.same_repo }}
+      user-login: ${{ steps.pr.outputs.user_login }}
+    steps:
+      - name: Get pull request info
+        id: pr
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            if (context.eventName !== 'workflow_dispatch') {
+              core.setOutput('same_repo', 'false')
+              core.setOutput('user_login', '')
+              return
+            }
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number('${{ inputs.PR-number }}'),
+            })
+            core.setOutput('same_repo', String(pr.head.repo.full_name === pr.base.repo.full_name))
+            core.setOutput('user_login', pr.user.login)
+
   wait-for-base-images:
     name: Wait for lint checks
+    needs: pr-info
     uses: ./.github/workflows/wait-for-status-check.yaml
     with:
-      # Only run this job if the event is pull_request_target and if the PR
+      # Only run this job if the event is workflow_dispatch and if the PR
       # is not opened from a fork.
       # This is to avoid waiting for base images on push to main or merge_group
       # events as the lint-images-base does not run on those events.
-      if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
-      sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      if: ${{ github.event_name == 'workflow_dispatch' && needs.pr-info.outputs.same-repo == 'true' }}
+      sha: ${{ inputs.SHA || github.sha }}
       lint-workflows: "lint-images-base.yaml"
       timeout-minutes: 2
       poll-interval: 15
@@ -53,9 +88,9 @@ jobs:
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
-      # Only fail-fast on pull_request_target events. For push and merge_group events, we want to run all builds even
+      # Only fail-fast on workflow_dispatch events. For push and merge_group events, we want to run all builds even
       # if some of them fail, to make sure one of the image is not broken accidentally and the PR is still merged.
-      fail-fast: ${{ github.event_name != 'pull_request_target' }}
+      fail-fast: ${{ github.event_name != 'workflow_dispatch' }}
       matrix:
         include:
           - name: cilium
@@ -99,8 +134,8 @@ jobs:
       - name: Checkout base or default branch (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # We first check if base_ref exist, meaning we're in pull_request_target context, and if not we just use default_branch
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          # We first check if base-SHA exists, meaning we're in workflow_dispatch context, and if not we just use default_branch.
+          ref: ${{ inputs.base-SHA || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Set Environment Variables
@@ -154,8 +189,8 @@ jobs:
       - name: Getting image tag
         id: tag
         run: |
-          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
-            sha=${{ github.event.pull_request.head.sha }}
+          if [ "${{ inputs.SHA }}" != "" ]; then
+            sha=${{ inputs.SHA }}
           else
             sha=${{ github.sha }}
           fi
@@ -411,28 +446,28 @@ jobs:
   pre-comment:
     # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.
     name: Pre-Comment
-    needs: build-and-push-prs
+    needs: [pr-info, build-and-push-prs]
     runs-on: ubuntu-24.04
     if: ${{
-         github.event_name == 'pull_request_target' &&
-         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+         github.event_name == 'workflow_dispatch' &&
+         needs.pr-info.outputs.user-login == vars.RENOVATE_BOT_USERNAME
         }}
     steps:
     - name: Debug
       run: |
-        echo ${{ github.event.pull_request.user.login }}
+        echo ${{ needs.pr-info.outputs.user-login }}
         echo ${{ github.event.event_name }}
 
   comment:
     name: Post test comment for Renovate PRs after images built
     runs-on: ubuntu-24.04
-    needs: pre-comment
+    needs: [pr-info, pre-comment]
     environment:
       name: "Trigger CI from renovate PRs"
       deployment: false
     if: ${{
-         github.event_name == 'pull_request_target' &&
-         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+         github.event_name == 'workflow_dispatch' &&
+         needs.pr-info.outputs.user-login == vars.RENOVATE_BOT_USERNAME
         }}
     steps:
       - name: Generate Github App Token
@@ -445,7 +480,7 @@ jobs:
         env:
           TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          PULL_REQUEST_NUMBER: ${{ inputs.PR-number }}
         run: |
           echo ${TOKEN} | gh auth login --with-token
           gh pr --repo ${GITHUB_REPOSITORY} comment ${PULL_REQUEST_NUMBER} --body "/test"

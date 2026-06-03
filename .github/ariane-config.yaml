@@ -2,6 +2,11 @@ allowed-teams:
   - organization-members
 
 triggers:
+  /default:
+    workflows:
+    - build-images-base.yaml
+    - build-images-ci.yaml
+    - build-images-docs-builder.yaml
   # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
   /test\s*:
     workflows:
@@ -241,3 +246,6 @@ workflows:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   conformance-ztunnel-e2e.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  build-images-base.yaml:
+  build-images-ci.yaml:
+  build-images-docs-builder.yaml:

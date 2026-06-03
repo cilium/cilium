@@ -2,18 +2,24 @@ name: Base Image Release Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-    paths:
-      - images/runtime/**
-      - images/builder/**
-    branches-ignore:
-      - v1.19
-      - v1.18
-      - v1.17
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
   # This workflow can be reused so that renovate can execute this workflow_dispatch:
   # run from a different environment than 'release-base-images'. See
   # build-images-base-renovate.yaml
@@ -39,13 +45,13 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.PR-number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-and-push:
-    # Skip this workflow for repositories without credentials and branches that are created by renovate where the event type is pull_request_target
-    if: ${{ vars.QUAY_BASE_RELEASE_ENABLED == 'true' && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
+    # Skip this workflow for repositories without credentials and branches that are created by renovate where the event type is workflow_dispatch
+    if: ${{ vars.QUAY_BASE_RELEASE_ENABLED == 'true' && ! (github.event_name == 'workflow_dispatch' && startsWith(inputs.context-ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 60
     environment:
@@ -56,8 +62,8 @@ jobs:
       - name: Checkout base or default branch (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # This workflow is supposed to run only on pull_request_target context, but in case workflow call is made from a push context we still keep the default to default_branch
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          # This workflow is supposed to run only on workflow_dispatch context, but in case workflow_call is made from a push context we still keep the default to default_branch.
+          ref: ${{ inputs.base-SHA || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
@@ -94,7 +100,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.SHA || github.sha }}
 
       - name: Set-up git
         run: |
@@ -294,8 +300,8 @@ jobs:
       - name: Push changes into PR
         if: ${{ steps.update-runtime-image.outputs.committed == 'true' || steps.update-builder-image.outputs.committed == 'true' }}
         env:
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
-          repository:  ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ inputs.context-ref || github.ref_name || github.ref }}
+          repository:  ${{ github.repository }}
         run: |
           git diff HEAD^
           git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:$ref

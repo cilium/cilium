@@ -2,29 +2,56 @@ name: Docs-builder Image Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-    paths:
-      - Documentation/Dockerfile
-      - Documentation/requirements.txt
-    branches-ignore:
-      - v1.19
-      - v1.18
-      - v1.17
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
 
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ inputs.PR-number }}
   cancel-in-progress: true
 
 jobs:
+  pr-info:
+    name: Get PR Info
+    runs-on: ubuntu-24.04
+    outputs:
+      head-ref: ${{ steps.pr.outputs.head_ref }}
+      head-repo-full-name: ${{ steps.pr.outputs.head_repo_full_name }}
+    steps:
+      - name: Get pull request info
+        id: pr
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number('${{ inputs.PR-number }}'),
+            })
+            core.setOutput('head_ref', pr.head.ref)
+            core.setOutput('head_repo_full_name', pr.head.repo.full_name)
+
   build-and-push:
+    needs: pr-info
     name: Build and Push Image
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -38,7 +65,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ inputs.base-SHA || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
@@ -56,7 +83,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.SHA }}
 
       - name: Generate image tag for docs-builder
         id: docs-builder-tag
@@ -101,7 +128,7 @@ jobs:
   # patch artifact to a clean privileged job for pushing.
   prepare-update:
     name: Prepare docs-builder image reference update
-    needs: build-and-push
+    needs: [pr-info, build-and-push]
     if: needs.build-and-push.outputs.digest
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -109,7 +136,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ inputs.base-SHA || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Set environment variables
@@ -121,7 +148,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.SHA }}
 
       - name: Set up git
         run: |
@@ -152,7 +179,7 @@ jobs:
   # container, preventing hook injection or other workspace tampering attacks.
   push-update:
     name: Push docs-builder image reference update
-    needs: [build-and-push, prepare-update]
+    needs: [pr-info, build-and-push, prepare-update]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
@@ -163,7 +190,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.SHA }}
 
       - name: Set up git
         run: |
@@ -188,14 +215,14 @@ jobs:
 
       - name: Push changes into PR
         env:
-          REF: ${{ github.event.pull_request.head.ref }}
+          REF: ${{ needs.pr-info.outputs.head-ref }}
         run: |
           git diff HEAD^
-          git push --no-verify https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git HEAD:"$REF"
+          git push --no-verify https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ needs.pr-info.outputs.head-repo-full-name }}.git HEAD:"$REF"
 
   image-digest:
     name: Retrieve and display image digest
-    needs: build-and-push
+    needs: [pr-info, build-and-push]
     if: needs.build-and-push.outputs.digest
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -203,7 +230,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ inputs.base-SHA || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Set environment variables
