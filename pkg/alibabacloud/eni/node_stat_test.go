@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
-	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
+	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -24,9 +24,9 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		},
 	})
 	m := ipamTypes.NewInstanceMap()
-	resource := &eniTypes.ENI{
+	resource := &types.ENI{
 		NetworkInterfaceID: "eni-1",
-		PrivateIPSets: []eniTypes.PrivateIPSet{
+		PrivateIPSets: []types.PrivateIPSet{
 			{
 				Primary: true, // one primary IP
 			},
@@ -42,7 +42,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		},
 		k8sObj: &v2.CiliumNode{
 			Spec: v2.NodeSpec{
-				AlibabaCloud: eniTypes.Spec{
+				AlibabaCloud: types.Spec{
 					InstanceType: "ecs.g6.large",
 				},
 			},
