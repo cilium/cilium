@@ -14,6 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -112,6 +114,58 @@ func TestKlogBridgeLevelOverrides(t *testing.T) {
 			assert.Equal(t, "error", level, "non-overridden error should stay error, got line: %s", line)
 			assert.Equal(t, "value", entry["key"], "structured key-value pairs should be preserved")
 			assert.Equal(t, "something failed", entry[logfields.Error], "error should be preserved as a structured field")
+		}
+	}
+}
+
+func TestKlogBridgeErrPredicate(t *testing.T) {
+	var out bytes.Buffer
+	logger := slog.New(
+		slog.NewJSONHandler(&out,
+			&slog.HandlerOptions{
+				ReplaceAttr: ReplaceAttrFnWithoutTimestamp,
+			},
+		),
+	)
+	log := logger.With(logfields.LogSubsys, "klog")
+
+	overrides := []logLevelOverride{
+		{
+			matcher:      regexp.MustCompile("Failed to update lease"),
+			errPredicate: apierrors.IsConflict,
+			targetLevel:  slog.LevelInfo,
+		},
+	}
+	handler := &klogOverrideHandler{
+		inner:     log.Handler(),
+		overrides: overrides,
+	}
+	klog.SetSlogLogger(slog.New(handler))
+
+	lease := schema.GroupResource{Group: "coordination.k8s.io", Resource: "leases"}
+	conflict := apierrors.NewConflict(lease, "cilium-operator-resource-lock",
+		fmt.Errorf("the object has been modified"))
+	timeout := apierrors.NewServerTimeout(lease, "update", 1)
+
+	klog.ErrorS(conflict, "Failed to update lease")
+	klog.ErrorS(timeout, "Failed to update lease")
+	klog.ErrorS(nil, "Failed to update lease")
+	klog.Flush()
+
+	logout := strings.Trim(out.String(), "\n")
+	lines := strings.Split(logout, "\n")
+	require.Len(t, lines, 3)
+
+	for i, line := range lines {
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &entry))
+
+		level, _ := entry["level"].(string)
+		switch i {
+		case 0:
+			assert.Equal(t, "info", level, "conflict should be downgraded, got line: %s", line)
+		default:
+			assert.Equal(t, "error", level, "non-conflict should stay error, got line: %s", line)
 		}
 	}
 }
