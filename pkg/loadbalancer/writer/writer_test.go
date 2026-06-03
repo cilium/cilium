@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -1047,4 +1048,60 @@ func TestWriter_SelectBackends_PreferCloseFallsBackWhenOnlyTerminating(t *testin
 	addresses := []loadbalancer.L3n4Addr{selected[0].Address, selected[1].Address}
 	assert.Contains(t, addresses, terminatingAddr)
 	assert.Contains(t, addresses, terminatingNoZoneAddr)
+}
+
+func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
+	oldName := nodeTypes.GetName()
+	nodeTypes.SetName("node-a")
+	t.Cleanup(func() {
+		nodeTypes.SetName(oldName)
+	})
+
+	p := fixture(t)
+	p.Writer.config.EnableServiceTopology = true
+
+	svcName := loadbalancer.NewServiceName("test", "svc")
+	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1), 80, loadbalancer.ScopeExternal)
+	activeLocalAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(2), 8080, loadbalancer.ScopeExternal)
+	terminatingLocalAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(3), 8080, loadbalancer.ScopeExternal)
+
+	svc := &loadbalancer.Service{
+		Name:                svcName,
+		Source:              source.Kubernetes,
+		TrafficDistribution: loadbalancer.TrafficDistributionPreferSameNode,
+	}
+	fe := &loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     feAddr,
+			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: feAddr.Port(),
+		},
+		Service: svc,
+	}
+	backends := iter.Seq2[*loadbalancer.Backend, statedb.Revision](func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		for i, be := range []*loadbalancer.Backend{
+			{
+				Address:  activeLocalAddr,
+				State:    loadbalancer.BackendStateActive,
+				NodeName: "node-a",
+			},
+			{
+				Address:  terminatingLocalAddr,
+				State:    loadbalancer.BackendStateTerminating,
+				NodeName: "node-a",
+			},
+		} {
+			if !yield(be, statedb.Revision(i+1)) {
+				return
+			}
+		}
+	})
+
+	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
+
+	// Only the active local backend should be selected.
+	// Terminating local backend must be filtered out.
+	require.Len(t, selected, 1)
+	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
 }
