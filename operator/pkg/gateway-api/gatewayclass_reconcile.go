@@ -61,7 +61,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return controllerruntime.Fail(nil)
 		}
 
-		if ref.Namespace == nil || ref.Name == "" {
+		if !hasNamespacedName(ref) {
 			scopedLog.ErrorContext(ctx, "ParametersRef must specify namespace and name")
 			setGatewayClassAccepted(gwc, false)
 			if err := r.ensureStatus(ctx, gwc, original); err != nil {
@@ -130,4 +130,12 @@ func isParameterRefSupported(ref *gatewayv1.ParametersReference) bool {
 	}
 	return ref.Group == v2alpha1.CustomResourceDefinitionGroup &&
 		ref.Kind == v2alpha1.CGCCKindDefinition
+}
+
+func hasNamespacedName(ref *gatewayv1.ParametersReference) bool {
+	if ref == nil || ref.Namespace == nil {
+		return false
+	}
+
+	return string(*ref.Namespace) != "" && ref.Name != ""
 }
