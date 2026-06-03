@@ -5,6 +5,7 @@ package loader
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -81,6 +82,15 @@ func baseHostPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFHost, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFHost, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFHost, v bool) {
+			if v {
+				t.StrictEgressEncryption.Enabled = true
+				t.StrictEgressEncryption.IPv4Net = types.V4Addr{Addr: [4]byte{192, 168, 0, 0}}
+				t.StrictEgressEncryption.IPv4EncryptIface = types.V4Addr{Addr: [4]byte{10, 0, 0, 1}}
+				t.StrictEgressEncryption.IPv4NetSize = 24
+				t.StrictEgressEncryption.AllowRemoteNodes = true
+			}
+		}),
 	)
 	return b
 }
