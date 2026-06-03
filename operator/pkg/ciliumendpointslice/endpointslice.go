@@ -517,7 +517,7 @@ func (c *SlimController) syncCESsInLocalCache(ctx context.Context) error {
 			nodeObj, err := cnodeStore.ByIndex(op_k8s.CiliumNodeIPIndex, cep.Networking.NodeIP)
 			// If the CiliumNode is not found (e.g., deleted during operator restart), we skip restoring the state of this CEP on startup.
 			// We will get the CEP & CiliumNode add events through the resource stores and update the latest state in the local cache.
-			if err != nil {
+			if err != nil || len(nodeObj) == 0 {
 				c.logger.DebugContext(ctx, "Error getting CiliumNode by IP",
 					logfields.Error, err)
 				continue
