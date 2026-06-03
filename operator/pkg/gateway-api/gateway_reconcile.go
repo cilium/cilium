@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -783,26 +784,53 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	}
 
 	svc := svcList.Items[0]
-	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		// Potential loadbalancer service isn't ready yet. No need to report as an error, because
-		// reconciliation should be triggered when the loadbalancer services gets updated.
-		return nil
-	}
 
 	var addresses []gatewayv1.GatewayStatusAddress
-	for _, s := range svc.Status.LoadBalancer.Ingress {
-		if len(s.IP) != 0 {
+	// Check the svc type
+	switch svcType := svc.Spec.Type; svcType {
+	case "NodePort":
+		// hostNetwork enabled
+		// get the nodes ip addresses
+		nodes := &corev1.NodeList{}
+		if err := r.Client.List(ctx, nodes); err != nil {
+			return fmt.Errorf("unable to list nodes")
+		}
+
+		for _, node := range nodes.Items {
+			nodeAddress := node.Status.Addresses[0]
 			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
 				Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
-				Value: s.IP,
+				Value: nodeAddress.Address,
 			})
 		}
-		if len(s.Hostname) != 0 {
-			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
-				Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
-				Value: s.Hostname,
-			})
+
+		// sort the addresses for consistent ip addresses assigned
+		sort.Slice(addresses, func(i, j int) bool {
+			return addresses[i].Value < addresses[j].Value
+		})
+
+	case "LoadBalancer":
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			// Potential loadbalancer service isn't ready yet. No need to report as an error, because
+			// reconciliation should be triggered when the loadbalancer services gets updated.
+			return nil
 		}
+		for _, s := range svc.Status.LoadBalancer.Ingress {
+			if len(s.IP) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
+					Value: s.IP,
+				})
+			}
+			if len(s.Hostname) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
+					Value: s.Hostname,
+				})
+			}
+		}
+	default:
+		return fmt.Errorf("Invalid service type for gateway")
 	}
 
 	if len(addresses) > 0 {
