@@ -19,7 +19,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -203,16 +202,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	if option.Config.ServiceNoBackendResponse == option.ServiceNoBackendResponseReject {
 		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
-	}
-
-	if option.Config.EnableEncryptionStrictModeEgress {
-		cDefinesMap["ENCRYPTION_STRICT_MODE_EGRESS"] = "1"
-
-		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(cfg.NodeIPv4))
-
-		if option.Config.EncryptionStrictEgressCIDR.Contains(cfg.NodeIPv4) {
-			cDefinesMap["STRICT_IPV4_OVERLAPPING_CIDR"] = "1"
-		}
 	}
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---

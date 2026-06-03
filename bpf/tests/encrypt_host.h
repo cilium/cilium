@@ -49,11 +49,6 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, _
 
 #include "lib/bpf_host.h"
 
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
-ASSIGN_CONFIG(union v4addr, strict_ipv4_net, { .be32 = IPV4(192, 168, 0, 0) })
-ASSIGN_CONFIG(__u8, strict_ipv4_net_size, 16)
-#endif
-
 #include "lib/ipcache.h"
 #include "lib/ipsec.h"
 #include "lib/node.h"
@@ -208,11 +203,10 @@ int encrypt_v4_3_no_src_mark_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "encrypt_v4_3_no_src_mark")
 int encrypt_v4_3_no_src_mark_check(const struct __ctx_buff *ctx)
 {
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
-	return check(ctx, CTX_ACT_DROP);
-#else
-	return check(ctx, CTX_ACT_OK);
-#endif
+	__u32 expected_result = CONFIG(strict_egress_encryption).enabled ?
+				CTX_ACT_DROP : CTX_ACT_OK;
+
+	return check(ctx, expected_result);
 }
 
 /* Finally test without the mark, but with the endpoint's ipcache entry: */
