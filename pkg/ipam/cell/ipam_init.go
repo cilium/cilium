@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -149,14 +150,14 @@ func (r *IPAMInitializer) AutoComplete(ctx context.Context) error {
 	return nil
 }
 
-func (r *IPAMInitializer) makeIPv6HostIP() net.IP {
+func (r *IPAMInitializer) makeIPv6HostIP() netip.Addr {
 	ipstr := "fc00::10CA:1"
-	ip := net.ParseIP(ipstr)
-	if ip == nil {
-		logging.Fatal(r.logger, "Unable to parse IP", logfields.IPAddr, ipstr)
+	addr, err := netip.ParseAddr(ipstr)
+	if err != nil {
+		logging.Fatal(r.logger, "Unable to parse IP", logfields.Error, err, logfields.IPAddr, ipstr)
 	}
 
-	return ip
+	return addr
 }
 
 func (r *IPAMInitializer) setDefaultPrefix(device string, localNode *node.LocalNode) {
@@ -214,7 +215,7 @@ func (r *IPAMInitializer) setDefaultPrefix(device string, localNode *node.LocalN
 			// Find a IPv6 node address first
 			addr, _ := node.FirstGlobalV6Addr(device, localNode.GetCiliumInternalIP(isIPv6))
 			if addr == nil {
-				addr = r.makeIPv6HostIP()
+				addr = r.makeIPv6HostIP().AsSlice()
 			}
 			localNode.SetNodeInternalIP(addr)
 		}

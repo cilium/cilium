@@ -168,22 +168,22 @@ func TestExcludeIP(t *testing.T) {
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
 
-	ipam.ExcludeIP(ipv4.AsSlice(), "test-foo", PoolDefault())
-	err := ipam.AllocateIP(ipv4.AsSlice(), "test-bar", PoolDefault())
+	ipam.ExcludeIP(ipv4, "test-foo", PoolDefault())
+	err := ipam.AllocateIP(ipv4, "test-bar", PoolDefault())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "owned by test-foo")
-	err = ipam.ReleaseIP(ipv4.AsSlice(), PoolDefault())
+	err = ipam.ReleaseIP(ipv4, PoolDefault())
 	require.NoError(t, err)
 
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	ipv6 = ipv6.Next()
 
-	ipam.ExcludeIP(ipv6.AsSlice(), "test-foo", PoolDefault())
-	err = ipam.AllocateIP(ipv6.AsSlice(), "test-bar", PoolDefault())
+	ipam.ExcludeIP(ipv6, "test-foo", PoolDefault())
+	err = ipam.AllocateIP(ipv6, "test-bar", PoolDefault())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "owned by test-foo")
-	ipam.ReleaseIP(ipv6.AsSlice(), PoolDefault())
-	err = ipam.ReleaseIP(ipv4.AsSlice(), PoolDefault())
+	ipam.ReleaseIP(ipv6, PoolDefault())
+	err = ipam.ReleaseIP(ipv4, PoolDefault())
 	require.NoError(t, err)
 }
 
@@ -235,17 +235,17 @@ func TestIPAMMetadata(t *testing.T) {
 
 	// Checks AllocateIP
 	specialIP := netip.MustParseAddr("172.18.19.20")
-	_, err := ipam.AllocateIPWithoutSyncUpstream(specialIP.AsSlice(), "special/wants-special-ip", "")
+	_, err := ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "")
 	require.Error(t, err) // pool required
-	resIPv4, err := ipam.AllocateIPWithoutSyncUpstream(specialIP.AsSlice(), "special/wants-special-ip", "special")
+	resIPv4, err := ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "special")
 	require.NoError(t, err)
 	require.Equal(t, Pool("special"), resIPv4.IPPoolName)
 	require.Equal(t, specialIP, resIPv4.IP)
 
 	// Checks ReleaseIP
-	err = ipam.ReleaseIP(specialIP.AsSlice(), "")
+	err = ipam.ReleaseIP(specialIP, "")
 	require.Error(t, err) // pool required
-	err = ipam.ReleaseIP(specialIP.AsSlice(), "special")
+	err = ipam.ReleaseIP(specialIP, "special")
 	require.NoError(t, err)
 
 	// Checks if pool metadata is used if pool is empty
@@ -295,18 +295,18 @@ func TestLegacyAllocatorIPAMMetadata(t *testing.T) {
 	// AllocateIP requires explicit pool
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
-	_, err := ipam.AllocateIPWithoutSyncUpstream(ipv4.AsSlice(), "default/specific-ip", "")
+	_, err := ipam.AllocateIPWithoutSyncUpstream(ipv4, "default/specific-ip", "")
 	require.Error(t, err)
 
 	// AllocateIP with specific pool
 	ipv4 = ipv4.Next()
-	resIPv4, err := ipam.AllocateIPWithoutSyncUpstream(ipv4.AsSlice(), "default/specific-ip", "override")
+	resIPv4, err := ipam.AllocateIPWithoutSyncUpstream(ipv4, "default/specific-ip", "override")
 	require.NoError(t, err)
 	require.Equal(t, PoolDefault(), resIPv4.IPPoolName)
 
 	// AllocateIP with default pool
 	ipv4 = ipv4.Next()
-	resIPv4, err = ipam.AllocateIPWithoutSyncUpstream(ipv4.AsSlice(), "default/specific-ip", "default")
+	resIPv4, err = ipam.AllocateIPWithoutSyncUpstream(ipv4, "default/specific-ip", "default")
 	require.NoError(t, err)
 	require.Equal(t, PoolDefault(), resIPv4.IPPoolName)
 

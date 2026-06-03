@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -155,9 +154,9 @@ func (r *IpamDeleteIpamIPHandler) Handle(params ipamapi.DeleteIpamIPParams) midd
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
 	}
 
-	ip := net.ParseIP(params.IP)
-	if ip == nil {
-		return api.Error(ipamapi.DeleteIpamIPInvalidCode, fmt.Errorf("Invalid IP address: %s", params.IP))
+	ip, err := netip.ParseAddr(params.IP)
+	if err != nil {
+		return api.Error(ipamapi.DeleteIpamIPInvalidCode, fmt.Errorf("Invalid IP address %s: %w", params.IP, err))
 	}
 
 	pool := ipam.Pool(swag.StringValue(params.Pool))

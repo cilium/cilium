@@ -103,21 +103,20 @@ type mockIPAllocator struct {
 	allocCIDR *cidr.CIDR
 }
 
-func (m *mockIPAllocator) AllocateIPWithoutSyncUpstream(ip net.IP, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
-	if !m.allocCIDR.Contains(ip) {
+func (m *mockIPAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	if !m.allocCIDR.Contains(ip.AsSlice()) {
 		return nil, fmt.Errorf("cannot allocate IP %s", ip)
 	}
-	addr, _ := netip.AddrFromSlice(ip)
-	return &ipam.AllocationResult{IP: addr.Unmap()}, nil
+	return &ipam.AllocationResult{IP: ip}, nil
 }
 
 func (m *mockIPAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (result *ipam.AllocationResult, err error) {
 	return nil, nil
 }
 
-func (m *mockIPAllocator) ExcludeIP(ip net.IP, owner string, pool ipam.Pool) {}
+func (m *mockIPAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
 
-func (m *mockIPAllocator) ReleaseIP(ip net.IP, pool ipam.Pool) error {
+func (m *mockIPAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
 	return nil
 }
 
