@@ -21,10 +21,6 @@
 # define CT_REPORT_FLAGS		0xff
 #endif
 
-#ifdef ENABLE_IPV4
-#define IPV4_ENCRYPT_IFACE 0xfffff50a
-#endif /* ENABLE_IPV4 */
-
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define SNAT_MAPPING_IPV6_SIZE 524288
 
