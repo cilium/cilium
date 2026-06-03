@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/shortener"
 )
 
 const (
@@ -174,9 +175,9 @@ func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context) e
 
 func (r *ingressReconciler) tryCleanupDedicatedResources(ctx context.Context, ingressNamespacedName types.NamespacedName) error {
 	resources := map[client.Object]types.NamespacedName{
-		&corev1.Service{}:             {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
-		&discoveryv1.EndpointSlice{}:  {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
-		&ciliumv2.CiliumEnvoyConfig{}: {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, ingressNamespacedName.Namespace, ingressNamespacedName.Name)},
+		&corev1.Service{}:             {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name))},
+		&discoveryv1.EndpointSlice{}:  {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name))},
+		&ciliumv2.CiliumEnvoyConfig{}: {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, ingressNamespacedName.Namespace, ingressNamespacedName.Name))},
 	}
 
 	for k, v := range resources {

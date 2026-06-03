@@ -18,6 +18,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/shortener"
 )
 
 const (
@@ -50,22 +51,19 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	var namespace string
 	var sourceResource model.FullyQualifiedResource
 	var modelService *model.Service
-	var cecName string
 	var tlsOnly bool
 
 	if len(m.HTTP) == 0 {
-		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLSPassthrough[0].Sources[0].Name)
+		name = shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLSPassthrough[0].Sources[0].Name))
 		namespace = m.TLSPassthrough[0].Sources[0].Namespace
 		sourceResource = m.TLSPassthrough[0].Sources[0]
 		modelService = m.TLSPassthrough[0].Service
-		cecName = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, m.TLSPassthrough[0].Sources[0].Name)
 		tlsOnly = true
 	} else {
-		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name)
+		name = shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name))
 		namespace = m.HTTP[0].Sources[0].Namespace
 		sourceResource = m.HTTP[0].Sources[0]
 		modelService = m.HTTP[0].Service
-		cecName = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, m.HTTP[0].Sources[0].Name)
 	}
 
 	// The logic is same as what we have with default cecTranslator, but with a different model
@@ -76,7 +74,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	}
 
 	// Set the name to avoid any breaking change during upgrade.
-	cec.Name = cecName
+	cec.Name = shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, sourceResource.Name))
 
 	dedicatedService := d.getService(sourceResource, modelService, tlsOnly)
 
@@ -136,7 +134,7 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
+			Name:      shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
 			Namespace: resource.Namespace,
 			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
 			OwnerReferences: []metav1.OwnerReference{
@@ -161,11 +159,11 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 func getEndpointSlice(resource model.FullyQualifiedResource) *discoveryv1.EndpointSlice {
 	return &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
+			Name:      shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
 			Namespace: resource.Namespace,
 			Labels: map[string]string{
 				ciliumIngressLabelKey:        "true",
-				discoveryv1.LabelServiceName: fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
+				discoveryv1.LabelServiceName: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
