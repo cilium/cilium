@@ -14,9 +14,9 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
-	alibabacloudAPI "github.com/cilium/cilium/pkg/alibabacloud/api"
-	"github.com/cilium/cilium/pkg/alibabacloud/eni"
-	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
+	"github.com/cilium/cilium/pkg/alibabacloud/api"
+	"github.com/cilium/cilium/pkg/alibabacloud/ipam"
+	"github.com/cilium/cilium/pkg/alibabacloud/ipam/limits"
 	"github.com/cilium/cilium/pkg/alibabacloud/metadata"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -34,11 +34,11 @@ type AllocatorAlibabaCloud struct {
 	ParallelAllocWorkers         int64
 	LimitIPAMAPIBurst            int
 	LimitIPAMAPIQPS              float64
-	AlibabaMetrics               alibabacloudAPI.MetricsAPI
+	AlibabaMetrics               api.MetricsAPI
 
 	rootLogger *slog.Logger
 	logger     *slog.Logger
-	client     *alibabacloudAPI.Client
+	client     *api.Client
 }
 
 // Init sets up ENI limits based on given options
@@ -77,7 +77,7 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger) e
 	vpcClient.GetConfig().WithScheme("HTTPS")
 	ecsClient.GetConfig().WithScheme("HTTPS")
 
-	a.client = alibabacloudAPI.NewClient(a.rootLogger, vpcClient, ecsClient, a.AlibabaMetrics, a.LimitIPAMAPIQPS,
+	a.client = api.NewClient(a.rootLogger, vpcClient, ecsClient, a.AlibabaMetrics, a.LimitIPAMAPIQPS,
 		a.LimitIPAMAPIBurst, operatorOption.Config.IPAMInstanceTags)
 
 	if err := limits.UpdateFromAPI(ctx, a.client); err != nil {
@@ -93,7 +93,7 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger) e
 func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater allocator.CiliumNodeGetterUpdater, iMetrics nodemanager.MetricsAPI) (allocator.NodeEventHandler, error) {
 	a.logger.Info("Starting AlibabaCloud ENI allocator...")
 
-	instances := eni.NewInstancesManager(a.rootLogger, a.client)
+	instances := ipam.NewInstancesManager(a.rootLogger, a.client)
 	nodeManager, err := nodemanager.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
 		a.ParallelAllocWorkers, a.AlibabaCloudReleaseExcessIPs, 0, false)
 	if err != nil {

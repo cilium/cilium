@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package eni
+package ipam
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
+	"github.com/cilium/cilium/pkg/alibabacloud/ipam/limits"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
