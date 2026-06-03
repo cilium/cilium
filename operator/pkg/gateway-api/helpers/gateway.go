@@ -39,6 +39,27 @@ func GatewayHasMatchingControllerFn(ctx context.Context, c client.Client, contro
 	}
 }
 
+// IsHTTPSTerminatedListener returns true for HTTPS listeners that terminate TLS.
+func IsHTTPSTerminatedListener(listener *gatewayv1.Listener) bool {
+	return listener.Protocol == gatewayv1.HTTPSProtocolType
+}
+
+// IsTLSPassthroughListener returns true for TLS listeners configured for passthrough mode.
+func IsTLSPassthroughListener(listener *gatewayv1.Listener) bool {
+	return listener.Protocol == gatewayv1.TLSProtocolType &&
+		listener.TLS != nil &&
+		listener.TLS.Mode != nil &&
+		*listener.TLS.Mode == gatewayv1.TLSModePassthrough
+}
+
+// ListenerHostname returns the listener hostname, or an empty string for catch-all listeners.
+func ListenerHostname(listener *gatewayv1.Listener) string {
+	if listener.Hostname == nil {
+		return ""
+	}
+	return string(*listener.Hostname)
+}
+
 // SNIHostnamesIntersect returns true when two hostnames can match the same
 // SNI value. Empty hostnames are normalized to catch-all.
 func SNIHostnamesIntersect(a, b string) bool {
