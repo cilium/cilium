@@ -16,8 +16,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
-	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
-	"github.com/cilium/cilium/pkg/alibabacloud/utils"
+	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -84,15 +83,15 @@ func TestCreateInterface(t *testing.T) {
 	require.NoError(t, err)
 
 	instances.ForeachInstance("i-1", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-		e, ok := iface.(*eniTypes.ENI)
+		e, ok := iface.(*types.ENI)
 		if !ok {
 			return fmt.Errorf("resource is not ENI type")
 		}
 		switch e.Type {
-		case eniTypes.ENITypeSecondary:
-			require.Equal(t, 1, utils.GetENIIndexFromTags(logger, e.Tags))
-		case eniTypes.ENITypePrimary:
-			require.Equal(t, 0, utils.GetENIIndexFromTags(logger, e.Tags))
+		case types.ENITypeSecondary:
+			require.Equal(t, 1, types.GetENIIndexFromTags(logger, e.Tags))
+		case types.ENITypePrimary:
+			require.Equal(t, 0, types.GetENIIndexFromTags(logger, e.Tags))
 		}
 		return nil
 	})
@@ -184,10 +183,10 @@ func TestPrepareIPAllocation(t *testing.T) {
 }
 
 func TestNode_allocENIIndex(t *testing.T) {
-	n := Node{enis: map[string]eniTypes.ENI{
+	n := Node{enis: map[string]types.ENI{
 		"eni-1": {
 			InstanceID: "eni-1",
-			Type:       eniTypes.ENITypePrimary,
+			Type:       types.ENITypePrimary,
 			Tags:       nil,
 		},
 	}}
@@ -195,9 +194,9 @@ func TestNode_allocENIIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, index)
 
-	n.enis["eni-2"] = eniTypes.ENI{
+	n.enis["eni-2"] = types.ENI{
 		InstanceID: "eni-2",
-		Type:       eniTypes.ENITypeSecondary,
+		Type:       types.ENITypeSecondary,
 		Tags:       map[string]string{"cilium-eni-index": "1"},
 	}
 	index, err = n.allocENIIndex()
@@ -228,7 +227,7 @@ func newCiliumNode(node, instanceID, instanceType, az, vpcID string) *v2.CiliumN
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
 			InstanceID: instanceID,
-			AlibabaCloud: eniTypes.Spec{
+			AlibabaCloud: types.Spec{
 				InstanceType:     instanceType,
 				VPCID:            vpcID,
 				AvailabilityZone: az,
@@ -252,7 +251,7 @@ func newCiliumNodeWithIpamParams(node, instanceID, instanceType, az, vpcID strin
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
 			InstanceID: instanceID,
-			AlibabaCloud: eniTypes.Spec{
+			AlibabaCloud: types.Spec{
 				InstanceType:     instanceType,
 				VPCID:            vpcID,
 				AvailabilityZone: az,

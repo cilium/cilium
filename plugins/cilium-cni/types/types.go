@@ -12,7 +12,7 @@ import (
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
 
-	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
+	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/types"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"

@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
-	alibabaCloud "github.com/cilium/cilium/pkg/alibabacloud/utils"
+	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -763,7 +763,7 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 				// Ref: https://www.alibabacloud.com/help/doc-detail/65398.html
 				result.GatewayIP = netipx.PrefixLastIP(p).Prev().Prev()
 			}
-			result.InterfaceNumber = strconv.Itoa(alibabaCloud.GetENIIndexFromTags(a.logger, eni.Tags))
+			result.InterfaceNumber = strconv.Itoa(alibabaCloudTypes.GetENIIndexFromTags(a.logger, eni.Tags))
 			return
 		}
 		return nil, fmt.Errorf("unable to find ENI %s", ipInfo.Resource)

@@ -13,8 +13,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/operator/pkg/ipam/stats"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
-	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
-	"github.com/cilium/cilium/pkg/alibabacloud/utils"
+	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -58,7 +57,7 @@ type Node struct {
 
 	// enis is the list of ENIs attached to the node indexed by ENI ID.
 	// Protected by Node.mutex.
-	enis map[string]eniTypes.ENI
+	enis map[string]types.ENI
 
 	// k8sObj is the CiliumNode custom resource representing the node
 	k8sObj *v2.CiliumNode
@@ -80,11 +79,11 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 // PopulateStatusFields fills in the status field of the CiliumNode custom
 // resource with ENI specific information
 func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
-	resource.Status.AlibabaCloud.ENIs = map[string]eniTypes.ENI{}
+	resource.Status.AlibabaCloud.ENIs = map[string]types.ENI{}
 
 	n.manager.ForeachInstance(n.node.InstanceID(),
 		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-			e, ok := iface.(*eniTypes.ENI)
+			e, ok := iface.(*types.ENI)
 			if ok {
 				resource.Status.AlibabaCloud.ENIs[interfaceID] = *e.DeepCopy()
 			}
@@ -153,7 +152,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 		return 0, "", err
 	}
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, toAllocate-1, bestSubnet.ID, securityGroupIDs,
-		utils.FillTagWithENIIndex(map[string]string{}, index))
+		types.FillTagWithENIIndex(map[string]string{}, index))
 	if err != nil {
 		return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 	}
@@ -214,17 +213,17 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	n.enis = map[string]eniTypes.ENI{}
+	n.enis = map[string]types.ENI{}
 
 	n.manager.ForeachInstance(instanceID,
 		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-			e, ok := iface.(*eniTypes.ENI)
+			e, ok := iface.(*types.ENI)
 			if !ok {
 				return nil
 			}
 
 			n.enis[e.NetworkInterfaceID] = *e
-			if e.Type == eniTypes.ENITypePrimary {
+			if e.Type == types.ENITypePrimary {
 				return nil
 			}
 
@@ -271,7 +270,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (*nodemanager.Allocat
 	defer n.mutex.RUnlock()
 
 	for key, e := range n.enis {
-		if e.Type != eniTypes.ENITypeSecondary {
+		if e.Type != types.ENITypeSecondary {
 			continue
 		}
 		scopedLog.Debug(
@@ -334,7 +333,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemana
 	// Iterate over ENIs on this node, select the ENI with the most
 	// addresses available for release
 	for key, e := range n.enis {
-		if e.Type != eniTypes.ENITypeSecondary {
+		if e.Type != types.ENITypeSecondary {
 			continue
 		}
 		scopedLog.Debug(
@@ -457,7 +456,7 @@ func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
 	return limits.Get(n.k8sObj.Spec.AlibabaCloud.InstanceType)
 }
 
-func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.Spec) ([]string, error) {
+func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec types.Spec) ([]string, error) {
 	// ENI must have at least one security group
 	// 1. use security group defined by user
 	// 2. use security group used by primary ENI (eth0)
@@ -487,8 +486,8 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.Spec) (
 
 	n.manager.ForeachInstance(n.node.InstanceID(),
 		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-			e, ok := iface.(*eniTypes.ENI)
-			if ok && e.Type == eniTypes.ENITypePrimary {
+			e, ok := iface.(*types.ENI)
+			if ok && e.Type == types.ENITypePrimary {
 				securityGroups = append(securityGroups, e.SecurityGroupIDs...)
 			}
 			return nil
@@ -507,7 +506,7 @@ func (n *Node) allocENIIndex() (int, error) {
 	// alloc index for each created ENI
 	used := make([]bool, maxENIPerNode)
 	for _, v := range n.enis {
-		index := utils.GetENIIndexFromTags(n.logger, v.Tags)
+		index := types.GetENIIndexFromTags(n.logger, v.Tags)
 		if index > maxENIPerNode || index < 0 {
 			return 0, fmt.Errorf("ENI index(%d) is out of range", index)
 		}
