@@ -164,7 +164,7 @@ func commands(initializer *ipamcell.IPAMInitializer, manager *ipam.IPAM) map[str
 				}
 
 				_, err = manager.AllocateIPWithoutSyncUpstream(
-					addr.AsSlice(),
+					addr,
 					args[1],
 					ipam.PoolOrDefault(""), // restored endpoints from cluster-pool should have an empty pool
 				)

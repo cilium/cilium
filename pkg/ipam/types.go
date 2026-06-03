@@ -144,12 +144,12 @@ func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}
 func (ipam *IPAM) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
 	if !conf.NoIPRelease {
 		if option.Config.EnableIPv4 {
-			if err := ipam.ReleaseIP(ep.IPv4.AsSlice(), PoolOrDefault(ep.IPv4IPAMPool)); err != nil {
+			if err := ipam.ReleaseIP(ep.IPv4, PoolOrDefault(ep.IPv4IPAMPool)); err != nil {
 				ipam.logger.Warn("Unable to release IPv4 address during endpoint deletion", logfields.Error, err)
 			}
 		}
 		if option.Config.EnableIPv6 {
-			if err := ipam.ReleaseIP(ep.IPv6.AsSlice(), PoolOrDefault(ep.IPv6IPAMPool)); err != nil {
+			if err := ipam.ReleaseIP(ep.IPv6, PoolOrDefault(ep.IPv6IPAMPool)); err != nil {
 				ipam.logger.Warn("Unable to release IPv6 address during endpoint deletion", logfields.Error, err)
 			}
 		}
@@ -189,7 +189,7 @@ func (p Pool) String() string {
 }
 
 type timerKey struct {
-	ip   string
+	ip   netip.Addr
 	pool Pool
 }
 
