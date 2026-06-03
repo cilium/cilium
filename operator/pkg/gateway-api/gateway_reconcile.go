@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -98,6 +99,20 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return controllerruntime.Fail(err)
 		}
 		return controllerruntime.Success()
+	}
+
+	if ref := gwc.Spec.ParametersRef; ref != nil {
+		if !isParameterRefSupported(ref) {
+			setGatewayAccepted(gw, false, "Invalid GatewayClass parameters: spec.parametersRef.kind must be CiliumGatewayClassConfig", gatewayv1.GatewayReasonInvalidParameters)
+			setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
+			return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid GatewayClass"), original, gw)
+		}
+
+		if !hasNamespacedName(ref) {
+			setGatewayAccepted(gw, false, "Invalid GatewayClass parametersRef: both name and namespace are required", gatewayv1.GatewayReasonInvalidParameters)
+			setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
+			return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid GatewayClass"), original, gw)
+		}
 	}
 
 	httpRouteList := &gatewayv1.HTTPRouteList{}
