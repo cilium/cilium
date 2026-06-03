@@ -511,6 +511,9 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 					if !matchesFrontend(be, fe) {
 						continue
 					}
+					if !w.topologyPreferenceCandidate(svc, be) {
+						continue
+					}
 					if !yield(be, rev) {
 						return
 					}
