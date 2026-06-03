@@ -141,7 +141,7 @@ ipv4_handle_fragmentation(const struct __ctx_buff *ctx,
 }
 
 static __always_inline int
-ipv4_load_l4_ports(const struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
+ipv4_load_l4_ports(const struct __ctx_buff *ctx, const struct iphdr *ip4 __maybe_unused,
 		   fraginfo_t fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
 		   __be16 *ports)
 {

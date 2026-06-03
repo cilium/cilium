@@ -584,7 +584,7 @@ ipv6_ct_reverse_tuple_daddr(const struct ipv6_ct_tuple *rtuple)
 }
 
 static __always_inline int
-ct_extract_ports6(const struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fraginfo,
+ct_extract_ports6(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6, fraginfo_t fraginfo,
 		  int off, enum ct_dir dir, struct ipv6_ct_tuple *tuple)
 {
 	switch (tuple->nexthdr) {
@@ -734,7 +734,7 @@ ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple, const struct __ctx
 /* Offset must point to IPv6 */
 static __always_inline int ct_lookup6(const void *map,
 				      struct ipv6_ct_tuple *tuple,
-				      const struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+				      const struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 				      fraginfo_t fraginfo, int l4_off,
 				      enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state,
@@ -842,7 +842,7 @@ ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
 }
 
 static __always_inline int
-ct_extract_ports4(const struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo,
+ct_extract_ports4(const struct __ctx_buff *ctx, const struct iphdr *ip4, fraginfo_t fraginfo,
 		  int off, enum ct_dir dir, struct ipv4_ct_tuple *tuple)
 {
 	switch (tuple->nexthdr) {
@@ -1015,7 +1015,7 @@ ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple, const struct __ctx
 /* Offset must point to IPv4 header */
 static __always_inline int ct_lookup4(const void *map,
 				      struct ipv4_ct_tuple *tuple,
-				      const struct __ctx_buff *ctx, struct iphdr *ip4,
+				      const struct __ctx_buff *ctx, const struct iphdr *ip4,
 				      int off, enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
@@ -1065,7 +1065,7 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
-				      struct ipv6_ct_tuple *tuple,
+				      const struct ipv6_ct_tuple *tuple,
 				      const struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state, __s8 *ext_err)
 {
@@ -1120,7 +1120,7 @@ drop_err:
 
 static __always_inline int ct_create4(const void *map_main,
 				      const void *map_related,
-				      struct ipv4_ct_tuple *tuple,
+				      const struct ipv4_ct_tuple *tuple,
 				      const struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
 				      __s8 *ext_err)
