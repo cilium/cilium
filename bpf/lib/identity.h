@@ -22,6 +22,7 @@ enum identity {
 	INGRESS_ID = 8,
 	WORLD_IPV4_ID = 9,
 	WORLD_IPV6_ID = 10,
+	POLICY_CLUSTER_ID = 11, /* This ID is not used by endpoints, only policy map */
 };
 
 EXPORT_TYPE(enum identity);

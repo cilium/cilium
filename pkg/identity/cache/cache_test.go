@@ -47,7 +47,7 @@ func testLookupReservedIdentity(t *testing.T, testConfig testConfig, client kvst
 	require.NotNil(t, id)
 	require.Equal(t, worldID, id.ID)
 
-	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
+	identity.InitStaticIdentities("kube-system", cmtypes.ClusterInfo{Name: "default", ID: 5}, true)
 }
 
 func TestLookupReservedIdentityByLabels(t *testing.T) {

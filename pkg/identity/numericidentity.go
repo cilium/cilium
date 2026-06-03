@@ -137,6 +137,10 @@ const (
 	// ReservedIdentityWorldIPv6 represents any endpoint outside of the cluster
 	// for IPv6 address only.
 	ReservedIdentityWorldIPv6 = NumericIdentity(datapath.IdentityWorldIPv6ID)
+
+	// ReservedIdentityCluster is used for policy map aggregation for all in-cluster traffic.
+	// It is not applied to any endpoints or packets directly.
+	ReservedIdentityCluster = NumericIdentity(datapath.IdentityPolicyClusterID)
 )
 
 // Special identities for well-known cluster components
@@ -237,17 +241,26 @@ func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *
 	return wki.identity
 }
 
-type Configuration interface {
-	CiliumNamespaceName() string
-}
-
 func k8sLabel(key string, value string) string {
 	return "k8s:" + key + "=" + value
 }
 
-// InitWellKnownIdentities establishes all well-known identities. Returns the
-// number of well-known identities initialized.
-func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
+// InitStaticIdentities establishes all well-known and static identities. Returns the
+// number of well-known (but not reserved) identities initialized.
+func InitStaticIdentities(ciliumNS string, cinfo cmtypes.ClusterInfo, enableWellKnown bool) int {
+
+	// Add the cluster identity to reserved identities.
+	// This cannot be done statically, as we need to know the cluster name.
+	AddReservedIdentityWithLabels(ReservedIdentityCluster,
+		labels.FromSlice([]labels.Label{
+			labels.NewLabel(labels.IDNameCluster, "", labels.LabelSourceReserved),
+			labels.NewLabel(api.PolicyLabelCluster, cinfo.Name, labels.LabelSourceK8s),
+		}))
+
+	if !enableWellKnown {
+		return 0
+	}
+
 	// kube-dns labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=kube-dns
 	//   k8s:io.kubernetes.pod.namespace=kube-system
@@ -325,13 +338,13 @@ func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
 		"k8s:io.cilium/app=operator",
 		"k8s:app.kubernetes.io/part-of=cilium",
 		"k8s:app.kubernetes.io/name=cilium-operator",
-		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
+		k8sLabel(api.PodNamespaceLabel, ciliumNS),
 		k8sLabel(api.PolicyLabelServiceAccount, "cilium-operator"),
 		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedCiliumOperator, ciliumOperatorLabels)
 	WellKnown.add(ReservedCiliumOperator2, append(ciliumOperatorLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
+		k8sLabel(api.PodNamespaceMetaNameLabel, ciliumNS)))
 
 	return len(WellKnown)
 }
