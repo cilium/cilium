@@ -2,6 +2,11 @@
 /* Copyright Authors of Cilium */
 
 #define ENABLE_WIREGUARD	1
-#define ENCRYPTION_STRICT_MODE_EGRESS	1
 
 #include "encrypt_host.h"
+
+ASSIGN_CONFIG(struct strict_encryption_cfg, strict_egress_encryption, {
+	.enabled = true,
+	.ipv4_net = { .be32 = IPV4(192, 168, 0, 0) },
+	.ipv4_net_size = 16,
+});

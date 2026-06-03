@@ -60,10 +60,8 @@ type BPFHost struct {
 	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
-	// IPv4 network where strict egress encryption is enforced.
-	StrictIPv4Net types.V4Addr `config:"strict_ipv4_net"`
-	// Prefix length of the strict egress encryption IPv4 network.
-	StrictIPv4NetSize uint8 `config:"strict_ipv4_net_size"`
+	// Strict encryption mode drops all unencrypted pod-to-pod egress traffic.
+	StrictEgressEncryption types.StrictEncryptionCfg `config:"strict_egress_encryption"`
 	// Port number used for the overlay network.
 	TunnelPort uint16 `config:"tunnel_port"`
 	// The identifier of the tunnel protocol used for the overlay network.
@@ -84,6 +82,7 @@ func NewBPFHost(node Node) *BPFHost {
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
-		0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
+		false, 0x0,
+		cast[types.StrictEncryptionCfg]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+		0x0, 0x0, 0x0, 0x0, 0x0, node}
 }
