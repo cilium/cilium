@@ -419,9 +419,7 @@ jobs:
     name: Post test comment for Renovate PRs after images built
     runs-on: ubuntu-24.04
     needs: pre-comment
-    environment:
-      name: "Trigger CI from renovate PRs"
-      deployment: false
+    environment: "Trigger CI from renovate PRs"
     if: ${{
          github.event_name == 'pull_request_target' &&
          github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
