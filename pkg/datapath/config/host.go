@@ -10,6 +10,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -46,11 +47,6 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	if option.Config.EnableL2Announcements {
 		cfg.EnableL2Announcements = true
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
-	}
-
-	if option.Config.EnableEncryptionStrictModeEgress {
-		cfg.StrictIPv4Net.Addr = option.Config.EncryptionStrictEgressCIDR.Addr().As4()
-		cfg.StrictIPv4NetSize = uint8(option.Config.EncryptionStrictEgressCIDR.Bits())
 	}
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
@@ -100,11 +96,6 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
-	}
-
-	if option.Config.EnableEncryptionStrictModeEgress {
-		cfg.StrictIPv4Net.Addr = option.Config.EncryptionStrictEgressCIDR.Addr().As4()
-		cfg.StrictIPv4NetSize = uint8(option.Config.EncryptionStrictEgressCIDR.Bits())
 	}
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
@@ -175,11 +166,6 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
-	if option.Config.EnableEncryptionStrictModeEgress {
-		cfg.StrictIPv4Net.Addr = option.Config.EncryptionStrictEgressCIDR.Addr().As4()
-		cfg.StrictIPv4NetSize = uint8(option.Config.EncryptionStrictEgressCIDR.Bits())
-	}
-
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
@@ -204,5 +190,25 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		cfg.ProxyRedirectViaCiliumNet = true
 	}
 
+	if option.Config.EnableEncryptionStrictModeEgress {
+		cfg.StrictEgressEncryption = strictEgressEncryptionCfg(lnc)
+	}
+
 	return cfg
+}
+
+// strictEgressEncryptionCfg returns a StrictEncryptionCfg struct populated with
+// the required IPv4 network and interface parameters based on the global
+// encryption settings and the provided local node configuration.
+func strictEgressEncryptionCfg(lnc *Config) types.StrictEncryptionCfg {
+	ipv4Overlapping := option.Config.EncryptionStrictEgressCIDR.Contains(lnc.NodeIPv4) &&
+		option.Config.EncryptionStrictEgressAllowRemoteNodeIdentities
+
+	return types.StrictEncryptionCfg{
+		Enabled:          option.Config.EnableEncryptionStrictModeEgress,
+		IPv4Net:          types.V4Addr{Addr: option.Config.EncryptionStrictEgressCIDR.Addr().As4()},
+		IPv4EncryptIface: types.V4Addr{Addr: lnc.NodeIPv4.As4()},
+		IPv4NetSize:      uint8(option.Config.EncryptionStrictEgressCIDR.Bits()),
+		IPv4Overlapping:  ipv4Overlapping,
+	}
 }

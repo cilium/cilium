@@ -13,11 +13,24 @@
 #include "lib/ipv4.h"
 #include "lib/identity.h"
 
+struct strict_encryption_cfg {
+	/* Whether strict encryption mode is enabled for egress traffic. */
+	bool enabled;
+	/* The IPv4 network CIDR range for which egress encryption is enforced. */
+	union v4addr ipv4_net;
+	/* The primary IPv4 address of the local node. Used as an exception to
+	 * allow host-originated egress traffic in strict mode.
+	 */
+	union v4addr ipv4_encrypt_iface;
+	/* The CIDR prefix size of ipv4_net. */
+	__u8 ipv4_net_size;
+	/* Whether the IPv4 encryption network overlaps with other networks. */
+	bool ipv4_overlapping;
+};
+
 #ifdef IS_BPF_HOST
-DECLARE_CONFIG(union v4addr, strict_ipv4_net,
-	       "IPv4 network where strict egress encryption is enforced.")
-DECLARE_CONFIG(__u8, strict_ipv4_net_size,
-	       "Prefix length of the strict egress encryption IPv4 network.")
+DECLARE_CONFIG(struct strict_encryption_cfg, strict_egress_encryption,
+	       "Strict encryption mode drops all unencrypted pod-to-pod egress traffic")
 #endif
 
 static __always_inline void
@@ -27,14 +40,14 @@ set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
 }
 
-#if defined(ENCRYPTION_STRICT_MODE_EGRESS) && defined(IS_BPF_HOST)
+#ifdef IS_BPF_HOST
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
 static __always_inline bool
-strict_allow(struct __ctx_buff *ctx, __be16 proto) {
+strict_allow(struct __ctx_buff __maybe_unused *ctx, __be16 proto) {
 	const struct remote_endpoint_info __maybe_unused *dest_info;
 	bool __maybe_unused in_strict_cidr = false;
 	struct iphdr __maybe_unused *ip4;
-	void *data, *data_end;
+	void __maybe_unused *data, *data_end;
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
@@ -46,29 +59,30 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 		 * (1) When encapsulation is used and the destination is a remote pod.
 		 * (2) When the destination is a remote-node.
 		 */
-		if (ip4->saddr == IPV4_GATEWAY || ip4->saddr == IPV4_ENCRYPT_IFACE)
+		if (ip4->saddr == IPV4_GATEWAY ||
+		    ip4->saddr == CONFIG(strict_egress_encryption).ipv4_encrypt_iface.be32)
 			return true;
 
 		in_strict_cidr = ipv4_is_in_subnet(ip4->daddr,
-						   CONFIG(strict_ipv4_net).be32,
-						   CONFIG(strict_ipv4_net_size));
+						   CONFIG(strict_egress_encryption).ipv4_net.be32,
+						   CONFIG(strict_egress_encryption).ipv4_net_size);
 		in_strict_cidr &= ipv4_is_in_subnet(ip4->saddr,
-						    CONFIG(strict_ipv4_net).be32,
-						    CONFIG(strict_ipv4_net_size));
+						    CONFIG(strict_egress_encryption).ipv4_net.be32,
+						    CONFIG(strict_egress_encryption).ipv4_net_size);
 
-#if defined(TUNNEL_MODE) || defined(STRICT_IPV4_OVERLAPPING_CIDR)
-		/* Allow pod to remote-node communication */
-		dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (dest_info && identity_is_remote_node(dest_info->sec_identity))
-			return true;
-#endif /* TUNNEL_MODE || STRICT_IPV4_OVERLAPPING_CIDR */
+		if (is_defined(TUNNEL_MODE) || CONFIG(strict_egress_encryption).ipv4_overlapping) {
+			/* Allow pod to remote-node communication */
+			dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+			if (dest_info && identity_is_remote_node(dest_info->sec_identity))
+				return true;
+		}
 		return !in_strict_cidr;
 #endif /* ENABLE_IPV4 */
 	default:
 		return true;
 	}
 }
-#endif /* ENCRYPTION_STRICT_MODE_EGRESS && IS_BPF_HOST */
+#endif /* IS_BPF_HOST */
 
 /* checks whether the source endpoint matches the encryption policy */
 static __always_inline bool
