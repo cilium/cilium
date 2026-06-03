@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"regexp"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -15,16 +16,22 @@ import (
 
 var klogOverrides = []logLevelOverride{
 	{
-		// TODO: We can drop this once bumped to new client-go version which has this at info level:
-		// https://github.com/kubernetes/client-go/commit/ea7a7e7cf9697850f17631f79ef4ef45b95c449e.
-		matcher:     regexp.MustCompile("Failed to update.*falling back to slow path"),
-		targetLevel: slog.LevelInfo,
+		// A lease conflict during leader election is benign and self-recovers on
+		// the next renew. It happens when operators briefly co-lead during a
+		// rolling upgrade. Downgrade only the conflict so genuine lease update
+		// failures still surface at error. See GH-45426.
+		matcher:      regexp.MustCompile("Failed to update lease"),
+		errPredicate: apierrors.IsConflict,
+		targetLevel:  slog.LevelInfo,
 	},
 }
 
 type logLevelOverride struct {
-	matcher     *regexp.Regexp
-	targetLevel slog.Level
+	matcher *regexp.Regexp
+	// errPredicate, when set, must also match the record's "err" attribute for
+	// the override to apply.
+	errPredicate func(error) bool
+	targetLevel  slog.Level
 }
 
 // klogOverrideHandler is an slog.Handler that adds a "subsys" attribute and
@@ -45,12 +52,30 @@ func (h *klogOverrideHandler) Enabled(ctx context.Context, level slog.Level) boo
 
 func (h *klogOverrideHandler) Handle(ctx context.Context, record slog.Record) error {
 	for _, override := range h.overrides {
-		if override.matcher.MatchString(record.Message) {
-			record.Level = override.targetLevel
-			break
+		if !override.matcher.MatchString(record.Message) {
+			continue
 		}
+		if override.errPredicate != nil && !override.errPredicate(recordErr(record)) {
+			continue
+		}
+		record.Level = override.targetLevel
+		break
 	}
 	return h.inner.Handle(ctx, record)
+}
+
+// recordErr returns the error stored under the "err" attribute by logr's slog
+// bridge for klog Error() calls, or nil if absent.
+func recordErr(record slog.Record) error {
+	var err error
+	record.Attrs(func(a slog.Attr) bool {
+		if a.Key != "err" {
+			return true
+		}
+		err, _ = a.Value.Any().(error)
+		return false
+	})
+	return err
 }
 
 func (h *klogOverrideHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
