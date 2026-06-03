@@ -32,11 +32,6 @@
 #define DST_NODE_ID			123
 #define ENCRYPT_KEY			0xFF
 
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
-#define STRICT_IPV4_NET			IPV4(192, 168, 0, 0)
-#define STRICT_IPV4_NET_SIZE		16
-#endif
-
 /* mock and record calls to ctx_redirect */
 struct ctx_redirect_recorder {
 	int ifindex;
@@ -208,11 +203,10 @@ int encrypt_v4_3_no_src_mark_setup(struct __ctx_buff *ctx)
 CHECK("tc", "encrypt_v4_3_no_src_mark")
 int encrypt_v4_3_no_src_mark_check(const struct __ctx_buff *ctx)
 {
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
-	return check(ctx, CTX_ACT_DROP);
-#else
-	return check(ctx, CTX_ACT_OK);
-#endif
+	__u32 expected_result = CONFIG(strict_egress_encryption).enabled ?
+				CTX_ACT_DROP : CTX_ACT_OK;
+
+	return check(ctx, expected_result);
 }
 
 /* Finally test without the mark, but with the endpoint's ipcache entry: */

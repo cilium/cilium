@@ -48,7 +48,6 @@
 
 #ifdef ENABLE_IPV4
 #define IPV4_GATEWAY 0xfffff50a
-#define IPV4_ENCRYPT_IFACE 0xfffff50a
 # ifdef ENABLE_MASQUERADE_IPV4
 #  define IPV4_SNAT_EXCLUSION_DST_CIDR 0xffff0000
 #  define IPV4_SNAT_EXCLUSION_DST_CIDR_LEN 16
@@ -137,15 +136,6 @@
 # define LB_SELECTION_MAGLEV	2
 # define LB_SELECTION_FIRST	3
 # define LB_SELECTION		LB_SELECTION_RANDOM
-#endif
-
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
-#  ifndef STRICT_IPV4_NET
-#   define STRICT_IPV4_NET	0
-#  endif
-#  ifndef STRICT_IPV4_NET_SIZE
-#   define STRICT_IPV4_NET_SIZE	8
-#  endif
 #endif
 
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \

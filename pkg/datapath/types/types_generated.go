@@ -965,6 +965,24 @@ type SRv6VRFKey6 struct {
 	}
 }
 
+// StrictEncryptionCfg is generated from the BPF C type strict_encryption_cfg.
+type StrictEncryptionCfg struct {
+	_       structs.HostLayout
+	Enabled bool
+	_       [3]byte
+	IPv4Net struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	IPv4EncryptIface struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	IPv4NetSize     uint8
+	IPv4Overlapping bool
+	_               [2]byte
+}
+
 // SubnetKey is generated from the BPF C type subnet_key.
 type SubnetKey struct {
 	_      structs.HostLayout

@@ -5,6 +5,7 @@ package loader
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
 var (
@@ -64,6 +65,15 @@ func baseHostPermutations() *loadPermutationBuilder {
 			}
 		}),
 		Increment(func(t *config.BPFHost, v bool) { t.HybridRoutingEnabled = v }),
+		Increment(func(t *config.BPFHost, v bool) {
+			if v {
+				t.StrictEgressEncryption.Enabled = true
+				t.StrictEgressEncryption.IPv4Net = types.V4Addr{Addr: [4]byte{192, 168, 0, 0}}
+				t.StrictEgressEncryption.IPv4EncryptIface = types.V4Addr{Addr: [4]byte{10, 0, 0, 1}}
+				t.StrictEgressEncryption.IPv4NetSize = 24
+				t.StrictEgressEncryption.IPv4Overlapping = true
+			}
+		}),
 	)
 	return b
 }
@@ -105,6 +115,15 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 			t.EnableConntrackAccounting = true
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
+		}),
+		Increment(func(t *config.BPFWireguard, v bool) {
+			if v {
+				t.StrictEgressEncryption.Enabled = true
+				t.StrictEgressEncryption.IPv4Net = types.V4Addr{Addr: [4]byte{192, 168, 0, 0}}
+				t.StrictEgressEncryption.IPv4EncryptIface = types.V4Addr{Addr: [4]byte{10, 0, 0, 1}}
+				t.StrictEgressEncryption.IPv4NetSize = 24
+				t.StrictEgressEncryption.IPv4Overlapping = true
+			}
 		}),
 	)
 	return b

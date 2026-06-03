@@ -156,6 +156,21 @@ func newLocalNodeConfig(
 		return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
 	}
 
+	// Validate Encryption Strict Mode Egress
+	nodeIPv4 := ip.AddrFromIP(localNode.GetNodeIP(false))
+	if daemon.EnableEncryptionStrictModeEgress {
+		if !nodeIPv4.IsValid() {
+			return config.Config{}, nil, fmt.Errorf("unable to parse node IPv4 address %s", nodeIPv4)
+		}
+		if daemon.EncryptionStrictEgressCIDR.Contains(nodeIPv4) {
+			if !daemon.EncryptionStrictEgressAllowRemoteNodeIdentities {
+				return config.Config{}, nil, fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address
+				is within the strict CIDR range. This will cause the node to drop all traffic.
+				Please either disable encryption or set --encryption-strict-egress-allow-remote-node-identities=true`)
+			}
+		}
+	}
+
 	return config.Config{
 		NodeIPv4:                     ip.AddrFromIP(localNode.GetNodeIP(false)),
 		NodeIPv6:                     ip.AddrFromIP(localNode.GetNodeIP(true)),
