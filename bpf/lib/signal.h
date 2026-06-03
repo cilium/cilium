@@ -61,7 +61,7 @@ static __always_inline void send_signal_ct_fill_up(struct __ctx_buff *ctx,
 	SEND_SIGNAL(ctx, SIGNAL_CT_FILL_UP, proto, proto);
 }
 
-static __always_inline void send_signal_auth_required(struct __ctx_buff *ctx,
+static __always_inline void send_signal_auth_required(const struct __ctx_buff *ctx,
 						      const struct auth_key *auth)
 {
 	SEND_SIGNAL(ctx, SIGNAL_AUTH_REQUIRED, auth, *auth);

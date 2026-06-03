@@ -216,7 +216,7 @@ __policy_check(const struct policy_entry *policy, const struct policy_entry *pol
 
 /* Allow experimental access to the @map parameter. */
 static __always_inline int
-__policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
+__policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_id,
 		    __u32 remote_id, __u16 ethertype, __be16 dport, __u8 proto,
 		    int off, int dir, bool is_untracked_fragment,
 		    __u8 *match_type, __s8 *ext_err, __u16 *proxy_port,
@@ -348,7 +348,7 @@ check_l4_policy:
 }
 
 static __always_inline int
-policy_can_access(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
+policy_can_access(const struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
 		  __u16 ethertype, __be16 dport, __u8 proto, int off, int dir,
 		  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		  __u16 *proxy_port, __u32 *cookie)
@@ -381,7 +381,7 @@ policy_can_access(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
  *   - Negative error code if the packet should be dropped
  */
 static __always_inline int
-policy_can_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
+policy_can_ingress(const struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 		   __u16 ethertype, __be16 dport, __u8 proto, int l4_off,
 		   bool is_untracked_fragment, __u8 *match_type, __u8 *audited,
 		   __s8 *ext_err, __u16 *proxy_port, __u32 *cookie)
@@ -407,7 +407,7 @@ policy_can_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 	return ret;
 }
 
-static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx,
+static __always_inline int policy_can_ingress6(const struct __ctx_buff *ctx,
 					       const struct ipv6_ct_tuple *tuple,
 					       int l4_off, bool is_untracked_fragment,
 					       __u32 src_id, __u32 dst_id,
@@ -420,7 +420,7 @@ static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx,
 				 match_type, audited, ext_err, proxy_port, cookie);
 }
 
-static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
+static __always_inline int policy_can_ingress4(const struct __ctx_buff *ctx,
 					       const struct ipv4_ct_tuple *tuple,
 					       int l4_off, bool is_untracked_fragment,
 					       __u32 src_id, __u32 dst_id,
@@ -441,7 +441,7 @@ static __always_inline bool is_encap(__be16 dport, __u8 proto)
 #endif
 
 static __always_inline int
-policy_can_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
+policy_can_egress(const struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 		  __u16 ethertype, __be16 dport, __u8 proto, int l4_off, __u8 *match_type,
 		  __u8 *audited, __s8 *ext_err, __u16 *proxy_port, __u32 *cookie)
 {
@@ -467,7 +467,7 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 	return ret;
 }
 
-static __always_inline int policy_can_egress6(struct __ctx_buff *ctx,
+static __always_inline int policy_can_egress6(const struct __ctx_buff *ctx,
 					      const struct ipv6_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
 					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
@@ -478,7 +478,7 @@ static __always_inline int policy_can_egress6(struct __ctx_buff *ctx,
 				 ext_err, proxy_port, cookie);
 }
 
-static __always_inline int policy_can_egress4(struct __ctx_buff *ctx,
+static __always_inline int policy_can_egress4(const struct __ctx_buff *ctx,
 					      const struct ipv4_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
 					      __u8 *match_type, __u8 *audited, __s8 *ext_err,

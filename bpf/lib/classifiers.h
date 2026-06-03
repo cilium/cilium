@@ -111,7 +111,7 @@ can_observe_overlay_hdr(enum trace_point obs_point)
  * outer L4 header is UDP and the destination port matches tunnel_port.
  */
 static __always_inline bool
-ctx_is_overlay_hdr(struct __ctx_buff *ctx, __be16 proto)
+ctx_is_overlay_hdr(const struct __ctx_buff *ctx, __be16 proto)
 {
 	void __maybe_unused *data;
 	void __maybe_unused *data_end;
@@ -175,7 +175,7 @@ ctx_is_overlay_hdr(struct __ctx_buff *ctx, __be16 proto)
  * so we don't want to skip the `ctx_is_overlay_hdr` parsing in `ctx_classify`.
  */
 static __always_inline bool
-ctx_is_encrypted_by_point(struct __ctx_buff *ctx __maybe_unused,
+ctx_is_encrypted_by_point(const struct __ctx_buff *ctx __maybe_unused,
 			  enum trace_point obs_point __maybe_unused)
 {
 #if __ctx_is == __ctx_skb
@@ -211,7 +211,7 @@ ctx_is_encrypted_by_point(struct __ctx_buff *ctx __maybe_unused,
  * performance and verifier complexity.
  */
 static __always_inline cls_flags_t
-ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point)
+ctx_classify(const struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point)
 {
 	cls_flags_t flags = CLS_FLAG_NONE;
 
@@ -262,7 +262,7 @@ out: __maybe_unused
  * packets, reuse the `obs_point` to save complexity.
  */
 static __always_inline __u64
-compute_capture_len(struct __ctx_buff *ctx, __u64 monitor,
+compute_capture_len(const struct __ctx_buff *ctx, __u64 monitor,
 		    cls_flags_t flags, enum trace_point obs_point)
 {
 	__u32 cap_len_default = CONFIG(trace_payload_len);

@@ -19,7 +19,7 @@ struct {
 } cilium_auth_map __section_maps_btf;
 
 static __always_inline int
-auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remote_node_ip,
+auth_lookup(const struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remote_node_ip,
 	    __u8 auth_type)
 {
 	const struct node_value *node_value = NULL;

@@ -431,7 +431,7 @@ out:
 }
 
 static __always_inline int
-ipv6_load_l4_ports(const struct __ctx_buff *ctx, struct ipv6hdr *ip6 __maybe_unused,
+ipv6_load_l4_ports(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6 __maybe_unused,
 		   fraginfo_t fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
 		   __be16 *ports)
 {
