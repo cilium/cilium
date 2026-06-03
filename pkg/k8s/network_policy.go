@@ -17,7 +17,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
@@ -74,20 +73,24 @@ func isPodSelectorSelectingCluster(podSelector *slim_metav1.LabelSelector) bool 
 	return false
 }
 
-func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networkingv1.NetworkPolicyPeer) types.Selector {
-	if peer == nil || (peer.PodSelector == nil && peer.NamespaceSelector == nil) {
+func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networkingv1.NetworkPolicyPeer) types.Selectors {
+	if peer == nil {
 		return nil
+	}
+
+	if peer.IPBlock != nil {
+		return types.ToSelectors(ipBlockToCIDRRule(peer.IPBlock))
 	}
 
 	// peer should not be mutated in this function
 	podSelector := peer.PodSelector.DeepCopy()
+	if podSelector == nil {
+		podSelector = &slim_metav1.LabelSelector{}
+	}
 
 	// The PodSelector should only reflect to the configured cluster unless the selector
 	// explicitly targets another cluster already.
 	if clusterName != cmtypes.PolicyAnyCluster && !isPodSelectorSelectingCluster(podSelector) {
-		if podSelector == nil {
-			podSelector = &slim_metav1.LabelSelector{}
-		}
 		if podSelector.MatchLabels == nil {
 			podSelector.MatchLabels = map[string]slim_metav1.MatchLabelsValue{}
 		}
@@ -126,14 +129,12 @@ func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networking
 		}
 
 		es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, podSelector)
-		return types.NewLabelSelector(es)
-	} else if podSelector != nil {
-		podSelector = parsePodSelector(podSelector, namespace)
-		es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
-		return types.NewLabelSelector(es)
+		return types.Selectors{types.NewLabelSelector(es)}
 	}
 
-	return nil
+	podSelector = parsePodSelector(podSelector, namespace)
+	es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
+	return types.Selectors{types.NewLabelSelector(es)}
 }
 
 func hasV1PolicyType(pTypes []slim_networkingv1.PolicyType, typ slim_networkingv1.PolicyType) bool {
@@ -159,22 +160,10 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 		fromRules := types.PolicyEntries{}
 		if len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
-				ingress := &types.PolicyEntry{Ingress: true}
-				endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
-
-				if endpointSelector != nil {
-					ingress.L3 = append(ingress.L3, endpointSelector)
-				} else {
-					// No label-based selectors were in NetworkPolicyPeer.
-					logger.Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector", logfields.K8sNetworkPolicyName, np.Name)
+				ingress := &types.PolicyEntry{
+					Ingress: true,
+					L3:      parseNetworkPolicyPeer(clusterName, namespace, &rule),
 				}
-
-				// Parse CIDR-based parts of rule.
-				if rule.IPBlock != nil {
-					cidrRule := ipBlockToCIDRRule(rule.IPBlock)
-					ingress.L3 = append(ingress.L3, types.ToSelectors(cidrRule)...)
-				}
-
 				fromRules = append(fromRules, ingress)
 			}
 		} else {
@@ -182,9 +171,10 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   sources (traffic not restricted by source).
-			ingress := &types.PolicyEntry{Ingress: true}
-			ingress.L3 = append(ingress.L3, types.WildcardSelector)
-
+			ingress := &types.PolicyEntry{
+				Ingress: true,
+				L3:      types.WildcardSelectors,
+			}
 			fromRules = append(fromRules, ingress)
 		}
 
@@ -207,23 +197,10 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 
 		if len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
-				egress := &types.PolicyEntry{Ingress: false}
-				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
-					endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
-
-					if endpointSelector != nil {
-						egress.L3 = append(egress.L3, endpointSelector)
-					} else {
-						logger.Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector", logfields.K8sNetworkPolicyName, np.Name)
-					}
+				egress := &types.PolicyEntry{
+					Ingress: false,
+					L3:      parseNetworkPolicyPeer(clusterName, namespace, &rule),
 				}
-
-				// Parse CIDR-based parts of rule.
-				if rule.IPBlock != nil {
-					cidrRule := ipBlockToCIDRRule(rule.IPBlock)
-					egress.L3 = append(egress.L3, types.ToSelector(cidrRule))
-				}
-
 				toRules = append(toRules, egress)
 			}
 		} else {
@@ -231,9 +208,10 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   To []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   destinations (traffic not restricted by destination)
-			egress := &types.PolicyEntry{Ingress: false}
-			egress.L3 = append(egress.L3, types.WildcardSelector)
-
+			egress := &types.PolicyEntry{
+				Ingress: false,
+				L3:      types.WildcardSelectors,
+			}
 			toRules = append(toRules, egress)
 		}
 
