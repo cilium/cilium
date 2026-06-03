@@ -146,6 +146,17 @@ func gatewayListenerAcceptedCondition(gw *gatewayv1.Gateway, ready bool, reason 
 	}
 }
 
+func gatewayListenerConflictedCondition(gw *gatewayv1.Gateway, reason gatewayv1.ListenerConditionReason, msg string) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(gatewayv1.ListenerConditionConflicted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(reason),
+		Message:            msg,
+		ObservedGeneration: gw.GetGeneration(),
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+}
+
 func gatewayListenerInvalidRouteKinds(gw *gatewayv1.Gateway, msg string) metav1.Condition {
 	return metav1.Condition{
 		Type:               string(gatewayv1.ListenerConditionResolvedRefs),
