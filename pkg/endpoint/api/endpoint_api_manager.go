@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 
@@ -342,7 +342,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 	// timers of all attached IPs
 	if addressing := epTemplate.Addressing; addressing != nil {
 		if uuid := addressing.IPv4ExpirationUUID; uuid != "" {
-			if ip := net.ParseIP(addressing.IPv4); ip != nil {
+			if ip, err := netip.ParseAddr(addressing.IPv4); err == nil {
 				pool := ipam.PoolOrDefault(addressing.IPv4PoolName)
 				if err := m.ipam.StopExpirationTimer(ip, pool, uuid); err != nil {
 					return m.errorDuringCreation(ep, err)
@@ -350,7 +350,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 			}
 		}
 		if uuid := addressing.IPv6ExpirationUUID; uuid != "" {
-			if ip := net.ParseIP(addressing.IPv6); ip != nil {
+			if ip, err := netip.ParseAddr(addressing.IPv6); err == nil {
 				pool := ipam.PoolOrDefault(addressing.IPv6PoolName)
 				if err := m.ipam.StopExpirationTimer(ip, pool, uuid); err != nil {
 					return m.errorDuringCreation(ep, err)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -83,7 +84,7 @@ func TestAllocatedIPDump(t *testing.T) {
 }
 
 func TestExpirationTimer(t *testing.T) {
-	ip := net.ParseIP("1.1.1.1")
+	ip := netip.MustParseAddr("1.1.1.1")
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fakenode.NewAddressing()
@@ -184,24 +185,24 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	require.NoError(t, err)
 
 	// IPv4 address must be in use
-	err = ipam.AllocateIP(ipv4.IP.AsSlice(), "foo", PoolDefault())
+	err = ipam.AllocateIP(ipv4.IP, "foo", PoolDefault())
 	require.Error(t, err)
 	// IPv6 address must be in use
-	err = ipam.AllocateIP(ipv6.IP.AsSlice(), "foo", PoolDefault())
+	err = ipam.AllocateIP(ipv6.IP, "foo", PoolDefault())
 	require.Error(t, err)
 
 	// Let expiration timer expire
 	time.Sleep(time.Second)
 	// IPv4 address must be available again
-	err = ipam.AllocateIP(ipv4.IP.AsSlice(), "foo", PoolDefault())
+	err = ipam.AllocateIP(ipv4.IP, "foo", PoolDefault())
 	require.NoError(t, err)
 	// IPv6 address must be available again
-	err = ipam.AllocateIP(ipv6.IP.AsSlice(), "foo", PoolDefault())
+	err = ipam.AllocateIP(ipv6.IP, "foo", PoolDefault())
 	require.NoError(t, err)
 	// Release IPs
-	err = ipam.ReleaseIP(ipv4.IP.AsSlice(), PoolDefault())
+	err = ipam.ReleaseIP(ipv4.IP, PoolDefault())
 	require.NoError(t, err)
-	err = ipam.ReleaseIP(ipv6.IP.AsSlice(), PoolDefault())
+	err = ipam.ReleaseIP(ipv6.IP, PoolDefault())
 	require.NoError(t, err)
 
 	// Allocate IPs again and test stopping the expiration timer
@@ -209,18 +210,18 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Stop expiration timer for IPv4 address
-	err = ipam.StopExpirationTimer(ipv4.IP.AsSlice(), PoolDefault(), ipv4.ExpirationUUID)
+	err = ipam.StopExpirationTimer(ipv4.IP, PoolDefault(), ipv4.ExpirationUUID)
 	require.NoError(t, err)
 
 	// Let expiration timer expire
 	time.Sleep(time.Second)
 	// IPv4 address must be in use
-	err = ipam.AllocateIP(ipv4.IP.AsSlice(), "foo", PoolDefault())
+	err = ipam.AllocateIP(ipv4.IP, "foo", PoolDefault())
 	require.Error(t, err)
 	// IPv6 address must be available again
-	err = ipam.AllocateIP(ipv6.IP.AsSlice(), "foo", PoolDefault())
+	err = ipam.AllocateIP(ipv6.IP, "foo", PoolDefault())
 	require.NoError(t, err)
 	// Release IPv4 address
-	err = ipam.ReleaseIP(ipv4.IP.AsSlice(), PoolDefault())
+	err = ipam.ReleaseIP(ipv4.IP, PoolDefault())
 	require.NoError(t, err)
 }

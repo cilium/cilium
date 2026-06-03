@@ -84,10 +84,10 @@ type infraIPAllocator struct {
 }
 
 type ipamAllocator interface {
-	AllocateIPWithoutSyncUpstream(ip net.IP, owner string, pool ipam.Pool) (*ipam.AllocationResult, error)
+	AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error)
 	AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (result *ipam.AllocationResult, err error)
-	ExcludeIP(ip net.IP, owner string, pool ipam.Pool)
-	ReleaseIP(ip net.IP, pool ipam.Pool) error
+	ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool)
+	ReleaseIP(ip netip.Addr, pool ipam.Pool) error
 }
 
 func newInfraIPAllocator(params infraIPAllocatorParams) InfraIPAllocator {
@@ -186,7 +186,7 @@ func (r *infraIPAllocator) reallocateOldRouterIPs(fromK8s, fromFS net.IP) (resul
 	// filesystem to be the most up-to-date source of truth.
 	var err error
 	if fromFS != nil {
-		result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(fromFS, "router", ipam.PoolDefault())
+		result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(fromFS), "router", ipam.PoolDefault())
 		if err != nil {
 			r.logger.Warn(
 				"Unable to restore router IP from filesystem",
@@ -201,7 +201,7 @@ func (r *infraIPAllocator) reallocateOldRouterIPs(fromK8s, fromFS net.IP) (resul
 	// If we were not able to restore the IP from the filesystem, try to use
 	// the IP from the Kubernetes resource.
 	if result == nil && fromK8s != nil {
-		result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(fromK8s, "router", ipam.PoolDefault())
+		result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(fromK8s), "router", ipam.PoolDefault())
 		if err != nil {
 			r.logger.Warn(
 				"Unable to restore router IP from kubernetes",
@@ -251,7 +251,7 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error
 
 func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.AddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
 	// Avoid allocating external IP
-	r.ipAllocator.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault())
+	r.ipAllocator.ExcludeIP(iputil.AddrFromIP(family.PrimaryExternal()), "node-ip", ipam.PoolDefault())
 
 	// (Re-)allocate the router IP. If not possible, allocate a fresh IP.
 	// In that case, the old router IP needs to be removed from cilium_host
@@ -356,7 +356,7 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP
 		var err error
 		healthIPv4 = oldV4HealthIP
 		if healthIPv4 != nil {
-			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(healthIPv4, "health", ipam.PoolDefault())
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(healthIPv4), "health", ipam.PoolDefault())
 			if err != nil {
 				r.logger.Warn(
 					"unable to re-allocate health IPv4, a new health IPv4 will be allocated",
@@ -399,7 +399,7 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP
 		var err error
 		healthIPv6 = oldV6HealthIP
 		if healthIPv6 != nil {
-			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(healthIPv6, "health", ipam.PoolDefault())
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(healthIPv6), "health", ipam.PoolDefault())
 			if err != nil {
 				r.logger.Warn(
 					"unable to re-allocate health IPv6, a new health IPv6 will be allocated",
@@ -413,7 +413,7 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP
 			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault())
 			if err != nil {
 				if healthIPv4 != nil {
-					r.ipAllocator.ReleaseIP(healthIPv4, ipam.PoolDefault())
+					r.ipAllocator.ReleaseIP(iputil.AddrFromIP(healthIPv4), ipam.PoolDefault())
 					r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = nil })
 				}
 				return fmt.Errorf("unable to allocate health IPv6: %w, see https://cilium.link/ipam-range-full", err)
@@ -437,7 +437,7 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 
 		// Reallocate the same address as before, if possible
 		if ingressIPv4 != nil {
-			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress", ipam.PoolDefault())
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(ingressIPv4), "ingress", ipam.PoolDefault())
 			if err != nil {
 				r.logger.Warn("unable to re-allocate ingress IPv4.",
 					logfields.Error, err,
@@ -494,7 +494,7 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 		// Reallocate the same address as before, if possible
 		ingressIPv6 := oldV6IngressIP
 		if ingressIPv6 != nil {
-			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault())
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(ingressIPv6), "ingress", ipam.PoolDefault())
 			if err != nil {
 				r.logger.Warn("unable to re-allocate ingress IPv6.",
 					logfields.Error, err,
@@ -510,7 +510,7 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault())
 			if err != nil {
 				if ingressIPv4 != nil {
-					r.ipAllocator.ReleaseIP(ingressIPv4, ipam.PoolDefault())
+					r.ipAllocator.ReleaseIP(iputil.AddrFromIP(ingressIPv4), ipam.PoolDefault())
 					r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = nil })
 				}
 				return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
