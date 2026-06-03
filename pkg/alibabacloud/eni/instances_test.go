@@ -7,7 +7,6 @@ import (
 	"net/netip"
 
 	apimock "github.com/cilium/cilium/pkg/alibabacloud/api/mock"
-	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -60,52 +59,52 @@ var (
 				NetworkInterfaceID: "eni-1",
 				PrimaryIPAddress:   iputil.AddrFrom(netip.MustParseAddr("1.1.0.1")),
 				SecurityGroupIDs:   []string{"sg-1"},
-				PrivateIPSets: []eniTypes.PrivateIPSet{
+				PrivateIPSets: []types.PrivateIPSet{
 					{
 						Primary:          true,
 						PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("1.1.0.1")),
 					},
 				},
-				Type:       eniTypes.ENITypePrimary,
+				Type:       types.ENITypePrimary,
 				InstanceID: "i-1",
-				VSwitch:    eniTypes.VSwitch{VSwitchID: "vsw-1"},
-				VPC:        eniTypes.VPC{VPCID: "vpc-1"},
+				VSwitch:    types.VSwitch{VSwitchID: "vsw-1"},
+				VPC:        types.VPC{VPCID: "vpc-1"},
 				Tags:       map[string]string{},
 			},
 		},
 		"i-2": {
-			"eni-2": &eniTypes.ENI{
+			"eni-2": &types.ENI{
 				NetworkInterfaceID: "eni-2",
 				PrimaryIPAddress:   iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 				SecurityGroupIDs:   []string{"sg-2"},
-				PrivateIPSets: []eniTypes.PrivateIPSet{
+				PrivateIPSets: []types.PrivateIPSet{
 					{
 						Primary:          true,
 						PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 					},
 				},
-				Type:       eniTypes.ENITypePrimary,
+				Type:       types.ENITypePrimary,
 				InstanceID: "i-2",
-				VSwitch:    eniTypes.VSwitch{VSwitchID: "vsw-2"},
-				VPC:        eniTypes.VPC{VPCID: "vpc-1"},
+				VSwitch:    types.VSwitch{VSwitchID: "vsw-2"},
+				VPC:        types.VPC{VPCID: "vpc-1"},
 				Tags:       map[string]string{},
 			},
 		},
 		"i-3": {
-			"eni-3": &eniTypes.ENI{
+			"eni-3": &types.ENI{
 				NetworkInterfaceID: "eni-3",
 				PrimaryIPAddress:   iputil.AddrFrom(netip.MustParseAddr("1.1.1.2")),
 				SecurityGroupIDs:   []string{"sg-2"},
-				PrivateIPSets: []eniTypes.PrivateIPSet{
+				PrivateIPSets: []types.PrivateIPSet{
 					{
 						Primary:          true,
 						PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr("1.1.1.2")),
 					},
 				},
-				Type:       eniTypes.ENITypePrimary,
+				Type:       types.ENITypePrimary,
 				InstanceID: "i-3",
-				VSwitch:    eniTypes.VSwitch{VSwitchID: "vsw-2"},
-				VPC:        eniTypes.VPC{VPCID: "vpc-1"},
+				VSwitch:    types.VSwitch{VSwitchID: "vsw-2"},
+				VPC:        types.VPC{VPCID: "vpc-1"},
 				Tags:       map[string]string{},
 			},
 		},

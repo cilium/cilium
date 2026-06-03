@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 
-	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
@@ -20,11 +19,11 @@ import (
 )
 
 // ENIMap is a map of ENI interfaced indexed by ENI ID
-type ENIMap map[string]*eniTypes.ENI
+type ENIMap map[string]*types.ENI
 
 type API struct {
 	mutex          lock.RWMutex
-	unattached     map[string]*eniTypes.ENI
+	unattached     map[string]*types.ENI
 	enis           map[string]ENIMap
 	subnets        map[string]*ipamTypes.Subnet
 	vpcs           map[string]*ipamTypes.VirtualNetwork
@@ -35,7 +34,7 @@ type API struct {
 // NewAPI returns a new mocked ECS API
 func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
 	api := &API{
-		unattached:     map[string]*eniTypes.ENI{},
+		unattached:     map[string]*types.ENI{},
 		enis:           map[string]ENIMap{},
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
@@ -202,7 +201,7 @@ func (a *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, er
 	return securityGroups, nil
 }
 
-func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *eniTypes.ENI, error) {
+func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *types.ENI, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -215,13 +214,13 @@ func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCoun
 	}
 
 	eniID := uuid.New().String()
-	eni := &eniTypes.ENI{
+	eni := &types.ENI{
 		NetworkInterfaceID: eniID,
-		VSwitch: eniTypes.VSwitch{
+		VSwitch: types.VSwitch{
 			VSwitchID: vSwitchID,
 			CIDRBlock: iputil.PrefixFrom(vsw.CIDR),
 		},
-		Type:             eniTypes.ENITypeSecondary,
+		Type:             types.ENITypeSecondary,
 		SecurityGroupIDs: groups,
 		Tags:             tags,
 	}
@@ -235,7 +234,7 @@ func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCoun
 			eni.PrimaryIPAddress = iputil.AddrFrom(ip)
 			primary = true
 		}
-		eni.PrivateIPSets = append(eni.PrivateIPSets, eniTypes.PrivateIPSet{
+		eni.PrivateIPSets = append(eni.PrivateIPSets, types.PrivateIPSet{
 			PrivateIpAddress: iputil.AddrFrom(ip),
 			Primary:          primary,
 		})
@@ -309,7 +308,7 @@ func (a *API) AssignPrivateIPAddresses(ctx context.Context, eniID string, toAllo
 					eni.PrimaryIPAddress = iputil.AddrFrom(ip)
 					primary = true
 				}
-				eni.PrivateIPSets = append(eni.PrivateIPSets, eniTypes.PrivateIPSet{
+				eni.PrivateIPSets = append(eni.PrivateIPSets, types.PrivateIPSet{
 					PrivateIpAddress: iputil.AddrFrom(ip),
 					Primary:          primary,
 				})
@@ -344,7 +343,7 @@ func (a *API) UnassignPrivateIPAddresses(ctx context.Context, eniID string, addr
 			return fmt.Errorf("vSwitch %s not found", eni.VSwitch.VSwitchID)
 		}
 
-		addressesAfterRelease := []eniTypes.PrivateIPSet{}
+		addressesAfterRelease := []types.PrivateIPSet{}
 
 		for _, address := range eni.PrivateIPSets {
 			if address.Primary {

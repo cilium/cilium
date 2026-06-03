@@ -20,7 +20,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	"github.com/cilium/cilium/pkg/api/helpers"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -308,7 +307,7 @@ func (c *Client) DescribeNetworkInterface(ctx context.Context, eniID string) (*e
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *eniTypes.ENI, error) {
+func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *types.ENI, error) {
 	req := ecs.CreateCreateNetworkInterfaceRequest()
 	// SecondaryPrivateIpAddressCount is optional but must not be zero
 	if secondaryPrivateIPCount > 0 {
@@ -334,7 +333,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPC
 		return "", nil, err
 	}
 
-	var privateIPSets []eniTypes.PrivateIPSet
+	var privateIPSets []types.PrivateIPSet
 	for _, p := range resp.PrivateIpSets.PrivateIpSet {
 		addr, err := netip.ParseAddr(p.PrivateIpAddress)
 		if err != nil {
@@ -346,21 +345,21 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPC
 			)
 			continue
 		}
-		privateIPSets = append(privateIPSets, eniTypes.PrivateIPSet{
+		privateIPSets = append(privateIPSets, types.PrivateIPSet{
 			Primary:          p.Primary,
 			PrivateIpAddress: iputil.AddrFrom(addr),
 		})
 	}
-	eni := &eniTypes.ENI{
+	eni := &types.ENI{
 		NetworkInterfaceID: resp.NetworkInterfaceId,
 		MACAddress:         resp.MacAddress,
 		Type:               resp.Type,
 		SecurityGroupIDs:   resp.SecurityGroupIds.SecurityGroupId,
-		VPC: eniTypes.VPC{
+		VPC: types.VPC{
 			VPCID: resp.VpcId,
 		},
 		ZoneID: resp.ZoneId,
-		VSwitch: eniTypes.VSwitch{
+		VSwitch: types.VSwitch{
 			VSwitchID: resp.VSwitchId,
 		},
 		PrivateIPSets: privateIPSets,
@@ -662,9 +661,9 @@ func deriveStatus(err error) string {
 }
 
 // parseENI parses a ecs.NetworkInterface as returned by the ecs service API,
-// converts it into a eniTypes.ENI object
-func parseENI(logger *slog.Logger, iface *ecs.NetworkInterfaceSet, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (instanceID string, eni *eniTypes.ENI) {
-	var privateIPSets []eniTypes.PrivateIPSet
+// converts it into a types.ENI object
+func parseENI(logger *slog.Logger, iface *ecs.NetworkInterfaceSet, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (instanceID string, eni *types.ENI) {
+	var privateIPSets []types.PrivateIPSet
 	for _, p := range iface.PrivateIpSets.PrivateIpSet {
 		addr, err := netip.ParseAddr(p.PrivateIpAddress)
 		if err != nil {
@@ -676,23 +675,23 @@ func parseENI(logger *slog.Logger, iface *ecs.NetworkInterfaceSet, vpcs ipamType
 			)
 			continue
 		}
-		privateIPSets = append(privateIPSets, eniTypes.PrivateIPSet{
+		privateIPSets = append(privateIPSets, types.PrivateIPSet{
 			Primary:          p.Primary,
 			PrivateIpAddress: iputil.AddrFrom(addr),
 		})
 	}
 
-	eni = &eniTypes.ENI{
+	eni = &types.ENI{
 		NetworkInterfaceID: iface.NetworkInterfaceId,
 		MACAddress:         iface.MacAddress,
 		Type:               iface.Type,
 		InstanceID:         iface.InstanceId,
 		SecurityGroupIDs:   iface.SecurityGroupIds.SecurityGroupId,
-		VPC: eniTypes.VPC{
+		VPC: types.VPC{
 			VPCID: iface.VpcId,
 		},
 		ZoneID: iface.ZoneId,
-		VSwitch: eniTypes.VSwitch{
+		VSwitch: types.VSwitch{
 			VSwitchID: iface.VSwitchId,
 		},
 		PrivateIPSets: privateIPSets,

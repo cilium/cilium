@@ -10,7 +10,6 @@ import (
 	"maps"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
-	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -27,7 +26,7 @@ type AlibabaCloudAPI interface {
 	GetVPC(ctx context.Context, vpcID string) (*ipamTypes.VirtualNetwork, error)
 	GetVPCs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
-	CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *eniTypes.ENI, error)
+	CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *types.ENI, error)
 	AttachNetworkInterface(ctx context.Context, instanceID, eniID string) error
 	WaitENIAttached(ctx context.Context, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
@@ -201,7 +200,7 @@ func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.Inter
 // UpdateENI updates the ENI definition of an ENI for a particular instance. If
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
-func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
+func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.Update(instanceID, eni)
@@ -210,7 +209,7 @@ func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 // FindOneVSwitch returns the vSwitch with the most available addresses, matching vpc and az.
 // If we have explicit ID or tag constraints, chose a matching vSwitch. ID constraints take
 // precedence.
-func (m *InstancesManager) FindOneVSwitch(spec eniTypes.Spec, toAllocate int) *ipamTypes.Subnet {
+func (m *InstancesManager) FindOneVSwitch(spec types.Spec, toAllocate int) *ipamTypes.Subnet {
 	if len(spec.VSwitches) > 0 {
 		return m.FindVSwitchByIDs(spec, toAllocate)
 	}
@@ -237,7 +236,7 @@ func (m *InstancesManager) FindOneVSwitch(spec eniTypes.Spec, toAllocate int) *i
 
 // FindVSwitchByIDs returns the vSwitch within a provided list of vSwitch IDs with the most available addresses,
 // matching vpc and az.
-func (m *InstancesManager) FindVSwitchByIDs(spec eniTypes.Spec, toAllocate int) *ipamTypes.Subnet {
+func (m *InstancesManager) FindVSwitchByIDs(spec types.Spec, toAllocate int) *ipamTypes.Subnet {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
