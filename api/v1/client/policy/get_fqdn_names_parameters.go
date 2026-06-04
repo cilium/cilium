@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetFqdnNamesParams() *GetFqdnNamesParams {
-	return &GetFqdnNamesParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetFqdnNamesParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetFqdnNamesParamsWithTimeout creates a new GetFqdnNamesParams object
 // with the ability to set a timeout on a request.
 func NewGetFqdnNamesParamsWithTimeout(timeout time.Duration) *GetFqdnNamesParams {
 	return &GetFqdnNamesParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetFqdnNamesParamsWithContext creates a new GetFqdnNamesParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetFqdnNamesParams].
 func NewGetFqdnNamesParamsWithContext(ctx context.Context) *GetFqdnNamesParams {
 	return &GetFqdnNamesParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetFqdnNamesParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetFqdnNamesParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get fqdn names params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetFqdnNamesParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get fqdn names params
+// WithTimeout adds the timeout to the get fqdn names params.
 func (o *GetFqdnNamesParams) WithTimeout(timeout time.Duration) *GetFqdnNamesParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get fqdn names params
+// SetTimeout adds the timeout to the get fqdn names params.
 func (o *GetFqdnNamesParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get fqdn names params
+// WithContext adds the context to the get fqdn names params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetFqdnNamesParams].
 func (o *GetFqdnNamesParams) WithContext(ctx context.Context) *GetFqdnNamesParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get fqdn names params
+// SetContext adds the context to the get fqdn names params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetFqdnNamesParams].
 func (o *GetFqdnNamesParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get fqdn names params
+// WithHTTPClient adds the HTTPClient to the get fqdn names params.
 func (o *GetFqdnNamesParams) WithHTTPClient(client *http.Client) *GetFqdnNamesParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get fqdn names params
+// SetHTTPClient adds the HTTPClient to the get fqdn names params.
 func (o *GetFqdnNamesParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetFqdnNamesParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

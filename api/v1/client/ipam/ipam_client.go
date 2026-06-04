@@ -6,7 +6,9 @@
 package ipam
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -14,11 +16,12 @@ import (
 )
 
 // New creates a new ipam API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
+func New(transport runtime.ContextualTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
 // New creates a new ipam API client with basic auth credentials.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -32,6 +35,7 @@ func NewClientWithBasicAuth(host, basePath, scheme, user, password string) Clien
 }
 
 // New creates a new ipam API client with a bearer token for authentication.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -44,35 +48,70 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 }
 
 /*
-Client for ipam API
+Client for ipam API.
 */
 type Client struct {
-	transport runtime.ClientTransport
+	transport runtime.ContextualTransport
 	formats   strfmt.Registry
 }
 
 // ClientOption may be used to customize the behavior of Client methods.
 type ClientOption func(*runtime.ClientOperation)
 
-// ClientService is the interface for Client methods
+// ClientService is the interface for Client methods.
 type ClientService interface {
+
+	// DeleteIpamIP release an allocated IP address.
 	DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error)
 
+	// DeleteIpamIPContext release an allocated IP address.
+	DeleteIpamIPContext(ctx context.Context, params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error)
+
+	// PostIpam allocate an IP address.
 	PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error)
 
+	// PostIpamContext allocate an IP address.
+	PostIpamContext(ctx context.Context, params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error)
+
+	// PostIpamIP allocate an IP address.
 	PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error)
 
-	SetTransport(transport runtime.ClientTransport)
+	// PostIpamIPContext allocate an IP address.
+	PostIpamIPContext(ctx context.Context, params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error)
+
+	SetTransport(transport runtime.ContextualTransport)
 }
 
 /*
-DeleteIpamIP releases an allocated IP address
+DeleteIpamIPreleases an allocated IP address.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.DeleteIpamIPContext] instead.
 */
 func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.DeleteIpamIPContext(ctx, params, opts...)
+}
+
+/*
+DeleteIpamIPContextreleases an allocated IP address.
+
+Do not use the deprecated [DeleteIpamIPParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) DeleteIpamIPContext(ctx context.Context, params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewDeleteIpamIPParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "DeleteIpamIP",
 		Method:             "DELETE",
@@ -82,13 +121,14 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &DeleteIpamIPReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +149,35 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) 
 }
 
 /*
-PostIpam allocates an IP address
+PostIpamallocates an IP address.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.PostIpamContext] instead.
 */
 func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.PostIpamContext(ctx, params, opts...)
+}
+
+/*
+PostIpamContextallocates an IP address.
+
+Do not use the deprecated [PostIpamParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) PostIpamContext(ctx context.Context, params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostIpamParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "PostIpam",
 		Method:             "POST",
@@ -125,13 +187,14 @@ func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIp
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostIpamReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -152,13 +215,35 @@ func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIp
 }
 
 /*
-PostIpamIP allocates an IP address
+PostIpamIPallocates an IP address.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.PostIpamIPContext] instead.
 */
 func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.PostIpamIPContext(ctx, params, opts...)
+}
+
+/*
+PostIpamIPContextallocates an IP address.
+
+Do not use the deprecated [PostIpamIPParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) PostIpamIPContext(ctx context.Context, params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostIpamIPParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "PostIpamIP",
 		Method:             "POST",
@@ -168,13 +253,14 @@ func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*Po
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostIpamIPReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +281,14 @@ func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*Po
 }
 
 // SetTransport changes the transport on the client
-func (a *Client) SetTransport(transport runtime.ClientTransport) {
+func (a *Client) SetTransport(transport runtime.ContextualTransport) {
 	a.transport = transport
+}
+
+// innerParams captures internal fields so they don't conflict with user-supplied parameters.
+type innerParams struct {
+	timeout time.Duration
+
+	// Deprecated: use the operation call with context to pass the context instead of [IpamParams].
+	ctx context.Context
 }

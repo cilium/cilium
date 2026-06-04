@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // BPFMap BPF map definition and content
@@ -42,12 +43,12 @@ func (m *BPFMap) Validate(formats strfmt.Registry) error {
 }
 
 func (m *BPFMap) validateCache(formats strfmt.Registry) error {
-	if swag.IsZero(m.Cache) { // not required
+	if typeutils.IsZero(m.Cache) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Cache); i++ {
-		if swag.IsZero(m.Cache[i]) { // not required
+		if typeutils.IsZero(m.Cache[i]) { // not required
 			continue
 		}
 
@@ -91,7 +92,7 @@ func (m *BPFMap) contextValidateCache(ctx context.Context, formats strfmt.Regist
 
 		if m.Cache[i] != nil {
 
-			if swag.IsZero(m.Cache[i]) { // not required
+			if typeutils.IsZero(m.Cache[i]) { // not required
 				return nil
 			}
 
@@ -119,13 +120,13 @@ func (m *BPFMap) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *BPFMap) UnmarshalBinary(b []byte) error {
 	var res BPFMap
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

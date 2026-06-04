@@ -14,7 +14,7 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewPostIpamParams creates a new PostIpamParams object,
@@ -24,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPostIpamParams() *PostIpamParams {
-	return &PostIpamParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewPostIpamParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewPostIpamParamsWithTimeout creates a new PostIpamParams object
 // with the ability to set a timeout on a request.
 func NewPostIpamParamsWithTimeout(timeout time.Duration) *PostIpamParams {
 	return &PostIpamParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewPostIpamParamsWithContext creates a new PostIpamParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PostIpamParams].
 func NewPostIpamParamsWithContext(ctx context.Context) *PostIpamParams {
 	return &PostIpamParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -74,9 +78,9 @@ type PostIpamParams struct {
 	// Pool.
 	Pool *string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the post ipam params (not the query body).
@@ -94,87 +98,90 @@ func (o *PostIpamParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the post ipam params
+// WithTimeout adds the timeout to the post ipam params.
 func (o *PostIpamParams) WithTimeout(timeout time.Duration) *PostIpamParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the post ipam params
+// SetTimeout adds the timeout to the post ipam params.
 func (o *PostIpamParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the post ipam params
+// WithContext adds the context to the post ipam params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PostIpamParams].
 func (o *PostIpamParams) WithContext(ctx context.Context) *PostIpamParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the post ipam params
+// SetContext adds the context to the post ipam params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PostIpamParams].
 func (o *PostIpamParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the post ipam params
+// WithHTTPClient adds the HTTPClient to the post ipam params.
 func (o *PostIpamParams) WithHTTPClient(client *http.Client) *PostIpamParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the post ipam params
+// SetHTTPClient adds the HTTPClient to the post ipam params.
 func (o *PostIpamParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithExpiration adds the expiration to the post ipam params
+// WithExpiration adds the expiration to the post ipam params.
 func (o *PostIpamParams) WithExpiration(expiration *bool) *PostIpamParams {
 	o.SetExpiration(expiration)
 	return o
 }
 
-// SetExpiration adds the expiration to the post ipam params
+// SetExpiration adds the expiration to the post ipam params.
 func (o *PostIpamParams) SetExpiration(expiration *bool) {
 	o.Expiration = expiration
 }
 
-// WithFamily adds the family to the post ipam params
+// WithFamily adds the family to the post ipam params.
 func (o *PostIpamParams) WithFamily(family *string) *PostIpamParams {
 	o.SetFamily(family)
 	return o
 }
 
-// SetFamily adds the family to the post ipam params
+// SetFamily adds the family to the post ipam params.
 func (o *PostIpamParams) SetFamily(family *string) {
 	o.Family = family
 }
 
-// WithOwner adds the owner to the post ipam params
+// WithOwner adds the owner to the post ipam params.
 func (o *PostIpamParams) WithOwner(owner *string) *PostIpamParams {
 	o.SetOwner(owner)
 	return o
 }
 
-// SetOwner adds the owner to the post ipam params
+// SetOwner adds the owner to the post ipam params.
 func (o *PostIpamParams) SetOwner(owner *string) {
 	o.Owner = owner
 }
 
-// WithPool adds the pool to the post ipam params
+// WithPool adds the pool to the post ipam params.
 func (o *PostIpamParams) WithPool(pool *string) *PostIpamParams {
 	o.SetPool(pool)
 	return o
 }
 
-// SetPool adds the pool to the post ipam params
+// SetPool adds the pool to the post ipam params.
 func (o *PostIpamParams) SetPool(pool *string) {
 	o.Pool = pool
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *PostIpamParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
@@ -182,7 +189,7 @@ func (o *PostIpamParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Regi
 	if o.Expiration != nil {
 
 		// header param expiration
-		if err := r.SetHeaderParam("expiration", swag.FormatBool(*o.Expiration)); err != nil {
+		if err := r.SetHeaderParam("expiration", conv.FormatBool(*o.Expiration)); err != nil {
 			return err
 		}
 	}

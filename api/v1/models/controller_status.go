@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -59,7 +60,7 @@ func (m *ControllerStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ControllerStatus) validateConfiguration(formats strfmt.Registry) error {
-	if swag.IsZero(m.Configuration) { // not required
+	if typeutils.IsZero(m.Configuration) { // not required
 		return nil
 	}
 
@@ -82,7 +83,7 @@ func (m *ControllerStatus) validateConfiguration(formats strfmt.Registry) error 
 }
 
 func (m *ControllerStatus) validateStatus(formats strfmt.Registry) error {
-	if swag.IsZero(m.Status) { // not required
+	if typeutils.IsZero(m.Status) { // not required
 		return nil
 	}
 
@@ -105,7 +106,7 @@ func (m *ControllerStatus) validateStatus(formats strfmt.Registry) error {
 }
 
 func (m *ControllerStatus) validateUUID(formats strfmt.Registry) error {
-	if swag.IsZero(m.UUID) { // not required
+	if typeutils.IsZero(m.UUID) { // not required
 		return nil
 	}
 
@@ -138,7 +139,7 @@ func (m *ControllerStatus) contextValidateConfiguration(ctx context.Context, for
 
 	if m.Configuration != nil {
 
-		if swag.IsZero(m.Configuration) { // not required
+		if typeutils.IsZero(m.Configuration) { // not required
 			return nil
 		}
 
@@ -163,7 +164,7 @@ func (m *ControllerStatus) contextValidateStatus(ctx context.Context, formats st
 
 	if m.Status != nil {
 
-		if swag.IsZero(m.Status) { // not required
+		if typeutils.IsZero(m.Status) { // not required
 			return nil
 		}
 
@@ -189,13 +190,13 @@ func (m *ControllerStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *ControllerStatus) UnmarshalBinary(b []byte) error {
 	var res ControllerStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -241,7 +242,7 @@ func (m *ControllerStatusConfiguration) Validate(formats strfmt.Registry) error 
 }
 
 func (m *ControllerStatusConfiguration) validateErrorRetryBase(formats strfmt.Registry) error {
-	if swag.IsZero(m.ErrorRetryBase) { // not required
+	if typeutils.IsZero(m.ErrorRetryBase) { // not required
 		return nil
 	}
 
@@ -253,7 +254,7 @@ func (m *ControllerStatusConfiguration) validateErrorRetryBase(formats strfmt.Re
 }
 
 func (m *ControllerStatusConfiguration) validateInterval(formats strfmt.Registry) error {
-	if swag.IsZero(m.Interval) { // not required
+	if typeutils.IsZero(m.Interval) { // not required
 		return nil
 	}
 
@@ -274,13 +275,13 @@ func (m *ControllerStatusConfiguration) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *ControllerStatusConfiguration) UnmarshalBinary(b []byte) error {
 	var res ControllerStatusConfiguration
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -334,7 +335,7 @@ func (m *ControllerStatusStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ControllerStatusStatus) validateLastFailureTimestamp(formats strfmt.Registry) error {
-	if swag.IsZero(m.LastFailureTimestamp) { // not required
+	if typeutils.IsZero(m.LastFailureTimestamp) { // not required
 		return nil
 	}
 
@@ -346,7 +347,7 @@ func (m *ControllerStatusStatus) validateLastFailureTimestamp(formats strfmt.Reg
 }
 
 func (m *ControllerStatusStatus) validateLastSuccessTimestamp(formats strfmt.Registry) error {
-	if swag.IsZero(m.LastSuccessTimestamp) { // not required
+	if typeutils.IsZero(m.LastSuccessTimestamp) { // not required
 		return nil
 	}
 
@@ -367,13 +368,13 @@ func (m *ControllerStatusStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *ControllerStatusStatus) UnmarshalBinary(b []byte) error {
 	var res ControllerStatusStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

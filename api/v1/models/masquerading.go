@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -68,7 +69,7 @@ func (m *Masquerading) Validate(formats strfmt.Registry) error {
 }
 
 func (m *Masquerading) validateEnabledProtocols(formats strfmt.Registry) error {
-	if swag.IsZero(m.EnabledProtocols) { // not required
+	if typeutils.IsZero(m.EnabledProtocols) { // not required
 		return nil
 	}
 
@@ -120,7 +121,7 @@ func (m *Masquerading) validateModeEnum(path, location string, value string) err
 }
 
 func (m *Masquerading) validateMode(formats strfmt.Registry) error {
-	if swag.IsZero(m.Mode) { // not required
+	if typeutils.IsZero(m.Mode) { // not required
 		return nil
 	}
 
@@ -150,7 +151,7 @@ func (m *Masquerading) contextValidateEnabledProtocols(ctx context.Context, form
 
 	if m.EnabledProtocols != nil {
 
-		if swag.IsZero(m.EnabledProtocols) { // not required
+		if typeutils.IsZero(m.EnabledProtocols) { // not required
 			return nil
 		}
 
@@ -176,13 +177,13 @@ func (m *Masquerading) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *Masquerading) UnmarshalBinary(b []byte) error {
 	var res Masquerading
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -216,13 +217,13 @@ func (m *MasqueradingEnabledProtocols) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *MasqueradingEnabledProtocols) UnmarshalBinary(b []byte) error {
 	var res MasqueradingEnabledProtocols
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // CIDRPolicy CIDR endpoint policy
@@ -46,12 +47,12 @@ func (m *CIDRPolicy) Validate(formats strfmt.Registry) error {
 }
 
 func (m *CIDRPolicy) validateEgress(formats strfmt.Registry) error {
-	if swag.IsZero(m.Egress) { // not required
+	if typeutils.IsZero(m.Egress) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Egress); i++ {
-		if swag.IsZero(m.Egress[i]) { // not required
+		if typeutils.IsZero(m.Egress[i]) { // not required
 			continue
 		}
 
@@ -76,12 +77,12 @@ func (m *CIDRPolicy) validateEgress(formats strfmt.Registry) error {
 }
 
 func (m *CIDRPolicy) validateIngress(formats strfmt.Registry) error {
-	if swag.IsZero(m.Ingress) { // not required
+	if typeutils.IsZero(m.Ingress) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Ingress); i++ {
-		if swag.IsZero(m.Ingress[i]) { // not required
+		if typeutils.IsZero(m.Ingress[i]) { // not required
 			continue
 		}
 
@@ -129,7 +130,7 @@ func (m *CIDRPolicy) contextValidateEgress(ctx context.Context, formats strfmt.R
 
 		if m.Egress[i] != nil {
 
-			if swag.IsZero(m.Egress[i]) { // not required
+			if typeutils.IsZero(m.Egress[i]) { // not required
 				return nil
 			}
 
@@ -158,7 +159,7 @@ func (m *CIDRPolicy) contextValidateIngress(ctx context.Context, formats strfmt.
 
 		if m.Ingress[i] != nil {
 
-			if swag.IsZero(m.Ingress[i]) { // not required
+			if typeutils.IsZero(m.Ingress[i]) { // not required
 				return nil
 			}
 
@@ -186,13 +187,13 @@ func (m *CIDRPolicy) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *CIDRPolicy) UnmarshalBinary(b []byte) error {
 	var res CIDRPolicy
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

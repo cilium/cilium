@@ -13,7 +13,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -79,12 +80,12 @@ func (m *BgpRoutePolicyStatement) Validate(formats strfmt.Registry) error {
 }
 
 func (m *BgpRoutePolicyStatement) validateMatchFamilies(formats strfmt.Registry) error {
-	if swag.IsZero(m.MatchFamilies) { // not required
+	if typeutils.IsZero(m.MatchFamilies) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.MatchFamilies); i++ {
-		if swag.IsZero(m.MatchFamilies[i]) { // not required
+		if typeutils.IsZero(m.MatchFamilies[i]) { // not required
 			continue
 		}
 
@@ -109,7 +110,7 @@ func (m *BgpRoutePolicyStatement) validateMatchFamilies(formats strfmt.Registry)
 }
 
 func (m *BgpRoutePolicyStatement) validateMatchNeighbors(formats strfmt.Registry) error {
-	if swag.IsZero(m.MatchNeighbors) { // not required
+	if typeutils.IsZero(m.MatchNeighbors) { // not required
 		return nil
 	}
 
@@ -132,7 +133,7 @@ func (m *BgpRoutePolicyStatement) validateMatchNeighbors(formats strfmt.Registry
 }
 
 func (m *BgpRoutePolicyStatement) validateMatchPrefixes(formats strfmt.Registry) error {
-	if swag.IsZero(m.MatchPrefixes) { // not required
+	if typeutils.IsZero(m.MatchPrefixes) { // not required
 		return nil
 	}
 
@@ -155,7 +156,7 @@ func (m *BgpRoutePolicyStatement) validateMatchPrefixes(formats strfmt.Registry)
 }
 
 func (m *BgpRoutePolicyStatement) validateNexthop(formats strfmt.Registry) error {
-	if swag.IsZero(m.Nexthop) { // not required
+	if typeutils.IsZero(m.Nexthop) { // not required
 		return nil
 	}
 
@@ -210,7 +211,7 @@ func (m *BgpRoutePolicyStatement) validateRouteActionEnum(path, location string,
 }
 
 func (m *BgpRoutePolicyStatement) validateRouteAction(formats strfmt.Registry) error {
-	if swag.IsZero(m.RouteAction) { // not required
+	if typeutils.IsZero(m.RouteAction) { // not required
 		return nil
 	}
 
@@ -254,7 +255,7 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchFamilies(ctx context.Conte
 
 		if m.MatchFamilies[i] != nil {
 
-			if swag.IsZero(m.MatchFamilies[i]) { // not required
+			if typeutils.IsZero(m.MatchFamilies[i]) { // not required
 				return nil
 			}
 
@@ -281,7 +282,7 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchNeighbors(ctx context.Cont
 
 	if m.MatchNeighbors != nil {
 
-		if swag.IsZero(m.MatchNeighbors) { // not required
+		if typeutils.IsZero(m.MatchNeighbors) { // not required
 			return nil
 		}
 
@@ -306,7 +307,7 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchPrefixes(ctx context.Conte
 
 	if m.MatchPrefixes != nil {
 
-		if swag.IsZero(m.MatchPrefixes) { // not required
+		if typeutils.IsZero(m.MatchPrefixes) { // not required
 			return nil
 		}
 
@@ -331,7 +332,7 @@ func (m *BgpRoutePolicyStatement) contextValidateNexthop(ctx context.Context, fo
 
 	if m.Nexthop != nil {
 
-		if swag.IsZero(m.Nexthop) { // not required
+		if typeutils.IsZero(m.Nexthop) { // not required
 			return nil
 		}
 
@@ -357,13 +358,13 @@ func (m *BgpRoutePolicyStatement) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *BgpRoutePolicyStatement) UnmarshalBinary(b []byte) error {
 	var res BgpRoutePolicyStatement
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // EndpointStatus Connectivity status to host cilium-health endpoints via different paths
@@ -46,7 +47,7 @@ func (m *EndpointStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validatePrimaryAddress(formats strfmt.Registry) error {
-	if swag.IsZero(m.PrimaryAddress) { // not required
+	if typeutils.IsZero(m.PrimaryAddress) { // not required
 		return nil
 	}
 
@@ -69,12 +70,12 @@ func (m *EndpointStatus) validatePrimaryAddress(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateSecondaryAddresses(formats strfmt.Registry) error {
-	if swag.IsZero(m.SecondaryAddresses) { // not required
+	if typeutils.IsZero(m.SecondaryAddresses) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.SecondaryAddresses); i++ {
-		if swag.IsZero(m.SecondaryAddresses[i]) { // not required
+		if typeutils.IsZero(m.SecondaryAddresses[i]) { // not required
 			continue
 		}
 
@@ -120,7 +121,7 @@ func (m *EndpointStatus) contextValidatePrimaryAddress(ctx context.Context, form
 
 	if m.PrimaryAddress != nil {
 
-		if swag.IsZero(m.PrimaryAddress) { // not required
+		if typeutils.IsZero(m.PrimaryAddress) { // not required
 			return nil
 		}
 
@@ -147,7 +148,7 @@ func (m *EndpointStatus) contextValidateSecondaryAddresses(ctx context.Context, 
 
 		if m.SecondaryAddresses[i] != nil {
 
-			if swag.IsZero(m.SecondaryAddresses[i]) { // not required
+			if typeutils.IsZero(m.SecondaryAddresses[i]) { // not required
 				return nil
 			}
 
@@ -175,13 +176,13 @@ func (m *EndpointStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *EndpointStatus) UnmarshalBinary(b []byte) error {
 	var res EndpointStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

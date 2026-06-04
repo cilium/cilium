@@ -8,9 +8,8 @@ package service
 import (
 	"net/http"
 
-	"github.com/go-openapi/runtime"
-
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/go-openapi/runtime"
 )
 
 // GetServiceOKCode is the HTTP code returned for type GetServiceOK

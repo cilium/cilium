@@ -14,7 +14,7 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewGetMapNameEventsParams creates a new GetMapNameEventsParams object,
@@ -24,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetMapNameEventsParams() *GetMapNameEventsParams {
-	return &GetMapNameEventsParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetMapNameEventsParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetMapNameEventsParamsWithTimeout creates a new GetMapNameEventsParams object
 // with the ability to set a timeout on a request.
 func NewGetMapNameEventsParamsWithTimeout(timeout time.Duration) *GetMapNameEventsParams {
 	return &GetMapNameEventsParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetMapNameEventsParamsWithContext creates a new GetMapNameEventsParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapNameEventsParams].
 func NewGetMapNameEventsParamsWithContext(ctx context.Context) *GetMapNameEventsParams {
 	return &GetMapNameEventsParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -74,9 +78,9 @@ type GetMapNameEventsParams struct {
 	*/
 	Name string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get map name events params (not the query body).
@@ -94,65 +98,68 @@ func (o *GetMapNameEventsParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get map name events params
+// WithTimeout adds the timeout to the get map name events params.
 func (o *GetMapNameEventsParams) WithTimeout(timeout time.Duration) *GetMapNameEventsParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get map name events params
+// SetTimeout adds the timeout to the get map name events params.
 func (o *GetMapNameEventsParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get map name events params
+// WithContext adds the context to the get map name events params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapNameEventsParams].
 func (o *GetMapNameEventsParams) WithContext(ctx context.Context) *GetMapNameEventsParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get map name events params
+// SetContext adds the context to the get map name events params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapNameEventsParams].
 func (o *GetMapNameEventsParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get map name events params
+// WithHTTPClient adds the HTTPClient to the get map name events params.
 func (o *GetMapNameEventsParams) WithHTTPClient(client *http.Client) *GetMapNameEventsParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get map name events params
+// SetHTTPClient adds the HTTPClient to the get map name events params.
 func (o *GetMapNameEventsParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithFollow adds the follow to the get map name events params
+// WithFollow adds the follow to the get map name events params.
 func (o *GetMapNameEventsParams) WithFollow(follow *bool) *GetMapNameEventsParams {
 	o.SetFollow(follow)
 	return o
 }
 
-// SetFollow adds the follow to the get map name events params
+// SetFollow adds the follow to the get map name events params.
 func (o *GetMapNameEventsParams) SetFollow(follow *bool) {
 	o.Follow = follow
 }
 
-// WithName adds the name to the get map name events params
+// WithName adds the name to the get map name events params.
 func (o *GetMapNameEventsParams) WithName(name string) *GetMapNameEventsParams {
 	o.SetName(name)
 	return o
 }
 
-// SetName adds the name to the get map name events params
+// SetName adds the name to the get map name events params.
 func (o *GetMapNameEventsParams) SetName(name string) {
 	o.Name = name
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetMapNameEventsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
@@ -165,7 +172,7 @@ func (o *GetMapNameEventsParams) WriteToRequest(r runtime.ClientRequest, reg str
 		if o.Follow != nil {
 			qrFollow = *o.Follow
 		}
-		qFollow := swag.FormatBool(qrFollow)
+		qFollow := conv.FormatBool(qrFollow)
 		if qFollow != "" {
 
 			if err := r.SetQueryParam("follow", qFollow); err != nil {

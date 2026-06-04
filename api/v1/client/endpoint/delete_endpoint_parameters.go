@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewDeleteEndpointParams creates a new DeleteEndpointParams object,
@@ -25,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewDeleteEndpointParams() *DeleteEndpointParams {
-	return &DeleteEndpointParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewDeleteEndpointParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewDeleteEndpointParamsWithTimeout creates a new DeleteEndpointParams object
 // with the ability to set a timeout on a request.
 func NewDeleteEndpointParamsWithTimeout(timeout time.Duration) *DeleteEndpointParams {
 	return &DeleteEndpointParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewDeleteEndpointParamsWithContext creates a new DeleteEndpointParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteEndpointParams].
 func NewDeleteEndpointParamsWithContext(ctx context.Context) *DeleteEndpointParams {
 	return &DeleteEndpointParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -66,9 +69,9 @@ type DeleteEndpointParams struct {
 	// Endpoint.
 	Endpoint *models.EndpointBatchDeleteRequest
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the delete endpoint params (not the query body).
@@ -86,54 +89,57 @@ func (o *DeleteEndpointParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the delete endpoint params
+// WithTimeout adds the timeout to the delete endpoint params.
 func (o *DeleteEndpointParams) WithTimeout(timeout time.Duration) *DeleteEndpointParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the delete endpoint params
+// SetTimeout adds the timeout to the delete endpoint params.
 func (o *DeleteEndpointParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the delete endpoint params
+// WithContext adds the context to the delete endpoint params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteEndpointParams].
 func (o *DeleteEndpointParams) WithContext(ctx context.Context) *DeleteEndpointParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the delete endpoint params
+// SetContext adds the context to the delete endpoint params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteEndpointParams].
 func (o *DeleteEndpointParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the delete endpoint params
+// WithHTTPClient adds the HTTPClient to the delete endpoint params.
 func (o *DeleteEndpointParams) WithHTTPClient(client *http.Client) *DeleteEndpointParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the delete endpoint params
+// SetHTTPClient adds the HTTPClient to the delete endpoint params.
 func (o *DeleteEndpointParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithEndpoint adds the endpoint to the delete endpoint params
+// WithEndpoint adds the endpoint to the delete endpoint params.
 func (o *DeleteEndpointParams) WithEndpoint(endpoint *models.EndpointBatchDeleteRequest) *DeleteEndpointParams {
 	o.SetEndpoint(endpoint)
 	return o
 }
 
-// SetEndpoint adds the endpoint to the delete endpoint params
+// SetEndpoint adds the endpoint to the delete endpoint params.
 func (o *DeleteEndpointParams) SetEndpoint(endpoint *models.EndpointBatchDeleteRequest) {
 	o.Endpoint = endpoint
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *DeleteEndpointParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
