@@ -20,20 +20,29 @@ import (
 )
 
 var RequiredGVKs = []schema.GroupVersionKind{
-	gatewayv1.SchemeGroupVersion.WithKind(GatewayClassKind),
-	gatewayv1.SchemeGroupVersion.WithKind(GatewayKind),
-	gatewayv1.SchemeGroupVersion.WithKind(HTTPRouteKind),
-	gatewayv1.SchemeGroupVersion.WithKind(GRPCRouteKind),
-	gatewayv1.SchemeGroupVersion.WithKind(TLSRouteKind),
-	gatewayv1.SchemeGroupVersion.WithKind(ReferenceGrantKind),
-	gatewayv1.SchemeGroupVersion.WithKind(BackendTLSPolicyKind),
+	GatewayV1GVK(GatewayClassKind),
+	GatewayV1GVK(GatewayKind),
+	GatewayV1GVK(HTTPRouteKind),
+	GatewayV1GVK(GRPCRouteKind),
+	GatewayV1GVK(TLSRouteKind),
+	GatewayV1GVK(ReferenceGrantKind),
+	GatewayV1GVK(BackendTLSPolicyKind),
 }
 
 var AllOptionalKinds = []schema.GroupVersionKind{
-	gatewayv1.SchemeGroupVersion.WithKind(ListenerSetKind),
+	GatewayV1GVK(ListenerSetKind),
 	mcsapiv1beta1.SchemeGroupVersion.WithKind(ServiceImportKind),
-	gatewayv1.SchemeGroupVersion.WithKind(TCPRouteKind),
-	gatewayv1.SchemeGroupVersion.WithKind(UDPRouteKind),
+	GatewayV1GVK(TCPRouteKind),
+	GatewayV1GVK(UDPRouteKind),
+}
+
+// GatewayV1GVK returns the GroupVersionKind for a given Gateway API v1 kind.
+func GatewayV1GVK(kind string) schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gatewayv1.GroupVersion.Group,
+		Version: gatewayv1.GroupVersion.Version,
+		Kind:    kind,
+	}
 }
 
 func TestScheme(optionalKinds []schema.GroupVersionKind) *runtime.Scheme {
@@ -54,11 +63,11 @@ func RegisterGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []sch
 	// ourselves for non-Standard GroupVersions, we can't use the generated
 	// functions.
 
-	addToSchema := make(map[fmt.Stringer]func(s *runtime.Scheme) error)
+	install := make(map[fmt.Stringer]func(s *runtime.Scheme) error)
 
 	// Install all required GVKs.
 	for _, gvk := range RequiredGVKs {
-		addToSchema[gvk] = func(s *runtime.Scheme) error {
+		install[gvk] = func(s *runtime.Scheme) error {
 			s.AddKnownTypes(
 				gvk.GroupVersion(),
 				GetConcreteObject(gvk),
@@ -77,7 +86,7 @@ func RegisterGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []sch
 		// Note that these calls are usually done using the package-level
 		// AddToScheme, but we can't use that here because we want to only
 		// enable things on a per-resource basis.
-		addToSchema[optionalKind] = func(s *runtime.Scheme) error {
+		install[optionalKind] = func(s *runtime.Scheme) error {
 			s.AddKnownTypes(
 				optionalKind.GroupVersion(),
 				GetConcreteObject(optionalKind),
@@ -88,7 +97,7 @@ func RegisterGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []sch
 		}
 	}
 
-	for gv, f := range addToSchema {
+	for gv, f := range install {
 		if err := f(scheme); err != nil {
 			return fmt.Errorf("failed to add types from %s to scheme: %w", gv, err)
 		}

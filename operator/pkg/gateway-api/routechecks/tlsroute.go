@@ -69,7 +69,7 @@ func (t *TLSRouteInput) GetNamespace() string {
 }
 
 func (t *TLSRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1.SchemeGroupVersion.WithKind("TLSRoute")
+	return helpers.GatewayV1GVK("TLSRoute")
 }
 
 func (t *TLSRouteInput) GetRules() []GenericRule {

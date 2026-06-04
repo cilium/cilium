@@ -1472,7 +1472,7 @@ func (r *gatewayReconciler) validateListener(ctx context.Context, l gatewayv1.Li
 	}
 
 	if l.TLS != nil {
-		ownerGVK := gatewayv1.SchemeGroupVersion.WithKind(params.ownerKind)
+		ownerGVK := helpers.GatewayV1GVK(params.ownerKind)
 		for _, cert := range l.TLS.CertificateRefs {
 			if !helpers.IsSecret(cert) {
 				res.conds = merge(res.conds, metav1.Condition{

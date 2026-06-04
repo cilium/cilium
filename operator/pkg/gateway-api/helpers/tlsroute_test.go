@@ -16,11 +16,11 @@ func TestHasTLSRouteSupport(t *testing.T) {
 	assert.False(t, HasTLSRouteSupport(scheme1), "Should be false when group is not registered")
 
 	scheme2 := runtime.NewScheme()
-	scheme2.AddKnownTypes(gatewayv1.SchemeGroupVersion, &gatewayv1.TCPRoute{})
+	scheme2.AddKnownTypes(GatewayV1GVK("TCPRoute").GroupVersion(), &gatewayv1.TCPRoute{})
 	assert.False(t, HasTLSRouteSupport(scheme2), "Should be false when group is registered but TLSRoute kind is not")
 
 	scheme3 := runtime.NewScheme()
-	err := gatewayv1.AddToScheme(scheme3)
+	err := gatewayv1.Install(scheme3)
 	assert.NoError(t, err)
 	assert.True(t, HasTLSRouteSupport(scheme3), "Should be true when TLSRoute kind is registered")
 }
