@@ -387,7 +387,7 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 	return nil
 }
 
-func (p *PoolAllocator) AllocateToNode(nodeName string, pools *types.IPAMPoolSpec) error {
+func (p *PoolAllocator) AllocateToNode(nodeName string, pools types.IPAMPoolSpec) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
