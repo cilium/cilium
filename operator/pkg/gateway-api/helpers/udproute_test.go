@@ -16,11 +16,11 @@ func TestHasUDPRouteSupport(t *testing.T) {
 	assert.False(t, HasUDPRouteSupport(scheme1), "Should be false when group is not registered")
 
 	scheme2 := runtime.NewScheme()
-	scheme2.AddKnownTypes(gatewayv1.SchemeGroupVersion, &gatewayv1.TLSRoute{})
+	scheme2.AddKnownTypes(GatewayV1GVK("TLSRoute").GroupVersion(), &gatewayv1.TLSRoute{})
 	assert.False(t, HasUDPRouteSupport(scheme2), "Should be false when group is registered but UDPRoute kind is not")
 
 	scheme3 := runtime.NewScheme()
-	err := gatewayv1.AddToScheme(scheme3)
+	err := gatewayv1.Install(scheme3)
 	assert.NoError(t, err)
 	assert.True(t, HasUDPRouteSupport(scheme3), "Should be true when UDPRoute kind is registered")
 }

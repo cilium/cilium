@@ -13,7 +13,7 @@ import (
 )
 
 func HasListenerSetSupport(scheme *runtime.Scheme) bool {
-	return scheme.Recognizes(gatewayv1.SchemeGroupVersion.WithKind("ListenerSet"))
+	return scheme.Recognizes(GatewayV1GVK("ListenerSet"))
 }
 
 func ListenerEntryToListener(entry gatewayv1.ListenerEntry) gatewayv1.Listener {
