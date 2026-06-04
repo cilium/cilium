@@ -42,12 +42,22 @@ func (c cmds) update() script.Cmd {
 			if len(args) != 2 {
 				return nil, fmt.Errorf("%w: expected key and value file", script.ErrUsage)
 			}
-			b, err := os.ReadFile(s.Path(args[1]))
+			key := args[0]
+			value, err := os.ReadFile(s.Path(args[1]))
 			if err != nil {
 				return nil, fmt.Errorf("could not read %q: %w", s.Path(args[1]), err)
 			}
 
-			return nil, c.client.Update(s.Context(), args[0], b, false)
+			// As this is a dev/test only command, we can be a bit more
+			// aggressive with trimming whitespace to simplify our test scripts.
+			value = bytes.TrimSpace(value)
+
+			value, err = tryTranscodeFromJSON(key, value)
+			if err != nil {
+				return nil, fmt.Errorf("could not transcode %q value: %w", key, err)
+			}
+
+			return nil, c.client.Update(s.Context(), key, value, false)
 		},
 	)
 }
@@ -103,12 +113,18 @@ func (c cmds) list() script.Cmd {
 					}
 
 					if !keysOnly {
+						v := kvs[k].Data
+						v, err = tryTranscodeToJSON(k, v)
+						if err != nil {
+							return "", "", fmt.Errorf("could not transcode %q value: %w", k, err)
+						}
+
 						outfmt, _ := s.Flags.GetString("output")
 						switch outfmt {
 						case "plain":
-							fmt.Fprintln(&b, string(kvs[k].Data))
+							fmt.Fprintln(&b, string(v))
 						case "json":
-							if err := json.Indent(&b, kvs[k].Data, "", "  "); err != nil {
+							if err := json.Indent(&b, v, "", "  "); err != nil {
 								fmt.Fprintf(&b, "ERROR: %s", err)
 							}
 							fmt.Fprintln(&b)
