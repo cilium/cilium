@@ -889,7 +889,7 @@ func (r *gatewayReconciler) runCommonRouteChecks(input routechecks.Input, parent
 }
 
 func (r *gatewayReconciler) parentIsMatchingGateway(parent gatewayv1.ParentReference, namespace string) bool {
-	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.Client, helpers.CiliumDefaultControllerName, r.logger)
+	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.Client, r.controllerName, r.logger)
 	if !helpers.IsGateway(parent) {
 		return false
 	}
@@ -913,11 +913,12 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 		// input for the validators
 		// The validators will mutate the HTTPRoute as required, setting its status correctly.
 		i := &routechecks.HTTPRouteInput{
-			Ctx:       ctx,
-			Logger:    scopedLog.With(logfields.HTTPRoute, hr),
-			Client:    r.Client,
-			Grants:    grants,
-			HTTPRoute: hr,
+			Ctx:            ctx,
+			Logger:         scopedLog.With(logfields.HTTPRoute, hr),
+			Client:         r.Client,
+			Grants:         grants,
+			HTTPRoute:      hr,
+			ControllerName: r.controllerName,
 		}
 
 		if err := r.runCommonRouteChecks(i, hr.Spec.ParentRefs, hr.Namespace); err != nil {
@@ -953,11 +954,12 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 		// input for the validators
 		// The validators will mutate the TLSRoute as required, setting its status correctly.
 		i := &routechecks.TLSRouteInput{
-			Ctx:      ctx,
-			Logger:   scopedLog.With(logfields.TLSRoute, tlsr),
-			Client:   r.Client,
-			Grants:   grants,
-			TLSRoute: tlsr,
+			Ctx:            ctx,
+			Logger:         scopedLog.With(logfields.TLSRoute, tlsr),
+			Client:         r.Client,
+			Grants:         grants,
+			TLSRoute:       tlsr,
+			ControllerName: r.controllerName,
 		}
 
 		if err := r.runCommonRouteChecks(i, tlsr.Spec.ParentRefs, tlsr.Namespace); err != nil {
@@ -988,11 +990,12 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 		// input for the validators
 		// The validators will mutate the GRPCRoute as required, setting its status correctly.
 		i := &routechecks.GRPCRouteInput{
-			Ctx:       ctx,
-			Logger:    scopedLog.With(logfields.GRPCRoute, grpcr),
-			Client:    r.Client,
-			Grants:    grants,
-			GRPCRoute: grpcr,
+			Ctx:            ctx,
+			Logger:         scopedLog.With(logfields.GRPCRoute, grpcr),
+			Client:         r.Client,
+			Grants:         grants,
+			GRPCRoute:      grpcr,
+			ControllerName: r.controllerName,
 		}
 
 		if err := r.runCommonRouteChecks(i, grpcr.Spec.ParentRefs, grpcr.Namespace); err != nil {
@@ -1126,6 +1129,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 				input := &policychecks.BackendTLSPolicyInput{
 					Client:           r.Client,
 					BackendTLSPolicy: btlsp,
+					ControllerName:   r.controllerName,
 				}
 				input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
 					Type:    string(gatewayv1.PolicyConditionAccepted),
@@ -1165,6 +1169,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 				input := &policychecks.BackendTLSPolicyInput{
 					Client:           r.Client,
 					BackendTLSPolicy: btlsp,
+					ControllerName:   r.controllerName,
 				}
 				input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
 					Type:    string(gatewayv1.PolicyConditionAccepted),
@@ -1202,6 +1207,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 			input := &policychecks.BackendTLSPolicyInput{
 				Client:           r.Client,
 				BackendTLSPolicy: btlsp,
+				ControllerName:   r.controllerName,
 			}
 
 			// Now, we run the Policy checks against it, which will update the status correctly.
@@ -1260,6 +1266,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 			input := &policychecks.BackendTLSPolicyInput{
 				Client:           r.Client,
 				BackendTLSPolicy: btlsp,
+				ControllerName:   r.controllerName,
 			}
 
 			input.SetAncestorCondition(currentGatewayRef, metav1.Condition{

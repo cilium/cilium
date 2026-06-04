@@ -425,6 +425,7 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 			b := BackendTLSPolicyInput{
 				Client:           c,
 				BackendTLSPolicy: tt.btlsp,
+				ControllerName:   string(controllerName),
 			}
 			gotvalid, gotErr := b.ValidateSpec(context.Background(), logger, echoaAncestorRef)
 			statusDiff := cmp.Diff(tt.wantStatus, b.BackendTLSPolicy.Status, cmpIgnoreFields...)
