@@ -11,7 +11,6 @@ import (
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 )
 
@@ -53,7 +52,7 @@ func TestPruneRouteParentStatuses(t *testing.T) {
 				Parents: []gatewayv1.RouteParentStatus{
 					{
 						ParentRef:      ourDetachedParent,
-						ControllerName: helpers.CiliumDefaultControllerName,
+						ControllerName: defaultControllerName,
 						Conditions: []metav1.Condition{{
 							Type:   string(gatewayv1.RouteConditionAccepted),
 							Status: metav1.ConditionFalse,
@@ -66,7 +65,7 @@ func TestPruneRouteParentStatuses(t *testing.T) {
 					},
 					{
 						ParentRef:      currentParentStatus,
-						ControllerName: helpers.CiliumDefaultControllerName,
+						ControllerName: defaultControllerName,
 						Conditions: []metav1.Condition{{
 							Type:   string(gatewayv1.RouteConditionAccepted),
 							Status: metav1.ConditionTrue,
@@ -96,11 +95,11 @@ func TestPruneRouteParentStatuses(t *testing.T) {
 	require.Equal(t, otherControllerDetachedParent, route.Status.Parents[1].ParentRef, "merge alone keeps both detached statuses")
 	require.Equal(t, currentParentStatus, route.Status.Parents[2].ParentRef, "merge alone keeps both detached statuses")
 
-	route.Status.Parents = pruneRouteParentStatuses(route.Status.Parents, route.Spec.ParentRefs, helpers.CiliumDefaultControllerName)
+	route.Status.Parents = pruneRouteParentStatuses(route.Status.Parents, route.Spec.ParentRefs, defaultControllerName)
 
 	require.Len(t, route.Status.Parents, 2, "prune removes only the detached Cilium-owned status")
 	require.Equal(t, otherControllerDetachedParent, route.Status.Parents[0].ParentRef, "prune removes only the detached Cilium-owned status")
 	require.Equal(t, gatewayv1.GatewayController("example.com/other-gateway-controller"), route.Status.Parents[0].ControllerName, "prune removes only the detached Cilium-owned status")
 	require.Equal(t, currentParentStatus, route.Status.Parents[1].ParentRef, "prune removes only the detached Cilium-owned status")
-	require.Equal(t, gatewayv1.GatewayController(helpers.CiliumDefaultControllerName), route.Status.Parents[1].ControllerName, "prune removes only the detached Cilium-owned status")
+	require.Equal(t, gatewayv1.GatewayController(defaultControllerName), route.Status.Parents[1].ControllerName, "prune removes only the detached Cilium-owned status")
 }
