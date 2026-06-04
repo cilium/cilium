@@ -1,0 +1,118 @@
+hive start
+
+db/initialized
+
+# Add initial k8s resources.
+k8s/add node1.yaml ciliumnode1.yaml
+k8s/add policy1.yaml
+k8s/add ciliumendpoint1.yaml
+
+db/insert devices device-eth0.yaml device-eth1.yaml
+
+# Check that manager realizes expected bpf map state.
+ egress/policy-maps-dump policymap.actual
+ * cmp policymap.actual policymap.expected.1
+
+# Update the `egressIP` field in the CEGP, and validate that this is reflected in the agent state.
+ cp policy1.yaml policy1_2.yaml
+ sed '    egressIP: 10.10.0.1' '    egressIP: fd00::10:10:0:2' policy1_2.yaml
+ k8s/update policy1_2.yaml
+
+# Check that manager realizes expected bpf map state.
+ egress/policy-maps-dump policymap.actual
+ * cmp policymap.actual policymap.expected.2
+
+-- policymap.expected.1 --
+source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=10.10.0.1 egress_ifindex=0 gateway_ip=172.18.0.3
+source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=fd00::10:10:0:1 egress_ifindex=0 gateway_ip=172.18.0.3
+-- policymap.expected.2 --
+source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=10.10.0.2 egress_ifindex=0 gateway_ip=172.18.0.3
+source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=fd00::10:10:0:2 egress_ifindex=0 gateway_ip=172.18.0.3
+-- node1.yaml --
+apiVersion: v1
+kind: Node
+metadata:
+  name: localnode1
+  uid: c57b0909-b567-48a3-865a-c1d1a17b545d
+status:
+  addresses:
+  - address: 172.18.0.3
+    type: InternalIP
+-- ciliumnode1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  generation: 1
+  labels:
+    kubernetes.io/hostname: kind-worker
+    foo: bar
+  name: localnode1
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  addresses:
+  - ip: 172.18.0.3
+    type: InternalIP
+-- policy1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  generation: 1
+  name: policy1
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  destinationCIDRs:
+  - 0.0.0.0/0
+  - ::/0
+  egressGateway:
+    egressIP: 10.10.0.1
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/hostname: kind-worker
+  excludedCIDRs: []
+  selectors:
+  - podSelector:
+      matchLabels:
+        foo: bar
+-- ciliumendpoint1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  generation: 1
+  labels:
+    name: client1
+    foo: bar
+  name: client1-795488bf5-2tplm
+  namespace: test1
+  uid: 7c22952d-25a0-409d-952c-60895b5c2a90
+status:
+  id: 2000
+  identity:
+    id: 1000
+    labels:
+    - k8s:foo=bar
+  networking:
+    addressing:
+    - ipv4: 10.244.3.91
+      ipv6: fd00:10:244:3::9c94
+    node: 172.18.0.5
+  state: ready
+-- device-eth0.yaml --
+index: 1
+name: eth0
+addrs:
+  - addr: 10.10.0.1
+  - addr: fd00::10:10:0:1
+  - addr: fe80::42:bdff:ec52:ab11
+type: veth
+flags: 1 # admin-up
+operstatus: up
+-- device-eth1.yaml --
+index: 2
+name: eth1
+addrs:
+  - addr: 10.10.0.2
+  - addr: fd00::10:10:0:2
+  - addr: fe80::42:bdff:ec52:ab12
+type: veth
+flags: 1 # admin-up
+operstatus: up
