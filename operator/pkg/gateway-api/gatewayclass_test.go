@@ -118,7 +118,8 @@ func Test_referencedConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.expected, referencedConfig(tc.object))
+			r := &gatewayClassReconciler{controllerName: helpers.CiliumDefaultControllerName}
+			require.Equal(t, tc.expected, r.referencedConfig(tc.object))
 		})
 	}
 }
