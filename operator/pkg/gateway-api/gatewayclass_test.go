@@ -12,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
@@ -65,7 +64,7 @@ func Test_referencedConfig(t *testing.T) {
 			name: "cilium GatewayClass with supported parametersRef",
 			object: &gatewayv1.GatewayClass{
 				Spec: gatewayv1.GatewayClassSpec{
-					ControllerName: helpers.CiliumDefaultControllerName,
+					ControllerName: defaultControllerName,
 					ParametersRef: &gatewayv1.ParametersReference{
 						Group:     v2alpha1.CustomResourceDefinitionGroup,
 						Kind:      v2alpha1.CGCCKindDefinition,
@@ -98,7 +97,7 @@ func Test_referencedConfig(t *testing.T) {
 			name: "cilium GatewayClass with unsupported parametersRef",
 			object: &gatewayv1.GatewayClass{
 				Spec: gatewayv1.GatewayClassSpec{
-					ControllerName: helpers.CiliumDefaultControllerName,
+					ControllerName: defaultControllerName,
 					ParametersRef: &gatewayv1.ParametersReference{
 						Group:     "v1",
 						Kind:      "ConfigMap",
@@ -118,7 +117,7 @@ func Test_referencedConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &gatewayClassReconciler{controllerName: helpers.CiliumDefaultControllerName}
+			r := &gatewayClassReconciler{controllerName: defaultControllerName}
 			require.Equal(t, tc.expected, r.referencedConfig(tc.object))
 		})
 	}

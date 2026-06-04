@@ -110,7 +110,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 						Client:         c,
 						translator:     gatewayAPITranslator,
 						logger:         logger,
-						controllerName: helpers.CiliumDefaultControllerName,
+						controllerName: defaultControllerName,
 					}
 
 					// Reconcile all related HTTPRoute objects

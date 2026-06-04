@@ -39,6 +39,10 @@ import (
 )
 
 // Cell manages the Gateway API related controllers.
+const (
+	defaultControllerName = "io.cilium/gateway-controller"
+)
+
 var Cell = cell.Module(
 	"gateway-api",
 	"Manages the Gateway API controllers",
@@ -285,7 +289,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		params.CtrlRuntimeManager,
 		gatewayAPITranslator,
 		params.Logger,
-		helpers.CiliumDefaultControllerName,
+		defaultControllerName,
 		installedKinds,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
@@ -317,7 +321,7 @@ func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrati
 		return secretsync.SecretSyncRegistrationOut{}
 	}
 
-	handler := NewSecretSyncHandler(params.CtrlRuntimeManager.GetClient(), params.Logger, helpers.CiliumDefaultControllerName)
+	handler := NewSecretSyncHandler(params.CtrlRuntimeManager.GetClient(), params.Logger, defaultControllerName)
 
 	return secretsync.SecretSyncRegistrationOut{
 		SecretSyncRegistration: &secretsync.SecretSyncRegistration{

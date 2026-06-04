@@ -332,7 +332,7 @@ func Test_Conformance(t *testing.T) {
 				Client:         c,
 				translator:     gatewayAPITranslator,
 				logger:         logger,
-				controllerName: helpers.CiliumDefaultControllerName,
+				controllerName: defaultControllerName,
 			}
 
 			// Reconcile all related HTTPRoute objects
@@ -578,7 +578,7 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 			r := &gatewayReconciler{
 				Client:         c,
 				logger:         hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
-				controllerName: helpers.CiliumDefaultControllerName,
+				controllerName: defaultControllerName,
 			}
 
 			result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(gw)})

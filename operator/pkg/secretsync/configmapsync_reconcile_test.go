@@ -19,10 +19,11 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	gateway_api "github.com/cilium/cilium/operator/pkg/gateway-api"
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 )
+
+const testConfigMapSyncControllerName = "example.com/test-gateway-controller"
 
 var configMapFixture = []client.Object{
 	&corev1.Secret{
@@ -97,7 +98,7 @@ var configMapFixture = []client.Object{
 		Status: gatewayv1.PolicyStatus{
 			Ancestors: []gatewayv1.PolicyAncestorStatus{
 				{
-					ControllerName: "io.cilium/gateway-controller",
+					ControllerName: testConfigMapSyncControllerName,
 					Conditions: []metav1.Condition{
 						{
 							Type:   "Accepted",
@@ -189,7 +190,7 @@ var configMapFixture = []client.Object{
 		Status: gatewayv1.PolicyStatus{
 			Ancestors: []gatewayv1.PolicyAncestorStatus{
 				{
-					ControllerName: "io.cilium/gateway-controller",
+					ControllerName: testConfigMapSyncControllerName,
 					Conditions: []metav1.Condition{
 						{
 							Type:   "Accepted",
@@ -211,7 +212,7 @@ func Test_ConfigMapSync_Reconcile(t *testing.T) {
 		WithIndex(&gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicyConfigMapIndex, indexers.IndexBTLSPolicyByConfigMap).
 		Build()
 
-	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, helpers.CiliumDefaultControllerName)
+	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testConfigMapSyncControllerName)
 
 	r := secretsync.NewConfigMapSyncReconciler(c, logger, []*secretsync.ConfigMapSyncRegistration{
 		{
