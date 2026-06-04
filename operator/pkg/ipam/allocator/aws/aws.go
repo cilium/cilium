@@ -14,7 +14,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
-	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
+	"github.com/cilium/cilium/pkg/aws/api"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -41,11 +41,11 @@ type AllocatorAWS struct {
 	ParallelAllocWorkers         int64
 	LimitIPAMAPIBurst            int
 	LimitIPAMAPIQPS              float64
-	AWSMetrics                   ec2shim.MetricsAPI
+	AWSMetrics                   api.MetricsAPI
 
 	rootLogger *slog.Logger
 	logger     *slog.Logger
-	client     *ec2shim.Client
+	client     *api.Client
 	eniGCTags  map[string]string
 }
 
@@ -67,7 +67,7 @@ func (a *AllocatorAWS) initENIGarbageCollectionTags(ctx context.Context, cfg aws
 	}
 
 	// Try to auto-detect EKS cluster name
-	clusterName, err := ec2shim.DetectEKSClusterName(ctx, cfg)
+	clusterName, err := api.DetectEKSClusterName(ctx, cfg)
 	if err != nil {
 		a.logger.Debug("Auto-detection of EKS cluster name failed", logfields.Error, err)
 	} else {
@@ -90,18 +90,18 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 
-	cfg, err := ec2shim.NewConfig(ctx)
+	cfg, err := api.NewConfig(ctx)
 	if err != nil {
 		return err
 	}
-	subnetsFilters := ec2shim.NewSubnetsFilters(a.SubnetsTags, a.SubnetsIDs)
-	instancesFilters := ec2shim.NewTagsFilter(operatorOption.Config.IPAMInstanceTags)
+	subnetsFilters := api.NewSubnetsFilters(a.SubnetsTags, a.SubnetsIDs)
+	instancesFilters := api.NewTagsFilter(operatorOption.Config.IPAMInstanceTags)
 
 	eniCreationTags := a.ENITags
 	if a.ENIGarbageCollectionInterval > 0 {
 		a.eniGCTags = a.initENIGarbageCollectionTags(ctx, cfg)
 		// Make sure GC tags are also used for ENI creation
-		eniCreationTags = ec2shim.MergeTags(eniCreationTags, a.eniGCTags)
+		eniCreationTags = api.MergeTags(eniCreationTags, a.eniGCTags)
 	}
 
 	optionsFunc := func(options *ec2.Options) {}
@@ -116,7 +116,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 		}
 	}
 
-	a.client = ec2shim.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), a.AWSMetrics, a.LimitIPAMAPIQPS,
+	a.client = api.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), a.AWSMetrics, a.LimitIPAMAPIQPS,
 		a.LimitIPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
 		a.AWSUsePrimaryAddress, a.AWSMaxResultsPerCall)
 

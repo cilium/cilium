@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/operator/pkg/ipam/stats"
-	"github.com/cilium/cilium/pkg/aws/ec2"
+	"github.com/cilium/cilium/pkg/aws/api"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -526,9 +526,9 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 func isSubnetAtPrefixCapacity(err error) bool {
 	var apiErr smithy.APIError
 	if errors.As(err, &apiErr) {
-		return apiErr.ErrorCode() == ec2.InsufficientPrefixesInSubnetStr ||
-			(apiErr.ErrorCode() == ec2.InvalidParameterValueStr &&
-				strings.Contains(apiErr.ErrorMessage(), ec2.SubnetFullErrMsgStr))
+		return apiErr.ErrorCode() == api.InsufficientPrefixesInSubnetStr ||
+			(apiErr.ErrorCode() == api.InvalidParameterValueStr &&
+				strings.Contains(apiErr.ErrorMessage(), api.SubnetFullErrMsgStr))
 	}
 	return false
 }
@@ -636,7 +636,7 @@ func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
 func isAttachmentIndexConflict(err error) bool {
 	var apiErr smithy.APIError
 	if errors.As(err, &apiErr) {
-		return apiErr.ErrorCode() == ec2.InvalidParameterValueStr &&
+		return apiErr.ErrorCode() == api.InvalidParameterValueStr &&
 			strings.Contains(apiErr.ErrorMessage(), "interface attached at device")
 	}
 	return false

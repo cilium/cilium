@@ -579,7 +579,7 @@ func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 			}
 		}
 
-		// In parseENI (pkg/aws/ec2), we currently use PrefixToIps to flatten each prefixes
+		// In parseENI (pkg/aws/api), we currently use PrefixToIps to flatten each prefixes
 		// into 16 individual IPs and append those IPs to the ENI Addresses field.
 		// Here we need to apply a reverse logic to only advertise as /32 CIDRs in the pool
 		// regular secondary addresses (or the ENI primary IP when using UsePrimaryAddress)

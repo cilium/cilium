@@ -17,7 +17,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
-	"github.com/cilium/cilium/pkg/aws/ec2"
+	"github.com/cilium/cilium/pkg/aws/api"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
@@ -533,8 +533,8 @@ func assignPrefixToENI(e *API, eni *types.ENI, prefixes int32) error {
 
 	if int(prefixes)*option.ENIPDBlockSizeIPv4 > subnet.AvailableAddresses {
 		return &smithy.GenericAPIError{
-			Code:    ec2.InvalidParameterValueStr,
-			Message: ec2.SubnetFullErrMsgStr,
+			Code:    api.InvalidParameterValueStr,
+			Message: api.SubnetFullErrMsgStr,
 		}
 	}
 
