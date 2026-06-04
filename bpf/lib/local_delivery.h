@@ -128,8 +128,6 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_DELIVERY_FLAGS, delivery_flags);
-	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
-	ctx_store_meta(ctx, CB_FROM_TUNNEL, from_tunnel ? 1 : 0);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, cluster_id);
 }
 
