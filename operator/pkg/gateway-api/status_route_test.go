@@ -96,7 +96,7 @@ func TestPruneRouteParentStatuses(t *testing.T) {
 	require.Equal(t, otherControllerDetachedParent, route.Status.Parents[1].ParentRef, "merge alone keeps both detached statuses")
 	require.Equal(t, currentParentStatus, route.Status.Parents[2].ParentRef, "merge alone keeps both detached statuses")
 
-	route.Status.Parents = pruneRouteParentStatuses(route.Status.Parents, route.Spec.ParentRefs)
+	route.Status.Parents = pruneRouteParentStatuses(route.Status.Parents, route.Spec.ParentRefs, helpers.CiliumDefaultControllerName)
 
 	require.Len(t, route.Status.Parents, 2, "prune removes only the detached Cilium-owned status")
 	require.Equal(t, otherControllerDetachedParent, route.Status.Parents[0].ParentRef, "prune removes only the detached Cilium-owned status")
