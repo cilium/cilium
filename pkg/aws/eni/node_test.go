@@ -10,7 +10,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
+	apiMock "github.com/cilium/cilium/pkg/aws/api/mock"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -19,7 +19,7 @@ import (
 )
 
 func TestGetMaximumAllocatableIPv4(t *testing.T) {
-	api := ec2mock.NewAPI(nil, nil, nil, nil)
+	api := apiMock.NewAPI(nil, nil, nil, nil)
 	metadataMock, _ := metadataMock.NewMetadataMock()
 	instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), api, metadataMock)
 	require.NoError(t, err)
@@ -270,7 +270,7 @@ func TestIsPrefixDelegated(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := ec2mock.NewAPI(nil, nil, nil, nil)
+			api := apiMock.NewAPI(nil, nil, nil, nil)
 			metadataMock, _ := metadataMock.NewMetadataMock()
 			instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), api, metadataMock)
 			require.NoError(t, err)

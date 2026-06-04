@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
-	cilium_ec2 "github.com/cilium/cilium/pkg/aws/ec2"
+	awsAPI "github.com/cilium/cilium/pkg/aws/api"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -29,7 +29,7 @@ func GetIPsFromGroup(ctx context.Context, group *api.Groups) ([]netip.Addr, erro
 		return result, nil
 	}
 
-	cfg, err := cilium_ec2.NewConfig(ctx)
+	cfg, err := awsAPI.NewConfig(ctx)
 	if err != nil {
 		return nil, err
 	}

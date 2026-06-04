@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
-	"github.com/cilium/cilium/pkg/aws/ec2/mock"
+	"github.com/cilium/cilium/pkg/aws/api/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"

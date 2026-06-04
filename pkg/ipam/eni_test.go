@@ -515,7 +515,7 @@ func TestEniPoolsFromResource(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
 		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 			"eni-1": {
-				// Mimics the pkg/aws/ec2.parseENI behavior: Addresses contains the ENI secondary
+				// Mimics the pkg/aws/api.parseENI behavior: Addresses contains the ENI secondary
 				// IPs, the ENI primary if UsePrimaryAddress and the 16 IPs expanded from the /28 prefix.
 				// Prefixes contains the raw /28.
 				Addresses: addrs(

@@ -10,7 +10,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
+	apiMock "github.com/cilium/cilium/pkg/aws/api/mock"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -134,7 +134,7 @@ var (
 		},
 	}
 
-	enis = map[string]ec2mock.ENIMap{
+	enis = map[string]apiMock.ENIMap{
 		"i-1": {
 			"eni-1": {
 				ID:             "eni-1",
@@ -159,7 +159,7 @@ var (
 		},
 	}
 
-	enis2 = map[string]ec2mock.ENIMap{
+	enis2 = map[string]apiMock.ENIMap{
 		"i-1": {
 			"eni-1": {
 				ID:             "eni-1",
@@ -194,13 +194,13 @@ var (
 	}
 )
 
-func iteration1(t *testing.T, api *ec2mock.API, mngr *InstancesManager) {
+func iteration1(t *testing.T, api *apiMock.API, mngr *InstancesManager) {
 	api.UpdateENIs(enis)
 	_, err := mngr.Resync(t.Context())
 	require.NoError(t, err)
 }
 
-func iteration2(t *testing.T, api *ec2mock.API, mngr *InstancesManager) {
+func iteration2(t *testing.T, api *apiMock.API, mngr *InstancesManager) {
 	api.UpdateSubnets(subnets2)
 	api.UpdateSecurityGroups(securityGroups2)
 	api.UpdateENIs(enis2)
@@ -209,7 +209,7 @@ func iteration2(t *testing.T, api *ec2mock.API, mngr *InstancesManager) {
 }
 
 func TestGetSubnet(t *testing.T) {
-	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
+	api := apiMock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
 	mngr, err := NewInstancesManager(t.Context(), hivetest.Logger(t), api, metadataMockapi)
@@ -248,7 +248,7 @@ func TestGetSubnet(t *testing.T) {
 }
 
 func TestFindSubnetByIDs(t *testing.T) {
-	api := ec2mock.NewAPI(subnets2, vpcs, securityGroups, routeTables)
+	api := apiMock.NewAPI(subnets2, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
 	mngr, err := NewInstancesManager(t.Context(), hivetest.Logger(t), api, metadataMockapi)
@@ -288,7 +288,7 @@ func TestFindSubnetByIDs(t *testing.T) {
 }
 
 func TestFindSubnetByTags(t *testing.T) {
-	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
+	api := apiMock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
 	mngr, err := NewInstancesManager(t.Context(), hivetest.Logger(t), api, metadataMockapi)
@@ -325,7 +325,7 @@ func TestFindSubnetByTags(t *testing.T) {
 }
 
 func TestGetSecurityGroupByTags(t *testing.T) {
-	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
+	api := apiMock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 
 	metadataMockapi, _ := metadataMock.NewMetadataMock()

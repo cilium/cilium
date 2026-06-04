@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
+	"github.com/cilium/cilium/pkg/aws/api/mock"
 	"github.com/cilium/cilium/pkg/controller"
 )
 
@@ -44,7 +44,7 @@ func TestStartENIGarbageCollector(t *testing.T) {
 		"cilium-managed": "true",
 	}
 
-	ec2api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
+	ec2api := mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, ec2api)
 
 	untaggedENIs := map[string]bool{}
