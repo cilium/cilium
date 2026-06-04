@@ -297,3 +297,79 @@ func TestGetConcreteObject(t *testing.T) {
 		})
 	}
 }
+
+func TestParentRefEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		a    gatewayv1.ParentReference
+		b    gatewayv1.ParentReference
+		want bool
+	}{
+		{
+			name: "equal empty",
+			a:    gatewayv1.ParentReference{},
+			b:    gatewayv1.ParentReference{},
+			want: true,
+		},
+		{
+			name: "equal simple",
+			a:    gatewayv1.ParentReference{Name: "gw"},
+			b:    gatewayv1.ParentReference{Name: "gw"},
+			want: true,
+		},
+		{
+			name: "different name",
+			a:    gatewayv1.ParentReference{Name: "gw1"},
+			b:    gatewayv1.ParentReference{Name: "gw2"},
+			want: false,
+		},
+		{
+			name: "same group ptrs",
+			a:    gatewayv1.ParentReference{Name: "gw", Group: ptr.To[gatewayv1.Group]("group1")},
+			b:    gatewayv1.ParentReference{Name: "gw", Group: ptr.To[gatewayv1.Group]("group1")},
+			want: true,
+		},
+		{
+			name: "different group values",
+			a:    gatewayv1.ParentReference{Name: "gw", Group: ptr.To[gatewayv1.Group]("group1")},
+			b:    gatewayv1.ParentReference{Name: "gw", Group: ptr.To[gatewayv1.Group]("group2")},
+			want: false,
+		},
+		{
+			name: "nil vs non-nil group",
+			a:    gatewayv1.ParentReference{Name: "gw", Group: nil},
+			b:    gatewayv1.ParentReference{Name: "gw", Group: ptr.To[gatewayv1.Group]("group1")},
+			want: false,
+		},
+		{
+			name: "different kind values",
+			a:    gatewayv1.ParentReference{Name: "gw", Kind: ptr.To[gatewayv1.Kind]("Gateway")},
+			b:    gatewayv1.ParentReference{Name: "gw", Kind: ptr.To[gatewayv1.Kind]("Service")},
+			want: false,
+		},
+		{
+			name: "different namespaces",
+			a:    gatewayv1.ParentReference{Name: "gw", Namespace: ptr.To[gatewayv1.Namespace]("ns1")},
+			b:    gatewayv1.ParentReference{Name: "gw", Namespace: ptr.To[gatewayv1.Namespace]("ns2")},
+			want: false,
+		},
+		{
+			name: "different sectionNames",
+			a:    gatewayv1.ParentReference{Name: "gw", SectionName: ptr.To[gatewayv1.SectionName]("sec1")},
+			b:    gatewayv1.ParentReference{Name: "gw", SectionName: ptr.To[gatewayv1.SectionName]("sec2")},
+			want: false,
+		},
+		{
+			name: "different ports",
+			a:    gatewayv1.ParentReference{Name: "gw", Port: ptr.To[gatewayv1.PortNumber](80)},
+			b:    gatewayv1.ParentReference{Name: "gw", Port: ptr.To[gatewayv1.PortNumber](443)},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParentRefEqual(tt.a, tt.b)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

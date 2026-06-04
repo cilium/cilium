@@ -118,3 +118,36 @@ func GetConcreteObject(schemaType schema.GroupVersionKind) runtime.Object {
 func IsValidGammaService(svc *corev1.Service) bool {
 	return svc.Spec.Type == corev1.ServiceTypeClusterIP
 }
+
+// ParentRefEqual returns true if two ParentReferences are equal in value.
+func ParentRefEqual(a, b gatewayv1.ParentReference) bool {
+	if a.Name != b.Name {
+		return false
+	}
+	if !ptrEqual(a.Group, b.Group) {
+		return false
+	}
+	if !ptrEqual(a.Kind, b.Kind) {
+		return false
+	}
+	if !ptrEqual(a.Namespace, b.Namespace) {
+		return false
+	}
+	if !ptrEqual(a.SectionName, b.SectionName) {
+		return false
+	}
+	if !ptrEqual(a.Port, b.Port) {
+		return false
+	}
+	return true
+}
+
+func ptrEqual[T comparable](a, b *T) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
