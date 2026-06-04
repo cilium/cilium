@@ -224,13 +224,12 @@ func (c *Cache) HasAny(typeURL string) bool {
 	return false
 }
 
-func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, resourceNames []string) (*VersionedResources, error) {
+func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
 	scopedLog := c.logger.With(
 		logfields.XDSAckedVersion, lastVersion,
-		logfields.XDSClientNode, nodeIP,
 		logfields.XDSTypeURL, typeURL,
 	)
 
@@ -256,7 +255,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 			logfields.Resources, len(res.Resources),
 			logfields.Type, typeURL,
 		)
-		return res, nil
+		return res
 	}
 
 	// Return only the resources with the requested names.
@@ -305,7 +304,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 
 	if allResourcesFound && !updatedSinceLastVersion {
 		scopedLog.Debug("all requested resources found but not updated since last version, returning no response")
-		return nil, nil
+		return nil
 	}
 
 	slices.Sort(res.ResourceNames)
@@ -315,7 +314,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 		logfields.ReturningResources, len(res.Resources),
 		logfields.RequestedResources, len(resourceNames),
 	)
-	return res, nil
+	return res
 }
 
 func (c *Cache) EnsureVersion(typeURL string, version uint64) {
@@ -337,10 +336,10 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 // Lookup finds the resource corresponding to the specified typeURL and resourceName,
 // if available, and returns it. Otherwise, returns nil. If an error occurs while
 // fetching the resource, also returns the error.
-func (c *Cache) Lookup(typeURL string, resourceName string) (proto.Message, error) {
-	res, err := c.GetResources(typeURL, 0, "", []string{resourceName})
-	if err != nil || res == nil || len(res.Resources) == 0 {
-		return nil, err
+func (c *Cache) Lookup(typeURL string, resourceName string) proto.Message {
+	res := c.GetResources(typeURL, 0, []string{resourceName})
+	if res == nil || len(res.Resources) == 0 {
+		return nil
 	}
-	return res.Resources[0], nil
+	return res.Resources[0]
 }

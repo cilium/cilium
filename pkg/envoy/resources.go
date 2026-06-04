@@ -201,13 +201,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 	)
 
 	// Look up the current resources for the specified Identity.
-	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
-	if err != nil {
-		scopedLog.Warn("Can't lookup NPHDS cache",
-			logfields.Error, err,
-		)
-		return
-	}
+	msg := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
 
 	var npHost *envoyAPI.NetworkPolicyHosts
 	if msg != nil {

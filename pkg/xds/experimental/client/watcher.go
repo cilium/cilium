@@ -118,12 +118,7 @@ func (w *watcher) HandleNewResourceVersion(typeUrl string, _ uint64) {
 // because the cache invoking the function holds a lock on the resources.
 func (l *watcher) process() {
 	for range l.trigger {
-		resVer, err := l.resources.GetResources(l.typeUrl, 0, "", nil)
-		if err != nil {
-			l.log.Error("Failed to fetch resource", logfields.Error, err)
-			continue
-		}
-
+		resVer := l.resources.GetResources(l.typeUrl, 0, nil)
 		l.log.Debug("Invoke callback")
 		l.cb(resVer)
 	}
