@@ -42,6 +42,7 @@ func (m *mockCNIConfigManager) GetChainingMode() string             { return "" 
 func (m *mockCNIConfigManager) Status() *apimodels.Status           { return nil }
 func (m *mockCNIConfigManager) GetCustomNetConf() *cnitypes.NetConf { return nil }
 func (m *mockCNIConfigManager) ExternalRoutingEnabled() bool        { return false }
+func (m *mockCNIConfigManager) GetDelegatedIPAMCNIBinPath() string  { return "" }
 
 // TestUpdateCiliumNodeResourceTransientErrorCausesFatal reproduces
 // https://github.com/cilium/cilium/issues/44388: a transient error from the

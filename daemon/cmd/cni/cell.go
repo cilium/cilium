@@ -42,6 +42,10 @@ type CNIConfigManager interface {
 	// ExternalRoutingEnabled returns true if the chained plugin implements
 	// routing for Endpoints (Pods).
 	ExternalRoutingEnabled() bool
+
+	// GetDelegatedIPAMCNIBinPath returns the path to the CNI bin directory
+	// used for delegated IPAM plugin invocations.
+	GetDelegatedIPAMCNIBinPath() string
 }
 
 func enableConfigManager(lc cell.Lifecycle, logger *slog.Logger, cfg config.Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {
