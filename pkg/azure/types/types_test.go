@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	azuretypes "github.com/cilium/cilium/pkg/azure/types"
+	"github.com/cilium/cilium/pkg/azure/types"
 	// Register the Azure resource-ID parser so SetID()/extractIDs() populate
 	// the VMSS/VM/RG fields exercised by TestExtractIDs.
 	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
@@ -40,7 +40,7 @@ func TestExtractIDs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			intf := azuretypes.AzureInterface{}
+			intf := types.AzureInterface{}
 			intf.SetID(tt.resourceID)
 
 			require.Equal(t, tt.expectedRG, intf.GetResourceGroup())
