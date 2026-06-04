@@ -134,9 +134,7 @@ func Test_MultiPoolManager(t *testing.T) {
 			Node:                 localNode,
 			CNClient:             clientset.CiliumV2().CiliumNodes(),
 			JobGroup:             jg,
-			PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
-				return &cn.Spec.IPAM.Pools
-			},
+			PoolSpecAccessors:    MultiPoolAccessor,
 		})
 
 		// Wait for agent pre-allocation request, then validate it
@@ -586,9 +584,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		Node:                 fakeK8sAPI,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
-		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
-			return &cn.Spec.IPAM.Pools
-		},
+		PoolSpecAccessors:    MultiPoolAccessor,
 	})
 
 	<-events // first upsert (initial node)
@@ -707,9 +703,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		Node:                 fakeK8sAPI,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
-		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
-			return &cn.Spec.IPAM.Pools
-		},
+		PoolSpecAccessors:    MultiPoolAccessor,
 	})
 
 	<-events // first upsert (initial node)
@@ -974,9 +968,7 @@ func Test_MultiPoolManager_UpdateNodeRetries(t *testing.T) {
 			Node:                 localNode,
 			CNClient:             clientset.CiliumV2().CiliumNodes(),
 			JobGroup:             jg,
-			PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
-				return &cn.Spec.IPAM.Pools
-			},
+			PoolSpecAccessors:    MultiPoolAccessor,
 		})
 		require.NotNil(t, mgr)
 

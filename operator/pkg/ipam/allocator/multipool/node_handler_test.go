@@ -24,6 +24,7 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumFake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
@@ -94,10 +95,6 @@ type mockResult struct {
 	err  error
 }
 
-func GetIPAMPools(cn *v2.CiliumNode) *ipamTypes.IPAMPoolSpec {
-	return &cn.Spec.IPAM.Pools
-}
-
 func TestNodeHandler(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
@@ -130,7 +127,10 @@ func TestNodeHandler(t *testing.T) {
 			return r.node, r.err
 		},
 	}
-	nh := NewNodeHandler("test", hivetest.Logger(t), backend, nodeUpdater, GetIPAMPools)
+	nh := NewNodeHandler(
+		"test", hivetest.Logger(t), backend, nodeUpdater,
+		ipam.MultiPoolAccessor,
+	)
 
 	// wait 1ms instead of default 1s base duration in unit tests
 	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
@@ -276,7 +276,10 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 			return r.node, r.err
 		},
 	}
-	nh := NewNodeHandler("test", hivetest.Logger(t), backend, nodeUpdater, GetIPAMPools)
+	nh := NewNodeHandler(
+		"test", hivetest.Logger(t), backend, nodeUpdater,
+		ipam.MultiPoolAccessor,
+	)
 
 	// wait 1ms instead of default 1s base duration in unit tests
 	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
@@ -406,7 +409,10 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 			return r.node, r.err
 		},
 	}
-	nh := NewNodeHandler("test", hivetest.Logger(t), backend, nodeUpdater, GetIPAMPools)
+	nh := NewNodeHandler(
+		"test", hivetest.Logger(t), backend, nodeUpdater,
+		ipam.MultiPoolAccessor,
+	)
 
 	// wait 1ms instead of default 1s base duration in unit tests
 	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
@@ -564,7 +570,10 @@ func TestNodeHandlerRetries(t *testing.T) {
 			return false, nil, nil
 		})
 
-		nh := NewNodeHandler("test", hivetest.Logger(t), backend, clientset.CiliumV2().CiliumNodes(), GetIPAMPools)
+		nh := NewNodeHandler(
+			"test", hivetest.Logger(t), backend, clientset.CiliumV2().CiliumNodes(),
+			ipam.MultiPoolAccessor,
+		)
 		t.Cleanup(nh.Stop)
 		nh.controllerErrorRetryBaseDuration = time.Millisecond
 
@@ -639,7 +648,10 @@ func TestNodeHandlerRetries(t *testing.T) {
 			return false, nil, nil
 		})
 
-		nh := NewNodeHandler("test", hivetest.Logger(t), backend, clientset.CiliumV2().CiliumNodes(), GetIPAMPools)
+		nh := NewNodeHandler(
+			"test", hivetest.Logger(t), backend, clientset.CiliumV2().CiliumNodes(),
+			ipam.MultiPoolAccessor,
+		)
 		t.Cleanup(nh.Stop)
 		nh.controllerErrorRetryBaseDuration = time.Millisecond
 

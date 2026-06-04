@@ -22,6 +22,7 @@ import (
 	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -180,9 +181,7 @@ func StartAllocator(p multiPoolParams) {
 						nm := NewNodeHandler(
 							"ipam-multi-pool-sync",
 							p.Logger, p.Allocator, p.Clientset.CiliumV2().CiliumNodes(),
-							func(cn *v2.CiliumNode) *types.IPAMPoolSpec {
-								return &cn.Spec.IPAM.Pools
-							},
+							ipam.MultiPoolAccessor,
 						)
 
 						return nm, nil

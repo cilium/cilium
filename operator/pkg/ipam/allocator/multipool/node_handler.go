@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipam"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -26,9 +27,9 @@ type NodeHandler struct {
 	logger *slog.Logger
 	mutex  lock.Mutex
 
-	poolManager       *PoolAllocator
-	cnClient          cilium_v2.CiliumNodeInterface
-	poolsFromResource v2.PoolsFromResourceFunc
+	poolManager   *PoolAllocator
+	cnClient      cilium_v2.CiliumNodeInterface
+	poolsAccessor ipam.PoolSpecAccessors
 
 	name string
 
@@ -47,13 +48,13 @@ func NewNodeHandler(
 	logger *slog.Logger,
 	manager *PoolAllocator,
 	cnClient cilium_v2.CiliumNodeInterface,
-	poolsFromResource v2.PoolsFromResourceFunc,
+	poolsAccessor ipam.PoolSpecAccessors,
 ) *NodeHandler {
 	return &NodeHandler{
 		logger:                 logger,
 		poolManager:            manager,
 		cnClient:               cnClient,
-		poolsFromResource:      poolsFromResource,
+		poolsAccessor:          poolsAccessor,
 		name:                   name,
 		nodesPendingAllocation: map[string]*v2.CiliumNode{},
 		controllerManager:      controller.NewManager(),
@@ -106,7 +107,7 @@ func (n *NodeHandler) Stop() {
 func (n *NodeHandler) upsertLocked(resource *v2.CiliumNode) {
 	if !n.restoreFinished {
 		n.nodesPendingAllocation[resource.Name] = resource
-		pools := n.poolsFromResource(resource)
+		pools := n.poolsAccessor.FromResource(resource)
 		_ = n.poolManager.AllocateToNode(resource.Name, pools)
 		return
 	}
@@ -138,7 +139,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 				refetchNode = false
 			}
 
-			pools := n.poolsFromResource(resource)
+			pools := n.poolsAccessor.FromResource(resource)
 			err := n.poolManager.AllocateToNode(resource.Name, pools)
 			if err != nil {
 				n.logger.Warn(
@@ -153,10 +154,11 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 			newResource := resource.DeepCopy()
 			newResource.Status.IPAM.OperatorStatus.Error = errorMessage
 
-			newPools := n.poolsFromResource(newResource)
+			newPools := n.poolsAccessor.FromResource(newResource)
 			newPools.Allocated = n.poolManager.AllocatedPools(newResource.Name)
+			changed := n.poolsAccessor.ToResource(newResource, newPools)
 
-			if !newPools.DeepEqual(pools) {
+			if changed {
 				_, err = n.cnClient.Update(ctx, newResource, metav1.UpdateOptions{})
 				if err != nil {
 					controllerErr = errors.Join(controllerErr, fmt.Errorf("failed to update spec: %w", err))

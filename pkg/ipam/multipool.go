@@ -30,6 +30,19 @@ import (
 
 const waitForPoolInStateDBTimeout = time.Minute
 
+var MultiPoolAccessor = PoolSpecAccessors{
+	FromResource: func(cn *ciliumv2.CiliumNode) types.IPAMPoolSpec {
+		return cn.Spec.IPAM.Pools
+	},
+	ToResource: func(cn *ciliumv2.CiliumNode, spec types.IPAMPoolSpec) bool {
+		if !cn.Spec.IPAM.Pools.DeepEqual(&spec) {
+			cn.Spec.IPAM.Pools = spec
+			return true
+		}
+		return false
+	},
+}
+
 var _ Allocator = (*multiPoolAllocator)(nil)
 
 type MultiPoolAllocatorParams struct {
@@ -71,9 +84,7 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 		CNClient:              p.CNClient,
 		JobGroup:              p.JobGroup,
 		SkipMasqueradeForPool: shouldSkipMasqForPool(p.DB, p.PodIPPools, p.OnlyMasqueradeDefaultPool),
-		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
-			return &cn.Spec.IPAM.Pools
-		},
+		PoolSpecAccessors:     MultiPoolAccessor,
 	})
 
 	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)

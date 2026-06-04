@@ -102,7 +102,7 @@ func TestPoolAllocator(t *testing.T) {
 		},
 	}
 	// node1 has some pre-allocated pools that need to be restored
-	err = p.AllocateToNode(node1.Name, &node1.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node1.Name, node1.Spec.IPAM.Pools)
 	assert.ErrorIs(t, ErrAllocatorNotReady, err)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
@@ -116,12 +116,12 @@ func TestPoolAllocator(t *testing.T) {
 	}, p.AllocatedPools(node1.Name))
 
 	// node2 must not allocate before restoration has finished
-	err = p.AllocateToNode(node2.Name, &node2.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node2.Name, node2.Spec.IPAM.Pools)
 	assert.ErrorIs(t, ErrAllocatorNotReady, err)
 	assert.Empty(t, p.AllocatedPools(node2.Name))
 
 	// node3 must not steal the restored CIDR from node1
-	err = p.AllocateToNode(node3.Name, &node3.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node3.Name, node3.Spec.IPAM.Pools)
 	assert.ErrorIs(t, ErrAllocatorNotReady, err)
 	assert.Empty(t, p.AllocatedPools(node3.Name))
 
@@ -129,7 +129,7 @@ func TestPoolAllocator(t *testing.T) {
 	p.RestoreFinished()
 
 	// The following is a no-op, but should not return any errors
-	err = p.AllocateToNode(node1.Name, &node1.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node1.Name, node1.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	node1.Spec.IPAM.Pools.Allocated = p.AllocatedPools(node1.Name)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
@@ -144,7 +144,7 @@ func TestPoolAllocator(t *testing.T) {
 	}, node1.Spec.IPAM.Pools.Allocated)
 
 	// The following should allocate one IPv4 and IPv6 CIDR each to node2
-	err = p.AllocateToNode(node2.Name, &node2.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node2.Name, node2.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	node2.Spec.IPAM.Pools.Allocated = p.AllocatedPools(node2.Name)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
@@ -158,7 +158,7 @@ func TestPoolAllocator(t *testing.T) {
 	}, node2.Spec.IPAM.Pools.Allocated)
 
 	// The following should be rejected, because the CIDR is owned by node1
-	err = p.AllocateToNode(node3.Name, &node3.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node3.Name, node3.Spec.IPAM.Pools)
 	assert.EqualError(t, err, "unable to reuse from pool default: cidr 10.100.10.0/24 has already been allocated")
 	assert.Empty(t, p.AllocatedPools(node3.Name))
 
@@ -172,12 +172,12 @@ func TestPoolAllocator(t *testing.T) {
 			},
 		},
 	}
-	err = p.AllocateToNode(node1.Name, &node1.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node1.Name, node1.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	assert.Equal(t, node1.Spec.IPAM.Pools.Allocated, p.AllocatedPools(node1.Name))
 
 	// node3 can now allocate 10.100.10.0/24
-	err = p.AllocateToNode(node3.Name, &node3.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node3.Name, node3.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	node3.Spec.IPAM.Pools.Allocated = p.AllocatedPools(node3.Name)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
@@ -204,7 +204,7 @@ func TestPoolAllocator(t *testing.T) {
 			},
 		},
 	}
-	err = p.AllocateToNode(node3.Name, &node3.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node3.Name, node3.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	assert.Equal(t, node3.Spec.IPAM.Pools.Allocated, p.AllocatedPools(node3.Name))
 
@@ -218,7 +218,7 @@ func TestPoolAllocator(t *testing.T) {
 			},
 		},
 	}
-	err = p.AllocateToNode(node1.Name, &node1.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node1.Name, node1.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	node1.Spec.IPAM.Pools.Allocated = p.AllocatedPools(node1.Name)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
@@ -257,7 +257,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 		},
 	}
 
-	err := p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
+	err := p.AllocateToNode(node.Name, node.Spec.IPAM.Pools)
 	assert.ErrorContains(t, err, `failed to allocate ipv4 address for node "node1" from pool "no-exist"`)
 	assert.ErrorContains(t, err, `cannot allocate from non-existing pool: no-exist`)
 
@@ -274,7 +274,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 			},
 		},
 	}
-	err = p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node.Name, node.Spec.IPAM.Pools)
 	assert.ErrorContains(t, err, `failed to allocate ipv6 address for node "node1" from pool "ipv4-only"`)
 	assert.ErrorContains(t, err, `pool empty`)
 
@@ -311,7 +311,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 			},
 		},
 	}
-	err = p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node.Name, node.Spec.IPAM.Pools)
 	assert.ErrorContains(t, err, `failed to allocate ipv6 address for node "node1" from pool "ipv4-only"`)
 	assert.ErrorContains(t, err, `failed to allocate ipv6 address for node "node1" from pool "ipv4-only-same-cidr"`)
 	assert.ErrorContains(t, err, `failed to allocate ipv4 address for node "node1" from pool "ipv6-only"`)
@@ -347,7 +347,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 			{}, // zero-value Prefix: invalid
 		},
 	}
-	err = p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node.Name, node.Spec.IPAM.Pools)
 	assert.ErrorContains(t, err, `invalid CIDR`)
 }
 
@@ -625,7 +625,7 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 				},
 			}
 
-			err = p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
+			err = p.AllocateToNode(node.Name, node.Spec.IPAM.Pools)
 			assert.NoError(t, err)
 			assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 				{
@@ -707,7 +707,7 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 	assert.Equal(t, 96, testPool.v6MaskSize)
 
 	// allocate to node from test-pool
-	err = p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node.Name, node.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
@@ -827,7 +827,7 @@ func TestOrphanCIDRs(t *testing.T) {
 	assert.Equal(t, 96, testPool.v6MaskSize)
 
 	// allocate to node1 from test-pool
-	err = p.AllocateToNode(node1.Name, &node1.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node1.Name, node1.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
@@ -846,7 +846,7 @@ func TestOrphanCIDRs(t *testing.T) {
 	}, p.nodes[node1.Name])
 
 	// allocate to node2 from test-pool
-	err = p.AllocateToNode(node2.Name, &node2.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node2.Name, node2.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
@@ -996,7 +996,7 @@ func TestOrphanCIDRs(t *testing.T) {
 	}, p.AllocatedPools(node2.Name))
 
 	// allocate to node3 from test-pool, but v4 CIDR allocation should fail
-	err = p.AllocateToNode(node3.Name, &node3.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node3.Name, node3.Spec.IPAM.Pools)
 	assert.ErrorIs(t, err, errPoolEmpty)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
@@ -1048,7 +1048,7 @@ func TestOrphanCIDRs(t *testing.T) {
 	}, p.AllocatedPools(node2.Name))
 
 	// allocate again to node3 from test-pool, now it should succeed for v4 too
-	err = p.AllocateToNode(node3.Name, &node3.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node3.Name, node3.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 
 	assert.Equal(t, poolToCIDRs{
@@ -1110,7 +1110,7 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	p.RestoreFinished()
 
 	// try to allocate to the node: it should fail, but previous CIDRs should be marked orphans
-	err := p.AllocateToNode(node1.Name, &node1.Spec.IPAM.Pools)
+	err := p.AllocateToNode(node1.Name, node1.Spec.IPAM.Pools)
 	assert.ErrorContains(t, err, `failed to allocate ipv4 address for node "node1" from pool "test-pool"`)
 	assert.ErrorContains(t, err, `cannot allocate from non-existing pool: test-pool`)
 
@@ -1197,7 +1197,7 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 
 	p.RestoreFinished()
 
-	err = p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
+	err = p.AllocateToNode(node.Name, node.Spec.IPAM.Pools)
 	assert.NoError(t, err)
 	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
 		{
