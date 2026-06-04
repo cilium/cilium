@@ -15,6 +15,7 @@ triggers:
     - conformance-mcs-api.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
+    - conformance-kind-proxy-embedded.yaml
     - conformance-l3-l4.yaml
     - conformance-l7.yaml
     - conformance-kpr-aks.yaml
@@ -24,8 +25,12 @@ triggers:
     - conformance-race.yaml
     - conformance-runtime.yaml
     - integration-test.yaml
+    - k8s-kind-network-e2e.yaml
+    - k8s-kind-network-policies-e2e.yaml
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
+    - tests-smoke.yaml
+    - tests-smoke-ipv6.yaml
     - hubble-cli-integration-test.yaml
     depends-on:
     - /build-images-dependency
@@ -101,6 +106,11 @@ triggers:
   /ci-integration:
     workflows:
     - integration-test.yaml
+  /ci-kind-proxy-embedded:
+    workflows:
+    - conformance-kind-proxy-embedded.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-kpr-aks:
     workflows:
     - conformance-kpr-aks.yaml
@@ -136,9 +146,21 @@ triggers:
     - conformance-multi-pool.yaml
     depends-on:
     - /build-images-dependency
+  /ci-kind-network:
+    workflows:
+    - k8s-kind-network-e2e.yaml
+    - k8s-kind-network-policies-e2e.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-runtime:
     workflows:
     - conformance-runtime.yaml
+    depends-on:
+    - /build-images-dependency
+  /ci-smoke:
+    workflows:
+    - tests-smoke.yaml
+    - tests-smoke-ipv6.yaml
     depends-on:
     - /build-images-dependency
   /ci-verifier:
@@ -211,6 +233,8 @@ workflows:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-ingress.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  conformance-kind-proxy-embedded.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-kpr-aks.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-kpr-eks.yaml:
@@ -231,12 +255,20 @@ workflows:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|Documentation|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
+  k8s-kind-network-e2e.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  k8s-kind-network-policies-e2e.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   tests-clustermesh-upgrade.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   tests-datapath-verifier.yaml:
     paths-regex: (bpf|test/verifier|vendor|images|.github/actions/cl2-modules|pkg/datapath/loader)/
   tests-e2e-upgrade.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  tests-smoke.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  tests-smoke-ipv6.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   hubble-cli-integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   conformance-ztunnel-e2e.yaml:

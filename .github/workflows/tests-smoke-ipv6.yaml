@@ -1,17 +1,49 @@
-name: Smoke Test with IPv6
+name: Smoke Test with IPv6 (ci-smoke-ipv6)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request: {}
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
   push:
     branches:
       - main
       - ft/main/**
 
-permissions: read-all
+permissions:
+  # To read actions state with cilium/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
   cancel-in-progress: true
 
 env:
@@ -22,40 +54,59 @@ env:
   LOG_TIME: 30m
 
 jobs:
-  check_changes:
-    name: Deduce required tests from code changes
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
     steps:
-      - name: Checkout code
-        if: ${{ !github.event.pull_request }}
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: test-with-images
+    steps:
+      - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
-          fetch-depth: 0
-      - name: Check code changes
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
-        id: tested-tree
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
         with:
-          # For `push` events, compare against the `ref` base branch
-          # For `pull_request` events, this is ignored and will compare against the pull request base branch
-          base: ${{ github.ref }}
-          filters: |
-            src:
-              - '!(test|Documentation)/**'
-              - '!**/*.md'
+          SHA: ${{ inputs.SHA || github.sha }}
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   conformance-test-ipv6:
     env:
       job_name: "Conformance Smoke Test with IPv6"
     environment:
       name: test-with-images
-    needs: check_changes
-    if: ${{ needs.check_changes.outputs.tested == 'true' }}
+    needs: wait-for-images
     runs-on: ubuntu-24.04
     name: Installation and Conformance Test (ipv6)
     steps:
+      - name: Set commit status to pending
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
         with:
@@ -64,6 +115,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false
 
       - name: Set Environment Variables
@@ -73,7 +125,7 @@ jobs:
         id: default_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ github.event.pull_request.head.sha || github.sha }}
+          image-tag: ${{ inputs.SHA || github.sha }}
           registry_host: ${{ vars.DOCKER_READ_HOST }}
           registry_organization: ${{ vars.DOCKER_READ_ORG }}
           image-pull-secret: "cilium-registry"
@@ -116,21 +168,6 @@ jobs:
             --docker-server=${{ vars.DOCKER_READ_HOST }} \
             --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
             --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
-
-      - name: Login to docker registry for image wait
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ${{ vars.DOCKER_READ_HOST}}
-          username: ${{ vars.DOCKER_READ_USERNAME}}
-          password: ${{ secrets.DOCKER_READ_PASSWORD }}
-
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect ${{ vars.DOCKER_READ_HOST }}/${{ vars.DOCKER_READ_ORG }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
 
       - name: Set up install variables
         id: vars
@@ -182,3 +219,14 @@ jobs:
           artifacts_suffix: "${{ env.job_name }}"
           job_status: "${{ job.status }}"
           capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: conformance-test-ipv6
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      success: ${{ needs.conformance-test-ipv6.result == 'success' }}
