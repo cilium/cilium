@@ -703,22 +703,18 @@ func TestRevertInsert(t *testing.T) {
 	// Insert another resource.
 	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
-	res, err := cache.Lookup(typeURL, resources[0].Name)
-	require.NoError(t, err)
+	res := cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[0], res)
 
-	res, err = cache.Lookup(typeURL, resources[2].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[2].Name)
 	require.Equal(t, resources[2], res)
 
 	revert()
 
-	res, err = cache.Lookup(typeURL, resources[0].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[0].Name)
 	require.Nil(t, res)
 
-	res, err = cache.Lookup(typeURL, resources[2].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[2].Name)
 	require.Equal(t, resources[2], res)
 
 	require.Equal(t, 0, metrics.ack[typeURL])
@@ -741,29 +737,24 @@ func TestRevertUpdate(t *testing.T) {
 	// Insert another resource.
 	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
-	res, err := cache.Lookup(typeURL, resources[0].Name)
-	require.NoError(t, err)
+	res := cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[0], res)
 
-	res, err = cache.Lookup(typeURL, resources[2].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[2].Name)
 	require.Equal(t, resources[2], res)
 
 	// Update.
 	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, nil, nil)
 
-	res, err = cache.Lookup(typeURL, resources[0].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[1], res)
 
 	revert()
 
-	res, err = cache.Lookup(typeURL, resources[0].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[0], res)
 
-	res, err = cache.Lookup(typeURL, resources[2].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[2].Name)
 	require.Equal(t, resources[2], res)
 
 	require.Equal(t, 0, metrics.ack[typeURL])
@@ -786,33 +777,27 @@ func TestRevertDelete(t *testing.T) {
 	// Insert another resource.
 	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
-	res, err := cache.Lookup(typeURL, resources[0].Name)
-	require.NoError(t, err)
+	res := cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[0], res)
 
-	res, err = cache.Lookup(typeURL, resources[2].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[2].Name)
 	require.Equal(t, resources[2], res)
 
 	// Delete.
 	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, nil, nil)
 
-	res, err = cache.Lookup(typeURL, resources[0].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[0].Name)
 	require.Nil(t, res)
 
-	res, err = cache.Lookup(typeURL, resources[2].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[2].Name)
 	require.Equal(t, resources[2], res)
 
 	revert()
 
-	res, err = cache.Lookup(typeURL, resources[0].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[0], res)
 
-	res, err = cache.Lookup(typeURL, resources[2].Name)
-	require.NoError(t, err)
+	res = cache.Lookup(typeURL, resources[2].Name)
 	require.Equal(t, resources[2], res)
 
 	require.Equal(t, 0, metrics.ack[typeURL])

@@ -3,7 +3,6 @@
 package xdsclient
 
 import (
-	"fmt"
 	"log/slog"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 type fakeObservableResources struct {
 	OnAdd          func(xds.ResourceVersionObserver)
 	OnRemove       func(xds.ResourceVersionObserver)
-	OnGetResources func(string, uint64, []string) (*xds.VersionedResources, error)
+	OnGetResources func(string, uint64, []string) *xds.VersionedResources
 }
 
 func (f *fakeObservableResources) AddResourceVersionObserver(l xds.ResourceVersionObserver) {
@@ -24,7 +23,7 @@ func (f *fakeObservableResources) RemoveResourceVersionObserver(l xds.ResourceVe
 	f.OnRemove(l)
 }
 
-func (f *fakeObservableResources) GetResources(typeUrl string, latestVersion uint64, _ string, resourceNames []string) (*xds.VersionedResources, error) {
+func (f *fakeObservableResources) GetResources(typeUrl string, latestVersion uint64, resourceNames []string) *xds.VersionedResources {
 	return f.OnGetResources(typeUrl, latestVersion, resourceNames)
 }
 
@@ -82,7 +81,6 @@ func TestWatcher_ResourceCallback(t *testing.T) {
 		typeUrl string
 		want    *xds.VersionedResources
 		called  bool
-		err     error
 	}{
 		{
 			name:    "ok",
@@ -93,12 +91,6 @@ func TestWatcher_ResourceCallback(t *testing.T) {
 			name:    "wrong_type_url",
 			typeUrl: "different-url",
 			called:  false,
-		},
-		{
-			name:    "ignore_err",
-			typeUrl: testTypeUrl,
-			called:  false,
-			err:     fmt.Errorf("test err"),
 		},
 	}
 
@@ -115,9 +107,9 @@ func TestWatcher_ResourceCallback(t *testing.T) {
 					}
 					registeredObserver = nil
 				},
-				OnGetResources: func(_ string, _ uint64, _ []string) (*xds.VersionedResources, error) {
+				OnGetResources: func(_ string, _ uint64, _ []string) *xds.VersionedResources {
 					getResources <- nil
-					return tc.want, tc.err
+					return tc.want
 				},
 			}
 
@@ -132,7 +124,7 @@ func TestWatcher_ResourceCallback(t *testing.T) {
 			id := w.Add(testTypeUrl, cb)
 
 			w.watchers[id].HandleNewResourceVersion(tc.typeUrl, 0)
-			if tc.called || tc.err != nil {
+			if tc.called {
 				<-getResources
 			}
 			w.Remove(id)
