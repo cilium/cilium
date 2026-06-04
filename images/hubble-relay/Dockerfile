@@ -4,7 +4,7 @@
 # distroless images are signed by cosign and can be verified using:
 # $ cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com --certificate-identity keyless@distroless.iam.gserviceaccount.com
 ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:963fa6c544fe5ce420f1f54fb88b6fb01479f054c8056d0f74cc2c6000df5240
-ARG GOLANG_IMAGE=docker.io/library/golang:1.25.10@sha256:c138bff780910acf4254ab3a6f7ff0f64bbd841f27bd82bfa986fe122c109538
+ARG GOLANG_IMAGE=docker.io/library/golang:1.25.11@sha256:dd7d32e19b28621cd982082397fc0510d396805b717d5e77466aa2dd692340de
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:a28804d95627a06a84bf4e8837dd4aaa8bb049e6@sha256:cca41b72e75cf515b587bf94bcc60439cc0e5a8355105704263bdefa477ce920
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
