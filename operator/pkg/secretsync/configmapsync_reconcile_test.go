@@ -19,6 +19,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	gateway_api "github.com/cilium/cilium/operator/pkg/gateway-api"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 )
@@ -210,11 +211,13 @@ func Test_ConfigMapSync_Reconcile(t *testing.T) {
 		WithIndex(&gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicyConfigMapIndex, indexers.IndexBTLSPolicyByConfigMap).
 		Build()
 
+	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, helpers.CiliumDefaultControllerName)
+
 	r := secretsync.NewConfigMapSyncReconciler(c, logger, []*secretsync.ConfigMapSyncRegistration{
 		{
 			RefObject:            &gatewayv1.Gateway{},
-			RefObjectEnqueueFunc: gateway_api.EnqueueBackendTLSPolicyConfigMaps(c, logger),
-			RefObjectCheckFunc:   gateway_api.ConfigMapIsReferencedInCiliumGateway,
+			RefObjectEnqueueFunc: gatewayHandler.EnqueueBackendTLSPolicyConfigMaps(),
+			RefObjectCheckFunc:   gatewayHandler.ConfigMapIsReferencedInGateway,
 			SecretsNamespace:     secretsNamespace,
 		},
 	},
