@@ -132,8 +132,6 @@ func (c cmds) list() script.Cmd {
 							return "", "", fmt.Errorf("unexpected output format %q", outfmt)
 						}
 					}
-
-					fmt.Fprint(&b)
 				}
 				if len(args) == 2 {
 					err = os.WriteFile(s.Path(args[1]), b.Bytes(), 0644)
