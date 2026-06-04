@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -58,7 +59,7 @@ func (h *HTTPRouteInput) SetAllParentCondition(condition metav1.Condition) {
 func (h *HTTPRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range h.HTTPRoute.Status.RouteStatus.Parents {
-		if parent.ParentRef == parentRef {
+		if reflect.DeepEqual(parent.ParentRef, parentRef) {
 			index = i
 			break
 		}
