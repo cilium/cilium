@@ -3,7 +3,7 @@
 
 // Copyright 2017 Lyft, Inc.
 
-package eni
+package ipam
 
 import (
 	"context"
