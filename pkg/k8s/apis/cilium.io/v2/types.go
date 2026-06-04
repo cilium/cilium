@@ -11,7 +11,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/types"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -440,7 +440,7 @@ type NodeSpec struct {
 	// ENI is the AWS ENI specific configuration.
 	//
 	// +kubebuilder:validation:Optional
-	ENI eniTypes.ENISpec `json:"eni,omitempty"`
+	ENI awsTypes.ENISpec `json:"eni,omitempty"`
 
 	// Azure is the Azure IPAM specific configuration.
 	//
@@ -488,7 +488,7 @@ type NodeStatus struct {
 	// ENI is the AWS ENI specific status of the node.
 	//
 	// +kubebuilder:validation:Optional
-	ENI eniTypes.ENIStatus `json:"eni,omitempty"`
+	ENI awsTypes.ENIStatus `json:"eni,omitempty"`
 
 	// Azure is the Azure specific status of the node.
 	//

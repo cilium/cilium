@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -30,7 +30,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		},
 	)
 	im := ipamTypes.NewInstanceMap()
-	im.Update(instanceID, &eniTypes.ENI{})
+	im.Update(instanceID, &types.ENI{})
 
 	ipamNode := &mockIPAMNode{
 		instanceID: "i-000",
@@ -46,7 +46,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 			ec2api:       mockEC2API,
 			limitsGetter: limitsGetter,
 		},
-		enis: map[string]eniTypes.ENI{"eni-a": {}},
+		enis: map[string]types.ENI{"eni-a": {}},
 	}
 
 	ipamNode.SetOpts(n)
@@ -89,11 +89,11 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	// Finally, lets disable prefix delegation and simulate the case of
 	// leftover delegated IPs.
 	ipamNode.prefixDelegation = false
-	n.enis["eni-a"] = eniTypes.ENI{
+	n.enis["eni-a"] = types.ENI{
 		ID:       "eni-a",
 		Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/28"))},
 	}
-	n.manager.instances.Update("i-000", &eniTypes.ENI{
+	n.manager.instances.Update("i-000", &types.ENI{
 		ID:       "eni-a",
 		Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/28"))},
 	})

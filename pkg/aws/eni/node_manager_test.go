@@ -17,7 +17,6 @@ import (
 	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -1101,7 +1100,7 @@ func newCiliumNode(name string, opts ...func(*v2.CiliumNode)) *v2.CiliumNode {
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
 		Spec: v2.NodeSpec{
-			ENI: eniTypes.ENISpec{
+			ENI: types.ENISpec{
 				FirstInterfaceIndex: &fii,
 				SecurityGroupTags:   map[string]string{},
 			},

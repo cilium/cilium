@@ -4,4 +4,5 @@
 // +k8s:deepcopy-gen=package
 // +deepequal-gen=package
 
+// Package types provides AWS specific types
 package types

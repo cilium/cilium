@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -38,7 +37,7 @@ type EC2API interface {
 	GetSecurityGroups(ctx context.Context, vpcID string) (types.SecurityGroupMap, error)
 
 	GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error)
-	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error)
+	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *types.ENI, error)
 	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
@@ -289,7 +288,7 @@ func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) 
 // UpdateENI updates the ENI definition of an ENI for a particular instance. If
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
-func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
+func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
 	m.mutex.Lock()
 	eniRevision := eni
 	m.instances.Update(instanceID, eniRevision)
@@ -317,10 +316,10 @@ func (m *InstancesManager) modifyIPsToENI(instanceID string, eniID string, ips [
 		return
 	}
 
-	eni, ok := iface.DeepCopyInterface().(*eniTypes.ENI)
+	eni, ok := iface.DeepCopyInterface().(*types.ENI)
 	if !ok {
 		m.logger.Warn(
-			"Unexpected resource type, expected *eniTypes.ENI",
+			"Unexpected resource type, expected *types.ENI",
 			logfields.InstanceID, instanceID,
 			logfields.ENI, eniID,
 		)

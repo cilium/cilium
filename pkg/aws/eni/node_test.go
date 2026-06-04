@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
-	"github.com/cilium/cilium/pkg/aws/eni/types"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
+	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"

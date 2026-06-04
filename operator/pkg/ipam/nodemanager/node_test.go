@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -167,7 +167,7 @@ func TestPoolRequestedIPv4(t *testing.T) {
 // newMultiPoolNode creates a Node with a CiliumNode that passes the multi-pool
 // heuristic (Pools.Requested present, Status.IPAM.Used empty). The enis map
 // is converted to the attached CIDRs returned by ops.GetAttachedCIDRs.
-func newMultiPoolNode(t *testing.T, allocated []ipamTypes.IPAMPoolAllocation, enis map[string]eniTypes.ENI) *Node {
+func newMultiPoolNode(t *testing.T, allocated []ipamTypes.IPAMPoolAllocation, enis map[string]awsTypes.ENI) *Node {
 	cn := &v2.CiliumNode{}
 	cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
 		{Pool: defaults.IPAMDefaultIPPool, Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16}},
@@ -185,7 +185,7 @@ func newMultiPoolNode(t *testing.T, allocated []ipamTypes.IPAMPoolAllocation, en
 
 // enisToCIDRs flattens a map of ENIs into the CIDRs (addresses as /32,
 // plus prefixes) attached to them.
-func enisToCIDRs(enis map[string]eniTypes.ENI) []netip.Prefix {
+func enisToCIDRs(enis map[string]awsTypes.ENI) []netip.Prefix {
 	if enis == nil {
 		return nil
 	}
@@ -233,7 +233,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 	})
 
 	t.Run("removed CIDR is marked for release", func(t *testing.T) {
-		enis := map[string]eniTypes.ENI{
+		enis := map[string]awsTypes.ENI{
 			"eni-1": {Addresses: []iputil.Addr{
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
@@ -262,7 +262,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 	})
 
 	t.Run("reappearing CIDR is removed from marked-for-release", func(t *testing.T) {
-		enis := map[string]eniTypes.ENI{
+		enis := map[string]awsTypes.ENI{
 			"eni-1": {Addresses: []iputil.Addr{
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
@@ -297,7 +297,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 	})
 
 	t.Run("CIDR detached from ENI is cleaned up from marked-for-release", func(t *testing.T) {
-		enis := map[string]eniTypes.ENI{
+		enis := map[string]awsTypes.ENI{
 			"eni-1": {Addresses: []iputil.Addr{
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
@@ -321,7 +321,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, netip.MustParsePrefix("10.0.0.2/32"))
 
 		// ENI status updated: 10.0.0.2 no longer attached (operator detached it).
-		n.ops.(*nodeOperationsMock).attachedCIDRs = enisToCIDRs(map[string]eniTypes.ENI{
+		n.ops.(*nodeOperationsMock).attachedCIDRs = enisToCIDRs(map[string]awsTypes.ENI{
 			"eni-1": {Addresses: []iputil.Addr{
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 			}},
@@ -331,7 +331,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 	})
 
 	t.Run("already-marked CIDR keeps original timestamp", func(t *testing.T) {
-		enis := map[string]eniTypes.ENI{
+		enis := map[string]awsTypes.ENI{
 			"eni-1": {Addresses: []iputil.Addr{
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
@@ -360,7 +360,7 @@ func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 	})
 
 	t.Run("prefix delegation CIDR tracked correctly", func(t *testing.T) {
-		enis := map[string]eniTypes.ENI{
+		enis := map[string]awsTypes.ENI{
 			"eni-1": {
 				Addresses: []iputil.Addr{
 					iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),

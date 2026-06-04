@@ -11,7 +11,7 @@ import (
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/stretchr/testify/require"
 
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
@@ -99,7 +99,7 @@ func TestReadCNIConfENIWithPlugins(t *testing.T) {
 			CNIVersion: "0.3.1",
 			Type:       "cilium-cni",
 		},
-		ENI: eniTypes.ENISpec{
+		ENI: awsTypes.ENISpec{
 			FirstInterfaceIndex: &firstInterfaceIndex,
 			SecurityGroups:      []string{"sg-xxx"},
 			SubnetIDs:           []string{"subnet-xxx"},
@@ -146,7 +146,7 @@ func TestReadCNIConfENI(t *testing.T) {
 			Name: "cilium",
 			Type: "cilium-cni",
 		},
-		ENI: eniTypes.ENISpec{
+		ENI: awsTypes.ENISpec{
 			InstanceType:        "m4.xlarge",
 			FirstInterfaceIndex: &firstInterfaceIndex,
 			SecurityGroups:      []string{"sg1", "sg2"},
@@ -203,7 +203,7 @@ func TestReadCNIConfENIv2WithPlugins(t *testing.T) {
 			CNIVersion: "0.3.1",
 			Type:       "cilium-cni",
 		},
-		ENI: eniTypes.ENISpec{
+		ENI: awsTypes.ENISpec{
 			FirstInterfaceIndex: &firstInterfaceIndex,
 			SecurityGroups:      []string{"sg-xxx"},
 			SubnetIDs:           []string{"subnet-xxx"},

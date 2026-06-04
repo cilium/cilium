@@ -13,7 +13,7 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/types"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
@@ -24,7 +24,7 @@ type NetConf struct {
 	MTU            int                    `json:"mtu"`
 	Args           Args                   `json:"args"`
 	EnableRouteMTU bool                   `json:"enable-route-mtu"`
-	ENI            eniTypes.ENISpec       `json:"eni,omitempty"`
+	ENI            awsTypes.ENISpec       `json:"eni,omitempty"`
 	Azure          azureTypes.AzureSpec   `json:"azure,omitempty"`
 	IPAM           IPAM                   `json:"ipam,omitempty"` // Shadows the JSON field "ipam" in cniTypes.NetConf.
 	AlibabaCloud   alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`

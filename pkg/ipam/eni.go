@@ -19,7 +19,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -277,7 +277,7 @@ type linkMap map[string]netlink.Link      // by MAC addr
 
 func configureENIDevices(logger *slog.Logger, oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) {
 	var (
-		existingENIByName map[string]eniTypes.ENI
+		existingENIByName map[string]awsTypes.ENI
 		addedENIByMac     = configMap{}
 	)
 
@@ -468,7 +468,7 @@ func buildENIAllocationResult(
 	logger *slog.Logger,
 	allocatedAddr netip.Addr,
 	pool Pool,
-	enis map[string]eniTypes.ENI,
+	enis map[string]awsTypes.ENI,
 	conf *option.DaemonConfig,
 	ipMasqAgent *ipmasq.IPMasqAgent,
 ) (*AllocationResult, error) {
@@ -526,7 +526,7 @@ func buildENIAllocationResult(
 
 // eniContainsIP returns true if the given IP belongs to the ENI: either as the
 // primary IP, a secondary address, or within one of its delegated prefixes.
-func eniContainsIP(eni eniTypes.ENI, addr netip.Addr) bool {
+func eniContainsIP(eni awsTypes.ENI, addr netip.Addr) bool {
 	if eni.IP.Addr == addr {
 		return true
 	}
@@ -638,7 +638,7 @@ func (a *eniMultiPoolAllocator) enrichResult(result *AllocationResult, err error
 	// can safely iterate it without holding the mutex. Scoped to Status.ENI
 	// since that's all buildENIAllocationResult reads.
 	a.manager.nodeMutex.Lock()
-	var enis map[string]eniTypes.ENI
+	var enis map[string]awsTypes.ENI
 	if a.manager.node != nil {
 		enis = a.manager.node.Status.ENI.DeepCopy().ENIs
 	}

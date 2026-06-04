@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -455,12 +454,12 @@ retry:
 }
 
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
-// converts it into a eniTypes.ENI object.
+// converts it into a types.ENI object.
 //
 // Returns an error on any malformed IP/CIDR string. AWS uses string pointers
 // for these fields, so unset values are nil and any non-nil string is expected
 // to be a valid IP or CIDR.
-func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, eni *eniTypes.ENI, err error) {
+func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, eni *types.ENI, err error) {
 	if iface.PrivateIpAddress == nil {
 		return "", nil, fmt.Errorf("ENI has no IP address")
 	}
@@ -469,7 +468,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	if err != nil {
 		return "", nil, fmt.Errorf("unable to parse ENI primary IP %q: %w", aws.ToString(iface.PrivateIpAddress), err)
 	}
-	eni = &eniTypes.ENI{
+	eni = &types.ENI{
 		IP:             iputil.AddrFrom(primaryIP),
 		SecurityGroups: []string{},
 		Addresses:      []iputil.Addr{},
@@ -808,7 +807,7 @@ func (c *Client) GetRouteTables(ctx context.Context, vpcID string) (ipamTypes.Ro
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
+func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *types.ENI, error) {
 
 	input := &ec2.CreateNetworkInterfaceInput{
 		Description: aws.String(desc),

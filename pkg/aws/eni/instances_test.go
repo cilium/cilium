@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -143,19 +142,19 @@ var (
 				Number:         0,
 				SecurityGroups: []string{"sg1", "sg2"},
 				Addresses:      []iputil.Addr{},
-				Subnet:         eniTypes.AwsSubnet{ID: "subnet-1"},
-				VPC:            eniTypes.AwsVPC{ID: "vpc-1"},
+				Subnet:         types.AwsSubnet{ID: "subnet-1"},
+				VPC:            types.AwsVPC{ID: "vpc-1"},
 			},
 		},
 		"i-2": {
-			"eni-3": &eniTypes.ENI{
+			"eni-3": &types.ENI{
 				ID:             "eni-3",
 				IP:             iputil.AddrFrom(netip.MustParseAddr("3.3.3.3")),
 				Number:         0,
 				SecurityGroups: []string{"sg3", "sg4"},
 				Addresses:      []iputil.Addr{},
-				Subnet:         eniTypes.AwsSubnet{ID: "subnet-2"},
-				VPC:            eniTypes.AwsVPC{ID: "vpc-2"},
+				Subnet:         types.AwsSubnet{ID: "subnet-2"},
+				VPC:            types.AwsVPC{ID: "vpc-2"},
 			},
 		},
 	}
@@ -168,8 +167,8 @@ var (
 				Number:         0,
 				SecurityGroups: []string{"sg1", "sg2"},
 				Addresses:      []iputil.Addr{},
-				Subnet:         eniTypes.AwsSubnet{ID: "subnet-1"},
-				VPC:            eniTypes.AwsVPC{ID: "vpc-1"},
+				Subnet:         types.AwsSubnet{ID: "subnet-1"},
+				VPC:            types.AwsVPC{ID: "vpc-1"},
 			},
 			"eni-2": {
 				ID:             "eni-2",
@@ -177,19 +176,19 @@ var (
 				Number:         1,
 				SecurityGroups: []string{"sg3", "sg4"},
 				Addresses:      []iputil.Addr{},
-				Subnet:         eniTypes.AwsSubnet{ID: "subnet-1"},
-				VPC:            eniTypes.AwsVPC{ID: "vpc-1"},
+				Subnet:         types.AwsSubnet{ID: "subnet-1"},
+				VPC:            types.AwsVPC{ID: "vpc-1"},
 			},
 		},
 		"i-2": {
-			"eni-3": &eniTypes.ENI{
+			"eni-3": &types.ENI{
 				ID:             "eni-3",
 				IP:             iputil.AddrFrom(netip.MustParseAddr("3.3.3.3")),
 				Number:         0,
 				SecurityGroups: []string{"sg3", "sg4"},
 				Addresses:      []iputil.Addr{},
-				Subnet:         eniTypes.AwsSubnet{ID: "subnet-2"},
-				VPC:            eniTypes.AwsVPC{ID: "vpc-2"},
+				Subnet:         types.AwsSubnet{ID: "subnet-2"},
+				VPC:            types.AwsVPC{ID: "vpc-2"},
 			},
 		},
 	}
