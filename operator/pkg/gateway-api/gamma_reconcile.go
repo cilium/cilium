@@ -175,11 +175,12 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 		}
 		// input for the validators
 		i := &routechecks.HTTPRouteInput{
-			Ctx:       ctx,
-			Logger:    gammaLogger.With(httpRoute, hrName),
-			Client:    r.Client,
-			Grants:    grants,
-			HTTPRoute: hr,
+			Ctx:            ctx,
+			Logger:         gammaLogger.With(httpRoute, hrName),
+			Client:         r.Client,
+			Grants:         grants,
+			HTTPRoute:      hr,
+			ControllerName: r.controllerName,
 		}
 
 		// Route validators
@@ -278,11 +279,12 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 		}
 		// input for the validators
 		i := &routechecks.GRPCRouteInput{
-			Ctx:       ctx,
-			Logger:    gammaLogger.With(grpcRoute, grpcName),
-			Client:    r.Client,
-			Grants:    grants,
-			GRPCRoute: grpc,
+			Ctx:            ctx,
+			Logger:         gammaLogger.With(grpcRoute, grpcName),
+			Client:         r.Client,
+			Grants:         grants,
+			GRPCRoute:      grpc,
+			ControllerName: r.controllerName,
 		}
 
 		// Route validators

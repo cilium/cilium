@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -26,7 +27,8 @@ type gammaReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger *slog.Logger
+	logger         *slog.Logger
+	controllerName string
 }
 
 func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger) *gammaReconciler {
@@ -37,6 +39,7 @@ func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, log
 		logger: logger.With(
 			logfields.Controller, gamma,
 		),
+		controllerName: helpers.CiliumDefaultControllerName,
 	}
 }
 

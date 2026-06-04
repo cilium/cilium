@@ -21,14 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-const (
-	// controllerName is the gateway controller name used in cilium.
-	controllerName = "io.cilium/gateway-controller"
-)
-
 type BackendTLSPolicyInput struct {
 	Client           client.Client
 	BackendTLSPolicy *gatewayv1.BackendTLSPolicy
+	ControllerName   string
 }
 
 func (b *BackendTLSPolicyInput) SetAncestorCondition(parentRef gatewayv1.ParentReference, condition metav1.Condition) {
@@ -51,7 +47,7 @@ func (b *BackendTLSPolicyInput) SetAncestorCondition(parentRef gatewayv1.ParentR
 
 	b.BackendTLSPolicy.Status.Ancestors = append(b.BackendTLSPolicy.Status.Ancestors, gatewayv1.PolicyAncestorStatus{
 		AncestorRef:    parentRef,
-		ControllerName: gatewayv1.GatewayController(controllerName),
+		ControllerName: gatewayv1.GatewayController(b.ControllerName),
 		Conditions: []metav1.Condition{
 			condition,
 		},

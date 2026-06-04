@@ -14,11 +14,6 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-const (
-	// controllerName is the gateway controller name used in cilium.
-	controllerName = "io.cilium/gateway-controller"
-)
-
 type GenericRule interface {
 	GetBackendRefs() []gatewayv1.BackendRef
 }
