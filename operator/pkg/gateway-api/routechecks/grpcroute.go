@@ -82,7 +82,7 @@ func (g *GRPCRouteInput) GetContext() context.Context {
 }
 
 func (g *GRPCRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1.SchemeGroupVersion.WithKind("GRPCRoute")
+	return helpers.GatewayV1GVK("GRPCRoute")
 }
 
 func (g *GRPCRouteInput) GetGrants() []gatewayv1.ReferenceGrant {

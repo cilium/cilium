@@ -936,7 +936,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					break
 				}
 
-				if !helpers.IsSecretReferenceAllowed(gw.Namespace, cert, gatewayv1.SchemeGroupVersion.WithKind("Gateway"), grants.Items) {
+				if !helpers.IsSecretReferenceAllowed(gw.Namespace, cert, helpers.GatewayV1GVK("Gateway"), grants.Items) {
 					conds = merge(conds, metav1.Condition{
 						Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,

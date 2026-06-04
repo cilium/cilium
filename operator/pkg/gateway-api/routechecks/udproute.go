@@ -82,7 +82,7 @@ func (u *UDPRouteInput) GetNamespace() string {
 }
 
 func (u *UDPRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1alpha2.SchemeGroupVersion.WithKind("UDPRoute")
+	return helpers.GatewayV1Alpha2GVK("UDPRoute")
 }
 
 func (u *UDPRouteInput) GetRules() []GenericRule {
