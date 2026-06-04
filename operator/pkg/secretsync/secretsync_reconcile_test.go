@@ -25,13 +25,14 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	gateway_api "github.com/cilium/cilium/operator/pkg/gateway-api"
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 var secretsNamespace = "cilium-secrets-test"
+
+const testSecretSyncControllerName = "example.com/test-gateway-controller"
 
 var secretFixture = []client.Object{
 	&corev1.Secret{
@@ -81,7 +82,7 @@ var secretFixture = []client.Object{
 			Name: "cilium",
 		},
 		Spec: gatewayv1.GatewayClassSpec{
-			ControllerName: "io.cilium/gateway-controller",
+			ControllerName: testSecretSyncControllerName,
 		},
 	},
 	&gatewayv1.Gateway{
@@ -204,7 +205,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		WithObjects(secretFixture...).
 		Build()
 
-	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, helpers.CiliumDefaultControllerName)
+	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testSecretSyncControllerName)
 
 	r := secretsync.NewSecretSyncReconciler(c, logger, []*secretsync.SecretSyncRegistration{
 		{
@@ -384,7 +385,7 @@ var secretFixtureTypeChange = []client.Object{
 			Name: "cilium",
 		},
 		Spec: gatewayv1.GatewayClassSpec{
-			ControllerName: "io.cilium/gateway-controller",
+			ControllerName: testSecretSyncControllerName,
 		},
 	},
 	&gatewayv1.Gateway{
@@ -419,7 +420,7 @@ func Test_SecretSync_Reconcile_TypeChange(t *testing.T) {
 		WithObjects(secretFixtureTypeChange...).
 		Build()
 
-	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, helpers.CiliumDefaultControllerName)
+	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testSecretSyncControllerName)
 
 	r := secretsync.NewSecretSyncReconciler(c, logger, []*secretsync.SecretSyncRegistration{
 		{
@@ -474,7 +475,7 @@ func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
 		WithScheme(testScheme()).
 		WithObjects(secretFixtureDefaultSecret...).
 		Build()
-	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, helpers.CiliumDefaultControllerName)
+	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testSecretSyncControllerName)
 	r := secretsync.NewSecretSyncReconciler(c, logger, []*secretsync.SecretSyncRegistration{
 		{
 			RefObject:            &gatewayv1.Gateway{},
