@@ -5,20 +5,30 @@ package ipam
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
+	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/daemon/k8s"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/slices"
 )
@@ -487,10 +497,10 @@ func TestAddressCoveredByPrefix(t *testing.T) {
 	}
 }
 
-func TestEniPoolsFromResource(t *testing.T) {
+func TestENIPoolsAccessorFromResource(t *testing.T) {
 	t.Run("no ENIs returns spec pools", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
-		result := eniPoolsFromResource(node)
+		result := eniPoolAccessor.FromResource(node)
 		require.Empty(t, result.Allocated)
 	})
 
@@ -502,7 +512,7 @@ func TestEniPoolsFromResource(t *testing.T) {
 			},
 		}
 
-		result := eniPoolsFromResource(node)
+		result := eniPoolAccessor.FromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)
 		require.True(t, result.Allocated[0].AllowFirstIP)
@@ -529,7 +539,7 @@ func TestEniPoolsFromResource(t *testing.T) {
 			},
 		}
 
-		result := eniPoolsFromResource(node)
+		result := eniPoolAccessor.FromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)
 		require.True(t, result.Allocated[0].AllowFirstIP)
@@ -554,13 +564,91 @@ func TestEniPoolsFromResource(t *testing.T) {
 			},
 		}
 
-		result := eniPoolsFromResource(node)
+		result := eniPoolAccessor.FromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.True(t, result.Allocated[0].AllowFirstIP)
 		require.True(t, result.Allocated[0].AllowLastIP)
 		require.Len(t, result.Allocated[0].CIDRs, 1)
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")))
 	})
+}
+
+func TestENIMultiPoolAllocator(t *testing.T) {
+	eniCIDR1 := netip.MustParsePrefix("10.0.10.1/32")
+	eniCIDR2 := netip.MustParsePrefix("10.0.10.2/32")
+	initialNode := &ciliumv2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: nodeTypes.GetName()},
+		Status: ciliumv2.NodeStatus{
+			ENI: awsTypes.ENIStatus{
+				ENIs: map[string]awsTypes.ENI{
+					"eni-1": {
+						Addresses: addrs(eniCIDR1.Addr().String(), eniCIDR2.Addr().String()),
+						VPC: awsTypes.AwsVPC{
+							PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/16")),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var (
+		jg             job.Group
+		localNode      k8s.LocalCiliumNodeResource
+		localNodeStore *node.LocalNodeStore
+		clientset      *k8sClient.FakeClientset
+	)
+	h := hive.New(
+		k8s.ResourcesCell,
+		k8sClient.FakeClientCell(),
+		cell.Provide(func() *node.LocalNodeStore { return node.NewTestLocalNodeStore(node.LocalNode{}) }),
+		cell.Invoke(
+			func(
+				jg_ job.Group,
+				localNode_ k8s.LocalCiliumNodeResource,
+				localNodeStore_ *node.LocalNodeStore,
+				clientset_ *k8sClient.FakeClientset,
+			) {
+				jg = jg_
+				localNode = localNode_
+				localNodeStore = localNodeStore_
+				clientset = clientset_
+			},
+		),
+	)
+
+	tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+	require.NoError(t, h.Start(tlog, t.Context()))
+	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+
+	_, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), initialNode, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	ipv4Allocator, ipv6Allocator := newENIMultiPoolAllocators(ENIMultiPoolAllocatorParams{
+		Logger:               hivetest.Logger(t),
+		IPv4Enabled:          true,
+		IPv6Enabled:          false,
+		CiliumNodeUpdateRate: time.Nanosecond,
+		Node:                 localNode,
+		LocalNodeStore:       localNodeStore,
+		CNClient:             clientset.CiliumV2().CiliumNodes(),
+		JobGroup:             jg,
+		Conf:                 &option.DaemonConfig{},
+	})
+	require.NotNil(t, ipv4Allocator)
+	require.NotNil(t, ipv6Allocator)
+
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		updated, err := clientset.CiliumV2().CiliumNodes().Get(t.Context(), initialNode.Name, metav1.GetOptions{})
+		assert.NoError(c, err)
+		alloc := updated.Spec.IPAM.Pools.Allocated
+		require.Len(c, alloc, 1)
+		assert.Equal(c, defaults.IPAMDefaultIPPool, alloc[0].Pool)
+		assert.ElementsMatch(c, []iputil.Prefix{
+			iputil.PrefixFrom(eniCIDR1),
+			iputil.PrefixFrom(eniCIDR2),
+		}, alloc[0].CIDRs)
+	}, 5*time.Second, 10*time.Millisecond)
 }
 
 func TestDeriveENIVpcCIDR(t *testing.T) {
