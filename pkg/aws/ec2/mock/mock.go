@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/aws/ec2"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
@@ -30,8 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// ENIMap is a map of ENI interfaced indexed by ENI ID
-type ENIMap map[string]*eniTypes.ENI
+// ENIMap is a map of ENI interfaces indexed by ENI ID
+type ENIMap map[string]*types.ENI
 
 // Operation is an EC2 API operation that this mock API supports
 type Operation int
@@ -52,7 +51,7 @@ const (
 // API represents a mocked EC2 API
 type API struct {
 	mutex          lock.RWMutex
-	unattached     map[string]*eniTypes.ENI
+	unattached     map[string]*types.ENI
 	enis           map[string]ENIMap
 	subnets        map[string]*ipamTypes.Subnet
 	vpcs           map[string]*ipamTypes.VirtualNetwork
@@ -169,7 +168,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 	}
 
 	api := &API{
-		unattached:     map[string]*eniTypes.ENI{},
+		unattached:     map[string]*types.ENI{},
 		enis:           map[string]ENIMap{},
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
@@ -288,7 +287,7 @@ func (e *API) rateLimit() {
 // CreateNetworkInterface mocks the interface creation. As with the upstream
 // EC2 API, the number of IP addresses in toAllocate are the number of
 // secondary IPs, a primary IP is always allocated.
-func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
+func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *types.ENI, error) {
 	e.rateLimit()
 	e.delaySim.Delay(CreateNetworkInterface)
 
@@ -310,10 +309,10 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 	}
 
 	eniID := uuid.New().String()
-	eni := &eniTypes.ENI{
+	eni := &types.ENI{
 		ID:          eniID,
 		Description: desc,
-		Subnet: eniTypes.AwsSubnet{
+		Subnet: types.AwsSubnet{
 			ID: subnetID,
 		},
 		SecurityGroups: groups,
@@ -526,7 +525,7 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
-func assignPrefixToENI(e *API, eni *eniTypes.ENI, prefixes int32) error {
+func assignPrefixToENI(e *API, eni *types.ENI, prefixes int32) error {
 	subnet, ok := e.subnets[eni.Subnet.ID]
 	if !ok {
 		return fmt.Errorf("subnet %s not found", eni.Subnet.ID)

@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -61,19 +61,19 @@ func Test_validateENIConfig(t *testing.T) {
 						},
 					},
 					Status: ciliumv2.NodeStatus{
-						ENI: eniTypes.ENIStatus{
-							ENIs: map[string]eniTypes.ENI{
+						ENI: awsTypes.ENIStatus{
+							ENIs: map[string]awsTypes.ENI{
 								"eni-1": {
 									ID: "eni-1",
 									IP: iputil.AddrFrom(netip.MustParseAddr("10.1.1.225")),
-									Subnet: eniTypes.AwsSubnet{
+									Subnet: awsTypes.AwsSubnet{
 										CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 									},
 									Addresses: addrs(
 										"10.1.1.226",
 										"10.1.1.229",
 									),
-									VPC: eniTypes.AwsVPC{
+									VPC: awsTypes.AwsVPC{
 										ID:          "vpc-1",
 										PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 										CIDRs: prefixes(
@@ -102,19 +102,19 @@ func Test_validateENIConfig(t *testing.T) {
 						},
 					},
 					Status: ciliumv2.NodeStatus{
-						ENI: eniTypes.ENIStatus{
-							ENIs: map[string]eniTypes.ENI{
+						ENI: awsTypes.ENIStatus{
+							ENIs: map[string]awsTypes.ENI{
 								"eni-1": {
 									ID: "eni-1",
 									IP: iputil.AddrFrom(netip.MustParseAddr("10.1.1.225")),
-									Subnet: eniTypes.AwsSubnet{
+									Subnet: awsTypes.AwsSubnet{
 										CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 									},
 									Addresses: addrs(
 										"10.1.1.226",
 										"10.1.1.229",
 									),
-									VPC: eniTypes.AwsVPC{
+									VPC: awsTypes.AwsVPC{
 										ID: "vpc-1",
 									},
 								},
@@ -140,19 +140,19 @@ func Test_validateENIConfig(t *testing.T) {
 						},
 					},
 					Status: ciliumv2.NodeStatus{
-						ENI: eniTypes.ENIStatus{
-							ENIs: map[string]eniTypes.ENI{
+						ENI: awsTypes.ENIStatus{
+							ENIs: map[string]awsTypes.ENI{
 								"eni-1": {
 									ID: "eni-1",
 									IP: iputil.AddrFrom(netip.MustParseAddr("10.1.1.225")),
-									Subnet: eniTypes.AwsSubnet{
+									Subnet: awsTypes.AwsSubnet{
 										CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 									},
 									Addresses: addrs(
 										"10.1.1.226",
 										"10.1.1.229",
 									),
-									VPC: eniTypes.AwsVPC{
+									VPC: awsTypes.AwsVPC{
 										ID:          "vpc-1",
 										PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 										CIDRs: []iputil.Prefix{
@@ -182,19 +182,19 @@ func Test_validateENIConfig(t *testing.T) {
 						},
 					},
 					Status: ciliumv2.NodeStatus{
-						ENI: eniTypes.ENIStatus{
-							ENIs: map[string]eniTypes.ENI{
+						ENI: awsTypes.ENIStatus{
+							ENIs: map[string]awsTypes.ENI{
 								"eni-2": {
 									ID: "eni-2",
 									IP: iputil.AddrFrom(netip.MustParseAddr("10.1.1.225")),
-									Subnet: eniTypes.AwsSubnet{
+									Subnet: awsTypes.AwsSubnet{
 										CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 									},
 									Addresses: addrs(
 										"10.1.1.226",
 										"10.1.1.229",
 									),
-									VPC: eniTypes.AwsVPC{
+									VPC: awsTypes.AwsVPC{
 										ID:          "vpc-1",
 										PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 										CIDRs: prefixes(
@@ -225,19 +225,19 @@ func Test_validateENIConfig(t *testing.T) {
 						},
 					},
 					Status: ciliumv2.NodeStatus{
-						ENI: eniTypes.ENIStatus{
-							ENIs: map[string]eniTypes.ENI{
+						ENI: awsTypes.ENIStatus{
+							ENIs: map[string]awsTypes.ENI{
 								"eni-1": {
 									ID: "eni-1",
 									IP: iputil.AddrFrom(netip.MustParseAddr("10.1.1.225")),
-									Subnet: eniTypes.AwsSubnet{
+									Subnet: awsTypes.AwsSubnet{
 										CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 									},
 									Addresses: addrs(
 										"10.1.1.226",
 										"10.1.1.229",
 									),
-									VPC: eniTypes.AwsVPC{
+									VPC: awsTypes.AwsVPC{
 										ID:          "vpc-1",
 										PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 										CIDRs: prefixes(
@@ -268,7 +268,7 @@ func Test_validateENIConfig(t *testing.T) {
 
 func TestBuildENIAllocationResult(t *testing.T) {
 	node := &ciliumv2.CiliumNode{}
-	node.Status.ENI.ENIs = map[string]eniTypes.ENI{
+	node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 		"eni-1": {
 			ID:  "eni-1",
 			MAC: "aa:bb:cc:dd:ee:01",
@@ -277,10 +277,10 @@ func TestBuildENIAllocationResult(t *testing.T) {
 				"10.1.1.11",
 			),
 			Number: 1,
-			Subnet: eniTypes.AwsSubnet{
+			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 			},
-			VPC: eniTypes.AwsVPC{
+			VPC: awsTypes.AwsVPC{
 				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 				CIDRs:       prefixes("10.2.0.0/16"),
 			},
@@ -292,10 +292,10 @@ func TestBuildENIAllocationResult(t *testing.T) {
 				"10.3.1.20",
 			),
 			Number: 2,
-			Subnet: eniTypes.AwsSubnet{
+			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.3.1.0/24")),
 			},
-			VPC: eniTypes.AwsVPC{
+			VPC: awsTypes.AwsVPC{
 				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 				CIDRs:       prefixes("10.2.0.0/16"),
 			},
@@ -341,7 +341,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 
 func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 	node := &ciliumv2.CiliumNode{}
-	node.Status.ENI.ENIs = map[string]eniTypes.ENI{
+	node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 		"eni-1": {
 			ID:  "eni-1",
 			MAC: "aa:bb:cc:dd:ee:01",
@@ -350,10 +350,10 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 				"10.1.1.16/28",
 			),
 			Number: 1,
-			Subnet: eniTypes.AwsSubnet{
+			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 			},
-			VPC: eniTypes.AwsVPC{
+			VPC: awsTypes.AwsVPC{
 				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 			},
 		},
@@ -382,17 +382,17 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 }
 
 func TestBuildENIAllocationResultIPMasq(t *testing.T) {
-	enis := map[string]eniTypes.ENI{
+	enis := map[string]awsTypes.ENI{
 		"eni-1": {
 			ID: "eni-1",
 			Addresses: addrs(
 				"10.1.1.226",
 				"10.1.1.229",
 			),
-			Subnet: eniTypes.AwsSubnet{
+			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 			},
-			VPC: eniTypes.AwsVPC{
+			VPC: awsTypes.AwsVPC{
 				ID:          "vpc-1",
 				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
 				CIDRs: prefixes(
@@ -436,7 +436,7 @@ func TestBuildENIAllocationResultIPMasq(t *testing.T) {
 }
 
 func TestEniContainsIP(t *testing.T) {
-	eni := eniTypes.ENI{
+	eni := awsTypes.ENI{
 		IP:        iputil.AddrFrom(netip.MustParseAddr("10.0.0.100")),
 		Addresses: addrs("10.0.0.1", "10.0.0.2"),
 		Prefixes:  prefixes("10.0.1.0/28"),
@@ -456,7 +456,7 @@ func TestEniContainsIP(t *testing.T) {
 	require.False(t, eniContainsIP(eni, netip.MustParseAddr("10.0.1.16")))
 
 	// Empty ENI
-	require.False(t, eniContainsIP(eniTypes.ENI{}, netip.MustParseAddr("10.0.0.1")))
+	require.False(t, eniContainsIP(awsTypes.ENI{}, netip.MustParseAddr("10.0.0.1")))
 }
 
 func TestAddressCoveredByPrefix(t *testing.T) {
@@ -496,7 +496,7 @@ func TestEniPoolsFromResource(t *testing.T) {
 
 	t.Run("secondary IPs as /32 CIDRs", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
-		node.Status.ENI.ENIs = map[string]eniTypes.ENI{
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 			"eni-1": {
 				Addresses: addrs("10.0.0.1", "10.0.0.2"),
 			},
@@ -513,7 +513,7 @@ func TestEniPoolsFromResource(t *testing.T) {
 
 	t.Run("prefix delegation writes prefixes and excludes covered addresses", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
-		node.Status.ENI.ENIs = map[string]eniTypes.ENI{
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 			"eni-1": {
 				// Mimics the pkg/aws/ec2.parseENI behavior: Addresses contains the ENI secondary
 				// IPs, the ENI primary if UsePrimaryAddress and the 16 IPs expanded from the /28 prefix.
@@ -544,7 +544,7 @@ func TestEniPoolsFromResource(t *testing.T) {
 	t.Run("excluded ENIs are skipped", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
 		node.Spec.ENI.ExcludeInterfaceTags = map[string]string{"skip": "true"}
-		node.Status.ENI.ENIs = map[string]eniTypes.ENI{
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 			"eni-1": {
 				Addresses: addrs("10.0.0.1"),
 				Tags:      map[string]string{"skip": "true"},
@@ -566,9 +566,9 @@ func TestEniPoolsFromResource(t *testing.T) {
 func TestDeriveENIVpcCIDR(t *testing.T) {
 	t.Run("returns primary VPC CIDR from first ENI", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
-		node.Status.ENI.ENIs = map[string]eniTypes.ENI{
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 			"eni-1": {
-				VPC: eniTypes.AwsVPC{
+				VPC: awsTypes.AwsVPC{
 					PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/16")),
 				},
 			},
@@ -583,9 +583,9 @@ func TestDeriveENIVpcCIDR(t *testing.T) {
 
 	t.Run("returns zero when VPC CIDR is empty", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
-		node.Status.ENI.ENIs = map[string]eniTypes.ENI{
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 			"eni-1": {
-				VPC: eniTypes.AwsVPC{},
+				VPC: awsTypes.AwsVPC{},
 			},
 		}
 		require.False(t, deriveENIVpcCIDR(node).IsValid())

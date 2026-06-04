@@ -15,8 +15,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 )
@@ -29,7 +29,7 @@ func init() {
 // metadata and the agent configuration carried in in.
 func mutate(ctx context.Context, in nodediscovery.ENIMutateInputs, nodeResource *ciliumv2.CiliumNode) error {
 	// set ENI field in the node only when the ENI ipam is specified
-	nodeResource.Spec.ENI = eniTypes.ENISpec{}
+	nodeResource.Spec.ENI = awsTypes.ENISpec{}
 
 	imds, err := metadata.NewClient(ctx)
 	if err != nil {

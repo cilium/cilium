@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/operator/pkg/ipam/stats"
 	"github.com/cilium/cilium/pkg/aws/ec2"
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/option"
@@ -63,7 +63,7 @@ type Node struct {
 
 	// enis is the list of ENIs attached to the node indexed by ENI ID.
 	// Protected by Node.mutex.
-	enis map[string]eniTypes.ENI
+	enis map[string]types.ENI
 
 	// k8sObj is the CiliumNode custom resource representing the node
 	k8sObj *v2.CiliumNode
@@ -109,11 +109,11 @@ func (n *Node) updateLogger() {
 // PopulateStatusFields fills in the status field of the CiliumNode custom
 // resource with ENI specific information
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
-	k8sObj.Status.ENI.ENIs = map[string]eniTypes.ENI{}
+	k8sObj.Status.ENI.ENIs = map[string]types.ENI{}
 
 	n.manager.ForeachInstance(n.node.InstanceID(),
 		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-			e, ok := iface.(*eniTypes.ENI)
+			e, ok := iface.(*types.ENI)
 			if ok {
 				k8sObj.Status.ENI.ENIs[interfaceID] = *e.DeepCopy()
 			}
@@ -573,7 +573,7 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 	return "", fmt.Errorf("no ENI found to associate static IP")
 }
 
-func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec) ([]string, error) {
+func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec types.ENISpec) ([]string, error) {
 	// 1. check explicit security groups associations via checking Spec.ENI.SecurityGroups
 	// 2. check if Spec.ENI.SecurityGroupTags is passed and if so filter by those
 	// 3. if 1 and 2 give no results derive the security groups from eth0
@@ -604,7 +604,7 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec
 
 	n.manager.ForeachInstance(n.node.InstanceID(),
 		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-			e, ok := iface.(*eniTypes.ENI)
+			e, ok := iface.(*types.ENI)
 			if ok && e.Number == 0 {
 				securityGroups = make([]string, len(e.SecurityGroups))
 				copy(securityGroups, e.SecurityGroups)
@@ -644,7 +644,7 @@ func isAttachmentIndexConflict(err error) bool {
 
 // indexExists returns true if the specified index is occupied by an ENI in the
 // slice of ENIs
-func indexExists(enis map[string]eniTypes.ENI, index int32) bool {
+func indexExists(enis map[string]types.ENI, index int32) bool {
 	for _, e := range enis {
 		if e.Number == int(index) {
 			return true
@@ -857,7 +857,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	available = ipamTypes.AllocationMap{}
 
 	n.mutex.Lock()
-	n.enis = map[string]eniTypes.ENI{}
+	n.enis = map[string]types.ENI{}
 
 	// 1. This calculates the base interface effective limit on this Node, given:
 	// 		* IPAM Prefix Delegation
@@ -874,7 +874,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 
 	n.manager.ForeachInstance(instanceID,
 		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-			e, ok := iface.(*eniTypes.ENI)
+			e, ok := iface.(*types.ENI)
 			if !ok {
 				return nil
 			}
@@ -1076,7 +1076,7 @@ func (n *Node) IsPrefixDelegated() bool {
 // getEffectiveIPLimits computing the effective number of available addresses on the ENI
 // based on limits (which includes any left over prefix delegation capacity), as well as
 // just the left over prefix delegation capacity.
-func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (leftoverPrefixCapacity, effectiveLimits int) {
+func (n *Node) getEffectiveIPLimits(eni *types.ENI, limits int) (leftoverPrefixCapacity, effectiveLimits int) {
 	// The limits include the primary IP, so we need to take it into account
 	// when computing the effective number of available addresses on the ENI.
 	effectiveLimits = limits - 1
@@ -1180,7 +1180,7 @@ func (n *Node) logSubnetRouteTableMismatch(subnet *ipamTypes.Subnet, matchType s
 //  3. If we can't use the subnet first ENI in, try to use the subnet in the same route table as the node's subnet.
 //  4. If none of these work, fall back to just choosing the subnet with the most addresses
 //     available.
-func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits) *ipamTypes.Subnet {
+func (n *Node) findSuitableSubnet(spec types.ENISpec, limits ipamTypes.Limits) *ipamTypes.Subnet {
 	if len(spec.SubnetIDs) > 0 {
 		if subnet := n.manager.FindSubnetByIDs(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs); subnet != nil {
 			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
