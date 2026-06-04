@@ -91,8 +91,6 @@ jobs:
     timeout-minutes: 150
     env:
       job_name: "Install and Scale Test"
-    environment:
-      name: test-with-images
     steps:
       - name: Set commit status to pending
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
@@ -134,17 +132,17 @@ jobs:
           # only add SHA to the image tags if it was set
           if [ -n "${SHA}" ]; then
             echo sha=${SHA} >> $GITHUB_OUTPUT
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=${{ vars.DOCKER_READ_HOST }}/${{ vars.DOCKER_READ_ORG }}/cilium-ci \
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
-            --helm-set=operator.image.repository=${{ vars.DOCKER_READ_HOST }}/${{ vars.DOCKER_READ_ORG }}/operator \
+            --helm-set=operator.image.repository=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/operator \
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
-            --helm-set=clustermesh.apiserver.image.repository=${{ vars.DOCKER_READ_HOST }}/${{ vars.DOCKER_READ_ORG }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.repository=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --helm-set=clustermesh.apiserver.image.tag=${SHA} \
             --helm-set=clustermesh.apiserver.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=${{ vars.DOCKER_READ_HOST }}/${{ vars.DOCKER_READ_ORG }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.repository=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=hubble.relay.image.useDigest=false"
           fi
@@ -153,19 +151,12 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
 
-      - name: Login to docker registry for image wait
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ${{ vars.DOCKER_READ_HOST}}
-          username: ${{ vars.DOCKER_READ_USERNAME}}
-          password: ${{ secrets.DOCKER_READ_PASSWORD }}
-
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect ${{ vars.DOCKER_READ_HOST }}/${{ vars.DOCKER_READ_ORG }}/$image:${{ steps.vars.outputs.SHA }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.SHA }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Go
@@ -239,14 +230,6 @@ jobs:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
 
-      - name: Create imagePullSecret
-        run: |
-          kubectl create secret docker-registry cilium-registry \
-            --namespace kube-system \
-            --docker-server=${{ vars.DOCKER_READ_HOST }} \
-            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
-            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
-
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@995a08156171644e92e5688b0785b7baf86ce22a  # main
         with:
@@ -275,8 +258,8 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=imagePullSecrets[0].name=cilium-registry
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=imagePullSecrets[0].name=cilium-registry
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@995a08156171644e92e5688b0785b7baf86ce22a # main
