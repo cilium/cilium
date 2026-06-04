@@ -22,11 +22,12 @@ import (
 
 // TLSRouteInput is used to implement the Input interface for TLSRoute
 type TLSRouteInput struct {
-	Ctx      context.Context
-	Logger   *slog.Logger
-	Client   client.Client
-	Grants   *gatewayv1.ReferenceGrantList
-	TLSRoute *gatewayv1.TLSRoute
+	Ctx            context.Context
+	Logger         *slog.Logger
+	Client         client.Client
+	Grants         *gatewayv1.ReferenceGrantList
+	TLSRoute       *gatewayv1.TLSRoute
+	ControllerName string
 
 	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
 }
@@ -67,7 +68,7 @@ func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferenc
 	}
 	t.TLSRoute.Status.RouteStatus.Parents = append(t.TLSRoute.Status.RouteStatus.Parents, gatewayv1.RouteParentStatus{
 		ParentRef:      parentRef,
-		ControllerName: controllerName,
+		ControllerName: gatewayv1.GatewayController(t.ControllerName),
 		Conditions:     updates,
 	})
 }
