@@ -14,12 +14,11 @@ import (
 // The version is monotonically increased for any change to the set.
 type ResourceSource interface {
 	// GetResources returns the current version of the resources with the given
-	// names.
-	// If lastVersion is not nil and the resources with the given names haven't
+	// names. If resourceNames is empty all are returned.
+	// If lastVersion is not zero and the resources with the given names haven't
 	// changed since lastVersion, nil is returned.
-	// If resourceNames is empty, all resources are returned.
 	// Should not be blocking.
-	GetResources(typeURL string, lastVersion uint64, nodeIP string, resourceNames []string) (*VersionedResources, error)
+	GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources
 
 	// EnsureVersion increases this resource set's version to be at least the
 	// given version. If the current version is already higher than the

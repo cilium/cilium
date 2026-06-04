@@ -36,7 +36,7 @@
 //
 //	type ResourceSource interface {
 //	    GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
-//	        nodeIP string, resourceNames []string) (*VersionedResources, error)
+//	        resourceNames []string) *VersionedResources
 //	}
 //
 // Resource sets should implement the ResourceSet interface to provide

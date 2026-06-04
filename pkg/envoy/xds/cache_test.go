@@ -60,7 +60,7 @@ func TestGetResource(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Ignore version and nodeID they does not impact GetResource logic.
 			// Ignore error since it always returns nil.
-			got, _ := c.GetResources(tc.typeURL, tc.version, "", tc.getNames)
+			got := c.GetResources(tc.typeURL, tc.version, tc.getNames)
 			gotNilResponse := got == nil
 			if gotNilResponse != tc.wantNilResponse {
 				t.Fatalf("Returned response mismatch want: gotNilResponse != tc.wantNilResponse  %v != %v", gotNilResponse, tc.wantNilResponse)
