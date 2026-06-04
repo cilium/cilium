@@ -90,7 +90,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Success()
 	}
 
-	if string(gwc.Spec.ControllerName) != helpers.CiliumDefaultControllerName {
+	if string(gwc.Spec.ControllerName) != r.controllerName {
 		scopedLog.InfoContext(ctx, "GatewayClass does not have matching controller name, cleaning up previously managed resources",
 			gatewayClass, gw.Spec.GatewayClassName,
 			logfields.Controller, gwc.Spec.ControllerName)
@@ -908,7 +908,7 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 	for httpRouteIndex, original := range httpRoutes.Items {
 
 		hr := original.DeepCopy()
-		hr.Status.Parents = pruneRouteParentStatuses(hr.Status.Parents, hr.Spec.ParentRefs)
+		hr.Status.Parents = pruneRouteParentStatuses(hr.Status.Parents, hr.Spec.ParentRefs, r.controllerName)
 
 		// input for the validators
 		// The validators will mutate the HTTPRoute as required, setting its status correctly.
@@ -949,7 +949,7 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 	for tlsRouteIndex, original := range tlsRoutes.Items {
 
 		tlsr := original.DeepCopy()
-		tlsr.Status.Parents = pruneRouteParentStatuses(tlsr.Status.Parents, tlsr.Spec.ParentRefs)
+		tlsr.Status.Parents = pruneRouteParentStatuses(tlsr.Status.Parents, tlsr.Spec.ParentRefs, r.controllerName)
 
 		// input for the validators
 		// The validators will mutate the TLSRoute as required, setting its status correctly.
@@ -985,7 +985,7 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 	for grpcRouteIndex, original := range grpcRoutes.Items {
 
 		grpcr := original.DeepCopy()
-		grpcr.Status.Parents = pruneRouteParentStatuses(grpcr.Status.Parents, grpcr.Spec.ParentRefs)
+		grpcr.Status.Parents = pruneRouteParentStatuses(grpcr.Status.Parents, grpcr.Spec.ParentRefs, r.controllerName)
 
 		// input for the validators
 		// The validators will mutate the GRPCRoute as required, setting its status correctly.
