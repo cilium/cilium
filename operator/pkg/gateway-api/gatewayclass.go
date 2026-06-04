@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/predicates"
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
@@ -31,12 +30,12 @@ type gatewayClassReconciler struct {
 	controllerName string
 }
 
-func newGatewayClassReconciler(mgr ctrl.Manager, logger *slog.Logger) *gatewayClassReconciler {
+func newGatewayClassReconciler(mgr ctrl.Manager, logger *slog.Logger, controllerName string) *gatewayClassReconciler {
 	return &gatewayClassReconciler{
 		Client:         mgr.GetClient(),
 		Scheme:         mgr.GetScheme(),
 		logger:         logger,
-		controllerName: helpers.CiliumDefaultControllerName,
+		controllerName: controllerName,
 	}
 }
 
