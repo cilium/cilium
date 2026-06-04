@@ -237,6 +237,8 @@ func (ms *mapState) forID(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) b
 
 // CoveringBroaderOrEqualKeys iterates over broader or equal (broader or equal port/proto and the
 // same or wildcard ID) in the trie.
+//
+// All yielded keys will have either the specified ID or the wildcard ID.
 func (ms *mapState) CoveringBroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
@@ -261,6 +263,10 @@ func (ms *mapState) CoveringBroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateE
 // BroaderOrEqualKeys iterates over broader or equal (broader or equal port/proto and the same
 // or wildcard ID) in the trie.
 // If a key is a wildcard key then also keys with any specific IDs are iterated!
+//
+// This is the same as CoveringBroaderOrEqualKeys for non-wildcard keys.
+// The difference is when the wildcard key is supplied - this yields *all* keys
+// with shorter-or-equal prefix length.
 func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
@@ -292,6 +298,9 @@ func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 // CoveredNarrowerOrEqualKeys iterates over narrower or equal keys in the trie.
 // Iterated keys can be safely deleted during iteration due to DescendantIterator holding enough
 // state that allows iteration to be continued even if the current trie node is removed.
+//
+// If a non-wildcard key is supplied, all keys yielded will have that identity.
+// If a wildcard key is supplied, all longer-prefix keys will be yielded.
 func (ms *mapState) CoveredNarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
@@ -317,6 +326,11 @@ func (ms *mapState) CoveredNarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateE
 // Iterated keys can be safely deleted during iteration due to DescendantIterator holding enough
 // state that allows iteration to be continued even if the current trie node is removed.
 // If a key is a non-wildcard key then also the wildcard key is iterated!
+//
+// If a non-wildcard key is supplied, this will yield longer-prefix keys with either
+// the supplied identity or wildcard identity.
+//
+// A wildcard key will return only entries with the wildcard identity.
 func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
