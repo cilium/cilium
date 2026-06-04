@@ -84,6 +84,14 @@ func TestHashTemplate(t *testing.T) {
 	b, err := base.hashTemplate(cfg, &ep)
 	require.NoError(t, err)
 	require.Equal(t, a, b)
+
+	// The host endpoint uses a different BPF object and must not share the
+	// workload endpoint template cache entry, even with the exact same
+	// options.
+	hostEP := testutils.NewTestHostEndpoint(t)
+	hostHash, err := base.hashTemplate(cfg, &hostEP)
+	require.NoError(t, err)
+	require.NotEqual(t, a, hostHash)
 }
 
 type fakeConfigWriter []byte
