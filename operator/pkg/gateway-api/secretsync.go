@@ -20,9 +20,23 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandler {
+type SecretSyncHandler struct {
+	client         client.Client
+	logger         *slog.Logger
+	controllerName string
+}
+
+func NewSecretSyncHandler(c client.Client, logger *slog.Logger, controllerName string) *SecretSyncHandler {
+	return &SecretSyncHandler{
+		client:         c,
+		logger:         logger,
+		controllerName: controllerName,
+	}
+}
+
+func (h *SecretSyncHandler) EnqueueTLSSecrets() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		scopedLog := logger.With(
+		scopedLog := h.logger.With(
 			logfields.Resource, obj.GetName(),
 		)
 
@@ -32,7 +46,7 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 		}
 
 		// Check whether Gateway is managed by Cilium
-		if !helpers.GatewayHasMatchingControllerFn(ctx, c, helpers.CiliumDefaultControllerName, logger)(gw) {
+		if !helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
 			return nil
 		}
 
@@ -57,10 +71,10 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 	})
 }
 
-func IsReferencedByCiliumGateway(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
-	gateways := helpers.GetGatewaysForSecret(ctx, c, obj, logger)
+func (h *SecretSyncHandler) IsReferencedByGateway(ctx context.Context, _ client.Client, _ *slog.Logger, obj *corev1.Secret) bool {
+	gateways := helpers.GetGatewaysForSecret(ctx, h.client, obj, h.logger)
 	for _, gw := range gateways {
-		if helpers.GatewayHasMatchingControllerFn(ctx, c, helpers.CiliumDefaultControllerName, logger)(gw) {
+		if helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
 			return true
 		}
 	}
@@ -70,9 +84,9 @@ func IsReferencedByCiliumGateway(ctx context.Context, c client.Client, logger *s
 
 // Enqueue BackendTLSPolicyConfigmaps produces a handler.EventHandler that, when it is passed a
 // BackendTLSPolicy as the object.Object, returns any ConfigMaps referenced.
-func EnqueueBackendTLSPolicyConfigMaps(c client.Client, logger *slog.Logger) handler.EventHandler {
+func (h *SecretSyncHandler) EnqueueBackendTLSPolicyConfigMaps() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		scopedLog := logger.With(
+		scopedLog := h.logger.With(
 			logfields.Resource, obj.GetName(),
 		)
 
@@ -87,26 +101,26 @@ func EnqueueBackendTLSPolicyConfigMaps(c client.Client, logger *slog.Logger) han
 			if !helpers.IsConfigMap(certRef) {
 				continue
 			}
-			c := types.NamespacedName{
+			cfg := types.NamespacedName{
 				Namespace: btlsp.GetNamespace(),
 				Name:      string(certRef.Name),
 			}
-			reqs = append(reqs, reconcile.Request{NamespacedName: c})
-			scopedLog.DebugContext(ctx, "Enqueued configmap for backendtlspolicy", logfields.ConfigMapName, c)
+			reqs = append(reqs, reconcile.Request{NamespacedName: cfg})
+			scopedLog.DebugContext(ctx, "Enqueued configmap for backendtlspolicy", logfields.ConfigMapName, cfg)
 		}
 		return reqs
 	})
 }
 
-func ConfigMapIsReferencedInCiliumGateway(ctx context.Context, c client.Client, logger *slog.Logger, cfgMap *corev1.ConfigMap) bool {
-	scopedLog := logger.With(logfields.LogSubsys, "queue-gw-from-backendtlspolicy-configmap")
+func (h *SecretSyncHandler) ConfigMapIsReferencedInGateway(ctx context.Context, _ client.Client, _ *slog.Logger, cfgMap *corev1.ConfigMap) bool {
+	scopedLog := h.logger.With(logfields.LogSubsys, "queue-gw-from-backendtlspolicy-configmap")
 
 	cfgMapName := client.ObjectKeyFromObject(cfgMap)
 
 	// Fetch all BackendTLSPolicies that reference this ConfigMap
 	btlspList := &gatewayv1.BackendTLSPolicyList{}
 
-	if err := c.List(ctx, btlspList, &client.ListOptions{
+	if err := h.client.List(ctx, btlspList, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexers.BackendTLSPolicyConfigMapIndex, cfgMapName.String()),
 	}); err != nil {
 		scopedLog.ErrorContext(ctx, "Failed to get related BackendTLSPolicies for ConfigMap", logfields.Error, err)
@@ -121,7 +135,7 @@ func ConfigMapIsReferencedInCiliumGateway(ctx context.Context, c client.Client, 
 		for _, ancestorStatus := range btlsp.Status.Ancestors {
 			// An Ancestor Status with the Cilium controller name and Accepted: True is only added by Cilium if
 			// everything is good, so we are covered.
-			if ancestorStatus.ControllerName == helpers.CiliumDefaultControllerName && helpers.IsAccepted(ancestorStatus.Conditions) {
+			if string(ancestorStatus.ControllerName) == h.controllerName && helpers.IsAccepted(ancestorStatus.Conditions) {
 				return true
 			}
 		}

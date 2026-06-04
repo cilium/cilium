@@ -316,17 +316,19 @@ func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrati
 		return secretsync.SecretSyncRegistrationOut{}
 	}
 
+	handler := NewSecretSyncHandler(params.CtrlRuntimeManager.GetClient(), params.Logger, helpers.CiliumDefaultControllerName)
+
 	return secretsync.SecretSyncRegistrationOut{
 		SecretSyncRegistration: &secretsync.SecretSyncRegistration{
 			RefObject:            &gatewayv1.Gateway{},
-			RefObjectEnqueueFunc: EnqueueTLSSecrets(params.CtrlRuntimeManager.GetClient(), params.Logger),
-			RefObjectCheckFunc:   IsReferencedByCiliumGateway,
+			RefObjectEnqueueFunc: handler.EnqueueTLSSecrets(),
+			RefObjectCheckFunc:   handler.IsReferencedByGateway,
 			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
 		},
 		ConfigMapSyncRegistration: &secretsync.ConfigMapSyncRegistration{
 			RefObject:            &gatewayv1.BackendTLSPolicy{},
-			RefObjectEnqueueFunc: EnqueueBackendTLSPolicyConfigMaps(params.CtrlRuntimeManager.GetClient(), params.Logger),
-			RefObjectCheckFunc:   ConfigMapIsReferencedInCiliumGateway,
+			RefObjectEnqueueFunc: handler.EnqueueBackendTLSPolicyConfigMaps(),
+			RefObjectCheckFunc:   handler.ConfigMapIsReferencedInGateway,
 			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
 		},
 	}
