@@ -1345,13 +1345,15 @@ set_v6_rtuple(const struct ipv6_ct_tuple *otuple,
 	rtuple->dport = ostate->to_sport;
 }
 
+DEFINE_AUX(struct ipv6_ct_tuple, new_mapping_tuple);
+
 static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 					       const struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
 					       const struct ipv6_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
 {
-	struct ipv6_ct_tuple rtuple = {};
+	struct ipv6_ct_tuple *rtuple = AUX(new_mapping_tuple);
 	struct ipv6_nat_entry rstate;
 	__u32 *retries_hist;
 	__u32 retries;
@@ -1367,7 +1369,7 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 	ostate->to_saddr = target->addr;
 	/* .to_sport is selected below */
 
-	set_v6_rtuple(otuple, ostate, &rtuple);
+	set_v6_rtuple(otuple, ostate, rtuple);
 	/* .dport is selected below */
 
 	port = __snat_try_keep_port(target->min_port,
@@ -1380,9 +1382,9 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
-		rtuple.dport = bpf_htons(port);
+		rtuple->dport = bpf_htons(port);
 
-		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate, true) == 0)
+		if (__snat_create(&cilium_snat_v6_external, rtuple, &rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -1403,12 +1405,12 @@ create_nat_entry:
 	if (retries_hist)
 		++*retries_hist;
 
-	ostate->to_sport = rtuple.dport;
+	ostate->to_sport = rtuple->dport;
 	ostate->common.created = rstate.common.created;
 
 	ret = __snat_create(&cilium_snat_v6_external, otuple, ostate, false);
 	if (ret < 0) {
-		map_delete_elem(&cilium_snat_v6_external, &rtuple); /* rollback */
+		map_delete_elem(&cilium_snat_v6_external, rtuple); /* rollback */
 		if (ext_err)
 			*ext_err = (__s8)ret;
 		ret = DROP_NAT_NO_MAPPING;
