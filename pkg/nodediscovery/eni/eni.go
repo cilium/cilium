@@ -15,7 +15,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 
-	"github.com/cilium/cilium/pkg/aws/metadata"
+	awsMetadata "github.com/cilium/cilium/pkg/aws/metadata"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -31,7 +31,7 @@ func mutate(ctx context.Context, in nodediscovery.ENIMutateInputs, nodeResource 
 	// set ENI field in the node only when the ENI ipam is specified
 	nodeResource.Spec.ENI = awsTypes.ENISpec{}
 
-	imds, err := metadata.NewClient(ctx)
+	imds, err := awsMetadata.NewClient(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to create EC2 metadata client: %w", err)
 	}
