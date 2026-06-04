@@ -385,12 +385,7 @@ bool egress_gw_snat_needed_hook_v6(union v6addr *saddr, union v6addr *daddr,
 	return egress_gw_snat_needed_v6(saddr, daddr, snat_addr, egress_ifindex);
 }
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__uint(max_entries, 1);
-	__type(key, int);
-	__type(value, struct bpf_fib_lookup_padded);
-} fib_params_storage __section_maps_btf;
+DEFINE_AUX(struct bpf_fib_lookup_padded, fib_params_storage);
 
 static __always_inline
 int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
@@ -398,15 +393,11 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 					 const union v6addr *daddr,
 					 __u32 egress_ifindex, __s8 *ext_err)
 {
-	struct bpf_fib_lookup_padded *fib_params;
-	int ret, zero = 0;
+	struct bpf_fib_lookup_padded *fib_params = AUX(fib_params_storage);
+	int ret;
 
 	if (egress_ifindex && neigh_resolver_without_nh_available())
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
-
-	fib_params = map_lookup_elem(&fib_params_storage, &zero);
-	if (!fib_params)
-		return DROP_INVALID;
 
 	ret = (__s8)fib_lookup_v6(ctx, fib_params,
 				  (struct in6_addr *)egress_ip,
