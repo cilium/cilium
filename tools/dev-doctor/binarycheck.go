@@ -12,18 +12,22 @@ import (
 	"github.com/blang/semver/v4"
 )
 
-// A binaryCheck checks that a binary called name is installed and optionally at
-// least version minVersion (inclusive), and less than maxVersion (exclusive)
+// A binaryCheck checks that a binary called name is installed and optionally
+// either exactly expectedVersion, at least version minVersion (inclusive), and
+// less than maxVersion (exclusive).
 type binaryCheck struct {
-	name           string
-	command        string
-	alternateNames []string
-	ifNotFound     checkResult
-	versionArgs    []string
-	versionRegexp  *regexp.Regexp
-	minVersion     *semver.Version // inclusive
-	maxVersion     *semver.Version // exclusive
-	hint           string
+	name                string
+	command             string
+	alternateNames      []string
+	ifNotFound          checkResult
+	versionArgs         []string
+	versionRegexp       *regexp.Regexp
+	versionNote         string
+	expectedVersion     *semver.Version // exact
+	ifUnexpectedVersion checkResult
+	minVersion          *semver.Version // inclusive
+	maxVersion          *semver.Version // exclusive
+	hint                string
 }
 
 func (c *binaryCheck) Name() string {
@@ -68,7 +72,7 @@ func (c *binaryCheck) Run() (checkResult, string) {
 		version = match[1]
 	}
 
-	if c.minVersion != nil || c.maxVersion != nil {
+	if c.expectedVersion != nil || c.minVersion != nil || c.maxVersion != nil {
 		v, err := semver.ParseTolerant(string(version))
 		if err != nil {
 			return checkFailed, err.Error()
@@ -91,9 +95,32 @@ func (c *binaryCheck) Run() (checkResult, string) {
 		if c.maxVersion != nil && effectiveVersion.GTE(*c.maxVersion) {
 			return checkError, fmt.Sprintf("found %s, version %s, need less than %s", path, version, c.maxVersion)
 		}
+
+		if c.expectedVersion != nil {
+			expectedVersion := semver.Version{
+				Major: c.expectedVersion.Major,
+				Minor: c.expectedVersion.Minor,
+				Patch: c.expectedVersion.Patch,
+			}
+			if effectiveVersion.NE(expectedVersion) {
+				result := c.ifUnexpectedVersion
+				if result == checkOK {
+					result = checkError
+				}
+				message := fmt.Sprintf("found %s, version %s, expected %s", path, version, expectedVersion)
+				if c.versionNote != "" {
+					message += "; " + c.versionNote
+				}
+				return result, message
+			}
+		}
 	}
 
-	return checkOK, fmt.Sprintf("found %s, version %s", path, version)
+	message := fmt.Sprintf("found %s, version %s", path, version)
+	if c.versionNote != "" {
+		message += "; " + c.versionNote
+	}
+	return checkOK, message
 }
 
 func (c *binaryCheck) Hint() string {

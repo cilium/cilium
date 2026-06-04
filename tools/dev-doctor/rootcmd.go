@@ -53,6 +53,33 @@ func readGoModGoVersion(rootDir string) (*semver.Version, error) {
 	return &ver, nil
 }
 
+func readGoModModuleVersion(rootDir, modulePath string) (*semver.Version, error) {
+	goModFile := "go.mod"
+	path := filepath.Join(rootDir, goModFile)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	mod, err := modfile.Parse(goModFile, data, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, req := range mod.Require {
+		if req.Mod.Path != modulePath {
+			continue
+		}
+
+		ver, err := semver.ParseTolerant(req.Mod.Version)
+		if err != nil {
+			return nil, err
+		}
+		return &ver, nil
+	}
+
+	return nil, fmt.Errorf("no require statement found for %s in %s", modulePath, path)
+}
+
 func rootCmdRun(cmd *cobra.Command, args []string) {
 	rootDir := goPath() + "/src/github.com/cilium/cilium"
 
@@ -67,6 +94,15 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	if err != nil {
 		panic(fmt.Sprintf("cannot read go version from go.mod: %v", err))
 	}
+
+	ginkgoModulePath := "github.com/onsi/ginkgo/v2"
+	ginkgoVersion, err := readGoModModuleVersion(rootDir, ginkgoModulePath)
+	if err != nil {
+		panic(fmt.Sprintf("cannot read ginkgo version from go.mod: %v", err))
+	}
+	ginkgoInstall := fmt.Sprintf("%s/ginkgo@v%s", ginkgoModulePath, ginkgoVersion)
+	ginkgoMinVersion := semver.Version{Major: ginkgoVersion.Major, Minor: 0, Patch: 0}
+	ginkgoMaxVersion := semver.Version{Major: ginkgoVersion.Major + 1, Minor: 0, Patch: 0}
 
 	checks := []check{
 		osArchCheck{},
@@ -124,13 +160,16 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			hint:          "see https://docs.docker.com/buildx/working-with-buildx/",
 		},
 		&binaryCheck{
-			name:          "ginkgo",
-			ifNotFound:    checkWarning,
-			versionArgs:   []string{"version"},
-			versionRegexp: regexp.MustCompile(`Ginkgo Version ` + versionRegex),
-			minVersion:    &semver.Version{Major: 1, Minor: 4, Patch: 0},
-			maxVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
-			hint:          `Run "go install github.com/onsi/ginkgo/ginkgo@v1.16.5".`,
+			name:                "ginkgo",
+			ifNotFound:          checkWarning,
+			versionArgs:         []string{"version"},
+			versionRegexp:       regexp.MustCompile(`Ginkgo Version ` + versionRegex),
+			versionNote:         fmt.Sprintf("Cilium uses %s v%s from go.mod", ginkgoModulePath, ginkgoVersion),
+			expectedVersion:     ginkgoVersion,
+			ifUnexpectedVersion: checkWarning,
+			minVersion:          &ginkgoMinVersion,
+			maxVersion:          &ginkgoMaxVersion,
+			hint:                fmt.Sprintf(`Run "go install %s".`, ginkgoInstall),
 		},
 		// FIXME add gomega check?
 		&binaryCheck{
