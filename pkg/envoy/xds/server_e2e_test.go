@@ -511,12 +511,10 @@ func TestRequestSomeResources(t *testing.T) {
 	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Resource 1 has been deleted; Resource 2 exists. Confirm using Lookup().
-	rsrc, err := cache.Lookup(typeURL, resources[1].Name)
-	require.NoError(t, err)
+	rsrc := cache.Lookup(typeURL, resources[1].Name)
 	require.Nil(t, rsrc)
 
-	rsrc, err = cache.Lookup(typeURL, resources[2].Name)
-	require.NoError(t, err)
+	rsrc = cache.Lookup(typeURL, resources[2].Name)
 	require.NotNil(t, rsrc)
 	require.Equal(t, resources[2], rsrc.(*envoy_config_route.RouteConfiguration))
 	require.Equal(t, 0, metrics.ack[typeURL])

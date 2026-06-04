@@ -432,7 +432,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				"starting watch resources",
 				logfields.Resources, len(req.GetResourceNames()),
 			)
-			go watcher.WatchResources(ctx, typeURL, lastReceivedVersion, lastAppliedVersion, nodeIP, req.GetResourceNames(), respCh)
+			go watcher.WatchResources(ctx, typeURL, lastReceivedVersion, lastAppliedVersion, req.GetResourceNames(), respCh)
 			firstRequest = false
 
 		default: // Pending watch response.

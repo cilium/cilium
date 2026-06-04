@@ -52,7 +52,7 @@ type tx struct {
 type txs []tx
 
 // getter specifies function to retrieve all resources of given type url.
-type getter func(typeUrl string) (*xds.VersionedResources, error)
+type getter func(typeUrl string) *xds.VersionedResources
 
 // flavour specifies a common interface for implementations specific to sotw or
 // delta protocol version. It is primarily used by XDSClient.
@@ -62,7 +62,7 @@ type flavour[ReqT requestConstraint, RespT responseConstraint] interface {
 
 	// prepareObsReq creates a request based on parameters used in Observe calls.
 	// get may be used to obtain the current contents of clients cache.
-	prepareObsReq(obsReq *observeRequest, node *corepb.Node, get getter) (request ReqT, err error)
+	prepareObsReq(obsReq *observeRequest, node *corepb.Node, get getter) ReqT
 
 	// tx prepares a list of transactions based on a given response.
 	// get may be used to obtain the current contents of clients cache.
@@ -286,8 +286,8 @@ func (c *XDSClient[ReqT, RespT]) fetchResponses(ctx context.Context, errCh chan 
 	}
 }
 
-func (c *XDSClient[ReqT, RespT]) getAllResources(typeUrl string) (*xds.VersionedResources, error) {
-	return c.cache.GetResources(typeUrl, 0, "", nil)
+func (c *XDSClient[ReqT, RespT]) getAllResources(typeUrl string) *xds.VersionedResources {
+	return c.cache.GetResources(typeUrl, 0, nil)
 }
 
 // Observe adds resourceNames to watched resources of a given typeUrl.
@@ -362,13 +362,10 @@ func (c *XDSClient[ReqT, RespT]) loop(ctx context.Context, errCh chan error, tra
 
 // handleObserve creates a flavour-specific request based on observeRequest and sends it on given transport trans.
 func (c *XDSClient[ReqT, RespT]) handleObserve(trans transport[ReqT, RespT], obsReq *observeRequest) error {
-	req, err := c.xds.prepareObsReq(obsReq, c.node, c.getAllResources)
-	if err != nil {
-		return fmt.Errorf("prepare observe request: %w", err)
-	}
+	req := c.xds.prepareObsReq(obsReq, c.node, c.getAllResources)
 	c.log.Debug("Send", logfields.Request, req)
 
-	err = trans.Send(req)
+	err := trans.Send(req)
 	if err != nil {
 		return fmt.Errorf("send: %w", err)
 	}

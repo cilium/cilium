@@ -27,12 +27,12 @@ func (delta *delta) transport(ctx context.Context, client discoverypb.Aggregated
 	return client.DeltaAggregatedResources(ctx, grpc.WaitForReady(true))
 }
 
-func (delta *delta) prepareObsReq(obsReq *observeRequest, node *corepb.Node, _ getter) (*discoverypb.DeltaDiscoveryRequest, error) {
+func (delta *delta) prepareObsReq(obsReq *observeRequest, node *corepb.Node, _ getter) *discoverypb.DeltaDiscoveryRequest {
 	return &discoverypb.DeltaDiscoveryRequest{
 		Node:                   node,
 		TypeUrl:                obsReq.typeUrl,
 		ResourceNamesSubscribe: obsReq.resourceNames,
-	}, nil
+	}
 }
 
 func (delta *delta) tx(resp *discoverypb.DeltaDiscoveryResponse, _ getter) (txs, error) {

@@ -223,10 +223,7 @@ func TestHandleResponse_StoresInCache(t *testing.T) {
 			}
 
 			checkResource := func(typeUrl, resName string) protoreflect.ProtoMessage {
-				verRes, err := c.cache.GetResources(typeUrl, 0, "", []string{resName})
-				if err != nil {
-					t.Fatalf("unexpected GetResources err: %v", err)
-				}
+				verRes := c.cache.GetResources(typeUrl, 0, []string{resName})
 				if len(verRes.Resources) != 1 {
 					t.Fatalf("len(resources) = %d, want = %d", len(verRes.Resources), 1)
 				}
@@ -347,10 +344,7 @@ func TestUpsertAndDeleteMissing_Listeners(t *testing.T) {
 				wantNames[i] = l.Name
 			}
 
-			verRes, err := c.cache.GetResources(envoy.ListenerTypeURL, 0, "", nil)
-			if err != nil {
-				t.Fatalf("unexpected GetResources err: %v", err)
-			}
+			verRes := c.cache.GetResources(envoy.ListenerTypeURL, 0, nil)
 			sort.Strings(wantNames)
 			sort.Strings(verRes.ResourceNames)
 			if diff := cmp.Diff(wantNames, verRes.ResourceNames); diff != "" {
@@ -465,10 +459,7 @@ func TestUpsertAndDeleteMissing_Endpoints(t *testing.T) {
 			handleResponse(envoy.ClusterTypeURL, tc.updatedClusters, nil)
 			handleResponse(envoy.EndpointTypeURL, nil, tc.updatedEndpoints)
 
-			verRes, err := c.cache.GetResources(envoy.EndpointTypeURL, 0, "", nil)
-			if err != nil {
-				t.Fatalf("unexpected GetResources err: %v", err)
-			}
+			verRes := c.cache.GetResources(envoy.EndpointTypeURL, 0, nil)
 			sort.Strings(tc.wantEndpoints)
 			sort.Strings(verRes.ResourceNames)
 			if diff := cmp.Diff(tc.wantEndpoints, verRes.ResourceNames); diff != "" {
