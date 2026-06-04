@@ -157,7 +157,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				},
 				Port:           uint32(l.Port),
 				Protocol:       model.L4ProtocolTCP,
-				Routes:         toTCPRoutes(l, input.TCPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
+				Routes:         toTCPRoutes(l, input.Gateway.GetNamespace(), namespaceLabels, input.TCPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
 				Infrastructure: infra,
 				Service:        toServiceModel(input.GatewayClassConfig),
 			})
@@ -177,7 +177,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				},
 				Port:           uint32(l.Port),
 				Protocol:       model.L4ProtocolUDP,
-				Routes:         toUDPRoutes(l, input.UDPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
+				Routes:         toUDPRoutes(l, input.Gateway.GetNamespace(), namespaceLabels, input.UDPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
 				Infrastructure: infra,
 				Service:        toServiceModel(input.GatewayClassConfig),
 			})
@@ -866,7 +866,7 @@ func sortL4RoutesByAge[T any](routes []T, meta func(T) metav1.ObjectMeta) {
 	})
 }
 
-func toTCPRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TCPRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.L4Route {
+func toTCPRoutes(listener gatewayv1beta1.Listener, gatewayNamespace string, namespaceLabels helpers.NamespaceLabelIndex, input []gatewayv1alpha2.TCPRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.L4Route {
 	// Collect every TCPRoute that attaches to this listener, then keep only the
 	// oldest. Per Gateway API conflict resolution
 	// (https://gateway-api.sigs.k8s.io/guides/api-design/#conflicts), an L4
@@ -875,6 +875,9 @@ func toTCPRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TCPRo
 	// Accepted=True (handled by the status reconciler) but route no traffic.
 	attached := make([]gatewayv1alpha2.TCPRoute, 0, len(input))
 	for _, r := range input {
+		if !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
+			continue
+		}
 		if l4RouteAttachesToListener(r.Spec.ParentRefs, listener) {
 			attached = append(attached, r)
 		}
@@ -919,10 +922,13 @@ func toTCPRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TCPRo
 	return l4Routes
 }
 
-func toUDPRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.UDPRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.L4Route {
+func toUDPRoutes(listener gatewayv1beta1.Listener, gatewayNamespace string, namespaceLabels helpers.NamespaceLabelIndex, input []gatewayv1alpha2.UDPRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.L4Route {
 	// Keep only the oldest attaching UDPRoute. See toTCPRoutes for the rationale.
 	attached := make([]gatewayv1alpha2.UDPRoute, 0, len(input))
 	for _, r := range input {
+		if !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
+			continue
+		}
 		if l4RouteAttachesToListener(r.Spec.ParentRefs, listener) {
 			attached = append(attached, r)
 		}
