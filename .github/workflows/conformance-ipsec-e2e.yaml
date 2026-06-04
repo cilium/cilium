@@ -109,8 +109,6 @@ jobs:
     name: Wait for images
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment:
-      name: test-with-images
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -121,9 +119,6 @@ jobs:
         uses: ./.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
-          login-host: ${{ vars.DOCKER_READ_HOST }}
-          login-username: ${{ vars.DOCKER_READ_USERNAME }}
-          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
@@ -131,8 +126,6 @@ jobs:
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     env:
       job_name: 'Setup & Test'
-    environment:
-      name: test-with-images
     strategy:
       fail-fast: false
       max-parallel: 100
@@ -190,8 +183,6 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
-          registry_host: ${{ vars.DOCKER_READ_HOST }}
-          registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: './untrusted/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
@@ -209,7 +200,6 @@ jobs:
           ingress-controller: ${{ matrix.ingress-controller }}
           mutual-auth: false
           misc: ${{ matrix.misc }}
-          image-pull-secret: "cilium-registry"
 
       - name: Set Kind params
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
@@ -234,14 +224,6 @@ jobs:
           kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
-
-      - name: Create imagePullSecret
-        run: |
-          kubectl create secret docker-registry cilium-registry \
-            --namespace kube-system \
-            --docker-server=${{ vars.DOCKER_READ_HOST }} \
-            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
-            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
       - name: Set up job variables for connectivity tests
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
