@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package api
+package metadata
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

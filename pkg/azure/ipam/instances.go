@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
-	azureTypes "github.com/cilium/cilium/pkg/azure/types"
+	"github.com/cilium/cilium/pkg/azure/types"
 
 	// Register the Azure resource-ID parser. This is the canonical place
 	// for Azure-IPAM-enabled binaries to wire in pkg/azure/types' parser
@@ -158,7 +158,7 @@ func (m *InstancesManager) extractSubnetIDs(instances *ipamTypes.InstanceMap) []
 	subnetIDs := sets.New[string]()
 
 	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-		if azIface, ok := iface.(*azureTypes.AzureInterface); ok && azIface.Subnet.ID != "" {
+		if azIface, ok := iface.(*types.AzureInterface); ok && azIface.Subnet.ID != "" {
 			subnetIDs.Insert(azIface.Subnet.ID)
 		}
 		return nil
