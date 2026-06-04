@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package eni
+package ipam
 
 import (
 	"net/netip"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/aws/api/mock"
-	"github.com/cilium/cilium/pkg/aws/eni/limits"
+	"github.com/cilium/cilium/pkg/aws/ipam/limits"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"

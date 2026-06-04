@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/aws/api"
-	"github.com/cilium/cilium/pkg/aws/eni"
+	"github.com/cilium/cilium/pkg/aws/ipam"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -133,7 +133,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater allocator.Cilium
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize metadata client: %w", err)
 	}
-	instances, err := eni.NewInstancesManager(ctx, a.rootLogger, a.client, imds)
+	instances, err := ipam.NewInstancesManager(ctx, a.rootLogger, a.client, imds)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI instances manager: %w", err)
 	}
@@ -149,7 +149,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater allocator.Cilium
 	}
 
 	if a.ENIGarbageCollectionInterval > 0 {
-		eni.StartENIGarbageCollector(ctx, a.rootLogger, a.client, eni.GarbageCollectionParams{
+		ipam.StartENIGarbageCollector(ctx, a.rootLogger, a.client, ipam.GarbageCollectionParams{
 			RunInterval:    a.ENIGarbageCollectionInterval,
 			MaxPerInterval: defaults.ENIGarbageCollectionMaxPerInterval,
 			ENITags:        a.eniGCTags,

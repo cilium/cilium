@@ -3,7 +3,7 @@
 
 // Copyright 2017 Lyft, Inc.
 
-package eni
+package ipam
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
-	"github.com/cilium/cilium/pkg/aws/eni/limits"
+	"github.com/cilium/cilium/pkg/aws/ipam/limits"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
