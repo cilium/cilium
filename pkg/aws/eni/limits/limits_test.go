@@ -11,7 +11,7 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/cilium/hive/hivetest"
 
-	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
+	"github.com/cilium/cilium/pkg/aws/api/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -22,10 +22,10 @@ const (
 	testEC2apiRetryCount   = 2
 )
 
-var api *ec2mock.API
+var api *mock.API
 
 func TestGet(t *testing.T) {
-	api = ec2mock.NewAPI(nil, nil, nil, nil)
+	api = mock.NewAPI(nil, nil, nil, nil)
 	api.UpdateInstanceTypes([]ec2_types.InstanceTypeInfo{{
 		InstanceType: "test.large",
 		NetworkInfo: &ec2_types.NetworkInfo{
@@ -84,7 +84,7 @@ func TestGet(t *testing.T) {
 
 func TestInitEC2APIUpdateTrigger(t *testing.T) {
 	// Setup mock API with some test instance types
-	api := ec2mock.NewAPI(nil, nil, nil, nil)
+	api := mock.NewAPI(nil, nil, nil, nil)
 	api.UpdateInstanceTypes([]ec2_types.InstanceTypeInfo{
 		{
 			InstanceType: "test.large",
