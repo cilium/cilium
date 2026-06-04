@@ -94,8 +94,6 @@ jobs:
     timeout-minutes: 60
     env:
       job_name: "Install and Cluster Mesh Scale Test"
-    environment:
-      name: test-with-images
     steps:
       - name: Set commit status to pending
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
@@ -124,9 +122,6 @@ jobs:
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci clustermesh-apiserver-ci cilium-cli-ci
-          login-host: ${{ vars.DOCKER_READ_HOST }}
-          login-username: ${{ vars.DOCKER_READ_USERNAME }}
-          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
       - name: Install Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
@@ -189,14 +184,6 @@ jobs:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
 
-      - name: Create imagePullSecret
-        run: |
-          kubectl create secret docker-registry cilium-registry \
-            --namespace kube-system \
-            --docker-server=${{ vars.DOCKER_READ_HOST }} \
-            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
-            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
-
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@2c40f81b9180be6a5e52b8caf7f1de75202ec0fc # v0.19.4
         with:
@@ -238,11 +225,8 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
-          registry_host: ${{ vars.DOCKER_READ_HOST }}
-          registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: ./untrusted/install/kubernetes/cilium
           debug: false
-          image-pull-secret: "cilium-registry"
 
       - name: Install Cilium
         id: install-cilium

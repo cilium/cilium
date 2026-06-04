@@ -190,8 +190,6 @@ jobs:
     name: Wait for images
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment:
-      name: test-with-images
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -202,9 +200,6 @@ jobs:
         uses: ./.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
-          login-host: ${{ vars.DOCKER_READ_HOST }}
-          login-username: ${{ vars.DOCKER_READ_USERNAME }}
-          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
@@ -212,8 +207,6 @@ jobs:
     name: 'Setup & Test (${{ matrix.name }}, ${{ matrix.mode }}, ${{ matrix.kernel }})'
     env:
       job_name: 'Setup & Test (${{ matrix.name }}, ${{ matrix.mode }}, ${{ matrix.kernel }})'
-    environment:
-      name: test-with-images
     strategy:
       fail-fast: false
       max-parallel: 100
@@ -338,8 +331,6 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.image_tag }}
-          registry_host: ${{ vars.DOCKER_READ_HOST }}
-          registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: './untrusted/cilium-downgrade/install/kubernetes/cilium/'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
@@ -362,7 +353,6 @@ jobs:
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
           bgp-control-plane: ${{ matrix.bgp-control-plane }}
-          image-pull-secret: "cilium-registry"
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
@@ -370,8 +360,6 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
-          registry_host: ${{ vars.DOCKER_READ_HOST }}
-          registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: './untrusted/cilium-newest/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
@@ -394,7 +382,6 @@ jobs:
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
           bgp-control-plane: ${{ matrix.bgp-control-plane }}
-          image-pull-secret: "cilium-registry"
 
       - name: Set Kind params
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
@@ -420,15 +407,6 @@ jobs:
           kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
-
-      - name: Create imagePullSecret
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        run: |
-          kubectl create secret docker-registry cilium-registry \
-            --namespace kube-system \
-            --docker-server=${{ vars.DOCKER_READ_HOST }} \
-            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
-            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
       - name: Set up job variables for connectivity tests
         id: vars-conn

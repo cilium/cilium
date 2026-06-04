@@ -9,30 +9,11 @@ inputs:
     description: 'list of images to wait for'
     required: false
     default: 'cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci'
-  login-host:
-    description: 'The host to login to if login is set to true.'
-    required: false
-    default: ''
-  login-username:
-    description: 'The username to login to the registry if login is set to true.'
-    required: false
-    default: ''
-  login-password:
-    description: 'The password to login to the registry if login is set to true.'
-    required: false
-    default: ''
 runs:
   using: composite
   steps:
     - name: Set environment variables
       uses: ./.github/actions/set-env-variables
-    - name: Login to docker registry
-      if: ${{ inputs.login-host != '' && inputs.login-username != '' && inputs.login-password != '' }}
-      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-      with:
-        registry: ${{ inputs.login-host }}
-        username: ${{ inputs.login-username }}
-        password: ${{ inputs.login-password }}
     - name: Wait for images
       shell: bash
       run: |
