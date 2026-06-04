@@ -46,7 +46,7 @@ type gatewayReconciler struct {
 	controllerName string
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, installedCRDs []schema.GroupVersionKind) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
@@ -55,7 +55,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		translator:     translator,
 		logger:         scopedLog,
 		installedCRDs:  installedCRDs,
-		controllerName: helpers.CiliumDefaultControllerName,
+		controllerName: controllerName,
 	}
 }
 
