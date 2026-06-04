@@ -26,6 +26,14 @@ import (
 // break backwards compatibility
 var EndpointSliceStorePrefix = path.Join(kvstore.BaseKeyPrefix, "state", "endpointslices", "v1")
 
+func init() {
+	kvstore.RegisterCommandTranscoder(
+		func() kvstore.TranscodableJSON { return &ClusterEndpointSlice{} },
+		EndpointSliceStorePrefix,
+		kvstore.StateToCachePrefix(EndpointSliceStorePrefix),
+	)
+}
+
 // ClusterEndpointSlice is the definition of an EndpointSlice in a cluster.
 //
 // WARNING - STABLE API: Any change to this structure must be done in a
