@@ -197,9 +197,9 @@ func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, health c
 func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, config *v2.CiliumBGPPeerConfig) error {
 	updateStatus := false
 
-	authSecretMissing := u.authSecretMissing(config)
+	authSecretConfigured, authSecretMissing := u.authSecretMissing(config)
 
-	if changed := u.updateMissingAuthSecretCondition(config, authSecretMissing); changed {
+	if changed := u.updateMissingAuthSecretCondition(config, authSecretConfigured, authSecretMissing); changed {
 		updateStatus = true
 	}
 
@@ -216,27 +216,34 @@ func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, co
 	return nil
 }
 
-func (u *peerConfigStatusReconciler) authSecretMissing(c *v2.CiliumBGPPeerConfig) bool {
+func (u *peerConfigStatusReconciler) authSecretMissing(c *v2.CiliumBGPPeerConfig) (isConfigured bool, isMissing bool) {
 	if c.Spec.AuthSecretRef == nil {
-		return false
+		return false, false
 	}
 	if _, exists, _ := u.secretStore.GetByKey(resource.Key{Namespace: u.secretNamespace, Name: *c.Spec.AuthSecretRef}); !exists {
-		return true
+		return true, true
 	}
-	return false
+	return true, false
 }
 
-func (u *peerConfigStatusReconciler) updateMissingAuthSecretCondition(config *v2.CiliumBGPPeerConfig, missing bool) bool {
+func (u *peerConfigStatusReconciler) updateMissingAuthSecretCondition(config *v2.CiliumBGPPeerConfig, configured, missing bool) bool {
 	cond := meta_v1.Condition{
 		Type:               v2.BGPPeerConfigConditionMissingAuthSecret,
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
-		Reason:             "MissingAuthSecret",
+		Message:            "",
+		Reason:             "AuthSecretValidated",
 	}
-	if missing {
+	if !configured {
+		cond.Status = meta_v1.ConditionFalse
+		cond.Message = "Auth Secret is not configured"
+		cond.Reason = "AuthSecretNotConfigured"
+	}
+	if missing && configured {
 		cond.Status = meta_v1.ConditionTrue
 		cond.Message = fmt.Sprintf("Referenced Auth Secret %q is missing", *config.Spec.AuthSecretRef)
+		cond.Reason = "AuthSecretMissing"
 	}
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }

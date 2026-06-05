@@ -306,11 +306,13 @@ func (b *BGPResourceManager) updateConflictingClusterConfigsCondition(config *v2
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
-		Reason:             "ConflictingClusterConfigs",
+		Message:            "",
+		Reason:             "ClusterConfigValidated",
 	}
 	if conflictingClusterConfigs.Len() != 0 {
 		cond.Status = meta_v1.ConditionTrue
 		cond.Message = fmt.Sprintf("Selecting the same node(s) with ClusterConfig(s): %v", sets.List(conflictingClusterConfigs))
+		cond.Reason = "ClusterConfigConflict"
 	}
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
@@ -321,11 +323,13 @@ func (b *BGPResourceManager) updateMissingPeerConfigsCondition(config *v2.Cilium
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
-		Reason:             "MissingPeerConfigs",
+		Message:            "",
+		Reason:             "PeerConfigsResolved",
 	}
 	if len(missingPCs) != 0 {
 		cond.Status = meta_v1.ConditionTrue
 		cond.Message = fmt.Sprintf("Referenced CiliumBGPPeerConfig(s) are missing: %v", missingPCs)
+		cond.Reason = "PeerConfigsMissing"
 	}
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
@@ -336,11 +340,13 @@ func (b *BGPResourceManager) updateNoMatchingNodeCondition(config *v2.CiliumBGPC
 		Status:             meta_v1.ConditionTrue,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
-		Reason:             "NoMatchingNode",
+		Reason:             "MatchingNodeUnavailable",
 		Message:            "No node matches spec.nodeSelector",
 	}
 	if !noMatchingNode {
 		cond.Status = meta_v1.ConditionFalse
+		cond.Message = ""
+		cond.Reason = "MatchingNodeSelected"
 	}
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
