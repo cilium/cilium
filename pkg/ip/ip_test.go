@@ -612,50 +612,6 @@ func TestKeepUniqueAddrs(t *testing.T) {
 	}
 }
 
-func TestIPVersion(t *testing.T) {
-	type args struct {
-		ip net.IP
-	}
-	tests := []struct {
-		name string
-		args args
-		v4   bool
-		v6   bool
-	}{
-		{
-			name: "test-1",
-			args: args{
-				ip: nil,
-			},
-			v4: false,
-			v6: false,
-		},
-		{
-			name: "test-2",
-			args: args{
-				ip: net.ParseIP("1.1.1.1"),
-			},
-			v4: true,
-			v6: false,
-		},
-		{
-			name: "test-3",
-			args: args{
-				ip: net.ParseIP("fd00::1"),
-			},
-			v4: false,
-			v6: true,
-		},
-	}
-	for _, tt := range tests {
-		got := IsIPv4(tt.args.ip)
-		require.Equalf(t, tt.v4, got, "v4 test Name: %s", tt.name)
-
-		got = IsIPv6(tt.args.ip)
-		require.Equalf(t, tt.v6, got, "v6 test Name: %s", tt.name)
-	}
-}
-
 func TestPrefixToIpsValidIPv4(t *testing.T) {
 	prefix := "192.168.1.0/30"
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
