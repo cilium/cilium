@@ -3,4 +3,4 @@
 
 #define EAST_WEST_TEST 1
 
-#include "tc_lb4_external_ips.h"
+#include "tc_lb_external_ips.h"
