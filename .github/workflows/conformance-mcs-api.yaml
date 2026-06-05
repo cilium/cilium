@@ -98,6 +98,9 @@ jobs:
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci clustermesh-apiserver-ci cilium-cli-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   mcs-api-conformance-test:
     name: MCS API Conformance Test
@@ -136,7 +139,10 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: ./untrusted/install/kubernetes/cilium
+          image-pull-secret: "cilium-registry"
 
       - name: Set up job variables for GHA environment
         id: vars
@@ -198,6 +204,16 @@ jobs:
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Create imagePullSecrets
+        run: |
+          for context in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+            kubectl --context $context create secret docker-registry cilium-registry \
+              --namespace kube-system \
+              --docker-server=${{ vars.DOCKER_READ_HOST }} \
+              --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+              --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
+          done
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@2c40f81b9180be6a5e52b8caf7f1de75202ec0fc # v0.19.4
