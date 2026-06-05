@@ -703,9 +703,11 @@ func TestClusterConfigConditions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                    string
-		clusterConfig           *v2.CiliumBGPClusterConfig
-		expectedConditionStatus map[string]meta_v1.ConditionStatus
+		name                     string
+		clusterConfig            *v2.CiliumBGPClusterConfig
+		expectedConditionStatus  map[string]meta_v1.ConditionStatus
+		expectedConditionMessage map[string]string
+		expectedConditionReason  map[string]string
 	}{
 		{
 			name: "NoMatchingNode False",
@@ -724,6 +726,12 @@ func TestClusterConfigConditions(t *testing.T) {
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
 				v2.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
 			},
+			expectedConditionMessage: map[string]string{
+				v2.BGPClusterConfigConditionNoMatchingNode: "",
+			},
+			expectedConditionReason: map[string]string{
+				v2.BGPClusterConfigConditionNoMatchingNode: "MatchingNodeSelected",
+			},
 		},
 		{
 			name: "NoMatchingNode False Nil Selector",
@@ -737,6 +745,12 @@ func TestClusterConfigConditions(t *testing.T) {
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
 				v2.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+			},
+			expectedConditionMessage: map[string]string{
+				v2.BGPClusterConfigConditionNoMatchingNode: "",
+			},
+			expectedConditionReason: map[string]string{
+				v2.BGPClusterConfigConditionNoMatchingNode: "MatchingNodeSelected",
 			},
 		},
 		{
@@ -755,6 +769,12 @@ func TestClusterConfigConditions(t *testing.T) {
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
 				v2.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
+			},
+			expectedConditionMessage: map[string]string{
+				v2.BGPClusterConfigConditionNoMatchingNode: "No node matches spec.nodeSelector",
+			},
+			expectedConditionReason: map[string]string{
+				v2.BGPClusterConfigConditionNoMatchingNode: "MatchingNodeUnavailable",
 			},
 		},
 		{
@@ -782,6 +802,12 @@ func TestClusterConfigConditions(t *testing.T) {
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
 				v2.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
 			},
+			expectedConditionMessage: map[string]string{
+				v2.BGPClusterConfigConditionMissingPeerConfigs: "",
+			},
+			expectedConditionReason: map[string]string{
+				v2.BGPClusterConfigConditionMissingPeerConfigs: "PeerConfigsResolved",
+			},
 		},
 		{
 			name: "MissingPeerConfig False nil PeerConfigRef",
@@ -804,6 +830,12 @@ func TestClusterConfigConditions(t *testing.T) {
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
 				v2.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+			},
+			expectedConditionMessage: map[string]string{
+				v2.BGPClusterConfigConditionMissingPeerConfigs: "",
+			},
+			expectedConditionReason: map[string]string{
+				v2.BGPClusterConfigConditionMissingPeerConfigs: "PeerConfigsResolved",
 			},
 		},
 		{
@@ -830,6 +862,12 @@ func TestClusterConfigConditions(t *testing.T) {
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
 				v2.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
+			},
+			expectedConditionMessage: map[string]string{
+				v2.BGPClusterConfigConditionMissingPeerConfigs: "Referenced CiliumBGPPeerConfig(s) are missing: peer0-foo",
+			},
+			expectedConditionReason: map[string]string{
+				v2.BGPClusterConfigConditionMissingPeerConfigs: "PeerConfigsMissing",
 			},
 		},
 	}
