@@ -45,8 +45,8 @@ vlanID: 20
 
 -- desired-device.1.table --
 Owner  Name      Properties
-owner1 eth0.10   Type=vlan, ParentDevice=eth0, VLAN=10
-owner1 eth0.20   Type=vlan, ParentDevice=eth0, VLAN=20
+owner1 eth0.10   Type=vlan, ParentDevice=eth0 (2), VLAN=10
+owner1 eth0.20   Type=vlan, ParentDevice=eth0 (2), VLAN=20
 
 -- devices.1.table --
 Name      Type     MTU     OperStatus
@@ -57,7 +57,7 @@ eth0.20   vlan     1500    up
 
 -- desired-device.2.table --
 Owner  Name      Properties
-owner1 eth0.10   Type=vlan, ParentDevice=eth0, VLAN=10
+owner1 eth0.10   Type=vlan, ParentDevice=eth0 (2), VLAN=10
 
 -- devices.2.table --
 Name      Type     MTU     OperStatus
