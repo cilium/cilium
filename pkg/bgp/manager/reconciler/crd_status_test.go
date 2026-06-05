@@ -171,7 +171,7 @@ func TestCRDConditions(t *testing.T) {
 						{
 							Type:               v2.BGPInstanceConditionReconcileError,
 							Status:             metav1.ConditionTrue,
-							Reason:             "BGPReconcileError",
+							Reason:             "ReconcileFailed",
 							ObservedGeneration: 19,
 							Message: "bgp-instance-0: error 00\n" +
 								"bgp-instance-0: error 01\n" +
@@ -200,7 +200,7 @@ func TestCRDConditions(t *testing.T) {
 						{
 							Type:   v2.BGPInstanceConditionReconcileError,
 							Status: metav1.ConditionTrue,
-							Reason: "BGPReconcileError",
+							Reason: "ReconcileFailed",
 							Message: "bgp-instance-0: error 00\n" +
 								"bgp-instance-0: error 01\n" +
 								"bgp-instance-1: error 10\n",
@@ -217,7 +217,7 @@ func TestCRDConditions(t *testing.T) {
 						{
 							Type:    v2.BGPInstanceConditionReconcileError,
 							Status:  metav1.ConditionTrue,
-							Reason:  "BGPReconcileError",
+							Reason:  "ReconcileFailed",
 							Message: "bgp-instance-0: error 00\n",
 						},
 					},
@@ -237,7 +237,7 @@ func TestCRDConditions(t *testing.T) {
 						{
 							Type:   v2.BGPInstanceConditionReconcileError,
 							Status: metav1.ConditionTrue,
-							Reason: "BGPReconcileError",
+							Reason: "ReconcileFailed",
 							Message: "bgp-instance-0: error 00\n" +
 								"bgp-instance-0: error 01\n" +
 								"bgp-instance-1: error 10\n",
@@ -254,7 +254,7 @@ func TestCRDConditions(t *testing.T) {
 						{
 							Type:    v2.BGPInstanceConditionReconcileError,
 							Status:  metav1.ConditionFalse,
-							Reason:  "BGPReconcileError",
+							Reason:  "ReconcileSucceeded",
 							Message: "",
 						},
 					},
