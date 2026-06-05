@@ -6,7 +6,6 @@ package clustercfg
 import (
 	"context"
 	"errors"
-	"path"
 	"testing"
 	"time"
 
@@ -35,7 +34,7 @@ type mockBackend struct {
 }
 
 func (mb *mockBackend) withError(clusterName string) {
-	mb.errors.Store(path.Join(kvstore.ClusterConfigPrefix, clusterName), errMock)
+	mb.errors.Store(kvstore.JoinKey(kvstore.ClusterConfigPrefix, clusterName), errMock)
 }
 
 func (mb *mockBackend) Get(_ context.Context, key string) ([]byte, error) {
@@ -92,7 +91,7 @@ func TestGetSetClusterConfig(t *testing.T) {
 	require.ErrorIs(t, err, errMock, "kvstore error not propagated correctly")
 
 	// Simulate invalid data stored in the kvstore
-	mb.UpdateIfDifferent(ctx, path.Join(kvstore.ClusterConfigPrefix, "invalid"), []byte("invalid"), true)
+	mb.UpdateIfDifferent(ctx, kvstore.JoinKey(kvstore.ClusterConfigPrefix, "invalid"), []byte("invalid"), true)
 	_, err = Get(ctx, "invalid", &mb)
 	require.ErrorContains(t, err, "invalid character", "unmarshaling error not propagated correctly")
 }

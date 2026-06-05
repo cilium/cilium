@@ -4,8 +4,6 @@
 package reflector
 
 import (
-	"path"
-
 	"github.com/cilium/hive/cell"
 
 	mcsapi "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
@@ -20,12 +18,12 @@ import (
 var Cell = cell.Group(
 	cell.Provide(
 		Out(NewFactory(Endpoints, ipcache.IPIdentitiesPath,
-			WithStatePrefixOverride(path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace)),
+			WithStatePrefixOverride(kvstore.JoinKey(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace)),
 		)),
 
 		Out(NewFactory(Identities, cache.IdentitiesPath,
-			WithStatePrefixOverride(path.Join(cache.IdentitiesPath, "id")),
-			WithCachePrefixOverride(path.Join(kvstore.StateToCachePrefix(cache.IdentitiesPath), ClusterNamePlaceHolder, "id")),
+			WithStatePrefixOverride(kvstore.JoinKey(cache.IdentitiesPath, "id")),
+			WithCachePrefixOverride(kvstore.JoinKey(kvstore.StateToCachePrefix(cache.IdentitiesPath), ClusterNamePlaceHolder, "id")),
 		)),
 
 		Out(NewFactory(Nodes, node.NodeStorePrefix)),

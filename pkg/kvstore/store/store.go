@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"path"
 	"slices"
 	"strings"
 	"sync"
@@ -277,7 +276,7 @@ func (s *SharedStore) Close(ctx context.Context) {
 func (s *SharedStore) keyPath(key NamedKey) string {
 	// WARNING - STABLE API: The composition of the absolute key path
 	// cannot be changed without breaking up and downgrades.
-	return path.Join(s.conf.Prefix, key.GetKeyName())
+	return kvstore.JoinKey(s.conf.Prefix, key.GetKeyName())
 }
 
 // syncLocalKey synchronizes a key to the kvstore

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"path"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -165,7 +164,7 @@ func (rc *remoteCluster) Remove(ctx context.Context) {
 // removing the rest of the cached data. Indeed, there's no point in retrieving
 // incomplete data, and it is expected that agents will be disconnecting as well.
 func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err error) {
-	var cfgkey = path.Join(kvstore.ClusterConfigPrefix, rc.name)
+	var cfgkey = kvstore.JoinKey(kvstore.ClusterConfigPrefix, rc.name)
 	if err = rc.localBackend.Delete(ctx, cfgkey); err != nil {
 		return fmt.Errorf("deleting key %q: %w", cfgkey, err)
 	}
@@ -190,7 +189,7 @@ func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err e
 		}
 	}
 
-	var synpfx = path.Join(kvstore.SyncedPrefix, rc.name) + "/"
+	var synpfx = kvstore.JoinKey(kvstore.SyncedPrefix, rc.name) + "/"
 	if err = rc.localBackend.DeletePrefix(ctx, synpfx); err != nil {
 		return fmt.Errorf("deleting prefix %q: %w", synpfx, err)
 	}

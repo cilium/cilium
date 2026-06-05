@@ -5,7 +5,6 @@ package store
 
 import (
 	"context"
-	"path"
 	"sync"
 	"testing"
 	"time"
@@ -40,7 +39,7 @@ func (fb *fakeLWBackend) ListAndWatch(ctx context.Context, prefix string) kvstor
 		require.Equal(fb.t, fb.prefix, prefix)
 
 		for _, event := range fb.events {
-			event.Key = path.Join(fb.prefix, event.Key)
+			event.Key = kvstore.JoinKey(fb.prefix, event.Key)
 			select {
 			case ch <- event:
 			case <-ctx.Done():

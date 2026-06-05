@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -44,7 +43,7 @@ import (
 var (
 	// IdentitiesPath is the path to where identities are stored in the
 	// key-value store.
-	IdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "identities", "v1")
+	IdentitiesPath = kvstore.JoinKey(kvstore.BaseKeyPrefix, "state", "identities", "v1")
 )
 
 // The filename for the local allocator checkpoont. This is periodically
@@ -927,7 +926,7 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remo
 
 	prefix := m.identitiesPath
 	if cachedPrefix {
-		prefix = path.Join(kvstore.StateToCachePrefix(prefix), remoteName)
+		prefix = kvstore.JoinKey(kvstore.StateToCachePrefix(prefix), remoteName)
 	}
 
 	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(m.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: prefix, Suffix: m.owner.GetNodeSuffix(), Typ: &key.GlobalIdentity{}, Backend: backend})

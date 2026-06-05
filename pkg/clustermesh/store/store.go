@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"path"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -25,7 +24,7 @@ var (
 	//
 	// WARNING - STABLE API: Changing the structure or values of this will
 	// break backwards compatibility
-	ServiceStorePrefix = path.Join(kvstore.BaseKeyPrefix, "state", "services", "v1")
+	ServiceStorePrefix = kvstore.JoinKey(kvstore.BaseKeyPrefix, "state", "services", "v1")
 )
 
 // ServiceMerger is the interface to be implemented by the owner of local
@@ -102,7 +101,7 @@ func (s *ClusterService) NamespaceServiceName() types.NamespacedName {
 func (s *ClusterService) GetKeyName() string {
 	// WARNING - STABLE API: Changing the structure of the key may break
 	// backwards compatibility
-	return path.Join(s.Cluster, s.Namespace, s.Name)
+	return kvstore.JoinKey(s.Cluster, s.Namespace, s.Name)
 }
 
 // Marshal returns the global service object as JSON byte slice

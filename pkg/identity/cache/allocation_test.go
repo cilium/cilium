@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -490,8 +489,8 @@ type kvstoreClient struct{ kvstore.Client }
 
 func (c *kvstoreClient) addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
 	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
-	idPrefix := path.Join(IdentitiesPath, "id")
-	keyPath := path.Join(idPrefix, id)
+	idPrefix := kvstore.JoinKey(IdentitiesPath, "id")
+	keyPath := kvstore.JoinKey(idPrefix, id)
 	success, err := c.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
 	if err != nil || !success {
 		return fmt.Errorf("unable to create master key '%s': %w", keyPath, err)
@@ -500,8 +499,8 @@ func (c *kvstoreClient) addIDKVStore(ctx context.Context, id string, lbls labels
 }
 
 func (c *kvstoreClient) removeIDKVStore(ctx context.Context, id string) error {
-	prefix := path.Join(IdentitiesPath, "id")
-	key := path.Join(prefix, id)
+	prefix := kvstore.JoinKey(IdentitiesPath, "id")
+	key := kvstore.JoinKey(prefix, id)
 	return c.Delete(ctx, key)
 }
 

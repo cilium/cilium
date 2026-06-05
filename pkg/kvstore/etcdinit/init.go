@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path"
 	"slices"
 	"strings"
 
@@ -288,7 +287,7 @@ func rangesForRemoteRole(clusterName string) []keyRange {
 	return []keyRange{
 		rangeForPrefix(kvstore.HeartbeatPath, withoutTrailingSlash),
 		rangeForPrefix(kvstore.StatePrefix),
-		rangeForKey(path.Join(kvstore.ClusterConfigPrefix, clusterName)),
-		rangeForPrefix(path.Join(kvstore.SyncedPrefix, clusterName)),
+		rangeForKey(kvstore.JoinKey(kvstore.ClusterConfigPrefix, clusterName)),
+		rangeForPrefix(kvstore.JoinKey(kvstore.SyncedPrefix, clusterName)),
 	}
 }

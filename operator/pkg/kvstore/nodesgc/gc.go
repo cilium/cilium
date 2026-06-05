@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -130,7 +129,7 @@ func newGC(in struct {
 			health.OK("Primed")
 			in.StoreFactory.NewWatchStore(g.cinfo.Name, nodeStore.KeyCreator, &observer{g.queue},
 				store.RWSWithOnSyncCallback(func(context.Context) { health.OK("Synced") }),
-			).Watch(ctx, g.client, path.Join(nodeStore.NodeStorePrefix, g.cinfo.Name))
+			).Watch(ctx, g.client, kvstore.JoinKey(nodeStore.NodeStorePrefix, g.cinfo.Name))
 			return nil
 		}),
 	)
@@ -177,7 +176,7 @@ func (g *gc) run(ctx context.Context, health cell.Health) error {
 			}
 		}
 
-		key := path.Join(nodeStore.NodeStorePrefix, nodeTypes.GetKeyNodeName(g.cinfo.Name, string(nodeName)))
+		key := kvstore.JoinKey(nodeStore.NodeStorePrefix, nodeTypes.GetKeyNodeName(g.cinfo.Name, string(nodeName)))
 		if err := g.client.Delete(ctx, key); err != nil {
 			return fmt.Errorf("deleting node from kvstore: %w", err)
 		}
