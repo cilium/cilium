@@ -584,6 +584,15 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 				}
 			}
 			if checkZoneHints {
+				// Mirror the candidate filtering done when computing
+				// checkZoneHints above: terminating (and, for health-checked
+				// services, quarantined/not-yet-checked) backends must not be
+				// pinned by zone-hint preference, otherwise topology routing can
+				// keep selecting a draining backend instead of falling back to
+				// healthy backends in other zones.
+				if !w.topologyPreferenceCandidate(svc, be) {
+					continue
+				}
 				if be.Zone == nil ||
 					!slices.Contains(be.Zone.ForZones, *thisZone) {
 					continue

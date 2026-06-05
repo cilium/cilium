@@ -1105,3 +1105,68 @@ func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
 	require.Len(t, selected, 1)
 	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
 }
+
+// TestWriter_SelectBackends_PreferCloseIgnoresTerminatingWithMatchingHint verifies
+// that a terminating backend is not pinned by zone-hint preference even when it
+// carries a ForZones hint matching the local zone. The detection loop only counts
+// the Active backend as a candidate (terminating backends are excluded by
+// topologyPreferenceCandidate), so the zone-hint generator must apply the same
+// filter; otherwise the draining backend would keep receiving traffic alongside
+// the healthy one.
+func TestWriter_SelectBackends_PreferCloseIgnoresTerminatingWithMatchingHint(t *testing.T) {
+	p := fixture(t)
+	p.Writer.config.EnableServiceTopology = true
+	p.LocalNodeStore.Update(func(n *node.LocalNode) {
+		if n.Labels == nil {
+			n.Labels = map[string]string{}
+		}
+		n.Labels[corev1.LabelTopologyZone] = "zone-a"
+	})
+
+	svcName := loadbalancer.NewServiceName("test", "svc")
+	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1), 80, loadbalancer.ScopeExternal)
+	activeAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(2), 8080, loadbalancer.ScopeExternal)
+	terminatingAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(3), 8080, loadbalancer.ScopeExternal)
+
+	svc := &loadbalancer.Service{
+		Name:                svcName,
+		Source:              source.Kubernetes,
+		TrafficDistribution: loadbalancer.TrafficDistributionPreferClose,
+	}
+	fe := &loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     feAddr,
+			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: feAddr.Port(),
+		},
+		Service: svc,
+	}
+	backends := iter.Seq2[*loadbalancer.Backend, statedb.Revision](func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		for i, be := range []*loadbalancer.Backend{
+			{
+				Address: activeAddr,
+				State:   loadbalancer.BackendStateActive,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-a", ForZones: []string{"zone-a"}},
+			},
+			{
+				// Terminating backend that still carries a hint for the local
+				// zone. It must not be selected despite the matching hint.
+				Address: terminatingAddr,
+				State:   loadbalancer.BackendStateTerminating,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-a", ForZones: []string{"zone-a"}},
+			},
+		} {
+			if !yield(be, statedb.Revision(i+1)) {
+				return
+			}
+		}
+	})
+
+	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
+
+	// Only the active backend should be selected; the terminating backend with a
+	// matching zone hint must be filtered out.
+	require.Len(t, selected, 1)
+	assert.Equal(t, activeAddr.String(), selected[0].Address.String())
+}
