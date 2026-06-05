@@ -264,7 +264,7 @@ test_result_cursor = 0;
 #define CHECK(progtype, name) __section(progtype "/test/" name "/check")
 
 /* Asserts that the sum of per-cpu metrics map slots for a key equals count */
-#define assert_metrics_count(key, count) \
+#define assert_metrics_count(key, __count) \
 ({ \
 	struct metrics_value *__entry = NULL; \
 	__u64 sum = 0; \
@@ -277,5 +277,5 @@ test_result_cursor = 0;
 		} \
 		sum += __entry->count; \
 	} \
-	assert(sum == count); \
+	assert(sum == __count); \
 })
