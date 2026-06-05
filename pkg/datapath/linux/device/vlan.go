@@ -33,7 +33,8 @@ func (d *DesiredVLANDeviceSpec) ToNetlink() (netlink.Link, error) {
 }
 
 func (d *DesiredVLANDeviceSpec) Properties() string {
-	return fmt.Sprintf("Type=vlan, ParentDevice=%s, VLAN=%d", d.ParentName, d.VLANID)
+	return fmt.Sprintf("Type=vlan, ParentDevice=%s (%d), VLAN=%d",
+		d.ParentName, d.ParentIndex, d.VLANID)
 }
 
 func (d *DesiredVLANDeviceSpec) MarshalYAML() (any, error) {
