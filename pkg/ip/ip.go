@@ -649,16 +649,6 @@ func IPToPrefix(ip net.IP) *net.IPNet {
 	return prefix
 }
 
-// IsIPv4 returns true if the given IP is an IPv4
-func IsIPv4(ip net.IP) bool {
-	return ip.To4() != nil
-}
-
-// IsIPv6 returns if netIP is IPv6.
-func IsIPv6(ip net.IP) bool {
-	return ip != nil && ip.To4() == nil
-}
-
 // ListContainsIP returns whether a list of IPs contains a given IP.
 func ListContainsIP(ipList []net.IP, ip net.IP) bool {
 	for _, e := range ipList {
