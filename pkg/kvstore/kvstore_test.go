@@ -4,6 +4,7 @@
 package kvstore
 
 import (
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -60,6 +61,70 @@ func TestStateToCachePrefix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, StateToCachePrefix(tt.input))
+		})
+	}
+}
+
+func TestJoinKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected string
+		incompat bool
+	}{
+		{
+			name: "no elements",
+		},
+		{
+			name:     "one element",
+			input:    []string{"foo"},
+			expected: "foo",
+		},
+		{
+			name:     "multiple elements",
+			input:    []string{"foo/bar", "baz", "qux"},
+			expected: "foo/bar/baz/qux",
+		},
+		{
+			name:     "multiple elements, with leading and trailing slashes",
+			input:    []string{"/foo/bar/", "/baz//", "/qux/"},
+			expected: "/foo/bar/baz/qux",
+		},
+		{
+			name:     "multiple elements, some empty",
+			input:    []string{"foo/bar", "", "", "baz", "", "qux"},
+			expected: "foo/bar/baz/qux",
+		},
+		{
+			name:  "multiple elements, all empty",
+			input: []string{"", "", ""},
+		},
+		{
+			name:     "multiple elements, all slashes",
+			input:    []string{"/", "/", "/"},
+			expected: "",
+			// kvstore keys are not rooted at /
+			incompat: true,
+		},
+		{
+			name:     "multiple elements, with . and ..",
+			input:    []string{"foo/bar", "..", ".", "qux"},
+			expected: "foo/bar/.././qux",
+			// . and .. don't bear any special semantics in kvstore keys
+			incompat: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, JoinKey(tt.input...))
+
+			if !tt.incompat {
+				// Assert that [JoinKey] returns the exact same result as
+				// [path.Join] to prevent the risk of backward compatibility
+				// issues.
+				assert.Equal(t, path.Join(tt.input...), JoinKey(tt.input...))
+			}
 		})
 	}
 }
