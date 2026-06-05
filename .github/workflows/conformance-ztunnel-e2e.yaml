@@ -83,6 +83,9 @@ jobs:
         uses: ./.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   setup-and-test:
     needs: [wait-for-images]
@@ -145,11 +148,14 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: './untrusted/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           kpr: ${{ matrix.kpr }}
           encryption: 'ztunnel'
           mutual-auth: false
+          image-pull-secret: "cilium-registry"
 
       - name: Set Kind params
         id: kind-params
@@ -165,6 +171,14 @@ jobs:
           kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
+
+      - name: Create imagePullSecret
+        run: |
+          kubectl create secret docker-registry cilium-registry \
+            --namespace kube-system \
+            --docker-server=${{ vars.DOCKER_READ_HOST }} \
+            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@2c40f81b9180be6a5e52b8caf7f1de75202ec0fc # v0.19.4

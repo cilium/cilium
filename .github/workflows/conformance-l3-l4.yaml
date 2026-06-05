@@ -95,6 +95,9 @@ jobs:
         uses: ./.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   tests-e2e-upgrade:
     name: E2E Upgrade with L3-L4 Tests
@@ -118,4 +121,3 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
       success: ${{ needs.tests-e2e-upgrade.result == 'success' }}
-

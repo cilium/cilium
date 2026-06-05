@@ -104,6 +104,9 @@ jobs:
         with:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci cilium-cli-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
 
   installation-and-connectivity:
     needs: [wait-for-images]
@@ -281,6 +284,9 @@ jobs:
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
+          image-pull-secret: "cilium-registry"
 
       - name: Get connectivity test flags
         id: e2e_config
@@ -474,6 +480,16 @@ jobs:
           image-tag: ${{ steps.vars.outputs.sha }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Create imagePullSecrets
+        run: |
+          for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+             kubectl --context $ctx create secret docker-registry cilium-registry \
+              --namespace kube-system \
+              --docker-server=${{ vars.DOCKER_READ_HOST }} \
+              --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+              --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
+          done
 
       - name: Label one of the nodes as external to the cluster
         run: |
