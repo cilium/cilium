@@ -299,3 +299,14 @@ static __always_inline bool identity_is_local(__u32 identity)
 {
 	return (identity & IDENTITY_LOCAL_SCOPE_MASK) != 0;
 }
+
+/**
+ * aggregate_for_identity returns the aggregated (i.e. wildcard) identity
+ * for the given leaf identity.
+ *
+ * This **must** match the implementation in pkg/policy/aggregate.go
+ */
+static __always_inline __u32 aggregate_for_identity(__u32 identity __maybe_unused)
+{
+	return 0;
+}
