@@ -384,7 +384,7 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 			families = append(families, slim_corev1.IPv4Protocol)
 		}
 		if ipv6 {
-			families = append(families, slim_corev1.IPv4Protocol)
+			families = append(families, slim_corev1.IPv6Protocol)
 		}
 		return families
 	}
