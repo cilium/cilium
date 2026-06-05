@@ -201,21 +201,10 @@ func (ms *mapState) forKey(k Key, f func(Key, mapStateEntry) bool) bool {
 	return true
 }
 
-// forIDs calls 'f' for each ID in 'idSet' with port/proto from 'k'.
-func (ms *mapState) forIDs(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) bool {
+// forCoveredIDs calls 'f' for each covered non-aggregate ID in 'idSet' with port/proto from 'k'.
+func (ms *mapState) forCoveredIDs(agg identity.NumericIdentity, k Key, idSet IDSet, f func(Key, mapStateEntry) bool) bool {
 	for id := range idSet {
-		k.Identity = id
-		if !ms.forKey(k, f) {
-			return false
-		}
-	}
-	return true
-}
-
-// forIDs calls 'f' for each non-wildcard ID in 'idSet' with port/proto from 'k'.
-func (ms *mapState) forNonWildcardIDs(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) bool {
-	for id := range idSet {
-		if id != 0 {
+		if aggregates(agg, id) {
 			k.Identity = id
 			if !ms.forKey(k, f) {
 				return false
@@ -236,24 +225,25 @@ func (ms *mapState) forID(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) b
 }
 
 // CoveringBroaderOrEqualKeys iterates over broader or equal (broader or equal port/proto and the
-// same or wildcard ID) in the trie.
+// same or aggregate ID) in the trie.
 //
-// All yielded keys will have either the specified ID or the wildcard ID.
+// All yielded keys will have either the specified ID or the aggregate ID.
 func (ms *mapState) CoveringBroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+	agg := aggregateFor(key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// ANY identity is broader or equal to all identities, visit it first if it
+			// aggregate identity is broader or equal to all identities, visit it first if it
 			// exists
-			if !ms.forID(k.WithIdentity(0), idSet, yield) {
+			if !ms.forID(k.WithIdentity(agg), idSet, yield) {
 				return
 			}
 
 			// Visit key with the same identity, if it exists.
-			// ANY identity was already visited above.
-			if key.Identity != 0 && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+			// aggregate identity was already visited above.
+			if key.Identity != agg && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
 				return
 			}
 		}
@@ -261,33 +251,34 @@ func (ms *mapState) CoveringBroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateE
 }
 
 // BroaderOrEqualKeys iterates over broader or equal (broader or equal port/proto and the same
-// or wildcard ID) in the trie.
-// If a key is a wildcard key then also keys with any specific IDs are iterated!
+// or aggregate ID) in the trie.
+// If a key is a aggregate key then also keys with any specific IDs are iterated!
 //
-// This is the same as CoveringBroaderOrEqualKeys for non-wildcard keys.
-// The difference is when the wildcard key is supplied - this yields *all* keys
+// This is the same as CoveringBroaderOrEqualKeys for non-aggregate keys.
+// The difference is when the aggregate key is supplied - this yields *all* keys
 // with shorter-or-equal prefix length.
 func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+	agg := aggregateFor(key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// ANY identity is broader or equal to all identities, visit it first if it
+			// aggregate identity is broader or equal to all identities, visit it first if it
 			// exists
-			if !ms.forID(k.WithIdentity(0), idSet, yield) {
+			if !ms.forID(k.WithIdentity(agg), idSet, yield) {
 				return
 			}
 
 			// Visit key with the same identity, if it exists.
-			// ANY identity was already visited above.
-			if key.Identity != 0 && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+			// aggregate identity was already visited above.
+			if key.Identity != agg && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
 				return
 			}
 
-			// Last, Visit all identities for an ANY key
-			if key.Identity == 0 {
-				if !ms.forNonWildcardIDs(k, idSet, yield) {
+			// Last, visit all identities for an aggregate key
+			if key.Identity == agg {
+				if !ms.forCoveredIDs(agg, k, idSet, yield) {
 					return
 				}
 			}
@@ -299,17 +290,21 @@ func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 // Iterated keys can be safely deleted during iteration due to DescendantIterator holding enough
 // state that allows iteration to be continued even if the current trie node is removed.
 //
-// If a non-wildcard key is supplied, all keys yielded will have that identity.
-// If a wildcard key is supplied, all longer-prefix keys will be yielded.
+// If a non-aggregate key is supplied, all keys yielded will have that identity.
+// If an aggregate key is supplied, all longer-prefix keys will be yielded.
 func (ms *mapState) CoveredNarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+	agg := aggregateFor(key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// All identities are narrower or equal to ANY identity.
-			if key.Identity == 0 {
-				if !ms.forIDs(k, idSet, yield) {
+			// All identities are narrower or equal to aggregate identity.
+			if key.Identity == agg {
+				if !ms.forCoveredIDs(agg, k, idSet, yield) {
+					return
+				}
+				if !ms.forID(k.WithIdentity(agg), idSet, yield) {
 					return
 				}
 			} else { // key has a specific identity
@@ -325,33 +320,34 @@ func (ms *mapState) CoveredNarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateE
 // NarrowerOrEqualKeys iterates over narrower or equal keys in the trie.
 // Iterated keys can be safely deleted during iteration due to DescendantIterator holding enough
 // state that allows iteration to be continued even if the current trie node is removed.
-// If a key is a non-wildcard key then also the wildcard key is iterated!
+// If a key is a non-aggregate key then also the aggregate key is iterated!
 //
-// If a non-wildcard key is supplied, this will yield longer-prefix keys with either
-// the supplied identity or wildcard identity.
+// If a non-aggregate key is supplied, this will yield longer-prefix keys with either
+// the supplied identity or aggregate identity.
 //
-// A wildcard key will return only entries with the wildcard identity.
+// If a aggregate key is supplied, this will yield all longer-prefix keys.
 func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+	wc := aggregateFor(key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
 			// All identities are narrower or equal to ANY identity.
-			if key.Identity == 0 {
-				if !ms.forIDs(k, idSet, yield) {
-					return
-				}
-			} else { // key has a specific identity
-				// Need to visit the key with the same identity, if it exists.
-				if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+			if key.Identity == wc {
+				if !ms.forCoveredIDs(wc, k, idSet, yield) {
 					return
 				}
 			}
 
+			// Need to visit the key with the same identity, if it exists.
+			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+				return
+			}
+
 			// Last, Visit ANY identity for a specific identity
-			if key.Identity != 0 {
-				if !ms.forID(k.WithIdentity(0), idSet, yield) {
+			if key.Identity != wc {
+				if !ms.forID(k.WithIdentity(wc), idSet, yield) {
 					return
 				}
 			}
@@ -394,6 +390,7 @@ func (ms *mapState) SubsetKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] 
 // LPMAncestors iterates over broader or equal port/proto entries in the trie in LPM order,
 // with most specific match with the same ID as in 'key' being returned first.
 func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
+	agg := aggregateFor(key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
@@ -403,9 +400,9 @@ func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
 			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
 				return
 			}
-			// Then visit key with zero identity if not already done above and one
+			// Then visit key with aggregated identity if not already done above and one
 			// exists.
-			if key.Identity != 0 && !ms.forID(k.WithIdentity(0), idSet, yield) {
+			if key.Identity != agg && !ms.forID(k.WithIdentity(agg), idSet, yield) {
 				return
 			}
 		}
@@ -417,8 +414,7 @@ func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
 // To be used in testing in place of the bpf datapath when full integration testing is not desired.
 // Returns the closest matching covering policy entry and 'true' if found.
 // 'key' must have a non-zero protocol and a non-wildcard port. Identity may be
-// zero, in which case only entries with zero identity are considered, mirroring
-// the L4-only side of the L3-vs-L4 precedence logic below.
+// zero, in which case only entries with zero identity are considered.
 func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	// Validate that the search key has no wildcards in protocol or port.
 	if key.Nexthdr == 0 || key.DestPort == 0 || key.EndPort() != key.DestPort {
@@ -428,23 +424,29 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 			logfields.PolicyKey, key,
 		)
 	}
-	var l3key, l4key Key
-	var l3entry, l4entry mapStateEntry
-	var haveL3, haveL4 bool
+
+	// The aggregate identity to retrieve
+	agg := aggregateFor(key.Identity)
+
+	// two entries: aggregate and specific.
+	// Must retrieve both.
+	var idKey, aggKey Key
+	var idEntry, aggEntry mapStateEntry
+	var haveID, haveAgg bool
 	for k, v := range ms.LPMAncestors(key) {
-		if !haveL3 && k.Identity != 0 {
+		if !haveID && k.Identity != agg {
 			if v.IsValid() {
-				l3key, l3entry = k, v
-				haveL3 = true
+				idKey, idEntry = k, v
+				haveID = true
 			}
 		}
-		if !haveL4 && k.Identity == 0 {
+		if !haveAgg && k.Identity == agg {
 			if v.IsValid() {
-				l4key, l4entry = k, v
-				haveL4 = true
+				aggKey, aggEntry = k, v
+				haveAgg = true
 			}
 		}
-		if haveL3 && haveL4 {
+		if haveID && haveAgg {
 			break
 		}
 	}
@@ -462,15 +464,15 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	}
 
 	// only one entry found
-	if haveL3 != haveL4 {
-		if haveL3 {
-			return l3entry, true
+	if haveID != haveAgg {
+		if haveID {
+			return idEntry, true
 		}
-		return l4entry, true
+		return aggEntry, true
 	}
 
-	// both L3 and L4 matches found
-	if haveL3 && haveL4 {
+	// both specific and aggregate matches found
+	if haveID && haveAgg {
 		// Precedence rules of the bpf datapath between two policy entries:
 		// 1. higher precedence level entry wins, but auth may need to be propagated.
 		// 2. if Deny at same precedence level, no further processing is needed
@@ -485,26 +487,26 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 		// 1. Entry with higher precedence level is selected.
 		//    Auth requirement does not propagate from a lower precedence rule to a
 		//    higher precedence rule!
-		if l3entry.Precedence > l4entry.Precedence {
-			return l3entry, true
+		if idEntry.Precedence > aggEntry.Precedence {
+			return idEntry, true
 		}
-		if l4entry.Precedence > l3entry.Precedence {
-			return l4entry, true
+		if aggEntry.Precedence > idEntry.Precedence {
+			return aggEntry, true
 		}
 
 		// 2. Entries at the same precedence,
-		// Check for the L3 deny first to match the datapath behavior
-		if l3entry.IsDeny() {
-			return l3entry, true
+		// Check for the specific deny first to match the datapath behavior
+		if idEntry.IsDeny() {
+			return idEntry, true
 		}
 
 		// 3. Two allow entries, select the one with more specific L4
-		// L3-entry must be selected if prefix lengths are the same!
-		if l4key.PrefixLength() > l3key.PrefixLength() {
-			return authOverride(l4entry, l3entry), true
+		// specific-id-entry must be selected if prefix lengths are the same!
+		if idKey.PrefixLength() > aggKey.PrefixLength() {
+			return authOverride(aggEntry, idEntry), true
 		}
 		// 4. Two allow entries are equally specific port/proto or L3-entry is more specific
-		return authOverride(l3entry, l4entry), true
+		return authOverride(idEntry, aggEntry), true
 	}
 
 	// Deny by default if no matches are found
@@ -1076,7 +1078,7 @@ func (sp *keySlice) addNewKeys(l34Keys, doneKeys *Keys) {
 // 'v' has a higher precedence pass.
 func (sp *keySlice) collectNarrowerPasses(tierMaxPrecedence types.Precedence, k Key, v mapStateEntry, key Key, doneKeys *Keys) {
 	// k has narrower L4, but the narrower identity may be on 'key'
-	if k.Identity == 0 {
+	if k.Identity == aggregateFor(key.Identity) {
 		k.Identity = key.Identity
 	}
 	if k != key {
@@ -1114,18 +1116,18 @@ func (sp *keySlice) All() iter.Seq[Key] {
 // inserts a key and entry into the map only if not covered by an entry of a higher precedence. This
 // allows the datapath to perform a longest-prefix-match lookup which always results into the
 // highest precedence match for the given L4 fields (protocol and port). Two lookups are necessary
-// to find if both a wildcard ID and specific ID matches exist, in which case the precedence values
+// to find if both a aggregate ID and specific ID matches exist, in which case the precedence values
 // in the found entries are used to determine the final verdict.
 //
 // A higher precedence PASS verdict is managed as metadata alongside the MapStateEntry and does not
 // stop inserting covered entries of lower precedence. The PASS entries are not inserted into the
 // datapath so the invariant described above is not violated.
 //
-// PASS metadata for wildcard ID entries is always inserted in the tiered order, higher precedence
+// PASS metadata for aggregate ID entries is always inserted in the tiered order, higher precedence
 // tiers first, starting from tier 0. Incremental updates are only ever done due to newly added or
-// deleted identities while wildcard ID entries are always added during the initial full mapstate
-// generation. This means that when adding non-wildcard ID pass entries lower-precedence PASS
-// entries with the wildcard ID may already exist. In both cases, already existing entries (PASS
+// deleted identities while aggregate ID entries are always added during the initial full mapstate
+// generation. This means that when adding non-aggregate ID pass entries lower-precedence PASS
+// entries with the aggregate ID may already exist. In both cases, already existing entries (PASS
 // included) may have more or less specific L4 match (i.e., can appear up or down in the LPM trie).
 //
 // Inserted entry may be a Pass entry, and while mapState can merge pass entries with allow/deny,
@@ -1191,7 +1193,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 	// While iterating make note of any pass metadata:
 	//   - for covering pass entries elevates the precedence of the new entry to follow that of
 	//     the pass entry.
-	//   - for non-covering pass entries, where the new key has a wildcard identity and the pass
+	//   - for non-covering pass entries, where the new key has a aggregate identity and the pass
 	//     key has a specific identity, a new key is added with the ID from the pass key and the
 	//     more specific L4 key from the new key, with precedence elevated to follow the pass
 	//     entry.
@@ -1209,6 +1211,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 	var l34Keys, doneKeys Keys
 	var bailPrecedence types.Precedence
 	var keys keySlice
+	aggregateID := aggregateFor(key.Identity)
 
 	// Find the covering pass and bail entries and pass if the found
 	// passPrecedence is higher than the bailPrecedence, else bail if found.
@@ -1218,7 +1221,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 	// Note that BroaderOrEqualKeys iterates in random order, we can not assume entries to be
 	// iterated in any LPM order or in the order of precedence.
 	for k, v := range ms.BroaderOrEqualKeys(key) {
-		isCoveringKey := key.Identity != 0 || k.Identity == 0
+		isCoveringKey := key.Identity != aggregateID || k.Identity == aggregateID
 		// Bump precedence if covered by a higher tier PASS verdict.
 		for pass := range v.Passes() {
 			// is the pass from a higher tier?
@@ -1270,7 +1273,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 	// entries, unless the new entry is to be bailed out. Even if bailed, there may be a
 	// higher tier narrower pass to be considered.
 	for k, v := range ms.NarrowerOrEqualKeys(key) {
-		isCoveringKey := key.Identity == 0 || k.Identity == key.Identity
+		isCoveringKey := key.Identity == aggregateID || k.Identity == key.Identity
 		if !bail && isCoveringKey {
 			ms.pruneCoveredNarrowerKey(k, v, key, entry.Precedence, changes)
 		}
@@ -1313,7 +1316,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 		// Note that since 'key' here is narrower than the parameter 'key', it is possible
 		// we find additional entries to the ones found earlier.
 		for k, v := range ms.BroaderOrEqualKeys(key) {
-			isCoveringKey := key.Identity != 0 || k.Identity == 0
+			isCoveringKey := key.Identity != aggregateID || k.Identity == aggregateID
 			// Bump precedence if covered by a higher tier PASS verdict.
 			for pass := range v.Passes() {
 				// is the pass from a higher tier?
@@ -1374,7 +1377,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 // key and entry into the map only if not covered by an entry of a higher precedence. This allows
 // the datapath to perform a longest-prefix-match lookup which always results into the highest
 // precedence match for the given L4 fields (protocol and port). Two lookups are necessary to find
-// if both a wildcard ID and specific ID matches exist, in which case the precedence values in the
+// if both a aggregate ID and specific ID matches exist, in which case the precedence values in the
 // found entries are used to determine the final verdict.
 //
 // Whenever the bpf datapath finds both L4-only and L3/L4 matching policy entries for a given
@@ -1386,7 +1389,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 // This selects the higher precedence rule either by the numerical precedence value, or by the more
 // specific L4, and the L3/L4 entry when the L4 is the same. This means that it suffices to manage
 // explicit and deny precedence among the keys with the same ID here, the datapath take care of the
-// precedence between different IDs (that is, between a specific ID and the wildcard ID (==0)).
+// precedence between different IDs (that is, between a specific ID and the aggregate ID (==0)).
 //
 // Note on bailed or deleted entries:
 //
@@ -1394,7 +1397,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 // entry due to being covered by the new one, we would want this action reversed if the existing
 // entry or this new one is incremantally removed, respectively. But consider these facts:
 //  1. Whenever a key covers an another, the covering key has broader or equal
-//     protocol/port, and the keys have the same identity, or the covering key has wildcard identity
+//     protocol/port, and the keys have the same identity, or the covering key has aggregate identity
 //     (ID == 0).
 //  2. Only keys with a specific identity (ID != 0) can be incrementally added or deleted.
 //  3. Due to the selector cache being transactional, when an identity is removed, all keys

@@ -823,7 +823,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 		}
 
 		if cs == l4.wildcard {
-			idents = identity.NumericIdentitySlice{0}
+			idents = AllAggregates
 		}
 
 		// single port case, may be wildcard port
