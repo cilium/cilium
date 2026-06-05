@@ -230,6 +230,18 @@ ifdef ADDITIONAL_KIND_VALUES_FILE
 	KIND_VALUES_FAST_FILES := $(KIND_VALUES_FAST_FILES) --helm-values=$(ROOT_DIR)/$(ADDITIONAL_KIND_VALUES_FILE)
 endif
 
+ENABLE_CLUSTERNETWORKPOLICY ?= false
+
+# Macro for installing k8s ClusterNetworkPolicy CRD.
+# - $(1): argument to kubectl, used for specifying --context when needed
+define KIND_INSTALL_KCNP_CRD
+if [ "$(ENABLE_CLUSTERNETWORKPOLICY)" = "true" ]; then $(KUBECTL) $(1) get crd clusternetworkpolicies.policy.networking.k8s.io >/dev/null 2>&1 || $(KUBECTL) $(1) apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/refs/heads/main/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml; fi
+endef
+
+.PHONY: kind-install-kcnp-crd
+kind-install-kcnp-crd:
+	$(QUIET)$(call KIND_INSTALL_KCNP_CRD,$(if $(KIND_CLUSTER_NAME),--context=kind-$(KIND_CLUSTER_NAME)))
+
 .PHONY: kind-install-cilium-fast
 kind-install-cilium-fast: .SHELLFLAGS=-c
 kind-install-cilium-fast: check_deps kind-ready kind-load-base-images ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
@@ -237,9 +249,11 @@ kind-install-cilium-fast: check_deps kind-ready kind-load-base-images ## "Fast" 
 	$(QUIET)for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
 		sleep 5; \
+		$(call KIND_INSTALL_KCNP_CRD,--context=kind-$$cluster_name); \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
 			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 			$(KIND_VALUES_FAST_FILES) \
+			--set=k8sClusterNetworkPolicy.enabled=$(ENABLE_CLUSTERNETWORKPOLICY) \
 			--version= >/dev/null ; \
 	done
 
@@ -351,13 +365,13 @@ ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
 endif
 
 .PHONY: kind-install-cilium
-ENABLE_CLUSTERNETWORKPOLICY ?= false
 kind-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
+	$(QUIET)$(call KIND_INSTALL_KCNP_CRD)
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \

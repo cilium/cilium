@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
+      ENABLE_CLUSTERNETWORKPOLICY: "true"
     steps:
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
@@ -98,6 +99,7 @@ jobs:
             --helm-set=hubble.relay.enabled=true
             --helm-set=cni.chainingMode=portmap \
             --helm-set-string=kubeProxyReplacement=true \
+            --helm-set=k8sClusterNetworkPolicy.enabled=${ENABLE_CLUSTERNETWORKPOLICY} \
             --helm-set=loadBalancer.l7.backend=envoy \
             --helm-set=tls.readSecretsOnlyFromSecretsNamespace=true \
             --helm-set=tls.secretSync.enabled=true \
@@ -128,6 +130,10 @@ jobs:
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
             until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
+
+      - name: Install KCNP CRD
+        run: |
+          make kind-install-kcnp-crd ENABLE_CLUSTERNETWORKPOLICY=${ENABLE_CLUSTERNETWORKPOLICY}
 
       - name: Install Cilium
         id: install-cilium
@@ -162,6 +168,7 @@ jobs:
           helm upgrade cilium ./install/kubernetes/cilium \
             --namespace kube-system \
             --reuse-values \
+            --set=k8sClusterNetworkPolicy.enabled=${ENABLE_CLUSTERNETWORKPOLICY} \
             --set=tls.readSecretsOnlyFromSecretsNamespace=false \
             --set=tls.secretSync.enabled=false
 
