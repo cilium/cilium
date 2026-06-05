@@ -1141,7 +1141,13 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 					}
 
 					if cond.Status == meta_v1.ConditionFalse {
+						if !assert.Equal(ct, "ClusterConfigValidated", cond.Reason, "Expected condition reason to be NoConflictingClusterConfigsFound") {
+							return
+						}
+
 						continue
+					} else if !assert.Equal(ct, "ClusterConfigConflict", cond.Reason, "Expected condition reason to be ConflictingClusterConfigsFound") {
+						return
 					}
 
 					expr, err := regexp.Compile(
@@ -1163,7 +1169,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 				}
 
 				// Short circuit if the number of conflict relations is not the same.
-				if !assert.Len(ct, conflictingRelations, len(tt.conflictingRelations), "Exexpected number of conflicts") {
+				if !assert.Len(ct, conflictingRelations, len(tt.conflictingRelations), "Expected number of conflicts") {
 					return
 				}
 

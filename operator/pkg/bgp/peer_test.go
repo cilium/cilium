@@ -151,9 +151,10 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		peerConfig    *v2.CiliumBGPPeerConfig
-		expectedState meta_v1.ConditionStatus
+		name           string
+		peerConfig     *v2.CiliumBGPPeerConfig
+		expectedState  meta_v1.ConditionStatus
+		expectedReason string
 	}{
 		{
 			name: "MissingAuthSecret False",
@@ -165,7 +166,8 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 					AuthSecretRef: ptr.To(secretName),
 				},
 			},
-			expectedState: meta_v1.ConditionFalse,
+			expectedState:  meta_v1.ConditionFalse,
+			expectedReason: "AuthSecretValidated",
 		},
 		{
 			name: "MissingAuthSecret False nil AuthSecretRef",
@@ -175,7 +177,8 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				},
 				Spec: v2.CiliumBGPPeerConfigSpec{},
 			},
-			expectedState: meta_v1.ConditionFalse,
+			expectedState:  meta_v1.ConditionFalse,
+			expectedReason: "AuthSecretNotConfigured",
 		},
 		{
 			name: "MissingAuthSecret True",
@@ -187,7 +190,8 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 					AuthSecretRef: ptr.To(secretName + "foo"),
 				},
 			},
-			expectedState: meta_v1.ConditionTrue,
+			expectedState:  meta_v1.ConditionTrue,
+			expectedReason: "AuthSecretMissing",
 		},
 	}
 
@@ -238,6 +242,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 					return
 				}
 				assert.Equal(ct, tt.expectedState, cond.Status, "Unexpected condition status")
+				assert.Equal(ct, tt.expectedReason, cond.Reason, "Unexpected condition reason")
 			}, time.Second*3, time.Millisecond*100)
 		})
 	}

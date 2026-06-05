@@ -31,10 +31,10 @@ set:
 
   status:
     conditions:
-    - lastTransitionTime: "2024-10-26T06:15:44Z"
+    - lastTransitionTime: "2026-06-16T12:54:24Z"
       message: No node matches spec.nodeSelector
       observedGeneration: 2
-      reason: NoMatchingNode
+      reason: MatchingNodeUnavailable
       status: "True"
       type: cilium.io/NoMatchingNode
 
@@ -76,10 +76,10 @@ the ``CiliumBGPNodeConfig`` resource. Following status condition will be set on 
 
   status:
     conditions:
-    - lastTransitionTime: "2024-10-26T06:18:04Z"
-      message: 'Selecting the same node(s) with ClusterConfig(s): [cilium-bgp-0]'
+    - lastTransitionTime: "2026-06-16T12:55:24Z"
+      message: 'Selecting the same node(s) with ClusterConfig(s): [tor-control-plane]'
       observedGeneration: 1
-      reason: ConflictingClusterConfigs
+      reason: ClusterConfigConflict
       status: "True"
       type: cilium.io/ConflictingClusterConfig
 
@@ -95,9 +95,9 @@ is not found:
 
   status:
     conditions:
-    - lastTransitionTime: "2024-10-26T06:15:44Z"
-      message: 'Referenced CiliumBGPPeerConfig(s) are missing: [peer-cofnig0]'
+    - lastTransitionTime: "2026-06-16T12:57:47Z"
+      message: 'Referenced CiliumBGPPeerConfig(s) are missing: [peer-config-1]'
       observedGeneration: 1
-      reason: MissingPeerConfigs
+      reason: PeerConfigsMissing
       status: "True"
       type: cilium.io/MissingPeerConfigs
