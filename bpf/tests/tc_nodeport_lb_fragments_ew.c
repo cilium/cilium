@@ -3,4 +3,4 @@
 
 #define EAST_WEST_TEST 1
 
-#include "tc_nodeport_lb6_fragments.h"
+#include "tc_nodeport_lb_fragments.h"
