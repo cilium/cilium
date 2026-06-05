@@ -6,7 +6,6 @@ package store
 import (
 	"context"
 	"log/slog"
-	"path"
 	"sync"
 	"sync/atomic"
 
@@ -112,7 +111,7 @@ func newWatchStoreManagerSync(logger *slog.Logger, backend WatchStoreBackend, cl
 func (mgr *wsmSync) Run(ctx context.Context) {
 	mgr.run()
 	mgr.onUpdate = func(prefix string) { mgr.ready(ctx, prefix) }
-	mgr.store.Watch(ctx, mgr.backend, path.Join(kvstore.SyncedPrefix, mgr.clusterName))
+	mgr.store.Watch(ctx, mgr.backend, kvstore.JoinKey(kvstore.SyncedPrefix, mgr.clusterName))
 	mgr.wait()
 }
 

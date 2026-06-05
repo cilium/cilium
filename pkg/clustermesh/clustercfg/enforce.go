@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -36,7 +35,7 @@ func RegisterEnforcer(in struct {
 		return nil
 	}
 
-	key := path.Join(kvstore.ClusterConfigPrefix, in.ClusterInfo.Name)
+	key := kvstore.JoinKey(kvstore.ClusterConfigPrefix, in.ClusterInfo.Name)
 	value, err := json.Marshal(in.ClusterConfig)
 	if err != nil {
 		return fmt.Errorf("cannot marshal CiliumClusterConfig: %w", err)

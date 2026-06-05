@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"path"
 	"slices"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -29,7 +29,7 @@ type Identity struct {
 
 // String returns the string representation on NodeIdentity.
 func (nn Identity) String() string {
-	return path.Join(nn.Cluster, nn.Name)
+	return GetKeyNodeName(nn.Cluster, nn.Name)
 }
 
 // Node contains the nodes name, the list of addresses to this address
@@ -103,7 +103,7 @@ type Node struct {
 // cluster name value other than the default value has been specified
 func (n *Node) Fullname() string {
 	if n.Cluster != defaults.ClusterName {
-		return path.Join(n.Cluster, n.Name)
+		return n.GetKeyName()
 	}
 
 	return n.Name
@@ -463,8 +463,9 @@ func (n *Node) GetIPv6AllocCIDRs() []*cidr.CIDR {
 // GetKeyNodeName constructs the API name for the given cluster and node name.
 func GetKeyNodeName(cluster, node string) string {
 	// WARNING - STABLE API: Changing the structure of the key may break
-	// backwards compatibility
-	return path.Join(cluster, node)
+	// backwards compatibility. Open-coded, instead of using [kvstore.JoinKey]
+	// to avoid introducing an unnecessary dependency on the kvstore package.
+	return strings.Trim(cluster+"/"+node, "/")
 }
 
 // GetKeyName returns the kvstore key to be used for the node
