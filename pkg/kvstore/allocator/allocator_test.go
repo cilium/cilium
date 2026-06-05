@@ -9,7 +9,6 @@ import (
 	"iter"
 	"maps"
 	"math"
-	"path"
 	"slices"
 	"strings"
 	"sync"
@@ -385,7 +384,7 @@ func TestAllocateCached(t *testing.T) {
 	staleKeysPreviousRound, _, err = a.RunGC(context.Background(), rateLimiter, staleKeysPreviousRound)
 	require.NoError(t, err)
 
-	v, err := client.ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
+	v, err := client.ListPrefix(context.TODO(), kvstore.JoinKey(allocatorName, "id"))
 	require.NoError(t, err)
 	require.Len(t, v, int(maxID))
 
@@ -401,7 +400,7 @@ func TestAllocateCached(t *testing.T) {
 	_, _, err = a.RunGC(context.Background(), rateLimiter, staleKeysPreviousRound)
 	require.NoError(t, err)
 
-	v, err = client.ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
+	v, err = client.ListPrefix(context.TODO(), kvstore.JoinKey(allocatorName, "id"))
 	require.NoError(t, err)
 	require.Empty(t, v)
 
@@ -422,18 +421,18 @@ func TestKeyToID(t *testing.T) {
 	require.NotNil(t, a)
 
 	// An error is returned because the path is outside the prefix (allocatorName/id)
-	id, err := backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "invalid"))
+	id, err := backend.(*kvstoreBackend).keyToID(kvstore.JoinKey(allocatorName, "invalid"))
 	require.Error(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// An error is returned because the path contains the prefix
 	// (allocatorName/id) but cannot be parsed ("invalid")
-	id, err = backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "id", "invalid"))
+	id, err = backend.(*kvstoreBackend).keyToID(kvstore.JoinKey(allocatorName, "id", "invalid"))
 	require.Error(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// A valid lookup that finds an ID
-	id, err = backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "id", "10"))
+	id, err = backend.(*kvstoreBackend).keyToID(kvstore.JoinKey(allocatorName, "id", "10"))
 	require.NoError(t, err)
 	require.Equal(t, idpool.ID(10), id)
 }
@@ -636,21 +635,21 @@ func TestRunGC(t *testing.T) {
 		"102": "k8s:foo=bar;fred=true;",
 	} {
 		// Create a primary entry for all identities
-		require.NoError(t, client.Update(ctx, path.Join(base, "id", id), []byte(label), false), "client.Update")
+		require.NoError(t, client.Update(ctx, kvstore.JoinKey(base, "id", id), []byte(label), false), "client.Update")
 
 		// Create two secondary entries for all identities
 		for _, node := range []string{"node-a", "node-b"} {
-			require.NoError(t, client.Update(ctx, path.Join(base, "value", label, node), []byte(id), false), "client.Update")
+			require.NoError(t, client.Update(ctx, kvstore.JoinKey(base, "value", label, node), []byte(id), false), "client.Update")
 		}
 	}
 
 	var (
 		trim = func(in iter.Seq[string]) iter.Seq[string] {
-			return cslices.MapIter(in, func(in string) string { return strings.TrimPrefix(in, path.Join(base, "id")+"/") })
+			return cslices.MapIter(in, func(in string) string { return strings.TrimPrefix(in, kvstore.JoinKey(base, "id")+"/") })
 		}
 
 		getIDs = func() []string {
-			pairs, err := client.ListPrefix(ctx, path.Join(base, "id")+"/")
+			pairs, err := client.ListPrefix(ctx, kvstore.JoinKey(base, "id")+"/")
 			require.NoError(t, err, "client.ListPrefix")
 			return slices.Collect(trim(maps.Keys(pairs)))
 		}
@@ -663,7 +662,7 @@ func TestRunGC(t *testing.T) {
 	require.Equal(t, 0, stats.Deleted, "No identity should have been deleted")
 
 	// Remove the secondary keys for one identity
-	require.NoError(t, client.DeletePrefix(ctx, path.Join(base, "value", "k8s:foo=bar;")+"/"))
+	require.NoError(t, client.DeletePrefix(ctx, kvstore.JoinKey(base, "value", "k8s:foo=bar;")+"/"))
 
 	// The corresponding identity should be treated as stale
 	stale, stats, err = backend.RunGC(ctx, rl, make(map[string]uint64), minID, maxID)
@@ -684,7 +683,7 @@ func TestRunGC(t *testing.T) {
 	// Create a duplicate identity for an already existing set of labels. While this
 	// should never happen thanks to locking, it has been observed in the wild, and
 	// it is better to be robust in this case as well.
-	require.NoError(t, client.Update(ctx, path.Join(base, "id", "103"), []byte("k8s:foo=bar;baz=qux;"), false), "client.Update")
+	require.NoError(t, client.Update(ctx, kvstore.JoinKey(base, "id", "103"), []byte("k8s:foo=bar;baz=qux;"), false), "client.Update")
 
 	// The duplicated identity should be treated as stale
 	stale, _, err = backend.RunGC(ctx, rl, make(map[string]uint64), minID, maxID)

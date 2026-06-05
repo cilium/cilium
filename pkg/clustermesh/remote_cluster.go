@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"path"
 	"sync/atomic"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -138,11 +137,11 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	}
 
 	mgr.Register(adapter(nodeStore.NodeStorePrefix), func(ctx context.Context) {
-		rc.remoteNodes.Watch(ctx, backend, path.Join(adapter(nodeStore.NodeStorePrefix), rc.name))
+		rc.remoteNodes.Watch(ctx, backend, kvstore.JoinKey(adapter(nodeStore.NodeStorePrefix), rc.name))
 	})
 
 	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
-		rc.remoteServices.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
+		rc.remoteServices.Watch(ctx, backend, kvstore.JoinKey(adapter(serviceStore.ServiceStorePrefix), rc.name))
 	})
 
 	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {

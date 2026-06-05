@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"path"
 	"sync/atomic"
 
 	"k8s.io/utils/ptr"
@@ -78,13 +77,13 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 	if rc.clusterMeshEnableEndpointSync {
 		mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
-			rc.remoteServices.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
+			rc.remoteServices.Watch(ctx, backend, kvstore.JoinKey(adapter(serviceStore.ServiceStorePrefix), rc.name))
 		})
 	}
 
 	if rc.clusterMeshEnableMCSAPI && config.Capabilities.ServiceExportsEnabled != nil {
 		mgr.Register(adapter(mcsapitypes.ServiceExportStorePrefix), func(ctx context.Context) {
-			rc.remoteServiceExports.Watch(ctx, backend, path.Join(adapter(mcsapitypes.ServiceExportStorePrefix), rc.name))
+			rc.remoteServiceExports.Watch(ctx, backend, kvstore.JoinKey(adapter(mcsapitypes.ServiceExportStorePrefix), rc.name))
 		})
 	} else {
 		// Drain the remote service exports in case the remote cluster no longer supports them
