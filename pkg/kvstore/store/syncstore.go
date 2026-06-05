@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -364,9 +363,9 @@ func (wss *wqSyncStore) handleExpiredLease(key string) {
 func (wss *wqSyncStore) keyPath(key string) string {
 	// WARNING - STABLE API: The composition of the absolute key path
 	// cannot be changed without breaking up and downgrades.
-	return path.Join(wss.prefix, key)
+	return kvstore.JoinKey(wss.prefix, key)
 }
 
 func (wss *wqSyncStore) getSyncedKey() string {
-	return path.Join(kvstore.SyncedPrefix, wss.source, wss.syncedKey)
+	return kvstore.JoinKey(kvstore.SyncedPrefix, wss.source, wss.syncedKey)
 }

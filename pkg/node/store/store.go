@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -24,7 +23,7 @@ var (
 	//
 	// WARNING - STABLE API: Changing the structure or values of this will
 	// break backwards compatibility
-	NodeStorePrefix = path.Join(kvstore.BaseKeyPrefix, "state", "nodes", "v1")
+	NodeStorePrefix = kvstore.JoinKey(kvstore.BaseKeyPrefix, "state", "nodes", "v1")
 
 	// KeyCreator creates a node for a shared store
 	KeyCreator = func() store.Key {

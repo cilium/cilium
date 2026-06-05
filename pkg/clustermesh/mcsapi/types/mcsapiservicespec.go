@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"path"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +25,7 @@ var (
 	//
 	// WARNING - STABLE API: Changing the structure or values of this will
 	// break backwards compatibility
-	ServiceExportStorePrefix = path.Join(kvstore.BaseKeyPrefix, "state", "serviceexports", "v1")
+	ServiceExportStorePrefix = kvstore.JoinKey(kvstore.BaseKeyPrefix, "state", "serviceexports", "v1")
 )
 
 type MCSAPIServiceSpec struct {
@@ -99,7 +98,7 @@ type MCSAPIServiceSpec struct {
 func (s *MCSAPIServiceSpec) GetKeyName() string {
 	// WARNING - STABLE API: Changing the structure of the key may break
 	// backwards compatibility
-	return path.Join(s.Cluster, s.Namespace, s.Name)
+	return kvstore.JoinKey(s.Cluster, s.Namespace, s.Name)
 }
 
 // NamespaceServiceName returns the namespace and service name

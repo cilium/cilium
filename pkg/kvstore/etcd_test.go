@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"path"
 	"slices"
 	"sync"
 	"testing"
@@ -1436,16 +1435,16 @@ func TestPaginatedList(t *testing.T) {
 	run := func(t *testing.T, batch int, withParallelOps bool) {
 		cl := client.(*clientImpl).BackendOperations.(*etcdClient)
 		keys := map[string]struct{}{
-			path.Join(prefix, "immortal-finch"):   {},
-			path.Join(prefix, "rare-goshawk"):     {},
-			path.Join(prefix, "cunning-bison"):    {},
-			path.Join(prefix, "amusing-tick"):     {},
-			path.Join(prefix, "prepared-shark"):   {},
-			path.Join(prefix, "exciting-mustang"): {},
-			path.Join(prefix, "ethical-ibex"):     {},
-			path.Join(prefix, "accepted-kite"):    {},
-			path.Join(prefix, "model-javelin"):    {},
-			path.Join(prefix, "inviting-hog"):     {},
+			JoinKey(prefix, "immortal-finch"):   {},
+			JoinKey(prefix, "rare-goshawk"):     {},
+			JoinKey(prefix, "cunning-bison"):    {},
+			JoinKey(prefix, "amusing-tick"):     {},
+			JoinKey(prefix, "prepared-shark"):   {},
+			JoinKey(prefix, "exciting-mustang"): {},
+			JoinKey(prefix, "ethical-ibex"):     {},
+			JoinKey(prefix, "accepted-kite"):    {},
+			JoinKey(prefix, "model-javelin"):    {},
+			JoinKey(prefix, "inviting-hog"):     {},
 		}
 
 		defer func(previous int) {
@@ -1464,7 +1463,7 @@ func TestPaginatedList(t *testing.T) {
 				// paginatedList should observe neither upsertions nor deletions
 				// performed after that the initial chunk of entries was retrieved.
 				postGet: func(ctx context.Context) error {
-					key := path.Join(prefix, rand.String(10))
+					key := JoinKey(prefix, rand.String(10))
 					res, err := cl.client.Put(ctx, key, "value")
 					if err != nil {
 						return err

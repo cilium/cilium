@@ -8,7 +8,6 @@ import (
 	"iter"
 	"log/slog"
 	"net"
-	"path"
 	"slices"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +24,7 @@ import (
 	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -193,7 +193,7 @@ func newCiliumIdentityOptions() Options[*cilium_api_v2.CiliumIdentity] {
 	return Options[*cilium_api_v2.CiliumIdentity]{
 		Enabled:    true,
 		Resource:   "CiliumIdentity",
-		Prefix:     path.Join(identityCache.IdentitiesPath, "id"),
+		Prefix:     kvstore.JoinKey(identityCache.IdentitiesPath, "id"),
 		StoreOpts:  []store.WSSOpt{store.WSSWithSyncedKeyOverride(identityCache.IdentitiesPath)},
 		Namespaced: true,
 	}
@@ -234,7 +234,7 @@ func newCiliumEndpointOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*type
 	return Options[*types.CiliumEndpoint]{
 		Enabled:    !cfg.EnableCiliumEndpointSlice,
 		Resource:   "CiliumEndpoint",
-		Prefix:     path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
+		Prefix:     kvstore.JoinKey(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
 		StoreOpts:  []store.WSSOpt{store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath)},
 		Namespaced: true,
 	}
@@ -292,7 +292,7 @@ func newCiliumEndpointSliceOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[
 	return Options[*cilium_api_v2a1.CiliumEndpointSlice]{
 		Enabled:    cfg.EnableCiliumEndpointSlice,
 		Resource:   "CiliumEndpointSlice",
-		Prefix:     path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
+		Prefix:     kvstore.JoinKey(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
 		StoreOpts:  []store.WSSOpt{store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath)},
 		Namespaced: true,
 	}
