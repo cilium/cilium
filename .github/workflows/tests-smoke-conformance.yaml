@@ -112,10 +112,11 @@ jobs:
         with:
           comment_on_pr: false
 
-      - name: Checkout
+      - name: Checkout (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          ref: ${{ inputs.context-ref || github.event.repository.default_branch }}
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
@@ -124,7 +125,11 @@ jobs:
         id: default_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ github.event.pull_request.head.sha || github.sha }}
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: './untrusted/install/kubernetes/cilium'
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
+          image-pull-secret: "cilium-registry"
 
       - name: Set image tag
         id: sha
@@ -146,12 +151,27 @@ jobs:
           config: ${{ env.KIND_CONFIG }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Create imagePullSecret
+        run: |
+          kubectl create secret docker-registry cilium-registry \
+            --namespace kube-system \
+            --docker-server=${{ vars.DOCKER_READ_HOST }} \
+            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
+
+      - name: Login to docker registry for image wait
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ vars.DOCKER_READ_HOST}}
+          username: ${{ vars.DOCKER_READ_USERNAME}}
+          password: ${{ secrets.DOCKER_READ_PASSWORD }}
+
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect ${{ vars.DOCKER_READ_HOST }}/${{ vars.DOCKER_READ_ORG }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Generate CA, Server and Client certs for Operator Prometheus
@@ -216,6 +236,17 @@ jobs:
           image-tag: ${{ steps.sha.outputs.sha }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium
         id: install-cilium
