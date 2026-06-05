@@ -115,7 +115,10 @@ fi
 
 docker exec "$CONTAINER" groupmod -g "$GROUPID" ubuntu
 # usermod fixes UIDs, but GIDs need to be fixed manually.
-docker exec "$CONTAINER" chown -Rhc --from=:1000 :ubuntu /home/ubuntu
+docker exec "$CONTAINER" find /home/ubuntu -xdev \
+   -path /home/ubuntu/.cache/go-build -prune -o \
+   -path /home/ubuntu/.cache/ccache -prune -o \
+   -exec chown -hc --from=:1000 :ubuntu /home/ubuntu {} +
 docker exec "$CONTAINER" usermod -u "$USERID" ubuntu
 docker exec "$CONTAINER" chown -hc ubuntu:ubuntu /home/ubuntu/.cache
 docker exec "${USER_OPTION[@]}" ${DOCKER_ARGS:+$DOCKER_ARGS} "$CONTAINER" "$@"
