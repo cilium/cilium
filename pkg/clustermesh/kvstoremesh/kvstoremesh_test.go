@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -537,7 +536,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 	// Wait until the cluster config key has been removed, to ensure that we are
 	// actually waiting for the grace period expiration.
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		key := path.Join(kvstore.ClusterConfigPrefix, "remote")
+		key := kvstore.JoinKey(kvstore.ClusterConfigPrefix, "remote")
 		value, err := local.Get(ctx, key)
 		assert.NoError(c, err, "Failed to retrieve kvstore key %s", key)
 		assert.Empty(c, string(value), "Key %s has not been deleted", key)

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path"
 	"time"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -36,7 +35,7 @@ type ClusterConfigBackend interface {
 }
 
 func Set(ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig, backend ClusterConfigBackend) error {
-	key := path.Join(kvstore.ClusterConfigPrefix, clusterName)
+	key := kvstore.JoinKey(kvstore.ClusterConfigPrefix, clusterName)
 
 	val, err := json.Marshal(config)
 	if err != nil {
@@ -105,7 +104,7 @@ func Get(ctx context.Context, clusterName string, backend ClusterConfigBackend) 
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	val, err := backend.Get(ctx, path.Join(kvstore.ClusterConfigPrefix, clusterName))
+	val, err := backend.Get(ctx, kvstore.JoinKey(kvstore.ClusterConfigPrefix, clusterName))
 	if err != nil {
 		return cmtypes.CiliumClusterConfig{}, err
 	}

@@ -6,7 +6,6 @@ package reflector
 import (
 	"context"
 	"fmt"
-	"path"
 	"strings"
 	"sync/atomic"
 
@@ -117,8 +116,8 @@ func NewFactory(name Name, prefix string, opts ...opt) Factory {
 			cluster: cluster,
 
 			basePrefix:  prefix,
-			statePrefix: path.Join(prefix, cluster),
-			cachePrefix: path.Join(kvstore.StateToCachePrefix(prefix), cluster),
+			statePrefix: kvstore.JoinKey(prefix, cluster),
+			cachePrefix: kvstore.JoinKey(kvstore.StateToCachePrefix(prefix), cluster),
 
 			shouldRegister: func(types.CiliumClusterConfig) bool { return true },
 			shouldRevoke:   false,

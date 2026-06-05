@@ -6,7 +6,6 @@ package doublewrite
 import (
 	"context"
 	"fmt"
-	"path"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -81,7 +80,7 @@ func TestAllocateID(t *testing.T) {
 	)
 
 	// 2. KVStore
-	kvPairs, err := kvstoreClient.ListPrefix(context.Background(), path.Join(kvstorePrefix, "id"))
+	kvPairs, err := kvstoreClient.ListPrefix(context.Background(), kvstore.JoinKey(kvstorePrefix, "id"))
 	require.NoError(t, err)
 	require.Len(t, kvPairs, 1)
 	require.Equal(t,
@@ -99,7 +98,7 @@ func TestAllocateIDFailure(t *testing.T) {
 	identityID := idpool.ID(10)
 
 	// Pre-create the identity in the KVStore so as to trigger failure during allocation
-	_, err := kvstoreClient.CreateOnly(context.Background(), path.Join(kvstorePrefix, "id", strconv.FormatUint(uint64(identityID), 10)), []byte(k.GetKey()), false)
+	_, err := kvstoreClient.CreateOnly(context.Background(), kvstore.JoinKey(kvstorePrefix, "id", strconv.FormatUint(uint64(identityID), 10)), []byte(k.GetKey()), false)
 	require.NoError(t, err)
 
 	_, err = backend.AllocateID(context.Background(), identityID, k)
@@ -137,7 +136,7 @@ func TestGetID(t *testing.T) {
 	require.Equal(t, returnedKey.GetKey(), k.GetKey())
 
 	// Delete the KVStore identity
-	err = kvstoreClient.Delete(context.Background(), path.Join(kvstorePrefix, "id", identityID.String()))
+	err = kvstoreClient.Delete(context.Background(), kvstore.JoinKey(kvstorePrefix, "id", identityID.String()))
 	require.NoError(t, err)
 
 	// Verify that we can't retrieve the identity anymore

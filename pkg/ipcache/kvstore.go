@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"path"
 	"sort"
 
 	"github.com/cilium/hive/cell"
@@ -36,7 +35,7 @@ const (
 var (
 	// IPIdentitiesPath is the path to where endpoint IPs are stored in the key-value
 	// store.
-	IPIdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "ip", "v1")
+	IPIdentitiesPath = kvstore.JoinKey(kvstore.BaseKeyPrefix, "state", "ip", "v1")
 
 	// AddressSpace is the address space (cluster, etc.) in which policy is
 	// computed. It is determined by the orchestration system / runtime.
@@ -92,7 +91,7 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, params *UpsertParam
 		return namedPorts[i].Name < namedPorts[j].Name
 	})
 
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, params.IP.String())
+	ipKey := kvstore.JoinKey(IPIdentitiesPath, AddressSpace, params.IP.String())
 	ipIDPair := identity.IPIdentityPair{
 		IP:                params.IP.AsSlice(),
 		ID:                params.ID,
@@ -129,7 +128,7 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, params *UpsertParam
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
 func (s *IPIdentitySynchronizer) Delete(ctx context.Context, ip string) error {
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
+	ipKey := kvstore.JoinKey(IPIdentitiesPath, AddressSpace, ip)
 	s.tracker.Delete(ipKey)
 	return s.client.Delete(ctx, ipKey)
 }
@@ -331,9 +330,9 @@ func (iw *IPIdentityWatcher) Watch(ctx context.Context, backend storepkg.WatchSt
 		iw.store.Drain()
 	}
 
-	prefix := path.Join(IPIdentitiesPath, AddressSpace)
+	prefix := kvstore.JoinKey(IPIdentitiesPath, AddressSpace)
 	if iwo.cachedPrefix {
-		prefix = path.Join(kvstore.StateToCachePrefix(IPIdentitiesPath), iw.clusterName)
+		prefix = kvstore.JoinKey(kvstore.StateToCachePrefix(IPIdentitiesPath), iw.clusterName)
 	}
 
 	iw.started = true
@@ -497,7 +496,7 @@ func (iw *IPIdentityWatcher) onSync(context.Context) {
 }
 
 func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
-	key := path.Join(IPIdentitiesPath, AddressSpace, ip)
+	key := kvstore.JoinKey(IPIdentitiesPath, AddressSpace, ip)
 	if m, ok := iw.syncer.tracker.Load(key); ok {
 		iw.log.Warn(
 			"Received kvstore delete notification for alive ipcache entry",
