@@ -4,21 +4,30 @@
 package reflectors
 
 import (
+	"context"
 	"log/slog"
 	"maps"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/stream"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -72,6 +81,52 @@ func BenchmarkConvertEndpoints(b *testing.B) {
 		convertEndpoints(logger, benchmarkExternalConfig, eps.ServiceName, backends)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "endpoints/sec")
+}
+
+func TestEndpointsEventsIgnoresClusterMeshEndpointSlices(t *testing.T) {
+	logger := hivetest.Logger(t)
+	fakeClient, cs := k8sClient.NewFakeClientset(logger)
+	selectorCh := make(chan labels.Selector, 1)
+	fakeClient.SlimFakeClientset.Fake.PrependReactor(
+		"*",
+		"*",
+		func(action k8sTesting.Action) (bool, runtime.Object, error) {
+			if listAction, ok := action.(k8sTesting.ListAction); ok {
+				selectorCh <- listAction.GetListRestrictions().Labels
+				return true, &slim_discovery_v1.EndpointSliceList{}, nil
+			}
+			return false, nil, nil
+		})
+	fakeClient.SlimFakeClientset.Fake.PrependWatchReactor(
+		"*",
+		func(action k8sTesting.Action) (bool, watch.Interface, error) {
+			if watchAction, ok := action.(k8sTesting.WatchAction); ok {
+				selectorCh <- watchAction.GetWatchRestrictions().Labels
+			}
+			return false, nil, nil
+		})
+
+	events, err := endpointsEvents(logger, cs, k8s.ConfigParams{
+		Config:      k8s.DefaultConfig,
+		WatchConfig: k8s.DefaultServiceWatchConfig(),
+	})
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_ = stream.ToChannel(ctx, events, stream.WithBufferSize(1))
+
+	select {
+	case selector := <-selectorCh:
+		require.NotNil(t, selector)
+		require.True(t, selector.Matches(labels.Set{}))
+		require.False(t, selector.Matches(labels.Set{
+			slim_discovery_v1.LabelManagedBy: k8sUtils.EndpointSliceMeshControllerName,
+		}))
+	case <-ctx.Done():
+		require.FailNow(t, "timed out waiting for EndpointSlice list action")
+	}
 }
 
 func TestConvertEndpointsRespectsEndpointSliceWeight(t *testing.T) {
