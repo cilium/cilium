@@ -765,6 +765,65 @@ func TestReconcile(t *testing.T) {
 		require.Equal(t, "172.21.255.202", ingress.Status.LoadBalancer.Ingress[0].IP, "Loadbalancer status should contain the IP of the dedicated loadbalancer service")
 	})
 
+	t.Run("Reconcile of dedicated Cilium Ingress with long name will update the status according to the IP of the dedicated loadbalancer service using the shortened name", func(t *testing.T) {
+		longIngressName := strings.Repeat("a", 52)
+		svcName := shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, longIngressName))
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(testScheme()).
+			WithObjects(
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test",
+						Name:      longIngressName,
+						Annotations: map[string]string{
+							"ingress.cilium.io/loadbalancer-mode": "dedicated",
+						},
+					},
+					Spec: networkingv1.IngressSpec{
+						IngressClassName: ptr.To("cilium"),
+						DefaultBackend:   defaultBackend(),
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test",
+						Name:      svcName,
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{
+									IP: "172.21.255.203",
+								},
+							},
+						},
+					},
+				},
+			).
+			Build()
+
+		cecTranslator := translation.NewCECTranslator(cfg)
+		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(logger, cecTranslator, false)
+
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0, 0, 0, 0)
+
+		result, err := reconciler.Reconcile(t.Context(), reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      longIngressName,
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		ingress := networkingv1.Ingress{}
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: longIngressName}, &ingress)
+		require.NoError(t, err)
+		require.Len(t, ingress.Status.LoadBalancer.Ingress, 1, "Loadbalancer status should contain the IP of the dedicated loadbalancer service")
+		require.Equal(t, "172.21.255.203", ingress.Status.LoadBalancer.Ingress[0].IP, "Loadbalancer status should contain the IP of the dedicated loadbalancer service")
+	})
+
 	t.Run("Reconcile of shared Cilium Ingress will update the status according to the IP of the shared loadbalancer service", func(t *testing.T) {
 		fakeClient := fake.NewClientBuilder().
 			WithScheme(testScheme()).
