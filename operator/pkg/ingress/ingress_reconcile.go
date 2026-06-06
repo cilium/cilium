@@ -446,7 +446,7 @@ func (r *ingressReconciler) updateIngressLoadbalancerStatus(ctx context.Context,
 	serviceNamespacedName := types.NamespacedName{}
 	if r.isEffectiveLoadbalancerModeDedicated(ingress) {
 		serviceNamespacedName.Namespace = ingress.Namespace
-		serviceNamespacedName.Name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingress.Name)
+		serviceNamespacedName.Name = shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingress.Name))
 	} else {
 		serviceNamespacedName.Namespace = r.ciliumNamespace
 		serviceNamespacedName.Name = r.sharedResourcesName
