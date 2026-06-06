@@ -132,9 +132,9 @@ func probeForSockDestroy(ctx context.Context, logger *slog.Logger, tcp, udp bool
 		count := 0
 		lo := net.IP{127, 0, 0, 1}
 		if err := Iterate(uint8(probe.proto), unix.AF_INET, probe.filterMask, func(s *netlink.Socket, err error) error {
-			logger.Debug("found probe socket, attempting destroy",
-				logfields.Port, probe.port,
-				logfields.Protocol, probe.proto)
+			if err != nil || s == nil {
+				return err
+			}
 			count++
 			if s.ID.SourcePort == uint16(probe.port) && s.ID.Source.Equal(lo) {
 				logger.Debug("found probe socket, attempting destroy",
