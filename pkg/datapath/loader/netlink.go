@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	bigtcptypes "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -329,17 +330,36 @@ func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLo
 	return nil
 }
 
+// Note that gro_max_size is bounded by the kernel's GRO_MAX_SIZE rather than
+// tso_max_size, so it is not subject to this clamp.
+func tunnelGSOMaxSize(requested, tsoMaxSize int) int {
+	if tsoMaxSize == 0 {
+		tsoMaxSize = bigtcptypes.GROGSOLegacyMaxSize
+	}
+	return min(requested, tsoMaxSize)
+}
+
 func setupTunnelGSOGRO(logger *slog.Logger, device string, bc bigtcp.Config) error {
+	link, err := safenetlink.LinkByName(device)
+	if err != nil {
+		logger.Warn("Tunnel device does not exist, skipping GSO/GRO setup",
+			logfields.Device, device,
+			logfields.Error, err)
+		return nil
+	}
+	tsoMax := int(link.Attrs().TSOMaxSize)
+
 	// IPv6 goes first, because {gso,gro}_ipv4_max_size gets auto-adjusted
 	// if the new size of {gso,gro}_max_size isn't greater than 64KB for
 	// backwards compatibility.
 	if bc.GetGROIPv6MaxSize() != 0 && bc.GetGSOIPv6MaxSize() != 0 {
+		gsoMaxSize := tunnelGSOMaxSize(bc.GetGSOIPv6MaxSize(), tsoMax)
 		logger.Info("Setting IPv6",
 			logfields.Device, device,
-			logfields.GsoMaxSize, bc.GetGSOIPv6MaxSize(),
+			logfields.GsoMaxSize, gsoMaxSize,
 			logfields.GroMaxSize, bc.GetGROIPv6MaxSize(),
 		)
-		err := bigtcp.SetGROGSOIPv6MaxSize(logger, device, bc.GetGROIPv6MaxSize(), bc.GetGSOIPv6MaxSize())
+		err := bigtcp.SetGROGSOIPv6MaxSize(logger, device, bc.GetGROIPv6MaxSize(), gsoMaxSize)
 		if err != nil {
 			logger.Warn("Could not modify IPv6 gro_max_size and gso_max_size",
 				logfields.Device, device,
@@ -348,12 +368,13 @@ func setupTunnelGSOGRO(logger *slog.Logger, device string, bc bigtcp.Config) err
 		}
 	}
 	if bc.GetGROIPv4MaxSize() != 0 && bc.GetGSOIPv4MaxSize() != 0 {
+		gsoMaxSize := tunnelGSOMaxSize(bc.GetGSOIPv4MaxSize(), tsoMax)
 		logger.Info("Setting IPv4",
 			logfields.Device, device,
-			logfields.GsoMaxSize, bc.GetGSOIPv4MaxSize(),
+			logfields.GsoMaxSize, gsoMaxSize,
 			logfields.GroMaxSize, bc.GetGROIPv4MaxSize(),
 		)
-		err := bigtcp.SetGROGSOIPv4MaxSize(logger, device, bc.GetGROIPv4MaxSize(), bc.GetGSOIPv4MaxSize())
+		err := bigtcp.SetGROGSOIPv4MaxSize(logger, device, bc.GetGROIPv4MaxSize(), gsoMaxSize)
 		if err != nil {
 			logger.Warn("Could not modify IPv4 gro_ipv4_max_size and gso_ipv4_max_size",
 				logfields.Device, device,
