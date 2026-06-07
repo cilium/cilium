@@ -114,15 +114,15 @@ mock_ctx_get_ingress_ifindex(const struct __sk_buff *ctx __maybe_unused)
  */
 int mock_tail_policy(struct __ctx_buff *ctx)
 {
-	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_FLAGS) & CB_DELIVERY_FLAGS_REDIRECT;
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
-	bool from_tunnel = false;
+	__u32 delivery_flags = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
+	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
+	bool use_redirect_peer = delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER;
 
 	/* We should always be from_host here. */
 	if (do_redirect && from_host)
 		return redirect_ep(ctx, CONFIG(interface_ifindex),
-				   should_redirect_peer(ctx, from_host),
-				   from_tunnel);
+				   use_redirect_peer, false);
 
 	/* Failure path */
 	return CTX_ACT_DROP;

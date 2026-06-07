@@ -3,6 +3,6 @@
 
 #undef __CONFIG_ENABLE_NETKIT
 #define ENABLE_IPV4		1
-#define ENABLE_ROUTING		1
+#define ENABLE_HOST_ROUTING	1
 
 #include "tc_redirect_lxc.h"

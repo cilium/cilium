@@ -55,13 +55,14 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 	return DROP_EP_NOT_READY;
 }
 
+/* Enforce kernel-level requirements for whether bpf_redirect_peer()
+ * can be used in context of this packet path.
+ */
 static __always_inline bool
-should_redirect_peer(struct __ctx_buff *ctx, bool from_host)
+can_redirect_peer(struct __ctx_buff *ctx, bool from_host)
 {
-	/* We should only do a redirect_peer() if BPF Host Routing is enabled,
-	 * otherwise we do a standard redirect().
-	 *
-	 * Also, if we're from_host, we cannot do an ingress -> ingress switch
+	/*
+	 * If we're from_host, we cannot do an ingress -> ingress switch
 	 * via redirect_peer() and instead need an ingress -> egress netns
 	 * traversal (or vice versa.)
 	 *
@@ -81,9 +82,18 @@ should_redirect_peer(struct __ctx_buff *ctx, bool from_host)
 	 * Note: both redirect() and redirect_peer() only traverse the CPU
 	 * backlog queue once.
 	 */
-	return is_defined(ENABLE_HOST_ROUTING) &&
-	       !from_host &&
+	return !from_host &&
 	       (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0);
+}
+
+static __always_inline bool
+should_redirect_peer(struct __ctx_buff *ctx, bool from_host)
+{
+	/* We should only do a redirect_peer() if BPF Host Routing is enabled,
+	 * otherwise we do a standard redirect().
+	 */
+	return is_defined(ENABLE_HOST_ROUTING) &&
+	       can_redirect_peer(ctx, from_host);
 }
 
 static __always_inline int redirect_ep(struct __ctx_buff *ctx,
@@ -197,7 +207,8 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	}
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
-	local_delivery_fill_meta(ctx, seclabel, true, use_redirect_peer,
+	local_delivery_fill_meta(ctx, seclabel, true,
+				 can_redirect_peer(ctx, from_host),
 				 from_host, from_tunnel, cluster_id);
 	return tail_call_policy(ctx, ep->lxc_id);
 }

@@ -72,6 +72,11 @@ policy_add_ingress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __be16 dpor
 	policy_add_entry(false, sec_label, protocol, dport, port_range, false, 0);
 }
 
+static __always_inline void policy_add_ingress_allow_all_entry(void)
+{
+	policy_add_ingress_allow_l3_l4_entry(0, 0, 0, 0);
+}
+
 static __always_inline void
 policy_add_ingress_deny_l4_entry(__u8 protocol, __be16 dport, __u8 port_range)
 {

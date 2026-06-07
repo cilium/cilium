@@ -10,9 +10,6 @@
 #include "pktgen.h"
 #include "scapy.h"
 
-/* We always assume we have BPF Host Routing enabled */
-#define ENABLE_HOST_ROUTING 1
-
 /* Forward declaration for tailcall routines because they're not provided
  * until we pull in bpf_lxc.
  *
@@ -30,7 +27,8 @@ static inline int tail_ipv6_ct_ingress_policy_only(struct __ctx_buff *ctx);
 #endif
 
 /* Define an endpoint ID that we'll use as index into policy maps. */
-#define TEST_LXC_ID_LOCAL 233
+#define TEST_LXC_ID_POD1 0
+#define TEST_LXC_ID_POD2 233
 
 /* Define mac addresses we expect to see on redirected packet */
 static volatile const __u8 *node_mac = mac_three;
@@ -85,7 +83,7 @@ struct {
 	__array(values, int());
 } mock_policy_call_map __section(".maps") = {
 	.values = {
-		[TEST_LXC_ID_LOCAL] = &mock_handle_policy,
+		[TEST_LXC_ID_POD2] = &mock_handle_policy,
 	},
 };
 
@@ -138,12 +136,8 @@ const __u8 tc_redirect_lxc_ipv4_post[] = {
 	SCAPY_BUF_BYTES(tc_redirect_lxc_ipv4_post)
 };
 
-/* Setup for this test:
- * +-------ClusterIP--------+    +----------Pod 1---------+
- * | v4_svc_one:tcp_svc_one | -> | v4_pod_one:tcp_svc_one |
- * +------------------------+    +------------------------+
- *            ^                            |
- *            \---------------------------/
+/* Test that sending a packet from a pod to another pod is forwarded with
+ * the correct BPF redirect helper.
  */
 PKTGEN("tc", "tc_redirect_lxc_ipv4")
 int tc_redirect_lxc_ipv4_pktgen(struct __ctx_buff *ctx)
@@ -160,25 +154,21 @@ int tc_redirect_lxc_ipv4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-/* Test that sending a packet from a pod to its own service gets source nat-ed
- * and that it is forwarded via the correct BPF redirect helper.
- */
 SETUP("tc", "tc_redirect_lxc_ipv4")
 int tc_redirect_lxc_ipv4_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
-
-	/* Add ClusterIP */
-	lb_v4_add_service(v4_svc_one, tcp_svc_one, IPPROTO_TCP, 1, revnat_id);
-	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,
-			  v4_pod_one, tcp_dst_one, IPPROTO_TCP, 0);
-
-	/* Add an IPCache entry for pod 1 */
+	/* Add an IPCache entry for both pods */
 	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
+	ipcache_v4_add_entry(v4_pod_two, 0, 112233, 0, 0);
 
-	/* Add endpoint for local LXC */
-	endpoint_v4_add_entry(v4_pod_one, 0, TEST_LXC_ID_LOCAL, 0, 0, 0,
+	/* Add endpoint for both pods */
+	endpoint_v4_add_entry(v4_pod_one, 0, TEST_LXC_ID_POD1, 0, 0, 0,
 			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
+	endpoint_v4_add_entry(v4_pod_two, 0, TEST_LXC_ID_POD2, 0, 0, 0,
+			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
+
+	policy_add_egress_allow_all_entry();
+	policy_add_ingress_allow_all_entry();
 
 	return pod_send_packet(ctx);
 }
@@ -196,8 +186,6 @@ int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 	__u32 *status_code;
 
 	test_init();
-
-	endpoint_v4_del_entry(v4_pod_one);
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
@@ -245,12 +233,8 @@ const __u8 tc_redirect_lxc_ipv6_post[] = {
 	SCAPY_BUF_BYTES(tc_redirect_lxc_ipv6_post)
 };
 
-/* Setup for this test:
- * +-------ClusterIP--------+    +----------Pod 1---------+
- * | v6_svc_one:tcp_svc_one | -> | v6_pod_one:tcp_svc_one |
- * +------------------------+    +------------------------+
- *            ^                            |
- *            \---------------------------/
+/* Test that sending a packet from a pod to another pod is forwarded with
+ * the correct BPF redirect helper.
  */
 PKTGEN("tc", "tc_redirect_lxc_ipv6")
 int tc_redirect_lxc_ipv6_pktgen(struct __ctx_buff *ctx)
@@ -267,27 +251,24 @@ int tc_redirect_lxc_ipv6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-/* Test that sending a packet from a pod to its own service gets source nat-ed
- * and that it is forwarded via the correct BPF redirect helper.
- */
 SETUP("tc", "tc_redirect_lxc_ipv6")
 int tc_redirect_lxc_ipv6_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
-	const union v6addr service_ip = { .addr = v6_svc_one_addr };
-	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
+	const union v6addr pod1_ip = { .addr = v6_pod_one_addr };
+	const union v6addr pod2_ip = { .addr = v6_pod_two_addr };
 
-	/* Add ClusterIP */
-	lb_v6_add_service(&service_ip, tcp_svc_one, IPPROTO_TCP, 1, revnat_id);
-	lb_v6_add_backend(&service_ip, tcp_svc_one, 1, 124,
-			  &pod_ip, tcp_dst_one, IPPROTO_TCP, 0);
+	/* Add an IPCache entry for both pods */
+	ipcache_v6_add_entry(&pod1_ip, 0, 112233, 0, 0);
+	ipcache_v6_add_entry(&pod2_ip, 0, 112233, 0, 0);
 
-	/* Add an IPCache entry for pod 1 */
-	ipcache_v6_add_entry(&pod_ip, 0, 112233, 0, 0);
-
-	/* Add endpoint for local LXC */
-	endpoint_v6_add_entry(&pod_ip, 0, TEST_LXC_ID_LOCAL, 0, 0,
+	/* Add endpoint for both pods */
+	endpoint_v6_add_entry(&pod1_ip, 0, TEST_LXC_ID_POD1, 0, 0,
 			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
+	endpoint_v6_add_entry(&pod2_ip, 0, TEST_LXC_ID_POD2, 0, 0,
+			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
+
+	policy_add_egress_allow_all_entry();
+	policy_add_ingress_allow_all_entry();
 
 	return pod_send_packet(ctx);
 }
@@ -300,14 +281,11 @@ int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 #else
 	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
 #endif
-	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
 	void *data;
 	void *data_end;
 	__u32 *status_code;
 
 	test_init();
-
-	endpoint_v6_del_entry(&pod_ip);
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
