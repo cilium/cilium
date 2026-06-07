@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@5a9de654d0910da098a23803350fcde6c7b144ab # main
+        uses: cilium/cilium/.github/actions/set-commit-status@557bab669c3378114a2d1acd0711a7ee8fe51ec2 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
