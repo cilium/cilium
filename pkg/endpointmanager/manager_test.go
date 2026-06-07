@@ -34,7 +34,12 @@ import (
 )
 
 func (mgr *endpointManager) waitEndpointRemoved(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	previousState := ep.GetState()
 	mgr.unexpose(ep)
+	// Unlike the production removeEndpoint() path, this test helper skips
+	// ep.Delete() (and therefore never tears down any BPF state), so it is
+	// safe to release the endpoint's ID for reuse immediately.
+	mgr.releaseID(ep, previousState)
 	ep.Stop()
 	return nil
 }
@@ -561,6 +566,67 @@ func TestLookupCNIAttachmentID(t *testing.T) {
 
 	bad = mgr.LookupCNIAttachmentID("asdf")
 	require.Nil(t, bad)
+}
+
+// TestRemoveEndpointReleasesIDOnlyAfterDelete is a regression test ensuring
+// that an endpoint's numeric ID is not returned to the allocation pool until
+// ep.Delete() has finished tearing down the endpoint's BPF maps, programs and
+// pins (which are keyed solely by that numeric ID, e.g. cilium_policy_v2_<id>
+// and cilium_calls_<id>).
+//
+// Releasing the ID any earlier would let a newly created endpoint be handed
+// the very same ID while the old endpoint's BPF state is still being removed,
+// allowing it to silently load and reuse the old endpoint's stale, pinned
+// policy map.
+func TestRemoveEndpointReleasesIDOnlyAfterDelete(t *testing.T) {
+	s := setupEndpointManagerSuite(t)
+	logger := hivetest.Logger(t)
+
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
+		EPBuildQueue:    &endpoint.MockEndpointBuildQueue{},
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		WgConfig:        &fakewireguard.Config{},
+		IPSecConfig:     fakeipsec.Config{},
+		Logger:          logger,
+		IdentityManager: identitymanager.NewIDManager(logger),
+		PolicyRepo:      s.repo,
+	}, nil, &endpoint.FakeEndpointProxy{}, &apiv1.EndpointChangeRequest{
+		ContainerID:            "release-id-test",
+		ContainerInterfaceName: "eth0",
+	}, nil)
+	require.NoError(t, err)
+	require.NoError(t, mgr.expose(ep))
+
+	id := ep.ID
+	previousState := ep.GetState()
+
+	// idIsFree probes whether the given ID is currently sitting in the free
+	// pool. reuse() removes the ID from the pool if present (returning nil),
+	// or fails if the ID is not currently free.
+	idIsFree := func(id uint16) bool {
+		if err := mgr.epIDAllocator.reuse(id); err != nil {
+			return false
+		}
+		// Put it back so the pool is left as we found it.
+		require.NoError(t, mgr.epIDAllocator.release(id))
+		return true
+	}
+
+	// Sanity check: the ID is allocated to our endpoint and not free.
+	require.False(t, idIsFree(id), "endpoint ID must be allocated while the endpoint is exposed")
+
+	// unexpose() removes the endpoint from lookups, but must NOT yet release
+	// the ID back to the pool: the endpoint's BPF state is still in place and
+	// ep.Delete() (which removes it) has not run yet.
+	mgr.unexpose(ep)
+	require.False(t, idIsFree(id), "endpoint ID must remain reserved after unexpose() until ep.Delete() has torn down its BPF state")
+
+	// Only once the (simulated) deletion of the endpoint's BPF state has
+	// completed should the ID be handed back to the pool.
+	mgr.releaseID(ep, previousState)
+	require.True(t, idIsFree(id), "endpoint ID must be released back to the pool after deletion completes")
 }
 
 func TestLookupIPv4(t *testing.T) {

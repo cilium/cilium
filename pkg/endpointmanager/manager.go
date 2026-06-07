@@ -473,37 +473,56 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 	defer ep.Close()
 	identifiers := ep.Identifiers()
 
-	previousState := ep.GetState()
-
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
-	// This must be done before the ID is released for the endpoint!
 	delete(mgr.endpoints, ep.ID)
 	mgr.mcastManager.RemoveAddress(ep.IPv6)
+	mgr.removeReferencesLocked(identifiers)
+}
 
+// releaseID returns the endpoint's numeric ID back to the allocation pool, so
+// that it may be reused by a subsequently created endpoint.
+//
+// This must only be called once the endpoint's BPF maps, programs and pins
+// (which are all keyed solely by this numeric ID, e.g. cilium_policy_v2_<id>
+// and cilium_calls_<id>) have been fully removed by ep.Delete(). Releasing the
+// ID any earlier would allow a new endpoint to be allocated the same ID while
+// the old endpoint's BPF state is still being torn down: the new endpoint
+// could then silently load and reuse the old endpoint's stale, pinned policy
+// map (and its now-irrelevant policy entries), or have its own freshly created
+// maps removed by the old endpoint's in-flight cleanup.
+func (mgr *endpointManager) releaseID(ep *endpoint.Endpoint, previousState endpoint.State) {
 	// We haven't yet allocated the ID for a restoring endpoint, so no
 	// need to release it.
-	if previousState != endpoint.StateRestoring {
-		if err := mgr.epIDAllocator.release(ep.ID); err != nil {
-			mgr.logger.Warn(
-				"Unable to release endpoint ID",
-				logfields.Error, err,
-				logfields.State, previousState,
-				logfields.CNIAttachmentID, identifiers[endpointid.CNIAttachmentIdPrefix],
-				logfields.CEPName, identifiers[endpointid.CEPNamePrefix],
-			)
-		}
+	if previousState == endpoint.StateRestoring {
+		return
 	}
 
-	mgr.removeReferencesLocked(identifiers)
+	if err := mgr.epIDAllocator.release(ep.ID); err != nil {
+		identifiers := ep.Identifiers()
+		mgr.logger.Warn(
+			"Unable to release endpoint ID",
+			logfields.Error, err,
+			logfields.State, previousState,
+			logfields.CNIAttachmentID, identifiers[endpointid.CNIAttachmentIdPrefix],
+			logfields.CEPName, identifiers[endpointid.CEPNamePrefix],
+		)
+	}
 }
 
 // removeEndpoint stops the active handling of events by the specified endpoint,
 // and prevents the endpoint from being globally accessible via other packages.
 func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	previousState := ep.GetState()
+
 	mgr.unexpose(ep)
 	result := ep.Delete(conf)
+
+	// Only release the endpoint's numeric ID for reuse once ep.Delete() above
+	// has finished removing all of the endpoint's ID-keyed BPF maps, programs
+	// and pins. See releaseID for why this ordering matters.
+	mgr.releaseID(ep, previousState)
 
 	if !option.Config.DryMode {
 		_ = mgr.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointDeleteMessage(ep))
