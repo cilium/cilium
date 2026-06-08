@@ -89,6 +89,20 @@ struct {
 
 #define OVERWRITE_MAGLEV_MAP_FROM_TEST 1
 
+/* Maglev hash produces different backend selections on LE vs BE
+ * because jhash operates on host-order integers. The source IP has
+ * different integer values on LE and BE (same network-order bytes),
+ * which changes the hash result and thus the backend selection.
+ */
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define CLIENT1_BACKEND_ID 18
+#define CLIENT2_BACKEND_ID 11
+#else
+#define CLIENT1_BACKEND_ID 13
+#define CLIENT2_BACKEND_ID 14
+#endif
+
+
 static __always_inline void get_backend_mac(__u8 *dst, __u32 backend_id)
 {
 	__bpf_memcpy_builtin(dst, (__u8 *)base_backend_mac, ETH_ALEN);
@@ -282,7 +296,7 @@ CHECK("xdp", "session_affinity_maglev_client_1_port_1")
 int test_1_1(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* Client 1 always maps to the backend 13 */
-	return check_packet(ctx, 13);
+	return check_packet(ctx, CLIENT1_BACKEND_ID);
 }
 
 /* ------------------------------------------------------------------------------ */
@@ -305,7 +319,7 @@ CHECK("xdp", "session_affinity_maglev_client_1_port_2")
 int test_1_2(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* Client 1 always maps to the backend 13 */
-	return check_packet(ctx, 13);
+	return check_packet(ctx, CLIENT1_BACKEND_ID);
 }
 
 /* ------------------------------------------------------------------------------ */
@@ -328,7 +342,7 @@ CHECK("xdp", "session_affinity_maglev_client_1_port_3")
 int test_1_3(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* Client 1 always maps to the backend 13 */
-	return check_packet(ctx, 13);
+	return check_packet(ctx, CLIENT1_BACKEND_ID);
 }
 
 /* ------------------------------------------------------------------------------ */
@@ -351,7 +365,7 @@ CHECK("xdp", "session_affinity_maglev_client_2_port_1")
 int test_2_1(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* Client 2 always maps to the backend 14 */
-	return check_packet(ctx, 14);
+	return check_packet(ctx, CLIENT2_BACKEND_ID);
 }
 
 /* ------------------------------------------------------------------------------ */
@@ -374,7 +388,7 @@ CHECK("xdp", "session_affinity_maglev_client_2_port_2")
 int test_2_2(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* Client 2 always maps to the backend 14 */
-	return check_packet(ctx, 14);
+	return check_packet(ctx, CLIENT2_BACKEND_ID);
 }
 
 /* ------------------------------------------------------------------------------ */
@@ -397,5 +411,5 @@ CHECK("xdp", "session_affinity_maglev_client_2_port_3")
 int test_2_3(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* Client 2 always maps to the backend 14 */
-	return check_packet(ctx, 14);
+	return check_packet(ctx, CLIENT2_BACKEND_ID);
 }
