@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
@@ -80,6 +81,8 @@ var Cell = cell.Module(
 	// statedb tables
 	cell.Provide(
 		tables.NewBGPReconcileErrorTable,
+		tables.NewDesiredRoutePoliciesTable,
+		statedb.RWTable[*tables.DesiredRoutePolicy].ToTable,
 	),
 
 	// provide privates for reconciler v2

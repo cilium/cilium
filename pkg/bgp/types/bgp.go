@@ -470,6 +470,8 @@ type RoutePolicyActionNextHop struct {
 //
 // +deepequal-gen=true
 type RoutePolicyStatement struct {
+	// Name of the statement. Should be unique within its route policy. Will be auto-generated if not set.
+	Name string
 	// Conditions of the statement. If ALL of them match a route, the Actions are taken on the route.
 	Conditions RoutePolicyConditions
 	// Actions define actions taken on a matched route.
