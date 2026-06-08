@@ -9,6 +9,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -137,6 +138,17 @@ func GatewayAPI(input Input) *model.Model {
 	m := &model.Model{
 		HTTP:           resHTTP,
 		TLSPassthrough: resTLSPassthrough,
+	}
+
+	if input.GatewayClassConfig != nil {
+		// Telemetry
+		if input.GatewayClassConfig.IsTelemetryConfigured() {
+			nn := types.NamespacedName{
+				Namespace: input.Gateway.GetNamespace(),
+				Name:      input.Gateway.GetName(),
+			}
+			m.Telemetry = toTelemetryConfig(nn, input.GatewayClassConfig.Spec.Telemetry)
+		}
 	}
 
 	return m
