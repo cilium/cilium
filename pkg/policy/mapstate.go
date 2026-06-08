@@ -870,9 +870,16 @@ func (ms mapState) String() (res string) {
 
 // Equal returns true of two entries are equal.
 func (e mapStateEntry) Equal(o mapStateEntry) bool {
-	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules == o.derivedFromRules &&
+	return e.equivalent(o) && e.derivedFromRules == o.derivedFromRules
+}
+
+// equivalent returns true if two entries have the same policy effect,
+// differing only by labels.
+func (e mapStateEntry) equivalent(o mapStateEntry) bool {
+	return e.MapStateEntry == o.MapStateEntry &&
 		(e.passes == o.passes || (e.passes != nil && o.passes != nil &&
-			slices.Equal(*e.passes, *o.passes)))
+			slices.Equal(*e.passes, *o.passes))) &&
+		(e.derivedFromRules == o.derivedFromRules || e.derivedFromRules.LogString() == o.derivedFromRules.LogString())
 }
 
 // String returns a string representation of the MapStateEntry
@@ -1018,9 +1025,10 @@ func (e *mapStateEntry) InheritPassPrecedence(passes passMetas) types.Precedence
 	return precedence
 }
 
-// pruneCoveredNarrowerKey deletes all or part of the entry 'v' depending on the given covering key
-// 'k' and precedence.
-func (ms *mapState) pruneCoveredNarrowerKey(k Key, v mapStateEntry, key Key, precedence types.Precedence, changes ChangeState) {
+// pruneCoveredNarrowerKey deletes all or part of the entry 'k, v' depending on the given covering key
+// 'key' and precedence.
+// Will also remove entries that have been covered directly (i.e. same prefix length) by an aggregate entry.
+func (ms *mapState) pruneCoveredNarrowerKey(k Key, v mapStateEntry, key Key, entry mapStateEntry, precedence types.Precedence, changes ChangeState) {
 	// Delete lower precedence pass metadata on the same tier
 	deletePassMeta := true
 	deletePassEntry := false
@@ -1039,6 +1047,10 @@ func (ms *mapState) pruneCoveredNarrowerKey(k Key, v mapStateEntry, key Key, pre
 	deleteEntry := !v.IsValid() ||
 		(v.Precedence < precedence ||
 			v.IsDeny() && v.Precedence == precedence && k != key)
+
+	// If k is a direct child of key, and k's entry is equivalent to key,
+	// then delete k as it is redundant.
+	deleteEntry = deleteEntry || (key.LPMKey == k.LPMKey && aggregates(key.Identity, k.Identity) && v.equivalent(entry))
 
 	// Delete whole entry?
 	if deletePassMeta && deleteEntry {
@@ -1181,7 +1193,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 		// tier entries, so we are not accidentallly deleting any already passed to entries
 		// here.
 		for k, v := range ms.CoveredNarrowerOrEqualKeys(key) {
-			ms.pruneCoveredNarrowerKey(k, v, key, newPass.precedence, changes)
+			ms.pruneCoveredNarrowerKey(k, v, key, entry, newPass.precedence, changes)
 		}
 		ms.addKeyWithChanges(key, entry, changes)
 		return
@@ -1275,7 +1287,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 	for k, v := range ms.NarrowerOrEqualKeys(key) {
 		isCoveringKey := key.Identity == aggregateID || k.Identity == key.Identity
 		if !bail && isCoveringKey {
-			ms.pruneCoveredNarrowerKey(k, v, key, entry.Precedence, changes)
+			ms.pruneCoveredNarrowerKey(k, v, key, entry, entry.Precedence, changes)
 		}
 		keys.collectNarrowerPasses(tierMaxPrecedence, k, v, key, &doneKeys)
 	}
@@ -1293,7 +1305,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 			// Iterate over all LPM descendants of the key and remove all lower
 			// precedence entries.
 			for k, v := range ms.CoveredNarrowerOrEqualKeys(key) {
-				ms.pruneCoveredNarrowerKey(k, v, key, precedence, changes)
+				ms.pruneCoveredNarrowerKey(k, v, key, entry, precedence, changes)
 			}
 			ms.addKeyWithChanges(key, passed, changes)
 			bail = true
@@ -1364,9 +1376,9 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 			passed.Precedence = precedence
 
 			// Iterate over all LPM descendants of the key and remove all lower
-			// precedence entries.
+			// precedence entries or duplicate entries that have been aggregated.
 			for k, v := range ms.CoveredNarrowerOrEqualKeys(key) {
-				ms.pruneCoveredNarrowerKey(k, v, key, precedence, changes)
+				ms.pruneCoveredNarrowerKey(k, v, key, entry, precedence, changes)
 			}
 			ms.addKeyWithChanges(key, passed, changes)
 		}
@@ -1413,6 +1425,14 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 //
 // Incremental changes performed are recorded in 'changes'.
 func (ms *mapState) insertWithChanges(tierMaxPrecedence types.Precedence, newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
+	// Check if the aggregate entry on the same level is identical.
+	// If so, skip inserting.
+	if ms.aggregateIsEquivalent(newKey, newEntry) {
+		ms.logger.Debug("Skipping rule with equivalent aggregate entry",
+			logfields.PolicyKey, newKey)
+		return
+	}
+
 	if features.contains(passRules) {
 		if features.contains(authRules) {
 			ms.logger.Error("Pass rules are not supported with auth rules")
@@ -1444,6 +1464,7 @@ func (ms *mapState) insertWithChanges(tierMaxPrecedence types.Precedence, newKey
 		// authPreferredInsert takes care for precedence and auth
 		if features.contains(authRules) {
 			ms.authPreferredInsert(newKey, newEntry, features, changes)
+			ms.pruneAggregated(newKey, newEntry, changes)
 			return
 		}
 
@@ -1465,7 +1486,63 @@ func (ms *mapState) insertWithChanges(tierMaxPrecedence types.Precedence, newKey
 			}
 		}
 	}
+
+	ms.pruneAggregated(newKey, newEntry, changes)
+
 	ms.addKeyWithChanges(newKey, newEntry, changes)
+}
+
+// aggregateIsEquivalent returns true if an entry has an aggregate (wildcard)
+// on the same level. If so, inserting `newKey` can be skipped entirely.
+func (ms *mapState) aggregateIsEquivalent(newKey Key, newEntry mapStateEntry) bool {
+	agg := aggregateFor(newKey.Identity)
+	// if newKey is already aggregate, then we can bail.
+	if agg == newKey.Identity {
+		return false
+	}
+
+	// Retrieve the aggregate entry for this exact key
+	aggKey := newKey
+	aggKey.Identity = agg
+	aggEntry, exists := ms.entries[aggKey]
+	if !exists {
+		return false
+	}
+	return aggEntry.equivalent(newEntry)
+}
+
+// If this is an aggregate key, delete any covered entries on the same level if they
+// have the same entry
+//
+// It is only safe to delete entries with the same prefix length, as there is no chance
+// of another entry appearing between the aggregated and specific entry.
+func (ms *mapState) pruneAggregated(newKey Key, newEntry mapStateEntry, changes ChangeState) {
+	// newKey must be capable of aggregating.
+	if !isAggregate(newKey.Identity) {
+		return
+	}
+
+	// Lookup all entries on this level.
+	idSet, ok := ms.trie.ExactLookup(newKey.PrefixLength(), newKey.LPMKey)
+	if !ok {
+		return
+	}
+
+	for id := range idSet {
+		if !aggregates(newKey.Identity, id) {
+			// skip if this ID is not aggregated by newKey
+			continue
+		}
+
+		k := newKey
+		k.Identity = id
+		v := ms.entries[k]
+		if v.equivalent(newEntry) {
+			ms.logger.Debug("Removing entry duplicated by aggregate",
+				logfields.PolicyKey, k)
+			ms.deleteExistingWithChanges(k, v, changes)
+		}
+	}
 }
 
 // overrideProxyPortForAuth sets the proxy port and priority of 'v' to that of 'newKey', saving the

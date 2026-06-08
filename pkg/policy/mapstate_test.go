@@ -1542,13 +1542,11 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		},
 		state: testMapState(t, mapStateMap{
 			AnyIngressKey():     allowEntry(),
-			HostIngressKey():    allowEntry(),
 			DNSUDPEgressKey(42): allowEntry(),
 			DNSTCPEgressKey(42): allowEntry(),
 		}),
 		adds: Keys{
 			AnyIngressKey():     {},
-			HostIngressKey():    {},
 			DNSUDPEgressKey(42): {},
 			DNSTCPEgressKey(42): {},
 		},
@@ -1561,7 +1559,6 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		},
 		state: testMapState(t, mapStateMap{
 			AnyIngressKey():     allowEntry(),
-			HostIngressKey():    allowEntry(),
 			DNSUDPEgressKey(42): allowEntry(),
 			DNSTCPEgressKey(42): allowEntry(),
 			HttpEgressKey(43):   proxyEntryHTTP(1),
@@ -2101,7 +2098,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: a superset a|b L3-only; without allow-all, later order allow", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertA},
 		{"deny-allow: a superset a|b L3-only; without allow-all, later order world deny inserted", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertBoth},
 
-		{"deny-allow: b superset a|b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a|b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 0, insertAllowAll | insertA},
 		{"deny-allow: b superset a|b L3-only; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a|b L3-only; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertB},
 		{"deny-allow: b superset a|b L3-only; later order less specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertAllowAll | insertB},
@@ -2141,7 +2138,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, IP allow not inserted", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertBoth | worldIPl3only},
 		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, later order more specific deny inserted without denying TCP/80", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertBoth},
 
-		{"deny-allow: a superset a L4, b L3-only", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: a superset a L4, b L3-only", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 0, insertAllowAll | insertA},
 		{"deny-allow: a superset a L4, b L3-only; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
 		{"deny-allow: a superset a L4, b L3-only; later order wider keys inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 0, 6, 0, 0, insertBoth},
 		{"deny-allow: a superset a L4, b L3-only; later order allow-all, world deny inserted", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth | insertAL3NotInB},
@@ -2149,7 +2146,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: a superset a L4, b L3-only; without allow-all, later order allow the same", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertBoth},
 		{"deny-allow: a superset a L4, b L3-only; without allow-all, later order world/TCP deny inserted", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertBoth | insertAL3NotInB},
 
-		{"deny-allow: b superset a L4, b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L4, b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 0, insertAllowAll | insertA},
 		{"deny-allow: b superset a L4, b L3-only; later order allows the same", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertBoth},
 		{"deny-allow: b superset a L4, b L3-only; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertB},
 		{"deny-allow: b superset a L4, b L3-only; later order more specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertAllowAll | insertB},
@@ -2189,7 +2186,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: b superset a L4, b L3L4; without allow-all, later order allows the same", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertBoth | worldIPProtoOnly},
 		{"deny-allow: b superset a L4, b L3L4; without allow-all, later order more specific deny inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertBoth},
 
-		{"deny-allow: a superset a L3L4, b L3-only", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: a superset a L3L4, b L3-only", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 0, insertAllowAll | insertA},
 		{"deny-allow: a superset a L3L4, b L3-only; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
 		{"deny-allow: a superset a L3L4, b L3-only; later order wider keys inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 80, 6, 0, 0, insertBoth},
 		{"deny-allow: a superset a L3L4, b L3-only; later order world deny inserted", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth | insertAL3NotInB},
@@ -2197,7 +2194,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: a superset a L3L4, b L3-only; without allow-all, later order allows the same", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertBoth},
 		{"deny-allow: a superset a L3L4, b L3-only; without allow-all, later order world deny inserted", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertBoth | insertAL3NotInB},
 
-		{"deny-allow: b superset a L3L4, b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L3L4, b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 0, insertAllowAll | insertA},
 		{"deny-allow: b superset a L3L4, b L3-only; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a L3L4, b L3-only; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertB},
 		{"deny-allow: b superset a L3L4, b L3-only; later order more specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertAllowAll | insertB},
@@ -2456,16 +2453,27 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			expectedKeys.insert(anyIngressKey, allowEntry)
 			expectedKeys.insert(anyEgressKey, allowEntry)
 		}
-		if tt.withAllowAll == WithoutAllowAll || (!tt.aIsDeny && tt.aLevel < tt.allowAllLevel) || tt.aLevel <= tt.allowAllLevel {
-			for _, aKey := range aKeys {
+
+		// Will the A or B keys be aggregated to a wildcard?
+		// If not, they are expected.
+		for _, aKey := range aKeys {
+			if tt.withAllowAll == WithoutAllowAll ||
+				aKey.LPMKey != anyIngressKey.LPMKey ||
+				!aEntry.equivalent(allowEntry) {
+
 				expectedKeys.insert(aKey, aEntry)
 			}
 		}
-		if tt.withAllowAll == WithoutAllowAll || (!tt.bIsDeny && tt.bLevel < tt.allowAllLevel) || tt.bLevel <= tt.allowAllLevel {
-			for _, bKey := range bKeys {
+
+		for _, bKey := range bKeys {
+			if tt.withAllowAll == WithoutAllowAll ||
+				bKey.LPMKey != anyEgressKey.LPMKey ||
+				!bEntry.equivalent(allowEntry) {
+
 				expectedKeys.insert(bKey, bEntry)
 			}
 		}
+
 		outcomeKeys := emptyMapState(hivetest.Logger(t))
 
 		changes := ChangeState{}

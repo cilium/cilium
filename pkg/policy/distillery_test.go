@@ -633,7 +633,6 @@ func Test_MergeL3(t *testing.T) {
 			testMapState(t, mapStateMap{
 				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
 				mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7None_(lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{},
@@ -1729,7 +1728,6 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyAnyIngress:             mapEntryAllow,
 			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
 			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
-			mapKeyL3SubnetIngress:        mapEntryAllow,
 			mapKeyL3SubnetEgress:         mapEntryAllow,
 		})}, {"broad_cidr_deny_is_a_portproto_subset_of_a_specific_cidr_allow", api.Rules{ruleAllowAllIngress, ruleL3L4Port8080ProtoAnyDenyWorld, ruleL3AllowWorldIP}, testMapState(t, mapStateMap{
 			mapKeyAnyIngress:                            mapEntryAllow,
@@ -1763,7 +1761,6 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port8080ProtoUDPWorldIPEgress:     mapEntryDeny,
 			mapKeyL3L4Port8080ProtoSCTPWorldIPIngress:   mapEntryDeny,
 			mapKeyL3L4Port8080ProtoSCTPWorldIPEgress:    mapEntryDeny,
-			mapKeyL3SmallerSubnetIngress:                mapEntryAllow,
 			mapKeyL3SmallerSubnetEgress:                 mapEntryAllow,
 		})}, {"broad_cidr_allow_is_a_portproto_subset_of_a_specific_cidr_deny", api.Rules{ruleAllowAllIngress, ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, testMapState(t, mapStateMap{
 			mapKeyAnyIngress:                          mapEntryAllow,
