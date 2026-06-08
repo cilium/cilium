@@ -15,6 +15,7 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
@@ -38,7 +39,7 @@ var (
 		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(
 			mcsapi.ServiceExportResource,
-			EndpointsResource,
+			EndpointSliceResource,
 			LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
 			k8s.CiliumPodIPPoolResource,
@@ -65,7 +66,7 @@ type Resources struct {
 
 	Services             resource.Resource[*slim_corev1.Service]
 	ServiceExports       resource.Resource[*mcsapiv1beta1.ServiceExport]
-	Endpoints            resource.Resource[*k8s.Endpoints]
+	EndpointSlices       resource.Resource[*slim_discovery_v1.EndpointSlice]
 	LBIPPools            resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool]
 	Identities           resource.Resource[*cilium_api_v2.CiliumIdentity]
 	CiliumPodIPPools     resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]

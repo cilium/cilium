@@ -24,6 +24,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -51,7 +52,7 @@ var ServiceSyncCell = cell.Module(
 )
 
 type ClusterServiceConverter interface {
-	Convert(svc *slim_corev1.Service, getEndpoints func(namespace, name string) []*k8s.Endpoints) (out *serviceStore.ClusterService, toUpsert bool, err error)
+	Convert(svc *slim_corev1.Service, getEndpointSlices func(namespace, name string) []*slim_discovery_v1.EndpointSlice) (out *serviceStore.ClusterService, toUpsert bool, err error)
 	ForDeletion(svc *slim_corev1.Service) (out *serviceStore.ClusterService)
 }
 
@@ -64,7 +65,7 @@ type ServiceSyncParams struct {
 	Clientset               k8sClient.Clientset
 	KVStoreClient           kvstore.Client
 	Services                resource.Resource[*slim_corev1.Service]
-	Endpoints               resource.Resource[*k8s.Endpoints]
+	EndpointSlices          resource.Resource[*slim_discovery_v1.EndpointSlice]
 	StoreFactory            store.Factory
 	ClusterServiceConverter ClusterServiceConverter
 
@@ -113,18 +114,18 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 		return err
 	}
 
-	endpoints, err := s.Endpoints.Store(ctx)
+	endpointSlices, err := s.EndpointSlices.Store(ctx)
 	if err != nil {
 		return err
 	}
 
-	getEndpoints := func(namespace, name string) []*k8s.Endpoints {
-		eps, _ := endpoints.ByIndex(operatorK8s.ServiceIndex, namespace+"/"+name)
+	getEndpointSlices := func(namespace, name string) []*slim_discovery_v1.EndpointSlice {
+		eps, _ := endpointSlices.ByIndex(operatorK8s.ServiceIndex, namespace+"/"+name)
 		return eps
 	}
 
 	serviceEvents := s.Services.Events(ctx)
-	endpointEvents := s.Endpoints.Events(ctx)
+	endpointEvents := s.EndpointSlices.Events(ctx)
 
 	namespaceEvents := s.Namespaces.Events(ctx)
 
@@ -159,7 +160,7 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 				ev.Done(nil)
 			case resource.Upsert:
 				svc := ev.Object
-				cs, toUpsert, err := converter.Convert(svc, getEndpoints)
+				cs, toUpsert, err := converter.Convert(svc, getEndpointSlices)
 				if err != nil {
 					s.Log.Warn("Failed to convert service, will retry",
 						logfields.Error, err,
@@ -192,15 +193,20 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 			}
 
 			ep := ev.Object
+			svcName := ep.Labels[slim_discovery_v1.LabelServiceName]
+			if svcName == "" {
+				ev.Done(nil)
+				continue
+			}
 
-			svc, exists, _ := services.GetByKey(resource.Key{Namespace: ep.ServiceName.Namespace(), Name: ep.ServiceName.Name()})
+			svc, exists, _ := services.GetByKey(resource.Key{Namespace: ep.Namespace, Name: svcName})
 			if !exists {
 				// Service does not exist yet.
 				ev.Done(nil)
 				continue
 			}
 
-			cs, toUpsert, err := converter.Convert(svc, getEndpoints)
+			cs, toUpsert, err := converter.Convert(svc, getEndpointSlices)
 			if err != nil {
 				s.Log.Warn("Failed to convert service for endpoint update, will retry",
 					logfields.Error, err,
@@ -242,7 +248,7 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 			var errs []error
 			for _, svc := range svcs {
 				// Convert handles both global and non-global namespaces
-				cs, toUpsert, err := converter.Convert(svc, getEndpoints)
+				cs, toUpsert, err := converter.Convert(svc, getEndpointSlices)
 				if err != nil {
 					s.Log.Warn("Failed to convert service for namespace update",
 						logfields.Error, err,
@@ -274,12 +280,13 @@ func isHeadless(svc *slim_corev1.Service) bool {
 }
 
 type DefaultClusterServiceConverter struct {
+	log              *slog.Logger
 	cinfo            cmtypes.ClusterInfo
 	namespaceManager cmnamespace.Manager
 }
 
 // Convert implements ClusterServiceConverter.
-func (d DefaultClusterServiceConverter) Convert(k8sService *slim_corev1.Service, getEndpoints func(namespace, name string) []*k8s.Endpoints) (out *serviceStore.ClusterService, toUpsert bool, err error) {
+func (d DefaultClusterServiceConverter) Convert(k8sService *slim_corev1.Service, getEndpointSlices func(namespace, name string) []*slim_discovery_v1.EndpointSlice) (out *serviceStore.ClusterService, toUpsert bool, err error) {
 	if shared := annotation.GetAnnotationShared(k8sService); !shared {
 		return d.ForDeletion(k8sService), false, nil
 	}
@@ -318,7 +325,8 @@ func (d DefaultClusterServiceConverter) Convert(k8sService *slim_corev1.Service,
 	}
 
 	svc.Backends = map[string]serviceStore.PortConfiguration{}
-	for _, ep := range getEndpoints(svc.Namespace, svc.Name) {
+	for _, endpointSlice := range getEndpointSlices(svc.Namespace, svc.Name) {
+		ep := k8s.ParseEndpointSliceV1(d.log, endpointSlice)
 		for addrCluster, backend := range ep.Backends {
 			if !backend.Conditions.IsReady() && !backend.Conditions.IsServing() {
 				continue
@@ -356,6 +364,6 @@ func (d DefaultClusterServiceConverter) ForDeletion(k8sService *slim_corev1.Serv
 
 var _ ClusterServiceConverter = DefaultClusterServiceConverter{}
 
-func newClusterServiceConverter(cinfo cmtypes.ClusterInfo, nsMgr cmnamespace.Manager) ClusterServiceConverter {
-	return DefaultClusterServiceConverter{cinfo, nsMgr}
+func newClusterServiceConverter(log *slog.Logger, cinfo cmtypes.ClusterInfo, nsMgr cmnamespace.Manager) ClusterServiceConverter {
+	return DefaultClusterServiceConverter{log: log, cinfo: cinfo, namespaceManager: nsMgr}
 }
