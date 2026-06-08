@@ -1180,8 +1180,8 @@ encryption:
       allowRemoteNodeIdentities: false
     ingress:
       # -- Enable strict ingress encryption.
-      # When enabled, all unencrypted overlay ingress traffic will be dropped.
-      # This option is only applicable when WireGuard and tunneling are enabled.
+      # When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
+      # This option requires WireGuard encryption.
       enabled: false
   ipsec:
     # -- Name of the key file inside the Kubernetes secret configured via secretName.
