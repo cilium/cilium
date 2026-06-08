@@ -9,13 +9,18 @@ import (
 	"log/slog"
 	"strings"
 	"time"
-
+	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
+
+	// Protobuf and Envoy specialized types for Rate Limiting
+	"google.golang.org/protobuf/types/known/anypb"
+	envoy_extensions_filters_http_local_ratelimit_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/local_ratelimit/v3"
+	envoy_extensions_filters_http_ratelimit_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ratelimit/v3"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -41,6 +46,7 @@ type Input struct {
 	Services            []corev1.Service
 	ServiceImports      []mcsapiv1beta1.ServiceImport
 	BackendTLSPolicyMap helpers.BackendTLSPolicyServiceMap
+	RateLimitPolicies   []v2alpha1.CiliumRateLimitPolicy
 }
 
 // GatewayAPI translates Gateway API resources into a model.
@@ -73,13 +79,11 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 		}
 	}
 
-	// Find all the listener host names, so that we can match them with the routes
 	// Gateway API spec guarantees that the hostnames are unique across all listeners
 	listenerHostnamesByProtocol := make(map[gatewayv1.ProtocolType][]string)
 	for _, l := range input.Gateway.Spec.Listeners {
 		if l.Hostname != nil {
-			_, ok := listenerHostnamesByProtocol[l.Protocol]
-			if !ok {
+			if _, ok := listenerHostnamesByProtocol[l.Protocol]; !ok {
 				listenerHostnamesByProtocol[l.Protocol] = []string{}
 			}
 			listenerHostnamesByProtocol[l.Protocol] = append(listenerHostnamesByProtocol[l.Protocol], toHostname(l.Hostname))
@@ -93,9 +97,50 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 			continue
 		}
 
+		// 1. Extract all routes for this listener
 		var httpRoutes []model.HTTPRoute
-		httpRoutes = append(httpRoutes, toHTTPRoutes(log, l, listenerHostnamesByProtocol, input.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
-		httpRoutes = append(httpRoutes, toGRPCRoutes(l, listenerHostnamesByProtocol, input.GRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
+		httpRoutes = append(httpRoutes, toHTTPRoutes(log, l, listenerHostnamesByProtocol, input.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap, input.RateLimitPolicies)...)
+		httpRoutes = append(httpRoutes, toGRPCRoutes(l, listenerHostnamesByProtocol, input.GRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.RateLimitPolicies)...)
+
+		// 2. Scan routes to detect if Rate Limit filters need to be enabled in the HCM filter chain
+		var listenerFilters []model.HTTPFilter
+		needsLocal := false
+		needsGlobal := false
+
+		for _, r := range httpRoutes {
+			if r.TypedPerFilterConfig != nil {
+				if _, ok := r.TypedPerFilterConfig["envoy.filters.http.local_ratelimit"]; ok {
+					needsLocal = true
+				}
+				if _, ok := r.TypedPerFilterConfig["envoy.filters.http.ratelimit"]; ok {
+					needsGlobal = true
+				}
+			}
+		}
+
+		// 3. Configure Local Rate Limit Filter
+		if needsLocal {
+			localCfg := &envoy_extensions_filters_http_local_ratelimit_v3.LocalRateLimit{
+				StatPrefix: "local_limit",
+			}
+			if anyCfg, err := anypb.New(localCfg); err == nil {
+				listenerFilters = append(listenerFilters, model.HTTPFilter{
+					Name:     "envoy.filters.http.local_ratelimit",
+					Priority: model.HTTPFilterPriorityRateLimit,
+					Config:   anyCfg,
+				})
+			}
+		}
+
+		// 4. Configure Global Rate Limit Filter
+		if needsGlobal {
+			listenerFilters = append(listenerFilters, model.HTTPFilter{
+				Name:     "envoy.filters.http.ratelimit",
+				Priority: model.HTTPFilterPriorityRateLimit,
+			})
+		}
+
+		// 5. Build the final HTTPListener model
 		resHTTP = append(resHTTP, model.HTTPListener{
 			Name: string(l.Name),
 			Sources: []model.FullyQualifiedResource{
@@ -112,10 +157,12 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 			Hostname:       toHostname(l.Hostname),
 			TLS:            toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
 			Routes:         httpRoutes,
+			Filters:        listenerFilters,
 			Infrastructure: infra,
 			Service:        toServiceModel(input.GatewayClassConfig),
 		})
 
+		// 6. Handle TLS Passthrough if applicable
 		if l.Protocol == gatewayv1.TLSProtocolType {
 			resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
 				Name: string(l.Name),
@@ -140,6 +187,7 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 
 	return resHTTP, resTLSPassthrough
 }
+
 
 func getBackendServiceName(namespace string, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
 	svcName := string(backendObjectReference.Name)
@@ -178,6 +226,7 @@ func toHTTPRoutes(log *slog.Logger,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
+    rateLimitPolicies []v2alpha1.CiliumRateLimitPolicy,
 ) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
@@ -237,7 +286,7 @@ func toHTTPRoutes(log *slog.Logger,
 			computedHost = nil
 		}
 
-		httpRoutes = append(httpRoutes, extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap)...)
+		httpRoutes = append(httpRoutes, extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap,rateLimitPolicies)...)
 
 	}
 	return httpRoutes
@@ -251,6 +300,8 @@ func extractRoutes(logger *slog.Logger,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
+	rateLimitPolicies []v2alpha1.CiliumRateLimitPolicy,
+
 ) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, rule := range hr.Spec.Rules {
@@ -374,6 +425,10 @@ func extractRoutes(logger *slog.Logger,
 			}
 		}
 
+
+
+		perRouteFilterConfig := getRateLimitPerRouteConfig(hr, rateLimitPolicies)
+
 		if len(rule.Matches) == 0 {
 			httpRoutes = append(httpRoutes, model.HTTPRoute{
 				Hostnames:              hostnames,
@@ -386,6 +441,7 @@ func extractRoutes(logger *slog.Logger,
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
 				ExternalAuth:           externalAuth,
+				TypedPerFilterConfig:   perRouteFilterConfig, 
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
 				CORS:                   requestCORS,
@@ -408,6 +464,7 @@ func extractRoutes(logger *slog.Logger,
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
 				ExternalAuth:           externalAuth,
+				TypedPerFilterConfig:   perRouteFilterConfig, 
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
 				CORS:                   requestCORS,
@@ -416,7 +473,6 @@ func extractRoutes(logger *slog.Logger,
 	}
 	return httpRoutes
 }
-
 func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Service, btlspMap helpers.BackendTLSPolicyServiceMap) (model.Backend, bool) {
 	svcFullName := types.NamespacedName{Name: svc.GetName(), Namespace: svc.GetNamespace()}
 
@@ -564,6 +620,7 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
+	rateLimitPolicies []v2alpha1.CiliumRateLimitPolicy,
 ) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
@@ -589,12 +646,12 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 		if len(computedHost) == 1 && computedHost[0] == allHosts {
 			computedHost = nil
 		}
-		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(computedHost, r, services, serviceImports, grants)...)
+		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(computedHost, r, services, serviceImports, grants,rateLimitPolicies)...)
 	}
 	return grpcRoutes
 }
 
-func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.HTTPRoute {
+func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant,rateLimitPolicies []v2alpha1.CiliumRateLimitPolicy) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, rule := range grpcr.Spec.Rules {
 		bes := make([]model.Backend, 0, len(rule.BackendRefs))
@@ -656,6 +713,7 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				}
 			}
 		}
+		perRouteFilterConfig := getRateLimitPerRouteConfigForGRPC(grpcr, rateLimitPolicies)
 
 		if len(rule.Matches) == 0 {
 			grpcRoutes = append(grpcRoutes, model.HTTPRoute{
@@ -665,6 +723,7 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				RequestHeaderFilter:    requestHeaderFilter,
 				ResponseHeaderModifier: responseHeaderFilter,
 				RequestMirrors:         requestMirrors,
+				TypedPerFilterConfig: perRouteFilterConfig
 			})
 		}
 
@@ -679,6 +738,8 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				ResponseHeaderModifier: responseHeaderFilter,
 				RequestMirrors:         requestMirrors,
 				IsGRPC:                 true,
+				TypedPerFilterConfig: perRouteFilterConfig, 
+
 			})
 		}
 	}
@@ -1148,4 +1209,76 @@ func toStringSlice[S ~string](s []S) []string {
 		res = append(res, string(h))
 	}
 	return res
+}
+
+
+
+
+func getRateLimitPerRouteConfig(hr gatewayv1.HTTPRoute, policies []v2alpha1.CiliumRateLimitPolicy) map[string]*anypb.Any {
+	if len(policies) == 0 {
+		return nil
+	}
+
+	perFilterConfig := make(map[string]*anypb.Any)
+
+	for _, policy := range policies {
+		// Policy Attachment: The policy must be in the same namespace as the HTTPRoute
+		// and must explicitly target this HTTPRoute by name.
+		if policy.Namespace == hr.Namespace &&
+			policy.Spec.TargetRef.Group == gatewayv1.Group(gatewayv1.GroupName) &&
+			policy.Spec.TargetRef.Kind == gatewayv1.Kind("HTTPRoute") &&
+			string(policy.Spec.TargetRef.Name) == hr.Name {
+
+			// 1. Local Rate Limiting Configuration
+			if policy.Spec.Local != nil {
+				// We pass a basic Envoy LocalRateLimit proto. 
+				// Mapping of specific fields (requests, unit) happens in the 
+				// Translation layer for better separation of concerns.
+				localConfig := &envoy_extensions_filters_http_local_ratelimit_v3.LocalRateLimit{
+					StatPrefix: "local_rate_limit",
+				}
+
+				if anyConfig, err := anypb.New(localConfig); err == nil {
+					perFilterConfig["envoy.filters.http.local_ratelimit"] = anyConfig
+				}
+			}
+
+			// 2. Global Rate Limiting Configuration
+			if policy.Spec.Global != nil {
+				// Signals Envoy to include virtual host rate limits for this route.
+				globalConfig := &envoy_extensions_filters_http_ratelimit_v3.RateLimitPerRoute{
+					VhRateLimits: envoy_extensions_filters_http_ratelimit_v3.RateLimitPerRoute_INCLUDE_VH_RATE_LIMITS,
+				}
+
+				if anyConfig, err := anypb.New(globalConfig); err == nil {
+					perFilterConfig["envoy.filters.http.ratelimit"] = anyConfig
+				}
+			}
+
+			// According to Gateway API conformance, only the first matching 
+			// policy of this type should be applied.
+			break
+		}
+	}
+
+	if len(perFilterConfig) == 0 {
+		return nil
+	}
+
+	return perFilterConfig
+}
+func toAny(message proto.Message) *anypb.Any {
+	a, err := anypb.New(message)
+	if err != nil {
+		return nil
+	}
+	return a
+}
+
+
+func getRateLimitPerRouteConfigForGRPC(grpcr gatewayv1.GRPCRoute, policies []v2alpha1.CiliumRateLimitPolicy) map[string]*anypb.Any {
+	fakeHTTP := gatewayv1.HTTPRoute{
+		ObjectMeta: grpcr.ObjectMeta,
+	}
+	return getRateLimitPerRouteConfig(fakeHTTP, policies)
 }
