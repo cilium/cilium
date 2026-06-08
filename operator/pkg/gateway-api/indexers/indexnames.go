@@ -43,4 +43,6 @@ const (
 
 	// Indexes GatewayClass objects by the CiliumGatewayClassConfig they reference.
 	GatewayClassCiliumGatewayClassConfigsIndex = "gatewayClassCiliumGatewayClassConfigsIndex"
+	RateLimitPolicyTargetIndex = "RateLimitPolicyTargetIndex"
+
 )
