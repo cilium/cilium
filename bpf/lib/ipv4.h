@@ -69,8 +69,13 @@ static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 	new_ttl = ttl - 1;
 	ip4->ttl = new_ttl;
 
-	/* l3_csum_replace() takes at min 2 bytes, zero extended. */
-	if (ipv4_csum_update_by_value(ctx, off, ttl, new_ttl, 2) < 0)
+	/* l3_csum_replace() takes at min 2 bytes, zero extended.
+	 * TTL is the high byte of the 16-bit [TTL, Protocol] word in
+	 * network order. Use bpf_htons() to place it correctly for
+	 * the ones-complement checksum on both LE and BE.
+	 */
+	if (ipv4_csum_update_by_value(ctx, off, bpf_htons((__u16)ttl << 8),
+				     bpf_htons((__u16)new_ttl << 8), 2) < 0)
 		return DROP_CSUM_L3;
 
 	return 0;
