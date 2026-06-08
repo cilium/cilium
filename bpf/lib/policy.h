@@ -56,8 +56,7 @@ enum {
 struct policy_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u32		sec_label;
-	__u8		egress:1,
-			pad:7;
+	__u8		egress;
 	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
 	__be16		dport; /* can be wildcarded with CIDR-like prefix */
 };
@@ -68,11 +67,19 @@ struct policy_key {
 
 struct policy_entry {
 	__be16		proxy_port;
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	__u8		lpm_prefix_length:5, /* map key protocol and dport prefix length */
+			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
+			deny:1;
+	__u8		has_explicit_auth_type:1,
+			auth_type:7;
+#else
 	__u8		deny:1,
 			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
 			lpm_prefix_length:5; /* map key protocol and dport prefix length */
 	__u8		auth_type:7,
 			has_explicit_auth_type:1;
+#endif
 	__u32		precedence;
 	__u32		cookie;
 };
@@ -95,8 +102,7 @@ struct policy_stats_key {
 	__u8		pad1;
 	__u8		prefix_len;
 	__u32		sec_label;
-	__u8		egress:1,
-			pad:7;
+	__u8		egress;
 	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
 	__be16		dport; /* can be wildcarded with CIDR-like prefix */
 };
@@ -127,7 +133,6 @@ __policy_account(__u32 remote_id, __u8 egress, __u8 proto, __be16 dport, __u8 lp
 		.prefix_len = lpm_prefix_length,
 		.sec_label = remote_id,
 		.egress = egress,
-		.pad = 0,
 	};
 
 	/*
@@ -228,7 +233,6 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 		.lpm_key = { POLICY_FULL_PREFIX, {} }, /* always look up with unwildcarded data */
 		.sec_label = remote_id,
 		.egress = !dir,
-		.pad = 0,
 		.protocol = proto,
 		.dport = dport,
 	};
