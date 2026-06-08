@@ -2566,6 +2566,12 @@ ipv4NativeRoutingCIDR: ""
 # the user must configure the routes to reach pods, either manually or by
 # setting the auto-direct-node-routes flag.
 ipv6NativeRoutingCIDR: ""
+# -- Derive the native routing CIDRs from the cluster-pool IPAM CIDRs when
+# ipv4NativeRoutingCIDR / ipv6NativeRoutingCIDR are not explicitly set.
+# Only effective with ipam.mode=cluster-pool and requires exactly one CIDR
+# per enabled IP family in clusterPoolIPv4PodCIDRList /
+# clusterPoolIPv6PodCIDRList.
+nativeRoutingCIDRFromClusterPool: false
 # -- cilium-monitor sidecar.
 monitor:
   # -- Enable the cilium-monitor sidecar.

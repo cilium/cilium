@@ -3228,6 +3228,10 @@
      - Enable RFC6052-prefixed translation
      - bool
      - ``false``
+   * - :spelling:ignore:`nativeRoutingCIDRFromClusterPool`
+     - Derive the native routing CIDRs from the cluster-pool IPAM CIDRs when ipv4NativeRoutingCIDR / ipv6NativeRoutingCIDR are not explicitly set. Only effective with ipam.mode=cluster-pool and requires exactly one CIDR per enabled IP family in clusterPoolIPv4PodCIDRList / clusterPoolIPv6PodCIDRList.
+     - bool
+     - ``false``
    * - :spelling:ignore:`nodeIPAM.enabled`
      - Configure Node IPAM ref: https://docs.cilium.io/en/stable/network/node-ipam/
      - bool

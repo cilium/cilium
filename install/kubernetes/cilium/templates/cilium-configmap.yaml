@@ -1214,10 +1214,26 @@ data:
 {{- if .Values.ipv4.enabled }}
   cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDRList | join " " | quote }}
   cluster-pool-ipv4-mask-size: {{ .Values.ipam.operator.clusterPoolIPv4MaskSize | quote }}
+{{- if and .Values.nativeRoutingCIDRFromClusterPool (not .Values.ipv4NativeRoutingCIDR) }}
+{{- $v4Pools := .Values.ipam.operator.clusterPoolIPv4PodCIDRList }}
+{{- if kindIs "string" $v4Pools }}{{- $v4Pools = splitList " " $v4Pools }}{{- end }}
+{{- if ne (len $v4Pools) 1 }}
+{{- fail "nativeRoutingCIDRFromClusterPool requires exactly one CIDR in ipam.operator.clusterPoolIPv4PodCIDRList; set ipv4NativeRoutingCIDR explicitly instead" }}
+{{- end }}
+  ipv4-native-routing-cidr: {{ first $v4Pools | quote }}
+{{- end }}
 {{- end }}
 {{- if .Values.ipv6.enabled }}
   cluster-pool-ipv6-cidr: {{ .Values.ipam.operator.clusterPoolIPv6PodCIDRList | join " " | quote }}
   cluster-pool-ipv6-mask-size: {{ .Values.ipam.operator.clusterPoolIPv6MaskSize | quote }}
+{{- if and .Values.nativeRoutingCIDRFromClusterPool (not .Values.ipv6NativeRoutingCIDR) }}
+{{- $v6Pools := .Values.ipam.operator.clusterPoolIPv6PodCIDRList }}
+{{- if kindIs "string" $v6Pools }}{{- $v6Pools = splitList " " $v6Pools }}{{- end }}
+{{- if ne (len $v6Pools) 1 }}
+{{- fail "nativeRoutingCIDRFromClusterPool requires exactly one CIDR in ipam.operator.clusterPoolIPv6PodCIDRList; set ipv6NativeRoutingCIDR explicitly instead" }}
+{{- end }}
+  ipv6-native-routing-cidr: {{ first $v6Pools | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- if (eq $ipam "multi-pool") }}
