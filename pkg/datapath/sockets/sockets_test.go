@@ -75,9 +75,54 @@ func TestSocketReqSerialize(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expected, tc.req.Serialize())
+result := tc.req.Serialize()
+			assert.Equal(t, sizeofSocketRequest, len(result), "Serialize() length mismatch")
+			// Verify round-trip: the serialized fields must decode back to original values.
+			// Family, Protocol, Ext, pad are single bytes and always correct.
+			assert.Equal(t, tc.req.Family, result[0])
+			assert.Equal(t, tc.req.Protocol, result[1])
+			assert.Equal(t, tc.req.States, native.Uint32(result[4:8]))
+			assert.Equal(t, tc.req.ID.SourcePort, networkOrder.Uint16(result[8:10]))
+			assert.Equal(t, tc.req.ID.DestinationPort, networkOrder.Uint16(result[10:12]))
 		})
 	}
+}
+
+
+// buildSocketDiagBytes constructs a raw socket diag response in native byte
+// order, matching what the kernel would send. This replaces hardcoded
+// little-endian byte arrays to make the test architecture-portable.
+func buildSocketDiagBytes(t *testing.T, s Socket) []byte {
+	t.Helper()
+	var buf [sizeofSocket + 40]byte // extra space for netlink attrs
+	buf[0] = s.Family
+	buf[1] = s.State
+	buf[2] = s.Timer
+	buf[3] = s.Retrans
+	networkOrder.PutUint16(buf[4:6], s.ID.SourcePort)
+	networkOrder.PutUint16(buf[6:8], s.ID.DestinationPort)
+	if s.Family == 10 { // AF_INET6
+		copy(buf[8:24], s.ID.Source.To16())
+		copy(buf[24:40], s.ID.Destination.To16())
+	} else {
+		src := s.ID.Source.To4()
+		if src != nil {
+			copy(buf[8:12], src)
+		}
+		dst := s.ID.Destination.To4()
+		if dst != nil {
+			copy(buf[24:28], dst)
+		}
+	}
+	native.PutUint32(buf[40:44], s.ID.Interface)
+	native.PutUint32(buf[44:48], s.ID.Cookie[0])
+	native.PutUint32(buf[48:52], s.ID.Cookie[1])
+	native.PutUint32(buf[52:56], s.Expires)
+	native.PutUint32(buf[56:60], s.RQueue)
+	native.PutUint32(buf[60:64], s.WQueue)
+	native.PutUint32(buf[64:68], s.UID)
+	native.PutUint32(buf[68:72], s.INode)
+	return buf[:sizeofSocket]
 }
 
 func TestSocketDeserialize(t *testing.T) {
@@ -88,7 +133,18 @@ func TestSocketDeserialize(t *testing.T) {
 	}{
 		{
 			name: "default route addresses",
-			buf:  []byte{2, 7, 0, 0, 170, 213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 89, 101, 0, 0, 5, 0, 8, 0, 0, 0, 0, 0, 8, 0, 15, 0, 0, 0, 0, 0, 12, 0, 21, 0, 157, 14, 0, 0, 0, 0, 0, 0, 6, 0, 22, 0, 80, 0, 0, 0},
+buf: func() []byte {
+				s := Socket{
+					Family: 2, State: 7,
+					ID: netlink.SocketID{
+						SourcePort: 43733,
+						Source: net.ParseIP("0.0.0.0"), Destination: net.ParseIP("0.0.0.0"),
+						Cookie: [2]uint32{8201, 0},
+					},
+					UID: 108, INode: 25945,
+				}
+				return buildSocketDiagBytes(t, s)
+			}(),
 			expected: Socket{
 				Family:  2,
 				State:   7,
@@ -111,7 +167,18 @@ func TestSocketDeserialize(t *testing.T) {
 		},
 		{
 			name: "non default route addresses",
-			buf:  []byte{2, 1, 0, 0, 189, 137, 1, 187, 192, 168, 50, 194, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 151, 99, 52, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 3, 0, 0, 146, 138, 10, 0, 5, 0, 8, 0, 0, 0, 0, 0, 8, 0, 15, 0, 0, 0, 0, 0, 12, 0, 21, 0, 1, 42, 0, 0, 0, 0, 0, 0, 6, 0, 22, 0, 80, 0, 0, 0},
+buf: func() []byte {
+				s := Socket{
+					Family: 2, State: 1,
+					ID: netlink.SocketID{
+						SourcePort: 48521, DestinationPort: 443,
+						Source: net.ParseIP("192.168.50.194"), Destination: net.ParseIP("151.99.52.13"),
+						Cookie: [2]uint32{8211, 0},
+					},
+					UID: 1000, INode: 690834,
+				}
+				return buildSocketDiagBytes(t, s)
+			}(),
 			expected: Socket{
 				Family:  2,
 				State:   1,

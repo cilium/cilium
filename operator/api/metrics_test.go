@@ -198,8 +198,11 @@ func TestMetricsHandlermTLS(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
+	// Clean up any leftover directory from a previous crashed run
+	os.RemoveAll(certDir)
 	err := os.Mkdir(certDir, 0755)
 	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(certDir) })
 	caCert, caKey := newCA(t)
 	writeNewCertAndKey(t, caCert, caKey, serverCertPath, serverKeyPath)
 

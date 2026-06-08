@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -20,6 +21,15 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
+
+
+// ip4Str mirrors the production ip4Str in datapath_debug.go so that
+// test expectations are endian-correct on any platform.
+func ip4Str(arg1 uint32) string {
+	ip := make(net.IP, 4)
+	byteorder.Native.PutUint32(ip, arg1)
+	return ip.String()
+}
 
 func encodeDebugEvent(msg *monitor.DebugMsg) []byte {
 	buf := &bytes.Buffer{}
@@ -113,7 +123,7 @@ func TestDecodeDebugEvent(t *testing.T) {
 				Arg1:    wrapperspb.UInt32(3909094154),
 				Arg2:    wrapperspb.UInt32(2),
 				Arg3:    wrapperspb.UInt32(0),
-				Message: "Successfully mapped addr=10.11.0.233 to identity=2",
+				Message: fmt.Sprintf("Successfully mapped addr=%s to identity=2", ip4Str(3909094154)),
 				Cpu:     wrapperspb.Int32(2),
 			},
 		},
