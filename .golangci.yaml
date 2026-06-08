@@ -47,6 +47,17 @@ linters:
           deny:
             - pkg: math/rand$
               desc: Use math/rand/v2 instead
+        path:
+          deny:
+            - pkg: "path$"
+              desc: "Use [kvstore.JoinKey] to construct kvstore keys"
+          files:
+            - '**/*clustermesh*/**'
+            - '**/*etcd*/**'
+            - '**/*store*/**'
+            - '**/*clustermesh*.go'
+            - '**/*etcd*.go'
+            - '**/*store*.go'
     exhaustruct:
       include:
         - .+\.[Cc]onfig
