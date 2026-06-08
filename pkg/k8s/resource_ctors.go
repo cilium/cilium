@@ -7,14 +7,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"reflect"
-	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
@@ -26,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -294,89 +290,6 @@ func CiliumBGPPeerConfigResource(params CiliumResourceParams, opts ...func(*meta
 		opts...,
 	)
 	return resource.New[*cilium_api_v2.CiliumBGPPeerConfig](params.Lifecycle, lw, params.MetricsProvider, resource.WithMetric("CiliumBGPPeerConfig"), resource.WithCRDSync(params.CRDSyncPromise)), nil
-}
-
-func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg ConfigParams, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
-	return EndpointsResourceWithIndexers(logger, lc, cfg, cs, nil, mp, opts...)
-}
-
-func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg ConfigParams, cs client.Clientset, indexers cache.Indexers, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
-	if !cs.IsEnabled() {
-		return nil, nil
-	}
-
-	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier(cfg.Config.K8sServiceProxyName, cfg.WatchConfig.EnableHeadlessServiceWatch)
-	if err != nil {
-		return nil, err
-	}
-
-	lw := &endpointsListerWatcher{
-		logger:                      logger,
-		cs:                          cs,
-		endpointSlicesOptsModifiers: append(opts, endpointSliceOptsModifier),
-	}
-
-	return resource.New[*Endpoints](
-		lc,
-		lw,
-		mp,
-		resource.WithLazyTransform(lw.getSourceObj, func(i any) (any, error) {
-			return transformEndpoint(logger, i)
-		}),
-		resource.WithMetric("Endpoint"),
-		resource.WithName("endpoints"),
-		resource.WithIndexers(indexers),
-	), nil
-}
-
-// endpointsListerWatcher implements List and Watch for endpoints/endpointslices. It
-// performs the capability check on first call to List/Watch. This allows constructing
-// the resource before the client has been started and capabilities have been probed.
-type endpointsListerWatcher struct {
-	logger                      *slog.Logger
-	cs                          client.Clientset
-	endpointSlicesOptsModifiers []func(*metav1.ListOptions)
-	sourceObj                   k8sRuntime.Object
-
-	once                sync.Once
-	cachedListerWatcher cache.ListerWatcher
-}
-
-func (lw *endpointsListerWatcher) getSourceObj() k8sRuntime.Object {
-	lw.getListerWatcher() // force the construction
-	return lw.sourceObj
-}
-
-func (lw *endpointsListerWatcher) getListerWatcher() cache.ListerWatcher {
-	lw.once.Do(func() {
-		lw.logger.Info("Using discoveryv1.EndpointSlice")
-		lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1.EndpointSliceList](
-			lw.cs.Slim().DiscoveryV1().EndpointSlices(""),
-		)
-		lw.sourceObj = &slim_discoveryv1.EndpointSlice{}
-		lw.cachedListerWatcher = utils.ListerWatcherWithModifiers(lw.cachedListerWatcher, lw.endpointSlicesOptsModifiers...)
-	})
-	return lw.cachedListerWatcher
-}
-
-func (lw *endpointsListerWatcher) List(opts metav1.ListOptions) (k8sRuntime.Object, error) {
-	return lw.getListerWatcher().List(opts)
-}
-
-func (lw *endpointsListerWatcher) Watch(opts metav1.ListOptions) (watch.Interface, error) {
-	return lw.getListerWatcher().Watch(opts)
-}
-
-func transformEndpoint(logger *slog.Logger, obj any) (any, error) {
-	switch obj := obj.(type) {
-	case *slim_discoveryv1.EndpointSlice:
-		return ParseEndpointSliceV1(logger, obj), nil
-	case cache.DeletedFinalStateUnknown:
-		return obj, nil
-	default:
-		logger.Error("Unknown endpoint or endpoint slice object", logfields.Name, reflect.TypeOf(obj))
-		return nil, fmt.Errorf("%T not a known endpoint or endpoint slice object", obj)
-	}
 }
 
 // CiliumSlimEndpointResource uses the "localNode" IndexFunc to build the resource indexer.

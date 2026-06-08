@@ -6,7 +6,6 @@ package k8s
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -20,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
@@ -140,22 +140,37 @@ func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.Metr
 
 const ServiceIndex = "service"
 
-func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.ConfigParams, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*k8s.Endpoints], error) {
-	return k8s.EndpointsResourceWithIndexers(
-		logger,
+func EndpointSliceResource(lc cell.Lifecycle, cfg k8s.ConfigParams, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*slim_discovery_v1.EndpointSlice], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier(cfg.Config.K8sServiceProxyName, cfg.WatchConfig.EnableHeadlessServiceWatch)
+	if err != nil {
+		return nil, err
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped(cs.Slim().DiscoveryV1().EndpointSlices("")),
+		endpointSliceOptsModifier,
+	)
+	return resource.New[*slim_discovery_v1.EndpointSlice](
 		lc,
-		cfg,
-		cs,
-		cache.Indexers{
-			// Index endpoints by their service identifier. Used by [ServiceSyncCell].
+		lw,
+		mp,
+		resource.WithMetric("EndpointSlice"),
+		resource.WithIndexers(cache.Indexers{
+			// Index endpoint slices by their service identifier. Used by Cluster Mesh syncing.
 			ServiceIndex: func(obj any) ([]string, error) {
-				eps, ok := obj.(*k8s.Endpoints)
+				eps, ok := obj.(*slim_discovery_v1.EndpointSlice)
 				if !ok {
 					return nil, fmt.Errorf("unexpected object type: %T", obj)
 				}
-				return []string{eps.ServiceName.String()}, nil
+				serviceName := eps.Labels[slim_discovery_v1.LabelServiceName]
+				if serviceName == "" {
+					return []string{}, nil
+				}
+				return []string{eps.Namespace + "/" + serviceName}, nil
 			},
-		},
-		mp,
-	)
+		}),
+	), nil
 }
