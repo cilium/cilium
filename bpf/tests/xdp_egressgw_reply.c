@@ -15,7 +15,11 @@
 #define ENABLE_MASQUERADE_IPV4	1
 #define ENABLE_MASQUERADE_IPV6	1
 
+#define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_VXLAN
 #define ENCAP_IFINDEX		42
+
+/* Skip ingress policy checks */
+#define USE_BPF_PROG_FOR_INGRESS_POLICY
 
 #define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
 #define MASQ_PORT		__bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
@@ -35,12 +39,6 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
-
-ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
-ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
-
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
@@ -100,7 +98,7 @@ SETUP("xdp", "xdp_egressgw_reply")
 int egressgw_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install EgressGW policy for the connection: */
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & bpf_htonl(0xFFFFFF00), 24, GATEWAY_NODE_IP, 0);
 
 	/* install RevSNAT entry */
 	struct ipv4_ct_tuple snat_tuple = {
@@ -196,7 +194,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
+	if (l4->dest != bpf_htons(TUNNEL_PORT))
 		test_fatal("outerDstPort is not tunnel port")
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IP))
@@ -220,7 +218,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (inner_l4->dest != client_port(TEST_XDP_REPLY))
 		test_fatal("innerDstPort hasn't been revNATed to client port");
 
-	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & bpf_htonl(0xFFFFFF00), 24);
 
 	test_finish();
 }
@@ -365,7 +363,7 @@ int egressgw_reply_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
+	if (l4->dest != bpf_htons(TUNNEL_PORT))
 		test_fatal("outerDstPort is not tunnel port")
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IPV6))

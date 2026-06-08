@@ -30,28 +30,28 @@
 #endif
 
 #define __bpf_log_arg0(ptr, arg) do {} while (0)
-#define __bpf_log_arg1(ptr, arg) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; ptr += sizeof(__u64)
-#define __bpf_log_arg2(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg1(ptr, arg) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); ptr += sizeof(__u64)
+#define __bpf_log_arg2(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg1(ptr, args)
-#define __bpf_log_arg3(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg3(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg2(ptr, args)
-#define __bpf_log_arg4(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg4(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg3(ptr, args)
-#define __bpf_log_arg5(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg5(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg4(ptr, args)
-#define __bpf_log_arg6(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg6(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg5(ptr, args)
-#define __bpf_log_arg7(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg7(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg6(ptr, args)
-#define __bpf_log_arg8(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg8(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg7(ptr, args)
-#define __bpf_log_arg9(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg9(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg8(ptr, args)
-#define __bpf_log_arg10(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg10(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg9(ptr, args)
-#define __bpf_log_arg11(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg11(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg10(ptr, args)
-#define __bpf_log_arg12(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
+#define __bpf_log_arg12(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; __bpf_log_store_u64(ptr, arg); \
 					  ptr += sizeof(__u64); __bpf_log_arg11(ptr, args)
 #define __bpf_log_arg(ptr, args...) \
 	___bpf_apply(__bpf_log_arg, ___bpf_narg(args))(ptr, args)
@@ -97,6 +97,15 @@ struct {
 /* message Log */
 #define MKR_LOG_FMT	PROTOBUF_WIRE_TYPE(1, PROTOBUF_LENGTH_DELIMITED)
 #define MKR_LOG_ARG	PROTOBUF_WIRE_TYPE(2, PROTOBUF_FIXED64)
+
+/* Protobuf FIXED64 must be little-endian on the wire. On big-endian BPF
+ * targets (bpfeb), we must byte-swap before writing.
+ */
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define __bpf_log_store_u64(ptr, val) (*(__u64 *)(ptr) = __builtin_bswap64(val))
+#else
+#define __bpf_log_store_u64(ptr, val) (*(__u64 *)(ptr) = (val))
+#endif
 
 /* Write a message to the unit log
  *	The conversion specifiers supported by *fmt* are the same as for

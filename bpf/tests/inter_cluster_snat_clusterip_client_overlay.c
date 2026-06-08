@@ -28,11 +28,18 @@
 /* Inter-cluster SNAT is mandatory for overlapping PodCIDR support for now */
 #define ENABLE_INTER_CLUSTER_SNAT
 
-/* Import map definitions and some default values and set port ranges
- * to have deterministic source port selection
+/* Import map definitions and some default values */
+#include <bpf/config/node.h>
+
+/* Overwrite the default port range defined in node_config.h
+ * to have deterministic source port selection.
  */
-#define NODEPORT_PORT_MAX_NAT 32768
-#include "nodeport_defaults.h"
+#undef NODEPORT_PORT_MAX
+#undef NODEPORT_PORT_MIN_NAT
+#undef NODEPORT_PORT_MAX_NAT
+#define NODEPORT_PORT_MAX 32767
+#define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
+#define NODEPORT_PORT_MAX_NAT (NODEPORT_PORT_MIN_NAT)
 
 /*
  * Test configurations
@@ -230,7 +237,7 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0xd71e))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xd71e));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	tuple.daddr = BACKEND_IP;
 	tuple.saddr = CLIENT_IP;
@@ -284,8 +291,6 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 
 	test_init();
 
-	endpoint_v4_del_entry(CLIENT_IP);
-
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -334,15 +339,11 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port hasn't been RevSNATed to client port");
 
 	if (l4->check != bpf_htons(0x8f65))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x8f65));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
-	meta = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
-	if (!(meta & CB_DELIVERY_FLAGS_REDIRECT))
-		test_fatal("skb->cb[CB_DELIVERY_FLAGS] should have CB_DELIVERY_FLAGS_REDIRECT");
-	if (meta & CB_DELIVERY_FLAGS_FROM_HOST)
-		test_fatal("skb->cb[CB_DELIVERY_FLAGS] has CB_DELIVERY_FLAGS_FROM_HOST");
-	if (!(meta & CB_DELIVERY_FLAGS_FROM_TUNNEL))
-		test_fatal("skb->cb[CB_DELIVERY_FLAGS] should have CB_DELIVERY_FLAGS_FROM_TUNNEL");
+	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	if (meta != 1)
+		test_fatal("skb->cb[CB_DELIVERY_REDIRECT] should be 1, got %d", meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != BACKEND_IDENTITY)
@@ -435,7 +436,7 @@ int to_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0xd710))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xd710));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }

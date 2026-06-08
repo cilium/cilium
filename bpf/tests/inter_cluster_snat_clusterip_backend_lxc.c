@@ -56,8 +56,6 @@ ASSIGN_CONFIG(__u32, cluster_id, 1)
 /* Set the LXC source address to be the address of the backend pod */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
 
-ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
-
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 
@@ -140,7 +138,7 @@ int overlay_to_lxc_syn_setup(struct __ctx_buff *ctx)
 					     BACKEND_PORT, 0);
 
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
-	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, false, true, 0);
+	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, true, 0);
 
 	return pod_receive_packet_by_tailcall(ctx);
 }
@@ -203,7 +201,7 @@ int overlay_to_lxc_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x7d94))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x7d94));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Check ingress conntrack state is in the default CT */
 	tuple.daddr   = CLIENT_NODE_IP;
@@ -299,7 +297,7 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x7d84))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x7d84));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Make sure we hit the conntrack entry */
 	tuple.saddr   = BACKEND_IP;
@@ -329,7 +327,7 @@ SETUP("tc", "03_overlay_to_lxc_ack")
 int overlay_to_lxc_ack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
-	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, false, true, 0);
+	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, true, 0);
 
 	return pod_receive_packet_by_tailcall(ctx);
 }
@@ -392,7 +390,7 @@ int overlay_to_lxc_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x7d86))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x7d86));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Make sure we hit the conntrack entry */
 	tuple.daddr   = CLIENT_NODE_IP;

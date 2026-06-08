@@ -167,7 +167,7 @@ int l4lb_health_check_host_check(const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x19a1))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_ntohs(0x19a1));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
