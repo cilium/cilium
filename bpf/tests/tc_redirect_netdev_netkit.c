@@ -5,5 +5,6 @@
 #undef __CONFIG_ENABLE_ENDPOINT_ROUTES
 
 #define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
 
 #include "tc_redirect_netdev.h"
