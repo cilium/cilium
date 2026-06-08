@@ -4877,6 +4877,9 @@
       },
       "type": "object"
     },
+    "nativeRoutingCIDRFromClusterPool": {
+      "type": "boolean"
+    },
     "nodeIPAM": {
       "properties": {
         "enabled": {
