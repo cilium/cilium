@@ -30,6 +30,15 @@ enum {
 
 static unsigned int num_calls[RECORD__MAX] = {};
 
+static __always_inline
+void clear_records(void)
+{
+	/* Reset counters in case a previous scenario ran in the same .o */
+	num_calls[RECORD_TAILCALL] = 0;
+	num_calls[RECORD_REDIRECT] = 0;
+	num_calls[RECORD_REDIRECT_PEER] = 0;
+}
+
 /* Mocked out BPF helpers that we're intending to test usage of. */
 int mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
 		      int ifindex __maybe_unused,
@@ -212,6 +221,7 @@ int tc_redirect_host_ipv4_setup(struct __ctx_buff *ctx)
 	/* Add source identity to test mark */
 	ipcache_v4_add_entry(v4_ext_one, 0, TEST_SRC_IDENTITY, 0, 0);
 
+	clear_records();
 	return host_send_packet(ctx);
 }
 
@@ -326,6 +336,7 @@ int tc_redirect_host_ipv6_setup(struct __ctx_buff *ctx)
 	/* Add source identity to test mark */
 	ipcache_v6_add_entry(&ext_ip, 0, TEST_SRC_IDENTITY, 0, 0);
 
+	clear_records();
 	return host_send_packet(ctx);
 }
 
