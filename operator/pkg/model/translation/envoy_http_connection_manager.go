@@ -134,6 +134,7 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, m *model.Model) (ciliumv2.XDSResource, error) {
 	connectionManager := &httpConnectionManagerv3.HttpConnectionManager{
 		StatPrefix: name,
+		AccessLog:  getHTTPAccessLogs(m),
 		RouteSpecifier: &httpConnectionManagerv3.HttpConnectionManager_Rds{
 			Rds: &httpConnectionManagerv3.Rds{RouteConfigName: routeName},
 		},

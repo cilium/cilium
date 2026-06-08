@@ -668,13 +668,15 @@ func tlsPassthroughFilterChains(m *model.Model) []*envoy_config_listener.FilterC
 				continue
 			}
 
+			tcpProxy := tcpProxyForTLSPassthroughRoute(route, backends)
+			tcpProxy.AccessLog = getTCPAccessLogs(m)
 			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 				FilterChainMatch: toFilterChainMatch(route.Hostnames),
 				Filters: []*envoy_config_listener.Filter{
 					{
 						Name: tcpProxyType,
 						ConfigType: &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: toAny(tcpProxyForTLSPassthroughRoute(route, backends)),
+							TypedConfig: toAny(tcpProxy),
 						},
 					},
 				},
