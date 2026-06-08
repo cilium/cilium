@@ -63,7 +63,7 @@ env:
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 568.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: 4ee70c6fe5560252e44b1cf65cfc60b1a9310b8d
+  cmapisrv_mock_ref: 46540fcf5e0545aaab47d54be103b8f3502826d7
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -297,7 +297,7 @@ jobs:
           helm install cmapisrv-mock \
             ./scaffolding/cmapisrv-mock/deploy/cmapisrv-mock \
             --namespace kube-system \
-            --set image.repository=quay.io/cilium/cmapisrv-mock \
+            --set image.repository=giorio94/cmapisrv-mock \
             --set image.tag=${{ env.cmapisrv_mock_ref }} \
             --set nodeSelector.node-role\\.kubernetes\\.io/control-plane= \
             --set tolerations[0].key=node-role.kubernetes.io/control-plane \
