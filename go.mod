@@ -315,7 +315,7 @@ require (
 	k8s.io/code-generator v0.36.2 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
 	k8s.io/kube-openapi v0.0.0-20260427204847-8949caaa1199 // indirect
-	k8s.io/kubelet v0.34.2 // indirect
+	k8s.io/kubelet v0.34.8 // indirect
 	k8s.io/streaming v0.36.2 // indirect
 	oras.land/oras-go/v2 v2.6.1 // indirect
 	sigs.k8s.io/controller-tools v0.20.1 // indirect
