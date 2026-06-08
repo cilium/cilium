@@ -4,7 +4,7 @@
 package kvstore
 
 import (
-	"path"
+	"path" //nolint:depguard // used to cross-check JoinKey against path.Join
 	"testing"
 
 	"github.com/stretchr/testify/assert"
