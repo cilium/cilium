@@ -270,8 +270,17 @@ func (i *cecTranslator) desiredEnvoyListener(m *model.Model) ([]ciliumv2.XDSReso
 func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
+	// NEW: Extract filters from the HTTP model.
+	// Since Cilium's shared LB mode unifies filters at the ingestion layer, 
+	// we take them from the first available HTTP listener.
+	var filters []model.HTTPFilter
+	if len(m.HTTP) > 0 {
+		filters = m.HTTP[0].Filters
+	}
+
 	if m.IsHTTPListenerConfigured() {
-		httpFilterChain, err := i.httpFilterChain(name, m)
+		// Update: pass the filters to the insecure chain builder
+		httpFilterChain, err := i.httpFilterChain(name, m, filters)
 		if err != nil {
 			return nil, err
 		}
@@ -279,7 +288,8 @@ func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_conf
 	}
 
 	if m.IsHTTPSListenerConfigured() {
-		httpsFilterChains, err := i.httpsFilterChains(name, m)
+		// Update: pass the filters to the secure chain builder
+		httpsFilterChains, err := i.httpsFilterChains(name, m, filters)
 		if err != nil {
 			return nil, err
 		}
@@ -327,12 +337,13 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 	return res
 }
 
-func (i *cecTranslator) httpFilterChain(name string, m *model.Model) (*envoy_config_listener.FilterChain, error) {
+func (i *cecTranslator) httpFilterChain(name string, m *model.Model, filters []model.HTTPFilter) (*envoy_config_listener.FilterChain, error) {
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
 	insecureHttpConnectionManager, err := i.desiredHTTPConnectionManager(
 		insecureHttpConnectionManagerName,
 		insecureHttpConnectionManagerName,
 		m,
+		filters, 
 	)
 	if err != nil {
 		return nil, err
@@ -350,8 +361,7 @@ func (i *cecTranslator) httpFilterChain(name string, m *model.Model) (*envoy_con
 		},
 	}, nil
 }
-
-func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
+func (i *cecTranslator) httpsFilterChains(name string, m *model.Model, filters []model.HTTPFilter) ([]*envoy_config_listener.FilterChain, error) {
 	tlsToHostnames := m.TLSSecretsToHostnames()
 	if len(tlsToHostnames) == 0 {
 		return nil, nil
@@ -367,7 +377,7 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 		hostNames := tlsToHostnames[secret]
 
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
-		secureHttpConnectionManager, err := i.desiredHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName, m)
+		secureHttpConnectionManager, err := i.desiredHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName, m, filters)
 		if err != nil {
 			return nil, err
 		}
@@ -387,7 +397,6 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 
 	return filterChains, nil
 }
-
 func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bool) (*envoy_config_core_v3.Address, []*envoy_config_listener.AdditionalAddress) {
 	if len(ports) == 0 || (!ipv4Enabled && !ipv6Enabled) {
 		return nil, nil
