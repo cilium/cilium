@@ -25,6 +25,38 @@ const (
 )
 
 
+// RateLimitAction defines the descriptor generation logic for Global Rate Limiting.
+// It maps directly to Envoy's RouteAction.RateLimit.Action.
+type RateLimitAction struct {
+	// Type defines the action type (e.g., "SourceIp", "RequestHeader", "GenericKey").
+	Type string `json:"type"`
+
+	// RequestHeader configures a descriptor based on a dynamic header value.
+	RequestHeader *RequestHeaderAction `json:"request_header,omitempty"`
+
+	// GenericKey is a static descriptor key.
+	GenericKey *string `json:"generic_key,omitempty"`
+
+	// HeaderValueMatch configures a static descriptor if specific headers are present.
+	HeaderValueMatch *HeaderValueMatchAction `json:"header_value_match,omitempty"`
+}
+
+type RequestHeaderAction struct {
+	HeaderName    string `json:"header_name"`
+	DescriptorKey string `json:"descriptor_key"`
+}
+
+type HeaderValueMatchAction struct {
+	DescriptorValue string               `json:"descriptor_value"`
+	Headers         []HeaderMatchCondition `json:"headers"`
+}
+
+type HeaderMatchCondition struct {
+	Name  string  `json:"name"`
+	Value *string `json:"value,omitempty"`
+}
+
+
 
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
@@ -417,6 +449,11 @@ type HTTPRoute struct {
 	// ExternalAuth configures external authorization for this route.
 	ExternalAuth *HTTPExternalAuthFilter `json:"external_auth,omitempty"`
 
+	
+	// RateLimitActions defines the list of actions to generate descriptors 
+	// for global rate limiting. These are processed by the Envoy rate limit filter.
+	RateLimitActions []RateLimitAction `json:"rate_limit_actions,omitempty"`
+
 	// TypedPerFilterConfig allows injecting per-route configuration for Envoy filters.
 	// This maps directly to Envoy's typed_per_filter_config.
 	// Key is the filter name (e.g., "envoy.filters.http.ratelimit").
@@ -539,6 +576,29 @@ func (r *HTTPRoute) GetMatchKey() string {
 			// Ingestion attaches policies to routes.
 		}
 	}
+	// 8. NEW: Global Rate Limit Actions
+	// We include the rate limit actions in the match key to ensure that routes 
+	// with different descriptor configurations are not incorrectly merged.
+	for _, action := range r.RateLimitActions {
+		sb.WriteString("rl_action:")
+		sb.WriteString(action.Type)
+		if action.RequestHeader != nil {
+			sb.WriteString(":")
+			sb.WriteString(action.RequestHeader.HeaderName)
+			sb.WriteString(":")
+			sb.WriteString(action.RequestHeader.DescriptorKey)
+		}
+		if action.GenericKey != nil {
+			sb.WriteString(":")
+			sb.WriteString(*action.GenericKey)
+		}
+		if action.HeaderValueMatch != nil {
+			sb.WriteString(":")
+			sb.WriteString(action.HeaderValueMatch.DescriptorValue)
+		}
+		sb.WriteString("|")
+	}
+
 
 	return sb.String()
 }
