@@ -72,6 +72,7 @@ type l2AnnouncerParams struct {
 	Clientset            k8sClient.Clientset
 	Services             statedb.Table[*loadbalancer.Service]
 	Frontends            statedb.Table[*loadbalancer.Frontend]
+	Backends             statedb.Table[*loadbalancer.Backend]
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
 	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
@@ -137,6 +138,20 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	return announcer
 }
 
+func (l2a *L2Announcer) hasLocalBackends(txn statedb.ReadTxn, svc *loadbalancer.Service) bool {
+	// Get all backends from svc name
+	seq, _ := loadbalancer.ListBackendsByServiceName(txn, l2a.params.Backends, svc.Name)
+
+	for be := range seq {
+		// Returns `true` if there is at least one backend that belongs to the current node and is alive.
+		if be.NodeName == l2a.localNode.Name && be.IsAlive() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	// Start watching the 'services' table for changes.
 	wtxn := l2a.params.StateDB.WriteTxn(l2a.params.Services)
@@ -145,6 +160,15 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	if err != nil {
 		return err
 	}
+
+	// Initialize backends table
+	wtxnBe := l2a.params.StateDB.WriteTxn(l2a.params.Backends)
+	beChangeIter, err := l2a.params.Backends.Changes(wtxnBe)
+	wtxnBe.Commit()
+	if err != nil {
+		return err
+	}
+
 	// Wait for services to initialize
 	_, servicesInitialized := l2a.params.Services.Initialized(l2a.params.StateDB.ReadTxn())
 	select {
@@ -187,6 +211,7 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 
 loop:
 	for {
+		// Processing svc change
 		svcChanges, svcWatch := svcChangeIter.Next(l2a.params.StateDB.ReadTxn())
 		for event := range svcChanges {
 			if err := l2a.processSvcEvent(event); err != nil {
@@ -196,11 +221,32 @@ loop:
 			}
 		}
 
+		// Processing backend change
+		beChanges, beWatch := beChangeIter.Next(l2a.params.StateDB.ReadTxn())
+		for event := range beChanges {
+			// Get the backend struct which changed
+			backend := event.Object
+
+			// Retrieve the relevant service from StateDB and re-execute upsertSvc
+			txn := l2a.params.StateDB.ReadTxn()
+			svc, _, found := l2a.params.Services.Get(txn, loadbalancer.ServiceByName(backend.ServiceName))
+			if found {
+				if err := l2a.upsertSvc(svc); err != nil {
+					l2a.params.Logger.Warn("Error re-evaluating service on backend change",
+						logfields.Error, err,
+						"service", backend.ServiceName,
+					)
+				}
+			}
+		}
+
 		select {
 		case <-ctx.Done():
 			break loop
 
 		case <-svcWatch:
+
+		case <-beWatch:
 
 		case event, more := <-policyChan:
 			// resource closed, shutting down
@@ -338,6 +384,12 @@ func (l2a *L2Announcer) upsertSvc(svc *loadbalancer.Service) error {
 		}
 	}
 	key := serviceKey(svc)
+
+	// If ext traffic policy is `Local`, check that l2a is assigned to the correct node
+	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !l2a.hasLocalBackends(txn, svc) {
+		return l2a.delSvc(key)
+	}
+
 	noExternal := len(externalAddresses) == 0
 	noLB := len(lbAddresses) == 0
 	if noExternal && noLB {
