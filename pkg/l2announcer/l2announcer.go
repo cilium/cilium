@@ -72,6 +72,7 @@ type l2AnnouncerParams struct {
 	Clientset            k8sClient.Clientset
 	Services             statedb.Table[*loadbalancer.Service]
 	Frontends            statedb.Table[*loadbalancer.Frontend]
+	Backends             statedb.Table[*loadbalancer.Backend]
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
 	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
@@ -137,21 +138,44 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	return announcer
 }
 
+func (l2a *L2Announcer) hasLocalBackends(txn statedb.ReadTxn, svc *loadbalancer.Service) bool {
+	// Get all backends from svc name
+	seq, _ := loadbalancer.ListBackendsByServiceName(txn, l2a.params.Backends, svc.Name)
+
+	for be := range seq {
+		// Returns `true` if there is at least one backend that belongs to the current node and is alive.
+		if be.NodeName == l2a.localNode.Name && be.IsAlive() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	// Start watching the 'services' table for changes.
 	wtxn := l2a.params.StateDB.WriteTxn(l2a.params.Services)
 	svcChangeIter, err := l2a.params.Services.Changes(wtxn)
-	wtxn.Commit()
 	if err != nil {
 		return err
 	}
+	wtxn.Commit()
 
 	wtxn = l2a.params.StateDB.WriteTxn(l2a.params.Frontends)
 	frontendChangeIter, err := l2a.params.Frontends.Changes(wtxn)
-	wtxn.Commit()
 	if err != nil {
 		return err
 	}
+	wtxn.Commit()
+
+	// Initialize backends table
+	wtxn = l2a.params.StateDB.WriteTxn(l2a.params.Backends)
+	beChangeIter, err := l2a.params.Backends.Changes(wtxn)
+	if err != nil {
+		return err
+	}
+	wtxn.Commit()
+
 	// Wait for services to initialize
 	_, servicesInitialized := l2a.params.Services.Initialized(l2a.params.StateDB.ReadTxn())
 	select {
@@ -196,6 +220,7 @@ loop:
 	for {
 		rtxn := l2a.params.StateDB.ReadTxn()
 
+		// Processing svc change
 		svcChanges, svcWatch := svcChangeIter.Next(rtxn)
 		for event := range svcChanges {
 			if err := l2a.processSvcEvent(rtxn, event); err != nil {
@@ -214,13 +239,24 @@ loop:
 			}
 		}
 
+		// Processing backend change
+		beChanges, beWatch := beChangeIter.Next(rtxn)
+		for event := range beChanges {
+			if err := l2a.processBackendEvent(rtxn, event); err != nil {
+				l2a.params.Logger.Warn("Error processing backend event",
+					logfields.Error, err,
+				)
+			}
+		}
+
 		select {
 		case <-ctx.Done():
 			break loop
 
 		case <-svcWatch:
-
 		case <-frontendWatch:
+		case <-beWatch:
+			// Continue, one of our change iterators has new events.
 
 		case event, more := <-policyChan:
 			// resource closed, shutting down
@@ -356,6 +392,7 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 		}
 	}
 	key := serviceKey(svc)
+
 	noExternal := len(externalAddresses) == 0
 	noLB := len(lbAddresses) == 0
 	if noExternal && noLB {
@@ -366,6 +403,11 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 	// Ignore services managed by an unsupported load balancer class.
 	if svc.LoadBalancerClass != nil &&
 		*svc.LoadBalancerClass != cilium_api_v2alpha1.L2AnnounceLoadBalancerClass {
+		return l2a.delSvc(key)
+	}
+
+	// Ignore services that only forward to local backends but have none
+	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !l2a.hasLocalBackends(rtxn, svc) {
 		return l2a.delSvc(key)
 	}
 
@@ -467,6 +509,16 @@ func (l2a *L2Announcer) processFrontendEvent(rtxn statedb.ReadTxn, event statedb
 		return l2a.upsertSvc(rtxn, svc)
 	}
 	return l2a.delSvc(types.NamespacedName{Namespace: name.Namespace(), Name: name.Name()})
+}
+
+func (l2a *L2Announcer) processBackendEvent(rtxn statedb.ReadTxn, event statedb.Change[*loadbalancer.Backend]) error {
+	name := event.Object.ServiceName
+	svc, _, found := l2a.params.Services.Get(rtxn, loadbalancer.ServiceByName(name))
+	if !found {
+		return nil
+	}
+
+	return l2a.upsertSvc(rtxn, svc)
 }
 
 func policyKey(policy *cilium_api_v2alpha1.CiliumL2AnnouncementPolicy) types.NamespacedName {
@@ -620,6 +672,11 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 
 		if !((policy.Spec.ExternalIPs && !noExternal) ||
 			(policy.Spec.LoadBalancerIPs && !noLB)) {
+			continue
+		}
+
+		// Ignore services that only forward to local backends but have none
+		if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !l2a.hasLocalBackends(txn, svc) {
 			continue
 		}
 
