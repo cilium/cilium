@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	resourceapi "k8s.io/api/resource/v1"
+	"k8s.io/dynamic-resource-allocation/deviceattribute"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -29,9 +30,9 @@ const (
 	// as assigned by the device managers.
 	// must be unique across all devices on the node.
 	IfNameLabel = "ifName"
-	// PCIAddrLabel contains the PCI address for
+	// PCIBusIDLabel contains the PCI bus address for
 	// the device. Only applicable to PCI based devices.
-	PCIAddrLabel = "pciAddr"
+	PCIBusIDLabel = deviceattribute.StandardDeviceAttributePrefix + "pciBusID"
 	// PFNameLabel contains the kernel ifname for the
 	// PF on a VF device. Only applicable to sr-iov
 	// VF devices.
