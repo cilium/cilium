@@ -118,7 +118,10 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicyConfigMapIndex, indexers.IndexBTLSPolicyByConfigMap); err != nil {
 		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendTLSPolicyConfigMapIndex, err)
 	}
-
+	// Index CiliumRateLimitPolicies by their TargetRef (e.g., HTTPRoute)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v2alpha1.CiliumRateLimitPolicy{}, indexers.RateLimitPolicyTargetIndex, indexers.IndexRateLimitPolicyByTarget); err != nil {
+		return fmt.Errorf("failed to setup field indexer for CiliumRateLimitPolicy: %w", err)
+	}
 	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.Client, r.controllerName, r.logger)
 	gatewayBuilder := ctrl.NewControllerManagedBy(mgr).
 		// Watch its own resource
@@ -149,7 +152,11 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to BackendTLSPolicy
 		Watches(&gatewayv1.BackendTLSPolicy{}, watchhandlers.EnqueueRequestForBackendTLSPolicy(r.Client, r.logger)).
 		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(r.Client, r.logger)).
+
+		// Watch for changes to Rate Limit Policies
+		Watches(&v2alpha1.CiliumRateLimitPolicy{}, watchhandlers.EnqueueRequestForRateLimitPolicy(r.Client, r.logger, r.controllerName)).
 		// Watch created and owned resources
+	
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		Owns(&corev1.Service{}).
 		Owns(&discoveryv1.EndpointSlice{})
