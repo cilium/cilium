@@ -1365,11 +1365,13 @@ func crdToExtensionRefFilter(log *slog.Logger, crd *v2alpha1.CiliumEnvoyExtProcF
 		},
 	}
 
-	// Use the same "namespace:name:port" format as getClusterName in the
-	// translation layer so this reference matches the cluster that will be created.
-	clusterName := backend.Namespace + ":" + backend.Name + ":" + backend.Port.GetPort()
+	// Use the same protocol-specific identity as the translation layer so this
+	// reference resolves to the dedicated HTTP/2 ext_proc cluster rather than a
+	// regular route cluster for the same Service port.
+	clusterName := "grpc:" + backend.Namespace + ":" + backend.Name + ":" + backend.Port.GetPort()
 
 	extProc := &ext_procv3.ExternalProcessor{
+		StatPrefix: extProcStatPrefix(crd.Namespace, crd.Name),
 		GrpcService: &envoy_config_core_v3.GrpcService{
 			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
 				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
@@ -1433,10 +1435,11 @@ func extProcStatPrefix(namespace, name string) string {
 	return fmt.Sprintf("ceepf.%s.%s.", sanitizeExtProcStatPart(namespace), sanitizeExtProcStatPart(name))
 }
 
-var extProcStatReplacer = strings.NewReplacer("-", "_", ".", "_")
+var extProcStatReplacer = strings.NewReplacer("-", "_2d", ".", "_2e")
 
-// sanitizeExtProcStatPart replaces characters that are illegal in Envoy stat
-// names with underscores.
+// sanitizeExtProcStatPart escapes characters that are illegal in Envoy stat
+// names. The escape sequences are injective because underscores are not valid
+// in Kubernetes DNS-subdomain resource names.
 func sanitizeExtProcStatPart(s string) string {
 	return extProcStatReplacer.Replace(s)
 }

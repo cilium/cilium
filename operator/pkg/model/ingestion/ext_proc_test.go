@@ -152,6 +152,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 			require.NotNil(t, filter.Backend)
 
 			if name == "success" {
+				assert.Equal(t, "envoy.filters.http.ext_proc/default/my-ext-proc", filter.Name)
 				assert.Equal(t, "ext-proc-service", filter.Backend.Name)
 				assert.Equal(t, "default", filter.Backend.Namespace)
 				require.NotNil(t, filter.Backend.Port)
@@ -159,6 +160,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 			}
 
 			if name == "success with cross-namespace backendRef" {
+				assert.Equal(t, "envoy.filters.http.ext_proc/default/cross-ns-ext-proc", filter.Name)
 				assert.Equal(t, "ext-proc-service", filter.Backend.Name)
 				assert.Equal(t, "other-namespace", filter.Backend.Namespace)
 				require.NotNil(t, filter.Backend.Port)
@@ -203,7 +205,8 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
 				require.NotNil(t, extProc.GrpcService)
 				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
-				assert.Equal(t, "default:my-grpc-service:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "grpc:default:my-grpc-service:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "ceepf.default.basic_2dfilter.", extProc.StatPrefix)
 				assert.False(t, extProc.GetFailureModeAllow())
 			},
 		},
@@ -308,6 +311,7 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 			},
 			expectOK: true,
 			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				assert.Equal(t, "envoy.filters.http.ext_proc/default/cross-ns-filter", filter.Name)
 				require.NotNil(t, filter.Backend)
 				assert.Equal(t, "ext-proc-svc", filter.Backend.Name)
 				assert.Equal(t, "other-namespace", filter.Backend.Namespace)
@@ -316,7 +320,28 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
 				require.NotNil(t, extProc.GrpcService)
 				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
-				assert.Equal(t, "other-namespace:ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "grpc:other-namespace:ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "ceepf.default.cross_2dns_2dfilter.", extProc.StatPrefix)
+			},
+		},
+		"stat prefix sanitizes resource identity": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dotted.ext-proc-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name: "ext-proc-svc",
+						Port: 50051,
+					},
+				},
+			},
+			expectOK: true,
+			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				extProc := &ext_procv3.ExternalProcessor{}
+				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
+				assert.Equal(t, "ceepf.default.dotted_2eext_2dproc_2dfilter.", extProc.StatPrefix)
 			},
 		},
 	}
@@ -336,6 +361,47 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 			tc.checkFunc(t, filter)
 		})
 	}
+}
+
+func Test_extProcStatPrefix(t *testing.T) {
+	tests := map[string]struct {
+		namespace string
+		name      string
+		expected  string
+	}{
+		"normal resource identity": {
+			namespace: "default",
+			name:      "my-ext-proc",
+			expected:  "ceepf.default.my_2dext_2dproc.",
+		},
+		"cross-namespace resource identity": {
+			namespace: "other-namespace",
+			name:      "cross.ns-ext-proc",
+			expected:  "ceepf.other_2dnamespace.cross_2ens_2dext_2dproc.",
+		},
+		"hyphenated identity": {
+			namespace: "default",
+			name:      "foo-bar",
+			expected:  "ceepf.default.foo_2dbar.",
+		},
+		"dotted identity": {
+			namespace: "default",
+			name:      "foo.bar",
+			expected:  "ceepf.default.foo_2ebar.",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, extProcStatPrefix(tc.namespace, tc.name))
+		})
+	}
+
+	assert.NotEqual(
+		t,
+		extProcStatPrefix("default", "foo-bar"),
+		extProcStatPrefix("default", "foo.bar"),
+	)
 }
 
 func Test_convertProcessingMode(t *testing.T) {
