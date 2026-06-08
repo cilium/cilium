@@ -114,7 +114,7 @@ trace_id_from_ip4(struct __ctx_buff *ctx, __s64 *value,
 
 				if (ctx_load_bytes(ctx, offset + 2, &temp, sizeof(temp)) < 0)
 					return TRACE_ID_ERROR;
-				*value = bpf_ntohs(temp);
+				*value = (__u16)bpf_ntohs(temp);
 				return 0;
 			}
 			case OPT32_LEN: {
@@ -122,7 +122,7 @@ trace_id_from_ip4(struct __ctx_buff *ctx, __s64 *value,
 
 				if (ctx_load_bytes(ctx, offset + 2, &temp, sizeof(temp)) < 0)
 					return TRACE_ID_ERROR;
-				*value = bpf_ntohl(temp);
+				*value = (__u32)bpf_ntohl(temp);
 				return 0;
 			}
 			case OPT64_LEN: {
