@@ -437,7 +437,7 @@ type ExtensionRefFilter struct {
 	TypeURL string `json:"type_url"`
 	// Config is the serialized protobuf config for the filter.
 	Config []byte `json:"config,omitempty"`
-	// Backend is the filter's backend service (e.g. the ext_proc gRPC service).
+	// Backend is the filter's backend service.
 	Backend *Backend `json:"backend,omitempty"`
 }
 

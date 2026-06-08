@@ -1380,6 +1380,7 @@ func crdToExtensionRefFilter(log *slog.Logger, crd *v2alpha1.CiliumEnvoyExtProcF
 	clusterName := backend.Namespace + ":" + backend.Name + ":" + backend.Port.GetPort()
 
 	extProc := &ext_procv3.ExternalProcessor{
+		StatPrefix: extProcStatPrefix(crd.Namespace, crd.Name),
 		GrpcService: &envoy_config_core_v3.GrpcService{
 			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
 				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{

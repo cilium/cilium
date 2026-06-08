@@ -151,6 +151,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 			require.NotNil(t, filter.Backend)
 
 			if name == "success" {
+				assert.Equal(t, "envoy.filters.http.ext_proc/default/my-ext-proc", filter.Name)
 				assert.Equal(t, "ext-proc-service", filter.Backend.Name)
 				assert.Equal(t, "default", filter.Backend.Namespace)
 				require.NotNil(t, filter.Backend.Port)
@@ -158,6 +159,7 @@ func Test_resolveExtensionRef(t *testing.T) {
 			}
 
 			if name == "success with cross-namespace backendRef" {
+				assert.Equal(t, "envoy.filters.http.ext_proc/default/cross-ns-ext-proc", filter.Name)
 				assert.Equal(t, "ext-proc-service", filter.Backend.Name)
 				assert.Equal(t, "other-namespace", filter.Backend.Namespace)
 				require.NotNil(t, filter.Backend.Port)
@@ -294,6 +296,7 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 			},
 			expectOK: true,
 			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				assert.Equal(t, "envoy.filters.http.ext_proc/default/cross-ns-filter", filter.Name)
 				require.NotNil(t, filter.Backend)
 				assert.Equal(t, "ext-proc-svc", filter.Backend.Name)
 				assert.Equal(t, "other-namespace", filter.Backend.Namespace)
@@ -303,6 +306,26 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 				require.NotNil(t, extProc.GrpcService)
 				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
 				assert.Equal(t, "other-namespace:ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+			},
+		},
+		"stat prefix sanitizes resource identity": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dotted.ext-proc-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name: "ext-proc-svc",
+						Port: 50051,
+					},
+				},
+			},
+			expectOK: true,
+			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				extProc := &ext_procv3.ExternalProcessor{}
+				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
+				assert.Equal(t, "ceepf.default.dotted_ext_proc_filter.", extProc.StatPrefix)
 			},
 		},
 	}

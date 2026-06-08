@@ -46,12 +46,13 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
                       emitFilterState: true
                       enableUpstreamStats: true
-                  - name: envoy.filters.http.ext_proc
+                  - name: envoy.filters.http.ext_proc/default/my-ext-proc
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
                       grpcService:
                         envoyGrpc:
                           clusterName: default:ext-proc-service:4317
+                      statPrefix: ceepf.default.my_ext_proc.
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -100,8 +101,8 @@ spec:
       name: listener-insecure
       virtualHosts:
         - domains:
-            - '*'
-          name: '*'
+            - "*"
+          name: "*"
           routes:
             - match:
                 path: /grpc.health.v1.Health/Check
@@ -110,7 +111,7 @@ spec:
                 maxStreamDuration:
                   maxStreamDuration: 0s
               typedPerFilterConfig:
-                envoy.filters.http.ext_proc:
+                envoy.filters.http.ext_proc/default/my-ext-proc:
                   "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute
                   disabled: true
             - match:
