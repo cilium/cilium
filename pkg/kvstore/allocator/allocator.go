@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path"
 	"strconv"
 	"strings"
 
@@ -543,14 +542,14 @@ func (k *kvstoreBackend) RunGC(
 							"Unable to delete unused allocator master key",
 							logfields.Error, err,
 							logfields.Key, key,
-							logfields.Identity, path.Base(key),
+							logfields.Identity, identity,
 						)
 					} else {
 						deletedEntries++
 						k.logger.Info(
 							"Deleted unused allocator master key in KVStore",
 							logfields.Key, key,
-							logfields.Identity, path.Base(key),
+							logfields.Identity, identity,
 						)
 					}
 					// consider the key regardless if there was an error from
