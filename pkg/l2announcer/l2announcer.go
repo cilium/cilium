@@ -252,7 +252,7 @@ loop:
 				if err := l2a.upsertSvc(txn, svc); err != nil {
 					l2a.params.Logger.Warn("Error re-evaluating service on backend change",
 						logfields.Error, err,
-						"service", backend.ServiceName,
+						logfields.ServiceName, backend.ServiceName,
 					)
 				}
 			}
