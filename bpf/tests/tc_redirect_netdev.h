@@ -34,6 +34,15 @@ enum {
 
 static unsigned int num_calls[RECORD__MAX] = {};
 
+static __always_inline
+void clear_records(void)
+{
+	/* Reset counters in case a previous scenario ran in the same .o */
+	num_calls[RECORD_TAILCALL] = 0;
+	num_calls[RECORD_REDIRECT] = 0;
+	num_calls[RECORD_REDIRECT_PEER] = 0;
+}
+
 /* Mocked out BPF helpers that we're intending to test usage of. */
 int mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
 		      int ifindex __maybe_unused,
@@ -200,11 +209,6 @@ int tc_redirect_netdev_ipv4_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_redirect_netdev_ipv4")
 int tc_redirect_netdev_ipv4_setup(struct __ctx_buff *ctx)
 {
-	/* Reset counters in case a previous scenario ran in the same .o */
-	num_calls[RECORD_TAILCALL] = 0;
-	num_calls[RECORD_REDIRECT] = 0;
-	num_calls[RECORD_REDIRECT_PEER] = 0;
-
 	/* phys-netdev TC ingress: kernel sets ingress_ifindex */
 	mock_ingress_ifindex = TEST_HOST_IFACE;
 
@@ -215,6 +219,7 @@ int tc_redirect_netdev_ipv4_setup(struct __ctx_buff *ctx)
 	endpoint_v4_add_entry(v4_pod_one, TEST_LXC_IFACE, TEST_LXC_ID_LOCAL, 0, 0, 0,
 			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
 
+	clear_records();
 	return netdev_receive_packet(ctx);
 }
 
@@ -288,10 +293,6 @@ int tc_redirect_pod_egress_ipv4_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_redirect_pod_egress_ipv4")
 int tc_redirect_pod_egress_ipv4_setup(struct __ctx_buff *ctx)
 {
-	num_calls[RECORD_TAILCALL] = 0;
-	num_calls[RECORD_REDIRECT] = 0;
-	num_calls[RECORD_REDIRECT_PEER] = 0;
-
 	/* Pod-egress on netkit: ns crossing scrubs ingress_ifindex to 0 */
 	mock_ingress_ifindex = 0;
 
@@ -299,6 +300,7 @@ int tc_redirect_pod_egress_ipv4_setup(struct __ctx_buff *ctx)
 	endpoint_v4_add_entry(v4_pod_one, TEST_LXC_IFACE, TEST_LXC_ID_LOCAL, 0, 0, 0,
 			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
 
+	clear_records();
 	return netdev_receive_packet(ctx);
 }
 
@@ -383,9 +385,6 @@ int tc_redirect_netdev_ipv6_setup(struct __ctx_buff *ctx)
 {
 	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
 
-	num_calls[RECORD_TAILCALL] = 0;
-	num_calls[RECORD_REDIRECT] = 0;
-	num_calls[RECORD_REDIRECT_PEER] = 0;
 	mock_ingress_ifindex = TEST_HOST_IFACE;
 
 	ipcache_v6_add_entry(&pod_ip, 0, 112233, 0, 0);
@@ -393,6 +392,7 @@ int tc_redirect_netdev_ipv6_setup(struct __ctx_buff *ctx)
 	endpoint_v6_add_entry(&pod_ip, TEST_LXC_IFACE, TEST_LXC_ID_LOCAL, 0, 0,
 			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
 
+	clear_records();
 	return netdev_receive_packet(ctx);
 }
 
@@ -454,15 +454,13 @@ int tc_redirect_pod_egress_ipv6_setup(struct __ctx_buff *ctx)
 {
 	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
 
-	num_calls[RECORD_TAILCALL] = 0;
-	num_calls[RECORD_REDIRECT] = 0;
-	num_calls[RECORD_REDIRECT_PEER] = 0;
 	mock_ingress_ifindex = 0;
 
 	ipcache_v6_add_entry(&pod_ip, 0, 112233, 0, 0);
 	endpoint_v6_add_entry(&pod_ip, TEST_LXC_IFACE, TEST_LXC_ID_LOCAL, 0, 0,
 			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
 
+	clear_records();
 	return netdev_receive_packet(ctx);
 }
 
