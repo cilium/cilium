@@ -1096,7 +1096,30 @@ func TestProxyID(t *testing.T) {
 	require.Empty(t, resolved)
 
 	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
-	require.Empty(t, resolved)
+	require.Len(t, resolved, 1)
+	id, port = resolved[0].id, resolved[0].port
+	require.NotEmpty(t, id)
+	require.Equal(t, uint16(0), port)
+	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
+	require.Equal(t, uint16(123), endpointID)
+	require.True(t, ingress)
+	require.Equal(t, "TCP", protocol)
+	require.Equal(t, uint16(0), port)
+	require.Empty(t, listener)
+	require.NoError(t, err)
+
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP}, "test-listener", policy.SelectorSnapshot{}))
+	require.Len(t, resolved, 1)
+	id, port = resolved[0].id, resolved[0].port
+	require.NotEmpty(t, id)
+	require.Equal(t, uint16(0), port)
+	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
+	require.Equal(t, uint16(123), endpointID)
+	require.False(t, ingress)
+	require.Equal(t, "TCP", protocol)
+	require.Equal(t, uint16(0), port)
+	require.Equal(t, "test-listener", listener)
+	require.NoError(t, err)
 
 	e.SetK8sMetadata(ciliumTypes.NamedPortMap{
 		"http": {Proto: u8proto.TCP, Port: 7070},
