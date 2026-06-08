@@ -13,24 +13,9 @@
 /* We always assume we have BPF Host Routing enabled */
 #define ENABLE_HOST_ROUTING 1
 
-/* Forward declaration for tailcall routines because they're not provided
- * until we pull in bpf_lxc.
- *
- * Note: we only allow one address family to be enabled per test so the
- * test mock policy tailcall doesn't need to switch by address family.
- */
-#if defined(ENABLE_IPV4) && !defined(ENABLE_IPV6)
-static inline int tail_ipv4_ct_ingress_policy_only(struct __ctx_buff *ctx);
-#define test_ct_ingress_policy_only tail_ipv4_ct_ingress_policy_only
-#elif !defined(ENABLE_IPV4) && defined(ENABLE_IPV6)
-static inline int tail_ipv6_ct_ingress_policy_only(struct __ctx_buff *ctx);
-#define test_ct_ingress_policy_only tail_ipv6_ct_ingress_policy_only
-#else
-#error This test must set either ENABLE_IPV4 or ENABLE_IPV6, but not both.
-#endif
-
 /* Define an endpoint ID that we'll use as index into policy maps. */
-#define TEST_LXC_ID_LOCAL 233
+#define TEST_LXC_ID_LOCAL_V4 234
+#define TEST_LXC_ID_LOCAL_V6 235
 
 /* Define mac addresses we expect to see on redirected packet */
 static volatile const __u8 *node_mac = mac_three;
@@ -45,6 +30,15 @@ enum {
 };
 
 static unsigned int num_calls[RECORD__MAX] = {};
+
+static __always_inline
+void clear_records(void)
+{
+	/* Reset counters in case a previous scenario ran in the same .o */
+	num_calls[RECORD_TAILCALL] = 0;
+	num_calls[RECORD_REDIRECT] = 0;
+	num_calls[RECORD_REDIRECT_PEER] = 0;
+}
 
 /* Mocked out BPF helpers that we're intending to test usage of. */
 int mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
@@ -63,8 +57,11 @@ int mock_ctx_redirect_peer(const struct __ctx_buff *ctx __maybe_unused,
 	return CTX_ACT_REDIRECT;
 }
 
+#ifdef ENABLE_IPV4
+static inline int tail_ipv4_ct_ingress_policy_only(struct __ctx_buff *ctx);
+
 __section_entry
-int mock_handle_policy(struct __ctx_buff *ctx)
+int mock_handle_policy4(struct __ctx_buff *ctx)
 {
 	num_calls[RECORD_TAILCALL]++;
 
@@ -73,10 +70,30 @@ int mock_handle_policy(struct __ctx_buff *ctx)
 	 * policy function manually to get to the final redirect_ep() call.
 	 */
 	if (num_calls[RECORD_TAILCALL] == 1)
-		return test_ct_ingress_policy_only(ctx);
+		return tail_ipv4_ct_ingress_policy_only(ctx);
 
 	return CTX_ACT_DROP;
 }
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+static inline int tail_ipv6_ct_ingress_policy_only(struct __ctx_buff *ctx);
+
+__section_entry
+int mock_handle_policy6(struct __ctx_buff *ctx)
+{
+	num_calls[RECORD_TAILCALL]++;
+
+	/* If we've invoked a policy tailcall exactly once, we can proceed to
+	 * a redirect. In the case of bpf_lxc, we need to call the subsequent
+	 * policy function manually to get to the final redirect_ep() call.
+	 */
+	if (num_calls[RECORD_TAILCALL] == 1)
+		return tail_ipv6_ct_ingress_policy_only(ctx);
+
+	return CTX_ACT_DROP;
+}
+#endif /* ENABLE_IPV6 */
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -85,7 +102,12 @@ struct {
 	__array(values, int());
 } mock_policy_call_map __section(".maps") = {
 	.values = {
-		[TEST_LXC_ID_LOCAL] = &mock_handle_policy,
+#ifdef ENABLE_IPV4
+		[TEST_LXC_ID_LOCAL_V4] = &mock_handle_policy4,
+#endif
+#ifdef ENABLE_IPV6
+		[TEST_LXC_ID_LOCAL_V6] = &mock_handle_policy6,
+#endif
 	},
 };
 
@@ -177,9 +199,10 @@ int tc_redirect_lxc_ipv4_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
 
 	/* Add endpoint for local LXC */
-	endpoint_v4_add_entry(v4_pod_one, 0, TEST_LXC_ID_LOCAL, 0, 0, 0,
+	endpoint_v4_add_entry(v4_pod_one, 0, TEST_LXC_ID_LOCAL_V4, 0, 0, 0,
 			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
 
+	clear_records();
 	return pod_send_packet(ctx);
 }
 
@@ -286,9 +309,10 @@ int tc_redirect_lxc_ipv6_setup(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry(&pod_ip, 0, 112233, 0, 0);
 
 	/* Add endpoint for local LXC */
-	endpoint_v6_add_entry(&pod_ip, 0, TEST_LXC_ID_LOCAL, 0, 0,
+	endpoint_v6_add_entry(&pod_ip, 0, TEST_LXC_ID_LOCAL_V6, 0, 0,
 			      (const __u8 *)ep_mac, (const __u8 *)node_mac);
 
+	clear_records();
 	return pod_send_packet(ctx);
 }
 
