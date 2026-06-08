@@ -136,6 +136,87 @@ type HTTPOptions struct {
 	GRPCWebTranslation *GRPCWebTranslationConfig `json:"grpcWebTranslation,omitempty"`
 }
 
+// Telemetry specifies observability configuration for Gateways using this
+// GatewayClass configuration.
+type Telemetry struct {
+	// AccessLogs configures Envoy access logging for generated Gateway
+	// listeners.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
+	AccessLogs []AccessLogs `json:"accessLogs,omitempty"`
+}
+
+// AccessLogs defines an Envoy access log configuration, including its output
+// format and the generated proxy components that should emit it.
+// Access logs are currently written to Envoy stdout.
+type AccessLogs struct {
+	// Format specifies the access log output format.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=JSON;Text
+	Format AccessLogsFormat `json:"format"`
+	// JSON maps access log field names to Envoy command operators.
+	// It is used when Format is "JSON".
+	// For available format specifiers, see the Envoy documentation:
+	// - https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage
+	// Note: Always refer to the documentation matching the specific Envoy version you are running.
+	// The following Cilium-specific formatters are also supported:
+	// - %CILIUM_GATEWAY_NAME% -- replaced with the Gateway resource name.
+	// - %CILIUM_GATEWAY_NAMESPACE% -- replaced with the Gateway resource namespace.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=64
+	// +kubebuilder:default={start_time:"%START_TIME%",method:"%REQUEST_HEADER(:METHOD)%",path:"%REQUEST_HEADER(X-ENVOY-ORIGINAL-PATH?:PATH)%",protocol:"%PROTOCOL%",response_code:"%RESPONSE_CODE%",response_flags:"%RESPONSE_FLAGS%",bytes_received:"%BYTES_RECEIVED%",bytes_sent:"%BYTES_SENT%",duration:"%DURATION%",upstream_service_time:"%RESPONSE_HEADER(X-ENVOY-UPSTREAM-SERVICE-TIME)%",x_forwarded_for:"%REQUEST_HEADER(X-FORWARDED-FOR)%",user_agent:"%REQUEST_HEADER(USER-AGENT)%",request_id:"%REQUEST_HEADER(X-REQUEST-ID)%",authority:"%REQUEST_HEADER(:AUTHORITY)%",upstream_host:"%UPSTREAM_HOST%"}
+	JSON map[string]string `json:"json,omitempty"`
+	// Text specifies the Envoy access log format string.
+	// It is used when Format is "Text".
+	// For available format specifiers, see the Envoy documentation:
+	// - https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage
+	// Note: Always refer to the documentation matching the specific Envoy version you are running.
+	// The following Cilium-specific formatters are also supported:
+	// - %CILIUM_GATEWAY_NAME% -- replaced with the Gateway resource name.
+	// - %CILIUM_GATEWAY_NAMESPACE% -- replaced with the Gateway resource namespace.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=4096
+	// +kubebuilder:default="[%START_TIME%] \"%REQUEST_HEADER(:METHOD)% %REQUEST_HEADER(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESPONSE_HEADER(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQUEST_HEADER(X-FORWARDED-FOR)%\" \"%REQUEST_HEADER(USER-AGENT)%\" \"%REQUEST_HEADER(X-REQUEST-ID)%\" \"%REQUEST_HEADER(:AUTHORITY)%\" \"%UPSTREAM_HOST%\""
+	Text string `json:"text,omitempty"`
+	// Targets specifies the generated Envoy proxy components where access logs
+	// are emitted. If omitted, access logs are emitted for HTTP traffic only.
+	// HTTP targets Envoy HTTP connection managers. TCP targets Envoy TCP proxies,
+	// including TLS passthrough.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:default={HTTP}
+	// +listType=set
+	Targets []AccessLogsTarget `json:"targets,omitempty"`
+}
+
+// AccessLogsFormat specifies the access log output format.
+type AccessLogsFormat string
+
+const (
+	AccessLogsFormatJSON AccessLogsFormat = "JSON"
+	AccessLogsFormatText AccessLogsFormat = "Text"
+)
+
+// AccessLogsTarget specifies where access logs are emitted.
+//
+// +kubebuilder:validation:Enum=HTTP;TCP
+type AccessLogsTarget string
+
+const (
+	// AccessLogsTargetHTTP emits access logs from Envoy HTTP connection managers.
+	AccessLogsTargetHTTP AccessLogsTarget = "HTTP"
+	// AccessLogsTargetTCP emits access logs from Envoy TCP proxies, including TLS passthrough.
+	AccessLogsTargetTCP AccessLogsTarget = "TCP"
+)
+
 // CiliumGatewayClassConfigSpec specifies all the configuration options for a
 // Cilium managed GatewayClass.
 type CiliumGatewayClassConfigSpec struct {
@@ -150,11 +231,15 @@ type CiliumGatewayClassConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	Service *ServiceConfig `json:"service,omitempty"`
-
 	// HTTPOptions specifies HTTP connection manager options.
 	//
 	// +kubebuilder:validation:Optional
 	HTTPOptions *HTTPOptions `json:"httpOptions,omitempty"`
+	// Telemetry specifies observability options for Gateways using this
+	// GatewayClass configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Telemetry *Telemetry `json:"telemetry,omitempty"`
 }
 
 // +deepequal-gen=false
@@ -178,4 +263,15 @@ func (c *CiliumGatewayClassConfig) GRPCWebTranslationEnabled() bool {
 		c.Spec.HTTPOptions.GRPCWebTranslation == nil ||
 		c.Spec.HTTPOptions.GRPCWebTranslation.Enabled == nil ||
 		*c.Spec.HTTPOptions.GRPCWebTranslation.Enabled
+}
+
+// IsTelemetryConfigured returns true if telemetry is configured.
+func (c *CiliumGatewayClassConfig) IsTelemetryConfigured() bool {
+	return c != nil &&
+		c.Spec.Telemetry != nil
+}
+
+// IsAccessLogsConfigured returns true if access logging is configured.
+func (t *Telemetry) IsAccessLogsConfigured() bool {
+	return t != nil && len(t.AccessLogs) > 0
 }

@@ -288,10 +288,20 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 	}
 
 	if input.GatewayClassConfig != nil {
+		// HTTP Options
 		m.HTTPOptions = &model.HTTPOptions{
 			GRPCWebTranslation: &model.GRPCWebTranslationConfig{
 				Enabled: input.GatewayClassConfig.GRPCWebTranslationEnabled(),
 			},
+		}
+
+		// Telemetry
+		if input.GatewayClassConfig.IsTelemetryConfigured() {
+			nn := types.NamespacedName{
+				Namespace: input.Gateway.GetNamespace(),
+				Name:      input.Gateway.GetName(),
+			}
+			m.Telemetry = toTelemetryConfig(nn, input.GatewayClassConfig.Spec.Telemetry)
 		}
 	}
 

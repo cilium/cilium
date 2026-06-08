@@ -364,6 +364,38 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 	}
 }
 
+func Test_tlsPassthroughFilterChains_AccessLogs(t *testing.T) {
+	filterChains := tlsPassthroughFilterChains(&model.Model{
+		TLSPassthrough: []model.TLSPassthroughListener{
+			{
+				Routes: []model.TLSPassthroughRoute{
+					{
+						Hostnames: []string{"test.example.com"},
+						Backends: []model.Backend{
+							tlsBackend("one", "backend-v1", 443, nil),
+						},
+					},
+				},
+			},
+		},
+		Telemetry: &model.Telemetry{
+			AccessLogs: map[model.AccessLogsTarget][]model.AccessLogs{
+				model.AccessLogsTargetTCP: {
+					{
+						Format: model.AccessLogsFormatText,
+						Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+					},
+				},
+			},
+		},
+	})
+
+	require.Len(t, filterChains, 1)
+	tcpProxy := getTCPProxy(t, filterChains[0])
+	require.Len(t, tcpProxy.GetAccessLog(), 1)
+	require.Equal(t, "envoy.access_loggers.stdout", tcpProxy.GetAccessLog()[0].GetName())
+}
+
 func Test_tlsPassthroughFilterChains_DuplicateSNIRoutesPreserveCurrentBehavior(t *testing.T) {
 	filterChains := tlsPassthroughFilterChains(&model.Model{
 		TLSPassthrough: []model.TLSPassthroughListener{

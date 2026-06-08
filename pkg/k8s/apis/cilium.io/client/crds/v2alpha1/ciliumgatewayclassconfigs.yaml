@@ -137,6 +137,102 @@ spec:
                     - NodePort
                     type: string
                 type: object
+              telemetry:
+                description: |-
+                  Telemetry specifies observability options for Gateways using this
+                  GatewayClass configuration.
+                properties:
+                  accessLogs:
+                    description: |-
+                      AccessLogs configures Envoy access logging for generated Gateway
+                      listeners.
+                    items:
+                      description: |-
+                        AccessLogs defines an Envoy access log configuration, including its output
+                        format and the generated proxy components that should emit it.
+                        Access logs are currently written to Envoy stdout.
+                      properties:
+                        format:
+                          description: Format specifies the access log output format.
+                          enum:
+                          - JSON
+                          - Text
+                          type: string
+                        json:
+                          additionalProperties:
+                            type: string
+                          default:
+                            authority: '%REQUEST_HEADER(:AUTHORITY)%'
+                            bytes_received: '%BYTES_RECEIVED%'
+                            bytes_sent: '%BYTES_SENT%'
+                            duration: '%DURATION%'
+                            method: '%REQUEST_HEADER(:METHOD)%'
+                            path: '%REQUEST_HEADER(X-ENVOY-ORIGINAL-PATH?:PATH)%'
+                            protocol: '%PROTOCOL%'
+                            request_id: '%REQUEST_HEADER(X-REQUEST-ID)%'
+                            response_code: '%RESPONSE_CODE%'
+                            response_flags: '%RESPONSE_FLAGS%'
+                            start_time: '%START_TIME%'
+                            upstream_host: '%UPSTREAM_HOST%'
+                            upstream_service_time: '%RESPONSE_HEADER(X-ENVOY-UPSTREAM-SERVICE-TIME)%'
+                            user_agent: '%REQUEST_HEADER(USER-AGENT)%'
+                            x_forwarded_for: '%REQUEST_HEADER(X-FORWARDED-FOR)%'
+                          description: |-
+                            JSON maps access log field names to Envoy command operators.
+                            It is used when Format is "JSON".
+                            For available format specifiers, see the Envoy documentation:
+                            - https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage
+                            Note: Always refer to the documentation matching the specific Envoy version you are running.
+                            The following Cilium-specific formatters are also supported:
+                            - %CILIUM_GATEWAY_NAME% -- replaced with the Gateway resource name.
+                            - %CILIUM_GATEWAY_NAMESPACE% -- replaced with the Gateway resource namespace.
+                          maxProperties: 64
+                          minProperties: 1
+                          type: object
+                        targets:
+                          default:
+                          - HTTP
+                          description: |-
+                            Targets specifies the generated Envoy proxy components where access logs
+                            are emitted. If omitted, access logs are emitted for HTTP traffic only.
+                            HTTP targets Envoy HTTP connection managers. TCP targets Envoy TCP proxies,
+                            including TLS passthrough.
+                          items:
+                            description: AccessLogsTarget specifies where access logs
+                              are emitted.
+                            enum:
+                            - HTTP
+                            - TCP
+                            type: string
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: set
+                        text:
+                          default: '[%START_TIME%] "%REQUEST_HEADER(:METHOD)% %REQUEST_HEADER(X-ENVOY-ORIGINAL-PATH?:PATH)%
+                            %PROTOCOL%" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED%
+                            %BYTES_SENT% %DURATION% %RESPONSE_HEADER(X-ENVOY-UPSTREAM-SERVICE-TIME)%
+                            "%REQUEST_HEADER(X-FORWARDED-FOR)%" "%REQUEST_HEADER(USER-AGENT)%"
+                            "%REQUEST_HEADER(X-REQUEST-ID)%" "%REQUEST_HEADER(:AUTHORITY)%"
+                            "%UPSTREAM_HOST%"'
+                          description: |-
+                            Text specifies the Envoy access log format string.
+                            It is used when Format is "Text".
+                            For available format specifiers, see the Envoy documentation:
+                            - https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage
+                            Note: Always refer to the documentation matching the specific Envoy version you are running.
+                            The following Cilium-specific formatters are also supported:
+                            - %CILIUM_GATEWAY_NAME% -- replaced with the Gateway resource name.
+                            - %CILIUM_GATEWAY_NAMESPACE% -- replaced with the Gateway resource namespace.
+                          maxLength: 4096
+                          minLength: 1
+                          type: string
+                      required:
+                      - format
+                      type: object
+                    maxItems: 8
+                    minItems: 1
+                    type: array
+                type: object
             type: object
           status:
             description: Status is the status of the policy.

@@ -73,6 +73,30 @@ func Test_desiredHTTPConnectionManager(t *testing.T) {
 		require.Len(t, httpConnectionManager.GetUpgradeConfigs(), 1)
 		require.Equal(t, "websocket", httpConnectionManager.GetUpgradeConfigs()[0].UpgradeType)
 	})
+	t.Run("access logs configured", func(t *testing.T) {
+		i := &cecTranslator{}
+		m := &model.Model{
+			Telemetry: &model.Telemetry{
+				AccessLogs: map[model.AccessLogsTarget][]model.AccessLogs{
+					model.AccessLogsTargetHTTP: {
+						{
+							Format: model.AccessLogsFormatText,
+							Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+						},
+					},
+				},
+			},
+		}
+		res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", m)
+		require.NoError(t, err)
+
+		httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
+		err = proto.Unmarshal(res.Value, httpConnectionManager)
+		require.NoError(t, err)
+
+		require.Len(t, httpConnectionManager.GetAccessLog(), 1)
+		require.Equal(t, "envoy.access_loggers.stdout", httpConnectionManager.GetAccessLog()[0].GetName())
+	})
 }
 
 func Test_getHTTPConnectionManagerHttpFilters(t *testing.T) {

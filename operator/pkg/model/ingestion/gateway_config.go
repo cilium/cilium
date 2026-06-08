@@ -4,6 +4,8 @@
 package ingestion
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -63,4 +65,37 @@ func toIPFamilies(families []corev1.IPFamily) []string {
 		res = append(res, string(family))
 	}
 	return res
+}
+
+func toTelemetryConfig(nn types.NamespacedName, telemetry *v2alpha1.Telemetry) *model.Telemetry {
+	t := &model.Telemetry{
+		NamespacedName: nn,
+	}
+
+	if telemetry.IsAccessLogsConfigured() {
+		accessLogs := make(map[model.AccessLogsTarget][]model.AccessLogs)
+		for _, cfg := range telemetry.AccessLogs {
+			targets := cfg.Targets
+			if len(targets) == 0 {
+				targets = []v2alpha1.AccessLogsTarget{v2alpha1.AccessLogsTargetHTTP}
+			}
+
+			for _, target := range targets {
+				accessLog := model.AccessLogs{
+					Format: model.AccessLogsFormat(cfg.Format),
+				}
+				switch cfg.Format {
+				case v2alpha1.AccessLogsFormatText:
+					accessLog.Text = cfg.Text
+				case v2alpha1.AccessLogsFormatJSON:
+					accessLog.JSON = cfg.JSON
+				}
+				accessLogs[model.AccessLogsTarget(target)] = append(accessLogs[model.AccessLogsTarget(target)], accessLog)
+			}
+		}
+
+		t.AccessLogs = accessLogs
+	}
+
+	return t
 }
