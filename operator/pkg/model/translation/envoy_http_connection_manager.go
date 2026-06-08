@@ -84,20 +84,23 @@ func (i *cecTranslator) httpConnectionManagerMutators() []HttpConnectionManagerM
 	}
 }
 
-func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*httpConnectionManagerv3.HttpFilter {
-	hf := []*httpConnectionManagerv3.HttpFilter{}
+func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model, listenerFilters []model.HTTPFilter) []*http_connection_manager_v3.HttpFilter {
+	var hf []*http_connection_manager_v3.HttpFilter
+
+	// 1. Add Early static filters (e.g., gRPC Web)
 	if m.GRPCWebTranslationEnabled() {
-		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+		hf = append(hf, &http_connection_manager_v3.HttpFilter{
 			Name: "envoy.filters.http.grpc_web",
-			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+			ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(&grpcWebv3.GrpcWeb{}),
 			},
 		})
 	}
 
-	hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+	// 2. Add observability filters (e.g., gRPC Stats)
+	hf = append(hf, &http_connection_manager_v3.HttpFilter{
 		Name: "envoy.filters.http.grpc_stats",
-		ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+		ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
 			TypedConfig: toAny(&grpcStatsv3.FilterConfig{
 				EmitFilterState:     true,
 				EnableUpstreamStats: true,
@@ -105,24 +108,40 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 		},
 	})
 
+	// 3. Add External Authorization filters
 	for _, af := range i.getUniqueAuthFilters(m) {
 		hf = append(hf, buildExtAuthzHTTPFilter(af))
 	}
 
-	// HTTP filter order matters. When CORS is enabled,
-	// the CORS filter must run before envoy.filters.http.router.
+	// 4. Inject and Sort dynamic filters from Model (e.g., Rate Limit)
+	// We use a stable sort to maintain order for filters with same priority.
+	sort.SliceStable(listenerFilters, func(x, y int) bool {
+		return listenerFilters[x].Priority < listenerFilters[y].Priority
+	})
+
+	for _, filter := range listenerFilters {
+		hf = append(hf, &http_connection_manager_v3.HttpFilter{
+			Name: filter.Name,
+			ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+				TypedConfig: filter.Config,
+			},
+		})
+	}
+
+	// 5. Add CORS filter
 	if m.IsCORSFilterConfigured() {
-		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+		hf = append(hf, &http_connection_manager_v3.HttpFilter{
 			Name: "envoy.filters.http.cors",
-			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+			ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(&httpCorsv3.Cors{}),
 			},
 		})
 	}
 
-	hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+	// 6. Terminal Filter: Router. This must always be the last one.
+	hf = append(hf, &http_connection_manager_v3.HttpFilter{
 		Name: "envoy.filters.http.router",
-		ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+		ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
 			TypedConfig: toAny(&httpRouterv3.Router{}),
 		},
 	})
@@ -131,7 +150,7 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 }
 
 // desiredHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
-func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, m *model.Model) (ciliumv2.XDSResource, error) {
+func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, m *model.Model, listenerFilters []model.HTTPFilter) (ciliumv2.XDSResource, error) {
 	connectionManager := &httpConnectionManagerv3.HttpConnectionManager{
 		StatPrefix: name,
 		RouteSpecifier: &httpConnectionManagerv3.HttpConnectionManager_Rds{
@@ -139,7 +158,7 @@ func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, m *
 		},
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:    false,
-		HttpFilters:      i.getHTTPConnectionManagerHttpFilters(m),
+		HttpFilters:      i.getHTTPConnectionManagerHttpFilters(m, listenerFilters),
 		UpgradeConfigs: []*httpConnectionManagerv3.HttpConnectionManager_UpgradeConfig{
 			{UpgradeType: "websocket"},
 		},
@@ -149,6 +168,7 @@ func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, m *
 			},
 		},
 	}
+
 
 	// Apply mutation functions for customizing the connection manager.
 	for _, fn := range i.httpConnectionManagerMutators() {
