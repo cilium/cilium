@@ -4,15 +4,16 @@
 package linux
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -46,7 +47,7 @@ var (
 			HostDevice: "host_device",
 		},
 	}
-	cr1 = cidr.MustParseCIDR("10.1.0.0/16")
+	cr1 = netip.MustParsePrefix("10.1.0.0/16")
 )
 
 func TestCreateNodeRoute(t *testing.T) {
@@ -59,18 +60,18 @@ func TestCreateNodeRoute(t *testing.T) {
 	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeipsec.Agent{}, fakeipsec.Config{}, lns)
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
-	c1 := cidr.MustParseCIDR("10.10.0.0/16")
+	c1 := netip.MustParsePrefix("10.10.0.0/16")
 	generatedRoute, err := nodeHandler.createNodeRouteSpec(c1, false)
 	require.NoError(t, err)
-	require.Equal(t, *c1.IPNet, generatedRoute.Prefix)
+	require.Equal(t, *netipx.PrefixIPNet(c1), generatedRoute.Prefix)
 	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
 	require.Equal(t, fakeNodeAddressing.IPv4().Router().To4(), generatedRoute.Nexthop.To4())
 	require.Equal(t, fakeNodeAddressing.IPv4().Router().To4(), generatedRoute.Local.To4())
 
-	c1 = cidr.MustParseCIDR("beef:beef::/48")
+	c1 = netip.MustParsePrefix("beef:beef::/48")
 	generatedRoute, err = nodeHandler.createNodeRouteSpec(c1, false)
 	require.NoError(t, err)
-	require.Equal(t, *c1.IPNet, generatedRoute.Prefix)
+	require.Equal(t, *netipx.PrefixIPNet(c1), generatedRoute.Prefix)
 	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
 	require.Nil(t, generatedRoute.Nexthop)
 	require.Equal(t, fakeNodeAddressing.IPv6().Router().To16(), generatedRoute.Local.To16())
