@@ -723,7 +723,7 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				RequestHeaderFilter:    requestHeaderFilter,
 				ResponseHeaderModifier: responseHeaderFilter,
 				RequestMirrors:         requestMirrors,
-				TypedPerFilterConfig: perRouteFilterConfig
+				TypedPerFilterConfig: perRouteFilterConfig,
 			})
 		}
 
@@ -1210,63 +1210,6 @@ func toStringSlice[S ~string](s []S) []string {
 	}
 	return res
 }
-
-
-
-
-func getRateLimitPerRouteConfig(hr gatewayv1.HTTPRoute, policies []v2alpha1.CiliumRateLimitPolicy) map[string]*anypb.Any {
-	if len(policies) == 0 {
-		return nil
-	}
-
-	perFilterConfig := make(map[string]*anypb.Any)
-
-	for _, policy := range policies {
-		// Policy Attachment: The policy must be in the same namespace as the HTTPRoute
-		// and must explicitly target this HTTPRoute by name.
-		if policy.Namespace == hr.Namespace &&
-			policy.Spec.TargetRef.Group == gatewayv1.Group(gatewayv1.GroupName) &&
-			policy.Spec.TargetRef.Kind == gatewayv1.Kind("HTTPRoute") &&
-			string(policy.Spec.TargetRef.Name) == hr.Name {
-
-			// 1. Local Rate Limiting Configuration
-			if policy.Spec.Local != nil {
-				// We pass a basic Envoy LocalRateLimit proto. 
-				// Mapping of specific fields (requests, unit) happens in the 
-				// Translation layer for better separation of concerns.
-				localConfig := &envoy_extensions_filters_http_local_ratelimit_v3.LocalRateLimit{
-					StatPrefix: "local_rate_limit",
-				}
-
-				if anyConfig, err := anypb.New(localConfig); err == nil {
-					perFilterConfig["envoy.filters.http.local_ratelimit"] = anyConfig
-				}
-			}
-
-			// 2. Global Rate Limiting Configuration
-			if policy.Spec.Global != nil {
-				// Signals Envoy to include virtual host rate limits for this route.
-				globalConfig := &envoy_extensions_filters_http_ratelimit_v3.RateLimitPerRoute{
-					VhRateLimits: envoy_extensions_filters_http_ratelimit_v3.RateLimitPerRoute_INCLUDE_VH_RATE_LIMITS,
-				}
-
-				if anyConfig, err := anypb.New(globalConfig); err == nil {
-					perFilterConfig["envoy.filters.http.ratelimit"] = anyConfig
-				}
-			}
-
-			// According to Gateway API conformance, only the first matching 
-			// policy of this type should be applied.
-			break
-		}
-	}
-
-	if len(perFilterConfig) == 0 {
-		return nil
-	}
-
-	return perFilterConfig
-}
 func toAny(message proto.Message) *anypb.Any {
 	a, err := anypb.New(message)
 	if err != nil {
@@ -1276,9 +1219,48 @@ func toAny(message proto.Message) *anypb.Any {
 }
 
 
-func getRateLimitPerRouteConfigForGRPC(grpcr gatewayv1.GRPCRoute, policies []v2alpha1.CiliumRateLimitPolicy) map[string]*anypb.Any {
-	fakeHTTP := gatewayv1.HTTPRoute{
-		ObjectMeta: grpcr.ObjectMeta,
+
+func getRateLimitPerRouteConfig(hr metav1.Object, targetKind string, policies []v2alpha1.CiliumRateLimitPolicy) map[string]*anypb.Any {
+	if len(policies) == 0 {
+		return nil
 	}
-	return getRateLimitPerRouteConfig(fakeHTTP, policies)
+
+	perFilterConfig := make(map[string]*anypb.Any)
+
+	for _, policy := range policies {
+		// Policy Attachment: Match namespace, group, kind, and name
+		if policy.Namespace == hr.GetNamespace() &&
+			policy.Spec.TargetRef.Group == gatewayv1.Group(gatewayv1.GroupName) &&
+			string(policy.Spec.TargetRef.Kind) == targetKind &&
+			string(policy.Spec.TargetRef.Name) == hr.GetName() {
+
+			if policy.Spec.Local != nil {
+				localConfig := &envoy_extensions_filters_http_local_ratelimit_v3.LocalRateLimit{
+					StatPrefix: "local_rate_limit",
+				}
+				if anyConfig, err := anypb.New(localConfig); err == nil {
+					perFilterConfig["envoy.filters.http.local_ratelimit"] = anyConfig
+				}
+			}
+
+			if policy.Spec.Global != nil {
+				globalConfig := &envoy_extensions_filters_http_ratelimit_v3.RateLimitPerRoute{
+					VhRateLimits: envoy_extensions_filters_http_ratelimit_v3.RateLimitPerRoute_INCLUDE_VH_RATE_LIMITS,
+				}
+				if anyConfig, err := anypb.New(globalConfig); err == nil {
+					perFilterConfig["envoy.filters.http.ratelimit"] = anyConfig
+				}
+			}
+			break
+		}
+	}
+
+	if len(perFilterConfig) == 0 {
+		return nil
+	}
+	return perFilterConfig
 }
+
+func getRateLimitPerRouteConfigForGRPC(grpcr gatewayv1.GRPCRoute, policies []v2alpha1.CiliumRateLimitPolicy) map[string]*anypb.Any {
+	return getRateLimitPerRouteConfig(&grpcr, "GRPCRoute", policies)
+}}
