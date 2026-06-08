@@ -28,7 +28,7 @@ var (
 		cell.Provide(
 			k8s.ServiceResource,
 			mcsapi.ServiceExportResource,
-			operatorK8s.EndpointsResource,
+			operatorK8s.EndpointSliceResource,
 			CiliumNodeResource,
 			CiliumIdentityResource,
 			// The CiliumSlimEndpoint and CiliumEndpointSlice resource constructors in the agent depend
