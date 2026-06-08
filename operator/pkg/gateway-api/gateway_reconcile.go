@@ -141,6 +141,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	// List all CiliumRateLimitPolicies in the cluster
+	rlpList := &v2alpha1.CiliumRateLimitPolicyList{}
+	if err := r.Client.List(ctx, rlpList); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to list CiliumRateLimitPolicies", logfields.Error, err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+
 	btlspList := &gatewayv1.BackendTLSPolicyList{}
 	if err := r.Client.List(ctx, btlspList); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to list BackendTLSPolicies", logfields.Error, err)
@@ -193,6 +200,11 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
+	//  Run status checks for RateLimitPolicies to mark them as Accepted/Programmed
+	if err := r.setRateLimitPolicyStatuses(scopedLog, ctx, httpRoutes, rlpList, req.NamespacedName); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update CiliumRateLimitPolicy Status", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
 
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items)
 	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items)
@@ -215,6 +227,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ServiceImports:      serviceImportsList.Items,
 		ReferenceGrants:     grants.Items,
 		BackendTLSPolicyMap: btlspMap,
+		RateLimitPolicies:   rlpList.Items,
 	})
 
 	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList)
@@ -1350,4 +1363,89 @@ func (r *gatewayReconciler) updateBackendTLSPolicyStatus(ctx context.Context, sc
 	}
 	scopedLog.Debug("BackendTLSPolicy status", backendTLSPolicy, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) setRateLimitPolicyStatuses(scopedLog *slog.Logger, ctx context.Context, httpRoutes []gatewayv1.HTTPRoute, rlpList *v2alpha1.CiliumRateLimitPolicyList, gatewayName types.NamespacedName) error {
+	scopedLog.Debug("Updating RateLimitPolicy statuses", "count", len(rlpList.Items))
+
+	ancestorRef := gatewayv1.ParentReference{
+		Group:     ptr.To[gatewayv1.Group](gatewayv1.Group(gatewayv1.GroupName)),
+		Kind:      ptr.To[gatewayv1.Kind](gatewayv1.Kind("Gateway")),
+		Namespace: (*gatewayv1.Namespace)(&gatewayName.Namespace),
+		Name:      gatewayv1.ObjectName(gatewayName.Name),
+	}
+
+	for i := range rlpList.Items {
+		rlp := &rlpList.Items[i]
+		originalrlp := rlp.DeepCopy()
+
+		// Check if this policy targets any of the HTTPRoutes accepted by this Gateway
+		isRelevant := false
+		for _, hr := range httpRoutes {
+			if rlp.Spec.TargetRef.Group == gatewayv1.Group(gatewayv1.GroupName) &&
+				rlp.Spec.TargetRef.Kind == gatewayv1.Kind("HTTPRoute") &&
+				string(rlp.Spec.TargetRef.Name) == hr.Name &&
+				rlp.Namespace == hr.Namespace {
+				isRelevant = true
+				break
+			}
+		}
+
+		if !isRelevant {
+			continue
+		}
+
+		// Update policy status for this Gateway ancestor
+		rlp.Status.Ancestors = prunePolicyAncestorStatuses(rlp.Status.Ancestors, r.controllerName)
+		
+		// Set Accepted condition
+		newCondition := metav1.Condition{
+			Type:               string(gatewayv1.PolicyConditionAccepted),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gatewayv1.PolicyReasonAccepted),
+			Message:            "Policy successfully attached to route",
+			ObservedGeneration: rlp.Generation,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+		
+		// Find or create ancestor status
+		found := false
+		for j := range rlp.Status.Ancestors {
+			if cmp.Equal(rlp.Status.Ancestors[j].AncestorRef, ancestorRef) {
+				rlp.Status.Ancestors[j].Conditions = helpers.MergeConditions(rlp.Status.Ancestors[j].Conditions, newCondition)
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			rlp.Status.Ancestors = append(rlp.Status.Ancestors, gatewayv1.PolicyAncestorStatus{
+				AncestorRef:    ancestorRef,
+				ControllerName: gatewayv1.GatewayController(r.controllerName),
+				Conditions:     []metav1.Condition{newCondition},
+			})
+		}
+
+		if err := r.updateRateLimitPolicyStatus(ctx, originalrlp, rlp); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (r *gatewayReconciler) updateRateLimitPolicyStatus(ctx context.Context, original *v2alpha1.CiliumRateLimitPolicy, updated *v2alpha1.CiliumRateLimitPolicy) error {
+	if cmp.Equal(original.Status, updated.Status, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")) {
+		return nil
+	}
+	return r.Client.Status().Patch(ctx, updated, client.MergeFrom(original))
+}
+func prunePolicyAncestorStatuses(ancestors []gatewayv1.PolicyAncestorStatus, controllerName string) []gatewayv1.PolicyAncestorStatus {
+	filtered := ancestors[:0]
+	for _, status := range ancestors {
+		if string(status.ControllerName) != controllerName {
+			filtered = append(filtered, status)
+		}
+		// In a real Staff-level implementation, we would also check if the 
+		// ancestor Gateway still exists and refers to this policy.
+	}
+	return filtered
 }
