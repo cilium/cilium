@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -18,6 +20,7 @@ import (
 type Model struct {
 	HTTP           []HTTPListener           `json:"http,omitempty"`
 	TLSPassthrough []TLSPassthroughListener `json:"tls_passthrough,omitempty"`
+	Telemetry      *Telemetry               `json:"telemetry,omitempty"`
 }
 
 func (m *Model) GetListeners() []Listener {
@@ -84,6 +87,42 @@ type HTTPListener struct {
 	// Gamma is an indicator if this listener is a gamma listener
 	Gamma bool `json:"gamma,omitempty"`
 }
+
+// Telemetry defines observability configuration.
+type Telemetry struct {
+	// AccessLogs configures access logging.
+	AccessLogs map[AccessLogsTarget][]AccessLogs `json:"access_logs,omitempty"`
+	// NamespacedName identifies the Gateway associated with this telemetry configuration.
+	NamespacedName types.NamespacedName `json:"namespaced_name"`
+}
+
+// AccessLogs defines access logging configuration.
+type AccessLogs struct {
+	// Format specifies the access log format ("Text" or "JSON").
+	Format AccessLogsFormat `json:"format"`
+	// Text specifies the log template used when format is "Text".
+	Text string `json:"text,omitempty"`
+	// JSON specifies the field mapping used when format is "JSON".
+	JSON map[string]string `json:"json,omitempty"`
+}
+
+// AccessLogsFormat specifies the access log output format.
+type AccessLogsFormat string
+
+const (
+	AccessLogsFormatText AccessLogsFormat = "Text"
+	AccessLogsFormatJSON AccessLogsFormat = "JSON"
+)
+
+// AccessLogsTarget specifies where access logs are emitted.
+type AccessLogsTarget string
+
+const (
+	// AccessLogsTargetHTTP emits access logs from Envoy HTTP connection managers.
+	AccessLogsTargetHTTP AccessLogsTarget = "HTTP"
+	// AccessLogsTargetTCP emits access logs from Envoy TCP proxies, including TLS passthrough.
+	AccessLogsTargetTCP AccessLogsTarget = "TCP"
+)
 
 func (l HTTPListener) GetSources() []FullyQualifiedResource {
 	return l.Sources
@@ -525,6 +564,39 @@ func (m *Model) HTTPPorts() []uint32 {
 		ports = append(ports, l.Port)
 	}
 	return slices.SortedUnique(ports)
+}
+
+// IsAccessLogsConfigured returns true if access logging is configured.
+func (m *Model) IsAccessLogsConfigured() bool {
+	if m == nil || m.Telemetry == nil {
+		return false
+	}
+
+	for _, accessLogs := range m.Telemetry.AccessLogs {
+		if len(accessLogs) > 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsHTTPAccessLogsConfigured returns true if HTTP access logging is configured.
+func (m *Model) IsHTTPAccessLogsConfigured() bool {
+	if m == nil || m.Telemetry == nil {
+		return false
+	}
+
+	return len(m.Telemetry.AccessLogs[AccessLogsTargetHTTP]) > 0
+}
+
+// IsTCPAccessLogsConfigured returns true if TCP access logging is configured.
+func (m *Model) IsTCPAccessLogsConfigured() bool {
+	if m == nil || m.Telemetry == nil {
+		return false
+	}
+
+	return len(m.Telemetry.AccessLogs[AccessLogsTargetTCP]) > 0
 }
 
 // TLSPassthroughPorts returns a list of unique ports for all TLS Passthrough listeners.

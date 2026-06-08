@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -36,9 +37,10 @@ func (i *cecTranslator) httpConnectionManagerMutators() []HttpConnectionManagerM
 }
 
 // desiredHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
-func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string) (ciliumv2.XDSResource, error) {
+func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, m *model.Model) (ciliumv2.XDSResource, error) {
 	connectionManager := &httpConnectionManagerv3.HttpConnectionManager{
 		StatPrefix: name,
+		AccessLog:  getHTTPAccessLogs(m),
 		RouteSpecifier: &httpConnectionManagerv3.HttpConnectionManager_Rds{
 			Rds: &httpConnectionManagerv3.Rds{RouteConfigName: routeName},
 		},
