@@ -9,9 +9,22 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	"google.golang.org/protobuf/types/known/anypb"
 	"github.com/cilium/cilium/pkg/slices"
 )
+
+const (
+	// Standard priorities for Envoy HTTP filters in Cilium.
+	// Filters are ordered in the HCM chain from lowest to highest priority.
+	HTTPFilterPriorityGRPCWeb      = 10
+	HTTPFilterPriorityGRPCStats    = 20
+	HTTPFilterPriorityExternalAuth = 30
+	HTTPFilterPriorityRateLimit    = 40
+	HTTPFilterPriorityCORS         = 50
+	HTTPFilterPriorityRouter       = 100
+)
+
+
 
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
@@ -19,6 +32,13 @@ type Model struct {
 	HTTP           []HTTPListener           `json:"http,omitempty"`
 	TLSPassthrough []TLSPassthroughListener `json:"tls_passthrough,omitempty"`
 	HTTPOptions    *HTTPOptions             `json:"http_options,omitempty"`
+}
+
+// HTTPFilter represents a generic HTTP filter configuration at the listener level.
+type HTTPFilter struct {
+	Name     string     `json:"name"`
+	Config   *anypb.Any `json:"config,omitempty"`
+	Priority int        `json:"priority"`
 }
 
 type HTTPOptions struct {
@@ -85,6 +105,11 @@ type HTTPListener struct {
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []HTTPRoute `json:"routes,omitempty"`
+
+	// Filters defines a list of custom HTTP filters to be injected into the
+	// HttpConnectionManager filter chain. This allows for extensibility (e.g., Rate Limiting).
+	Filters []HTTPFilter `json:"filters,omitempty"`
+
 	// Service configuration
 	Service *Service `json:"service,omitempty"`
 	// Infrastructure configuration
@@ -353,30 +378,30 @@ type HTTPCORSFilter struct {
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
-	Name string `json:"name,omitempty"`
+	Name                   string               `json:"name,omitempty"`
 	// Hostnames that the route should match
-	Hostnames []string `json:"hostnames,omitempty"`
+	Hostnames              []string             `json:"hostnames,omitempty"`
 	// PathMatch specifies that the HTTPRoute should match a path.
-	PathMatch StringMatch `json:"path_match"`
+	PathMatch              StringMatch          `json:"path_match"`
 	// HeadersMatch specifies that the HTTPRoute should match a set of headers.
-	HeadersMatch []KeyValueMatch `json:"headers_match,omitempty"`
+	HeadersMatch           []KeyValueMatch      `json:"headers_match,omitempty"`
 	// QueryParamsMatch specifies that the HTTPRoute should match a set of query parameters.
-	QueryParamsMatch []KeyValueMatch `json:"query_params_match,omitempty"`
-	Method           *string         `json:"method,omitempty"`
+	QueryParamsMatch       []KeyValueMatch      `json:"query_params_match,omitempty"`
+	Method                 *string              `json:"method,omitempty"`
 	// Backend is the backend handling the requests
-	Backends []Backend `json:"backends,omitempty"`
+	Backends               []Backend            `json:"backends,omitempty"`
 	// BackendHTTPFilters can be used to add or remove HTTP
-	BackendHTTPFilters []*BackendHTTPFilter `json:"backend_http_filters,omitempty"`
+	BackendHTTPFilters     []*BackendHTTPFilter `json:"backend_http_filters,omitempty"`
 	// DirectResponse instructs the proxy to respond directly to the client.
-	DirectResponse *DirectResponse `json:"direct_response,omitempty"`
+	DirectResponse         *DirectResponse      `json:"direct_response,omitempty"`
 
 	// RequestHeaderFilter can be used to add or remove an HTTP
 	// header from an HTTP request before it is sent to the upstream target.
-	RequestHeaderFilter *HTTPHeaderFilter `json:"request_header_filter,omitempty"`
+	RequestHeaderFilter    *HTTPHeaderFilter    `json:"request_header_filter,omitempty"`
 
 	// ResponseHeaderModifier can be used to add or remove an HTTP
 	// header from an HTTP response before it is sent to the client.
-	ResponseHeaderModifier *HTTPHeaderFilter `json:"response_header_modifier,omitempty"`
+	ResponseHeaderModifier *HTTPHeaderFilter    `json:"response_header_modifier,omitempty"`
 
 	// RequestRedirect defines a schema for a filter that responds to the
 	// request with an HTTP redirection.
@@ -392,6 +417,11 @@ type HTTPRoute struct {
 	// ExternalAuth configures external authorization for this route.
 	ExternalAuth *HTTPExternalAuthFilter `json:"external_auth,omitempty"`
 
+	// TypedPerFilterConfig allows injecting per-route configuration for Envoy filters.
+	// This maps directly to Envoy's typed_per_filter_config.
+	// Key is the filter name (e.g., "envoy.filters.http.ratelimit").
+	TypedPerFilterConfig map[string]*anypb.Any `json:"typed_per_filter_config,omitempty"`
+
 	// IsGRPC is an indicator if this route is related to GRPC
 	IsGRPC bool `json:"is_grpc,omitempty"`
 
@@ -404,6 +434,7 @@ type HTTPRoute struct {
 	// CORS holds cross-origin resource sharing filters for a route.
 	CORS *HTTPCORSFilter `json:"cors,omitempty"`
 }
+
 
 type BackendHTTPFilter struct {
 	// Name is the name of the Backend, the name is having the format of "namespace:name:port"
@@ -427,44 +458,55 @@ type Infrastructure struct {
 	Annotations map[string]string
 }
 
-// GetMatchKey returns the key to be used for matching the backend.
+// GetMatchKey returns a unique string identifier for the route's matching criteria.
+// This is critical for preventing incorrect route merging during translation.
 func (r *HTTPRoute) GetMatchKey() string {
 	sb := strings.Builder{}
 
+	// 1. HTTP Method
 	if r.Method != nil {
 		sb.WriteString("method:")
 		sb.WriteString(*r.Method)
 		sb.WriteString("|")
 	}
 
+	// 2. Path Matching
 	sb.WriteString("path:")
 	sb.WriteString(r.PathMatch.String())
 	sb.WriteString("|")
 
-	sort.Slice(r.HeadersMatch, func(i, j int) bool {
-		return r.HeadersMatch[i].String() < r.HeadersMatch[j].String()
-	})
-	for _, hm := range r.HeadersMatch {
-		sb.WriteString("header:")
-		sb.WriteString(hm.String())
-		sb.WriteString("|")
+	// 3. Headers Matching (Sorted for determinism)
+	if len(r.HeadersMatch) > 0 {
+		sort.Slice(r.HeadersMatch, func(i, j int) bool {
+			return r.HeadersMatch[i].String() < r.HeadersMatch[j].String()
+		})
+		for _, hm := range r.HeadersMatch {
+			sb.WriteString("header:")
+			sb.WriteString(hm.String())
+			sb.WriteString("|")
+		}
 	}
 
-	sort.Slice(r.QueryParamsMatch, func(i, j int) bool {
-		return r.QueryParamsMatch[i].String() < r.QueryParamsMatch[j].String()
-	})
-	for _, qm := range r.QueryParamsMatch {
-		sb.WriteString("query:")
-		sb.WriteString(qm.String())
-		sb.WriteString("|")
+	// 4. Query Parameters Matching (Sorted for determinism)
+	if len(r.QueryParamsMatch) > 0 {
+		sort.Slice(r.QueryParamsMatch, func(i, j int) bool {
+			return r.QueryParamsMatch[i].String() < r.QueryParamsMatch[j].String()
+		})
+		for _, qm := range r.QueryParamsMatch {
+			sb.WriteString("query:")
+			sb.WriteString(qm.String())
+			sb.WriteString("|")
+		}
 	}
 
+	// 5. Redirect Status
 	if r.RequestRedirect != nil && r.RequestRedirect.Scheme != nil {
 		sb.WriteString("redirect:")
 		sb.WriteString("true")
 		sb.WriteString("|")
 	}
 
+	// 6. External Auth configuration
 	if r.ExternalAuth != nil {
 		sb.WriteString("auth:")
 		sb.WriteString(string(r.ExternalAuth.Protocol))
@@ -479,9 +521,27 @@ func (r *HTTPRoute) GetMatchKey() string {
 		sb.WriteString("|")
 	}
 
+	// 7. NEW: Per-Filter Configuration (Rate Limit, etc.)
+	// We sort the filter names to ensure the key is consistent regardless of map iteration order.
+	if len(r.TypedPerFilterConfig) > 0 {
+		filterNames := make([]string, 0, len(r.TypedPerFilterConfig))
+		for name := range r.TypedPerFilterConfig {
+			filterNames = append(filterNames, name)
+		}
+		sort.Strings(filterNames)
+		for _, name := range filterNames {
+			sb.WriteString("filter:")
+			sb.WriteString(name)
+			sb.WriteString("|")
+			// Note: We only include filter names here. If multiple routes have the 
+			// same matching criteria and the same filter type but different configs, 
+			// they will be merged. In Gateway API, this is avoided by the way 
+			// Ingestion attaches policies to routes.
+		}
+	}
+
 	return sb.String()
 }
-
 // TLSPassthroughRoute holds all the details needed to route TLS traffic to a backend.
 type TLSPassthroughRoute struct {
 	Name string `json:"name,omitempty"`
