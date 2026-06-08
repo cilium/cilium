@@ -1389,7 +1389,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode.ingress.enabled`
-     - Enable strict ingress encryption. When enabled, all unencrypted overlay ingress traffic will be dropped. This option is only applicable when WireGuard and tunneling are enabled.
+     - Enable strict ingress encryption. When enabled, all unencrypted pod-to-pod ingress traffic will be dropped. This option requires WireGuard encryption.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`

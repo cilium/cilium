@@ -329,12 +329,24 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif /* ENABLE_SRV6 */
 
+	/* Lookup IPv6 address in list of local endpoints */
+	ep = lookup_ip6_endpoint(ip6);
+
+	/* Strict ingress encryption enforcement: drop cluster-internal pod
+	 * traffic that would reach a local pod from a netdev. Legitimate
+	 * decrypted traffic is delivered directly from cil_from_wireguard
+	 * via a bpf redirect or the stack.
+	 */
+	if (is_defined(ENABLE_WIREGUARD) && CONFIG(encryption_strict_ingress) &&
+	    !from_host && identity_is_cluster(secctx) &&
+	    !identity_is_remote_node(secctx) &&
+	    ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
+		return DROP_UNENCRYPTED_TRAFFIC;
+
 	/* See the equivalent v4 path for comments */
 	if (!from_host && !CONFIG(enable_bpf_host_routing))
 		return CTX_ACT_OK;
 
-	/* Lookup IPv6 address in list of local endpoints */
-	ep = lookup_ip6_endpoint(ip6);
 	if (ep) {
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack.
@@ -732,6 +744,20 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
+	/* Lookup IPv4 address in list of local endpoints and host IPs */
+	ep = lookup_ip4_endpoint(ip4);
+
+	/* Strict ingress encryption enforcement: drop cluster-internal pod
+	 * traffic that would reach a local pod from a netdev. Legitimate
+	 * decrypted traffic is delivered directly from cil_from_wireguard
+	 * via a bpf redirect or the stack.
+	 */
+	if (is_defined(ENABLE_WIREGUARD) && CONFIG(encryption_strict_ingress) &&
+	    !from_host && identity_is_cluster(secctx) &&
+	    !identity_is_remote_node(secctx) &&
+	    ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
+		return DROP_UNENCRYPTED_TRAFFIC;
+
 	/* Without bpf_redirect_neigh() helper, we cannot redirect a
 	 * packet to a local endpoint in the direct routing mode, as
 	 * the redirect bypasses nf_conntrack table. This makes a
@@ -744,8 +770,6 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	if (!from_host && !CONFIG(enable_bpf_host_routing))
 		return CTX_ACT_OK;
 
-	/* Lookup IPv4 address in list of local endpoints and host IPs */
-	ep = lookup_ip4_endpoint(ip4);
 	if (ep) {
 		int l3_off = ETH_HLEN;
 

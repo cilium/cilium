@@ -702,7 +702,7 @@ const (
 
 	// EnableEncryptionStrictModeIngress enables strict mode encryption enforcement for ingress traffic.
 	// When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
-	// This option is only applicable when encryption and tunneling is enabled.
+	// This option is applicable when WireGuard encryption is enabled.
 	EnableEncryptionStrictModeIngress = "enable-encryption-strict-mode-ingress"
 
 	// KVstoreLeaseTTL is the time-to-live for lease in kvstore.
@@ -1417,7 +1417,7 @@ type DaemonConfig struct {
 
 	// EnableEncryptionStrictModeIngress enables strict mode encryption for ingress traffic.
 	// When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
-	// This option is only applicable when wireguard encryption and tunneling is enabled.
+	// This option is applicable when WireGuard encryption is enabled.
 	EnableEncryptionStrictModeIngress bool
 
 	// EnableL2Announcements enables L2 announcement of service IPs
