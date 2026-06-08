@@ -219,29 +219,40 @@ func getCORS(cors *model.HTTPCORSFilter) *anypb.Any {
 
 // getTypedPerFilterConfig returns the TypedPerFilterConfig map for a route.
 func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFilters []*model.HTTPExternalAuthFilter, route model.HTTPRoute) map[string]*anypb.Any {
+	config := make(map[string]*anypb.Any)
+
+	// Dynamic Filter Injection:
+	// Automatically include any per-filter configurations provided by the model.
+	// This ensures that filters like Local Rate Limit are correctly applied to the route.
+	if len(route.TypedPerFilterConfig) > 0 {
+		for filterName, typedConfig := range route.TypedPerFilterConfig {
+			config[filterName] = typedConfig
+		}
+	}
+
+	// 2. External Auth Logic:
+	// Manage which external auth filter instances are enabled or disabled for this specific route.
 	var activeKey string
 	if routeAuth != nil {
 		activeKey = extAuthzFilterKey(routeAuth)
 	}
 
-	config := make(map[string]*anypb.Any, len(allAuthFilters))
-	// For each ext_authz filter active on the listener:
-	//   - If this route's ExternalAuth uses that filter's cluster: no entry (enabled by default).
-	//   - Otherwise: disabled via ExtAuthzPerRoute{Disabled: true}.
 	for _, af := range allAuthFilters {
 		filterKey := extAuthzFilterKey(af)
 		filterName := ExtAuthzFilterName(filterKey)
 		if filterKey == activeKey {
-			// This filter is enabled for this route; no per-route override needed.
+			// Current active filter for this route; no explicit override needed.
 			continue
 		}
-		// Disable this filter for this route.
+		// Explicitly disable other auth filter instances to prevent interference.
 		disabled := toAny(&extauthzv3.ExtAuthzPerRoute{
 			Override: &extauthzv3.ExtAuthzPerRoute_Disabled{Disabled: true},
 		})
 		config[filterName] = disabled
 	}
 
+	// 3. CORS Logic:
+	// Attach CORS policy if defined in the route model.
 	if route.CORS != nil {
 		config["envoy.filters.http.cors"] = getCORS(route.CORS)
 	}
@@ -252,7 +263,6 @@ func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFil
 
 	return config
 }
-
 func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
@@ -500,6 +510,8 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTT
 				ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 					Cluster: getClusterName(backends[0].Namespace, backends[0].Name, backends[0].Port.GetPort()),
 				},
+				// NEW: Attach Rate Limit configurations to the Route Action
+				RateLimits: getRouteRateLimits(*route),
 			},
 		}
 
@@ -508,6 +520,8 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTT
 		}
 		return r
 	}
+
+	// Case for Multiple Backends (Weighted Clusters)
 	backendFilter := make(map[string]*model.BackendHTTPFilter)
 	for _, f := range backendHTTPFilter {
 		backendFilter[f.Name] = f
@@ -522,7 +536,6 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTT
 			Name:   getClusterName(be.Namespace, be.Name, be.Port.GetPort()),
 			Weight: wrapperspb.UInt32(uint32(weight)),
 		}
-		// If their two or more backends, we need to add the header filter to the clusterWeight level.
 		if fn, ok := backendFilter[getClusterName(be.Namespace, be.Name, be.Port.GetPort())]; ok {
 			clusterWeight.RequestHeadersToAdd = append(clusterWeight.RequestHeadersToAdd, getHeadersToAdd(fn.RequestHeaderFilter)...)
 			clusterWeight.RequestHeadersToRemove = append(clusterWeight.RequestHeadersToRemove, getHeadersToRemove(fn.RequestHeaderFilter)...)
@@ -531,6 +544,7 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTT
 		}
 		weightedClusters = append(weightedClusters, clusterWeight)
 	}
+
 	routeAction = &envoy_config_route_v3.Route_Route{
 		Route: &envoy_config_route_v3.RouteAction{
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_WeightedClusters{
@@ -538,14 +552,16 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTT
 					Clusters: weightedClusters,
 				},
 			},
+			//  Attach Rate Limit configurations here as well
+			RateLimits: getRouteRateLimits(*route),
 		},
 	}
+
 	for _, mutator := range mutators {
 		routeAction = mutator(routeAction)
 	}
 	return routeAction
 }
-
 func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter, listenerPort uint32) *envoy_config_route_v3.Route_Redirect {
 	redirectAction := &envoy_config_route_v3.RedirectAction{}
 
@@ -838,4 +854,34 @@ func toRedirectResponseCode(statusCode int) envoy_config_route_v3.RedirectAction
 	default:
 		return envoy_config_route_v3.RedirectAction_MOVED_PERMANENTLY
 	}
+}
+
+// getRouteRateLimits converts the Rate Limit actions defined in the model into 
+// Envoy's RouteAction.RateLimit protobuf format.
+func getRouteRateLimits(route model.HTTPRoute) []*envoy_config_route_v3.RateLimit {
+	// If no filters are defined, or the rate limit filter isn't present, return nil.
+	// We check if the global ratelimit filter is active for this route.
+	if route.TypedPerFilterConfig == nil {
+		return nil
+	}
+	if _, ok := route.TypedPerFilterConfig["envoy.filters.http.ratelimit"]; !ok {
+		return nil
+	}
+
+	// This is where we map the model actions to Envoy's internal structure.
+	// Note: We'll implement the detailed mapping logic once we sync the model.go field.
+	// For now, we provide the structure that Envoy expects.
+	var envoyRateLimits []*envoy_config_route_v3.RateLimit
+	
+	// A single Route can have multiple RateLimit entries.
+	// Each entry contains a list of Actions (Descriptors).
+	rl := &envoy_config_route_v3.RateLimit{
+		Actions: []*envoy_config_route_v3.RateLimit_Action{},
+	}
+
+	// Logic for mapping model.RateLimitAction -> envoy_config_route_v3.RateLimit_Action
+	// will be injected here during the final integration step.
+
+	envoyRateLimits = append(envoyRateLimits, rl)
+	return envoyRateLimits
 }
