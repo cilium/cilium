@@ -56,7 +56,7 @@ func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAt
 	result[types.DeviceIDLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.DeviceID)}
 	result[types.VendorLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Vendor)}
 	result[types.PFNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.PfName)}
-	result[types.PCIAddrLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Addr)}
+	result[types.PCIBusIDLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Addr)}
 	result[types.KernelIfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.KernelIfName())}
 
 	return result
