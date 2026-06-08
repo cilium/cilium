@@ -1,19 +1,42 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package ciliumio
+package v2alpha1
 
-const (
-	// CustomResourceDefinitionGroup is the name of the third party resource group
-	CustomResourceDefinitionGroup = "cilium.io"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
-	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
-
-	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
-	// Used to determine if CRD needs to be updated in cluster
-	//
-	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
-	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.33.8"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 )
+
+// SchemeGroupVersion is group version used to register these objects
+var SchemeGroupVersion = schema.GroupVersion{
+	Group:   ciliumio.CustomResourceDefinitionGroup,
+	Version: "v2alpha1",
+}
+
+// Resource takes an unqualified resource and returns a Group qualified GroupResource
+func Resource(resource string) schema.GroupResource {
+	return SchemeGroupVersion.WithResource(resource).GroupResource()
+}
+
+var (
+	// SchemeBuilder initializes a scheme builder
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	// AddToScheme is a global function that registers this API group & version to a scheme
+	AddToScheme = SchemeBuilder.AddToScheme
+)
+
+// addKnownTypes adds the list of types known to this api.
+func addKnownTypes(scheme *runtime.Scheme) error {
+	scheme.AddKnownTypes(SchemeGroupVersion,
+		&CiliumGatewayClassConfig{},
+		&CiliumGatewayClassConfigList{},
+		&CiliumRateLimitPolicy{},
+		&CiliumRateLimitPolicyList{},
+	)
+	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+	return nil
+}
