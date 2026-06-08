@@ -74,7 +74,9 @@ func (e *Endpoint) proxyIDs(selectorPolicy policy.SelectorPolicy, l4 *policy.L4F
 
 	if port == 0 {
 		if l4.PortName == "" {
-			return func(func(string, uint16) bool) {}
+			return func(yield func(string, uint16) bool) {
+				yield(policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port)
+			}
 		}
 		if l4.Ingress {
 			port = e.GetIngressNamedPort(l4.PortName, l4.U8Proto)
