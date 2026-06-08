@@ -6,12 +6,11 @@ package vtep
 import (
 	"fmt"
 	"log/slog"
-	"net"
+	"net/netip"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -32,8 +31,8 @@ const (
 
 // Map provides access to the eBPF map vtep.
 type Map interface {
-	Update(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac.MAC) error
-	Delete(tunnelEndpoint net.IP) error
+	Update(newCIDR netip.Prefix, newTunnelEndpoint netip.Addr, vtepMAC mac.MAC) error
+	Delete(tunnelEndpoint netip.Addr) error
 	Dump(hash map[string][]string) error
 }
 
@@ -51,13 +50,16 @@ func (k Key) String() string {
 func (k *Key) New() bpf.MapKey { return &Key{} }
 
 // newKey returns an Key based on the provided IP address and mask.
-func newKey(ip net.IP) Key {
+func newKey(addr netip.Addr) Key {
 	result := Key{}
 
-	if ip4 := ip.To4(); ip4 != nil {
+	if addr.Is4() {
+		ip4 := addr.As4()
 		maskBytes := option.Config.VtepCidrMask.As4()
-		ip4.Mask(net.IPMask(maskBytes[:]))
-		copy(result.IP[:], ip4)
+		for i := range ip4 {
+			ip4[i] &= maskBytes[i]
+		}
+		result.IP = ip4
 	}
 
 	return result
@@ -101,8 +103,8 @@ func (m *vtepMap) close() error {
 }
 
 // Function to update vtep map with VTEP CIDR
-func (m *vtepMap) Update(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac.MAC) error {
-	key := newKey(newCIDR.IP)
+func (m *vtepMap) Update(newCIDR netip.Prefix, newTunnelEndpoint netip.Addr, vtepMAC mac.MAC) error {
+	key := newKey(newCIDR.Addr())
 
 	mac, err := vtepMAC.Uint64()
 	if err != nil {
@@ -110,15 +112,13 @@ func (m *vtepMap) Update(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC m
 	}
 
 	value := VtepEndpointInfo{
-		VtepMAC: mac,
+		VtepMAC:        mac,
+		TunnelEndpoint: newTunnelEndpoint.As4(),
 	}
-
-	ip4 := newTunnelEndpoint.To4()
-	copy(value.TunnelEndpoint[:], ip4)
 
 	m.logger.Debug(
 		"Updating vtep map entry",
-		logfields.V4Prefix, newCIDR.IP,
+		logfields.V4Prefix, newCIDR.Addr(),
 		logfields.MACAddr, vtepMAC,
 		logfields.Endpoint, newTunnelEndpoint,
 	)
@@ -126,7 +126,7 @@ func (m *vtepMap) Update(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC m
 	return m.bpfMap.Update(&key, &value)
 }
 
-func (m *vtepMap) Delete(tunnelEndpoint net.IP) error {
+func (m *vtepMap) Delete(tunnelEndpoint netip.Addr) error {
 	key := newKey(tunnelEndpoint)
 	return m.bpfMap.Delete(&key)
 }
