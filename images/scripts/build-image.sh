@@ -94,23 +94,62 @@ fi
 do_test="${TEST:-false}"
 
 run_buildx() {
+  local has_release_stage=false
+  local has_test_stage=false
+
+  if grep -Eiq '^[[:space:]]*FROM[[:space:]].*[[:space:]]AS[[:space:]]+release([[:space:]]|$)' "${image_dir}/Dockerfile"; then
+    has_release_stage=true
+  fi
+  if grep -Eiq '^[[:space:]]*FROM[[:space:]].*[[:space:]]AS[[:space:]]+test([[:space:]]|$)' "${image_dir}/Dockerfile"; then
+    has_test_stage=true
+  fi
   build_args=(
     "--platform=${platform}"
     "--builder=${builder}"
-    "--target=release"
     "--file=${image_dir}/Dockerfile"
   )
+  for build_arg_name in \
+    GOLANG_IMAGE \
+    UBUNTU_IMAGE \
+    ALPINE_IMAGE \
+    BASE_IMAGE \
+    COMPILERS_IMAGE \
+    TESTER_IMAGE \
+    OPERATOR_VARIANT \
+    MODIFIERS \
+    CILIUM_BUILDER_IMAGE \
+    CILIUM_RUNTIME_IMAGE \
+    CILIUM_ENVOY_IMAGE \
+    CILIUM_LLVM_IMAGE \
+    CILIUM_BPFTOOL_IMAGE \
+    CILIUM_IPTABLES_IMAGE
+  do
+    build_arg_value="${!build_arg_name:-}"
+    if [ -n "${build_arg_value}" ] ; then
+      build_args+=("--build-arg=${build_arg_name}=${build_arg_value}")
+    fi
+  done
   if [ "${with_root_context}" = "false" ] ; then
     build_args+=("${image_dir}")
   else
     build_args+=("${root_dir}")
   fi
+  if [ "${has_release_stage}" = "true" ] ; then
+    release_target_args+=("--target=release")
+  fi
+  if [ "${has_test_stage}" = "true" ] ; then
+    test_target_args+=("--target=test")
+  fi
   if [ "${do_test}" = "true" ] ; then
-    if ! docker buildx build --target=test "${build_args[@]}" ; then
-      exit 1
+    if [ "${has_test_stage}" = "true" ] ; then
+      if ! docker buildx build --target=test "${build_args[@]}" ; then
+        exit 1
+      fi
+    else
+      echo "skipping test target for ${image_dir}/Dockerfile: stage 'test' not found"
     fi
   fi
-  docker buildx build --output="${output}" "${tag_args[@]}" "${build_args[@]}"
+  docker buildx build --output="${output}" "${tag_args[@]}" "${release_target_args[@]}" "${build_args[@]}"
 }
 
 if [ "${do_build}" = "true" ] ; then
