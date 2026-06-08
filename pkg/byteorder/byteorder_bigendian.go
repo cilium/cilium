@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build armbe || arm64be || mips || mips64 || ppc64
+//go:build armbe || arm64be || mips || mips64 || ppc64 || s390x
 
 package byteorder
 
