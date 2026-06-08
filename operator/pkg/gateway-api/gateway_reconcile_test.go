@@ -674,6 +674,54 @@ func Test_grpcWebTranslationEnabled(t *testing.T) {
 	}
 }
 
+func Test_isAccessLogsConfigured(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *v2alpha1.Telemetry
+		want   bool
+	}{
+		{
+			name: "nil config",
+			want: false,
+		},
+		{
+			name:   "empty config",
+			config: &v2alpha1.Telemetry{},
+			want:   false,
+		},
+		{
+			name:   "telemetry without access logs",
+			config: &v2alpha1.Telemetry{},
+			want:   false,
+		},
+		{
+			name: "empty access logs",
+			config: &v2alpha1.Telemetry{
+				AccessLogs: []v2alpha1.AccessLogs{},
+			},
+			want: false,
+		},
+		{
+			name: "access logs",
+			config: &v2alpha1.Telemetry{
+				AccessLogs: []v2alpha1.AccessLogs{
+					{
+						Format: v2alpha1.AccessLogsFormatText,
+						Text:   "%REQ(:METHOD)%",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.config.IsAccessLogsConfigured())
+		})
+	}
+}
+
 func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 	t.Parallel()
 

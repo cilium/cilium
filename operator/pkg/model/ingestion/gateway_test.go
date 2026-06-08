@@ -13,11 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 const (
@@ -1160,6 +1162,196 @@ func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 	require.Len(t, routes[0].RequestMirrors, 1)
 	assert.Equal(t, "mirror-backend", routes[0].RequestMirrors[0].Backend.Name)
 	assert.Equal(t, "other-ns", routes[0].RequestMirrors[0].Backend.Namespace)
+}
+
+func TestGatewayAPI_GatewayClassConfig(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	t.Run("returns nil telemetry when GatewayClassConfig telemetry is nil", func(t *testing.T) {
+		m := GatewayAPI(logger, Input{
+			GatewayClassConfig: &v2alpha1.CiliumGatewayClassConfig{},
+		})
+
+		assert.Nil(t, m.Telemetry)
+	})
+	t.Run("returns model with telemetry when GatewayClassConfig has access log config", func(t *testing.T) {
+		m := GatewayAPI(logger, Input{
+			Gateway: gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "cilium",
+				},
+			},
+			GatewayClassConfig: &v2alpha1.CiliumGatewayClassConfig{
+				Spec: v2alpha1.CiliumGatewayClassConfigSpec{
+					Telemetry: &v2alpha1.Telemetry{
+						AccessLogs: []v2alpha1.AccessLogs{
+							{
+								Format: v2alpha1.AccessLogsFormatText,
+								Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+							},
+						},
+					},
+				},
+			},
+		})
+
+		assert.Equal(t, &model.Telemetry{
+			NamespacedName: types.NamespacedName{
+				Namespace: "default",
+				Name:      "cilium",
+			},
+			AccessLogs: map[model.AccessLogsTarget][]model.AccessLogs{
+				model.AccessLogsTargetHTTP: {
+					{
+						Format: model.AccessLogsFormatText,
+						Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+					},
+				},
+			},
+		}, m.Telemetry)
+	})
+}
+
+func TestGatewayAPI_GatewayClassConfigTelemetry(t *testing.T) {
+	nn := types.NamespacedName{
+		Namespace: "default",
+		Name:      "cilium",
+	}
+	tests := []struct {
+		name string
+		cfg  *v2alpha1.Telemetry
+		want *model.Telemetry
+	}{
+		{
+			name: "telemetry config without access logs",
+			cfg:  &v2alpha1.Telemetry{},
+			want: &model.Telemetry{
+				NamespacedName: nn,
+			},
+		},
+		{
+			name: "text access logs",
+			cfg: &v2alpha1.Telemetry{
+				AccessLogs: []v2alpha1.AccessLogs{
+					{
+						Format: v2alpha1.AccessLogsFormatText,
+						Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+					},
+				},
+			},
+			want: &model.Telemetry{
+				NamespacedName: nn,
+				AccessLogs: map[model.AccessLogsTarget][]model.AccessLogs{
+					model.AccessLogsTargetHTTP: {
+						{
+							Format: model.AccessLogsFormatText,
+							Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "json access logs",
+			cfg: &v2alpha1.Telemetry{
+				AccessLogs: []v2alpha1.AccessLogs{
+					{
+						Format: v2alpha1.AccessLogsFormatJSON,
+						JSON: map[string]string{
+							"method": "%REQ(:METHOD)%",
+						},
+					},
+				},
+			},
+			want: &model.Telemetry{
+				NamespacedName: nn,
+				AccessLogs: map[model.AccessLogsTarget][]model.AccessLogs{
+					model.AccessLogsTargetHTTP: {
+						{
+							Format: model.AccessLogsFormatJSON,
+							JSON: map[string]string{
+								"method": "%REQ(:METHOD)%",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "text access logs with tcp target",
+			cfg: &v2alpha1.Telemetry{
+				AccessLogs: []v2alpha1.AccessLogs{
+					{
+						Format: v2alpha1.AccessLogsFormatText,
+						Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+						Targets: []v2alpha1.AccessLogsTarget{
+							v2alpha1.AccessLogsTargetTCP,
+						},
+					},
+				},
+			},
+			want: &model.Telemetry{
+				NamespacedName: nn,
+				AccessLogs: map[model.AccessLogsTarget][]model.AccessLogs{
+					model.AccessLogsTargetTCP: {
+						{
+							Format: model.AccessLogsFormatText,
+							Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "target-specific access logs",
+			cfg: &v2alpha1.Telemetry{
+				AccessLogs: []v2alpha1.AccessLogs{
+					{
+						Format: v2alpha1.AccessLogsFormatText,
+						Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+						Targets: []v2alpha1.AccessLogsTarget{
+							v2alpha1.AccessLogsTargetHTTP,
+						},
+					},
+					{
+						Format: v2alpha1.AccessLogsFormatJSON,
+						JSON: map[string]string{
+							"response_code": "%RESPONSE_CODE%",
+						},
+						Targets: []v2alpha1.AccessLogsTarget{
+							v2alpha1.AccessLogsTargetTCP,
+						},
+					},
+				},
+			},
+			want: &model.Telemetry{
+				NamespacedName: nn,
+				AccessLogs: map[model.AccessLogsTarget][]model.AccessLogs{
+					model.AccessLogsTargetHTTP: {
+						{
+							Format: model.AccessLogsFormatText,
+							Text:   "%REQ(:METHOD)% %RESPONSE_CODE%",
+						},
+					},
+					model.AccessLogsTargetTCP: {
+						{
+							Format: model.AccessLogsFormatJSON,
+							JSON: map[string]string{
+								"response_code": "%RESPONSE_CODE%",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, toTelemetryConfig(nn, tt.cfg))
+		})
+	}
 }
 
 func testService(namespace, name string, port int32) corev1.Service {
