@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -197,15 +198,19 @@ func mustValidateNodeImplementation(tb testing.TB, ns *netns.NetNS, lnh *linuxNo
 
 func mustUpdateNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, cidr *cidr.CIDR) {
 	tb.Helper()
+	prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
+	require.True(tb, ok)
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.updateNodeRoute(cidr, true, false)
+		return lnh.updateNodeRoute(prefix, true, false)
 	}))
 }
 
 func mustDeleteNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, cidr *cidr.CIDR) {
 	tb.Helper()
+	prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
+	require.True(tb, ok)
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.deleteNodeRoute(cidr, false)
+		return lnh.deleteNodeRoute(prefix, false)
 	}))
 }
 
@@ -213,10 +218,12 @@ func mustDeleteNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, 
 func mustGetNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, cidr *cidr.CIDR) *route.Route {
 	tb.Helper()
 
+	prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
+	require.True(tb, ok)
 	var r *route.Route
 	require.NoError(tb, ns.Do(func() error {
 		var err error
-		r, err = lnh.lookupNodeRoute(cidr, false)
+		r, err = lnh.lookupNodeRoute(prefix, false)
 		return err
 	}))
 	return r
@@ -752,10 +759,12 @@ func mustLookupDirectRoute(tb testing.TB, ns *netns.NetNS, log *slog.Logger, CID
 		family = netlink.FAMILY_V6
 	}
 
+	prefix, ok := netipx.FromStdIPNet(CIDR.IPNet)
+	require.True(tb, ok)
 	var err error
 	var routeSpec *netlink.Route
 	require.NoError(tb, ns.Do(func() error {
-		routeSpec, _, err = createDirectRouteSpec(log, CIDR, nodeIP, false)
+		routeSpec, _, err = createDirectRouteSpec(log, prefix, nodeIP, false)
 		if err != nil {
 			return fmt.Errorf("creating direct route spec: %w", err)
 		}
@@ -986,7 +995,9 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 func mustInsertRoute(tb testing.TB, ns *netns.NetNS, n *linuxNodeHandler, prefix *cidr.CIDR) {
 	tb.Helper()
 
-	nodeRoute, err := n.createNodeRouteSpec(prefix, false)
+	p, ok := netipx.FromStdIPNet(prefix.IPNet)
+	require.True(tb, ok)
+	nodeRoute, err := n.createNodeRouteSpec(p, false)
 	require.NoError(tb, err)
 
 	nodeRoute.Device = externalDevice
@@ -999,7 +1010,9 @@ func mustInsertRoute(tb testing.TB, ns *netns.NetNS, n *linuxNodeHandler, prefix
 func mustLookupRoute(tb testing.TB, ns *netns.NetNS, n *linuxNodeHandler, prefix *cidr.CIDR) bool {
 	tb.Helper()
 
-	routeSpec, err := n.createNodeRouteSpec(prefix, false)
+	p, ok := netipx.FromStdIPNet(prefix.IPNet)
+	require.True(tb, ok)
+	routeSpec, err := n.createNodeRouteSpec(p, false)
 	require.NoError(tb, err)
 
 	routeSpec.Device = externalDevice
