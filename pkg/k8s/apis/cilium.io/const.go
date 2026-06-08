@@ -83,6 +83,17 @@ const (
 
 	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
 	CiliumIdentityAnnotationDeprecated = "cilium-identity"
+
+
+	// CRLPName is the full name of the CiliumRateLimitPolicy CRD
+	CRLPName = "CiliumRateLimitPolicy"
+
+	// CRLPKindDefinition is the kind name of the CiliumRateLimitPolicy CRD
+	CRLPKindDefinition = CRLPName
+
+	// CRLPListKindDefinition is the kind name of the CiliumRateLimitPolicyList CRD
+	CRLPListKindDefinition = "CiliumRateLimitPolicyList"
+
 )
 
 const (
