@@ -96,5 +96,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableBPFHostRouting = !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting
 
+	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
+
 	return node
 }
