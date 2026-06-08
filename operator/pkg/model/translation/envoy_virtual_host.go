@@ -859,29 +859,94 @@ func toRedirectResponseCode(statusCode int) envoy_config_route_v3.RedirectAction
 // getRouteRateLimits converts the Rate Limit actions defined in the model into 
 // Envoy's RouteAction.RateLimit protobuf format.
 func getRouteRateLimits(route model.HTTPRoute) []*envoy_config_route_v3.RateLimit {
-	// If no filters are defined, or the rate limit filter isn't present, return nil.
-	// We check if the global ratelimit filter is active for this route.
-	if route.TypedPerFilterConfig == nil {
-		return nil
-	}
-	if _, ok := route.TypedPerFilterConfig["envoy.filters.http.ratelimit"]; !ok {
+	if len(route.RateLimitActions) == 0 {
 		return nil
 	}
 
-	// This is where we map the model actions to Envoy's internal structure.
-	// Note: We'll implement the detailed mapping logic once we sync the model.go field.
-	// For now, we provide the structure that Envoy expects.
-	var envoyRateLimits []*envoy_config_route_v3.RateLimit
-	
-	// A single Route can have multiple RateLimit entries.
-	// Each entry contains a list of Actions (Descriptors).
-	rl := &envoy_config_route_v3.RateLimit{
-		Actions: []*envoy_config_route_v3.RateLimit_Action{},
+	// Envoy's RateLimit config is a list of actions that generate a descriptor.
+	// We translate our model actions into Envoy's internal protobuf format.
+	actions := make([]*envoy_config_route_v3.RateLimit_Action, 0, len(route.RateLimitActions))
+
+	for _, action := range route.RateLimitActions {
+		var envoyAction *envoy_config_route_v3.RateLimit_Action
+
+		switch action.Type {
+		case "SourceIp":
+			envoyAction = &envoy_config_route_v3.RateLimit_Action{
+				ActionSpecifier: &envoy_config_route_v3.RateLimit_Action_RemoteAddress_{
+					RemoteAddress: &envoy_config_route_v3.RateLimit_Action_RemoteAddress{},
+				},
+			}
+
+		case "RequestHeader":
+			if action.RequestHeader != nil {
+				envoyAction = &envoy_config_route_v3.RateLimit_Action{
+					ActionSpecifier: &envoy_config_route_v3.RateLimit_Action_RequestHeaders_{
+						RequestHeaders: &envoy_config_route_v3.RateLimit_Action_RequestHeaders{
+							HeaderName:    action.RequestHeader.HeaderName,
+							DescriptorKey: action.RequestHeader.DescriptorKey,
+						},
+					},
+				}
+			}
+
+		case "GenericKey":
+			if action.GenericKey != nil {
+				envoyAction = &envoy_config_route_v3.RateLimit_Action{
+					ActionSpecifier: &envoy_config_route_v3.RateLimit_Action_GenericKey_{
+						GenericKey: &envoy_config_route_v3.RateLimit_Action_GenericKey{
+							DescriptorValue: *action.GenericKey,
+						},
+					},
+				}
+			}
+
+		case "HeaderValueMatch":
+			if action.HeaderValueMatch != nil {
+				headerMatchers := make([]*envoy_config_route_v3.HeaderMatcher, 0, len(action.HeaderValueMatch.Headers))
+				for _, h := range action.HeaderValueMatch.Headers {
+					matcher := &envoy_config_route_v3.HeaderMatcher{
+						Name: h.Name,
+					}
+					if h.Value != nil {
+						matcher.HeaderMatchSpecifier = &envoy_config_route_v3.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+									Exact: *h.Value,
+								},
+							},
+						}
+					} else {
+						matcher.HeaderMatchSpecifier = &envoy_config_route_v3.HeaderMatcher_PresentMatch{
+							PresentMatch: true,
+						}
+					}
+					headerMatchers = append(headerMatchers, matcher)
+				}
+
+				envoyAction = &envoy_config_route_v3.RateLimit_Action{
+					ActionSpecifier: &envoy_config_route_v3.RateLimit_Action_HeaderValueMatch_{
+						HeaderValueMatch: &envoy_config_route_v3.RateLimit_Action_HeaderValueMatch{
+							DescriptorValue: action.HeaderValueMatch.DescriptorValue,
+							Headers:         headerMatchers,
+						},
+					},
+				}
+			}
+		}
+
+		if envoyAction != nil {
+			actions = append(actions, envoyAction)
+		}
 	}
 
-	// Logic for mapping model.RateLimitAction -> envoy_config_route_v3.RateLimit_Action
-	// will be injected here during the final integration step.
+	if len(actions) == 0 {
+		return nil
+	}
 
-	envoyRateLimits = append(envoyRateLimits, rl)
-	return envoyRateLimits
+	return []*envoy_config_route_v3.RateLimit{
+		{
+			Actions: actions,
+		},
+	}
 }
