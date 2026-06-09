@@ -33,7 +33,7 @@ import (
 // proto tcp port 8-15
 // proto tcp port 10
 func multiLevelMapState(t *testing.T) *mapState {
-	ids := []identity.NumericIdentity{0, 257, 258}
+	ids := []identity.NumericIdentity{0, 257, 258, 6, 7, identity.IdentityScopeRemoteNode}
 	keys := []types.Key{
 		types.IngressKey(),
 		types.IngressKey().WithProto(u8proto.TCP),
@@ -126,6 +126,78 @@ func TestMapState_CoveringBroaderOrEqualKeys(t *testing.T) {
 			startKey: "0",
 			shouldSee: []string{
 				"0",
+			},
+		},
+
+		// remote node: does not aggregate to 0, but to 6
+
+		{
+			startKey: "7:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+				"6:6:10:16",
+				"7:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:10:16", // port 10
+			shouldSee: []string{
+				"6:6:10:16",
+				"6:6:8:13",
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "7:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{
+				"7:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{
+				"6:6:8:13",
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "7:6:2:16",
+			shouldSee: []string{
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:2:16",
+			shouldSee: []string{
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6",
+			shouldSee: []string{
+				"6",
 			},
 		},
 	}
@@ -244,6 +316,98 @@ func TestMapState_BroaderOrEqualKeys(t *testing.T) {
 				"0",
 			},
 		},
+
+		// remote node: does not aggregate to 0, but to 6
+
+		{
+			startKey: "7:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+				"6:6:10:16",
+				"7:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+				"33554432:6:10:16",
+				"6:6:10:16",
+				"7:6:8:13",
+				"33554432:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"33554432:6",
+				"6:6",
+				"7",
+				"33554432",
+				"6",
+			},
+		},
+
+		{
+			startKey: "7:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{
+				"7:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{
+				"7:6:8:13",
+				"33554432:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"33554432:6",
+				"6:6",
+				"7",
+				"33554432",
+				"6",
+			},
+		},
+
+		{
+			startKey: "7:6:2:16",
+			shouldSee: []string{
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:2:16",
+			shouldSee: []string{
+				"7:6",
+				"33554432:6",
+				"6:6",
+				"7",
+				"33554432",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6",
+			shouldSee: []string{
+				"7",
+				"33554432",
+				"6",
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -358,6 +522,98 @@ func TestMapState_CoveredNarrowerOrEqualKeys(t *testing.T) {
 				"257",
 				"258",
 				"0",
+			},
+		},
+
+		// remote node: aggregates to 6, not 0
+
+		{
+			startKey: "7:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+			},
+		},
+
+		{
+			startKey: "6:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+				"33554432:6:10:16",
+				"6:6:10:16",
+			},
+		},
+
+		{
+			startKey:  "7:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{},
+		},
+
+		{
+			startKey:  "6:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{},
+		},
+
+		{
+			startKey: "7:6:8:14",
+			shouldSee: []string{
+				"7:6:10:16",
+			},
+		},
+
+		{
+			startKey: "6:6:8:14",
+			shouldSee: []string{
+				"7:6:10:16",
+				"33554432:6:10:16",
+				"6:6:10:16",
+			},
+		},
+
+		{
+			startKey: "7:6:8:13",
+			shouldSee: []string{
+				"7:6:10:16",
+				"7:6:8:13",
+			},
+		},
+
+		{
+			startKey: "6:6:8:13",
+			shouldSee: []string{
+				"7:6:10:16",
+				"7:6:8:13",
+				"33554432:6:10:16",
+				"33554432:6:8:13",
+				"6:6:10:16",
+				"6:6:8:13",
+			},
+		},
+
+		{
+			startKey: "7",
+			shouldSee: []string{
+				"7:6:10:16",
+				"7:6:8:13",
+				"7:6",
+				"7",
+			},
+		},
+
+		{
+			startKey: "6",
+			shouldSee: []string{
+				"7:6:10:16",
+				"33554432:6:10:16",
+				"6:6:10:16",
+				"7:6:8:13",
+				"33554432:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"33554432:6",
+				"6:6",
+				"7",
+				"33554432",
+				"6",
 			},
 		},
 	}
@@ -484,6 +740,106 @@ func TestMapState_NarrowerOrEqualKeys(t *testing.T) {
 				"0",
 			},
 		},
+
+		// remote node: aggregates to 6, not 0
+
+		{
+			startKey: "7:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+				"6:6:10:16",
+			},
+		},
+
+		{
+			startKey: "6:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+				"33554432:6:10:16",
+				"6:6:10:16",
+			},
+		},
+
+		{
+			startKey:  "7:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{},
+		},
+
+		{
+			startKey:  "6:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{},
+		},
+
+		{
+			startKey: "7:6:8:14",
+			shouldSee: []string{
+				"7:6:10:16",
+				"6:6:10:16",
+			},
+		},
+
+		{
+			startKey: "6:6:8:14",
+			shouldSee: []string{
+				"7:6:10:16",
+				"33554432:6:10:16",
+				"6:6:10:16",
+			},
+		},
+
+		{
+			startKey: "7:6:8:13",
+			shouldSee: []string{
+				"7:6:10:16",
+				"6:6:10:16",
+				"7:6:8:13",
+				"6:6:8:13",
+			},
+		},
+
+		{
+			startKey: "6:6:8:13",
+			shouldSee: []string{
+				"7:6:10:16",
+				"7:6:8:13",
+				"33554432:6:10:16",
+				"33554432:6:8:13",
+				"6:6:10:16",
+				"6:6:8:13",
+			},
+		},
+
+		{
+			startKey: "7",
+			shouldSee: []string{
+				"7:6:10:16",
+				"6:6:10:16",
+				"7:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6",
+			shouldSee: []string{
+				"7:6:10:16",
+				"33554432:6:10:16",
+				"6:6:10:16",
+				"7:6:8:13",
+				"33554432:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"33554432:6",
+				"6:6",
+				"7",
+				"33554432",
+				"6",
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -569,6 +925,68 @@ func TestMapState_CoveringKeysWithSameID(t *testing.T) {
 			startKey: "0",
 			shouldSee: []string{
 				"0",
+			},
+		},
+		// remote node: does not aggregate to 0, but to 6
+
+		{
+			startKey: "7:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+				"7:6:8:13",
+				"7:6",
+				"7",
+			},
+		},
+
+		{
+			startKey: "6:6:10:16", // port 10
+			shouldSee: []string{
+				"6:6:10:16",
+				"6:6:8:13",
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "7:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{
+				"7:6:8:13",
+				"7:6",
+				"7",
+			},
+		},
+
+		{
+			startKey: "6:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{
+				"6:6:8:13",
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "7:6:2:16",
+			shouldSee: []string{
+				"7:6",
+				"7",
+			},
+		},
+
+		{
+			startKey: "6:6:2:16",
+			shouldSee: []string{
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6",
+			shouldSee: []string{
+				"6",
 			},
 		},
 	}
@@ -671,6 +1089,82 @@ func TestMapState_SubsetKeysWithSameID(t *testing.T) {
 				"0",
 			},
 		},
+
+		// remote node: aggregates to 6, not 0
+
+		{
+			startKey: "7:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+			},
+		},
+
+		{
+			startKey: "6:6:10:16", // port 10
+			shouldSee: []string{
+				"6:6:10:16",
+			},
+		},
+
+		{
+			startKey:  "7:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{},
+		},
+
+		{
+			startKey:  "6:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{},
+		},
+
+		{
+			startKey: "7:6:8:14",
+			shouldSee: []string{
+				"7:6:10:16",
+			},
+		},
+
+		{
+			startKey: "6:6:8:14",
+			shouldSee: []string{
+				"6:6:10:16",
+			},
+		},
+
+		{
+			startKey: "7:6:8:13",
+			shouldSee: []string{
+				"7:6:10:16",
+				"7:6:8:13",
+			},
+		},
+
+		{
+			startKey: "6:6:8:13",
+			shouldSee: []string{
+				"6:6:10:16",
+				"6:6:8:13",
+			},
+		},
+
+		{
+			startKey: "7",
+			shouldSee: []string{
+				"7:6:10:16",
+				"7:6:8:13",
+				"7:6",
+				"7",
+			},
+		},
+
+		{
+			startKey: "6",
+			shouldSee: []string{
+				"6:6:10:16",
+				"6:6:8:13",
+				"6:6",
+				"6",
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -766,6 +1260,78 @@ func TestMapState_LPMAncestors(t *testing.T) {
 			startKey: "0",
 			shouldSee: []string{
 				"0",
+			},
+		},
+
+		// remote node: does not aggregate to 0, but to 6
+
+		{
+			startKey: "7:6:10:16", // port 10
+			shouldSee: []string{
+				"7:6:10:16",
+				"6:6:10:16",
+				"7:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:10:16", // port 10
+			shouldSee: []string{
+				"6:6:10:16",
+				"6:6:8:13",
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "7:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{
+				"7:6:8:13",
+				"6:6:8:13",
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:11:16", // port 11 (not in mapstate directly)
+			shouldSee: []string{
+				"6:6:8:13",
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "7:6:2:16",
+			shouldSee: []string{
+				"7:6",
+				"6:6",
+				"7",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6:6:2:16",
+			shouldSee: []string{
+				"6:6",
+				"6",
+			},
+		},
+
+		{
+			startKey: "6",
+			shouldSee: []string{
+				"6",
 			},
 		},
 	}

@@ -306,7 +306,11 @@ static __always_inline bool identity_is_local(__u32 identity)
  *
  * This **must** match the implementation in pkg/policy/aggregate.go
  */
-static __always_inline __u32 aggregate_for_identity(__u32 identity __maybe_unused)
+static __always_inline __u32 aggregate_for_identity(__u32 identity)
 {
+	/* All remote nodes aggregate to ID 6. */
+	if (identity_is_remote_node(identity))
+		return REMOTE_NODE_ID;
+
 	return 0;
 }

@@ -247,7 +247,12 @@ func newTestCachedSelector(name string, wildcard bool, selections ...int) *testC
 func (cs *testCachedSelector) addSelections(selections ...int) (adds []identity.NumericIdentity) {
 	for _, id := range selections {
 		nid := identity.NumericIdentity(id)
-		adds = append(adds, nid)
+		// hack: expand 0 to all aggregates
+		if nid == 0 {
+			adds = append(adds, AllAggregates...)
+		} else {
+			adds = append(adds, nid)
+		}
 		if cs == nil {
 			continue
 		}
