@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCIDRPoolAllowFirstLastIPs(t *testing.T) {
+func TestCIDRPoolAllowFirstAndLastIPs(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	t.Run("default excludes first and last", func(t *testing.T) {
-		pool := newCIDRPool(logger, false)
+		pool := newCIDRPool(logger, false, false)
 		pool.updatePool([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28")})
 
 		// /28 = 16 IPs, minus first and last = 14 usable
@@ -30,8 +30,26 @@ func TestCIDRPoolAllowFirstLastIPs(t *testing.T) {
 		require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.14")))
 	})
 
-	t.Run("allowFirstLastIPs includes all IPs", func(t *testing.T) {
-		pool := newCIDRPool(logger, true)
+	t.Run("allowFirstIP includes first IP", func(t *testing.T) {
+		pool := newCIDRPool(logger, true, false)
+		pool.updatePool([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28")})
+
+		require.Equal(t, 15, pool.capacity())
+		require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.0")))
+		require.Error(t, pool.allocate(netip.MustParseAddr("10.0.0.15")))
+	})
+
+	t.Run("allowLastIP includes last IP", func(t *testing.T) {
+		pool := newCIDRPool(logger, false, true)
+		pool.updatePool([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28")})
+
+		require.Equal(t, 15, pool.capacity())
+		require.Error(t, pool.allocate(netip.MustParseAddr("10.0.0.0")))
+		require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.15")))
+	})
+
+	t.Run("allowFirstIP and allowLastIP includes all IPs", func(t *testing.T) {
+		pool := newCIDRPool(logger, true, true)
 		pool.updatePool([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28")})
 
 		// /28 = 16 IPs, all usable
@@ -42,8 +60,8 @@ func TestCIDRPoolAllowFirstLastIPs(t *testing.T) {
 		require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.15")))
 	})
 
-	t.Run("allowFirstLastIPs with multiple CIDRs", func(t *testing.T) {
-		pool := newCIDRPool(logger, true)
+	t.Run("allowFirstIP and allowLastIP with multiple CIDRs", func(t *testing.T) {
+		pool := newCIDRPool(logger, true, true)
 		pool.updatePool([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28")})
 
 		require.Equal(t, 32, pool.capacity())
