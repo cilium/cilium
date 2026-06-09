@@ -31,15 +31,14 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 FROM ${UBUNTU_IMAGE} AS rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
-# we want to re-run 'apt-get upgrade' for stale images.
+# we want to re-run 'apt-get upgrade' (in install-runtime-deps.sh) for stale
+# images.
 ENV FORCE_BUILD=4
 
-# Update ubuntu packages to the most recent versions
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y jq
-
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
+# install-runtime-deps.sh upgrades the base packages, installs the runtime dependencies,
+# then purges apt. It is the last apt-based step in this image: dpkg-based steps below
+# (iptables) still work, but no apt-get can run after this point.
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./install-runtime-deps.sh
 
