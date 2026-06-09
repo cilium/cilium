@@ -74,7 +74,8 @@ func Test_MultiPoolManager(t *testing.T) {
 							},
 						},
 						{
-							Pool: "mars",
+							Pool:        "mars",
+							AllowLastIP: true,
 							CIDRs: []iputil.Prefix{
 								iputil.PrefixFrom(marsIPv4CIDR1),
 								iputil.PrefixFrom(marsIPv6CIDR1),
@@ -160,7 +161,8 @@ func Test_MultiPoolManager(t *testing.T) {
 						},
 					},
 					{
-						Pool: "mars",
+						Pool:        "mars",
+						AllowLastIP: true,
 						CIDRs: []iputil.Prefix{
 							iputil.PrefixFrom(marsIPv4CIDR1),
 							iputil.PrefixFrom(marsIPv6CIDR1),
@@ -188,7 +190,8 @@ func Test_MultiPoolManager(t *testing.T) {
 				},
 			},
 			{
-				Pool: "mars",
+				Pool:        "mars",
+				AllowLastIP: true,
 				CIDRs: []iputil.Prefix{
 					iputil.PrefixFrom(marsIPv4CIDR1),
 					iputil.PrefixFrom(marsIPv6CIDR1),
@@ -294,7 +297,8 @@ func Test_MultiPoolManager(t *testing.T) {
 				},
 			},
 			{
-				Pool: "mars",
+				Pool:        "mars",
+				AllowLastIP: true,
 				CIDRs: []iputil.Prefix{
 					iputil.PrefixFrom(marsIPv6CIDR1),
 					iputil.PrefixFrom(marsIPv4CIDR1),
@@ -363,7 +367,8 @@ func Test_MultiPoolManager(t *testing.T) {
 						},
 					},
 					{
-						Pool: "mars",
+						Pool:        "mars",
+						AllowLastIP: true,
 						CIDRs: []iputil.Prefix{
 							iputil.PrefixFrom(marsIPv4CIDR1),
 							iputil.PrefixFrom(marsIPv6CIDR1),
@@ -373,9 +378,9 @@ func Test_MultiPoolManager(t *testing.T) {
 			}, currentNode.Spec.IPAM.Pools)
 		}, timeout, tick)
 
-		// exhaust mars ipv4 pool (/27 contains 30 IPs)
+		// exhaust mars ipv4 pool (/27 contains 31 IPs with allowLastIP enabled)
 		allocatedMarsIPs := []netip.Addr{}
-		numMarsIPs := 30
+		numMarsIPs := 31
 		for i := range numMarsIPs {
 			// set upstreamSync to true for last allocation, to ensure we only get one upsert event
 			ar, err := mgr.allocateNext(fmt.Sprintf("mars-pod-%d", i), "mars", IPv4, i == numMarsIPs-1)
@@ -407,7 +412,7 @@ func Test_MultiPoolManager(t *testing.T) {
 				{
 					Pool: "mars",
 					Needed: types.IPAMPoolDemand{
-						IPv4Addrs: 40, // 30 allocated + 8 pre-allocate, rounded up to multiple of 8
+						IPv4Addrs: 40, // 31 allocated + 8 pre-allocate, rounded up to multiple of 8
 						IPv6Addrs: 8,
 					},
 				},
@@ -430,7 +435,8 @@ func Test_MultiPoolManager(t *testing.T) {
 				},
 			},
 			{
-				Pool: "mars",
+				Pool:        "mars",
+				AllowLastIP: true,
 				CIDRs: []iputil.Prefix{
 					iputil.PrefixFrom(marsIPv4CIDR1),
 					iputil.PrefixFrom(marsIPv4CIDR2),
@@ -488,7 +494,8 @@ func Test_MultiPoolManager(t *testing.T) {
 					},
 				},
 				{
-					Pool: "mars",
+					Pool:        "mars",
+					AllowLastIP: true,
 					CIDRs: []iputil.Prefix{
 						iputil.PrefixFrom(marsIPv4CIDR2),
 						iputil.PrefixFrom(marsIPv6CIDR1),
@@ -1307,11 +1314,46 @@ func TestAllocateNext_SkipMasquerade(t *testing.T) {
 	require.False(t, res.SkipMasquerade, "SkipMasquerade should default to false")
 }
 
-func insertPool(t *testing.T, db *statedb.DB, tbl statedb.RWTable[podippool.LocalPodIPPool], name string, skipMasq bool) {
+func TestMultiPoolManagerUpdatesFirstLastIPSettingsBeforeAllocation(t *testing.T) {
+	logger := hivetest.Logger(t)
+	mgr := &multiPoolManager{
+		logger:       logger,
+		ipv4Enabled:  true,
+		pools:        map[Pool]*poolPair{},
+		poolsUpdated: make(chan struct{}, 1),
+		pendingIPsPerPool: newPendingAllocationsPerPool(
+			logger,
+		),
+		skipMasqueradeForPool: func(Pool) (bool, error) {
+			return false, nil
+		},
+	}
+
+	prefix := iputil.PrefixFrom(netip.MustParsePrefix("10.20.0.0/30"))
+	lastIP := netip.MustParseAddr("10.20.0.3")
+
+	mgr.upsertPoolLocked("default", []iputil.Prefix{prefix}, false, false)
+	_, err := mgr.allocateIP(lastIP, "pod-a", "default", IPv4, false)
+	require.Error(t, err)
+
+	mgr.upsertPoolLocked("default", []iputil.Prefix{prefix}, false, true)
+	result, err := mgr.allocateIP(lastIP, "pod-a", "default", IPv4, false)
+	require.NoError(t, err)
+	require.Equal(t, lastIP, result.IP)
+}
+
+func insertPool(t *testing.T, db *statedb.DB, tbl statedb.RWTable[podippool.LocalPodIPPool], name string, skipMasq bool, allowFirstAndLastIPs ...bool) {
 	t.Helper()
 	ann := map[string]string{}
 	if skipMasq {
 		ann[annotation.IPAMSkipMasquerade] = "true"
+	}
+	var allowFirstIP, allowLastIP bool
+	if len(allowFirstAndLastIPs) > 0 {
+		allowFirstIP = allowFirstAndLastIPs[0]
+	}
+	if len(allowFirstAndLastIPs) > 1 {
+		allowLastIP = allowFirstAndLastIPs[1]
 	}
 
 	poolObj := podippool.LocalPodIPPool{
@@ -1319,6 +1361,10 @@ func insertPool(t *testing.T, db *statedb.DB, tbl statedb.RWTable[podippool.Loca
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
 				Annotations: ann,
+			},
+			Spec: k8sv2alpha1.IPPoolSpec{
+				AllowFirstIP: allowFirstIP,
+				AllowLastIP:  allowLastIP,
 			},
 		},
 		UpdatedAt: time.Now(),

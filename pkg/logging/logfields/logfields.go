@@ -1154,6 +1154,10 @@ const (
 
 	PoolName = "poolName"
 
+	AllowFirstIP = "allowFirstIP"
+
+	AllowLastIP = "allowLastIP"
+
 	MaxRetries = "maxRetries"
 
 	Retries = "retries"

@@ -598,8 +598,10 @@ func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 	if len(cidrs) > 0 {
 		pools.Allocated = []ipamTypes.IPAMPoolAllocation{
 			{
-				Pool:  defaults.IPAMDefaultIPPool,
-				CIDRs: cidrs,
+				Pool:         defaults.IPAMDefaultIPPool,
+				AllowFirstIP: true,
+				AllowLastIP:  true,
+				CIDRs:        cidrs,
 			},
 		}
 	}
@@ -704,7 +706,6 @@ func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Alloca
 		CNClient:             p.CNClient,
 		JobGroup:             p.JobGroup,
 		PoolsFromResource:    eniPoolsFromResource,
-		AllowFirstLastIPs:    true,
 		LinearPreAlloc:       true,
 	})
 
