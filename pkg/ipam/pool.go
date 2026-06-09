@@ -40,19 +40,21 @@ type cidrPool struct {
 	ipAllocators []*ipallocator.Range
 	released     map[netip.Prefix]struct{}
 	removed      map[netip.Prefix]struct{}
-	// allowFirstLastIPs, when true, makes the pool include the first and last
-	// IPs of each CIDR (normally reserved as network/broadcast). This is used
-	// for delegated prefixes where the entire range is exclusively assigned.
-	allowFirstLastIPs bool
+	// allowFirstIP and allowLastIP make the pool include the first and last IPs
+	// of each CIDR (normally reserved as network/broadcast). This is used for
+	// delegated prefixes where the range is exclusively assigned.
+	allowFirstIP bool
+	allowLastIP  bool
 }
 
 // newCIDRPool creates a new CIDR pool.
-func newCIDRPool(logger *slog.Logger, allowFirstLastIPs bool) *cidrPool {
+func newCIDRPool(logger *slog.Logger, allowFirstIP, allowLastIP bool) *cidrPool {
 	return &cidrPool{
-		logger:            logger,
-		released:          map[netip.Prefix]struct{}{},
-		removed:           map[netip.Prefix]struct{}{},
-		allowFirstLastIPs: allowFirstLastIPs,
+		logger:       logger,
+		released:     map[netip.Prefix]struct{}{},
+		removed:      map[netip.Prefix]struct{}{},
+		allowFirstIP: allowFirstIP,
+		allowLastIP:  allowLastIP,
 	}
 }
 
@@ -276,8 +278,11 @@ func (p *cidrPool) updatePool(prefixes []netip.Prefix) {
 
 	// Create and add new IP allocators to newIPAllocators.
 	var rangeOpts []ipallocator.CIDRRangeOption
-	if p.allowFirstLastIPs {
-		rangeOpts = append(rangeOpts, ipallocator.WithAllowFirstLastIPs())
+	if p.allowFirstIP {
+		rangeOpts = append(rangeOpts, ipallocator.WithAllowFirstIP())
+	}
+	if p.allowLastIP {
+		rangeOpts = append(rangeOpts, ipallocator.WithAllowLastIP())
 	}
 	for _, prefix := range prefixes {
 		if _, ok := existingAllocators[prefix]; ok {

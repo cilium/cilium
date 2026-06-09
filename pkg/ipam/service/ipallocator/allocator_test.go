@@ -107,6 +107,22 @@ func TestNewCIDRRangeWithAllowFirstLastIPs(t *testing.T) {
 	}
 }
 
+func TestNewCIDRRangeWithAllowFirstOrLastIP(t *testing.T) {
+	prefix := netip.MustParsePrefix("10.0.0.0/28")
+
+	first := NewCIDRRange(prefix, WithAllowFirstIP())
+	require.Equal(t, netip.MustParseAddr("10.0.0.0"), first.base)
+	require.Equal(t, 15, first.max)
+	require.NoError(t, first.Allocate(netip.MustParseAddr("10.0.0.0")))
+	require.ErrorContains(t, first.Allocate(netip.MustParseAddr("10.0.0.15")), "not in the valid range")
+
+	last := NewCIDRRange(prefix, WithAllowLastIP())
+	require.Equal(t, netip.MustParseAddr("10.0.0.1"), last.base)
+	require.Equal(t, 15, last.max)
+	require.ErrorContains(t, last.Allocate(netip.MustParseAddr("10.0.0.0")), "not in the valid range")
+	require.NoError(t, last.Allocate(netip.MustParseAddr("10.0.0.15")))
+}
+
 func TestAllowFirstLastIPsAllocateAll(t *testing.T) {
 	// Verify all 16 IPs in a /28 are allocatable with WithAllowFirstLastIPs.
 	prefix := netip.MustParsePrefix("10.0.0.0/28")
