@@ -43,7 +43,7 @@ services=$(cd /etc/systemd/system; ls -1 ${services_pattern})
 for service in ${services}; do
     echo "installing service $service"
     sudo systemctl enable $service || echo "service $service failed"
-    sudo systemctl restart $service || echo "service $service failed to restart"
+    sudo systemctl restart $service || journalctl -xeu $service
 done
 
 echo "running \"sudo adduser ${VMUSER} cilium\" "
