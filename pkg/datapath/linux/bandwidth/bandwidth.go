@@ -95,13 +95,11 @@ func (m *manager) BBREnabled() bool {
 }
 
 func (m *manager) defines() (defines.Map, error) {
-	cDefinesMap := make(defines.Map)
-
-	if m.Enabled() {
-		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
-	}
-
-	return cDefinesMap, nil
+	// ENABLE_BANDWIDTH_MANAGER is no longer emitted as a compile-time define.
+	// The datapath gates on the runtime config CONFIG(enable_bandwidth_manager),
+	// sourced from the manager's effective state (Manager.Enabled()) via the
+	// local node configuration (see pkg/datapath/orchestrator/localnodeconfig.go).
+	return make(defines.Map), nil
 }
 
 func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio uint32) {

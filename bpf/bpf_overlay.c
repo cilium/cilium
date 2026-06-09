@@ -618,7 +618,6 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	/* Load the ethertype just once: */
 	validate_ethertype(ctx, &proto);
 
-#ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
 	 * phys dev where FQ runs, but the issue is that the aggregate state
 	 * (in queue_mapping) is overridden on tunnel xmit. Hence set the
@@ -631,7 +630,6 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS, (__u8)-ret);
 		return CTX_ACT_DROP;
 	}
-#endif
 
 	/* This must be after above ctx_snat_done, since the MARK_MAGIC_CLUSTER_ID
 	 * is a super set of the MARK_MAGIC_SNAT_DONE. They will never be used together,
