@@ -328,6 +328,16 @@ func (e *Endpoint) ValidateRuleLabels(t *testing.T, expectedLabels LabelArrayLis
 	t.Helper()
 
 	desiredLabels := e.GetDesiredPolicyRuleLabels()
+	for k, v := range expectedLabels {
+		if k.Identity == 0 {
+			for _, nid := range policy.AllAggregates {
+				newKey := k.WithIdentity(nid)
+				if _, ok := expectedLabels[newKey]; !ok {
+					expectedLabels[newKey] = v
+				}
+			}
+		}
+	}
 
 	if !desiredLabels.Equals(expectedLabels) {
 		t.Fatal("desired policy labels do not equal expected labels:\n",
@@ -376,11 +386,11 @@ func TestRedirectWithDeny(t *testing.T) {
 	// entries and make any conclusions from it.
 	require.Len(t, ep.desiredPolicy.Redirects, 1)
 
-	expected := policy.MapStateMap{
+	expected := fillAggregates(policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
 		mapKeyAllL7:     policyTypes.AllowEntry().WithProxyPort(httpPort).WithListenerPriority(policy.ListenerPriorityHTTP),
 		mapKeyFoo:       policyTypes.DenyEntry(),
-	}
+	})
 
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
@@ -397,7 +407,7 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	// Check that the redirect is realized
 	require.Len(t, ep.desiredPolicy.Redirects, 1)
-	require.Equal(t, 3, ep.desiredPolicy.Len())
+	require.Equal(t, 1+2*len(policy.AllAggregates), ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	s.datapathRegenCtxt.revertStack.Revert()
@@ -505,11 +515,11 @@ func TestRedirectWithPriority(t *testing.T) {
 	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec1/listener1"])
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
-	expected := policy.MapStateMap{
+	expected := fillAggregates(policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
 		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd2Port).WithListenerPriority(1),
 		mapKeyAllL7:     policyTypes.AllowEntry(),
-	}
+	})
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
 		mapKeyFooL7:     labels.LabelArrayList{lblsL4L7AllowListener2Priority1},
@@ -522,7 +532,7 @@ func TestRedirectWithPriority(t *testing.T) {
 
 	// Check that the redirect is realized
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
-	require.Equal(t, 3, ep.desiredPolicy.Len())
+	require.Equal(t, 1+2*len(policy.AllAggregates), ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	s.datapathRegenCtxt.revertStack.Revert()
@@ -558,11 +568,11 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec1/listener1"])
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
-	expected := policy.MapStateMap{
+	expected := fillAggregates(policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
 		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd1Port).WithListenerPriority(1),
 		mapKeyAllL7:     policyTypes.AllowEntry(),
-	}
+	})
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
 		mapKeyFooL7:     labels.LabelArrayList{lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
@@ -575,7 +585,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	// Check that the redirect is realized
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
-	require.Equal(t, 3, ep.desiredPolicy.Len())
+	require.Equal(t, 1+2*len(policy.AllAggregates), ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	s.datapathRegenCtxt.revertStack.Revert()
@@ -588,4 +598,18 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		t.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.Diff(expected))
 	}
+}
+
+func fillAggregates(ms policy.MapStateMap) policy.MapStateMap {
+	for k, v := range ms {
+		if k.Identity == 0 {
+			for _, nid := range policy.AllAggregates {
+				newKey := k.WithIdentity(nid)
+				if _, ok := ms[newKey]; !ok {
+					ms[newKey] = v
+				}
+			}
+		}
+	}
+	return ms
 }

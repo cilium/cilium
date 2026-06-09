@@ -271,6 +271,18 @@ func (e mapStateEntry) withPassPriority(priority, tierPriority, nextTierPriority
 func (ms mapState) withState(initMap mapStateMap) mapState {
 	for k, v := range initMap {
 		ms.insert(k, v)
+
+		if k.Identity == 0 {
+			// We don't want to have to change mapstate literals every time we aggregate.
+			// Expand nid 0 to all aggregated numeric IDs
+			for _, newID := range AllAggregates {
+				newKey := k.WithIdentity(newID)
+				if _, exists := initMap[newKey]; exists {
+					continue
+				}
+				ms.insert(newKey, v)
+			}
+		}
 	}
 	return ms
 }
@@ -1023,30 +1035,42 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Log(tt.name)
-		changes := ChangeState{
-			Adds:    make(Keys),
-			Deletes: make(Keys),
-			old:     make(mapStateMap),
-		}
-		// copy the starting point
-		ms := testMapState(t, make(mapStateMap, tt.ms.Len()))
-		tt.ms.forEach(func(k Key, v mapStateEntry) bool {
-			ms.insert(k, v)
-			return true
+		t.Run(tt.name, func(t *testing.T) {
+			changes := ChangeState{
+				Adds:    make(Keys),
+				Deletes: make(Keys),
+				old:     make(mapStateMap),
+			}
+			// copy the starting point
+			ms := testMapState(t, make(mapStateMap, tt.ms.Len()))
+			tt.ms.forEach(func(k Key, v mapStateEntry) bool {
+				ms.insert(k, v)
+				return true
+			})
+
+			entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil})
+			ms.insertWithChanges(types.MaxDenyPrecedence, tt.args.key, entry, denyRules, changes)
+			// fix up 0-expansion
+			if tt.args.key.Identity == 0 {
+				// expand 0 to all aggregate keys
+				for _, nid := range AllAggregates {
+					k := tt.args.key.WithIdentity(nid)
+					ms.insertWithChanges(types.MaxDenyPrecedence, k, entry, denyRules, changes)
+					if _, inAdds := tt.wantAdds[tt.args.key]; inAdds {
+						tt.wantAdds[k] = struct{}{}
+					}
+				}
+			}
+			ms.validatePortProto(t)
+			require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
+			require.Equalf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
+			require.Equalf(t, tt.wantDeletes, changes.Deletes, "%s: Deletes mismatch", tt.name)
+			require.Equalf(t, tt.wantOld, changes.old, "%s: OldValues mismatch allows", tt.name)
+
+			// Revert changes and check that we get the original mapstate
+			ms.revertChanges(changes)
+			require.Truef(t, ms.Equal(&tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.ms))
 		})
-
-		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil})
-		ms.insertWithChanges(types.MaxDenyPrecedence, tt.args.key, entry, denyRules, changes)
-		ms.validatePortProto(t)
-		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
-		require.Equalf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
-		require.Equalf(t, tt.wantDeletes, changes.Deletes, "%s: Deletes mismatch", tt.name)
-		require.Equalf(t, tt.wantOld, changes.old, "%s: OldValues mismatch allows", tt.name)
-
-		// Revert changes and check that we get the original mapstate
-		ms.revertChanges(changes)
-		require.Truef(t, ms.Equal(&tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.ms))
 	}
 }
 
@@ -1140,7 +1164,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			ingressL3OnlyKey(41): denyEntry(),
 		}),
 		args: []args{
-			{cs: csFoo, adds: []int{0}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: ListenerPriorityHTTP, deny: false},
+			{cs: nil, adds: []int{0}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: ListenerPriorityHTTP, deny: false},
 		},
 		state: testMapState(t, mapStateMap{
 			AnyIngressKey():      allowEntry(),
@@ -1440,6 +1464,14 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		_, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
+		// massage adds to expand 0 to aggregates
+		for add := range tt.adds {
+			if add.Identity == 0 {
+				for _, nid := range AllAggregates {
+					tt.adds[add.WithIdentity(nid)] = struct{}{}
+				}
+			}
+		}
 		require.Equal(t, tt.adds, changes.Adds, tt.name+" (adds)")
 		require.Equal(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
@@ -1951,6 +1983,17 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		PolicyOwner: DummyOwner{logger: hivetest.Logger(t)},
 	}
 	policyMapState := emptyMapState(hivetest.Logger(t))
+
+	// fixup adds to expand 0 to all aggregates
+	for _, tt := range tests {
+		for add := range tt.adds {
+			if add.Identity == 0 {
+				for _, nid := range AllAggregates {
+					tt.adds[add.WithIdentity(nid)] = struct{}{}
+				}
+			}
+		}
+	}
 
 	for _, tt := range tests {
 		t.Log(tt.name)
