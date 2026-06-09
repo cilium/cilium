@@ -226,6 +226,9 @@ type Config struct {
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
 
+	// EnableBandwidthManager is the effective (post-probe) bandwidth manager state.
+	EnableBandwidthManager bool
+
 	// EncryptNode enables encrypting NodeIP traffic
 	EncryptNode bool
 

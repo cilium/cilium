@@ -206,6 +206,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.EnableIPSec != other.EnableIPSec {
 		return false
 	}
+	if in.EnableBandwidthManager != other.EnableBandwidthManager {
+		return false
+	}
 	if in.EncryptNode != other.EncryptNode {
 		return false
 	}
