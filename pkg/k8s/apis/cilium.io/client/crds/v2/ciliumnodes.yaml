@@ -356,6 +356,14 @@ spec:
                             IPAMPoolAllocation describes an allocation of an IPAM pool from the operator to the
                             node. It contains the assigned PodCIDRs allocated from this pool
                           properties:
+                            allowFirstIP:
+                              description: AllowFirstIP allows the first IP of each
+                                allocated CIDR to be used.
+                              type: boolean
+                            allowLastIP:
+                              description: AllowLastIP allows the last IP of each
+                                allocated CIDR to be used.
+                              type: boolean
                             cidrs:
                               description: CIDRs contains a list of pod CIDRs currently
                                 allocated from this pool

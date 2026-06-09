@@ -44,6 +44,28 @@ spec:
             type: object
           spec:
             properties:
+              allowFirstIP:
+                default: false
+                description: |-
+                  AllowFirstIP allows the first IP of each allocated CIDR to be used. If
+                  unset or false, this IP is reserved. This field is ignored for /{31,32}
+                  and /{127,128} CIDRs since reserving the first and last IPs would make
+                  the CIDRs unusable. This field is immutable.
+                type: boolean
+                x-kubernetes-validations:
+                - message: allowFirstIP is immutable
+                  rule: self == oldSelf
+              allowLastIP:
+                default: false
+                description: |-
+                  AllowLastIP allows the last IP of each allocated CIDR to be used. If
+                  unset or false, this IP is reserved. This field is ignored for /{31,32}
+                  and /{127,128} CIDRs since reserving the first and last IPs would make
+                  the CIDRs unusable. This field is immutable.
+                type: boolean
+                x-kubernetes-validations:
+                - message: allowLastIP is immutable
+                  rule: self == oldSelf
               ipv4:
                 description: IPv4 specifies the IPv4 CIDRs and mask sizes of the pool
                 properties:
@@ -62,6 +84,9 @@ spec:
                     maximum: 32
                     minimum: 1
                     type: integer
+                    x-kubernetes-validations:
+                    - message: maskSize is immutable
+                      rule: self == oldSelf
                   pool:
                     description: |-
                       Pool contains per-CIDR configuration for a subset of CIDRs listed in CIDRs.
@@ -123,6 +148,9 @@ spec:
                     maximum: 128
                     minimum: 1
                     type: integer
+                    x-kubernetes-validations:
+                    - message: maskSize is immutable
+                      rule: self == oldSelf
                   pool:
                     description: |-
                       Pool contains per-CIDR configuration for a subset of CIDRs listed in CIDRs.
@@ -327,6 +355,28 @@ spec:
             type: object
           spec:
             properties:
+              allowFirstIP:
+                default: false
+                description: |-
+                  AllowFirstIP allows the first IP of each allocated CIDR to be used. If
+                  unset or false, this IP is reserved. This field is ignored for /{31,32}
+                  and /{127,128} CIDRs since reserving the first and last IPs would make
+                  the CIDRs unusable. This field is immutable.
+                type: boolean
+                x-kubernetes-validations:
+                - message: allowFirstIP is immutable
+                  rule: self == oldSelf
+              allowLastIP:
+                default: false
+                description: |-
+                  AllowLastIP allows the last IP of each allocated CIDR to be used. If
+                  unset or false, this IP is reserved. This field is ignored for /{31,32}
+                  and /{127,128} CIDRs since reserving the first and last IPs would make
+                  the CIDRs unusable. This field is immutable.
+                type: boolean
+                x-kubernetes-validations:
+                - message: allowLastIP is immutable
+                  rule: self == oldSelf
               ipv4:
                 description: IPv4 specifies the IPv4 CIDRs and mask sizes of the pool
                 properties:
@@ -344,6 +394,9 @@ spec:
                     maximum: 32
                     minimum: 1
                     type: integer
+                    x-kubernetes-validations:
+                    - message: maskSize is immutable
+                      rule: self == oldSelf
                 required:
                 - cidrs
                 - maskSize
@@ -365,6 +418,9 @@ spec:
                     maximum: 128
                     minimum: 1
                     type: integer
+                    x-kubernetes-validations:
+                    - message: maskSize is immutable
+                      rule: self == oldSelf
                 required:
                 - cidrs
                 - maskSize
