@@ -126,7 +126,7 @@ var (
 
 		// Provides the Client to access the KVStore.
 		cell.Provide(kvstoreExtraOptions),
-		kvstore.Cell(kvstore.DisabledBackendName),
+		kvstore.Cell(kvstore.DisabledBackendName, kvstore.OptAsyncWaitForEstablished),
 
 		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
 		operatorMetrics.Cell,

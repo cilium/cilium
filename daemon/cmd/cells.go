@@ -144,7 +144,7 @@ var (
 
 		// Provides the Client to access the KVStore.
 		cell.Provide(kvstoreExtraOptions),
-		kvstore.Cell(kvstore.DisabledBackendName),
+		kvstore.Cell(kvstore.DisabledBackendName, kvstore.OptAsyncWaitForEstablished),
 		cell.Invoke(kvstoreLocksGC),
 
 		cni.Cell,
