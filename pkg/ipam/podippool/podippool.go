@@ -71,6 +71,12 @@ func (p LocalPodIPPool) TableRow() []string {
 	if v, ok := p.ObjectMeta.Annotations[annotation.IPAMSkipMasquerade]; ok && v == "true" {
 		flags = append(flags, "SkipMasquerade=true")
 	}
+	if p.Spec.AllowFirstIP {
+		flags = append(flags, "AllowFirstIP=true")
+	}
+	if p.Spec.AllowLastIP {
+		flags = append(flags, "AllowLastIP=true")
+	}
 
 	return []string{
 		p.Name,
