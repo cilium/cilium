@@ -100,6 +100,7 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 		dsrIPIP := r.lbConfig.LoadBalancerUsesDSR() && r.lbConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP
 		if dsrIPIP {
 			option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices = true
+			option.Config.EnableIPIPTermination = true
 		}
 
 		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") && !dsrIPIP {

@@ -34,6 +34,7 @@ type kprConfig struct {
 	enableBPFMasquerade        bool
 	enableIPv4Masquerade       bool
 	enableSocketLBTracing      bool
+	enableIPIPTermination      bool
 
 	expectedErrorRegex string
 
@@ -67,6 +68,8 @@ func (cfg *kprConfig) set() (err error) {
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
 	option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing = true
 	option.Config.RoutingMode = cfg.routingMode
+	option.Config.EnableIPIPTermination = false
+	option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices = false
 
 	if cfg.nodePortMode == loadbalancer.LBModeDSR || cfg.nodePortMode == loadbalancer.LBModeHybrid {
 		cfg.lbConfig.LBMode = cfg.nodePortMode
@@ -115,6 +118,7 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg 
 	require.Equal(t, cfg.enableBPFMasquerade, option.Config.EnableBPFMasquerade)
 	require.Equal(t, cfg.enableIPv4Masquerade, option.Config.EnableIPv4Masquerade)
 	require.Equal(t, cfg.enableSocketLBTracing, option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing)
+	require.Equal(t, cfg.enableIPIPTermination, option.Config.EnableIPIPTermination)
 }
 
 func TestInitKubeProxyReplacementOptions(t *testing.T) {
@@ -250,6 +254,40 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableSocketLB:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
+			},
+		},
+		// Node port DSR mode + IPIP dispatch + native routing: IPIP termination
+		// is enabled implicitly, without a separate --enable-ipip-termination.
+		{
+			"node-port-dsr-mode+ipip-dispatch+native-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = true
+				cfg.routingMode = option.RoutingModeNative
+				cfg.nodePortMode = loadbalancer.LBModeDSR
+				cfg.dispatchMode = loadbalancer.DSRDispatchIPIP
+			},
+			kprConfig{
+				enableSocketLB:          true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+				enableIPIPTermination:   true,
+			},
+		},
+		// Node port hybrid mode + IPIP dispatch + native routing: hybrid also
+		// uses DSR, so IPIP termination is enabled implicitly as well.
+		{
+			"node-port-hybrid-mode+ipip-dispatch+native-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = true
+				cfg.routingMode = option.RoutingModeNative
+				cfg.nodePortMode = loadbalancer.LBModeHybrid
+				cfg.dispatchMode = loadbalancer.DSRDispatchIPIP
+			},
+			kprConfig{
+				enableSocketLB:          true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+				enableIPIPTermination:   true,
 			},
 		},
 		// Node port DSR mode + Geneve dispatch + geneve routing
