@@ -713,6 +713,125 @@ of whether you have configured the routing mode to route traffic using Geneve
                  k8sServiceHost=${API_SERVER_IP}
                  k8sServicePort=${API_SERVER_PORT}
 
+.. _DSR mode with IPIP:
+
+Direct Server Return (DSR) with IPIP
+************************************
+Cilium offers a third DSR dispatch mode, DSR with IPIP, which encapsulates the
+LoadBalancer traffic towards the backend in a plain IPIP (IPv4-in-IPv4) or
+IP6IP6 (IPv6-in-IPv6) tunnel. On the load balancing node, the original client
+packet (with the destination still set to the service IP/port) becomes the inner
+payload. Cilium then adds an outer IP header whose source is the load
+balancing node and whose destination is the IP address of the selected backend
+Pod. The encapsulated packet is routed to the node hosting that Pod, where Cilium
+terminates the tunnel, strips the outer header, DNATs and delivers the inner
+packet to the backend Pod identified by the outer destination address.
+
+Compared to :ref:`DSR mode with Geneve`, the IPIP dispatch does not rely on a
+Geneve option to transport the service IP/port to the backend, and compared to
+the IPv4 option / IPv6 extension header dispatch it avoids the Cilium-specific IP
+options that some network fabrics drop (plus IP options do not work well with GRO).
+This makes DSR with IPIP a robust choice in environments where the other dispatch
+methods experience connectivity issues.
+
+It requires Cilium to be deployed in :ref:`arch_direct_routing`, it will not
+work in :ref:`arch_overlay` mode.
+
+.. note::
+
+    When using the IPIP dispatch, the service frontend port must be equal to the
+    backend (target) port given IPIP does not carry port information unlike Geneve.
+    In the service example below this is the reason why ``port`` and ``targetPort``
+    are both set to ``80``. Matching frontend and backend ports is generally a
+    prerequisite when using IPIP for DSR.
+
+The Helm example configuration below keeps the global default forwarding mode as
+SNAT (``loadBalancer.mode=snat``) and opts into DSR IPIP on a per-service basis
+through the ``service.cilium.io/forwarding-mode: dsr`` annotation. As described
+in `Annotation-based DSR and SNAT Mode`_, this requires
+``bpf.lbModeAnnotation=true`` together with an explicit
+``loadBalancer.dsrDispatch=ipip`` to define how the per-service DSR packets are
+dispatched to backends. The example additionally opts into annotation-based load
+balancing algorithm selection (``bpf.lbAlgorithmAnnotation=true``) so that the
+``service.cilium.io/lb-algorithm`` annotation shown further below takes effect:
+
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: routingMode=native
+         kubeProxyReplacement=true
+         loadBalancer.mode=snat
+         loadBalancer.dsrDispatch=ipip
+         bpf.lbModeAnnotation=true
+         bpf.lbAlgorithmAnnotation=true
+         k8sServiceHost=${API_SERVER_IP}
+         k8sServicePort=${API_SERVER_PORT}
+
+The following example deploys an nginx web server as the backend and exposes it
+through a ``LoadBalancer`` service. In this example we expose the service only
+to certain load-balancing nodes (see also `Selective Service Node Exposure`_):
+
+.. code-block:: shell-session
+
+  $ kubectl label node node_name service.cilium.io/node=beefy
+
+Deploy the nginx backend:
+
+.. code-block:: yaml
+
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: nginx
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: nginx
+    template:
+      metadata:
+        labels:
+          app: nginx
+      spec:
+        containers:
+          - name: nginx
+            image: nginx:1.25.1
+            ports:
+              - containerPort: 80
+
+Then expose it through a ``LoadBalancer`` service which selects the DSR
+forwarding mode, the Maglev load balancing algorithm and the node exposure via
+annotations:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: nginx
+    annotations:
+      service.cilium.io/type: LoadBalancer
+      service.cilium.io/forwarding-mode: dsr
+      service.cilium.io/lb-algorithm: maglev
+      service.cilium.io/node: beefy
+  spec:
+    selector:
+      app: nginx
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+
+With this in place, the service is only installed as type ``LoadBalancer`` on
+nodes labeled with ``service.cilium.io/node=beefy``, requests are distributed to
+the nginx backends using Maglev consistent hashing, and the packets are
+dispatched to the backend node using IPIP encapsulation. The backends reply
+directly to the client without traversing the load balancing node again.
+
+Note that the ``service.cilium.io/forwarding-mode`` and ``service.cilium.io/lb-algorithm``
+annotation must be set at service creation time and should not be changed during
+the lifetime of that service. Changing the value of the annotations or removing
+them while the service is installed breaks connections.
+
 .. _Hybrid mode:
 
 Hybrid DSR and SNAT Mode
