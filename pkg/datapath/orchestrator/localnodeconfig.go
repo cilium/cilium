@@ -136,7 +136,7 @@ func newLocalNodeConfig(
 
 	hostEndpointID, _ := node.GetEndpointID()
 
-	ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
+	ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.HostDevice))
 	if !ok {
 		return config.Config{}, hostWatch, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
 	}
@@ -146,7 +146,7 @@ func newLocalNodeConfig(
 		return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.HostDevice, err)
 	}
 
-	ciliumNetDevice, _, netWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.SecondHostDevice))
+	ciliumNetDevice, _, netWatch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.SecondHostDevice))
 	if !ok {
 		return config.Config{}, netWatch, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
 	}

@@ -218,7 +218,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 		// interface as egress IPs
 		gwc.ifaceName = gc.iface
 
-		dev, _, found := manager.deviceTable.Get(manager.db.ReadTxn(), tables.DeviceNameIndex.Query(gc.iface))
+		dev, _, found := manager.deviceTable.Get(manager.db.ReadTxn(), tables.DeviceByName(gc.iface))
 		if found {
 			gwc.egressIfindex = uint32(dev.Index)
 

@@ -49,8 +49,8 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 	fromIngressProxy, fromEgressProxy, mtu := requireFromProxyRoutes(ipsecEnabled, wireguardEnabled, mtu)
 
 	rxn := p.db.ReadTxn()
-	hostDevice, _, hostDeviceFound := p.devices.Get(rxn, tables.DeviceNameIndex.Query(defaults.HostDevice))
-	lo, _, loFound := p.devices.Get(rxn, tables.DeviceNameIndex.Query("lo"))
+	hostDevice, _, hostDeviceFound := p.devices.Get(rxn, tables.DeviceByName(defaults.HostDevice))
+	lo, _, loFound := p.devices.Get(rxn, tables.DeviceByName("lo"))
 
 	if option.Config.EnableIPv4 && p.enabled {
 		if !loFound {
