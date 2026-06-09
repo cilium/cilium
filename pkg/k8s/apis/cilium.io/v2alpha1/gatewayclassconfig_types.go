@@ -134,6 +134,12 @@ type HTTPOptions struct {
 	//
 	// +kubebuilder:validation:Optional
 	GRPCWebTranslation *GRPCWebTranslationConfig `json:"grpcWebTranslation,omitempty"`
+	// Sets the forward_client_cert_details property in generated CiliumEnvoyConfig listener objects to the given value.
+	// Allowed values are "SANITIZE", "SANITIZE_SET", "APPEND_FORWARD", "FORWARD_ONLY" and "ALWAYS_FORWARD_ONLY".
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=SANITIZE;SANITIZE_SET;APPEND_FORWARD;FORWARD_ONLY;ALWAYS_FORWARD_ONLY
+	ForwardClientCertDetails *string `json:"forwardClientCertDetails,omitempty"`
 }
 
 // CiliumGatewayClassConfigSpec specifies all the configuration options for a
@@ -178,4 +184,11 @@ func (c *CiliumGatewayClassConfig) GRPCWebTranslationEnabled() bool {
 		c.Spec.HTTPOptions.GRPCWebTranslation == nil ||
 		c.Spec.HTTPOptions.GRPCWebTranslation.Enabled == nil ||
 		*c.Spec.HTTPOptions.GRPCWebTranslation.Enabled
+}
+
+func (c *CiliumGatewayClassConfig) GetForwardClientCertDetails() *string {
+	if c == nil || c.Spec.HTTPOptions == nil {
+		return nil
+	}
+	return c.Spec.HTTPOptions.ForwardClientCertDetails
 }

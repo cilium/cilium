@@ -241,6 +241,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			GRPCWebTranslation: &model.GRPCWebTranslationConfig{
 				Enabled: gatewayClassConfig.GRPCWebTranslationEnabled(),
 			},
+			ForwardClientCertDetails: gatewayClassConfig.GetForwardClientCertDetails(),
 		},
 	})
 	if err != nil {

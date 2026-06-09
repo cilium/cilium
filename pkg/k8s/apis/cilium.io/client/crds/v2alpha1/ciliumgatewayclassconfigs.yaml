@@ -64,6 +64,17 @@ spec:
               httpOptions:
                 description: HTTPOptions specifies HTTP connection manager options.
                 properties:
+                  forwardClientCertDetails:
+                    description: |-
+                      Sets the forward_client_cert_details property in generated CiliumEnvoyConfig listener objects to the given value.
+                      Allowed values are "SANITIZE", "SANITIZE_SET", "APPEND_FORWARD", "FORWARD_ONLY" and "ALWAYS_FORWARD_ONLY".
+                    enum:
+                    - SANITIZE
+                    - SANITIZE_SET
+                    - APPEND_FORWARD
+                    - FORWARD_ONLY
+                    - ALWAYS_FORWARD_ONLY
+                    type: string
                   grpcWebTranslation:
                     description: GRPCWebTranslation controls Envoy's gRPC-web to gRPC
                       request translation.

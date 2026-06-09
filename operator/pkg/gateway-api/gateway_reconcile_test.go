@@ -492,6 +492,52 @@ func Test_grpcWebTranslationEnabled(t *testing.T) {
 	}
 }
 
+func Test_forwardClientCertDetails(t *testing.T) {
+	appendForward := "APPEND_FORWARD"
+
+	tests := []struct {
+		name   string
+		config *v2alpha1.CiliumGatewayClassConfig
+		want   *string
+	}{
+		{
+			name: "nil config",
+			want: nil,
+		},
+		{
+			name:   "empty config",
+			config: &v2alpha1.CiliumGatewayClassConfig{},
+			want:   nil,
+		},
+		{
+			name: "nil value in options",
+			config: &v2alpha1.CiliumGatewayClassConfig{
+				Spec: v2alpha1.CiliumGatewayClassConfigSpec{
+					HTTPOptions: &v2alpha1.HTTPOptions{},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "value set in options",
+			config: &v2alpha1.CiliumGatewayClassConfig{
+				Spec: v2alpha1.CiliumGatewayClassConfigSpec{
+					HTTPOptions: &v2alpha1.HTTPOptions{
+						ForwardClientCertDetails: &appendForward,
+					},
+				},
+			},
+			want: &appendForward,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.config.GetForwardClientCertDetails())
+		})
+	}
+}
+
 func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 	t.Parallel()
 

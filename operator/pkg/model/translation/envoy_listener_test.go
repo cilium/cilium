@@ -602,6 +602,65 @@ func Test_desiredEnvoyListener_UseRemoteAddressFalse(t *testing.T) {
 	assert.False(t, hcm.UseRemoteAddress.GetValue(), "generated listener should honor UseRemoteAddress=false from config")
 }
 
+func Test_withForwardClientCertDetails(t *testing.T) {
+	tests := []struct {
+		name                          string
+		forwardClientCertDetailsValue string
+		want                          envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_ForwardClientCertDetails
+	}{
+		{
+			name:                          "append_forward",
+			forwardClientCertDetailsValue: "APPEND_FORWARD",
+			want:                          envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_APPEND_FORWARD,
+		},
+		{
+			name:                          "forward_only",
+			forwardClientCertDetailsValue: "FORWARD_ONLY",
+			want:                          envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_FORWARD_ONLY,
+		},
+		{
+			name:                          "invalid_enum",
+			forwardClientCertDetailsValue: "INVALID",
+			want:                          envoy_extensions_filters_network_hcm_v3.HttpConnectionManager_SANITIZE,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hcmAny := toAny(&envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{})
+			listener := &envoy_config_listener.Listener{
+				Name: "listener",
+				FilterChains: []*envoy_config_listener.FilterChain{
+					{
+						Filters: []*envoy_config_listener.Filter{
+							{
+								Name: httpConnectionManagerType,
+								ConfigType: &envoy_config_listener.Filter_TypedConfig{
+									TypedConfig: hcmAny,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			mutator := withForwardClientCertDetails(tt.forwardClientCertDetailsValue)
+			listener = mutator(listener)
+
+			require.Len(t, listener.FilterChains, 1)
+			require.Len(t, listener.FilterChains[0].Filters, 1)
+
+			filter := listener.FilterChains[0].Filters[0]
+			typedConfig := filter.GetTypedConfig()
+			hcm, err := typedConfig.UnmarshalNew()
+			require.NoError(t, err)
+			hcmConfig, ok := hcm.(*envoy_extensions_filters_network_hcm_v3.HttpConnectionManager)
+			require.True(t, ok)
+			assert.Equal(t, tt.want, hcmConfig.ForwardClientCertDetails)
+		})
+	}
+}
+
 func Test_withUseRemoteAddress_NoHCMFilter(t *testing.T) {
 	listener := &envoy_config_listener.Listener{
 		Name: "listener",
