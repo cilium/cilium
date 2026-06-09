@@ -74,6 +74,7 @@ jobs:
 
               if [[ -z "$run_status" ]]; then
                 echo "No status found for PR $pr_number"
+                all_successful=false
                 continue
               fi
 
