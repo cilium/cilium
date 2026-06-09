@@ -7,6 +7,15 @@ on:
         description: "Condition to run the wait (true/false)"
         type: boolean
         default: true
+      sha:
+        description: "SHA to check for lint workflow completion"
+        required: true
+        type: string
+      lint-workflows:
+        description: "Comma-separated list of lint workflow filenames to wait for"
+        required: false
+        type: string
+        default: "lint-images-base.yaml"
       timeout-minutes:
         description: "Maximum time to wait for lint workflows (in minutes)"
         required: false
@@ -17,15 +26,6 @@ on:
         required: false
         type: number
         default: 30
-      lint-names:
-        description: "Comma-separated list of lint workflow filenames to wait for"
-        required: false
-        type: string
-        default: "Lint image build logic"
-      pr-number:
-        description: "PR number to check for lint workflow completion"
-        required: true
-        type: number
 
 permissions:
   actions: read
@@ -43,17 +43,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Parse input parameters
-          lint_names_str="${{ inputs.lint-names }}"
+          check_sha="${{ inputs.sha }}"
+          lint_workflows_str="${{ inputs.lint-workflows }}"
           poll_interval="${{ inputs.poll-interval }}"
           timeout_minutes="${{ inputs.timeout-minutes }}"
-          pr_number="${{ inputs.pr-number }}"
 
-          echo "Waiting for lint workflows to complete for PR: $pr_number"
-          echo "Lint checks: $lint_names_str"
+          echo "Waiting for lint workflows to complete for SHA: $check_sha"
+          echo "Lint workflows to check: $lint_workflows_str"
           echo "Poll interval: ${poll_interval}s, Timeout: ${timeout_minutes}m"
 
           # Convert comma-separated workflows to array
-          IFS=',' read -ra lint_names <<< "$lint_names_str"
+          IFS=',' read -ra lint_workflows <<< "$lint_workflows_str"
 
           max_attempts=$((timeout_minutes * 60 / poll_interval))
           attempt=0
@@ -64,32 +64,35 @@ jobs:
 
             all_successful=true
 
-            for name in "${lint_names[@]}"; do
+            for workflow in "${lint_workflows[@]}"; do
               # Trim whitespace
-              name=$(echo "$name" | xargs)
-              echo "Checking status: $name"
+              workflow=$(echo "$workflow" | xargs)
+              echo "Checking workflow: $workflow"
 
-              # Use gh CLI to get the check status
-              check_status=$(gh pr checks --repo ${{ github.repository }} $pr_number --json name,state --jq ".[] | select( .name==\"$name\").state")
+              # Use gh CLI to get the latest run for this workflow and commit
+              run_status=$(gh --repo ${{ github.repository }} run list --workflow "$workflow" --commit "$check_sha" --limit 1 --json status,conclusion --jq '.[0] // empty')
 
               if [[ -z "$run_status" ]]; then
-                echo "No status found for PR $pr_number"
+                echo "No workflow run found for SHA $check_sha"
+                all_successful=false
                 continue
               fi
 
+              status=$(echo "$run_status" | jq -r '.status')
+              conclusion=$(echo "$run_status" | jq -r '.conclusion')
 
-              case "$check_status" in
-                "SUCCESS")
-                  echo "✅ Workflow completed successfully"
+              echo "Workflow status: $status, conclusion: $conclusion"
+
+              case "$status" in
+                "completed")
+                  if [[ "$conclusion" == "success" ]]; then
+                    echo "✅ Workflow completed successfully"
+                  else
+                    echo "❌ Lint workflow $workflow failed with conclusion: $conclusion"
+                    exit 1
+                  fi
                   ;;
-                "SKIPPED")
-                  echo "✅ Workflow marked as skipped"
-                  ;;
-                "FAILURE")
-                  echo "❌ Lint workflow $workflow failed with conclusion: $conclusion"
-                  all_successful=false
-                  ;;
-                "IN_PROGRESS"|"PENDING")
+                "in_progress"|"queued")
                   echo "⏳ Workflow is still running..."
                   all_successful=false
                   ;;
