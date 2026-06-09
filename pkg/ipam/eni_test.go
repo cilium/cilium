@@ -505,6 +505,8 @@ func TestEniPoolsFromResource(t *testing.T) {
 		result := eniPoolsFromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)
+		require.True(t, result.Allocated[0].AllowFirstIP)
+		require.True(t, result.Allocated[0].AllowLastIP)
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")))
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")))
 	})
@@ -530,6 +532,8 @@ func TestEniPoolsFromResource(t *testing.T) {
 		result := eniPoolsFromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)
+		require.True(t, result.Allocated[0].AllowFirstIP)
+		require.True(t, result.Allocated[0].AllowLastIP)
 		// Should contain the /28 prefix and the primary IP as /32,
 		// but not the 16 expanded prefix IPs.
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")))
@@ -552,6 +556,8 @@ func TestEniPoolsFromResource(t *testing.T) {
 
 		result := eniPoolsFromResource(node)
 		require.Len(t, result.Allocated, 1)
+		require.True(t, result.Allocated[0].AllowFirstIP)
+		require.True(t, result.Allocated[0].AllowLastIP)
 		require.Len(t, result.Allocated[0].CIDRs, 1)
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")))
 	})

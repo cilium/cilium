@@ -61,8 +61,10 @@ func (e *ErrPoolNotReadyYet) Is(err error) bool {
 }
 
 type poolPair struct {
-	v4 *cidrPool
-	v6 *cidrPool
+	v4           *cidrPool
+	v6           *cidrPool
+	allowFirstIP bool
+	allowLastIP  bool
 }
 
 type preAllocatePerPool map[Pool]int
@@ -239,10 +241,6 @@ type MultiPoolManagerParams struct {
 
 	SkipMasqueradeForPool SkipMasqueradeForPoolFn
 
-	// AllowFirstLastIPs makes CIDR pools include the first and last IPs.
-	// Used for ENI prefix delegation where the entire /28 is allocatable.
-	AllowFirstLastIPs bool
-
 	// LinearPreAlloc uses a simple inUse + preAlloc formula for demand
 	// computation instead of the multi-pool's neededIPCeil rounding. This
 	// matches the CRD allocator's calculateNeededIPs behavior and allows
@@ -277,8 +275,7 @@ type multiPoolManager struct {
 	poolsFromResource     ciliumv2.PoolsFromResourceFunc
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
 
-	allowFirstLastIPs bool
-	linearPreAlloc    bool
+	linearPreAlloc bool
 }
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
@@ -300,7 +297,6 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 			close(localNodeUpdated)
 		}),
 		poolsFromResource: p.PoolsFromResource,
-		allowFirstLastIPs: p.AllowFirstLastIPs,
 		linearPreAlloc:    p.LinearPreAlloc,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
@@ -408,7 +404,7 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	defer m.poolsMutex.Unlock()
 
 	for _, pool := range m.poolsFromResource(newNode).Allocated {
-		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs)
+		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs, pool.AllowFirstIP, pool.AllowLastIP)
 	}
 
 	// Sync pre-allocate value from the CiliumNode spec. For cloud IPAM modes,
@@ -613,8 +609,10 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		}
 
 		allocated = append(allocated, types.IPAMPoolAllocation{
-			Pool:  poolName.String(),
-			CIDRs: cidrs,
+			Pool:         poolName.String(),
+			AllowFirstIP: pool.allowFirstIP,
+			AllowLastIP:  pool.allowLastIP,
+			CIDRs:        cidrs,
 		})
 	}
 
@@ -680,16 +678,44 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	return nil
 }
 
-func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix) {
+func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix, allowFirstIP, allowLastIP bool) {
 	pool, ok := m.pools[poolName]
 	if !ok {
-		pool = &poolPair{}
+		pool = &poolPair{
+			allowFirstIP: allowFirstIP,
+			allowLastIP:  allowLastIP,
+		}
 		if m.ipv4Enabled {
-			pool.v4 = newCIDRPool(m.logger, false, false)
+			pool.v4 = newCIDRPool(m.logger, allowFirstIP, allowLastIP)
 		}
 		if m.ipv6Enabled {
-			pool.v6 = newCIDRPool(m.logger, false, false)
+			pool.v6 = newCIDRPool(m.logger, allowFirstIP, allowLastIP)
 		}
+	} else if pool.allowFirstIP != allowFirstIP || pool.allowLastIP != allowLastIP {
+		if pool.v4 != nil {
+			if pool.v4.inUseIPCount() == 0 {
+				pool.v4 = newCIDRPool(m.logger, allowFirstIP, allowLastIP)
+			} else {
+				m.logger.Warn(
+					"ignoring changed first/last IP settings for pool with in-use IPs",
+					logfields.PoolName, poolName,
+					logfields.Family, IPv4,
+				)
+			}
+		}
+		if pool.v6 != nil {
+			if pool.v6.inUseIPCount() == 0 {
+				pool.v6 = newCIDRPool(m.logger, allowFirstIP, allowLastIP)
+			} else {
+				m.logger.Warn(
+					"ignoring changed first/last IP settings for pool with in-use IPs",
+					logfields.PoolName, poolName,
+					logfields.Family, IPv6,
+				)
+			}
+		}
+		pool.allowFirstIP = allowFirstIP
+		pool.allowLastIP = allowLastIP
 	}
 
 	var ipv4Prefixes, ipv6Prefixes []netip.Prefix
