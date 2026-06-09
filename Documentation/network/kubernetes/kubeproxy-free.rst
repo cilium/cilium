@@ -753,7 +753,10 @@ in `Annotation-based DSR and SNAT Mode`_, this requires
 ``loadBalancer.dsrDispatch=ipip`` to define how the per-service DSR packets are
 dispatched to backends. The example additionally opts into annotation-based load
 balancing algorithm selection (``bpf.lbAlgorithmAnnotation=true``) so that the
-``service.cilium.io/lb-algorithm`` annotation shown further below takes effect:
+``service.cilium.io/lb-algorithm`` annotation shown further below takes effect.
+Selecting ``loadBalancer.dsrDispatch=ipip`` automatically enables the inbound IPIP
+termination on the backend nodes (stripping the outer header and delivering the
+inner packet to the local backend Pod), so no additional setting is required:
 
 .. cilium-helm-install::
    :namespace: kube-system
@@ -826,6 +829,22 @@ nodes labeled with ``service.cilium.io/node=beefy``, requests are distributed to
 the nginx backends using Maglev consistent hashing, and the packets are
 dispatched to the backend node using IPIP encapsulation. The backends reply
 directly to the client without traversing the load balancing node again.
+
+.. note::
+
+    With DSR the backend node is itself part of the service handling: it
+    terminates the inbound IPIP traffic and rewrites the reply so that it is
+    sourced from the service address and returned directly to the client. This
+    requires the service to be present on the backend node. Therefore, when DSR
+    IPIP is combined with `Selective Service Node Exposure`_, the backend Pods
+    must run on nodes that are part of the exposure set (here, nodes labeled
+    ``service.cilium.io/node=beefy``); only nodes that host neither the
+    LoadBalancer frontend nor any backend may be left out.
+
+    This does not apply to SNAT forwarding, where the load balancing node fully
+    translates the traffic and the reply flows back through it. In that case the
+    backend node takes no part in the service handling and does not need the
+    service to be installed (nor the label).
 
 Note that the ``service.cilium.io/forwarding-mode`` and ``service.cilium.io/lb-algorithm``
 annotation must be set at service creation time and should not be changed during
