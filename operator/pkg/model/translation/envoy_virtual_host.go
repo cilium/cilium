@@ -434,6 +434,15 @@ func requestMirrorMutation(mirrors []*model.HTTPRequestMirror) routeActionMutati
 	}
 }
 
+// defaultRetryOn is the Envoy retry_on policy applied whenever an HTTPRoute
+// retry stanza is configured. "retriable-status-codes" is required for the
+// route's RetriableStatusCodes to take effect (Envoy ignores them otherwise,
+// and an empty retry_on disables retries entirely). connect-failure, reset and
+// refused-stream cover connection errors, which GEP-1731 recommends retrying
+// when a retry stanza is set. Note that, like any Envoy retry policy, this
+// applies to all HTTP methods, including non-idempotent ones.
+const defaultRetryOn = "retriable-status-codes,connect-failure,reset,refused-stream"
+
 func retryMutation(retry *model.HTTPRetry) routeActionMutation {
 	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
 		if retry == nil {
@@ -441,6 +450,7 @@ func retryMutation(retry *model.HTTPRetry) routeActionMutation {
 		}
 
 		rp := &envoy_config_route_v3.RetryPolicy{
+			RetryOn:              defaultRetryOn,
 			RetriableStatusCodes: retry.Codes,
 		}
 
