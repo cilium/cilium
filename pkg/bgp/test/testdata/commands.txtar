@@ -406,17 +406,17 @@ Instance: instance1
       software-version: <redacted>
     TCP Password Enabled: false
 -- bgp-route-policies.expected --
-Instance    Policy Name          Type     Match Peers       Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
-instance0   allow-local          import                                                                      accept       
-instance0   peer0-ipv4-PodCIDR   export   fd00:10:99:7::1                    10.244.0.0/24 (24..24)          accept       
-instance0   peer0-ipv6-PodCIDR   export   fd00:10:99:7::1                    fd00:10:244::/64 (64..64)       accept       
-instance0   peer1-ipv4-PodCIDR   export   fd00:10:99:7::2                    10.244.0.0/24 (24..24)          accept       
-instance0   peer1-ipv6-PodCIDR   export   fd00:10:99:7::2                    fd00:10:244::/64 (64..64)       accept       
-instance1   allow-local          import                                                                      accept       
-instance1   peer0-ipv4-PodCIDR   export   fd00:10:99:7::3                    10.244.0.0/24 (24..24)          accept       
-instance1   peer0-ipv6-PodCIDR   export   fd00:10:99:7::3                    fd00:10:244::/64 (64..64)       accept       
-instance1   peer1-ipv4-PodCIDR   export   fd00:10:99:7::4                    10.244.0.0/24 (24..24)          accept       
-instance1   peer1-ipv6-PodCIDR   export   fd00:10:99:7::4                    fd00:10:244::/64 (64..64)       accept       
+Instance    Policy Name          Type     Statement Name   Match Peers       Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance0   allow-local          import   accept-local                                                                        accept       
+            peer0-ipv4-PodCIDR   export   stmt0            fd00:10:99:7::1                    10.244.0.0/24 (24..24)          accept       
+            peer0-ipv6-PodCIDR   export   stmt0            fd00:10:99:7::1                    fd00:10:244::/64 (64..64)       accept       
+            peer1-ipv4-PodCIDR   export   stmt0            fd00:10:99:7::2                    10.244.0.0/24 (24..24)          accept       
+            peer1-ipv6-PodCIDR   export   stmt0            fd00:10:99:7::2                    fd00:10:244::/64 (64..64)       accept       
+instance1   allow-local          import   accept-local                                                                        accept       
+            peer0-ipv4-PodCIDR   export   stmt0            fd00:10:99:7::3                    10.244.0.0/24 (24..24)          accept       
+            peer0-ipv6-PodCIDR   export   stmt0            fd00:10:99:7::3                    fd00:10:244::/64 (64..64)       accept       
+            peer1-ipv4-PodCIDR   export   stmt0            fd00:10:99:7::4                    10.244.0.0/24 (24..24)          accept       
+            peer1-ipv6-PodCIDR   export   stmt0            fd00:10:99:7::4                    fd00:10:244::/64 (64..64)       accept       
 -- bgp-routes-loc-ipv4-unicast.expected --
 Instance    Prefix          NextHop   Best   Age
 instance0   10.244.0.0/24   0.0.0.0   true   -
