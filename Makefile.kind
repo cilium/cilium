@@ -454,13 +454,15 @@ kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium ve
 
 KVSTORE_POD_NAME ?= "kvstore"
 KVSTORE_POD_PORT ?= "2378"
+KVSTORE_SERVICE_NAME ?= $(KVSTORE_POD_NAME)
+KVSTORE_SERVICE_PORT ?= $(KVSTORE_POD_PORT)
 
 .PHONY: kind-kvstore-install-cilium
 kind-kvstore-install-cilium: check_deps kind-ready kind-kvstore-start ## Install a local Cilium version into the cluster, configured in kvstore mode.
 	$(MAKE) kind-install-cilium KIND_VALUES_FILES="\
 		$(KIND_VALUES_FILES) \
 		--set etcd.enabled=true \
-		--set etcd.endpoints[0]=http://$(shell kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) -o jsonpath='{.status.hostIP}'):$(KVSTORE_POD_PORT) \
+		--set etcd.endpoints[0]=http://$(KVSTORE_SERVICE_NAME).kube-system.svc:$(KVSTORE_SERVICE_PORT) \
 		--set identityAllocationMode=kvstore \
 	"
 
@@ -473,8 +475,13 @@ kind-kvstore-start: ## Start an etcd pod serving as Cilium's kvstore
 
 	kubectl --namespace kube-system wait --for=condition=Ready pod/$(KVSTORE_POD_NAME)
 
+	kubectl --namespace kube-system get service $(KVSTORE_SERVICE_NAME) >/dev/null 2>/dev/null || \
+		kubectl --namespace kube-system expose pod/$(KVSTORE_POD_NAME) --name $(KVSTORE_SERVICE_NAME) \
+			--port $(KVSTORE_SERVICE_PORT) --target-port $(KVSTORE_POD_PORT)
+
 .PHONY: kind-kvstore-stop
 kind-kvstore-stop: ## Stop the etcd pod serving as Cilium's kvstore
+	kubectl --namespace kube-system delete service $(KVSTORE_SERVICE_NAME) --ignore-not-found
 	kubectl --namespace kube-system delete pod $(KVSTORE_POD_NAME) --ignore-not-found
 	kubectl --namespace kube-system wait --for=delete pod/$(KVSTORE_POD_NAME)
 
