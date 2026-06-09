@@ -34,13 +34,9 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 FROM ${UBUNTU_IMAGE} AS rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
-# we want to re-run 'apt-get upgrade' for stale images.
+# we want to re-run 'apt-get upgrade' (in install-runtime-deps.sh) for stale
+# images.
 ENV FORCE_BUILD=4
-
-# Update ubuntu packages to the most recent versions
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y jq
 
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
