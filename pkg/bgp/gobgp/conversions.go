@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 
 	gobgp "github.com/osrg/gobgp/v4/api"
 	"github.com/osrg/gobgp/v4/pkg/apiutil"
@@ -145,7 +146,13 @@ func toGoBGPPolicy(apiPolicy *types.RoutePolicy) (*gobgp.Policy, []*gobgp.Define
 		Name: apiPolicy.Name,
 	}
 	for i, stmt := range apiPolicy.Statements {
-		statement, dSets := toGoBGPPolicyStatement(stmt, policyStatementName(apiPolicy.Name, i))
+		name := stmt.Name
+		if name == "" {
+			// use statement index as the default name
+			name = fmt.Sprintf("stmt%d", i)
+		}
+		name = scopedPolicyStatementName(apiPolicy.Name, name)
+		statement, dSets := toGoBGPPolicyStatement(stmt, name)
 		policy.Statements = append(policy.Statements, statement)
 		definedSets = append(definedSets, dSets...)
 	}
@@ -159,7 +166,9 @@ func toAgentPolicy(p *gobgp.Policy, definedSets map[string]*gobgp.DefinedSet, as
 		Type: toAgentPolicyType(assignment.Direction),
 	}
 	for _, s := range p.Statements {
-		policy.Statements = append(policy.Statements, toAgentPolicyStatement(s, definedSets))
+		statement := toAgentPolicyStatement(s, definedSets)
+		statement.Name = unscopedPolicyStatementName(p.Name, statement.Name)
+		policy.Statements = append(policy.Statements, statement)
 	}
 	return policy
 }
@@ -255,7 +264,9 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 }
 
 func toAgentPolicyStatement(s *gobgp.Statement, definedSets map[string]*gobgp.DefinedSet) *types.RoutePolicyStatement {
-	stmt := &types.RoutePolicyStatement{}
+	stmt := &types.RoutePolicyStatement{
+		Name: s.Name,
+	}
 
 	if s.Conditions != nil {
 		if s.Conditions.NeighborSet != nil && definedSets[s.Conditions.NeighborSet.Name] != nil {
@@ -315,8 +326,14 @@ func toAgentPolicyStatement(s *gobgp.Statement, definedSets map[string]*gobgp.De
 	return stmt
 }
 
-func policyStatementName(policyName string, cnt int) string {
-	return fmt.Sprintf("%s-%d", policyName, cnt)
+// GoBGP stores statement names globally, so scope the caller's policy-local statement name with the policy name at the GoBGP adapter boundary.
+func scopedPolicyStatementName(policyName, statementName string) string {
+	return policyName + "_" + statementName
+}
+
+// Remove prefix added by GoBGP adapter (scopedPolicyStatementName) to restore policy-local statement name.
+func unscopedPolicyStatementName(policyName, statementName string) string {
+	return strings.TrimPrefix(statementName, policyName+"_")
 }
 
 func policyNeighborDefinedSetName(policyStatementName string) string {

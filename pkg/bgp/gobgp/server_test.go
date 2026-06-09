@@ -5,7 +5,6 @@ package gobgp
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -60,7 +59,7 @@ func TestGlobalImportPolicy(t *testing.T) {
 			Name: globalAllowLocalPolicyName,
 			Statements: []*gobgp.Statement{
 				{
-					Name: fmt.Sprintf("%s_stmt0", globalAllowLocalPolicyName),
+					Name: scopedPolicyStatementName(globalAllowLocalPolicyName, globalAllowLocalPolicyStatementName),
 					Conditions: &gobgp.Conditions{
 						RouteType:  gobgp.Conditions_ROUTE_TYPE_LOCAL,
 						RpkiResult: gobgp.ValidationState_VALIDATION_STATE_UNSPECIFIED,
