@@ -1232,6 +1232,12 @@ data:
     {{- $attrs = append $attrs (printf "ipv6-cidrs:%s" (join "," $spec.ipv6.cidrs)) }}
     {{- $attrs = append $attrs (printf "ipv6-mask-size:%s" (toString $spec.ipv6.maskSize)) }}
     {{- end }}
+    {{- if hasKey $spec "allowFirstIP" }}
+    {{- $attrs = append $attrs (printf "allow-first-ip:%s" (toString $spec.allowFirstIP)) }}
+    {{- end }}
+    {{- if hasKey $spec "allowLastIP" }}
+    {{- $attrs = append $attrs (printf "allow-last-ip:%s" (toString $spec.allowLastIP)) }}
+    {{- end }}
     {{- $pools = append $pools (printf "%s=%s" $pool (join ";" $attrs)) }}
   {{- end }}
   auto-create-cilium-pod-ip-pools: {{ join "," $pools | quote }}

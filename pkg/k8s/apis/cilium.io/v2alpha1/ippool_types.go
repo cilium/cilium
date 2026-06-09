@@ -40,6 +40,26 @@ type IPPoolSpec struct {
 	// +kubebuilder:validation:Optional
 	IPv6 *IPv6PoolSpec `json:"ipv6,omitempty"`
 
+	// AllowFirstIP allows the first IP of each allocated CIDR to be used. If
+	// unset or false, this IP is reserved. This field is ignored for /{31,32}
+	// and /{127,128} CIDRs since reserving the first and last IPs would make
+	// the CIDRs unusable. This field is immutable.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="allowFirstIP is immutable"
+	AllowFirstIP bool `json:"allowFirstIP,omitempty"`
+
+	// AllowLastIP allows the last IP of each allocated CIDR to be used. If
+	// unset or false, this IP is reserved. This field is ignored for /{31,32}
+	// and /{127,128} CIDRs since reserving the first and last IPs would make
+	// the CIDRs unusable. This field is immutable.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="allowLastIP is immutable"
+	AllowLastIP bool `json:"allowLastIP,omitempty"`
+
 	// PodSelector selects the set of Pods that are eligible to receive IPs from
 	// this pool when neither the Pod nor its Namespace specify an explicit
 	// `ipam.cilium.io/*` annotation.
@@ -80,6 +100,7 @@ type IPv4PoolSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=32
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="maskSize is immutable"
 	MaskSize uint8 `json:"maskSize"`
 }
 
@@ -95,6 +116,7 @@ type IPv6PoolSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=128
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="maskSize is immutable"
 	MaskSize uint8 `json:"maskSize"`
 }
 

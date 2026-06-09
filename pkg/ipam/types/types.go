@@ -64,6 +64,16 @@ type IPAMPoolAllocation struct {
 	// +kubebuilder:validation:MinLength=1
 	Pool string `json:"pool"`
 
+	// AllowFirstIP allows the first IP of each allocated CIDR to be used.
+	//
+	// +optional
+	AllowFirstIP bool `json:"allowFirstIP,omitempty"`
+
+	// AllowLastIP allows the last IP of each allocated CIDR to be used.
+	//
+	// +optional
+	AllowLastIP bool `json:"allowLastIP,omitempty"`
+
 	// CIDRs contains a list of pod CIDRs currently allocated from this pool
 	//
 	// +optional

@@ -95,6 +95,8 @@ ciliumpodippool:
             cidrs:
                 - fd00::/112
             masksize: 120
+        allowfirstip: false
+        allowlastip: false
         podselector: null
         namespaceselector: null
 updatedAt: 2000-01-01T10:30:00Z

@@ -59,6 +59,12 @@ func (in *IPAMPoolAllocation) DeepEqual(other *IPAMPoolAllocation) bool {
 	if in.Pool != other.Pool {
 		return false
 	}
+	if in.AllowFirstIP != other.AllowFirstIP {
+		return false
+	}
+	if in.AllowLastIP != other.AllowLastIP {
+		return false
+	}
 	if ((in.CIDRs != nil) && (other.CIDRs != nil)) || ((in.CIDRs == nil) != (other.CIDRs == nil)) {
 		in, other := &in.CIDRs, &other.CIDRs
 		if other == nil {

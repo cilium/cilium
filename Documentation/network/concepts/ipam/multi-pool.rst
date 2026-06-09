@@ -86,9 +86,12 @@ extended at run-time. In-use CIDRs must not be removed, and existing pools must 
 be deleted if they are still in use by a Cilium node. In case updating an in-use pool
 is needed, please follow this :ref:`procedure <update_existing_ciliumpodippools>` in order to
 minimize disruption during the update.
-The mask size of a pool is immutable and the same for all nodes. Neither restriction
-is enforced until :gh-issue:`26966` is resolved. The first and last address of a
-``CiliumPodIPPool`` are reserved and cannot be allocated. Pools with less than 3
+The mask size of a pool is immutable and the same for all nodes. The
+``spec.allowFirstIP`` and ``spec.allowLastIP`` fields are immutable as well.
+By default, the first and last address of each allocated CIDR from a
+``CiliumPodIPPool`` are reserved and cannot be allocated. Set
+``spec.allowFirstIP`` or ``spec.allowLastIP`` to ``true`` when creating the pool
+to make either address allocatable independently. Pools with less than 3
 addresses (/31, /32, /127, /128) do not have this limitation.
 
 
