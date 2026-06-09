@@ -28,6 +28,16 @@ import "github.com/cilium/cilium/pkg/identity"
 //
 // THIS MUST!!! MATCH THE IMPLEMENTATION in bpf/lib/identity.h
 func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
+	switch nid {
+	case identity.ReservedIdentityRemoteNode, identity.ReservedIdentityKubeAPIServer:
+		return identity.ReservedIdentityRemoteNode
+	}
+
+	switch nid.Scope() {
+	case identity.IdentityScopeRemoteNode:
+		return identity.ReservedIdentityRemoteNode
+	}
+
 	return identity.IdentityUnknown
 }
 
@@ -46,4 +56,5 @@ func isAggregate(nid identity.NumericIdentity) bool {
 // They must be inserted whenever a full wildcard (i.e. identity 0) is referenced.
 var AllAggregates = []identity.NumericIdentity{
 	identity.IdentityUnknown,
+	identity.ReservedIdentityRemoteNode,
 }

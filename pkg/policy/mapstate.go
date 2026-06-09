@@ -48,15 +48,6 @@ func KeyForDirection(direction trafficdirection.TrafficDirection) Key {
 	return types.KeyForDirection(direction)
 }
 
-var (
-	// allKey represents a key for unknown traffic, i.e., all traffic.
-	// We have one for each traffic direction
-	allKey = [2]Key{
-		IngressKey(),
-		EgressKey(),
-	}
-)
-
 const (
 	LabelKeyPolicyDerivedFrom  = "io.cilium.policy.derived-from"
 	LabelAllowLocalHostIngress = "allow-localhost-ingress"
@@ -1679,10 +1670,16 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry mapStateEntry) b
 // and priority is left at 0.
 func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 	if ingress {
-		ms.upsert(allKey[trafficdirection.Ingress], newAllowEntryWithLabels(LabelsAllowAnyIngress))
+		for _, nid := range AllAggregates {
+			k := IngressKey().WithIdentity(nid)
+			ms.upsert(k, newAllowEntryWithLabels(LabelsAllowAnyIngress))
+		}
 	}
 	if egress {
-		ms.upsert(allKey[trafficdirection.Egress], newAllowEntryWithLabels(LabelsAllowAnyEgress))
+		for _, nid := range AllAggregates {
+			k := EgressKey().WithIdentity(nid)
+			ms.upsert(k, newAllowEntryWithLabels(LabelsAllowAnyEgress))
+		}
 	}
 }
 
