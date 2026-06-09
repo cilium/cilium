@@ -54,12 +54,12 @@ func TestHTTPGatewayAPI(t *testing.T) {
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
 			input := readGatewayInput(t, name)
-			listeners, _ := GatewayAPI(input)
+			m := GatewayAPI(input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
 
-			assert.Equal(t, toYaml(t, expected), toYaml(t, listeners), "Listeners did not match")
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.HTTP), "Listeners did not match")
 		})
 	}
 }
@@ -75,11 +75,11 @@ func TestTLSGatewayAPI(t *testing.T) {
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
 			input := readGatewayInput(t, name)
-			_, listeners := GatewayAPI(input)
+			m := GatewayAPI(input)
 
 			expected := []model.TLSPassthroughListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
-			assert.Equal(t, toYaml(t, expected), toYaml(t, listeners), "Listeners did not match")
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.TLSPassthrough), "Listeners did not match")
 		})
 	}
 }
@@ -93,11 +93,11 @@ func TestGRPCGatewayAPI(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			input := readGatewayInput(t, name)
 
-			listeners, _ := GatewayAPI(input)
+			m := GatewayAPI(input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
-			assert.Equal(t, toYaml(t, expected), toYaml(t, listeners), "Listeners did not match")
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.HTTP), "Listeners did not match")
 		})
 	}
 }
