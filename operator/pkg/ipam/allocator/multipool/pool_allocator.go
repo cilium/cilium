@@ -22,10 +22,31 @@ import (
 )
 
 type cidrPool struct {
-	v4         []cidralloc.CIDRAllocator
-	v6         []cidralloc.CIDRAllocator
-	v4MaskSize int
-	v6MaskSize int
+	v4           []cidralloc.CIDRAllocator
+	v6           []cidralloc.CIDRAllocator
+	v4MaskSize   int
+	v6MaskSize   int
+	allowFirstIP bool
+	allowLastIP  bool
+}
+
+type poolOptions struct {
+	allowFirstIP bool
+	allowLastIP  bool
+}
+
+type PoolOption func(*poolOptions)
+
+func WithAllowFirstIP() PoolOption {
+	return func(o *poolOptions) {
+		o.allowFirstIP = true
+	}
+}
+
+func WithAllowLastIP() PoolOption {
+	return func(o *poolOptions) {
+		o.allowLastIP = true
+	}
 }
 
 type cidrSet map[netip.Prefix]struct{}
@@ -39,18 +60,20 @@ func (c cidrSet) CIDRSlice() []iputil.Prefix {
 	return cidrs
 }
 
-// availableAddrs returns the number of available addresses in this set
-func (c cidrSet) availableAddrs() *big.Int {
+// availableAddrs returns the number of available addresses in this set.
+func (c cidrSet) availableAddrs(allowFirstIP, allowLastIP bool) *big.Int {
 	total := big.NewInt(0)
 	for p := range c {
-		total.Add(total, addrsInPrefix(p))
+		total.Add(total, addrsInPrefix(p, allowFirstIP, allowLastIP))
 	}
 	return total
 }
 
 type cidrSets struct {
-	v4 cidrSet
-	v6 cidrSet
+	v4           cidrSet
+	v6           cidrSet
+	allowFirstIP bool
+	allowLastIP  bool
 }
 
 type poolToCIDRs map[string]cidrSets // poolName -> list of allocated CIDRs
@@ -68,7 +91,7 @@ func (m errAllocatorNotReady) Is(target error) bool {
 }
 
 // addrsInPrefix calculates the number of usable addresses in a prefix p, or 0 if p is not valid.
-func addrsInPrefix(p netip.Prefix) *big.Int {
+func addrsInPrefix(p netip.Prefix, allowFirstIP, allowLastIP bool) *big.Int {
 	if !p.IsValid() {
 		return big.NewInt(0)
 	}
@@ -77,15 +100,16 @@ func addrsInPrefix(p netip.Prefix) *big.Int {
 	addrs := new(big.Int)
 	addrs.Lsh(big.NewInt(1), uint(p.Addr().BitLen()-p.Bits()))
 
-	// prefix has less than 3 addresses
-	two := big.NewInt(2)
-	if addrs.Cmp(two) <= 0 {
+	if addrs.Cmp(big.NewInt(2)) <= 0 {
 		return addrs
 	}
 
-	// subtract network and broadcast address, which are not available for
-	// allocation in the cilium/ipam library for now
-	addrs.Sub(addrs, two)
+	if !allowFirstIP {
+		addrs.Sub(addrs, big.NewInt(1))
+	}
+	if !allowLastIP {
+		addrs.Sub(addrs, big.NewInt(1))
+	}
 	if addrs.Sign() < 0 {
 		return big.NewInt(0)
 	}
@@ -130,9 +154,19 @@ func (p *PoolAllocator) cleanupOrphans(node, pool string) {
 			delete(p.orphans, node)
 		}
 	case len(p.orphans[node][pool].v4) == 0:
-		p.orphans[node][pool] = cidrSets{v6: p.orphans[node][pool].v6}
+		cidrs := p.orphans[node][pool]
+		p.orphans[node][pool] = cidrSets{
+			v6:           cidrs.v6,
+			allowFirstIP: cidrs.allowFirstIP,
+			allowLastIP:  cidrs.allowLastIP,
+		}
 	case len(p.orphans[node][pool].v6) == 0:
-		p.orphans[node][pool] = cidrSets{v4: p.orphans[node][pool].v4}
+		cidrs := p.orphans[node][pool]
+		p.orphans[node][pool] = cidrSets{
+			v4:           cidrs.v4,
+			allowFirstIP: cidrs.allowFirstIP,
+			allowLastIP:  cidrs.allowLastIP,
+		}
 	}
 }
 
@@ -233,7 +267,7 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 						logfields.PoolName, pool,
 						logfields.Node, node,
 					)
-					p.markOrphan(node, pool, cidr)
+					p.markOrphan(node, pool, cidr, allocatedCIDRSets.allowFirstIP, allocatedCIDRSets.allowLastIP)
 					delete(cidrs, cidr)
 				}
 			}
@@ -256,9 +290,14 @@ func parseCIDRStrings(cidrStrs []string) ([]netip.Prefix, error) {
 	return prefixes, nil
 }
 
-func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
+func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int, opts ...PoolOption) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+
+	var options poolOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 
 	pool, exists := p.pools[poolName]
 	if exists && ipv4MaskSize != pool.v4MaskSize {
@@ -266,6 +305,12 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 	}
 	if exists && ipv6MaskSize != pool.v6MaskSize {
 		return fmt.Errorf("cannot change IPv6 mask size in existing pool %q", poolName)
+	}
+	if exists && options.allowFirstIP != pool.allowFirstIP {
+		return fmt.Errorf("cannot change allowFirstIP in existing pool %q", poolName)
+	}
+	if exists && options.allowLastIP != pool.allowLastIP {
+		return fmt.Errorf("cannot change allowLastIP in existing pool %q", poolName)
 	}
 
 	ipv4Prefixes, err := parseCIDRStrings(ipv4CIDRs)
@@ -296,10 +341,12 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 	}
 
 	p.pools[poolName] = cidrPool{
-		v4:         v4,
-		v6:         v6,
-		v4MaskSize: ipv4MaskSize,
-		v6MaskSize: ipv6MaskSize,
+		v4:           v4,
+		v6:           v6,
+		v4MaskSize:   ipv4MaskSize,
+		v6MaskSize:   ipv6MaskSize,
+		allowFirstIP: options.allowFirstIP,
+		allowLastIP:  options.allowLastIP,
 	}
 
 	return p.reconcileOrphanCIDRs(poolName, v4, v6)
@@ -329,10 +376,10 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 		)
 		delete(p.nodes[node], poolName)
 		for cidr := range cidrSets.v4 {
-			p.markOrphan(node, poolName, cidr)
+			p.markOrphan(node, poolName, cidr, cidrSets.allowFirstIP, cidrSets.allowLastIP)
 		}
 		for cidr := range cidrSets.v6 {
-			p.markOrphan(node, poolName, cidr)
+			p.markOrphan(node, poolName, cidr, cidrSets.allowFirstIP, cidrSets.allowLastIP)
 		}
 	}
 
@@ -368,7 +415,7 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools *types.IPAMPoolSpe
 			} else {
 				// pool cannot be found: it must be a pool deleted before the operator restarted.
 				// Mark the CIDR as orphan to preserve node allocations.
-				p.markOrphan(nodeName, allocatedPool.Pool, prefix)
+				p.markOrphan(nodeName, allocatedPool.Pool, prefix, allocatedPool.AllowFirstIP, allocatedPool.AllowLastIP)
 				err = errors.Join(err,
 					fmt.Errorf("unable to find pool %s, prefix %s is still allocated to the node but is marked as orphan",
 						allocatedPool.Pool, prefix))
@@ -402,10 +449,13 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools *types.IPAMPoolSpe
 
 	for _, reqPool := range pools.Requested {
 		allocatedCIDRs := p.nodes[nodeName][reqPool.Pool]
+		pool, ok := p.pools[reqPool.Pool]
+		allowFirstIP := ok && pool.allowFirstIP
+		allowLastIP := ok && pool.allowLastIP
 
 		if p.ipv4Enabled {
 			neededIPv4Addrs := big.NewInt(int64(reqPool.Needed.IPv4Addrs))
-			toAllocate := neededIPv4Addrs.Sub(neededIPv4Addrs, allocatedCIDRs.v4.availableAddrs())
+			toAllocate := neededIPv4Addrs.Sub(neededIPv4Addrs, allocatedCIDRs.v4.availableAddrs(allowFirstIP, allowLastIP))
 
 			if allocErr := p.allocateCIDRs(nodeName, reqPool.Pool, ipam.IPv4, toAllocate); allocErr != nil {
 				err = errors.Join(err,
@@ -415,7 +465,7 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools *types.IPAMPoolSpe
 		}
 		if p.ipv6Enabled {
 			neededIPv6Addrs := big.NewInt(int64(reqPool.Needed.IPv6Addrs))
-			toAllocate := neededIPv6Addrs.Sub(neededIPv6Addrs, allocatedCIDRs.v6.availableAddrs())
+			toAllocate := neededIPv6Addrs.Sub(neededIPv6Addrs, allocatedCIDRs.v6.availableAddrs(allowFirstIP, allowLastIP))
 
 			if allocErr := p.allocateCIDRs(nodeName, reqPool.Pool, ipam.IPv6, toAllocate); allocErr != nil {
 				err = errors.Join(err,
@@ -469,12 +519,20 @@ func (p *PoolAllocator) AllocatedPools(targetNode string) (pools []types.IPAMPoo
 			continue
 		}
 		sets := cidrSets{v4: cidrSet{}, v6: cidrSet{}}
-
-		maps.Copy(sets.v4, p.nodes[targetNode][poolName].v4)
-		maps.Copy(sets.v4, p.orphans[targetNode][poolName].v4)
-
-		maps.Copy(sets.v6, p.nodes[targetNode][poolName].v6)
-		maps.Copy(sets.v6, p.orphans[targetNode][poolName].v6)
+		if nodeSets, ok := p.nodes[targetNode][poolName]; ok {
+			sets.allowFirstIP = nodeSets.allowFirstIP
+			sets.allowLastIP = nodeSets.allowLastIP
+			maps.Copy(sets.v4, nodeSets.v4)
+			maps.Copy(sets.v6, nodeSets.v6)
+		}
+		if orphanSets, ok := p.orphans[targetNode][poolName]; ok {
+			if len(sets.v4) == 0 && len(sets.v6) == 0 {
+				sets.allowFirstIP = orphanSets.allowFirstIP
+				sets.allowLastIP = orphanSets.allowLastIP
+			}
+			maps.Copy(sets.v4, orphanSets.v4)
+			maps.Copy(sets.v6, orphanSets.v6)
+		}
 
 		poolToCIDRs[poolName] = sets
 	}
@@ -484,8 +542,10 @@ func (p *PoolAllocator) AllocatedPools(targetNode string) (pools []types.IPAMPoo
 		v6CIDRs := cidrs.v6.CIDRSlice()
 
 		pools = append(pools, types.IPAMPoolAllocation{
-			Pool:  poolName,
-			CIDRs: append(v4CIDRs, v6CIDRs...),
+			Pool:         poolName,
+			AllowFirstIP: cidrs.allowFirstIP,
+			AllowLastIP:  cidrs.allowLastIP,
+			CIDRs:        append(v4CIDRs, v6CIDRs...),
 		})
 	}
 
@@ -516,9 +576,12 @@ func (p *PoolAllocator) markAllocated(targetNode, sourcePool string, cidr netip.
 
 	cidrs, ok := pools[sourcePool]
 	if !ok {
+		pool := p.pools[sourcePool]
 		cidrs = cidrSets{
-			v4: cidrSet{},
-			v6: cidrSet{},
+			v4:           cidrSet{},
+			v6:           cidrSet{},
+			allowFirstIP: pool.allowFirstIP,
+			allowLastIP:  pool.allowLastIP,
 		}
 		pools[sourcePool] = cidrs
 	}
@@ -566,7 +629,7 @@ func (p *PoolAllocator) isOrphan(targetNode, sourcePool string, cidr netip.Prefi
 	return found
 }
 
-func (p *PoolAllocator) markOrphan(targetNode string, sourcePool string, cidr netip.Prefix) {
+func (p *PoolAllocator) markOrphan(targetNode string, sourcePool string, cidr netip.Prefix, allowFirstIP, allowLastIP bool) {
 	pools, ok := p.orphans[targetNode]
 	if !ok {
 		pools = poolToCIDRs{}
@@ -576,8 +639,10 @@ func (p *PoolAllocator) markOrphan(targetNode string, sourcePool string, cidr ne
 	cidrs, ok := pools[sourcePool]
 	if !ok {
 		cidrs = cidrSets{
-			v4: cidrSet{},
-			v6: cidrSet{},
+			v4:           cidrSet{},
+			v6:           cidrSet{},
+			allowFirstIP: allowFirstIP,
+			allowLastIP:  allowLastIP,
 		}
 		pools[sourcePool] = cidrs
 	}
@@ -640,7 +705,7 @@ func (p *PoolAllocator) allocateCIDRs(targetNode, sourcePool string, family ipam
 		}
 
 		p.markAllocated(targetNode, sourcePool, cidr)
-		toAllocate.Sub(toAllocate, addrsInPrefix(cidr))
+		toAllocate.Sub(toAllocate, addrsInPrefix(cidr, pool.allowFirstIP, pool.allowLastIP))
 	}
 
 	return nil

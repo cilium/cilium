@@ -17,52 +17,74 @@ const (
 	poolKeyIPv4MaskSize = "ipv4-mask-size"
 	poolKeyIPv6CIDRs    = "ipv6-cidrs"
 	poolKeyIPv6MaskSize = "ipv6-mask-size"
+	poolKeyAllowFirstIP = "allow-first-ip"
+	poolKeyAllowLastIP  = "allow-last-ip"
 )
+
+type ParsedPoolSpec struct {
+	IPv4         *cilium_v2alpha1.IPv4PoolSpec
+	IPv6         *cilium_v2alpha1.IPv6PoolSpec
+	AllowFirstIP bool
+	AllowLastIP  bool
+}
 
 // ParsePoolSpec parses a pool spec string in the form
 // "ipv4-cidrs:172.16.0.0/16,172.17.0.0/16;ipv4-mask-size:24".
-func ParsePoolSpec(poolString string) (*cilium_v2alpha1.IPv4PoolSpec, *cilium_v2alpha1.IPv6PoolSpec, error) {
+func ParsePoolSpec(poolString string) (*ParsedPoolSpec, error) {
 	fields := strings.FieldsFunc(strings.ReplaceAll(poolString, " ", ""), func(c rune) bool {
 		return c == ';'
 	})
 
 	var ipv4CIDRs, ipv6CIDRs []cilium_v2alpha1.PoolCIDR
 	var ipv4MaskSize, ipv6MaskSize uint8
+	var allowFirstIP, allowLastIP bool
 
 	for _, field := range fields {
 		key, value, ok := strings.Cut(field, ":")
 		if !ok {
-			return nil, nil, fmt.Errorf("invalid number of key delimiters in pool spec %s", poolString)
+			return nil, fmt.Errorf("invalid number of key delimiters in pool spec %s", poolString)
 		}
 		switch key {
 		case poolKeyIPv4CIDRs:
 			for cidr := range strings.SplitSeq(value, ",") {
 				_, err := netip.ParsePrefix(cidr)
 				if err != nil {
-					return nil, nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv4CIDRs, err)
+					return nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv4CIDRs, err)
 				}
 				ipv4CIDRs = append(ipv4CIDRs, cilium_v2alpha1.PoolCIDR(cidr))
 			}
 		case poolKeyIPv4MaskSize:
 			mask, err := strconv.ParseUint(value, 10, 8)
 			if err != nil {
-				return nil, nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv4MaskSize, err)
+				return nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv4MaskSize, err)
 			}
 			ipv4MaskSize = uint8(mask)
 		case poolKeyIPv6CIDRs:
 			for cidr := range strings.SplitSeq(value, ",") {
 				_, err := netip.ParsePrefix(cidr)
 				if err != nil {
-					return nil, nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv6CIDRs, err)
+					return nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv6CIDRs, err)
 				}
 				ipv6CIDRs = append(ipv6CIDRs, cilium_v2alpha1.PoolCIDR(cidr))
 			}
 		case poolKeyIPv6MaskSize:
 			mask, err := strconv.ParseUint(value, 10, 8)
 			if err != nil {
-				return nil, nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv6MaskSize, err)
+				return nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv6MaskSize, err)
 			}
 			ipv6MaskSize = uint8(mask)
+		case poolKeyAllowFirstIP:
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value for key %q: %w", poolKeyAllowFirstIP, err)
+			}
+			allowFirstIP = parsed
+		case poolKeyAllowLastIP:
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value for key %q: %w", poolKeyAllowLastIP, err)
+			}
+			allowLastIP = parsed
 		}
 	}
 
@@ -83,10 +105,15 @@ func ParsePoolSpec(poolString string) (*cilium_v2alpha1.IPv4PoolSpec, *cilium_v2
 		}
 	}
 
-	return v4PoolSpec, v6PoolSpec, nil
+	return &ParsedPoolSpec{
+		IPv4:         v4PoolSpec,
+		IPv6:         v6PoolSpec,
+		AllowFirstIP: allowFirstIP,
+		AllowLastIP:  allowLastIP,
+	}, nil
 }
 
-func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.IPv4PoolSpec, v6Spec *cilium_v2alpha1.IPv6PoolSpec) error {
+func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.IPv4PoolSpec, v6Spec *cilium_v2alpha1.IPv6PoolSpec, allowFirstIP, allowLastIP bool) error {
 	var ipv4CIDRs, ipv6CIDRs []string
 	var ipv4MaskSize, ipv6MaskSize int
 
@@ -106,12 +133,21 @@ func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.I
 		}
 	}
 
+	var opts []PoolOption
+	if allowFirstIP {
+		opts = append(opts, WithAllowFirstIP())
+	}
+	if allowLastIP {
+		opts = append(opts, WithAllowLastIP())
+	}
+
 	return allocator.UpsertPool(
 		name,
 		ipv4CIDRs,
 		ipv4MaskSize,
 		ipv6CIDRs,
 		ipv6MaskSize,
+		opts...,
 	)
 }
 

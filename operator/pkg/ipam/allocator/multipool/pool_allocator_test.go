@@ -420,6 +420,30 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
 
+	// allowFirstIP cannot be changed on existing pool
+	err = p.UpsertPool("mars",
+		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
+		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
+		WithAllowFirstIP(),
+	)
+	assert.ErrorContains(t, err, `cannot change allowFirstIP in existing pool "mars"`)
+	mars, exists = p.pools["mars"]
+	assert.True(t, exists)
+	assert.False(t, mars.allowFirstIP)
+	assert.False(t, mars.allowLastIP)
+
+	// allowLastIP cannot be changed on existing pool
+	err = p.UpsertPool("mars",
+		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
+		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
+		WithAllowLastIP(),
+	)
+	assert.ErrorContains(t, err, `cannot change allowLastIP in existing pool "mars"`)
+	mars, exists = p.pools["mars"]
+	assert.True(t, exists)
+	assert.False(t, mars.allowFirstIP)
+	assert.False(t, mars.allowLastIP)
+
 	// Changes in pool CIDRs are reflected in internal bookkeeping after upsert
 	err = p.UpsertPool("mars",
 		[]string{"10.1.0.0/16", "10.3.0.0/16", "10.10.0.0/16"}, 24,
@@ -458,9 +482,11 @@ func Test_addrsInPrefix(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		args netip.Prefix
-		want *big.Int
+		name         string
+		args         netip.Prefix
+		allowFirstIP bool
+		allowLastIP  bool
+		want         *big.Int
 	}{
 		{
 			name: "ipv4",
@@ -492,12 +518,123 @@ func Test_addrsInPrefix(t *testing.T) {
 			args: netip.MustParsePrefix("10.0.0.0/30"),
 			want: big.NewInt(2),
 		},
+		{
+			name:         "/30 with first IP allowed",
+			args:         netip.MustParsePrefix("10.0.0.0/30"),
+			allowFirstIP: true,
+			want:         big.NewInt(3),
+		},
+		{
+			name:        "/30 with last IP allowed",
+			args:        netip.MustParsePrefix("10.0.0.0/30"),
+			allowLastIP: true,
+			want:        big.NewInt(3),
+		},
+		{
+			name:         "/30 with first and last IPs allowed",
+			args:         netip.MustParsePrefix("10.0.0.0/30"),
+			allowFirstIP: true,
+			allowLastIP:  true,
+			want:         big.NewInt(4),
+		},
+		{
+			name:         "ipv6 with first and last IPs allowed",
+			args:         netip.MustParsePrefix("f00d::/126"),
+			allowFirstIP: true,
+			allowLastIP:  true,
+			want:         big.NewInt(4),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := addrsInPrefix(tt.args); got.Cmp(tt.want) != 0 {
+			if got := addrsInPrefix(tt.args, tt.allowFirstIP, tt.allowLastIP); got.Cmp(tt.want) != 0 {
 				t.Errorf("addrsInPrefix() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
+	tests := []struct {
+		name              string
+		options           []PoolOption
+		allowFirstIP      bool
+		allowLastIP       bool
+		expectedAllocated []iputil.Prefix
+	}{
+		{
+			name: "disabled",
+			expectedAllocated: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/30")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.4/30")),
+			},
+		},
+		{
+			name:         "first IP allowed",
+			options:      []PoolOption{WithAllowFirstIP()},
+			allowFirstIP: true,
+			expectedAllocated: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/30")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.4/30")),
+			},
+		},
+		{
+			name:        "last IP allowed",
+			options:     []PoolOption{WithAllowLastIP()},
+			allowLastIP: true,
+			expectedAllocated: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/30")),
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.4/30")),
+			},
+		},
+		{
+			name:         "first and last IPs allowed",
+			options:      []PoolOption{WithAllowFirstIP(), WithAllowLastIP()},
+			allowFirstIP: true,
+			allowLastIP:  true,
+			expectedAllocated: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/30")),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewPoolAllocator(hivetest.Logger(t), true, false)
+			err := p.UpsertPool("test-pool", []string{"10.0.0.0/29"}, 30, nil, 0, tt.options...)
+			assert.NoError(t, err)
+			p.RestoreFinished()
+
+			node := &v2.CiliumNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node",
+				},
+				Spec: v2.NodeSpec{
+					IPAM: ipamTypes.IPAMSpec{
+						Pools: ipamTypes.IPAMPoolSpec{
+							Requested: []ipamTypes.IPAMPoolRequest{
+								{
+									Pool: "test-pool",
+									Needed: ipamTypes.IPAMPoolDemand{
+										IPv4Addrs: 4,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			err = p.AllocateToNode(node.Name, &node.Spec.IPAM.Pools)
+			assert.NoError(t, err)
+			assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+				{
+					Pool:         "test-pool",
+					AllowFirstIP: tt.allowFirstIP,
+					AllowLastIP:  tt.allowLastIP,
+					CIDRs:        tt.expectedAllocated,
+				},
+			}, p.AllocatedPools(node.Name))
 		})
 	}
 }
