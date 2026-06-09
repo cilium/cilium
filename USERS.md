@@ -656,6 +656,12 @@ Users (Alphabetically)
       L: https://www.ovhcloud.com/
       Q: @scraly
 
+    * N: Pagali Payments Service
+      D: Pagali is using Cilium on AWS EKS (aws-cni chaining) for our own services.
+      U: Networking, Observability, Security, Service Mesh (GAMMA), Gateway API
+      L: https://pagali.com.br
+      Q: github (@dverzolla, @udleinati)
+      
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in all major cloud providers [AWS/Azure/GCP] (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering, IPSec
