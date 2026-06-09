@@ -45,7 +45,7 @@ type Input struct {
 }
 
 // GatewayAPI translates Gateway API resources into a model.
-func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TLSPassthroughListener) {
+func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 	var resHTTP []model.HTTPListener
 	var resTLSPassthrough []model.TLSPassthroughListener
 
@@ -141,7 +141,20 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 		}
 	}
 
-	return resHTTP, resTLSPassthrough
+	m := &model.Model{
+		HTTP:           resHTTP,
+		TLSPassthrough: resTLSPassthrough,
+	}
+
+	if input.GatewayClassConfig != nil {
+		m.HTTPOptions = &model.HTTPOptions{
+			GRPCWebTranslation: &model.GRPCWebTranslationConfig{
+				Enabled: input.GatewayClassConfig.GRPCWebTranslationEnabled(),
+			},
+		}
+	}
+
+	return m
 }
 
 func getBackendServiceName(namespace string, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
