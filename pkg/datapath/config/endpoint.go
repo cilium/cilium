@@ -43,6 +43,12 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
+	// In generic-veth CNI chaining the chained CNI delivers pod-ingress
+	// traffic straight to the veth (cil_to_container), bypassing
+	// local_delivery() where ingress bandwidth QoS is normally enforced.
+	// Signal the datapath to apply the ingress meter in cil_to_container.
+	cfg.CniChainingGenericVeth = option.Config.CNIChainingMode == "generic-veth"
+
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
