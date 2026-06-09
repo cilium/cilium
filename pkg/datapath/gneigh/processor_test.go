@@ -243,7 +243,7 @@ func TestProcessorDynamicUpdates(t *testing.T) {
 	proc.EndpointDeleted(ep1, endpoint.DeleteConfig{})
 
 	tx := db.WriteTxn(devices)
-	obj, _, found := devices.Get(tx, tables.DeviceIDIndex.Query(5))
+	obj, _, found := devices.Get(tx, tables.DeviceByIndex(5))
 	require.True(t, found)
 	devices.Delete(tx, obj)
 	tx.Commit()

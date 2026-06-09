@@ -309,7 +309,7 @@ func (c *desiredNeighborCalculator) getNextHopIP(fip netip.Addr, ifindex int) (n
 }
 
 func l2Devices(tbl statedb.Table[*tables.Device], rx statedb.ReadTxn) ([]*tables.Device, <-chan struct{}) {
-	devIter, watch := tbl.ListWatch(rx, tables.DeviceSelectedIndex.Query(true))
+	devIter, watch := tbl.ListWatch(rx, tables.DevicesBySelected(true))
 
 	return slices.Collect(func(yield func(*tables.Device) bool) {
 		for dev := range devIter {

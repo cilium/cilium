@@ -180,7 +180,7 @@ func (r *InterfaceReconciler) getInterfacePrefixes(advert v2.BGPAdvertisement, f
 	if advert.Interface == nil {
 		return nil
 	}
-	dev, _, found := r.deviceTable.Get(txn, tables.DeviceNameIndex.Query(advert.Interface.Name))
+	dev, _, found := r.deviceTable.Get(txn, tables.DeviceByName(advert.Interface.Name))
 	if !found {
 		return nil
 	}
