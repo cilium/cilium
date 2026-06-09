@@ -244,6 +244,82 @@ func TestIPCache(t *testing.T) {
 	require.Empty(t, s.IPIdentityCache.identityToIPCache)
 }
 
+func TestIPCacheLookupByHostRLockedEndpointOwnsEquivalentCIDR(t *testing.T) {
+	s := setupIPCacheTestSuite(t)
+	t.Parallel()
+
+	endpointIP := "fd00::100"
+	_, ipnet, err := net.ParseCIDR(endpointIP + "/128")
+	require.NoError(t, err)
+
+	cidrHostIP := net.ParseIP("fd01::1")
+	endpointHostIP := net.ParseIP("fd01::2")
+
+	_, err = s.IPIdentityCache.Upsert(endpointIP+"/128", cidrHostIP, 0, nil, Identity{
+		ID:     identityPkg.NumericIdentity(1001),
+		Source: source.Kubernetes,
+	})
+	require.NoError(t, err)
+	_, err = s.IPIdentityCache.Upsert(endpointIP, endpointHostIP, 0, nil, Identity{
+		ID:     identityPkg.NumericIdentity(1002),
+		Source: source.Kubernetes,
+	})
+	require.NoError(t, err)
+
+	requireLookupByHostContains(t, s.IPIdentityCache, nil, endpointHostIP, ipnet)
+	requireLookupByHostMissing(t, s.IPIdentityCache, nil, cidrHostIP, ipnet)
+}
+
+func TestIPCacheLookupByHostRLockedCIDROwnsWhenEndpointHasNoHost(t *testing.T) {
+	s := setupIPCacheTestSuite(t)
+	t.Parallel()
+
+	endpointIP := "fd00::100"
+	_, ipnet, err := net.ParseCIDR(endpointIP + "/128")
+	require.NoError(t, err)
+
+	cidrHostIP := net.ParseIP("fd01::1")
+
+	_, err = s.IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
+		ID:     identityPkg.NumericIdentity(1001),
+		Source: source.Kubernetes,
+	})
+	require.NoError(t, err)
+	_, err = s.IPIdentityCache.Upsert(endpointIP+"/128", cidrHostIP, 0, nil, Identity{
+		ID:     identityPkg.NumericIdentity(1002),
+		Source: source.Kubernetes,
+	})
+	require.NoError(t, err)
+
+	requireLookupByHostContains(t, s.IPIdentityCache, nil, cidrHostIP, ipnet)
+}
+
+func requireLookupByHostContains(t *testing.T, ipCache *IPCache, hostIPv4, hostIPv6 net.IP, expectedIP *net.IPNet) {
+	t.Helper()
+
+	ipCache.RLock()
+	defer ipCache.RUnlock()
+
+	cidrs := ipCache.LookupByHostRLocked(hostIPv4, hostIPv6)
+	require.True(t, containsIPNet(cidrs, expectedIP), "LookupByHostRLocked does not contain %s", expectedIP.String())
+}
+
+func requireLookupByHostMissing(t *testing.T, ipCache *IPCache, hostIPv4, hostIPv6 net.IP, expectedIP *net.IPNet) {
+	t.Helper()
+
+	ipCache.RLock()
+	defer ipCache.RUnlock()
+
+	cidrs := ipCache.LookupByHostRLocked(hostIPv4, hostIPv6)
+	require.False(t, containsIPNet(cidrs, expectedIP), "LookupByHostRLocked still contains %s", expectedIP.String())
+}
+
+func containsIPNet(cidrs []net.IPNet, expectedIP *net.IPNet) bool {
+	return slices.ContainsFunc(cidrs, func(ipnet net.IPNet) bool {
+		return ipnet.String() == expectedIP.String()
+	})
+}
+
 func TestIPCacheNamedPorts(t *testing.T) {
 	s := setupIPCacheTestSuite(t)
 	t.Parallel()

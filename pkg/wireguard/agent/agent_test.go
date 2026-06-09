@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -30,6 +32,9 @@ import (
 type fakeWgClient struct {
 	allowedIPs map[netip.Prefix]wgtypes.Key
 	peers      map[wgtypes.Key]wgtypes.Peer
+	err        error
+	errOnCall  int
+	calls      int
 }
 
 func newFakeWgClient(peers ...wgtypes.Peer) *fakeWgClient {
@@ -69,6 +74,11 @@ func (f *fakeWgClient) ConfigureDevice(name string, cfg wgtypes.Config) error {
 
 	if cfg.ReplacePeers {
 		clear(f.peers)
+	}
+
+	f.calls++
+	if f.err != nil && (f.errOnCall == 0 || f.errOnCall == f.calls) {
+		return f.err
 	}
 
 	for _, peer := range cfg.Peers {
@@ -187,6 +197,94 @@ func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 		}
 	}
 	return false
+}
+
+func testNode(name, pubKey string, ipv4, ipv6, health4, health6, ingress4, ingress6 net.IP) nodeTypes.Node {
+	node := nodeTypes.Node{
+		Name:            name,
+		WireguardPubKey: pubKey,
+		IPv4HealthIP:    health4,
+		IPv6HealthIP:    health6,
+		IPv4IngressIP:   ingress4,
+		IPv6IngressIP:   ingress6,
+	}
+	if ipv4 != nil {
+		node.IPAddresses = append(node.IPAddresses, nodeTypes.Address{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   ipv4,
+		})
+	}
+	if ipv6 != nil {
+		node.IPAddresses = append(node.IPAddresses, nodeTypes.Address{
+			Type: nodeaddressing.NodeInternalIP,
+			IP:   ipv6,
+		})
+	}
+	return node
+}
+
+func requirePeerAllowedIP(t *testing.T, wgClient *fakeWgClient, pubKey string, ipnet *net.IPNet) {
+	t.Helper()
+
+	allowedIPs := requirePeerAllowedIPs(t, wgClient, pubKey)
+	require.True(t, containsIP(slices.Values(allowedIPs), ipnet), "AllowedIPs does not contain %s", ipnet.String())
+}
+
+func requirePeerMissingAllowedIP(t *testing.T, wgClient *fakeWgClient, pubKey string, ipnet *net.IPNet) {
+	t.Helper()
+
+	allowedIPs := requirePeerAllowedIPs(t, wgClient, pubKey)
+	require.False(t, containsIP(slices.Values(allowedIPs), ipnet), "AllowedIPs still contains %s", ipnet.String())
+}
+
+func requirePeerAllowedIPs(t *testing.T, wgClient *fakeWgClient, pubKey string) []net.IPNet {
+	t.Helper()
+
+	key, err := wgtypes.ParseKey(pubKey)
+	require.NoError(t, err)
+	peer, ok := wgClient.peers[key]
+	require.True(t, ok, "missing peer for public key %s", pubKey)
+	return peer.AllowedIPs
+}
+
+func requireAllowedIPOwner(t *testing.T, wgClient *fakeWgClient, ipnet *net.IPNet, pubKey string) {
+	t.Helper()
+
+	expectedKey, err := wgtypes.ParseKey(pubKey)
+	require.NoError(t, err)
+	actualKey, ok := wgClient.allowedIPs[ipnetToPrefix(*ipnet)]
+	require.True(t, ok, "missing owner for AllowedIP %s", ipnet.String())
+	require.Equal(t, expectedKey, actualKey)
+}
+
+func newIPv6NativeRoutingTestAgent(t *testing.T) (*Agent, *ipcache.IPCache, *fakeWgClient) {
+	t.Helper()
+
+	wgClient := newFakeWgClient()
+	cfg := (&config{
+		RoutingMode: option.RoutingModeNative,
+	}).toAgentConfig()
+	cfg.EnableIPv4 = false
+	cfg.EnableIPv6 = true
+	wgAgent, ipCache := newTestAgent(t.Context(), hivetest.Logger(t), wgClient, cfg)
+	t.Cleanup(func() {
+		ipCache.Shutdown()
+	})
+
+	return wgAgent, ipCache, wgClient
+}
+
+func upsertIPCacheEntry(t *testing.T, ipCache *ipcache.IPCache, ip string, hostIP net.IP, identity ipcache.Identity) {
+	t.Helper()
+
+	_, err := ipCache.Upsert(ip, hostIP, 0, nil, identity)
+	require.NoError(t, err)
+}
+
+func deleteIPCacheEntry(t *testing.T, ipCache *ipcache.IPCache, ip string) {
+	t.Helper()
+
+	ipCache.Delete(ip, source.Kubernetes)
 }
 
 func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient, config Config) (*Agent, *ipcache.IPCache) {
@@ -399,6 +497,136 @@ func TestAgent_PeerConfig(t *testing.T) {
 			require.Empty(t, wgAgent.nodeNameByPubKey)
 		})
 	}
+}
+
+func TestAgent_IPCacheValidationBackfillsShadowedCIDR(t *testing.T) {
+	wgAgent, ipCache, wgClient := newIPv6NativeRoutingTestAgent(t)
+
+	node := testNode(k8s1NodeName, k8s1PubKey, nil, k8s1NodeIPv6, nil, nil, nil, nil)
+	err := wgAgent.NodeAdd(node)
+	require.NoError(t, err)
+
+	ip := net.ParseIP("fd00::100")
+	prefix := iputil.IPToPrefix(ip)
+	upsertIPCacheEntry(t, ipCache, ip.String(), nil, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s1NodeIPv6, ipcache.Identity{ID: 1002, Source: source.Kubernetes})
+
+	requirePeerMissingAllowedIP(t, wgClient, k8s1PubKey, prefix)
+
+	err = wgAgent.NodeValidateImplementation(node)
+	require.NoError(t, err)
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
+}
+
+func TestAgent_IPCacheExactEndpointHostWins(t *testing.T) {
+	wgAgent, ipCache, wgClient := newIPv6NativeRoutingTestAgent(t)
+
+	node1 := testNode(k8s1NodeName, k8s1PubKey, nil, k8s1NodeIPv6, nil, nil, nil, nil)
+	node2 := testNode(k8s2NodeName, k8s2PubKey, nil, k8s2NodeIPv6, nil, nil, nil, nil)
+	require.NoError(t, wgAgent.NodeAdd(node1))
+	require.NoError(t, wgAgent.NodeAdd(node2))
+
+	ip := net.ParseIP("fd00::100")
+	prefix := iputil.IPToPrefix(ip)
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s1NodeIPv6, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
+
+	upsertIPCacheEntry(t, ipCache, ip.String(), k8s2NodeIPv6, ipcache.Identity{ID: 1002, Source: source.Kubernetes})
+
+	requirePeerMissingAllowedIP(t, wgClient, k8s1PubKey, prefix)
+	requirePeerAllowedIP(t, wgClient, k8s2PubKey, prefix)
+	requireAllowedIPOwner(t, wgClient, prefix, k8s2PubKey)
+}
+
+func TestAgent_IPCacheHostMoveTransfersAllowedIP(t *testing.T) {
+	wgAgent, ipCache, wgClient := newIPv6NativeRoutingTestAgent(t)
+
+	node1 := testNode(k8s1NodeName, k8s1PubKey, nil, k8s1NodeIPv6, nil, nil, nil, nil)
+	node2 := testNode(k8s2NodeName, k8s2PubKey, nil, k8s2NodeIPv6, nil, nil, nil, nil)
+	require.NoError(t, wgAgent.NodeAdd(node1))
+	require.NoError(t, wgAgent.NodeAdd(node2))
+
+	prefix := iputil.IPToPrefix(net.ParseIP("fd00::100"))
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s1NodeIPv6, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
+
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s2NodeIPv6, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+
+	requirePeerMissingAllowedIP(t, wgClient, k8s1PubKey, prefix)
+	requirePeerAllowedIP(t, wgClient, k8s2PubKey, prefix)
+	requireAllowedIPOwner(t, wgClient, prefix, k8s2PubKey)
+}
+
+func TestAgent_IPCacheValidationTransfersAfterFailedMove(t *testing.T) {
+	wgAgent, ipCache, wgClient := newIPv6NativeRoutingTestAgent(t)
+
+	node1 := testNode(k8s1NodeName, k8s1PubKey, nil, k8s1NodeIPv6, nil, nil, nil, nil)
+	node2 := testNode(k8s2NodeName, k8s2PubKey, nil, k8s2NodeIPv6, nil, nil, nil, nil)
+	require.NoError(t, wgAgent.NodeAdd(node1))
+	require.NoError(t, wgAgent.NodeAdd(node2))
+
+	prefix := iputil.IPToPrefix(net.ParseIP("fd00::100"))
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s1NodeIPv6, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
+
+	wgClient.err = unix.EIO
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s2NodeIPv6, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
+	requirePeerMissingAllowedIP(t, wgClient, k8s2PubKey, prefix)
+
+	wgClient.err = nil
+	err := wgAgent.NodeValidateImplementation(node2)
+	require.NoError(t, err)
+	requirePeerMissingAllowedIP(t, wgClient, k8s1PubKey, prefix)
+	requirePeerAllowedIP(t, wgClient, k8s2PubKey, prefix)
+
+	err = wgAgent.NodeValidateImplementation(node1)
+	require.NoError(t, err)
+	requirePeerMissingAllowedIP(t, wgClient, k8s1PubKey, prefix)
+	requirePeerAllowedIP(t, wgClient, k8s2PubKey, prefix)
+	requireAllowedIPOwner(t, wgClient, prefix, k8s2PubKey)
+}
+
+func TestAgent_IPCacheDeleteCancelsFailedInsert(t *testing.T) {
+	wgAgent, ipCache, wgClient := newIPv6NativeRoutingTestAgent(t)
+
+	node := testNode(k8s1NodeName, k8s1PubKey, nil, k8s1NodeIPv6, nil, nil, nil, nil)
+	require.NoError(t, wgAgent.NodeAdd(node))
+
+	prefix := iputil.IPToPrefix(net.ParseIP("fd00::100"))
+	wgClient.err = unix.EIO
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s1NodeIPv6, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+	requirePeerMissingAllowedIP(t, wgClient, k8s1PubKey, prefix)
+
+	deleteIPCacheEntry(t, ipCache, prefix.String())
+	wgClient.err = nil
+
+	err := wgAgent.NodeValidateImplementation(node)
+	require.NoError(t, err)
+	requirePeerMissingAllowedIP(t, wgClient, k8s1PubKey, prefix)
+}
+
+func TestAgent_IPCacheUpsertCancelsFailedRemoval(t *testing.T) {
+	wgAgent, ipCache, wgClient := newIPv6NativeRoutingTestAgent(t)
+
+	node := testNode(k8s1NodeName, k8s1PubKey, nil, k8s1NodeIPv6, nil, nil, nil, nil)
+	require.NoError(t, wgAgent.NodeAdd(node))
+
+	prefix := iputil.IPToPrefix(net.ParseIP("fd00::100"))
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s1NodeIPv6, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
+
+	wgClient.err = unix.EIO
+	deleteIPCacheEntry(t, ipCache, prefix.String())
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
+
+	wgClient.err = nil
+	upsertIPCacheEntry(t, ipCache, prefix.String(), k8s1NodeIPv6, ipcache.Identity{ID: 1001, Source: source.Kubernetes})
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
+
+	err := wgAgent.NodeValidateImplementation(node)
+	require.NoError(t, err)
+	requirePeerAllowedIP(t, wgClient, k8s1PubKey, prefix)
 }
 
 // Expectations in TestAgent_PeerConfig are checked as follows:
