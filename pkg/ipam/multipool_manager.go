@@ -685,10 +685,10 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix
 	if !ok {
 		pool = &poolPair{}
 		if m.ipv4Enabled {
-			pool.v4 = newCIDRPool(m.logger, m.allowFirstLastIPs)
+			pool.v4 = newCIDRPool(m.logger, false, false)
 		}
 		if m.ipv6Enabled {
-			pool.v6 = newCIDRPool(m.logger, m.allowFirstLastIPs)
+			pool.v6 = newCIDRPool(m.logger, false, false)
 		}
 	}
 
