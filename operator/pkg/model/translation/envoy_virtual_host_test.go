@@ -641,6 +641,7 @@ func Test_retryMutation(t *testing.T) {
 		}
 
 		res := retryMutation(retry)(route)
+		require.Equal(t, "retriable-status-codes,connect-failure,reset,refused-stream", res.Route.RetryPolicy.RetryOn)
 		require.Equal(t, []uint32{500, 503}, res.Route.RetryPolicy.RetriableStatusCodes)
 		require.Empty(t, res.Route.RetryPolicy.RetryBackOff)
 		require.Equal(t, uint32(3), res.Route.RetryPolicy.NumRetries.Value)
@@ -657,11 +658,44 @@ func Test_retryMutation(t *testing.T) {
 		}
 
 		res := retryMutation(retry)(route)
+		require.Equal(t, "retriable-status-codes,connect-failure,reset,refused-stream", res.Route.RetryPolicy.RetryOn)
 		require.Equal(t, []uint32{500, 503}, res.Route.RetryPolicy.RetriableStatusCodes)
 		require.Equal(t, uint32(3), res.Route.RetryPolicy.NumRetries.Value)
 		require.NotEmpty(t, res.Route.RetryPolicy.RetryBackOff)
 		require.Equal(t, int64(10), res.Route.RetryPolicy.RetryBackOff.BaseInterval.Seconds)
 		require.Equal(t, int64(20), res.Route.RetryPolicy.RetryBackOff.MaxInterval.Seconds)
+	})
+
+	t.Run("with retry without codes still retries on connection errors", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		retry := &model.HTTPRetry{
+			Attempts: ptr.To(3),
+		}
+
+		res := retryMutation(retry)(route)
+		// Per GEP-1731, a configured retry stanza should retry connection errors
+		// even when no status codes are specified.
+		require.Equal(t, "retriable-status-codes,connect-failure,reset,refused-stream", res.Route.RetryPolicy.RetryOn)
+		require.Empty(t, res.Route.RetryPolicy.RetriableStatusCodes)
+		require.Equal(t, uint32(3), res.Route.RetryPolicy.NumRetries.Value)
+	})
+
+	t.Run("with retry without attempts leaves num_retries unset", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		retry := &model.HTTPRetry{
+			Codes: []uint32{503},
+		}
+
+		res := retryMutation(retry)(route)
+		require.Equal(t, "retriable-status-codes,connect-failure,reset,refused-stream", res.Route.RetryPolicy.RetryOn)
+		require.Equal(t, []uint32{503}, res.Route.RetryPolicy.RetriableStatusCodes)
+		// Attempts unset -> NumRetries stays nil in the generated config; Envoy
+		// applies its own default of 1 at runtime.
+		require.Nil(t, res.Route.RetryPolicy.NumRetries)
 	})
 }
 
