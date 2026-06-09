@@ -9,9 +9,12 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/hive/script"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Client is the client to interact with the kvstore (i.e., etcd).
@@ -32,6 +35,9 @@ type clientImpl struct {
 
 	stats *spanstat.SpanStat
 
+	jg        job.Group
+	asyncWait bool
+
 	BackendOperations
 }
 
@@ -43,11 +49,24 @@ func (cl *clientImpl) Start(hctx cell.HookContext) (err error) {
 	cl.stats.Start()
 	defer func() { cl.stats.EndError(err) }()
 
+	const timeout = 5 * time.Second
+
+	var (
+		circuitBreaker <-chan time.Time
+		timedOut       bool
+	)
+
+	if cl.asyncWait {
+		circuitBreaker = time.After(timeout)
+	}
+
 	cl.logger.Info("Establishing connection to kvstore")
 	client, errCh := NewClient(context.Background(), cl.logger, cl.cfg.KVStore, cl.cfg.KVStoreOpt, cl.opts)
 
 	select {
 	case err = <-errCh:
+	case <-circuitBreaker:
+		timedOut = true
 	case <-hctx.Done():
 		err = hctx.Err()
 	}
@@ -60,7 +79,32 @@ func (cl *clientImpl) Start(hctx cell.HookContext) (err error) {
 		return fmt.Errorf("failed to establish connection to kvstore: %w", err)
 	}
 
-	cl.logger.Info("Connection to kvstore successfully established")
+	if !timedOut {
+		cl.logger.Info("Connection to kvstore successfully established")
+	} else {
+		cl.logger.Info("Failed to establish connection to kvstore within timeout, continuing in background", logfields.Timeout, timeout)
+		cl.jg.Add(
+			job.OneShot(
+				"kvstore-wait-for-connection",
+				func(ctx context.Context, _ cell.Health) error {
+					select {
+					case err := <-errCh:
+						if err != nil {
+							return fmt.Errorf("failed to establish connection to kvstore: %w", err)
+						}
+
+						cl.logger.Info("Connection to kvstore successfully established")
+						return nil
+
+					case <-ctx.Done():
+						return nil
+					}
+				},
+				job.WithShutdown(),
+			),
+		)
+	}
+
 	cl.BackendOperations = client
 
 	return nil
