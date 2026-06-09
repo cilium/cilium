@@ -192,7 +192,7 @@ func (ops *ops) Update(_ context.Context, rxn statedb.ReadTxn, _ statedb.Revisio
 
 	if obj.Device != nil {
 		// Verify that the device still exists.
-		_, _, found := ops.devices.Get(rxn, tables.DeviceIDIndex.Query(obj.Device.Index))
+		_, _, found := ops.devices.Get(rxn, tables.DeviceByIndex(obj.Device.Index))
 		if !found {
 			return errDeviceNotFound
 		}

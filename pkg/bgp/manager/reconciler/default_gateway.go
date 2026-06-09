@@ -168,7 +168,7 @@ func (r *DefaultGatewayReconciler) getDefaultGateway(defaultGateway *v2.DefaultG
 		if !route.Gw.IsValid() || route.Dst != defaultRoute {
 			continue
 		}
-		dev, _, found := r.deviceTable.Get(txn, tables.DeviceIDIndex.Query(route.LinkIndex))
+		dev, _, found := r.deviceTable.Get(txn, tables.DeviceByIndex(route.LinkIndex))
 		// ignore routes if the link through which it is reachable is not up
 		if !found || dev.OperStatus != "up" {
 			continue

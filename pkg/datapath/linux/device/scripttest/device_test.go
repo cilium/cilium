@@ -154,7 +154,7 @@ func testDesiredDevicesCmds(db *statedb.DB, dm linuxdevice.ManagerOperations, de
 				return nil, fmt.Errorf("failed to unmarshal device file %q: %w", args[1], err)
 			}
 
-			dev, _, found := devTbl.Get(db.ReadTxn(), tables.DeviceNameIndex.Query(device.ParentName))
+			dev, _, found := devTbl.Get(db.ReadTxn(), tables.DeviceByName(device.ParentName))
 			if !found {
 				return nil, fmt.Errorf("parent device %q not found for VLAN device %q", device.ParentName, device.Name)
 			}

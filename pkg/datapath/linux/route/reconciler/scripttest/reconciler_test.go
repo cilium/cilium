@@ -169,9 +169,9 @@ func testDesiredRouteCmds(db *statedb.DB, drm *reconciler.DesiredRouteManager, d
 			if route.Device != "" || route.DeviceIfIndex != 0 {
 				var q statedb.Query[*tables.Device]
 				if route.Device != "" {
-					q = tables.DeviceNameIndex.Query(route.Device)
+					q = tables.DeviceByName(route.Device)
 				} else if route.DeviceIfIndex != 0 {
-					q = tables.DeviceIDIndex.Query(route.DeviceIfIndex)
+					q = tables.DeviceByIndex(route.DeviceIfIndex)
 				}
 
 				var found bool
@@ -190,7 +190,7 @@ func testDesiredRouteCmds(db *statedb.DB, drm *reconciler.DesiredRouteManager, d
 				var dev *tables.Device
 				if p.Device != "" {
 					var found bool
-					dev, _, found = devTbl.Get(db.ReadTxn(), tables.DeviceNameIndex.Query(p.Device))
+					dev, _, found = devTbl.Get(db.ReadTxn(), tables.DeviceByName(p.Device))
 					if !found {
 						return nil, fmt.Errorf("device %q not found", p.Device)
 					}

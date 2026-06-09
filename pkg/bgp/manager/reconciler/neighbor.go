@@ -380,7 +380,7 @@ func (r *NeighborReconciler) getInterfaceLocalAddress(interfaceName, peerAddress
 		logfields.Interface, interfaceName,
 		types.PeerLogField, peerAddress,
 	)
-	dev, _, deviceFound := r.DeviceTable.Get(r.DB.ReadTxn(), tables.DeviceNameIndex.Query(interfaceName))
+	dev, _, deviceFound := r.DeviceTable.Get(r.DB.ReadTxn(), tables.DeviceByName(interfaceName))
 	if !deviceFound {
 		log.Warn("Interface not found, can not use it as the source interface for the peer.")
 		return "", false, nil

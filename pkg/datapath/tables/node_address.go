@@ -328,7 +328,7 @@ func (n *nodeAddressController) reconcile() *statedb.WatchSet {
 			continue
 		}
 
-		dev, _, found := n.Devices.Get(rtxn, DeviceIDIndex.Query(route.LinkIndex))
+		dev, _, found := n.Devices.Get(rtxn, DeviceByIndex(route.LinkIndex))
 		if !found {
 			continue
 		}

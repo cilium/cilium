@@ -291,8 +291,8 @@ func (o *orchestrator) waitForHostDevices(ctx context.Context, health cell.Healt
 	health.OK("Waiting for host devices")
 	for {
 		rxt := o.params.DB.ReadTxn()
-		_, _, hostWatch, hostOK := o.params.Devices.GetWatch(rxt, tables.DeviceNameIndex.Query(defaults.HostDevice))
-		_, _, netWatch, netOK := o.params.Devices.GetWatch(rxt, tables.DeviceNameIndex.Query(defaults.SecondHostDevice))
+		_, _, hostWatch, hostOK := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.HostDevice))
+		_, _, netWatch, netOK := o.params.Devices.GetWatch(rxt, tables.DeviceByName(defaults.SecondHostDevice))
 		if hostOK && netOK {
 			return nil
 		}

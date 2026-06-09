@@ -434,7 +434,7 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]any) {
 	before := dc.deviceNameSet(txn)
 	for index, updates := range batch {
-		d, _, _ := dc.params.DeviceTable.Get(txn, tables.DeviceIDIndex.Query(index))
+		d, _, _ := dc.params.DeviceTable.Get(txn, tables.DeviceByIndex(index))
 		if d == nil {
 			// Unseen device. We may receive address updates before link updates
 			// and thus the only thing we know at this point is the index.
@@ -666,7 +666,7 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 
 	// Ignore bridge and bonding children devices, but allow VRF device children.
 	if d.MasterIndex != 0 {
-		masterDevice, _, ok := dc.params.DeviceTable.Get(txn, tables.DeviceIDIndex.Query(d.MasterIndex))
+		masterDevice, _, ok := dc.params.DeviceTable.Get(txn, tables.DeviceByIndex(d.MasterIndex))
 		if !ok {
 			return false, fmt.Sprintf("device has parent but parent device could not be found: %d", d.MasterIndex)
 		}

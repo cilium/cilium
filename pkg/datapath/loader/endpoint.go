@@ -315,7 +315,7 @@ func upsertEndpointRoute(db *statedb.DB, devices statedb.Table[*tables.Device], 
 	for {
 		var found bool
 		var watch <-chan struct{}
-		epDev, _, watch, found = devices.GetWatch(db.ReadTxn(), tables.DeviceIDIndex.Query(ep.GetIfIndex()))
+		epDev, _, watch, found = devices.GetWatch(db.ReadTxn(), tables.DeviceByIndex(ep.GetIfIndex()))
 		if found {
 			break
 		}

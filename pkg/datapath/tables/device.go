@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	DeviceIDIndex = statedb.Index[*Device, int]{
+	deviceIndexIndex = statedb.Index[*Device, int]{
 		Name: "id",
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.Int(d.Index))
@@ -26,7 +26,7 @@ var (
 		Unique:     true,
 	}
 
-	DeviceNameIndex = statedb.Index[*Device, string]{
+	deviceNameIndex = statedb.Index[*Device, string]{
 		Name: "name",
 		FromObject: func(d *Device) index.KeySet {
 			keys := make([]index.Key, 0, 1+len(d.AltNames))
@@ -40,7 +40,7 @@ var (
 		FromString: index.FromString,
 	}
 
-	DeviceSelectedIndex = statedb.Index[*Device, bool]{
+	deviceSelectedIndex = statedb.Index[*Device, bool]{
 		Name: "selected",
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.Bool(d.Selected))
@@ -48,15 +48,24 @@ var (
 		FromKey:    index.Bool,
 		FromString: index.BoolString,
 	}
+
+	// DeviceByIndex queries the devices table by device index.
+	DeviceByIndex = deviceIndexIndex.Query
+
+	// DeviceByName queries the devices table by device name.
+	DeviceByName = deviceNameIndex.Query
+
+	// DevicesBySelected queries the selected devices from devices table.
+	DevicesBySelected = deviceSelectedIndex.Query
 )
 
 func NewDeviceTable(db *statedb.DB) (statedb.RWTable[*Device], error) {
 	return statedb.NewTable(
 		db,
 		"devices",
-		DeviceIDIndex,
-		DeviceNameIndex,
-		DeviceSelectedIndex,
+		deviceIndexIndex,
+		deviceNameIndex,
+		deviceSelectedIndex,
 	)
 }
 
@@ -185,7 +194,7 @@ func (d *DeviceAddress) DeepEqual(other *DeviceAddress) bool {
 // The invalidated channel is closed when devices have changed and
 // should be requeried with a new transaction.
 func SelectedDevices(tbl statedb.Table[*Device], txn statedb.ReadTxn) ([]*Device, <-chan struct{}) {
-	iter, invalidated := tbl.ListWatch(txn, DeviceSelectedIndex.Query(true))
+	iter, invalidated := tbl.ListWatch(txn, deviceSelectedIndex.Query(true))
 	return statedb.Collect(iter), invalidated
 }
 
