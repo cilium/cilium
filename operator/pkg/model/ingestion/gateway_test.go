@@ -66,12 +66,12 @@ func TestHTTPGatewayAPI(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			input := readGatewayInput(t, name)
-			listeners, _ := GatewayAPI(logger, input)
+			m := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
 
-			assert.Equal(t, toYaml(t, expected), toYaml(t, listeners), "Listeners did not match")
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.HTTP), "Listeners did not match")
 		})
 	}
 }
@@ -80,7 +80,7 @@ func TestHTTPGatewayAPIFiltersSelectorNamespacesPerListener(t *testing.T) {
 	selector := gatewayv1.NamespacesFromSelector
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
-	listeners, _ := GatewayAPI(logger, Input{
+	m := GatewayAPI(logger, Input{
 		Gateway: gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "selector-listener-conflict-gateway",
@@ -174,13 +174,13 @@ func TestHTTPGatewayAPIFiltersSelectorNamespacesPerListener(t *testing.T) {
 		},
 	})
 
-	require.Len(t, listeners, 2)
-	require.Equal(t, "http-selected", listeners[0].Name)
-	require.Len(t, listeners[0].Routes, 1)
-	assert.Equal(t, []string{"selected.example.test"}, listeners[0].Routes[0].Hostnames)
+	require.Len(t, m.HTTP, 2)
+	require.Equal(t, "http-selected", m.HTTP[0].Name)
+	require.Len(t, m.HTTP[0].Routes, 1)
+	assert.Equal(t, []string{"selected.example.test"}, m.HTTP[0].Routes[0].Hostnames)
 
-	require.Equal(t, "http-unselected", listeners[1].Name)
-	assert.Empty(t, listeners[1].Routes)
+	require.Equal(t, "http-unselected", m.HTTP[1].Name)
+	assert.Empty(t, m.HTTP[1].Routes)
 }
 
 func TestTLSGatewayAPI(t *testing.T) {
@@ -197,11 +197,11 @@ func TestTLSGatewayAPI(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			input := readGatewayInput(t, name)
-			_, listeners := GatewayAPI(logger, input)
+			m := GatewayAPI(logger, input)
 
 			expected := []model.TLSPassthroughListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
-			assert.Equal(t, toYaml(t, expected), toYaml(t, listeners), "Listeners did not match")
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.TLSPassthrough), "Listeners did not match")
 		})
 	}
 }
@@ -217,11 +217,11 @@ func TestGRPCGatewayAPI(t *testing.T) {
 
 			input := readGatewayInput(t, name)
 
-			listeners, _ := GatewayAPI(logger, input)
+			m := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
-			assert.Equal(t, toYaml(t, expected), toYaml(t, listeners), "Listeners did not match")
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.HTTP), "Listeners did not match")
 		})
 	}
 }
