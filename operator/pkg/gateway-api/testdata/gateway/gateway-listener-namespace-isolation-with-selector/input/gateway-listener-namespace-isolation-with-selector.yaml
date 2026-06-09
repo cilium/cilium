@@ -1,0 +1,63 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: listener-namespace-isolation-with-selector
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - name: http-backend-namespaces
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            gateway-conformance: backend
+  - name: http-infra-only
+    port: 8080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-matches-selector-only
+  # This is in the backend namespace.
+  # It should NOT attach to the infra listener on port 8080
+  namespace: gateway-conformance-web-backend
+spec:
+  parentRefs:
+  - name: listener-namespace-isolation-with-selector
+    namespace: gateway-conformance-infra
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /from-backend-namespace
+    backendRefs:
+    - name: web-backend
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-matches-same-only
+  # This is in the infra namespace.
+  # It should NOT attach to the backend listener on port 80
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: listener-namespace-isolation-with-selector
+    namespace: gateway-conformance-infra
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /from-infra-namespace
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080

@@ -1,0 +1,35 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-matches-selector-only
+  namespace: gateway-conformance-web-backend
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: listener-namespace-isolation-with-selector
+    namespace: gateway-conformance-infra
+  rules:
+  - backendRefs:
+    - name: web-backend
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /from-backend-namespace
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2026-06-09T06:30:23Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-09T06:30:23Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: listener-namespace-isolation-with-selector
+      namespace: gateway-conformance-infra

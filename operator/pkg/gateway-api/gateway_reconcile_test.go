@@ -106,6 +106,18 @@ func Test_Conformance(t *testing.T) {
 			},
 		},
 		{
+			name: "gateway-listener-namespace-isolation",
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "listener-namespace-isolation", Namespace: "gateway-conformance-infra"}},
+			},
+		},
+		{
+			name: "gateway-listener-namespace-isolation-with-selector",
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "listener-namespace-isolation-with-selector", Namespace: "gateway-conformance-infra"}},
+			},
+		},
+		{
 			name:    "gateway-infrastructure",
 			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-with-infrastructure-metadata", Namespace: "gateway-conformance-infra"}}},
 		},

@@ -1,0 +1,80 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: listener-namespace-isolation
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    name: http-all-namespaces
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    name: http-same-namespace
+    port: 8080
+    protocol: HTTP
+status:
+  conditions:
+  - lastTransitionTime: "2026-06-09T06:30:23Z"
+    message: Gateway successfully scheduled
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: "2026-06-09T06:30:23Z"
+    message: Gateway waiting for address
+    reason: AddressNotAssigned
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: "2026-06-09T06:30:23Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    - lastTransitionTime: "2026-06-09T06:30:23Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-09T06:30:23Z"
+      message: Address not ready yet
+      reason: Pending
+      status: "False"
+      type: Programmed
+    name: http-all-namespaces
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: "2026-06-09T06:30:23Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    - lastTransitionTime: "2026-06-09T06:30:23Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-09T06:30:23Z"
+      message: Address not ready yet
+      reason: Pending
+      status: "False"
+      type: Programmed
+    name: http-same-namespace
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
