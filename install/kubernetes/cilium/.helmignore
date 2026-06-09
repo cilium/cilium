@@ -22,3 +22,5 @@
 .idea/
 *.tmproj
 .vscode/
+*.tmpl
+*.gotmpl
