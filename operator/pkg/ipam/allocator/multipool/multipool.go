@@ -66,7 +66,7 @@ var DefaultConfig = Config{
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.StringToString(autoCreateCiliumPodIPPoolsFlag, DefaultConfig.AutoCreatePools,
 		"Automatically create CiliumPodIPPool resources on startup. "+
-			"Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)")
+			"Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size>[;allow-first-ip:<bool>][;allow-last-ip:<bool>] (multiple pools can also be passed by repeating the CLI flag)")
 	flags.Bool(enableClusterPoolToMultiPoolMigration, DefaultConfig.FromClusterPoolMigration,
 		"Enable the migration of all nodes from cluster-pool IPAM to multi-pool IPAM")
 	flags.String(option.IPAMDefaultIPPool, DefaultConfig.IPAMDefaultPool, "Name of the default IP Pool when using multi-pool")
@@ -198,7 +198,7 @@ func StartAllocator(p multiPoolParams) {
 
 func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, poolMap map[string]string, logger *slog.Logger) error {
 	for poolName, poolSpecStr := range poolMap {
-		v4PoolSpec, v6PoolSpec, err := ParsePoolSpec(poolSpecStr)
+		poolSpec, err := ParsePoolSpec(poolSpecStr)
 		if err != nil {
 			logger.ErrorContext(ctx,
 				fmt.Sprintf("Failed to parse IP pool spec in %q flag", autoCreateCiliumPodIPPoolsFlag),
@@ -213,8 +213,10 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 				Name: poolName,
 			},
 			Spec: cilium_v2alpha1.IPPoolSpec{
-				IPv4: v4PoolSpec,
-				IPv6: v6PoolSpec,
+				IPv4:         poolSpec.IPv4,
+				IPv6:         poolSpec.IPv6,
+				AllowFirstIP: poolSpec.AllowFirstIP,
+				AllowLastIP:  poolSpec.AllowLastIP,
 			},
 		}
 
@@ -403,7 +405,7 @@ func startIPPoolAllocator(
 			case resource.Sync:
 				close(synced)
 			case resource.Upsert:
-				err = UpsertPool(allocator, ev.Object.Name, ev.Object.Spec.IPv4, ev.Object.Spec.IPv6)
+				err = UpsertPool(allocator, ev.Object.Name, ev.Object.Spec.IPv4, ev.Object.Spec.IPv6, ev.Object.Spec.AllowFirstIP, ev.Object.Spec.AllowLastIP)
 				action = "upsert"
 			case resource.Delete:
 				err = DeletePool(allocator, ev.Object.Name)
