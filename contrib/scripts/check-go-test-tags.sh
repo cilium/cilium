@@ -34,4 +34,4 @@ script=$(cat << 'EOF'
 EOF
 )
 
-find . -name "*_test.go" -exec awk -v allowed="^($allowed)$" "$script" {} \;
+find . -name "*_test.go" -exec awk -v allowed="^($allowed)$" "$script" {} +
