@@ -40,8 +40,8 @@ jobs:
       # This is to avoid waiting for base images on push to main or merge_group
       # events as the lint-images-base does not run on those events.
       if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
-      sha: ${{ github.event.pull_request.head.sha || github.sha }}
-      lint-workflows: "lint-images-base.yaml"
+      pr-number: ${{ github.event.pull_request.number }}
+      lint-names: 'Lint image build logic'
       timeout-minutes: 2
       poll-interval: 15
 
