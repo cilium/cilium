@@ -40,7 +40,7 @@ type Input struct {
 }
 
 // GatewayAPI translates Gateway API resources into a model.
-func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListener) {
+func GatewayAPI(input Input) *model.Model {
 	var resHTTP []model.HTTPListener
 	var resTLSPassthrough []model.TLSPassthroughListener
 
@@ -134,7 +134,12 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 		}
 	}
 
-	return resHTTP, resTLSPassthrough
+	m := &model.Model{
+		HTTP:           resHTTP,
+		TLSPassthrough: resTLSPassthrough,
+	}
+
+	return m
 }
 
 func getBackendServiceName(namespace string, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
