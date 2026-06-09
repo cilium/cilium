@@ -206,7 +206,6 @@ func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
 type nodeAddressControllerParams struct {
 	cell.In
 
-	Health          cell.Health
 	Log             *slog.Logger
 	Config          NodeAddressConfig
 	Lifecycle       cell.Lifecycle
@@ -243,18 +242,18 @@ func (n *nodeAddressController) register() {
 				// Perform an initial synchronous reconciliation to populate the table.
 				// This ensures that dependent cells see the initial state when they start.
 				// The watch channels returned here will be the initial channels for the run loop.
-				ws := n.reconcile()
+				ws := n.reconcile(nil)
 
 				// Start the background job for continuous reconciliation.
-				n.Jobs.Add(job.OneShot("node-address-update", func(ctx context.Context, reporter cell.Health) error {
-					return n.run(ctx, ws)
+				n.Jobs.Add(job.OneShot("node-address-update", func(ctx context.Context, health cell.Health) error {
+					return n.run(ctx, ws, health)
 				}))
 				return nil
 			},
 		})
 }
 
-func (n *nodeAddressController) run(ctx context.Context, ws *statedb.WatchSet) error {
+func (n *nodeAddressController) run(ctx context.Context, ws *statedb.WatchSet, health cell.Health) error {
 	for {
 		// Wait for changes
 		closedChannels, err := ws.Wait(ctx, nodeAddressControllerMinInterval)
@@ -263,7 +262,7 @@ func (n *nodeAddressController) run(ctx context.Context, ws *statedb.WatchSet) e
 		}
 		if len(closedChannels) > 0 {
 			// Perform the full reconciliation and get new watch set
-			ws = n.reconcile()
+			ws = n.reconcile(health)
 		}
 	}
 }
@@ -271,7 +270,7 @@ func (n *nodeAddressController) run(ctx context.Context, ws *statedb.WatchSet) e
 // reconcile performs a full reconciliation of the NodeAddress table. It computes
 // the desired state from the Devices table and updates the NodeAddress table
 // to match it. It returns the read transaction and new watch channels for Devices and Routes.
-func (n *nodeAddressController) reconcile() *statedb.WatchSet {
+func (n *nodeAddressController) reconcile(health cell.Health) *statedb.WatchSet {
 	ws := statedb.NewWatchSet()
 
 	rtxn := n.DB.ReadTxn()
@@ -384,12 +383,12 @@ func (n *nodeAddressController) reconcile() *statedb.WatchSet {
 	}
 
 	for devName, addrs := range newAddrsByDevice {
-		n.update(wtxn, addrs, n.Health, devName)
+		n.update(wtxn, addrs, health, devName)
 		devicesWithAddrs.Delete(devName)
 	}
 
 	for deletedDevName := range devicesWithAddrs {
-		n.update(wtxn, nil, n.Health, deletedDevName)
+		n.update(wtxn, nil, health, deletedDevName)
 	}
 	wtxn.Commit()
 	return ws
