@@ -5,6 +5,7 @@ package peer
 
 import (
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -63,7 +64,7 @@ func (h *handler) NodeAdd(n types.Node) error {
 func (h *handler) NodeUpdate(o, n types.Node) error {
 	oAddr, nAddr := nodeAddress(o, h.addressPref), nodeAddress(n, h.addressPref)
 	if o.Fullname() == n.Fullname() {
-		if oAddr.String() == nAddr.String() {
+		if oAddr == nAddr {
 			// this corresponds to the same peer
 			// => no need to send a notification
 			return nil
@@ -129,7 +130,7 @@ func (h *handler) newChangeNotification(n types.Node, t peerpb.ChangeNotificatio
 	}
 
 	addr := ""
-	if ip := nodeAddress(n, h.addressPref); ip != nil {
+	if ip := nodeAddress(n, h.addressPref); ip.IsValid() {
 		addr = ip.String()
 		if h.hubblePort != 0 {
 			addr = net.JoinHostPort(addr, strconv.Itoa(h.hubblePort))
@@ -144,22 +145,24 @@ func (h *handler) newChangeNotification(n types.Node, t peerpb.ChangeNotificatio
 	}
 }
 
-// nodeAddress returns the node's address. If the node has both IPv4 and IPv6
-// addresses, pref controls which address type is returned.
-func nodeAddress(n types.Node, pref serviceoption.AddressFamilyPreference) net.IP {
+func nodeAddress(n types.Node, pref serviceoption.AddressFamilyPreference) netip.Addr {
 	for _, family := range pref {
 		switch family {
 		case serviceoption.AddressFamilyIPv4:
-			if addr := n.GetNodeIP(false); addr.To4() != nil {
-				return addr
+			if netIP := n.GetNodeIP(false); netIP.To4() != nil {
+				if addr, ok := netip.AddrFromSlice(netIP); ok {
+					return addr.Unmap()
+				}
 			}
 		case serviceoption.AddressFamilyIPv6:
-			if addr := n.GetNodeIP(true); addr.To4() == nil {
-				return addr
+			if netIP := n.GetNodeIP(true); netIP.To4() == nil {
+				if addr, ok := netip.AddrFromSlice(netIP); ok {
+					return addr
+				}
 			}
 		}
 	}
-	return nil
+	return netip.Addr{}
 }
 
 // TLSServerName constructs a server name to be used as the TLS server name.
