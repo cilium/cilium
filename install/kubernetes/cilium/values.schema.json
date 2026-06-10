@@ -1418,6 +1418,9 @@
                     "privateKey": {
                       "type": "object"
                     },
+                    "schedule": {
+                      "type": "string"
+                    },
                     "server": {
                       "properties": {
                         "extraDnsNames": {

@@ -4173,10 +4173,9 @@ clustermesh:
         # CA is (re)regenerated only if it is not provided as a helm value and the k8s
         # secret is manually deleted.
         #
-        # Defaults to none. Commented syntax gives midnight of the first day of every
-        # fourth month. For syntax, see
+        # Defaults to midnight of the first day of every fourth month. For syntax, see
         # https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
-        # schedule: "0 0 1 */4 *"
+        schedule: "0 0 1 */4 *"
 
         # [Example]
         # certManagerIssuerRef:
