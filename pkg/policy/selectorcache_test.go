@@ -491,6 +491,60 @@ func TestIdentityUpdates(t *testing.T) {
 	require.True(t, sc.selectors.Empty())
 }
 
+// TestIdentityUpdateChangingNamespaceLabel covers the case where an existing
+// identity's labels are updated in place (e.g. a reserved identity whose
+// labels can be changed at runtime), and the namespace label changes as part
+// of that update. A selector for the identity's old namespace that is added
+// after the update should not match the identity based on its old labels.
+func TestIdentityUpdateChangingNamespaceLabel(t *testing.T) {
+	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMap{})
+
+	const podID = identity.NumericIdentity(1234)
+
+	wg := &sync.WaitGroup{}
+	sc.UpdateIdentities(identity.IdentityMap{
+		podID: labels.Labels{
+			"app":                      labels.NewLabel("app", "test", labels.LabelSourceK8s),
+			k8sConst.PodNamespaceLabel: labels.NewLabel(k8sConst.PodNamespaceLabel, "ns1", labels.LabelSourceK8s),
+		}.LabelArray(),
+	}, nil, wg)
+	wg.Wait()
+
+	// Update the identity's labels so that it now belongs to "ns2" instead
+	// of "ns1".
+	wg = &sync.WaitGroup{}
+	sc.UpdateIdentities(identity.IdentityMap{
+		podID: labels.Labels{
+			"app":                      labels.NewLabel("app", "test", labels.LabelSourceK8s),
+			k8sConst.PodNamespaceLabel: labels.NewLabel(k8sConst.PodNamespaceLabel, "ns2", labels.LabelSourceK8s),
+		}.LabelArray(),
+	}, nil, wg)
+	wg.Wait()
+
+	user1 := newUser(t, "user1", sc)
+
+	// A selector for "ns1" added after the update must not select the
+	// identity based on its stale "ns1" labels.
+	ns1Selector := api.NewESFromLabels(
+		labels.NewLabel("app", "test", labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PodNamespaceLabel, "ns1", labels.LabelSourceK8s),
+	)
+	cachedNs1 := user1.AddIdentitySelector(ns1Selector)
+	require.Empty(t, cachedNs1.GetSelections())
+
+	// A selector for "ns2" should select the identity based on its current
+	// labels.
+	ns2Selector := api.NewESFromLabels(
+		labels.NewLabel("app", "test", labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PodNamespaceLabel, "ns2", labels.LabelSourceK8s),
+	)
+	cachedNs2 := user1.AddIdentitySelector(ns2Selector)
+	require.Equal(t, identity.NumericIdentitySlice{podID}, cachedNs2.GetSelections())
+
+	user1.RemoveSelector(cachedNs1)
+	user1.RemoveSelector(cachedNs2)
+}
+
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	sc := testNewSelectorCache(t, hivetest.Logger(t), identity.IdentityMap{})
 

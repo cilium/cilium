@@ -56,6 +56,13 @@ func (c *scIdentityCache) Len() int {
 }
 
 func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.LabelArray) *scIdentity {
+	// Remove any existing entry for this identity first. UpdateIdentities()
+	// calls insert() both for brand new identities and for identities whose
+	// labels changed, and byNamespace is indexed by *scIdentity pointer, so
+	// otherwise the old entry would be left behind in byNamespace under its
+	// old namespace.
+	c.delete(nid)
+
 	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	id := &scIdentity{
 		NID:       nid,
