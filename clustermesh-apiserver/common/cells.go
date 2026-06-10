@@ -27,6 +27,8 @@ var Cell = cell.Module(
 	cell.Config(option.DefaultLegacyClusterMeshConfig),
 	cell.Config(cmtypes.DefaultClusterInfo),
 	cell.Invoke(cmtypes.RegisterClusterInfoValidator),
+	cell.Config(cmtypes.DefaultServiceModeV2Config),
+	cell.Invoke(cmtypes.ServiceModeV2Config.Validate),
 
 	cmmetrics.Cell,
 	health.HealthAPIServerCell,

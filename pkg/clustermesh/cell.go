@@ -43,6 +43,8 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(idsMgrProvider),
 
 	cell.Config(common.DefaultConfig),
+	cell.Config(types.DefaultServiceModeV2Config),
+	cell.Invoke(types.ServiceModeV2Config.Validate),
 	cell.Config(wait.TimeoutConfigDefault),
 
 	metrics.Metric(NewMetrics),
