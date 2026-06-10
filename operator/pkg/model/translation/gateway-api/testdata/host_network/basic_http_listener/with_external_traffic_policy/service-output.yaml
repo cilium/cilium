@@ -17,7 +17,7 @@ spec:
     port: 80
     protocol: TCP
     targetPort: 0
-  type: NodePort 
+  type: NodePort
   ipFamilies:
   - IPv4
 status:

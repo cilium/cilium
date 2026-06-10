@@ -4,6 +4,7 @@
 package gateway_api
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -782,33 +783,43 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	if len(svcList.Items) == 0 {
 		return fmt.Errorf("no service found")
 	}
-
 	svc := svcList.Items[0]
 
 	var addresses []gatewayv1.GatewayStatusAddress
 	// Check the svc type
 	switch svcType := svc.Spec.Type; svcType {
 	case "NodePort":
-		// hostNetwork enabled
-		// get the nodes ip addresses
+		// NodePort service gets as many Node
+		// IP addresses as we can fit into Status
 		nodes := &corev1.NodeList{}
 		if err := r.Client.List(ctx, nodes); err != nil {
 			return fmt.Errorf("unable to list nodes")
 		}
 
+		ips := make([]net.IP, 0)
 		for _, node := range nodes.Items {
+			if len(node.Status.Addresses) == 0 {
+				continue
+			}
 			nodeAddress := node.Status.Addresses[0]
-			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
-				Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
-				Value: nodeAddress.Address,
-			})
+			ips = append(ips, net.ParseIP(nodeAddress.Address))
 		}
 
 		// sort the addresses for consistent ip addresses assigned
-		sort.Slice(addresses, func(i, j int) bool {
-			return addresses[i].Value < addresses[j].Value
+		sort.Slice(ips, func(i, j int) bool {
+			return bytes.Compare(ips[i], ips[j]) < 0
 		})
 
+		// allows for only a max of 16 addresses
+		if len(ips) > 16 {
+			ips = ips[:16]
+		}
+		for _, ipAddress := range ips {
+			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+				Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
+				Value: ipAddress.String(),
+			})
+		}
 	case "LoadBalancer":
 		if len(svc.Status.LoadBalancer.Ingress) == 0 {
 			// Potential loadbalancer service isn't ready yet. No need to report as an error, because

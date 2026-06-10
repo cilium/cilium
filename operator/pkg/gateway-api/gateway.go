@@ -169,6 +169,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to BackendTLSPolicy
 		Watches(&gatewayv1.BackendTLSPolicy{}, watchhandlers.EnqueueRequestForBackendTLSPolicy(r.Client, r.logger)).
 		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(r.Client, r.logger)).
+		// Watch for changes to node in order to populate gateway ip addresses if svc of type NodePort
+		Watches(&corev1.Node{}, watchhandlers.EnqueueRequestForNodes(r.Client, r.logger, owningGatewayLabel)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		Owns(&corev1.Service{}).

@@ -17,7 +17,7 @@ spec:
     port: 55555
     protocol: TCP
     targetPort: 0
-  type: NodePort 
+  type: NodePort
   ipFamilies:
   - IPv6
 status:
