@@ -2,6 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
   pull_request_target:
     types:
       - opened
@@ -35,11 +36,8 @@ jobs:
     name: Wait for lint checks
     uses: cilium/actions/.github/workflows/wait-for-status-check.yaml@342436e0898719fabc2337b145b91490f33cec2a
     with:
-      # Only run this job if the event is pull_request_target and if the PR
-      # is not opened from a fork.
-      # This is to avoid waiting for base images on push to main or merge_group
-      # events as the lint-images-base does not run on those events.
-      if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
+      # Test that we can enable this in pull_request trigger
+      if: true
       pr-number: ${{ github.event.pull_request.number }}
       lint-names: 'Lint image build logic'
       timeout-minutes: 2

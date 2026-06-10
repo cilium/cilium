@@ -14,3 +14,4 @@ func main() {
 	}
 	cmd.Execute(cmd.NewAgentCmd(hiveFn))
 }
+
