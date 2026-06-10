@@ -899,7 +899,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
-     - ``{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","privateKey":{},"server":{"extraDnsNames":[],"extraIpAddresses":[]},"subject":{}}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","privateKey":{},"schedule":"0 0 1 */4 *","server":{"extraDnsNames":[],"extraIpAddresses":[]},"subject":{}}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
      - object
@@ -916,6 +916,10 @@
      - Private key options. These include the key algorithm and size, the used encoding and the rotation policy used when clustermesh.apiserver.tls.auto.method=certmanager. https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificatePrivateKey
      - object
      - ``{}``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.auto.schedule`
+     - Schedule for certificates regeneration (regardless of their expiration date). Only used if method is "cronJob". If nil, then no recurring job will be created. Instead, only the one-shot job is deployed to generate the certificates at installation time.  Due to the out-of-band distribution of client certs to external workloads the CA is (re)regenerated only if it is not provided as a helm value and the k8s secret is manually deleted.  Defaults to midnight of the first day of every fourth month. For syntax, see https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
+     - string
+     - ``"0 0 1 */4 *"``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.server.extraDnsNames`
      - Extra DNS names added to certificate when it's auto generated
      - list

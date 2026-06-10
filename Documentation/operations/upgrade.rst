@@ -370,6 +370,8 @@ differently than in prior releases:
   replaced by ``clustermesh.apiserver.tls.auto.server.{extraDnsNames,extraIpAddresses}``.
   The previous values, if set, are still used as a fallback for backwards compatibility.
   The ``clustermesh-apiserver.cilium.io`` DNS name is also no longer included by default.
+* Cluster Mesh certificates are now configured to be automatically regenerated every
+  4 months, when the ``cronJob`` generation mode is selected.
 
 Deprecated Options
 ##################
