@@ -98,24 +98,6 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 	}
 	tableID = computeTableIDFromIfaceNumber(info.useCompatEgressPriority(), ifaceNum)
 
-	if info.Masquerade && (info.IpamMode == ipamOption.IPAMENI || info.IpamMode == ipamOption.IPAMAzure) {
-		// Lookup a VPC specific table for all traffic from an endpoint to the
-		// CIDR configured for the VPC on which the endpoint has the IP on.
-		// ReplaceRule function doesn't handle all zeros cidr and return `file exists` error,
-		// so we need to normalize the rule to cidr here and in Delete
-		for _, cidr := range info.CIDRs {
-			if err := replaceRule(route.Rule{
-				Priority: egressPriority,
-				From:     &ipWithMask,
-				To:       normalizeRuleToCIDR(&cidr),
-				Table:    tableID,
-				Protocol: linux_defaults.RTProto,
-			}); err != nil {
-				return fmt.Errorf("unable to install ip rule: %w", err)
-			}
-		}
-	}
-
 	// Always install an unconditional rule to ensure all traffic from the
 	// endpoint (including external/internet traffic) is routed through the
 	// correct ENI. Without this, external traffic may fall through to the
