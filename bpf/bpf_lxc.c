@@ -2650,7 +2650,9 @@ int cil_to_container(struct __ctx_buff *ctx)
 		__u16 lxc_id = get_epid(ctx);
 
 		ctx->mark = 0;
-		ret = tail_call_egress_policy(ctx, lxc_id);
+		ret = l7lb_tail_call_egress_policy(ctx, lxc_id, proto);
+		if (ret == CTX_ACT_OK)
+			return ret;
 		return send_drop_notify(ctx, lxc_id, sec_label, LXC_ID,
 					ret, METRIC_INGRESS);
 	}

@@ -1379,7 +1379,9 @@ int cil_from_host(struct __ctx_buff *ctx)
 		int ret;
 
 		ctx->mark = 0;
-		ret = tail_call_egress_policy(ctx, lxc_id);
+		ret = l7lb_tail_call_egress_policy(ctx, lxc_id, proto);
+		if (ret == CTX_ACT_OK)
+			return ret;
 		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 	}
 #endif
@@ -1454,7 +1456,9 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		__u32 lxc_id = get_epid(ctx);
 
 		ctx->mark = 0;
-		ret = tail_call_egress_policy(ctx, (__u16)lxc_id);
+		ret = l7lb_tail_call_egress_policy(ctx, (__u16)lxc_id, proto);
+		if (ret == CTX_ACT_OK)
+			return ret;
 		goto drop_err;
 	}
 #endif
