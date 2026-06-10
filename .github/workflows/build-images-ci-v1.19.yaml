@@ -44,7 +44,8 @@ jobs:
     environment:
       name: publish-ci-images
       deployment: false
-    needs: wait-for-base-images
+    # GH-46482: Lint checks action is broken, skip dependency for now.
+    #needs: wait-for-base-images
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
