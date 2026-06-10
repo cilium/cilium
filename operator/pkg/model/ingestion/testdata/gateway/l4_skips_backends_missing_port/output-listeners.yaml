@@ -1,0 +1,22 @@
+- name: tcp
+  port: 9000
+  protocol: TCP
+  routes:
+  - {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: app-ns
+    version: v1
+- name: udp
+  port: 9001
+  protocol: UDP
+  routes:
+  - {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: app-ns
+    version: v1

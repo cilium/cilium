@@ -1,0 +1,20 @@
+- metadata:
+    creationTimestamp: null
+    name: http
+    namespace: app-ns
+  spec:
+    parentRefs:
+    - name: platform
+    rules:
+    - backendRefs:
+      - name: main
+        port: 8080
+      filters:
+      - requestMirror:
+          backendRef:
+            name: mirror
+            namespace: mirror-ns
+            port: 8081
+        type: RequestMirror
+  status:
+    parents: null

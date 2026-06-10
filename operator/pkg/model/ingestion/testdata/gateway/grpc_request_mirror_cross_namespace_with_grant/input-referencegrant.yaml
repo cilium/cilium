@@ -1,0 +1,13 @@
+- metadata:
+    creationTimestamp: null
+    name: allow-mirror
+    namespace: mirror-ns
+  spec:
+    from:
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+      namespace: app-ns
+    to:
+    - group: ""
+      kind: Service
+      name: mirror

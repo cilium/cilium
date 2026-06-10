@@ -1,0 +1,26 @@
+- hostname: "*"
+  name: grpc-443
+  port: 443
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: gateway-ns
+    version: v1
+- hostname: "*"
+  name: grpc-8443
+  port: 8443
+  routes:
+  - backends:
+    - name: podinfo
+      namespace: gateway-ns
+      port:
+        port: 9898
+    path_match: {}
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: gateway-ns
+    version: v1
