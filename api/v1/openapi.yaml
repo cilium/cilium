@@ -2326,6 +2326,9 @@ definitions:
       num-shared-services:
         description: Number of services in the cluster
         type: integer
+      num-endpoint-slices:
+        description: Number of endpoint slices in the cluster
+        type: integer
       num-service-exports:
         description: Number of MCS-API service exports in the cluster
         type: integer
@@ -2360,6 +2363,10 @@ definitions:
       services:
         description: Services synchronization status
         type: boolean
+      endpoint-slices:
+        description: Endpoint slices synchronization status (null means that the component is not watching endpoint slices)
+        type: boolean
+        x-nullable: true
       service-exports:
         description: MCS-API service exports synchronization status (null means that the component is not watching service exports)
         type: boolean
@@ -2395,6 +2402,12 @@ definitions:
         description: Whether or not MCS-API ServiceExports is enabled by the cluster (null means unsupported).
         type: boolean
         x-nullable: true
+      endpoint-slices-export-mode:
+        description: EndpointSlices export mode advertised by the remote cluster
+        type: string
+        enum:
+        - services-and-endpointslices
+        - endpointslices-only
   MonitorStatus:
     description: Status of the node monitor
     properties:

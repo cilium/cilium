@@ -340,6 +340,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 		rc.config.Kvstoremesh = config.Capabilities.Cached
 		rc.config.SyncCanaries = config.Capabilities.SyncedCanaries
 		rc.config.ServiceExportsEnabled = config.Capabilities.ServiceExportsEnabled
+		rc.config.EndpointSlicesExportMode = string(config.Capabilities.EndpointSlicesExportMode)
 		rc.mutex.Unlock()
 
 		return config, nil

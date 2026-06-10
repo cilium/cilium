@@ -110,6 +110,12 @@ func (c ClusterInfo) ValidateRemoteConfig(config CiliumClusterConfig) error {
 		return fmt.Errorf("mismatched MaxConnectedClusters; local=%d, remote=%d", c.MaxConnectedClusters, config.Capabilities.MaxConnectedClusters)
 	}
 
+	switch config.Capabilities.EndpointSlicesExportMode {
+	case EndpointSlicesExportModeServicesOnly, EndpointSlicesExportModeServicesAndEndpointSlices, EndpointSlicesExportModeEndpointSlicesOnly:
+	default:
+		return fmt.Errorf("invalid EndpointSlicesExportMode %q", config.Capabilities.EndpointSlicesExportMode)
+	}
+
 	return nil
 }
 

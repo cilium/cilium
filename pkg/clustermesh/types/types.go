@@ -114,4 +114,16 @@ type CiliumClusterConfigCapabilities struct {
 	// Whether or not MCS-API ServiceExports is enabled by the cluster.
 	// Additionally a nil values means that it's not supported.
 	ServiceExportsEnabled *bool `json:"serviceExportsEnabled,omitempty"`
+
+	// EndpointSlicesExportMode describes whether service and endpoint slices
+	// resources are exported to support the transition to endpoint slices.
+	EndpointSlicesExportMode EndpointSlicesExportMode `json:"endpointSlicesExportMode,omitempty"`
 }
+
+type EndpointSlicesExportMode string
+
+const (
+	EndpointSlicesExportModeServicesOnly              EndpointSlicesExportMode = ""
+	EndpointSlicesExportModeServicesAndEndpointSlices EndpointSlicesExportMode = "services-and-endpointslices"
+	EndpointSlicesExportModeEndpointSlicesOnly        EndpointSlicesExportMode = "endpointslices-only"
+)
