@@ -165,3 +165,53 @@ func LocalClusterNameForPolicies(cfg PolicyConfig, localClusterName string) stri
 		return PolicyAnyCluster
 	}
 }
+
+type ServiceModeV2 string
+
+const (
+	ServiceV2PreferLegacy        ServiceModeV2 = "prefer-legacy"
+	ServiceV2PreferEndpointSlice ServiceModeV2 = "prefer-endpointslice"
+	ServiceV2OnlyEndpointSlice   ServiceModeV2 = "only-endpointslice"
+)
+
+func (m ServiceModeV2) String() string { return string(m) }
+
+func (m ServiceModeV2) ShouldWatchEndpointSlices() bool {
+	return m != ServiceV2PreferLegacy
+}
+
+func (m ServiceModeV2) ShouldWatchLegacyServices() bool {
+	return m == ServiceV2PreferLegacy
+}
+
+func (m ServiceModeV2) ShouldExportLegacyServices() bool {
+	return m != ServiceV2OnlyEndpointSlice
+}
+
+type ServiceModeV2Config struct {
+	// ServiceModeV2 is a configuration option to control the rollout of
+	// legacy services to endpoint slices in clustermesh.
+	ServiceModeV2 ServiceModeV2 `mapstructure:"clustermesh-service-v2"`
+}
+
+func (c ServiceModeV2Config) Flags(flags *pflag.FlagSet) {
+	flags.String("clustermesh-service-v2", c.ServiceModeV2.String(), "ClusterMesh service v2 rollout mode: prefer-legacy, prefer-endpointslice, or only-endpointslice")
+	flags.MarkHidden("clustermesh-service-v2")
+}
+
+func (c ServiceModeV2Config) Validate() error {
+	switch c.ServiceModeV2 {
+	case ServiceV2PreferLegacy, ServiceV2PreferEndpointSlice, ServiceV2OnlyEndpointSlice:
+		return nil
+	default:
+		return fmt.Errorf("invalid clustermesh-service-v2 %q: supported values are %q, %q, %q",
+			c.ServiceModeV2,
+			ServiceV2PreferLegacy,
+			ServiceV2PreferEndpointSlice,
+			ServiceV2OnlyEndpointSlice)
+	}
+}
+
+var DefaultServiceModeV2Config = ServiceModeV2Config{
+	ServiceModeV2: ServiceV2PreferLegacy,
+}

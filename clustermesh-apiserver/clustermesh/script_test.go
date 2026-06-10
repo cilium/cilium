@@ -54,8 +54,10 @@ func TestScript(t *testing.T) {
 
 		h := hive.New(
 			cell.Config(cmtypes.DefaultClusterInfo),
+			cell.Config(cmtypes.DefaultServiceModeV2Config),
 			cell.Config(mcsapitypes.DefaultMCSAPIConfig),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),
+			cell.Invoke(cmtypes.ServiceModeV2Config.Validate),
 
 			k8sClient.FakeClientCell(),
 			cmk8s.ResourcesCell,
