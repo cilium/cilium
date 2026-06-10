@@ -209,6 +209,23 @@ static __always_inline bool identity_is_cidr_range(__u32 identity)
 }
 
 /**
+ * identity_is_world returns true if a given identity belongs to extra-cluster
+ * (i.e. the world cidr range or a world identity).
+ */
+static __always_inline bool identity_is_world(__u32 identity)
+{
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (identity == WORLD_ID || identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
+		return true;
+#else
+	if (identity == WORLD_ID)
+		return true;
+#endif
+
+	return identity_is_cidr_range(identity);
+}
+
+/**
  * identity_is_cluster is used to determine whether an identity is assigned to
  * an entity inside the cluster.
  *
@@ -230,18 +247,7 @@ static __always_inline bool identity_is_cidr_range(__u32 identity)
  */
 static __always_inline bool identity_is_cluster(__u32 identity)
 {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-	if (identity == WORLD_ID || identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
-		return false;
-#else
-	if (identity == WORLD_ID)
-		return false;
-#endif
-
-	if (identity_is_cidr_range(identity))
-		return false;
-
-	return true;
+	return !identity_is_world(identity);
 }
 
 #if __ctx_is == __ctx_skb
@@ -311,6 +317,8 @@ static __always_inline __u32 aggregate_for_identity(__u32 identity)
 	/* All remote nodes aggregate to ID 6. */
 	if (identity_is_remote_node(identity))
 		return REMOTE_NODE_ID;
+	if (identity_is_world(identity))
+		return WORLD_ID;
 
 	return 0;
 }

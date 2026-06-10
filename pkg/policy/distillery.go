@@ -293,7 +293,7 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 
 // setPolicy updates the reference to the SelectorPolicy that is cached.
 // Callers are responsible for detaching the old policy as appropriate.
-func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) *selectorPolicy {
+func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, _ uint64) *selectorPolicy {
 	oldPolicy := cip.policy.Swap(policy)
 	return oldPolicy
 }

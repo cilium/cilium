@@ -31,11 +31,15 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 	switch nid {
 	case identity.ReservedIdentityRemoteNode, identity.ReservedIdentityKubeAPIServer:
 		return identity.ReservedIdentityRemoteNode
+	case identity.ReservedIdentityWorld, identity.ReservedIdentityWorldIPv4, identity.ReservedIdentityWorldIPv6:
+		return identity.ReservedIdentityWorld
 	}
 
 	switch nid.Scope() {
 	case identity.IdentityScopeRemoteNode:
 		return identity.ReservedIdentityRemoteNode
+	case identity.IdentityScopeLocal:
+		return identity.ReservedIdentityWorld
 	}
 
 	return identity.IdentityUnknown
@@ -57,4 +61,5 @@ func isAggregate(nid identity.NumericIdentity) bool {
 var AllAggregates = []identity.NumericIdentity{
 	identity.IdentityUnknown,
 	identity.ReservedIdentityRemoteNode,
+	identity.ReservedIdentityWorld,
 }
