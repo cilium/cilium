@@ -357,6 +357,9 @@ differently than in prior releases:
 * ``bpf.tproxy=true`` is incompatible with netkit datapath mode. If netkit is also enabled,
   Cilium will fail to start. If auto-detect datapath mode is used, Cilium will revert to
   veth mode, even if netkit support is present.
+* The ``clustermesh.apiserver.tls.server.{extraDnsNames,extraIpAddresses}`` options are
+  replaced by ``clustermesh.apiserver.tls.auto.server.{extraDnsNames,extraIpAddresses}``.
+  The previous values, if set, are still used as a fallback for backwards compatibility.
 
 Deprecated Options
 ##################

@@ -13,3 +13,16 @@ remote-{{ .Values.cluster.name }}
 remote
 {{- end -}}
 {{- end -}}
+
+{{- define "clustermesh-apiserver-generate-certs.server-dns-names" -}}
+{{- $default := (list "clustermesh-apiserver.cilium.io" "*.mesh.cilium.io" (printf "clustermesh-apiserver.%s.svc" (include "cilium.namespace" .))) -}}
+{{- $deprecated := dig "server" "extraDnsNames" (list) .Values.clustermesh.apiserver.tls -}}
+{{- $extra := .Values.clustermesh.apiserver.tls.auto.server.extraDnsNames | default $deprecated -}}
+{{- concat $default $extra | toYaml -}}
+{{- end -}}
+
+{{- define "clustermesh-apiserver-generate-certs.server-ip-addresses" -}}
+{{- $deprecated := dig "server" "extraIpAddresses" (list) .Values.clustermesh.apiserver.tls -}}
+{{- $extra := .Values.clustermesh.apiserver.tls.auto.server.extraIpAddresses | default $deprecated -}}
+{{- concat (list "127.0.0.1" "::1") $extra | toYaml -}}
+{{- end -}}

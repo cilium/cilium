@@ -4203,11 +4203,12 @@ clustermesh:
         # https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificatePrivateKey
         privateKey: {}
 
-      server:
-        # -- Extra DNS names added to certificate when it's auto generated
-        extraDnsNames: []
-        # -- Extra IP addresses added to certificate when it's auto generated
-        extraIpAddresses: []
+        # Extra configurations for the auto generated server certificate.
+        server:
+          # -- Extra DNS names added to certificate when it's auto generated
+          extraDnsNames: []
+          # -- Extra IP addresses added to certificate when it's auto generated
+          extraIpAddresses: []
 
     # clustermesh-apiserver Prometheus metrics configuration
     metrics:

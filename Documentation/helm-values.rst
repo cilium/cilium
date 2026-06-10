@@ -899,7 +899,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
-     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","privateKey":{},"subject":{}}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","privateKey":{},"server":{"extraDnsNames":[],"extraIpAddresses":[]},"subject":{}}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
      - object
@@ -916,18 +916,18 @@
      - Private key options. These include the key algorithm and size, the used encoding and the rotation policy used when clustermesh.apiserver.tls.auto.method=certmanager. https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificatePrivateKey
      - object
      - ``{}``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.auto.server.extraDnsNames`
+     - Extra DNS names added to certificate when it's auto generated
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.auto.server.extraIpAddresses`
+     - Extra IP addresses added to certificate when it's auto generated
+     - list
+     - ``[]``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.subject`
      - X509Subject Full X509 name specification used when clustermesh.apiserver.tls.auto.method=certmanager. https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.X509Subject
      - object
      - ``{}``
-   * - :spelling:ignore:`clustermesh.apiserver.tls.server.extraDnsNames`
-     - Extra DNS names added to certificate when it's auto generated
-     - list
-     - ``[]``
-   * - :spelling:ignore:`clustermesh.apiserver.tls.server.extraIpAddresses`
-     - Extra IP addresses added to certificate when it's auto generated
-     - list
-     - ``[]``
    * - :spelling:ignore:`clustermesh.apiserver.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
