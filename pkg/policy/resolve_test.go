@@ -208,7 +208,7 @@ func (d DummyOwner) PolicyDebug(msg string, attrs ...any) {
 	d.logger.Debug(msg, attrs...)
 }
 
-func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.IdentityMap), numRules int, tb testing.TB) {
+func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.IdentityMap), numRules int, _ testing.TB) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	wg := &sync.WaitGroup{}
 	// load in standard reserved identities
@@ -923,11 +923,9 @@ func TestMapStateWithIngress(t *testing.T) {
 		PolicyOwner: DummyOwner{logger: logger},
 		policyMapState: emptyMapState(logger).withState(mapStateMap{
 			EgressKey(): allowEgressMapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry,
-			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
-			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
+			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80): rule1MapStateEntry,
+			IngressKey().WithIdentity(192).WithTCPPort(80):                            rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
+			IngressKey().WithIdentity(194).WithTCPPort(80):                            rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
 		}),
 	}
 

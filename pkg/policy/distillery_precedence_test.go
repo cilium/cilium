@@ -1000,10 +1000,6 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				ingressKey(0, 0, 0, 0):              newAllowEntryWithLabels(LabelsAllowAnyIngress),
 				egressKey(identity1111, 17, 53, 16): allowEntry.withLevel(0),
 				egressL3OnlyKey(identityWorld):      denyEntry.withLevel(1),
-				egressL3OnlyKey(identityWorldIPv4):  denyEntry.withLevel(1),
-				egressL3OnlyKey(identityWorldIPv6):  denyEntry.withLevel(1),
-				egressL3OnlyKey(identity1111):       denyEntry.withLevel(1),
-				egressL3OnlyKey(identity1100):       denyEntry.withLevel(1),
 			},
 			probes: []probe{
 				{key: egressKey(identity1111, 6, 53, 16), found: true, entry: DenyEntry},

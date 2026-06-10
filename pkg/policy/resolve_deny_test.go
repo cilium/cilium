@@ -196,7 +196,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 		epPolicy.Ready()
 	}
 	ip.Detach()
-	assert.Equal(b, 117516, owner.previousMap.Len())
+	assert.Equal(b, 117517, owner.previousMap.Len())
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
@@ -211,7 +211,7 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	owner.previousMap = epPolicy.GetMapState()
 	epPolicy.Ready()
 	ip.Detach()
-	assert.Equal(t, 117516, owner.previousMap.Len())
+	assert.Equal(t, 117517, owner.previousMap.Len())
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {
@@ -593,11 +593,9 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey(): allowEgressMapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry,
-			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry,
-			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80): rule1MapStateEntry,
+			IngressKey().WithIdentity(192).WithTCPPort(80):                            rule1MapStateEntry,
+			IngressKey().WithIdentity(194).WithTCPPort(80):                            rule1MapStateEntry,
 		}),
 	}
 
