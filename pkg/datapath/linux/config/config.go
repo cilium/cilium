@@ -466,20 +466,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		if option.Config.EnableIPv6Masquerade {
 			cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
 
-			var excludeCIDR *cidr.CIDR
 			if option.Config.EnableIPMasqAgent {
 				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
-
-				excludeCIDR = option.Config.IPv6NativeRoutingCIDR
-			} else {
-				excludeCIDR = cfg.NativeRoutingCIDRIPv6
-			}
-
-			if excludeCIDR != nil {
-				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = excludeCIDR.IP.String()
-				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", excludeCIDR.IP))
-				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = excludeCIDR.Mask.String()
-				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", excludeCIDR.Mask))
 			}
 		}
 	}

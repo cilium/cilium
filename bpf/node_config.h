@@ -64,10 +64,6 @@
 #define SNAT_MAPPING_IPV6_SIZE 524288
 
 #ifdef ENABLE_IPV6
-# ifdef ENABLE_MASQUERADE_IPV6
-#  define IPV6_SNAT_EXCLUSION_DST_CIDR      { .addr = { 0xfa, 0xce, 0xff, 0xff, 0xff, 0x0 } }
-#  define IPV6_SNAT_EXCLUSION_DST_CIDR_MASK { .addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0x0 } }
-# endif /* ENABLE_MASQUERADE_IPV6 */
 #ifdef ENABLE_NODEPORT
 #endif /* ENABLE_NODEPORT */
 #endif /* ENABLE_IPV6 */
