@@ -1,0 +1,9 @@
+- metadata:
+    creationTimestamp: null
+    name: podinfo
+    namespace: gateway-ns
+  spec:
+    ports:
+    - port: 9898
+  status:
+    loadBalancer: {}

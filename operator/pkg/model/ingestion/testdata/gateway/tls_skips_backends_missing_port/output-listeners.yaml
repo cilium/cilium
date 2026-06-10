@@ -1,0 +1,11 @@
+- hostname: "*"
+  name: tls
+  port: 443
+  routes:
+  - {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: app-ns
+    version: v1

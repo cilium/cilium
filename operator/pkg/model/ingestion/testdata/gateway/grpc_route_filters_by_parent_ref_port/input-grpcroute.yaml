@@ -1,0 +1,14 @@
+- metadata:
+    creationTimestamp: null
+    name: grpc
+    namespace: gateway-ns
+  spec:
+    parentRefs:
+    - name: platform
+      port: 8443
+    rules:
+    - backendRefs:
+      - name: podinfo
+        port: 9898
+  status:
+    parents: null
