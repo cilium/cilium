@@ -388,6 +388,9 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 						Hostname: ptr.To[gatewayv1.Hostname]("tls.example.test"),
 						Port:     443,
 						Protocol: gatewayv1.TLSProtocolType,
+						TLS: &gatewayv1.ListenerTLSConfig{
+							Mode: ptr.To(gatewayv1.TLSModePassthrough),
+						},
 						AllowedRoutes: &gatewayv1.AllowedRoutes{
 							Namespaces: &gatewayv1.RouteNamespaces{
 								From: &sameNamespace,
@@ -399,6 +402,9 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 						Hostname: ptr.To[gatewayv1.Hostname]("tls.example.test"),
 						Port:     8443,
 						Protocol: gatewayv1.TLSProtocolType,
+						TLS: &gatewayv1.ListenerTLSConfig{
+							Mode: ptr.To(gatewayv1.TLSModePassthrough),
+						},
 						AllowedRoutes: &gatewayv1.AllowedRoutes{
 							Namespaces: &gatewayv1.RouteNamespaces{
 								From: &allNamespaces,

@@ -91,8 +91,6 @@ spec:
           intValue: "10"
           level: "6"
           name: "6"
-    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
-      name: listener-insecure
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/tls-backend-2:443

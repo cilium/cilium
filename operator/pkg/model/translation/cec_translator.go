@@ -171,9 +171,7 @@ func (i *cecTranslator) desiredServicesWithPortsCombined(namespace string, name 
 		allPorts[uint16(hl.Port)] = struct{}{}
 	}
 	for _, tlsl := range m.TLSPassthrough {
-		if len(tlsl.Routes) > 0 {
-			allPorts[uint16(tlsl.Port)] = struct{}{}
-		}
+		allPorts[uint16(tlsl.Port)] = struct{}{}
 	}
 
 	ports := make([]uint16, 0, len(allPorts))
@@ -248,9 +246,7 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 	} else {
 		var ptPorts []uint16
 		for _, tlsl := range m.TLSPassthrough {
-			if len(tlsl.Routes) > 0 {
-				ptPorts = append(ptPorts, uint16(tlsl.Port))
-			}
+			ptPorts = append(ptPorts, uint16(tlsl.Port))
 		}
 		goslices.Sort(ptPorts)
 		ptPorts = goslices.Compact(ptPorts)

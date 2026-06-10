@@ -733,6 +733,9 @@ func (r *gatewayReconciler) filterUDPRoutesByGateway(ctx context.Context, gw *ga
 }
 
 func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1.TLSRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1.TLSRoute {
+	if !helpers.IsTLSPassthroughListener(listener) {
+		return nil
+	}
 	var filtered []gatewayv1.TLSRoute
 	for _, route := range routes {
 		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents) &&
