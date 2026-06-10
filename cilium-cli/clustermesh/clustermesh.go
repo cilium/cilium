@@ -651,18 +651,17 @@ func remoteClusterStatusToError(status *models.RemoteCluster) error {
 	case !(status.Synced.Nodes && status.Synced.Endpoints && status.Synced.Identities && status.Synced.Services &&
 		(status.Synced.ServiceExports == nil || *status.Synced.ServiceExports)):
 		var toSync []string
-		appendNotSynced := func(name string, synced bool) {
-			if !synced {
+		appendNotSynced := func(name string, synced *bool) {
+			if synced != nil && !*synced {
 				toSync = append(toSync, name)
 			}
 		}
-		appendNotSynced("endpoints", status.Synced.Endpoints)
-		appendNotSynced("identities", status.Synced.Identities)
-		appendNotSynced("nodes", status.Synced.Nodes)
-		appendNotSynced("services", status.Synced.Services)
-		if status.Synced.ServiceExports != nil {
-			appendNotSynced("service-exports", *status.Synced.ServiceExports)
-		}
+		appendNotSynced("endpoints", &status.Synced.Endpoints)
+		appendNotSynced("identities", &status.Synced.Identities)
+		appendNotSynced("nodes", &status.Synced.Nodes)
+		appendNotSynced("services", &status.Synced.Services)
+		appendNotSynced("service-exports", status.Synced.ServiceExports)
+		appendNotSynced("endpoint-slices", status.Synced.EndpointSlices)
 
 		return fmt.Errorf("synchronization in progress for %s", strings.Join(toSync, ", "))
 	default:

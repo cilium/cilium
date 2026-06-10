@@ -7,9 +7,13 @@ package models
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
+	"github.com/go-openapi/validate"
 )
 
 // RemoteClusterConfig Cluster configuration exposed by the remote cluster
@@ -21,6 +25,10 @@ type RemoteClusterConfig struct {
 
 	// The Cluster ID advertised by the remote cluster
 	ClusterID int64 `json:"cluster-id,omitempty"`
+
+	// EndpointSlices export mode advertised by the remote cluster
+	// Enum: ["services-and-endpointslices","endpointslices-only"]
+	EndpointSlicesExportMode string `json:"endpoint-slices-export-mode,omitempty"`
 
 	// Whether the remote cluster information is locally cached by kvstoremesh
 	Kvstoremesh bool `json:"kvstoremesh,omitempty"`
@@ -40,6 +48,57 @@ type RemoteClusterConfig struct {
 
 // Validate validates this remote cluster config
 func (m *RemoteClusterConfig) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateEndpointSlicesExportMode(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+var remoteClusterConfigTypeEndpointSlicesExportModePropEnum []any
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["services-and-endpointslices","endpointslices-only"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		remoteClusterConfigTypeEndpointSlicesExportModePropEnum = append(remoteClusterConfigTypeEndpointSlicesExportModePropEnum, v)
+	}
+}
+
+const (
+
+	// RemoteClusterConfigEndpointSlicesExportModeServicesDashAndDashEndpointslices captures enum value "services-and-endpointslices"
+	RemoteClusterConfigEndpointSlicesExportModeServicesDashAndDashEndpointslices string = "services-and-endpointslices"
+
+	// RemoteClusterConfigEndpointSlicesExportModeEndpointslicesDashOnly captures enum value "endpointslices-only"
+	RemoteClusterConfigEndpointSlicesExportModeEndpointslicesDashOnly string = "endpointslices-only"
+)
+
+// prop value enum
+func (m *RemoteClusterConfig) validateEndpointSlicesExportModeEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, remoteClusterConfigTypeEndpointSlicesExportModePropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *RemoteClusterConfig) validateEndpointSlicesExportMode(formats strfmt.Registry) error {
+	if typeutils.IsZero(m.EndpointSlicesExportMode) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateEndpointSlicesExportModeEnum("endpoint-slices-export-mode", "body", m.EndpointSlicesExportMode); err != nil {
+		return err
+	}
+
 	return nil
 }
 

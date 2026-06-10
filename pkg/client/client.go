@@ -4,6 +4,7 @@
 package client
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -859,9 +860,9 @@ const (
 func FormatStatusResponseRemoteClusters(w io.Writer, clusters []*models.RemoteCluster, verbosity RemoteClustersStatusVerbosity) {
 	for _, cluster := range clusters {
 		if verbosity != RemoteClustersStatusNotReadyOnly || !cluster.Ready {
-			fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d MCS-API service exports, %d reconnections (last: %s)\n",
+			fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d endpoint slices, %d MCS-API service exports, %d reconnections (last: %s)\n",
 				cluster.Name, clusterReadiness(cluster), cluster.NumNodes,
-				cluster.NumEndpoints, cluster.NumIdentities, cluster.NumSharedServices, cluster.NumServiceExports,
+				cluster.NumEndpoints, cluster.NumIdentities, cluster.NumSharedServices, cluster.NumEndpointSlices, cluster.NumServiceExports,
 				cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)))
 
 			if verbosity == RemoteClustersStatusBrief && cluster.Ready {
@@ -882,8 +883,10 @@ func FormatStatusResponseRemoteClusters(w io.Writer, clusters []*models.RemoteCl
 					}
 				}
 				if cluster.Config.Retrieved {
-					fmt.Fprintf(w, ", cluster-id=%d, kvstoremesh=%t, sync-canaries=%t, service-exports=%s",
-						cluster.Config.ClusterID, cluster.Config.Kvstoremesh, cluster.Config.SyncCanaries, serviceExportsConfig)
+					fmt.Fprintf(w, ", cluster-id=%d, kvstoremesh=%t, sync-canaries=%t, service-exports=%s, endpoint-slice-export-mode=%s",
+						cluster.Config.ClusterID, cluster.Config.Kvstoremesh,
+						cluster.Config.SyncCanaries, serviceExportsConfig,
+						cmp.Or(cluster.Config.EndpointSlicesExportMode, "services-only"))
 				}
 			} else {
 				fmt.Fprint(w, "expected=unknown, retrieved=unknown")
@@ -893,6 +896,9 @@ func FormatStatusResponseRemoteClusters(w io.Writer, clusters []*models.RemoteCl
 			if cluster.Synced != nil {
 				fmt.Fprintf(w, "   └  synchronization status: nodes=%v, endpoints=%v, identities=%v, services=%v",
 					cluster.Synced.Nodes, cluster.Synced.Endpoints, cluster.Synced.Identities, cluster.Synced.Services)
+				if cluster.Synced.EndpointSlices != nil {
+					fmt.Fprintf(w, ", endpoint-slices=%v", *cluster.Synced.EndpointSlices)
+				}
 				if cluster.Synced.ServiceExports != nil {
 					fmt.Fprintf(w, ", service-exports=%v", *cluster.Synced.ServiceExports)
 				}

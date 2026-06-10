@@ -22,6 +22,9 @@ import (
 // swagger:model remoteClusterSynced
 type RemoteClusterSynced struct {
 
+	// Endpoint slices synchronization status (null means that the component is not watching endpoint slices)
+	EndpointSlices *bool `json:"endpoint-slices,omitempty"`
+
 	// Endpoints synchronization status
 	Endpoints bool `json:"endpoints,omitempty"`
 

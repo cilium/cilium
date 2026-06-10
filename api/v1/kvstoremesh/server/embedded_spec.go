@@ -129,6 +129,10 @@ func init() {
               "description": "Name of the cluster",
               "type": "string"
             },
+            "num-endpoint-slices": {
+              "description": "Number of endpoint slices in the cluster",
+              "type": "integer"
+            },
             "num-endpoints": {
               "description": "Number of endpoints in the cluster",
               "type": "integer"
@@ -182,6 +186,14 @@ func init() {
           "description": "The Cluster ID advertised by the remote cluster",
           "type": "integer"
         },
+        "endpoint-slices-export-mode": {
+          "description": "EndpointSlices export mode advertised by the remote cluster",
+          "type": "string",
+          "enum": [
+            "services-and-endpointslices",
+            "endpointslices-only"
+          ]
+        },
         "kvstoremesh": {
           "description": "Whether the remote cluster information is locally cached by kvstoremesh",
           "type": "boolean"
@@ -208,6 +220,11 @@ func init() {
     "remoteClusterSynced": {
       "description": "Status of the synchronization with the remote cluster, about each resource\ntype. A given resource is considered to be synchronized if the initial\nlist of entries has been completely received from the remote cluster, and\nnew events are currently being watched.\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "endpoint-slices": {
+          "description": "Endpoint slices synchronization status (null means that the component is not watching endpoint slices)",
+          "type": "boolean",
+          "x-nullable": true
+        },
         "endpoints": {
           "description": "Endpoints synchronization status",
           "type": "boolean"

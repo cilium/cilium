@@ -36,6 +36,9 @@ type RemoteCluster struct {
 	// Name of the cluster
 	Name string `json:"name,omitempty"`
 
+	// Number of endpoint slices in the cluster
+	NumEndpointSlices int64 `json:"num-endpoint-slices,omitempty"`
+
 	// Number of endpoints in the cluster
 	NumEndpoints int64 `json:"num-endpoints,omitempty"`
 
