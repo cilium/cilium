@@ -360,6 +360,7 @@ differently than in prior releases:
 * The ``clustermesh.apiserver.tls.server.{extraDnsNames,extraIpAddresses}`` options are
   replaced by ``clustermesh.apiserver.tls.auto.server.{extraDnsNames,extraIpAddresses}``.
   The previous values, if set, are still used as a fallback for backwards compatibility.
+  The ``clustermesh-apiserver.cilium.io`` DNS name is also no longer included by default.
 
 Deprecated Options
 ##################

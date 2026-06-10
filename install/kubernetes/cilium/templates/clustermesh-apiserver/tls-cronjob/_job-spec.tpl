@@ -42,7 +42,7 @@ spec:
                 certs:
                 - name: clustermesh-apiserver-server-cert
                   namespace: {{ include "cilium.namespace" . }}
-                  commonName: "clustermesh-apiserver.cilium.io"
+                  commonName: {{ include "clustermesh-apiserver-generate-certs.server-common-name" . }}
                   hosts:
                   {{- include "clustermesh-apiserver-generate-certs.server-dns-names" . | nindent 18 }}
                   {{- include "clustermesh-apiserver-generate-certs.server-ip-addresses" . | nindent 18 }}

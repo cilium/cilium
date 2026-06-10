@@ -14,8 +14,12 @@ remote
 {{- end -}}
 {{- end -}}
 
+{{- define "clustermesh-apiserver-generate-certs.server-common-name" -}}
+{{- (printf "clustermesh-apiserver.%s.svc" (include "cilium.namespace" .)) -}}
+{{- end -}}
+
 {{- define "clustermesh-apiserver-generate-certs.server-dns-names" -}}
-{{- $default := (list "clustermesh-apiserver.cilium.io" "*.mesh.cilium.io" (printf "clustermesh-apiserver.%s.svc" (include "cilium.namespace" .))) -}}
+{{- $default := (list (include "clustermesh-apiserver-generate-certs.server-common-name" .) "*.mesh.cilium.io") -}}
 {{- $deprecated := dig "server" "extraDnsNames" (list) .Values.clustermesh.apiserver.tls -}}
 {{- $extra := .Values.clustermesh.apiserver.tls.auto.server.extraDnsNames | default $deprecated -}}
 {{- concat $default $extra | toYaml -}}
