@@ -75,8 +75,8 @@ var Cell = cell.Module(
 type gatewayAPIPreconditions struct {
 	// Enabled indicates all preconditions are met for Gateway API
 	Enabled bool
-	// InstalledKinds contains the GVKs of installed Gateway API CRDs
-	InstalledKinds []schema.GroupVersionKind
+	// InstalledOptionalKinds contains the GVKs of installed Gateway API CRDs
+	InstalledOptionalKinds []schema.GroupVersionKind
 }
 
 // preconditionParams contains dependencies for checking Gateway API preconditions.
@@ -139,12 +139,12 @@ func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logg
 	}
 
 	for {
-		installedKinds, err := checkCRDs(ctx, client, logger, helpers.RequiredGVKs, helpers.AllOptionalKinds)
+		installedOptionalKinds, err := checkCRDs(ctx, client, logger, helpers.RequiredGVKs, helpers.AllOptionalKinds)
 		if err == nil {
 			health.OK("Gateway API CRDs discovered")
 			return &gatewayAPIPreconditions{
-				Enabled:        true,
-				InstalledKinds: installedKinds,
+				Enabled:                true,
+				InstalledOptionalKinds: installedOptionalKinds,
 			}, nil
 		}
 
@@ -235,15 +235,15 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return nil
 	}
 
-	installedKinds := params.Preconditions.InstalledKinds
+	installedOptionalKinds := params.Preconditions.InstalledOptionalKinds
 
 	// Handle MCS API CRDs
-	if params.MCSAPIConfig.ShouldInstallMCSAPICrds() && !slices.Contains(installedKinds, mcsapiv1beta1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind)) {
+	if params.MCSAPIConfig.ShouldInstallMCSAPICrds() && !slices.Contains(installedOptionalKinds, mcsapiv1beta1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind)) {
 		// We can just assume ServiceImport are installed if we are going to install it
-		installedKinds = append(installedKinds, mcsapiv1beta1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind))
+		installedOptionalKinds = append(installedOptionalKinds, mcsapiv1beta1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind))
 	}
 
-	if err := registerGatewayAPITypesToScheme(params.Scheme, installedKinds); err != nil {
+	if err := registerGatewayAPITypesToScheme(params.Scheme, installedOptionalKinds); err != nil {
 		return err
 	}
 
@@ -290,7 +290,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		gatewayAPITranslator,
 		params.Logger,
 		defaultControllerName,
-		installedKinds,
+		installedOptionalKinds,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -407,7 +407,7 @@ func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.Gro
 // schema.GroupVersionKind of any optional CRDs that are installed.
 func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.Logger, requiredGVKs, optionalGVKs []schema.GroupVersionKind) ([]schema.GroupVersionKind, error) {
 	var res error
-	var presentGVKs []schema.GroupVersionKind
+	var presentOptionalGVKs []schema.GroupVersionKind
 
 	for _, gvk := range requiredGVKs {
 		if err := checkCRD(ctx, clientset, gvk); err != nil {
@@ -422,15 +422,15 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 		}
 		// note that the .Kind field contains the _resource_ name -
 		// the plural, lowercase version of the name.
-		presentGVKs = append(presentGVKs, optionalGVK)
+		presentOptionalGVKs = append(presentOptionalGVKs, optionalGVK)
 	}
 
-	return presentGVKs, res
+	return presentOptionalGVKs, res
 }
 
 // registerReconcilers registers Gateway API reconcilers to the controller-runtime library manager.
 // optionalKinds are previously autodetected based on what CRDs are present in the cluster.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, installedCRDs []schema.GroupVersionKind) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, installedOptionalCRDs []schema.GroupVersionKind) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
@@ -451,7 +451,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 	// the optionalGVKs global.
 	// Note that optionalKinds contains the lower-case, plural version of the
 	// name.
-	for _, gvk := range installedCRDs {
+	for _, gvk := range installedOptionalCRDs {
 		switch gvk.Kind {
 		case helpers.TCPRouteKind:
 			// TCPRoute is reconciled by the Gateway API reconciler, but log that the
