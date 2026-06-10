@@ -65,9 +65,10 @@ var ClientBuilderCell = cell.Module(
 )
 
 var (
-	k8sHeartbeatControllerGroup = controller.NewGroup("k8s-heartbeat")
-	connTimeout                 = time.Minute
-	connRetryInterval           = 5 * time.Second
+	k8sHeartbeatControllerGroup  = controller.NewGroup("k8s-heartbeat")
+	k8sConnRecoveryControllerGroup = controller.NewGroup("k8s-conn-recovery")
+	connTimeout                  = time.Minute
+	connRetryInterval            = 5 * time.Second
 )
 
 // Type aliases for the clientsets to avoid name collision on 'Clientset' when composing them.
@@ -244,6 +245,7 @@ func (c *compositeClientset) onStart(startCtx cell.HookContext) error {
 		c.logger.Warn("Unable to connect to k8s API server on startup; continuing in degraded state",
 			logfields.Error, err,
 		)
+		c.startConnRecovery()
 		return nil
 	}
 	c.startHeartbeat()
@@ -310,6 +312,46 @@ func (c *compositeClientset) startHeartbeat() {
 				return nil
 			},
 			RunInterval: timeout,
+		})
+}
+
+// degraded state background retry
+func (c *compositeClientset) startConnRecovery() {
+	const controllerName = "k8s-conn-recovery"
+	c.controller.UpdateController(controllerName,
+		controller.ControllerParams{
+			Group: k8sConnRecoveryControllerGroup,
+			// use the same cfg vars as onstart for timeout and retry
+			// allow the controller to exec the anon at interval
+			DoFunc: func(ctx context.Context) error {
+				if err := isConnReady(c); err != nil {
+					c.logger.Debug("k8s API server still unreachable, will retry",
+						logfields.IPAddr, c.restConfigManager.getConfig().Host,
+						logfields.Error, err,
+					)
+					return nil
+				}
+
+				c.logger.Info("Re-established connection to API server. Exiting degraded state",
+					logfields.IPAddr, c.restConfigManager.getConfig().Host,
+				)
+				// start the heartbeat as this was previously skipped
+				c.startHeartbeat()
+
+				// do the k8s version check. might remove
+				if err := k8sversion.Update(c.logger, c, c.config.EnableK8sAPIDiscovery); err != nil {
+					c.logger.Warn("k8s version check failed after reconnect", logfields.Error, err)
+				} else if !k8sversion.Capabilities().MinimalVersionMet {
+					c.logger.Warn("k8s version does not meet minimal standardc",
+						"version", k8sversion.Version(),
+						"minVersion", k8sversion.MinimalVersionConstraint,
+					)
+				}
+
+				c.controller.RemoveController(controllerName)
+				return nil
+			},
+			RunInterval: connRetryInterval,
 		})
 }
 
