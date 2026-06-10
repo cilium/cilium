@@ -1454,7 +1454,7 @@ func (ms *mapState) insertWithChanges(tierMaxPrecedence types.Precedence, newKey
 	} else {
 		// authPreferredInsert takes care for precedence and auth
 		if features.contains(authRules) {
-			ms.authPreferredInsert(newKey, newEntry, features, changes)
+			ms.authPreferredInsert(newKey, newEntry, changes)
 			ms.pruneAggregated(newKey, newEntry, changes)
 			return
 		}
@@ -1574,7 +1574,7 @@ func (ms *mapState) overrideAuthRequirement(newEntry mapStateEntry, k Key, v map
 // This function is expected to be called for a map insertion after deny
 // entry evaluation. If there is a covering map key for 'newKey'
 // which denies traffic matching 'newKey', then this function should not be called.
-func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
+func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, changes ChangeState) {
 	// Bail if covered by a key with a higher precedence and current
 	// entry has no explicit auth.
 	var derived bool

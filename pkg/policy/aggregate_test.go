@@ -25,7 +25,7 @@ func TestAllAggregates(t *testing.T) {
 		nid := i * 100
 		// duplicate of AllAggregates for efficiency.
 		switch nid {
-		case 0, 6:
+		case 0, 6, 2:
 			require.True(t, isAggregate(nid))
 		default:
 			require.False(t, isAggregate(nid))
@@ -34,7 +34,7 @@ func TestAllAggregates(t *testing.T) {
 }
 
 func TestIsAggregate(t *testing.T) {
-	for _, tc := range []struct {
+	for i, tc := range []struct {
 		in, out identity.NumericIdentity
 	}{
 		{0, 0},
@@ -42,11 +42,14 @@ func TestIsAggregate(t *testing.T) {
 		{identity.ReservedIdentityRemoteNode, 6},
 		{identity.ReservedIdentityKubeAPIServer, 6},
 		{identity.ReservedCoreDNS, 0},
-		{identity.MinAllocatorLocalIdentity, 0},
-		{identity.MaxAllocatorLocalIdentity, 0},
+		{identity.MinLocalIdentity, 2},
+		{identity.MaxLocalIdentity, 2},
+		{identity.ReservedIdentityWorld, 2},
+		{identity.ReservedIdentityWorldIPv4, 2},
+		{identity.ReservedIdentityWorldIPv6, 2},
 		{identity.IdentityScopeRemoteNode, 6},
 		{identity.IdentityScopeRemoteNode + 100, 6},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in))
+		require.Equal(t, tc.out, aggregateFor(tc.in), "idx %d ID %d", i, tc.in)
 	}
 }
