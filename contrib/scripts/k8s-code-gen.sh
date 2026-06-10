@@ -88,7 +88,6 @@ function kube::codegen::deepequal_helpers() {
 
 kube::codegen::gen_client \
     "./pkg/k8s/slim/k8s/api" \
-    --with-watch \
     --output-dir "${TMPDIR}/github.com/cilium/cilium/pkg/k8s/slim/k8s/client" \
     --output-pkg "github.com/cilium/cilium/pkg/k8s/slim/k8s/client" \
     --plural-exceptions ${PLURAL_EXCEPTIONS} \
