@@ -899,7 +899,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
-     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","privateKey":{},"server":{"extraDnsNames":[],"extraIpAddresses":[]},"subject":{}}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","privateKey":{},"server":{"extraDnsNames":[],"extraIpAddresses":[]},"subject":{}}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
      - object
@@ -907,7 +907,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.certValidityDuration`
      - Generated certificates validity duration in days.
      - int
-     - ``1095``
+     - ``365``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.enabled`
      - When set to true, automatically generate a CA and certificates to enable mTLS between clustermesh-apiserver and external workload instances.  When set to false you need to pre-create the following secrets: - clustermesh-apiserver-server-cert - clustermesh-apiserver-admin-cert - clustermesh-apiserver-remote-cert - clustermesh-apiserver-local-cert The above secret should at least contains the keys ``tls.crt`` and ``tls.key`` and optionally ``ca.crt`` if a CA bundle is not configured.
      - bool
