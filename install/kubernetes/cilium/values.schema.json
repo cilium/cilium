@@ -768,6 +768,9 @@
           },
           "type": "object"
         },
+        "enforceCAValidityThroughoutLeavesDuration": {
+          "type": "boolean"
+        },
         "extraVolumeMounts": {
           "items": {},
           "type": "array"
