@@ -26,8 +26,6 @@ func GetScope() (string, error) {
 
 	focusString := strings.TrimSpace(strings.ToLower(ginkgoconfig.GinkgoConfig.FocusStrings[0]))
 	switch {
-	case strings.HasPrefix(focusString, "run"):
-		return Runtime, nil
 	case strings.HasPrefix(focusString, K8s):
 		return K8s, nil
 	default:

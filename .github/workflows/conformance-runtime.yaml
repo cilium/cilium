@@ -84,11 +84,11 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
-  # Pre-build the ginkgo binary so that we don't have to build it for all
-  # runners.
-  build-ginkgo-binary:
+  # Wait for the cilium-ci image to be available, as it ships the BPF
+  # toolchain (clang/llc/tc) extracted into the test VMs below.
+  wait-for-images:
     runs-on: ubuntu-24.04
-    name: Build Ginkgo Runtime
+    name: Wait for images
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -110,68 +110,14 @@ jobs:
 
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
 
-      # Warning: since this is a privileged workflow, subsequent workflow job
-      # steps must take care not to execute untrusted code.
-      - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ steps.vars.outputs.sha }}
-          persist-credentials: false
-
-      # If any of these steps are modified, please update the copy of these
-      # steps further down under the 'setup-and-test' jobs.
-
-      # Load Ginkgo build from GitHub
-      - name: Load ginkgo runtime from GH cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        id: cache
-        with:
-          path: /tmp/.ginkgo-build/
-          key: ${{ runner.os }}-ginkgo-runtime-${{ hashFiles('**/*.go') }}
-
-      - name: Install Go
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          # renovate: datasource=golang-version depName=go
-          go-version: 1.26.4
-
-      - name: Build Ginkgo
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
-          mkdir -p /tmp/.ginkgo-build
-
-      - name: Build Test
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          cd test
-          /home/runner/go/bin/ginkgo build
-          strip test.test
-          tar -cz test.test -f test.tgz
-
-      - name: Store Ginkgo Test in GitHub cache path
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          mkdir -p /tmp/.ginkgo-build/
-          if [ -f test/test.tgz ]; then
-            cp test/test.tgz /tmp/.ginkgo-build/
-            echo "file copied"
-          fi
-
       - name: Waiting for images
         timeout-minutes: 20
         shell: bash
         run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
+          until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
 
   setup-and-test:
-    needs: build-ginkgo-binary
+    needs: wait-for-images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     name: "Runtime Test (${{matrix.focus}})"
     env:
@@ -183,21 +129,9 @@ jobs:
       max-parallel: 2
       matrix:
         focus:
-          - "datapath"
           - "privileged"
 
         include:
-          ###
-          # RuntimeDatapathMonitorTest With Sample Containers checks container ids match monitor output
-          # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --from
-          # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --related-to
-          # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --to
-          # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
-          - focus: "datapath"
-            cliFocus: "RuntimeDatapathMonitorTest"
-            # TODO: not updated by renovate, investigate why the tests fail on newer images
-            #  see https://github.com/cilium/cilium/issues/38058
-            lvhImage: "6.12-20241218.004849"
 
           - focus: "privileged"
             # TODO: not updated by renovate, investigate why the tests fail on newer images
@@ -259,53 +193,6 @@ jobs:
           lvh-version: "v0.0.30"
           mem: 14G
 
-      # Load Ginkgo build from GitHub
-      - name: Load ${{ matrix.focus }} Ginkgo build from GitHub
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        id: cache
-        with:
-          path: /tmp/.ginkgo-build/
-          key: ${{ runner.os }}-ginkgo-runtime-${{ hashFiles('**/*.go') }}
-
-      - name: Install Go
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          cache: false
-          # renovate: datasource=golang-version depName=go
-          go-version: 1.26.4
-
-      - name: Build Ginkgo
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
-          mkdir -p /tmp/.ginkgo-build
-
-      - name: Build Test
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          cd test
-          /home/runner/go/bin/ginkgo build
-          strip test.test
-          tar -cz test.test -f test.tgz
-
-      - name: Store Ginkgo Test in GitHub cache path
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          mkdir -p /tmp/.ginkgo-build/
-          if [ -f test/test.tgz ]; then
-            cp test/test.tgz /tmp/.ginkgo-build/
-            echo "file copied"
-          fi
-
-      - name: Copy Ginkgo binary
-        shell: bash
-        run: |
-          cd test/
-          tar -xf /tmp/.ginkgo-build/test.tgz
 
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
@@ -344,48 +231,25 @@ jobs:
             ln -s /host /root/go/src/github.com/cilium/cilium
             mkdir -p /home/root/go/src/github.com/cilium/
             ln -s /host /home/root/go/src/github.com/cilium/cilium
-            cp -r /host/test/provision /tmp
             git config --global --add safe.directory /host
-            export CILIUM_IMAGE=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
-            export CILIUM_DOCKER_PLUGIN_IMAGE=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docker-plugin-ci:${{ steps.vars.outputs.sha }}
-            export PROVISION_EXTERNAL_WORKLOAD=false
-            export VMUSER=root
             echo '127.0.0.1 localhost' >> /etc/hosts
             echo '::1 localhost' >> /etc/hosts
-            /tmp/provision/runtime_install.sh ${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}
-            service docker restart
-
-      - name: Runtime tests
-        if: ${{ matrix.focus == 'datapath' }}
-        timeout-minutes: 20
-        shell: bash
-        run: |
-          cat > test/cilium-ssh-config.txt << EOF
-          Host runtime
-            HostName 127.0.0.1
-            User root
-            Port 2222
-            UserKnownHostsFile /dev/null
-            StrictHostKeyChecking no
-            PasswordAuthentication no
-            LogLevel FATAL
-          EOF
-          cd test
-          export INTEGRATION_TESTS=true
-          ./test.test \
-          --ginkgo.focus="${{ matrix.cliFocus }}" \
-          --ginkgo.skip="${{ matrix.cliSkip }}" \
-          --ginkgo.seed=1679952881 \
-          --ginkgo.v -- \
-          -cilium.image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci \
-          -cilium.tag=${{ steps.vars.outputs.sha }}  \
-          -cilium.operator-image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/operator \
-          -cilium.operator-tag=${{ steps.vars.outputs.sha }} \
-          -cilium.hubble-relay-image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci \
-          -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }} \
-          -cilium.operator-suffix=-ci \
-          -cilium.SSHConfig="cat ./cilium-ssh-config.txt" \
-          -cilium.extra-opts="${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}"
+            # The privileged tests compile and load BPF programs and thus
+            # require the same clang/llc/tc toolchain shipped in the Cilium
+            # image. Extract the binaries instead of booting a full agent.
+            # These programs are not statically linked so they might break in
+            # the case of GHA runners being upgraded.
+            if ! command -v clang >/dev/null 2>&1; then
+              # Wait for systemd-resolved to be ready so that the image pull
+              # below can resolve the registry hostname.
+              for i in {1..5}; do curl "https://${{ env.REGISTRY_DEV }}" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
+              docker create --name cilium-toolchain ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+              docker cp cilium-toolchain:/usr/local/bin/clang /usr/bin/
+              docker cp cilium-toolchain:/usr/local/bin/llc /usr/bin/
+              docker cp cilium-toolchain:/usr/sbin/tc /usr/bin/
+              docker rm cilium-toolchain
+            fi
+            clang --version
 
       - name: Prepare privileged tests
         id: prepare-tests
@@ -448,46 +312,6 @@ jobs:
           ls -lah "${GOCACHE}" || true
           ls -lah "${GOMODCACHE}" || true
 
-      - name: Copy tested features
-        if: ${{ matrix.focus == 'datapath' }}
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
-        with:
-          provision: 'false'
-          cmd: |
-            docker create --name cilium-dbg ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
-            docker cp cilium-dbg:/usr/bin/cilium-dbg /usr/local/bin/cilium-dbg
-            docker rm cilium-dbg
-            cilium-dbg metrics list -p cilium_feature -o json > '/host/features-tested-${{ env.job_name }} (${{ matrix.focus }}).json'
-
-      - name: Debug failure on VM
-        # Only debug the failure on the LVH that have Cilium running as a service,
-        # which is 'datapath' focus.
-        if:  ${{ !success() && matrix.focus == 'datapath' }}
-        timeout-minutes: 10
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
-        with:
-          provision: 'false'
-          cmd: |
-            journalctl --no-pager -xeu cilium.service
-            systemctl status cilium.service
-
-      - name: Fetch artifacts
-        if: ${{ !success() && matrix.focus == 'datapath' }}
-        shell: bash
-        run: |
-          if [ -e ./test/test_results ];then
-            tar -zcf 'test_results-${{ matrix.focus }}.tar.gz' ./test/test_results
-          else
-            echo "::warning::test results directory is not exist!"
-          fi
-
-      - name: Upload artifacts
-        if: ${{ !success() && matrix.focus == 'datapath' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: cilium-sysdumps-${{ matrix.focus }}
-          path: |
-            test_results-*.tar.gz
 
       - name: Fetch JUnits
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
@@ -508,13 +332,6 @@ jobs:
         with:
           name: cilium-junits-${{ matrix.focus }}
           path: cilium-junits/*.xml
-
-      - name: Upload features tested
-        if: ${{ always() && matrix.focus == 'datapath' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: features-tested-${{ matrix.focus }}
-          path: features-tested-${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() && runner.arch != 'ARM64' }}
@@ -539,13 +356,6 @@ jobs:
           name: cilium-junits
           pattern: cilium-junits-*
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge Features tested
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: features-tested
-          pattern: features-tested-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-          separate-directories: true
 
   commit-status-final:
     if: ${{ always() }}

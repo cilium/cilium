@@ -113,8 +113,7 @@ func (reporter *JUnitReporter) extractTestOwnerPrefix(testName string) string {
 		firstPart := parts[0]
 		// Check if it looks like a test class name (ends with "Test")
 		if strings.HasSuffix(firstPart, "Test") ||
-			strings.HasSuffix(firstPart, "DatapathConfig") ||
-			strings.HasPrefix(firstPart, "RuntimeAgent") {
+			strings.HasSuffix(firstPart, "DatapathConfig") {
 			return firstPart
 		}
 	}
@@ -317,8 +316,6 @@ func (reporter *JUnitReporter) mapTestToCODEOWNER(prefix string) string {
 		return "test/k8s/config.go"
 	case "K8sPolicyTestExtended":
 		return "test/k8s/net_policies.go"
-	case "RuntimeDatapathMonitorTest":
-		return "test/runtime/monitor.go"
 	case "K8sDatapathLRPTests":
 		return "test/k8s/lrp.go"
 	case "K8sDatapathServicesTest":

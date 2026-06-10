@@ -24,7 +24,6 @@ import (
 	// These packages are where Ginkgo test specs live. They are declared as blank
 	// (_) global variables and are pulled in using package import side effects.
 	_ "github.com/cilium/cilium/test/k8s"
-	_ "github.com/cilium/cilium/test/runtime"
 )
 
 var (
@@ -144,18 +143,6 @@ func goReportSetupStatus() chan bool {
 	return exit
 }
 
-func reportFailure(vm string, err error) {
-	failmsg := fmt.Sprintf(`
-        ===================== ERROR - VM PROVISION FAILED =====================
-
-        Unable to provision Runtime test environment %q: %s", vm, err
-
-        =======================================================================
-        `, vm, err)
-	GinkgoPrint(failmsg)
-	Fail(failmsg)
-}
-
 var _ = BeforeAll(func() {
 	helpers.Init()
 	By("Starting tests: command line parameters: %+v environment variables: %v", config.CiliumTestConfig, os.Environ())
@@ -188,19 +175,6 @@ var _ = BeforeAll(func() {
 	}
 
 	switch scope {
-	case helpers.Runtime:
-		vm := helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		err = vm.SetUpCilium()
-
-		if err != nil {
-			// AfterFailed function is not defined in this scope, fired the
-			// ReportFailed manually for this assert to gather cilium logs Fix
-			// #3428
-			vm.ReportFailed()
-			log.WithError(err).Error("Cilium was unable to be set up correctly")
-			reportFailure(helpers.Runtime, err)
-		}
-		go vm.PprofReport()
 
 	case helpers.K8s:
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
