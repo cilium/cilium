@@ -478,15 +478,3 @@ func computeTableIDFromIfaceNumber(compat bool, num int) int {
 	}
 	return linux_defaults.RouteTableInterfacesOffset + num
 }
-
-func sameIPFamily(a, b net.IP) bool {
-	return (a.To4() != nil) == (b.To4() != nil)
-}
-
-// normalizeRuleToCIDR returns nil when passed cidr is zeroes only cidr
-func normalizeRuleToCIDR(cidr *net.IPNet) *net.IPNet {
-	if cidr.IP.IsUnspecified() {
-		return nil
-	}
-	return cidr
-}
