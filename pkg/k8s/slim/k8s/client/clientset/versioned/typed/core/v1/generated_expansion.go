@@ -5,8 +5,6 @@
 
 package v1
 
-type EndpointsExpansion interface{}
-
 type NamespaceExpansion interface{}
 
 type NodeExpansion interface{}

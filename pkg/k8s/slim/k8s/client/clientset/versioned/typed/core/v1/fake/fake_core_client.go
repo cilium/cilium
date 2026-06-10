@@ -15,10 +15,6 @@ type FakeCoreV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCoreV1) Endpoints(namespace string) v1.EndpointsInterface {
-	return newFakeEndpoints(c, namespace)
-}
-
 func (c *FakeCoreV1) Namespaces() v1.NamespaceInterface {
 	return newFakeNamespaces(c)
 }
