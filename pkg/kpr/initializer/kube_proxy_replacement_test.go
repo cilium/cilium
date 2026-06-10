@@ -38,10 +38,11 @@ type kprConfig struct {
 
 	expectedErrorRegex string
 
-	routingMode    string
-	tunnelProtocol tunnel.EncapProtocol
-	nodePortMode   string
-	dispatchMode   string
+	routingMode      string
+	tunnelProtocol   tunnel.EncapProtocol
+	nodePortMode     string
+	dispatchMode     string
+	lbModeAnnotation bool
 
 	lbConfig    loadbalancer.Config
 	kprConfig   kpr.KPRConfig
@@ -75,6 +76,7 @@ func (cfg *kprConfig) set() (err error) {
 		cfg.lbConfig.LBMode = cfg.nodePortMode
 	}
 
+	cfg.lbConfig.LBModeAnnotation = cfg.lbModeAnnotation
 	cfg.lbConfig.DSRDispatch = cfg.dispatchMode
 
 	return nil
@@ -368,6 +370,43 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
+				enableSocketLB:          true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+
+		// LB mode annotation + IPIP dispatch + vxlan routing: ok, as IPIP
+		// dispatch is not mutually exclusive with VXLAN.
+		{
+			"lb-mode-annotation+ipip-dispatch+vxlan-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = true
+				cfg.routingMode = option.RoutingModeTunnel
+				cfg.tunnelProtocol = tunnel.VXLAN
+				cfg.lbModeAnnotation = true
+				cfg.dispatchMode = loadbalancer.DSRDispatchIPIP
+			},
+			kprConfig{
+				enableSocketLB:          true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+				enableIPIPTermination:   true,
+			},
+		},
+		// LB mode annotation + Geneve dispatch + vxlan routing: error, as only
+		// IPIP dispatch is supported with VXLAN tunneling.
+		{
+			"lb-mode-annotation+geneve-dispatch+vxlan-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = true
+				cfg.routingMode = option.RoutingModeTunnel
+				cfg.tunnelProtocol = tunnel.VXLAN
+				cfg.lbModeAnnotation = true
+				cfg.dispatchMode = loadbalancer.DSRDispatchGeneve
+			},
+			kprConfig{
+				expectedErrorRegex:      "Only --.+ is supported with .+ tunneling when --.+ is set",
 				enableSocketLB:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
