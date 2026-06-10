@@ -319,6 +319,15 @@ Informational Notes
   improvements and prepare for the eventual deprecation of ``v1alpha1``.
 * Listing BGP peers, routes and route-policies via the local REST API and ``cilium-dbg bgp`` commands is deprecated.
   Use the BGP hive shell commands instead: ``cilium shell -- bgp/*``.
+* The default duration of automatically generated Cluster Mesh certificates is
+  reduced to one year, and matches the default duration of Hubble certificates.
+  Note that certificates generated through the ``helm`` method (default) are
+  only renewed when the Helm chart is re-rendered (typically during a Cilium
+  upgrade). Make sure to upgrade Cilium at least once per year to prevent the
+  certificates from expiring, or explicitly configure a longer validity through
+  the ``clustermesh.apiserver.tls.auto.certValidityDuration`` option. The same
+  limitation does not apply to the other generation methods (``cronJob`` and
+  ``certmanager``), which support automatic certificate renewal.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
