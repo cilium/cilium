@@ -1,0 +1,86 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: nodeport-gateway-class
+spec:
+  controllerName: io.cilium/gateway-controller
+  description: The default Cilium GatewayClass
+  parametersRef:
+    group: cilium.io
+    kind: CiliumGatewayClassConfig
+    name: nodeport-gateway-config
+    namespace: default
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumGatewayClassConfig
+metadata:
+  name: nodeport-gateway-config
+  namespace: default
+spec:
+  service:
+    type: NodePort
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: nodeport-gateway
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: nodeport-gateway-class
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-gateway-nodeport-gateway
+  namespace: gateway-conformance-infra
+  labels:
+    gateway.networking.k8s.io/gateway-name: nodeport-gateway
+    io.cilium.gateway/owning-gateway: nodeport-gateway
+spec:
+  ports:
+    - port: 3000
+      targetPort: 80
+      nodePort: 30020
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: kind-worker
+spec:
+  podCIDR: 10.244.1.0/24
+  podCIDRs:
+  - 10.244.1.0/24
+  - fd00:10:244:1::/64
+status:
+  addresses:
+  - address: 172.18.0.3
+    type: InternalIP
+  - address: fc00:f853:ccd:e793::3
+    type: InternalIP
+  - address: kind-worker
+    type: Hostname
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: kind-worker2
+spec:
+  podCIDR: 10.244.1.0/24
+  podCIDRs:
+  - 10.244.1.0/24
+  - fd00:10:244:1::/64
+status:
+  addresses:
+  - address: 172.18.0.4
+    type: InternalIP
+  - address: fc00:f853:ccd:e793::3
+    type: InternalIP
+  - address: kind-worker
+    type: Hostname
