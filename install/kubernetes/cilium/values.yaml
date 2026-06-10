@@ -1395,6 +1395,12 @@ socketLB:
 certgen:
   # -- When set to true the certificate authority secret is created.
   generateCA: true
+  # -- When set to true, certgen enforces that the certification authority chain
+  # remains valid for the entire duration of the leaf certificates to be generated,
+  # and fails with a hard error if that is not the case. This allows to flag early
+  # situations in which the CA certificates need to be manually regenerated, before
+  # they actually expire.
+  enforceCAValidityThroughoutLeavesDuration: true
   image:
     # @schema
     # type: [null, string]

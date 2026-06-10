@@ -503,7 +503,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:f0c656830e856d26b24b0e144df1f8b327d3b46748d76a630514111fc365b697","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.4.1","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"enforceCAValidityThroughoutLeavesDuration":true,"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:f0c656830e856d26b24b0e144df1f8b327d3b46748d76a630514111fc365b697","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.4.1","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -520,6 +520,10 @@
      - The number of successful finished jobs to keep
      - int
      - ``3``
+   * - :spelling:ignore:`certgen.enforceCAValidityThroughoutLeavesDuration`
+     - When set to true, certgen enforces that the certification authority chain remains valid for the entire duration of the leaf certificates to be generated, and fails with a hard error if that is not the case. This allows to flag early situations in which the CA certificates need to be manually regenerated, before they actually expire.
+     - bool
+     - ``true``
    * - :spelling:ignore:`certgen.extraVolumeMounts`
      - Additional certgen volumeMounts.
      - list

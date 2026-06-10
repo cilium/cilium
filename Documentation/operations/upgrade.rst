@@ -328,6 +328,13 @@ Informational Notes
   the ``clustermesh.apiserver.tls.auto.certValidityDuration`` option. The same
   limitation does not apply to the other generation methods (``cronJob`` and
   ``certmanager``), which support automatic certificate renewal.
+* The certgen tool, which is used to automatically generate Hubble and Cluster
+  Mesh certificates in ``cronJob`` mode, now defaults to enforcing that the CA
+  chain remains valid for the entire duration of the leaf certificates to be
+  generated, and fails with a hard error if that is not the case. This allows
+  to flag early situations in which the CA certificates need to be manually
+  regenerated, before they actually expire. This validation can be disabled
+  setting ``certgen.enforceCAValidityThroughoutLeavesDuration=false``.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~

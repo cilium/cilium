@@ -39,6 +39,7 @@ spec:
             - "--ca-secret-namespace={{ include "cilium.namespace" . }}"
             - "--ca-secret-name=cilium-ca"
             - "--ca-common-name=Cilium CA"
+            - "--ca-enforce-validity-throughout-leaves-duration={{ .Values.certgen.enforceCAValidityThroughoutLeavesDuration }}"
           env:
             - name: CILIUM_CERTGEN_CONFIG
               value: |
