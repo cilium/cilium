@@ -202,6 +202,18 @@
   {{- end }}
 {{- end }}
 
+{{- if and
+  .Values.clustermesh.useAPIServer
+  (not .Values.clustermesh.apiserver.tls.auto.enabled)
+  (or
+    (dig "server" "cert" "" .Values.clustermesh.apiserver.tls )
+    (dig "admin" "cert" "" .Values.clustermesh.apiserver.tls )
+    (dig "remote" "cert" "" .Values.clustermesh.apiserver.tls )
+  )
+}}
+  {{- fail "The support for providing Cluster Mesh certs and keys as helm values has been removed. You must enable auto-generation or pre-create the corresponding secrets" }}
+{{- end }}
+
 {{/* validate ClusterMesh */}}
 {{- if and (ne (int .Values.clustermesh.maxConnectedClusters) 255) (ne (int .Values.clustermesh.maxConnectedClusters) 511) }}
   {{- fail "max-connected-clusters must be set to 255 or 511" }}

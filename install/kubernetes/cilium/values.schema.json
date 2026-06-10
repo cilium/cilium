@@ -1398,17 +1398,6 @@
             },
             "tls": {
               "properties": {
-                "admin": {
-                  "properties": {
-                    "cert": {
-                      "type": "string"
-                    },
-                    "key": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
                 "authMode": {
                   "type": "string"
                 },
@@ -1435,25 +1424,8 @@
                   },
                   "type": "object"
                 },
-                "enableSecrets": {
-                  "type": "boolean"
-                },
-                "remote": {
-                  "properties": {
-                    "cert": {
-                      "type": "string"
-                    },
-                    "key": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
                 "server": {
                   "properties": {
-                    "cert": {
-                      "type": "string"
-                    },
                     "extraDnsNames": {
                       "items": {},
                       "type": "array"
@@ -1461,9 +1433,6 @@
                     "extraIpAddresses": {
                       "items": {},
                       "type": "array"
-                    },
-                    "key": {
-                      "type": "string"
                     }
                   },
                   "type": "object"
