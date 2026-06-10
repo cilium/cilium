@@ -119,8 +119,9 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 // and selects the appropriate MTU to set on those routes.
 //
 // Conditions for proxy routes:
-//   - Native routing + Envoy: install only Ingress routes to handle reply packet of
-//     hair-pinning traffic in Ingress L7 proxy (i.e. backend is in the same node).
+//   - Native routing + Envoy: install both Ingress and Egress proxy routes.
+//     Ingress L7 proxy hair-pinning traffic (i.e. backend is in the same node)
+//     enters the host with MagicMarkIngress and needs the Ingress rule.
 //   - Native routing + IPSec: install Ingress+Egress routes for (a) the same reason
 //     as above, and also to account for XFRM overhead on proxy-to-proxy connections.
 //   - Native routing + WireGuard: install only Ingress routes to account for WireGuard
@@ -131,6 +132,7 @@ func requireFromProxyRoutes(ipsecEnabled, wireguardEnabled bool, mtuIn int) (fro
 	}
 	if option.Config.EnableEnvoyConfig {
 		fromIngressProxy = true
+		fromEgressProxy = true
 	}
 	switch {
 	case ipsecEnabled:
