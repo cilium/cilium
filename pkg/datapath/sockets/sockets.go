@@ -240,7 +240,7 @@ func newBPFSocketDestroyer(logger *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Ma
 // socket iterator and the cil_sock_udp_destroy program.
 //
 // Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
-// Supported protocols in the filter: unix.IPPROTO_UDP
+// Supported protocols in the filter: unix.IPPROTO_UDP, unix.IPPROTO_TCP
 func (sd *bpfSocketDestroyer) Destroy(logger *slog.Logger, f SocketFilter) error {
 	if f.Family != syscall.AF_INET && f.Family != syscall.AF_INET6 {
 		return fmt.Errorf("unsupported family for socket destroy: %d", f.Family)
