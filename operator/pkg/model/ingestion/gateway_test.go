@@ -105,6 +105,15 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"http external auth http tls":                             {},
 		"http external auth grpc tls":                             {},
 		"http external auth shared and no auth":                   {},
+		"http request mirror cross namespace no grant":            {},
+		"http request mirror cross namespace with grant":          {},
+		"grpc request mirror cross namespace no grant":            {},
+		"grpc request mirror cross namespace with grant":          {},
+		"http skips backends missing port":                        {},
+		"http cross namespace backend no grant":                   {},
+		"http cross namespace backend with grant":                 {},
+		"grpc cross namespace backend no grant":                   {},
+		"grpc cross namespace backend with grant":                 {},
 	}
 
 	for name := range tests {
@@ -672,6 +681,8 @@ func TestTLSGatewayAPI(t *testing.T) {
 		"mixed protocol listeners TLSRoute":        {},
 		"tls weighted backends":                    {},
 		"tls route parent ref filter":              {},
+		"tls route filters by parent ref port":     {},
+		"tls skips backends missing port":          {},
 	}
 
 	for name := range tests {
@@ -690,7 +701,8 @@ func TestTLSGatewayAPI(t *testing.T) {
 
 func TestGRPCGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
-		"basic grpc": {},
+		"basic grpc":                            {},
+		"grpc route filters by parent ref port": {},
 	}
 
 	for name := range tests {
@@ -710,7 +722,8 @@ func TestGRPCGatewayAPI(t *testing.T) {
 
 func TestL4GatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
-		"basic l4": {},
+		"basic l4":                       {},
+		"l4 skips backends missing port": {},
 	}
 
 	for name := range tests {
@@ -1888,6 +1901,7 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-httproute.yaml"), &input.HTTPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tlsroute.yaml"), &input.TLSRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-grpcroute.yaml"), &input.GRPCRoutes)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-referencegrant.yaml"), &input.ReferenceGrants)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tcproute.yaml"), &input.TCPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-udproute.yaml"), &input.UDPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
