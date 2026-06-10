@@ -20,16 +20,6 @@ func (*ContainerStateRunning) ProtoMessage() {}
 
 func (*ContainerStatus) ProtoMessage() {}
 
-func (*EndpointAddress) ProtoMessage() {}
-
-func (*EndpointPort) ProtoMessage() {}
-
-func (*EndpointSubset) ProtoMessage() {}
-
-func (*Endpoints) ProtoMessage() {}
-
-func (*EndpointsList) ProtoMessage() {}
-
 func (*LoadBalancerIngress) ProtoMessage() {}
 
 func (*LoadBalancerStatus) ProtoMessage() {}
