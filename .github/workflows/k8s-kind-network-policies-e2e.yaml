@@ -180,10 +180,17 @@ jobs:
         run: |
           # Note: On Kind, we install Cilium with HostPort (portmap CNI chaining) enabled,
           # to ensure coverage of that feature in cilium connectivity test
+          #
+          # Note: identity-max-jitter is set to 0s to avoid flaking the
+          # "updated pod" netpol tests, which relabel a pod and then retry the
+          # connection for a bounded time. The jitter delays the resulting
+          # identity change, so the new policy can land after the test gives up.
+          # See #46475. It has no helm value of its own, hence extraConfig.
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cni.chainingMode=portmap \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=identityChangeGracePeriod=\"0s\" \
+            --helm-set=extraConfig.identity-max-jitter=\"0s\" \
             --helm-set=sctp.enabled=true"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
