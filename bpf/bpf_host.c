@@ -1232,6 +1232,19 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 
 		break;
 #endif /* ENABLE_IPV4 */
+#ifndef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		/* The IPv6 datapath is not compiled in, so the host firewall
+		 * cannot enforce policies on IPv6 and would drop it as unknown
+		 * L3, breaking IPv6 neighbor discovery for the node (e.g. BGP
+		 * unnumbered over link-local addresses). Pass IPv6 to the
+		 * kernel stack instead, as without the host firewall.
+		 */
+		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
+		ret = CTX_ACT_OK;
+		break;
+#endif /* !ENABLE_IPV6 */
 	default:
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
@@ -1488,6 +1501,12 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		ret = CTX_ACT_OK;
 		break;
 # endif
+# ifndef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		/* Pass IPv6 to the kernel stack: see do_netdev(). */
+		ret = CTX_ACT_OK;
+		break;
+# endif /* !ENABLE_IPV6 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -1716,6 +1735,12 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 		ret = CTX_ACT_OK;
 		break;
 # endif
+# ifndef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		/* Pass IPv6 to the kernel stack: see do_netdev(). */
+		ret = CTX_ACT_OK;
+		break;
+# endif /* !ENABLE_IPV6 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -1914,6 +1939,12 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 		ret = CTX_ACT_OK;
 		break;
 # endif
+# ifndef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		/* Pass IPv6 to the kernel stack: see do_netdev(). */
+		ret = CTX_ACT_OK;
+		break;
+# endif /* !ENABLE_IPV6 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
