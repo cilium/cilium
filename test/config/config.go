@@ -65,7 +65,7 @@ func (c *CiliumTestConfigType) ParseFlags() {
 	flagset.BoolVar(&c.ShowCommands, "cilium.showCommands", false,
 		"Output which commands are ran to stdout")
 	flagset.StringVar(&c.TestScope, "cilium.testScope", "",
-		"Specifies scope of test to be ran (k8s, runtime)")
+		"Specifies scope of test to be ran (k8s)")
 	flagset.StringVar(&c.CiliumImage, "cilium.image", "",
 		"Specifies which image of cilium to use during tests")
 	flagset.StringVar(&c.CiliumTag, "cilium.tag", "",

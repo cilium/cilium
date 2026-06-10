@@ -14,7 +14,7 @@ endif
 HOLD_ENVIRONMENT ?= true
 
 TEST_ARTIFACTS = ./tmp.yaml ./*_service_manifest.json ./*_manifest.yaml
-TEST_ARTIFACTS += ./*_policy.json ./k8s-*.xml ./runtime.xml ./test_results
+TEST_ARTIFACTS += ./*_policy.json ./k8s-*.xml ./test_results
 TEST_ARTIFACTS += ./test.test
 
 NETNEXT ?= false

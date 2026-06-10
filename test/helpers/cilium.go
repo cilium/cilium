@@ -5,7 +5,6 @@ package helpers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -243,13 +242,7 @@ func (s *SSHMeta) GetEndpointsIds() (map[string]string, error) {
 	return endpoints.KVOutput(), nil
 }
 
-// ManifestsPath returns the path of the directory where manifests (YAMLs
-// containing policies, DaemonSets, etc.) are stored for the runtime tests.
-// TODO: this can just be a constant; there's no need to have a function.
-func (s *SSHMeta) ManifestsPath() string {
-	return fmt.Sprintf("%s/runtime/manifests/", s.basePath)
-}
-
+// BasePath returns the base path of the Cilium source tree on the node.
 func (s *SSHMeta) BasePath() string {
 	return s.basePath
 }
@@ -282,12 +275,6 @@ func (s *SSHMeta) MonitorStart(opts ...string) (*CmdRes, func() error) {
 		return nil
 	}
 	return res, cb
-}
-
-// GetFullPath returns the path of file name prepended with the absolute path
-// where manifests (YAMLs containing policies, DaemonSets, etc.) are stored.
-func (s *SSHMeta) GetFullPath(name string) string {
-	return fmt.Sprintf("%s%s", s.ManifestsPath(), name)
 }
 
 // SetPolicyEnforcement sets the PolicyEnforcement configuration value for the
@@ -347,35 +334,6 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 
 	s.DumpCiliumCommandOutput()
 	s.GatherLogs()
-	s.GatherDockerLogs()
-}
-
-// ValidateEndpointsAreCorrect is a function that validates that all Docker
-// container that are in the given docker network are correct as cilium
-// endpoints.
-func (s *SSHMeta) ValidateEndpointsAreCorrect(dockerNetwork string) error {
-	endpointsFilter := `{range[*]}{.status.external-identifiers.container-id}{"="}{.id}{"\n"}{end}`
-	jqFilter := `.[].Containers|keys |.[]`
-
-	res := s.Exec(fmt.Sprintf("docker network inspect %s | jq -r '%s'", dockerNetwork, jqFilter))
-	if !res.WasSuccessful() {
-		return errors.New("Cannot get Docker containers in the given network")
-	}
-
-	epRes := s.ExecCilium(fmt.Sprintf("endpoint list -o jsonpath='%s'", endpointsFilter))
-	if !epRes.WasSuccessful() {
-		return errors.New("Cannot get cilium endpoint list")
-	}
-
-	endpoints := epRes.KVOutput()
-	for _, containerID := range res.ByLines() {
-		_, exists := endpoints[containerID]
-		if !exists {
-
-			return fmt.Errorf("ContainerID %s is not present in the endpoint list", containerID)
-		}
-	}
-	return nil
 }
 
 // ValidateNoErrorsInLogs checks in cilium logs since the given duration (By

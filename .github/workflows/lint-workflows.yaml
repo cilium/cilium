@@ -89,10 +89,6 @@ jobs:
           sed -e 's/^[[:space:]]\+# //g' | \
           sort -u > /tmp/ginkgo-workflow-comments.txt
 
-          grep '# Runtime' .github/workflows/conformance-runtime.yaml | \
-          sed -e 's/^[[:space:]]\+# //g' | \
-          sort -u > /tmp/runtime-workflow-comments.txt
-
       - name: Getting test runs output
         shell: bash
         run: |
@@ -100,15 +96,8 @@ jobs:
 
           ./test.test -ginkgo.failFast -ginkgo.dryRun -- --cilium.testScope=K8s | \
           grep TestRun | \
-          grep -v 'TestRun\[Top Level\] Runtime' | \
           sed 's/TestRun\[Top Level\]\ //g' | \
           sort -u > /tmp/ginkgo-tests.txt
-
-          ./test.test -ginkgo.failFast -ginkgo.dryRun -- --cilium.testScope=Runtime | \
-          grep TestRun | \
-          grep -v 'TestRun\[Top Level\] K8s' | \
-          sed 's/TestRun\[Top Level\]\ //g' | \
-          sort -u > /tmp/runtime-tests.txt
 
       - name: Checking diff Ginkgo Workflow
         shell: bash
@@ -119,18 +108,6 @@ jobs:
             echo "$diff"
             echo "Please fix the comments from .github/actions/ginkgo/main-focus.yaml accordingly"
             echo ""
-            exit 1
-          fi
-
-      - name: Checking diff Runtime Workflow
-        shell: bash
-        run: |
-          if ! diff /tmp/runtime-workflow-comments.txt /tmp/runtime-tests.txt --suppress-common-lines; then
-            echo ""
-            echo "Ginkgo tests out of sync with comments from GH workflow:"
-            echo "$diff"
-            echo ""
-            echo "Please fix the comments from .github/workflows/conformance-runtime.yaml accordingly"
             exit 1
           fi
 

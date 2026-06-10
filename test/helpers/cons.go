@@ -43,11 +43,10 @@ const (
 	K8sManifestBase = "k8s/manifests"
 
 	// VM / Test suite constants.
-	K8s     = "k8s"
-	K8s1    = "k8s1"
-	K8s2    = "k8s2"
-	K8s3    = "k8s3"
-	Runtime = "runtime"
+	K8s  = "k8s"
+	K8s1 = "k8s1"
+	K8s2 = "k8s2"
+	K8s3 = "k8s3"
 
 	Enabled  = "enabled"
 	Disabled = "disabled"
@@ -70,33 +69,12 @@ const (
 	// for Cilium.
 	PolicyEnforcementDefault = "default"
 
-	// PolicyEnforcementAlways represents the PolicyEnforcement mode
-	// for Cilium in which traffic is denied by default even when no policy
-	// is imported.
-	PolicyEnforcementAlways = "always"
-
-	// CiliumDockerNetwork is the name of the Docker network which Cilium manages.
-	CiliumDockerNetwork = "cilium-net"
-
-	// HostDockerNetwork is the name of the host network driver.
-	HostDockerNetwork = "host"
-
-	// WorldDockerNetwork is the name of the docker network that is *not*
-	// managed by Cilium, intended to be treated as "world" for identity
-	// purposes (for policy tests).
-	WorldDockerNetwork = "world"
-
 	// Names of commonly used containers in tests.
-	Httpd1      = "httpd1"
-	Httpd2      = "httpd2"
-	Httpd3      = "httpd3"
-	App1        = "app1"
-	App2        = "app2"
-	App3        = "app3"
-	Client      = "client"
-	Server      = "server"
-	Host        = "host"
-	WorldHttpd1 = "WorldHttpd1"
+	App1   = "app1"
+	App2   = "app2"
+	App3   = "app3"
+	Client = "client"
+	Host   = "host"
 	// Container lifecycle actions.
 	Create = "create"
 	Delete = "delete"
