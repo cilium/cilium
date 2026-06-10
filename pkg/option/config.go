@@ -187,6 +187,10 @@ const (
 	// AgentHealthRequireK8sConnectivity determines whether the agent health endpoint requires k8s connectivity
 	AgentHealthRequireK8sConnectivity = "agent-health-require-k8s-connectivity"
 
+	// IgnoreApiserverFailOnStart controls whether a failure to connect to the
+	// k8s API server during startup is treated as fatal. When true, the agent
+	// continues starting in a degraded state instead of exiting. (default is false)
+	IgnoreApiserverFailOnStart = "ignore-apiserver-fail-onstart"
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer = "k8s-api-server"
 

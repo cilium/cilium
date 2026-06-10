@@ -46,6 +46,11 @@ type SharedConfig struct {
 
 	// EnableAPIDiscovery enables Kubernetes API discovery
 	EnableK8sAPIDiscovery bool
+
+	// IgnoreApiserverFailOnStart controls whether a failure to connect to the
+	// k8s API server during startup is treated as fatal. When true, the agent
+	// continues starting in a degraded state instead of exiting.
+	IgnoreApiserverFailOnStart bool
 }
 
 type ClientParams struct {
@@ -75,6 +80,7 @@ var defaultSharedConfig = SharedConfig{
 	K8sClientConnectionKeepAlive: 30 * time.Second,
 	K8sHeartbeatTimeout:          30 * time.Second,
 	EnableK8sAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
+	IgnoreApiserverFailOnStart:   false,
 }
 
 func (def SharedConfig) Flags(flags *pflag.FlagSet) {
@@ -87,6 +93,7 @@ func (def SharedConfig) Flags(flags *pflag.FlagSet) {
 	flags.Duration(option.K8sClientConnectionKeepAlive, def.K8sClientConnectionKeepAlive, "Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0")
 	flags.Duration(option.K8sHeartbeatTimeout, def.K8sHeartbeatTimeout, "Configures the timeout for api-server heartbeat, set to 0 to disable")
 	flags.Bool(option.K8sEnableAPIDiscovery, def.EnableK8sAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
+	flags.Bool(option.IgnoreApiserverFailOnStart, def.IgnoreApiserverFailOnStart, "When true, failure to connect to the k8s API server on startup is non-fatal; the agent starts in a degraded state")
 }
 
 func NewClientConfig(cfg SharedConfig, params ClientParams) Config {

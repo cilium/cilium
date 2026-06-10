@@ -238,7 +238,13 @@ func (c *compositeClientset) onStart(startCtx cell.HookContext) error {
 	}
 
 	if err := c.waitForConn(startCtx); err != nil {
-		return err
+		if !c.config.IgnoreApiserverFailOnStart {
+			return err
+		}
+		c.logger.Warn("Unable to connect to k8s API server on startup; continuing in degraded state",
+			logfields.Error, err,
+		)
+		return nil
 	}
 	c.startHeartbeat()
 
