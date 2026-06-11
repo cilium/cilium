@@ -1449,16 +1449,6 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		}
 	}
 
-#if defined(ENABLE_L7_LB)
-	if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-		__u32 lxc_id = get_epid(ctx);
-
-		ctx->mark = 0;
-		ret = tail_call_egress_policy(ctx, (__u16)lxc_id);
-		goto drop_err;
-	}
-#endif
-
 #ifdef ENABLE_HOST_FIREWALL
 	/* This was initially added for Egress GW. There it's no longer needed,
 	 * but it potentially also helps other paths (LB-to-remote-backend ?).

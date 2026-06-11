@@ -2645,17 +2645,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
-#if defined(ENABLE_L7_LB)
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
-		__u16 lxc_id = get_epid(ctx);
-
-		ctx->mark = 0;
-		ret = tail_call_egress_policy(ctx, lxc_id);
-		return send_drop_notify(ctx, lxc_id, sec_label, LXC_ID,
-					ret, METRIC_INGRESS);
-	}
-#endif
-
 	magic = inherit_identity_from_host(ctx, &identity);
 	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
 		trace = TRACE_FROM_PROXY;
