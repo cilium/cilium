@@ -68,6 +68,7 @@ func TestScript(t *testing.T) {
 			maps.Insert(cmds, maps.All(cache.ScriptCmds(f.allocator.(*cache.CachingIdentityAllocator))))
 			maps.Insert(cmds, maps.All(policycell.PolicyImporterScriptCmds(f.importer.(*policycell.Importer))))
 			maps.Insert(cmds, maps.All(endpointmanager.ScriptCmds(f.epm, f.templateEP)))
+			maps.Insert(cmds, maps.All(policy.LookupFlowScriptCmds(log, f.repo, f.idmgr, f.allocator)))
 			return &script.Engine{
 				Cmds:          cmds,
 				RetryInterval: 10 * time.Millisecond,
