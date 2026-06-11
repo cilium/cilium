@@ -191,7 +191,7 @@ Return user specified envoy.xdsMode or default value based on the upgradeCompati
     {{- .Values.envoy.xdsMode }}
   {{- else }}
     {{- if semverCompare ">=1.20" (default "1.20" .Values.upgradeCompatibility) }}
-      {{- "ads" }}
+      {{- "delta-split" }}
     {{- end }}
   {{- end }}
 {{- end }}
