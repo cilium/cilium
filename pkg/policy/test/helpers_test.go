@@ -64,6 +64,7 @@ type testFixture struct {
 	repo       policy.PolicyRepository
 	computer   compute.PolicyRecomputer
 	importer   policycell.PolicyImporter
+	ipcache    *ipcache.IPCache
 	templateEP *endpoint.Endpoint
 }
 
@@ -151,12 +152,13 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 			return ch
 		}),
 		cell.ProvidePrivate(func() *ipcache.IPCache {
-			return ipcache.NewIPCache(&ipcache.Configuration{
+			f.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 				Context:           t.Context(),
 				Logger:            log,
 				IdentityAllocator: f.allocator,
 				IdentityUpdater:   &mockUpdater{},
 			})
+			return f.ipcache
 		}),
 		cell.ProvidePrivate(regeneration.NewFence),
 		cell.ProvidePrivate(func() promise.Promise[endpointstate.Restorer] { return &fakeRestorer{} }),
@@ -178,6 +180,10 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 			f.epm.RemoveEndpoint(ep, endpoint.DeleteConfig{})
 		}
 		assert.NoError(t, f.hive.Stop(log, context.TODO()))
+		// The fixture builds the IPCache directly rather than through its cell,
+		// so the ipcache-inject-labels controller is not reaped by hive.Stop.
+		// Mirror the cell's OnStop hook so it does not leak across test runs.
+		assert.NoError(t, f.ipcache.Shutdown())
 	})
 
 	return f
