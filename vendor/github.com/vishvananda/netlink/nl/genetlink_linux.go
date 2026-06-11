@@ -72,8 +72,9 @@ const (
 )
 
 type Genlmsg struct {
-	Command uint8
-	Version uint8
+	Command  uint8
+	Version  uint8
+	Reserved uint16
 }
 
 func (msg *Genlmsg) Len() int {

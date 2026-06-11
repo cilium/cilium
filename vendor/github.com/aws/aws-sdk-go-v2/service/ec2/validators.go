@@ -1170,6 +1170,26 @@ func (m *validateOpCreateCapacityReservationBySplitting) HandleInitialize(ctx co
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateCapacityReservationCancellationQuote struct {
+}
+
+func (*validateOpCreateCapacityReservationCancellationQuote) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateCapacityReservationCancellationQuote) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateCapacityReservationCancellationQuoteInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateCapacityReservationCancellationQuoteInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateCapacityReservationFleet struct {
 }
 
@@ -10922,6 +10942,10 @@ func addOpCreateCapacityReservationBySplittingValidationMiddleware(stack *middle
 	return stack.Initialize.Add(&validateOpCreateCapacityReservationBySplitting{}, middleware.After)
 }
 
+func addOpCreateCapacityReservationCancellationQuoteValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateCapacityReservationCancellationQuote{}, middleware.After)
+}
+
 func addOpCreateCapacityReservationFleetValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateCapacityReservationFleet{}, middleware.After)
 }
@@ -14861,6 +14885,21 @@ func validateOpCreateCapacityReservationBySplittingInput(v *CreateCapacityReserv
 	}
 	if v.InstanceCount == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InstanceCount"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateCapacityReservationCancellationQuoteInput(v *CreateCapacityReservationCancellationQuoteInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateCapacityReservationCancellationQuoteInput"}
+	if v.CapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
