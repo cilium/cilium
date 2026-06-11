@@ -648,7 +648,8 @@ func remoteClusterStatusToError(status *models.RemoteCluster) error {
 		return errConfigRequiredNotRetrieved
 	case status.Synced == nil:
 		return errors.New("synchronization status unknown")
-	case !(status.Synced.Nodes && status.Synced.Endpoints && status.Synced.Identities && status.Synced.Services):
+	case !(status.Synced.Nodes && status.Synced.Endpoints && status.Synced.Identities && status.Synced.Services &&
+		(status.Synced.ServiceExports == nil || *status.Synced.ServiceExports)):
 		var toSync []string
 		appendNotSynced := func(name string, synced bool) {
 			if !synced {
@@ -659,6 +660,9 @@ func remoteClusterStatusToError(status *models.RemoteCluster) error {
 		appendNotSynced("identities", status.Synced.Identities)
 		appendNotSynced("nodes", status.Synced.Nodes)
 		appendNotSynced("services", status.Synced.Services)
+		if status.Synced.ServiceExports != nil {
+			appendNotSynced("service-exports", *status.Synced.ServiceExports)
+		}
 
 		return fmt.Errorf("synchronization in progress for %s", strings.Join(toSync, ", "))
 	default:
