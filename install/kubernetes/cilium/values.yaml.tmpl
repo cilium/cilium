@@ -2753,10 +2753,11 @@ envoy:
   # @schema
   # oneOf:
   # - type: [null]
-  # - enum: ["split", "ads", "strict-ads"]
+  # - enum: ["split", "delta-split", "ads", "strict-ads"]
   # @schema
   # -- xDS server operating mode for Envoy proxy configuration. Supported
   # values are: "split" for the existing per-resource-type xDS,
+  # "delta-split" for incremental Delta xDS,
   # "ads" for the ADS (Aggregated Discovery Service) xDS, and
   # "strict-ads" for ADS with strict snapshot cache behavior and generated
   # snapshot consistency checks.

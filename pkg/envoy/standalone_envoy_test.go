@@ -5,37 +5,51 @@ package envoy
 
 import (
 	"context"
+	"encoding/json"
 	"iter"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	config "github.com/cilium/cilium/pkg/envoy/config"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
+)
+
+const (
+	standaloneHeaderMatchSecretNamespace = "cilium-secrets"
+	standaloneHeaderMatchSecretName      = "header-match-secret"
+	standaloneHeaderMatchSecretValue     = "header-value-from-sds"
 )
 
 // This test is not run in CI and is meant to be run locally when iterating on the Envoy (xDS) integration.
@@ -68,12 +82,12 @@ var ADS_RESOURCES = xds.Resources{
 	Listeners: map[string]*envoy_config_listener.Listener{
 		"listener1": {
 			Name: "listener1",
-			Address: &envoy_config_core_v3.Address{
-				Address: &envoy_config_core_v3.Address_SocketAddress{
-					SocketAddress: &envoy_config_core_v3.SocketAddress{
-						Protocol: envoy_config_core_v3.SocketAddress_TCP,
+			Address: &envoy_config_core.Address{
+				Address: &envoy_config_core.Address_SocketAddress{
+					SocketAddress: &envoy_config_core.SocketAddress{
+						Protocol: envoy_config_core.SocketAddress_TCP,
 						Address:  "0.0.0.0",
-						PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+						PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
 							PortValue: 8080,
 						},
 					},
@@ -86,9 +100,9 @@ var ADS_RESOURCES = xds.Resources{
 						ProxyId:  15,
 						IsL7Lb:   true,
 						UseNphds: true,
-						CiliumConfigSource: &envoy_config_core_v3.ConfigSource{
-							ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-								Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+						CiliumConfigSource: &envoy_config_core.ConfigSource{
+							ConfigSourceSpecifier: &envoy_config_core.ConfigSource_Ads{
+								Ads: &envoy_config_core.AggregatedConfigSource{},
 							},
 						},
 					}),
@@ -104,9 +118,9 @@ var ADS_RESOURCES = xds.Resources{
 								RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{
 									Rds: &envoy_config_http.Rds{
 										RouteConfigName: "routeConfig1",
-										ConfigSource: &envoy_config_core_v3.ConfigSource{
-											ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-												Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+										ConfigSource: &envoy_config_core.ConfigSource{
+											ConfigSourceSpecifier: &envoy_config_core.ConfigSource_Ads{
+												Ads: &envoy_config_core.AggregatedConfigSource{},
 											},
 										},
 									},
@@ -125,18 +139,18 @@ var ADS_RESOURCES = xds.Resources{
 			ConnectTimeout:       &durationpb.Duration{Seconds: 600, Nanos: 0},
 			CleanupInterval:      &durationpb.Duration{Seconds: 1000, Nanos: 500000000},
 			LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-			TransportSocket: &envoy_config_core_v3.TransportSocket{
+			TransportSocket: &envoy_config_core.TransportSocket{
 				Name: "cluster1.tls_wrapper",
-				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{
+				ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
 					TypedConfig: ToAny(
 						&envoy_config_tls.UpstreamTlsContext{
 							CommonTlsContext: &envoy_config_tls.CommonTlsContext{
 								TlsCertificateSdsSecretConfigs: []*envoy_config_tls.SdsSecretConfig{
 									{
 										Name: "secret1",
-										SdsConfig: &envoy_config_core_v3.ConfigSource{
-											ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-												Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+										SdsConfig: &envoy_config_core.ConfigSource{
+											ConfigSourceSpecifier: &envoy_config_core.ConfigSource_Ads{
+												Ads: &envoy_config_core.AggregatedConfigSource{},
 											},
 										},
 									},
@@ -153,13 +167,13 @@ var ADS_RESOURCES = xds.Resources{
 			Name: "secret1",
 			Type: &envoy_config_tls.Secret_TlsCertificate{
 				TlsCertificate: &envoy_config_tls.TlsCertificate{
-					CertificateChain: &envoy_config_core_v3.DataSource{
-						Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
+					CertificateChain: &envoy_config_core.DataSource{
+						Specifier: &envoy_config_core.DataSource_InlineBytes{
 							InlineBytes: []byte{1, 2, 3},
 						},
 					},
-					PrivateKey: &envoy_config_core_v3.DataSource{
-						Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
+					PrivateKey: &envoy_config_core.DataSource{
+						Specifier: &envoy_config_core.DataSource_InlineBytes{
 							InlineBytes: []byte{4, 5, 6},
 						},
 					},
@@ -602,6 +616,115 @@ func cleanupStandaloneEnvoy(t *testing.T, envoyProxy *StandaloneEnvoy) func() {
 	return stop
 }
 
+func newStandaloneTestPolicyRepo(t *testing.T, logger *slog.Logger, secretManager certificatemanager.SecretManager, includeHeaderMatchSecret bool) (*policy.Repository, *identity.Identity) {
+	localIdentity := identity.NewIdentity(9001, labels.LabelArray{
+		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+	}.Labels())
+	idCache := maps.Clone(IdentityCache)
+	idCache[localIdentity.ID] = localIdentity.LabelArray
+	idMgr := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(
+		logger,
+		idCache,
+		nil,
+		envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager),
+		idMgr,
+		testpolicy.NewPolicyMetricsNoop(),
+	)
+	idMgr.Add(localIdentity)
+	t.Cleanup(func() {
+		idMgr.Remove(localIdentity)
+	})
+
+	ingressHTTPRules := []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}
+	if includeHeaderMatchSecret {
+		ingressHTTPRules = append(ingressHTTPRules, api.PortRuleHTTP{
+			Path:   "/secret",
+			Method: "GET",
+			HeaderMatches: []*api.HeaderMatch{{
+				Mismatch: api.MismatchActionAdd,
+				Name:     "VeryImportantHeader",
+				Secret: &api.Secret{
+					Namespace: standaloneHeaderMatchSecretNamespace,
+					Name:      standaloneHeaderMatchSecretName,
+				},
+			}},
+		})
+	}
+
+	rule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=a")),
+		Ingress: []api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{EndpointSelector1},
+			},
+			ToPorts: []api.PortRule{{
+				Ports: []api.PortProtocol{{
+					Port:     "80",
+					Protocol: api.ProtoTCP,
+				}},
+				Rules: &api.L7Rules{
+					HTTP: ingressHTTPRules,
+				},
+			}},
+		}},
+		Egress: []api.EgressRule{{
+			EgressCommonRule: api.EgressCommonRule{
+				ToEndpoints: []api.EndpointSelector{EndpointSelector2},
+			},
+			ToPorts: []api.PortRule{{
+				Ports: []api.PortProtocol{{
+					Port:     "8080",
+					Protocol: api.ProtoTCP,
+				}},
+				Rules: &api.L7Rules{
+					HTTP: []api.PortRuleHTTP{*PortRuleHTTP1},
+				},
+			}},
+		}},
+	}
+	require.NoError(t, rule.Sanitize())
+	repo.MustAddList(api.Rules{rule})
+
+	return repo, localIdentity
+}
+
+func standaloneHeaderMatchSecret() *envoy_config_tls.Secret {
+	return &envoy_config_tls.Secret{
+		Name: standaloneHeaderMatchSDSSecretName(),
+		Type: &envoy_config_tls.Secret_GenericSecret{
+			GenericSecret: &envoy_config_tls.GenericSecret{
+				Secret: &envoy_config_core.DataSource{
+					Specifier: &envoy_config_core.DataSource_InlineString{
+						InlineString: standaloneHeaderMatchSecretValue,
+					},
+				},
+			},
+		},
+	}
+}
+
+func standaloneHeaderMatchSDSSecretName() string {
+	return standaloneHeaderMatchSecretNamespace + "/" + standaloneHeaderMatchSecretName
+}
+
+func newStandaloneTestEndpointPolicy(t *testing.T, logger *slog.Logger, repo policy.PolicyRepository, localIdentity *identity.Identity) (*listenerProxyUpdaterMock, *policy.EndpointPolicy) {
+	policyOwner := &listenerProxyUpdaterMock{
+		ProxyUpdaterMock:   ep,
+		listenerProxyPorts: map[string]uint16{},
+	}
+	selPolicy, _, err := repo.GetSelectorPolicy(localIdentity, 0, &dummyPolicyStats{}, policyOwner.GetID())
+	require.NoError(t, err)
+
+	epp := selPolicy.DistillPolicy(logger, policyOwner, nil)
+	t.Cleanup(func() {
+		_ = epp.Ready()
+		epp.Detach(logger)
+	})
+
+	return policyOwner, epp
+}
+
 func TestEnvoy(t *testing.T) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -623,7 +746,10 @@ func TestEnvoy(t *testing.T) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	logger := hivetest.Logger(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	secretManager := certificatemanager.NewMockSecretManagerSDS()
+	repo, localIdentity := newStandaloneTestPolicyRepo(t, logger, secretManager, true)
+	policyOwner, epp := newStandaloneTestEndpointPolicy(t, logger, repo, localIdentity)
 
 	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
@@ -632,10 +758,12 @@ func TestEnvoy(t *testing.T) {
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
 			useNPHDS:          true,
-			envoyXDSMode:      config.EnvoyXDSModeSplit,
+			useSDS:            true,
+			envoyXDSMode:      config.EnvoyXDSModeDeltaSplit,
 		},
-		nil)
+		secretManager)
 	require.NotNil(t, xdsServer)
+	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 
 	go func() {
 		err = xdsServer.run(ctx)
@@ -662,7 +790,7 @@ func TestEnvoy(t *testing.T) {
 		maxConnections:                 1024,
 		maxRequests:                    1024,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeSplit,
+		xdsMode:                        config.EnvoyXDSModeDeltaSplit,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -716,6 +844,29 @@ func TestEnvoy(t *testing.T) {
 	require.True(t, cbCalled)
 	require.NoError(t, cbErr)
 	t.Log("completed adding listener 3")
+
+	err = xdsServer.UpsertEnvoyResources(ctx, xds.Resources{Secrets: map[string]*envoy_config_tls.Secret{
+		standaloneHeaderMatchSDSSecretName(): standaloneHeaderMatchSecret()}}, nil)
+	require.NoError(t, err)
+	t.Log("completed adding HeaderMatch SDS Secret")
+
+	// Push Network Policies with Selectors
+	s.waitGroup = completion.NewWaitGroup(ctx)
+	var finalize func()
+	err, _, finalize = xdsServer.UpdateNetworkPolicy(t.Context(), policyOwner, epp, s.waitGroup)
+	require.NoError(t, err)
+	if finalize != nil {
+		finalize()
+	}
+	err = s.waitForProxyCompletion()
+	require.NoError(t, err)
+
+	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "NetworkPoliciesConfigDump", `"value_sds_secret":"`+standaloneHeaderMatchSDSSecretName()+`"`)
+	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "SecretsConfigDump", standaloneHeaderMatchSDSSecretName())
+	t.Log("completed adding NetworkPolicy")
+
+	time.Sleep(5 * time.Second) // Wait for Envoy to really terminate.
+
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("stopping Envoy")
@@ -752,17 +903,18 @@ func TestEnvoyNACK(t *testing.T) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	logger := hivetest.Logger(t)
-
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	secretManager := certificatemanager.NewMockSecretManagerInline()
 	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeSplit,
-		}, nil)
+			envoyXDSMode:      config.EnvoyXDSModeDeltaSplit,
+		}, secretManager)
 	require.NotNil(t, xdsServer)
+	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 
 	go func() {
 		err = xdsServer.run(ctx)
@@ -789,13 +941,13 @@ func TestEnvoyNACK(t *testing.T) {
 		maxConnections:                 1024,
 		maxRequests:                    1024,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeSplit,
+		xdsMode:                        config.EnvoyXDSModeDeltaSplit,
 	})
 	require.NotNil(t, envoyProxy)
 	require.NoError(t, err)
 	t.Log("started Envoy")
 
-	cleanupStandaloneEnvoy(t, envoyProxy)
+	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
 
 	rName := "listener:22"
 
@@ -817,9 +969,12 @@ func TestEnvoyNACK(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// Remove listener1
 	t.Log("removing ", rName)
-	xdsServer.RemoveListener(ctx, rName, s.waitGroup)
-	err = s.waitForProxyCompletion()
-	require.NoError(t, err)
+	// nil WaitGroup mirrors production use; Delta xDS may not send anything so any wait could
+	// be futile.
+	xdsServer.RemoveListener(t.Context(), rName, nil)
+
+	t.Log("stopping Envoy")
+	stopEnvoy()
 }
 
 func TestEnvoyAdsNACKRevert(t *testing.T) {
@@ -1146,6 +1301,54 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 
 	t.Log("stopping Envoy")
 	stopEnvoy()
+}
+
+func requireEnvoyConfigDumpContains(t *testing.T, admin *EnvoyAdminClient, configType string, needle string) {
+	t.Helper()
+
+	var lastErr error
+	var lastDump string
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		lastDump, lastErr = admin.Get("config_dump")
+		if lastErr == nil && configDumpContains(lastDump, configType, needle) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	require.Failf(t, "missing Envoy config dump entry", "Envoy config dump %q did not contain %q; last error: %v; last dump: %s", configType, needle, lastErr, truncateForTest(lastDump, 4096))
+}
+
+func configDumpContains(body, configType, needle string) bool {
+	var dump struct {
+		Configs []map[string]any `json:"configs"`
+	}
+	if err := json.Unmarshal([]byte(body), &dump); err != nil {
+		return false
+	}
+
+	for _, config := range dump.Configs {
+		typeURL, _ := config["@type"].(string)
+		if !strings.Contains(typeURL, configType) {
+			continue
+		}
+		section, err := json.Marshal(config)
+		if err != nil {
+			return false
+		}
+		if strings.Contains(string(section), needle) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func truncateForTest(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + "...<truncated>"
 }
 
 type proxyAccessLoggerMock struct{}

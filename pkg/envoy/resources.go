@@ -83,8 +83,7 @@ var CiliumAdsConfigSource = &envoy_config_core.ApiConfigSource{
 func CiliumConfigSource(mode config.XDSMode) *envoy_config_core.ConfigSource {
 	switch mode {
 	case config.EnvoyXDSModeDeltaSplit:
-		// Delta mode not supported yet
-		return nil
+		return CiliumDeltaXDSConfigSource
 	case config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS:
 		return CiliumXdsWithAdsConfigSource
 	case config.EnvoyXDSModeDeltaADS, config.EnvoyXDSModeStrictDeltaADS:
@@ -125,8 +124,30 @@ var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
 	},
 }
 
+var CiliumDeltaXDSConfigSource = &envoy_config_core.ConfigSource{
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 30},
+	ResourceApiVersion:  envoy_config_core.ApiVersion_V3,
+	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
+		ApiConfigSource: &envoy_config_core.ApiConfigSource{
+			ApiType:                   envoy_config_core.ApiConfigSource_DELTA_GRPC,
+			TransportApiVersion:       envoy_config_core.ApiVersion_V3,
+			SetNodeOnFirstMessageOnly: true,
+			GrpcServices: []*envoy_config_core.GrpcService{
+				{
+					TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
+							ClusterName: CiliumXDSClusterName,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func SetXDSConfigSourceInitialFetchTimeout(proxyInitialFetchTimeout uint) {
 	CiliumXDSConfigSource.InitialFetchTimeout = durationpb.New(time.Duration(proxyInitialFetchTimeout) * time.Second)
+	CiliumDeltaXDSConfigSource.InitialFetchTimeout = durationpb.New(time.Duration(proxyInitialFetchTimeout) * time.Second)
 
 	// Initial fetch timeout is not set on the ADS config sources.
 	// ADS resources are published on one stream, but Cilium may reconcile a
