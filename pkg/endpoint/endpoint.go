@@ -3019,5 +3019,10 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 	clone.realizedPolicy = clone.desiredPolicy
 	clone.initialEnvoyPolicyComputed = make(chan struct{})
 
+	clone.properties = maps.Clone(e.properties)
+	if clone.properties == nil {
+		clone.properties = map[string]any{}
+	}
+
 	return clone
 }

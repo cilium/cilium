@@ -16,6 +16,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/stream"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -680,11 +681,21 @@ func RepositoryScriptCmds(p *Repository) map[string]script.Cmd {
 		"policyrepo/selectorcache": script.Command(
 			script.CmdUsage{
 				Summary: "Dump the selector cache model",
+				Flags: func(fs *pflag.FlagSet) {
+					fs.Bool("subject", false, "Dump the subject selector cache instead of the peer selector cache")
+				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				subject, err := s.Flags.GetBool("subject")
+				if err != nil {
+					return nil, err
+				}
 				return func(s *script.State) (stdout string, stderr string, err error) {
-					model := p.GetSelectorCache().GetModel()
-					return spew.Sprint(model), "", nil
+					sc := p.GetSelectorCache()
+					if subject {
+						sc = p.GetSubjectSelectorCache()
+					}
+					return spew.Sprint(sc.GetModel()), "", nil
 				}, nil
 			},
 		),
