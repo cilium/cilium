@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: l4-listenerset-ns
+  labels:
+    kubernetes.io/metadata.name: l4-listenerset-ns
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: l4-namespace-isolation
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  allowedListeners:
+    namespaces:
+      from: All
+  listeners:
+    - name: tcp
+      port: 3000
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - kind: TCPRoute
+    - name: udp
+      port: 3001
+      protocol: UDP
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - kind: UDPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: l4-extra
+  namespace: l4-listenerset-ns
+spec:
+  parentRef:
+    name: l4-namespace-isolation
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: tcp-extra
+      port: 4000
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TCPRoute
+    - name: udp-extra
+      port: 4001
+      protocol: UDP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: UDPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: gateway-tcp
+  namespace: l4-listenerset-ns
+spec:
+  parentRefs:
+    - name: l4-namespace-isolation
+      namespace: gateway-conformance-infra
+  rules:
+    - backendRefs:
+        - name: tcp-backend
+          port: 3000
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: gateway-udp
+  namespace: l4-listenerset-ns
+spec:
+  parentRefs:
+    - name: l4-namespace-isolation
+      namespace: gateway-conformance-infra
+  rules:
+    - backendRefs:
+        - name: udp-backend
+          port: 3001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-backend
+  namespace: l4-listenerset-ns
+spec:
+  selector:
+    app: tcp-backend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-backend
+  namespace: l4-listenerset-ns
+spec:
+  selector:
+    app: udp-backend
+  ports:
+    - protocol: UDP
+      port: 3001
+      targetPort: 3001

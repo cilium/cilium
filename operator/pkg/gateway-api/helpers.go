@@ -320,3 +320,29 @@ func deduplicateTLSRoutes(routes []gatewayv1.TLSRoute) []gatewayv1.TLSRoute {
 	}
 	return result
 }
+
+func deduplicateTCPRoutes(routes []gatewayv1alpha2.TCPRoute) []gatewayv1alpha2.TCPRoute {
+	seen := make(map[types.NamespacedName]struct{}, len(routes))
+	result := make([]gatewayv1alpha2.TCPRoute, 0, len(routes))
+	for _, r := range routes {
+		key := types.NamespacedName{Namespace: r.Namespace, Name: r.Name}
+		if _, ok := seen[key]; !ok {
+			seen[key] = struct{}{}
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+func deduplicateUDPRoutes(routes []gatewayv1alpha2.UDPRoute) []gatewayv1alpha2.UDPRoute {
+	seen := make(map[types.NamespacedName]struct{}, len(routes))
+	result := make([]gatewayv1alpha2.UDPRoute, 0, len(routes))
+	for _, r := range routes {
+		key := types.NamespacedName{Namespace: r.Namespace, Name: r.Name}
+		if _, ok := seen[key]; !ok {
+			seen[key] = struct{}{}
+			result = append(result, r)
+		}
+	}
+	return result
+}

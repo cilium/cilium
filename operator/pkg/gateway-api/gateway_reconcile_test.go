@@ -369,6 +369,12 @@ func Test_Conformance(t *testing.T) {
 		{name: "listenerset-allowed-routes-kinds", skipCEC: true, gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "allowed-route-kinds", Namespace: "gateway-conformance-infra"}},
 		}},
+		// A Route that targets the Gateway must not leak into a ListenerSet's
+		// L4 listeners, even when the Route lives in a namespace the ListenerSet
+		// listener would otherwise allow.
+		{name: "listenerset-l4-namespace-isolation", skipCEC: true, gateway: []gwDetails{
+			{FullName: types.NamespacedName{Name: "l4-namespace-isolation", Namespace: "gateway-conformance-infra"}},
+		}},
 	}
 
 	for _, tt := range tests {
@@ -411,10 +417,12 @@ func Test_Conformance(t *testing.T) {
 			if !tt.disableTCPRoute {
 				clientBuilder.WithStatusSubresource(&gatewayv1alpha2.TCPRoute{})
 				clientBuilder.WithIndex(&gatewayv1alpha2.TCPRoute{}, indexers.GatewayTCPRouteIndex, indexers.IndexTCPRouteByGateway)
+				clientBuilder.WithIndex(&gatewayv1alpha2.TCPRoute{}, indexers.TCPRouteListenerSetIndex, indexers.IndexTCPRouteByListenerSet)
 			}
 			if !tt.disableUDPRoute {
 				clientBuilder.WithStatusSubresource(&gatewayv1alpha2.UDPRoute{})
 				clientBuilder.WithIndex(&gatewayv1alpha2.UDPRoute{}, indexers.GatewayUDPRouteIndex, indexers.IndexUDPRouteByGateway)
+				clientBuilder.WithIndex(&gatewayv1alpha2.UDPRoute{}, indexers.UDPRouteListenerSetIndex, indexers.IndexUDPRouteByListenerSet)
 			}
 			clientBuilder.WithIndex(&gatewayv1.ListenerSet{}, indexers.ListenerSetGatewayIndex, indexers.IndexListenerSetByGateway)
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.HTTPRouteListenerSetIndex, indexers.IndexHTTPRouteByListenerSet)

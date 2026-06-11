@@ -1,0 +1,25 @@
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints: []
+kind: EndpointSlice
+metadata:
+  annotations:
+    gateway.cilium.io/backend-port: "3001"
+    gateway.cilium.io/backend-service: l4-listenerset-ns/udp-backend
+  labels:
+    endpointslice.kubernetes.io/managed-by: cilium-operator
+    gateway.networking.k8s.io/gateway-name: l4-namespace-isolation
+    kubernetes.io/service-name: cilium-gateway-l4-namespace-isolation
+  name: cilium-gateway-l4-namespace-isolation-13de6d01-ipv4
+  namespace: gateway-conformance-infra
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    controller: true
+    kind: Gateway
+    name: l4-namespace-isolation
+    uid: ""
+  resourceVersion: "1"
+ports:
+- name: port-3001-udp
+  port: 3001
+  protocol: UDP
