@@ -67,4 +67,10 @@ const (
 
 	// Indexes TLSRoutes by all the ListenerSet parents referenced in the object.
 	TLSRouteListenerSetIndex = "listenerSetTLSRouteIndex"
+
+	// Indexes TCPRoutes by all the ListenerSet parents referenced in the object.
+	TCPRouteListenerSetIndex = "listenerSetTCPRouteIndex"
+
+	// Indexes UDPRoutes by all the ListenerSet parents referenced in the object.
+	UDPRouteListenerSetIndex = "listenerSetUDPRouteIndex"
 )

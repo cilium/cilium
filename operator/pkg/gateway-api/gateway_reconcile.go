@@ -150,6 +150,26 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	tcpRouteList := &gatewayv1alpha2.TCPRouteList{}
+	if helpers.HasTCPRouteSupport(r.Client.Scheme()) {
+		if err := r.Client.List(ctx, tcpRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.GatewayTCPRouteIndex, client.ObjectKeyFromObject(original).String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list TCPRoutes", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
+	}
+
+	udpRouteList := &gatewayv1alpha2.UDPRouteList{}
+	if helpers.HasUDPRouteSupport(r.Client.Scheme()) {
+		if err := r.Client.List(ctx, udpRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.GatewayUDPRouteIndex, client.ObjectKeyFromObject(original).String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list UDPRoutes", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
+	}
+
 	if helpers.HasListenerSetSupport(r.Client.Scheme()) {
 		for _, ls := range attachedListenerSets {
 			lsKey := client.ObjectKeyFromObject(&ls).String()
@@ -188,11 +208,39 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 					tlsRouteList.Items = append(tlsRouteList.Items, lsTLSRoutes.Items...)
 				}
 			}
+
+			if helpers.HasTCPRouteSupport(r.Client.Scheme()) {
+				lsTCPRoutes := &gatewayv1alpha2.TCPRouteList{}
+				if err := r.Client.List(ctx, lsTCPRoutes, &client.ListOptions{
+					FieldSelector: fields.OneTermEqualSelector(indexers.TCPRouteListenerSetIndex, lsKey),
+				}); err != nil {
+					scopedLog.ErrorContext(ctx, "Unable to list TCPRoutes for ListenerSet",
+						logfields.Error, err,
+						logfields.Resource, lsKey)
+				} else {
+					tcpRouteList.Items = append(tcpRouteList.Items, lsTCPRoutes.Items...)
+				}
+			}
+
+			if helpers.HasUDPRouteSupport(r.Client.Scheme()) {
+				lsUDPRoutes := &gatewayv1alpha2.UDPRouteList{}
+				if err := r.Client.List(ctx, lsUDPRoutes, &client.ListOptions{
+					FieldSelector: fields.OneTermEqualSelector(indexers.UDPRouteListenerSetIndex, lsKey),
+				}); err != nil {
+					scopedLog.ErrorContext(ctx, "Unable to list UDPRoutes for ListenerSet",
+						logfields.Error, err,
+						logfields.Resource, lsKey)
+				} else {
+					udpRouteList.Items = append(udpRouteList.Items, lsUDPRoutes.Items...)
+				}
+			}
 		}
 
 		httpRouteList.Items = deduplicateHTTPRoutes(httpRouteList.Items)
 		grpcRouteList.Items = deduplicateGRPCRoutes(grpcRouteList.Items)
 		tlsRouteList.Items = deduplicateTLSRoutes(tlsRouteList.Items)
+		tcpRouteList.Items = deduplicateTCPRoutes(tcpRouteList.Items)
+		udpRouteList.Items = deduplicateUDPRoutes(udpRouteList.Items)
 	}
 
 	btlspList := &gatewayv1.BackendTLSPolicyList{}
@@ -201,26 +249,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 	btlspMap := helpers.BuildBackendTLSPolicyLookup(btlspList)
-
-	tcpRouteList := &gatewayv1alpha2.TCPRouteList{}
-	if helpers.HasTCPRouteSupport(r.Client.Scheme()) {
-		if err := r.Client.List(ctx, tcpRouteList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.GatewayTCPRouteIndex, client.ObjectKeyFromObject(original).String()),
-		}); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to list TCPRoutes", logfields.Error, err)
-			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
-		}
-	}
-
-	udpRouteList := &gatewayv1alpha2.UDPRouteList{}
-	if helpers.HasUDPRouteSupport(r.Client.Scheme()) {
-		if err := r.Client.List(ctx, udpRouteList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.GatewayUDPRouteIndex, client.ObjectKeyFromObject(original).String()),
-		}); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to list UDPRoutes", logfields.Error, err)
-			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
-		}
-	}
 
 	var namespaces []corev1.Namespace
 	if hasAllowedRoutesNamespaceSelector(gw, attachedListenerSets) {
@@ -298,8 +326,8 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, attachedListenerSets, httpRouteList.Items, namespaceLabels)
 	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, attachedListenerSets, tlsRouteList.Items, namespaceLabels)
 	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, attachedListenerSets, grpcRouteList.Items, namespaceLabels)
-	tcpRoutes := r.filterTCPRoutesByGateway(ctx, gw, tcpRouteList.Items, namespaceLabels)
-	udpRoutes := r.filterUDPRoutesByGateway(ctx, gw, udpRouteList.Items, namespaceLabels)
+	tcpRoutes := r.filterTCPRoutesByGateway(ctx, gw, attachedListenerSets, tcpRouteList.Items, namespaceLabels)
+	udpRoutes := r.filterUDPRoutesByGateway(ctx, gw, attachedListenerSets, udpRouteList.Items, namespaceLabels)
 
 	if err := r.setBackendTLSPolicyStatuses(scopedLog, ctx, httpRoutes, btlspMap, req.NamespacedName); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update BackendTLSPolicy Status", logfields.Error, err)
@@ -331,7 +359,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	r.setListenerSetStatuses(ctx, gw, attachedListenerSets, httpRouteList, tlsRouteList, grpcRouteList, namespaceLabels)
+	r.setListenerSetStatuses(ctx, gw, attachedListenerSets, httpRouteList, tlsRouteList, grpcRouteList, tcpRouteList, udpRouteList, namespaceLabels)
 	if !validListener {
 		err := fmt.Errorf("No Accepted Listeners for Gateway")
 		scopedLog.ErrorContext(ctx, "No Accepted Listeners for Gateway", logfields.Error, err)
@@ -896,20 +924,20 @@ func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *ga
 	return filtered
 }
 
-func (r *gatewayReconciler) filterTCPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.TCPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.TCPRoute {
+func (r *gatewayReconciler) filterTCPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, attachedListenerSets []gatewayv1.ListenerSet, routes []gatewayv1alpha2.TCPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.TCPRoute {
 	var filtered []gatewayv1alpha2.TCPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents, nil) && isAllowed(gw, &route, namespaceLabels) {
+		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents, attachedListenerSets) && isAllowed(gw, &route, namespaceLabels) {
 			filtered = append(filtered, route)
 		}
 	}
 	return filtered
 }
 
-func (r *gatewayReconciler) filterUDPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.UDPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.UDPRoute {
+func (r *gatewayReconciler) filterUDPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, attachedListenerSets []gatewayv1.ListenerSet, routes []gatewayv1alpha2.UDPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.UDPRoute {
 	var filtered []gatewayv1alpha2.UDPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents, nil) && isAllowed(gw, &route, namespaceLabels) {
+		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents, attachedListenerSets) && isAllowed(gw, &route, namespaceLabels) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -930,24 +958,26 @@ func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *g
 	return filtered
 }
 
-func (r *gatewayReconciler) filterTCPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1alpha2.TCPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.TCPRoute {
+func (r *gatewayReconciler) filterTCPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, listenerSource *model.FullyQualifiedResource, routes []gatewayv1alpha2.TCPRoute, namespaceLabels helpers.NamespaceLabelIndex, attachedListenerSets ...gatewayv1.ListenerSet) []gatewayv1alpha2.TCPRoute {
+	lsNS := listenerOwnerNamespace(gw, listenerSource)
 	var filtered []gatewayv1alpha2.TCPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents, nil) &&
-			listenerisAllowed(gw.GetNamespace(), listener, &route, namespaceLabels) &&
-			parentRefMatched(gw, listener, nil, route.GetNamespace(), route.Spec.ParentRefs) {
+		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents, attachedListenerSets) &&
+			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
+			parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}
 	}
 	return filtered
 }
 
-func (r *gatewayReconciler) filterUDPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1alpha2.UDPRoute, namespaceLabels helpers.NamespaceLabelIndex) []gatewayv1alpha2.UDPRoute {
+func (r *gatewayReconciler) filterUDPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, listenerSource *model.FullyQualifiedResource, routes []gatewayv1alpha2.UDPRoute, namespaceLabels helpers.NamespaceLabelIndex, attachedListenerSets ...gatewayv1.ListenerSet) []gatewayv1alpha2.UDPRoute {
+	lsNS := listenerOwnerNamespace(gw, listenerSource)
 	var filtered []gatewayv1alpha2.UDPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents, nil) &&
-			listenerisAllowed(gw.GetNamespace(), listener, &route, namespaceLabels) &&
-			parentRefMatched(gw, listener, nil, route.GetNamespace(), route.Spec.ParentRefs) {
+		if helpers.IsParentAttachable(ctx, gw, &route, route.Status.Parents, attachedListenerSets) &&
+			listenerisAllowed(lsNS, listener, &route, namespaceLabels) &&
+			parentRefMatched(gw, listener, listenerSource, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -1155,8 +1185,8 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, &gwSource, httpRoutes.Items, namespaceLabels)))
 		attachedRoutes += int32(len(r.filterGRPCRoutesByListener(ctx, gw, &l, &gwSource, grpcRoutes.Items, namespaceLabels)))
 		attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, &gwSource, tlsRoutes.Items, namespaceLabels)))
-		attachedRoutes += int32(len(r.filterTCPRoutesByListener(ctx, gw, &l, tcpRoutes.Items, namespaceLabels)))
-		attachedRoutes += int32(len(r.filterUDPRoutesByListener(ctx, gw, &l, udpRoutes.Items, namespaceLabels)))
+		attachedRoutes += int32(len(r.filterTCPRoutesByListener(ctx, gw, &l, &gwSource, tcpRoutes.Items, namespaceLabels)))
+		attachedRoutes += int32(len(r.filterUDPRoutesByListener(ctx, gw, &l, &gwSource, udpRoutes.Items, namespaceLabels)))
 
 		found := false
 		for i := range gw.Status.Listeners {
@@ -1487,6 +1517,8 @@ func (r *gatewayReconciler) setListenerSetStatuses(
 	httpRoutes *gatewayv1.HTTPRouteList,
 	tlsRoutes *gatewayv1.TLSRouteList,
 	grpcRoutes *gatewayv1.GRPCRouteList,
+	tcpRoutes *gatewayv1alpha2.TCPRouteList,
+	udpRoutes *gatewayv1alpha2.UDPRouteList,
 	namespaceLabels helpers.NamespaceLabelIndex,
 ) {
 	gw.Status.AttachedListenerSets = nil
@@ -1581,6 +1613,8 @@ func (r *gatewayReconciler) setListenerSetStatuses(
 			attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, &lsSource, httpRoutes.Items, namespaceLabels, *ls)))
 			attachedRoutes += int32(len(r.filterGRPCRoutesByListener(ctx, gw, &l, &lsSource, grpcRoutes.Items, namespaceLabels, *ls)))
 			attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, &lsSource, tlsRoutes.Items, namespaceLabels, *ls)))
+			attachedRoutes += int32(len(r.filterTCPRoutesByListener(ctx, gw, &l, &lsSource, tcpRoutes.Items, namespaceLabels, *ls)))
+			attachedRoutes += int32(len(r.filterUDPRoutesByListener(ctx, gw, &l, &lsSource, udpRoutes.Items, namespaceLabels, *ls)))
 
 			listenerStatuses = append(listenerStatuses, gatewayv1.ListenerEntryStatus{
 				Name:           entry.Name,

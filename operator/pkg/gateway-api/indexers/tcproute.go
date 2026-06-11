@@ -65,3 +65,20 @@ func IndexTCPRouteByGateway(rawObj client.Object) []string {
 	}
 	return gateways
 }
+
+func IndexTCPRouteByListenerSet(rawObj client.Object) []string {
+	route := rawObj.(*gatewayv1alpha2.TCPRoute)
+	var listenerSets []string
+	for _, parent := range route.Spec.ParentRefs {
+		if !helpers.IsListenerSet(parent) {
+			continue
+		}
+		listenerSets = append(listenerSets,
+			types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, route.Namespace),
+				Name:      string(parent.Name),
+			}.String(),
+		)
+	}
+	return listenerSets
+}
