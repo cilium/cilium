@@ -8,6 +8,8 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -173,20 +175,10 @@ func etcdDbgEndpoint(ctx context.Context, ep string, tlscfg *tls.Config, dialer 
 	if err != nil {
 		iw.Println("❌ Cannot establish TLS connection to %s: %s", u.Host, err)
 		if len(acceptableCAs) > 0 {
-			// The output is suboptimal being DER-encoded, but there doesn't
-			// seem to be any easy way to parse it (the utility used by
-			// ParseCertificate is not exported). Better than nothing though.
-			var buf bytes.Buffer
-			for i, ca := range acceptableCAs {
-				if i != 0 {
-					buf.WriteString(", ")
-				}
-				buf.WriteRune('"')
-				buf.WriteString(string(ca))
-				buf.WriteRune('"')
+			iw.Println("ℹ️  Acceptable CAs:")
+			for _, ca := range acceptableCAs {
+				iw.Println("   - %s", etcdDbgParseDN(ca))
 			}
-
-			iw.Println("ℹ️  Acceptable CAs: %s", buf.String())
 		}
 		return
 	}
@@ -311,6 +303,17 @@ func etcdDbgCerts(cfgfile string, cfg *client.Config, iw *indentedWriter) {
 
 		iw.Println("✅ Username set to %s, password is %s", cfg.Username, passwd)
 	}
+}
+
+func etcdDbgParseDN(der []byte) string {
+	var rdn pkix.RDNSequence
+	if _, err := asn1.Unmarshal(der, &rdn); err != nil {
+		return string(der)
+	}
+
+	var name pkix.Name
+	name.FillFromRDNSequence(&rdn)
+	return name.String()
 }
 
 func etcdDbgOutputIPs(ips []net.IP) string {
