@@ -16,6 +16,7 @@
 
 #define FRONTEND_IP_LOCAL	v4_svc_one
 #define FRONTEND_IP_REMOTE	v4_svc_two
+#define FRONTEND_IP_REMOTE_2	v4_svc_three
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			v4_node_one
@@ -139,6 +140,8 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 	if (ip4->daddr == CLIENT_IP_2 && ifindex == SVC_EGRESS_IFACE)
 		return CTX_ACT_REDIRECT;
 	if (ip4->saddr == FRONTEND_IP_REMOTE && ifindex == DEFAULT_IFACE)
+		return CTX_ACT_REDIRECT;
+	if (ip4->saddr == FRONTEND_IP_REMOTE_2 && ifindex == DEFAULT_IFACE)
 		return CTX_ACT_REDIRECT;
 
 	return CTX_ACT_DROP;
@@ -1326,6 +1329,156 @@ int nodeport_nat_fwd_verify_restored_original_entry_check(struct __ctx_buff *ctx
 
 	if (l4->source != nat_source_port)
 		test_fatal("Original NAT entry hasn't been restored");
+
+	test_finish();
+}
+
+/* The following two tests cover GH#10983: two NodePort services sharing the
+ * same backend pod. The same client 5-tuple is reused across both services.
+ * Make sure that the CT entry's rev_nat_index is correctly updated to svc2's
+ * index, so the reply is rev-NATed back to svc2 fronted, not svc1.
+ */
+
+/* Test that a request to svc2 (FRONTEND_IP_REMOTE_2), which shares the same
+ * backend as svc1, is correctly forwarded.
+ */
+PKTGEN("tc", "tc_nodeport_nat_shared_backend_fwd")
+int tc_nodeport_nat_shared_backend_fwd_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_REMOTE_2,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_nat_shared_backend_fwd")
+int tc_nodeport_nat_shared_backend_fwd_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 6;
+
+	lb_v4_add_service(FRONTEND_IP_REMOTE_2, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
+	/* Reuse the same backend_id=124 / BACKEND_IP_REMOTE as svc1. */
+	lb_v4_add_backend(FRONTEND_IP_REMOTE_2, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP_REMOTE, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, 0, 0);
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_nat_shared_backend_fwd")
+int tc_nodeport_nat_shared_backend_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct iphdr *l3;
+	__u32 key = 0;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l3->saddr != LB_IP)
+		test_fatal("src IP hasn't been NATed to LB IP");
+
+	if (l3->daddr != BACKEND_IP_REMOTE)
+		test_fatal("dst IP hasn't been NATed to backend IP");
+
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("dst port hasn't been NATed to backend port");
+
+	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
+
+	if (settings)
+		settings->nat_source_port = l4->source;
+
+	test_finish();
+}
+
+/* Test that the reply from the shared backend is rev-NATed to svc2
+ * (FRONTEND_IP_REMOTE_2), not svc1.
+ */
+PKTGEN("tc", "tc_nodeport_nat_shared_backend_reply")
+int tc_nodeport_nat_shared_backend_reply_pktgen(struct __ctx_buff *ctx)
+{
+	return build_reply(ctx);
+}
+
+SETUP("tc", "tc_nodeport_nat_shared_backend_reply")
+int tc_nodeport_nat_shared_backend_reply_setup(struct __ctx_buff *ctx)
+{
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_nat_shared_backend_reply")
+int tc_nodeport_nat_shared_backend_reply_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct iphdr *l3;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l3->saddr != FRONTEND_IP_REMOTE_2)
+		test_fatal("src IP hasn't been RevNATed to svc2 frontend IP");
+
+	if (l3->daddr != CLIENT_IP)
+		test_fatal("dst IP hasn't been RevNATed to client IP");
+
+	if (l4->source != FRONTEND_PORT)
+		test_fatal("src port hasn't been RevNATed to frontend port");
+
+	if (l4->dest != CLIENT_PORT)
+		test_fatal("dst port hasn't been RevNATed to client port");
 
 	test_finish();
 }
