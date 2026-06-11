@@ -223,7 +223,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	var namespaces []corev1.Namespace
-	if hasAllowedRoutesNamespaceSelector(gw) {
+	if hasAllowedRoutesNamespaceSelector(gw, attachedListenerSets) {
 		namespaceList := &corev1.NamespaceList{}
 		if err := r.Client.List(ctx, namespaceList); err != nil {
 			scopedLog.ErrorContext(ctx, "Unable to list Namespaces", logfields.Error, err)
@@ -399,7 +399,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return controllerruntime.Success()
 }
 
-func hasAllowedRoutesNamespaceSelector(gw *gatewayv1.Gateway) bool {
+func hasAllowedRoutesNamespaceSelector(gw *gatewayv1.Gateway, attachedListenerSets []gatewayv1.ListenerSet) bool {
 	for _, listener := range gw.Spec.Listeners {
 		if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
 			continue
@@ -409,6 +409,20 @@ func hasAllowedRoutesNamespaceSelector(gw *gatewayv1.Gateway) bool {
 		}
 		if listener.AllowedRoutes.Namespaces.From == nil && listener.AllowedRoutes.Namespaces.Selector != nil {
 			return true
+		}
+	}
+	for _, ls := range attachedListenerSets {
+		for _, entry := range ls.Spec.Listeners {
+			l := helpers.ListenerEntryToListener(entry)
+			if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
+				continue
+			}
+			if l.AllowedRoutes.Namespaces.From != nil && *l.AllowedRoutes.Namespaces.From == gatewayv1.NamespacesFromSelector {
+				return true
+			}
+			if l.AllowedRoutes.Namespaces.From == nil && l.AllowedRoutes.Namespaces.Selector != nil {
+				return true
+			}
 		}
 	}
 	return false
