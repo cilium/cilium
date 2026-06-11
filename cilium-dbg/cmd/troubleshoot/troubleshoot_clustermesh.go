@@ -26,6 +26,12 @@ import (
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
+// DisableLocalNameLookup allows to disable the lookup of the local cluster
+// name, given that it is not supported on the operator. It is only used to
+// provide a hint if the configuration for the local cluster is present, hence
+// it is not a big deal if don't retrieve it.
+var DisableLocalNameLookup bool
+
 var troubleshootClusterMeshCmd = func() *cobra.Command {
 	var cfg string
 	var timeout time.Duration
@@ -38,7 +44,12 @@ var troubleshootClusterMeshCmd = func() *cobra.Command {
 			initConfig()
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			local := getLocalClusterName(cmd.ErrOrStderr())
+			var local string
+
+			if !DisableLocalNameLookup {
+				local = getLocalClusterName(cmd.ErrOrStderr())
+			}
+
 			TroubleshootClusterMesh(
 				cmd.Context(), cmd.OutOrStdout(),
 				newTroubleshootDialer(cmd.ErrOrStderr(), disableDialer),
