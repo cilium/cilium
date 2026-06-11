@@ -3080,6 +3080,18 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods []*corev1.Pod) error
 			container: defaults.ClusterMeshContainerName,
 		},
 		{
+			name:      "statedb-dump",
+			ext:       "json",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "shell", "db/dump"},
+			container: defaults.ClusterMeshContainerName,
+		},
+		{
+			name:      "kvstore-list",
+			ext:       "txt",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "shell", "kvstore/list"},
+			container: defaults.ClusterMeshContainerName,
+		},
+		{
 			name:      "version",
 			ext:       "txt",
 			cmd:       []string{defaults.ClusterMeshBinaryName, "version"},
@@ -3101,6 +3113,18 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods []*corev1.Pod) error
 			name:      "troubleshoot",
 			ext:       "txt",
 			cmd:       []string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "troubleshoot", "--include-local"},
+			container: defaults.ClusterMeshKVStoreMeshContainerName,
+		},
+		{
+			name:      "statedb-dump",
+			ext:       "json",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "shell", "db/dump"},
+			container: defaults.ClusterMeshKVStoreMeshContainerName,
+		},
+		{
+			name:      "kvstore-list",
+			ext:       "txt",
+			cmd:       []string{defaults.ClusterMeshBinaryName, "shell", "kvstore/list"},
 			container: defaults.ClusterMeshKVStoreMeshContainerName,
 		},
 	}
