@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -378,14 +379,30 @@ func etcdDbgRetrieveRootCAFile(cfgfile string) (certs [][]byte, err error) {
 }
 
 func etcdDbgOutputCert(cert *x509.Certificate, iw *indentedWriter) {
-	sn := cert.SerialNumber.Text(16)
-	for i := 2; i < len(sn); i += 3 {
-		sn = sn[:i] + ":" + sn[i:]
+	var hexfmt = func(str string) string {
+		// Pad the string, in case it contains an odd number of characters.
+		if len(str)%2 == 1 {
+			str = "0" + str
+		}
+
+		for i := 2; i < len(str); i += 3 {
+			str = str[:i] + ":" + str[i:]
+		}
+		return str
 	}
 
-	iw.Println("- Serial number:       %s", string(sn))
+	iw.Println("- Serial number:       %s", hexfmt(cert.SerialNumber.Text(16)))
+
 	iw.Println("  Subject:             %s", cert.Subject)
+	if len(cert.SubjectKeyId) > 0 {
+		iw.Println("  Subject key ID:      %s", hexfmt(hex.EncodeToString(cert.SubjectKeyId)))
+	}
+
 	iw.Println("  Issuer:              %s", cert.Issuer)
+	if len(cert.AuthorityKeyId) > 0 {
+		iw.Println("  Authority key ID:    %s", hexfmt(hex.EncodeToString(cert.AuthorityKeyId)))
+	}
+
 	iw.Println("  Validity:")
 	iw.Println("    Not before:  %s", cert.NotBefore)
 	iw.Println("    Not after:   %s", cert.NotAfter)
