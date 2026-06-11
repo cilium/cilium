@@ -448,6 +448,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 	// Overwrite the metrics namespace with the one specific for the Operator
 	metrics.Namespace = metrics.CiliumOperatorNamespace
 
+	troubleshoot.DisableLocalNameLookup = true
 	cmd.AddCommand(
 		cmdref.NewCmd(cmd),
 		MetricsCmd,
