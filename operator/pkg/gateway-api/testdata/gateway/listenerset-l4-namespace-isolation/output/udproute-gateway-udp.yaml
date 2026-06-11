@@ -1,0 +1,31 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: gateway-udp
+  namespace: l4-listenerset-ns
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: l4-namespace-isolation
+    namespace: gateway-conformance-infra
+  rules:
+  - backendRefs:
+    - name: udp-backend
+      port: 3001
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Accepted UDPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: l4-namespace-isolation
+      namespace: gateway-conformance-infra
