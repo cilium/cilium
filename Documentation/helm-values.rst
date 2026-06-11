@@ -640,6 +640,10 @@
      - Specifies whether etcd data is stored in a temporary volume backed by the node's default medium, such as disk, SSD or network storage (Disk), or RAM (Memory). The Memory option enables improved etcd read and write performance at the cost of additional memory usage, which counts against the memory limits of the container.
      - string
      - ``"Disk"``
+   * - :spelling:ignore:`clustermesh.apiserver.etcdQPS`
+     - Rate limit for the apiserver container while syncing Kubernetes resources from the local cluster to the local etcd.
+     - int
+     - ``50``
    * - :spelling:ignore:`clustermesh.apiserver.extraArgs`
      - Additional clustermesh-apiserver arguments.
      - list
@@ -668,6 +672,10 @@
      - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance (deprecated - KVStoreMesh will always be enabled once the option is removed).
      - bool
      - ``true``
+   * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.etcdQPS`
+     - Rate limit for the kvstoremesh container while syncing resources from all remote clusters to the local etcd.
+     - int
+     - ``100``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.extraArgs`
      - Additional KVStoreMesh arguments.
      - list

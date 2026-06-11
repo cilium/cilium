@@ -1018,6 +1018,9 @@
               },
               "type": "object"
             },
+            "etcdQPS": {
+              "type": "integer"
+            },
             "extraArgs": {
               "items": {},
               "type": "array"
@@ -1067,6 +1070,9 @@
               "properties": {
                 "enabled": {
                   "type": "boolean"
+                },
+                "etcdQPS": {
+                  "type": "integer"
                 },
                 "extraArgs": {
                   "items": {},
