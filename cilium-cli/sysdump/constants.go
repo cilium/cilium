@@ -132,7 +132,6 @@ const (
 	ciliumBugtoolCommand = "cilium-bugtool"
 	dirMode              = 0700
 	fileMode             = 0600
-	gopsCommand          = "/bin/gops"
 	gopsPID              = "1"
 	rmCommand            = "rm"
 	timeFormat           = "20060102-150405"

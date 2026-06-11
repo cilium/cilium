@@ -2716,24 +2716,32 @@ func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName s
 	return nil
 }
 
-func (c *Collector) getGopsPID(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {
-	// Run 'gops' on the pod.
-	gopsOutput, err := c.Client.ExecInPod(ctx, pod.Namespace, pod.Name, containerName, []string{
-		gopsCommand,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to list processes %q (%q) in namespace %q: %w", pod.Name, containerName, pod.Namespace, err)
+func (c *Collector) getGopsPID(ctx context.Context, pod *corev1.Pod, containerName string) (cmd, pid string, err error) {
+	var gopsOutput bytes.Buffer
+
+	// Run 'gops' on the pod. Try both command paths, as the gops binary got
+	// moved in a9274570b9d1b6092bf07f598a310a2680391699.
+	for _, cmd = range []string{"/usr/bin/gops", "/bin/gops"} {
+		gopsOutput, err = c.Client.ExecInPod(ctx, pod.Namespace, pod.Name, containerName, []string{cmd})
+		if err == nil {
+			break
+		}
 	}
+
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list processes %q (%q) in namespace %q: %w", pod.Name, containerName, pod.Namespace, err)
+	}
+
 	agentPID := gopsPID
 	if c.Options.DetectGopsPID {
 		var err error
 		outputStr := gopsOutput.String()
 		agentPID, err = extractGopsPID(outputStr)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
-	return agentPID, nil
+	return cmd, agentPID, nil
 }
 
 // SubmitGopsSubtasks submits tasks to collect gops statistics from pods.
@@ -2745,7 +2753,7 @@ func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string)
 
 		for _, g := range gopsStats {
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
-				agentPID, err := c.getGopsPID(ctx, p, containerName)
+				gopsCommand, agentPID, err := c.getGopsPID(ctx, p, containerName)
 				if err != nil {
 					return err
 				}
@@ -2774,7 +2782,7 @@ func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerNam
 	for _, p := range pods {
 		for g := range gopsProfiling {
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
-				agentPID, err := c.getGopsPID(ctx, p, containerName)
+				gopsCommand, agentPID, err := c.getGopsPID(ctx, p, containerName)
 				if err != nil {
 					return err
 				}
@@ -2859,7 +2867,7 @@ func (c *Collector) SubmitStreamProfilingGopsSubtasks(pods []*corev1.Pod, contai
 func (c *Collector) SubmitTracingGopsSubtask(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, gopsTrace), func(ctx context.Context) error {
-			agentPID, err := c.getGopsPID(ctx, p, containerName)
+			gopsCommand, agentPID, err := c.getGopsPID(ctx, p, containerName)
 			if err != nil {
 				return err
 			}
