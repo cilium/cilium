@@ -670,10 +670,10 @@ func TestPrepare_RollbackFreeError_OriginalErrReturned(t *testing.T) {
 // Tests — early rejection paths
 // ---------------------------------------------------------------------------
 
-// TestPrepare_DuplicatePodUID_Rejected verifies that a second
-// PrepareResourceClaims call for the same pod UID is rejected without calling
-// Setup again.
-func TestPrepare_DuplicatePodUID_Rejected(t *testing.T) {
+// TestPrepare_DuplicateClaimUID_Idempotent verifies that a second
+// PrepareResourceClaims call for the same (pod, claim) pair succeeds without
+// calling Setup again — all steps are already done.
+func TestPrepare_DuplicateClaimUID_Idempotent(t *testing.T) {
 	tlog := hivetest.Logger(t)
 	cs, _ := k8sClient.NewFakeClientset(tlog)
 	dev := &trackedDevice{name: prepTestDev0}
@@ -682,17 +682,100 @@ func TestPrepare_DuplicatePodUID_Rejected(t *testing.T) {
 
 	driver := buildPrepDriver(t, cs, dev)
 
-	// First call succeeds.
+	// First call succeeds and sets up the device.
 	result := driver.prepareResourceClaim(t.Context(), claim)
 	require.NoError(t, result.Err)
+	assert.EqualValues(t, 1, dev.setupCalls.Load(), "Setup must be called once on first prepare")
 
-	// Second call with the same pod UID must be rejected.
+	// Update the ResourceVersion so that the second UpdateStatus (if any) works.
+	updated, err := cs.KubernetesFakeClientset.ResourceV1().ResourceClaims(prepTestClaimNS).Get(t.Context(), prepTestClaimName, metav1.GetOptions{})
+	require.NoError(t, err)
+	claim.ResourceVersion = updated.ResourceVersion
+
+	// Second call with the same claim must be idempotent: no error, no re-setup.
 	result2 := driver.prepareResourceClaim(t.Context(), claim)
-	require.Error(t, result2.Err)
-	assert.ErrorIs(t, result2.Err, errAllocationAlreadyExistsForPod)
+	require.NoError(t, result2.Err)
+	assert.EqualValues(t, 1, dev.setupCalls.Load(), "Setup must NOT be called again on idempotent retry")
+	assert.EqualValues(t, 0, dev.freeCalls.Load(), "Free must not be called")
+}
 
-	// Setup must only have been called once (by the first call).
-	assert.EqualValues(t, 1, dev.setupCalls.Load())
+const (
+	prepTestClaimUID2  = kubetypes.UID("cccccccc-0000-0000-0000-000000000003")
+	prepTestClaimName2 = "test-claim-2"
+)
+
+// buildPrepClaim2 builds a second distinct claim (different UID and name) for
+// the same pod as buildPrepClaim, requesting the given devices.
+func buildPrepClaim2(devices ...string) *resourceapi.ResourceClaim {
+	c := buildPrepClaim(devices...)
+	c.Name = prepTestClaimName2
+	c.UID = prepTestClaimUID2
+	return c
+}
+
+// TestPrepare_MultipleClaims_SamePod_Succeeds verifies that two distinct
+// ResourceClaims for the same pod can both be prepared successfully, and that
+// driver.allocations ends up with two entries under the pod's UID.
+func TestPrepare_MultipleClaims_SamePod_Succeeds(t *testing.T) {
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
+	dev0 := &trackedDevice{name: prepTestDev0}
+	dev1 := &trackedDevice{name: prepTestDev1}
+
+	claim1 := buildPrepClaim(prepTestDev0)
+	claim2 := buildPrepClaim2(prepTestDev1)
+	createPrepClaim(t, cs, claim1)
+	createPrepClaim(t, cs, claim2)
+
+	driver := buildPrepDriver(t, cs, dev0, dev1)
+
+	result1 := driver.prepareResourceClaim(t.Context(), claim1)
+	require.NoError(t, result1.Err, "first claim must succeed")
+
+	result2 := driver.prepareResourceClaim(t.Context(), claim2)
+	require.NoError(t, result2.Err, "second claim for the same pod must also succeed")
+
+	assert.EqualValues(t, 1, dev0.setupCalls.Load(), "dev0 Setup must be called once")
+	assert.EqualValues(t, 1, dev1.setupCalls.Load(), "dev1 Setup must be called once")
+
+	require.Contains(t, driver.allocations, prepTestPodUID)
+	assert.Len(t, driver.allocations[prepTestPodUID], 2, "allocations map must have 2 claim entries")
+	assert.Contains(t, driver.allocations[prepTestPodUID], prepTestClaimUID)
+	assert.Contains(t, driver.allocations[prepTestPodUID], prepTestClaimUID2)
+}
+
+// TestPrepare_CrossClaimDeviceConflict_Rejected verifies that a second claim
+// for the same pod is rejected when it requests a device that is already
+// allocated by a previously prepared claim for that pod.
+func TestPrepare_CrossClaimDeviceConflict_Rejected(t *testing.T) {
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
+	dev := &trackedDevice{name: prepTestDev0}
+
+	// Both claims request the same device.
+	claim1 := buildPrepClaim(prepTestDev0)
+	claim2 := buildPrepClaim2(prepTestDev0)
+	createPrepClaim(t, cs, claim1)
+	createPrepClaim(t, cs, claim2)
+
+	driver := buildPrepDriver(t, cs, dev)
+
+	result1 := driver.prepareResourceClaim(t.Context(), claim1)
+	require.NoError(t, result1.Err, "first claim must succeed")
+
+	result2 := driver.prepareResourceClaim(t.Context(), claim2)
+	require.Error(t, result2.Err, "second claim requesting the same device must be rejected")
+	assert.Contains(t, result2.Err.Error(), prepTestDev0)
+
+	// Setup must have been called only once (by the first claim).
+	assert.EqualValues(t, 1, dev.setupCalls.Load(), "Setup must not be called for the conflicting claim")
+
+	// The pod entry must only contain the first claim.
+	require.Contains(t, driver.allocations, prepTestPodUID)
+	assert.Len(t, driver.allocations[prepTestPodUID], 1)
+	assert.Contains(t, driver.allocations[prepTestPodUID], prepTestClaimUID)
 }
 
 // TestPrepare_InvalidPodIfName_NoSetup verifies that podIfName validation
