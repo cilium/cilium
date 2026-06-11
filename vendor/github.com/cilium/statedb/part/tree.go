@@ -44,7 +44,7 @@ func newTxn[T any](o options) *Txn[T] {
 		watches: make(map[chan struct{}]struct{}),
 	}
 	if !o.noCache() {
-		txn.mutated = &nodeMutated{}
+		txn.mutated = &nodeMutated[T]{}
 		txn.deleteParentsCache = make([]deleteParent[T], 0, 32)
 	}
 	txn.opts = o
