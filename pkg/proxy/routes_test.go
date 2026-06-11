@@ -193,7 +193,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				}
 
 				// Install routes and rules the first time.
-				assert.NoError(t, installFromProxyRoutesIPv4(routeManager, owner, testIPv4, dummyDevice, true, true, defaultMTU))
+				assert.NoError(t, installFromProxyRoutesIPv4(routeManager, owner, testIPv4, dummyDevice, true, true, false, defaultMTU))
 
 				rules, err := route.ListRules(netlink.FAMILY_V4, &fromIngressProxyRule)
 				assert.NoError(t, err)
@@ -210,7 +210,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.Equal(t, defaultMTU, defaultRoute.MTU)
 
 				// Ensure idempotence.
-				assert.NoError(t, installFromProxyRoutesIPv4(routeManager, owner, testIPv4, dummyDevice, true, true, defaultMTU))
+				assert.NoError(t, installFromProxyRoutesIPv4(routeManager, owner, testIPv4, dummyDevice, true, true, false, defaultMTU))
 
 				// Remove routes installed before.
 				assert.NoError(t, removeFromProxyRulesIPv4())
@@ -221,7 +221,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 
 				// Install routes and rules with non-default MTU -- this would happen with
 				// IPSec enabled and both ingress and egress policies in-place.
-				assert.NoError(t, installFromProxyRoutesIPv4(routeManager, owner, testIPv4, dummyDevice, true, true, withOverheadMTU))
+				assert.NoError(t, installFromProxyRoutesIPv4(routeManager, owner, testIPv4, dummyDevice, true, true, false, withOverheadMTU))
 
 				// Re-list the from proxy (2005) routing table, expect a single entry.
 				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4,
@@ -385,7 +385,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				}
 
 				// Install routes and rules the first time.
-				assert.NoError(t, installFromProxyRoutesIPv6(owner, routeManager, testIPv6, dummyDevice, true, true, defaultMTU))
+				assert.NoError(t, installFromProxyRoutesIPv6(owner, routeManager, testIPv6, dummyDevice, true, true, false, defaultMTU))
 
 				rules, err := route.ListRules(netlink.FAMILY_V6, &fromIngressProxyRule)
 				assert.NoError(t, err)
@@ -402,7 +402,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.Equal(t, defaultMTU, defaultRoute.MTU)
 
 				// Ensure idempotence.
-				assert.NoError(t, installFromProxyRoutesIPv6(owner, routeManager, testIPv6, dummyDevice, true, true, defaultMTU))
+				assert.NoError(t, installFromProxyRoutesIPv6(owner, routeManager, testIPv6, dummyDevice, true, true, false, defaultMTU))
 
 				// Remove routes installed before.
 				assert.NoError(t, removeFromProxyRulesIPv6())
@@ -413,7 +413,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 
 				// Install routes and rules with non-default MTU -- this would happen with
 				// IPSec enabled and both ingress and egress policies in-place.
-				assert.NoError(t, installFromProxyRoutesIPv6(owner, routeManager, testIPv6, dummyDevice, true, true, withOverheadMTU))
+				assert.NoError(t, installFromProxyRoutesIPv6(owner, routeManager, testIPv6, dummyDevice, true, true, false, withOverheadMTU))
 
 				// Re-list the from proxy (2005) routing table, expect a single entry.
 				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V6,
