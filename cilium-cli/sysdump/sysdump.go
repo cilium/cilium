@@ -1155,6 +1155,18 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting the Cilium operator debug information",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				err := c.submitCiliumOperatorDbgTasks(c.CiliumOperatorPods)
+				if err != nil {
+					return fmt.Errorf("failed to collect the Cilium operator debug information: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting the clustermesh debug information, metrics and gops stats",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
@@ -3061,6 +3073,60 @@ func (c *Collector) SubmitMetricsSubtask(pods []*corev1.Pod, containerName, port
 	return nil
 }
 
+func (c *Collector) submitCiliumOperatorDbgTasks(pods []*corev1.Pod) error {
+	tasks := []struct {
+		name string
+		ext  string
+		args []string
+	}{
+		{
+			name: "statedb-dump",
+			ext:  "json",
+			args: []string{"shell", "db/dump"},
+		},
+		{
+			name: "status-clustermesh",
+			ext:  "txt",
+			args: []string{"status", "clustermesh"},
+		},
+		{
+			name: "troubleshoot-kvstore",
+			ext:  "txt",
+			args: []string{"troubleshoot", "kvstore"},
+		},
+		{
+			name: "troubleshoot-clustermesh",
+			ext:  "txt",
+			args: []string{"troubleshoot", "clustermesh"},
+		},
+	}
+
+	for _, pod := range pods {
+		for _, task := range tasks {
+			// The name of the Cilium operator binary depends on the specific
+			// flavor. Let's infer it based on the specified command.
+			var cmd = "cilium-operator-generic"
+			for _, container := range pod.Spec.Containers {
+				if container.Name == defaults.OperatorContainerName {
+					if len(container.Command) > 0 {
+						cmd = container.Command[0]
+					}
+					break
+				}
+			}
+
+			if err := c.submitPodCommandTask(
+				pod, defaults.OperatorContainerName, task.name, task.ext,
+				append([]string{cmd}, task.args...),
+			); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods []*corev1.Pod) error {
 	tasks := []struct {
 		name      string
@@ -3131,40 +3197,48 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods []*corev1.Pod) error
 
 	for _, pod := range pods {
 		for _, task := range tasks {
-			if !podIsRunningAndHasContainer(pod, task.container) {
-				continue
-			}
-
-			filename := fmt.Sprintf("%s-%s-%s-<ts>.%s", pod.Name, task.container, task.name, task.ext)
-			if err := c.Pool.Submit(filename, func(ctx context.Context) error {
-				if err := c.WithFileSink(filename, func(out io.Writer) error {
-					var stderr bytes.Buffer
-
-					err := c.Client.ExecInPodWithWriters(ctx, nil, pod.Namespace, pod.Name, task.container, task.cmd, out, &stderr)
-					if err != nil {
-						stderrStr := stderr.String()
-						if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
-							// The default cobra error tends to be misleading when both the
-							// command and the flags are not found, as it reports the missing
-							// flags rather than the missing command. Hence, let's just guess
-							// and output a generic unknown command error.
-							stderrStr = "unknown command - this is expected if not supported by this Cilium version"
-						}
-
-						return fmt.Errorf("%w: %s", err, stderrStr)
-					}
-
-					return nil
-				}); err != nil {
-					return fmt.Errorf("failed to collect clustermesh %s information from %s/%s (%s): %w",
-						task.name, pod.Namespace, pod.Name, task.container, err)
-				}
-
-				return nil
-			}); err != nil {
-				return fmt.Errorf("failed to submit %s task: %w", filename, err)
+			if err := c.submitPodCommandTask(pod, task.container, task.name, task.ext, task.cmd); err != nil {
+				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func (c *Collector) submitPodCommandTask(pod *corev1.Pod, container, task, ext string, cmd []string) error {
+	if !podIsRunningAndHasContainer(pod, container) {
+		return nil
+	}
+
+	filename := fmt.Sprintf("%s-%s-%s-<ts>.%s", pod.Name, container, task, ext)
+	if err := c.Pool.Submit(filename, func(ctx context.Context) error {
+		if err := c.WithFileSink(filename, func(out io.Writer) error {
+			var stderr bytes.Buffer
+
+			err := c.Client.ExecInPodWithWriters(ctx, nil, pod.Namespace, pod.Name, container, cmd, out, &stderr)
+			if err != nil {
+				stderrStr := stderr.String()
+				if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
+					// The default cobra error tends to be misleading when both the
+					// command and the flags are not found, as it reports the missing
+					// flags rather than the missing command. Hence, let's just guess
+					// and output a generic unknown command error.
+					stderrStr = "unknown command - this is expected if not supported by this Cilium version"
+				}
+
+				return fmt.Errorf("%w: %s", err, stderrStr)
+			}
+
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to collect %s information from %s/%s (%s): %w",
+				task, pod.Namespace, pod.Name, container, err)
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to submit %s task: %w", filename, err)
 	}
 
 	return nil
