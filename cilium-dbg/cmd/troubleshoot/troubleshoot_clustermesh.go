@@ -92,8 +92,8 @@ func TroubleshootClusterMesh(
 	cfgs, err := common.ConfigFiles(cfgdir)
 	if err != nil {
 		fmt.Fprintf(stdout, "Unable to retrieve cluster configurations: %s\n", err)
-		fmt.Fprintf(stdout, "Is %q the correct configuration directory?\n", cfgdir)
-		os.Exit(1)
+		fmt.Fprintf(stdout, "This is expected when Cluster Mesh is disabled\n")
+		return
 	}
 
 	fmt.Fprintf(stdout, "Found %d cluster configurations\n", len(cfgs))
