@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"syscall"
 	"testing"
 
@@ -200,7 +201,7 @@ func BenchmarkSocketDeserialize(b *testing.B) {
 
 type socketDestroyerTester interface {
 	SocketDestroyer
-	PrepareAddress(network string, cookie uint64, addr any) error
+	PrepareAddress(cookie uint64, addr string) error
 	Reset() error
 }
 
@@ -216,7 +217,7 @@ func newTestNetlinkSocketDestroyer(tb testing.TB) socketDestroyerTester {
 	}
 }
 
-func (d *netlinkSocketDestroyer) PrepareAddress(network string, cookie uint64, addr any) error {
+func (d *netlinkSocketDestroyer) PrepareAddress(cookie uint64, addr string) error {
 	return nil
 }
 
@@ -269,34 +270,23 @@ func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 	}
 }
 
-func (d *testBPFSocketDestroyer) PrepareAddress(network string, cookie uint64, addr any) error {
+func (d *testBPFSocketDestroyer) PrepareAddress(cookie uint64, addr string) error {
 	var key bpf.MapKey
 	var value bpf.MapValue
 	var sockRevMap *bpf.Map
-	var ip net.IP
-	var port int
 
-	if udpAddr, ok := addr.(*net.UDPAddr); ok {
-		ip = udpAddr.IP
-		port = udpAddr.Port
-	} else if tcpAddr, ok := addr.(*net.TCPAddr); ok {
-		ip = tcpAddr.IP
-		port = tcpAddr.Port
-	} else {
-		return fmt.Errorf("unknown address type: %v", addr)
-	}
+	addrPort := netip.MustParseAddrPort(addr)
+	a := addrPort.Addr()
+	p := addrPort.Port()
 
-	switch network {
-	case "udp", "tcp":
-		key = maps.NewSockRevNat4Key(cookie, ip, uint16(port))
+	if a.Is4() {
+		key = maps.NewSockRevNat4Key(cookie, a.AsSlice(), p)
 		value = &maps.SockRevNat4Value{}
 		sockRevMap = d.sockRevNat4Map
-	case "udp6", "tcp6":
-		key = maps.NewSockRevNat6Key(cookie, ip, uint16(port))
+	} else {
+		key = maps.NewSockRevNat6Key(cookie, a.AsSlice(), p)
 		value = &maps.SockRevNat6Value{}
 		sockRevMap = d.sockRevNat6Map
-	default:
-		return fmt.Errorf("unknown network: %s", network)
 	}
 
 	return sockRevMap.Update(key, value)
@@ -320,7 +310,7 @@ func makeSocketDestroyers(tb testing.TB) map[string]socketDestroyerTester {
 	}
 }
 
-func startServer(tb testing.TB, network string, addr string) (any, error) {
+func startServer(tb testing.TB, network string, addr string) error {
 	var serverAddr any
 	var listener io.Closer
 	var err error
@@ -329,27 +319,27 @@ func startServer(tb testing.TB, network string, addr string) (any, error) {
 	case "udp", "udp6":
 		serverAddr, err = net.ResolveUDPAddr(network, addr)
 		if err != nil {
-			return nil, fmt.Errorf("resolving UDP address: %w", err)
+			return fmt.Errorf("resolving UDP address: %w", err)
 		}
 		listener, err = net.ListenUDP(network, serverAddr.(*net.UDPAddr))
 		if err != nil {
-			return nil, fmt.Errorf("start listening: %w", err)
+			return fmt.Errorf("start listening: %w", err)
 		}
 	case "tcp", "tcp6":
 		serverAddr, err = net.ResolveTCPAddr(network, addr)
 		if err != nil {
-			return nil, fmt.Errorf("resolving TCP address: %w", err)
+			return fmt.Errorf("resolving TCP address: %w", err)
 		}
 		listener, err = net.ListenTCP(network, serverAddr.(*net.TCPAddr))
 		if err != nil {
-			return nil, fmt.Errorf("start listening: %w", err)
+			return fmt.Errorf("start listening: %w", err)
 		}
 	}
 
 	tb.Cleanup(func() {
 		listener.Close()
 	})
-	return serverAddr, nil
+	return nil
 }
 
 func prepareConnectionsAndMaps(t *testing.T, servers map[string][]string, sdt socketDestroyerTester) (map[string][]net.Conn, error) {
@@ -357,7 +347,7 @@ func prepareConnectionsAndMaps(t *testing.T, servers map[string][]string, sdt so
 
 	for addr, networks := range servers {
 		for _, network := range networks {
-			connectAddr, err := startServer(t, network, addr)
+			err := startServer(t, network, addr)
 			if err != nil {
 				return nil, fmt.Errorf("starting server: %w", err)
 			}
@@ -383,7 +373,7 @@ func prepareConnectionsAndMaps(t *testing.T, servers map[string][]string, sdt so
 			if err != nil {
 				return nil, fmt.Errorf("getting socket cookie: %w", err)
 			}
-			if err := sdt.PrepareAddress(network, cookie, connectAddr); err != nil {
+			if err := sdt.PrepareAddress(cookie, addr); err != nil {
 				return nil, fmt.Errorf("preparing socket filter %s/%s %v: %w", network, addr, cookie, err)
 			}
 			conns[addr] = append(conns[addr], conn)
