@@ -762,17 +762,23 @@ func TestPrepareResourceClaimPlainDevice(t *testing.T) {
 	require.NoError(t, res.Err)
 }
 
-// TestPrepareResourceClaim_AlreadyAllocated verifies that a second prepare
-// for the same pod UID is rejected with errAllocationAlreadyExistsForPod.
-func TestPrepareResourceClaim_AlreadyAllocated(t *testing.T) {
+// TestPrepareResourceClaim_AlreadyAllocatedSameClaim verifies that a second
+// prepare for the exact same (pod, claim) pair is idempotent: when the claim
+// has no devices to set up (empty Results), the call succeeds without error.
+func TestPrepareResourceClaim_AlreadyAllocatedSameClaim(t *testing.T) {
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
 	podUID := kubetypes.UID("existing-pod-uid")
-	driver := &Driver{
-		logger: hivetest.Logger(t),
-		allocations: map[kubetypes.UID]map[kubetypes.UID][]allocation{
-			podUID: {},
-		},
+	claimUID := kubetypes.UID("existing-claim-uid")
+
+	driver := buildPrepDriver(t, cs)
+	driver.allocations = map[kubetypes.UID]map[kubetypes.UID][]allocation{
+		podUID: {claimUID: {}},
 	}
+
 	claim := &resourceapi.ResourceClaim{
+		ObjectMeta: metav1.ObjectMeta{UID: claimUID},
 		Status: resourceapi.ResourceClaimStatus{
 			ReservedFor: []resourceapi.ResourceClaimConsumerReference{
 				{Resource: "pods", UID: podUID},
@@ -781,8 +787,7 @@ func TestPrepareResourceClaim_AlreadyAllocated(t *testing.T) {
 		},
 	}
 	res := driver.prepareResourceClaim(t.Context(), claim)
-	require.Error(t, res.Err)
-	require.ErrorIs(t, res.Err, errAllocationAlreadyExistsForPod)
+	require.NoError(t, res.Err)
 }
 
 // TestAddressesForClaim_NilPod verifies that a nil pod returns nil without error.

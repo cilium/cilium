@@ -254,7 +254,25 @@ func (driver *Driver) applyAddressToConfig(
 	return nil
 }
 
-func (driver *Driver) applyAddressesFromAnnotation(ctx context.Context, claim *resourceapi.ResourceClaim, podRef resourceapi.ResourceClaimConsumerReference, devicesCfg map[string]types.DeviceConfig) error {
+func (driver *Driver) applyAddressesFromAnnotation(ctx context.Context, claim *resourceapi.ResourceClaim, podRef resourceapi.ResourceClaimConsumerReference, devicesCfg map[string]types.DeviceConfig) (err error) {
+	// Log the outcome once, regardless of which step returned.
+	defer func() {
+		if err != nil {
+			driver.logger.ErrorContext(ctx, "failed to apply static IP addresses from pod annotation",
+				logfields.K8sNamespace, claim.Namespace,
+				logfields.Name, claim.Name,
+				logfields.K8sPodName, podRef,
+				logfields.Error, err,
+			)
+			return
+		}
+		driver.logger.DebugContext(ctx, "applied static IP addresses from pod annotation",
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+			logfields.K8sPodName, podRef,
+		)
+	}()
+
 	pod, err := driver.podForClaim(ctx, claim, podRef)
 	if err != nil {
 		return err
@@ -406,15 +424,130 @@ func (driver *Driver) addrsForDevice(ctx context.Context, device string, pool ip
 	return v4Addr, v6Addr, nil
 }
 
-func (driver *Driver) deviceFromRequestResult(result resourceapi.DeviceRequestAllocationResult) (types.DeviceManagerType, types.Device, error) {
-	for mgr, devices := range driver.devices {
-		if i := slices.IndexFunc(devices, func(dev types.Device) bool {
-			return dev.IfName() == result.Device
-		}); i >= 0 {
-			return mgr, devices[i], nil
+// claimPrepState holds the precomputed lookups used to make prepareResourceClaim
+// idempotent across retries.
+type claimPrepState struct {
+	// devices already set up for this exact (pod, claim), keyed by ifname.
+	existingByDevice map[string]allocation
+	// devices that already have a status entry in the claim for this driver.
+	existingStatusDevice map[string]struct{}
+}
+
+// newClaimPrepState builds the idempotency lookups for a (pod, claim) pair:
+// which devices were already set up in memory, and which already have a
+// Kubernetes status entry. Both let a retry skip work that already completed.
+func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerReference, claim *resourceapi.ResourceClaim) claimPrepState {
+	existingByDevice := make(map[string]allocation)
+	for _, a := range driver.allocations[pod.UID][claim.UID] {
+		existingByDevice[a.Device.IfName()] = a
+	}
+
+	existingStatusDevice := make(map[string]struct{})
+	for _, ds := range claim.Status.Devices {
+		if ds.Driver == driver.config.DriverName {
+			existingStatusDevice[ds.Device] = struct{}{}
 		}
 	}
-	return types.DeviceManagerTypeUnknown, nil, errDeviceNotFound
+
+	return claimPrepState{
+		existingByDevice:     existingByDevice,
+		existingStatusDevice: existingStatusDevice,
+	}
+}
+
+// validatePodIfNames checks that every podIfName in the claim's device configs
+// is a valid Linux interface name before any destructive work begins.
+func validatePodIfNames(claim *resourceapi.ResourceClaim, deviceClaimConfigs map[string]types.DeviceConfig) error {
+	for request, cfg := range deviceClaimConfigs {
+		if err := types.ValidateInterfaceName(cfg.PodIfName); err != nil {
+			return fmt.Errorf("invalid podIfName in request %s for claim %s: %w",
+				request, path.Join(claim.Namespace, claim.Name), err)
+		}
+	}
+	return nil
+}
+
+// rollbackDevice undoes the setup of a single device: it frees the device and
+// releases any pool-allocated addresses. Failures are logged rather than
+// returned, and the call is a safe no-op when there is nothing to undo — a
+// zero-value allocation (no device set up) is ignored, and releaseAddrs already
+// no-ops for configs without a pool. This lets every error path roll back
+// unconditionally without first checking whether work was actually done.
+func (driver *Driver) rollbackDevice(a allocation) {
+	if a.Device == nil {
+		// Nothing was set up for this allocation; nothing to roll back.
+		return
+	}
+	if err := a.Device.Free(a.Config); err != nil {
+		driver.logger.Warn("failed to free device during rollback",
+			logfields.Device, a.Device.IfName(),
+			logfields.Error, err,
+		)
+	}
+	if err := driver.releaseAddrs(a.Config); err != nil {
+		driver.logger.Warn("failed to release addresses during rollback",
+			logfields.Device, a.Device.IfName(),
+			logfields.Error, err,
+		)
+	}
+}
+
+// prepareClaimDevice processes a single device result of a claim. It returns the
+// resulting allocation and the status entry to persist (nil when the device was
+// already reflected in the claim status on an idempotent retry).
+//
+// Any error after the device has been set up rolls back that device in place,
+// so the caller never receives a half-prepared device. The idempotent-reuse
+// path returns before any setup happens and therefore never rolls back: a
+// reused device belongs to a prior successful prepare and must not be freed.
+func (driver *Driver) prepareClaimDevice(
+	ctx context.Context,
+	claim *resourceapi.ResourceClaim,
+	result resourceapi.DeviceRequestAllocationResult,
+	cfg types.DeviceConfig,
+	state claimPrepState,
+) (alloc allocation, status *resourceapi.AllocatedDeviceStatus, err error) {
+	claimRef := path.Join(claim.Namespace, claim.Name)
+
+	// Idempotency: reuse a device already set up for this (pod, claim) instead
+	// of setting it up again. This returns before any setup, so the rollback
+	// below is never armed for a reused device.
+	if reused, reuseStatus, reuseErr := driver.reuseAllocatedDevice(claim, result, state); reuseErr != nil {
+		return allocation{}, nil, reuseErr
+	} else if reused != nil {
+		return *reused, reuseStatus, nil
+	}
+
+	// New device: set it up. prepareDeviceAllocation releases its own addresses
+	// if it fails before/at Setup, so nothing was set up on this error path.
+	alloc, err = driver.prepareDeviceAllocation(ctx, claimRef, result, cfg)
+	if err != nil {
+		driver.logger.ErrorContext(ctx, "failed to prepare device allocation",
+			logfields.Device, result.Device,
+			logfields.Error, err,
+		)
+		return allocation{}, nil, fmt.Errorf("failed to prepare device %s for claim %s: %w", result.Device, claimRef, err)
+	}
+
+	// From here the device is set up: any error must free it. rollbackDevice is
+	// a no-op when err is nil.
+	defer func() {
+		if err != nil {
+			driver.rollbackDevice(alloc)
+		}
+	}()
+
+	built, err := driver.buildDeviceStatus(claim, result, alloc)
+	if err != nil {
+		driver.logger.ErrorContext(ctx, "failed to serialize device",
+			logfields.Device, alloc.Device.IfName(),
+			logfields.Config, alloc.Config,
+			logfields.Error, err,
+		)
+		return allocation{}, nil, fmt.Errorf("failed to serialize device %s for claim %s: %w", alloc.Device.IfName(), claimRef, err)
+	}
+
+	return alloc, &built, nil
 }
 
 func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string, result resourceapi.DeviceRequestAllocationResult, cfg types.DeviceConfig) (allocation, error) {
@@ -501,9 +634,10 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 
 	pod := claim.Status.ReservedFor[0]
 
-	if _, ok := driver.allocations[pod.UID]; ok {
+	// Reject devices that are already claimed by a *different* claim for this pod.
+	if dev := driver.conflictingDeviceForPod(pod.UID, claim.UID, claim.Status.Allocation.Devices.Results); dev != "" {
 		return kubeletplugin.PrepareResult{
-			Err: fmt.Errorf("%w: name: %s, resource: %s, uid: %s", errAllocationAlreadyExistsForPod, pod.Name, pod.Resource, pod.UID),
+			Err: fmt.Errorf("device %s is already allocated for pod %s by another claim", dev, pod.Name),
 		}
 	}
 
@@ -512,155 +646,182 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
-	// where available, apply static IP addresses from the pod annotation.
+	// Where available, apply static IP addresses from the pod annotation.
 	if err := driver.applyAddressesFromAnnotation(ctx, claim, pod, deviceClaimConfigs); err != nil {
-		driver.logger.ErrorContext(ctx, "failed to apply static IP addresses from pod annotation",
-			logfields.K8sNamespace, claim.Namespace,
-			logfields.Name, claim.Name,
-			logfields.K8sPodName, pod,
-			logfields.Error, err,
-		)
 		return kubeletplugin.PrepareResult{Err: err}
-	} else {
-		driver.logger.DebugContext(ctx, "applied static IP addresses from pod annotation",
-			logfields.K8sNamespace, claim.Namespace,
-			logfields.Name, claim.Name,
-			logfields.K8sPodName, pod,
-		)
 	}
 
-	// Validate podIfName in all configs before proceeding
-	for request, cfg := range deviceClaimConfigs {
-		if err := types.ValidateInterfaceName(cfg.PodIfName); err != nil {
-			return kubeletplugin.PrepareResult{
-				Err: fmt.Errorf("invalid podIfName in request %s for claim %s: %w",
-					request, path.Join(claim.Namespace, claim.Name), err),
-			}
-		}
+	if err := validatePodIfNames(claim, deviceClaimConfigs); err != nil {
+		return kubeletplugin.PrepareResult{Err: err}
 	}
+
+	// Precompute what is already done so retries skip completed work.
+	state := driver.newClaimPrepState(pod, claim)
 
 	var (
 		alloc         []allocation
 		devicesStatus []resourceapi.AllocatedDeviceStatus
+		rollback      bool
 	)
 
-	// rollback releases IPs and calls Device.Free() for every device that was
-	// fully set up before an error interrupted the loop.  It is called on every
-	// early-return path inside the device loop below.
+	// On any failure after one or more devices were newly set up in this
+	// invocation, free those devices. Reused devices (recorded in state) belong
+	// to prior successful prepares and are skipped. The device that triggered a
+	// failure inside prepareClaimDevice has already rolled itself back and is not
+	// present in alloc, so it is not freed twice.
 	defer func() {
-		if err != nil {
-			for _, a := range alloc {
-				if err := a.Device.Free(a.Config); err != nil {
-					driver.logger.Warn("failed to free device during rollback",
-						logfields.Device, a.Device.IfName(),
-						logfields.Error, err,
-					)
-				}
-				if err := driver.releaseAddrs(a.Config); err != nil {
-					driver.logger.Warn("failed to release addresses during rollback",
-						logfields.Device, a.Device.IfName(),
-						logfields.Error, err,
-					)
-				}
+		if !rollback {
+			return
+		}
+		for _, a := range alloc {
+			if _, reused := state.existingByDevice[a.Device.IfName()]; reused {
+				continue
 			}
+			driver.rollbackDevice(a)
 		}
 	}()
 
 	for _, result := range claim.Status.Allocation.Devices.Results {
 		cfg := deviceClaimConfigs[result.Request] // zero-value DeviceConfig if no opaque config present
 
-		var thisAlloc allocation
-
-		var (
-			mgr types.DeviceManagerType
-			dev types.Device
-		)
-		mgr, dev, err = driver.deviceFromRequestResult(result)
-		if err != nil {
-			err = fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, path.Join(claim.Namespace, claim.Name))
-			return kubeletplugin.PrepareResult{
-				Err: err,
-			}
-		}
-		thisAlloc.Manager = mgr
-		thisAlloc.Device = dev
-
-		thisAlloc, err = driver.prepareDeviceAllocation(ctx, path.Join(claim.Namespace, claim.Name), result, cfg)
-		if err != nil {
-			driver.logger.ErrorContext(ctx, "failed to serialize device",
-				logfields.Device, thisAlloc.Device.IfName(),
-				logfields.Config, thisAlloc.Config,
-				logfields.Error, err,
-			)
-
-			err = fmt.Errorf("failed to serialize device %s for claim %s: %w", thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name), err)
-			return kubeletplugin.PrepareResult{
-				Err: err,
-			}
-		}
-		alloc = append(alloc, thisAlloc)
-
-		rawDev, err := serializeDevice(thisAlloc)
-		if err != nil {
-			driver.logger.ErrorContext(ctx, "failed to serialize device",
-				logfields.Device, thisAlloc.Device.IfName(),
-				logfields.Config, thisAlloc.Config,
-				logfields.Error, err,
-			)
-
-			err = fmt.Errorf("failed to serialize device %s for claim %s: %w", thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name), err)
-			return kubeletplugin.PrepareResult{
-				Err: err,
-			}
+		deviceAlloc, status, devErr := driver.prepareClaimDevice(ctx, claim, result, cfg, state)
+		if devErr != nil {
+			rollback = true
+			return kubeletplugin.PrepareResult{Err: devErr}
 		}
 
-		var ips []string
-
-		if thisAlloc.Config.IPv4Addr.IsValid() {
-			ips = append(ips, thisAlloc.Config.IPv4Addr.String())
-		}
-
-		if thisAlloc.Config.IPv6Addr.IsValid() {
-			ips = append(ips, thisAlloc.Config.IPv6Addr.String())
-		}
-
-		devicesStatus = append(devicesStatus, resourceapi.AllocatedDeviceStatus{
-			Driver:     driver.config.DriverName,
-			Pool:       result.Pool,
-			Device:     result.Device,
-			Conditions: []metav1.Condition{conditionReady(claim)},
-			Data:       &runtime.RawExtension{Raw: rawDev},
-			NetworkData: &resourceapi.NetworkDeviceData{
-				InterfaceName: func() string {
-					if thisAlloc.Config.PodIfName != "" {
-						return thisAlloc.Config.PodIfName
-					}
-					return thisAlloc.Device.IfName()
-				}(),
-				IPs: ips,
-			},
-		})
-	}
-
-	// Persist the allocation to Kubernetes before committing it to memory.
-	// If UpdateStatus fails we roll back the devices so the next
-	// PrepareResourceClaims call can start fresh rather than hitting the
-	// "allocation already exists" guard.
-	newClaim := claim.DeepCopy()
-	newClaim.Status.Devices = append(newClaim.Status.Devices, devicesStatus...)
-
-	if _, updateErr := driver.kubeClient.ResourceV1().ResourceClaims(claim.Namespace).UpdateStatus(ctx, newClaim, metav1.UpdateOptions{}); updateErr != nil {
-		err = fmt.Errorf("failed to update claim %s status: %w", path.Join(claim.Namespace, claim.Name), updateErr)
-		return kubeletplugin.PrepareResult{
-			Err: err,
+		alloc = append(alloc, deviceAlloc)
+		if status != nil {
+			devicesStatus = append(devicesStatus, *status)
 		}
 	}
 
-	driver.allocations[pod.UID] = make(map[kube_types.UID][]allocation)
-	driver.allocations[pod.UID][claim.UID] = alloc
+	// Persist any new device status entries to Kubernetes before committing to
+	// memory. Skip the API call when there is nothing new to write (full
+	// idempotent retry where all status entries were already present). If
+	// UpdateStatus fails we roll back the devices set up in this invocation so the
+	// next PrepareResourceClaims call can start fresh.
+	if len(devicesStatus) > 0 {
+		newClaim := claim.DeepCopy()
+		newClaim.Status.Devices = append(newClaim.Status.Devices, devicesStatus...)
+
+		if _, updateErr := driver.kubeClient.ResourceV1().ResourceClaims(claim.Namespace).UpdateStatus(ctx, newClaim, metav1.UpdateOptions{}); updateErr != nil {
+			rollback = true
+			return kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("failed to update claim %s status: %w", path.Join(claim.Namespace, claim.Name), updateErr),
+			}
+		}
+	}
+
+	driver.commitAllocation(pod.UID, claim.UID, alloc)
 
 	// we dont need to return anything here.
 	return kubeletplugin.PrepareResult{}
+}
+
+// reuseAllocatedDevice implements the idempotency path for a single device
+// result. If the device was already set up for this (pod, claim) — recorded in
+// state.existingByDevice — it returns the stored allocation so the caller can
+// skip the setup step entirely.
+//
+// It additionally returns a device status entry when the in-memory allocation
+// exists but its Kubernetes status entry does not (e.g. the driver crashed
+// between Device.Setup and UpdateStatus): the caller appends it so the missing
+// status is rewritten on this retry. When the status entry is already present
+// the returned status is nil and nothing needs to be rewritten.
+//
+// A nil allocation means the device was not previously set up and the caller
+// must run the full setup path. Errors are not wrapped into the rollback flow:
+// a reused device belongs to a prior successful prepare and must never be freed
+// here.
+func (driver *Driver) reuseAllocatedDevice(
+	claim *resourceapi.ResourceClaim,
+	result resourceapi.DeviceRequestAllocationResult,
+	state claimPrepState,
+) (*allocation, *resourceapi.AllocatedDeviceStatus, error) {
+	existing, alreadyDone := state.existingByDevice[result.Device]
+	if !alreadyDone {
+		return nil, nil, nil
+	}
+
+	if _, statusPresent := state.existingStatusDevice[result.Device]; statusPresent {
+		return &existing, nil, nil
+	}
+
+	status, err := driver.buildDeviceStatus(claim, result, existing)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to serialize already-set-up device %s for claim %s: %w",
+			result.Device, path.Join(claim.Namespace, claim.Name), err)
+	}
+
+	return &existing, &status, nil
+}
+
+// buildDeviceStatus serializes a fully set-up device allocation into the
+// AllocatedDeviceStatus that is written to ResourceClaim.Status.Devices.
+func (driver *Driver) buildDeviceStatus(
+	claim *resourceapi.ResourceClaim,
+	result resourceapi.DeviceRequestAllocationResult,
+	a allocation,
+) (resourceapi.AllocatedDeviceStatus, error) {
+	rawDev, err := serializeDevice(a)
+	if err != nil {
+		return resourceapi.AllocatedDeviceStatus{}, err
+	}
+
+	var ips []string
+	if a.Config.IPv4Addr.IsValid() {
+		ips = append(ips, a.Config.IPv4Addr.String())
+	}
+	if a.Config.IPv6Addr.IsValid() {
+		ips = append(ips, a.Config.IPv6Addr.String())
+	}
+
+	ifName := a.Device.IfName()
+	if a.Config.PodIfName != "" {
+		ifName = a.Config.PodIfName
+	}
+
+	return resourceapi.AllocatedDeviceStatus{
+		Driver:     driver.config.DriverName,
+		Pool:       result.Pool,
+		Device:     result.Device,
+		Conditions: []metav1.Condition{conditionReady(claim)},
+		Data:       &runtime.RawExtension{Raw: rawDev},
+		NetworkData: &resourceapi.NetworkDeviceData{
+			InterfaceName: ifName,
+			IPs:           ips,
+		},
+	}, nil
+}
+
+// conflictingDeviceForPod returns the ifname of the first device that is
+// already allocated to podUID by a claim other than skipClaimUID, or "" if
+// there is no conflict. The check is intentionally skipped for skipClaimUID so
+// that re-preparing an existing claim (idempotent retry) is not rejected.
+func (driver *Driver) conflictingDeviceForPod(podUID kube_types.UID, skipClaimUID kube_types.UID, results []resourceapi.DeviceRequestAllocationResult) string {
+	for claimUID, allocs := range driver.allocations[podUID] {
+		if claimUID == skipClaimUID {
+			continue
+		}
+		for _, result := range results {
+			for _, a := range allocs {
+				if a.Device.IfName() == result.Device {
+					return result.Device
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// commitAllocation stores allocs under driver.allocations[podUID][claimUID],
+// creating the inner map if this is the first claim for the pod.
+func (driver *Driver) commitAllocation(podUID, claimUID kube_types.UID, allocs []allocation) {
+	if _, exists := driver.allocations[podUID]; !exists {
+		driver.allocations[podUID] = make(map[kube_types.UID][]allocation)
+	}
+	driver.allocations[podUID][claimUID] = allocs
 }
 
 func conditionReady(claim *resourceapi.ResourceClaim) metav1.Condition {
