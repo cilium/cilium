@@ -38,84 +38,114 @@ import (
 )
 
 func TestScript(t *testing.T) {
-	defer testutils.GoleakVerifyNone(t)
+	testCases := []struct {
+		name    string
+		pattern string
+		ipv4    bool
+		ipv6    bool
+	}{
+		{
+			name:    "dualstack",
+			pattern: "testdata/dualstack/*.txtar",
+			ipv4:    true,
+			ipv6:    true,
+		},
+		{
+			name:    "v4-singlestack",
+			pattern: "testdata/v4-singlestack/*.txtar",
+			ipv4:    true,
+			ipv6:    false,
+		},
+		{
+			name:    "v6-singlestack",
+			pattern: "testdata/v6-singlestack/*.txtar",
+			ipv4:    false,
+			ipv6:    true,
+		},
+	}
 
-	const (
-		testDevice = "test-device"
-		testDriver = "test.cilium.k8s.io"
-	)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer testutils.GoleakVerifyNone(t)
 
-	var (
-		daemonCfg = &option.DaemonConfig{
-			EnableCiliumNetworkDriver: true,
-			EnableIPv4:                true,
-			EnableIPv6:                true,
-		}
-
-		mgr  *ipam.MultiPoolManager
-		cs   *k8sClient.FakeClientset
-		pods resource.Resource[*corev1.Pod]
-	)
-
-	scripttest.Test(t,
-		t.Context(),
-		func(t testing.TB, args []string) *script.Engine {
-			h := hive.New(
-				k8sClient.FakeClientCell(),
-				k8s.ResourcesCell,
-				cell.Provide(
-					podResource,
-					func() *option.DaemonConfig {
-						return daemonCfg
-					},
-				),
-				resourceIPAM,
-
-				cell.Invoke(func(m *ipam.MultiPoolManager, c *k8sClient.FakeClientset, p resource.Resource[*corev1.Pod]) {
-					mgr = m
-					cs = c
-					pods = p
-				}),
+			const (
+				testDevice = "test-device"
+				testDriver = "test.cilium.k8s.io"
 			)
 
-			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-			h.RegisterFlags(flags)
+			var (
+				daemonCfg = &option.DaemonConfig{
+					EnableCiliumNetworkDriver: true,
+					EnableIPv4:                tc.ipv4,
+					EnableIPv6:                tc.ipv6,
+				}
 
-			log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
-			t.Cleanup(func() {
-				assert.NoError(t, h.Stop(log, context.Background()))
-			})
+				mgr  *ipam.MultiPoolManager
+				cs   *k8sClient.FakeClientset
+				pods resource.Resource[*corev1.Pod]
+			)
 
-			// Must be executed before creating the driver, so that
-			// the Invoke above is run and mgr, cs and pods are not nil.
-			cmds, err := h.ScriptCommands(log)
-			require.NoError(t, err, "ScriptCommands")
+			scripttest.Test(t,
+				t.Context(),
+				func(t testing.TB, args []string) *script.Engine {
+					h := hive.New(
+						k8sClient.FakeClientCell(),
+						k8s.ResourcesCell,
+						cell.Provide(
+							podResource,
+							func() *option.DaemonConfig {
+								return daemonCfg
+							},
+						),
+						resourceIPAM,
 
-			driver := &Driver{
-				logger:     log,
-				kubeClient: cs,
-				pods:       pods,
-				config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
-					DriverName: testDriver,
-				},
-				devices: map[types.DeviceManagerType][]types.Device{
-					types.DeviceManagerTypeDummy: {
-						&dummy.DummyDevice{
-							Name: testDevice,
+						cell.Invoke(func(m *ipam.MultiPoolManager, c *k8sClient.FakeClientset, p resource.Resource[*corev1.Pod]) {
+							mgr = m
+							cs = c
+							pods = p
+						}),
+					)
+
+					flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+					h.RegisterFlags(flags)
+
+					log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+					t.Cleanup(func() {
+						assert.NoError(t, h.Stop(log, context.Background()))
+					})
+
+					// Must be executed before creating the driver, so that
+					// the Invoke above is run and mgr, cs and pods are not nil.
+					cmds, err := h.ScriptCommands(log)
+					require.NoError(t, err, "ScriptCommands")
+
+					driver := &Driver{
+						logger:     log,
+						kubeClient: cs,
+						pods:       pods,
+						config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
+							DriverName: testDriver,
 						},
-					},
-				},
-				allocations:  make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
-				multiPoolMgr: mgr,
-				ipv4Enabled:  daemonCfg.IPv4Enabled(),
-				ipv6Enabled:  daemonCfg.IPv6Enabled(),
-			}
+						devices: map[types.DeviceManagerType][]types.Device{
+							types.DeviceManagerTypeDummy: {
+								&dummy.DummyDevice{
+									Name: testDevice,
+								},
+							},
+						},
+						allocations:  make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
+						multiPoolMgr: mgr,
+						ipv4Enabled:  daemonCfg.IPv4Enabled(),
+						ipv6Enabled:  daemonCfg.IPv6Enabled(),
+					}
 
-			maps.Insert(cmds, maps.All(script.DefaultCmds()))
-			maps.Insert(cmds, maps.All(commands(t.Context(), driver, cs.ResourceV1())))
+					maps.Insert(cmds, maps.All(script.DefaultCmds()))
+					maps.Insert(cmds, maps.All(commands(t.Context(), driver, cs.ResourceV1())))
 
-			return &script.Engine{Cmds: cmds}
-		}, []string{}, "testdata/*.txtar")
+					return &script.Engine{Cmds: cmds}
+				}, []string{}, tc.pattern)
+		})
+	}
 }
 
 func commands(

@@ -1,0 +1,95 @@
+hive start
+
+k8s/add claim.yaml
+driver/prepare-resource-claims default/test-claim
+
+k8s/get resource.k8s.io.v1.resourceclaims default/test-claim -o actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<timestamp>"' actual.yaml
+cmp actual.yaml expected.yaml
+
+driver/unprepare-resource-claims default/test-claim
+
+hive stop
+
+-- claim.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-claim
+  namespace: default
+  uid: ba3c7922-9a56-44eb-a96f-84ee8b74dd23
+spec: {}
+status:
+  allocation:
+    devices:
+      config:
+      - source: FromClaim
+        requests:
+        - test-request
+        opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ipv6Addr: fd00:300:1::1/128
+      results:
+      - device: test-device
+        driver: test.cilium.k8s.io
+        pool: test-device-pool
+        request: test-request
+  reservedFor:
+  - resource: pods
+    name: test-pod
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
+
+-- expected.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-claim
+  namespace: default
+spec:
+  devices:
+    requests: null
+status:
+  allocation:
+    devices:
+      config:
+      - opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ipv6Addr: fd00:300:1::1/128
+        requests:
+        - test-request
+        source: FromClaim
+      results:
+      - device: test-device
+        driver: test.cilium.k8s.io
+        pool: test-device-pool
+        request: test-request
+  devices:
+  - conditions:
+    - lastTransitionTime: "<timestamp>"
+      message: Device is ready
+      reason: Ready
+      status: "True"
+      type: Ready
+    data:
+      Config:
+        ipv4Addr: ""
+        ipv6Addr: fd00:300:1::1/128
+      Dev:
+        Flags: ""
+        HWAddr: ""
+        MTU: 0
+        Name: test-device
+      Manager: '"dummy"'
+    device: test-device
+    driver: test.cilium.k8s.io
+    networkData:
+      interfaceName: test-device
+      ips:
+      - fd00:300:1::1/128
+    pool: test-device-pool
+  reservedFor:
+  - name: test-pod
+    resource: pods
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
