@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -181,5 +182,5 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 }
 
 func controllerName(prefix string, nodeName string) string {
-	return prefix + nodeName
+	return strings.Join([]string{prefix, nodeName}, "-")
 }
