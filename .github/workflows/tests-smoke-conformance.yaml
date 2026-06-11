@@ -286,4 +286,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.conformance-test.result == 'success' }}
+      results: ${{ needs.conformance-test.result }}

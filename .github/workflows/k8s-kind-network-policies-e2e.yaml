@@ -330,4 +330,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.kubernetes-e2e-net.result == 'success' }}
+      results: ${{ needs.kubernetes-e2e-net.result }}

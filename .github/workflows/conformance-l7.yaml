@@ -121,4 +121,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.tests-e2e-upgrade.result == 'success' }}
+      results: ${{ needs.tests-e2e-upgrade.result }}
