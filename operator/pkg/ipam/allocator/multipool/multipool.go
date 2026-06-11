@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -208,11 +207,11 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 			return err
 		}
 
-		pool := &cilium_v2alpha1.CiliumPodIPPool{
+		pool := &cilium_api_v2alpha1.CiliumPodIPPool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: poolName,
 			},
-			Spec: cilium_v2alpha1.IPPoolSpec{
+			Spec: cilium_api_v2alpha1.IPPoolSpec{
 				IPv4:         poolSpec.IPv4,
 				IPv6:         poolSpec.IPv6,
 				AllowFirstIP: poolSpec.AllowFirstIP,
@@ -389,7 +388,7 @@ func updateNodeWithRetries(
 func startIPPoolAllocator(
 	ctx context.Context,
 	allocator *PoolAllocator,
-	ipPools resource.Resource[*cilium_v2alpha1.CiliumPodIPPool],
+	ipPools resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool],
 	logger *slog.Logger,
 ) {
 	logger.InfoContext(ctx, "Starting CiliumPodIPPool allocator watcher")
