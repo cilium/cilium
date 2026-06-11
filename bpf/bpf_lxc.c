@@ -716,7 +716,8 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (CONFIG(enable_identity_mark))
 		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow || CONFIG(enable_bpf_host_routing)) {
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow || from_l7lb ||
+	    CONFIG(enable_bpf_host_routing)) {
 		const struct endpoint_info *ep;
 		union v6addr daddr;
 
@@ -740,7 +741,8 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		ep = __lookup_ip6_endpoint(&daddr);
 		if (ep) {
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
-			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING))) {
+			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING) ||
+			     from_l7lb)) {
 				if (is_defined(ENABLE_ROUTING) &&
 				    is_defined(ENABLE_HOST_FIREWALL) &&
 				    dst_sec_identity == HOST_ID)
@@ -806,8 +808,13 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 pass_to_stack: __maybe_unused
 #ifndef ENABLE_ROUTING
 	/* See IPv4 path for comments. */
-	if (from_l7lb && ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
+	if (from_l7lb) {
+		if (ctx_get_ifindex(ctx) == CONFIG(cilium_host_ifindex))
+			return ctx_redirect(ctx, CONFIG(cilium_host_ifindex),
+					    BPF_F_INGRESS);
+
 		return redirect_self(ctx);
+	}
 #endif /* !ENABLE_ROUTING */
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
@@ -1213,8 +1220,14 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * packet up the stack for the host itself. We also want to run through
 	 * the ipv4_local_delivery() function to enforce ingress policies for
 	 * that endpoint.
+	 *
+	 * L7 LB traffic is always tail called here from cil_from_host, ie. the
+	 * ctx sits on cilium_host's egress hook rather than on the device the
+	 * packet is leaving by. Look the endpoint up for it as well, so that a
+	 * local backend is delivered here instead of falling through to
+	 * pass_to_stack, which cannot forward it from cilium_host.
 	 */
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow || from_l7lb ||
 	    CONFIG(enable_bpf_host_routing)) {
 		__be32 daddr = ip4->daddr;
 		const struct endpoint_info *ep;
@@ -1239,7 +1252,8 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		ep = __lookup_ip4_endpoint(daddr);
 		if (ep) {
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
-			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING))) {
+			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING) ||
+			     from_l7lb)) {
 				if (is_defined(ENABLE_ROUTING) &&
 				    is_defined(ENABLE_HOST_FIREWALL) &&
 				    dst_sec_identity == HOST_ID)
@@ -1369,17 +1383,23 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 
 pass_to_stack: __maybe_unused
 #ifndef ENABLE_ROUTING
-	/* With per-endpoint routes, the `cil_lxc_policy_egress` will be
-	 * tail called from cil_to_container for packets sent by a L7 LB.
-	 * In case of a local backend, we execute this code already from the
-	 * backend pod ingress path, and returning CTX_ACT_OK would completely
-	 * bypass ingress policies. Therefore, we need to hairpin the packet
-	 * back to cil_to_container to ensure ingress policies are applied.
-	 * Without per-endpoint routes, endpoint policies are correctly
-	 * checked via tail call from bpf_host.
+	/* `cil_lxc_policy_egress` is tail called from cil_from_host, so L7 LB
+	 * traffic reaches this label whenever the endpoint lookup above did not
+	 * deliver it: for a remote backend, or for one delivered to the host.
+	 * Returning CTX_ACT_OK on cilium_host's egress hook would transmit the
+	 * packet into the cilium_host/cilium_net veth pair rather than route
+	 * it, so hairpin it into cilium_host's ingress hook instead and let the
+	 * stack route it. Going through the stack also keeps the ip rules that
+	 * select an egress device by source address - the per-ENI rules on
+	 * AWS, for one - which a FIB lookup here would not consult.
 	 */
-	if (from_l7lb && ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
+	if (from_l7lb) {
+		if (ctx_get_ifindex(ctx) == CONFIG(cilium_host_ifindex))
+			return ctx_redirect(ctx, CONFIG(cilium_host_ifindex),
+					    BPF_F_INGRESS);
+
 		return redirect_self(ctx);
+	}
 #endif /* !ENABLE_ROUTING */
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, dst_sec_identity,
@@ -2631,17 +2651,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
-
-#if defined(ENABLE_L7_LB)
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
-		__u16 lxc_id = get_epid(ctx);
-
-		ctx->mark = 0;
-		ret = tail_call_egress_policy(ctx, lxc_id);
-		return send_drop_notify(ctx, lxc_id, sec_label, LXC_ID,
-					ret, METRIC_INGRESS);
-	}
-#endif
 
 	magic = inherit_identity_from_host(ctx, &identity);
 	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
