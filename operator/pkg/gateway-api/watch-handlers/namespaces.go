@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -45,45 +46,74 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 
 	var gateways []types.NamespacedName
 	for _, gw := range gwList.Items {
+		gwNN := client.ObjectKey{Namespace: gw.GetNamespace(), Name: gw.GetName()}
 		for _, l := range gw.Spec.Listeners {
-			if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
+			ok := addGatewayIfNamespaceMatches(ctx, c, ns, l, gw.GetNamespace(), gwNN, scopedLog, &gateways)
+			if !ok {
+				return nil
+			}
+		}
+	}
+
+	if helpers.HasListenerSetSupport(c.Scheme()) {
+		lsList := &gatewayv1.ListenerSetList{}
+		if err := c.List(ctx, lsList); err != nil {
+			scopedLog.WarnContext(ctx, "Unable to list ListenerSets", logfields.Error, err)
+			return nil
+		}
+		for _, ls := range lsList.Items {
+			gwNN := helpers.ListenerSetParentGateway(&ls)
+			if gwNN == nil {
 				continue
 			}
-
-			switch *l.AllowedRoutes.Namespaces.From {
-			case gatewayv1.NamespacesFromAll:
-				gateways = append(gateways, client.ObjectKey{
-					Namespace: gw.GetNamespace(),
-					Name:      gw.GetName(),
-				})
-			case gatewayv1.NamespacesFromSame:
-				if ns.GetName() == gw.GetNamespace() {
-					gateways = append(gateways, client.ObjectKey{
-						Namespace: gw.GetNamespace(),
-						Name:      gw.GetName(),
-					})
-				}
-			case gatewayv1.NamespacesFromSelector:
-				if l.AllowedRoutes.Namespaces.Selector == nil {
-					scopedLog.WarnContext(ctx, "AllowedRoutes namespace set to Selector but no selector specified", logfields.Gateway, gw.GetName())
-					continue
-				}
-				nsList := &corev1.NamespaceList{}
-				err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels))
-				if err != nil {
-					scopedLog.WarnContext(ctx, "Unable to list Namespaces", logfields.Error, err)
+			for _, entry := range ls.Spec.Listeners {
+				l := helpers.ListenerEntryToListener(entry)
+				ok := addGatewayIfNamespaceMatches(ctx, c, ns, l, ls.GetNamespace(), *gwNN, scopedLog, &gateways)
+				if !ok {
 					return nil
-				}
-				for _, item := range nsList.Items {
-					if item.GetName() == ns.GetName() {
-						gateways = append(gateways, client.ObjectKey{
-							Namespace: gw.GetNamespace(),
-							Name:      gw.GetName(),
-						})
-					}
 				}
 			}
 		}
 	}
+
 	return gateways
+}
+
+func addGatewayIfNamespaceMatches(
+	ctx context.Context,
+	c client.Client,
+	ns client.Object,
+	l gatewayv1.Listener,
+	ownerNamespace string,
+	gwNN types.NamespacedName,
+	scopedLog *slog.Logger,
+	gateways *[]types.NamespacedName,
+) bool {
+	if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
+		return true
+	}
+	switch *l.AllowedRoutes.Namespaces.From {
+	case gatewayv1.NamespacesFromAll:
+		*gateways = append(*gateways, gwNN)
+	case gatewayv1.NamespacesFromSame:
+		if ns.GetName() == ownerNamespace {
+			*gateways = append(*gateways, gwNN)
+		}
+	case gatewayv1.NamespacesFromSelector:
+		if l.AllowedRoutes.Namespaces.Selector == nil {
+			scopedLog.WarnContext(ctx, "AllowedRoutes namespace set to Selector but no selector specified", logfields.Gateway, gwNN.Name)
+			return true
+		}
+		nsList := &corev1.NamespaceList{}
+		if err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels)); err != nil {
+			scopedLog.WarnContext(ctx, "Unable to list Namespaces", logfields.Error, err)
+			return false
+		}
+		for _, item := range nsList.Items {
+			if item.GetName() == ns.GetName() {
+				*gateways = append(*gateways, gwNN)
+			}
+		}
+	}
+	return true
 }
