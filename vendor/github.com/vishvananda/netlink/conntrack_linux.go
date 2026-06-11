@@ -251,6 +251,7 @@ type ProtoInfoTCP struct {
 
 // Protocol returns "tcp".
 func (*ProtoInfoTCP) Protocol() string { return "tcp" }
+
 func (p *ProtoInfoTCP) toNlData() ([]*nl.RtAttr, error) {
 	ctProtoInfo := nl.NewRtAttr(unix.NLA_F_NESTED|nl.CTA_PROTOINFO, []byte{})
 	ctProtoInfoTCP := nl.NewRtAttr(unix.NLA_F_NESTED|nl.CTA_PROTOINFO_TCP, []byte{})
@@ -289,7 +290,6 @@ type IPTuple struct {
 // toNlData generates the inner fields of a nested tuple netlink datastructure
 // does not generate the "nested"-flagged outer message.
 func (t *IPTuple) toNlData(family uint8) ([]*nl.RtAttr, error) {
-
 	var srcIPsFlag, dstIPsFlag int
 	if family == nl.FAMILY_V4 {
 		srcIPsFlag = nl.CTA_IP_V4_SRC
@@ -318,6 +318,25 @@ func (t *IPTuple) toNlData(family uint8) ([]*nl.RtAttr, error) {
 	return []*nl.RtAttr{ctTupleIP, ctTupleProto}, nil
 }
 
+const (
+	ConntrackStatusExpected = 1 << iota
+	ConntrackStatusSeenReply
+	ConntrackStatusAssured
+	ConntrackStatusConfirmed
+	ConntrackStatusSrcNAT
+	ConntrackStatusDstNAT
+	ConntrackStatusSeqAdj
+	ConntrackStatusSrcNATDone
+	ConntrackStatusDstNATDone
+	ConntrackStatusDying
+	ConntrackStatusFixedTimeout
+	ConntrackStatusTemplate
+	ConntrackStatusNATClash
+	ConntrackStatusHelper
+	ConntrackStatusOffload
+	ConntrackStatusHWOffload
+)
+
 type ConntrackFlow struct {
 	FamilyType uint8
 	Forward    IPTuple
@@ -327,8 +346,29 @@ type ConntrackFlow struct {
 	TimeStart  uint64
 	TimeStop   uint64
 	TimeOut    uint32
+	Status     uint32
 	Labels     []byte
 	ProtoInfo  ProtoInfo
+}
+
+func (s *ConntrackFlow) statusStrings() (s1, s2 string) {
+	if s.Status&ConntrackStatusSeenReply == 0 {
+		s1 = "[UNREPLIED] "
+	}
+
+	var annotation string
+	switch {
+	case s.Status&ConntrackStatusHWOffload != 0:
+		annotation = ", HW_OFFLOAD"
+	case s.Status&ConntrackStatusOffload != 0:
+		annotation = ", OFFLOAD"
+	case s.Status&ConntrackStatusAssured != 0:
+		annotation = ", ASSURED"
+	}
+
+	s2 = fmt.Sprintf("[status=%#b%s] ", s.Status, annotation)
+
+	return s1, s2
 }
 
 func (s *ConntrackFlow) String() string {
@@ -338,10 +378,13 @@ func (s *ConntrackFlow) String() string {
 	start := time.Unix(0, int64(s.TimeStart))
 	stop := time.Unix(0, int64(s.TimeStop))
 	timeout := int32(s.TimeOut)
-	res := fmt.Sprintf("%s\t%d src=%s dst=%s sport=%d dport=%d packets=%d bytes=%d\tsrc=%s dst=%s sport=%d dport=%d packets=%d bytes=%d mark=0x%x ",
+	status1, status2 := s.statusStrings()
+	res := fmt.Sprintf("%s\t%d src=%s dst=%s sport=%d dport=%d packets=%d bytes=%d %ssrc=%s dst=%s sport=%d dport=%d packets=%d bytes=%d %smark=0x%x ",
 		nl.L4ProtoMap[s.Forward.Protocol], s.Forward.Protocol,
 		s.Forward.SrcIP.String(), s.Forward.DstIP.String(), s.Forward.SrcPort, s.Forward.DstPort, s.Forward.Packets, s.Forward.Bytes,
+		status1,
 		s.Reverse.SrcIP.String(), s.Reverse.DstIP.String(), s.Reverse.SrcPort, s.Reverse.DstPort, s.Reverse.Packets, s.Reverse.Bytes,
+		status2,
 		s.Mark)
 	if len(s.Labels) > 0 {
 		res += fmt.Sprintf("labels=0x%x ", s.Labels)
@@ -417,8 +460,14 @@ func (s *ConntrackFlow) toNlData() ([]*nl.RtAttr, error) {
 
 	ctMark := nl.NewRtAttr(nl.CTA_MARK, nl.BEUint32Attr(s.Mark))
 	ctTimeout := nl.NewRtAttr(nl.CTA_TIMEOUT, nl.BEUint32Attr(s.TimeOut))
-
 	payload = append(payload, ctTupleOrig, ctTupleReply, ctMark, ctTimeout)
+
+	// Set status if any bits have been set.
+	if s.Status != 0 {
+		ctStatus := nl.NewRtAttr(nl.CTA_STATUS, nl.BEUint32Attr(s.Status))
+		payload = append(payload, ctStatus)
+	}
+
 	// Labels: nil => do not send; 16 zero bytes => clear all labels.
 	if s.Labels != nil {
 		if len(s.Labels) != 16 {
@@ -585,7 +634,6 @@ func parseTimeStamp(r *bytes.Reader, readSize uint16) (tstart, tstop uint64) {
 		}
 	}
 	return
-
 }
 
 func parseProtoInfoTCPState(r *bytes.Reader) (s uint8) {
@@ -644,6 +692,11 @@ func parseProtoInfo(r *bytes.Reader, attrLen uint16) (p ProtoInfo) {
 
 func parseTimeOut(r *bytes.Reader) (ttimeout uint32) {
 	parseBERaw32(r, &ttimeout)
+	return
+}
+
+func parseConntrackStatus(r *bytes.Reader) (status uint32) {
+	parseBERaw32(r, &status)
 	return
 }
 
@@ -713,7 +766,9 @@ func parseRawData(data []byte) *ConntrackFlow {
 				s.Labels = parseConnectionLabels(reader)
 			case nl.CTA_TIMEOUT:
 				s.TimeOut = parseTimeOut(reader)
-			case nl.CTA_ID, nl.CTA_STATUS, nl.CTA_USE:
+			case nl.CTA_STATUS:
+				s.Status = parseConntrackStatus(reader)
+			case nl.CTA_ID, nl.CTA_USE:
 				skipNfAttrValue(reader, l)
 			case nl.CTA_ZONE:
 				s.Zone = parseConnectionZone(reader)
@@ -770,6 +825,8 @@ const (
 	ConntrackOrigDstPort                         // --orig-port-dst port    Destination port in original direction
 	ConntrackMatchLabels                         // --label label1,label2   Labels used in entry
 	ConntrackUnmatchLabels                       // --label label1,label2   Labels not used in entry
+	ConntrackMatchStatus                         // --status status         Status bits set on entry
+	ConntrackUnmatchStatus                       // --status status         Status bits not set on entry
 	ConntrackNatSrcIP      = ConntrackReplySrcIP // deprecated use instead ConntrackReplySrcIP
 	ConntrackNatDstIP      = ConntrackReplyDstIP // deprecated use instead ConntrackReplyDstIP
 	ConntrackNatAnyIP      = ConntrackReplyAnyIP // deprecated use instead ConntrackReplyAnyIP
@@ -782,11 +839,13 @@ type CustomConntrackFilter interface {
 }
 
 type ConntrackFilter struct {
-	ipNetFilter map[ConntrackFilterType]*net.IPNet
-	portFilter  map[ConntrackFilterType]uint16
-	protoFilter uint8
-	labelFilter map[ConntrackFilterType][][]byte
-	zoneFilter  *uint16
+	ipNetFilter    map[ConntrackFilterType]*net.IPNet
+	portFilter     map[ConntrackFilterType]uint16
+	protoFilter    uint8
+	statusFilter   uint32
+	statusUnFilter uint32
+	labelFilter    map[ConntrackFilterType][][]byte
+	zoneFilter     *uint16
 }
 
 // AddIPNet adds a IP subnet to the conntrack filter
@@ -840,6 +899,21 @@ func (f *ConntrackFilter) AddProtocol(proto uint8) error {
 	return nil
 }
 
+// AddStatus adds the provided status flags to the conntrack filter. If tp is ConntrackMatchStatus, only flows with all
+// the provided status flags will match. If tp is ConntrackUnmatchStatus, only flows without any of the provided status
+// flags will match.
+func (f *ConntrackFilter) AddStatus(tp ConntrackFilterType, status uint32) error {
+	switch tp {
+	case ConntrackMatchStatus:
+		f.statusFilter |= status
+	case ConntrackUnmatchStatus:
+		f.statusUnFilter |= status
+	default:
+		return errors.New("Invalid filter type")
+	}
+	return nil
+}
+
 // AddLabels adds the provided list (zero or more) of labels to the conntrack filter
 // ConntrackFilterType here can be either:
 //  1. ConntrackMatchLabels: This matches every flow that has a label value (len(flow.Labels) > 0)
@@ -876,7 +950,13 @@ func (f *ConntrackFilter) AddZone(zone uint16) error {
 // MatchConntrackFlow applies the filter to the flow and returns true if the flow matches the filter
 // false otherwise
 func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
-	if len(f.ipNetFilter) == 0 && len(f.portFilter) == 0 && f.protoFilter == 0 && len(f.labelFilter) == 0 && f.zoneFilter == nil {
+	if len(f.ipNetFilter) == 0 &&
+		len(f.portFilter) == 0 &&
+		f.protoFilter == 0 &&
+		f.statusFilter == 0 &&
+		f.statusUnFilter == 0 &&
+		len(f.labelFilter) == 0 &&
+		f.zoneFilter == nil {
 		// empty filter always not match
 		return false
 	}
@@ -889,6 +969,14 @@ func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
 
 	// Conntrack zone filter
 	if f.zoneFilter != nil && *f.zoneFilter != flow.Zone {
+		return false
+	}
+
+	if f.statusFilter != 0 && flow.Status&f.statusFilter != f.statusFilter {
+		return false
+	}
+
+	if f.statusUnFilter != 0 && flow.Status&f.statusUnFilter != 0 {
 		return false
 	}
 

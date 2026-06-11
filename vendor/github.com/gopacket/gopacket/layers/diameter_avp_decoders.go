@@ -52,6 +52,15 @@ func decodeDiameterAVP(data []byte) (DiameterAVP, int, error) {
 		return DiameterAVP{}, 0, fmt.Errorf("AVP data truncated: expected %d bytes, got %d", paddedLength, len(data))
 	}
 
+	// Reject an AVP whose declared Length cannot cover its own header. The
+	// earlier "avp.Length < 8" check uses the non-vendor header size, but when
+	// the Vendor flag is set headerSize is 12, so a Length of 8..11 would make
+	// the dataLength subtraction below underflow the uint32 and request a
+	// multi-gigabyte allocation.
+	if avp.Length < uint32(headerSize) {
+		return DiameterAVP{}, 0, fmt.Errorf("invalid AVP length: %d, smaller than header size %d", avp.Length, headerSize)
+	}
+
 	// Extract AVP data
 	dataLength := avp.Length - uint32(headerSize)
 	avp.Data = make([]byte, dataLength)

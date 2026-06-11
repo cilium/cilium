@@ -277,8 +277,9 @@ type AllocationType string
 
 // Enum values for AllocationType
 const (
-	AllocationTypeUsed   AllocationType = "used"
-	AllocationTypeFuture AllocationType = "future"
+	AllocationTypeUsed       AllocationType = "used"
+	AllocationTypeFuture     AllocationType = "future"
+	AllocationTypeCancelling AllocationType = "cancelling"
 )
 
 // Values returns all known values for AllocationType. Note that this can be
@@ -289,6 +290,7 @@ func (AllocationType) Values() []AllocationType {
 	return []AllocationType{
 		"used",
 		"future",
+		"cancelling",
 	}
 }
 
@@ -405,6 +407,23 @@ func (ApplianceModeSupportValue) Values() []ApplianceModeSupportValue {
 	return []ApplianceModeSupportValue{
 		"enable",
 		"disable",
+	}
+}
+
+type ApplyCancellationCharges string
+
+// Enum values for ApplyCancellationCharges
+const (
+	ApplyCancellationChargesCommitmentWindDown ApplyCancellationCharges = "commitment-wind-down"
+)
+
+// Values returns all known values for ApplyCancellationCharges. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ApplyCancellationCharges) Values() []ApplyCancellationCharges {
+	return []ApplyCancellationCharges{
+		"commitment-wind-down",
 	}
 }
 
@@ -1232,6 +1251,28 @@ func (CapacityReservationBillingRequestStatus) Values() []CapacityReservationBil
 	}
 }
 
+type CapacityReservationCancellationQuoteState string
+
+// Enum values for CapacityReservationCancellationQuoteState
+const (
+	CapacityReservationCancellationQuoteStatePending CapacityReservationCancellationQuoteState = "pending"
+	CapacityReservationCancellationQuoteStateActive  CapacityReservationCancellationQuoteState = "active"
+	CapacityReservationCancellationQuoteStateExpired CapacityReservationCancellationQuoteState = "expired"
+)
+
+// Values returns all known values for CapacityReservationCancellationQuoteState.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityReservationCancellationQuoteState) Values() []CapacityReservationCancellationQuoteState {
+	return []CapacityReservationCancellationQuoteState{
+		"pending",
+		"active",
+		"expired",
+	}
+}
+
 type CapacityReservationDeliveryPreference string
 
 // Enum values for CapacityReservationDeliveryPreference
@@ -1375,6 +1416,7 @@ const (
 	CapacityReservationStateAssessing      CapacityReservationState = "assessing"
 	CapacityReservationStateDelayed        CapacityReservationState = "delayed"
 	CapacityReservationStateUnsupported    CapacityReservationState = "unsupported"
+	CapacityReservationStateCancelling     CapacityReservationState = "cancelling"
 	CapacityReservationStateUnavailable    CapacityReservationState = "unavailable"
 )
 
@@ -1395,6 +1437,7 @@ func (CapacityReservationState) Values() []CapacityReservationState {
 		"assessing",
 		"delayed",
 		"unsupported",
+		"cancelling",
 		"unavailable",
 	}
 }
@@ -9618,6 +9661,7 @@ const (
 	ResourceTypeCapacityManagerDataExport                              ResourceType = "capacity-manager-data-export"
 	ResourceTypeVpnConcentrator                                        ResourceType = "vpn-concentrator"
 	ResourceTypeIpamPoolAllocation                                     ResourceType = "ipam-pool-allocation"
+	ResourceTypeCapacityReservationCancellationQuote                   ResourceType = "capacity-reservation-cancellation-quote"
 )
 
 // Values returns all known values for ResourceType. Note that this can be
@@ -9734,6 +9778,7 @@ func (ResourceType) Values() []ResourceType {
 		"capacity-manager-data-export",
 		"vpn-concentrator",
 		"ipam-pool-allocation",
+		"capacity-reservation-cancellation-quote",
 	}
 }
 

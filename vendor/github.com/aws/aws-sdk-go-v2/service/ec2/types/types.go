@@ -1309,6 +1309,28 @@ type CancelCapacityReservationFleetError struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the cancellation terms for cancelling a future-dated Capacity
+// Reservation during its commitment duration.
+type CancellationTerms struct {
+
+	// The type of cancellation charge. Possible values include commitment-wind-down .
+	CancellationType ApplyCancellationCharges
+
+	// The number of hours for which cancellation charges will apply.
+	ChargeCommitmentDurationHours *int64
+
+	// The date and time at which cancellation charges will stop.
+	ChargeEndDate *time.Time
+
+	// The number of instances under commitment after cancellation.
+	CommittedInstanceCount *int32
+
+	// The state that the Capacity Reservation will transition to after cancellation.
+	ReservationState *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes a request to cancel a Spot Instance.
 type CancelledSpotInstanceRequest struct {
 
@@ -1986,6 +2008,11 @@ type CapacityReservation struct {
 	//   the future-dated Capacity Reservation request due to capacity constraints. You
 	//   can view unsupported requests for 30 days. The Capacity Reservation will not be
 	//   delivered.
+	//
+	//   - cancelling - (Future-dated Capacity Reservations) The Capacity Reservation
+	//   is being cancelled. Capacity has been released but charges continue for the
+	//   commitment wind-down period. The reservation transitions to cancelled when the
+	//   wind-down completes.
 	State CapacityReservationState
 
 	// Any tags assigned to the Capacity Reservation.
@@ -2042,6 +2069,40 @@ type CapacityReservationBillingRequest struct {
 	noSmithyDocumentSerde
 }
 
+// Describes a Capacity Reservation cancellation quote, which provides the
+// cancellation terms for cancelling a future-dated Capacity Reservation during its
+// commitment duration.
+type CapacityReservationCancellationQuote struct {
+
+	// The cancellation terms associated with the quote, including the fee type and
+	// charge details.
+	CancellationTerms []CancellationTerms
+
+	// The ID of the cancellation quote.
+	CapacityReservationCancellationQuoteId *string
+
+	// The ID of the Capacity Reservation associated with the cancellation quote.
+	CapacityReservationId *string
+
+	// The date and time at which the cancellation quote was created.
+	CreateTime *time.Time
+
+	// The current configuration of the Capacity Reservation.
+	CurrentConfiguration *CapacityReservationConfiguration
+
+	// The date and time at which the cancellation quote expires.
+	ExpirationTime *time.Time
+
+	// The state of the cancellation quote. Possible values include pending , active ,
+	// and expired .
+	QuoteState CapacityReservationCancellationQuoteState
+
+	// The tags assigned to the cancellation quote.
+	Tags []Tag
+
+	noSmithyDocumentSerde
+}
+
 // Information about your commitment for a future-dated Capacity Reservation.
 type CapacityReservationCommitmentInfo struct {
 
@@ -2053,6 +2114,18 @@ type CapacityReservationCommitmentInfo struct {
 	// The instance capacity that you committed to when you requested the future-dated
 	// Capacity Reservation.
 	CommittedInstanceCount *int32
+
+	noSmithyDocumentSerde
+}
+
+// Describes the configuration of a Capacity Reservation.
+type CapacityReservationConfiguration struct {
+
+	// The number of instances in the Capacity Reservation.
+	InstanceCount *int32
+
+	// The current state of the Capacity Reservation.
+	ReservationState *string
 
 	noSmithyDocumentSerde
 }
@@ -3198,8 +3271,9 @@ type ConnectionNotification struct {
 type ConnectionTrackingConfiguration struct {
 
 	// Timeout (in seconds) for idle TCP connections in an established state. Min: 60
-	// seconds. Max: 432000 seconds (5 days). Default: 432000 seconds. Recommended:
-	// Less than 432000 seconds.
+	// seconds. Max: 432000 seconds (5 days). Default: 350 seconds for Nitro v6
+	// instance types (excluding P6e-GB200); 432000 seconds for all other instance
+	// types (including P6e-GB200). Recommended: Less than 432000 seconds.
 	TcpEstablishedTimeout *int32
 
 	// Timeout (in seconds) for idle UDP flows classified as streams which have seen
@@ -3223,8 +3297,9 @@ type ConnectionTrackingConfiguration struct {
 type ConnectionTrackingSpecification struct {
 
 	// Timeout (in seconds) for idle TCP connections in an established state. Min: 60
-	// seconds. Max: 432000 seconds (5 days). Default: 432000 seconds. Recommended:
-	// Less than 432000 seconds.
+	// seconds. Max: 432000 seconds (5 days). Default: 350 seconds for Nitro v6
+	// instance types (excluding P6e-GB200); 432000 seconds for all other instance
+	// types (including P6e-GB200). Recommended: Less than 432000 seconds.
 	TcpEstablishedTimeout *int32
 
 	// Timeout (in seconds) for idle UDP flows classified as streams which have seen
@@ -3248,8 +3323,9 @@ type ConnectionTrackingSpecification struct {
 type ConnectionTrackingSpecificationRequest struct {
 
 	// Timeout (in seconds) for idle TCP connections in an established state. Min: 60
-	// seconds. Max: 432000 seconds (5 days). Default: 432000 seconds. Recommended:
-	// Less than 432000 seconds.
+	// seconds. Max: 432000 seconds (5 days). Default: 350 seconds for Nitro v6
+	// instance types (excluding P6e-GB200); 432000 seconds for all other instance
+	// types (including P6e-GB200). Recommended: Less than 432000 seconds.
 	TcpEstablishedTimeout *int32
 
 	// Timeout (in seconds) for idle UDP flows classified as streams which have seen
@@ -3273,8 +3349,9 @@ type ConnectionTrackingSpecificationRequest struct {
 type ConnectionTrackingSpecificationResponse struct {
 
 	// Timeout (in seconds) for idle TCP connections in an established state. Min: 60
-	// seconds. Max: 432000 seconds (5 days). Default: 432000 seconds. Recommended:
-	// Less than 432000 seconds.
+	// seconds. Max: 432000 seconds (5 days). Default: 350 seconds for Nitro v6
+	// instance types (excluding P6e-GB200); 432000 seconds for all other instance
+	// types (including P6e-GB200). Recommended: Less than 432000 seconds.
 	TcpEstablishedTimeout *int32
 
 	// Timeout (in seconds) for idle UDP flows classified as streams which have seen

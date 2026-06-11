@@ -23,7 +23,7 @@ func TLSClientConfig(bundle x509bundle.Source, authorizer Authorizer, opts ...Op
 func HookTLSClientConfig(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.InsecureSkipVerify = true
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...) //nolint:gosec // G123: VerifyConnection migration handled in a follow-up
 }
 
 // A Option changes the defaults used to by mTLS ClientConfig functions.
@@ -71,7 +71,7 @@ func HookMTLSClientConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 	resetAuthFields(config)
 	config.GetClientCertificate = GetClientCertificate(svid, opts...)
 	config.InsecureSkipVerify = true
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...) //nolint:gosec // G123: VerifyConnection migration handled in a follow-up
 }
 
 // MTLSWebClientConfig returns a TLS configuration which presents an X509-SVID
@@ -124,7 +124,7 @@ func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.GetCertificate = GetCertificate(svid, opts...)
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...) //nolint:gosec // G123: VerifyConnection migration handled in a follow-up
 }
 
 // MTLSWebServerConfig returns a TLS configuration which presents a web
@@ -145,7 +145,7 @@ func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.Certificates = []tls.Certificate{*cert}
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...) //nolint:gosec // G123: VerifyConnection migration handled in a follow-up
 }
 
 // GetCertificate returns a GetCertificate callback for tls.Config. It uses the

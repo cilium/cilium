@@ -95,13 +95,15 @@ func New(host, basePath string, schemes []string) *Runtime {
 
 	// Enhancement proposal: https://github.com/go-openapi/runtime/issues/385
 	rt.Consumers = map[string]runtime.Consumer{
-		runtime.YAMLMime:    yamlpc.YAMLConsumer(),
-		runtime.JSONMime:    runtime.JSONConsumer(),
-		runtime.XMLMime:     runtime.XMLConsumer(),
-		runtime.TextMime:    runtime.TextConsumer(),
-		runtime.HTMLMime:    runtime.TextConsumer(),
-		runtime.CSVMime:     runtime.CSVConsumer(),
-		runtime.DefaultMime: runtime.ByteStreamConsumer(),
+		runtime.YAMLMime:           yamlpc.YAMLConsumer(),
+		runtime.JSONMime:           runtime.JSONConsumer(),
+		runtime.XMLMime:            runtime.XMLConsumer(),
+		runtime.TextMime:           runtime.TextConsumer(),
+		runtime.HTMLMime:           runtime.TextConsumer(),
+		runtime.CSVMime:            runtime.CSVConsumer(),
+		runtime.MultipartFormMime:  runtime.ByteStreamConsumer(),
+		runtime.URLencodedFormMime: runtime.ByteStreamConsumer(),
+		runtime.DefaultMime:        runtime.ByteStreamConsumer(),
 	}
 	rt.Producers = map[string]runtime.Producer{
 		runtime.YAMLMime:    yamlpc.YAMLProducer(),

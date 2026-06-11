@@ -24,6 +24,8 @@ const (
 	SpiffeWorkloadAPI_FetchJWTSVID_FullMethodName     = "/SpiffeWorkloadAPI/FetchJWTSVID"
 	SpiffeWorkloadAPI_FetchJWTBundles_FullMethodName  = "/SpiffeWorkloadAPI/FetchJWTBundles"
 	SpiffeWorkloadAPI_ValidateJWTSVID_FullMethodName  = "/SpiffeWorkloadAPI/ValidateJWTSVID"
+	SpiffeWorkloadAPI_FetchWITSVID_FullMethodName     = "/SpiffeWorkloadAPI/FetchWITSVID"
+	SpiffeWorkloadAPI_FetchWITBundles_FullMethodName  = "/SpiffeWorkloadAPI/FetchWITBundles"
 )
 
 // SpiffeWorkloadAPIClient is the client API for SpiffeWorkloadAPI service.
@@ -51,6 +53,14 @@ type SpiffeWorkloadAPIClient interface {
 	// Validates a JWT-SVID against the requested audience. Returns the SPIFFE
 	// ID of the JWT-SVID and JWT claims.
 	ValidateJWTSVID(ctx context.Context, in *ValidateJWTSVIDRequest, opts ...grpc.CallOption) (*ValidateJWTSVIDResponse, error)
+	// Fetch WIT-SVIDs for all SPIFFE identities the workload is entitled to.
+	// As this information changes, subsequent messages will be streamed from
+	// the server.
+	FetchWITSVID(ctx context.Context, in *WITSVIDRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WITSVIDResponse], error)
+	// Fetch WIT bundles, formatted as JWKS documents, keyed by the SPIFFE ID
+	// of the trust domain. As this information changes, subsequent messages
+	// will be streamed from the server.
+	FetchWITBundles(ctx context.Context, in *WITBundlesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WITBundlesResponse], error)
 }
 
 type spiffeWorkloadAPIClient struct {
@@ -138,6 +148,44 @@ func (c *spiffeWorkloadAPIClient) ValidateJWTSVID(ctx context.Context, in *Valid
 	return out, nil
 }
 
+func (c *spiffeWorkloadAPIClient) FetchWITSVID(ctx context.Context, in *WITSVIDRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WITSVIDResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SpiffeWorkloadAPI_ServiceDesc.Streams[3], SpiffeWorkloadAPI_FetchWITSVID_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[WITSVIDRequest, WITSVIDResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SpiffeWorkloadAPI_FetchWITSVIDClient = grpc.ServerStreamingClient[WITSVIDResponse]
+
+func (c *spiffeWorkloadAPIClient) FetchWITBundles(ctx context.Context, in *WITBundlesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WITBundlesResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SpiffeWorkloadAPI_ServiceDesc.Streams[4], SpiffeWorkloadAPI_FetchWITBundles_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[WITBundlesRequest, WITBundlesResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SpiffeWorkloadAPI_FetchWITBundlesClient = grpc.ServerStreamingClient[WITBundlesResponse]
+
 // SpiffeWorkloadAPIServer is the server API for SpiffeWorkloadAPI service.
 // All implementations must embed UnimplementedSpiffeWorkloadAPIServer
 // for forward compatibility.
@@ -163,6 +211,14 @@ type SpiffeWorkloadAPIServer interface {
 	// Validates a JWT-SVID against the requested audience. Returns the SPIFFE
 	// ID of the JWT-SVID and JWT claims.
 	ValidateJWTSVID(context.Context, *ValidateJWTSVIDRequest) (*ValidateJWTSVIDResponse, error)
+	// Fetch WIT-SVIDs for all SPIFFE identities the workload is entitled to.
+	// As this information changes, subsequent messages will be streamed from
+	// the server.
+	FetchWITSVID(*WITSVIDRequest, grpc.ServerStreamingServer[WITSVIDResponse]) error
+	// Fetch WIT bundles, formatted as JWKS documents, keyed by the SPIFFE ID
+	// of the trust domain. As this information changes, subsequent messages
+	// will be streamed from the server.
+	FetchWITBundles(*WITBundlesRequest, grpc.ServerStreamingServer[WITBundlesResponse]) error
 	mustEmbedUnimplementedSpiffeWorkloadAPIServer()
 }
 
@@ -187,6 +243,12 @@ func (UnimplementedSpiffeWorkloadAPIServer) FetchJWTBundles(*JWTBundlesRequest, 
 }
 func (UnimplementedSpiffeWorkloadAPIServer) ValidateJWTSVID(context.Context, *ValidateJWTSVIDRequest) (*ValidateJWTSVIDResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateJWTSVID not implemented")
+}
+func (UnimplementedSpiffeWorkloadAPIServer) FetchWITSVID(*WITSVIDRequest, grpc.ServerStreamingServer[WITSVIDResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method FetchWITSVID not implemented")
+}
+func (UnimplementedSpiffeWorkloadAPIServer) FetchWITBundles(*WITBundlesRequest, grpc.ServerStreamingServer[WITBundlesResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method FetchWITBundles not implemented")
 }
 func (UnimplementedSpiffeWorkloadAPIServer) mustEmbedUnimplementedSpiffeWorkloadAPIServer() {}
 func (UnimplementedSpiffeWorkloadAPIServer) testEmbeddedByValue()                           {}
@@ -278,6 +340,28 @@ func _SpiffeWorkloadAPI_ValidateJWTSVID_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SpiffeWorkloadAPI_FetchWITSVID_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WITSVIDRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SpiffeWorkloadAPIServer).FetchWITSVID(m, &grpc.GenericServerStream[WITSVIDRequest, WITSVIDResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SpiffeWorkloadAPI_FetchWITSVIDServer = grpc.ServerStreamingServer[WITSVIDResponse]
+
+func _SpiffeWorkloadAPI_FetchWITBundles_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WITBundlesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SpiffeWorkloadAPIServer).FetchWITBundles(m, &grpc.GenericServerStream[WITBundlesRequest, WITBundlesResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SpiffeWorkloadAPI_FetchWITBundlesServer = grpc.ServerStreamingServer[WITBundlesResponse]
+
 // SpiffeWorkloadAPI_ServiceDesc is the grpc.ServiceDesc for SpiffeWorkloadAPI service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -308,6 +392,16 @@ var SpiffeWorkloadAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "FetchJWTBundles",
 			Handler:       _SpiffeWorkloadAPI_FetchJWTBundles_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "FetchWITSVID",
+			Handler:       _SpiffeWorkloadAPI_FetchWITSVID_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "FetchWITBundles",
+			Handler:       _SpiffeWorkloadAPI_FetchWITBundles_Handler,
 			ServerStreams: true,
 		},
 	},

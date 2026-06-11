@@ -818,7 +818,11 @@ func (r *Request) writeStreamPayload(mediaType string, producers map[string]runt
 // The same reasoning applies to the form/multipart branch.
 func (r *Request) writeNonStreamPayload(mediaType string, producers map[string]runtime.Producer) (io.Reader, error) {
 	r.header.Set(runtime.HeaderContentType, mediaType)
-	producer := producers[mediaType]
+	producer, ok := producers[mediaType]
+	if !ok {
+		return nil, fmt.Errorf("no producer registered for content type %q (register one with Runtime.Producers)", mediaType)
+	}
+
 	if err := producer.Produce(r.buf, r.payload); err != nil {
 		return nil, err
 	}

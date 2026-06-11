@@ -248,17 +248,28 @@ func (peer *peer) getRoutesCount(family bgp.Family, dstPrefix string) uint8 {
 	return 0
 }
 
+func (peer *peer) advertisedPathID(path *table.Path) uint32 {
+	if peer.isAddPathSendEnabled(path.GetFamily()) {
+		return path.LocalID()
+	}
+	return 0
+}
+
 func (peer *peer) updateRoutes(paths ...*table.Path) {
 	if len(paths) == 0 {
 		return
 	}
 	for _, path := range paths {
-		localKey := path.GetLocalKey()
-		destLocalKey := localKey.PathDestLocalKey
+		if path == nil || path.IsEOR() {
+			continue
+		}
+		destLocalKey := path.GetDestLocalKey()
+		pathID := peer.advertisedPathID(path)
+
 		identifiersValue, destExists := peer.sentPaths.Load(destLocalKey)
 		if path.IsWithdraw && destExists {
 			identifiers := identifiersValue.(pathIDSet)
-			delete(identifiers, path.LocalID())
+			delete(identifiers, pathID)
 			if len(identifiers) == 0 {
 				peer.sentPaths.Delete(destLocalKey)
 			}
@@ -269,12 +280,10 @@ func (peer *peer) updateRoutes(paths ...*table.Path) {
 			} else {
 				identifiers = make(pathIDSet)
 			}
-			if len(identifiers) < int(peer.getAddPathSendMax(destLocalKey.Family)) {
-				identifiers[localKey.Id] = struct{}{}
-				if !destExists {
-					// store only the first insert, mutations are inplace
-					peer.sentPaths.Store(destLocalKey, identifiers)
-				}
+			identifiers[pathID] = struct{}{}
+			if !destExists {
+				// store only the first insert, mutations are inplace
+				peer.sentPaths.Store(destLocalKey, identifiers)
 			}
 		}
 	}
@@ -315,8 +324,19 @@ func (peer *peer) hasPathAlreadyBeenSent(path *table.Path) bool {
 	if !dstExist {
 		return false
 	}
-	_, pathExist := identifiers.(pathIDSet)[path.LocalID()]
+	_, pathExist := identifiers.(pathIDSet)[peer.advertisedPathID(path)]
 	return pathExist
+}
+
+func (peer *peer) resetAdvertisedRoutes() {
+	peer.sentPaths.Range(func(key, _ any) bool {
+		peer.sentPaths.Delete(key)
+		return true
+	})
+	peer.sendMaxPathFiltered.Range(func(key, _ any) bool {
+		peer.sendMaxPathFiltered.Delete(key)
+		return true
+	})
 }
 
 func (peer *peer) isDynamicNeighbor() bool {
