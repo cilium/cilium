@@ -45,4 +45,5 @@ compile_native_go_fuzzer github.com/cilium/cilium/pkg/monitor/format FuzzFormatE
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzAccumulateMapChange FuzzAccumulateMapChange
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDenyPreferredInsert FuzzDenyPreferredInsert
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDistillPolicy FuzzDistillPolicy
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDistillPolicyWithAggregates FuzzDistillPolicyWithAggregates
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzResolvePolicy FuzzResolvePolicy
