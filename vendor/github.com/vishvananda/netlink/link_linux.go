@@ -2924,6 +2924,12 @@ func addNetkitAttrs(nk *Netkit, linkInfo *nl.RtAttr, flag int) error {
 	if nk.peerLinkAttrs.Name != "" {
 		peer.AddRtAttr(unix.IFLA_IFNAME, nl.ZeroTerminated(nk.peerLinkAttrs.Name))
 	}
+	if nk.peerLinkAttrs.NumRxQueues > 0 {
+		peer.AddRtAttr(unix.IFLA_NUM_RX_QUEUES, nl.Uint32Attr(uint32(nk.peerLinkAttrs.NumRxQueues)))
+	}
+	if nk.peerLinkAttrs.NumTxQueues > 0 {
+		peer.AddRtAttr(unix.IFLA_NUM_TX_QUEUES, nl.Uint32Attr(uint32(nk.peerLinkAttrs.NumTxQueues)))
+	}
 	if nk.peerLinkAttrs.MTU > 0 {
 		peer.AddRtAttr(unix.IFLA_MTU, nl.Uint32Attr(uint32(nk.peerLinkAttrs.MTU)))
 	}

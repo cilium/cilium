@@ -1270,15 +1270,23 @@ func (asd SFlowASDestination) String() string {
 	}
 }
 
-func (ad *SFlowASDestination) decodePath(data *[]byte) {
+func (ad *SFlowASDestination) decodePath(data *[]byte) error {
 	*data, ad.Type = (*data)[4:], SFlowASPathType(binary.BigEndian.Uint32((*data)[:4]))
 	*data, ad.Count = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	// ad.Count is an attacker-controlled 32-bit field and each member that
+	// follows is 4 bytes on the wire. Reject any count that cannot be backed
+	// by the bytes actually remaining, otherwise make([]uint32, ad.Count) lets
+	// a tiny datagram drive an arbitrarily large allocation (CWE-770).
+	if ad.Count > uint32(len(*data)/4) {
+		return fmt.Errorf("SFlow AS path member count %d exceeds remaining buffer", ad.Count)
+	}
 	ad.Members = make([]uint32, ad.Count)
 	for i := uint32(0); i < ad.Count; i++ {
 		var member uint32
 		*data, member = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 		ad.Members[i] = member
 	}
+	return nil
 }
 
 func decodeExtendedGatewayFlowRecord(data *[]byte) (SFlowExtendedGatewayFlowRecord, error) {
@@ -1299,10 +1307,20 @@ func decodeExtendedGatewayFlowRecord(data *[]byte) (SFlowExtendedGatewayFlowReco
 	*data, eg.ASPathCount = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	for i := uint32(0); i < eg.ASPathCount; i++ {
 		asPath := SFlowASDestination{}
-		asPath.decodePath(data)
+		if err := asPath.decodePath(data); err != nil {
+			return eg, err
+		}
 		eg.ASPath = append(eg.ASPath, asPath)
 	}
 	*data, communitiesLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	// communitiesLength is an attacker-controlled 32-bit field and each
+	// community that follows is 4 bytes on the wire. Reject any count that
+	// cannot be backed by the bytes actually remaining, otherwise
+	// make([]uint32, communitiesLength) lets a tiny datagram drive an
+	// arbitrarily large allocation (CWE-770).
+	if communitiesLength > uint32(len(*data)/4) {
+		return eg, fmt.Errorf("SFlow community count %d exceeds remaining buffer", communitiesLength)
+	}
 	eg.Communities = make([]uint32, communitiesLength)
 	for j := uint32(0); j < communitiesLength; j++ {
 		*data, community = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
