@@ -577,22 +577,38 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 			"app": "backend",
 		}, labels.LabelSourceK8s)
 	}
-	assertNamedPortsLabel := func(t *testing.T, e *Endpoint, value string) {
-		label, ok := e.labels.IdentityLabels()[ciliumio.NamedPortsIdentityLabelName]
-		require.True(t, ok)
-		require.Equal(t, value, label.Value)
-		require.Equal(t, labels.LabelSourceGenerated, label.Source)
+	assertNamedPortsLabels := func(t *testing.T, e *Endpoint, values ...string) {
+		t.Helper()
+
+		expected := map[string]string{}
+		identityLabels := e.labels.IdentityLabels()
+		for i, value := range values {
+			key := ciliumio.NamedPortsIdentityLabelNameForIndex(i)
+			expected[key] = value
+
+			label, ok := identityLabels[key]
+			require.True(t, ok)
+			require.Equal(t, value, label.Value)
+			require.Equal(t, labels.LabelSourceGenerated, label.Source)
+		}
+		for key := range identityLabels {
+			if ciliumio.IsNamedPortsIdentityLabelName(key) {
+				require.Contains(t, expected, key)
+			}
+		}
 	}
-	assertNoNamedPortsLabel := func(t *testing.T, e *Endpoint) {
-		_, ok := e.labels.IdentityLabels()[ciliumio.NamedPortsIdentityLabelName]
-		require.False(t, ok)
+	assertNoNamedPortsLabels := func(t *testing.T, lbls labels.Labels) {
+		t.Helper()
+
+		for key := range lbls {
+			require.False(t, ciliumio.IsNamedPortsIdentityLabelName(key), key)
+		}
 	}
 	resolveMetadata := func(namedPorts ciliumTypes.NamedPortMap) MetadataResolverCB {
 		return func(ns, podName, uid string, newPod bool) (*corev1.Pod, *K8sMetadata, error) {
 			lbls := incoming()
 			if newPod {
-				lbl, haveLbl := k8s.NamedPortsIdentityLabel(namedPorts)
-				if haveLbl {
+				for _, lbl := range k8s.NamedPortsIdentityLabels(namedPorts) {
 					lbls[lbl.Key] = lbl
 				}
 			}
@@ -620,7 +636,24 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 
 		resolvePodMetadata(t, e, false, namedPorts)
 
-		assertNamedPortsLabel(t, e, "http:TCP:80,https:TCP:443")
+		assertNamedPortsLabels(t, e, "http.TCP.80_https.TCP.443")
+	})
+
+	t.Run("new endpoint gains split generated labels from metadata", func(t *testing.T) {
+		e := newEndpoint(t, nil, nil)
+
+		resolvePodMetadata(t, e, false, ciliumTypes.NamedPortMap{
+			"port-a": {Port: 8000, Proto: u8proto.TCP},
+			"port-b": {Port: 8001, Proto: u8proto.TCP},
+			"port-c": {Port: 8002, Proto: u8proto.TCP},
+			"port-d": {Port: 8003, Proto: u8proto.TCP},
+			"port-e": {Port: 8004, Proto: u8proto.TCP},
+		})
+
+		assertNamedPortsLabels(t, e,
+			"port-a.TCP.8000_port-b.TCP.8001_port-c.TCP.8002_port-d.TCP.8003",
+			"port-e.TCP.8004",
+		)
 	})
 
 	t.Run("new endpoint without named ports does not gain generated label", func(t *testing.T) {
@@ -628,7 +661,7 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 
 		resolvePodMetadata(t, e, false, nil)
 
-		assertNoNamedPortsLabel(t, e)
+		assertNoNamedPortsLabels(t, e.labels.IdentityLabels())
 	})
 
 	t.Run("restored endpoint does not gain generated label from metadata", func(t *testing.T) {
@@ -636,20 +669,19 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 
 		resolvePodMetadata(t, e, true, namedPorts)
 
-		assertNoNamedPortsLabel(t, e)
+		assertNoNamedPortsLabels(t, e.labels.IdentityLabels())
 	})
 
 	t.Run("init identity removes disabled generated label", func(t *testing.T) {
 		e := newEndpoint(t, identity.NewIdentity(identity.ReservedIdentityInit, nil), incoming())
-		e.labels.Disabled[ciliumio.NamedPortsIdentityLabelName] = labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http:TCP:80", labels.LabelSourceGenerated)
+		e.labels.Disabled[ciliumio.NamedPortsIdentityLabelName] = labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http.TCP.80", labels.LabelSourceGenerated)
+		e.labels.Disabled[ciliumio.NamedPortsIdentityLabelNameForIndex(1)] = labels.NewLabel(ciliumio.NamedPortsIdentityLabelNameForIndex(1), "https.TCP.443", labels.LabelSourceGenerated)
 
 		e.SetK8sMetadata(nil)
 		e.UpdateLabels(t.Context(), labels.LabelSourceAny, incoming(), nil, false)
 
-		_, ok := e.labels.Disabled[ciliumio.NamedPortsIdentityLabelName]
-		require.False(t, ok)
-		_, ok = e.labels.IdentityLabels()[ciliumio.NamedPortsIdentityLabelName]
-		require.False(t, ok)
+		assertNoNamedPortsLabels(t, e.labels.Disabled)
+		assertNoNamedPortsLabels(t, e.labels.IdentityLabels())
 	})
 
 	t.Run("real identity does not gain generated label", func(t *testing.T) {
@@ -657,37 +689,43 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 
 		e.UpdateLabels(t.Context(), labels.LabelSourceK8s, incoming(), nil, false)
 
-		assertNoNamedPortsLabel(t, e)
+		assertNoNamedPortsLabels(t, e.labels.IdentityLabels())
 	})
 
 	t.Run("real identity preserves generated label on k8s refresh", func(t *testing.T) {
 		current := labels.Labels{
 			"app":                                labels.NewLabel("app", "backend", labels.LabelSourceK8s),
-			ciliumio.NamedPortsIdentityLabelName: labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http:TCP:80", labels.LabelSourceGenerated),
+			ciliumio.NamedPortsIdentityLabelName: labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http.TCP.80", labels.LabelSourceGenerated),
+			ciliumio.NamedPortsIdentityLabelNameForIndex(1): labels.NewLabel(
+				ciliumio.NamedPortsIdentityLabelNameForIndex(1), "https.TCP.443", labels.LabelSourceGenerated),
 		}
 		e := newEndpoint(t, identity.NewIdentity(12345, nil), current)
 
 		require.False(t, e.UpdateLabels(t.Context(), labels.LabelSourceK8s, incoming(), nil, false))
 
-		assertNamedPortsLabel(t, e, "http:TCP:80")
+		assertNamedPortsLabels(t, e, "http.TCP.80", "https.TCP.443")
 	})
 
 	t.Run("real identity preserves generated label on source any label refresh", func(t *testing.T) {
 		current := labels.Labels{
 			"app":                                labels.NewLabel("app", "backend", labels.LabelSourceK8s),
-			ciliumio.NamedPortsIdentityLabelName: labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http:TCP:80", labels.LabelSourceGenerated),
+			ciliumio.NamedPortsIdentityLabelName: labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http.TCP.80", labels.LabelSourceGenerated),
+			ciliumio.NamedPortsIdentityLabelNameForIndex(1): labels.NewLabel(
+				ciliumio.NamedPortsIdentityLabelNameForIndex(1), "https.TCP.443", labels.LabelSourceGenerated),
 		}
 		e := newEndpoint(t, identity.NewIdentity(12345, nil), current)
 
 		e.UpdateLabels(t.Context(), labels.LabelSourceAny, incoming(), nil, false)
 
-		assertNamedPortsLabel(t, e, "http:TCP:80")
+		assertNamedPortsLabels(t, e, "http.TCP.80", "https.TCP.443")
 	})
 
 	t.Run("real identity preserves generated label on source any metadata refresh", func(t *testing.T) {
 		current := labels.Labels{
 			"app":                                labels.NewLabel("app", "backend", labels.LabelSourceK8s),
-			ciliumio.NamedPortsIdentityLabelName: labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http:TCP:80", labels.LabelSourceGenerated),
+			ciliumio.NamedPortsIdentityLabelName: labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http.TCP.80", labels.LabelSourceGenerated),
+			ciliumio.NamedPortsIdentityLabelNameForIndex(1): labels.NewLabel(
+				ciliumio.NamedPortsIdentityLabelNameForIndex(1), "https.TCP.443", labels.LabelSourceGenerated),
 		}
 		e := newEndpoint(t, identity.NewIdentity(12345, nil), current)
 
@@ -696,25 +734,26 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 		})
 		e.UpdateLabels(t.Context(), labels.LabelSourceAny, incoming(), nil, false)
 
-		assertNamedPortsLabel(t, e, "http:TCP:80")
+		assertNamedPortsLabels(t, e, "http.TCP.80", "https.TCP.443")
 	})
 
 	t.Run("real identity does not preserve disabled generated label", func(t *testing.T) {
 		e := newEndpoint(t, identity.NewIdentity(12345, nil), incoming())
-		e.labels.Disabled[ciliumio.NamedPortsIdentityLabelName] = labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http:TCP:80", labels.LabelSourceGenerated)
+		e.labels.Disabled[ciliumio.NamedPortsIdentityLabelName] = labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http.TCP.80", labels.LabelSourceGenerated)
+		e.labels.Disabled[ciliumio.NamedPortsIdentityLabelNameForIndex(1)] = labels.NewLabel(ciliumio.NamedPortsIdentityLabelNameForIndex(1), "https.TCP.443", labels.LabelSourceGenerated)
 
 		e.UpdateLabels(t.Context(), labels.LabelSourceAny, incoming(), nil, false)
 
-		_, ok := e.labels.Disabled[ciliumio.NamedPortsIdentityLabelName]
-		require.False(t, ok)
-		_, ok = e.labels.IdentityLabels()[ciliumio.NamedPortsIdentityLabelName]
-		require.False(t, ok)
+		assertNoNamedPortsLabels(t, e.labels.Disabled)
+		assertNoNamedPortsLabels(t, e.labels.IdentityLabels())
 	})
 
 	t.Run("real identity ignores changed named ports", func(t *testing.T) {
 		current := labels.Labels{
 			"app":                                labels.NewLabel("app", "backend", labels.LabelSourceK8s),
-			ciliumio.NamedPortsIdentityLabelName: labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http:TCP:80", labels.LabelSourceGenerated),
+			ciliumio.NamedPortsIdentityLabelName: labels.NewLabel(ciliumio.NamedPortsIdentityLabelName, "http.TCP.80", labels.LabelSourceGenerated),
+			ciliumio.NamedPortsIdentityLabelNameForIndex(1): labels.NewLabel(
+				ciliumio.NamedPortsIdentityLabelNameForIndex(1), "https.TCP.443", labels.LabelSourceGenerated),
 		}
 		e := newEndpoint(t, identity.NewIdentity(12345, nil), current)
 
@@ -723,7 +762,7 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 		})
 		e.UpdateLabels(t.Context(), labels.LabelSourceK8s, incoming(), nil, false)
 
-		assertNamedPortsLabel(t, e, "http:TCP:80")
+		assertNamedPortsLabels(t, e, "http.TCP.80", "https.TCP.443")
 	})
 }
 

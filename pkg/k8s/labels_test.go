@@ -75,6 +75,7 @@ func TestGetPodMetadata(t *testing.T) {
 	t.Run("named ports metadata", func(t *testing.T) {
 		pod := pod.DeepCopy()
 		pod.Labels[ciliumio.NamedPortsIdentityLabelName] = "spoofed"
+		pod.Labels[ciliumio.NamedPortsIdentityLabelNameForIndex(1)] = "spoofed"
 		pod.Spec.Containers = []slim_corev1.Container{{
 			Ports: []slim_corev1.ContainerPort{
 				{Name: "https", ContainerPort: 443, Protocol: slim_corev1.ProtocolTCP},
@@ -94,17 +95,37 @@ func TestGetPodMetadata(t *testing.T) {
 	})
 }
 
-func TestNamedPortsIdentityLabel(t *testing.T) {
-	label, ok := NamedPortsIdentityLabel(ciliumTypes.NamedPortMap{
+func TestNamedPortsIdentityLabels(t *testing.T) {
+	labelArray := NamedPortsIdentityLabels(ciliumTypes.NamedPortMap{
 		"https": {Port: 443, Proto: u8proto.TCP},
 		"dns":   {Port: 53, Proto: u8proto.UDP},
 		"http":  {Port: 80, Proto: u8proto.TCP},
 	})
-	require.True(t, ok)
-	require.Equal(t, ciliumio.NamedPortsIdentityLabelName, label.Key)
-	require.Equal(t, "dns:UDP:53,http:TCP:80,https:TCP:443", label.Value)
-	require.Equal(t, ciliumLabels.LabelSourceGenerated, label.Source)
+	require.Equal(t, ciliumLabels.LabelArray{ciliumLabels.NewLabel(
+		ciliumio.NamedPortsIdentityLabelName,
+		"dns.UDP.53_http.TCP.80_https.TCP.443",
+		ciliumLabels.LabelSourceGenerated,
+	)}, labelArray)
 
-	_, ok = NamedPortsIdentityLabel(nil)
-	require.False(t, ok)
+	labelArray = NamedPortsIdentityLabels(ciliumTypes.NamedPortMap{
+		"port-a": {Port: 8000, Proto: u8proto.TCP},
+		"port-b": {Port: 8001, Proto: u8proto.TCP},
+		"port-c": {Port: 8002, Proto: u8proto.TCP},
+		"port-d": {Port: 8003, Proto: u8proto.TCP},
+		"port-e": {Port: 8004, Proto: u8proto.TCP},
+	})
+	require.Equal(t, ciliumLabels.LabelArray{
+		ciliumLabels.NewLabel(
+			ciliumio.NamedPortsIdentityLabelName,
+			"port-a.TCP.8000_port-b.TCP.8001_port-c.TCP.8002_port-d.TCP.8003",
+			ciliumLabels.LabelSourceGenerated,
+		),
+		ciliumLabels.NewLabel(
+			ciliumio.NamedPortsIdentityLabelNameForIndex(1),
+			"port-e.TCP.8004",
+			ciliumLabels.LabelSourceGenerated,
+		),
+	}, labelArray)
+
+	require.Empty(t, NamedPortsIdentityLabels(nil))
 }
