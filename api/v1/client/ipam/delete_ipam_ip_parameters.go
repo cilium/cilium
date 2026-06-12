@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewDeleteIpamIPParams() *DeleteIpamIPParams {
-	return &DeleteIpamIPParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewDeleteIpamIPParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewDeleteIpamIPParamsWithTimeout creates a new DeleteIpamIPParams object
 // with the ability to set a timeout on a request.
 func NewDeleteIpamIPParamsWithTimeout(timeout time.Duration) *DeleteIpamIPParams {
 	return &DeleteIpamIPParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewDeleteIpamIPParamsWithContext creates a new DeleteIpamIPParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteIpamIPParams].
 func NewDeleteIpamIPParamsWithContext(ctx context.Context) *DeleteIpamIPParams {
 	return &DeleteIpamIPParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -70,9 +74,9 @@ type DeleteIpamIPParams struct {
 	// Pool.
 	Pool *string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the delete ipam IP params (not the query body).
@@ -90,65 +94,68 @@ func (o *DeleteIpamIPParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the delete ipam IP params
+// WithTimeout adds the timeout to the delete ipam IP params.
 func (o *DeleteIpamIPParams) WithTimeout(timeout time.Duration) *DeleteIpamIPParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the delete ipam IP params
+// SetTimeout adds the timeout to the delete ipam IP params.
 func (o *DeleteIpamIPParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the delete ipam IP params
+// WithContext adds the context to the delete ipam IP params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteIpamIPParams].
 func (o *DeleteIpamIPParams) WithContext(ctx context.Context) *DeleteIpamIPParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the delete ipam IP params
+// SetContext adds the context to the delete ipam IP params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteIpamIPParams].
 func (o *DeleteIpamIPParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the delete ipam IP params
+// WithHTTPClient adds the HTTPClient to the delete ipam IP params.
 func (o *DeleteIpamIPParams) WithHTTPClient(client *http.Client) *DeleteIpamIPParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the delete ipam IP params
+// SetHTTPClient adds the HTTPClient to the delete ipam IP params.
 func (o *DeleteIpamIPParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithIP adds the ip to the delete ipam IP params
+// WithIP adds the ip to the delete ipam IP params.
 func (o *DeleteIpamIPParams) WithIP(ip string) *DeleteIpamIPParams {
 	o.SetIP(ip)
 	return o
 }
 
-// SetIP adds the ip to the delete ipam IP params
+// SetIP adds the ip to the delete ipam IP params.
 func (o *DeleteIpamIPParams) SetIP(ip string) {
 	o.IP = ip
 }
 
-// WithPool adds the pool to the delete ipam IP params
+// WithPool adds the pool to the delete ipam IP params.
 func (o *DeleteIpamIPParams) WithPool(pool *string) *DeleteIpamIPParams {
 	o.SetPool(pool)
 	return o
 }
 
-// SetPool adds the pool to the delete ipam IP params
+// SetPool adds the pool to the delete ipam IP params.
 func (o *DeleteIpamIPParams) SetPool(pool *string) {
 	o.Pool = pool
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *DeleteIpamIPParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

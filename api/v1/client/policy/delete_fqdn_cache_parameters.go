@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewDeleteFqdnCacheParams() *DeleteFqdnCacheParams {
-	return &DeleteFqdnCacheParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewDeleteFqdnCacheParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewDeleteFqdnCacheParamsWithTimeout creates a new DeleteFqdnCacheParams object
 // with the ability to set a timeout on a request.
 func NewDeleteFqdnCacheParamsWithTimeout(timeout time.Duration) *DeleteFqdnCacheParams {
 	return &DeleteFqdnCacheParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewDeleteFqdnCacheParamsWithContext creates a new DeleteFqdnCacheParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteFqdnCacheParams].
 func NewDeleteFqdnCacheParamsWithContext(ctx context.Context) *DeleteFqdnCacheParams {
 	return &DeleteFqdnCacheParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -67,9 +71,9 @@ type DeleteFqdnCacheParams struct {
 	*/
 	Matchpattern *string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the delete fqdn cache params (not the query body).
@@ -87,54 +91,57 @@ func (o *DeleteFqdnCacheParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the delete fqdn cache params
+// WithTimeout adds the timeout to the delete fqdn cache params.
 func (o *DeleteFqdnCacheParams) WithTimeout(timeout time.Duration) *DeleteFqdnCacheParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the delete fqdn cache params
+// SetTimeout adds the timeout to the delete fqdn cache params.
 func (o *DeleteFqdnCacheParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the delete fqdn cache params
+// WithContext adds the context to the delete fqdn cache params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteFqdnCacheParams].
 func (o *DeleteFqdnCacheParams) WithContext(ctx context.Context) *DeleteFqdnCacheParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the delete fqdn cache params
+// SetContext adds the context to the delete fqdn cache params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [DeleteFqdnCacheParams].
 func (o *DeleteFqdnCacheParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the delete fqdn cache params
+// WithHTTPClient adds the HTTPClient to the delete fqdn cache params.
 func (o *DeleteFqdnCacheParams) WithHTTPClient(client *http.Client) *DeleteFqdnCacheParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the delete fqdn cache params
+// SetHTTPClient adds the HTTPClient to the delete fqdn cache params.
 func (o *DeleteFqdnCacheParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithMatchpattern adds the matchpattern to the delete fqdn cache params
+// WithMatchpattern adds the matchpattern to the delete fqdn cache params.
 func (o *DeleteFqdnCacheParams) WithMatchpattern(matchpattern *string) *DeleteFqdnCacheParams {
 	o.SetMatchpattern(matchpattern)
 	return o
 }
 
-// SetMatchpattern adds the matchpattern to the delete fqdn cache params
+// SetMatchpattern adds the matchpattern to the delete fqdn cache params.
 func (o *DeleteFqdnCacheParams) SetMatchpattern(matchpattern *string) {
 	o.Matchpattern = matchpattern
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *DeleteFqdnCacheParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetPolicyParams() *GetPolicyParams {
-	return &GetPolicyParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetPolicyParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetPolicyParamsWithTimeout creates a new GetPolicyParams object
 // with the ability to set a timeout on a request.
 func NewGetPolicyParamsWithTimeout(timeout time.Duration) *GetPolicyParams {
 	return &GetPolicyParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetPolicyParamsWithContext creates a new GetPolicyParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPolicyParams].
 func NewGetPolicyParamsWithContext(ctx context.Context) *GetPolicyParams {
 	return &GetPolicyParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetPolicyParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetPolicyParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get policy params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetPolicyParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get policy params
+// WithTimeout adds the timeout to the get policy params.
 func (o *GetPolicyParams) WithTimeout(timeout time.Duration) *GetPolicyParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get policy params
+// SetTimeout adds the timeout to the get policy params.
 func (o *GetPolicyParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get policy params
+// WithContext adds the context to the get policy params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPolicyParams].
 func (o *GetPolicyParams) WithContext(ctx context.Context) *GetPolicyParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get policy params
+// SetContext adds the context to the get policy params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPolicyParams].
 func (o *GetPolicyParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get policy params
+// WithHTTPClient adds the HTTPClient to the get policy params.
 func (o *GetPolicyParams) WithHTTPClient(client *http.Client) *GetPolicyParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get policy params
+// SetHTTPClient adds the HTTPClient to the get policy params.
 func (o *GetPolicyParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

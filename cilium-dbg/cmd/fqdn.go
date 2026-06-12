@@ -169,7 +169,7 @@ func listFQDNCache() {
 }
 
 func listFQDNNames() {
-	result, err := client.Policy.GetFqdnNames(nil)
+	result, err := client.Policy.GetFqdnNames(policy.NewGetFqdnNamesParams())
 	if err != nil {
 		Fatalf("Error: %s\n", err)
 	}

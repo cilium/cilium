@@ -14,7 +14,7 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewGetBgpRoutesParams creates a new GetBgpRoutesParams object,
@@ -24,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetBgpRoutesParams() *GetBgpRoutesParams {
-	return &GetBgpRoutesParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetBgpRoutesParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetBgpRoutesParamsWithTimeout creates a new GetBgpRoutesParams object
 // with the ability to set a timeout on a request.
 func NewGetBgpRoutesParamsWithTimeout(timeout time.Duration) *GetBgpRoutesParams {
 	return &GetBgpRoutesParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetBgpRoutesParamsWithContext creates a new GetBgpRoutesParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpRoutesParams].
 func NewGetBgpRoutesParamsWithContext(ctx context.Context) *GetBgpRoutesParams {
 	return &GetBgpRoutesParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -96,9 +100,9 @@ type GetBgpRoutesParams struct {
 	*/
 	TableType string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get bgp routes params (not the query body).
@@ -116,98 +120,101 @@ func (o *GetBgpRoutesParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get bgp routes params
+// WithTimeout adds the timeout to the get bgp routes params.
 func (o *GetBgpRoutesParams) WithTimeout(timeout time.Duration) *GetBgpRoutesParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get bgp routes params
+// SetTimeout adds the timeout to the get bgp routes params.
 func (o *GetBgpRoutesParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get bgp routes params
+// WithContext adds the context to the get bgp routes params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpRoutesParams].
 func (o *GetBgpRoutesParams) WithContext(ctx context.Context) *GetBgpRoutesParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get bgp routes params
+// SetContext adds the context to the get bgp routes params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpRoutesParams].
 func (o *GetBgpRoutesParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get bgp routes params
+// WithHTTPClient adds the HTTPClient to the get bgp routes params.
 func (o *GetBgpRoutesParams) WithHTTPClient(client *http.Client) *GetBgpRoutesParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get bgp routes params
+// SetHTTPClient adds the HTTPClient to the get bgp routes params.
 func (o *GetBgpRoutesParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithAfi adds the afi to the get bgp routes params
+// WithAfi adds the afi to the get bgp routes params.
 func (o *GetBgpRoutesParams) WithAfi(afi string) *GetBgpRoutesParams {
 	o.SetAfi(afi)
 	return o
 }
 
-// SetAfi adds the afi to the get bgp routes params
+// SetAfi adds the afi to the get bgp routes params.
 func (o *GetBgpRoutesParams) SetAfi(afi string) {
 	o.Afi = afi
 }
 
-// WithNeighbor adds the neighbor to the get bgp routes params
+// WithNeighbor adds the neighbor to the get bgp routes params.
 func (o *GetBgpRoutesParams) WithNeighbor(neighbor *string) *GetBgpRoutesParams {
 	o.SetNeighbor(neighbor)
 	return o
 }
 
-// SetNeighbor adds the neighbor to the get bgp routes params
+// SetNeighbor adds the neighbor to the get bgp routes params.
 func (o *GetBgpRoutesParams) SetNeighbor(neighbor *string) {
 	o.Neighbor = neighbor
 }
 
-// WithRouterAsn adds the routerAsn to the get bgp routes params
+// WithRouterAsn adds the routerAsn to the get bgp routes params.
 func (o *GetBgpRoutesParams) WithRouterAsn(routerAsn *int64) *GetBgpRoutesParams {
 	o.SetRouterAsn(routerAsn)
 	return o
 }
 
-// SetRouterAsn adds the routerAsn to the get bgp routes params
+// SetRouterAsn adds the routerAsn to the get bgp routes params.
 func (o *GetBgpRoutesParams) SetRouterAsn(routerAsn *int64) {
 	o.RouterAsn = routerAsn
 }
 
-// WithSafi adds the safi to the get bgp routes params
+// WithSafi adds the safi to the get bgp routes params.
 func (o *GetBgpRoutesParams) WithSafi(safi string) *GetBgpRoutesParams {
 	o.SetSafi(safi)
 	return o
 }
 
-// SetSafi adds the safi to the get bgp routes params
+// SetSafi adds the safi to the get bgp routes params.
 func (o *GetBgpRoutesParams) SetSafi(safi string) {
 	o.Safi = safi
 }
 
-// WithTableType adds the tableType to the get bgp routes params
+// WithTableType adds the tableType to the get bgp routes params.
 func (o *GetBgpRoutesParams) WithTableType(tableType string) *GetBgpRoutesParams {
 	o.SetTableType(tableType)
 	return o
 }
 
-// SetTableType adds the tableType to the get bgp routes params
+// SetTableType adds the tableType to the get bgp routes params.
 func (o *GetBgpRoutesParams) SetTableType(tableType string) {
 	o.TableType = tableType
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetBgpRoutesParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
@@ -247,7 +254,7 @@ func (o *GetBgpRoutesParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 		if o.RouterAsn != nil {
 			qrRouterAsn = *o.RouterAsn
 		}
-		qRouterAsn := swag.FormatInt64(qrRouterAsn)
+		qRouterAsn := conv.FormatInteger(qrRouterAsn)
 		if qRouterAsn != "" {
 
 			if err := r.SetQueryParam("router_asn", qRouterAsn); err != nil {

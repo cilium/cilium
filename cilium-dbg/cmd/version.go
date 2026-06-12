@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -53,7 +54,7 @@ func getClientVersionAsString() string {
 }
 
 func getDaemonVersionAsString() string {
-	resp, err := client.Daemon.GetDebuginfo(nil)
+	resp, err := client.Daemon.GetDebuginfo(daemon.NewGetDebuginfoParams())
 	if err != nil {
 		return notResponding
 	}

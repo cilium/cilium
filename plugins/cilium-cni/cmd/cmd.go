@@ -27,6 +27,7 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -1197,7 +1198,7 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 		return err
 	}
 
-	if _, err := c.Daemon.GetHealthz(nil); err != nil {
+	if _, err := c.Daemon.GetHealthz(daemon.NewGetHealthzParams()); err != nil {
 		return cniTypes.NewError(types.CniErrPluginNotAvailable, "DaemonHealthzFailed",
 			fmt.Sprintf("Cilium agent healthz check failed: %s", client.Hint(err)))
 	}

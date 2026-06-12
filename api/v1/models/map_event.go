@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -94,7 +95,7 @@ func (m *MapEvent) validateActionEnum(path, location string, value string) error
 }
 
 func (m *MapEvent) validateAction(formats strfmt.Registry) error {
-	if swag.IsZero(m.Action) { // not required
+	if typeutils.IsZero(m.Action) { // not required
 		return nil
 	}
 
@@ -139,7 +140,7 @@ func (m *MapEvent) validateDesiredActionEnum(path, location string, value string
 }
 
 func (m *MapEvent) validateDesiredAction(formats strfmt.Registry) error {
-	if swag.IsZero(m.DesiredAction) { // not required
+	if typeutils.IsZero(m.DesiredAction) { // not required
 		return nil
 	}
 
@@ -152,7 +153,7 @@ func (m *MapEvent) validateDesiredAction(formats strfmt.Registry) error {
 }
 
 func (m *MapEvent) validateTimestamp(formats strfmt.Registry) error {
-	if swag.IsZero(m.Timestamp) { // not required
+	if typeutils.IsZero(m.Timestamp) { // not required
 		return nil
 	}
 
@@ -173,13 +174,13 @@ func (m *MapEvent) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *MapEvent) UnmarshalBinary(b []byte) error {
 	var res MapEvent
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

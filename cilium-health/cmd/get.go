@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/health/client/restapi"
 	ciliumClient "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
 )
@@ -20,7 +21,7 @@ var healthGetCmd = &cobra.Command{
 	Aliases: []string{"inspect", "show"},
 	Short:   "Display local cilium agent status",
 	Run: func(cmd *cobra.Command, args []string) {
-		result, err := client.Restapi.GetHealthz(nil)
+		result, err := client.Restapi.GetHealthz(restapi.NewGetHealthzParams())
 		if err != nil {
 			Fatalf("Cannot get health for local instance: %s\n", err)
 		}

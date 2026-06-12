@@ -6,7 +6,9 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -14,11 +16,12 @@ import (
 )
 
 // New creates a new cluster API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
+func New(transport runtime.ContextualTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
 // New creates a new cluster API client with basic auth credentials.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -32,6 +35,7 @@ func NewClientWithBasicAuth(host, basePath, scheme, user, password string) Clien
 }
 
 // New creates a new cluster API client with a bearer token for authentication.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -44,31 +48,58 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 }
 
 /*
-Client for cluster API
+Client for cluster API.
 */
 type Client struct {
-	transport runtime.ClientTransport
+	transport runtime.ContextualTransport
 	formats   strfmt.Registry
 }
 
 // ClientOption may be used to customize the behavior of Client methods.
 type ClientOption func(*runtime.ClientOperation)
 
-// ClientService is the interface for Client methods
+// ClientService is the interface for Client methods.
 type ClientService interface {
+
+	// GetCluster retrieve the list of remote clusters and their status.
 	GetCluster(params *GetClusterParams, opts ...ClientOption) (*GetClusterOK, error)
 
-	SetTransport(transport runtime.ClientTransport)
+	// GetClusterContext retrieve the list of remote clusters and their status.
+	GetClusterContext(ctx context.Context, params *GetClusterParams, opts ...ClientOption) (*GetClusterOK, error)
+
+	SetTransport(transport runtime.ContextualTransport)
 }
 
 /*
-GetCluster retrieves the list of remote clusters and their status
+GetClusterretrieves the list of remote clusters and their status.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetClusterContext] instead.
 */
 func (a *Client) GetCluster(params *GetClusterParams, opts ...ClientOption) (*GetClusterOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetClusterContext(ctx, params, opts...)
+}
+
+/*
+GetClusterContextretrieves the list of remote clusters and their status.
+
+Do not use the deprecated [GetClusterParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetClusterContext(ctx context.Context, params *GetClusterParams, opts ...ClientOption) (*GetClusterOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetClusterParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetCluster",
 		Method:             "GET",
@@ -78,13 +109,14 @@ func (a *Client) GetCluster(params *GetClusterParams, opts ...ClientOption) (*Ge
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetClusterReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +137,14 @@ func (a *Client) GetCluster(params *GetClusterParams, opts ...ClientOption) (*Ge
 }
 
 // SetTransport changes the transport on the client
-func (a *Client) SetTransport(transport runtime.ClientTransport) {
+func (a *Client) SetTransport(transport runtime.ContextualTransport) {
 	a.transport = transport
+}
+
+// innerParams captures internal fields so they don't conflict with user-supplied parameters.
+type innerParams struct {
+	timeout time.Duration
+
+	// Deprecated: use the operation call with context to pass the context instead of [ClusterParams].
+	ctx context.Context
 }

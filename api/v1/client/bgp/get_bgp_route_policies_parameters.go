@@ -14,7 +14,7 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewGetBgpRoutePoliciesParams creates a new GetBgpRoutePoliciesParams object,
@@ -24,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetBgpRoutePoliciesParams() *GetBgpRoutePoliciesParams {
-	return &GetBgpRoutePoliciesParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetBgpRoutePoliciesParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetBgpRoutePoliciesParamsWithTimeout creates a new GetBgpRoutePoliciesParams object
 // with the ability to set a timeout on a request.
 func NewGetBgpRoutePoliciesParamsWithTimeout(timeout time.Duration) *GetBgpRoutePoliciesParams {
 	return &GetBgpRoutePoliciesParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetBgpRoutePoliciesParamsWithContext creates a new GetBgpRoutePoliciesParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpRoutePoliciesParams].
 func NewGetBgpRoutePoliciesParamsWithContext(ctx context.Context) *GetBgpRoutePoliciesParams {
 	return &GetBgpRoutePoliciesParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -70,9 +74,9 @@ type GetBgpRoutePoliciesParams struct {
 	*/
 	RouterAsn *int64
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get bgp route policies params (not the query body).
@@ -90,54 +94,57 @@ func (o *GetBgpRoutePoliciesParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get bgp route policies params
+// WithTimeout adds the timeout to the get bgp route policies params.
 func (o *GetBgpRoutePoliciesParams) WithTimeout(timeout time.Duration) *GetBgpRoutePoliciesParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get bgp route policies params
+// SetTimeout adds the timeout to the get bgp route policies params.
 func (o *GetBgpRoutePoliciesParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get bgp route policies params
+// WithContext adds the context to the get bgp route policies params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpRoutePoliciesParams].
 func (o *GetBgpRoutePoliciesParams) WithContext(ctx context.Context) *GetBgpRoutePoliciesParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get bgp route policies params
+// SetContext adds the context to the get bgp route policies params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpRoutePoliciesParams].
 func (o *GetBgpRoutePoliciesParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get bgp route policies params
+// WithHTTPClient adds the HTTPClient to the get bgp route policies params.
 func (o *GetBgpRoutePoliciesParams) WithHTTPClient(client *http.Client) *GetBgpRoutePoliciesParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get bgp route policies params
+// SetHTTPClient adds the HTTPClient to the get bgp route policies params.
 func (o *GetBgpRoutePoliciesParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithRouterAsn adds the routerAsn to the get bgp route policies params
+// WithRouterAsn adds the routerAsn to the get bgp route policies params.
 func (o *GetBgpRoutePoliciesParams) WithRouterAsn(routerAsn *int64) *GetBgpRoutePoliciesParams {
 	o.SetRouterAsn(routerAsn)
 	return o
 }
 
-// SetRouterAsn adds the routerAsn to the get bgp route policies params
+// SetRouterAsn adds the routerAsn to the get bgp route policies params.
 func (o *GetBgpRoutePoliciesParams) SetRouterAsn(routerAsn *int64) {
 	o.RouterAsn = routerAsn
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetBgpRoutePoliciesParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
@@ -150,7 +157,7 @@ func (o *GetBgpRoutePoliciesParams) WriteToRequest(r runtime.ClientRequest, reg 
 		if o.RouterAsn != nil {
 			qrRouterAsn = *o.RouterAsn
 		}
-		qRouterAsn := swag.FormatInt64(qrRouterAsn)
+		qRouterAsn := conv.FormatInteger(qrRouterAsn)
 		if qRouterAsn != "" {
 
 			if err := r.SetQueryParam("router_asn", qRouterAsn); err != nil {

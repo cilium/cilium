@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // WireguardInterface Status of a WireGuard interface
@@ -53,12 +54,12 @@ func (m *WireguardInterface) Validate(formats strfmt.Registry) error {
 }
 
 func (m *WireguardInterface) validatePeers(formats strfmt.Registry) error {
-	if swag.IsZero(m.Peers) { // not required
+	if typeutils.IsZero(m.Peers) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Peers); i++ {
-		if swag.IsZero(m.Peers[i]) { // not required
+		if typeutils.IsZero(m.Peers[i]) { // not required
 			continue
 		}
 
@@ -102,7 +103,7 @@ func (m *WireguardInterface) contextValidatePeers(ctx context.Context, formats s
 
 		if m.Peers[i] != nil {
 
-			if swag.IsZero(m.Peers[i]) { // not required
+			if typeutils.IsZero(m.Peers[i]) { // not required
 				return nil
 			}
 
@@ -130,13 +131,13 @@ func (m *WireguardInterface) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *WireguardInterface) UnmarshalBinary(b []byte) error {
 	var res WireguardInterface
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -11,7 +11,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewGetClusterNodesParams creates a new GetClusterNodesParams object
@@ -70,7 +70,7 @@ func (o *GetClusterNodesParams) bindClientID(rawData []string, hasKey bool, form
 		return nil
 	}
 
-	value, err := swag.ConvertInt64(raw)
+	value, err := conv.ConvertInt64(raw)
 	if err != nil {
 		return errors.InvalidType("client-id", "header", "int64", raw)
 	}

@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -60,7 +61,7 @@ func (m *EncryptionStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EncryptionStatus) validateIpsec(formats strfmt.Registry) error {
-	if swag.IsZero(m.Ipsec) { // not required
+	if typeutils.IsZero(m.Ipsec) { // not required
 		return nil
 	}
 
@@ -118,7 +119,7 @@ func (m *EncryptionStatus) validateModeEnum(path, location string, value string)
 }
 
 func (m *EncryptionStatus) validateMode(formats strfmt.Registry) error {
-	if swag.IsZero(m.Mode) { // not required
+	if typeutils.IsZero(m.Mode) { // not required
 		return nil
 	}
 
@@ -131,7 +132,7 @@ func (m *EncryptionStatus) validateMode(formats strfmt.Registry) error {
 }
 
 func (m *EncryptionStatus) validateWireguard(formats strfmt.Registry) error {
-	if swag.IsZero(m.Wireguard) { // not required
+	if typeutils.IsZero(m.Wireguard) { // not required
 		return nil
 	}
 
@@ -175,7 +176,7 @@ func (m *EncryptionStatus) contextValidateIpsec(ctx context.Context, formats str
 
 	if m.Ipsec != nil {
 
-		if swag.IsZero(m.Ipsec) { // not required
+		if typeutils.IsZero(m.Ipsec) { // not required
 			return nil
 		}
 
@@ -200,7 +201,7 @@ func (m *EncryptionStatus) contextValidateWireguard(ctx context.Context, formats
 
 	if m.Wireguard != nil {
 
-		if swag.IsZero(m.Wireguard) { // not required
+		if typeutils.IsZero(m.Wireguard) { // not required
 			return nil
 		}
 
@@ -226,13 +227,13 @@ func (m *EncryptionStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *EncryptionStatus) UnmarshalBinary(b []byte) error {
 	var res EncryptionStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

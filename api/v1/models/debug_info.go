@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // DebugInfo groups some debugging related information on the agent
@@ -85,7 +86,7 @@ func (m *DebugInfo) Validate(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validateCiliumStatus(formats strfmt.Registry) error {
-	if swag.IsZero(m.CiliumStatus) { // not required
+	if typeutils.IsZero(m.CiliumStatus) { // not required
 		return nil
 	}
 
@@ -108,7 +109,7 @@ func (m *DebugInfo) validateCiliumStatus(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validateEncryption(formats strfmt.Registry) error {
-	if swag.IsZero(m.Encryption) { // not required
+	if typeutils.IsZero(m.Encryption) { // not required
 		return nil
 	}
 
@@ -131,12 +132,12 @@ func (m *DebugInfo) validateEncryption(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
-	if swag.IsZero(m.EndpointList) { // not required
+	if typeutils.IsZero(m.EndpointList) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.EndpointList); i++ {
-		if swag.IsZero(m.EndpointList[i]) { // not required
+		if typeutils.IsZero(m.EndpointList[i]) { // not required
 			continue
 		}
 
@@ -161,7 +162,7 @@ func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.Policy) { // not required
+	if typeutils.IsZero(m.Policy) { // not required
 		return nil
 	}
 
@@ -184,12 +185,12 @@ func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validateServiceList(formats strfmt.Registry) error {
-	if swag.IsZero(m.ServiceList) { // not required
+	if typeutils.IsZero(m.ServiceList) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.ServiceList); i++ {
-		if swag.IsZero(m.ServiceList[i]) { // not required
+		if typeutils.IsZero(m.ServiceList[i]) { // not required
 			continue
 		}
 
@@ -247,7 +248,7 @@ func (m *DebugInfo) contextValidateCiliumStatus(ctx context.Context, formats str
 
 	if m.CiliumStatus != nil {
 
-		if swag.IsZero(m.CiliumStatus) { // not required
+		if typeutils.IsZero(m.CiliumStatus) { // not required
 			return nil
 		}
 
@@ -272,7 +273,7 @@ func (m *DebugInfo) contextValidateEncryption(ctx context.Context, formats strfm
 
 	if m.Encryption != nil {
 
-		if swag.IsZero(m.Encryption) { // not required
+		if typeutils.IsZero(m.Encryption) { // not required
 			return nil
 		}
 
@@ -299,7 +300,7 @@ func (m *DebugInfo) contextValidateEndpointList(ctx context.Context, formats str
 
 		if m.EndpointList[i] != nil {
 
-			if swag.IsZero(m.EndpointList[i]) { // not required
+			if typeutils.IsZero(m.EndpointList[i]) { // not required
 				return nil
 			}
 
@@ -326,7 +327,7 @@ func (m *DebugInfo) contextValidatePolicy(ctx context.Context, formats strfmt.Re
 
 	if m.Policy != nil {
 
-		if swag.IsZero(m.Policy) { // not required
+		if typeutils.IsZero(m.Policy) { // not required
 			return nil
 		}
 
@@ -353,7 +354,7 @@ func (m *DebugInfo) contextValidateServiceList(ctx context.Context, formats strf
 
 		if m.ServiceList[i] != nil {
 
-			if swag.IsZero(m.ServiceList[i]) { // not required
+			if typeutils.IsZero(m.ServiceList[i]) { // not required
 				return nil
 			}
 
@@ -381,13 +382,13 @@ func (m *DebugInfo) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *DebugInfo) UnmarshalBinary(b []byte) error {
 	var res DebugInfo
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -418,7 +419,7 @@ func (m *DebugInfoEncryption) Validate(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfoEncryption) validateWireguard(formats strfmt.Registry) error {
-	if swag.IsZero(m.Wireguard) { // not required
+	if typeutils.IsZero(m.Wireguard) { // not required
 		return nil
 	}
 
@@ -458,7 +459,7 @@ func (m *DebugInfoEncryption) contextValidateWireguard(ctx context.Context, form
 
 	if m.Wireguard != nil {
 
-		if swag.IsZero(m.Wireguard) { // not required
+		if typeutils.IsZero(m.Wireguard) { // not required
 			return nil
 		}
 
@@ -484,13 +485,13 @@ func (m *DebugInfoEncryption) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *DebugInfoEncryption) UnmarshalBinary(b []byte) error {
 	var res DebugInfoEncryption
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // LabelConfigurationSpec User desired Label configuration of an endpoint
@@ -38,7 +39,7 @@ func (m *LabelConfigurationSpec) Validate(formats strfmt.Registry) error {
 }
 
 func (m *LabelConfigurationSpec) validateUser(formats strfmt.Registry) error {
-	if swag.IsZero(m.User) { // not required
+	if typeutils.IsZero(m.User) { // not required
 		return nil
 	}
 
@@ -95,13 +96,13 @@ func (m *LabelConfigurationSpec) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *LabelConfigurationSpec) UnmarshalBinary(b []byte) error {
 	var res LabelConfigurationSpec
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
