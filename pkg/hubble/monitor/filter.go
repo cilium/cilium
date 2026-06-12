@@ -81,8 +81,6 @@ func (m *monitorFilter) OnMonitorEvent(ctx context.Context, event *observerTypes
 			return !m.capture, nil
 		case monitorAPI.MessageTypeTrace:
 			return !m.trace, nil
-		case monitorAPI.MessageTypeAccessLog: // MessageTypeAccessLog maps to MessageTypeNameL7
-			return !m.l7, nil
 		case monitorAPI.MessageTypePolicyVerdict:
 			return !m.policyVerdict, nil
 		case monitorAPI.MessageTypeTraceSock:
@@ -90,7 +88,15 @@ func (m *monitorFilter) OnMonitorEvent(ctx context.Context, event *observerTypes
 		default:
 			return true, errors.ErrUnknownEventType
 		}
+
 	case *observerTypes.AgentEvent:
+		// L7 flows (HTTP, DNS, Kafka, etc.) are emitted as AgentEvents
+		// with Type = MessageTypeAccessLog. They should be controlled
+		// by the l7 monitor filter rather than the generic agent filter.
+		if payload.Type == monitorAPI.MessageTypeAccessLog {
+			return !m.l7, nil
+		}
+
 		return !m.agent, nil
 	case nil:
 		return true, errors.ErrEmptyData
