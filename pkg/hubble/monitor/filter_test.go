@@ -154,6 +154,15 @@ func Test_OnMonitorEvent(t *testing.T) {
 					stop:        false,
 					expectedErr: nil,
 				},
+				{
+					event: &observerTypes.MonitorEvent{
+						Payload: &observerTypes.AgentEvent{
+							Type: monitorAPI.MessageTypeAccessLog,
+						},
+					},
+					stop:        true,
+					expectedErr: nil,
+				},
 			},
 		},
 		{
@@ -162,8 +171,8 @@ func Test_OnMonitorEvent(t *testing.T) {
 			events: []testEvent{
 				{
 					event: &observerTypes.MonitorEvent{
-						Payload: &observerTypes.PerfEvent{
-							Data: []byte{monitorAPI.MessageTypeAccessLog},
+						Payload: &observerTypes.AgentEvent{
+							Type: monitorAPI.MessageTypeAccessLog,
 						},
 					},
 					stop:        false,
