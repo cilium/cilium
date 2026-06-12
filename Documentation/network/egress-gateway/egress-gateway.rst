@@ -52,6 +52,25 @@ attaching them to instances that serve as gateway nodes so that AWS can
 adequately route traffic flowing from and to the instances. Other cloud
 providers have similar networking requirements and constructs.
 
+.. _egress-gateway-ec2-secondary-ips:
+
+.. note::
+
+   **AWS EC2 secondary private IP addresses**
+
+   On AWS EC2, assigning an egress IP to a network interface inside the gateway
+   node (for example with ``ip address add``) is not sufficient on its own.
+   The same private IPv4 address must also be assigned to the EC2 network
+   interface in the AWS API (for example via the EC2 console under **Network
+   Interfaces → Actions → Manage IP Addresses**). Without this step, traffic
+   sourced from the secondary address may fail to reach destinations outside
+   the cluster, even though the address appears on the node interface and the
+   egress gateway policy is configured correctly.
+
+   See the `AWS documentation on multiple IP addresses
+   <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/MultipleIP.html>`__ for
+   details.
+
 Additionally, the enablement of the egress gateway feature requires that both
 BPF masquerading and the kube-proxy replacement are enabled.
 
@@ -271,7 +290,9 @@ There are 3 different ways this can be achieved:
 
    .. warning::
 
-     The egress IP must be assigned to a network device on the node.
+     The egress IP must be assigned to a network device on the node. On AWS EC2,
+     secondary private IP addresses must also be assigned to the instance network
+     interface in the AWS API; see :ref:`AWS EC2 secondary private IP addresses <egress-gateway-ec2-secondary-ips>`.
 
 3. By omitting both ``egressIP`` and ``interface`` properties, which will make
    the agent use the first IPv4 and IPv6 addresses assigned to the interface
