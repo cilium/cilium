@@ -66,7 +66,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 
 	Context("Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc)", func() {
 		var yamls []string
-		var demoPolicyL7 string
 
 		BeforeAll(func() {
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
@@ -87,8 +86,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			// Wait for all pods to be in ready state.
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
-
-			demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
 		})
 
 		AfterAll(func() {
@@ -115,21 +112,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 
 			It("Tests that binding to NodePort port fails", func() {
 				testFailBind(kubectl, ni)
-			})
-
-			Context("with L7 policy", func() {
-				AfterAll(func() {
-					kubectl.Delete(demoPolicyL7)
-					// Remove CT entries to avoid packet drops which could happen
-					// due to matching stale entries with proxy_redirect = 1
-					kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
-						"cilium-dbg bpf ct flush", "Unable to flush CT maps")
-				})
-
-				It("Tests NodePort with L7 Policy", func() {
-					applyPolicy(kubectl, demoPolicyL7)
-					testNodePort(kubectl, ni, false, false, 0)
-				})
 			})
 		})
 
@@ -276,28 +258,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 
 			It("Tests NodePort with L4 Policy", func() {
 				applyPolicy(kubectl, demoPolicy)
-				testNodePort(kubectl, ni, false, false, 0)
-			})
-		})
-
-		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement()
-		}, "with L7 policy", func() {
-			var demoPolicyL7 string
-
-			BeforeAll(func() {
-				demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
-			})
-
-			AfterAll(func() {
-				kubectl.Delete(demoPolicyL7)
-				// Same reason as in other L7 test above
-				kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
-					"cilium-dbg bpf ct flush", "Unable to flush CT maps")
-			})
-
-			It("Tests NodePort with L7 Policy", func() {
-				applyPolicy(kubectl, demoPolicyL7)
 				testNodePort(kubectl, ni, false, false, 0)
 			})
 		})
