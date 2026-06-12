@@ -388,8 +388,6 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		ContainerName:            e.GetContainerName(),
 		ContainerID:              e.GetContainerID(),
 		ContainerNetnsPath:       e.containerNetnsPath,
-		DockerNetworkID:          e.dockerNetworkID,
-		DockerEndpointID:         e.dockerEndpointID,
 		IfName:                   e.ifName,
 		IfIndex:                  e.ifIndex,
 		ParentIfIndex:            e.parentIfIndex,
@@ -440,14 +438,6 @@ type serializableEndpoint struct {
 
 	// ContainerNetnsPath is the path to the container's network namespace
 	ContainerNetnsPath string
-
-	// dockerNetworkID is the network ID of the libnetwork network if the
-	// endpoint is a docker managed container which uses libnetwork
-	DockerNetworkID string
-
-	// dockerEndpointID is the Docker network endpoint ID if managed by
-	// libnetwork
-	DockerEndpointID string
 
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
@@ -578,8 +568,6 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.containerName.Store(&r.ContainerName)
 	ep.containerID.Store(&r.ContainerID)
 	ep.containerNetnsPath = r.ContainerNetnsPath
-	ep.dockerNetworkID = r.DockerNetworkID
-	ep.dockerEndpointID = r.DockerEndpointID
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
 	ep.parentIfIndex = r.ParentIfIndex

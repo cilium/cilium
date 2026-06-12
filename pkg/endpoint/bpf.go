@@ -92,10 +92,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	fmt.Fprint(fw, "/*\n")
 	fmt.Fprintln(fw, " * This file is not using during compilation of endpoint programs.")
 
-	if cid := e.GetContainerID(); cid == "" {
-		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.dockerNetworkID)
-		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", e.dockerEndpointID)
-	} else {
+	if cid := e.GetContainerID(); cid != "" {
 		fmt.Fprintf(fw, " * Container ID: %s\n", cid)
 		fmt.Fprintf(fw, " * Container Interface: %s\n", e.containerIfName)
 	}

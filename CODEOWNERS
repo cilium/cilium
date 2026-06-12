@@ -137,8 +137,6 @@
 # Agent internals or the way that particular Cilium features interact with
 # external software and protocols:
 #
-# - @cilium/docker:
-#   Maintain the deprecated docker-plugin.
 # - @cilium/endpoint:
 #   Provide background on how the Cilium Endpoint package fits into the overall
 #   cluster architecture, lifecycle of endpoints, relationship with generation
@@ -699,7 +697,6 @@ Makefile* @cilium/build
 /pkg/xds/ @cilium/envoy
 /pkg/ztunnel/ @cilium/ztunnel
 /plugins/cilium-cni/ @cilium/sig-k8s
-/plugins/cilium-docker/ @cilium/docker
 /README.rst @cilium/docs-structure @cilium/release-managers
 /SECURITY.md @cilium/contributing
 /SECURITY-INSIGHTS.yml @cilium/security
