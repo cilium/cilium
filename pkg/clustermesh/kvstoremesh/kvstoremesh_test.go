@@ -193,6 +193,53 @@ func TestRemoteClusterRun(t *testing.T) {
 				"cilium/cache/ip/v1/foo/bar":               "qux6",
 			},
 		},
+		{
+			name: "remote cluster supports endpoint slices",
+			srccfg: types.CiliumClusterConfig{
+				Capabilities: types.CiliumClusterConfigCapabilities{
+					EndpointSlicesExportMode: types.EndpointSlicesExportModeServicesAndEndpointSlices,
+				},
+			},
+			dstcfg: types.CiliumClusterConfig{
+				Capabilities: types.CiliumClusterConfigCapabilities{
+					SyncedCanaries:           true,
+					Cached:                   true,
+					EndpointSlicesExportMode: types.EndpointSlicesExportModeServicesAndEndpointSlices,
+				},
+			},
+			kvs: map[string]string{
+				"cilium/state/nodes/v1/foo/bar":          "qux1",
+				"cilium/state/services/v1/foo/bar":       "qux2",
+				"cilium/state/serviceexports/v1/foo/bar": "qux3",
+				"cilium/state/identities/v1/id/bar":      "qux4",
+				"cilium/state/identities/v1/value/bar":   "qux5",
+				"cilium/state/ip/v1/default/bar":         "qux6",
+				"cilium/state/endpointslices/v1/foo/bar": "qux7",
+			},
+		},
+		{
+			name: "remote cluster supports only endpoint slices",
+			srccfg: types.CiliumClusterConfig{
+				Capabilities: types.CiliumClusterConfigCapabilities{
+					EndpointSlicesExportMode: types.EndpointSlicesExportModeEndpointSlicesOnly,
+				},
+			},
+			dstcfg: types.CiliumClusterConfig{
+				Capabilities: types.CiliumClusterConfigCapabilities{
+					SyncedCanaries:           true,
+					Cached:                   true,
+					EndpointSlicesExportMode: types.EndpointSlicesExportModeEndpointSlicesOnly,
+				},
+			},
+			kvs: map[string]string{
+				"cilium/state/nodes/v1/foo/bar":          "qux1",
+				"cilium/state/services/v1/foo/bar":       "qux2",
+				"cilium/state/identities/v1/id/bar":      "qux4",
+				"cilium/state/identities/v1/value/bar":   "qux5",
+				"cilium/state/ip/v1/default/bar":         "qux6",
+				"cilium/state/endpointslices/v1/foo/bar": "qux7",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -223,7 +270,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			}
 
 			// And additionally create the synced canaries.
-			for _, key := range []string{"nodes", "services", "serviceexports", "identities", "ip"} {
+			for _, key := range []string{"nodes", "services", "serviceexports", "identities", "ip", "endpointslices"} {
 				var state = "state"
 				if tt.srccfg.Capabilities.Cached {
 					state = "cache"
@@ -253,9 +300,14 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			expectedReflected := map[string]string{
 				"cilium/cache/nodes/v1/foo/bar":         "qux1",
-				"cilium/cache/services/v1/foo/bar":      "qux2",
 				"cilium/cache/identities/v1/foo/id/bar": "qux4",
 				"cilium/cache/ip/v1/foo/bar":            "qux6",
+			}
+			if tt.srccfg.Capabilities.EndpointSlicesExportMode != types.EndpointSlicesExportModeEndpointSlicesOnly {
+				expectedReflected["cilium/cache/services/v1/foo/bar"] = "qux2"
+			}
+			if tt.srccfg.Capabilities.EndpointSlicesExportMode != types.EndpointSlicesExportModeServicesOnly {
+				expectedReflected["cilium/cache/endpointslices/v1/foo/bar"] = "qux7"
 			}
 			if tt.srccfg.Capabilities.ServiceExportsEnabled != nil {
 				expectedReflected["cilium/cache/serviceexports/v1/foo/bar"] = "qux3"
@@ -279,6 +331,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				"cilium/synced/foo/cilium/cache/services/v1",
 				"cilium/synced/foo/cilium/cache/identities/v1",
 				"cilium/synced/foo/cilium/cache/ip/v1",
+				"cilium/synced/foo/cilium/cache/endpointslices/v1",
 			}
 			if tt.srccfg.Capabilities.ServiceExportsEnabled != nil {
 				expectedSyncedCanaries = append(expectedSyncedCanaries, "cilium/synced/foo/cilium/cache/serviceexports/v1")
@@ -576,6 +629,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 		"cilium/state/services/v1/foo/bar":       "qux2",
 		"cilium/state/services/v1/foo/baz":       "qux3",
 		"cilium/state/services/v1/foo/qux":       "qux4",
+		"cilium/state/endpointslices/v1/foo/bar": "qux11",
 		"cilium/state/serviceexports/v1/foo/qux": "qux5",
 		"cilium/state/identities/v1/id/bar":      "qux6",
 		"cilium/state/ip/v1/default/fred":        "qux7",
@@ -588,13 +642,18 @@ func TestRemoteClusterStatus(t *testing.T) {
 
 	rc := km.newRemoteCluster("foo", func() *models.RemoteCluster {
 		return &models.RemoteCluster{
-			Ready:  true,
-			Config: &models.RemoteClusterConfig{ServiceExportsEnabled: ptr.To(true)},
+			Ready: true,
+			Config: &models.RemoteClusterConfig{
+				EndpointSlicesExportMode: models.RemoteClusterConfigEndpointSlicesExportModeServicesDashAndDashEndpointslices,
+				ServiceExportsEnabled:    new(true),
+			},
 		}
 	})
 	cfg := types.CiliumClusterConfig{
 		ID: 10, Capabilities: types.CiliumClusterConfigCapabilities{
-			SyncedCanaries: false, ServiceExportsEnabled: ptr.To(true),
+			SyncedCanaries:           false,
+			EndpointSlicesExportMode: types.EndpointSlicesExportModeServicesAndEndpointSlices,
+			ServiceExportsEnabled:    new(true),
 		},
 	}
 	ready := make(chan error)
@@ -611,6 +670,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 
 	require.EqualValues(t, 0, status.NumNodes, "Incorrect number of nodes")
 	require.EqualValues(t, 0, status.NumSharedServices, "Incorrect number of services")
+	require.EqualValues(t, 0, status.NumEndpointSlices, "Incorrect number of endpoint slices")
 	require.EqualValues(t, 0, status.NumServiceExports, "Incorrect number of service exports")
 	require.EqualValues(t, 0, status.NumIdentities, "Incorrect number of identities")
 	require.EqualValues(t, 0, status.NumEndpoints, "Incorrect number of endpoints")
@@ -634,10 +694,40 @@ func TestRemoteClusterStatus(t *testing.T) {
 
 		assert.EqualValues(c, 2, status.NumNodes, "Incorrect number of nodes")
 		assert.EqualValues(c, 3, status.NumSharedServices, "Incorrect number of services")
+		assert.EqualValues(c, 1, status.NumEndpointSlices, "Incorrect number of endpoint slices")
 		assert.EqualValues(c, 1, status.NumServiceExports, "Incorrect number of service exports")
 		assert.EqualValues(c, 1, status.NumIdentities, "Incorrect number of identities")
 		assert.EqualValues(c, 4, status.NumEndpoints, "Incorrect number of endpoints")
 	}, timeout, tick, "Reported status is not correct")
+
+	disabledRC := km.newRemoteCluster("bar", func() *models.RemoteCluster {
+		return &models.RemoteCluster{
+			Ready: true,
+			Config: &models.RemoteClusterConfig{
+				EndpointSlicesExportMode: models.RemoteClusterConfigEndpointSlicesExportModeEndpointslicesDashOnly,
+			},
+		}
+	})
+	disabledCfg := types.CiliumClusterConfig{
+		ID: 11, Capabilities: types.CiliumClusterConfigCapabilities{
+			EndpointSlicesExportMode: types.EndpointSlicesExportModeEndpointSlicesOnly,
+		},
+	}
+	disabledReady := make(chan error)
+
+	wg.Go(func() {
+		disabledRC.Run(ctx, remote, disabledCfg, disabledReady)
+		disabledRC.Stop()
+	})
+
+	require.NoError(t, <-disabledReady, "rc.Run() failed")
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		status := disabledRC.(*remoteCluster).Status()
+		assert.True(c, status.Ready, "Status should be ready")
+		assert.True(c, status.Synced.Services, "Disabled services should be considered synced")
+		assert.EqualValues(c, 0, status.NumSharedServices, "Incorrect number of services")
+	}, timeout, tick, "Reported disabled service status is not correct")
 }
 
 // mockClusterMesh is a mock implementation of the common.ClusterMesh interface
