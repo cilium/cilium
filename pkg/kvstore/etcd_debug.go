@@ -152,6 +152,47 @@ func etcdDbgEndpoint(ctx context.Context, ep string, tlscfg *tls.Config, dialer 
 		tlscfg.ServerName = hostname
 	}
 
+	// We set InsecureSkipVerify and manually mimic the same validation through
+	// the VerifyPeerCertificate function in order to retrieve the certificates
+	// presented by the server, which would be otherwise possible only once the
+	// connection is successfully established. One difference compared to the
+	// validation normally performed by [Conn.verifyServerCertificate] when
+	// InsecureSkipVerify is not set is the lack of the FIPS allowed chains
+	// check, which looks a reasonable tradeoff in this context.
+	var certs []*x509.Certificate
+	tlscfg.InsecureSkipVerify = true
+	tlscfg.VerifyPeerCertificate = func(certificates [][]byte, _ [][]*x509.Certificate) error {
+		if len(certificates) == 0 {
+			return errors.New("the server presented no certificates")
+		}
+
+		for _, raw := range certificates {
+			cert, err := x509.ParseCertificate(raw)
+			if err != nil {
+				return fmt.Errorf("failed to parse server certificate: %w", err)
+			}
+
+			certs = append(certs, cert)
+		}
+
+		opts := x509.VerifyOptions{
+			Roots:         tlscfg.RootCAs,
+			DNSName:       tlscfg.ServerName,
+			Intermediates: x509.NewCertPool(),
+		}
+
+		for _, cert := range certs[1:] {
+			opts.Intermediates.AddCert(cert)
+		}
+
+		_, err := certs[0].Verify(opts)
+		if err != nil {
+			return &tls.CertificateVerificationError{UnverifiedCertificates: certs, Err: err}
+		}
+
+		return nil
+	}
+
 	// We use GetClientCertificate rather than Certificates to return an error
 	// in case the certificate does not match any of the requested CAs. One
 	// limitation, though, is that the match appears to be performed based on
@@ -172,6 +213,26 @@ func etcdDbgEndpoint(ctx context.Context, ep string, tlscfg *tls.Config, dialer 
 	tconn := tls.Client(conn, tlscfg)
 	defer tconn.Close()
 
+	var printTLSInfo = func(iw *indentedWriter) {
+		iw.Println("ℹ️  Negotiated TLS version: %s, ciphersuite %s",
+			tls.VersionName(tconn.ConnectionState().Version),
+			tls.CipherSuiteName(tconn.ConnectionState().CipherSuite))
+
+		if len(certs) > 0 {
+			iw.Println("ℹ️  TLS certificates presented by the server:")
+			iw = iw.WithExtraIndent(3)
+
+			for i, cert := range certs {
+				if i == 1 {
+					iw = iw.WithExtraIndent(2)
+					iw.Println("Intermediates:")
+				}
+
+				etcdDbgOutputCert(cert, iw)
+			}
+		}
+	}
+
 	err = tconn.HandshakeContext(ctx)
 	if err != nil {
 		iw.Println("❌ Cannot establish TLS connection to %s: %s", u.Host, err)
@@ -181,13 +242,13 @@ func etcdDbgEndpoint(ctx context.Context, ep string, tlscfg *tls.Config, dialer 
 				iw.Println("   - %s", etcdDbgParseDN(ca))
 			}
 		}
+
+		printTLSInfo(iw)
 		return
 	}
 
 	iw.Println("✅ TLS connection successfully established to %s", tconn.RemoteAddr())
-	iw.Println("ℹ️  Negotiated TLS version: %s, ciphersuite %s",
-		tls.VersionName(tconn.ConnectionState().Version),
-		tls.CipherSuiteName(tconn.ConnectionState().CipherSuite))
+	printTLSInfo(iw)
 
 	// With TLS 1.3, the server doesn't acknowledge whether client authentication
 	// succeeded, and a possible error is returned only when reading some data.
