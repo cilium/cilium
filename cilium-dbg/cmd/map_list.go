@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 )
@@ -23,7 +24,7 @@ var mapListCmd = &cobra.Command{
 	Short:   "List all open BPF maps",
 	Example: "cilium map list",
 	Run: func(cmd *cobra.Command, args []string) {
-		resp, err := client.Daemon.GetMap(nil)
+		resp, err := client.Daemon.GetMap(daemon.NewGetMapParams())
 		if err != nil {
 			Fatalf("%s", err)
 		}

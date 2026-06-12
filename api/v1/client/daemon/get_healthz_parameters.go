@@ -14,7 +14,7 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewGetHealthzParams creates a new GetHealthzParams object,
@@ -24,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetHealthzParams() *GetHealthzParams {
-	return &GetHealthzParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetHealthzParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetHealthzParamsWithTimeout creates a new GetHealthzParams object
 // with the ability to set a timeout on a request.
 func NewGetHealthzParamsWithTimeout(timeout time.Duration) *GetHealthzParams {
 	return &GetHealthzParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetHealthzParamsWithContext creates a new GetHealthzParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetHealthzParams].
 func NewGetHealthzParamsWithContext(ctx context.Context) *GetHealthzParams {
 	return &GetHealthzParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -78,9 +82,9 @@ type GetHealthzParams struct {
 	*/
 	RequireK8sConnectivity *bool
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get healthz params (not the query body).
@@ -103,71 +107,74 @@ func (o *GetHealthzParams) SetDefaults() {
 		RequireK8sConnectivity: &requireK8sConnectivityDefault,
 	}
 
-	val.timeout = o.timeout
-	val.Context = o.Context
+	val.inner.timeout = o.inner.timeout
+	val.inner.ctx = o.inner.ctx
 	val.HTTPClient = o.HTTPClient
 	*o = val
 }
 
-// WithTimeout adds the timeout to the get healthz params
+// WithTimeout adds the timeout to the get healthz params.
 func (o *GetHealthzParams) WithTimeout(timeout time.Duration) *GetHealthzParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get healthz params
+// SetTimeout adds the timeout to the get healthz params.
 func (o *GetHealthzParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get healthz params
+// WithContext adds the context to the get healthz params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetHealthzParams].
 func (o *GetHealthzParams) WithContext(ctx context.Context) *GetHealthzParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get healthz params
+// SetContext adds the context to the get healthz params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetHealthzParams].
 func (o *GetHealthzParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get healthz params
+// WithHTTPClient adds the HTTPClient to the get healthz params.
 func (o *GetHealthzParams) WithHTTPClient(client *http.Client) *GetHealthzParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get healthz params
+// SetHTTPClient adds the HTTPClient to the get healthz params.
 func (o *GetHealthzParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithBrief adds the brief to the get healthz params
+// WithBrief adds the brief to the get healthz params.
 func (o *GetHealthzParams) WithBrief(brief *bool) *GetHealthzParams {
 	o.SetBrief(brief)
 	return o
 }
 
-// SetBrief adds the brief to the get healthz params
+// SetBrief adds the brief to the get healthz params.
 func (o *GetHealthzParams) SetBrief(brief *bool) {
 	o.Brief = brief
 }
 
-// WithRequireK8sConnectivity adds the requireK8sConnectivity to the get healthz params
+// WithRequireK8sConnectivity adds the requireK8sConnectivity to the get healthz params.
 func (o *GetHealthzParams) WithRequireK8sConnectivity(requireK8sConnectivity *bool) *GetHealthzParams {
 	o.SetRequireK8sConnectivity(requireK8sConnectivity)
 	return o
 }
 
-// SetRequireK8sConnectivity adds the requireK8sConnectivity to the get healthz params
+// SetRequireK8sConnectivity adds the requireK8sConnectivity to the get healthz params.
 func (o *GetHealthzParams) SetRequireK8sConnectivity(requireK8sConnectivity *bool) {
 	o.RequireK8sConnectivity = requireK8sConnectivity
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
@@ -175,7 +182,7 @@ func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Re
 	if o.Brief != nil {
 
 		// header param brief
-		if err := r.SetHeaderParam("brief", swag.FormatBool(*o.Brief)); err != nil {
+		if err := r.SetHeaderParam("brief", conv.FormatBool(*o.Brief)); err != nil {
 			return err
 		}
 	}
@@ -183,7 +190,7 @@ func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Re
 	if o.RequireK8sConnectivity != nil {
 
 		// header param require-k8s-connectivity
-		if err := r.SetHeaderParam("require-k8s-connectivity", swag.FormatBool(*o.RequireK8sConnectivity)); err != nil {
+		if err := r.SetHeaderParam("require-k8s-connectivity", conv.FormatBool(*o.RequireK8sConnectivity)); err != nil {
 			return err
 		}
 	}

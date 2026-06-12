@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -53,7 +54,7 @@ func (m *HubbleStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *HubbleStatus) validateObserver(formats strfmt.Registry) error {
-	if swag.IsZero(m.Observer) { // not required
+	if typeutils.IsZero(m.Observer) { // not required
 		return nil
 	}
 
@@ -111,7 +112,7 @@ func (m *HubbleStatus) validateStateEnum(path, location string, value string) er
 }
 
 func (m *HubbleStatus) validateState(formats strfmt.Registry) error {
-	if swag.IsZero(m.State) { // not required
+	if typeutils.IsZero(m.State) { // not required
 		return nil
 	}
 
@@ -141,7 +142,7 @@ func (m *HubbleStatus) contextValidateObserver(ctx context.Context, formats strf
 
 	if m.Observer != nil {
 
-		if swag.IsZero(m.Observer) { // not required
+		if typeutils.IsZero(m.Observer) { // not required
 			return nil
 		}
 
@@ -167,13 +168,13 @@ func (m *HubbleStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *HubbleStatus) UnmarshalBinary(b []byte) error {
 	var res HubbleStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -216,7 +217,7 @@ func (m *HubbleStatusObserver) Validate(formats strfmt.Registry) error {
 }
 
 func (m *HubbleStatusObserver) validateUptime(formats strfmt.Registry) error {
-	if swag.IsZero(m.Uptime) { // not required
+	if typeutils.IsZero(m.Uptime) { // not required
 		return nil
 	}
 
@@ -237,13 +238,13 @@ func (m *HubbleStatusObserver) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *HubbleStatusObserver) UnmarshalBinary(b []byte) error {
 	var res HubbleStatusObserver
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

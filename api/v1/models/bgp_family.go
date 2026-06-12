@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
 )
 
 // BgpFamily Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path
@@ -39,13 +39,13 @@ func (m *BgpFamily) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *BgpFamily) UnmarshalBinary(b []byte) error {
 	var res BgpFamily
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

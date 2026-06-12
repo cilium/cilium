@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -86,7 +87,7 @@ func (m *RemoteCluster) Validate(formats strfmt.Registry) error {
 }
 
 func (m *RemoteCluster) validateConfig(formats strfmt.Registry) error {
-	if swag.IsZero(m.Config) { // not required
+	if typeutils.IsZero(m.Config) { // not required
 		return nil
 	}
 
@@ -109,7 +110,7 @@ func (m *RemoteCluster) validateConfig(formats strfmt.Registry) error {
 }
 
 func (m *RemoteCluster) validateLastFailure(formats strfmt.Registry) error {
-	if swag.IsZero(m.LastFailure) { // not required
+	if typeutils.IsZero(m.LastFailure) { // not required
 		return nil
 	}
 
@@ -121,7 +122,7 @@ func (m *RemoteCluster) validateLastFailure(formats strfmt.Registry) error {
 }
 
 func (m *RemoteCluster) validateSynced(formats strfmt.Registry) error {
-	if swag.IsZero(m.Synced) { // not required
+	if typeutils.IsZero(m.Synced) { // not required
 		return nil
 	}
 
@@ -165,7 +166,7 @@ func (m *RemoteCluster) contextValidateConfig(ctx context.Context, formats strfm
 
 	if m.Config != nil {
 
-		if swag.IsZero(m.Config) { // not required
+		if typeutils.IsZero(m.Config) { // not required
 			return nil
 		}
 
@@ -190,7 +191,7 @@ func (m *RemoteCluster) contextValidateSynced(ctx context.Context, formats strfm
 
 	if m.Synced != nil {
 
-		if swag.IsZero(m.Synced) { // not required
+		if typeutils.IsZero(m.Synced) { // not required
 			return nil
 		}
 
@@ -216,13 +217,13 @@ func (m *RemoteCluster) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *RemoteCluster) UnmarshalBinary(b []byte) error {
 	var res RemoteCluster
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

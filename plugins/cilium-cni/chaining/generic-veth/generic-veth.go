@@ -13,6 +13,7 @@ import (
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -307,7 +308,7 @@ func (f *GenericVethChainer) Check(ctx context.Context, pluginCtx chainingapi.Pl
 }
 
 func (f *GenericVethChainer) Status(ctx context.Context, pluginCtx chainingapi.PluginContext, cli *client.Client) error {
-	if _, err := cli.Daemon.GetHealthz(nil); err != nil {
+	if _, err := cli.Daemon.GetHealthzContext(ctx, daemon.NewGetHealthzParams()); err != nil {
 		return cniTypes.NewError(types.CniErrPluginNotAvailable, "DaemonHealthzFailed",
 			fmt.Sprintf("Cilium agent healthz check failed: %s", client.Hint(err)))
 	}

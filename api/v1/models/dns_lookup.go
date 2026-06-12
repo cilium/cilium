@@ -10,7 +10,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -62,7 +63,7 @@ func (m *DNSLookup) Validate(formats strfmt.Registry) error {
 }
 
 func (m *DNSLookup) validateExpirationTime(formats strfmt.Registry) error {
-	if swag.IsZero(m.ExpirationTime) { // not required
+	if typeutils.IsZero(m.ExpirationTime) { // not required
 		return nil
 	}
 
@@ -74,7 +75,7 @@ func (m *DNSLookup) validateExpirationTime(formats strfmt.Registry) error {
 }
 
 func (m *DNSLookup) validateLookupTime(formats strfmt.Registry) error {
-	if swag.IsZero(m.LookupTime) { // not required
+	if typeutils.IsZero(m.LookupTime) { // not required
 		return nil
 	}
 
@@ -95,13 +96,13 @@ func (m *DNSLookup) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *DNSLookup) UnmarshalBinary(b []byte) error {
 	var res DNSLookup
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

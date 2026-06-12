@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -110,7 +111,7 @@ func (m *IPAMResponse) validateHostAddressing(formats strfmt.Registry) error {
 }
 
 func (m *IPAMResponse) validateIPv4(formats strfmt.Registry) error {
-	if swag.IsZero(m.IPv4) { // not required
+	if typeutils.IsZero(m.IPv4) { // not required
 		return nil
 	}
 
@@ -133,7 +134,7 @@ func (m *IPAMResponse) validateIPv4(formats strfmt.Registry) error {
 }
 
 func (m *IPAMResponse) validateIPv6(formats strfmt.Registry) error {
-	if swag.IsZero(m.IPv6) { // not required
+	if typeutils.IsZero(m.IPv6) { // not required
 		return nil
 	}
 
@@ -227,7 +228,7 @@ func (m *IPAMResponse) contextValidateIPv4(ctx context.Context, formats strfmt.R
 
 	if m.IPv4 != nil {
 
-		if swag.IsZero(m.IPv4) { // not required
+		if typeutils.IsZero(m.IPv4) { // not required
 			return nil
 		}
 
@@ -252,7 +253,7 @@ func (m *IPAMResponse) contextValidateIPv6(ctx context.Context, formats strfmt.R
 
 	if m.IPv6 != nil {
 
-		if swag.IsZero(m.IPv6) { // not required
+		if typeutils.IsZero(m.IPv6) { // not required
 			return nil
 		}
 
@@ -278,13 +279,13 @@ func (m *IPAMResponse) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *IPAMResponse) UnmarshalBinary(b []byte) error {
 	var res IPAMResponse
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

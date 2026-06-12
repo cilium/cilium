@@ -21,6 +21,7 @@ import (
 	"github.com/go-openapi/strfmt"
 
 	clientapi "github.com/cilium/cilium/api/v1/client"
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
 )
@@ -96,7 +97,7 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 			}
 			// This is an API call that we do to the cilium-agent to check
 			// if it is up and running.
-			_, err = c.Daemon.GetConfig(nil)
+			_, err = c.Daemon.GetConfig(daemon.NewGetConfigParams())
 			if err != nil {
 				time.Sleep(500 * time.Millisecond)
 				continue

@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetPolicySubjectSelectorsParams() *GetPolicySubjectSelectorsParams {
-	return &GetPolicySubjectSelectorsParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetPolicySubjectSelectorsParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetPolicySubjectSelectorsParamsWithTimeout creates a new GetPolicySubjectSelectorsParams object
 // with the ability to set a timeout on a request.
 func NewGetPolicySubjectSelectorsParamsWithTimeout(timeout time.Duration) *GetPolicySubjectSelectorsParams {
 	return &GetPolicySubjectSelectorsParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetPolicySubjectSelectorsParamsWithContext creates a new GetPolicySubjectSelectorsParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPolicySubjectSelectorsParams].
 func NewGetPolicySubjectSelectorsParamsWithContext(ctx context.Context) *GetPolicySubjectSelectorsParams {
 	return &GetPolicySubjectSelectorsParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetPolicySubjectSelectorsParams contains all the parameters to send to the API e
 	Typically these are written to a http.Request.
 */
 type GetPolicySubjectSelectorsParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get policy subject selectors params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetPolicySubjectSelectorsParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get policy subject selectors params
+// WithTimeout adds the timeout to the get policy subject selectors params.
 func (o *GetPolicySubjectSelectorsParams) WithTimeout(timeout time.Duration) *GetPolicySubjectSelectorsParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get policy subject selectors params
+// SetTimeout adds the timeout to the get policy subject selectors params.
 func (o *GetPolicySubjectSelectorsParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get policy subject selectors params
+// WithContext adds the context to the get policy subject selectors params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPolicySubjectSelectorsParams].
 func (o *GetPolicySubjectSelectorsParams) WithContext(ctx context.Context) *GetPolicySubjectSelectorsParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get policy subject selectors params
+// SetContext adds the context to the get policy subject selectors params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPolicySubjectSelectorsParams].
 func (o *GetPolicySubjectSelectorsParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get policy subject selectors params
+// WithHTTPClient adds the HTTPClient to the get policy subject selectors params.
 func (o *GetPolicySubjectSelectorsParams) WithHTTPClient(client *http.Client) *GetPolicySubjectSelectorsParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get policy subject selectors params
+// SetHTTPClient adds the HTTPClient to the get policy subject selectors params.
 func (o *GetPolicySubjectSelectorsParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetPolicySubjectSelectorsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

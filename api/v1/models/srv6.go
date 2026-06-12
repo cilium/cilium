@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -72,7 +73,7 @@ func (m *Srv6) validateSrv6EncapModeEnum(path, location string, value string) er
 }
 
 func (m *Srv6) validateSrv6EncapMode(formats strfmt.Registry) error {
-	if swag.IsZero(m.Srv6EncapMode) { // not required
+	if typeutils.IsZero(m.Srv6EncapMode) { // not required
 		return nil
 	}
 
@@ -94,13 +95,13 @@ func (m *Srv6) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *Srv6) UnmarshalBinary(b []byte) error {
 	var res Srv6
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

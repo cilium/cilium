@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
@@ -22,7 +23,7 @@ var nodeListCmd = &cobra.Command{
 	Aliases: []string{"ls"},
 	Short:   "List nodes",
 	Run: func(cmd *cobra.Command, args []string) {
-		resp, err := client.Daemon.GetClusterNodes(nil)
+		resp, err := client.Daemon.GetClusterNodes(daemon.NewGetClusterNodesParams())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 			os.Exit(1)

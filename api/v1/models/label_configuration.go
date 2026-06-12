@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // LabelConfiguration Label configuration of an endpoint
@@ -45,7 +46,7 @@ func (m *LabelConfiguration) Validate(formats strfmt.Registry) error {
 }
 
 func (m *LabelConfiguration) validateSpec(formats strfmt.Registry) error {
-	if swag.IsZero(m.Spec) { // not required
+	if typeutils.IsZero(m.Spec) { // not required
 		return nil
 	}
 
@@ -68,7 +69,7 @@ func (m *LabelConfiguration) validateSpec(formats strfmt.Registry) error {
 }
 
 func (m *LabelConfiguration) validateStatus(formats strfmt.Registry) error {
-	if swag.IsZero(m.Status) { // not required
+	if typeutils.IsZero(m.Status) { // not required
 		return nil
 	}
 
@@ -112,7 +113,7 @@ func (m *LabelConfiguration) contextValidateSpec(ctx context.Context, formats st
 
 	if m.Spec != nil {
 
-		if swag.IsZero(m.Spec) { // not required
+		if typeutils.IsZero(m.Spec) { // not required
 			return nil
 		}
 
@@ -137,7 +138,7 @@ func (m *LabelConfiguration) contextValidateStatus(ctx context.Context, formats 
 
 	if m.Status != nil {
 
-		if swag.IsZero(m.Status) { // not required
+		if typeutils.IsZero(m.Status) { // not required
 			return nil
 		}
 
@@ -163,13 +164,13 @@ func (m *LabelConfiguration) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *LabelConfiguration) UnmarshalBinary(b []byte) error {
 	var res LabelConfiguration
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

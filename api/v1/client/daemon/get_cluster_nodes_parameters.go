@@ -14,7 +14,7 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewGetClusterNodesParams creates a new GetClusterNodesParams object,
@@ -24,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetClusterNodesParams() *GetClusterNodesParams {
-	return &GetClusterNodesParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetClusterNodesParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetClusterNodesParamsWithTimeout creates a new GetClusterNodesParams object
 // with the ability to set a timeout on a request.
 func NewGetClusterNodesParamsWithTimeout(timeout time.Duration) *GetClusterNodesParams {
 	return &GetClusterNodesParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetClusterNodesParamsWithContext creates a new GetClusterNodesParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetClusterNodesParams].
 func NewGetClusterNodesParamsWithContext(ctx context.Context) *GetClusterNodesParams {
 	return &GetClusterNodesParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -71,9 +75,9 @@ type GetClusterNodesParams struct {
 	*/
 	ClientID *int64
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get cluster nodes params (not the query body).
@@ -91,54 +95,57 @@ func (o *GetClusterNodesParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get cluster nodes params
+// WithTimeout adds the timeout to the get cluster nodes params.
 func (o *GetClusterNodesParams) WithTimeout(timeout time.Duration) *GetClusterNodesParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get cluster nodes params
+// SetTimeout adds the timeout to the get cluster nodes params.
 func (o *GetClusterNodesParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get cluster nodes params
+// WithContext adds the context to the get cluster nodes params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetClusterNodesParams].
 func (o *GetClusterNodesParams) WithContext(ctx context.Context) *GetClusterNodesParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get cluster nodes params
+// SetContext adds the context to the get cluster nodes params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetClusterNodesParams].
 func (o *GetClusterNodesParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get cluster nodes params
+// WithHTTPClient adds the HTTPClient to the get cluster nodes params.
 func (o *GetClusterNodesParams) WithHTTPClient(client *http.Client) *GetClusterNodesParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get cluster nodes params
+// SetHTTPClient adds the HTTPClient to the get cluster nodes params.
 func (o *GetClusterNodesParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithClientID adds the clientID to the get cluster nodes params
+// WithClientID adds the clientID to the get cluster nodes params.
 func (o *GetClusterNodesParams) WithClientID(clientID *int64) *GetClusterNodesParams {
 	o.SetClientID(clientID)
 	return o
 }
 
-// SetClientID adds the clientId to the get cluster nodes params
+// SetClientID adds the clientId to the get cluster nodes params.
 func (o *GetClusterNodesParams) SetClientID(clientID *int64) {
 	o.ClientID = clientID
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetClusterNodesParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
@@ -146,7 +153,7 @@ func (o *GetClusterNodesParams) WriteToRequest(r runtime.ClientRequest, reg strf
 	if o.ClientID != nil {
 
 		// header param client-id
-		if err := r.SetHeaderParam("client-id", swag.FormatInt64(*o.ClientID)); err != nil {
+		if err := r.SetHeaderParam("client-id", conv.FormatInteger(*o.ClientID)); err != nil {
 			return err
 		}
 	}

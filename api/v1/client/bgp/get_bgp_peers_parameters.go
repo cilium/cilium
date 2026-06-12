@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetBgpPeersParams() *GetBgpPeersParams {
-	return &GetBgpPeersParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetBgpPeersParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetBgpPeersParamsWithTimeout creates a new GetBgpPeersParams object
 // with the ability to set a timeout on a request.
 func NewGetBgpPeersParamsWithTimeout(timeout time.Duration) *GetBgpPeersParams {
 	return &GetBgpPeersParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetBgpPeersParamsWithContext creates a new GetBgpPeersParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpPeersParams].
 func NewGetBgpPeersParamsWithContext(ctx context.Context) *GetBgpPeersParams {
 	return &GetBgpPeersParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetBgpPeersParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetBgpPeersParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get bgp peers params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetBgpPeersParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get bgp peers params
+// WithTimeout adds the timeout to the get bgp peers params.
 func (o *GetBgpPeersParams) WithTimeout(timeout time.Duration) *GetBgpPeersParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get bgp peers params
+// SetTimeout adds the timeout to the get bgp peers params.
 func (o *GetBgpPeersParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get bgp peers params
+// WithContext adds the context to the get bgp peers params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpPeersParams].
 func (o *GetBgpPeersParams) WithContext(ctx context.Context) *GetBgpPeersParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get bgp peers params
+// SetContext adds the context to the get bgp peers params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetBgpPeersParams].
 func (o *GetBgpPeersParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get bgp peers params
+// WithHTTPClient adds the HTTPClient to the get bgp peers params.
 func (o *GetBgpPeersParams) WithHTTPClient(client *http.Client) *GetBgpPeersParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get bgp peers params
+// SetHTTPClient adds the HTTPClient to the get bgp peers params.
 func (o *GetBgpPeersParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetBgpPeersParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

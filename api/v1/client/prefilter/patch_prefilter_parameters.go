@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchPrefilterParams creates a new PatchPrefilterParams object,
@@ -25,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPatchPrefilterParams() *PatchPrefilterParams {
-	return &PatchPrefilterParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewPatchPrefilterParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewPatchPrefilterParamsWithTimeout creates a new PatchPrefilterParams object
 // with the ability to set a timeout on a request.
 func NewPatchPrefilterParamsWithTimeout(timeout time.Duration) *PatchPrefilterParams {
 	return &PatchPrefilterParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewPatchPrefilterParamsWithContext creates a new PatchPrefilterParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchPrefilterParams].
 func NewPatchPrefilterParamsWithContext(ctx context.Context) *PatchPrefilterParams {
 	return &PatchPrefilterParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -69,9 +72,9 @@ type PatchPrefilterParams struct {
 	*/
 	PrefilterSpec *models.PrefilterSpec
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the patch prefilter params (not the query body).
@@ -89,54 +92,57 @@ func (o *PatchPrefilterParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the patch prefilter params
+// WithTimeout adds the timeout to the patch prefilter params.
 func (o *PatchPrefilterParams) WithTimeout(timeout time.Duration) *PatchPrefilterParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the patch prefilter params
+// SetTimeout adds the timeout to the patch prefilter params.
 func (o *PatchPrefilterParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the patch prefilter params
+// WithContext adds the context to the patch prefilter params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchPrefilterParams].
 func (o *PatchPrefilterParams) WithContext(ctx context.Context) *PatchPrefilterParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the patch prefilter params
+// SetContext adds the context to the patch prefilter params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchPrefilterParams].
 func (o *PatchPrefilterParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the patch prefilter params
+// WithHTTPClient adds the HTTPClient to the patch prefilter params.
 func (o *PatchPrefilterParams) WithHTTPClient(client *http.Client) *PatchPrefilterParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the patch prefilter params
+// SetHTTPClient adds the HTTPClient to the patch prefilter params.
 func (o *PatchPrefilterParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithPrefilterSpec adds the prefilterSpec to the patch prefilter params
+// WithPrefilterSpec adds the prefilterSpec to the patch prefilter params.
 func (o *PatchPrefilterParams) WithPrefilterSpec(prefilterSpec *models.PrefilterSpec) *PatchPrefilterParams {
 	o.SetPrefilterSpec(prefilterSpec)
 	return o
 }
 
-// SetPrefilterSpec adds the prefilterSpec to the patch prefilter params
+// SetPrefilterSpec adds the prefilterSpec to the patch prefilter params.
 func (o *PatchPrefilterParams) SetPrefilterSpec(prefilterSpec *models.PrefilterSpec) {
 	o.PrefilterSpec = prefilterSpec
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *PatchPrefilterParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

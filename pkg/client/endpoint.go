@@ -13,7 +13,8 @@ import (
 
 // EndpointList returns a list of all endpoints
 func (c *Client) EndpointList() ([]*models.Endpoint, error) {
-	resp, err := c.Endpoint.GetEndpoint(nil)
+	params := endpoint.NewGetEndpointParams().WithTimeout(api.ClientTimeout)
+	resp, err := c.Endpoint.GetEndpoint(params)
 	if err != nil {
 		return nil, Hint(err)
 	}

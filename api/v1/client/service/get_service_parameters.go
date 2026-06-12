@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetServiceParams() *GetServiceParams {
-	return &GetServiceParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetServiceParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetServiceParamsWithTimeout creates a new GetServiceParams object
 // with the ability to set a timeout on a request.
 func NewGetServiceParamsWithTimeout(timeout time.Duration) *GetServiceParams {
 	return &GetServiceParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetServiceParamsWithContext creates a new GetServiceParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetServiceParams].
 func NewGetServiceParamsWithContext(ctx context.Context) *GetServiceParams {
 	return &GetServiceParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetServiceParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetServiceParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get service params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetServiceParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get service params
+// WithTimeout adds the timeout to the get service params.
 func (o *GetServiceParams) WithTimeout(timeout time.Duration) *GetServiceParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get service params
+// SetTimeout adds the timeout to the get service params.
 func (o *GetServiceParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get service params
+// WithContext adds the context to the get service params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetServiceParams].
 func (o *GetServiceParams) WithContext(ctx context.Context) *GetServiceParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get service params
+// SetContext adds the context to the get service params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetServiceParams].
 func (o *GetServiceParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get service params
+// WithHTTPClient adds the HTTPClient to the get service params.
 func (o *GetServiceParams) WithHTTPClient(client *http.Client) *GetServiceParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get service params
+// SetHTTPClient adds the HTTPClient to the get service params.
 func (o *GetServiceParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetServiceParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
