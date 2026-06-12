@@ -451,6 +451,8 @@ from Cilium.
   originally introduced for the v1.3 to v1.4 upgrade path and are no longer
   needed.
 
+* The previously deprecated ``cilium-docker-plugin`` has been removed.
+
 * The previously deprecated support for providing Cluster Mesh TLS certificates
   and keys as helm values has been removed. You are now expected to pre-create
   these secrets outside of the Cilium Helm chart when setting

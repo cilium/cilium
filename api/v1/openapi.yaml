@@ -972,7 +972,6 @@ parameters:
         - container-name: Container name, e.g. container-name:foobar (deprecated, may not be unique)
         - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar (deprecated, may not be unique)
         - cep-name: cep name for this container if K8s is enabled, e.g. pod-name:default:foobar-net1
-        - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444
     in: path
     required: true
     type: string
@@ -1190,15 +1189,9 @@ definitions:
       container-netns-path:
         description: Path of Container Netns
         type: string
-      docker-endpoint-id:
-        description: Docker endpoint ID
-        type: string
       labels:
         description: Labels describing the identity
         "$ref": "#/definitions/Labels"
-      docker-network-id:
-        description: Docker network ID
-        type: string
       interface-name:
         description: Name of network device in host netns
         type: string
@@ -1795,6 +1788,11 @@ definitions:
       container-name:
         description: Name assigned to container (deprecated, may not be unique)
         type: string
+      # docker-endpoint-id and docker-network-id are retained for backwards
+      # compatibility only. The cilium-docker plugin has been removed and nothing
+      # populates these anymore, but during an upgrade older agents may still set
+      # them on the CiliumEndpoint CRD. The fields must stay in the schema so the
+      # generated CRD keeps accepting those objects. Do not remove.
       docker-endpoint-id:
         description: Docker endpoint ID
         type: string

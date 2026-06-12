@@ -65,8 +65,6 @@ with support for both ``linux/amd64`` and ``linux/arm64`` platforms.
 +-------------------------------+---------------------------------------------+-----------------------------------------------+
 | github.com/cilium/cilium      | images/builder/Dockerfile                   | quay.io/cilium/cilium-builder                 |
 |                               +---------------------------------------------+-----------------------------------------------+
-|                               | images/cilium-docker-plugin/Dockerfile      | [quay|docker].io/cilium/docker-plugin         |
-|                               +---------------------------------------------+-----------------------------------------------+
 |                               | images/cilium/Dockerfile                    | [quay|docker].io/cilium/cilium                |
 |                               +---------------------------------------------+-----------------------------------------------+
 |                               | images/clustermesh-apiserver/Dockerfile     | [quay|docker].io/cilium/clustermesh-apiserver |
