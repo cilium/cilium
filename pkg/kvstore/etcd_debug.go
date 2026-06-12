@@ -394,6 +394,18 @@ func etcdDbgOutputCert(cert *x509.Certificate, iw *indentedWriter) {
 	iw.Println("- Serial number:       %s", hexfmt(cert.SerialNumber.Text(16)))
 
 	iw.Println("  Subject:             %s", cert.Subject)
+	if len(cert.DNSNames)+len(cert.URIs)+len(cert.IPAddresses) > 0 {
+		iw.Println("  Subject alternative names:")
+		for _, name := range cert.DNSNames {
+			iw.Println("  - %s", name)
+		}
+		for _, uri := range cert.URIs {
+			iw.Println("  - %s", uri)
+		}
+		for _, ip := range cert.IPAddresses {
+			iw.Println("  - %s", ip)
+		}
+	}
 	if len(cert.SubjectKeyId) > 0 {
 		iw.Println("  Subject key ID:      %s", hexfmt(hex.EncodeToString(cert.SubjectKeyId)))
 	}
