@@ -61,8 +61,7 @@ func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpoint(nsName, p
 
 	// set the named ports identity label on new (non-restored) endpoints
 	if err == nil && newPod {
-		lbl, haveLbl := k8s.NamedPortsIdentityLabel(metadata.NamedPorts)
-		if haveLbl {
+		for _, lbl := range k8s.NamedPortsIdentityLabels(metadata.NamedPorts) {
 			metadata.IdentityLabels[lbl.Key] = lbl
 		}
 	}

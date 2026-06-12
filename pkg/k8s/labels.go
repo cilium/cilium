@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/validate/content"
+
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
@@ -58,22 +60,52 @@ func GetPodMetadata(logger *slog.Logger, k8sNs nameLabelsGetter, pod *slim_corev
 	return namedPorts, labels
 }
 
-// NamedPortsIdentityLabel returns the generated identity label for named ports.
-func NamedPortsIdentityLabel(namedPorts ciliumTypes.NamedPortMap) (ciliumLabels.Label, bool) {
+// NamedPortsIdentityLabels returns the generated identity labels for named ports.
+// Use delimiters allowed in k8s label values:
+// '.' - separate fields
+// '_' - separate multiple values
+//
+// Note that a single named port always fits into a single label, as the named port name is limited
+// to 15 characters (IANA service name limitation), and a single label can be upto 63 characters
+// long.
+func NamedPortsIdentityLabels(namedPorts ciliumTypes.NamedPortMap) ciliumLabels.LabelArray {
 	if len(namedPorts) == 0 {
-		return ciliumLabels.Label{}, false
+		return nil
 	}
 
+	var labels ciliumLabels.LabelArray
 	var value strings.Builder
-	for i, name := range slices.Sorted(maps.Keys(namedPorts)) {
-		if i > 0 {
-			value.WriteByte(',')
+
+	appendLabel := func() {
+		labels = append(labels, ciliumLabels.NewLabel(
+			ciliumio.NamedPortsIdentityLabelNameForIndex(len(labels)),
+			value.String(),
+			ciliumLabels.LabelSourceGenerated,
+		))
+		value.Reset()
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(namedPorts)) {
+		port := namedPorts[name]
+		portProto := port.Proto.String()
+		portNum := strconv.Itoa(int(port.Port))
+
+		partLen := len(name) + 1 + len(portProto) + 1 + len(portNum)
+		if value.Len() > 0 && value.Len()+1+partLen > content.LabelValueMaxLength {
+			appendLabel()
+		}
+
+		if value.Len() > 0 {
+			value.WriteByte('_')
 		}
 		value.WriteString(name)
-		value.WriteByte(':')
-		value.WriteString(namedPorts[name].Proto.String())
-		value.WriteByte(':')
-		value.WriteString(strconv.Itoa(int(namedPorts[name].Port)))
+		value.WriteByte('.')
+		value.WriteString(portProto)
+		value.WriteByte('.')
+		value.WriteString(portNum)
 	}
-	return ciliumLabels.NewLabel(ciliumio.NamedPortsIdentityLabelName, value.String(), ciliumLabels.LabelSourceGenerated), true
+	if value.Len() > 0 {
+		appendLabel()
+	}
+	return labels
 }
