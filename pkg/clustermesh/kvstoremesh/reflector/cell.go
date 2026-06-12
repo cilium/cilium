@@ -9,6 +9,7 @@ import (
 	mcsapi "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	service "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	endpointslice "github.com/cilium/cilium/pkg/clustermesh/types/endpointslice"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -39,6 +40,13 @@ var Cell = cell.Group(
 				}),
 			)}
 		},
+
+		Out(NewFactory(EndpointSlices, endpointslice.EndpointSliceStorePrefix,
+			WithRevocation(),
+			WithEnabledOverride(func(cfg types.CiliumClusterConfig) bool {
+				return cfg.Capabilities.EndpointSlicesExportMode != types.EndpointSlicesExportModeServicesOnly
+			}),
+		)),
 
 		Out(NewFactory(ServiceExports, mcsapi.ServiceExportStorePrefix,
 			WithRevocation(),
