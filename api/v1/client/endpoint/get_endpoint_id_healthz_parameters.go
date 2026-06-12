@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetEndpointIDHealthzParams() *GetEndpointIDHealthzParams {
-	return &GetEndpointIDHealthzParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetEndpointIDHealthzParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetEndpointIDHealthzParamsWithTimeout creates a new GetEndpointIDHealthzParams object
 // with the ability to set a timeout on a request.
 func NewGetEndpointIDHealthzParamsWithTimeout(timeout time.Duration) *GetEndpointIDHealthzParams {
 	return &GetEndpointIDHealthzParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetEndpointIDHealthzParamsWithContext creates a new GetEndpointIDHealthzParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDHealthzParams].
 func NewGetEndpointIDHealthzParamsWithContext(ctx context.Context) *GetEndpointIDHealthzParams {
 	return &GetEndpointIDHealthzParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -81,9 +85,9 @@ type GetEndpointIDHealthzParams struct {
 	*/
 	ID string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get endpoint ID healthz params (not the query body).
@@ -101,54 +105,57 @@ func (o *GetEndpointIDHealthzParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get endpoint ID healthz params
+// WithTimeout adds the timeout to the get endpoint ID healthz params.
 func (o *GetEndpointIDHealthzParams) WithTimeout(timeout time.Duration) *GetEndpointIDHealthzParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get endpoint ID healthz params
+// SetTimeout adds the timeout to the get endpoint ID healthz params.
 func (o *GetEndpointIDHealthzParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get endpoint ID healthz params
+// WithContext adds the context to the get endpoint ID healthz params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDHealthzParams].
 func (o *GetEndpointIDHealthzParams) WithContext(ctx context.Context) *GetEndpointIDHealthzParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get endpoint ID healthz params
+// SetContext adds the context to the get endpoint ID healthz params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDHealthzParams].
 func (o *GetEndpointIDHealthzParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get endpoint ID healthz params
+// WithHTTPClient adds the HTTPClient to the get endpoint ID healthz params.
 func (o *GetEndpointIDHealthzParams) WithHTTPClient(client *http.Client) *GetEndpointIDHealthzParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get endpoint ID healthz params
+// SetHTTPClient adds the HTTPClient to the get endpoint ID healthz params.
 func (o *GetEndpointIDHealthzParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithID adds the id to the get endpoint ID healthz params
+// WithID adds the id to the get endpoint ID healthz params.
 func (o *GetEndpointIDHealthzParams) WithID(id string) *GetEndpointIDHealthzParams {
 	o.SetID(id)
 	return o
 }
 
-// SetID adds the id to the get endpoint ID healthz params
+// SetID adds the id to the get endpoint ID healthz params.
 func (o *GetEndpointIDHealthzParams) SetID(id string) {
 	o.ID = id
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetEndpointIDHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

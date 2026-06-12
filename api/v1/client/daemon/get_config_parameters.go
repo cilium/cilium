@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetConfigParams() *GetConfigParams {
-	return &GetConfigParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetConfigParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetConfigParamsWithTimeout creates a new GetConfigParams object
 // with the ability to set a timeout on a request.
 func NewGetConfigParamsWithTimeout(timeout time.Duration) *GetConfigParams {
 	return &GetConfigParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetConfigParamsWithContext creates a new GetConfigParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetConfigParams].
 func NewGetConfigParamsWithContext(ctx context.Context) *GetConfigParams {
 	return &GetConfigParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetConfigParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetConfigParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get config params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetConfigParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get config params
+// WithTimeout adds the timeout to the get config params.
 func (o *GetConfigParams) WithTimeout(timeout time.Duration) *GetConfigParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get config params
+// SetTimeout adds the timeout to the get config params.
 func (o *GetConfigParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get config params
+// WithContext adds the context to the get config params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetConfigParams].
 func (o *GetConfigParams) WithContext(ctx context.Context) *GetConfigParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get config params
+// SetContext adds the context to the get config params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetConfigParams].
 func (o *GetConfigParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get config params
+// WithHTTPClient adds the HTTPClient to the get config params.
 func (o *GetConfigParams) WithHTTPClient(client *http.Client) *GetConfigParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get config params
+// SetHTTPClient adds the HTTPClient to the get config params.
 func (o *GetConfigParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetConfigParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

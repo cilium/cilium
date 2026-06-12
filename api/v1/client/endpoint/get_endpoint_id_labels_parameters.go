@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetEndpointIDLabelsParams() *GetEndpointIDLabelsParams {
-	return &GetEndpointIDLabelsParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetEndpointIDLabelsParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetEndpointIDLabelsParamsWithTimeout creates a new GetEndpointIDLabelsParams object
 // with the ability to set a timeout on a request.
 func NewGetEndpointIDLabelsParamsWithTimeout(timeout time.Duration) *GetEndpointIDLabelsParams {
 	return &GetEndpointIDLabelsParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetEndpointIDLabelsParamsWithContext creates a new GetEndpointIDLabelsParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDLabelsParams].
 func NewGetEndpointIDLabelsParamsWithContext(ctx context.Context) *GetEndpointIDLabelsParams {
 	return &GetEndpointIDLabelsParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -81,9 +85,9 @@ type GetEndpointIDLabelsParams struct {
 	*/
 	ID string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get endpoint ID labels params (not the query body).
@@ -101,54 +105,57 @@ func (o *GetEndpointIDLabelsParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get endpoint ID labels params
+// WithTimeout adds the timeout to the get endpoint ID labels params.
 func (o *GetEndpointIDLabelsParams) WithTimeout(timeout time.Duration) *GetEndpointIDLabelsParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get endpoint ID labels params
+// SetTimeout adds the timeout to the get endpoint ID labels params.
 func (o *GetEndpointIDLabelsParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get endpoint ID labels params
+// WithContext adds the context to the get endpoint ID labels params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDLabelsParams].
 func (o *GetEndpointIDLabelsParams) WithContext(ctx context.Context) *GetEndpointIDLabelsParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get endpoint ID labels params
+// SetContext adds the context to the get endpoint ID labels params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDLabelsParams].
 func (o *GetEndpointIDLabelsParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get endpoint ID labels params
+// WithHTTPClient adds the HTTPClient to the get endpoint ID labels params.
 func (o *GetEndpointIDLabelsParams) WithHTTPClient(client *http.Client) *GetEndpointIDLabelsParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get endpoint ID labels params
+// SetHTTPClient adds the HTTPClient to the get endpoint ID labels params.
 func (o *GetEndpointIDLabelsParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithID adds the id to the get endpoint ID labels params
+// WithID adds the id to the get endpoint ID labels params.
 func (o *GetEndpointIDLabelsParams) WithID(id string) *GetEndpointIDLabelsParams {
 	o.SetID(id)
 	return o
 }
 
-// SetID adds the id to the get endpoint ID labels params
+// SetID adds the id to the get endpoint ID labels params.
 func (o *GetEndpointIDLabelsParams) SetID(id string) {
 	o.ID = id
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetEndpointIDLabelsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

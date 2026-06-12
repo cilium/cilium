@@ -13,7 +13,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -66,12 +67,12 @@ func (m *KubeProxyReplacement) Validate(formats strfmt.Registry) error {
 }
 
 func (m *KubeProxyReplacement) validateDeviceList(formats strfmt.Registry) error {
-	if swag.IsZero(m.DeviceList) { // not required
+	if typeutils.IsZero(m.DeviceList) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.DeviceList); i++ {
-		if swag.IsZero(m.DeviceList[i]) { // not required
+		if typeutils.IsZero(m.DeviceList[i]) { // not required
 			continue
 		}
 
@@ -96,7 +97,7 @@ func (m *KubeProxyReplacement) validateDeviceList(formats strfmt.Registry) error
 }
 
 func (m *KubeProxyReplacement) validateFeatures(formats strfmt.Registry) error {
-	if swag.IsZero(m.Features) { // not required
+	if typeutils.IsZero(m.Features) { // not required
 		return nil
 	}
 
@@ -148,7 +149,7 @@ func (m *KubeProxyReplacement) validateModeEnum(path, location string, value str
 }
 
 func (m *KubeProxyReplacement) validateMode(formats strfmt.Registry) error {
-	if swag.IsZero(m.Mode) { // not required
+	if typeutils.IsZero(m.Mode) { // not required
 		return nil
 	}
 
@@ -184,7 +185,7 @@ func (m *KubeProxyReplacement) contextValidateDeviceList(ctx context.Context, fo
 
 		if m.DeviceList[i] != nil {
 
-			if swag.IsZero(m.DeviceList[i]) { // not required
+			if typeutils.IsZero(m.DeviceList[i]) { // not required
 				return nil
 			}
 
@@ -211,7 +212,7 @@ func (m *KubeProxyReplacement) contextValidateFeatures(ctx context.Context, form
 
 	if m.Features != nil {
 
-		if swag.IsZero(m.Features) { // not required
+		if typeutils.IsZero(m.Features) { // not required
 			return nil
 		}
 
@@ -237,13 +238,13 @@ func (m *KubeProxyReplacement) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacement) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacement
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -281,13 +282,13 @@ func (m *KubeProxyReplacementDeviceListItems0) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementDeviceListItems0) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementDeviceListItems0
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -382,7 +383,7 @@ func (m *KubeProxyReplacementFeatures) Validate(formats strfmt.Registry) error {
 }
 
 func (m *KubeProxyReplacementFeatures) validateExternalIPs(formats strfmt.Registry) error {
-	if swag.IsZero(m.ExternalIPs) { // not required
+	if typeutils.IsZero(m.ExternalIPs) { // not required
 		return nil
 	}
 
@@ -405,7 +406,7 @@ func (m *KubeProxyReplacementFeatures) validateExternalIPs(formats strfmt.Regist
 }
 
 func (m *KubeProxyReplacementFeatures) validateGracefulTermination(formats strfmt.Registry) error {
-	if swag.IsZero(m.GracefulTermination) { // not required
+	if typeutils.IsZero(m.GracefulTermination) { // not required
 		return nil
 	}
 
@@ -428,7 +429,7 @@ func (m *KubeProxyReplacementFeatures) validateGracefulTermination(formats strfm
 }
 
 func (m *KubeProxyReplacementFeatures) validateHostPort(formats strfmt.Registry) error {
-	if swag.IsZero(m.HostPort) { // not required
+	if typeutils.IsZero(m.HostPort) { // not required
 		return nil
 	}
 
@@ -451,7 +452,7 @@ func (m *KubeProxyReplacementFeatures) validateHostPort(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeatures) validateHostReachableServices(formats strfmt.Registry) error {
-	if swag.IsZero(m.HostReachableServices) { // not required
+	if typeutils.IsZero(m.HostReachableServices) { // not required
 		return nil
 	}
 
@@ -474,7 +475,7 @@ func (m *KubeProxyReplacementFeatures) validateHostReachableServices(formats str
 }
 
 func (m *KubeProxyReplacementFeatures) validateNat46X64(formats strfmt.Registry) error {
-	if swag.IsZero(m.Nat46X64) { // not required
+	if typeutils.IsZero(m.Nat46X64) { // not required
 		return nil
 	}
 
@@ -497,7 +498,7 @@ func (m *KubeProxyReplacementFeatures) validateNat46X64(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeatures) validateNodePort(formats strfmt.Registry) error {
-	if swag.IsZero(m.NodePort) { // not required
+	if typeutils.IsZero(m.NodePort) { // not required
 		return nil
 	}
 
@@ -520,7 +521,7 @@ func (m *KubeProxyReplacementFeatures) validateNodePort(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeatures) validateSessionAffinity(formats strfmt.Registry) error {
-	if swag.IsZero(m.SessionAffinity) { // not required
+	if typeutils.IsZero(m.SessionAffinity) { // not required
 		return nil
 	}
 
@@ -543,7 +544,7 @@ func (m *KubeProxyReplacementFeatures) validateSessionAffinity(formats strfmt.Re
 }
 
 func (m *KubeProxyReplacementFeatures) validateSocketLB(formats strfmt.Registry) error {
-	if swag.IsZero(m.SocketLB) { // not required
+	if typeutils.IsZero(m.SocketLB) { // not required
 		return nil
 	}
 
@@ -566,7 +567,7 @@ func (m *KubeProxyReplacementFeatures) validateSocketLB(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeatures) validateSocketLBTracing(formats strfmt.Registry) error {
-	if swag.IsZero(m.SocketLBTracing) { // not required
+	if typeutils.IsZero(m.SocketLBTracing) { // not required
 		return nil
 	}
 
@@ -638,7 +639,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateExternalIPs(ctx context.Co
 
 	if m.ExternalIPs != nil {
 
-		if swag.IsZero(m.ExternalIPs) { // not required
+		if typeutils.IsZero(m.ExternalIPs) { // not required
 			return nil
 		}
 
@@ -663,7 +664,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateGracefulTermination(ctx co
 
 	if m.GracefulTermination != nil {
 
-		if swag.IsZero(m.GracefulTermination) { // not required
+		if typeutils.IsZero(m.GracefulTermination) { // not required
 			return nil
 		}
 
@@ -688,7 +689,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateHostPort(ctx context.Conte
 
 	if m.HostPort != nil {
 
-		if swag.IsZero(m.HostPort) { // not required
+		if typeutils.IsZero(m.HostPort) { // not required
 			return nil
 		}
 
@@ -713,7 +714,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateHostReachableServices(ctx 
 
 	if m.HostReachableServices != nil {
 
-		if swag.IsZero(m.HostReachableServices) { // not required
+		if typeutils.IsZero(m.HostReachableServices) { // not required
 			return nil
 		}
 
@@ -738,7 +739,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateNat46X64(ctx context.Conte
 
 	if m.Nat46X64 != nil {
 
-		if swag.IsZero(m.Nat46X64) { // not required
+		if typeutils.IsZero(m.Nat46X64) { // not required
 			return nil
 		}
 
@@ -763,7 +764,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateNodePort(ctx context.Conte
 
 	if m.NodePort != nil {
 
-		if swag.IsZero(m.NodePort) { // not required
+		if typeutils.IsZero(m.NodePort) { // not required
 			return nil
 		}
 
@@ -788,7 +789,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateSessionAffinity(ctx contex
 
 	if m.SessionAffinity != nil {
 
-		if swag.IsZero(m.SessionAffinity) { // not required
+		if typeutils.IsZero(m.SessionAffinity) { // not required
 			return nil
 		}
 
@@ -813,7 +814,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateSocketLB(ctx context.Conte
 
 	if m.SocketLB != nil {
 
-		if swag.IsZero(m.SocketLB) { // not required
+		if typeutils.IsZero(m.SocketLB) { // not required
 			return nil
 		}
 
@@ -838,7 +839,7 @@ func (m *KubeProxyReplacementFeatures) contextValidateSocketLBTracing(ctx contex
 
 	if m.SocketLBTracing != nil {
 
-		if swag.IsZero(m.SocketLBTracing) { // not required
+		if typeutils.IsZero(m.SocketLBTracing) { // not required
 			return nil
 		}
 
@@ -864,13 +865,13 @@ func (m *KubeProxyReplacementFeatures) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeatures) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeatures
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -901,13 +902,13 @@ func (m *KubeProxyReplacementFeaturesExternalIPs) MarshalBinary() ([]byte, error
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesExternalIPs) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesExternalIPs
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -938,13 +939,13 @@ func (m *KubeProxyReplacementFeaturesGracefulTermination) MarshalBinary() ([]byt
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesGracefulTermination) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesGracefulTermination
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -975,13 +976,13 @@ func (m *KubeProxyReplacementFeaturesHostPort) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesHostPort) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesHostPort
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -1017,13 +1018,13 @@ func (m *KubeProxyReplacementFeaturesHostReachableServices) MarshalBinary() ([]b
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesHostReachableServices) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesHostReachableServices
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -1066,7 +1067,7 @@ func (m *KubeProxyReplacementFeaturesNat46X64) Validate(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeaturesNat46X64) validateGateway(formats strfmt.Registry) error {
-	if swag.IsZero(m.Gateway) { // not required
+	if typeutils.IsZero(m.Gateway) { // not required
 		return nil
 	}
 
@@ -1089,7 +1090,7 @@ func (m *KubeProxyReplacementFeaturesNat46X64) validateGateway(formats strfmt.Re
 }
 
 func (m *KubeProxyReplacementFeaturesNat46X64) validateService(formats strfmt.Registry) error {
-	if swag.IsZero(m.Service) { // not required
+	if typeutils.IsZero(m.Service) { // not required
 		return nil
 	}
 
@@ -1133,7 +1134,7 @@ func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateGateway(ctx contex
 
 	if m.Gateway != nil {
 
-		if swag.IsZero(m.Gateway) { // not required
+		if typeutils.IsZero(m.Gateway) { // not required
 			return nil
 		}
 
@@ -1158,7 +1159,7 @@ func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateService(ctx contex
 
 	if m.Service != nil {
 
-		if swag.IsZero(m.Service) { // not required
+		if typeutils.IsZero(m.Service) { // not required
 			return nil
 		}
 
@@ -1184,13 +1185,13 @@ func (m *KubeProxyReplacementFeaturesNat46X64) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesNat46X64) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesNat46X64
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -1226,13 +1227,13 @@ func (m *KubeProxyReplacementFeaturesNat46X64Gateway) MarshalBinary() ([]byte, e
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesNat46X64Gateway) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesNat46X64Gateway
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -1263,13 +1264,13 @@ func (m *KubeProxyReplacementFeaturesNat46X64Service) MarshalBinary() ([]byte, e
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesNat46X64Service) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesNat46X64Service
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -1372,7 +1373,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateAccelerationEnum(path, lo
 }
 
 func (m *KubeProxyReplacementFeaturesNodePort) validateAcceleration(formats strfmt.Registry) error {
-	if swag.IsZero(m.Acceleration) { // not required
+	if typeutils.IsZero(m.Acceleration) { // not required
 		return nil
 	}
 
@@ -1414,7 +1415,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateAlgorithmEnum(path, locat
 }
 
 func (m *KubeProxyReplacementFeaturesNodePort) validateAlgorithm(formats strfmt.Registry) error {
-	if swag.IsZero(m.Algorithm) { // not required
+	if typeutils.IsZero(m.Algorithm) { // not required
 		return nil
 	}
 
@@ -1440,8 +1441,8 @@ func init() {
 
 const (
 
-	// KubeProxyReplacementFeaturesNodePortDsrModeIPOptionExtension captures enum value "IP Option/Extension"
-	KubeProxyReplacementFeaturesNodePortDsrModeIPOptionExtension string = "IP Option/Extension"
+	// KubeProxyReplacementFeaturesNodePortDsrModeIPOptionSlashExtension captures enum value "IP Option/Extension"
+	KubeProxyReplacementFeaturesNodePortDsrModeIPOptionSlashExtension string = "IP Option/Extension"
 
 	// KubeProxyReplacementFeaturesNodePortDsrModeIPIP captures enum value "IPIP"
 	KubeProxyReplacementFeaturesNodePortDsrModeIPIP string = "IPIP"
@@ -1459,7 +1460,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateDsrModeEnum(path, locatio
 }
 
 func (m *KubeProxyReplacementFeaturesNodePort) validateDsrMode(formats strfmt.Registry) error {
-	if swag.IsZero(m.DsrMode) { // not required
+	if typeutils.IsZero(m.DsrMode) { // not required
 		return nil
 	}
 
@@ -1504,7 +1505,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateModeEnum(path, location s
 }
 
 func (m *KubeProxyReplacementFeaturesNodePort) validateMode(formats strfmt.Registry) error {
-	if swag.IsZero(m.Mode) { // not required
+	if typeutils.IsZero(m.Mode) { // not required
 		return nil
 	}
 
@@ -1526,13 +1527,13 @@ func (m *KubeProxyReplacementFeaturesNodePort) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesNodePort) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesNodePort
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -1563,13 +1564,13 @@ func (m *KubeProxyReplacementFeaturesSessionAffinity) MarshalBinary() ([]byte, e
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesSessionAffinity) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesSessionAffinity
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -1600,13 +1601,13 @@ func (m *KubeProxyReplacementFeaturesSocketLB) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesSocketLB) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesSocketLB
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -1637,13 +1638,13 @@ func (m *KubeProxyReplacementFeaturesSocketLBTracing) MarshalBinary() ([]byte, e
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesSocketLBTracing) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesSocketLBTracing
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

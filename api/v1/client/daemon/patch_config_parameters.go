@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchConfigParams creates a new PatchConfigParams object,
@@ -25,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPatchConfigParams() *PatchConfigParams {
-	return &PatchConfigParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewPatchConfigParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewPatchConfigParamsWithTimeout creates a new PatchConfigParams object
 // with the ability to set a timeout on a request.
 func NewPatchConfigParamsWithTimeout(timeout time.Duration) *PatchConfigParams {
 	return &PatchConfigParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewPatchConfigParamsWithContext creates a new PatchConfigParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchConfigParams].
 func NewPatchConfigParamsWithContext(ctx context.Context) *PatchConfigParams {
 	return &PatchConfigParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -66,9 +69,9 @@ type PatchConfigParams struct {
 	// Configuration.
 	Configuration *models.DaemonConfigurationSpec
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the patch config params (not the query body).
@@ -86,54 +89,57 @@ func (o *PatchConfigParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the patch config params
+// WithTimeout adds the timeout to the patch config params.
 func (o *PatchConfigParams) WithTimeout(timeout time.Duration) *PatchConfigParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the patch config params
+// SetTimeout adds the timeout to the patch config params.
 func (o *PatchConfigParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the patch config params
+// WithContext adds the context to the patch config params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchConfigParams].
 func (o *PatchConfigParams) WithContext(ctx context.Context) *PatchConfigParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the patch config params
+// SetContext adds the context to the patch config params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchConfigParams].
 func (o *PatchConfigParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the patch config params
+// WithHTTPClient adds the HTTPClient to the patch config params.
 func (o *PatchConfigParams) WithHTTPClient(client *http.Client) *PatchConfigParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the patch config params
+// SetHTTPClient adds the HTTPClient to the patch config params.
 func (o *PatchConfigParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithConfiguration adds the configuration to the patch config params
+// WithConfiguration adds the configuration to the patch config params.
 func (o *PatchConfigParams) WithConfiguration(configuration *models.DaemonConfigurationSpec) *PatchConfigParams {
 	o.SetConfiguration(configuration)
 	return o
 }
 
-// SetConfiguration adds the configuration to the patch config params
+// SetConfiguration adds the configuration to the patch config params.
 func (o *PatchConfigParams) SetConfiguration(configuration *models.DaemonConfigurationSpec) {
 	o.Configuration = configuration
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *PatchConfigParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

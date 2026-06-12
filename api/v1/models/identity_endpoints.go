@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // IdentityEndpoints Security identities owned by endpoints on the local node
@@ -41,7 +42,7 @@ func (m *IdentityEndpoints) Validate(formats strfmt.Registry) error {
 }
 
 func (m *IdentityEndpoints) validateIdentity(formats strfmt.Registry) error {
-	if swag.IsZero(m.Identity) { // not required
+	if typeutils.IsZero(m.Identity) { // not required
 		return nil
 	}
 
@@ -81,7 +82,7 @@ func (m *IdentityEndpoints) contextValidateIdentity(ctx context.Context, formats
 
 	if m.Identity != nil {
 
-		if swag.IsZero(m.Identity) { // not required
+		if typeutils.IsZero(m.Identity) { // not required
 			return nil
 		}
 
@@ -107,13 +108,13 @@ func (m *IdentityEndpoints) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *IdentityEndpoints) UnmarshalBinary(b []byte) error {
 	var res IdentityEndpoints
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // ClusterNodesResponse cluster nodes response
@@ -42,12 +43,12 @@ func (m *ClusterNodesResponse) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ClusterNodesResponse) validateNodes(formats strfmt.Registry) error {
-	if swag.IsZero(m.Nodes) { // not required
+	if typeutils.IsZero(m.Nodes) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Nodes); i++ {
-		if swag.IsZero(m.Nodes[i]) { // not required
+		if typeutils.IsZero(m.Nodes[i]) { // not required
 			continue
 		}
 
@@ -91,7 +92,7 @@ func (m *ClusterNodesResponse) contextValidateNodes(ctx context.Context, formats
 
 		if m.Nodes[i] != nil {
 
-			if swag.IsZero(m.Nodes[i]) { // not required
+			if typeutils.IsZero(m.Nodes[i]) { // not required
 				return nil
 			}
 
@@ -119,13 +120,13 @@ func (m *ClusterNodesResponse) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *ClusterNodesResponse) UnmarshalBinary(b []byte) error {
 	var res ClusterNodesResponse
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -6,7 +6,9 @@
 package connectivity
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -14,11 +16,12 @@ import (
 )
 
 // New creates a new connectivity API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
+func New(transport runtime.ContextualTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
 // New creates a new connectivity API client with basic auth credentials.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -32,6 +35,7 @@ func NewClientWithBasicAuth(host, basePath, scheme, user, password string) Clien
 }
 
 // New creates a new connectivity API client with a bearer token for authentication.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -44,37 +48,74 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 }
 
 /*
-Client for connectivity API
+Client for connectivity API.
 */
 type Client struct {
-	transport runtime.ClientTransport
+	transport runtime.ContextualTransport
 	formats   strfmt.Registry
 }
 
 // ClientOption may be used to customize the behavior of Client methods.
 type ClientOption func(*runtime.ClientOperation)
 
-// ClientService is the interface for Client methods
+// ClientService is the interface for Client methods.
 type ClientService interface {
+
+	// GetStatus get connectivity status of the cilium cluster.
 	GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error)
 
+	// GetStatusContext get connectivity status of the cilium cluster.
+	GetStatusContext(ctx context.Context, params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error)
+
+	// PutStatusProbe run synchronous connectivity probe to determine status of the cilium cluster.
 	PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error)
 
-	SetTransport(transport runtime.ClientTransport)
+	// PutStatusProbeContext run synchronous connectivity probe to determine status of the cilium cluster.
+	PutStatusProbeContext(ctx context.Context, params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error)
+
+	SetTransport(transport runtime.ContextualTransport)
 }
 
 /*
-	GetStatus gets connectivity status of the cilium cluster
+	GetStatusgets connectivity status of the cilium cluster.
 
 	Returns the connectivity status to all other cilium-health instances
 
 using interval-based probing.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetStatusContext] instead.
 */
 func (a *Client) GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetStatusContext(ctx, params, opts...)
+}
+
+/*
+	GetStatusContextgets connectivity status of the cilium cluster.
+
+	Returns the connectivity status to all other cilium-health instances
+
+using interval-based probing.
+.
+
+	Do not use the deprecated [GetStatusParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetStatusContext(ctx context.Context, params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetStatusParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetStatus",
 		Method:             "GET",
@@ -84,13 +125,14 @@ func (a *Client) GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetS
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetStatusReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -111,17 +153,45 @@ func (a *Client) GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetS
 }
 
 /*
-	PutStatusProbe runs synchronous connectivity probe to determine status of the cilium cluster
+	PutStatusProberuns synchronous connectivity probe to determine status of the cilium cluster.
 
 	Runs a synchronous probe to all other cilium-health instances and
 
 returns the connectivity status.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.PutStatusProbeContext] instead.
 */
 func (a *Client) PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.PutStatusProbeContext(ctx, params, opts...)
+}
+
+/*
+	PutStatusProbeContextruns synchronous connectivity probe to determine status of the cilium cluster.
+
+	Runs a synchronous probe to all other cilium-health instances and
+
+returns the connectivity status.
+.
+
+	Do not use the deprecated [PutStatusProbeParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) PutStatusProbeContext(ctx context.Context, params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPutStatusProbeParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "PutStatusProbe",
 		Method:             "PUT",
@@ -131,13 +201,14 @@ func (a *Client) PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOpti
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PutStatusProbeReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +229,14 @@ func (a *Client) PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOpti
 }
 
 // SetTransport changes the transport on the client
-func (a *Client) SetTransport(transport runtime.ClientTransport) {
+func (a *Client) SetTransport(transport runtime.ContextualTransport) {
 	a.transport = transport
+}
+
+// innerParams captures internal fields so they don't conflict with user-supplied parameters.
+type innerParams struct {
+	timeout time.Duration
+
+	// Deprecated: use the operation call with context to pass the context instead of [ConnectivityParams].
+	ctx context.Context
 }

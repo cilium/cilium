@@ -20,6 +20,7 @@ import (
 	"github.com/russross/blackfriday/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
@@ -169,7 +170,7 @@ func rootWarningMessage() {
 func runDebugInfo(cmd *cobra.Command, args []string) {
 	outputTypes := validateInput()
 
-	resp, err := client.Daemon.GetDebuginfo(nil)
+	resp, err := client.Daemon.GetDebuginfo(daemon.NewGetDebuginfoParams())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 		os.Exit(1)

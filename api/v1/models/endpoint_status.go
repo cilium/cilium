@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -110,7 +111,7 @@ func (m *EndpointStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateControllers(formats strfmt.Registry) error {
-	if swag.IsZero(m.Controllers) { // not required
+	if typeutils.IsZero(m.Controllers) { // not required
 		return nil
 	}
 
@@ -131,7 +132,7 @@ func (m *EndpointStatus) validateControllers(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateExternalIdentifiers(formats strfmt.Registry) error {
-	if swag.IsZero(m.ExternalIdentifiers) { // not required
+	if typeutils.IsZero(m.ExternalIdentifiers) { // not required
 		return nil
 	}
 
@@ -154,7 +155,7 @@ func (m *EndpointStatus) validateExternalIdentifiers(formats strfmt.Registry) er
 }
 
 func (m *EndpointStatus) validateHealth(formats strfmt.Registry) error {
-	if swag.IsZero(m.Health) { // not required
+	if typeutils.IsZero(m.Health) { // not required
 		return nil
 	}
 
@@ -177,7 +178,7 @@ func (m *EndpointStatus) validateHealth(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateIdentity(formats strfmt.Registry) error {
-	if swag.IsZero(m.Identity) { // not required
+	if typeutils.IsZero(m.Identity) { // not required
 		return nil
 	}
 
@@ -200,7 +201,7 @@ func (m *EndpointStatus) validateIdentity(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateLabels(formats strfmt.Registry) error {
-	if swag.IsZero(m.Labels) { // not required
+	if typeutils.IsZero(m.Labels) { // not required
 		return nil
 	}
 
@@ -223,7 +224,7 @@ func (m *EndpointStatus) validateLabels(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateLog(formats strfmt.Registry) error {
-	if swag.IsZero(m.Log) { // not required
+	if typeutils.IsZero(m.Log) { // not required
 		return nil
 	}
 
@@ -244,7 +245,7 @@ func (m *EndpointStatus) validateLog(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateNamedPorts(formats strfmt.Registry) error {
-	if swag.IsZero(m.NamedPorts) { // not required
+	if typeutils.IsZero(m.NamedPorts) { // not required
 		return nil
 	}
 
@@ -265,7 +266,7 @@ func (m *EndpointStatus) validateNamedPorts(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateNetworking(formats strfmt.Registry) error {
-	if swag.IsZero(m.Networking) { // not required
+	if typeutils.IsZero(m.Networking) { // not required
 		return nil
 	}
 
@@ -288,7 +289,7 @@ func (m *EndpointStatus) validateNetworking(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validatePolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.Policy) { // not required
+	if typeutils.IsZero(m.Policy) { // not required
 		return nil
 	}
 
@@ -311,7 +312,7 @@ func (m *EndpointStatus) validatePolicy(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateRealized(formats strfmt.Registry) error {
-	if swag.IsZero(m.Realized) { // not required
+	if typeutils.IsZero(m.Realized) { // not required
 		return nil
 	}
 
@@ -433,7 +434,7 @@ func (m *EndpointStatus) contextValidateExternalIdentifiers(ctx context.Context,
 
 	if m.ExternalIdentifiers != nil {
 
-		if swag.IsZero(m.ExternalIdentifiers) { // not required
+		if typeutils.IsZero(m.ExternalIdentifiers) { // not required
 			return nil
 		}
 
@@ -458,7 +459,7 @@ func (m *EndpointStatus) contextValidateHealth(ctx context.Context, formats strf
 
 	if m.Health != nil {
 
-		if swag.IsZero(m.Health) { // not required
+		if typeutils.IsZero(m.Health) { // not required
 			return nil
 		}
 
@@ -483,7 +484,7 @@ func (m *EndpointStatus) contextValidateIdentity(ctx context.Context, formats st
 
 	if m.Identity != nil {
 
-		if swag.IsZero(m.Identity) { // not required
+		if typeutils.IsZero(m.Identity) { // not required
 			return nil
 		}
 
@@ -508,7 +509,7 @@ func (m *EndpointStatus) contextValidateLabels(ctx context.Context, formats strf
 
 	if m.Labels != nil {
 
-		if swag.IsZero(m.Labels) { // not required
+		if typeutils.IsZero(m.Labels) { // not required
 			return nil
 		}
 
@@ -569,7 +570,7 @@ func (m *EndpointStatus) contextValidateNetworking(ctx context.Context, formats 
 
 	if m.Networking != nil {
 
-		if swag.IsZero(m.Networking) { // not required
+		if typeutils.IsZero(m.Networking) { // not required
 			return nil
 		}
 
@@ -594,7 +595,7 @@ func (m *EndpointStatus) contextValidatePolicy(ctx context.Context, formats strf
 
 	if m.Policy != nil {
 
-		if swag.IsZero(m.Policy) { // not required
+		if typeutils.IsZero(m.Policy) { // not required
 			return nil
 		}
 
@@ -619,7 +620,7 @@ func (m *EndpointStatus) contextValidateRealized(ctx context.Context, formats st
 
 	if m.Realized != nil {
 
-		if swag.IsZero(m.Realized) { // not required
+		if typeutils.IsZero(m.Realized) { // not required
 			return nil
 		}
 
@@ -666,13 +667,13 @@ func (m *EndpointStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *EndpointStatus) UnmarshalBinary(b []byte) error {
 	var res EndpointStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

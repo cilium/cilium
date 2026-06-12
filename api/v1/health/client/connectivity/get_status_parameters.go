@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetStatusParams() *GetStatusParams {
-	return &GetStatusParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetStatusParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetStatusParamsWithTimeout creates a new GetStatusParams object
 // with the ability to set a timeout on a request.
 func NewGetStatusParamsWithTimeout(timeout time.Duration) *GetStatusParams {
 	return &GetStatusParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetStatusParamsWithContext creates a new GetStatusParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetStatusParams].
 func NewGetStatusParamsWithContext(ctx context.Context) *GetStatusParams {
 	return &GetStatusParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetStatusParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetStatusParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get status params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetStatusParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get status params
+// WithTimeout adds the timeout to the get status params.
 func (o *GetStatusParams) WithTimeout(timeout time.Duration) *GetStatusParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get status params
+// SetTimeout adds the timeout to the get status params.
 func (o *GetStatusParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get status params
+// WithContext adds the context to the get status params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetStatusParams].
 func (o *GetStatusParams) WithContext(ctx context.Context) *GetStatusParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get status params
+// SetContext adds the context to the get status params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetStatusParams].
 func (o *GetStatusParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get status params
+// WithHTTPClient adds the HTTPClient to the get status params.
 func (o *GetStatusParams) WithHTTPClient(client *http.Client) *GetStatusParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get status params
+// SetHTTPClient adds the HTTPClient to the get status params.
 func (o *GetStatusParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetStatusParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

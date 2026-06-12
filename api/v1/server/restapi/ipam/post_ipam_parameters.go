@@ -12,7 +12,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/go-openapi/validate"
 )
 
@@ -100,7 +100,7 @@ func (o *PostIpamParams) bindExpiration(rawData []string, hasKey bool, formats s
 		return nil
 	}
 
-	value, err := swag.ConvertBool(raw)
+	value, err := conv.ConvertBool(raw)
 	if err != nil {
 		return errors.InvalidType("expiration", "header", "bool", raw)
 	}

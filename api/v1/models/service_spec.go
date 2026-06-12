@@ -13,7 +13,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -64,12 +65,12 @@ func (m *ServiceSpec) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
-	if swag.IsZero(m.BackendAddresses) { // not required
+	if typeutils.IsZero(m.BackendAddresses) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.BackendAddresses); i++ {
-		if swag.IsZero(m.BackendAddresses[i]) { // not required
+		if typeutils.IsZero(m.BackendAddresses[i]) { // not required
 			continue
 		}
 
@@ -94,7 +95,7 @@ func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
 }
 
 func (m *ServiceSpec) validateFlags(formats strfmt.Registry) error {
-	if swag.IsZero(m.Flags) { // not required
+	if typeutils.IsZero(m.Flags) { // not required
 		return nil
 	}
 
@@ -168,7 +169,7 @@ func (m *ServiceSpec) contextValidateBackendAddresses(ctx context.Context, forma
 
 		if m.BackendAddresses[i] != nil {
 
-			if swag.IsZero(m.BackendAddresses[i]) { // not required
+			if typeutils.IsZero(m.BackendAddresses[i]) { // not required
 				return nil
 			}
 
@@ -195,7 +196,7 @@ func (m *ServiceSpec) contextValidateFlags(ctx context.Context, formats strfmt.R
 
 	if m.Flags != nil {
 
-		if swag.IsZero(m.Flags) { // not required
+		if typeutils.IsZero(m.Flags) { // not required
 			return nil
 		}
 
@@ -242,13 +243,13 @@ func (m *ServiceSpec) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 	var res ServiceSpec
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res
@@ -353,7 +354,7 @@ func (m *ServiceSpecFlags) validateExtTrafficPolicyEnum(path, location string, v
 }
 
 func (m *ServiceSpecFlags) validateExtTrafficPolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.ExtTrafficPolicy) { // not required
+	if typeutils.IsZero(m.ExtTrafficPolicy) { // not required
 		return nil
 	}
 
@@ -395,7 +396,7 @@ func (m *ServiceSpecFlags) validateIntTrafficPolicyEnum(path, location string, v
 }
 
 func (m *ServiceSpecFlags) validateIntTrafficPolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.IntTrafficPolicy) { // not required
+	if typeutils.IsZero(m.IntTrafficPolicy) { // not required
 		return nil
 	}
 
@@ -440,7 +441,7 @@ func (m *ServiceSpecFlags) validateNatPolicyEnum(path, location string, value st
 }
 
 func (m *ServiceSpecFlags) validateNatPolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.NatPolicy) { // not required
+	if typeutils.IsZero(m.NatPolicy) { // not required
 		return nil
 	}
 
@@ -482,7 +483,7 @@ func (m *ServiceSpecFlags) validateTrafficPolicyEnum(path, location string, valu
 }
 
 func (m *ServiceSpecFlags) validateTrafficPolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.TrafficPolicy) { // not required
+	if typeutils.IsZero(m.TrafficPolicy) { // not required
 		return nil
 	}
 
@@ -536,7 +537,7 @@ func (m *ServiceSpecFlags) validateTypeEnum(path, location string, value string)
 }
 
 func (m *ServiceSpecFlags) validateType(formats strfmt.Registry) error {
-	if swag.IsZero(m.Type) { // not required
+	if typeutils.IsZero(m.Type) { // not required
 		return nil
 	}
 
@@ -558,13 +559,13 @@ func (m *ServiceSpecFlags) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *ServiceSpecFlags) UnmarshalBinary(b []byte) error {
 	var res ServiceSpecFlags
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

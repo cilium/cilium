@@ -8,9 +8,8 @@ package metrics
 import (
 	"net/http"
 
-	"github.com/go-openapi/runtime"
-
 	"github.com/cilium/cilium/api/v1/operator/models"
+	"github.com/go-openapi/runtime"
 )
 
 // GetMetricsOKCode is the HTTP code returned for type GetMetricsOK

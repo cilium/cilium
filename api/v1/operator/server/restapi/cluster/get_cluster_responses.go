@@ -8,9 +8,8 @@ package cluster
 import (
 	"net/http"
 
-	"github.com/go-openapi/runtime"
-
 	common "github.com/cilium/cilium/api/v1/models"
+	"github.com/go-openapi/runtime"
 )
 
 // GetClusterOKCode is the HTTP code returned for type GetClusterOK

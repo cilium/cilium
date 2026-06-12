@@ -6,8 +6,10 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -15,11 +17,12 @@ import (
 )
 
 // New creates a new daemon API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
+func New(transport runtime.ContextualTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
 // New creates a new daemon API client with basic auth credentials.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -33,6 +36,7 @@ func NewClientWithBasicAuth(host, basePath, scheme, user, password string) Clien
 }
 
 // New creates a new daemon API client with a bearer token for authentication.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -45,49 +49,112 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 }
 
 /*
-Client for daemon API
+Client for daemon API.
 */
 type Client struct {
-	transport runtime.ClientTransport
+	transport runtime.ContextualTransport
 	formats   strfmt.Registry
 }
 
 // ClientOption may be used to customize the behavior of Client methods.
 type ClientOption func(*runtime.ClientOperation)
 
-// ClientService is the interface for Client methods
+// ClientService is the interface for Client methods.
 type ClientService interface {
+
+	// GetCgroupDumpMetadata retrieve cgroup metadata for all pods.
 	GetCgroupDumpMetadata(params *GetCgroupDumpMetadataParams, opts ...ClientOption) (*GetCgroupDumpMetadataOK, error)
 
+	// GetCgroupDumpMetadataContext retrieve cgroup metadata for all pods.
+	GetCgroupDumpMetadataContext(ctx context.Context, params *GetCgroupDumpMetadataParams, opts ...ClientOption) (*GetCgroupDumpMetadataOK, error)
+
+	// GetClusterNodes get nodes information stored in the cilium agent.
 	GetClusterNodes(params *GetClusterNodesParams, opts ...ClientOption) (*GetClusterNodesOK, error)
 
+	// GetClusterNodesContext get nodes information stored in the cilium agent.
+	GetClusterNodesContext(ctx context.Context, params *GetClusterNodesParams, opts ...ClientOption) (*GetClusterNodesOK, error)
+
+	// GetConfig get configuration of cilium daemon.
 	GetConfig(params *GetConfigParams, opts ...ClientOption) (*GetConfigOK, error)
 
+	// GetConfigContext get configuration of cilium daemon.
+	GetConfigContext(ctx context.Context, params *GetConfigParams, opts ...ClientOption) (*GetConfigOK, error)
+
+	// GetDebuginfo retrieve information about the agent and environment for debugging.
 	GetDebuginfo(params *GetDebuginfoParams, opts ...ClientOption) (*GetDebuginfoOK, error)
 
+	// GetDebuginfoContext retrieve information about the agent and environment for debugging.
+	GetDebuginfoContext(ctx context.Context, params *GetDebuginfoParams, opts ...ClientOption) (*GetDebuginfoOK, error)
+
+	// GetHealthz get health of cilium daemon.
 	GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error)
 
+	// GetHealthzContext get health of cilium daemon.
+	GetHealthzContext(ctx context.Context, params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error)
+
+	// GetMap list all open maps.
 	GetMap(params *GetMapParams, opts ...ClientOption) (*GetMapOK, error)
 
+	// GetMapContext list all open maps.
+	GetMapContext(ctx context.Context, params *GetMapParams, opts ...ClientOption) (*GetMapOK, error)
+
+	// GetMapName retrieve contents of b p f map.
 	GetMapName(params *GetMapNameParams, opts ...ClientOption) (*GetMapNameOK, error)
 
+	// GetMapNameContext retrieve contents of b p f map.
+	GetMapNameContext(ctx context.Context, params *GetMapNameParams, opts ...ClientOption) (*GetMapNameOK, error)
+
+	// GetMapNameEvents retrieves the recent event logs associated with this endpoint.
 	GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer, opts ...ClientOption) (*GetMapNameEventsOK, error)
 
+	// GetMapNameEventsContext retrieves the recent event logs associated with this endpoint.
+	GetMapNameEventsContext(ctx context.Context, params *GetMapNameEventsParams, writer io.Writer, opts ...ClientOption) (*GetMapNameEventsOK, error)
+
+	// GetNodeIds list information about known node IDs.
 	GetNodeIds(params *GetNodeIdsParams, opts ...ClientOption) (*GetNodeIdsOK, error)
 
+	// GetNodeIdsContext list information about known node IDs.
+	GetNodeIdsContext(ctx context.Context, params *GetNodeIdsParams, opts ...ClientOption) (*GetNodeIdsOK, error)
+
+	// PatchConfig modify daemon configuration.
 	PatchConfig(params *PatchConfigParams, opts ...ClientOption) (*PatchConfigOK, error)
 
-	SetTransport(transport runtime.ClientTransport)
+	// PatchConfigContext modify daemon configuration.
+	PatchConfigContext(ctx context.Context, params *PatchConfigParams, opts ...ClientOption) (*PatchConfigOK, error)
+
+	SetTransport(transport runtime.ContextualTransport)
 }
 
 /*
-GetCgroupDumpMetadata retrieves cgroup metadata for all pods
+GetCgroupDumpMetadataretrieves cgroup metadata for all pods.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetCgroupDumpMetadataContext] instead.
 */
 func (a *Client) GetCgroupDumpMetadata(params *GetCgroupDumpMetadataParams, opts ...ClientOption) (*GetCgroupDumpMetadataOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetCgroupDumpMetadataContext(ctx, params, opts...)
+}
+
+/*
+GetCgroupDumpMetadataContextretrieves cgroup metadata for all pods.
+
+Do not use the deprecated [GetCgroupDumpMetadataParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetCgroupDumpMetadataContext(ctx context.Context, params *GetCgroupDumpMetadataParams, opts ...ClientOption) (*GetCgroupDumpMetadataOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetCgroupDumpMetadataParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetCgroupDumpMetadata",
 		Method:             "GET",
@@ -97,13 +164,14 @@ func (a *Client) GetCgroupDumpMetadata(params *GetCgroupDumpMetadataParams, opts
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetCgroupDumpMetadataReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -124,13 +192,35 @@ func (a *Client) GetCgroupDumpMetadata(params *GetCgroupDumpMetadataParams, opts
 }
 
 /*
-GetClusterNodes gets nodes information stored in the cilium agent
+GetClusterNodesgets nodes information stored in the cilium agent.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetClusterNodesContext] instead.
 */
 func (a *Client) GetClusterNodes(params *GetClusterNodesParams, opts ...ClientOption) (*GetClusterNodesOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetClusterNodesContext(ctx, params, opts...)
+}
+
+/*
+GetClusterNodesContextgets nodes information stored in the cilium agent.
+
+Do not use the deprecated [GetClusterNodesParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetClusterNodesContext(ctx context.Context, params *GetClusterNodesParams, opts ...ClientOption) (*GetClusterNodesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetClusterNodesParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetClusterNodes",
 		Method:             "GET",
@@ -140,13 +230,14 @@ func (a *Client) GetClusterNodes(params *GetClusterNodesParams, opts ...ClientOp
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetClusterNodesReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -167,15 +258,43 @@ func (a *Client) GetClusterNodes(params *GetClusterNodesParams, opts ...ClientOp
 }
 
 /*
-GetConfig gets configuration of cilium daemon
+	GetConfiggets configuration of cilium daemon.
 
-Returns the configuration of the Cilium daemon.
+	Returns the configuration of the Cilium daemon.
+
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetConfigContext] instead.
 */
 func (a *Client) GetConfig(params *GetConfigParams, opts ...ClientOption) (*GetConfigOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetConfigContext(ctx, params, opts...)
+}
+
+/*
+	GetConfigContextgets configuration of cilium daemon.
+
+	Returns the configuration of the Cilium daemon.
+
+.
+
+	Do not use the deprecated [GetConfigParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetConfigContext(ctx context.Context, params *GetConfigParams, opts ...ClientOption) (*GetConfigOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetConfigParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetConfig",
 		Method:             "GET",
@@ -185,13 +304,14 @@ func (a *Client) GetConfig(params *GetConfigParams, opts ...ClientOption) (*GetC
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetConfigReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -212,13 +332,35 @@ func (a *Client) GetConfig(params *GetConfigParams, opts ...ClientOption) (*GetC
 }
 
 /*
-GetDebuginfo retrieves information about the agent and environment for debugging
+GetDebuginforetrieves information about the agent and environment for debugging.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetDebuginfoContext] instead.
 */
 func (a *Client) GetDebuginfo(params *GetDebuginfoParams, opts ...ClientOption) (*GetDebuginfoOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetDebuginfoContext(ctx, params, opts...)
+}
+
+/*
+GetDebuginfoContextretrieves information about the agent and environment for debugging.
+
+Do not use the deprecated [GetDebuginfoParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetDebuginfoContext(ctx context.Context, params *GetDebuginfoParams, opts ...ClientOption) (*GetDebuginfoOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetDebuginfoParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetDebuginfo",
 		Method:             "GET",
@@ -228,13 +370,14 @@ func (a *Client) GetDebuginfo(params *GetDebuginfoParams, opts ...ClientOption) 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetDebuginfoReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -255,18 +398,47 @@ func (a *Client) GetDebuginfo(params *GetDebuginfoParams, opts ...ClientOption) 
 }
 
 /*
-	GetHealthz gets health of cilium daemon
+	GetHealthzgets health of cilium daemon.
 
 	Returns health and status information of the Cilium daemon and related
 
 components such as the local container runtime, connected datastore,
 Kubernetes integration and Hubble.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetHealthzContext] instead.
 */
 func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetHealthzContext(ctx, params, opts...)
+}
+
+/*
+	GetHealthzContextgets health of cilium daemon.
+
+	Returns health and status information of the Cilium daemon and related
+
+components such as the local container runtime, connected datastore,
+Kubernetes integration and Hubble.
+.
+
+	Do not use the deprecated [GetHealthzParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetHealthzContext(ctx context.Context, params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetHealthzParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetHealthz",
 		Method:             "GET",
@@ -276,13 +448,14 @@ func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*Ge
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetHealthzReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -303,13 +476,35 @@ func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*Ge
 }
 
 /*
-GetMap lists all open maps
+GetMaplists all open maps.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetMapContext] instead.
 */
 func (a *Client) GetMap(params *GetMapParams, opts ...ClientOption) (*GetMapOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetMapContext(ctx, params, opts...)
+}
+
+/*
+GetMapContextlists all open maps.
+
+Do not use the deprecated [GetMapParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetMapContext(ctx context.Context, params *GetMapParams, opts ...ClientOption) (*GetMapOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetMapParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetMap",
 		Method:             "GET",
@@ -319,13 +514,14 @@ func (a *Client) GetMap(params *GetMapParams, opts ...ClientOption) (*GetMapOK, 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetMapReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -346,13 +542,35 @@ func (a *Client) GetMap(params *GetMapParams, opts ...ClientOption) (*GetMapOK, 
 }
 
 /*
-GetMapName retrieves contents of b p f map
+GetMapNameretrieves contents of b p f map.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetMapNameContext] instead.
 */
 func (a *Client) GetMapName(params *GetMapNameParams, opts ...ClientOption) (*GetMapNameOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetMapNameContext(ctx, params, opts...)
+}
+
+/*
+GetMapNameContextretrieves contents of b p f map.
+
+Do not use the deprecated [GetMapNameParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetMapNameContext(ctx context.Context, params *GetMapNameParams, opts ...ClientOption) (*GetMapNameOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetMapNameParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetMapName",
 		Method:             "GET",
@@ -362,13 +580,14 @@ func (a *Client) GetMapName(params *GetMapNameParams, opts ...ClientOption) (*Ge
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetMapNameReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -389,13 +608,35 @@ func (a *Client) GetMapName(params *GetMapNameParams, opts ...ClientOption) (*Ge
 }
 
 /*
-GetMapNameEvents retrieves the recent event logs associated with this endpoint
+GetMapNameEventsretrieves the recent event logs associated with this endpoint.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetMapNameEventsContext] instead.
 */
 func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer, opts ...ClientOption) (*GetMapNameEventsOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetMapNameEventsContext(ctx, params, writer, opts...)
+}
+
+/*
+GetMapNameEventsContextretrieves the recent event logs associated with this endpoint.
+
+Do not use the deprecated [GetMapNameEventsParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetMapNameEventsContext(ctx context.Context, params *GetMapNameEventsParams, writer io.Writer, opts ...ClientOption) (*GetMapNameEventsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetMapNameEventsParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetMapNameEvents",
 		Method:             "GET",
@@ -405,13 +646,14 @@ func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writ
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetMapNameEventsReader{formats: a.formats, writer: writer},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -432,17 +674,45 @@ func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writ
 }
 
 /*
-	GetNodeIds lists information about known node IDs
+	GetNodeIdslists information about known node IDs.
 
 	Retrieves a list of node IDs allocated by the agent and their
 
 associated node IP addresses.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetNodeIdsContext] instead.
 */
 func (a *Client) GetNodeIds(params *GetNodeIdsParams, opts ...ClientOption) (*GetNodeIdsOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetNodeIdsContext(ctx, params, opts...)
+}
+
+/*
+	GetNodeIdsContextlists information about known node IDs.
+
+	Retrieves a list of node IDs allocated by the agent and their
+
+associated node IP addresses.
+.
+
+	Do not use the deprecated [GetNodeIdsParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetNodeIdsContext(ctx context.Context, params *GetNodeIdsParams, opts ...ClientOption) (*GetNodeIdsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetNodeIdsParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetNodeIds",
 		Method:             "GET",
@@ -452,13 +722,14 @@ func (a *Client) GetNodeIds(params *GetNodeIdsParams, opts ...ClientOption) (*Ge
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetNodeIdsReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -479,18 +750,47 @@ func (a *Client) GetNodeIds(params *GetNodeIdsParams, opts ...ClientOption) (*Ge
 }
 
 /*
-	PatchConfig modifies daemon configuration
+	PatchConfigmodifies daemon configuration.
 
 	Updates the daemon configuration by applying the provided
 
 ConfigurationMap and regenerates & recompiles all required datapath
 components.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.PatchConfigContext] instead.
 */
 func (a *Client) PatchConfig(params *PatchConfigParams, opts ...ClientOption) (*PatchConfigOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.PatchConfigContext(ctx, params, opts...)
+}
+
+/*
+	PatchConfigContextmodifies daemon configuration.
+
+	Updates the daemon configuration by applying the provided
+
+ConfigurationMap and regenerates & recompiles all required datapath
+components.
+.
+
+	Do not use the deprecated [PatchConfigParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) PatchConfigContext(ctx context.Context, params *PatchConfigParams, opts ...ClientOption) (*PatchConfigOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPatchConfigParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "PatchConfig",
 		Method:             "PATCH",
@@ -500,13 +800,14 @@ func (a *Client) PatchConfig(params *PatchConfigParams, opts ...ClientOption) (*
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PatchConfigReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -527,6 +828,14 @@ func (a *Client) PatchConfig(params *PatchConfigParams, opts ...ClientOption) (*
 }
 
 // SetTransport changes the transport on the client
-func (a *Client) SetTransport(transport runtime.ClientTransport) {
+func (a *Client) SetTransport(transport runtime.ContextualTransport) {
 	a.transport = transport
+}
+
+// innerParams captures internal fields so they don't conflict with user-supplied parameters.
+type innerParams struct {
+	timeout time.Duration
+
+	// Deprecated: use the operation call with context to pass the context instead of [DaemonParams].
+	ctx context.Context
 }

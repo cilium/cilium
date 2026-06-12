@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetEndpointIDParams() *GetEndpointIDParams {
-	return &GetEndpointIDParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetEndpointIDParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetEndpointIDParamsWithTimeout creates a new GetEndpointIDParams object
 // with the ability to set a timeout on a request.
 func NewGetEndpointIDParamsWithTimeout(timeout time.Duration) *GetEndpointIDParams {
 	return &GetEndpointIDParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetEndpointIDParamsWithContext creates a new GetEndpointIDParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDParams].
 func NewGetEndpointIDParamsWithContext(ctx context.Context) *GetEndpointIDParams {
 	return &GetEndpointIDParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -81,9 +85,9 @@ type GetEndpointIDParams struct {
 	*/
 	ID string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get endpoint ID params (not the query body).
@@ -101,54 +105,57 @@ func (o *GetEndpointIDParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get endpoint ID params
+// WithTimeout adds the timeout to the get endpoint ID params.
 func (o *GetEndpointIDParams) WithTimeout(timeout time.Duration) *GetEndpointIDParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get endpoint ID params
+// SetTimeout adds the timeout to the get endpoint ID params.
 func (o *GetEndpointIDParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get endpoint ID params
+// WithContext adds the context to the get endpoint ID params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDParams].
 func (o *GetEndpointIDParams) WithContext(ctx context.Context) *GetEndpointIDParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get endpoint ID params
+// SetContext adds the context to the get endpoint ID params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetEndpointIDParams].
 func (o *GetEndpointIDParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get endpoint ID params
+// WithHTTPClient adds the HTTPClient to the get endpoint ID params.
 func (o *GetEndpointIDParams) WithHTTPClient(client *http.Client) *GetEndpointIDParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get endpoint ID params
+// SetHTTPClient adds the HTTPClient to the get endpoint ID params.
 func (o *GetEndpointIDParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithID adds the id to the get endpoint ID params
+// WithID adds the id to the get endpoint ID params.
 func (o *GetEndpointIDParams) WithID(id string) *GetEndpointIDParams {
 	o.SetID(id)
 	return o
 }
 
-// SetID adds the id to the get endpoint ID params
+// SetID adds the id to the get endpoint ID params.
 func (o *GetEndpointIDParams) SetID(id string) {
 	o.ID = id
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetEndpointIDParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

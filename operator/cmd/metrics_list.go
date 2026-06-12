@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/api/v1/operator/client"
+	metricsApi "github.com/cilium/cilium/api/v1/operator/client/metrics"
 	"github.com/cilium/cilium/api/v1/operator/models"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/pkg/command"
@@ -36,7 +37,7 @@ var MetricsListCmd = &cobra.Command{
 		c := client.NewHTTPClientWithConfig(
 			strfmt.Default, client.DefaultTransportConfig().WithHost(operatorAddr))
 
-		res, err := c.Metrics.GetMetrics(nil)
+		res, err := c.Metrics.GetMetrics(metricsApi.NewGetMetricsParams())
 		if err != nil {
 			logging.Fatal(logger, fmt.Sprintf("Cannot get metrics list: %s", err))
 		}

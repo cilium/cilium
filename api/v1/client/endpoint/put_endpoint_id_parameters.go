@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPutEndpointIDParams creates a new PutEndpointIDParams object,
@@ -25,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPutEndpointIDParams() *PutEndpointIDParams {
-	return &PutEndpointIDParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewPutEndpointIDParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewPutEndpointIDParamsWithTimeout creates a new PutEndpointIDParams object
 // with the ability to set a timeout on a request.
 func NewPutEndpointIDParamsWithTimeout(timeout time.Duration) *PutEndpointIDParams {
 	return &PutEndpointIDParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewPutEndpointIDParamsWithContext creates a new PutEndpointIDParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PutEndpointIDParams].
 func NewPutEndpointIDParamsWithContext(ctx context.Context) *PutEndpointIDParams {
 	return &PutEndpointIDParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -86,9 +89,9 @@ type PutEndpointIDParams struct {
 	*/
 	ID string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the put endpoint ID params (not the query body).
@@ -106,65 +109,68 @@ func (o *PutEndpointIDParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the put endpoint ID params
+// WithTimeout adds the timeout to the put endpoint ID params.
 func (o *PutEndpointIDParams) WithTimeout(timeout time.Duration) *PutEndpointIDParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the put endpoint ID params
+// SetTimeout adds the timeout to the put endpoint ID params.
 func (o *PutEndpointIDParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the put endpoint ID params
+// WithContext adds the context to the put endpoint ID params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PutEndpointIDParams].
 func (o *PutEndpointIDParams) WithContext(ctx context.Context) *PutEndpointIDParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the put endpoint ID params
+// SetContext adds the context to the put endpoint ID params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PutEndpointIDParams].
 func (o *PutEndpointIDParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the put endpoint ID params
+// WithHTTPClient adds the HTTPClient to the put endpoint ID params.
 func (o *PutEndpointIDParams) WithHTTPClient(client *http.Client) *PutEndpointIDParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the put endpoint ID params
+// SetHTTPClient adds the HTTPClient to the put endpoint ID params.
 func (o *PutEndpointIDParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithEndpoint adds the endpoint to the put endpoint ID params
+// WithEndpoint adds the endpoint to the put endpoint ID params.
 func (o *PutEndpointIDParams) WithEndpoint(endpoint *models.EndpointChangeRequest) *PutEndpointIDParams {
 	o.SetEndpoint(endpoint)
 	return o
 }
 
-// SetEndpoint adds the endpoint to the put endpoint ID params
+// SetEndpoint adds the endpoint to the put endpoint ID params.
 func (o *PutEndpointIDParams) SetEndpoint(endpoint *models.EndpointChangeRequest) {
 	o.Endpoint = endpoint
 }
 
-// WithID adds the id to the put endpoint ID params
+// WithID adds the id to the put endpoint ID params.
 func (o *PutEndpointIDParams) WithID(id string) *PutEndpointIDParams {
 	o.SetID(id)
 	return o
 }
 
-// SetID adds the id to the put endpoint ID params
+// SetID adds the id to the put endpoint ID params.
 func (o *PutEndpointIDParams) SetID(id string) {
 	o.ID = id
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *PutEndpointIDParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

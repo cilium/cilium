@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // EndpointPolicy Policy information of an endpoint
@@ -77,7 +78,7 @@ func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicy) validateCidrPolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.CidrPolicy) { // not required
+	if typeutils.IsZero(m.CidrPolicy) { // not required
 		return nil
 	}
 
@@ -100,7 +101,7 @@ func (m *EndpointPolicy) validateCidrPolicy(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicy) validateL4(formats strfmt.Registry) error {
-	if swag.IsZero(m.L4) { // not required
+	if typeutils.IsZero(m.L4) { // not required
 		return nil
 	}
 
@@ -123,7 +124,7 @@ func (m *EndpointPolicy) validateL4(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicy) validatePolicyEnabled(formats strfmt.Registry) error {
-	if swag.IsZero(m.PolicyEnabled) { // not required
+	if typeutils.IsZero(m.PolicyEnabled) { // not required
 		return nil
 	}
 
@@ -169,7 +170,7 @@ func (m *EndpointPolicy) contextValidateCidrPolicy(ctx context.Context, formats 
 
 	if m.CidrPolicy != nil {
 
-		if swag.IsZero(m.CidrPolicy) { // not required
+		if typeutils.IsZero(m.CidrPolicy) { // not required
 			return nil
 		}
 
@@ -194,7 +195,7 @@ func (m *EndpointPolicy) contextValidateL4(ctx context.Context, formats strfmt.R
 
 	if m.L4 != nil {
 
-		if swag.IsZero(m.L4) { // not required
+		if typeutils.IsZero(m.L4) { // not required
 			return nil
 		}
 
@@ -217,7 +218,7 @@ func (m *EndpointPolicy) contextValidateL4(ctx context.Context, formats strfmt.R
 
 func (m *EndpointPolicy) contextValidatePolicyEnabled(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.PolicyEnabled) { // not required
+	if typeutils.IsZero(m.PolicyEnabled) { // not required
 		return nil
 	}
 
@@ -242,13 +243,13 @@ func (m *EndpointPolicy) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *EndpointPolicy) UnmarshalBinary(b []byte) error {
 	var res EndpointPolicy
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

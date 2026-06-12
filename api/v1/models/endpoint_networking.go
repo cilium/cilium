@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // EndpointNetworking Unique identifiers for this endpoint from outside cilium
@@ -61,12 +62,12 @@ func (m *EndpointNetworking) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointNetworking) validateAddressing(formats strfmt.Registry) error {
-	if swag.IsZero(m.Addressing) { // not required
+	if typeutils.IsZero(m.Addressing) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Addressing); i++ {
-		if swag.IsZero(m.Addressing[i]) { // not required
+		if typeutils.IsZero(m.Addressing[i]) { // not required
 			continue
 		}
 
@@ -91,7 +92,7 @@ func (m *EndpointNetworking) validateAddressing(formats strfmt.Registry) error {
 }
 
 func (m *EndpointNetworking) validateHostAddressing(formats strfmt.Registry) error {
-	if swag.IsZero(m.HostAddressing) { // not required
+	if typeutils.IsZero(m.HostAddressing) { // not required
 		return nil
 	}
 
@@ -137,7 +138,7 @@ func (m *EndpointNetworking) contextValidateAddressing(ctx context.Context, form
 
 		if m.Addressing[i] != nil {
 
-			if swag.IsZero(m.Addressing[i]) { // not required
+			if typeutils.IsZero(m.Addressing[i]) { // not required
 				return nil
 			}
 
@@ -164,7 +165,7 @@ func (m *EndpointNetworking) contextValidateHostAddressing(ctx context.Context, 
 
 	if m.HostAddressing != nil {
 
-		if swag.IsZero(m.HostAddressing) { // not required
+		if typeutils.IsZero(m.HostAddressing) { // not required
 			return nil
 		}
 
@@ -190,13 +191,13 @@ func (m *EndpointNetworking) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *EndpointNetworking) UnmarshalBinary(b []byte) error {
 	var res EndpointNetworking
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

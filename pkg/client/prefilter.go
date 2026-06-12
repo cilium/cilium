@@ -11,7 +11,7 @@ import (
 
 // GetPrefilter returns a list of all CIDR prefixes
 func (c *Client) GetPrefilter() (*models.Prefilter, error) {
-	resp, err := c.Prefilter.GetPrefilter(nil)
+	resp, err := c.Prefilter.GetPrefilter(prefilter.NewGetPrefilterParams().WithTimeout(api.ClientTimeout))
 	if err != nil {
 		return nil, Hint(err)
 	}

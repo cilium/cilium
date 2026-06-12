@@ -6,7 +6,9 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -14,11 +16,12 @@ import (
 )
 
 // New creates a new service API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
+func New(transport runtime.ContextualTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
 // New creates a new service API client with basic auth credentials.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -32,6 +35,7 @@ func NewClientWithBasicAuth(host, basePath, scheme, user, password string) Clien
 }
 
 // New creates a new service API client with a bearer token for authentication.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -44,33 +48,64 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 }
 
 /*
-Client for service API
+Client for service API.
 */
 type Client struct {
-	transport runtime.ClientTransport
+	transport runtime.ContextualTransport
 	formats   strfmt.Registry
 }
 
 // ClientOption may be used to customize the behavior of Client methods.
 type ClientOption func(*runtime.ClientOperation)
 
-// ClientService is the interface for Client methods
+// ClientService is the interface for Client methods.
 type ClientService interface {
+
+	// GetLrp retrieve list of all local redirect policies.
 	GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error)
 
+	// GetLrpContext retrieve list of all local redirect policies.
+	GetLrpContext(ctx context.Context, params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error)
+
+	// GetService retrieve list of all services.
 	GetService(params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error)
 
-	SetTransport(transport runtime.ClientTransport)
+	// GetServiceContext retrieve list of all services.
+	GetServiceContext(ctx context.Context, params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error)
+
+	SetTransport(transport runtime.ContextualTransport)
 }
 
 /*
-GetLrp retrieves list of all local redirect policies
+GetLrpretrieves list of all local redirect policies.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetLrpContext] instead.
 */
 func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetLrpContext(ctx, params, opts...)
+}
+
+/*
+GetLrpContextretrieves list of all local redirect policies.
+
+Do not use the deprecated [GetLrpParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetLrpContext(ctx context.Context, params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetLrpParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetLrp",
 		Method:             "GET",
@@ -80,13 +115,14 @@ func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetLrpReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -107,13 +143,35 @@ func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, 
 }
 
 /*
-GetService retrieves list of all services
+GetServiceretrieves list of all services.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetServiceContext] instead.
 */
 func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetServiceContext(ctx, params, opts...)
+}
+
+/*
+GetServiceContextretrieves list of all services.
+
+Do not use the deprecated [GetServiceParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetServiceContext(ctx context.Context, params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetServiceParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetService",
 		Method:             "GET",
@@ -123,13 +181,14 @@ func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*Ge
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetServiceReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -150,6 +209,14 @@ func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*Ge
 }
 
 // SetTransport changes the transport on the client
-func (a *Client) SetTransport(transport runtime.ClientTransport) {
+func (a *Client) SetTransport(transport runtime.ContextualTransport) {
 	a.transport = transport
+}
+
+// innerParams captures internal fields so they don't conflict with user-supplied parameters.
+type innerParams struct {
+	timeout time.Duration
+
+	// Deprecated: use the operation call with context to pass the context instead of [ServiceParams].
+	ctx context.Context
 }

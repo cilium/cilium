@@ -12,7 +12,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewGetMapNameEventsParams creates a new GetMapNameEventsParams object
@@ -82,7 +82,7 @@ func (o *GetMapNameEventsParams) bindFollow(rawData []string, hasKey bool, forma
 		return nil
 	}
 
-	value, err := swag.ConvertBool(raw)
+	value, err := conv.ConvertBool(raw)
 	if err != nil {
 		return errors.InvalidType("follow", "query", "bool", raw)
 	}

@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetCgroupDumpMetadataParams() *GetCgroupDumpMetadataParams {
-	return &GetCgroupDumpMetadataParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetCgroupDumpMetadataParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetCgroupDumpMetadataParamsWithTimeout creates a new GetCgroupDumpMetadataParams object
 // with the ability to set a timeout on a request.
 func NewGetCgroupDumpMetadataParamsWithTimeout(timeout time.Duration) *GetCgroupDumpMetadataParams {
 	return &GetCgroupDumpMetadataParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetCgroupDumpMetadataParamsWithContext creates a new GetCgroupDumpMetadataParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetCgroupDumpMetadataParams].
 func NewGetCgroupDumpMetadataParamsWithContext(ctx context.Context) *GetCgroupDumpMetadataParams {
 	return &GetCgroupDumpMetadataParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetCgroupDumpMetadataParams contains all the parameters to send to the API endpo
 	Typically these are written to a http.Request.
 */
 type GetCgroupDumpMetadataParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get cgroup dump metadata params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetCgroupDumpMetadataParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get cgroup dump metadata params
+// WithTimeout adds the timeout to the get cgroup dump metadata params.
 func (o *GetCgroupDumpMetadataParams) WithTimeout(timeout time.Duration) *GetCgroupDumpMetadataParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get cgroup dump metadata params
+// SetTimeout adds the timeout to the get cgroup dump metadata params.
 func (o *GetCgroupDumpMetadataParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get cgroup dump metadata params
+// WithContext adds the context to the get cgroup dump metadata params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetCgroupDumpMetadataParams].
 func (o *GetCgroupDumpMetadataParams) WithContext(ctx context.Context) *GetCgroupDumpMetadataParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get cgroup dump metadata params
+// SetContext adds the context to the get cgroup dump metadata params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetCgroupDumpMetadataParams].
 func (o *GetCgroupDumpMetadataParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get cgroup dump metadata params
+// WithHTTPClient adds the HTTPClient to the get cgroup dump metadata params.
 func (o *GetCgroupDumpMetadataParams) WithHTTPClient(client *http.Client) *GetCgroupDumpMetadataParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get cgroup dump metadata params
+// SetHTTPClient adds the HTTPClient to the get cgroup dump metadata params.
 func (o *GetCgroupDumpMetadataParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetCgroupDumpMetadataParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

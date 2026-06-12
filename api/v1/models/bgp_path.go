@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // BgpPath Single BGP routing Path containing BGP Network Layer Reachability Information (NLRI) and path attributes
@@ -62,7 +63,7 @@ func (m *BgpPath) Validate(formats strfmt.Registry) error {
 }
 
 func (m *BgpPath) validateFamily(formats strfmt.Registry) error {
-	if swag.IsZero(m.Family) { // not required
+	if typeutils.IsZero(m.Family) { // not required
 		return nil
 	}
 
@@ -85,7 +86,7 @@ func (m *BgpPath) validateFamily(formats strfmt.Registry) error {
 }
 
 func (m *BgpPath) validateNlri(formats strfmt.Registry) error {
-	if swag.IsZero(m.Nlri) { // not required
+	if typeutils.IsZero(m.Nlri) { // not required
 		return nil
 	}
 
@@ -108,12 +109,12 @@ func (m *BgpPath) validateNlri(formats strfmt.Registry) error {
 }
 
 func (m *BgpPath) validatePathAttributes(formats strfmt.Registry) error {
-	if swag.IsZero(m.PathAttributes) { // not required
+	if typeutils.IsZero(m.PathAttributes) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.PathAttributes); i++ {
-		if swag.IsZero(m.PathAttributes[i]) { // not required
+		if typeutils.IsZero(m.PathAttributes[i]) { // not required
 			continue
 		}
 
@@ -163,7 +164,7 @@ func (m *BgpPath) contextValidateFamily(ctx context.Context, formats strfmt.Regi
 
 	if m.Family != nil {
 
-		if swag.IsZero(m.Family) { // not required
+		if typeutils.IsZero(m.Family) { // not required
 			return nil
 		}
 
@@ -188,7 +189,7 @@ func (m *BgpPath) contextValidateNlri(ctx context.Context, formats strfmt.Regist
 
 	if m.Nlri != nil {
 
-		if swag.IsZero(m.Nlri) { // not required
+		if typeutils.IsZero(m.Nlri) { // not required
 			return nil
 		}
 
@@ -215,7 +216,7 @@ func (m *BgpPath) contextValidatePathAttributes(ctx context.Context, formats str
 
 		if m.PathAttributes[i] != nil {
 
-			if swag.IsZero(m.PathAttributes[i]) { // not required
+			if typeutils.IsZero(m.PathAttributes[i]) { // not required
 				return nil
 			}
 
@@ -243,13 +244,13 @@ func (m *BgpPath) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *BgpPath) UnmarshalBinary(b []byte) error {
 	var res BgpPath
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -13,7 +13,7 @@ import (
 
 // ConfigGet returns a daemon configuration.
 func (c *Client) ConfigGet() (*models.DaemonConfiguration, error) {
-	resp, err := c.Daemon.GetConfig(nil)
+	resp, err := c.Daemon.GetConfig(daemon.NewGetConfigParams().WithTimeout(api.ClientTimeout))
 	if err != nil {
 		return nil, Hint(err)
 	}

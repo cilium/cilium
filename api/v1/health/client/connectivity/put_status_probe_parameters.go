@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPutStatusProbeParams() *PutStatusProbeParams {
-	return &PutStatusProbeParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewPutStatusProbeParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewPutStatusProbeParamsWithTimeout creates a new PutStatusProbeParams object
 // with the ability to set a timeout on a request.
 func NewPutStatusProbeParamsWithTimeout(timeout time.Duration) *PutStatusProbeParams {
 	return &PutStatusProbeParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewPutStatusProbeParamsWithContext creates a new PutStatusProbeParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PutStatusProbeParams].
 func NewPutStatusProbeParamsWithContext(ctx context.Context) *PutStatusProbeParams {
 	return &PutStatusProbeParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ PutStatusProbeParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type PutStatusProbeParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the put status probe params (not the query body).
@@ -80,43 +84,46 @@ func (o *PutStatusProbeParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the put status probe params
+// WithTimeout adds the timeout to the put status probe params.
 func (o *PutStatusProbeParams) WithTimeout(timeout time.Duration) *PutStatusProbeParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the put status probe params
+// SetTimeout adds the timeout to the put status probe params.
 func (o *PutStatusProbeParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the put status probe params
+// WithContext adds the context to the put status probe params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PutStatusProbeParams].
 func (o *PutStatusProbeParams) WithContext(ctx context.Context) *PutStatusProbeParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the put status probe params
+// SetContext adds the context to the put status probe params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PutStatusProbeParams].
 func (o *PutStatusProbeParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the put status probe params
+// WithHTTPClient adds the HTTPClient to the put status probe params.
 func (o *PutStatusProbeParams) WithHTTPClient(client *http.Client) *PutStatusProbeParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the put status probe params
+// SetHTTPClient adds the HTTPClient to the put status probe params.
 func (o *PutStatusProbeParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *PutStatusProbeParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

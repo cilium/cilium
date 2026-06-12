@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // PathStatus Connectivity status via different paths, for example using different
@@ -49,7 +50,7 @@ func (m *PathStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *PathStatus) validateHTTP(formats strfmt.Registry) error {
-	if swag.IsZero(m.HTTP) { // not required
+	if typeutils.IsZero(m.HTTP) { // not required
 		return nil
 	}
 
@@ -72,7 +73,7 @@ func (m *PathStatus) validateHTTP(formats strfmt.Registry) error {
 }
 
 func (m *PathStatus) validateIcmp(formats strfmt.Registry) error {
-	if swag.IsZero(m.Icmp) { // not required
+	if typeutils.IsZero(m.Icmp) { // not required
 		return nil
 	}
 
@@ -116,7 +117,7 @@ func (m *PathStatus) contextValidateHTTP(ctx context.Context, formats strfmt.Reg
 
 	if m.HTTP != nil {
 
-		if swag.IsZero(m.HTTP) { // not required
+		if typeutils.IsZero(m.HTTP) { // not required
 			return nil
 		}
 
@@ -141,7 +142,7 @@ func (m *PathStatus) contextValidateIcmp(ctx context.Context, formats strfmt.Reg
 
 	if m.Icmp != nil {
 
-		if swag.IsZero(m.Icmp) { // not required
+		if typeutils.IsZero(m.Icmp) { // not required
 			return nil
 		}
 
@@ -167,13 +168,13 @@ func (m *PathStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *PathStatus) UnmarshalBinary(b []byte) error {
 	var res PathStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

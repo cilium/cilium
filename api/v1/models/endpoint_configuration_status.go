@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // EndpointConfigurationStatus An endpoint's configuration
@@ -52,7 +53,7 @@ func (m *EndpointConfigurationStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointConfigurationStatus) validateError(formats strfmt.Registry) error {
-	if swag.IsZero(m.Error) { // not required
+	if typeutils.IsZero(m.Error) { // not required
 		return nil
 	}
 
@@ -73,7 +74,7 @@ func (m *EndpointConfigurationStatus) validateError(formats strfmt.Registry) err
 }
 
 func (m *EndpointConfigurationStatus) validateImmutable(formats strfmt.Registry) error {
-	if swag.IsZero(m.Immutable) { // not required
+	if typeutils.IsZero(m.Immutable) { // not required
 		return nil
 	}
 
@@ -96,7 +97,7 @@ func (m *EndpointConfigurationStatus) validateImmutable(formats strfmt.Registry)
 }
 
 func (m *EndpointConfigurationStatus) validateRealized(formats strfmt.Registry) error {
-	if swag.IsZero(m.Realized) { // not required
+	if typeutils.IsZero(m.Realized) { // not required
 		return nil
 	}
 
@@ -142,7 +143,7 @@ func (m *EndpointConfigurationStatus) ContextValidate(ctx context.Context, forma
 
 func (m *EndpointConfigurationStatus) contextValidateError(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Error) { // not required
+	if typeutils.IsZero(m.Error) { // not required
 		return nil
 	}
 
@@ -164,7 +165,7 @@ func (m *EndpointConfigurationStatus) contextValidateError(ctx context.Context, 
 
 func (m *EndpointConfigurationStatus) contextValidateImmutable(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Immutable) { // not required
+	if typeutils.IsZero(m.Immutable) { // not required
 		return nil
 	}
 
@@ -188,7 +189,7 @@ func (m *EndpointConfigurationStatus) contextValidateRealized(ctx context.Contex
 
 	if m.Realized != nil {
 
-		if swag.IsZero(m.Realized) { // not required
+		if typeutils.IsZero(m.Realized) { // not required
 			return nil
 		}
 
@@ -214,13 +215,13 @@ func (m *EndpointConfigurationStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *EndpointConfigurationStatus) UnmarshalBinary(b []byte) error {
 	var res EndpointConfigurationStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

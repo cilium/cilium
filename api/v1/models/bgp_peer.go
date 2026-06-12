@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -124,12 +125,12 @@ func (m *BgpPeer) Validate(formats strfmt.Registry) error {
 }
 
 func (m *BgpPeer) validateFamilies(formats strfmt.Registry) error {
-	if swag.IsZero(m.Families) { // not required
+	if typeutils.IsZero(m.Families) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Families); i++ {
-		if swag.IsZero(m.Families[i]) { // not required
+		if typeutils.IsZero(m.Families[i]) { // not required
 			continue
 		}
 
@@ -154,7 +155,7 @@ func (m *BgpPeer) validateFamilies(formats strfmt.Registry) error {
 }
 
 func (m *BgpPeer) validateGracefulRestart(formats strfmt.Registry) error {
-	if swag.IsZero(m.GracefulRestart) { // not required
+	if typeutils.IsZero(m.GracefulRestart) { // not required
 		return nil
 	}
 
@@ -177,12 +178,12 @@ func (m *BgpPeer) validateGracefulRestart(formats strfmt.Registry) error {
 }
 
 func (m *BgpPeer) validateLocalCapabilities(formats strfmt.Registry) error {
-	if swag.IsZero(m.LocalCapabilities) { // not required
+	if typeutils.IsZero(m.LocalCapabilities) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.LocalCapabilities); i++ {
-		if swag.IsZero(m.LocalCapabilities[i]) { // not required
+		if typeutils.IsZero(m.LocalCapabilities[i]) { // not required
 			continue
 		}
 
@@ -207,7 +208,7 @@ func (m *BgpPeer) validateLocalCapabilities(formats strfmt.Registry) error {
 }
 
 func (m *BgpPeer) validatePeerPort(formats strfmt.Registry) error {
-	if swag.IsZero(m.PeerPort) { // not required
+	if typeutils.IsZero(m.PeerPort) { // not required
 		return nil
 	}
 
@@ -223,12 +224,12 @@ func (m *BgpPeer) validatePeerPort(formats strfmt.Registry) error {
 }
 
 func (m *BgpPeer) validateRemoteCapabilities(formats strfmt.Registry) error {
-	if swag.IsZero(m.RemoteCapabilities) { // not required
+	if typeutils.IsZero(m.RemoteCapabilities) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.RemoteCapabilities); i++ {
-		if swag.IsZero(m.RemoteCapabilities[i]) { // not required
+		if typeutils.IsZero(m.RemoteCapabilities[i]) { // not required
 			continue
 		}
 
@@ -284,7 +285,7 @@ func (m *BgpPeer) contextValidateFamilies(ctx context.Context, formats strfmt.Re
 
 		if m.Families[i] != nil {
 
-			if swag.IsZero(m.Families[i]) { // not required
+			if typeutils.IsZero(m.Families[i]) { // not required
 				return nil
 			}
 
@@ -311,7 +312,7 @@ func (m *BgpPeer) contextValidateGracefulRestart(ctx context.Context, formats st
 
 	if m.GracefulRestart != nil {
 
-		if swag.IsZero(m.GracefulRestart) { // not required
+		if typeutils.IsZero(m.GracefulRestart) { // not required
 			return nil
 		}
 
@@ -338,7 +339,7 @@ func (m *BgpPeer) contextValidateLocalCapabilities(ctx context.Context, formats 
 
 		if m.LocalCapabilities[i] != nil {
 
-			if swag.IsZero(m.LocalCapabilities[i]) { // not required
+			if typeutils.IsZero(m.LocalCapabilities[i]) { // not required
 				return nil
 			}
 
@@ -367,7 +368,7 @@ func (m *BgpPeer) contextValidateRemoteCapabilities(ctx context.Context, formats
 
 		if m.RemoteCapabilities[i] != nil {
 
-			if swag.IsZero(m.RemoteCapabilities[i]) { // not required
+			if typeutils.IsZero(m.RemoteCapabilities[i]) { // not required
 				return nil
 			}
 
@@ -395,13 +396,13 @@ func (m *BgpPeer) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *BgpPeer) UnmarshalBinary(b []byte) error {
 	var res BgpPeer
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // BgpRoutePolicyNeighborMatch Matches a neighbor in a BGP route policy
@@ -41,7 +42,7 @@ func (m *BgpRoutePolicyNeighborMatch) Validate(formats strfmt.Registry) error {
 }
 
 func (m *BgpRoutePolicyNeighborMatch) validateType(formats strfmt.Registry) error {
-	if swag.IsZero(m.Type) { // not required
+	if typeutils.IsZero(m.Type) { // not required
 		return nil
 	}
 
@@ -77,7 +78,7 @@ func (m *BgpRoutePolicyNeighborMatch) ContextValidate(ctx context.Context, forma
 
 func (m *BgpRoutePolicyNeighborMatch) contextValidateType(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Type) { // not required
+	if typeutils.IsZero(m.Type) { // not required
 		return nil
 	}
 
@@ -102,13 +103,13 @@ func (m *BgpRoutePolicyNeighborMatch) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *BgpRoutePolicyNeighborMatch) UnmarshalBinary(b []byte) error {
 	var res BgpRoutePolicyNeighborMatch
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

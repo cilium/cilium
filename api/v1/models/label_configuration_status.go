@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // LabelConfigurationStatus Labels and label configuration of an endpoint
@@ -59,7 +60,7 @@ func (m *LabelConfigurationStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *LabelConfigurationStatus) validateDerived(formats strfmt.Registry) error {
-	if swag.IsZero(m.Derived) { // not required
+	if typeutils.IsZero(m.Derived) { // not required
 		return nil
 	}
 
@@ -80,7 +81,7 @@ func (m *LabelConfigurationStatus) validateDerived(formats strfmt.Registry) erro
 }
 
 func (m *LabelConfigurationStatus) validateDisabled(formats strfmt.Registry) error {
-	if swag.IsZero(m.Disabled) { // not required
+	if typeutils.IsZero(m.Disabled) { // not required
 		return nil
 	}
 
@@ -101,7 +102,7 @@ func (m *LabelConfigurationStatus) validateDisabled(formats strfmt.Registry) err
 }
 
 func (m *LabelConfigurationStatus) validateRealized(formats strfmt.Registry) error {
-	if swag.IsZero(m.Realized) { // not required
+	if typeutils.IsZero(m.Realized) { // not required
 		return nil
 	}
 
@@ -124,7 +125,7 @@ func (m *LabelConfigurationStatus) validateRealized(formats strfmt.Registry) err
 }
 
 func (m *LabelConfigurationStatus) validateSecurityRelevant(formats strfmt.Registry) error {
-	if swag.IsZero(m.SecurityRelevant) { // not required
+	if typeutils.IsZero(m.SecurityRelevant) { // not required
 		return nil
 	}
 
@@ -210,7 +211,7 @@ func (m *LabelConfigurationStatus) contextValidateRealized(ctx context.Context, 
 
 	if m.Realized != nil {
 
-		if swag.IsZero(m.Realized) { // not required
+		if typeutils.IsZero(m.Realized) { // not required
 			return nil
 		}
 
@@ -254,13 +255,13 @@ func (m *LabelConfigurationStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *LabelConfigurationStatus) UnmarshalBinary(b []byte) error {
 	var res LabelConfigurationStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

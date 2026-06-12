@@ -6,7 +6,9 @@
 package policy
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -14,11 +16,12 @@ import (
 )
 
 // New creates a new policy API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
+func New(transport runtime.ContextualTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
 // New creates a new policy API client with basic auth credentials.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -32,6 +35,7 @@ func NewClientWithBasicAuth(host, basePath, scheme, user, password string) Clien
 }
 
 // New creates a new policy API client with a bearer token for authentication.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -44,56 +48,130 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 }
 
 /*
-Client for policy API
+Client for policy API.
 */
 type Client struct {
-	transport runtime.ClientTransport
+	transport runtime.ContextualTransport
 	formats   strfmt.Registry
 }
 
 // ClientOption may be used to customize the behavior of Client methods.
 type ClientOption func(*runtime.ClientOperation)
 
-// ClientService is the interface for Client methods
+// ClientService is the interface for Client methods.
 type ClientService interface {
+
+	// DeleteFqdnCache deletes matching DNS lookups from the policy generation cache.
 	DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error)
 
+	// DeleteFqdnCacheContext deletes matching DNS lookups from the policy generation cache.
+	DeleteFqdnCacheContext(ctx context.Context, params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error)
+
+	// GetFqdnCache retrieves the list of DNS lookups intercepted from all endpoints.
 	GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error)
 
+	// GetFqdnCacheContext retrieves the list of DNS lookups intercepted from all endpoints.
+	GetFqdnCacheContext(ctx context.Context, params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error)
+
+	// GetFqdnCacheID retrieves the list of DNS lookups intercepted from an endpoint.
 	GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error)
 
+	// GetFqdnCacheIDContext retrieves the list of DNS lookups intercepted from an endpoint.
+	GetFqdnCacheIDContext(ctx context.Context, params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error)
+
+	// GetFqdnNames list internal DNS selector representations.
 	GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error)
 
+	// GetFqdnNamesContext list internal DNS selector representations.
+	GetFqdnNamesContext(ctx context.Context, params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error)
+
+	// GetIP lists information about known IP addresses.
 	GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, error)
 
+	// GetIPContext lists information about known IP addresses.
+	GetIPContext(ctx context.Context, params *GetIPParams, opts ...ClientOption) (*GetIPOK, error)
+
+	// GetIdentity retrieves a list of identities that have metadata matching the provided parameters.
 	GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error)
 
+	// GetIdentityContext retrieves a list of identities that have metadata matching the provided parameters.
+	GetIdentityContext(ctx context.Context, params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error)
+
+	// GetIdentityEndpoints retrieve identities which are being used by local endpoints.
 	GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error)
 
+	// GetIdentityEndpointsContext retrieve identities which are being used by local endpoints.
+	GetIdentityEndpointsContext(ctx context.Context, params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error)
+
+	// GetIdentityID retrieve identity.
 	GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error)
 
+	// GetIdentityIDContext retrieve identity.
+	GetIdentityIDContext(ctx context.Context, params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error)
+
+	// GetPolicy retrieve entire policy tree.
 	GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error)
 
+	// GetPolicyContext retrieve entire policy tree.
+	GetPolicyContext(ctx context.Context, params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error)
+
+	// GetPolicySelectors see what selectors match which identities.
 	GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error)
 
+	// GetPolicySelectorsContext see what selectors match which identities.
+	GetPolicySelectorsContext(ctx context.Context, params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error)
+
+	// GetPolicySubjectSelectors see what subject selectors match which identities on the local node.
 	GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error)
 
-	SetTransport(transport runtime.ClientTransport)
+	// GetPolicySubjectSelectorsContext see what subject selectors match which identities on the local node.
+	GetPolicySubjectSelectorsContext(ctx context.Context, params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error)
+
+	SetTransport(transport runtime.ContextualTransport)
 }
 
 /*
-	DeleteFqdnCache deletes matching DNS lookups from the policy generation cache
+	DeleteFqdnCachedeletes matching DNS lookups from the policy generation cache.
 
 	Deletes matching DNS lookups from the cache, optionally restricted by
 
 DNS name. The removed IP data will no longer be used in generated
 policies.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.DeleteFqdnCacheContext] instead.
 */
 func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.DeleteFqdnCacheContext(ctx, params, opts...)
+}
+
+/*
+	DeleteFqdnCacheContextdeletes matching DNS lookups from the policy generation cache.
+
+	Deletes matching DNS lookups from the cache, optionally restricted by
+
+DNS name. The removed IP data will no longer be used in generated
+policies.
+.
+
+	Do not use the deprecated [DeleteFqdnCacheParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) DeleteFqdnCacheContext(ctx context.Context, params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewDeleteFqdnCacheParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "DeleteFqdnCache",
 		Method:             "DELETE",
@@ -103,13 +181,14 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOp
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &DeleteFqdnCacheReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -130,17 +209,45 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOp
 }
 
 /*
-	GetFqdnCache retrieves the list of DNS lookups intercepted from all endpoints
+	GetFqdnCacheretrieves the list of DNS lookups intercepted from all endpoints.
 
 	Retrieves the list of DNS lookups intercepted from endpoints,
 
 optionally filtered by DNS name, CIDR IP range or source.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetFqdnCacheContext] instead.
 */
 func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetFqdnCacheContext(ctx, params, opts...)
+}
+
+/*
+	GetFqdnCacheContextretrieves the list of DNS lookups intercepted from all endpoints.
+
+	Retrieves the list of DNS lookups intercepted from endpoints,
+
+optionally filtered by DNS name, CIDR IP range or source.
+.
+
+	Do not use the deprecated [GetFqdnCacheParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetFqdnCacheContext(ctx context.Context, params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetFqdnCacheParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetFqdnCache",
 		Method:             "GET",
@@ -150,13 +257,14 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetFqdnCacheReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -177,17 +285,45 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) 
 }
 
 /*
-	GetFqdnCacheID retrieves the list of DNS lookups intercepted from an endpoint
+	GetFqdnCacheIDretrieves the list of DNS lookups intercepted from an endpoint.
 
 	Retrieves the list of DNS lookups intercepted from the specific endpoint,
 
 optionally filtered by endpoint id, DNS name, CIDR IP range or source.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetFqdnCacheIDContext] instead.
 */
 func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetFqdnCacheIDContext(ctx, params, opts...)
+}
+
+/*
+	GetFqdnCacheIDContextretrieves the list of DNS lookups intercepted from an endpoint.
+
+	Retrieves the list of DNS lookups intercepted from the specific endpoint,
+
+optionally filtered by endpoint id, DNS name, CIDR IP range or source.
+.
+
+	Do not use the deprecated [GetFqdnCacheIDParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetFqdnCacheIDContext(ctx context.Context, params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetFqdnCacheIDParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetFqdnCacheID",
 		Method:             "GET",
@@ -197,13 +333,14 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOpti
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetFqdnCacheIDReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -224,17 +361,45 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOpti
 }
 
 /*
-	GetFqdnNames lists internal DNS selector representations
+	GetFqdnNameslists internal DNS selector representations.
 
 	Retrieves the list of DNS-related fields (names to poll, selectors and
 
 their corresponding regexes).
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetFqdnNamesContext] instead.
 */
 func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetFqdnNamesContext(ctx, params, opts...)
+}
+
+/*
+	GetFqdnNamesContextlists internal DNS selector representations.
+
+	Retrieves the list of DNS-related fields (names to poll, selectors and
+
+their corresponding regexes).
+.
+
+	Do not use the deprecated [GetFqdnNamesParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetFqdnNamesContext(ctx context.Context, params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetFqdnNamesParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetFqdnNames",
 		Method:             "GET",
@@ -244,13 +409,14 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetFqdnNamesReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -271,18 +437,47 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) 
 }
 
 /*
-	GetIP lists information about known IP addresses
+	GetIPlists information about known IP addresses.
 
 	Retrieves a list of IPs with known associated information such as
 
 their identities, host addresses, Kubernetes pod names, etc.
 The list can optionally filtered by a CIDR IP range.
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetIPContext] instead.
 */
 func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetIPContext(ctx, params, opts...)
+}
+
+/*
+	GetIPContextlists information about known IP addresses.
+
+	Retrieves a list of IPs with known associated information such as
+
+their identities, host addresses, Kubernetes pod names, etc.
+The list can optionally filtered by a CIDR IP range.
+.
+
+	Do not use the deprecated [GetIPParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetIPContext(ctx context.Context, params *GetIPParams, opts ...ClientOption) (*GetIPOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetIPParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetIP",
 		Method:             "GET",
@@ -292,13 +487,14 @@ func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, err
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetIPReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -319,15 +515,43 @@ func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, err
 }
 
 /*
-GetIdentity retrieves a list of identities that have metadata matching the provided parameters
+	GetIdentityretrieves a list of identities that have metadata matching the provided parameters.
 
-Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
+	Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
+
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetIdentityContext] instead.
 */
 func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetIdentityContext(ctx, params, opts...)
+}
+
+/*
+	GetIdentityContextretrieves a list of identities that have metadata matching the provided parameters.
+
+	Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
+
+.
+
+	Do not use the deprecated [GetIdentityParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetIdentityContext(ctx context.Context, params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetIdentityParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetIdentity",
 		Method:             "GET",
@@ -337,13 +561,14 @@ func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetIdentityReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -364,13 +589,35 @@ func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*
 }
 
 /*
-GetIdentityEndpoints retrieves identities which are being used by local endpoints
+GetIdentityEndpointsretrieves identities which are being used by local endpoints.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetIdentityEndpointsContext] instead.
 */
 func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetIdentityEndpointsContext(ctx, params, opts...)
+}
+
+/*
+GetIdentityEndpointsContextretrieves identities which are being used by local endpoints.
+
+Do not use the deprecated [GetIdentityEndpointsParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetIdentityEndpointsContext(ctx context.Context, params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetIdentityEndpointsParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetIdentityEndpoints",
 		Method:             "GET",
@@ -380,13 +627,14 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts .
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetIdentityEndpointsReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -407,13 +655,35 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts .
 }
 
 /*
-GetIdentityID retrieves identity
+GetIdentityIDretrieves identity.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetIdentityIDContext] instead.
 */
 func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetIdentityIDContext(ctx, params, opts...)
+}
+
+/*
+GetIdentityIDContextretrieves identity.
+
+Do not use the deprecated [GetIdentityIDParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetIdentityIDContext(ctx context.Context, params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetIdentityIDParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetIdentityID",
 		Method:             "GET",
@@ -423,13 +693,14 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetIdentityIDReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -450,17 +721,45 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption
 }
 
 /*
-	GetPolicy retrieves entire policy tree
+	GetPolicyretrieves entire policy tree.
 
 	Returns the entire policy tree with all children.
 
 Deprecated: will be removed in v1.19
+.
+
+	This method does not support injected context.
+	However, timeout and opentracing contexts are honored whenever enabled.
+
+	If you need to pass a specific context, use [Client.GetPolicyContext] instead.
 */
 func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetPolicyContext(ctx, params, opts...)
+}
+
+/*
+	GetPolicyContextretrieves entire policy tree.
+
+	Returns the entire policy tree with all children.
+
+Deprecated: will be removed in v1.19
+.
+
+	Do not use the deprecated [GetPolicyParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetPolicyContext(ctx context.Context, params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetPolicyParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetPolicy",
 		Method:             "GET",
@@ -470,13 +769,14 @@ func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetP
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetPolicyReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -497,13 +797,35 @@ func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetP
 }
 
 /*
-GetPolicySelectors sees what selectors match which identities
+GetPolicySelectorssees what selectors match which identities.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetPolicySelectorsContext] instead.
 */
 func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetPolicySelectorsContext(ctx, params, opts...)
+}
+
+/*
+GetPolicySelectorsContextsees what selectors match which identities.
+
+Do not use the deprecated [GetPolicySelectorsParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetPolicySelectorsContext(ctx context.Context, params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetPolicySelectorsParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetPolicySelectors",
 		Method:             "GET",
@@ -513,13 +835,14 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...Cl
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetPolicySelectorsReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -540,13 +863,35 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...Cl
 }
 
 /*
-GetPolicySubjectSelectors sees what subject selectors match which identities on the local node
+GetPolicySubjectSelectorssees what subject selectors match which identities on the local node.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetPolicySubjectSelectorsContext] instead.
 */
 func (a *Client) GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetPolicySubjectSelectorsContext(ctx, params, opts...)
+}
+
+/*
+GetPolicySubjectSelectorsContextsees what subject selectors match which identities on the local node.
+
+Do not use the deprecated [GetPolicySubjectSelectorsParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetPolicySubjectSelectorsContext(ctx context.Context, params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetPolicySubjectSelectorsParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetPolicySubjectSelectors",
 		Method:             "GET",
@@ -556,13 +901,14 @@ func (a *Client) GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsPara
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetPolicySubjectSelectorsReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -583,6 +929,14 @@ func (a *Client) GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsPara
 }
 
 // SetTransport changes the transport on the client
-func (a *Client) SetTransport(transport runtime.ClientTransport) {
+func (a *Client) SetTransport(transport runtime.ContextualTransport) {
 	a.transport = transport
+}
+
+// innerParams captures internal fields so they don't conflict with user-supplied parameters.
+type innerParams struct {
+	timeout time.Duration
+
+	// Deprecated: use the operation call with context to pass the context instead of [PolicyParams].
+	ctx context.Context
 }

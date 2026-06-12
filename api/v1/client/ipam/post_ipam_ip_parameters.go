@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPostIpamIPParams() *PostIpamIPParams {
-	return &PostIpamIPParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewPostIpamIPParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewPostIpamIPParamsWithTimeout creates a new PostIpamIPParams object
 // with the ability to set a timeout on a request.
 func NewPostIpamIPParamsWithTimeout(timeout time.Duration) *PostIpamIPParams {
 	return &PostIpamIPParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewPostIpamIPParamsWithContext creates a new PostIpamIPParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PostIpamIPParams].
 func NewPostIpamIPParamsWithContext(ctx context.Context) *PostIpamIPParams {
 	return &PostIpamIPParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -73,9 +77,9 @@ type PostIpamIPParams struct {
 	// Pool.
 	Pool *string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the post ipam IP params (not the query body).
@@ -93,76 +97,79 @@ func (o *PostIpamIPParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the post ipam IP params
+// WithTimeout adds the timeout to the post ipam IP params.
 func (o *PostIpamIPParams) WithTimeout(timeout time.Duration) *PostIpamIPParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the post ipam IP params
+// SetTimeout adds the timeout to the post ipam IP params.
 func (o *PostIpamIPParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the post ipam IP params
+// WithContext adds the context to the post ipam IP params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PostIpamIPParams].
 func (o *PostIpamIPParams) WithContext(ctx context.Context) *PostIpamIPParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the post ipam IP params
+// SetContext adds the context to the post ipam IP params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PostIpamIPParams].
 func (o *PostIpamIPParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the post ipam IP params
+// WithHTTPClient adds the HTTPClient to the post ipam IP params.
 func (o *PostIpamIPParams) WithHTTPClient(client *http.Client) *PostIpamIPParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the post ipam IP params
+// SetHTTPClient adds the HTTPClient to the post ipam IP params.
 func (o *PostIpamIPParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithIP adds the ip to the post ipam IP params
+// WithIP adds the ip to the post ipam IP params.
 func (o *PostIpamIPParams) WithIP(ip string) *PostIpamIPParams {
 	o.SetIP(ip)
 	return o
 }
 
-// SetIP adds the ip to the post ipam IP params
+// SetIP adds the ip to the post ipam IP params.
 func (o *PostIpamIPParams) SetIP(ip string) {
 	o.IP = ip
 }
 
-// WithOwner adds the owner to the post ipam IP params
+// WithOwner adds the owner to the post ipam IP params.
 func (o *PostIpamIPParams) WithOwner(owner *string) *PostIpamIPParams {
 	o.SetOwner(owner)
 	return o
 }
 
-// SetOwner adds the owner to the post ipam IP params
+// SetOwner adds the owner to the post ipam IP params.
 func (o *PostIpamIPParams) SetOwner(owner *string) {
 	o.Owner = owner
 }
 
-// WithPool adds the pool to the post ipam IP params
+// WithPool adds the pool to the post ipam IP params.
 func (o *PostIpamIPParams) WithPool(pool *string) *PostIpamIPParams {
 	o.SetPool(pool)
 	return o
 }
 
-// SetPool adds the pool to the post ipam IP params
+// SetPool adds the pool to the post ipam IP params.
 func (o *PostIpamIPParams) SetPool(pool *string) {
 	o.Pool = pool
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *PostIpamIPParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

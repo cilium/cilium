@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	. "github.com/cilium/cilium/api/v1/health/server/restapi"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
@@ -27,7 +28,7 @@ func NewGetHealthzHandler(s *Server) GetHealthzHandler {
 }
 
 func (h *getHealthz) getCiliumStatus() (*ciliumModels.StatusResponse, error) {
-	resp, err := h.Daemon.GetHealthz(nil)
+	resp, err := h.Daemon.GetHealthz(daemon.NewGetHealthzParams())
 	if err != nil {
 		return nil, client.Hint(err)
 	}

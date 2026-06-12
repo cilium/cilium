@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // CgroupDumpMetadata cgroup full metadata
@@ -39,12 +40,12 @@ func (m *CgroupDumpMetadata) Validate(formats strfmt.Registry) error {
 }
 
 func (m *CgroupDumpMetadata) validatePodMetadatas(formats strfmt.Registry) error {
-	if swag.IsZero(m.PodMetadatas) { // not required
+	if typeutils.IsZero(m.PodMetadatas) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.PodMetadatas); i++ {
-		if swag.IsZero(m.PodMetadatas[i]) { // not required
+		if typeutils.IsZero(m.PodMetadatas[i]) { // not required
 			continue
 		}
 
@@ -88,7 +89,7 @@ func (m *CgroupDumpMetadata) contextValidatePodMetadatas(ctx context.Context, fo
 
 		if m.PodMetadatas[i] != nil {
 
-			if swag.IsZero(m.PodMetadatas[i]) { // not required
+			if typeutils.IsZero(m.PodMetadatas[i]) { // not required
 				return nil
 			}
 
@@ -116,13 +117,13 @@ func (m *CgroupDumpMetadata) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *CgroupDumpMetadata) UnmarshalBinary(b []byte) error {
 	var res CgroupDumpMetadata
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

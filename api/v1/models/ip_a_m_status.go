@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // IPAMStatus Status of IP address management
@@ -49,7 +50,7 @@ func (m *IPAMStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *IPAMStatus) validateAllocations(formats strfmt.Registry) error {
-	if swag.IsZero(m.Allocations) { // not required
+	if typeutils.IsZero(m.Allocations) { // not required
 		return nil
 	}
 
@@ -87,7 +88,7 @@ func (m *IPAMStatus) ContextValidate(ctx context.Context, formats strfmt.Registr
 
 func (m *IPAMStatus) contextValidateAllocations(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Allocations) { // not required
+	if typeutils.IsZero(m.Allocations) { // not required
 		return nil
 	}
 
@@ -112,13 +113,13 @@ func (m *IPAMStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *IPAMStatus) UnmarshalBinary(b []byte) error {
 	var res IPAMStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

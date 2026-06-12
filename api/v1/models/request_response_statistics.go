@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // RequestResponseStatistics Statistics of a proxy redirect
@@ -47,7 +48,7 @@ func (m *RequestResponseStatistics) Validate(formats strfmt.Registry) error {
 }
 
 func (m *RequestResponseStatistics) validateRequests(formats strfmt.Registry) error {
-	if swag.IsZero(m.Requests) { // not required
+	if typeutils.IsZero(m.Requests) { // not required
 		return nil
 	}
 
@@ -70,7 +71,7 @@ func (m *RequestResponseStatistics) validateRequests(formats strfmt.Registry) er
 }
 
 func (m *RequestResponseStatistics) validateResponses(formats strfmt.Registry) error {
-	if swag.IsZero(m.Responses) { // not required
+	if typeutils.IsZero(m.Responses) { // not required
 		return nil
 	}
 
@@ -114,7 +115,7 @@ func (m *RequestResponseStatistics) contextValidateRequests(ctx context.Context,
 
 	if m.Requests != nil {
 
-		if swag.IsZero(m.Requests) { // not required
+		if typeutils.IsZero(m.Requests) { // not required
 			return nil
 		}
 
@@ -139,7 +140,7 @@ func (m *RequestResponseStatistics) contextValidateResponses(ctx context.Context
 
 	if m.Responses != nil {
 
-		if swag.IsZero(m.Responses) { // not required
+		if typeutils.IsZero(m.Responses) { // not required
 			return nil
 		}
 
@@ -165,13 +166,13 @@ func (m *RequestResponseStatistics) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *RequestResponseStatistics) UnmarshalBinary(b []byte) error {
 	var res RequestResponseStatistics
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetIPParams creates a new GetIPParams object,
@@ -25,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetIPParams() *GetIPParams {
-	return &GetIPParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetIPParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetIPParamsWithTimeout creates a new GetIPParams object
 // with the ability to set a timeout on a request.
 func NewGetIPParamsWithTimeout(timeout time.Duration) *GetIPParams {
 	return &GetIPParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetIPParamsWithContext creates a new GetIPParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIPParams].
 func NewGetIPParamsWithContext(ctx context.Context) *GetIPParams {
 	return &GetIPParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -76,9 +79,9 @@ type GetIPParams struct {
 	*/
 	Labels models.Labels
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get IP params (not the query body).
@@ -96,65 +99,68 @@ func (o *GetIPParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get IP params
+// WithTimeout adds the timeout to the get IP params.
 func (o *GetIPParams) WithTimeout(timeout time.Duration) *GetIPParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get IP params
+// SetTimeout adds the timeout to the get IP params.
 func (o *GetIPParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get IP params
+// WithContext adds the context to the get IP params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIPParams].
 func (o *GetIPParams) WithContext(ctx context.Context) *GetIPParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get IP params
+// SetContext adds the context to the get IP params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIPParams].
 func (o *GetIPParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get IP params
+// WithHTTPClient adds the HTTPClient to the get IP params.
 func (o *GetIPParams) WithHTTPClient(client *http.Client) *GetIPParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get IP params
+// SetHTTPClient adds the HTTPClient to the get IP params.
 func (o *GetIPParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithCidr adds the cidr to the get IP params
+// WithCidr adds the cidr to the get IP params.
 func (o *GetIPParams) WithCidr(cidr *string) *GetIPParams {
 	o.SetCidr(cidr)
 	return o
 }
 
-// SetCidr adds the cidr to the get IP params
+// SetCidr adds the cidr to the get IP params.
 func (o *GetIPParams) SetCidr(cidr *string) {
 	o.Cidr = cidr
 }
 
-// WithLabels adds the labels to the get IP params
+// WithLabels adds the labels to the get IP params.
 func (o *GetIPParams) WithLabels(labels models.Labels) *GetIPParams {
 	o.SetLabels(labels)
 	return o
 }
 
-// SetLabels adds the labels to the get IP params
+// SetLabels adds the labels to the get IP params.
 func (o *GetIPParams) SetLabels(labels models.Labels) {
 	o.Labels = labels
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetIPParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

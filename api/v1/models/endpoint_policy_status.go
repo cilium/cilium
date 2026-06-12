@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // EndpointPolicyStatus Policy information of an endpoint
@@ -56,12 +57,12 @@ func (m *EndpointPolicyStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicyStatus) validateProxyStatistics(formats strfmt.Registry) error {
-	if swag.IsZero(m.ProxyStatistics) { // not required
+	if typeutils.IsZero(m.ProxyStatistics) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.ProxyStatistics); i++ {
-		if swag.IsZero(m.ProxyStatistics[i]) { // not required
+		if typeutils.IsZero(m.ProxyStatistics[i]) { // not required
 			continue
 		}
 
@@ -86,7 +87,7 @@ func (m *EndpointPolicyStatus) validateProxyStatistics(formats strfmt.Registry) 
 }
 
 func (m *EndpointPolicyStatus) validateRealized(formats strfmt.Registry) error {
-	if swag.IsZero(m.Realized) { // not required
+	if typeutils.IsZero(m.Realized) { // not required
 		return nil
 	}
 
@@ -109,7 +110,7 @@ func (m *EndpointPolicyStatus) validateRealized(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicyStatus) validateSpec(formats strfmt.Registry) error {
-	if swag.IsZero(m.Spec) { // not required
+	if typeutils.IsZero(m.Spec) { // not required
 		return nil
 	}
 
@@ -159,7 +160,7 @@ func (m *EndpointPolicyStatus) contextValidateProxyStatistics(ctx context.Contex
 
 		if m.ProxyStatistics[i] != nil {
 
-			if swag.IsZero(m.ProxyStatistics[i]) { // not required
+			if typeutils.IsZero(m.ProxyStatistics[i]) { // not required
 				return nil
 			}
 
@@ -186,7 +187,7 @@ func (m *EndpointPolicyStatus) contextValidateRealized(ctx context.Context, form
 
 	if m.Realized != nil {
 
-		if swag.IsZero(m.Realized) { // not required
+		if typeutils.IsZero(m.Realized) { // not required
 			return nil
 		}
 
@@ -211,7 +212,7 @@ func (m *EndpointPolicyStatus) contextValidateSpec(ctx context.Context, formats 
 
 	if m.Spec != nil {
 
-		if swag.IsZero(m.Spec) { // not required
+		if typeutils.IsZero(m.Spec) { // not required
 			return nil
 		}
 
@@ -237,13 +238,13 @@ func (m *EndpointPolicyStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *EndpointPolicyStatus) UnmarshalBinary(b []byte) error {
 	var res EndpointPolicyStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

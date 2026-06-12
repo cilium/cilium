@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetHealthzParams() *GetHealthzParams {
-	return &GetHealthzParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetHealthzParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetHealthzParamsWithTimeout creates a new GetHealthzParams object
 // with the ability to set a timeout on a request.
 func NewGetHealthzParamsWithTimeout(timeout time.Duration) *GetHealthzParams {
 	return &GetHealthzParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetHealthzParamsWithContext creates a new GetHealthzParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetHealthzParams].
 func NewGetHealthzParamsWithContext(ctx context.Context) *GetHealthzParams {
 	return &GetHealthzParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetHealthzParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetHealthzParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get healthz params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetHealthzParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get healthz params
+// WithTimeout adds the timeout to the get healthz params.
 func (o *GetHealthzParams) WithTimeout(timeout time.Duration) *GetHealthzParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get healthz params
+// SetTimeout adds the timeout to the get healthz params.
 func (o *GetHealthzParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get healthz params
+// WithContext adds the context to the get healthz params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetHealthzParams].
 func (o *GetHealthzParams) WithContext(ctx context.Context) *GetHealthzParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get healthz params
+// SetContext adds the context to the get healthz params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetHealthzParams].
 func (o *GetHealthzParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get healthz params
+// WithHTTPClient adds the HTTPClient to the get healthz params.
 func (o *GetHealthzParams) WithHTTPClient(client *http.Client) *GetHealthzParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get healthz params
+// SetHTTPClient adds the HTTPClient to the get healthz params.
 func (o *GetHealthzParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

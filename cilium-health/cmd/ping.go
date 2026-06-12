@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/api/v1/health/client/restapi"
 )
 
 // pingCmd represents the ping command
@@ -14,7 +16,7 @@ var pingCmd = &cobra.Command{
 	Use:   "ping",
 	Short: "Check whether the cilium-health API is up",
 	Run: func(cmd *cobra.Command, args []string) {
-		_, err := client.Restapi.GetHealthz(nil)
+		_, err := client.Restapi.GetHealthz(restapi.NewGetHealthzParams())
 		if err != nil {
 			Fatalf("Cannot ping: %s\n", err)
 		}

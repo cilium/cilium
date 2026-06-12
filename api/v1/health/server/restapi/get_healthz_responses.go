@@ -8,9 +8,8 @@ package restapi
 import (
 	"net/http"
 
-	"github.com/go-openapi/runtime"
-
 	"github.com/cilium/cilium/api/v1/health/models"
+	"github.com/go-openapi/runtime"
 )
 
 // GetHealthzOKCode is the HTTP code returned for type GetHealthzOK

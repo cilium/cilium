@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetPrefilterParams() *GetPrefilterParams {
-	return &GetPrefilterParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetPrefilterParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetPrefilterParamsWithTimeout creates a new GetPrefilterParams object
 // with the ability to set a timeout on a request.
 func NewGetPrefilterParamsWithTimeout(timeout time.Duration) *GetPrefilterParams {
 	return &GetPrefilterParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetPrefilterParamsWithContext creates a new GetPrefilterParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPrefilterParams].
 func NewGetPrefilterParamsWithContext(ctx context.Context) *GetPrefilterParams {
 	return &GetPrefilterParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetPrefilterParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetPrefilterParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get prefilter params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetPrefilterParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get prefilter params
+// WithTimeout adds the timeout to the get prefilter params.
 func (o *GetPrefilterParams) WithTimeout(timeout time.Duration) *GetPrefilterParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get prefilter params
+// SetTimeout adds the timeout to the get prefilter params.
 func (o *GetPrefilterParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get prefilter params
+// WithContext adds the context to the get prefilter params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPrefilterParams].
 func (o *GetPrefilterParams) WithContext(ctx context.Context) *GetPrefilterParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get prefilter params
+// SetContext adds the context to the get prefilter params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetPrefilterParams].
 func (o *GetPrefilterParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get prefilter params
+// WithHTTPClient adds the HTTPClient to the get prefilter params.
 func (o *GetPrefilterParams) WithHTTPClient(client *http.Client) *GetPrefilterParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get prefilter params
+// SetHTTPClient adds the HTTPClient to the get prefilter params.
 func (o *GetPrefilterParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetPrefilterParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

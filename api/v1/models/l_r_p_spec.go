@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // LRPSpec Configuration of an LRP
@@ -57,12 +58,12 @@ func (m *LRPSpec) Validate(formats strfmt.Registry) error {
 }
 
 func (m *LRPSpec) validateFrontendMappings(formats strfmt.Registry) error {
-	if swag.IsZero(m.FrontendMappings) { // not required
+	if typeutils.IsZero(m.FrontendMappings) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.FrontendMappings); i++ {
-		if swag.IsZero(m.FrontendMappings[i]) { // not required
+		if typeutils.IsZero(m.FrontendMappings[i]) { // not required
 			continue
 		}
 
@@ -106,7 +107,7 @@ func (m *LRPSpec) contextValidateFrontendMappings(ctx context.Context, formats s
 
 		if m.FrontendMappings[i] != nil {
 
-			if swag.IsZero(m.FrontendMappings[i]) { // not required
+			if typeutils.IsZero(m.FrontendMappings[i]) { // not required
 				return nil
 			}
 
@@ -134,13 +135,13 @@ func (m *LRPSpec) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *LRPSpec) UnmarshalBinary(b []byte) error {
 	var res LRPSpec
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

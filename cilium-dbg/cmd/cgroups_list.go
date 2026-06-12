@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
@@ -34,7 +35,7 @@ func init() {
 }
 
 func listCgroups() {
-	resp, err := client.Daemon.GetCgroupDumpMetadata(nil)
+	resp, err := client.Daemon.GetCgroupDumpMetadata(daemon.NewGetCgroupDumpMetadataParams())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 		os.Exit(1)

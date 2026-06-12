@@ -16,6 +16,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -237,7 +239,7 @@ func runMonitor(ctx context.Context) {
 	validateEndpointsFilters()
 	setVerbosity()
 
-	if resp, err := client.Daemon.GetHealthz(nil); err == nil {
+	if resp, err := client.Daemon.GetHealthzContext(ctx, daemon.NewGetHealthzParams()); err == nil {
 		if nm := resp.Payload.NodeMonitor; nm != nil {
 			fmt.Fprintf(os.Stderr, "Listening for events on %d CPUs with %dx%d of shared memory\n",
 				nm.Cpus, nm.Npages, nm.Pagesize)

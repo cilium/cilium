@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetIdentityEndpointsParams() *GetIdentityEndpointsParams {
-	return &GetIdentityEndpointsParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetIdentityEndpointsParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetIdentityEndpointsParamsWithTimeout creates a new GetIdentityEndpointsParams object
 // with the ability to set a timeout on a request.
 func NewGetIdentityEndpointsParamsWithTimeout(timeout time.Duration) *GetIdentityEndpointsParams {
 	return &GetIdentityEndpointsParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetIdentityEndpointsParamsWithContext creates a new GetIdentityEndpointsParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIdentityEndpointsParams].
 func NewGetIdentityEndpointsParamsWithContext(ctx context.Context) *GetIdentityEndpointsParams {
 	return &GetIdentityEndpointsParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetIdentityEndpointsParams contains all the parameters to send to the API endpoi
 	Typically these are written to a http.Request.
 */
 type GetIdentityEndpointsParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get identity endpoints params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetIdentityEndpointsParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get identity endpoints params
+// WithTimeout adds the timeout to the get identity endpoints params.
 func (o *GetIdentityEndpointsParams) WithTimeout(timeout time.Duration) *GetIdentityEndpointsParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get identity endpoints params
+// SetTimeout adds the timeout to the get identity endpoints params.
 func (o *GetIdentityEndpointsParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get identity endpoints params
+// WithContext adds the context to the get identity endpoints params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIdentityEndpointsParams].
 func (o *GetIdentityEndpointsParams) WithContext(ctx context.Context) *GetIdentityEndpointsParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get identity endpoints params
+// SetContext adds the context to the get identity endpoints params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIdentityEndpointsParams].
 func (o *GetIdentityEndpointsParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get identity endpoints params
+// WithHTTPClient adds the HTTPClient to the get identity endpoints params.
 func (o *GetIdentityEndpointsParams) WithHTTPClient(client *http.Client) *GetIdentityEndpointsParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get identity endpoints params
+// SetHTTPClient adds the HTTPClient to the get identity endpoints params.
 func (o *GetIdentityEndpointsParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetIdentityEndpointsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

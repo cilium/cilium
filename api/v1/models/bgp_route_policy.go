@@ -13,7 +13,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -56,12 +57,12 @@ func (m *BgpRoutePolicy) Validate(formats strfmt.Registry) error {
 }
 
 func (m *BgpRoutePolicy) validateStatements(formats strfmt.Registry) error {
-	if swag.IsZero(m.Statements) { // not required
+	if typeutils.IsZero(m.Statements) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Statements); i++ {
-		if swag.IsZero(m.Statements[i]) { // not required
+		if typeutils.IsZero(m.Statements[i]) { // not required
 			continue
 		}
 
@@ -115,7 +116,7 @@ func (m *BgpRoutePolicy) validateTypeEnum(path, location string, value string) e
 }
 
 func (m *BgpRoutePolicy) validateType(formats strfmt.Registry) error {
-	if swag.IsZero(m.Type) { // not required
+	if typeutils.IsZero(m.Type) { // not required
 		return nil
 	}
 
@@ -147,7 +148,7 @@ func (m *BgpRoutePolicy) contextValidateStatements(ctx context.Context, formats 
 
 		if m.Statements[i] != nil {
 
-			if swag.IsZero(m.Statements[i]) { // not required
+			if typeutils.IsZero(m.Statements[i]) { // not required
 				return nil
 			}
 
@@ -175,13 +176,13 @@ func (m *BgpRoutePolicy) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *BgpRoutePolicy) UnmarshalBinary(b []byte) error {
 	var res BgpRoutePolicy
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

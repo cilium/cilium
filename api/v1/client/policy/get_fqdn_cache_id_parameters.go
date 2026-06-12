@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetFqdnCacheIDParams() *GetFqdnCacheIDParams {
-	return &GetFqdnCacheIDParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetFqdnCacheIDParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetFqdnCacheIDParamsWithTimeout creates a new GetFqdnCacheIDParams object
 // with the ability to set a timeout on a request.
 func NewGetFqdnCacheIDParamsWithTimeout(timeout time.Duration) *GetFqdnCacheIDParams {
 	return &GetFqdnCacheIDParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetFqdnCacheIDParamsWithContext creates a new GetFqdnCacheIDParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetFqdnCacheIDParams].
 func NewGetFqdnCacheIDParamsWithContext(ctx context.Context) *GetFqdnCacheIDParams {
 	return &GetFqdnCacheIDParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -99,9 +103,9 @@ type GetFqdnCacheIDParams struct {
 	*/
 	Source *string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get fqdn cache ID params (not the query body).
@@ -119,87 +123,90 @@ func (o *GetFqdnCacheIDParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get fqdn cache ID params
+// WithTimeout adds the timeout to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) WithTimeout(timeout time.Duration) *GetFqdnCacheIDParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get fqdn cache ID params
+// SetTimeout adds the timeout to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get fqdn cache ID params
+// WithContext adds the context to the get fqdn cache ID params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetFqdnCacheIDParams].
 func (o *GetFqdnCacheIDParams) WithContext(ctx context.Context) *GetFqdnCacheIDParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get fqdn cache ID params
+// SetContext adds the context to the get fqdn cache ID params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetFqdnCacheIDParams].
 func (o *GetFqdnCacheIDParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get fqdn cache ID params
+// WithHTTPClient adds the HTTPClient to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) WithHTTPClient(client *http.Client) *GetFqdnCacheIDParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get fqdn cache ID params
+// SetHTTPClient adds the HTTPClient to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithCidr adds the cidr to the get fqdn cache ID params
+// WithCidr adds the cidr to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) WithCidr(cidr *string) *GetFqdnCacheIDParams {
 	o.SetCidr(cidr)
 	return o
 }
 
-// SetCidr adds the cidr to the get fqdn cache ID params
+// SetCidr adds the cidr to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) SetCidr(cidr *string) {
 	o.Cidr = cidr
 }
 
-// WithID adds the id to the get fqdn cache ID params
+// WithID adds the id to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) WithID(id string) *GetFqdnCacheIDParams {
 	o.SetID(id)
 	return o
 }
 
-// SetID adds the id to the get fqdn cache ID params
+// SetID adds the id to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) SetID(id string) {
 	o.ID = id
 }
 
-// WithMatchpattern adds the matchpattern to the get fqdn cache ID params
+// WithMatchpattern adds the matchpattern to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) WithMatchpattern(matchpattern *string) *GetFqdnCacheIDParams {
 	o.SetMatchpattern(matchpattern)
 	return o
 }
 
-// SetMatchpattern adds the matchpattern to the get fqdn cache ID params
+// SetMatchpattern adds the matchpattern to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) SetMatchpattern(matchpattern *string) {
 	o.Matchpattern = matchpattern
 }
 
-// WithSource adds the source to the get fqdn cache ID params
+// WithSource adds the source to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) WithSource(source *string) *GetFqdnCacheIDParams {
 	o.SetSource(source)
 	return o
 }
 
-// SetSource adds the source to the get fqdn cache ID params
+// SetSource adds the source to the get fqdn cache ID params.
 func (o *GetFqdnCacheIDParams) SetSource(source *string) {
 	o.Source = source
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetFqdnCacheIDParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

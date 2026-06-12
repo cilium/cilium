@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetMapNameParams() *GetMapNameParams {
-	return &GetMapNameParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetMapNameParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetMapNameParamsWithTimeout creates a new GetMapNameParams object
 // with the ability to set a timeout on a request.
 func NewGetMapNameParamsWithTimeout(timeout time.Duration) *GetMapNameParams {
 	return &GetMapNameParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetMapNameParamsWithContext creates a new GetMapNameParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapNameParams].
 func NewGetMapNameParamsWithContext(ctx context.Context) *GetMapNameParams {
 	return &GetMapNameParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -67,9 +71,9 @@ type GetMapNameParams struct {
 	*/
 	Name string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get map name params (not the query body).
@@ -87,54 +91,57 @@ func (o *GetMapNameParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get map name params
+// WithTimeout adds the timeout to the get map name params.
 func (o *GetMapNameParams) WithTimeout(timeout time.Duration) *GetMapNameParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get map name params
+// SetTimeout adds the timeout to the get map name params.
 func (o *GetMapNameParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get map name params
+// WithContext adds the context to the get map name params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapNameParams].
 func (o *GetMapNameParams) WithContext(ctx context.Context) *GetMapNameParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get map name params
+// SetContext adds the context to the get map name params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapNameParams].
 func (o *GetMapNameParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get map name params
+// WithHTTPClient adds the HTTPClient to the get map name params.
 func (o *GetMapNameParams) WithHTTPClient(client *http.Client) *GetMapNameParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get map name params
+// SetHTTPClient adds the HTTPClient to the get map name params.
 func (o *GetMapNameParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithName adds the name to the get map name params
+// WithName adds the name to the get map name params.
 func (o *GetMapNameParams) WithName(name string) *GetMapNameParams {
 	o.SetName(name)
 	return o
 }
 
-// SetName adds the name to the get map name params
+// SetName adds the name to the get map name params.
 func (o *GetMapNameParams) SetName(name string) {
 	o.Name = name
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetMapNameParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

@@ -11,10 +11,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // GetEndpointIDHealthzReader is a Reader for the GetEndpointIDHealthz structure.

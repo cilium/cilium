@@ -8,9 +8,8 @@ package endpoint
 import (
 	"net/http"
 
-	"github.com/go-openapi/runtime"
-
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/go-openapi/runtime"
 )
 
 // PatchEndpointIDOKCode is the HTTP code returned for type PatchEndpointIDOK

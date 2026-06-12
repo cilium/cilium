@@ -23,24 +23,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetMapParams() *GetMapParams {
-	return &GetMapParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetMapParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetMapParamsWithTimeout creates a new GetMapParams object
 // with the ability to set a timeout on a request.
 func NewGetMapParamsWithTimeout(timeout time.Duration) *GetMapParams {
 	return &GetMapParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetMapParamsWithContext creates a new GetMapParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapParams].
 func NewGetMapParamsWithContext(ctx context.Context) *GetMapParams {
 	return &GetMapParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -60,9 +64,9 @@ GetMapParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetMapParams struct {
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get map params (not the query body).
@@ -80,43 +84,46 @@ func (o *GetMapParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get map params
+// WithTimeout adds the timeout to the get map params.
 func (o *GetMapParams) WithTimeout(timeout time.Duration) *GetMapParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get map params
+// SetTimeout adds the timeout to the get map params.
 func (o *GetMapParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get map params
+// WithContext adds the context to the get map params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapParams].
 func (o *GetMapParams) WithContext(ctx context.Context) *GetMapParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get map params
+// SetContext adds the context to the get map params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetMapParams].
 func (o *GetMapParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get map params
+// WithHTTPClient adds the HTTPClient to the get map params.
 func (o *GetMapParams) WithHTTPClient(client *http.Client) *GetMapParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get map params
+// SetHTTPClient adds the HTTPClient to the get map params.
 func (o *GetMapParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetMapParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

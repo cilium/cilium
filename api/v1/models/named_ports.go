@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // NamedPorts List of named Layer 4 port and protocol pairs which will be used in Network
@@ -29,7 +29,7 @@ func (m NamedPorts) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	for i := 0; i < len(m); i++ {
-		if swag.IsZero(m[i]) { // not required
+		if typeutils.IsZero(m[i]) { // not required
 			continue
 		}
 
@@ -64,7 +64,7 @@ func (m NamedPorts) ContextValidate(ctx context.Context, formats strfmt.Registry
 
 		if m[i] != nil {
 
-			if swag.IsZero(m[i]) { // not required
+			if typeutils.IsZero(m[i]) { // not required
 				return nil
 			}
 

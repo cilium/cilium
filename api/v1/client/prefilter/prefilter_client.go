@@ -6,7 +6,9 @@
 package prefilter
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -14,11 +16,12 @@ import (
 )
 
 // New creates a new prefilter API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
+func New(transport runtime.ContextualTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
 // New creates a new prefilter API client with basic auth credentials.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -32,6 +35,7 @@ func NewClientWithBasicAuth(host, basePath, scheme, user, password string) Clien
 }
 
 // New creates a new prefilter API client with a bearer token for authentication.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -44,35 +48,70 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 }
 
 /*
-Client for prefilter API
+Client for prefilter API.
 */
 type Client struct {
-	transport runtime.ClientTransport
+	transport runtime.ContextualTransport
 	formats   strfmt.Registry
 }
 
 // ClientOption may be used to customize the behavior of Client methods.
 type ClientOption func(*runtime.ClientOperation)
 
-// ClientService is the interface for Client methods
+// ClientService is the interface for Client methods.
 type ClientService interface {
+
+	// DeletePrefilter delete list of c ID rs.
 	DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error)
 
+	// DeletePrefilterContext delete list of c ID rs.
+	DeletePrefilterContext(ctx context.Context, params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error)
+
+	// GetPrefilter retrieve list of c ID rs.
 	GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error)
 
+	// GetPrefilterContext retrieve list of c ID rs.
+	GetPrefilterContext(ctx context.Context, params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error)
+
+	// PatchPrefilter update list of c ID rs.
 	PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error)
 
-	SetTransport(transport runtime.ClientTransport)
+	// PatchPrefilterContext update list of c ID rs.
+	PatchPrefilterContext(ctx context.Context, params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error)
+
+	SetTransport(transport runtime.ContextualTransport)
 }
 
 /*
-DeletePrefilter deletes list of c ID rs
+DeletePrefilterdeletes list of c ID rs.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.DeletePrefilterContext] instead.
 */
 func (a *Client) DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.DeletePrefilterContext(ctx, params, opts...)
+}
+
+/*
+DeletePrefilterContextdeletes list of c ID rs.
+
+Do not use the deprecated [DeletePrefilterParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) DeletePrefilterContext(ctx context.Context, params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewDeletePrefilterParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "DeletePrefilter",
 		Method:             "DELETE",
@@ -82,13 +121,14 @@ func (a *Client) DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOp
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &DeletePrefilterReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +149,35 @@ func (a *Client) DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOp
 }
 
 /*
-GetPrefilter retrieves list of c ID rs
+GetPrefilterretrieves list of c ID rs.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetPrefilterContext] instead.
 */
 func (a *Client) GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetPrefilterContext(ctx, params, opts...)
+}
+
+/*
+GetPrefilterContextretrieves list of c ID rs.
+
+Do not use the deprecated [GetPrefilterParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetPrefilterContext(ctx context.Context, params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetPrefilterParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetPrefilter",
 		Method:             "GET",
@@ -125,13 +187,14 @@ func (a *Client) GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetPrefilterReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -152,13 +215,35 @@ func (a *Client) GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) 
 }
 
 /*
-PatchPrefilter updates list of c ID rs
+PatchPrefilterupdates list of c ID rs.
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.PatchPrefilterContext] instead.
 */
 func (a *Client) PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.PatchPrefilterContext(ctx, params, opts...)
+}
+
+/*
+PatchPrefilterContextupdates list of c ID rs.
+
+Do not use the deprecated [PatchPrefilterParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) PatchPrefilterContext(ctx context.Context, params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPatchPrefilterParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "PatchPrefilter",
 		Method:             "PATCH",
@@ -168,13 +253,14 @@ func (a *Client) PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOpti
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PatchPrefilterReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +281,14 @@ func (a *Client) PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOpti
 }
 
 // SetTransport changes the transport on the client
-func (a *Client) SetTransport(transport runtime.ClientTransport) {
+func (a *Client) SetTransport(transport runtime.ContextualTransport) {
 	a.transport = transport
+}
+
+// innerParams captures internal fields so they don't conflict with user-supplied parameters.
+type innerParams struct {
+	timeout time.Duration
+
+	// Deprecated: use the operation call with context to pass the context instead of [PrefilterParams].
+	ctx context.Context
 }

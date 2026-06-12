@@ -10,6 +10,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime"
@@ -17,11 +20,7 @@ import (
 	"github.com/go-openapi/runtime/security"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
-
-	"github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
-	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
-	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
+	"github.com/go-openapi/swag/cmdutils"
 )
 
 // NewCiliumOperatorAPI creates a new CiliumOperator instance
@@ -123,7 +122,7 @@ type CiliumOperatorAPI struct {
 	ServerShutdown func()
 
 	// Custom command line argument groups with their descriptions
-	CommandLineOptionsGroups []swag.CommandLineOptionsGroup
+	CommandLineOptionsGroups []cmdutils.CommandLineOptionsGroup
 
 	// User defined logger function.
 	Logger func(string, ...any)

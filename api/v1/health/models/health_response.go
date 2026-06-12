@@ -12,7 +12,8 @@ import (
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // HealthResponse Health and status information of local node
@@ -49,7 +50,7 @@ func (m *HealthResponse) Validate(formats strfmt.Registry) error {
 }
 
 func (m *HealthResponse) validateCilium(formats strfmt.Registry) error {
-	if swag.IsZero(m.Cilium) { // not required
+	if typeutils.IsZero(m.Cilium) { // not required
 		return nil
 	}
 
@@ -70,7 +71,7 @@ func (m *HealthResponse) validateCilium(formats strfmt.Registry) error {
 }
 
 func (m *HealthResponse) validateSystemLoad(formats strfmt.Registry) error {
-	if swag.IsZero(m.SystemLoad) { // not required
+	if typeutils.IsZero(m.SystemLoad) { // not required
 		return nil
 	}
 
@@ -112,7 +113,7 @@ func (m *HealthResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 
 func (m *HealthResponse) contextValidateCilium(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Cilium) { // not required
+	if typeutils.IsZero(m.Cilium) { // not required
 		return nil
 	}
 
@@ -136,7 +137,7 @@ func (m *HealthResponse) contextValidateSystemLoad(ctx context.Context, formats 
 
 	if m.SystemLoad != nil {
 
-		if swag.IsZero(m.SystemLoad) { // not required
+		if typeutils.IsZero(m.SystemLoad) { // not required
 			return nil
 		}
 
@@ -162,13 +163,13 @@ func (m *HealthResponse) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *HealthResponse) UnmarshalBinary(b []byte) error {
 	var res HealthResponse
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -88,7 +89,7 @@ func (m *FrontendAddress) validateProtocolEnum(path, location string, value stri
 }
 
 func (m *FrontendAddress) validateProtocol(formats strfmt.Registry) error {
-	if swag.IsZero(m.Protocol) { // not required
+	if typeutils.IsZero(m.Protocol) { // not required
 		return nil
 	}
 
@@ -130,7 +131,7 @@ func (m *FrontendAddress) validateScopeEnum(path, location string, value string)
 }
 
 func (m *FrontendAddress) validateScope(formats strfmt.Registry) error {
-	if swag.IsZero(m.Scope) { // not required
+	if typeutils.IsZero(m.Scope) { // not required
 		return nil
 	}
 
@@ -152,13 +153,13 @@ func (m *FrontendAddress) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *FrontendAddress) UnmarshalBinary(b []byte) error {
 	var res FrontendAddress
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

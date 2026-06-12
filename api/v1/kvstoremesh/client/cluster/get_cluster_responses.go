@@ -11,10 +11,9 @@ import (
 	"fmt"
 	"io"
 
+	common "github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
-
-	common "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetClusterReader is a Reader for the GetCluster structure.

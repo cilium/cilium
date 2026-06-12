@@ -25,7 +25,7 @@ var (
 		Short:   "List current state of all peers (deprecated)",
 		Long:    "List state of all peers defined in Cilium BGP configuration (deprecated)",
 		Run: func(cmd *cobra.Command, args []string) {
-			res, err := client.Bgp.GetBgpPeers(nil)
+			res, err := client.Bgp.GetBgpPeers(bgp.NewGetBgpPeersParams())
 			if err != nil {
 				disabledErr := bgp.NewGetBgpPeersDisabled()
 				if errors.As(err, &disabledErr) {

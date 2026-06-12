@@ -6,7 +6,9 @@
 package operator
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -14,11 +16,12 @@ import (
 )
 
 // New creates a new operator API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
+func New(transport runtime.ContextualTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
 // New creates a new operator API client with basic auth credentials.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -32,6 +35,7 @@ func NewClientWithBasicAuth(host, basePath, scheme, user, password string) Clien
 }
 
 // New creates a new operator API client with a bearer token for authentication.
+//
 // It takes the following parameters:
 // - host: http host (github.com).
 // - basePath: any base path for the API client ("/v1", "/v3").
@@ -44,10 +48,10 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 }
 
 /*
-Client for operator API
+Client for operator API.
 */
 type Client struct {
-	transport runtime.ClientTransport
+	transport runtime.ContextualTransport
 	formats   strfmt.Registry
 }
 
@@ -78,23 +82,52 @@ func WithAcceptTextPlain(r *runtime.ClientOperation) {
 	r.ProducesMediaTypes = []string{"text/plain"}
 }
 
-// ClientService is the interface for Client methods
+// ClientService is the interface for Client methods.
 type ClientService interface {
+
+	// GetHealthz get health of cilium operator.
 	GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error)
 
-	SetTransport(transport runtime.ClientTransport)
+	// GetHealthzContext get health of cilium operator.
+	GetHealthzContext(ctx context.Context, params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error)
+
+	SetTransport(transport runtime.ContextualTransport)
 }
 
 /*
-GetHealthz gets health of cilium operator
+GetHealthzgets health of cilium operator.
 
-Returns the status of cilium operator instance.
+Returns the status of cilium operator instance..
+
+This method does not support injected context.
+However, timeout and opentracing contexts are honored whenever enabled.
+
+If you need to pass a specific context, use [Client.GetHealthzContext] instead.
 */
 func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
+	var ctx context.Context
+	if params.inner.ctx != nil {
+		ctx = params.inner.ctx
+	} else {
+		ctx = context.Background()
+	}
+
+	return a.GetHealthzContext(ctx, params, opts...)
+}
+
+/*
+GetHealthzContextgets health of cilium operator.
+
+Returns the status of cilium operator instance..
+
+Do not use the deprecated [GetHealthzParams.Context] with this method: it would be ignored.
+*/
+func (a *Client) GetHealthzContext(ctx context.Context, params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetHealthzParams()
 	}
+
 	op := &runtime.ClientOperation{
 		ID:                 "GetHealthz",
 		Method:             "GET",
@@ -104,13 +137,14 @@ func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*Ge
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetHealthzReader{formats: a.formats},
-		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(op)
 	}
-	result, err := a.transport.Submit(op)
+
+	result, err := a.transport.SubmitContext(ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +165,14 @@ func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*Ge
 }
 
 // SetTransport changes the transport on the client
-func (a *Client) SetTransport(transport runtime.ClientTransport) {
+func (a *Client) SetTransport(transport runtime.ContextualTransport) {
 	a.transport = transport
+}
+
+// innerParams captures internal fields so they don't conflict with user-supplied parameters.
+type innerParams struct {
+	timeout time.Duration
+
+	// Deprecated: use the operation call with context to pass the context instead of [OperatorParams].
+	ctx context.Context
 }

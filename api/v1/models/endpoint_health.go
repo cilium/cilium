@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // EndpointHealth Health of the endpoint
@@ -57,7 +58,7 @@ func (m *EndpointHealth) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointHealth) validateBpf(formats strfmt.Registry) error {
-	if swag.IsZero(m.Bpf) { // not required
+	if typeutils.IsZero(m.Bpf) { // not required
 		return nil
 	}
 
@@ -78,7 +79,7 @@ func (m *EndpointHealth) validateBpf(formats strfmt.Registry) error {
 }
 
 func (m *EndpointHealth) validateOverallHealth(formats strfmt.Registry) error {
-	if swag.IsZero(m.OverallHealth) { // not required
+	if typeutils.IsZero(m.OverallHealth) { // not required
 		return nil
 	}
 
@@ -99,7 +100,7 @@ func (m *EndpointHealth) validateOverallHealth(formats strfmt.Registry) error {
 }
 
 func (m *EndpointHealth) validatePolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.Policy) { // not required
+	if typeutils.IsZero(m.Policy) { // not required
 		return nil
 	}
 
@@ -143,7 +144,7 @@ func (m *EndpointHealth) ContextValidate(ctx context.Context, formats strfmt.Reg
 
 func (m *EndpointHealth) contextValidateBpf(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Bpf) { // not required
+	if typeutils.IsZero(m.Bpf) { // not required
 		return nil
 	}
 
@@ -165,7 +166,7 @@ func (m *EndpointHealth) contextValidateBpf(ctx context.Context, formats strfmt.
 
 func (m *EndpointHealth) contextValidateOverallHealth(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.OverallHealth) { // not required
+	if typeutils.IsZero(m.OverallHealth) { // not required
 		return nil
 	}
 
@@ -187,7 +188,7 @@ func (m *EndpointHealth) contextValidateOverallHealth(ctx context.Context, forma
 
 func (m *EndpointHealth) contextValidatePolicy(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Policy) { // not required
+	if typeutils.IsZero(m.Policy) { // not required
 		return nil
 	}
 
@@ -212,13 +213,13 @@ func (m *EndpointHealth) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *EndpointHealth) UnmarshalBinary(b []byte) error {
 	var res EndpointHealth
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

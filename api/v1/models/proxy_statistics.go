@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 	"github.com/go-openapi/validate"
 )
 
@@ -88,7 +89,7 @@ func (m *ProxyStatistics) validateLocationEnum(path, location string, value stri
 }
 
 func (m *ProxyStatistics) validateLocation(formats strfmt.Registry) error {
-	if swag.IsZero(m.Location) { // not required
+	if typeutils.IsZero(m.Location) { // not required
 		return nil
 	}
 
@@ -101,7 +102,7 @@ func (m *ProxyStatistics) validateLocation(formats strfmt.Registry) error {
 }
 
 func (m *ProxyStatistics) validateStatistics(formats strfmt.Registry) error {
-	if swag.IsZero(m.Statistics) { // not required
+	if typeutils.IsZero(m.Statistics) { // not required
 		return nil
 	}
 
@@ -141,7 +142,7 @@ func (m *ProxyStatistics) contextValidateStatistics(ctx context.Context, formats
 
 	if m.Statistics != nil {
 
-		if swag.IsZero(m.Statistics) { // not required
+		if typeutils.IsZero(m.Statistics) { // not required
 			return nil
 		}
 
@@ -167,13 +168,13 @@ func (m *ProxyStatistics) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *ProxyStatistics) UnmarshalBinary(b []byte) error {
 	var res ProxyStatistics
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

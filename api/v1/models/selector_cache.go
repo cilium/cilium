@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // SelectorCache cache of which identities match selectors in the policy repository
@@ -25,7 +25,7 @@ func (m SelectorCache) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	for i := 0; i < len(m); i++ {
-		if swag.IsZero(m[i]) { // not required
+		if typeutils.IsZero(m[i]) { // not required
 			continue
 		}
 
@@ -60,7 +60,7 @@ func (m SelectorCache) ContextValidate(ctx context.Context, formats strfmt.Regis
 
 		if m[i] != nil {
 
-			if swag.IsZero(m[i]) { // not required
+			if typeutils.IsZero(m[i]) { // not required
 				return nil
 			}
 

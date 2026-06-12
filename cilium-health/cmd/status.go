@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/health/client/connectivity"
 	"github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/pkg/command"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
@@ -33,13 +34,13 @@ var statusGetCmd = &cobra.Command{
 		}
 
 		if probe {
-			result, err := client.Connectivity.PutStatusProbe(nil)
+			result, err := client.Connectivity.PutStatusProbe(connectivity.NewPutStatusProbeParams())
 			if err != nil {
 				Fatalf("Cannot get status/probe: %s\n", err)
 			}
 			sr = result.Payload
 		} else {
-			result, err := client.Connectivity.GetStatus(nil)
+			result, err := client.Connectivity.GetStatus(connectivity.NewGetStatusParams())
 			if err != nil {
 				Fatalf("Cannot get status: %s\n", err)
 			}

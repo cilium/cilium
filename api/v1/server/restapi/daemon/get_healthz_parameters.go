@@ -11,7 +11,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 )
 
 // NewGetHealthzParams creates a new GetHealthzParams object
@@ -86,7 +86,7 @@ func (o *GetHealthzParams) bindBrief(rawData []string, hasKey bool, formats strf
 		return nil
 	}
 
-	value, err := swag.ConvertBool(raw)
+	value, err := conv.ConvertBool(raw)
 	if err != nil {
 		return errors.InvalidType("brief", "header", "bool", raw)
 	}
@@ -109,7 +109,7 @@ func (o *GetHealthzParams) bindRequireK8sConnectivity(rawData []string, hasKey b
 		return nil
 	}
 
-	value, err := swag.ConvertBool(raw)
+	value, err := conv.ConvertBool(raw)
 	if err != nil {
 		return errors.InvalidType("require-k8s-connectivity", "header", "bool", raw)
 	}

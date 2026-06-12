@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // ClusterNodeStatus Status of cluster
@@ -52,12 +53,12 @@ func (m *ClusterNodeStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ClusterNodeStatus) validateNodesAdded(formats strfmt.Registry) error {
-	if swag.IsZero(m.NodesAdded) { // not required
+	if typeutils.IsZero(m.NodesAdded) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.NodesAdded); i++ {
-		if swag.IsZero(m.NodesAdded[i]) { // not required
+		if typeutils.IsZero(m.NodesAdded[i]) { // not required
 			continue
 		}
 
@@ -82,12 +83,12 @@ func (m *ClusterNodeStatus) validateNodesAdded(formats strfmt.Registry) error {
 }
 
 func (m *ClusterNodeStatus) validateNodesRemoved(formats strfmt.Registry) error {
-	if swag.IsZero(m.NodesRemoved) { // not required
+	if typeutils.IsZero(m.NodesRemoved) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.NodesRemoved); i++ {
-		if swag.IsZero(m.NodesRemoved[i]) { // not required
+		if typeutils.IsZero(m.NodesRemoved[i]) { // not required
 			continue
 		}
 
@@ -135,7 +136,7 @@ func (m *ClusterNodeStatus) contextValidateNodesAdded(ctx context.Context, forma
 
 		if m.NodesAdded[i] != nil {
 
-			if swag.IsZero(m.NodesAdded[i]) { // not required
+			if typeutils.IsZero(m.NodesAdded[i]) { // not required
 				return nil
 			}
 
@@ -164,7 +165,7 @@ func (m *ClusterNodeStatus) contextValidateNodesRemoved(ctx context.Context, for
 
 		if m.NodesRemoved[i] != nil {
 
-			if swag.IsZero(m.NodesRemoved[i]) { // not required
+			if typeutils.IsZero(m.NodesRemoved[i]) { // not required
 				return nil
 			}
 
@@ -192,13 +193,13 @@ func (m *ClusterNodeStatus) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *ClusterNodeStatus) UnmarshalBinary(b []byte) error {
 	var res ClusterNodeStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

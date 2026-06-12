@@ -8,6 +8,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
+	"github.com/cilium/cilium/api/v1/health/client/connectivity"
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/logging"
@@ -82,7 +84,7 @@ func (s *statusCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
-	statusResponse, err := s.daemonHealthGetter.GetHealthz(nil)
+	statusResponse, err := s.daemonHealthGetter.GetHealthz(daemon.NewGetHealthzParams())
 	if err != nil {
 		s.logger.Error("Error while getting Cilium status", logfields.Error, err)
 		return
@@ -132,7 +134,7 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	healthStatusResponse, err := s.connectivityStatusGetter.GetStatus(nil)
+	healthStatusResponse, err := s.connectivityStatusGetter.GetStatus(connectivity.NewGetStatusParams())
 	if err != nil {
 		s.logger.Error("Error while getting cilium-health status", logfields.Error, err)
 		return

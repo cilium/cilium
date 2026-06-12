@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // TraceTo trace to
@@ -48,12 +49,12 @@ func (m *TraceTo) Validate(formats strfmt.Registry) error {
 }
 
 func (m *TraceTo) validateDports(formats strfmt.Registry) error {
-	if swag.IsZero(m.Dports) { // not required
+	if typeutils.IsZero(m.Dports) { // not required
 		return nil
 	}
 
 	for i := 0; i < len(m.Dports); i++ {
-		if swag.IsZero(m.Dports[i]) { // not required
+		if typeutils.IsZero(m.Dports[i]) { // not required
 			continue
 		}
 
@@ -78,7 +79,7 @@ func (m *TraceTo) validateDports(formats strfmt.Registry) error {
 }
 
 func (m *TraceTo) validateLabels(formats strfmt.Registry) error {
-	if swag.IsZero(m.Labels) { // not required
+	if typeutils.IsZero(m.Labels) { // not required
 		return nil
 	}
 
@@ -122,7 +123,7 @@ func (m *TraceTo) contextValidateDports(ctx context.Context, formats strfmt.Regi
 
 		if m.Dports[i] != nil {
 
-			if swag.IsZero(m.Dports[i]) { // not required
+			if typeutils.IsZero(m.Dports[i]) { // not required
 				return nil
 			}
 
@@ -168,13 +169,13 @@ func (m *TraceTo) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	return swag.WriteJSON(m)
+	return jsonutils.WriteJSON(m)
 }
 
 // UnmarshalBinary interface implementation
 func (m *TraceTo) UnmarshalBinary(b []byte) error {
 	var res TraceTo
-	if err := swag.ReadJSON(b, &res); err != nil {
+	if err := jsonutils.ReadJSON(b, &res); err != nil {
 		return err
 	}
 	*m = res

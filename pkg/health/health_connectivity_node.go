@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
+	"github.com/cilium/cilium/api/v1/health/client/restapi"
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
@@ -86,7 +88,7 @@ func (ch *CiliumHealth) runServer(initialized <-chan struct{}) {
 		cli, err := ciliumPkg.NewDefaultClient()
 		if err == nil {
 			// Making sure that we can talk with the daemon.
-			if _, err = cli.Daemon.GetHealthz(nil); err == nil {
+			if _, err = cli.Daemon.GetHealthz(daemon.NewGetHealthzParams()); err == nil {
 				break
 			}
 		}
@@ -124,7 +126,7 @@ func (ch *CiliumHealth) runServer(initialized <-chan struct{}) {
 			State: models.StatusStateOk,
 		}
 
-		_, err := ch.client.Restapi.GetHealthz(nil)
+		_, err := ch.client.Restapi.GetHealthz(restapi.NewGetHealthzParams())
 		if err != nil {
 			status.Msg = err.Error()
 			status.State = models.StatusStateWarning

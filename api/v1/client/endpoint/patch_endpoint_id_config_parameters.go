@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchEndpointIDConfigParams creates a new PatchEndpointIDConfigParams object,
@@ -25,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPatchEndpointIDConfigParams() *PatchEndpointIDConfigParams {
-	return &PatchEndpointIDConfigParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewPatchEndpointIDConfigParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewPatchEndpointIDConfigParamsWithTimeout creates a new PatchEndpointIDConfigParams object
 // with the ability to set a timeout on a request.
 func NewPatchEndpointIDConfigParamsWithTimeout(timeout time.Duration) *PatchEndpointIDConfigParams {
 	return &PatchEndpointIDConfigParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewPatchEndpointIDConfigParamsWithContext creates a new PatchEndpointIDConfigParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchEndpointIDConfigParams].
 func NewPatchEndpointIDConfigParamsWithContext(ctx context.Context) *PatchEndpointIDConfigParams {
 	return &PatchEndpointIDConfigParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -86,9 +89,9 @@ type PatchEndpointIDConfigParams struct {
 	*/
 	ID string
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the patch endpoint ID config params (not the query body).
@@ -106,65 +109,68 @@ func (o *PatchEndpointIDConfigParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the patch endpoint ID config params
+// WithTimeout adds the timeout to the patch endpoint ID config params.
 func (o *PatchEndpointIDConfigParams) WithTimeout(timeout time.Duration) *PatchEndpointIDConfigParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the patch endpoint ID config params
+// SetTimeout adds the timeout to the patch endpoint ID config params.
 func (o *PatchEndpointIDConfigParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the patch endpoint ID config params
+// WithContext adds the context to the patch endpoint ID config params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchEndpointIDConfigParams].
 func (o *PatchEndpointIDConfigParams) WithContext(ctx context.Context) *PatchEndpointIDConfigParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the patch endpoint ID config params
+// SetContext adds the context to the patch endpoint ID config params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [PatchEndpointIDConfigParams].
 func (o *PatchEndpointIDConfigParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the patch endpoint ID config params
+// WithHTTPClient adds the HTTPClient to the patch endpoint ID config params.
 func (o *PatchEndpointIDConfigParams) WithHTTPClient(client *http.Client) *PatchEndpointIDConfigParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the patch endpoint ID config params
+// SetHTTPClient adds the HTTPClient to the patch endpoint ID config params.
 func (o *PatchEndpointIDConfigParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithEndpointConfiguration adds the endpointConfiguration to the patch endpoint ID config params
+// WithEndpointConfiguration adds the endpointConfiguration to the patch endpoint ID config params.
 func (o *PatchEndpointIDConfigParams) WithEndpointConfiguration(endpointConfiguration *models.EndpointConfigurationSpec) *PatchEndpointIDConfigParams {
 	o.SetEndpointConfiguration(endpointConfiguration)
 	return o
 }
 
-// SetEndpointConfiguration adds the endpointConfiguration to the patch endpoint ID config params
+// SetEndpointConfiguration adds the endpointConfiguration to the patch endpoint ID config params.
 func (o *PatchEndpointIDConfigParams) SetEndpointConfiguration(endpointConfiguration *models.EndpointConfigurationSpec) {
 	o.EndpointConfiguration = endpointConfiguration
 }
 
-// WithID adds the id to the patch endpoint ID config params
+// WithID adds the id to the patch endpoint ID config params.
 func (o *PatchEndpointIDConfigParams) WithID(id string) *PatchEndpointIDConfigParams {
 	o.SetID(id)
 	return o
 }
 
-// SetID adds the id to the patch endpoint ID config params
+// SetID adds the id to the patch endpoint ID config params.
 func (o *PatchEndpointIDConfigParams) SetID(id string) {
 	o.ID = id
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *PatchEndpointIDConfigParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error

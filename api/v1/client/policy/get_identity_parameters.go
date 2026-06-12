@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetIdentityParams creates a new GetIdentityParams object,
@@ -25,24 +24,28 @@ import (
 //
 // To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetIdentityParams() *GetIdentityParams {
-	return &GetIdentityParams{
-		timeout: cr.DefaultTimeout,
-	}
+	return NewGetIdentityParamsWithTimeout(cr.DefaultTimeout)
 }
 
 // NewGetIdentityParamsWithTimeout creates a new GetIdentityParams object
 // with the ability to set a timeout on a request.
 func NewGetIdentityParamsWithTimeout(timeout time.Duration) *GetIdentityParams {
 	return &GetIdentityParams{
-		timeout: timeout,
+		inner: innerParams{
+			timeout: timeout,
+		},
 	}
 }
 
 // NewGetIdentityParamsWithContext creates a new GetIdentityParams object
 // with the ability to set a context for a request.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIdentityParams].
 func NewGetIdentityParamsWithContext(ctx context.Context) *GetIdentityParams {
 	return &GetIdentityParams{
-		Context: ctx,
+		inner: innerParams{
+			ctx: ctx,
+		},
 	}
 }
 
@@ -70,9 +73,9 @@ type GetIdentityParams struct {
 	*/
 	Labels models.Labels
 
-	timeout    time.Duration
-	Context    context.Context
 	HTTPClient *http.Client
+
+	inner innerParams
 }
 
 // WithDefaults hydrates default values in the get identity params (not the query body).
@@ -90,54 +93,57 @@ func (o *GetIdentityParams) SetDefaults() {
 	// no default values defined for this parameter
 }
 
-// WithTimeout adds the timeout to the get identity params
+// WithTimeout adds the timeout to the get identity params.
 func (o *GetIdentityParams) WithTimeout(timeout time.Duration) *GetIdentityParams {
 	o.SetTimeout(timeout)
 	return o
 }
 
-// SetTimeout adds the timeout to the get identity params
+// SetTimeout adds the timeout to the get identity params.
 func (o *GetIdentityParams) SetTimeout(timeout time.Duration) {
-	o.timeout = timeout
+	o.inner.timeout = timeout
 }
 
-// WithContext adds the context to the get identity params
+// WithContext adds the context to the get identity params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIdentityParams].
 func (o *GetIdentityParams) WithContext(ctx context.Context) *GetIdentityParams {
 	o.SetContext(ctx)
 	return o
 }
 
-// SetContext adds the context to the get identity params
+// SetContext adds the context to the get identity params.
+//
+// Deprecated: use the operation call with context to pass the context instead of [GetIdentityParams].
 func (o *GetIdentityParams) SetContext(ctx context.Context) {
-	o.Context = ctx
+	o.inner.ctx = ctx
 }
 
-// WithHTTPClient adds the HTTPClient to the get identity params
+// WithHTTPClient adds the HTTPClient to the get identity params.
 func (o *GetIdentityParams) WithHTTPClient(client *http.Client) *GetIdentityParams {
 	o.SetHTTPClient(client)
 	return o
 }
 
-// SetHTTPClient adds the HTTPClient to the get identity params
+// SetHTTPClient adds the HTTPClient to the get identity params.
 func (o *GetIdentityParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithLabels adds the labels to the get identity params
+// WithLabels adds the labels to the get identity params.
 func (o *GetIdentityParams) WithLabels(labels models.Labels) *GetIdentityParams {
 	o.SetLabels(labels)
 	return o
 }
 
-// SetLabels adds the labels to the get identity params
+// SetLabels adds the labels to the get identity params.
 func (o *GetIdentityParams) SetLabels(labels models.Labels) {
 	o.Labels = labels
 }
 
-// WriteToRequest writes these params to a swagger request
+// WriteToRequest writes these params to a [runtime.ClientRequest].
 func (o *GetIdentityParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
-
-	if err := r.SetTimeout(o.timeout); err != nil {
+	if err := r.SetTimeout(o.inner.timeout); err != nil {
 		return err
 	}
 	var res []error
