@@ -2654,6 +2654,20 @@ policyEnforcementMode: "default"
 # -- policyCIDRMatchMode is a list of entities that may be selected by CIDR selector.
 # The possible value is "nodes".
 policyCIDRMatchMode:
+# @schema
+# type: [null, object]
+# @schema
+# -- policyEntitySelectors allows customizing fromEntities/toEntities selectors by
+# appending additional Kubernetes label selectors to built-in entity selectors.
+# This is useful for hosted control-plane setups where API server traffic is
+# proxied (e.g. via Konnectivity) and the proxy pods should match the
+# kube-apiserver entity.
+# Example:
+# policyEntitySelectors:
+#   kube-apiserver:
+#     matchLabels:
+#       k8s-app: konnectivity-agent
+policyEntitySelectors: {}
 pprof:
   # -- Enable pprof for cilium-agent
   enabled: false

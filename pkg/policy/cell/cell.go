@@ -16,6 +16,7 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -42,8 +43,9 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	EnableWellKnownIdentities bool `mapstructure:"enable-well-known-identities"`
-	PolicyQueueSize           uint `mapstructure:"policy-queue-size"`
+	EnableWellKnownIdentities bool   `mapstructure:"enable-well-known-identities"`
+	PolicyQueueSize           uint   `mapstructure:"policy-queue-size"`
+	PolicyEntitySelectors     string `mapstructure:"policy-entity-selectors"`
 }
 
 var defaultConfig = Config{
@@ -56,6 +58,7 @@ var defaultConfig = Config{
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-well-known-identities", def.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	flags.Uint("policy-queue-size", def.PolicyQueueSize, "Size of queue for policy-related events")
+	flags.String("policy-entity-selectors", def.PolicyEntitySelectors, "Additional label selectors for policy entities encoded as JSON")
 }
 
 type policyRepoParams struct {
@@ -83,7 +86,13 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 		})
 	}
 
-	policyapi.InitEntities(params.ClusterInfo.Name)
+	additionalEntitySelectors, err := policyapi.ParseAdditionalEntitySelectors(params.Config.PolicyEntitySelectors)
+	if err != nil {
+		params.Logger.Error("Failed to parse policy-entity-selectors", logfields.Error, err)
+		panic(err)
+	}
+
+	policyapi.InitEntities(params.ClusterInfo.Name, additionalEntitySelectors)
 
 	// policy repository: maintains list of active Rules and their subject
 	// security identities. Also constructs the SelectorCache, a precomputed

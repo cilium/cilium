@@ -104,6 +104,47 @@ func TestEgressDenyToEntitiesKubeAPIServer(t *testing.T) {
 	checkFlow(t, repo, td.identityManager, flowAToWorld80, true)
 }
 
+func TestEgressToEntitiesKubeAPIServerWithAdditionalSelector(t *testing.T) {
+	t.Cleanup(func() {
+		api.InitEntities("cluster1", nil)
+	})
+
+	api.InitEntities("cluster1", map[api.Entity]api.EndpointSelectorSlice{
+		api.EntityKubeAPIServer: {
+			api.NewESFromLabels(labels.ParseSelectLabel("k8s:k8s-app=konnectivity-agent")),
+		},
+	})
+
+	td := newTestData(t, hivetest.Logger(t)).withIDs(identity.ListReservedIdentities())
+
+	konnectivityIdentity := identity.NewIdentity(
+		identity.NumericIdentity(4242),
+		labels.NewLabelsFromModel([]string{"k8s:k8s-app=konnectivity-agent"}),
+	)
+	td.addIdentity(konnectivityIdentity)
+	defer td.removeIdentity(konnectivityIdentity)
+
+	allowKubeAPIServerRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Egress: []api.EgressRule{{
+			EgressCommonRule: api.EgressCommonRule{
+				ToEntities: api.EntitySlice{api.EntityKubeAPIServer},
+			},
+		}},
+	}
+
+	repo := td.repo
+	repo.mustAdd(allowKubeAPIServerRule)
+
+	flowAToKonnectivity := types.Flow{
+		From:  idA,
+		To:    konnectivityIdentity,
+		Proto: u8proto.TCP,
+		Dport: 443,
+	}
+	checkFlow(t, repo, td.identityManager, flowAToKonnectivity, true)
+}
+
 func TestEgressToEntitiesKubeAPIServerDuplicatePolicyRemoval(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t)).withIDs(identity.ListReservedIdentities())
 	logger := hivetest.Logger(t)

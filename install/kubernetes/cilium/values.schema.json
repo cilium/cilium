@@ -5618,6 +5618,12 @@
         "array"
       ]
     },
+    "policyEntitySelectors": {
+      "type": [
+        "null",
+        "object"
+      ]
+    },
     "policyDenyResponse": {
       "type": "string"
     },

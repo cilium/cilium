@@ -588,7 +588,7 @@ func TestGetSelector(t *testing.T) {
 
 func TestEntityLabelSelectorMatch(t *testing.T) {
 	clusterLabel := fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "cluster1")
-	api.InitEntities("cluster1")
+	api.InitEntities("cluster1", nil)
 
 	tests := []struct {
 		entity api.Entity
@@ -650,7 +650,7 @@ func TestEntityLabelSelectorMatch(t *testing.T) {
 }
 
 func TestEntitySliceLabelSelectorMatch(t *testing.T) {
-	api.InitEntities("cluster1")
+	api.InitEntities("cluster1", nil)
 
 	esHostWorld := api.EntitySlice{api.EntityHost, api.EntityWorld}
 	esHostHealth := api.EntitySlice{api.EntityHost, api.EntityHealth}
