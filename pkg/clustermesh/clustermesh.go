@@ -35,6 +35,7 @@ type Configuration struct {
 	cell.In
 
 	common.Config
+	cmtypes.ServiceModeV2Config
 	wait.TimeoutConfig
 
 	// ClusterInfo is the id/name of the local cluster.
@@ -167,6 +168,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		name:                     name,
 		clusterID:                cmtypes.ClusterIDUnset,
 		clusterConfigValidator:   cm.conf.ClusterInfo.ValidateRemoteConfig,
+		serviceModeV2:            cm.conf.ServiceModeV2,
 		usedIDs:                  cm.conf.ClusterIDsManager,
 		status:                   status,
 		storeFactory:             cm.conf.StoreFactory,
@@ -201,7 +203,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			cm.conf.ServiceMerger.MergeExternalServiceUpdate,
 			cm.conf.ServiceMerger.MergeExternalServiceDelete,
 		),
-		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.services) }),
+		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalServices.WithLabelValues(rc.name)),
 	)
 

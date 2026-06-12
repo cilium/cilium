@@ -604,7 +604,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 	require.False(t, status.Ready, "Status should not be ready")
 
 	require.False(t, status.Synced.Nodes, "Nodes should not be synced")
-	require.False(t, status.Synced.Services, "Services should not be synced")
+	require.True(t, status.Synced.Services, "Disabled services should be considered synced")
 	require.False(t, status.Synced.ServiceExports != nil && *status.Synced.ServiceExports, "Service Exports should not be synced")
 	require.False(t, status.Synced.Identities, "Identities should not be synced")
 	require.False(t, status.Synced.Endpoints, "Endpoints should not be synced")
