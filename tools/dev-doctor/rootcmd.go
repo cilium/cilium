@@ -132,7 +132,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			maxVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
 			hint:          `Run "go install github.com/onsi/ginkgo/ginkgo@v1.16.5".`,
 		},
-		// FIXME add gomega check?
 		&binaryCheck{
 			name:          "golangci-lint",
 			ifNotFound:    checkWarning,
