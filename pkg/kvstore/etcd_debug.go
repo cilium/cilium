@@ -265,12 +265,14 @@ func etcdDbgCerts(cfgfile string, cfg *client.Config, iw *indentedWriter) {
 
 			// Print intermediate certificates, if any.
 			intermediates := x509.NewCertPool()
-			for _, cert := range cert.Certificate[1:] {
+			if len(cert.Certificate) > 1 {
 				iiw.Println("Intermediates:")
+			}
 
+			for _, cert := range cert.Certificate[1:] {
 				intermediate, err := x509.ParseCertificate(cert)
 				if err != nil {
-					iw.Println("❌ Failed to parse intermediate certificate: %s", err)
+					iiw.Println("❌ Failed to parse intermediate certificate: %s", err)
 					continue
 				}
 
