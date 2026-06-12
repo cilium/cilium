@@ -283,6 +283,23 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	restored := make(restore.DNSRules)
 	for pp, selRegexes := range portProtoToSelRegex {
 		var ipRules restore.IPRules
+		if len(selRegexes) > 0 {
+			sameRegex := true
+			firstPattern := selRegexes[0].re.String()
+			// checking for same regex
+			for _, sr := range selRegexes[1:] {
+				if sr.re.String() != firstPattern {
+					sameRegex = false
+					break
+				}
+			}
+
+			if sameRegex {
+				ipRules = append(ipRules, asIPRule(selRegexes[0].re, nil))
+				restored[pp] = ipRules
+				continue
+			}
+		}
 		for _, selRegex := range selRegexes {
 			if selRegex.cs.IsWildcard() {
 				ipRules = append(ipRules, asIPRule(selRegex.re, nil))
