@@ -16,11 +16,11 @@ policy/import deny-kube-apiserver.yaml
 endpoint/regen-all 3
 endpoint/wait-for-policy-revision 3
 
-policy/lookup-flow ${pod_id} ${apiserver_id} tcp 443
-stdout egress=denied
+policy/lookup-flow --egress ${pod_id} ${apiserver_id} tcp 443
+stdout denied
 
-policy/lookup-flow ${pod_id} ${world_id} tcp 80
-stdout egress=allowed
+policy/lookup-flow --egress ${pod_id} ${world_id} tcp 80
+stdout allowed
 
 -- allow-all-egress.yaml --
 apiVersion: cilium.io/v2

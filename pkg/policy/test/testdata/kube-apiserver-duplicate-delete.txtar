@@ -14,16 +14,16 @@ policy/import allow-kube-apiserver-2.yaml
 endpoint/regen-all 4
 endpoint/wait-for-policy-revision 4
 
-policy/lookup-flow ${pod_id} ${apiserver_id} tcp 443
-stdout egress=allowed
+policy/lookup-flow --egress ${pod_id} ${apiserver_id} tcp 443
+stdout allowed
 
 policy/remove allow-kube-apiserver.yaml
 endpoint/regen-all 5
 endpoint/wait-for-policy-revision 5
 
 # Regression for cilium/cilium#17829: duplicate allow policy must keep access.
-policy/lookup-flow ${pod_id} ${apiserver_id} tcp 443
-stdout egress=allowed
+policy/lookup-flow --egress ${pod_id} ${apiserver_id} tcp 443
+stdout allowed
 
 -- default-deny-egress.yaml --
 apiVersion: cilium.io/v2

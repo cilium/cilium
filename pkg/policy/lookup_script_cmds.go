@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/hive/script"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -27,10 +28,29 @@ func LookupFlowScriptCmds(
 	return map[string]script.Cmd{
 		"policy/lookup-flow": script.Command(
 			script.CmdUsage{
-				Summary: "Look up the egress policy verdict for a flow between two identities",
+				Summary: "Look up the policy verdict for a flow between two identities",
 				Args:    "from-id to-id proto port",
+				Flags: func(fs *pflag.FlagSet) {
+					fs.Bool("egress", false, "Look up the egress policy verdict")
+					fs.Bool("ingress", false, "Look up the ingress policy verdict")
+				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				egress, err := s.Flags.GetBool("egress")
+				if err != nil {
+					return nil, err
+				}
+				ingress, err := s.Flags.GetBool("ingress")
+				if err != nil {
+					return nil, err
+				}
+				switch {
+				case egress && ingress:
+					return nil, fmt.Errorf("only one of --egress or --ingress may be specified")
+				case !egress && !ingress:
+					return nil, fmt.Errorf("exactly one of --egress or --ingress must be specified")
+				}
+
 				if len(args) != 4 {
 					return nil, fmt.Errorf("expected 4 args (from-id to-id proto port), got %d", len(args))
 				}
@@ -74,13 +94,23 @@ func LookupFlowScriptCmds(
 					if err != nil {
 						return "", "", err
 					}
-					switch verdict.Egress {
+
+					decision := verdict.Egress
+					if ingress {
+						decision = verdict.Ingress
+					}
+
+					switch decision {
 					case types.DecisionAllowed:
-						return "egress=allowed\n", "", nil
+						return "allowed\n", "", nil
 					case types.DecisionDenied:
-						return "egress=denied\n", "", nil
+						return "denied\n", "", nil
 					default:
-						return "", "", fmt.Errorf("unexpected egress verdict: %v", verdict.Egress)
+						direction := "egress"
+						if ingress {
+							direction = "ingress"
+						}
+						return "", "", fmt.Errorf("unexpected %s verdict: %v", direction, decision)
 					}
 				}, nil
 			},
