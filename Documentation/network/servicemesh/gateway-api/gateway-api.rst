@@ -34,7 +34,7 @@ tests are passed.
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
 
 Additionally, Cilium provides ``CiliumGatewayClassConfig`` CRD, which can be referenced in
-`GatewayClass.parametersRef <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/#gatewayclass-parameters>`_.
+`GatewayClass.parametersRef <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/#gatewayclass-parameters>`_.
 
 .. admonition:: Video
  :class: attention

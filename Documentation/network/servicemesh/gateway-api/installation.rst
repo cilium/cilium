@@ -7,14 +7,14 @@ Prerequisites
 * Cilium must be configured with the L7 proxy enabled using ``l7Proxy=true``
   (enabled by default).
 * The below CRDs from Gateway API v1.4.1 ``must`` be pre-installed.
-  Please refer to this `docs <https://gateway-api.sigs.k8s.io/guides/?h=crds#getting-started-with-gateway-api>`_
+  Please refer to these `docs <https://gateway-api.sigs.k8s.io/guides/getting-started/introduction/#installing-gateway-api>`_
   for installation steps. Alternatively, the below snippet could be used.
 
-    - `GatewayClass <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/>`_
-    - `Gateway <https://gateway-api.sigs.k8s.io/api-types/gateway/>`_
-    - `HTTPRoute <https://gateway-api.sigs.k8s.io/api-types/httproute/>`_
-    - `GRPCRoute <https://gateway-api.sigs.k8s.io/api-types/grpcroute/>`_
-    - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
+    - `GatewayClass <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/>`_
+    - `Gateway <https://gateway-api.sigs.k8s.io/reference/api-types/gateway/>`_
+    - `HTTPRoute <https://gateway-api.sigs.k8s.io/reference/api-types/httproute/>`_
+    - `GRPCRoute <https://gateway-api.sigs.k8s.io/reference/api-types/grpcroute/>`_
+    - `ReferenceGrant <https://gateway-api.sigs.k8s.io/reference/api-types/referencegrant/>`_
 
   If you wish to use the TLSRoute functionality, you'll also need to install the TLSRoute resource.
   If this CRD is not installed, then Cilium will disable TLSRoute support.
