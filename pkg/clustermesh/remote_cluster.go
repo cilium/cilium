@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/endpointslice"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -211,6 +212,14 @@ func (rc *remoteCluster) Remove(context.Context) {
 func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status := rc.status()
 
+	get := func(name observer.Name) observer.Status {
+		obs, ok := rc.observers[name]
+		if ok {
+			return obs.Status()
+		}
+		return observer.Status{}
+	}
+
 	rc.mutex.RLock()
 	defer rc.mutex.RUnlock()
 
@@ -227,6 +236,9 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	if rc.remoteIdentityCache != nil {
 		status.NumIdentities = int64(rc.remoteIdentityCache.NumEntries())
 		status.Synced.Identities = rc.remoteIdentityCache.Synced()
+	}
+	if get(endpointslice.Name).Enabled {
+		status.Synced.EndpointSlices = new(get(endpointslice.Name).Synced)
 	}
 
 	status.Ready = status.Ready &&

@@ -520,6 +520,7 @@ Clustermesh
 Name                                             Labels             Default    Description
 ================================================ ================== ========== =================================================================
 ``clustermesh_remote_cluster_services``          ``target_cluster`` Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_endpoint_slices``   ``target_cluster`` Enabled    The total number of endpoint slices per remote cluster
 ``clustermesh_remote_cluster_endpoints``         ``target_cluster`` Enabled    The total number of endpoints per remote cluster
 ``clustermesh_remote_cluster_nodes``             ``target_cluster`` Enabled    The total number of nodes per remote cluster
 ``clustermesh_remote_clusters``                                     Enabled    The total number of remote clusters meshed with the local cluster
@@ -1035,6 +1036,7 @@ Name                                              Labels             Default    
 ``clustermesh_remote_cluster_readiness_status``   ``target_cluster`` Enabled    The readiness status of the remote cluster
 ``clustermesh_remote_cluster_cache_revocations``  ``target_cluster`` Enabled    The total number of cache revocations related to the remote cluster
 ``clustermesh_remote_cluster_services``           ``target_cluster`` Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_endpoint_slices``    ``target_cluster`` Enabled    The total number of endpoint slices per remote cluster
 ``clustermesh_remote_cluster_service_exports``    ``target_cluster`` Enabled    The total number of MCS-API service exports per remote cluster
 ================================================= ================== ========== ====================================================================
 
