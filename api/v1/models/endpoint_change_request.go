@@ -45,12 +45,6 @@ type EndpointChangeRequest struct {
 	// Disables lookup using legacy endpoint identifiers (container name, container id, pod name) for this endpoint
 	DisableLegacyIdentifiers bool `json:"disable-legacy-identifiers,omitempty"`
 
-	// Docker endpoint ID
-	DockerEndpointID string `json:"docker-endpoint-id,omitempty"`
-
-	// Docker network ID
-	DockerNetworkID string `json:"docker-network-id,omitempty"`
-
 	// MAC address
 	HostMac string `json:"host-mac,omitempty"`
 

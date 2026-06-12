@@ -225,7 +225,6 @@ identities are prefixed with the string ``reserved:``.
 |                             |            |                                                   |
 |                             |            | The init identity is only allocated if the labels |
 |                             |            | of the endpoint are not known at creation time.   |
-|                             |            | This can be the case for the Docker plugin.       |
 +-----------------------------+------------+---------------------------------------------------+
 | ``reserved:remote-node``    | 6          | The collection of all remote cluster hosts.       |
 |                             |            | Any traffic that originates from or is designated |
