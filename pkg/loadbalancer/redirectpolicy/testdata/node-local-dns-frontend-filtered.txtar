@@ -1,0 +1,178 @@
+# Reproducer for issue #43944: a serviceMatcher LRP with named toPorts.
+# Unlike node-local-dns.txtar, the serviceMatcher specifies toPorts, so the
+# policy's internal FrontendMappings are non-empty and carry a placeholder
+# frontend address ("invalid IP") that must never be exposed through the API.
+
+hive start
+
+k8s/add svc-kubedns.yaml eps-kubedns.yaml lrp-kubedns.yaml pod-1-nodelocaldns.yaml
+
+# Datapath truth: the 53/TCP and 53/UDP clusterIP frontends are redirected to
+# the node-local-dns pod; 9153 (metrics) is not redirected.
+db/cmp frontends frontends.table
+
+# The REST API model must agree with the frontends table above.
+lrp/list lrp.actual
+cmp lrp.actual lrp.expected
+
+-- frontends.table --
+Address                    Type        ServiceName           PortName   RedirectTo                               Status  Backends
+10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp    kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/TCP
+10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns        kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/UDP
+10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                                             Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
+
+-- lrp.expected --
+kube-system/nodelocaldns type=svc frontend-type="clusterIP + named ports" service=kube-system/kube-dns
+  10.96.0.10:53/TCP => 10.244.0.225:53/TCP (kube-system/node-local-dns-1, active)
+  10.96.0.10:53/UDP => 10.244.0.225:53/UDP (kube-system/node-local-dns-1, active)
+-- lrp-kubedns.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: nodelocaldns
+  namespace: kube-system
+spec:
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        k8s-app: node-local-dns
+    toPorts:
+    - name: dns
+      port: "53"
+      protocol: UDP
+    - name: dns-tcp
+      port: "53"
+      protocol: TCP
+  redirectFrontend:
+    serviceMatcher:
+      namespace: kube-system
+      serviceName: kube-dns
+      toPorts:
+      - name: dns
+        port: "53"
+        protocol: UDP
+      - name: dns-tcp
+        port: "53"
+        protocol: TCP
+  skipRedirectFromBackend: false
+
+-- svc-kubedns.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/name: CoreDNS
+  name: kube-dns
+  namespace: kube-system
+spec:
+  clusterIP: 10.96.0.10
+  clusterIPs:
+  - 10.96.0.10
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: metrics
+    port: 9153
+    protocol: TCP
+    targetPort: 9153
+  selector:
+    k8s-app: kube-dns
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- eps-kubedns.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 10.244.1.68
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+- addresses:
+  - 10.244.1.51
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+kind: EndpointSlice
+metadata:
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: CoreDNS
+    kubernetes.io/service-name: kube-dns
+  name: kube-dns-8x8pw
+  namespace: kube-system
+ports:
+- name: metrics
+  port: 9153
+  protocol: TCP
+- name: dns
+  port: 53
+  protocol: UDP
+- name: dns-tcp
+  port: 53
+  protocol: TCP
+
+-- pod-1-nodelocaldns.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    k8s-app: node-local-dns
+  name: node-local-dns-1
+  namespace: kube-system
+spec:
+  containers:
+  - name: node-cache
+    ports:
+    - containerPort: 53
+      name: dns
+      protocol: UDP
+    - containerPort: 53
+      name: dns-tcp
+      protocol: TCP
+    - containerPort: 9253
+      name: metrics
+      protocol: TCP
+  nodeName: testnode
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2025-03-13T09:43:36Z"
+    status: "True"
+    type: Ready
+  containerStatuses:
+  - name: node-cache
+    ready: true
+    started: true
+    state:
+      running:
+        startedAt: "2025-03-13T09:43:36Z"
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.0.225
+  podIPs:
+  - ip: 10.244.0.225
+  qosClass: Burstable
+  startTime: "2025-03-13T09:41:27Z"
