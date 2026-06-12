@@ -8,7 +8,7 @@
 Gateway API Addresses Support
 *****************************
 
-Cilium Gateway supports `Addresses <https://gateway-api.sigs.k8s.io/api-types/gateway/?h=addresses>`__ provided by the Gateway API specification.
+Cilium Gateway supports `Addresses <https://gateway-api.sigs.k8s.io/reference/api-types/gateway/?h=addresses>`__ provided by the Gateway API specification.
 The ``spec.addresses`` field is used to specify the IP address of the gateway.
 
 .. note::

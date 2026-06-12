@@ -37,7 +37,7 @@ tests are passed.
 - `UDPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#udproute>`__
 
 Additionally, Cilium provides ``CiliumGatewayClassConfig`` CRD, which can be referenced in
-`GatewayClass.parametersRef <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/#gatewayclass-parameters>`_.
+`GatewayClass.parametersRef <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/#gatewayclass-parameters>`_.
 
 .. admonition:: Video
  :class: attention

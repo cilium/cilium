@@ -102,12 +102,12 @@ Common Direct Mappings
      - Experimental in Gateway API (GEP-1731). Maps retry count only, not the full ``proxy-next-upstream*`` behavior set.
    * - ``kubernetes.io/ingress.class``
      - ``Gateway.spec.gatewayClassName``
-     - `Gateway API Overview <https://gateway-api.sigs.k8s.io/concepts/api-overview/>`__
+     - `Gateway API Overview <https://gateway-api.sigs.k8s.io/docs/concepts/api-overview/>`__
      - Yes
      - Replace controller selection model. Note: uses the ``kubernetes.io/`` prefix, not ``nginx.ingress.kubernetes.io/``; won't appear in the NGINX-scoped inventory above.
    * - ``server-alias``
      - ``HTTPRoute.spec.hostnames``
-     - `Gateway API Overview <https://gateway-api.sigs.k8s.io/concepts/api-overview/>`__
+     - `Gateway API Overview <https://gateway-api.sigs.k8s.io/docs/concepts/api-overview/>`__
      - Yes
      - Migrate alternate hostnames explicitly.
    * - ``backend-protocol``
@@ -122,17 +122,17 @@ Common Direct Mappings
      - Experimental in Gateway API (GEP-1767).
    * - ``proxy-ssl-secret``
      - ``BackendTLSPolicy.spec.validation.caCertificateRefs``
-     - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/api-types/backendtlspolicy/>`__
+     - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/reference/api-types/policy/backendtlspolicy/>`__
      - Yes
      - Backend TLS trust material.
    * - ``proxy-ssl-verify``
      - ``BackendTLSPolicy.spec.validation``
-     - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/api-types/backendtlspolicy/>`__
+     - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/reference/api-types/policy/backendtlspolicy/>`__
      - Yes
      - CA and validation behavior.
    * - ``secure-backends``
      - ``BackendTLSPolicy``
-     - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/api-types/backendtlspolicy/>`__
+     - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/reference/api-types/policy/backendtlspolicy/>`__
      - Yes
      - Use policy attachment for backend TLS.
 
@@ -180,7 +180,7 @@ does not yet support these mappings**.
      - High
    * - ``tcp-services-configmap``
      - ``TCPRoute`` resources (experimental channel)
-     - `TCPRoute <https://gateway-api.sigs.k8s.io/api-types/tcproute/>`_
+     - `TCPRoute <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#tcproute>`_
      - Not yet supported
      - High
    * - ``use-forwarded-headers``
