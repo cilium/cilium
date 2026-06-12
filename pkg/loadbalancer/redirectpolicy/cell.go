@@ -40,6 +40,9 @@ var Cell = cell.Module(
 
 		// Provide the 'skiplbmap' command for inspecting SkipLBMap.
 		newSkipLBMapCommand,
+
+		// Provide the 'lrp/list' command for inspecting the LRP REST API model.
+		newLRPListCommand,
 	),
 
 	cell.ProvidePrivate(
