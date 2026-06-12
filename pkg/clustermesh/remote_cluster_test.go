@@ -71,13 +71,17 @@ func TestRemoteClusterRun(t *testing.T) {
 	)
 
 	tests := []struct {
-		name   string
-		srccfg types.CiliumClusterConfig
-		kvs    map[string]string
+		name                 string
+		expectedServiceWatch bool
+		serviceModeV2        types.ServiceModeV2
+		srccfg               types.CiliumClusterConfig
+		kvs                  map[string]string
 	}{
 		{
-			name:   "remote cluster has no capabilities",
-			srccfg: types.CiliumClusterConfig{ID: 1},
+			name:                 "remote cluster has no capabilities",
+			serviceModeV2:        types.ServiceV2PreferLegacy,
+			expectedServiceWatch: true,
+			srccfg:               types.CiliumClusterConfig{ID: 1},
 			kvs: map[string]string{
 				"cilium/state/nodes/v1/foo/bar":        `{"name": "bar", "cluster": "foo", "clusterID": 1}`,
 				"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
@@ -86,7 +90,20 @@ func TestRemoteClusterRun(t *testing.T) {
 			},
 		},
 		{
-			name: "remote cluster supports sync canaries",
+			name:          "services disabled by mode",
+			serviceModeV2: types.ServiceV2OnlyEndpointSlice,
+			srccfg:        types.CiliumClusterConfig{ID: 1},
+			kvs: map[string]string{
+				"cilium/state/nodes/v1/foo/bar":        `{"name": "bar", "cluster": "foo", "clusterID": 1}`,
+				"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
+				"cilium/state/identities/v1/id/65538":  `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
+				"cilium/state/ip/v1/default/1.1.1.1":   `{"IP": "1.1.1.1", "ID": 65538}`,
+			},
+		},
+		{
+			name:                 "remote cluster supports sync canaries",
+			serviceModeV2:        types.ServiceV2PreferLegacy,
+			expectedServiceWatch: true,
 			srccfg: types.CiliumClusterConfig{
 				ID: 255,
 				Capabilities: types.CiliumClusterConfigCapabilities{
@@ -107,7 +124,9 @@ func TestRemoteClusterRun(t *testing.T) {
 			},
 		},
 		{
-			name: "remote cluster supports both sync canaries and cached prefixes",
+			name:                 "remote cluster supports both sync canaries and cached prefixes",
+			serviceModeV2:        types.ServiceV2PreferLegacy,
+			expectedServiceWatch: true,
 			srccfg: types.CiliumClusterConfig{
 				ID: 255,
 				Capabilities: types.CiliumClusterConfigCapabilities{
@@ -156,6 +175,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			var ipc fakeIPCache
 			cm := ClusterMesh{
 				conf: Configuration{
+					ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: tt.serviceModeV2},
 					NodeObserver:          newNodesObserver(),
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
@@ -170,7 +190,9 @@ func TestRemoteClusterRun(t *testing.T) {
 				FeatureMetrics: NewClusterMeshMetricsNoop(),
 				globalServices: common.NewGlobalServiceCache(logger),
 			}
-			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
+			rc := cm.NewRemoteCluster("foo", func() *models.RemoteCluster {
+				return &models.RemoteCluster{Ready: true}
+			}).(*remoteCluster)
 			ready := make(chan error)
 
 			remoteClient := &remoteEtcdClientWrapper{
@@ -191,7 +213,16 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// Assert that we correctly watch services
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.EqualValues(c, 1, rc.remoteServices.NumEntries())
+				status := rc.Status()
+				if tt.expectedServiceWatch {
+					assert.EqualValues(c, 1, rc.remoteServices.NumEntries())
+					assert.True(c, status.Synced.Services, "Services should be synced")
+					assert.EqualValues(c, 1, status.NumSharedServices, "Incorrect number of services")
+				} else {
+					assert.EqualValues(c, 0, rc.remoteServices.NumEntries())
+					assert.True(c, status.Synced.Services, "Disabled services should be considered synced")
+					assert.EqualValues(c, 0, status.NumSharedServices, "Incorrect number of services")
+				}
 			}, timeout, tick, "Services are not watched correctly")
 
 			// Assert that we correctly watch ipcache entries
@@ -283,6 +314,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	var obs fakeObserver
 	cm := ClusterMesh{
 		conf: Configuration{
+			ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: types.ServiceV2PreferLegacy},
 			NodeObserver:          &obs,
 			ServiceMerger:         &obs,
 			IPCache:               &obs,
@@ -452,6 +484,7 @@ func TestRemoteClusterExtraObservers(t *testing.T) {
 
 	cm := ClusterMesh{
 		conf: Configuration{
+			ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: types.ServiceV2PreferLegacy},
 			ClusterIDsManager:     NewClusterMeshUsedIDs(localClusterID),
 			ServiceMerger:         &fakeObserver{},
 			RemoteIdentityWatcher: cache.NewNoopIdentityAllocator(logger),

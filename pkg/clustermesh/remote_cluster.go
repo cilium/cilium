@@ -54,6 +54,7 @@ type remoteCluster struct {
 	// store is the shared store representing all nodes in the remote cluster
 	remoteNodes store.WatchStore
 
+	serviceModeV2 cmtypes.ServiceModeV2
 	// remoteServices is the shared store representing services in remote
 	// clusters
 	remoteServices store.WatchStore
@@ -135,15 +136,26 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	if config.Capabilities.Cached {
 		adapter = kvstore.StateToCachePrefix
 	}
-
 	mgr.Register(adapter(nodeStore.NodeStorePrefix), func(ctx context.Context) {
 		rc.remoteNodes.Watch(ctx, backend, kvstore.JoinKey(adapter(nodeStore.NodeStorePrefix), rc.name))
 	})
 
-	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
-		rc.remoteServices.Watch(ctx, backend, kvstore.JoinKey(adapter(serviceStore.ServiceStorePrefix), rc.name))
-	})
-
+	if rc.serviceModeV2.ShouldWatchLegacyServices() &&
+		config.Capabilities.EndpointSlicesExportMode != cmtypes.EndpointSlicesExportModeEndpointSlicesOnly {
+		mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
+			rc.remoteServices.Watch(ctx, backend, kvstore.JoinKey(adapter(serviceStore.ServiceStorePrefix), rc.name))
+		})
+	} else {
+		if rc.serviceModeV2.ShouldWatchLegacyServices() {
+			rc.log.Error("Remote cluster does not support legacy service resources while Cilium is configured to watch them. "+
+				"Global Services and MCS-API will not take into account any backends from this cluster!",
+				logfields.ClusterName, rc.name)
+		}
+		// Drain any existing services in case the remote cluster no longer supports them
+		rc.remoteServices.Drain()
+		// Mimic that services are synced if not enabled
+		rc.synced.services.Stop()
+	}
 	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
 		rc.ipCacheWatcher.Watch(ctx, backend, rc.ipCacheWatcherOpts(&config)...)
 	})
@@ -208,7 +220,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 
 	status.Synced = &models.RemoteClusterSynced{
 		Nodes:     rc.remoteNodes.Synced(),
-		Services:  rc.remoteServices.Synced(),
+		Services:  !rc.serviceModeV2.ShouldWatchLegacyServices() || rc.remoteServices.Synced(),
 		Endpoints: rc.ipCacheWatcher.Synced(),
 	}
 
@@ -287,7 +299,7 @@ func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig)
 
 type synced struct {
 	wait.SyncedCommon
-	services       chan struct{}
+	services       *lock.StoppableWaitGroup
 	nodes          chan struct{}
 	ipcache        chan struct{}
 	identities     *lock.StoppableWaitGroup
@@ -306,8 +318,11 @@ func newSynced() synced {
 	idswg.Stop()
 
 	return synced{
-		SyncedCommon:   wait.NewSyncedCommon(),
-		services:       make(chan struct{}),
+		SyncedCommon: wait.NewSyncedCommon(),
+		// Services can be disabled at runtime and will be immediately marked
+		// as sync if they are not watched. Thus, we use stoppable wait groups
+		// for similar reasons as for identities here.
+		services:       lock.NewStoppableWaitGroup(),
 		nodes:          make(chan struct{}),
 		ipcache:        make(chan struct{}),
 		identities:     idswg,
@@ -327,7 +342,7 @@ func (s *synced) Nodes(ctx context.Context) error {
 // received from the remote cluster, and synchronized with the BPF datapath,
 // the remote cluster is disconnected, or the given context is canceled.
 func (s *synced) Services(ctx context.Context) error {
-	return s.Wait(ctx, s.services)
+	return s.Wait(ctx, s.services.WaitChannel())
 }
 
 // IPIdentities returns after that the initial list of ipcache entries and

@@ -28,9 +28,17 @@ var Cell = cell.Group(
 
 		Out(NewFactory(Nodes, node.NodeStorePrefix)),
 
-		Out(NewFactory(Services, service.ServiceStorePrefix,
-			WithRevocation(),
-		)),
+		func(serviceV2Cfg types.ServiceModeV2Config) out {
+			return out{Factory: NewFactory(Services, service.ServiceStorePrefix,
+				WithRevocation(),
+				WithEnabledOverride(func(cfg types.CiliumClusterConfig) bool {
+					if cfg.Capabilities.EndpointSlicesExportMode == types.EndpointSlicesExportModeEndpointSlicesOnly {
+						return false
+					}
+					return serviceV2Cfg.ServiceModeV2.ShouldExportLegacyServices()
+				}),
+			)}
+		},
 
 		Out(NewFactory(ServiceExports, mcsapi.ServiceExportStorePrefix,
 			WithRevocation(),
