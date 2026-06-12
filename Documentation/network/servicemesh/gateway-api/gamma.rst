@@ -13,7 +13,7 @@ GAMMA Support
 What is GAMMA?
 ####################
 
-(From the `GAMMA page <https://gateway-api.sigs.k8s.io/mesh/gamma/>`__
+(From the `GAMMA page <https://gateway-api.sigs.k8s.io/docs/mesh/gamma/>`__
 on the Gateway API site):
 
 The GAMMA initiative is a dedicated workstream within the Gateway API
@@ -63,8 +63,8 @@ Cilium GAMMA Support
 
 Cilium supports GAMMA v1.0.0 for the following resources:  
 
-- `HTTPRoute <https://gateway-api.sigs.k8s.io/api-types/httproute/>`_  
-- `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_  
+- `HTTPRoute <https://gateway-api.sigs.k8s.io/reference/api-types/httproute/>`_
+- `ReferenceGrant <https://gateway-api.sigs.k8s.io/reference/api-types/referencegrant/>`_
 
 Cilium support is limited to passing the Core conformance  
 tests and two out of three Extended Mesh tests. Note that GAMMA is itself  
