@@ -24,6 +24,12 @@ k8s/add pod-2-nodelocaldns.yaml
 db/cmp services services-after.table
 db/cmp frontends frontends-after.table
 
+# The REST API model (rendered by 'cilium-dbg lrp list') must agree with the
+# state computed by the controller and writer above: the real clusterIP
+# frontends and the local pod backends.
+lrp/list lrp.actual
+* cmp lrp.actual lrp.expected
+
 # Check BPF maps again
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual lbmaps-after.expected
@@ -74,6 +80,11 @@ Address                    Type        ServiceName           PortName   Redirect
 10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp    kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/TCP
 10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns        kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/UDP
 10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                                             Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
+
+-- lrp.expected --
+kube-system/nodelocaldns type=svc frontend-type="clusterIP + all svc ports" service=kube-system/kube-dns
+  10.96.0.10:53/TCP => 10.244.0.225:53/TCP (kube-system/node-local-dns-1, active), 10.244.0.226:53/TCP (kube-system/node-local-dns-2, active)
+  10.96.0.10:53/UDP => 10.244.0.225:53/UDP (kube-system/node-local-dns-1, active), 10.244.0.226:53/UDP (kube-system/node-local-dns-2, active)
 
 -- lbmaps-before.expected --
 BE: ID=1 ADDR=10.244.1.51:53/TCP STATE=active
