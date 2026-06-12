@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/endpointslice"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
@@ -198,6 +199,14 @@ func (s *synced) Observer(ctx context.Context, name observer.Name) error {
 func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status := rc.status()
 
+	get := func(name observer.Name) observer.Status {
+		obs, ok := rc.observers[name]
+		if ok {
+			return obs.Status()
+		}
+		return observer.Status{}
+	}
+
 	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
 	status.NumServiceExports = int64(rc.remoteServiceExports.NumEntries())
 	isServicesWatched := rc.clusterMeshEnableEndpointSync && rc.clusterMeshServiceModeV2.ShouldWatchLegacyServices()
@@ -213,6 +222,9 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	if status.Config != nil && status.Config.ServiceExportsEnabled != nil &&
 		rc.clusterMeshEnableMCSAPI {
 		status.Synced.ServiceExports = ptr.To(rc.remoteServiceExports.Synced())
+	}
+	if get(endpointslice.Name).Enabled {
+		status.Synced.EndpointSlices = new(get(endpointslice.Name).Synced)
 	}
 
 	status.Ready = status.Ready &&

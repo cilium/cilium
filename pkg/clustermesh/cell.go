@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	cmendpointslice "github.com/cilium/cilium/pkg/clustermesh/endpointslice"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
@@ -49,6 +50,8 @@ var Cell = cell.Module(
 
 	metrics.Metric(NewMetrics),
 	metrics.Metric(common.MetricsProvider(metrics.SubsystemClusterMesh)),
+	metrics.Metric(cmendpointslice.MetricsProvider(metrics.Namespace)),
+	cmendpointslice.Cell,
 
 	cell.ProvidePrivate(newServiceMerger),
 	cell.Invoke(registerServicesInitialized),

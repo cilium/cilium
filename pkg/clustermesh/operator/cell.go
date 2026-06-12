@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	cmendpointslice "github.com/cilium/cilium/pkg/clustermesh/endpointslice"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -38,6 +39,8 @@ var Cell = cell.Module(
 
 	metrics.Metric(NewMetrics),
 	metrics.Metric(common.MetricsProvider(metrics.SubsystemClusterMesh)),
+	metrics.Metric(cmendpointslice.MetricsProvider(metrics.CiliumOperatorNamespace)),
+	cmendpointslice.Cell,
 )
 
 type clusterMeshParams struct {
