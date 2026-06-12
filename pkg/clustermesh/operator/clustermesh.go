@@ -19,6 +19,7 @@ import (
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -30,10 +31,11 @@ type clusterMesh struct {
 	// common implements the common logic to connect to remote clusters.
 	common common.ClusterMesh
 
-	cfg       ClusterMeshConfig
-	cfgMCSAPI mcsapitypes.MCSAPIConfig
-	logger    *slog.Logger
-	metrics   Metrics
+	cfg           ClusterMeshConfig
+	serviceModeV2 types.ServiceModeV2
+	cfgMCSAPI     mcsapitypes.MCSAPIConfig
+	logger        *slog.Logger
+	metrics       Metrics
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
@@ -104,6 +106,7 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 
 	cm := clusterMesh{
 		cfg:                  params.Cfg,
+		serviceModeV2:        params.ServiceModeV2,
 		cfgMCSAPI:            params.CfgMCSAPI,
 		logger:               params.Logger,
 		metrics:              params.Metrics,
@@ -201,6 +204,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		name:                          name,
 		clusterMeshEnableEndpointSync: cm.cfg.ClusterMeshEnableEndpointSync,
 		clusterMeshEnableMCSAPI:       cm.cfgMCSAPI.EnableMCSAPI,
+		clusterMeshServiceModeV2:      cm.serviceModeV2,
 		storeFactory:                  cm.storeFactory,
 		synced:                        newSynced(),
 		status:                        status,

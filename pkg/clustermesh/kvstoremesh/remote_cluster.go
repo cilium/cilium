@@ -241,7 +241,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 
 	status.Synced = &models.RemoteClusterSynced{
 		Nodes:      get(reflector.Nodes).Synced,
-		Services:   get(reflector.Services).Synced,
+		Services:   !get(reflector.Services).Enabled || get(reflector.Services).Synced,
 		Identities: get(reflector.Identities).Synced,
 		Endpoints:  get(reflector.Endpoints).Synced,
 	}

@@ -49,6 +49,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 	tests := []struct {
 		name                            string
 		clusterMeshEnableEndpointSync   bool
+		serviceModeV2                   types.ServiceModeV2
 		clusterMeshEnableMCSAPI         bool
 		capabilityServiceExportsEnabled *bool
 		expectedServiceSync             bool
@@ -57,6 +58,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 		{
 			name:                            "Everything disabled",
 			clusterMeshEnableEndpointSync:   false,
+			serviceModeV2:                   types.ServiceV2PreferLegacy,
 			clusterMeshEnableMCSAPI:         false,
 			capabilityServiceExportsEnabled: nil,
 			expectedServiceSync:             false,
@@ -65,6 +67,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 		{
 			name:                            "Both config enabled but remote doesn't support service exports",
 			clusterMeshEnableEndpointSync:   true,
+			serviceModeV2:                   types.ServiceV2PreferLegacy,
 			clusterMeshEnableMCSAPI:         true,
 			capabilityServiceExportsEnabled: nil,
 			expectedServiceSync:             true,
@@ -73,10 +76,17 @@ func TestRemoteClusterStatus(t *testing.T) {
 		{
 			name:                            "Both config enabled and remote supports service exports",
 			clusterMeshEnableEndpointSync:   true,
+			serviceModeV2:                   types.ServiceV2PreferLegacy,
 			clusterMeshEnableMCSAPI:         true,
 			capabilityServiceExportsEnabled: ptr.To(false),
 			expectedServiceSync:             true,
 			expectedMCSAPISync:              true,
+		},
+		{
+			name:                          "Endpoint sync enabled but services disabled by mode",
+			clusterMeshEnableEndpointSync: true,
+			serviceModeV2:                 types.ServiceV2OnlyEndpointSlice,
+			expectedServiceSync:           false,
 		},
 	}
 
@@ -101,6 +111,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 				globalServiceExports: NewGlobalServiceExportCache(),
 				cfg:                  ClusterMeshConfig{ClusterMeshEnableEndpointSync: tt.clusterMeshEnableEndpointSync},
 				cfgMCSAPI:            mcsapitypes.MCSAPIConfig{EnableMCSAPI: tt.clusterMeshEnableMCSAPI},
+				serviceModeV2:        tt.serviceModeV2,
 			}
 
 			// Populate the kvstore with the appropriate KV pairs
@@ -127,6 +138,8 @@ func TestRemoteClusterStatus(t *testing.T) {
 
 			if tt.expectedServiceSync {
 				require.False(t, status.Synced.Services, "Services should not be synced")
+			} else {
+				require.True(t, status.Synced.Services, "Services should be marked as synced")
 			}
 			if tt.expectedMCSAPISync {
 				require.False(t, status.Synced.ServiceExports != nil && *status.Synced.ServiceExports, "Service Exports should not be synced")
@@ -153,7 +166,11 @@ func TestRemoteClusterStatus(t *testing.T) {
 				status := rc.(*remoteCluster).Status()
 				assert.True(c, status.Ready, "Status should be ready")
 
-				assert.True(c, status.Synced.Services, "Services should be synced")
+				if tt.expectedServiceSync {
+					assert.True(c, status.Synced.Services, "Services should be synced")
+				} else {
+					assert.True(c, status.Synced.Services, "Disabled services should be considered synced")
+				}
 				if tt.expectedMCSAPISync {
 					assert.True(c, status.Synced.ServiceExports != nil && *status.Synced.ServiceExports, "Service Exports should be synced")
 				} else {
