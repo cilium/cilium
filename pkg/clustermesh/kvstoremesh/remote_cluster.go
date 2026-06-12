@@ -235,6 +235,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 
 	status.NumNodes = int64(get(reflector.Nodes).Entries)
 	status.NumSharedServices = int64(get(reflector.Services).Entries)
+	status.NumEndpointSlices = int64(get(reflector.EndpointSlices).Entries)
 	status.NumServiceExports = int64(get(reflector.ServiceExports).Entries)
 	status.NumIdentities = int64(get(reflector.Identities).Entries)
 	status.NumEndpoints = int64(get(reflector.Endpoints).Entries)
@@ -246,6 +247,9 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 		Endpoints:  get(reflector.Endpoints).Synced,
 	}
 
+	if get(reflector.EndpointSlices).Enabled {
+		status.Synced.EndpointSlices = new(get(reflector.EndpointSlices).Synced)
+	}
 	if get(reflector.ServiceExports).Enabled {
 		status.Synced.ServiceExports = ptr.To(get(reflector.ServiceExports).Synced)
 	}

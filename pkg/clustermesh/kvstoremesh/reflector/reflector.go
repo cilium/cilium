@@ -23,6 +23,7 @@ const (
 	Identities     Name = "identities"
 	Nodes          Name = "nodes"
 	Services       Name = "services"
+	EndpointSlices Name = "endpoint slices"
 	ServiceExports Name = "service exports"
 )
 
