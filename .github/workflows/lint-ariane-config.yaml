@@ -98,4 +98,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.lint-ariane-config.result == 'success' }}
+      results: ${{ needs.lint-ariane-config.result }}

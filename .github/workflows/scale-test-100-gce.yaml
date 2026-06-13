@@ -455,4 +455,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.install-and-scaletest.result == 'success' }}
+      results: ${{ needs.install-and-scaletest.result }}

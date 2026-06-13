@@ -459,4 +459,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.ingress-conformance-test.result == 'success' }}
+      results: ${{ needs.ingress-conformance-test.result }}

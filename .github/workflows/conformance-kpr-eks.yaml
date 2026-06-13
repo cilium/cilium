@@ -175,4 +175,9 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ (needs.conformance-eks-kpr.result == 'success' && needs.conformance-eks-kpr-ipsec.result == 'success' && needs.conformance-eks-kpr-wireguard.result == 'success' && needs.conformance-eks-kpr-netkit.result == 'success' && needs.conformance-eks-kpr-netkit-l2.result == 'success') }}
+      results: |
+        ${{ needs.conformance-eks-kpr.result }}
+        ${{ needs.conformance-eks-kpr-ipsec.result }}
+        ${{ needs.conformance-eks-kpr-wireguard.result }}
+        ${{ needs.conformance-eks-kpr-netkit.result }}
+        ${{ needs.conformance-eks-kpr-netkit-l2.result }}

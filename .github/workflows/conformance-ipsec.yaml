@@ -141,4 +141,7 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ (needs.conformance-aks-ipsec.result == 'success' && needs.conformance-eks-ipsec.result == 'success' && needs.conformance-gke-ipsec.result == 'success') }}
+      results: |
+        ${{ needs.conformance-aks-ipsec.result }}
+        ${{ needs.conformance-eks-ipsec.result }}
+        ${{ needs.conformance-gke-ipsec.result }}

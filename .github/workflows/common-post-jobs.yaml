@@ -6,12 +6,12 @@ on:
       context-ref:
         required: true
         type: string
+      results:
+        required: true
+        type: string
       sha:
         required: true
         type: string
-      success:
-        required: true
-        type: boolean
 
 permissions:
   contents: read
@@ -48,29 +48,66 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           separate-directories: true
 
-  commit-status-final:
+  update-status:
     if: ${{ always() }}
-    name: Commit Status Final
+    name: Update commit and workflow results
     runs-on: ubuntu-24.04
     permissions:
       statuses: write
     steps:
+      - name: Aggregate results
+        id: aggregate-results
+        run: |
+          set -eu
+          set -o pipefail
+
+          # Convert a job result into a commit status.
+          #
+          # https://docs.github.com/en/actions/reference/workflows-and-actions/contexts?apiVersion=2026-03-10#jobs-context
+          # https://docs.github.com/en/rest/commits/statuses?apiVersion=2026-03-10#create-a-commit-status--parameters
+          declare -A result_to_status=(
+            [cancelled]="failure"
+            [failure]="failure"
+            [skipped]="success"
+            [success]="success"
+          )
+
+          # Check for unrecognized input.
+          for result in ${{ inputs.results }}; do
+            status="${result_to_status[$result]}"
+            if [ "$status" != 'success' ] && [ "$status" != 'failure' ]; then
+              # Should not occur
+              echo "status=error" >> "$GITHUB_OUTPUT"
+              echo "::error::Workflow failed because job results could not be processed"
+              echo "::error::$results"
+              exit 1
+            fi
+          done
+
+          # Check for any failures in the results and emit failure.
+          for result in ${{ inputs.results }}; do
+            status="${result_to_status[$result]}"
+            if [ "$status" = 'failure' ]; then
+              echo "status=$status" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "status=success" >> "$GITHUB_OUTPUT"
+
       - name: Set final commit status
+        if: ${{ always() }}
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
         with:
           sha: ${{ inputs.sha }}
-          status: ${{ inputs.success && 'success' || 'failure' }}
+          status: ${{ steps.aggregate-results.outputs.status }}
 
-  fail-workflow:
-    if: ${{ inputs.success == false }}
-    name: Fail job if result is failure
-    runs-on: ubuntu-24.04
-    steps:
       - name: Fail job if result is failure
         # Besides reporting in the commit SHA if the test was or not successful,
         # we should also report it in the workflow itself. This will allow to
         # store the failure rate of the workflow on OpenSearch, instead of
         # marking it as successful.
+        if: ${{ steps.aggregate-results.outputs.status != 'success' }}
         run: |
           echo "::error::Workflow failed because one or more jobs failed"
           exit 1

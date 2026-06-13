@@ -414,4 +414,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.gateway-api-conformance-test.result == 'success' }}
+      results: ${{ needs.gateway-api-conformance-test.result }}

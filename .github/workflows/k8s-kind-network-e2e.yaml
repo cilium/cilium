@@ -401,4 +401,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.kubernetes-e2e.result == 'success' }}
+      results: ${{ needs.kubernetes-e2e.result }}

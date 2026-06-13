@@ -387,4 +387,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.delegated-ipam-conformance-test.result == 'success' }}
+      results: ${{ needs.delegated-ipam-conformance-test.result }}

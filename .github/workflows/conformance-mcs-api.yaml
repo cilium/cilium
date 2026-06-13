@@ -358,4 +358,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.mcs-api-conformance-test.result == 'success' }}
+      results: ${{ needs.mcs-api-conformance-test.result }}
