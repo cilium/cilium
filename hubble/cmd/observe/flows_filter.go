@@ -214,6 +214,7 @@ func newFlowFilter() *flowFilter {
 			{"traffic-direction"},
 			{"cel-expression"},
 			{"encrypted", "unencrypted"},
+			{"reply", "not-reply"},
 		},
 	}
 }
@@ -756,6 +757,14 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 	case "unencrypted":
 		f.apply(func(f *flowpb.FlowFilter) {
 			f.Encrypted = append(f.GetEncrypted(), false)
+		})
+	case "reply":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.Reply = append(f.GetReply(), true)
+		})
+	case "not-reply":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.Reply = append(f.GetReply(), false)
 		})
 	}
 
