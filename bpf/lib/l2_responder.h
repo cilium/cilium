@@ -3,44 +3,13 @@
 
 #pragma once
 
-#include <linux/bpf.h>
-#include <bpf/section.h>
-#include <bpf/loader.h>
+/* Map types and declarations (safe to include from any BPF program). */
+#include "l2_responder_maps.h"
+/* Full announcement handler needs global config + ARP + ICMPv6. */
+#include <bpf/config/global.h>
 
-struct l2_responder_v4_key {
-	union v4addr ip4;
-	__u32 ifindex;
-};
-
-struct l2_responder_stats {
-	__u64 responses_sent;
-};
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct l2_responder_v4_key);
-	__type(value, struct l2_responder_stats);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, L2_RESPONDER_MAP4_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_l2_responder_v4 __section_maps_btf;
-
-struct l2_responder_v6_key {
-	union v6addr ip6;
-	__u32 ifindex;
-	__u32 pad;
-};
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct l2_responder_v6_key);
-	__type(value, struct l2_responder_stats);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, L2_RESPONDER_MAP6_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_l2_responder_v6 __section_maps_btf;
-
-DECLARE_CONFIG(bool, enable_l2_announcements, "Enable L2 Announcements")
+/* enable_l2_announcements is declared in l2_responder_maps.h (the gate
+ * for consulting the responder maps). */
 DECLARE_CONFIG(__u64, l2_announcements_max_liveness,
 	       "If the agent is down for longer than the lease duration, stop responding")
 
