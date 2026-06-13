@@ -54,7 +54,7 @@ var Cell = cell.Module(
 	cmendpointslice.Cell,
 
 	cell.ProvidePrivate(newServiceMerger),
-	cell.Invoke(registerServicesInitialized),
+	cell.Invoke(registerLoadBalancerInitialized),
 
 	cell.Config(types.DefaultQuirks),
 	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager, log *slog.Logger, quirks types.QuirksConfig) error {
