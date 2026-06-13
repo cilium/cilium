@@ -793,6 +793,42 @@ func TestTrafficDirection(t *testing.T) {
 	}
 }
 
+func TestReplyFilter(t *testing.T) {
+	tt := []struct {
+		name    string
+		flags   []string
+		filters []*flowpb.FlowFilter
+	}{
+		{
+			name:  "reply",
+			flags: []string{"--reply"},
+			filters: []*flowpb.FlowFilter{
+				{Reply: []bool{true}},
+			},
+		},
+		{
+			name:  "not-reply",
+			flags: []string{"--not-reply"},
+			filters: []*flowpb.FlowFilter{
+				{Reply: []bool{false}},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFlowFilter()
+			cmd := newFlowsCmdWithFilter(viper.New(), f)
+			require.NoError(t, cmd.Flags().Parse(tc.flags))
+			diff := cmp.Diff(tc.filters, f.whitelist.flowFilters(), cmpopts.IgnoreUnexported(flowpb.FlowFilter{}))
+			if diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+			assert.Nil(t, f.blacklist)
+		})
+	}
+}
+
 func TestSnatIp(t *testing.T) {
 	tt := []struct {
 		name    string
