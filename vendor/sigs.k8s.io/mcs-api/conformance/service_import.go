@@ -87,6 +87,21 @@ func testGeneralServiceImport() {
 				"the ServiceImport still exists after unexporting the service on all clusters")
 		})
 
+	SpecifyWithSpecRef("A ServiceImport should publish whether EndpointSlice objects are present",
+		"https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#using-endpointslice-objects-to-track-endpoints",
+		Label(RequiredLabel), func(ctx context.Context) {
+			for i := range clients {
+				t.awaitServiceImport(ctx, &clients[i], helloServiceName, true,
+					func(g Gomega, serviceImport *v1beta1.ServiceImport) {
+						g.Expect(serviceImport.Status.EndpointSliceObjects).To(Or(
+							Equal(v1beta1.EndpointSliceObjectsPresent),
+							Equal(v1beta1.EndpointSliceObjectsAbsent)),
+							reportNonConformant(fmt.Sprintf("ServiceImport on cluster %q must set status.endpointSliceObjects",
+								clients[i].name)))
+					})
+			}
+		})
+
 	Context("", func() {
 		BeforeEach(func() {
 			t.helloServiceExport.Spec.ExportedAnnotations = map[string]string{"dummy-annotation": "true"}

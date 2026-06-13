@@ -366,6 +366,14 @@ func getClustersStatus(svcExportByCluster operator.ServiceExportsByCluster) []mc
 	return clusters
 }
 
+func getEndpointSliceObjectsStatus(svcImport *mcsapiv1beta1.ServiceImport) mcsapiv1beta1.EndpointSliceObjectsStatus {
+	value, ok := svcImport.Annotations[annotation.GlobalServiceSyncEndpointSlices]
+	if strings.ToLower(value) == "true" || (!ok && svcImport.Spec.Type == mcsapiv1beta1.Headless) {
+		return mcsapiv1beta1.EndpointSliceObjectsPresent
+	}
+	return mcsapiv1beta1.EndpointSliceObjectsAbsent
+}
+
 func derefSessionAffinity(sessionAffinityConfig *corev1.SessionAffinityConfig) *int32 {
 	if sessionAffinityConfig == nil ||
 		sessionAffinityConfig.ClientIP == nil ||
@@ -691,6 +699,7 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	svcImportStatusOriginal := svcImport.Status.DeepCopy()
 	svcImport.Status.Clusters = getClustersStatus(svcExportByCluster)
+	svcImport.Status.EndpointSliceObjects = getEndpointSliceObjectsStatus(svcImport)
 	if !isGlobal {
 		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1beta1.NewServiceImportCondition(
 			mcsapiv1beta1.ServiceImportConditionReady,
