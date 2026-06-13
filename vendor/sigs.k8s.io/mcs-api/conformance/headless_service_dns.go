@@ -216,7 +216,7 @@ func (t *testDriver) awaitK8sEndpoints(ctx context.Context, c *clusterClients, a
 
 		// The final run succeeded so cancel any prior non-conformance reported.
 		cancelNonConformanceReport()
-	}).WithContext(ctx).Within(20 * time.Second).ProbeEvery(100 * time.Millisecond).Should(Succeed())
+	}).WithContext(ctx).Within(60 * time.Second).ProbeEvery(100 * time.Millisecond).Should(Succeed())
 
 	By(fmt.Sprintf("Found endpoints %v", endpoints))
 

@@ -146,6 +146,11 @@ type ServicePort struct {
 
 // ServiceImportStatus describes derived state of an imported service.
 type ServiceImportStatus struct {
+	// EndpointSliceObjects indicates whether imported EndpointSlice objects are
+	// present for this ServiceImport.
+	// +kubebuilder:validation:Enum=Present;Absent
+	// +optional
+	EndpointSliceObjects EndpointSliceObjectsStatus `json:"endpointSliceObjects,omitempty"`
 	// clusters is the list of exporting clusters from which this service
 	// was derived.
 	// +optional
@@ -168,6 +173,20 @@ type ClusterStatus struct {
 	// label.
 	Cluster string `json:"cluster"`
 }
+
+// EndpointSliceObjectsStatus indicates whether imported EndpointSlice objects
+// are present for a ServiceImport.
+type EndpointSliceObjectsStatus string
+
+const (
+	// EndpointSliceObjectsPresent indicates that imported EndpointSlice objects
+	// are present for a ServiceImport.
+	EndpointSliceObjectsPresent EndpointSliceObjectsStatus = "Present"
+
+	// EndpointSliceObjectsAbsent indicates that imported EndpointSlice objects are
+	// absent for a ServiceImport.
+	EndpointSliceObjectsAbsent EndpointSliceObjectsStatus = "Absent"
+)
 
 // +kubebuilder:object:root=true
 

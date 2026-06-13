@@ -714,6 +714,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			SessionAffinityConfig: nil,
 		}, svcImport.Spec)
 		require.Len(t, svcImport.Status.Clusters, 1)
+		require.Equal(t, mcsapiv1beta1.EndpointSliceObjectsAbsent, svcImport.Status.EndpointSliceObjects)
 		require.True(t, meta.IsStatusConditionFalse(svcImport.Status.Conditions, string(mcsapiv1beta1.ServiceImportConditionReady)))
 
 		svcExport, err := getServiceExport(c, key)
@@ -803,6 +804,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			},
 		})
 		require.Len(t, svcImport.Status.Clusters, 2)
+		require.Equal(t, mcsapiv1beta1.EndpointSliceObjectsPresent, svcImport.Status.EndpointSliceObjects)
 		require.ElementsMatch(t, svcImport.Status.Clusters, []mcsapiv1beta1.ClusterStatus{
 			{Cluster: localClusterName},
 			{Cluster: remoteClusterName},
