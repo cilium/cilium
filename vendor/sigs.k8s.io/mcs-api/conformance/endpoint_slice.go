@@ -87,6 +87,8 @@ func (t *testDriver) awaitMCSEndpointSlice(ctx context.Context, c *clusterClient
 	verify func(Gomega, *discoveryv1.EndpointSlice), desc ...any) *discoveryv1.EndpointSlice {
 	By(fmt.Sprintf("Retrieving %s MCS EndpointSlice for the service on cluster %q", addressType, c.name))
 
+	t.expectEndpointSliceObjectsPresent(ctx, c)
+
 	var endpointSlice *discoveryv1.EndpointSlice
 
 	hasLabel := func(eps *discoveryv1.EndpointSlice, label string) bool {
@@ -116,7 +118,16 @@ func (t *testDriver) awaitMCSEndpointSlice(ctx context.Context, c *clusterClient
 
 		// The final run succeeded so cancel any prior non-conformance reported.
 		cancelNonConformanceReport()
-	}).WithContext(ctx).Within(20 * time.Second).ProbeEvery(100 * time.Millisecond).Should(Succeed())
+	}).WithContext(ctx).Within(60 * time.Second).ProbeEvery(100 * time.Millisecond).Should(Succeed())
 
 	return endpointSlice
+}
+
+func (t *testDriver) expectEndpointSliceObjectsPresent(ctx context.Context, c *clusterClients) {
+	t.awaitServiceImport(ctx, c, helloServiceName, true,
+		func(g Gomega, serviceImport *v1beta1.ServiceImport) {
+			g.Expect(serviceImport.Status.EndpointSliceObjects).To(Equal(v1beta1.EndpointSliceObjectsPresent),
+				reportNonConformant(fmt.Sprintf("ServiceImport on cluster %q must set status.endpointSliceObjects to %q",
+					c.name, v1beta1.EndpointSliceObjectsPresent)))
+		})
 }

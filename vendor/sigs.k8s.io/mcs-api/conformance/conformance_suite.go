@@ -349,7 +349,7 @@ func (t *testDriver) startRequestPod(ctx context.Context, client clusterClients)
 		}
 
 		return nil
-	}, 20, 1).Should(Succeed())
+	}, 60, 1).Should(Succeed())
 }
 
 func (t *testDriver) execCmdOnRequestPod(c *clusterClients, command []string) string {
@@ -388,7 +388,7 @@ func (t *testDriver) awaitServicePodIP(ctx context.Context, c *clusterClients) s
 
 		servicePodIP = pods.Items[0].Status.PodIP
 		g.Expect(servicePodIP).NotTo(BeEmpty(), "Service deployment pod was not allocated an IP")
-	}).WithContext(ctx).Within(20 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+	}).WithContext(ctx).Within(60 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 
 	By(fmt.Sprintf("Retrieved service deployment pod IP %q", servicePodIP))
 

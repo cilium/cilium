@@ -20,7 +20,7 @@ metadata:
     # The revision is updated on each CRD change and reset back to 0 on every new version.
     # It can be used together with the version label when installing those CRDs
     # and prevent any downgrades.
-    multicluster.x-k8s.io/crd-schema-revision: "0"
+    multicluster.x-k8s.io/crd-schema-revision: "1"
 spec:
   group: multicluster.x-k8s.io
   scope: Namespaced
