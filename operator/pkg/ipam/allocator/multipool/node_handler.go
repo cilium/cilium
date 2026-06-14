@@ -73,7 +73,7 @@ func (n *NodeHandler) Delete(resource *v2.CiliumNode) {
 	err := n.poolManager.ReleaseNode(resource.Name)
 	if err != nil {
 		n.logger.Warn(
-			"Errors while release node and its CIDRs",
+			"Errors while releasing node and its CIDRs",
 			logfields.Error, err,
 			logfields.NodeName, resource.Name,
 		)

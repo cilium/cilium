@@ -214,7 +214,7 @@ func (p pendingAllocationsPerOwner) removeExpiredEntries(logger *slog.Logger, no
 	}
 }
 
-// pendingForPool returns how many IP allocations are pending for the given family
+// pendingForFamily returns how many IP allocations are pending for the given family
 func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
 	return len(p[family])
 }
@@ -435,7 +435,7 @@ func (m *multiPoolManager) localNodeUpdated() <-chan struct{} {
 //	numIP 16 -> 32
 //	numIP 17 -> 48
 //
-// This always ensures that there we always have a buffer of at least preAlloc
+// This ensures that we always have a buffer of at least preAlloc
 // IPs.
 func neededIPCeil(numIP int, preAlloc int) int {
 	if preAlloc == 0 {

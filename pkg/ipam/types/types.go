@@ -158,7 +158,7 @@ type IPAMSpec struct {
 	MaxAllocate int `json:"max-allocate,omitempty"`
 
 	// PreAllocate defines the number of IP addresses that must be
-	// available for allocation in the IPAMspec. It defines the buffer of
+	// available for allocation in the IPAMSpec. It defines the buffer of
 	// addresses available immediately without requiring cilium-operator to
 	// get involved.
 	//
@@ -240,8 +240,8 @@ type IPAMStatus struct {
 	AssignedStaticIP string `json:"assigned-static-ip,omitempty"`
 }
 
-// IPAMPoolRequest is a request from the agent to the operator, indicating how
-// may IPs it requires from a given pool
+// IPAMPoolDemand is a request from the agent to the operator, indicating how
+// many IPs it requires from a given pool
 type IPAMPoolDemand struct {
 	// IPv4Addrs contains the number of requested IPv4 addresses out of a given
 	// pool

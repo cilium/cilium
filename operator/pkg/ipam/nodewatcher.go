@@ -59,7 +59,7 @@ func newNodeWatcherJobFactory(
 func watchCiliumNodes(ctx context.Context, ciliumNodes resource.Resource[*cilium_api_v2.CiliumNode], handler allocator.NodeEventHandler, withResync bool) {
 	// We will use CiliumNodes as the source of truth for the podCIDRs.
 	// Once the CiliumNodes are synchronized with the operator we will
-	// be able to watch for K8s Node events which they will be used
+	// be able to watch for K8s Node events which will be used
 	// to create the remaining CiliumNodes.
 	for ev := range ciliumNodes.Events(ctx) {
 		switch ev.Kind {

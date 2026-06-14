@@ -123,8 +123,8 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 	return nil
 }
 
-// Start kicks of ENI allocation, the initial connection to AWS
-// APIs is done in a blocking manner, given that is successful, a controller is
+// Start kicks off ENI allocation, the initial connection to AWS
+// APIs is done in a blocking manner, given that this is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
 func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater allocator.CiliumNodeGetterUpdater, iMetrics nodemanager.MetricsAPI) (allocator.NodeEventHandler, error) {
 	a.logger.Info("Starting ENI allocator...")

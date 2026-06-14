@@ -127,7 +127,7 @@ type Node struct {
 	// with external APIs or systems.
 	instanceSync *trigger.Trigger
 
-	// ops is the IPAM implementation to used for this node
+	// ops is the IPAM implementation to use for this node
 	ops NodeOperations
 
 	// retry is the trigger used to retry pool maintenance while the
@@ -203,7 +203,7 @@ type IPStatistics struct {
 	Capacity int
 
 	// NeededIPs is the number of IPs needed to reach the PreAllocate
-	// watermwark
+	// watermark
 	NeededIPs int
 
 	// ExcessIPs is the number of free IPs exceeding MaxAboveWatermark
@@ -824,7 +824,7 @@ type AllocationAction struct {
 	Interface ipamTypes.Interface
 
 	// PoolID is the IPAM pool identifier to allocate the IPs from. This
-	// can correspond to a subnet ID or it can also left blank or set to a
+	// can correspond to a subnet ID or it can also be left blank or set to a
 	// value such as "global" to indicate a single address pool.
 	PoolID ipamTypes.PoolID
 
@@ -839,7 +839,7 @@ type AllocationAction struct {
 // IPAllocationAction is the IP-specific action to be taken to resolve allocation deficits
 // for a particular node.
 type IPAllocationAction struct {
-	// AvailableForAllocation is the number IPs available for allocation.
+	// AvailableForAllocation is the number of IPs available for allocation.
 	// If InterfaceID is set, then this number corresponds to the number of
 	// IPs available for allocation on that interface. This number may be
 	// lower than the number of IPs required to resolve the deficit.
@@ -868,7 +868,7 @@ type ReleaseAction struct {
 	InterfaceID string
 
 	// PoolID is the IPAM pool identifier to release the IPs from. This can
-	// correspond to a subnet ID or it can also left blank or set to a
+	// correspond to a subnet ID or it can also be left blank or set to a
 	// value such as "global" to indicate a single address pool.
 	PoolID ipamTypes.PoolID
 
@@ -1469,7 +1469,7 @@ func (n *Node) syncToAPIServer() error {
 // Note that the `origNode` and `node` pointers will have their underlying
 // values modified in this function! The following is an outline of when
 // `origNode` and `node` pointers are updated:
-//   - `node` is updated when we succeed in updating to update the resource to
+//   - `node` is updated when we succeed in updating the resource to
 //     the apiserver.
 //   - `origNode` and `node` are updated when we fail to update the resource,
 //     but we succeed in retrieving the latest version of it from the

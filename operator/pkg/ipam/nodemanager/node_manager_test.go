@@ -820,7 +820,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	}
 
 	// The above check returns as soon as the address requirements are met.
-	// The metrics may still be oudated, resync all nodes to update
+	// The metrics may still be outdated, resync all nodes to update
 	// metrics.
 	mngr.Resync(t.Context(), time.Now())
 

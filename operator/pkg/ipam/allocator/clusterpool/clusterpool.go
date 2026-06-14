@@ -75,7 +75,7 @@ func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger) error
 	return nil
 }
 
-// Start kicks of Operator allocation.
+// Start kicks off Operator allocation.
 func (a *AllocatorOperator) Start(ctx context.Context, updater allocator.CiliumNodeGetterUpdater, iMetrics trigger.MetricsObserver) (allocator.NodeEventHandler, error) {
 	a.logger.Info(
 		"Starting ClusterPool IP allocator",

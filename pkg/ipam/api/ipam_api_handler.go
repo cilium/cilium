@@ -135,7 +135,7 @@ func (r *IpamPostIpamHandler) getNodeRouterAddressing(ctx context.Context) (*mod
 	return nodeRouterAddressing, nil
 }
 
-// Handle incoming requests address allocation requests for the daemon.
+// Handle incoming address allocation requests for the daemon.
 func (r *IpamPostIpamIPHandler) Handle(params ipamapi.PostIpamIPParams) middleware.Responder {
 	owner := swag.StringValue(params.Owner)
 	pool := ipam.Pool(swag.StringValue(params.Pool))

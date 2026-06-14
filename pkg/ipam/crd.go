@@ -659,7 +659,7 @@ type crdAllocator struct {
 	// represented as string
 	allocated ipamTypes.AllocationMap
 
-	// family is the address family this allocator is allocator for
+	// family is the address family this allocator is allocating for
 	family Family
 
 	conf        *option.DaemonConfig
@@ -925,7 +925,7 @@ func (a *crdAllocator) RestoreFinished() {
 	})
 }
 
-// NewIPNotAvailableInPoolError returns an error resprenting the given IP not
+// NewIPNotAvailableInPoolError returns an error representing the given IP not
 // being available in the IPAM pool.
 func NewIPNotAvailableInPoolError(addr netip.Addr) error {
 	return &ErrIPNotAvailableInPool{addr: addr}
