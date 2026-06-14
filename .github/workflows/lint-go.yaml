@@ -28,7 +28,7 @@ jobs:
           go-version: 1.25.11
           cache: false
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
       - name: Check module vendoring
@@ -48,7 +48,7 @@ jobs:
           go-version: 1.25.11
           cache: false
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
       - name: Check for unauthorized dependencies
@@ -70,7 +70,7 @@ jobs:
           go-version: 1.25.11
           cache: false
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
       - name: Run golangci-lint
@@ -92,7 +92,7 @@ jobs:
           go-version: 1.25.11
           cache: false
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -113,7 +113,7 @@ jobs:
           go-version: 1.25.11
           cache: false
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -134,7 +134,7 @@ jobs:
           go-version: 1.25.11
           cache: false
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
