@@ -4,11 +4,11 @@
 
 | Total Contributors | Total Contributions |
 | --- | --- |
-| 14  | 130  |
+| 14  | 133  |
 
 | Username | All Time Contribution Count | All Commits |
 | --- | --- | --- |
-| @fredbi | 52 | <https://github.com/go-openapi/loads/commits?author=fredbi> |
+| @fredbi | 55 | <https://github.com/go-openapi/loads/commits?author=fredbi> |
 | @casualjim | 48 | <https://github.com/go-openapi/loads/commits?author=casualjim> |
 | @youyuanwu | 6 | <https://github.com/go-openapi/loads/commits?author=youyuanwu> |
 | @vburenin | 4 | <https://github.com/go-openapi/loads/commits?author=vburenin> |
