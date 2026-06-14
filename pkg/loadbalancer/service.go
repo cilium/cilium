@@ -159,6 +159,17 @@ func (svc *Service) GetSourceRangesPolicy() SVCSourceRangesPolicy {
 	return SVCSourceRangesPolicyAllow
 }
 
+// IsScaleToZero reports whether the service opted into scale-to-zero demand
+// tracking via the service.cilium.io/scale-to-zero annotation.
+func (svc *Service) IsScaleToZero() bool {
+	value, ok := annotation.Get(svc, annotation.ServiceScaleToZero)
+	if !ok {
+		return false
+	}
+	enabled, err := strconv.ParseBool(value)
+	return err == nil && enabled
+}
+
 func (svc *Service) GetSourceRangesEnabled(svcType SVCType, lbSourceRangeAllTypes bool) bool {
 	if lbSourceRangeAllTypes {
 		return len(svc.SourceRanges) > 0

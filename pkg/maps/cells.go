@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/maps/scaletozero"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/subnet"
@@ -92,6 +93,9 @@ var Cell = cell.Module(
 
 	// Provides access to ActiveConnectionTracking map.
 	act.Cell,
+
+	// Provides access to the scale-to-zero map (tracked services).
+	scaletozero.Cell,
 
 	// Provides access to NAT maps.
 	nat.Cell,

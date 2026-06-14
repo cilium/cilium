@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/scaletozero"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -114,6 +115,9 @@ type BPFOps struct {
 	nodeAddrs statedb.Table[tables.NodeAddress]
 	frontends statedb.Table[*loadbalancer.Frontend]
 
+	// scaleToZero tracks services opted into scale-to-zero, nil when disabled.
+	scaleToZero scaletozero.Map
+
 	cfg           loadbalancer.Config
 	extCfg        loadbalancer.ExternalConfig
 	maglev        *maglev.Maglev
@@ -188,6 +192,8 @@ type bpfOpsParams struct {
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
 	Frontends      statedb.Table[*loadbalancer.Frontend]
+	// ScaleToZero is only provided when --enable-scale-to-zero is set.
+	ScaleToZero scaletozero.Map `optional:"true"`
 }
 
 const (
@@ -198,14 +204,15 @@ const (
 
 func newBPFOps(p bpfOpsParams) *BPFOps {
 	ops := &BPFOps{
-		cfg:       p.Config,
-		extCfg:    p.ExternalConfig,
-		maglev:    p.Maglev,
-		log:       newRateLimitingLogger(p.Log),
-		LBMaps:    p.LBMaps,
-		db:        p.DB,
-		nodeAddrs: p.NodeAddresses,
-		frontends: p.Frontends,
+		cfg:         p.Config,
+		extCfg:      p.ExternalConfig,
+		maglev:      p.Maglev,
+		log:         newRateLimitingLogger(p.Log),
+		LBMaps:      p.LBMaps,
+		db:          p.DB,
+		nodeAddrs:   p.NodeAddresses,
+		frontends:   p.Frontends,
+		scaleToZero: p.ScaleToZero,
 	}
 	ops.setLastUpdatedAt()
 
@@ -431,6 +438,13 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		logfields.ID, feID,
 		logfields.Address, fe.Address,
 	)
+
+	// Remove any scale-to-zero tracking entry for this frontend.
+	if ops.scaleToZero != nil {
+		if err := ops.scaleToZero.Delete(feID); err != nil {
+			return fmt.Errorf("delete scale-to-zero map entry: %w", err)
+		}
+	}
 
 	// Drop any restored quarantine state
 	ops.deleteRestoredQuarantinedBackends(fe.Address)
@@ -718,6 +732,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
 		ops.pruneMaglev(),
+		ops.pruneScaleToZero(),
 	)
 }
 
@@ -1131,7 +1146,39 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	// above can be retried and entries are not leaked.
 	ops.updateReferences(fe.Address, backendAddrs)
 
+	// Track or untrack the frontend for scale-to-zero, last so it only happens
+	// once the rest of the frontend has reconciled.
+	if err := ops.reconcileScaleToZero(feID, svc); err != nil {
+		return fmt.Errorf("reconcile scale-to-zero map: %w", err)
+	}
+
 	return nil
+}
+
+// reconcileScaleToZero seeds or removes the frontend's entry in the
+// scale-to-zero map based on the service annotation.
+func (ops *BPFOps) reconcileScaleToZero(feID loadbalancer.ServiceID, svc *loadbalancer.Service) error {
+	if ops.scaleToZero == nil {
+		return nil
+	}
+	if svc.IsScaleToZero() {
+		return ops.scaleToZero.EnsureTracked(feID, svc.Name)
+	}
+	// Unconditional: prune keeps entries of still-allocated ids, so an entry
+	// left by an annotation removed while the agent was down only converges here.
+	return ops.scaleToZero.Delete(feID)
+}
+
+// pruneScaleToZero removes entries whose service id is no longer allocated,
+// e.g. for a service deleted while the agent was down.
+func (ops *BPFOps) pruneScaleToZero() error {
+	if ops.scaleToZero == nil {
+		return nil
+	}
+	return ops.scaleToZero.Prune(func(id loadbalancer.ServiceID) bool {
+		_, ok := ops.serviceIDAlloc.idToAddr[id]
+		return ok
+	})
 }
 
 func (ops *BPFOps) lbAlgorithm(fe *loadbalancer.Frontend) loadbalancer.SVCLoadBalancingAlgorithm {

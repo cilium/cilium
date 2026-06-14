@@ -184,6 +184,12 @@ const (
 	//		use SNAT so that reply traffic comes back
 	ServiceForwardingMode = ServicePrefix + "/forwarding-mode"
 
+	// ServiceScaleToZero marks a service as a candidate for scale-to-zero:
+	// the agent exports a per-service demand metric an external autoscaler
+	// can use to scale it from and to zero. Only effective with
+	// --enable-scale-to-zero.
+	ServiceScaleToZero = ServicePrefix + "/scale-to-zero"
+
 	// NoTrack / NoTrackAlias is the annotation name used to store the port and
 	// protocol that we should bypass kernel conntrack for a given pod. This
 	// applies for both TCP and UDP connection. Current use case is NodeLocalDNS.

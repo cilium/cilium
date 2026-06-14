@@ -406,6 +406,7 @@ static __always_inline void cilium_dbg_lb(struct __ctx_buff *ctx, __u8 type, __u
 }
 
 #include "act.h"
+#include "scale_to_zero.h"
 
 static __always_inline bool lb_is_svc_proto(__u8 proto)
 {
@@ -1483,6 +1484,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 
 no_service:
+#ifdef ENABLE_SCALE_TO_ZERO
+	scale_to_zero_signal(ctx, svc->rev_nat_index);
+#endif
 	ret = DROP_NO_SERVICE;
 drop_err:
 	tuple->flags = flags;
@@ -2299,6 +2303,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 
 no_service:
+#ifdef ENABLE_SCALE_TO_ZERO
+	scale_to_zero_signal(ctx, svc->rev_nat_index);
+#endif
 	ret = DROP_NO_SERVICE;
 drop_err:
 	tuple->flags = flags;
