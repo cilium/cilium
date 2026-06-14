@@ -50,6 +50,87 @@ func filterDefaultRouteIPv6(t *testing.T, rt []netlink.Route) netlink.Route {
 	return rt[i]
 }
 
+func TestRequireFromProxyRoutes(t *testing.T) {
+	saved := option.Config
+	t.Cleanup(func() { option.Config = saved })
+
+	tests := []struct {
+		name                 string
+		routingMode          string
+		enableEnvoyConfig    bool
+		enableEndpointRoutes bool
+		ipsecEnabled         bool
+		wireguardEnabled     bool
+		wantIngress          bool
+		wantEgress           bool
+		wantEPID             bool
+	}{
+		{
+			name:                 "tunneling mode: all false regardless of features",
+			routingMode:          option.RoutingModeTunnel,
+			enableEnvoyConfig:    true,
+			enableEndpointRoutes: true,
+		},
+		{
+			name:        "native, no features",
+			routingMode: option.RoutingModeNative,
+		},
+		{
+			name:                 "native, envoy without per-ep routes",
+			routingMode:          option.RoutingModeNative,
+			enableEnvoyConfig:    true,
+			enableEndpointRoutes: false,
+			wantIngress:          true,
+		},
+		{
+			name:                 "native, envoy with per-ep routes",
+			routingMode:          option.RoutingModeNative,
+			enableEnvoyConfig:    true,
+			enableEndpointRoutes: true,
+			wantIngress:          true,
+			wantEPID:             true,
+		},
+		{
+			name:         "native, ipsec",
+			routingMode:  option.RoutingModeNative,
+			ipsecEnabled: true,
+			wantIngress:  true,
+			wantEgress:   true,
+		},
+		{
+			name:             "native, wireguard",
+			routingMode:      option.RoutingModeNative,
+			wireguardEnabled: true,
+			wantIngress:      true,
+		},
+		{
+			name:                 "native, envoy + per-ep routes + ipsec",
+			routingMode:          option.RoutingModeNative,
+			enableEnvoyConfig:    true,
+			enableEndpointRoutes: true,
+			ipsecEnabled:         true,
+			wantIngress:          true,
+			wantEgress:           true,
+			wantEPID:             true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			option.Config = &option.DaemonConfig{
+				RoutingMode:          tt.routingMode,
+				EnableEnvoyConfig:    tt.enableEnvoyConfig,
+				EnableEndpointRoutes: tt.enableEndpointRoutes,
+			}
+
+			gotIngress, gotEgress, gotEPID, _ := requireFromProxyRoutes(tt.ipsecEnabled, tt.wireguardEnabled, 0)
+			assert.Equal(t, tt.wantIngress, gotIngress, "fromIngressProxy")
+			assert.Equal(t, tt.wantEgress, gotEgress, "fromEgressProxy")
+			assert.Equal(t, tt.wantEPID, gotEPID, "fromProxyEgressEPID")
+		})
+	}
+}
+
 func TestPrivilegedRoutes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
@@ -215,6 +296,28 @@ func TestPrivilegedRoutes(t *testing.T) {
 				// Remove routes installed before.
 				assert.NoError(t, removeFromProxyRulesIPv4())
 				assert.NoError(t, routeManager.RemoveOwner(owner))
+
+				owner, err = routeManager.RegisterOwner("test-proxy")
+				require.NoError(t, err, "register route owner")
+
+				// Verify the EPID rule is installed and removed when fromProxyEgressEPID is true.
+				assert.NoError(t, installFromProxyRoutesIPv4(routeManager, owner, testIPv4, dummyDevice, false, false, true, defaultMTU))
+
+				epIDRules, err := route.ListRules(netlink.FAMILY_V4, &fromProxyEgressEPIDRule)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, epIDRules, "EPID rule should be present")
+
+				// Neither ingress nor egress proxy rule should be installed.
+				ingressRules, err := route.ListRules(netlink.FAMILY_V4, &fromIngressProxyRule)
+				assert.NoError(t, err)
+				assert.Empty(t, ingressRules, "ingress proxy rule should not be present")
+
+				assert.NoError(t, removeFromProxyRulesIPv4())
+				assert.NoError(t, routeManager.RemoveOwner(owner))
+
+				epIDRules, err = route.ListRules(netlink.FAMILY_V4, &fromProxyEgressEPIDRule)
+				assert.NoError(t, err)
+				assert.Empty(t, epIDRules, "EPID rule should be removed")
 
 				owner, err = routeManager.RegisterOwner("test-proxy")
 				require.NoError(t, err, "register route owner")
@@ -407,6 +510,28 @@ func TestPrivilegedRoutes(t *testing.T) {
 				// Remove routes installed before.
 				assert.NoError(t, removeFromProxyRulesIPv6())
 				assert.NoError(t, routeManager.RemoveOwner(owner))
+
+				owner, err = routeManager.RegisterOwner("test-proxy")
+				require.NoError(t, err, "register route owner")
+
+				// Verify the EPID rule is installed and removed when fromProxyEgressEPID is true.
+				assert.NoError(t, installFromProxyRoutesIPv6(owner, routeManager, testIPv6, dummyDevice, false, false, true, defaultMTU))
+
+				epIDRules, err := route.ListRules(netlink.FAMILY_V6, &fromProxyEgressEPIDRule)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, epIDRules, "EPID rule should be present")
+
+				// Neither ingress nor egress proxy rule should be installed.
+				ingressRules, err := route.ListRules(netlink.FAMILY_V6, &fromIngressProxyRule)
+				assert.NoError(t, err)
+				assert.Empty(t, ingressRules, "ingress proxy rule should not be present")
+
+				assert.NoError(t, removeFromProxyRulesIPv6())
+				assert.NoError(t, routeManager.RemoveOwner(owner))
+
+				epIDRules, err = route.ListRules(netlink.FAMILY_V6, &fromProxyEgressEPIDRule)
+				assert.NoError(t, err)
+				assert.Empty(t, epIDRules, "EPID rule should be removed")
 
 				owner, err = routeManager.RegisterOwner("test-proxy")
 				require.NoError(t, err, "register route owner")
