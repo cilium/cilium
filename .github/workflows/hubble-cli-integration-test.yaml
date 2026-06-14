@@ -67,7 +67,7 @@ jobs:
       statuses: write
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@557bab669c3378114a2d1acd0711a7ee8fe51ec2 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@74fb5f98372c3a0ab060b7256a53ec7dfb6dd9be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -82,7 +82,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@557bab669c3378114a2d1acd0711a7ee8fe51ec2 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@74fb5f98372c3a0ab060b7256a53ec7dfb6dd9be # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -92,7 +92,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -123,7 +123,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -163,7 +163,7 @@ jobs:
             --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
       - name: Login to docker registry for image wait
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ${{ vars.DOCKER_READ_HOST}}
           username: ${{ vars.DOCKER_READ_USERNAME}}
