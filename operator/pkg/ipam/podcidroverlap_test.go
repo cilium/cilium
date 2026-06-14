@@ -29,7 +29,7 @@ import (
 // TestPodCIDRAllocatorOverlap tests that, on startup all nodes with assigned podCIDRs are processed so that nodes
 // without pod CIDRs will not get the same CIDR ranges assigned as existing nodes.
 func TestPodCIDRAllocatorOverlap(t *testing.T) {
-	// We need to run the test multiple times since we are testing a race condition which is dependant on the order
+	// We need to run the test multiple times since we are testing a race condition which is dependent on the order
 	// of a hash map.
 	for i := range 5 {
 		fmt.Printf("Run %d/5\n", i+1)

@@ -18,7 +18,7 @@ import (
 )
 
 // CidrSet manages a set of CIDR ranges from which blocks of IPs can
-// be allocated from.
+// be allocated.
 type CidrSet struct {
 	lock.Mutex
 	// clusterPrefix is the CIDR assigned to the cluster.
@@ -124,7 +124,7 @@ func (s *CidrSet) indexToCIDRBlock(index int) netip.Prefix {
 				leftClusterIP |= uint64(index) >> btl
 			}
 		}
-		// the right side will be calculated the same way either the
+		// the right side will be calculated the same way since the
 		// subNetMaskSize affects both left and right sides
 		rightClusterIP |= uint64(index) << uint(ipv6Bits-s.nodeMaskSize)
 	}

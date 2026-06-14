@@ -37,7 +37,7 @@ var ipamNodeIntervalControllerGroup = controller.NewGroup("ipam-node-interval-re
 // NodeOperations implementation which performs operations in the context of
 // that node.
 type NodeOperations interface {
-	// UpdateNode is called when an update to the CiliumNode is received.
+	// UpdatedNode is called when an update to the CiliumNode is received.
 	UpdatedNode(obj *v2.CiliumNode)
 
 	// PopulateStatusFields is called to give the implementation a chance
@@ -237,7 +237,7 @@ func (n *NodeManager) instancesAPIResync(ctx context.Context) (time.Time, error)
 	return syncTime, err
 }
 
-// Start kicks of the NodeManager by performing the initial state
+// Start kicks off the NodeManager by performing the initial state
 // synchronization and starting the background sync goroutine
 func (n *NodeManager) Start(ctx context.Context) error {
 	// Trigger the initial resync in a blocking manner
@@ -325,7 +325,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		node.logger.Store(node.rootLogger.With(fieldName, resource.Name))
 
 		ctx, cancel := context.WithCancel(context.Background())
-		// InstanceAPI is stale and the instances API is stable then do resync instancesAPI to sync instances
+		// If InstanceAPI is stale and the instances API is stable then do resync instancesAPI to sync instances
 		if !n.instancesAPI.HasInstance(resource.InstanceID()) && n.stableInstancesAPI {
 			if _, err := n.instancesAPI.InstanceSync(ctx, resource.InstanceID()); err != nil {
 				node.logger.Load().Warn("Failed to resync the instance from the API after new node was found", logfields.Error, err)

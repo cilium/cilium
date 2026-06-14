@@ -62,7 +62,7 @@ type ErrCIDRAllocated struct {
 	cidr netip.Prefix
 }
 
-// Error returns the human-readable error for the ErrAllocatorNotFound
+// Error returns the human-readable error for the ErrCIDRAllocated
 func (e *ErrCIDRAllocated) Error() string {
 	return fmt.Sprintf("requested CIDR (%s) is already allocated", e.cidr)
 }
@@ -677,7 +677,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 	)
 
 	// The node might want to allocate a new IPv4 podCIDR but it already
-	// has a IPv6 podCIDR. We will only allocate new podCIDRs if
+	// has an IPv6 podCIDR. We will only allocate new podCIDRs if
 	// canAllocateIPv4PodCIDRs is set to true. It's fine that we don't allocate
 	// it now since this node will be put into the map of nodes that require
 	// to be allocated in the future.
@@ -714,7 +714,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 	}
 
 	// The node might want to allocate a new IPv6 podCIDR but it already
-	// has a IPv4 podCIDR. We will only allocate new podCIDRs if
+	// has an IPv4 podCIDR. We will only allocate new podCIDRs if
 	// canAllocateIPv6PodCIDRs is set to true. It's fine that we don't allocate
 	// it now since this node will be put into the map of nodes that require
 	// to be allocated in the future.
@@ -770,7 +770,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 }
 
 // allocateIPNet allocates the `newCidr` in the cidrSet allocator. If the
-// the `newCIDR` is already allocated an error is returned.
+// `newCIDR` is already allocated an error is returned.
 // In case the function returns successfully, it's up to the caller to execute
 // the revert function provided to revert all state made. If the function
 // returns an error the caller of this function can assume no state was
@@ -834,7 +834,7 @@ func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, ne
 			break
 		}
 		// If we were unable to occupy the CIDRs on any allocators then return
-		// immediately as one of the CIDR allocators should be have been able
+		// immediately as one of the CIDR allocators should have been able
 		// to allocate this new CIDR. 'err' is set with the appropriate error.
 		if err != nil {
 			return
