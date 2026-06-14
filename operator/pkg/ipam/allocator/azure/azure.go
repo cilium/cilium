@@ -38,7 +38,7 @@ func (a *AllocatorAzure) Init(ctx context.Context, logger *slog.Logger) error {
 	return nil
 }
 
-// Start kicks of the Azure IP allocation
+// Start kicks off the Azure IP allocation
 func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater allocator.CiliumNodeGetterUpdater, iMetrics nodemanager.MetricsAPI) (allocator.NodeEventHandler, error) {
 	a.logger.Info("Starting Azure IP allocator...")
 

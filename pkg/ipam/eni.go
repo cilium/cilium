@@ -434,7 +434,7 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 		}
 
 		// Remove the subnet route for this ENI if it got setup by something(like networkd),
-		// as it can cause the traffic to following subnet route using secondary ENI as the outgoing interface.
+		// as it can cause traffic to follow the subnet route using secondary ENI as the outgoing interface.
 		// The Cilium could consider the wrong identity for the node and might drop
 		// the traffic between the host and pods when network policy is in place.
 		err = netlink.RouteDel(&netlink.Route{

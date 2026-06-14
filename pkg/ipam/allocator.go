@@ -41,14 +41,14 @@ func (ipam *IPAM) determineIPAMPool(owner string, family Family) (Pool, error) {
 	return Pool(pool), nil
 }
 
-// AllocateIP allocates a IP address.
+// AllocateIP allocates an IP address.
 func (ipam *IPAM) AllocateIP(ip net.IP, owner string, pool Pool) error {
 	needSyncUpstream := true
 	_, err := ipam.allocateIP(ip, owner, pool, needSyncUpstream)
 	return err
 }
 
-// AllocateIPWithoutSyncUpstream allocates a IP address without syncing upstream.
+// AllocateIPWithoutSyncUpstream allocates an IP address without syncing upstream.
 func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	needSyncUpstream := false
 	return ipam.allocateIP(ip, owner, pool, needSyncUpstream)
@@ -345,7 +345,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 	return nil
 }
 
-// ReleaseIP release a IP address. The pool argument must not be empty, it
+// ReleaseIP releases an IP address. The pool argument must not be empty, it
 // must be set to the pool name returned by the `Allocate*` functions when
 // the IP was allocated.
 func (ipam *IPAM) ReleaseIP(ip net.IP, pool Pool) error {

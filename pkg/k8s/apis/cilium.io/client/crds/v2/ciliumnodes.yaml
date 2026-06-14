@@ -418,7 +418,7 @@ spec:
                   pre-allocate:
                     description: |-
                       PreAllocate defines the number of IP addresses that must be
-                      available for allocation in the IPAMspec. It defines the buffer of
+                      available for allocation in the IPAMSpec. It defines the buffer of
                       addresses available immediately without requiring cilium-operator to
                       get involved.
                     minimum: 0

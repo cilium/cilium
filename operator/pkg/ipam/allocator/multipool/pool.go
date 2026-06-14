@@ -67,7 +67,7 @@ func releaseCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) error 
 		return alloc.Release(cidr)
 	}
 
-	return fmt.Errorf("released cidr %s was not part the pool", cidr)
+	return fmt.Errorf("released cidr %s was not part of the pool", cidr)
 }
 
 func hasCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) bool {
