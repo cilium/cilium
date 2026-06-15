@@ -35,7 +35,7 @@ jobs:
     name: Check for Quay secrets
     runs-on: ubuntu-24.04
     environment:
-      name: 'release-base-images'
+      name: ${{ inputs.environment || 'release-base-images' }}
       deployment: false
     timeout-minutes: 2
     outputs:
@@ -56,7 +56,7 @@ jobs:
     name: Build and Push Images
     timeout-minutes: 60
     environment:
-      name: 'release-base-images'
+      name: ${{ inputs.environment || 'release-base-images' }}
       deployment: false
     runs-on: ubuntu-24.04
     steps:
@@ -338,7 +338,7 @@ jobs:
     name: Display Digests
     runs-on: ubuntu-24.04
     environment:
-      name: 'release-base-images'
+      name: ${{ inputs.environment || 'release-base-images' }}
       deployment: false
     needs: build-and-push
     steps:
