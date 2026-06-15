@@ -27,7 +27,9 @@ jobs:
     name: Build and Push Image
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: docs-builder
+    environment:
+      name: docs-builder
+      deployment: false
     outputs:
       tag: ${{ steps.docs-builder-tag.outputs.tag }}
       digest: ${{ steps.docker-build-docs-builder.outputs.digest }}
