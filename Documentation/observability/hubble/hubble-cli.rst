@@ -104,6 +104,24 @@ To see only unencrypted flows:
 
     $ hubble observe --unencrypted
 
+Filtering Reply Traffic
+=======================
+
+You can filter flows based on whether they are reply packets (server-to-client
+direction) or not.
+
+To see only reply flows:
+
+.. code-block:: shell-session
+
+    $ hubble observe --reply
+
+To see only non-reply flows:
+
+.. code-block:: shell-session
+
+    $ hubble observe --not-reply
+
 Next Steps
 ==========
 
