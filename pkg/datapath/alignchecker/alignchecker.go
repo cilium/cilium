@@ -44,6 +44,7 @@ var (
 		"metrics_value":        {metricsmap.Value{}},
 		"policy_key":           {policymap.PolicyKey{}},
 		"policy_entry":         {policymap.PolicyEntry{}},
+		"shared_policy_key":    {policymap.SharedPolicyKey{}},
 		"ipv4_revnat_tuple":    {lbmap.SockRevNat4Key{}},
 		"ipv4_revnat_entry":    {lbmap.SockRevNat4Value{}},
 		"ipv6_revnat_tuple":    {lbmap.SockRevNat6Key{}},
