@@ -87,3 +87,11 @@
   underlay: 'ipv6'
   # L7 testing: Basic IPv6-only configuration, can skip
   test-l7: 'false'
+- name: 'misc-8-shared-policy'
+  kernel: '6.12'
+  kube-proxy: 'none'
+  kpr: 'true'
+  tunnel: 'vxlan'
+  misc: 'bpfClockProbe=false,cni.uninstall=false,bpf.sharedPolicy=true'
+  # L7 testing: Shared policy map, L3/L4 on PRs and full suite on schedule
+  test-l7: 'false'

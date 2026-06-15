@@ -200,5 +200,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableL7LB = option.Config.EnableEnvoyConfig
 
+	node.EnableSharedPolicy = option.Config.EnableSharedPolicy
+
 	return node
 }
