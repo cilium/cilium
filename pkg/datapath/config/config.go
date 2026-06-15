@@ -121,6 +121,10 @@ type Config struct {
 	// the masquerading IP address for the node.
 	DeriveMasqIPAddrFromDevice string
 
+	// SNATCollisionRetries is the maximum number of port allocation retries.
+	// This field is immutable at runtime.
+	SNATCollisionRetries uint16
+
 	// HostEndpointID is the endpoint ID assigned to the host endpoint.
 	// Immutable at runtime.
 	HostEndpointID uint64
