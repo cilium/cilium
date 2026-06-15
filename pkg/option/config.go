@@ -298,6 +298,9 @@ const (
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
 
+	// EnableSharedPolicy enables the shared policy LPM trie lookup path (Phase 4).
+	EnableSharedPolicy = "enable-shared-policy"
+
 	// IPMasqAgentConfigPath is the configuration file path
 	IPMasqAgentConfigPath = "ip-masq-agent-config-path"
 
@@ -1451,6 +1454,7 @@ type DaemonConfig struct {
 	EnableBPFClockProbe    bool
 	EnableEgressGateway    bool
 	EnableEnvoyConfig      bool
+	EnableSharedPolicy     bool
 	InstallIptRules        bool
 	MonitorAggregation     string
 	PreAllocateMaps        bool
@@ -1885,6 +1889,7 @@ var Config = &DaemonConfig{
 	DatapathMode:                    defaults.DatapathMode,
 
 	EnableVTEP:                           defaults.EnableVTEP,
+	EnableSharedPolicy:                   false,
 	EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
 	EnableK8sClusterNetworkPolicy:        defaults.EnableK8sClusterNetworkPolicy,
 	EnableCiliumNetworkPolicy:            defaults.EnableCiliumNetworkPolicy,
@@ -2413,6 +2418,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.UnsafeDaemonConfigOption.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.UnsafeDaemonConfigOption.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
+	c.EnableSharedPolicy = vp.GetBool(EnableSharedPolicy)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
 	c.DirectRoutingSkipUnreachable = vp.GetBool(DirectRoutingSkipUnreachableName)
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)

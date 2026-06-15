@@ -167,5 +167,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
 
+	node.EnableSharedPolicy = option.Config.EnableSharedPolicy
+
 	return node
 }

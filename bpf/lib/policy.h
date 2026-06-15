@@ -170,6 +170,231 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_policy __section_maps_btf;
 
+#define SHARED_POLICY_FULL_PREFIX 96
+#define SHARED_POLICY_BASE_PREFIX 72
+
+struct shared_policy_key {
+	struct bpf_lpm_trie_key lpm_key;  /* Must be first */
+	__u32 rule_set_id;                /* Identifies the rule set (for sharing) */
+	__u32 sec_label;                  /* Remote identity (0 for L4-only) */
+	__u8  egress;                     /* Direction: 0=ingress, 1=egress */
+	__u8  protocol;                   /* L4 protocol (can be LPM wildcarded) */
+	__be16 dport;                     /* Destination port (can be LPM wildcarded) */
+} __packed;
+
+/* Shared policy map lookup maps Rule Set ID + Packet Details -> policy_entry */
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct shared_policy_key);
+	__type(value, struct policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 131072);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_policy_shared __section_maps_btf;
+
+/* Overlay map maps Endpoint ID -> Rule Set ID */
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_policy_overlay __section_maps_btf;
+
+struct policy_lookup_info {
+	__u32 remote_id;
+	__u8 direction;
+	__u8 proto;
+	__be16 port;
+};
+
+enum {
+	POLICY_LOOKUP_NOMATCH = 0,
+	POLICY_LOOKUP_MATCH = 1,
+	POLICY_LOOKUP_UNMANAGED = 2,
+};
+
+/*
+ * Perform policy evaluation against the node-scoped shared LPM trie map
+ * (cilium_policy_shared) using the endpoint's allocated rule_set_id:
+ *
+ * 1. Resolve endpoint's rule_set_id from cilium_policy_overlay.
+ * 2. Specific lookup: exact match on L3 identity and LPM match on L4 proto/port.
+ * 3. Aggregate lookup: match on aggregate/wildcard identity and LPM match on L4 proto/port.
+ * 4. Multi-tier precedence selection between specific and aggregate matches.
+ *
+ * Returns POLICY_LOOKUP_MATCH if a matching entry was found, POLICY_LOOKUP_NOMATCH
+ * if policy is enforced but no matching rule was found (drop), or
+ * POLICY_LOOKUP_UNMANAGED if the endpoint has no overlay entry.
+ */
+static __always_inline int
+policy_lookup_shared(struct policy_lookup_info *info, bool *is_l3_match,
+		     struct policy_entry *result, struct policy_entry *result2)
+{
+	__u32 ep_id = EFFECTIVE_EP_ID;
+	struct policy_entry *agg_policy = NULL;
+	struct policy_entry *policy;
+	struct shared_policy_key key;
+	__u32 *rule_set_id_ptr;
+	__u32 rule_set_id;
+	__u8 egress;
+
+	/* 1. Resolve endpoint's rule_set_id from the policy overlay map.
+	 * If the endpoint is not present in the overlay map, it is unmanaged.
+	 */
+	rule_set_id_ptr = map_lookup_elem(&cilium_policy_overlay, &ep_id);
+	if (!rule_set_id_ptr)
+		return POLICY_LOOKUP_UNMANAGED;
+
+	rule_set_id = *rule_set_id_ptr;
+	egress = (info->direction == POLICY_EGRESS) ? 1 : 0;
+
+	/* 2. Initialize search key with full prefix length (96 bits) for LPM evaluation.
+	 * Explicitly zero the structure so padding/bitfields are initialized for eBPF stack verifier.
+	 */
+	memset(&key, 0, sizeof(key));
+	key.lpm_key.prefixlen = SHARED_POLICY_FULL_PREFIX;
+	key.rule_set_id = rule_set_id;
+	key.sec_label = info->remote_id;
+	key.egress = egress;
+	key.protocol = info->proto;
+	key.dport = info->port;
+
+	/* 3. Specific lookup: exact match on L3 identity and LPM match on L4 proto and port. */
+	policy = map_lookup_elem(&cilium_policy_shared, &key);
+
+	/* Specific-ID policy can be chosen immediately without aggregate lookups if it has
+	 * the highest possible precedence value (e.g. Ingress/Egress Deny).
+	 */
+	if (likely(policy && policy->precedence == MAX_PRECEDENCE)) {
+		*result = *policy;
+		*is_l3_match = true;
+		return POLICY_LOOKUP_MATCH;
+	}
+
+	/* 4. Aggregate lookup: match on aggregate/wildcard L3 identity and LPM match on L4 proto/port. */
+	key.sec_label = aggregate_for_identity(info->remote_id);
+	if (likely(key.sec_label != info->remote_id))
+		agg_policy = map_lookup_elem(&cilium_policy_shared, &key);
+
+	/* Fallback: if no aggregate policy was found and aggregate ID was not 0, try an ID-0 lookup. */
+	if (unlikely(!agg_policy && key.sec_label != 0)) {
+		key.sec_label = 0;
+		agg_policy = map_lookup_elem(&cilium_policy_shared, &key);
+	}
+
+	/* 5. Select between aggregate policy and specific policy:
+	 * Aggregate policy is chosen if:
+	 * - Only aggregate policy was found, OR
+	 * - Both were found, and:
+	 *   1. Aggregate policy has higher precedence value, OR
+	 *   2. Precedence is equal and aggregate policy has longer LPM prefix length.
+	 */
+	if (agg_policy &&
+	    (!policy ||
+	     agg_policy->precedence > policy->precedence ||
+	     (agg_policy->precedence == policy->precedence &&
+	      agg_policy->lpm_prefix_length > policy->lpm_prefix_length))) {
+		*result = *agg_policy;
+		if (policy && result2)
+			*result2 = *policy;
+		*is_l3_match = (key.sec_label != 0);
+		return POLICY_LOOKUP_MATCH;
+	}
+
+	/* 6. Otherwise select specific policy if found. */
+	if (likely(policy)) {
+		*result = *policy;
+		if (agg_policy && result2)
+			*result2 = *agg_policy;
+		*is_l3_match = true;
+		return POLICY_LOOKUP_MATCH;
+	}
+
+	/* 7. No matching policy entry found. */
+	return POLICY_LOOKUP_NOMATCH;
+}
+
+/*
+ * Perform policy evaluation against the per-endpoint legacy LPM trie map (cilium_policy):
+ *
+ * 1. Specific lookup: exact match on L3 identity and LPM match on L4 proto and port.
+ * 2. Aggregate lookup: match on aggregate/wildcard identity and LPM match on L4 proto and port.
+ * 3. Multi-tier precedence selection between specific and aggregate matches.
+ *
+ * Returns POLICY_LOOKUP_MATCH if a matching entry was found, or
+ * POLICY_LOOKUP_NOMATCH if no matching rule was found.
+ */
+static __always_inline int
+policy_lookup_legacy(const void *map, struct policy_lookup_info *info, bool *is_l3_match,
+		     struct policy_entry *result, struct policy_entry *result2)
+{
+	const struct policy_entry *policy = NULL;
+	const struct policy_entry *agg_policy = NULL;
+	struct policy_key key = {
+		.lpm_key = { POLICY_FULL_PREFIX, {} }, /* always look up with unwildcarded data */
+		.sec_label = info->remote_id,
+		.egress = (info->direction == POLICY_EGRESS) ? 1 : 0,
+		.pad = 0,
+		.protocol = info->proto,
+		.dport = info->port,
+	};
+
+	/* Specific lookup: an exact match on L3 identity and LPM match on L4 proto and port. */
+	policy = map_lookup_elem(map, &key);
+
+	/* Specific-ID policy can be chosen without the 2nd lookup if it has the highest possible precedence
+	 * value (which implies that it is a deny).
+	 */
+	if (likely(policy && policy->precedence == MAX_PRECEDENCE)) {
+		*result = *policy;
+		*is_l3_match = true;
+		return POLICY_LOOKUP_MATCH;
+	}
+
+	/* Aggregate lookup: an aggregate match on L3 identity and LPM match on L4 proto and port. */
+	key.sec_label = aggregate_for_identity(info->remote_id);
+	if (likely(key.sec_label != info->remote_id))
+		agg_policy = map_lookup_elem(map, &key);
+
+	/* Fallback: if no aggregate policy was found and aggregate ID was not 0, try an ID-0 lookup. */
+	if (unlikely(!agg_policy && !policy && key.sec_label != 0)) {
+		key.sec_label = 0;
+		agg_policy = map_lookup_elem(map, &key);
+	}
+
+	/* Select between aggregate policy and specific policy:
+	 * Aggregate policy is chosen if:
+	 * - only aggregate policy was found, or if both policies are found, and:
+	 * 1. It has higher precedence value, or
+	 * 2. Precedence is equal (which implies both are denys or both are allows) and
+	 *    aggregate policy has longer LPM prefix length than the specific-id policy
+	 */
+	if (agg_policy &&
+	    (!policy ||
+	     agg_policy->precedence > policy->precedence ||
+	     (agg_policy->precedence == policy->precedence &&
+	      agg_policy->lpm_prefix_length > policy->lpm_prefix_length))) {
+		*result = *agg_policy;
+		if (policy && result2)
+			*result2 = *policy;
+		*is_l3_match = (key.sec_label != 0);
+		return POLICY_LOOKUP_MATCH;
+	}
+
+	/* Otherwise select specific policy if found. */
+	if (likely(policy)) {
+		*result = *policy;
+		if (agg_policy && result2)
+			*result2 = *agg_policy;
+		*is_l3_match = true;
+		return POLICY_LOOKUP_MATCH;
+	}
+
+	return POLICY_LOOKUP_NOMATCH;
+}
+
 /* Return a verdict for the chosen 'policy', possibly propagating the auth type from 'policy2', if
  * non-NULL and of the same precedence.
  *
@@ -223,23 +448,11 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 		    __u8 *match_type, __s8 *ext_err, __u16 *proxy_port,
 		    __u32 *cookie)
 {
-	/*
-	 * Perform two policy lookups:
-	 * - with the specific ID, and
-	 * - with the aggregated (wildcard) ID.
-	 * Select the entry with the highest precedence or longest match.
-	 */
-
-	const struct policy_entry *policy = NULL; /* The possible policy entry with specific ID */
-	const struct policy_entry *agg_policy = NULL; /* The policy entry with the aggregated ID */
-	struct policy_key key = {
-		.lpm_key = { POLICY_FULL_PREFIX, {} }, /* always look up with unwildcarded data */
-		.sec_label = remote_id,
-		.egress = !dir,
-		.pad = 0,
-		.protocol = proto,
-		.dport = dport,
-	};
+	struct policy_lookup_info info;
+	struct policy_entry policy = {0};
+	struct policy_entry policy2 = {0};
+	bool is_l3_match = false;
+	int lookup_res;
 	__u8 p_len;
 
 	if (CONFIG(allow_icmp_frag_needed) || CONFIG(enable_icmp_rule)) {
@@ -260,7 +473,7 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 				}
 
 				if (CONFIG(enable_icmp_rule))
-					key.dport = bpf_u8_to_be16(icmphdr.type);
+					dport = bpf_u8_to_be16(icmphdr.type);
 			}
 			break;
 		case ETH_P_IPV6:
@@ -272,7 +485,7 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 							   sizeof(icmp_type)) < 0)
 						return DROP_INVALID;
 
-					key.dport = bpf_u8_to_be16(icmp_type);
+					dport = bpf_u8_to_be16(icmp_type);
 				}
 			}
 			break;
@@ -281,98 +494,58 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 		}
 	}
 
-	/* Policy match precedence when both specific and aggregated lookups
-	 * find a matching policy:
-	 *
-	 * 1. Policy with the higher precedence value is selected. This
-	 *    includes giving precedence to deny over allow, proxy redirect
-	 *    over non-proxy redirect, and proxy port priority.
-	 * 2. The entry with longer prefix length is selected out of the two
-	 *    entries with the same precedence.
-	 * 3. Otherwise the allow entry with non-aggregate ID is chosen.
-	 */
+	info.remote_id = remote_id;
+	info.direction = (dir == CT_EGRESS) ? POLICY_EGRESS : POLICY_INGRESS;
+	info.proto = proto;
+	info.port = dport;
 
-	/* Note: Untracked fragments always have zero ports in the tuple so
-	 * they can only match entries that have fully wildcarded ports.
-	 */
+	if (CONFIG(enable_shared_policy))
+		lookup_res = policy_lookup_shared(&info, &is_l3_match, &policy, &policy2);
+	else
+		lookup_res = policy_lookup_legacy(map, &info, &is_l3_match, &policy, &policy2);
 
-	/* Specific lookup: an exact match on L3 identity and LPM match on
-	 * L4 proto and port.
-	 */
-	policy = map_lookup_elem(map, &key);
+	if (lookup_res == POLICY_LOOKUP_MATCH) {
+		p_len = policy.lpm_prefix_length;
 
-	/* Specific-ID policy can be chosen without the 2nd lookup if it has the
-	 * highest possible precedence value (which implies that it is a deny).
-	 */
-	if (likely(policy && policy->precedence == MAX_PRECEDENCE)) {
-		agg_policy = NULL;
-		goto check_policy;
+		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
+			    bpf_ntohs(dport) << 16 | proto);
+
+		if (CONFIG(enable_policy_accounting)) {
+			__u8 egress = (dir == CT_EGRESS) ? 1 : 0;
+
+			__policy_account(is_l3_match ? remote_id : 0, egress, proto, dport,
+					 p_len, ctx_full_len(ctx));
+		}
+
+		if (is_l3_match) {
+			*match_type =
+				p_len > LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_L3_L4 :
+				p_len > 0 ? POLICY_MATCH_L3_PROTO :
+				POLICY_MATCH_L3_ONLY;
+		} else {
+			*match_type =
+				p_len == 0 ? POLICY_MATCH_ALL :
+				p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :
+				POLICY_MATCH_L4_ONLY;
+		}
+
+		return __policy_check(&policy, policy2.precedence ? &policy2 : NULL,
+				      ext_err, proxy_port, cookie);
+	} else if (lookup_res == POLICY_LOOKUP_UNMANAGED) {
+		*match_type = POLICY_MATCH_ALL;
+		return CTX_ACT_OK;
 	}
-
-	/* Aggregate lookup: an aggregate match on L3 identity and
-	 * LPM match on L4 proto and port.
-	 */
-	key.sec_label = aggregate_for_identity(remote_id);
-	if (likely(key.sec_label != remote_id))
-		agg_policy = map_lookup_elem(map, &key);
-
-	/* fallback: we have no policy, but the aggregated ID was not 0.
-	 * Try an ID-0 lookup too.
-	 */
-	if (unlikely(!agg_policy && !policy && key.sec_label != 0)) {
-		key.sec_label = 0;
-		agg_policy = map_lookup_elem(map, &key);
-	}
-
-	/* The found aggregate policy is chosen if:
-	 * - only aggregate policy was found, or if both policies are found, and:
-	 * 1. It has higher precedence value, or
-	 * 2. Precedence is equal (which implies both are denys or both are allows) and
-	 *    aggregate policy has longer LPM prefix length than the specific-id policy
-	 */
-	if (agg_policy &&
-	    (!policy ||
-	     agg_policy->precedence > policy->precedence ||
-	     (agg_policy->precedence == policy->precedence &&
-	      agg_policy->lpm_prefix_length > policy->lpm_prefix_length)))
-		goto check_agg_policy;
-
-	/* 4. Otherwise select specific policy if found. */
-	if (likely(policy))
-		goto check_policy;
 
 	if (is_untracked_fragment)
 		return DROP_FRAG_NOSUPPORT;
 
 	return DROP_POLICY;
-
-check_policy:
-	cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id, dport << 16 | proto);
-	p_len = policy->lpm_prefix_length;
-	if (CONFIG(enable_policy_accounting))
-		__policy_account(remote_id, key.egress, proto, dport, p_len, ctx_full_len(ctx));
-
-	*match_type =
-		p_len > LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_L3_L4 :	/* 1. id/proto/port */
-		p_len > 0 ? POLICY_MATCH_L3_PROTO :			/* 3. id/proto/ANY */
-		POLICY_MATCH_L3_ONLY;					/* 5. id/ANY/ANY */
-	return __policy_check(policy, agg_policy, ext_err, proxy_port, cookie);
-
-check_agg_policy:
-	p_len = agg_policy->lpm_prefix_length;
-	if (CONFIG(enable_policy_accounting))
-		__policy_account(key.sec_label, key.egress, proto, dport, p_len, ctx_full_len(ctx));
-
-	*match_type =
-		p_len == 0 ? POLICY_MATCH_ALL :					/* 6. ANY/ANY/ANY */
-		p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
-		POLICY_MATCH_L4_ONLY;						/* 2. ANY/proto/port */
-	return __policy_check(agg_policy, policy, ext_err, proxy_port, cookie);
 }
 
 static __always_inline int
 policy_can_access(const struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
-		  __u16 ethertype, __be16 dport, __u8 proto, int off, int dir,
+		  __u16 ethertype, __be16 dport,
+		  __u8 proto, int off, int dir,
 		  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		  __u16 *proxy_port, __u32 *cookie)
 {

@@ -44,6 +44,9 @@ cilium-agent hive dot-graph [flags]
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                    Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-policy-map-pressure-metrics-threshold float           Sets threshold for emitting pressure metrics of policy maps (default 0.1)
+      --bpf-policy-max-rule-sets int                              Maximum number of unique policy rule sets per node (default 8192)
+      --bpf-policy-overlay-map-max int                            Maximum number of entries in BPF policy overlay map (default 16384)
+      --bpf-policy-shared-map-max int                             Maximum number of entries in node-scoped shared BPF policy map (default 131072)
       --bpf-policy-stats-map-max int                              Maximum number of entries in bpf policy stats map (default 65536)
       --bpf-sock-rev-map-max int                                  Maximum number of entries for the SockRevNAT BPF map
       --certificates-directory string                             Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
