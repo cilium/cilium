@@ -460,6 +460,10 @@
      - Configure the mount point for the BPF filesystem
      - string
      - ``"/sys/fs/bpf"``
+   * - :spelling:ignore:`bpf.sharedPolicy`
+     - Enable shared policy map
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.stats.enabled`
      - Enable BPF statistics collection
      - bool
