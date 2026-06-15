@@ -17,10 +17,20 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
 )
+
+// mustNewIPPrefixes wraps each CIDR string in an ip.Prefix.
+func mustNewIPPrefixes(cidrs ...string) []iputil.Prefix {
+	prefixes := make([]iputil.Prefix, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		prefixes = append(prefixes, iputil.PrefixFrom(netip.MustParsePrefix(cidr)))
+	}
+	return prefixes
+}
 
 // test fixtures
 var (
@@ -200,12 +210,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{
-							podCIDR1v4,
-							podCIDR2v4,
-							podCIDR1v6,
-							podCIDR2v6,
-						},
+						PodCIDRs: mustNewIPPrefixes(podCIDR1v4, podCIDR2v4, podCIDR1v6, podCIDR2v6),
 					},
 				},
 			},
@@ -248,12 +253,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{
-							podCIDR1v4,
-							podCIDR2v4,
-							podCIDR1v6,
-							podCIDR2v6,
-						},
+						PodCIDRs: mustNewIPPrefixes(podCIDR1v4, podCIDR2v4, podCIDR1v6, podCIDR2v6),
 					},
 				},
 			},
@@ -308,7 +308,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
+						PodCIDRs: mustNewIPPrefixes(podCIDR1v4, podCIDR2v4),
 					},
 				},
 			},
@@ -360,7 +360,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
+						PodCIDRs: mustNewIPPrefixes(podCIDR1v4, podCIDR2v4),
 					},
 				},
 			},
@@ -406,7 +406,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				},
 				Spec: v2.NodeSpec{
 					IPAM: ipamtypes.IPAMSpec{
-						PodCIDRs: []string{podCIDR1v4, podCIDR2v4},
+						PodCIDRs: mustNewIPPrefixes(podCIDR1v4, podCIDR2v4),
 					},
 				},
 			},

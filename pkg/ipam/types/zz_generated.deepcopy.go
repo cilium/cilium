@@ -154,8 +154,10 @@ func (in *IPAMSpec) DeepCopyInto(out *IPAMSpec) {
 	in.Pools.DeepCopyInto(&out.Pools)
 	if in.PodCIDRs != nil {
 		in, out := &in.PodCIDRs, &out.PodCIDRs
-		*out = make([]string, len(*in))
-		copy(*out, *in)
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.StaticIPTags != nil {
 		in, out := &in.StaticIPTags, &out.StaticIPTags

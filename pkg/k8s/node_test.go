@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -406,11 +408,11 @@ func TestParseCiliumNode(t *testing.T) {
 				Key: 10,
 			},
 			IPAM: ipamTypes.IPAMSpec{
-				PodCIDRs: []string{
-					"10.10.0.0/16",
-					"c0de::/96",
-					"10.20.0.0/16",
-					"c0fe::/96",
+				PodCIDRs: []iputil.Prefix{
+					iputil.PrefixFrom(netip.MustParsePrefix("10.10.0.0/16")),
+					iputil.PrefixFrom(netip.MustParsePrefix("c0de::/96")),
+					iputil.PrefixFrom(netip.MustParsePrefix("10.20.0.0/16")),
+					iputil.PrefixFrom(netip.MustParsePrefix("c0fe::/96")),
 				},
 			},
 			HealthAddressing: ciliumv2.HealthAddressingSpec{

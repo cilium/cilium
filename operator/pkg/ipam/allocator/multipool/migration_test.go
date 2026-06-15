@@ -45,7 +45,10 @@ func TestMigrateNode(t *testing.T) {
 			},
 			Spec: v2.NodeSpec{
 				IPAM: ipamTypes.IPAMSpec{
-					PodCIDRs: []string{"10.0.0.0/24", "fd00::/124"},
+					PodCIDRs: []iputil.Prefix{
+						iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+						iputil.PrefixFrom(netip.MustParsePrefix("fd00::/124")),
+					},
 				},
 			},
 		}
@@ -77,7 +80,10 @@ func TestMigrateNode(t *testing.T) {
 			},
 			Spec: v2.NodeSpec{
 				IPAM: ipamTypes.IPAMSpec{
-					PodCIDRs: []string{"10.0.0.0/24", "fd00::/124"},
+					PodCIDRs: []iputil.Prefix{
+						iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+						iputil.PrefixFrom(netip.MustParsePrefix("fd00::/124")),
+					},
 				},
 			},
 		}
@@ -129,7 +135,10 @@ func TestMigrateNode(t *testing.T) {
 			},
 			Spec: v2.NodeSpec{
 				IPAM: ipamTypes.IPAMSpec{
-					PodCIDRs: []string{"10.0.0.0/24", "fd00::/124"},
+					PodCIDRs: []iputil.Prefix{
+						iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+						iputil.PrefixFrom(netip.MustParsePrefix("fd00::/124")),
+					},
 				},
 			},
 		}
@@ -191,7 +200,10 @@ func TestMigrateNode(t *testing.T) {
 			},
 			Spec: v2.NodeSpec{
 				IPAM: ipamTypes.IPAMSpec{
-					PodCIDRs: []string{"10.0.0.0/24", "fd00::/124"},
+					PodCIDRs: []iputil.Prefix{
+						iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+						iputil.PrefixFrom(netip.MustParsePrefix("fd00::/124")),
+					},
 				},
 			},
 		}

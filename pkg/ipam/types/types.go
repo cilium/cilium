@@ -138,7 +138,7 @@ type IPAMSpec struct {
 	// When an IP is used, the IP will be added to Status.IPAM.Used
 	//
 	// +optional
-	PodCIDRs []string `json:"podCIDRs,omitempty"`
+	PodCIDRs []iputil.Prefix `json:"podCIDRs,omitempty"`
 
 	// MinAllocate is the minimum number of IPs that must be allocated when
 	// the node is first bootstrapped. It defines the minimum base socket

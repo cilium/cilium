@@ -340,11 +340,11 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
 		BootID:          n.Spec.BootID,
 	}
 
-	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
-		ipnet, err := cidr.ParseCIDR(cidrString)
-		if err == nil {
-			appendAllocCIDR(&node, ipnet)
+	for _, podCIDR := range n.Spec.IPAM.PodCIDRs {
+		if !podCIDR.IsValid() {
+			continue
 		}
+		appendAllocCIDR(&node, cidr.NewCIDR(netipx.PrefixIPNet(podCIDR.Masked())))
 	}
 
 	for _, pool := range n.Spec.IPAM.Pools.Allocated {

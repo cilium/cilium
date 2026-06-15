@@ -10,12 +10,14 @@ import (
 	"slices"
 
 	"github.com/cilium/stream"
+	"go4.org/netipx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/net"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -344,13 +346,17 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// IPv4/IPv6AllocRange is auto-generated and otherwise unused, so it does not
 		// make sense to copy it into the CiliumNode it either.
 		// See NodeRegistrar.RegisterNode() for the equivalent kvstore mode logic.
-		nodeResource.Spec.IPAM.PodCIDRs = []string{}
+		nodeResource.Spec.IPAM.PodCIDRs = []iputil.Prefix{}
 		if cidr := ln.IPv4AllocCIDR; cidr != nil {
-			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
+			if prefix, ok := netipx.FromStdIPNet(cidr.IPNet); ok {
+				nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(prefix))
+			}
 		}
 
 		if cidr := ln.IPv6AllocCIDR; cidr != nil {
-			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
+			if prefix, ok := netipx.FromStdIPNet(cidr.IPNet); ok {
+				nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(prefix))
+			}
 		}
 	}
 

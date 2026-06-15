@@ -313,6 +313,7 @@ spec:
                       PodCIDRs is the list of CIDRs available to the node for allocation.
                       When an IP is used, the IP will be added to Status.IPAM.Used
                     items:
+                      format: cidr
                       type: string
                     type: array
                   pool:
