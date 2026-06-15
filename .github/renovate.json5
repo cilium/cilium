@@ -141,6 +141,23 @@
       "pinDigests": false
     },
     {
+      // Do not pin digests for the golangci/golangci-lint dependency that the
+      // github-actions manager auto-extracts from the 'version:' input of the
+      // golangci/golangci-lint-action step. A plain 'version: vX.Y.Z' value has
+      // nowhere to store a commit SHA, so Renovate can never apply the digest
+      // pin and the whole grouped branch fails with "update failure". The
+      // version itself is still tracked through the
+      // 'datasource=docker depName=golangci/golangci-lint' comment handled by
+      // the custom regex manager.
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "golangci/golangci-lint"
+      ],
+      "pinDigests": false
+    },
+    {
       "matchPackageNames": [
         "bufbuild/buf", // Protocol buffer toolkit
         "docker.io/alpine/socat", // Alpine socat package
