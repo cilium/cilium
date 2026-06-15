@@ -1291,15 +1291,17 @@ __u32 daddrs[] = {
 		   ARRAY_SIZE(daddrs) * (NODEPORT_PORT_MAX_NAT - \
 		   NODEPORT_PORT_MIN_NAT + 1))
 
-static __u32 retries_before[SNAT_COLLISION_RETRIES + 1];
-static __u32 retries_10percent[SNAT_COLLISION_RETRIES + 1];
-static __u32 retries_50percent[SNAT_COLLISION_RETRIES + 1];
-static __u32 retries_75percent[SNAT_COLLISION_RETRIES + 1];
-static __u32 retries_100percent[SNAT_COLLISION_RETRIES + 1];
+static __u32 retries_before[SNAT_COLLISION_RETRIES_MAX + 1];
+static __u32 retries_10percent[SNAT_COLLISION_RETRIES_MAX + 1];
+static __u32 retries_50percent[SNAT_COLLISION_RETRIES_MAX + 1];
+static __u32 retries_75percent[SNAT_COLLISION_RETRIES_MAX + 1];
+static __u32 retries_100percent[SNAT_COLLISION_RETRIES_MAX + 1];
 
 static __always_inline bool store_retries(__u32 *buf, bool dump)
 {
-	for (__u32 i = 0; i <= SNAT_COLLISION_RETRIES; i++) {
+	for (__u32 i = 0; i <= SNAT_COLLISION_RETRIES_MAX; i++) {
+		if (i >= CONFIG(snat_collision_retries))
+			break;
 		__u32 *v = map_lookup_elem(&cilium_snat_v4_alloc_retries, &(__u32){i});
 
 		if (!v)
@@ -1308,9 +1310,11 @@ static __always_inline bool store_retries(__u32 *buf, bool dump)
 	}
 
 	if (dump)
-		for (__u32 i = 0; i <= SNAT_COLLISION_RETRIES; i++)
+		for (__u32 i = 0; i <= SNAT_COLLISION_RETRIES_MAX; i++) {
+			if (i >= CONFIG(snat_collision_retries))
+				break;
 			printk("retries[%u] = %u\n", i, buf[i]);
-
+		}
 	return true;
 }
 
@@ -1427,22 +1431,24 @@ int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 7 / 10);
 
 	/* Only occasional failures at 50% of the test. */
-	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 25);
+	assert(retries_50percent[CONFIG(snat_collision_retries)] < 25);
 
 	/* Less than 7% of failures at 75% of the test. */
-	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 75 * 7 / 10000);
+	assert(retries_75percent[CONFIG(snat_collision_retries)] <
+	       SNAT_TEST_ITERATIONS * 75 * 7 / 10000);
 
 	/* Less than 16% of failures at 100% of the test. */
-	assert(retries_100percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 16 / 100);
+	assert(retries_100percent[CONFIG(snat_collision_retries)] <
+	       SNAT_TEST_ITERATIONS * 16 / 100);
 
 	/* Negligible amount of ports allocated after 10+ retries. */
-	for (__u32 i = 10; i < SNAT_COLLISION_RETRIES; i++)
+	for (__u32 i = 10; i < CONFIG(snat_collision_retries); i++)
 		assert(retries_100percent[i] < 100);
 
 	/* More ports could be allocated after fewer retries. */
 	for (__u32 i = 1; i <= 5; i++)
 		assert(retries_100percent[i] <= retries_100percent[i - 1]);
-	for (__u32 i = 6; i < SNAT_COLLISION_RETRIES; i++)
+	for (__u32 i = 6; i < CONFIG(snat_collision_retries); i++)
 		assert(retries_100percent[i] <= retries_100percent[5]);
 
 	test_finish();
@@ -1554,22 +1560,24 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 7 / 10);
 
 	/* Only occasional failures at 50% of the test. */
-	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 25);
+	assert(retries_50percent[CONFIG(snat_collision_retries)] < 25);
 
 	/* Less than 7% of failures at 75% of the test. */
-	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 75 * 7 / 10000);
+	assert(retries_75percent[CONFIG(snat_collision_retries)] <
+	       SNAT_TEST_ITERATIONS * 75 * 7 / 10000);
 
 	/* Less than 16% of failures at 100% of the test. */
-	assert(retries_100percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 16 / 100);
+	assert(retries_100percent[CONFIG(snat_collision_retries)] <
+	       SNAT_TEST_ITERATIONS * 16 / 100);
 
 	/* Negligible amount of ports allocated after 11+ retries. */
-	for (__u32 i = 11; i < SNAT_COLLISION_RETRIES; i++)
+	for (__u32 i = 11; i < CONFIG(snat_collision_retries); i++)
 		assert(retries_100percent[i] < 100);
 
 	/* More ports could be allocated after fewer retries. */
 	for (__u32 i = 1; i <= 5; i++)
 		assert(retries_100percent[i] <= retries_100percent[i - 1]);
-	for (__u32 i = 6; i < SNAT_COLLISION_RETRIES; i++)
+	for (__u32 i = 6; i < CONFIG(snat_collision_retries); i++)
 		assert(retries_100percent[i] <= retries_100percent[5]);
 
 	test_finish();

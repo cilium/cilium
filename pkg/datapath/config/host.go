@@ -52,6 +52,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = uint16(lnc.SNATCollisionRetries)
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
@@ -99,6 +100,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = uint16(lnc.SNATCollisionRetries)
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
@@ -166,6 +168,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = uint16(lnc.SNATCollisionRetries)
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 

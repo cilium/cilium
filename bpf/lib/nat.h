@@ -37,6 +37,9 @@ DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 t
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
 DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
+#define SNAT_COLLISION_RETRIES_MAX 32
+DECLARE_CONFIG(__u16, snat_collision_retries, "Number of times to retry SNAT")
+ASSIGN_CONFIG(__u16, snat_collision_retries, SNAT_COLLISION_RETRIES_MAX)
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -50,7 +53,7 @@ struct nat_entry {
 	__u64 pad2;		/* Future use. */
 };
 
-#define SNAT_SIGNAL_THRES		(SNAT_COLLISION_RETRIES / 2)
+#define SNAT_SIGNAL_THRES		(CONFIG(snat_collision_retries) / 2)
 
 static __always_inline __u16
 nat_min_egress()
@@ -147,7 +150,7 @@ struct {
 	__type(key, __u32);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, SNAT_COLLISION_RETRIES + 1);
+	__uint(max_entries, SNAT_COLLISION_RETRIES_MAX + 1);
 } cilium_snat_v4_alloc_retries __section_maps_btf;
 
 struct per_cluster_snat_mapping_ipv4_inner_map {
@@ -256,7 +259,10 @@ static __always_inline int snat_v4_new_mapping(const struct __ctx_buff *ctx,
 	rstate.common.created = bpf_mono_now();
 
 #pragma unroll
-	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
+	for (retries = 0; retries < SNAT_COLLISION_RETRIES_MAX; retries++) {
+		if (retries >= CONFIG(snat_collision_retries))
+			break;
+
 		rtuple.dport = bpf_htons(port);
 
 		/* Try to create a RevSNAT entry. */
@@ -1288,7 +1294,7 @@ struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
 	__type(value, __u32);
-	__uint(max_entries, SNAT_COLLISION_RETRIES + 1);
+	__uint(max_entries, SNAT_COLLISION_RETRIES_MAX + 1);
 } cilium_snat_v6_alloc_retries __section_maps_btf;
 
 struct {
@@ -1381,7 +1387,9 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 	rstate.common.created = bpf_mono_now();
 
 #pragma unroll
-	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
+	for (retries = 0; retries < SNAT_COLLISION_RETRIES_MAX; retries++) {
+		if (retries >= CONFIG(snat_collision_retries))
+			break;
 		rtuple->dport = bpf_htons(port);
 
 		if (__snat_create(&cilium_snat_v6_external, rtuple, &rstate, true) == 0)
