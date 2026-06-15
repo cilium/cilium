@@ -62,13 +62,34 @@ func listAllMaps(logger *slog.Logger) {
 		logging.Fatal(logger, err.Error())
 	}
 
-	if len(matchFiles) == 0 {
+	var endpointFiles []string
+	seen := make(map[string]struct{}, len(matchFiles))
+	for _, file := range matchFiles {
+		base := filepath.Base(file)
+		if base == policymap.SharedPolicyMapName || base == policymap.PolicyOverlayMapName {
+			continue
+		}
+		endpointFiles = append(endpointFiles, file)
+		seen[file] = struct{}{}
+	}
+	overlayPath := filepath.Join(mapRootPrefixPath, policymap.PolicyOverlayMapName)
+	if epIDs, err := policymap.OpenOverlayEndpointIDs(overlayPath); err == nil {
+		for _, epID := range epIDs {
+			epPath := bpf.LocalMapPath(logger, policymap.MapName, epID)
+			if _, ok := seen[epPath]; !ok {
+				endpointFiles = append(endpointFiles, epPath)
+				seen[epPath] = struct{}{}
+			}
+		}
+	}
+
+	if len(endpointFiles) == 0 {
 		fmt.Println("no maps found")
 		return
 	}
 
 	maps := []policyMap{}
-	for _, file := range matchFiles {
+	for _, file := range endpointFiles {
 		endpointSplit := strings.Split(file, "_")
 		endpoint := strings.TrimLeft(endpointSplit[len(endpointSplit)-1], "0")
 		maps = append(maps, policyMap{

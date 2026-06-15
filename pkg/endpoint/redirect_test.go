@@ -14,17 +14,14 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -36,7 +33,6 @@ import (
 	testcompute "github.com/cilium/cilium/pkg/testutils/compute"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
-	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
 
 type RedirectSuite struct {
@@ -168,28 +164,15 @@ const (
 )
 
 func (s *RedirectSuite) createTestEndpointParams(tb testing.TB) EndpointParams {
-	logger := hivetest.Logger(tb)
-	return EndpointParams{
-		Logger:          logger,
-		EPBuildQueue:    &MockEndpointBuildQueue{},
-		Orchestrator:    &fakeendpoint.FakeOrchestrator{},
-		PolicyRepo:      s.do.repo,
-		PolicyFetcher:   s.do.fetcher,
-		IdentityManager: s.do.idmgr,
-		IPSecConfig:     fakeipsec.Config{},
-		WgConfig:        fakewireguard.Config{},
-		CTMapGC:         ctmap.NewFakeGCRunner(),
-		Allocator:       testidentity.NewMockIdentityAllocator(nil),
-		LocalNodeStore:  &fakeNodeGetter{},
-	}
+	p := createEndpointParams(tb, &fakeendpoint.FakeOrchestrator{}, s.do.repo, s.do.fetcher)
+	p.IdentityManager = s.do.idmgr
+	p.LocalNodeStore = &fakeNodeGetter{}
+	return p
 }
 
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
-	logger := hivetest.Logger(t)
 	model := newTestEndpointModel(12345, StateRegenerating)
-	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
 	p := s.createTestEndpointParams(t)
-	p.KVStoreSynchronizer = kvstoreSync
 	ep, err := NewEndpointFromChangeModel(p, nil, s.rsp, model, nil)
 	require.NoError(t, err)
 
