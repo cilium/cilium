@@ -261,6 +261,14 @@ type Endpoint struct {
 	// reference to all policy related BPF
 	policyMap policymap.PolicyMap
 
+	// sharedPolicyDatapathLoaded is true once this agent has loaded the endpoint's
+	// datapath with the shared policy map enabled.
+	sharedPolicyDatapathLoaded bool
+
+	// legacyPolicyMapCleared is true once the per-endpoint policy map entries have been
+	// removed after the endpoint's policy was realized in the shared policy map.
+	legacyPolicyMapCleared bool
+
 	// PolicyMapPressureUpdater updates the policymap pressure metric.
 	PolicyMapPressureUpdater policyMapPressureUpdater
 
