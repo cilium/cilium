@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
@@ -54,8 +55,9 @@ func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string) kvstore.
 		return out
 	}
 
+	cinfo := cmtypes.DefaultClusterInfo
 	id := func(clusterID, localID uint32) identity.NumericIdentity {
-		return identity.NumericIdentity(clusterID<<identity.GetClusterIDShift() | localID)
+		return identity.NumericIdentity(clusterID<<cinfo.GetClusterIDShift() | localID)
 	}
 
 	fb.prefix = prefix
@@ -165,18 +167,19 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.0.1", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164", src), eventually(ipcache.events))
 		require.True(t, synced, "The on-sync callback should have been executed")
-	}, "cilium/state/ip/v1/default/", WithIdentityValidator(10)))
+	}, "cilium/state/ip/v1/default/", WithIdentityValidator(cmtypes.DefaultClusterInfo, 10)))
 }
 
 func TestIdentityValidator(t *testing.T) {
 	const (
-		cid   = 5
-		minID = cid << 16
-		maxID = minID + 65535
+		cid = 5
 	)
+	cinfo := cmtypes.DefaultClusterInfo
+	minID := identity.NumericIdentity(cinfo.MinimalAllocationIdentity(cid))
+	maxID := identity.NumericIdentity(cinfo.MaximumAllocationIdentity(cid))
 
 	var opts iwOpts
-	WithIdentityValidator(cid)(&opts)
+	WithIdentityValidator(cinfo, cid)(&opts)
 
 	require.Len(t, opts.validators, 1, "The validator should have been configured")
 	validator := opts.validators[0]

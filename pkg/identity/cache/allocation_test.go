@@ -709,14 +709,13 @@ func testCheckpointRestore(t *testing.T, testConfig testConfig) {
 }
 
 func TestClusterIDValidator(t *testing.T) {
-	const (
-		cid   = 5
-		minID = cid << 16
-		maxID = minID + 65535
-	)
+	const cid = 5
+	cinfo := cmtypes.DefaultClusterInfo
+	minID := idpool.ID(cinfo.MinimalAllocationIdentity(cid))
+	maxID := idpool.ID(cinfo.MaximumAllocationIdentity(cid))
 
 	var (
-		validator = clusterIDValidator(cid)
+		validator = clusterIDValidator(cinfo, cid)
 		key       = &cacheKey.GlobalIdentity{}
 	)
 
