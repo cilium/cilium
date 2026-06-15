@@ -29,7 +29,13 @@ jobs:
     if: ${{ vars.QUAY_BASE_RELEASE_ENABLED == 'true' && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 60
-    environment: 'release-base-images'
+    # No 'inputs.environment' here: this workflow has no 'workflow_call' trigger
+    # (it only runs on pull_request_target). The reusable workflow_call variant
+    # that wires 'inputs.environment' only exists on the stable branches, so the
+    # environment is hardcoded to 'release-base-images'.
+    environment:
+      name: 'release-base-images'
+      deployment: false
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout base or default branch (trusted)

@@ -51,7 +51,9 @@ jobs:
   release:
     name: Release
     if: ${{ inputs.step != '5-publish-helm' }}
-    environment: release-tool
+    environment:
+      name: release-tool
+      deployment: false
     timeout-minutes: 40
     runs-on: ubuntu-24.04
     steps:
@@ -120,7 +122,9 @@ jobs:
   release-helm:
     name: Release Helm
     if: ${{ inputs.step == '5-publish-helm' }}
-    environment: release-helm
+    environment:
+      name: release-helm
+      deployment: false
     timeout-minutes: 40
     runs-on: ubuntu-24.04
     steps:
