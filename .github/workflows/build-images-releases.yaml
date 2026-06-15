@@ -16,7 +16,9 @@ jobs:
   build-and-push:
     timeout-minutes: 45
     name: Build and Push Images
-    environment: release
+    environment:
+      name: release
+      deployment: false
     runs-on: ubuntu-24.04
     strategy:
       matrix:
