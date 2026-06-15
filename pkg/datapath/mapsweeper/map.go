@@ -90,6 +90,10 @@ func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	filename := filepath.Base(path)
 
+	if filename == policymap.SharedPolicyMapName || filename == policymap.PolicyOverlayMapName {
+		return nil
+	}
+
 	mapPrefix := []string{
 		policymap.MapName,
 		callsmap.MapName,
@@ -128,7 +132,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_ktime_cache",
 		}
 		prefixedMaps = []PrefixedMap{
-			{"cilium_policy_", []string{policymap.MapName}},
+			{"cilium_policy_", []string{policymap.MapName, policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName}},
 		}
 	)
 
