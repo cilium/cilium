@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/controller"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -27,6 +28,16 @@ func mustNewCIDRs(cidrs ...string) []netip.Prefix {
 	prefixes := make([]netip.Prefix, 0, len(cidrs))
 	for _, cidr := range cidrs {
 		prefixes = append(prefixes, netip.MustParsePrefix(cidr).Masked())
+	}
+	return prefixes
+}
+
+// mustNewIPPrefixes wraps each CIDR in an ip.Prefix, preserving any host bits
+// (as they would appear on the wire) so callers can exercise the masking logic.
+func mustNewIPPrefixes(cidrs ...string) []iputil.Prefix {
+	prefixes := make([]iputil.Prefix, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		prefixes = append(prefixes, iputil.PrefixFrom(netip.MustParsePrefix(cidr)))
 	}
 	return prefixes
 }
@@ -355,9 +366,7 @@ func TestNodesPodCIDRManager_Upsert(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -462,9 +471,7 @@ func TestNodesPodCIDRManager_Upsert(t *testing.T) {
 					},
 					Spec: v2.NodeSpec{
 						IPAM: ipamTypes.IPAMSpec{
-							PodCIDRs: []string{
-								"10.10.0.0/24",
-							},
+							PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 						},
 					},
 				},
@@ -500,9 +507,7 @@ func TestNodesPodCIDRManager_Upsert(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -1390,94 +1395,64 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 	}
 }
 
-func Test_parsePodCIDRs(t *testing.T) {
+func Test_splitPodCIDRs(t *testing.T) {
 	type args struct {
-		podCIDRs []string
+		podCIDRs []iputil.Prefix
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    *nodeCIDRs
-		wantErr bool
+		name string
+		args args
+		want *nodeCIDRs
 	}{
 		{
 			name: "test-1",
 			args: args{
-				podCIDRs: []string{
-					"1.1.1.1/20",
-					"1.1.1.1/28",
-				},
+				podCIDRs: mustNewIPPrefixes("1.1.1.1/20", "1.1.1.1/28"),
 			},
 			want: &nodeCIDRs{
 				v4PodCIDRs: mustNewCIDRs("1.1.1.1/20", "1.1.1.1/28"),
 			},
-			wantErr: false,
 		},
 		{
 			name: "test-2",
 			args: args{
-				podCIDRs: []string{
-					"fd00::1/64",
-					"fd01::/64",
-				},
+				podCIDRs: mustNewIPPrefixes("fd00::1/64", "fd01::/64"),
 			},
 			want: &nodeCIDRs{
 				v6PodCIDRs: mustNewCIDRs("fd00::1/64", "fd01::/64"),
 			},
-			wantErr: false,
 		},
 		{
 			name: "test-3",
 			args: args{
-				podCIDRs: []string{
-					"fd00::1/64",
-					"1.1.1.1/28",
-				},
+				podCIDRs: mustNewIPPrefixes("fd00::1/64", "1.1.1.1/28"),
 			},
 			want: &nodeCIDRs{
 				v4PodCIDRs: mustNewCIDRs("1.1.1.0/28"),
 				v6PodCIDRs: mustNewCIDRs("fd00::/64"),
 			},
-			wantErr: false,
 		},
 		{
 			name: "test-4",
 			args: args{
-				podCIDRs: []string{
-					"fd00::1/64",
-				},
+				podCIDRs: mustNewIPPrefixes("fd00::1/64"),
 			},
 			want: &nodeCIDRs{
 				v6PodCIDRs: mustNewCIDRs("fd00::/64"),
 			},
-			wantErr: false,
 		},
 		{
 			name: "test-5",
 			args: args{
-				podCIDRs: []string{
-					"1.1.1.1/28",
-				},
+				podCIDRs: mustNewIPPrefixes("1.1.1.1/28"),
 			},
 			want: &nodeCIDRs{
 				v4PodCIDRs: mustNewCIDRs("1.1.1.0/28"),
 			},
-			wantErr: false,
-		},
-		{
-			name: "test-6",
-			args: args{
-				podCIDRs: []string{
-					"1.1.1.1/280",
-				},
-			},
-			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
-		nodeCIDRs, err := parsePodCIDRs(tt.args.podCIDRs)
-		gotErr := err != nil
-		require.Equal(t, tt.wantErr, gotErr, fmt.Sprintf("Test Name: %s", tt.name), gotErr)
+		nodeCIDRs := splitPodCIDRs(tt.args.podCIDRs)
 		require.Equal(t, tt.want, nodeCIDRs, "Test Name: %s", tt.name)
 	}
 }
@@ -1512,9 +1487,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						}, n)
@@ -1529,9 +1502,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -1562,9 +1533,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						}, n)
@@ -1582,9 +1551,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						}, nil
@@ -1598,9 +1565,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -1621,9 +1586,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -1651,9 +1614,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						}, n)
@@ -1679,9 +1640,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -1702,9 +1661,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -1730,9 +1687,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						}, n)
@@ -1750,9 +1705,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -1783,9 +1736,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						}, n)
@@ -1800,9 +1751,7 @@ func Test_syncToK8s(t *testing.T) {
 							},
 							Spec: v2.NodeSpec{
 								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
+									PodCIDRs: mustNewIPPrefixes("10.10.0.0/24"),
 								},
 							},
 						},
@@ -2053,10 +2002,7 @@ func TestNodesPodCIDRManager_DuplicateIPv6CausesIPv4Duplication(t *testing.T) {
 		},
 		Spec: v2.NodeSpec{
 			IPAM: ipamTypes.IPAMSpec{
-				PodCIDRs: []string{
-					"10.10.0.0/24",
-					"fd00::/80",
-				},
+				PodCIDRs: mustNewIPPrefixes("10.10.0.0/24", "fd00::/80"),
 			},
 		},
 	}
@@ -2070,7 +2016,7 @@ func TestNodesPodCIDRManager_DuplicateIPv6CausesIPv4Duplication(t *testing.T) {
 
 	require.Contains(t, ciliumNodesToK8s, "node-a")
 	require.Equal(t, k8sOpUpdate, ciliumNodesToK8s["node-a"].op)
-	require.Equal(t, []string{"10.10.0.0/24", "fd00::/80"},
+	require.Equal(t, mustNewIPPrefixes("10.10.0.0/24", "fd00::/80"),
 		ciliumNodesToK8s["node-a"].ciliumNode.Spec.IPAM.PodCIDRs)
 
 	// Node B: different v4, but same v6 as Node A (duplicate).
@@ -2081,10 +2027,7 @@ func TestNodesPodCIDRManager_DuplicateIPv6CausesIPv4Duplication(t *testing.T) {
 		},
 		Spec: v2.NodeSpec{
 			IPAM: ipamTypes.IPAMSpec{
-				PodCIDRs: []string{
-					"10.10.1.0/24",
-					"fd00::/80",
-				},
+				PodCIDRs: mustNewIPPrefixes("10.10.1.0/24", "fd00::/80"),
 			},
 		},
 	}
@@ -2099,7 +2042,7 @@ func TestNodesPodCIDRManager_DuplicateIPv6CausesIPv4Duplication(t *testing.T) {
 	// Spec updated (v6 stripped), status records the conflict.
 	require.Contains(t, ciliumNodesToK8s, "node-b")
 	require.Equal(t, k8sOpUpdate, ciliumNodesToK8s["node-b"].op)
-	require.Equal(t, []string{"10.10.1.0/24"},
+	require.Equal(t, mustNewIPPrefixes("10.10.1.0/24"),
 		ciliumNodesToK8s["node-b"].ciliumNode.Spec.IPAM.PodCIDRs)
 	require.Contains(t, ciliumNodesToK8s["node-b"].ciliumNode.Status.IPAM.OperatorStatus.Error,
 		"already allocated")
@@ -2115,6 +2058,6 @@ func TestNodesPodCIDRManager_DuplicateIPv6CausesIPv4Duplication(t *testing.T) {
 
 	require.Contains(t, nodes, "node-c")
 	require.Contains(t, ciliumNodesToK8s, "node-c")
-	require.NotEqual(t, "10.10.1.0/24",
+	require.NotEqual(t, mustNewIPPrefixes("10.10.1.0/24")[0],
 		ciliumNodesToK8s["node-c"].ciliumNode.Spec.IPAM.PodCIDRs[0])
 }

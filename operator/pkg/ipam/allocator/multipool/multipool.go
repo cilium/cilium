@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/netip"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -21,7 +20,6 @@ import (
 
 	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/defaults"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -256,19 +254,11 @@ func migrateNode(
 			}
 
 			newNode := node.DeepCopy()
-			cidrs := make([]iputil.Prefix, 0, len(node.Spec.IPAM.PodCIDRs))
-			for _, cidr := range node.Spec.IPAM.PodCIDRs {
-				prefix, err := netip.ParsePrefix(cidr)
-				if err != nil {
-					return true, false, fmt.Errorf("unable to parse CIDR %q: %w", cidr, err)
-				}
-				cidrs = append(cidrs, iputil.PrefixFrom(prefix))
-			}
 			newNode.Spec.IPAM.Pools = types.IPAMPoolSpec{
 				Allocated: []types.IPAMPoolAllocation{
 					{
 						Pool:  pool,
-						CIDRs: cidrs,
+						CIDRs: newNode.Spec.IPAM.PodCIDRs,
 					},
 				},
 			}

@@ -20,6 +20,7 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/podcidr"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -66,7 +67,7 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 		},
 		Spec: cilium_api_v2.NodeSpec{
 			IPAM: types.IPAMSpec{
-				PodCIDRs: []string{},
+				PodCIDRs: []iputil.Prefix{},
 			},
 		},
 	}
@@ -76,8 +77,8 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 		},
 		Spec: cilium_api_v2.NodeSpec{
 			IPAM: types.IPAMSpec{
-				PodCIDRs: []string{
-					"10.129.0.0/24",
+				PodCIDRs: []iputil.Prefix{
+					iputil.PrefixFrom(netip.MustParsePrefix("10.129.0.0/24")),
 				},
 			},
 		},

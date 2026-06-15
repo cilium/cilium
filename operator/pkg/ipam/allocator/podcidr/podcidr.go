@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/controller"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -88,23 +89,20 @@ func (e ErrNoAllocators) Error() string {
 	)
 }
 
-// parsePodCIDRs will return the v4 and v6 CIDRs found in the podCIDRs.
-// Returns an error in case one of the CIDRs are not valid.
-func parsePodCIDRs(podCIDRs []string) (*nodeCIDRs, error) {
+// splitPodCIDRs splits podCIDRs into masked v4 and v6 prefixes. The prefixes are
+// already parsed and validated at the CRD boundary, so this only needs to mask
+// and sort them by family.
+func splitPodCIDRs(podCIDRs []iputil.Prefix) *nodeCIDRs {
 	var cidrs nodeCIDRs
 	for _, podCIDR := range podCIDRs {
-		prefix, err := netip.ParsePrefix(podCIDR)
-		if err != nil {
-			return nil, err
-		}
-		prefix = prefix.Masked()
+		prefix := podCIDR.Masked()
 		if prefix.Addr().Is4() {
 			cidrs.v4PodCIDRs = append(cidrs.v4PodCIDRs, prefix)
 		} else {
 			cidrs.v6PodCIDRs = append(cidrs.v6PodCIDRs, prefix)
 		}
 	}
-	return &cidrs, nil
+	return &cidrs
 }
 
 // nodeCIDRs is a wrapper that contains all the podCIDRs a node can have.
@@ -458,12 +456,12 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			// rebuild the spec to match. upsertLocked will detect the
 			// change and issue a k8sOpUpdate.
 			if nodeCIDRs, ok := n.nodes[node.Name]; ok {
-				cn.Spec.IPAM.PodCIDRs = make([]string, 0, len(nodeCIDRs.v4PodCIDRs)+len(nodeCIDRs.v6PodCIDRs))
+				cn.Spec.IPAM.PodCIDRs = make([]iputil.Prefix, 0, len(nodeCIDRs.v4PodCIDRs)+len(nodeCIDRs.v6PodCIDRs))
 				for _, p := range nodeCIDRs.v4PodCIDRs {
-					cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, p.String())
+					cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(p))
 				}
 				for _, p := range nodeCIDRs.v6PodCIDRs {
-					cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, p.String())
+					cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(p))
 				}
 			}
 			err = nil
@@ -495,12 +493,7 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			logfields.Allocated, allocated,
 		)
 	} else {
-		cidrs, err = parsePodCIDRs(node.Spec.IPAM.PodCIDRs)
-		if err != nil {
-			// We want to log this error in cilium node
-			updateStatus = true
-			return
-		}
+		cidrs = splitPodCIDRs(node.Spec.IPAM.PodCIDRs)
 		// Try to allocate the podCIDRs in the node, if there was a need
 		// for new CIDRs to be allocated the allocated returned value will be
 		// set to true.
@@ -539,13 +532,13 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 
 	cn = node.DeepCopy()
 
-	cn.Spec.IPAM.PodCIDRs = make([]string, 0, len(cidrs.v4PodCIDRs)+len(cidrs.v6PodCIDRs))
+	cn.Spec.IPAM.PodCIDRs = make([]iputil.Prefix, 0, len(cidrs.v4PodCIDRs)+len(cidrs.v6PodCIDRs))
 
 	for _, v4CIDR := range cidrs.v4PodCIDRs {
-		cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, v4CIDR.String())
+		cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(v4CIDR))
 	}
 	for _, v6CIDR := range cidrs.v6PodCIDRs {
-		cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, v6CIDR.String())
+		cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(v6CIDR))
 	}
 
 	cn.Status.IPAM.OperatorStatus.Error = ""
