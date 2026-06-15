@@ -103,7 +103,7 @@ jobs:
           args: -C untrusted/images check-runtime-image RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
 
       - name: Check Cilium Envoy image
-        run: make -C images check-envoy-image
+        run: make -C trusted/images check-envoy-image
 
   merge-upload-and-status:
     name: Merge Upload and Status
