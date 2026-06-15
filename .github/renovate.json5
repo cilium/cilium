@@ -126,19 +126,22 @@
       "minimumReleaseAge": "5 days"
     },
     {
-      // Do not pin digests for self-referenced cilium/cilium GitHub Actions
-      // and reusable workflows (e.g.,
-      // cilium/cilium/.github/actions/set-commit-status@main or
-      // cilium/cilium/.github/workflows/foo.yaml@v1.17). These are internal
-      // references within the same repository and should not be pinned to a
-      // commit SHA by Renovate.
+      // Do not pin or update digests for self-referenced cilium/cilium GitHub
+      // Actions and reusable workflows (e.g.,
+      // cilium/cilium/.github/actions/set-commit-status@<sha> # main or
+      // cilium/cilium/.github/workflows/foo.yaml@<sha> # v1.17). These are
+      // internal references within the same repository.
       "matchManagers": [
         "github-actions"
       ],
       "matchPackageNames": [
         "cilium/cilium"
       ],
-      "pinDigests": false
+      "matchUpdateTypes": [
+        "digest",
+        "pinDigest"
+      ],
+      "enabled": false
     },
     {
       // Do not pin digests for the golangci/golangci-lint dependency that the
