@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -23,7 +24,7 @@ var Cell = cell.Module(
 	"endpointslicesync-clustermesh",
 	"EndpointSlice clustermesh synchronization in the Cilium operator",
 	cell.Config(EndpointSliceSyncConfig{}),
-	cell.Invoke(registerEndpointSliceSync),
+	cell.Invoke(registerEndpointSliceSyncLegacy),
 
 	metrics.Metric(NewMetrics),
 )
@@ -35,6 +36,7 @@ type endpointSliceSyncParams struct {
 
 	operator.ClusterMeshConfig
 	EndpointSliceSyncConfig
+	types.ServiceModeV2Config
 	JobGroup job.Group
 
 	Clientset   k8sClient.Clientset
