@@ -296,9 +296,8 @@ Addressing
    distribution.
 
 Masquerading
-   All traffic not staying with the ``ipv4-native-routing-cidr`` (defaults to
-   the Cluster CIDR) will be masqueraded to the node's IP address to become
-   publicly routable.
+   All traffic not staying with the ``ipv4-native-routing-cidr`` will be
+   masqueraded to the node's IP address to become publicly routable.
 
 Load-balancing
    ClusterIP load-balancing will be performed using eBPF for all version of GKE.
