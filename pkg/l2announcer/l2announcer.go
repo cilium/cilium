@@ -240,16 +240,13 @@ loop:
 		}
 
 		// Processing backend change
-		beChanges, beWatch := beChangeIter.Next(l2a.params.StateDB.ReadTxn())
+		beChanges, beWatch := beChangeIter.Next(rtxn)
 		for event := range beChanges {
 			// Get the backend struct which changed
 			backend := event.Object
-
-			// Retrieve the relevant service from StateDB and re-execute upsertSvc
-			txn := l2a.params.StateDB.ReadTxn()
-			svc, _, found := l2a.params.Services.Get(txn, loadbalancer.ServiceByName(backend.ServiceName))
+			svc, _, found := l2a.params.Services.Get(rtxn, loadbalancer.ServiceByName(backend.ServiceName))
 			if found {
-				if err := l2a.upsertSvc(txn, svc); err != nil {
+				if err := l2a.upsertSvc(rtxn, svc); err != nil {
 					l2a.params.Logger.Warn("Error re-evaluating service on backend change",
 						logfields.Error, err,
 						logfields.ServiceName, backend.ServiceName,
