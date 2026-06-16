@@ -397,7 +397,7 @@ interfaces (there is usually only one in a container).
 
 To customize metrics, use ``+/-`` prefix to enable/disable specific metrics.
 For large clusters, consider disabling high-cardinality metrics like
-``cilium_node_connectivity_status`` and ``cilium_node_connectivity_latency_seconds``.
+``cilium_node_health_connectivity_status`` and ``cilium_node_health_connectivity_latency_seconds``.
 
 .. tabs::
 
@@ -410,7 +410,7 @@ For large clusters, consider disabling high-cardinality metrics like
          helm install cilium cilium/cilium |CHART_VERSION| \\
              --namespace kube-system \\
              --set prometheus.enabled=true \\
-             --set prometheus.metrics="{-cilium_node_connectivity_status,-cilium_node_connectivity_latency_seconds}"
+             --set prometheus.metrics="{-cilium_node_health_connectivity_status,-cilium_node_health_connectivity_latency_seconds}"
 
    .. group-tab:: CLI
 
@@ -419,7 +419,7 @@ For large clusters, consider disabling high-cardinality metrics like
       .. code-block:: shell-session
 
          cilium-agent --prometheus-serve-addr=:9962 \
-             --metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"
+             --metrics="-cilium_node_health_connectivity_status -cilium_node_health_connectivity_latency_seconds"
 
 Feature Metrics
 ~~~~~~~~~~~~~~~
