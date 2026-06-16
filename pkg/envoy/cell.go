@@ -111,6 +111,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		metrics:                       params.Metrics,
 		httpLingerConfig:              params.EnvoyProxyConfig.EnvoyHTTPUpstreamLingerTimeout,
 		envoyAccessLogEnabled:         params.EnvoyProxyConfig.EnvoyAccessLogEnabled,
+		strictAdsMode:                 option.Config.EnvoyStrictADSMode,
 	}
 
 	var xdsServer runnableXDSServer

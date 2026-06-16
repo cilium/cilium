@@ -521,6 +521,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
 | envoy.startupProbe.timeoutSeconds | int | `5` | Timeout for the startup probe |
 | envoy.streamIdleTimeoutDurationSeconds | int | `300` | Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. default 5 minutes |
+| envoy.strictAdsMode | bool | `false` | Enable strict ADS mode for Envoy xDS. When enabled, Cilium uses go-control-plane strict ADS snapshot cache behavior and validates each generated ADS snapshot for consistency before publishing it. Requires `envoy.xdsMode=ads`. |
 | envoy.terminationGracePeriodSeconds | int | `1` | Configure termination grace period for cilium-envoy DaemonSet. |
 | envoy.tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for envoy scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | envoy.updateStrategy | object | `{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}` | cilium-envoy update strategy ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset |

@@ -176,6 +176,7 @@ type xdsServerConfig struct {
 	metrics                       xds.Metrics
 	httpLingerConfig              int
 	envoyAccessLogEnabled         bool
+	strictAdsMode                 bool
 }
 
 // newXDSServer creates a new xDS GRPC server.

@@ -125,6 +125,9 @@ const (
 	// EnvoyXDSMode selects the xDS server implementation for Envoy proxy configuration.
 	EnvoyXDSMode = "envoy-xds-mode"
 
+	// EnvoyStrictADSMode enables strict ADS snapshot handling for Envoy xDS.
+	EnvoyStrictADSMode = "envoy-strict-ads-mode"
+
 	// EnvoyXDSModeADS selects the ADS (Aggregated Discovery Service) xDS server.
 	EnvoyXDSModeADS = "ads"
 
@@ -1409,6 +1412,9 @@ type DaemonConfig struct {
 	// EnvoyXDSMode selects the xDS server implementation for Envoy proxy configuration.
 	EnvoyXDSMode string
 
+	// EnvoyStrictADSMode enables strict ADS snapshot handling for Envoy xDS.
+	EnvoyStrictADSMode bool
+
 	// BootIDFile is the file containing the boot ID of the node
 	BootIDFile string
 
@@ -2168,6 +2174,13 @@ func (c *DaemonConfig) validateEnvoyXDSMode() error {
 	}
 }
 
+func (c *DaemonConfig) validateEnvoyStrictADSMode() error {
+	if c.EnvoyStrictADSMode && !c.EnvoyADSModeEnabled() {
+		return fmt.Errorf("Envoy strict ADS mode requires Envoy xDS mode %q", EnvoyXDSModeADS)
+	}
+	return nil
+}
+
 func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
 	// Currently, the only acceptable values is "nodes".
 	for _, mode := range c.PolicyCIDRMatchMode {
@@ -2253,6 +2266,10 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	}
 
 	if err := c.validateEnvoyXDSMode(); err != nil {
+		return err
+	}
+
+	if err := c.validateEnvoyStrictADSMode(); err != nil {
 		return err
 	}
 
@@ -2491,6 +2508,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
 	c.EnableL7Proxy = vp.GetBool(EnableL7Proxy)
 	c.EnvoyXDSMode = vp.GetString(EnvoyXDSMode)
+	c.EnvoyStrictADSMode = vp.GetBool(EnvoyStrictADSMode)
 	c.EnableTracing = vp.GetBool(EnableTracing)
 	c.EnableIPIPTermination = vp.GetBool(EnableIPIPTermination)
 	c.UnsafeDaemonConfigOption.EnableIPIPDevices = c.EnableIPIPTermination

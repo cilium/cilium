@@ -2723,6 +2723,11 @@ envoy:
   # values are "ads" for the ADS (Aggregated Discovery Service) xDS server
   # and "" for the existing per-resource-type xDS server.
   xdsMode: "ads"
+  # -- Enable strict ADS mode for Envoy xDS. When enabled, Cilium uses
+  # go-control-plane strict ADS snapshot cache behavior and validates each
+  # generated ADS snapshot for consistency before publishing it. Requires
+  # `envoy.xdsMode=ads`.
+  strictAdsMode: false
   # @schema
   # type: [null, boolean]
   # @schema

@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
+	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	controlplanelog "github.com/envoyproxy/go-control-plane/pkg/log"
@@ -69,6 +71,7 @@ type ciliumSnapshot struct {
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
 var _ cache.ResourceSnapshot = &ciliumSnapshot{}
+var _ interface{ Consistent() error } = &ciliumSnapshot{}
 
 var snapshotResourceTypes = []envoy_resource.Type{
 	envoy_resource.EndpointType,
@@ -150,6 +153,52 @@ func (w *ciliumSnapshot) GetVersionMap(typeURL string) map[string]string {
 	return w.VersionMap[typeURL]
 }
 
+func (w *ciliumSnapshot) Consistent() error {
+	if w == nil {
+		return fmt.Errorf("nil snapshot")
+	}
+
+	var resourceGroups [cache_types.UnknownType]cache.Resources
+	for typeURL, resources := range w.Resources {
+		responseType := cache.GetResponseType(envoy_resource.Type(typeURL))
+		if responseType == cache_types.UnknownType {
+			continue
+		}
+		resourceGroups[responseType] = resources
+	}
+
+	referencedResources := cache.GetAllResourceReferences(resourceGroups)
+	for _, responseType := range []cache_types.ResponseType{cache_types.Endpoint, cache_types.Route} {
+		typeURL, err := cache.GetResponseTypeURL(responseType)
+		if err != nil {
+			return err
+		}
+
+		resources := resourceGroups[responseType]
+		references := referencedResources[typeURL]
+		if len(references) != len(resources.Items) {
+			return fmt.Errorf("mismatched %q reference and resource lengths: len(%v) != %d",
+				typeURL, references, len(resources.Items))
+		}
+		for name := range references {
+			if _, ok := resources.Items[name]; !ok {
+				return fmt.Errorf("inconsistent %q reference: missing resource %q", typeURL, name)
+			}
+		}
+	}
+
+	return nil
+}
+
+// CheckSnapshotConsistency verifies that a generated ADS snapshot has all referenced Envoy resources.
+func CheckSnapshotConsistency(snapshot cache.ResourceSnapshot) error {
+	checker, ok := snapshot.(interface{ Consistent() error })
+	if !ok {
+		return fmt.Errorf("snapshot %T does not support consistency checks", snapshot)
+	}
+	return checker.Consistent()
+}
+
 func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 	if logger == nil {
 		logger = slog.Default()
@@ -172,8 +221,8 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 	}
 }
 
-func NewCache(logger *slog.Logger) Cache {
-	snapshotCache := cache.NewSnapshotCache( /*ads*/ true, cache.IDHash{}, snapshotCacheLogger(logger))
+func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
+	snapshotCache := cache.NewSnapshotCache(strictAdsMode, cache.IDHash{}, snapshotCacheLogger(logger))
 
 	return &cacheImpl{
 		SnapshotCache:       snapshotCache,
@@ -235,46 +284,90 @@ func (c *cacheImpl) resourceVersion(typeURL string, resources map[string]cache_t
 	return c.hash(map[string]string{typeURL: sb.String()}), nil
 }
 
+// normalizeSnapshotResources returns the resource view used to build an ADS
+// snapshot.
+//
+// Envoy expects every EDS-backed cluster in an ADS snapshot to have a matching
+// ClusterLoadAssignment resource, even when the cluster currently has no
+// endpoints. If CDS references an EDS resource that is absent from EDS, Envoy
+// keeps the cluster warming and may not finish initialization, which also
+// prevents it from requesting later resource types such as LDS/RDS/NPDS.
+//
+// The synthetic empty ClusterLoadAssignments are snapshot-local only. They must
+// not be written back to the authoritative xds.Resources state, otherwise Cilium
+// could retain generated placeholders after the corresponding clusters are
+// removed and produce misleading diffs/reverts.
+func normalizeSnapshotResources(resources *xds.Resources) *xds.Resources {
+	normalized := *resources
+	normalized.Endpoints = maps.Clone(resources.Endpoints)
+	if normalized.Endpoints == nil {
+		normalized.Endpoints = make(map[string]*envoy_config_endpoint.ClusterLoadAssignment)
+	}
+
+	for _, cluster := range resources.Clusters {
+		if cluster.GetType() != envoy_config_cluster.Cluster_EDS {
+			continue
+		}
+
+		name := cluster.GetEdsClusterConfig().GetServiceName()
+		if name == "" {
+			name = cluster.GetName()
+		}
+		if name == "" {
+			continue
+		}
+
+		if _, exists := normalized.Endpoints[name]; !exists {
+			normalized.Endpoints[name] = &envoy_config_endpoint.ClusterLoadAssignment{
+				ClusterName: name,
+			}
+		}
+	}
+
+	return &normalized
+}
+
 func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error) {
 	if resources == nil {
 		empty := xds.NewResources()
 		resources = &empty
 	}
 
-	endpoints := make(map[string]cache_types.Resource, len(resources.Endpoints))
-	clusters := make(map[string]cache_types.Resource, len(resources.Clusters))
-	routes := make(map[string]cache_types.Resource, len(resources.Routes))
-	listeners := make(map[string]cache_types.Resource, len(resources.Listeners))
-	networkPolicies := make(map[string]cache_types.Resource, len(resources.NetworkPolicies))
-	networkPolicyHosts := make(map[string]cache_types.Resource, len(resources.NetworkPolicyHosts))
-	secrets := make(map[string]cache_types.Resource, len(resources.Secrets))
+	snapshotResources := normalizeSnapshotResources(resources)
+	endpoints := make(map[string]cache_types.Resource, len(snapshotResources.Endpoints))
+	clusters := make(map[string]cache_types.Resource, len(snapshotResources.Clusters))
+	routes := make(map[string]cache_types.Resource, len(snapshotResources.Routes))
+	listeners := make(map[string]cache_types.Resource, len(snapshotResources.Listeners))
+	networkPolicies := make(map[string]cache_types.Resource, len(snapshotResources.NetworkPolicies))
+	networkPolicyHosts := make(map[string]cache_types.Resource, len(snapshotResources.NetworkPolicyHosts))
+	secrets := make(map[string]cache_types.Resource, len(snapshotResources.Secrets))
 
-	for name, r := range resources.Endpoints {
+	for name, r := range snapshotResources.Endpoints {
 		// Skip wildcard :* endpoints that have no matching cluster,
 		// as they cause snapshot inconsistency (EDS count > CDS references).
 		// These are generated for backward compatibility with the old per-type
 		// xDS caches but are not needed in the ADS snapshot.
-		if _, hasCluster := resources.Clusters[name]; !hasCluster && len(name) > 2 && name[len(name)-2:] == ":*" {
+		if _, hasCluster := snapshotResources.Clusters[name]; !hasCluster && len(name) > 2 && name[len(name)-2:] == ":*" {
 			continue
 		}
 		endpoints[name] = r
 	}
-	for name, r := range resources.Clusters {
+	for name, r := range snapshotResources.Clusters {
 		clusters[name] = r
 	}
-	for name, r := range resources.Routes {
+	for name, r := range snapshotResources.Routes {
 		routes[name] = r
 	}
-	for name, r := range resources.Listeners {
+	for name, r := range snapshotResources.Listeners {
 		listeners[name] = r
 	}
-	for name, r := range resources.NetworkPolicies {
+	for name, r := range snapshotResources.NetworkPolicies {
 		networkPolicies[name] = r
 	}
-	for name, r := range resources.NetworkPolicyHosts {
+	for name, r := range snapshotResources.NetworkPolicyHosts {
 		networkPolicyHosts[name] = r
 	}
-	for name, r := range resources.Secrets {
+	for name, r := range snapshotResources.Secrets {
 		secrets[name] = r
 	}
 

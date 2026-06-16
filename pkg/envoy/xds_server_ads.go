@@ -131,7 +131,7 @@ func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCa
 
 // newADSServer creates a new ADS GRPC server.
 func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
-	return newADSServerWithCache(xdsnew.NewCache(logger), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
+	return newADSServerWithCache(xdsnew.NewCache(logger, config.strictAdsMode), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
 }
 
 func (s *adsServer) run(ctx context.Context) error {
@@ -1005,10 +1005,15 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 	if err != nil {
 		return err
 	}
+	if s.config.strictAdsMode {
+		if err := xdsnew.CheckSnapshotConsistency(newSnapshot); err != nil {
+			return fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
+		}
+	}
 	oldSnapshot, _ := s.cache.GetSnapshot(nodeId)
 	if oldSnapshot == nil {
 		// This may be first update for this node, so snapshot may not exist yet.
-		s.logger.Warn("Failed to get snapshot for node, will create new one",
+		s.logger.Debug("Failed to get snapshot for node, will create new one",
 			logfields.NodeID, nodeId)
 	}
 

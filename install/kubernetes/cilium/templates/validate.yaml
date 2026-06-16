@@ -1,5 +1,9 @@
 {{/* validate deprecated options are not being used */}}
 
+{{- if and .Values.envoy.strictAdsMode (ne .Values.envoy.xdsMode "ads") }}
+  {{ fail ".Values.envoy.strictAdsMode can only be enabled when .Values.envoy.xdsMode=ads" }}
+{{- end }}
+
 {{/* Options removed in v1.18 */}}
 {{- if (dig "enableCiliumEndpointSlice" "" .Values.AsMap) }}
   {{ fail "enableCiliumEndpointSlice was deprecated in v1.16 and has been removed in v1.18. For details please refer to https://docs.cilium.io/en/v1.18/operations/upgrade/#helm-options" }}

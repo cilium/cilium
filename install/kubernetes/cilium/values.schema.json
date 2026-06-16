@@ -2810,6 +2810,9 @@
         "streamIdleTimeoutDurationSeconds": {
           "type": "integer"
         },
+        "strictAdsMode": {
+          "type": "boolean"
+        },
         "terminationGracePeriodSeconds": {
           "type": "integer"
         },

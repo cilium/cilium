@@ -1884,6 +1884,10 @@
      - Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. default 5 minutes
      - int
      - ``300``
+   * - :spelling:ignore:`envoy.strictAdsMode`
+     - Enable strict ADS mode for Envoy xDS. When enabled, Cilium uses go-control-plane strict ADS snapshot cache behavior and validates each generated ADS snapshot for consistency before publishing it. Requires ``envoy.xdsMode=ads``.
+     - bool
+     - ``false``
    * - :spelling:ignore:`envoy.terminationGracePeriodSeconds`
      - Configure termination grace period for cilium-envoy DaemonSet.
      - int

@@ -127,7 +127,7 @@ func newTestCache(mockedCache *mockSnapshotCache) cacheImpl {
 }
 
 func newTestCacheWithHasher(mock *mockSnapshotCache) *cacheImpl {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))).(*cacheImpl)
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})), false).(*cacheImpl)
 	c.SnapshotCache = mock
 	c.resourcesInSnapshot = make(map[string]*xds.Resources)
 	return c
@@ -207,9 +207,46 @@ func ackListenerVersion(t *testing.T, c *cacheImpl, nodeID, version string) {
 	require.NoError(t, err)
 }
 
+func TestCheckSnapshotConsistency(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	resources := emptyResources()
+	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
+		Name: "cluster1",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{
+			Type: *envoy_config_cluster.Cluster_EDS.Enum(),
+		},
+	}
+	resources.Endpoints["cluster1"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "cluster1"}
+
+	snap, err := c.GenerateSnapshot(resources, logger)
+	require.NoError(t, err)
+	require.NoError(t, CheckSnapshotConsistency(snap))
+}
+
+func TestCheckSnapshotConsistencyRejectsMissingEndpoint(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	resources := emptyResources()
+	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
+		Name: "cluster1",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{
+			Type: *envoy_config_cluster.Cluster_EDS.Enum(),
+		},
+	}
+
+	snap, err := c.GenerateSnapshot(resources, logger)
+	require.NoError(t, err)
+	generatedSnapshot, ok := snap.(*ciliumSnapshot)
+	require.True(t, ok)
+	generatedSnapshot.Resources[envoy_resource.EndpointType] = cache.Resources{Version: "missing-endpoints"}
+
+	require.ErrorContains(t, CheckSnapshotConsistency(snap), envoy_resource.EndpointType)
+}
+
 func TestNewCache(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger).(*cacheImpl)
+	c := NewCache(logger, false).(*cacheImpl)
 
 	assert.NotNil(t, c.SnapshotCache)
 	assert.NotNil(t, c.logger)
@@ -424,6 +461,95 @@ func TestGenerateSnapshot_WithAllResourceTypes(t *testing.T) {
 	assert.Empty(t, snap.GetResources(envoy_resource.RouteType))
 	assert.Len(t, snap.GetResources(envoy_resource.EndpointType), 1)
 	assert.Len(t, snap.GetResources(envoy_resource.SecretType), 1)
+}
+
+func TestGenerateSnapshot_AddsEmptyClusterLoadAssignmentForEDSCluster(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	resources := emptyResources()
+	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
+		Name:                 "cluster1",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+	}
+
+	snap, err := c.GenerateSnapshot(resources, c.logger)
+	require.NoError(t, err)
+	require.NoError(t, CheckSnapshotConsistency(snap))
+
+	endpoints := snap.GetResources(envoy_resource.EndpointType)
+	require.Contains(t, endpoints, "cluster1")
+
+	cla, ok := endpoints["cluster1"].(*envoy_config_endpoint.ClusterLoadAssignment)
+	require.True(t, ok)
+	assert.Equal(t, "cluster1", cla.ClusterName)
+	assert.Empty(t, cla.Endpoints)
+	assert.Empty(t, resources.Endpoints)
+}
+
+func TestGenerateSnapshot_AddsEmptyClusterLoadAssignmentForEDSServiceName(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	resources := emptyResources()
+	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
+		Name:                 "cluster1",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+		EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{
+			ServiceName: "service1",
+		},
+	}
+
+	snap, err := c.GenerateSnapshot(resources, c.logger)
+	require.NoError(t, err)
+	require.NoError(t, CheckSnapshotConsistency(snap))
+
+	endpoints := snap.GetResources(envoy_resource.EndpointType)
+	require.Contains(t, endpoints, "service1")
+	require.NotContains(t, endpoints, "cluster1")
+
+	cla, ok := endpoints["service1"].(*envoy_config_endpoint.ClusterLoadAssignment)
+	require.True(t, ok)
+	assert.Equal(t, "service1", cla.ClusterName)
+	assert.Empty(t, resources.Endpoints)
+}
+
+func TestGenerateSnapshot_DoesNotOverwriteExistingClusterLoadAssignment(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	existingCLA := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "cluster1"}
+	resources := emptyResources()
+	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
+		Name:                 "cluster1",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+	}
+	resources.Endpoints["cluster1"] = existingCLA
+
+	snap, err := c.GenerateSnapshot(resources, c.logger)
+	require.NoError(t, err)
+
+	endpoints := snap.GetResources(envoy_resource.EndpointType)
+	cla, ok := endpoints["cluster1"].(*envoy_config_endpoint.ClusterLoadAssignment)
+	require.True(t, ok)
+	assert.Same(t, existingCLA, cla)
+}
+
+func TestGenerateSnapshot_DoesNotAddClusterLoadAssignmentForNonEDSCluster(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	resources := emptyResources()
+	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
+		Name:                 "cluster1",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
+	}
+
+	snap, err := c.GenerateSnapshot(resources, c.logger)
+	require.NoError(t, err)
+	require.NoError(t, CheckSnapshotConsistency(snap))
+	assert.Empty(t, snap.GetResources(envoy_resource.EndpointType))
+	assert.Empty(t, resources.Endpoints)
 }
 
 func TestUpdateSnapshot_StoresNetworkPoliciesWhenTypeChanged(t *testing.T) {
@@ -684,7 +810,7 @@ func TestCreateWatch_DelegatesToSnapshotCache(t *testing.T) {
 
 func TestCreateWatch_IgnoresEmptySecretSubscription(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	c := NewCache(logger)
+	c := NewCache(logger, false)
 	resources := emptyResources()
 	resources.Secrets["secret1"] = &envoy_config_tls.Secret{Name: "secret1"}
 

@@ -151,6 +151,49 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 	}
 }
 
+func TestValidateEnvoyStrictADSMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  DaemonConfig
+		wantErr bool
+	}{
+		{
+			name: "disabled with default xDS mode",
+		},
+		{
+			name: "disabled with ADS xDS mode",
+			config: DaemonConfig{
+				EnvoyXDSMode: EnvoyXDSModeADS,
+			},
+		},
+		{
+			name: "enabled with ADS xDS mode",
+			config: DaemonConfig{
+				EnvoyXDSMode:       EnvoyXDSModeADS,
+				EnvoyStrictADSMode: true,
+			},
+		},
+		{
+			name: "enabled with default xDS mode",
+			config: DaemonConfig{
+				EnvoyStrictADSMode: true,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.validateEnvoyStrictADSMode()
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestReadDirConfig(t *testing.T) {
 	vp := viper.New()
 	var dirName string

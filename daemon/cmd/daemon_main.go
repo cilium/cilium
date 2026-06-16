@@ -297,6 +297,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.EnvoyXDSMode, "", `xDS server implementation for Envoy proxy configuration. Valid values are "" for the existing per-resource-type xDS server or "ads" for the ADS (Aggregated Discovery Service) xDS server`)
 	option.BindEnv(vp, option.EnvoyXDSMode)
 
+	flags.Bool(option.EnvoyStrictADSMode, false, `Enable strict ADS mode for Envoy xDS snapshots. Requires --envoy-xds-mode="ads"`)
+	option.BindEnv(vp, option.EnvoyStrictADSMode)
+
 	flags.Bool(option.BPFEventsDropEnabled, defaults.BPFEventsDropEnabled, "Expose 'drop' events for Cilium monitor and/or Hubble")
 	option.BindEnv(vp, option.BPFEventsDropEnabled)
 
