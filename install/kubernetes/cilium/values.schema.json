@@ -2856,7 +2856,12 @@
           "type": "boolean"
         },
         "xdsMode": {
-          "type": "string"
+          "enum": [
+            "",
+            "split",
+            "ads",
+            "strict-ads"
+          ]
         },
         "xffNumTrustedHopsL7PolicyEgress": {
           "type": "integer"

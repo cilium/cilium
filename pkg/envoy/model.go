@@ -167,11 +167,11 @@ func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 		IpcacheName:              ipcache.Name,
 	}
 
-	if option.Config.EnvoyADSModeEnabled() {
+	if ADSModeEnabled() {
 		// Keep NPHDS disabled in production. Envoy can resolve identities from
 		// ipcache/BPF maps, while standalone Envoy tests enable NPHDS explicitly
 		// for environments without datapath maps.
-		conf.NpdsConfig = CiliumXdsWithAdsConfigSource
+		conf.NpdsConfig = NewCiliumXdsWithAdsConfigSource()
 	}
 
 	if lingerConfig >= 0 {

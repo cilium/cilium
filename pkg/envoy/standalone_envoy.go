@@ -193,7 +193,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 
 			// Create a piper that parses Envoy log messages and
 			// writes them to the Cilium agent log.
-			logWriter = o.newEnvoyLogPiper()
+			logWriter = o.newEnvoyLogPiper(config.adsMode)
 		}
 		defer logWriter.Close()
 
@@ -286,8 +286,19 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 	return nil, errors.New("failed to start standalone Envoy server")
 }
 
+func isExpectedEnvoyWarning(logMsg string, adsMode bool) bool {
+	if strings.Contains(logMsg, "gRPC config: initial fetch timed out for") {
+		return true
+	}
+
+	// During ADS/SDS teardown Envoy may unsubscribe from Secret resources while
+	// an older Secret response is already queued on the ADS stream. Envoy drops
+	// that stale response and logs "Ignoring unwatched type URL".
+	return adsMode && strings.Contains(logMsg, "Ignoring unwatched type URL "+SecretTypeURL)
+}
+
 // newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.
-func (o *onDemandXdsStarter) newEnvoyLogPiper() io.WriteCloser {
+func (o *onDemandXdsStarter) newEnvoyLogPiper(adsMode bool) io.WriteCloser {
 	reader, writer := io.Pipe()
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(nil, 1024*1024)
@@ -331,7 +342,7 @@ func (o *onDemandXdsStarter) newEnvoyLogPiper() io.WriteCloser {
 				scopedLog.Error(logMsg)
 			case envoyLogLevelWarning:
 				// Demote expected warnings to info level
-				if strings.Contains(logMsg, "gRPC config: initial fetch timed out for") {
+				if isExpectedEnvoyWarning(logMsg, adsMode) {
 					scopedLog.Info(logMsg)
 					continue
 				}
@@ -449,8 +460,8 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 	if config.adsMode {
 		dynamicResources = &envoy_config_bootstrap.Bootstrap_DynamicResources{
 			AdsConfig: CiliumAdsConfigSource,
-			LdsConfig: CiliumXdsWithAdsConfigSource,
-			CdsConfig: CiliumXdsWithAdsConfigSource,
+			LdsConfig: NewCiliumXdsWithAdsConfigSource(),
+			CdsConfig: NewCiliumXdsWithAdsConfigSource(),
 		}
 	}
 

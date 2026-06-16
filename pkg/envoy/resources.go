@@ -14,14 +14,16 @@ import (
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	config "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // todo (nezdolik) migrate to go control plane constants when available
@@ -60,20 +62,59 @@ const (
 	DownstreamTlsContextURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
 )
 
-var CiliumXdsWithAdsConfigSource = &envoy_config_core.ConfigSource{
-	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_Ads{Ads: &envoy_config_core.AggregatedConfigSource{}},
-	InitialFetchTimeout:   durationpb.New(0),
-	ResourceApiVersion:    envoy_config_core.ApiVersion_V3,
+const adsConfigSourceInitialFetchTimeout = time.Millisecond
+
+var CiliumXdsWithAdsConfigSource = NewCiliumXdsWithAdsConfigSource()
+
+func NewCiliumXdsWithAdsConfigSource() *envoy_config_core.ConfigSource {
+	return &envoy_config_core.ConfigSource{
+		ConfigSourceSpecifier: &envoy_config_core.ConfigSource_Ads{Ads: &envoy_config_core.AggregatedConfigSource{}},
+		InitialFetchTimeout:   durationpb.New(adsConfigSourceInitialFetchTimeout),
+		ResourceApiVersion:    envoy_config_core.ApiVersion_V3,
+	}
+}
+
+func cloneConfigSource(configSource *envoy_config_core.ConfigSource) *envoy_config_core.ConfigSource {
+	if configSource == nil {
+		return nil
+	}
+	return proto.Clone(configSource).(*envoy_config_core.ConfigSource)
+}
+
+func SetXDSConfigSourceInitialFetchTimeout(proxyInitialFetchTimeout uint) {
+	CiliumXDSConfigSource.InitialFetchTimeout = durationpb.New(time.Duration(proxyInitialFetchTimeout) * time.Second)
+
+	// ADS resources are published on one stream, but Cilium may reconcile a
+	// resource referenced by LDS/CDS/RDS/SDS in a later StateDB row. A long initial
+	// fetch timeout keeps dependent listeners/clusters warming and can expose a
+	// proxy port before the listener's filter chains are active. Keep ADS inline
+	// references short-lived so Envoy activates with the current snapshot and
+	// consumes the follow-up ADS update when the dependency arrives.
+	CiliumXdsWithAdsConfigSource = NewCiliumXdsWithAdsConfigSource()
+}
+
+var envoyXDSMode string
+
+func SetXDSMode(mode string) {
+	envoyXDSMode = mode
+}
+
+func ADSModeEnabled() bool {
+	return config.ADSModeEnabled(envoyXDSMode)
+}
+
+func StrictADSModeEnabled() bool {
+	return config.StrictADSModeEnabled(envoyXDSMode)
 }
 
 // GetXDSConfigSource returns the appropriate xDS config source for inline resource references
 // (RDS, EDS, SDS). When ADS mode is enabled, resources are fetched via the aggregated stream;
 // otherwise they use per-resource-type gRPC streams.
 func GetXDSConfigSource() *envoy_config_core.ConfigSource {
-	if option.Config.EnvoyADSModeEnabled() {
-		return CiliumXdsWithAdsConfigSource
+	if ADSModeEnabled() {
+		return NewCiliumXdsWithAdsConfigSource()
 	}
-	return CiliumXDSConfigSource
+	return cloneConfigSource(CiliumXDSConfigSource)
 }
 
 // NPHDSCache is a cache of resources in the Network Policy Hosts Discovery

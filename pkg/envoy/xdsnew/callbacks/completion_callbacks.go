@@ -88,6 +88,16 @@ func completionsOrderKey(nodeID, typeURL string) string {
 	return nodeID + "\x00" + typeURL
 }
 
+// nodeIDForRequest returns the request node ID, falling back to the node ID
+// remembered from the first request on the stream. cb.mutex must be held.
+func (cb *CompletionCallbacks) nodeIDForRequest(streamID int64, req *discovery.DiscoveryRequest) string {
+	if nodeID := req.GetNode().GetId(); nodeID != "" {
+		cb.streamNodeIDs[streamID] = nodeID
+		return nodeID
+	}
+	return cb.streamNodeIDs[streamID]
+}
+
 type CompletionCallbacks struct {
 	Log *slog.Logger
 
@@ -111,6 +121,10 @@ type CompletionCallbacks struct {
 	// hashes, so the same version can legitimately reappear after coalescing or
 	// reverting updates.
 	responseStates map[string]responseState
+	// streamNodeIDs remembers the node ID from the first request on each ADS
+	// stream. Envoy is configured with SetNodeOnFirstMessageOnly, so subsequent
+	// ACK/NACK requests can omit Node even though completions are keyed by node ID.
+	streamNodeIDs map[int64]string
 }
 
 func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
@@ -119,6 +133,7 @@ func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 		completionsOrders:  make(map[string]*orderedCompletions),
 		responseStates:     make(map[string]responseState),
+		streamNodeIDs:      make(map[int64]string),
 	}
 }
 
@@ -339,17 +354,23 @@ func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64,
 
 // OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
 func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
+	cb.mutex.Lock()
+	delete(cb.streamNodeIDs, streamID)
+	cb.mutex.Unlock()
+
 	cb.Log.Info("OnStreamClosed", logfields.XDSStreamID, streamID)
 }
 
 // OnStreamRequest is called once a request is received on a stream.
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
 func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.DiscoveryRequest) error {
+	cb.mutex.Lock()
+	nodeID := cb.nodeIDForRequest(streamID, req)
 	if req.VersionInfo == "" {
 		// This means this is the first request on the stream, so we can ignore it for completion purposes since there is no version to ACK.
+		cb.mutex.Unlock()
 		return nil
 	}
-	nodeID := req.GetNode().GetId()
 	typeURL := req.GetTypeUrl()
 	key := completionsOrderKey(nodeID, typeURL)
 
@@ -357,7 +378,6 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	var completeErr error
 	var revertFunc func()
 
-	cb.mutex.Lock()
 	if req.GetErrorDetail() != nil {
 		state := cb.responseStates[key]
 		rejectedVersion := state.pendingVersion
@@ -447,11 +467,11 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID int64, req *discovery.DiscoveryRequest, resp *discovery.DiscoveryResponse) {
 	version := resp.GetVersionInfo()
 	typeURL := resp.GetTypeUrl()
-	nodeID := req.GetNode().GetId()
 
 	var completed []*completion.Completion
 
 	cb.mutex.Lock()
+	nodeID := cb.nodeIDForRequest(streamID, req)
 
 	if typeURL == NetworkPolicyTypeURL || typeURL == NetworkPolicyHostsTypeURL {
 		// Check if any completion has been registered for this type URL and node ID, and if so, update resource version.

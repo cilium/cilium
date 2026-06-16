@@ -14,6 +14,13 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
+	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_extensions_filters_network_tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	controlplanelog "github.com/envoyproxy/go-control-plane/pkg/log"
@@ -69,6 +76,7 @@ type ciliumSnapshot struct {
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
 var _ cache.ResourceSnapshot = &ciliumSnapshot{}
+var _ interface{ Consistent() error } = &ciliumSnapshot{}
 
 var snapshotResourceTypes = []envoy_resource.Type{
 	envoy_resource.EndpointType,
@@ -150,6 +158,52 @@ func (w *ciliumSnapshot) GetVersionMap(typeURL string) map[string]string {
 	return w.VersionMap[typeURL]
 }
 
+func (w *ciliumSnapshot) Consistent() error {
+	if w == nil {
+		return fmt.Errorf("nil snapshot")
+	}
+
+	var resourceGroups [cache_types.UnknownType]cache.Resources
+	for typeURL, resources := range w.Resources {
+		responseType := cache.GetResponseType(envoy_resource.Type(typeURL))
+		if responseType == cache_types.UnknownType {
+			continue
+		}
+		resourceGroups[responseType] = resources
+	}
+
+	referencedResources := cache.GetAllResourceReferences(resourceGroups)
+	for _, responseType := range []cache_types.ResponseType{cache_types.Endpoint, cache_types.Route} {
+		typeURL, err := cache.GetResponseTypeURL(responseType)
+		if err != nil {
+			return err
+		}
+
+		resources := resourceGroups[responseType]
+		references := referencedResources[typeURL]
+		if len(references) != len(resources.Items) {
+			return fmt.Errorf("mismatched %q reference and resource lengths: len(%v) != %d",
+				typeURL, references, len(resources.Items))
+		}
+		for name := range references {
+			if _, ok := resources.Items[name]; !ok {
+				return fmt.Errorf("inconsistent %q reference: missing resource %q", typeURL, name)
+			}
+		}
+	}
+
+	return nil
+}
+
+// CheckSnapshotConsistency verifies that a generated ADS snapshot has all referenced Envoy resources.
+func CheckSnapshotConsistency(snapshot cache.ResourceSnapshot) error {
+	checker, ok := snapshot.(interface{ Consistent() error })
+	if !ok {
+		return fmt.Errorf("snapshot %T does not support consistency checks", snapshot)
+	}
+	return checker.Consistent()
+}
+
 func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 	if logger == nil {
 		logger = slog.Default()
@@ -172,8 +226,8 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 	}
 }
 
-func NewCache(logger *slog.Logger) Cache {
-	snapshotCache := cache.NewSnapshotCache( /*ads*/ true, cache.IDHash{}, snapshotCacheLogger(logger))
+func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
+	snapshotCache := cache.NewSnapshotCache(strictAdsMode, cache.IDHash{}, snapshotCacheLogger(logger))
 
 	return &cacheImpl{
 		SnapshotCache:       snapshotCache,
@@ -220,7 +274,191 @@ func resourceGroup(version string, resources map[string]cache_types.Resource) ca
 	}
 }
 
-func (c *cacheImpl) resourceVersion(typeURL string, resources map[string]cache_types.Resource) (string, error) {
+func addResourceReference(refs map[string]map[string]struct{}, parent, resource string) {
+	if parent == "" || resource == "" {
+		return
+	}
+	if refs[parent] == nil {
+		refs[parent] = make(map[string]struct{})
+	}
+	refs[parent][resource] = struct{}{}
+}
+
+func resourceReferencesVersionContext(refs map[string]map[string]struct{}) string {
+	parents := slices.Collect(maps.Keys(refs))
+	slices.Sort(parents)
+
+	var sb strings.Builder
+	for _, parent := range parents {
+		children := slices.Collect(maps.Keys(refs[parent]))
+		slices.Sort(children)
+		for _, child := range children {
+			sb.WriteString(parent)
+			sb.WriteByte(0)
+			sb.WriteString(child)
+			sb.WriteByte(0)
+		}
+	}
+	return sb.String()
+}
+
+func edsClusterReferenceVersionContext(resources *xds.Resources) string {
+	refs := make(map[string]map[string]struct{})
+	for name, cluster := range resources.Clusters {
+		if cluster.GetType() != envoy_config_cluster.Cluster_EDS {
+			continue
+		}
+
+		// Use the snapshot map key as the parent identity. CEC parsing may
+		// qualify the snapshot resource key while leaving the inner Envoy name
+		// or EDS service name shared across multiple generated clusters; the key
+		// is what makes a newly introduced parent visible to versioning.
+		serviceName := cluster.GetEdsClusterConfig().GetServiceName()
+		if serviceName == "" {
+			serviceName = cluster.GetName()
+		}
+		if serviceName == "" {
+			serviceName = name
+		}
+		addResourceReference(refs, name, serviceName)
+	}
+
+	return resourceReferencesVersionContext(refs)
+}
+
+func httpConnectionManagerFromFilter(filter *envoy_config_listener.Filter) *envoy_config_http.HttpConnectionManager {
+	typedConfig := filter.GetTypedConfig()
+	if typedConfig == nil {
+		return nil
+	}
+	msg, err := typedConfig.UnmarshalNew()
+	if err != nil {
+		return nil
+	}
+	hcm, _ := msg.(*envoy_config_http.HttpConnectionManager)
+	return hcm
+}
+
+func rdsListenerReferenceVersionContext(resources *xds.Resources) string {
+	refs := make(map[string]map[string]struct{})
+	for name, listener := range resources.Listeners {
+		for _, filterChain := range listener.GetFilterChains() {
+			for _, filter := range filterChain.GetFilters() {
+				hcm := httpConnectionManagerFromFilter(filter)
+				if hcm == nil {
+					continue
+				}
+				addResourceReference(refs, name, hcm.GetRds().GetRouteConfigName())
+			}
+		}
+	}
+
+	return resourceReferencesVersionContext(refs)
+}
+
+func addSDSSecretConfigReference(refs map[string]map[string]struct{}, parent string, secretConfig *envoy_config_tls.SdsSecretConfig) {
+	addResourceReference(refs, parent, secretConfig.GetName())
+}
+
+func addCommonTLSContextSDSReferences(refs map[string]map[string]struct{}, parent string, commonTLSContext *envoy_config_tls.CommonTlsContext) {
+	if commonTLSContext == nil {
+		return
+	}
+	for _, secretConfig := range commonTLSContext.GetTlsCertificateSdsSecretConfigs() {
+		addSDSSecretConfigReference(refs, parent, secretConfig)
+	}
+	addSDSSecretConfigReference(refs, parent, commonTLSContext.GetValidationContextSdsSecretConfig())
+	addSDSSecretConfigReference(refs, parent, commonTLSContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig())
+}
+
+func addDownstreamTLSContextSDSReferences(refs map[string]map[string]struct{}, parent string, downstreamTLSContext *envoy_config_tls.DownstreamTlsContext) {
+	if downstreamTLSContext == nil {
+		return
+	}
+	addCommonTLSContextSDSReferences(refs, parent, downstreamTLSContext.GetCommonTlsContext())
+	addSDSSecretConfigReference(refs, parent, downstreamTLSContext.GetSessionTicketKeysSdsSecretConfig())
+}
+
+func addUpstreamTLSContextSDSReferences(refs map[string]map[string]struct{}, parent string, upstreamTLSContext *envoy_config_tls.UpstreamTlsContext) {
+	if upstreamTLSContext == nil {
+		return
+	}
+	addCommonTLSContextSDSReferences(refs, parent, upstreamTLSContext.GetCommonTlsContext())
+}
+
+func downstreamTLSContextFromTransportSocket(transportSocket *envoy_config_core.TransportSocket) *envoy_config_tls.DownstreamTlsContext {
+	typedConfig := transportSocket.GetTypedConfig()
+	if typedConfig == nil {
+		return nil
+	}
+	msg, err := typedConfig.UnmarshalNew()
+	if err != nil {
+		return nil
+	}
+	downstreamTLSContext, _ := msg.(*envoy_config_tls.DownstreamTlsContext)
+	return downstreamTLSContext
+}
+
+func upstreamTLSContextFromTransportSocket(transportSocket *envoy_config_core.TransportSocket) *envoy_config_tls.UpstreamTlsContext {
+	typedConfig := transportSocket.GetTypedConfig()
+	if typedConfig == nil {
+		return nil
+	}
+	msg, err := typedConfig.UnmarshalNew()
+	if err != nil {
+		return nil
+	}
+	upstreamTLSContext, _ := msg.(*envoy_config_tls.UpstreamTlsContext)
+	return upstreamTLSContext
+}
+
+func tcpProxyFromFilter(filter *envoy_config_listener.Filter) *envoy_extensions_filters_network_tcp_proxy.TcpProxy {
+	typedConfig := filter.GetTypedConfig()
+	if typedConfig == nil {
+		return nil
+	}
+	msg, err := typedConfig.UnmarshalNew()
+	if err != nil {
+		return nil
+	}
+	tcpProxy, _ := msg.(*envoy_extensions_filters_network_tcp_proxy.TcpProxy)
+	return tcpProxy
+}
+
+func listenerClusterReferenceVersionContext(resources *xds.Resources) string {
+	refs := make(map[string]map[string]struct{})
+	for name, listener := range resources.Listeners {
+		for _, filterChain := range listener.GetFilterChains() {
+			for _, filter := range filterChain.GetFilters() {
+				tcpProxy := tcpProxyFromFilter(filter)
+				if tcpProxy == nil {
+					continue
+				}
+				addResourceReference(refs, name, tcpProxy.GetCluster())
+				for _, cluster := range tcpProxy.GetWeightedClusters().GetClusters() {
+					addResourceReference(refs, name, cluster.GetName())
+				}
+			}
+		}
+	}
+	return resourceReferencesVersionContext(refs)
+}
+
+func sdsReferenceVersionContext(resources *xds.Resources) string {
+	refs := make(map[string]map[string]struct{})
+	for name, listener := range resources.Listeners {
+		for _, filterChain := range listener.GetFilterChains() {
+			addDownstreamTLSContextSDSReferences(refs, name, downstreamTLSContextFromTransportSocket(filterChain.GetTransportSocket()))
+		}
+	}
+	for name, cluster := range resources.Clusters {
+		addUpstreamTLSContextSDSReferences(refs, name, upstreamTLSContextFromTransportSocket(cluster.GetTransportSocket()))
+	}
+
+	return resourceReferencesVersionContext(refs)
+}
+
+func (c *cacheImpl) resourceVersion(typeURL string, resources map[string]cache_types.Resource, versionContext ...string) (string, error) {
 	keys := slices.Collect(maps.Keys(resources))
 	slices.Sort(keys)
 	var sb strings.Builder
@@ -232,7 +470,68 @@ func (c *cacheImpl) resourceVersion(typeURL string, resources map[string]cache_t
 		sb.WriteString(name)
 		sb.WriteString(encodedResource)
 	}
+	for _, context := range versionContext {
+		if context == "" {
+			continue
+		}
+		sb.WriteByte(0)
+		sb.WriteString("version-context")
+		sb.WriteByte(0)
+		sb.WriteString(context)
+	}
 	return c.hash(map[string]string{typeURL: sb.String()}), nil
+}
+
+// normalizeSnapshotResources returns the resource view used to build an ADS
+// snapshot.
+//
+// Envoy expects every EDS-backed cluster in an ADS snapshot to have a matching
+// ClusterLoadAssignment resource, even when the cluster currently has no
+// endpoints. If CDS references an EDS resource that is absent from EDS, Envoy
+// keeps the cluster warming and may not finish initialization, which also
+// prevents it from requesting later resource types such as LDS/RDS/NPDS.
+//
+// The synthetic empty ClusterLoadAssignments are snapshot-local only. They must
+// not be written back to the authoritative xds.Resources state, otherwise Cilium
+// could retain generated placeholders after the corresponding clusters are
+// removed and produce misleading diffs/reverts.
+func normalizeSnapshotResources(resources *xds.Resources) *xds.Resources {
+	var normalized *xds.Resources
+
+	for _, cluster := range resources.Clusters {
+		if cluster.GetType() != envoy_config_cluster.Cluster_EDS {
+			continue
+		}
+
+		name := cluster.GetEdsClusterConfig().GetServiceName()
+		if name == "" {
+			name = cluster.GetName()
+		}
+		if name == "" {
+			continue
+		}
+
+		if _, exists := resources.Endpoints[name]; exists {
+			continue
+		}
+
+		if normalized == nil {
+			copy := *resources
+			copy.Endpoints = maps.Clone(resources.Endpoints)
+			if copy.Endpoints == nil {
+				copy.Endpoints = make(map[string]*envoy_config_endpoint.ClusterLoadAssignment)
+			}
+			normalized = &copy
+		}
+		normalized.Endpoints[name] = &envoy_config_endpoint.ClusterLoadAssignment{
+			ClusterName: name,
+		}
+	}
+
+	if normalized == nil {
+		return resources
+	}
+	return normalized
 }
 
 func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error) {
@@ -241,6 +540,7 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 		resources = &empty
 	}
 
+	resources = normalizeSnapshotResources(resources)
 	endpoints := make(map[string]cache_types.Resource, len(resources.Endpoints))
 	clusters := make(map[string]cache_types.Resource, len(resources.Clusters))
 	routes := make(map[string]cache_types.Resource, len(resources.Routes))
@@ -289,12 +589,28 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 	}
 
 	versionedResources := make(map[string]cache.Resources, len(resourceGroups))
-	for typeURL, resources := range resourceGroups {
-		version, err := c.resourceVersion(typeURL, resources)
+	for typeURL, resourceMap := range resourceGroups {
+		var versionContext string
+		if typeURL == envoy_resource.EndpointType {
+			// Envoy creates one EDS subscription per EDS-backed cluster. A new
+			// parent can request a dependent resource that the ADS stream has already
+			// seen at the current version, so go-control-plane may open the new watch
+			// without replaying the cached resource. Include the parent reference sets
+			// in dependent resource versions so new subscriptions receive the current
+			// resource immediately.
+			versionContext = edsClusterReferenceVersionContext(resources)
+		} else if typeURL == envoy_resource.RouteType {
+			versionContext = rdsListenerReferenceVersionContext(resources)
+		} else if typeURL == envoy_resource.SecretType {
+			versionContext = sdsReferenceVersionContext(resources)
+		} else if typeURL == envoy_resource.ClusterType {
+			versionContext = listenerClusterReferenceVersionContext(resources)
+		}
+		version, err := c.resourceVersion(typeURL, resourceMap, versionContext)
 		if err != nil {
 			return nil, err
 		}
-		versionedResources[typeURL] = resourceGroup(version, resources)
+		versionedResources[typeURL] = resourceGroup(version, resourceMap)
 	}
 
 	return newCiliumSnapshot(versionedResources), nil

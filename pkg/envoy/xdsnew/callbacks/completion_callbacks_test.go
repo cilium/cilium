@@ -90,3 +90,29 @@ func TestOnStreamResponseCompletesPendingCompletionForAlreadyAckedVersion(t *tes
 	require.Zero(t, cb.PendingCompletionCount())
 	require.NoError(t, wg.Wait())
 }
+
+func TestCompletionCallbacksUseStreamNodeIDWhenACKOmitsNode(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	const listenerTypeURL = "type.googleapis.com/envoy.config.listener.v3.Listener"
+
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node: &core.Node{Id: "node-1"},
+	}))
+
+	registered, err := cb.AddTypeVersionCompletion(comp, "version-1", listenerTypeURL, "node-1", true, nil)
+	require.NoError(t, err)
+	require.True(t, registered)
+
+	cb.OnStreamResponse(context.Background(), 1,
+		&discovery.DiscoveryRequest{TypeUrl: listenerTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL},
+	)
+
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		VersionInfo: "version-1",
+		TypeUrl:     listenerTypeURL,
+	}))
+	require.NoError(t, wg.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
+}

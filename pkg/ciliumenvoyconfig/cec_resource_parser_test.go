@@ -30,6 +30,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/envoy"
+	envoyconfig "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -52,6 +54,12 @@ func NewMockPortAllocator() *MockPortAllocator {
 		port:  1024,
 		ports: make(map[string]*MockPort),
 	}
+}
+
+func setXDSMode(t *testing.T, mode string) {
+	t.Helper()
+	envoy.SetXDSMode(mode)
+	t.Cleanup(func() { envoy.SetXDSMode("") })
 }
 
 func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
@@ -302,6 +310,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfig(t *testing.T) {
+	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
+
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
@@ -408,6 +418,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigValidation(t *testing.T) {
+	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
+
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
@@ -617,6 +629,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigMulti(t *testing.T) {
+	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
+
 	parser := CECResourceParser{
 		logger:                      hivetest.Logger(t),
 		portAllocator:               NewMockPortAllocator(),
@@ -1228,7 +1242,18 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.Equal(t, upstreamCodecFilterTypeURL, opts.HttpFilters[1].GetTypedConfig().TypeUrl)
 }
 
+func checkCiliumADS(t *testing.T, cs *envoy_config_core.ConfigSource) {
+	t.Helper()
+	require.NotNil(t, cs)
+	assert.Equal(t, envoy_config_core.ApiVersion_V3, cs.ResourceApiVersion)
+	assert.Equal(t, int64(0), cs.InitialFetchTimeout.Seconds)
+	assert.Equal(t, int32(1000000), cs.InitialFetchTimeout.Nanos)
+	assert.NotNil(t, cs.GetAds())
+	assert.Nil(t, cs.GetApiConfigSource())
+}
+
 func checkCiliumXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
+	t.Helper()
 	require.NotNil(t, cs)
 	assert.Equal(t, envoy_config_core.ApiVersion_V3, cs.ResourceApiVersion)
 	assert.Equal(t, int64(30), cs.InitialFetchTimeout.Seconds)
@@ -1402,6 +1427,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigCombinedValidationContext(t *testing.T) {
+	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
+
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
@@ -1489,6 +1516,8 @@ spec:
 `
 
 func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
+	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
+
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
@@ -2014,6 +2043,51 @@ func Test_isL7LB(t *testing.T) {
 	}
 }
 
+func TestParseResourcesNormalizesExistingEDSConfigSourceInADSMode(t *testing.T) {
+	parser := CECResourceParser{
+		logger:        hivetest.Logger(t),
+		portAllocator: NewMockPortAllocator(),
+	}
+
+	parse := func(t *testing.T, mode string) *envoy_config_core.ConfigSource {
+		t.Helper()
+		setXDSMode(t, mode)
+
+		cluster := &envoy_config_cluster.Cluster{
+			Name: "backend",
+			ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{
+				Type: envoy_config_cluster.Cluster_EDS,
+			},
+			EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{
+				ServiceName: "backend",
+				EdsConfig:   envoy.CiliumXDSConfigSource,
+			},
+		}
+
+		resources, err := parser.ParseResources(
+			"namespace",
+			"name",
+			[]cilium_v2.XDSResource{{Any: toAny(cluster)}},
+			false,
+			false,
+			false,
+			true,
+		)
+		require.NoError(t, err)
+		parsed := resources.Clusters["namespace/name/backend"]
+		require.NotNil(t, parsed)
+		return parsed.GetEdsClusterConfig().GetEdsConfig()
+	}
+
+	t.Run("split preserves existing xDS config source", func(t *testing.T) {
+		checkCiliumXDS(t, parse(t, envoyconfig.EnvoyXDSModeSplit))
+	})
+
+	t.Run("ADS replaces existing xDS config source", func(t *testing.T) {
+		checkCiliumADS(t, parse(t, envoyconfig.EnvoyXDSModeADS))
+	})
+}
+
 func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 	parser := CECResourceParser{
 		logger:           hivetest.Logger(t),
@@ -2022,7 +2096,9 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 	}
 
 	t.Run("ADS disabled: UseNphds not set", func(t *testing.T) {
-		option.Config.EnvoyXDSMode = ""
+		envoy.SetXDSMode(envoyconfig.EnvoyXDSModeSplit)
+		defer envoy.SetXDSMode("")
+
 		lf := parser.getBPFMetadataListenerFilter(true, false, 1234, false)
 		require.NotNil(t, lf)
 		msg, err := lf.GetTypedConfig().UnmarshalNew()
@@ -2034,8 +2110,8 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 	})
 
 	t.Run("ADS enabled: NpdsConfig set to ADS without NPHDS", func(t *testing.T) {
-		option.Config.EnvoyXDSMode = option.EnvoyXDSModeADS
-		defer func() { option.Config.EnvoyXDSMode = "" }()
+		envoy.SetXDSMode(envoyconfig.EnvoyXDSModeADS)
+		defer envoy.SetXDSMode("")
 
 		lf := parser.getBPFMetadataListenerFilter(true, false, 1234, false)
 		require.NotNil(t, lf)

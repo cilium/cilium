@@ -243,6 +243,13 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         is_l7lb: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        npds_config: {
+          ads: {}
+          initial_fetch_timeout: {
+            nanos: 1000000
+          }
+          resource_api_version: V3
+        }
       }
     }
   }
@@ -275,6 +282,13 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         is_l7lb: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        npds_config: {
+          ads: {}
+          initial_fetch_timeout: {
+            nanos: 1000000
+          }
+          resource_api_version: V3
+        }
       }
     }
   }
@@ -322,6 +336,13 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         is_l7lb: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        npds_config: {
+          ads: {}
+          initial_fetch_timeout: {
+            nanos: 1000000
+          }
+          resource_api_version: V3
+        }
       }
     }
   }
