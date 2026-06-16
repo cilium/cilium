@@ -212,7 +212,8 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 loop:
 	for {
 		// Processing svc change
-		svcChanges, svcWatch := svcChangeIter.Next(l2a.params.StateDB.ReadTxn())
+		txn := l2a.params.StateDB.ReadTxn()
+		svcChanges, svcWatch := svcChangeIter.Next(txn)
 		for event := range svcChanges {
 			if err := l2a.processSvcEvent(event); err != nil {
 				l2a.params.Logger.Warn("Error processing service event",
@@ -222,13 +223,10 @@ loop:
 		}
 
 		// Processing backend change
-		beChanges, beWatch := beChangeIter.Next(l2a.params.StateDB.ReadTxn())
+		beChanges, beWatch := beChangeIter.Next(txn)
 		for event := range beChanges {
 			// Get the backend struct which changed
 			backend := event.Object
-
-			// Retrieve the relevant service from StateDB and re-execute upsertSvc
-			txn := l2a.params.StateDB.ReadTxn()
 			svc, _, found := l2a.params.Services.Get(txn, loadbalancer.ServiceByName(backend.ServiceName))
 			if found {
 				if err := l2a.upsertSvc(svc); err != nil {
