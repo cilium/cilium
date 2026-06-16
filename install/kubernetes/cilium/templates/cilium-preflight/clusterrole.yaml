@@ -112,6 +112,7 @@ rules:
   - ciliuml2announcementpolicies
   - ciliumpodippools
   - ciliumdatapathplugins
+  - ciliumvtepnodeconfigs
   verbs:
   - list
   - watch
@@ -145,6 +146,21 @@ rules:
   verbs:
   - get
   - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumvtepnodeconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumvtepnodeconfigs/status
+  verbs:
+  - update
+  - patch
 - apiGroups:
   - cilium.io
   resources:

@@ -47,6 +47,8 @@ var (
 			k8s.CiliumBGPPeerConfigResource,
 			k8s.CiliumBGPNodeConfigResource,
 			CiliumBGPNodeConfigOverrideResource,
+			k8s.CiliumVTEPConfigResource,
+			k8s.CiliumVTEPNodeConfigResource,
 			CiliumEndpointResource,
 			CiliumEndpointSliceResource,
 			CiliumNodeResource,

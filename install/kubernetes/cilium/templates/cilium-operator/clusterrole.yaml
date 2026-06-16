@@ -240,6 +240,34 @@ rules:
   verbs:
   - update
 - apiGroups:
+  - cilium.io
+  resources:
+  - ciliumvtepconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumvtepnodeconfigs
+  verbs:
+  - create
+  - update
+  - get
+  - list
+  - watch
+  - delete
+  - patch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumvtepconfigs/status
+  - ciliumvtepnodeconfigs/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
@@ -276,6 +304,8 @@ rules:
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
   - ciliumgatewayclassconfigs.cilium.io
+  - ciliumvtepconfigs.cilium.io
+  - ciliumvtepnodeconfigs.cilium.io
 {{- if and .Values.clustermesh.mcsapi.enabled .Values.clustermesh.mcsapi.installCRDs }}
   - serviceimports.multicluster.x-k8s.io
   - serviceexports.multicluster.x-k8s.io
