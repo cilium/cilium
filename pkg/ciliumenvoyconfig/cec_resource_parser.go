@@ -363,7 +363,11 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 				if cluster.EdsClusterConfig == nil {
 					cluster.EdsClusterConfig = &envoy_config_cluster.Cluster_EdsClusterConfig{}
 				}
-				if cluster.EdsClusterConfig.EdsConfig == nil {
+				if cluster.EdsClusterConfig.EdsConfig == nil || envoy.ADSModeEnabled() {
+					// In ADS mode all inline xDS references must use the aggregated
+					// stream. Gateway-generated CEC clusters may already carry a split
+					// xDS source, so normalize only ADS mode and preserve the existing
+					// behavior for legacy split xDS mode.
 					cluster.EdsClusterConfig.EdsConfig = envoy.GetXDSConfigSource()
 				}
 			}
@@ -596,11 +600,11 @@ func (r *CECResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 		IpcacheName:              ipcache.Name,
 	}
 
-	if option.Config.EnvoyADSModeEnabled() {
+	if envoy.ADSModeEnabled() {
 		// Keep NPHDS disabled in production. Envoy can resolve identities from
 		// ipcache/BPF maps, while standalone Envoy tests enable NPHDS explicitly
 		// for environments without datapath maps.
-		conf.NpdsConfig = envoy.CiliumXdsWithAdsConfigSource
+		conf.NpdsConfig = envoy.NewCiliumXdsWithAdsConfigSource()
 	}
 
 	if isHTTPListener && r.httpLingerConfig >= 0 {

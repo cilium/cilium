@@ -299,7 +299,7 @@ staticResources:
               pipe:
                 path: "/var/run/cilium/envoy/sockets/admin.sock"
 dynamicResources:
-{{- if eq .Values.envoy.xdsMode "ads" }}
+{{- if or (eq .Values.envoy.xdsMode "") (eq .Values.envoy.xdsMode "ads") (eq .Values.envoy.xdsMode "strict-ads") }}
   adsConfig:
     apiType: "GRPC"
     transportApiVersion: "V3"

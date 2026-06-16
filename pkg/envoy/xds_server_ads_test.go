@@ -146,7 +146,7 @@ func TestAddListener(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
@@ -257,7 +257,7 @@ func TestAddAdminListener(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
@@ -294,7 +294,7 @@ func TestAddMetricsListener(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
@@ -328,7 +328,7 @@ func TestRemoveListener(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
@@ -355,7 +355,7 @@ func TestUpsertEnvoyResources(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
@@ -385,7 +385,7 @@ func TestUpdateEnvoyResources(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
@@ -491,7 +491,7 @@ func TestUpdateEnvoyResourcesWithoutExplicitCallbackDoesNotWaitForCDSOrRDS(t *te
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -518,7 +518,7 @@ func TestUpdateEnvoyResourcesWaitsForListenerACKWithPortAllocationCallback(t *te
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -570,7 +570,7 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -641,7 +641,7 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -674,13 +674,31 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 	require.Contains(t, resources.Routes, "routeConfig2")
 	require.Contains(t, resources.Clusters, "cluster2")
 }
+
+func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	config := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 30 * time.Second,
+		strictAdsMode:        true,
+	}
+	cache := xdsnew.NewCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+
+	resources := xds.NewResources()
+	resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
+
+	err := server.UpsertEnvoyResources(context.Background(), resources, nil)
+	require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
+}
+
 func TestDeleteEnvoyResources(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
@@ -739,7 +757,7 @@ func TestGetNetworkPolicies(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
@@ -771,7 +789,7 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -807,7 +825,7 @@ func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 	require.NoError(t, server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil))
@@ -835,7 +853,7 @@ func TestUpdateNetworkPolicyWithNPDSListenerWaitsForACK(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 
@@ -868,7 +886,7 @@ func TestNPDSListenerTrackingFromBulkResources(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 
@@ -896,7 +914,7 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, nil, nil)
 
 	ctx := context.Background()
@@ -923,7 +941,7 @@ func TestRemoveAllNetworkPolicies(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger)
+	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
