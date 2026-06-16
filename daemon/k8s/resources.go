@@ -12,6 +12,7 @@ import (
 	envoy "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -39,6 +40,14 @@ var (
 			k8s.CiliumNodeResource,
 			k8s.CiliumSlimEndpointResource,
 			k8s.CiliumEndpointSliceResource,
+			// The agent watches only its own node's CiliumVTEPNodeConfig
+			// (operator-created, one per node, name == node name). The
+			// cluster-scoped CiliumVTEPConfig is consumed by the operator only.
+			func(params k8s.CiliumResourceParams) (resource.Resource[*cilium_api_v2alpha1.CiliumVTEPNodeConfig], error) {
+				return k8s.CiliumVTEPNodeConfigResource(params, func(opts *metav1.ListOptions) {
+					opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
+				})
+			},
 		),
 		localNodeCell,
 	)

@@ -487,3 +487,38 @@ func ciliumEndpointSliceLocalPodIndexFunc(localNodeStore *node.LocalNodeStore, o
 	}
 	return indices, nil
 }
+
+// CiliumVTEPConfigResource builds the Resource[CiliumVTEPConfig] object for watching
+// the cluster-scoped VTEP configuration CRDs. This is consumed by the operator,
+// which resolves each config's nodeSelector into per-node CiliumVTEPNodeConfig objects.
+func CiliumVTEPConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumVTEPConfig], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumVTEPConfigList](params.ClientSet.CiliumV2alpha1().CiliumVTEPConfigs()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumVTEPConfig](params.Lifecycle, lw, params.MetricsProvider,
+		resource.WithMetric("CiliumVTEPConfig"),
+		resource.WithCRDSync(params.CRDSyncPromise),
+	), nil
+}
+
+// CiliumVTEPNodeConfigResource builds the Resource[CiliumVTEPNodeConfig] object for
+// watching the per-node VTEP configuration CRDs. The operator creates/populates these
+// (one per node, name == node name); the agent watches only its own node's object
+// (callers field-select via opts) and is the sole writer of its Status.
+func CiliumVTEPNodeConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumVTEPNodeConfig], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumVTEPNodeConfigList](params.ClientSet.CiliumV2alpha1().CiliumVTEPNodeConfigs()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumVTEPNodeConfig](params.Lifecycle, lw, params.MetricsProvider,
+		resource.WithMetric("CiliumVTEPNodeConfig"),
+		resource.WithCRDSync(params.CRDSyncPromise),
+	), nil
+}
