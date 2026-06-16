@@ -1909,7 +1909,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`envoy.xdsMode`
-     - xDS server implementation for Envoy proxy configuration. Supported values are "ads" for the ADS (Aggregated Discovery Service) xDS server and "" for the existing per-resource-type xDS server.
+     - xDS server implementation for Envoy proxy configuration. Supported values are "split" for the existing per-resource-type xDS server, "ads" for the ADS (Aggregated Discovery Service) xDS server, and "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks. Empty value defaults to "ads".
      - string
      - ``"ads"``
    * - :spelling:ignore:`envoy.xffNumTrustedHopsL7PolicyEgress`

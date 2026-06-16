@@ -24,7 +24,7 @@ import (
 func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	server := newADSServerWithCache(xdsnew.NewCache(logger), logger, nil, nil, xdsServerConfig{}, nil, nil)
+	server := newADSServerWithCache(xdsnew.NewCache(logger, false), logger, nil, nil, xdsServerConfig{}, nil, nil)
 	return newNPHDSCacheAdapter(logger, server)
 }
 
@@ -225,7 +225,7 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 
 func TestStartNPHDSIPCacheListener(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	adsCache := xdsnew.NewCache(logger)
+	adsCache := xdsnew.NewCache(logger, false)
 	server := newADSServerWithCache(adsCache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
 	// nil ipCache should be a no-op

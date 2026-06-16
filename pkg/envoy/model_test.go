@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/option"
+	config "github.com/cilium/cilium/pkg/envoy/config"
 )
 
 func TestGetListenerFilterADSMode(t *testing.T) {
 	t.Run("ADS disabled: UseNphds not set", func(t *testing.T) {
-		option.Config.EnvoyXDSMode = ""
+		SetXDSMode(config.EnvoyXDSModeSplit)
+		defer SetXDSMode("")
+
 		lf := GetListenerFilter(true, false, 1234, -1)
 		require.NotNil(t, lf)
 		msg, err := lf.GetTypedConfig().UnmarshalNew()
@@ -28,8 +30,8 @@ func TestGetListenerFilterADSMode(t *testing.T) {
 	})
 
 	t.Run("ADS enabled: NpdsConfig set to ADS without NPHDS", func(t *testing.T) {
-		option.Config.EnvoyXDSMode = option.EnvoyXDSModeADS
-		defer func() { option.Config.EnvoyXDSMode = "" }()
+		SetXDSMode(config.EnvoyXDSModeADS)
+		defer SetXDSMode("")
 
 		lf := GetListenerFilter(true, false, 1234, -1)
 		require.NotNil(t, lf)

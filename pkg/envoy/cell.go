@@ -91,7 +91,8 @@ type runnableXDSServer interface {
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	// Override the default value before bootstrap is created for embedded envoy, or
 	// the xDS ConfigSource is used for CEC/CCEC.
-	CiliumXDSConfigSource.InitialFetchTimeout.Seconds = int64(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
+	SetXDSMode(params.EnvoyProxyConfig.EnvoyXDSMode)
+	SetXDSConfigSourceInitialFetchTimeout(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
 
 	xdsCfg := xdsServerConfig{
 		envoySocketDir:                util.GetSocketDir(option.Config.RunDir),
@@ -111,10 +112,11 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		metrics:                       params.Metrics,
 		httpLingerConfig:              params.EnvoyProxyConfig.EnvoyHTTPUpstreamLingerTimeout,
 		envoyAccessLogEnabled:         params.EnvoyProxyConfig.EnvoyAccessLogEnabled,
+		strictAdsMode:                 params.EnvoyProxyConfig.StrictADSModeEnabled(),
 	}
 
 	var xdsServer runnableXDSServer
-	adsMode := option.Config.EnvoyADSModeEnabled()
+	adsMode := params.EnvoyProxyConfig.ADSModeEnabled()
 	if adsMode {
 		xdsServer = newADSServer(
 			params.Logger,
