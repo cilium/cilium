@@ -12,8 +12,11 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-func registerEndpointSliceSync(_ cell.Lifecycle, params endpointSliceSyncParams) {
+func registerEndpointSliceSyncLegacy(_ cell.Lifecycle, params endpointSliceSyncParams) {
 	if !params.Clientset.IsEnabled() || params.ClusterMesh == nil || !params.ClusterMeshEnableEndpointSync {
+		return
+	}
+	if !params.ServiceModeV2.ShouldWatchLegacyServices() {
 		return
 	}
 
