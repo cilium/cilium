@@ -5,9 +5,12 @@ package container
 
 import (
 	"context"
+	"strings"
 	"sync"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -67,6 +70,10 @@ func (r *RingReader) Next() (*v1.Event, error) {
 		return nil, err
 	}
 	r.idx++
+	if lost, ok := e.Event.(*flowpb.LostEvent); ok && lost.Source == flowpb.LostEventSource_HUBBLE_RING_BUFFER {
+		// count hubble_ring_buffer lost events
+		metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_HUBBLE_RING_BUFFER.String())).Inc()
+	}
 	return e, nil
 }
 
@@ -115,6 +122,10 @@ func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
 		// increment idx so that future calls to the ring reader will
 		// continue reading from were we stopped.
 		r.idx++
+		if lost, ok := e.Event.(*flowpb.LostEvent); ok && lost.Source == flowpb.LostEventSource_HUBBLE_RING_BUFFER {
+			// count hubble_ring_buffer lost events
+			metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_HUBBLE_RING_BUFFER.String())).Inc()
+		}
 		return e
 	case <-ctx.Done():
 		return nil
