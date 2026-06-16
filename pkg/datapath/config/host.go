@@ -9,7 +9,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -37,10 +36,6 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
 		cfg.WGPort = wgtypes.ListenPort
-	}
-
-	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	if option.Config.EnableL2Announcements {
@@ -89,10 +84,6 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
 		cfg.WGPort = wgtypes.ListenPort
-	}
-
-	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
@@ -151,10 +142,6 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
 		cfg.WGPort = wgtypes.ListenPort
-	}
-
-	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	if option.Config.EnableL2Announcements {

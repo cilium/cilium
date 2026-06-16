@@ -89,6 +89,12 @@ const (
 
 	// CDPPCRDName is the full name of the CDPP CRD.
 	CDPPCRDName = k8sconstv2alpha1.CDPPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CVTEPCRDName is the full name of the CiliumVTEPConfig CRD.
+	CVTEPCRDName = k8sconstv2alpha1.CVTEPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CVTEPNodeCRDName is the full name of the CiliumVTEPNodeConfig CRD.
+	CVTEPNodeCRDName = k8sconstv2alpha1.CVTEPNodeKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 type CRDList struct {
@@ -187,6 +193,14 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     CDPPCRDName,
 			FullName: k8sconstv2alpha1.CDPPName,
 		},
+		synced.CRDResourceName(k8sconstv2alpha1.CVTEPName): {
+			Name:     CVTEPCRDName,
+			FullName: k8sconstv2alpha1.CVTEPName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CVTEPNodeName): {
+			Name:     CVTEPNodeCRDName,
+			FullName: k8sconstv2alpha1.CVTEPNodeName,
+		},
 	}
 }
 
@@ -274,6 +288,12 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumdatapathplugins.yaml
 	crdsv2Alpha1CiliumDatapathPlugins []byte
+
+	//go:embed crds/v2alpha1/ciliumvtepconfigs.yaml
+	crdsv2Alpha1CiliumVTEPConfigs []byte
+
+	//go:embed crds/v2alpha1/ciliumvtepnodeconfigs.yaml
+	crdsv2Alpha1CiliumVTEPNodeConfigs []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -331,6 +351,10 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv2Alpha1CiliumGatewayClassConfigs
 	case CDPPCRDName:
 		crdBytes = crdsv2Alpha1CiliumDatapathPlugins
+	case CVTEPCRDName:
+		crdBytes = crdsv2Alpha1CiliumVTEPConfigs
+	case CVTEPNodeCRDName:
+		crdBytes = crdsv2Alpha1CiliumVTEPNodeConfigs
 	default:
 		logging.Fatal(logger, "Pregenerated CRD does not exist", logfields.CRDName, crdName)
 	}

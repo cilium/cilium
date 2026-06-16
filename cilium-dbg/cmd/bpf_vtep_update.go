@@ -5,11 +5,12 @@ package cmd
 
 import (
 	"fmt"
-	"net/netip"
+	"net"
 	"os"
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/vtep"
@@ -28,13 +29,13 @@ var bpfVtepUpdateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf vtep update <vtep_cidr> <vtep_ip> <vtep_mac>")
 
-		vcidr, err := netip.ParsePrefix(args[0])
+		vcidr, err := cidr.ParseCIDR(args[0])
 		if err != nil {
 			Fatalf("error parsing cidr %s: %s", args[0], err)
 		}
 
-		vip, err := netip.ParseAddr(args[1])
-		if err != nil || !vip.Is4() {
+		vip := net.ParseIP(args[1]).To4()
+		if vip == nil {
 			Fatalf("Unable to parse IP '%s'", args[1])
 		}
 

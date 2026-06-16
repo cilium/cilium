@@ -205,6 +205,8 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.L2AnnouncementName): {skip, ""}, // Handled by L2 announcement directly
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
 	synced.CRDResourceName(v2alpha1.CDPPName):           {skip, ""}, // Handled by datapath plugins
+	synced.CRDResourceName(v2alpha1.CVTEPName):          {skip, ""}, // Handled via Resource[T] in pkg/datapath/vtep/ (operator-created)
+	synced.CRDResourceName(v2alpha1.CVTEPNodeName):      {skip, ""}, // Handled via Resource[T] in pkg/datapath/vtep/
 }
 
 func GetGroupsForCiliumResources(logger *slog.Logger, ciliumResources []string) ([]string, []string) {

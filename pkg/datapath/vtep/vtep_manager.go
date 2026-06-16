@@ -13,6 +13,7 @@ import (
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -57,7 +58,7 @@ func (r *vtepManager) setupVTEPMapping() error {
 			logfields.IPAddr, ep,
 		)
 
-		err := r.vtepMap.Update(r.config.vtepCIDRs[i], ep, r.config.vtepMACs[i])
+		err := r.vtepMap.Update(cidr.NewCIDR(netipx.PrefixIPNet(r.config.vtepCIDRs[i])), ep.AsSlice(), r.config.vtepMACs[i])
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}
