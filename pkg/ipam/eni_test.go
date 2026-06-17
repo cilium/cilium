@@ -710,4 +710,24 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		// Should NOT have been written since the config already has a value.
 		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
 	})
+
+	t.Run("accepts a native routing CIDR that is a subnet of the VPC CIDR", func(t *testing.T) {
+		// Regression test: a native routing CIDR that is a subset of the VPC
+		// CIDR (e.g. a single availability-zone subnet) is a valid, supported
+		// configuration. It must not be rejected (which would call
+		// logging.Fatal and crash the agent on startup).
+		logger := hivetest.Logger(t)
+		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+
+		primaryCIDR := netip.MustParsePrefix("192.168.0.0/16")
+		conf := &option.DaemonConfig{
+			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("192.168.64.0/19"),
+		}
+		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
+
+		localNode, err := localNodeStore.Get(context.Background())
+		require.NoError(t, err)
+		// Should NOT have been written since the config already has a value.
+		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
+	})
 }

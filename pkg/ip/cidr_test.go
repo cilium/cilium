@@ -56,3 +56,59 @@ func TestPrefixesContains(t *testing.T) {
 		})
 	}
 }
+
+func TestLaminarCIDRsOverlap(t *testing.T) {
+	tests := []struct {
+		name string
+		c1   string
+		c2   string
+		want bool
+	}{
+		{
+			name: "c1 is a subnet of c2",
+			c1:   "192.168.64.0/19",
+			c2:   "192.168.0.0/16",
+			want: true,
+		},
+		{
+			name: "c1 is a supernet of c2",
+			c1:   "10.0.0.0/8",
+			c2:   "10.0.0.0/16",
+			want: true,
+		},
+		{
+			name: "c1 equals c2",
+			c1:   "10.0.0.0/16",
+			c2:   "10.0.0.0/16",
+			want: true,
+		},
+		{
+			name: "disjoint and far apart",
+			c1:   "10.0.0.0/8",
+			c2:   "192.168.0.0/16",
+			want: false,
+		},
+		{
+			name: "same-size adjacent siblings",
+			c1:   "192.168.0.0/17",
+			c2:   "192.168.128.0/17",
+			want: false,
+		},
+		{
+			name: "same-size and non-adjacent",
+			c1:   "192.168.0.0/19",
+			c2:   "192.168.96.0/19",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c1 := netip.MustParsePrefix(tt.c1).Masked()
+			c2 := netip.MustParsePrefix(tt.c2).Masked()
+			// The check must be symmetric.
+			assert.Equal(t, tt.want, LaminarCIDRsOverlap(c1, c2))
+			assert.Equal(t, tt.want, LaminarCIDRsOverlap(c2, c1))
+		})
+	}
+}
