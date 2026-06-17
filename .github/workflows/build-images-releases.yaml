@@ -223,7 +223,7 @@ jobs:
   call-post-release:
     if: github.repository_owner == 'cilium'
     name: Call Post-Release Tool
-    uses: cilium/cilium/.github/workflows/release.yaml@d9de113a74a63d72bbd6f8889eac76de38211d9b # main
+    uses: cilium/cilium/.github/workflows/release.yaml@main # main
     needs: image-digests
     with:
       step: "4-post-release"
@@ -246,7 +246,7 @@ jobs:
       contents: read
       # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
       id-token: write
-    uses: cilium/cilium/.github/workflows/release.yaml@d9de113a74a63d72bbd6f8889eac76de38211d9b # main
+    uses: cilium/cilium/.github/workflows/release.yaml@main # main
     needs: image-digests
     with:
       step: "5-publish-helm"
