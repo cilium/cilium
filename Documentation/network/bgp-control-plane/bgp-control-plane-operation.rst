@@ -11,6 +11,11 @@ BGP Control Plane Operation Guide
 
 This document provides guidance on how to operate the BGP Control Plane.
 
+.. tip::
+
+   To monitor the BGP RIB of each node from an external station in real time,
+   see :ref:`bgp_control_plane_bmp`.
+
 BGP Cilium CLI
 ==============
 

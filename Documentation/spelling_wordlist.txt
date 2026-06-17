@@ -109,6 +109,7 @@ Pfaff
 PodCIDR
 Polytechnique
 Portworx
+Promtail
 QCon
 QLogic
 RuleParser

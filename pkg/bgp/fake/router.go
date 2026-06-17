@@ -5,6 +5,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"net/netip"
 
@@ -17,6 +18,7 @@ type FakeRouter struct {
 	paths    map[string]*types.Path
 	policies map[string]*types.RoutePolicy
 	resets   map[netip.Addr]types.SoftResetDirection
+	bmps     map[string]*types.BMPServer
 }
 
 func NewFakeRouter() *FakeRouter {
@@ -24,6 +26,7 @@ func NewFakeRouter() *FakeRouter {
 		paths:    make(map[string]*types.Path),
 		policies: make(map[string]*types.RoutePolicy),
 		resets:   make(map[netip.Addr]types.SoftResetDirection),
+		bmps:     make(map[string]*types.BMPServer),
 	}
 }
 
@@ -94,6 +97,30 @@ func (f *FakeRouter) RemoveRoutePolicy(ctx context.Context, p types.RoutePolicyR
 	defer f.mu.Unlock()
 	delete(f.policies, p.Policy.Name)
 	return nil
+}
+
+func bmpKey(s *types.BMPServer) string {
+	return fmt.Sprintf("%s:%d", s.Address, s.Port)
+}
+
+func (f *FakeRouter) AddBMP(ctx context.Context, s *types.BMPServer) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.bmps[bmpKey(s)] = s
+	return nil
+}
+
+func (f *FakeRouter) RemoveBMP(ctx context.Context, s *types.BMPServer) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.bmps, bmpKey(s))
+	return nil
+}
+
+func (f *FakeRouter) GetBMPs() map[string]*types.BMPServer {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return maps.Clone(f.bmps)
 }
 
 func (f *FakeRouter) GetPeerState(ctx context.Context, r *types.GetPeerStateRequest) (*types.GetPeerStateResponse, error) {

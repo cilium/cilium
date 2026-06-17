@@ -99,6 +99,14 @@ type CiliumBGPNodeInstance struct {
 	// +listType=map
 	// +listMapKey=name
 	Peers []CiliumBGPNodePeer `json:"peers,omitempty"`
+
+	// BMPServers is a list of BGP Monitoring Protocol (RFC 7854) stations that
+	// this BGP instance streams its monitoring data to.
+	//
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=name
+	BMPServers []CiliumBGPBMPServer `json:"bmpServers,omitempty"`
 }
 
 type CiliumBGPNodePeer struct {

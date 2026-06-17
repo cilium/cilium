@@ -62,6 +62,7 @@ Configuring BGP Control Plane
     :glob:
 
     bgp-control-plane-configuration
+    bgp-control-plane-bmp
 
 Troubleshooting and Operation Guide
 -----------------------------------

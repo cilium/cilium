@@ -112,6 +112,56 @@ type CiliumBGPInstance struct {
 	// +listType=map
 	// +listMapKey=name
 	Peers []CiliumBGPPeer `json:"peers,omitempty"`
+
+	// BMPServers is a list of BGP Monitoring Protocol (RFC 7854) stations that
+	// this BGP instance streams its monitoring data to.
+	//
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=name
+	BMPServers []CiliumBGPBMPServer `json:"bmpServers,omitempty"`
+}
+
+// CiliumBGPBMPServer defines a single BGP Monitoring Protocol (RFC 7854) station
+// that a BGP instance streams its monitoring data to.
+type CiliumBGPBMPServer struct {
+	// Name is the name of the BMP server. It is a unique identifier for the BMP
+	// server within the BGP instance.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	Name string `json:"name"`
+
+	// PeerAddress is the IP address of the BMP monitoring station.
+	// Supports IPv4 and IPv6 addresses.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))`
+	PeerAddress string `json:"peerAddress"`
+
+	// PeerPort is the TCP port on which the BMP monitoring station listens.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=11019
+	PeerPort *int32 `json:"peerPort,omitempty"`
+
+	// MonitoringPolicy selects which RIB view is streamed to the station.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=pre;post;both;local;all
+	// +kubebuilder:default=pre
+	MonitoringPolicy *string `json:"monitoringPolicy,omitempty"`
+
+	// StatisticsTimeout is the interval in seconds between BMP Statistics
+	// Reports. If not specified, statistics reporting is disabled.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=15
+	// +kubebuilder:validation:Maximum=65535
+	StatisticsTimeout *int32 `json:"statisticsTimeout,omitempty"`
 }
 
 type CiliumBGPPeer struct {

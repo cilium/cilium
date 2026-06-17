@@ -1,0 +1,131 @@
+# Sample in-cluster BMP collector for the Cilium BGP Control Plane.
+#
+# It runs the pmacct BMP daemon (pmbmpd), which terminates the BMP sessions
+# opened by the Cilium nodes and decodes every BMP message to JSON, alongside a
+# Promtail sidecar that ships those JSON messages to Loki for visualization in
+# Grafana (see grafana/bmp-dashboard.json in this directory).
+#
+# Point a CiliumBGPClusterConfig at this collector with:
+#
+#   bmpServers:
+#   - name: "bmp-collector"
+#     peerAddress: "<ClusterIP of the bmp-collector Service>"
+#     monitoringPolicy: "all"
+#
+# The Promtail sidecar ships to a Grafana Loki install (Service "loki", port
+# 3100) in the "monitoring" namespace by default. Adjust the clients URL in the
+# promtail-bmp ConfigMap below only if your Loki lives elsewhere.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bmp-collector
+  namespace: kube-system
+data:
+  pmbmpd.conf: |
+    core_proc_name: pmbmpd
+    daemonize: false
+    ! Listen for BMP sessions from the Cilium nodes on the default BMP port.
+    bmp_daemon_ip: 0.0.0.0
+    bmp_daemon_port: 11019
+    ! Real-time message log: one JSON object per BMP message, one file per node.
+    bmp_daemon_msglog_output: json
+    bmp_daemon_msglog_file: /var/log/pmacct/bmp-$peer_src_ip.log
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: promtail-bmp
+  namespace: kube-system
+data:
+  promtail.yaml: |
+    server:
+      http_listen_port: 9080
+      grpc_listen_port: 0
+    positions:
+      filename: /tmp/positions.yaml
+    clients:
+      # Default: a Grafana Loki install (Service "loki", port 3100) in the
+      # "monitoring" namespace. Change this only if your Loki is elsewhere.
+      - url: http://loki.monitoring.svc:3100/loki/api/v1/push
+    scrape_configs:
+      - job_name: bmp
+        static_configs:
+          - targets: [localhost]
+            labels:
+              job: bmp
+              __path__: /var/log/pmacct/*.log
+        pipeline_stages:
+          # Promote the BMP message type and the source node to (low-cardinality)
+          # labels so dashboards can split route_monitor / peer_up / stats / init
+          # and distinguish each Cilium node. Everything else stays in the JSON
+          # line for LogQL `| json` filtering.
+          - json:
+              expressions:
+                bmp_msg_type: bmp_msg_type
+                bmp_router: bmp_router
+          - labels:
+              bmp_msg_type:
+              bmp_router:
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bmp-collector
+  namespace: kube-system
+  labels:
+    app: bmp-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bmp-collector
+  template:
+    metadata:
+      labels:
+        app: bmp-collector
+    spec:
+      containers:
+        - name: pmbmpd
+          image: pmacct/pmbmpd:latest
+          args: ["-f", "/etc/pmacct/pmbmpd.conf"]
+          ports:
+            - name: bmp
+              containerPort: 11019
+          volumeMounts:
+            - name: config
+              mountPath: /etc/pmacct
+            - name: logs
+              mountPath: /var/log/pmacct
+        - name: promtail
+          image: grafana/promtail:latest
+          args: ["-config.file=/etc/promtail/promtail.yaml"]
+          volumeMounts:
+            - name: promtail-config
+              mountPath: /etc/promtail
+            - name: logs
+              mountPath: /var/log/pmacct
+      volumes:
+        - name: config
+          configMap:
+            name: bmp-collector
+        - name: promtail-config
+          configMap:
+            name: promtail-bmp
+        - name: logs
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bmp-collector
+  namespace: kube-system
+  labels:
+    app: bmp-collector
+spec:
+  selector:
+    app: bmp-collector
+  ports:
+    - name: bmp
+      port: 11019
+      targetPort: 11019
