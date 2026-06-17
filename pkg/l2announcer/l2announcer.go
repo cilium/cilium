@@ -153,21 +153,21 @@ func (l2a *L2Announcer) hasLocalBackends(txn statedb.ReadTxn, svc *loadbalancer.
 }
 
 func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
+	wtxn := l2a.params.StateDB.WriteTxn(l2a.params.Services, l2a.params.Backends)
+	defer wtxn.Abort()
+
 	// Start watching the 'services' table for changes.
-	wtxn := l2a.params.StateDB.WriteTxn(l2a.params.Services)
 	svcChangeIter, err := l2a.params.Services.Changes(wtxn)
-	wtxn.Commit()
 	if err != nil {
 		return err
 	}
 
 	// Initialize backends table
-	wtxnBe := l2a.params.StateDB.WriteTxn(l2a.params.Backends)
-	beChangeIter, err := l2a.params.Backends.Changes(wtxnBe)
-	wtxnBe.Commit()
+	beChangeIter, err := l2a.params.Backends.Changes(wtxn)
 	if err != nil {
 		return err
 	}
+	wtxn.Commit()
 
 	// Wait for services to initialize
 	_, servicesInitialized := l2a.params.Services.Initialized(l2a.params.StateDB.ReadTxn())
