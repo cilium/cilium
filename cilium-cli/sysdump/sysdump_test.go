@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -62,6 +63,65 @@ func TestSysdumpCollector(t *testing.T) {
 	assert.Equal(t, path.Join(collector.sysdumpDir, "my-file-"+timestamp), tempFile)
 	_, err = os.Stat(path.Join(collector.sysdumpDir, sysdumpLogFile))
 	assert.NoError(t, err)
+}
+
+func TestWithFileSinkContainment(t *testing.T) {
+	client := fakeClient{
+		nodeList: &corev1.NodeList{
+			Items: []corev1.Node{
+				{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}},
+			},
+		},
+	}
+	collector, err := NewCollector(&client, Options{
+		OutputFileName: "my-sysdump-<ts>",
+		Writer:         io.Discard,
+	}, &nopHooks{}, time.Unix(946713600, 0))
+	assert.NoError(t, err)
+
+	// A name that escapes the sysdump directory, e.g. a CNI config filename
+	// listed by a compromised pod.
+	outside := filepath.Join(t.TempDir(), "escape.txt")
+	escaping, err := filepath.Rel(collector.sysdumpDir, outside)
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		filename string
+		// wantPath is checked after the write: it must exist for an accepted
+		// sink and must not exist for a rejected one.
+		wantPath string
+		wantErr  bool
+	}{
+		{
+			name:     "contained filename is written",
+			filename: "cniconf-bridge.conf-pod",
+			wantPath: path.Join(collector.sysdumpDir, "cniconf-bridge.conf-pod"),
+		},
+		{
+			name:     "escaping filename is rejected",
+			filename: escaping,
+			wantPath: outside,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := collector.WithFileSink(tt.filename, func(w io.Writer) error {
+				_, werr := io.WriteString(w, "data")
+				return werr
+			})
+			_, statErr := os.Stat(tt.wantPath)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.True(t, os.IsNotExist(statErr))
+				return
+			}
+			assert.NoError(t, err)
+			assert.NoError(t, statErr)
+		})
+	}
 }
 
 func TestNodeList(t *testing.T) {
