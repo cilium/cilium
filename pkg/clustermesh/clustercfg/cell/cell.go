@@ -18,13 +18,18 @@ var Cell = cell.Module(
 	"Enforce the CiliumClusterConfig in the KVStore",
 
 	cell.Provide(
-		func(cinfo cmtypes.ClusterInfo, mcsAPICfg mcsapitypes.MCSAPIConfig, sc syncedCanaries) cmtypes.CiliumClusterConfig {
+		func(cinfo cmtypes.ClusterInfo, mcsAPICfg mcsapitypes.MCSAPIConfig, sc syncedCanaries, svcV2Config cmtypes.ServiceModeV2Config) cmtypes.CiliumClusterConfig {
+			endpointSlicesExportMode := cmtypes.EndpointSlicesExportModeEndpointSlicesOnly
+			if svcV2Config.ServiceModeV2.ShouldExportLegacyServices() {
+				endpointSlicesExportMode = cmtypes.EndpointSlicesExportModeServicesAndEndpointSlices
+			}
 			return cmtypes.CiliumClusterConfig{
 				ID: cinfo.ID,
 				Capabilities: cmtypes.CiliumClusterConfigCapabilities{
-					SyncedCanaries:        bool(sc),
-					MaxConnectedClusters:  cinfo.MaxConnectedClusters,
-					ServiceExportsEnabled: &mcsAPICfg.EnableMCSAPI,
+					SyncedCanaries:           bool(sc),
+					MaxConnectedClusters:     cinfo.MaxConnectedClusters,
+					ServiceExportsEnabled:    &mcsAPICfg.EnableMCSAPI,
+					EndpointSlicesExportMode: endpointSlicesExportMode,
 				},
 			}
 		},
