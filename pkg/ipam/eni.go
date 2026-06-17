@@ -172,15 +172,18 @@ func autoDetectENINativeRoutingCIDR(
 ) {
 	if nativeCIDR := conf.IPv4NativeRoutingCIDR; nativeCIDR != nil {
 		native, ok := netipx.FromStdIPNet(nativeCIDR.IPNet)
-		// Validate that the configured native routing CIDR contains the VPC CIDR.
-		if ok && native.Bits() <= primaryCIDR.Bits() && native.Contains(primaryCIDR.Addr()) {
+		// Accept the configured native routing CIDR as long as it overlaps the
+		// VPC primary CIDR, i.e. it is the VPC CIDR, a subnet of it (e.g. a
+		// single availability-zone subnet, used to masquerade cross-subnet
+		// traffic), or a supernet of it.
+		if ok && iputil.LaminarCIDRsOverlap(native, primaryCIDR) {
 			logger.Info(
-				"Native routing CIDR contains VPC CIDR, ignoring autodetected VPC CIDR.",
+				"Native routing CIDR overlaps VPC CIDR, ignoring autodetected VPC CIDR.",
 				logfields.VPCCIDR, primaryCIDR,
 				option.IPv4NativeRoutingCIDR, nativeCIDR,
 			)
 		} else {
-			logging.Fatal(logger, "Configured native routing CIDR does not contain VPC CIDR",
+			logging.Fatal(logger, "Configured native routing CIDR does not overlap VPC CIDR",
 				logfields.VPCCIDR, primaryCIDR,
 				option.IPv4NativeRoutingCIDR, nativeCIDR,
 			)
