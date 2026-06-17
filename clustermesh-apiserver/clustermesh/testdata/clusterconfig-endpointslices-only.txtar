@@ -1,4 +1,4 @@
-#! --cluster-id=5 --cluster-name=cluster5 --clustermesh-enable-mcs-api
+#! --cluster-id=5 --cluster-name=cluster5 --clustermesh-service-v2=only-endpointslice
 
 hive/start
 
@@ -15,7 +15,7 @@ kvstore/list -o json cilium/cluster-config config.actual
   "capabilities": {
     "syncedCanaries": true,
     "maxConnectedClusters": 255,
-    "serviceExportsEnabled": true,
-    "endpointSlicesExportMode": "services-and-endpointslices"
+    "serviceExportsEnabled": false,
+    "endpointSlicesExportMode": "endpointslices-only"
   }
 }
