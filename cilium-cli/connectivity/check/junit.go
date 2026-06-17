@@ -15,7 +15,13 @@ import (
 	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
-const MetadataDelimiter = ";metadata;"
+const (
+	MetadataDelimiter = ";metadata;"
+
+	// InfrastructureProvisioningTestName is the JUnit testcase name used when
+	// connectivity test setup fails before individual test cases are executed.
+	InfrastructureProvisioningTestName = "Infrastructure/Provisioning"
+)
 
 // NewJUnitCollector factory function that returns JUnitCollector.
 func NewJUnitCollector(junitProperties map[string]string, junitFile string, codeowners *codeowners.Ruleset) *JUnitCollector {
@@ -112,6 +118,33 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 
 		j.testSuite.TestCases = append(j.testSuite.TestCases, test)
 	}
+}
+
+// RecordInfrastructureFailure records a failed infrastructure test case, for
+// example when pod provisioning or connectivity test setup fails before any
+// individual connectivity tests are executed.
+func (j *JUnitCollector) RecordInfrastructureFailure(err error) {
+	if j == nil || j.junitFile == "" || err == nil {
+		return
+	}
+
+	if j.testSuite.Timestamp == "" {
+		j.testSuite.Timestamp = time.Now().UTC().Format(time.RFC3339)
+	}
+
+	test := &junit.TestCase{
+		Name:      InfrastructureProvisioningTestName,
+		Classname: "connectivity test",
+		Status:    "failed",
+		Failure: &junit.Failure{
+			Message: InfrastructureProvisioningTestName + " failed",
+			Type:    "failure",
+			Value:   err.Error(),
+		},
+	}
+	j.testSuite.Tests++
+	j.testSuite.Failures++
+	j.testSuite.TestCases = append(j.testSuite.TestCases, test)
 }
 
 // Write writes collected JUnit results into a single report file.

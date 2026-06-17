@@ -19,20 +19,37 @@ type Hooks interface {
 	AddConnectivityTests(cts ...*check.ConnectivityTest) error
 }
 
-func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) error {
+func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) (err error) {
 	// If cleanup-only mode is enabled, perform cleanup and return
 	if len(connTests) > 0 && connTests[0].Params().CleanupOnly {
 		connTests[0].Infof("🧹 Cleanup mode enabled - removing all connectivity test artifacts")
 		for i := range connTests {
-			if err := connTests[i].CleanupConnectivityTest(ctx); err != nil {
-				connTests[i].Warnf("Cleanup encountered errors: %v", err)
+			if e := connTests[i].CleanupConnectivityTest(ctx); e != nil {
+				connTests[i].Warnf("Cleanup encountered errors: %v", e)
 			}
 		}
 		connTests[0].Infof("✅ Cleanup complete")
 		return nil
 	}
 
-	if err := setupConnectivityTests(ctx, connTests, extra); err != nil {
+	var (
+		junitCollector *check.JUnitCollector
+		junitWritten   bool
+	)
+	if len(connTests) > 0 && connTests[0].Params().JunitFile != "" {
+		junitCollector = check.NewJUnitCollector(connTests[0].Params().JunitProperties, connTests[0].Params().JunitFile, connTests[0].CodeOwners)
+		defer func() {
+			if err == nil || junitWritten || junitCollector == nil {
+				return
+			}
+			junitCollector.RecordInfrastructureFailure(err)
+			if werr := junitCollector.Write(); werr != nil {
+				connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, werr)
+			}
+		}()
+	}
+
+	if err = setupConnectivityTests(ctx, connTests, extra); err != nil {
 		return err
 	}
 
@@ -42,7 +59,6 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 	if err != nil {
 		return err
 	}
-	junitCollector := check.NewJUnitCollector(connTests[0].Params().JunitProperties, connTests[0].Params().JunitFile, connTests[0].CodeOwners)
 
 	for i := range suiteBuilders {
 		if e := suiteBuilders[i](connTests, extra.AddConnectivityTests); e != nil {
@@ -61,7 +77,9 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 			return runErr
 		}
 		for j := range connTests {
-			junitCollector.Collect(connTests[j])
+			if junitCollector != nil {
+				junitCollector.Collect(connTests[j])
+			}
 			if e := connTests[j].PrintReport(ctx); e != nil {
 				err = errors.Join(err, e)
 			}
@@ -74,8 +92,12 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 		}
 	}
 
-	if err := junitCollector.Write(); err != nil {
-		connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, err)
+	if junitCollector != nil {
+		if werr := junitCollector.Write(); werr != nil {
+			connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, werr)
+		} else {
+			junitWritten = true
+		}
 	}
 	return err
 }
