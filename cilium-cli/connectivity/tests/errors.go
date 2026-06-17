@@ -158,6 +158,12 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 		t.Fatalf("Error retrieving Cilium pods: %s", err)
 	}
 
+	// The "config" init-container restart exception below is only accepted on
+	// GKE, where it has been observed on freshly-created clusters; we do not
+	// want to blindly ignore restarts on other platforms.
+	flavor, _ := t.Context().Feature(features.Flavor)
+	isGKE := flavor.Enabled && flavor.Mode == "gke"
+
 	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
 	st := metav1.NewTime(n.startTime)
 	t.Infof("Start time for the check: %s", st.UTC().String())
@@ -185,6 +191,13 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// the startup probe, let's just accept one possible restart here.
 				ignore = ignore || (restarts == 1 && container == "hubble-relay")
 
+				// The "config" init container (cilium-dbg build-config) queries
+				// the kube-apiserver during pod startup. On freshly-created GKE
+				// clusters, whose control plane may still be warming up, it can
+				// restart once before the API server is reachable. Accept one
+				// such restart, but only on GKE where it has been observed.
+				ignore = ignore || (isGKE && restarts == 1 && container == "config")
+
 				var logs bytes.Buffer
 				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
 				if err != nil {
@@ -199,6 +212,12 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &logs)
 					if err == nil {
 						n.checkErrorsInLogs(id, logs.Bytes(), a, &prevOpts)
+					} else if strings.Contains(err.Error(), "previous terminated container") && strings.Contains(err.Error(), "not found") {
+						// The previous container's logs may already have been
+						// garbage-collected by the kubelet, in which case there
+						// is nothing to inspect. Don't turn this race into a
+						// hard failure.
+						a.Infof("Previous container logs unavailable (already garbage-collected): %s", err)
 					} else {
 						a.Failf("Error reading Cilium logs: %s", err)
 					}
