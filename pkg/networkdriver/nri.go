@@ -37,14 +37,65 @@ var (
 	rootNetNSPath = "/proc/1/ns/net"
 )
 
-func getNetworkNamespace(pod *api.PodSandbox) string {
-	// get the pod network namespace
+// getNetworkNamespace resolves the pod's network namespace path.
+//
+// On containerd >= 2.1 the NRI PodSandbox carries the OCI namespaces directly, so the
+// first lookup succeeds for both RunPodSandbox and StopPodSandbox. On containerd < 2.1
+// the StopPodSandbox event carries no namespaces (the sandbox task is killed before the
+// NRI hook runs, so the spec comes back empty); we fall back to the path cached at
+// RunPodSandbox / Synchronize. The caller already holds driver.lock.
+//
+// An empty return means a genuine host-network pod (no network namespace at
+// RunPodSandbox either, so nothing was cached), which must be skipped.
+func (driver *Driver) getNetworkNamespace(pod *api.PodSandbox) string {
 	for _, namespace := range pod.Linux.GetNamespaces() {
 		if namespace.Type == "network" {
 			return namespace.Path
 		}
 	}
+
+	// containerd < 2.1 fallback: reuse the path captured while the task was alive.
+	if ns, ok := driver.podNetns[kube_types.UID(pod.Uid)]; ok {
+		return ns
+	}
+
 	return ""
+}
+
+// rememberNetworkNamespace records a pod's netns path keyed by UID, if the PodSandbox
+// carries one. Called from RunPodSandbox and Synchronize, where the sandbox task is
+// alive and the namespaces are populated. The caller already holds driver.lock.
+func (driver *Driver) rememberNetworkNamespace(pod *api.PodSandbox) string {
+	for _, namespace := range pod.Linux.GetNamespaces() {
+		if namespace.Type == "network" {
+			driver.podNetns[kube_types.UID(pod.Uid)] = namespace.Path
+			return namespace.Path
+		}
+	}
+	return ""
+}
+
+// Synchronize is invoked by the runtime when the NRI plugin (re)connects — notably right
+// after an agent restart — with every running pod. The sandbox tasks are alive here, so
+// the netns is populated; we capture it so a later StopPodSandbox can recover the netns
+// on containerd < 2.1 even across an agent restart. This mirrors how driver.allocations
+// is rebuilt from ResourceClaims on restart: node-local runtime state reconstructed from
+// a durable source rather than persisted to disk. We request no container updates.
+func (driver *Driver) Synchronize(ctx context.Context, pods []*api.PodSandbox, _ []*api.Container) ([]*api.ContainerUpdate, error) {
+	err := driver.withLock(func() error {
+		n := 0
+		for _, pod := range pods {
+			if driver.rememberNetworkNamespace(pod) != "" {
+				n++
+			}
+		}
+		driver.logger.DebugContext(ctx, "NRI Synchronize: cached pod network namespaces",
+			logfields.Count, n,
+		)
+		return nil
+	})
+
+	return nil, err
 }
 
 // RunPodSandbox is called by the container runtime when a pod sandbox is started.
@@ -59,7 +110,9 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		log.DebugContext(ctx, "RunPodSandbox request received")
 
-		networkNamespace := getNetworkNamespace(podSandbox)
+		// Task is alive here, so the netns is populated. Cache it keyed by UID so a
+		// later StopPodSandbox can recover it on containerd < 2.1.
+		networkNamespace := driver.rememberNetworkNamespace(podSandbox)
 		// host network pods cannot allocate network devices
 		// nothing for us here
 		if networkNamespace == "" {
@@ -152,7 +205,12 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 		log.DebugContext(ctx, "StopPodSandbox request received")
 
-		networkNamespace := getNetworkNamespace(podSandbox)
+		// On containerd < 2.1 the stop event carries no namespaces; fall back to the
+		// path cached at RunPodSandbox / Synchronize. Evict the cache entry on the way
+		// out: this is the pod's terminal event, so the entry is no longer needed.
+		defer delete(driver.podNetns, kube_types.UID(podSandbox.Uid))
+
+		networkNamespace := driver.getNetworkNamespace(podSandbox)
 		// host network pods cannot allocate network devices because it impacts the host
 		if networkNamespace == "" {
 			log.DebugContext(ctx, "StopPodSandbox pod using host network cannot claim host devices")

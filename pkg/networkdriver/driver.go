@@ -63,6 +63,13 @@ type Driver struct {
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
 	allocations map[kube_types.UID]map[kube_types.UID][]allocation
+	// pod.UID: network namespace path. Captured at RunPodSandbox (and rebuilt on
+	// plugin (re)connect via Synchronize) so StopPodSandbox can recover the netns on
+	// containerd < 2.1, where the stop event carries no namespaces: the sandbox task
+	// is already killed, so the NRI PodSandbox spec comes back empty. containerd
+	// removes the netns only after the StopPodSandbox hook returns, so the cached
+	// path is still valid when we use it. Guarded by lock, like allocations.
+	podNetns map[kube_types.UID]string
 	// manager_type: devices
 	devices map[types.DeviceManagerType][]types.Device
 	// device ifname: pool name — stable cross-reconcile assignment for conflict resolution
