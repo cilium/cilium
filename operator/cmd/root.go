@@ -323,12 +323,18 @@ var (
 		cmnamespace.Cell,
 
 		// Synchronizes K8s services to KVStore.
-		cell.Provide(func(cfg *operatorOption.OperatorConfig, dcfg *option.DaemonConfig) operatorWatchers.ServiceSyncConfig {
+		cell.Provide(func(cfg *operatorOption.OperatorConfig, svcV2Cfg cmtypes.ServiceModeV2Config) operatorWatchers.ServiceSyncConfig {
 			return operatorWatchers.ServiceSyncConfig{
+				Enabled: cfg.SyncK8sServices && svcV2Cfg.ServiceModeV2.ShouldExportLegacyServices(),
+			}
+		}),
+		cell.Provide(func(cfg *operatorOption.OperatorConfig) operatorWatchers.EndpointSliceExportSyncConfig {
+			return operatorWatchers.EndpointSliceExportSyncConfig{
 				Enabled: cfg.SyncK8sServices,
 			}
 		}),
 		operatorWatchers.ServiceSyncCell,
+		operatorWatchers.EndpointSliceExportSyncCell,
 
 		// Synchronizes K8s ServiceExports to KVStore
 		mcsapi.ServiceExportSyncCell,
