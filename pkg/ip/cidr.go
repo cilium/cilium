@@ -95,3 +95,11 @@ func PrefixesContains(prefixes []netip.Prefix, addr netip.Addr) bool {
 	}
 	return false
 }
+
+// LaminarCIDRsOverlap reports whether c1 and c2 overlap, i.e. one is contained
+// within the other. CIDRs are laminar: two prefixes are either nested or
+// disjoint, never partially overlapping, so checking containment in either
+// direction is equivalent to checking that the two ranges intersect.
+func LaminarCIDRsOverlap(c1, c2 netip.Prefix) bool {
+	return c1.Contains(c2.Addr()) || c2.Contains(c1.Addr())
+}
