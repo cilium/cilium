@@ -808,6 +808,17 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
 				break;
 
+			/* Punt link-local/ULA destinations to stack to preserve iptables/conntrack.
+			 * This fixes Istio Ambient mode compatibility where kubelet probes are
+			 * SNAT'd to fd16:9254:7127:1337::ffff on the host and need reverse-SNAT
+			 * via conntrack in POSTROUTING. FIB redirect bypasses netfilter, breaking
+			 * the probe response path.
+			 * Check for fd16::/16 (ULA used by Istio)
+			 * See: https://github.com/cilium/cilium/issues/36022
+			 */
+			if (ip6->daddr.s6_addr[0] == 0xfd && ip6->daddr.s6_addr[1] == 0x16)
+				break;
+
 			fallthrough;
 		default:
 			return ret;
@@ -1372,6 +1383,16 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		case DROP_NO_FIB:
 			/* Error handling for local routes - just pass the packet to the kernel stack */
 			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
+				break;
+
+			/* Punt link-local destinations to stack to preserve iptables/conntrack.
+			 * This fixes Istio Ambient mode compatibility where kubelet probes are
+			 * SNAT'd to 169.254.7.127 on the host and need reverse-SNAT via
+			 * conntrack in POSTROUTING. FIB redirect bypasses netfilter, breaking
+			 * the probe response path.
+			 * See: https://github.com/cilium/cilium/issues/36022
+			 */
+			if ((bpf_ntohl(ip4->daddr) & 0xFFFF0000) == 0xA9FE0000)
 				break;
 
 			fallthrough;
