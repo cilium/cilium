@@ -127,6 +127,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		deviceManagers:         make(map[types.DeviceManagerType]types.DeviceManager),
 		configCRD:              params.Configs,
 		allocations:            make(map[kube_types.UID]map[kube_types.UID][]allocation),
+		podNetns:               make(map[kube_types.UID]string),
 		multiPoolMgr:           params.MultiPoolMgr,
 		ipv4Enabled:            params.DaemonCfg.IPv4Enabled(),
 		ipv6Enabled:            params.DaemonCfg.IPv6Enabled(),
