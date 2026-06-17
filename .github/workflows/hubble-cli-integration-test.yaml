@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@2b56ecd80b6cce37a7a3a3606ead212328a27c3a # main
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -76,7 +76,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@2b56ecd80b6cce37a7a3a3606ead212328a27c3a # main
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
