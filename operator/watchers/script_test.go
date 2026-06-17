@@ -72,8 +72,12 @@ func TestScript(t *testing.T) {
 			cell.Provide(func() ServiceSyncConfig {
 				return ServiceSyncConfig{Enabled: true}
 			}),
+			cell.Provide(func() EndpointSliceExportSyncConfig {
+				return EndpointSliceExportSyncConfig{Enabled: true}
+			}),
 			cmnamespace.Cell,
 			ServiceSyncCell,
+			EndpointSliceExportSyncCell,
 
 			cell.Provide(
 				func() store.Factory {

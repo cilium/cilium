@@ -159,6 +159,8 @@ func EndpointSliceResource(lc cell.Lifecycle, cfg k8s.ConfigParams, cs client.Cl
 		mp,
 		resource.WithMetric("EndpointSlice"),
 		resource.WithIndexers(cache.Indexers{
+			// Index endpoint slices by their namespace. Used by Cluster Mesh syncing to handle Global Namespaces.
+			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 			// Index endpoint slices by their service identifier. Used by Cluster Mesh syncing.
 			ServiceIndex: func(obj any) ([]string, error) {
 				eps, ok := obj.(*slim_discovery_v1.EndpointSlice)
