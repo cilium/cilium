@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 
@@ -2292,8 +2293,20 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		}
 	}
 
-	nodeSelectorServer := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorServer).String()
-	nodeSelectorClient := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorClient).String()
+	// Exclude nodes that don't run Cilium (labeled with CiliumNoScheduleLabel,
+	// e.g. via `cilium install --nodes-without-cilium`). The default node
+	// selectors are empty, so without this filter ListNodes can return such a
+	// node; perf pods pinned there either never become ready (the
+	// agent-not-ready NoExecute taint is only removed once a Cilium pod runs on
+	// the node) or would measure traffic on a node without Cilium's datapath,
+	// producing meaningless results. NotEquals also matches nodes that do not
+	// carry the label at all, i.e. the Cilium nodes.
+	noSchedule, err := labels.NewRequirement(defaults.CiliumNoScheduleLabel, selection.NotEquals, []string{"true"})
+	if err != nil {
+		return fmt.Errorf("unable to build node selector requirement: %w", err)
+	}
+	nodeSelectorServer := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorServer).Add(*noSchedule).String()
+	nodeSelectorClient := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorClient).Add(*noSchedule).String()
 
 	serverNodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: nodeSelectorServer, Limit: 2})
 	if err != nil {
