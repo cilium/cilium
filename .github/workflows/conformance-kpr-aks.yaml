@@ -60,6 +60,19 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  # Single, in-file source of truth for the IPsec quarantine. While "true", the
+  # IPsec job may fail without failing the workflow (see the IPsec job and the
+  # merge-upload-and-status gate). Set to "false" to re-arm it once AKS
+  # re-enables the ESP kernel modules.
+  #
+  # This env cannot be referenced directly from a job's `with:` input or the
+  # status gate (the `env` context is not available there), so the `config` job
+  # below re-exports it as a job output, which `needs.config.outputs.*` can read
+  # in those positions. Keeping it as a workflow env means forks inherit the
+  # quarantine automatically, with nothing to configure.
+  QUARANTINE_IPSEC: "true"
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -69,6 +82,18 @@ jobs:
       - name: Echo Workflow Dispatch Inputs
         run: |
           echo '${{ tojson(inputs) }}'
+
+  config:
+    name: Config
+    runs-on: ubuntu-24.04
+    outputs:
+      # Re-export the workflow-level QUARANTINE_IPSEC env so it can be consumed
+      # from `with:` inputs and the status gate via needs.config.outputs.
+      quarantine_ipsec: ${{ steps.vars.outputs.quarantine_ipsec }}
+    steps:
+      - name: Export quarantine flag
+        id: vars
+        run: echo "quarantine_ipsec=${QUARANTINE_IPSEC}" >> "$GITHUB_OUTPUT"
 
   commit-status-start:
     name: Commit Status Start
@@ -111,9 +136,16 @@ jobs:
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true}'
 
+  # The IPsec job is quarantined: the AKS node image currently has the ESP
+  # kernel modules (esp4/esp6) disabled, so the agent correctly refuses to
+  # start IPsec with tunneling and the job cannot pass. This is outside of
+  # Cilium's control. The QUARANTINE_IPSEC flag (see the config job) keeps a
+  # failure from breaking the scheduled run while still collecting artifacts and
+  # emitting a warning annotation, so the signal is preserved for when AKS
+  # re-enables the modules.
   conformance-aks-kpr-ipsec:
     name: Conformance AKS with KPR + IPsec
-    needs: wait-for-images
+    needs: [wait-for-images, config]
     uses: ./.github/workflows/conformance-aks.yaml
     secrets: inherit
     with:
@@ -122,6 +154,7 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "ipsec": true}'
+      quarantine: ${{ needs.config.outputs.quarantine_ipsec == 'true' }}
 
   conformance-aks-kpr-wireguard:
     name: Conformance AKS with KPR + WireGuard
@@ -135,13 +168,39 @@ jobs:
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "wireguard": true}'
 
+  # Re-surface a quarantined IPsec failure at this (parent) workflow level. The
+  # warning annotation emitted inside the reusable conformance-aks.yaml is
+  # attached to the called workflow's job, so it does not show up on this
+  # workflow's run summary. This job emits an equivalent annotation here when
+  # the quarantined IPsec job failed but was tolerated.
+  quarantine-warning:
+    name: Quarantine Warning
+    if: ${{ always() && needs.config.outputs.quarantine_ipsec == 'true' && needs.conformance-aks-kpr-ipsec.result == 'failure' }}
+    needs: [config, conformance-aks-kpr-ipsec]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Warn on quarantined IPsec failure
+        run: |
+          echo "::warning title=Quarantined job failed::Conformance AKS with KPR + IPsec failed but is quarantined (QUARANTINE_IPSEC), so it did not fail this workflow. Investigate the failure in that job; set QUARANTINE_IPSEC to \"false\" to re-arm it."
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: [conformance-aks-kpr, conformance-aks-kpr-ipsec, conformance-aks-kpr-wireguard]
+    needs: [config, conformance-aks-kpr, conformance-aks-kpr-ipsec, conformance-aks-kpr-wireguard]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ (needs.conformance-aks-kpr.result == 'success' && needs.conformance-aks-kpr-ipsec.result == 'success' && needs.conformance-aks-kpr-wireguard.result == 'success') }}
+      # While QUARANTINE_IPSEC is "true" the IPsec job's result is tolerated
+      # (OR'd with the quarantine flag exported by the config job): a quarantined
+      # IPsec failure does not flip the commit status, while the job stays listed
+      # so it still gates against being cancelled / never running. Set
+      # QUARANTINE_IPSEC to "false" to re-arm it once AKS re-enables the ESP
+      # kernel modules.
+      success: >-
+        ${{
+          needs.conformance-aks-kpr.result == 'success' &&
+          (needs.conformance-aks-kpr-ipsec.result == 'success' || needs.config.outputs.quarantine_ipsec == 'true') &&
+          needs.conformance-aks-kpr-wireguard.result == 'success'
+        }}

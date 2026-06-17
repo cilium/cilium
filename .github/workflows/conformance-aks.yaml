@@ -35,6 +35,11 @@ on:
         required: false
         type: boolean
         default: true
+      quarantine:
+        description: "If true, a failure of the installation and connectivity test does not fail the workflow (the job is quarantined). A warning annotation is emitted instead, and all artifacts are still collected so the failure remains visible."
+        required: false
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -219,6 +224,13 @@ jobs:
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    # When quarantined, a failure of this job does not fail the workflow. This
+    # is used for configurations that cannot currently pass for reasons outside
+    # of Cilium's control (e.g. IPsec on AKS, whose node image has the ESP
+    # kernel modules disabled), so that they keep producing data without
+    # breaking the scheduled run. A warning annotation is emitted below to keep
+    # the failure visible.
+    continue-on-error: ${{ inputs.quarantine == true }}
     env:
       job_name: "Installation and Connectivity Test"
     strategy:
@@ -466,6 +478,17 @@ jobs:
           artifacts_suffix: "aks-${{ env.job_name }} (${{ join(matrix.*, ', ') }})-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
           capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
+
+      # Surface quarantined failures. continue-on-error makes the job (and thus
+      # the workflow) succeed even when a step failed, so without this the
+      # failure would be silently hidden. The annotation keeps it visible in the
+      # run summary while not blocking the scheduled run.
+      - name: Warn on quarantined failure
+        if: ${{ always() && inputs.quarantine && job.status == 'failure' }}
+        env:
+          MATRIX_INFO: ${{ join(matrix.*, ', ') }}
+        run: |
+          echo "::warning title=Quarantined job failed::Quarantined configuration (${MATRIX_INFO}) failed but the workflow was marked successful. This job is quarantined and does not block the run; investigate the failure above."
 
       - name: Clean up AKS
         if: ${{ always() }}
