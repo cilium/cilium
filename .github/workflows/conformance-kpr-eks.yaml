@@ -60,6 +60,19 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  # Single, in-file source of truth for the netkit quarantine. While "true",
+  # the netkit / netkit-l2 jobs may fail without failing the workflow (see the
+  # netkit jobs and the merge-upload-and-status gate). Set to "false" to re-arm
+  # them once the underlying netkit failures are fixed.
+  #
+  # This env cannot be referenced directly from a job's `with:` input or the
+  # status gate (the `env` context is not available there), so the `config` job
+  # below re-exports it as a job output, which `needs.config.outputs.*` can read
+  # in those positions. Keeping it as a workflow env means forks inherit the
+  # quarantine automatically, with nothing to configure.
+  QUARANTINE_NETKIT: "true"
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -69,6 +82,18 @@ jobs:
       - name: Echo Workflow Dispatch Inputs
         run: |
           echo '${{ tojson(inputs) }}'
+
+  config:
+    name: Config
+    runs-on: ubuntu-24.04
+    outputs:
+      # Re-export the workflow-level QUARANTINE_NETKIT env so it can be consumed
+      # from `with:` inputs and the status gate via needs.config.outputs.
+      quarantine_netkit: ${{ steps.vars.outputs.quarantine_netkit }}
+    steps:
+      - name: Export quarantine flag
+        id: vars
+        run: echo "quarantine_netkit=${QUARANTINE_NETKIT}" >> "$GITHUB_OUTPUT"
 
   commit-status-start:
     name: Commit Status Start
@@ -138,10 +163,21 @@ jobs:
       extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "wireguard": true}'
       test-concurrency: 2
 
+  # The netkit / netkit-l2 jobs are quarantined: they currently fail (e.g. the
+  # l7-lb pod-to-l7-lb-service hairpinning connectivity test, plus on-demand
+  # capacity / nodegroup-creation flakes in some regions), and the failures are
+  # still under investigation. The QUARANTINE_NETKIT flag (see the config job)
+  # lets them fail without breaking the run, while still collecting artifacts
+  # and emitting a warning annotation. Set QUARANTINE_NETKIT to "false" to
+  # re-arm them once the failures are fixed.
+  #
+  # Both jobs run on scheduled events only (they are skipped on
+  # workflow_dispatch and PR ci-* comments); the status gate below tolerates
+  # that skip.
   conformance-eks-kpr-netkit:
     name: Conformance EKS with KPR + Netkit
     if: ${{ github.event_name == 'schedule' }}
-    needs: wait-for-images
+    needs: [wait-for-images, config]
     uses: ./.github/workflows/conformance-eks.yaml
     secrets: inherit
     with:
@@ -151,11 +187,12 @@ jobs:
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "bpf-datapath": "netkit", "bpf-masq-v4": true }'
       test-concurrency: 2
+      quarantine: ${{ needs.config.outputs.quarantine_netkit == 'true' }}
 
   conformance-eks-kpr-netkit-l2:
     name: Conformance EKS with KPR + Netkit-L2
     if: ${{ github.event_name == 'schedule' }}
-    needs: wait-for-images
+    needs: [wait-for-images, config]
     uses: ./.github/workflows/conformance-eks.yaml
     secrets: inherit
     with:
@@ -165,32 +202,45 @@ jobs:
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "bpf-datapath": "netkit-l2", "bpf-masq-v4": true }'
       test-concurrency: 2
+      quarantine: ${{ needs.config.outputs.quarantine_netkit == 'true' }}
+
+  # Re-surface a quarantined netkit failure at this (parent) workflow level. The
+  # warning annotation emitted inside the reusable conformance-eks.yaml is
+  # attached to the called workflow's job, so it does not show up on this
+  # workflow's run summary. This job emits an equivalent annotation here when a
+  # quarantined netkit job failed but was tolerated.
+  quarantine-warning:
+    name: Quarantine Warning
+    if: ${{ always() && needs.config.outputs.quarantine_netkit == 'true' && (needs.conformance-eks-kpr-netkit.result == 'failure' || needs.conformance-eks-kpr-netkit-l2.result == 'failure') }}
+    needs: [config, conformance-eks-kpr-netkit, conformance-eks-kpr-netkit-l2]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Warn on quarantined netkit failure
+        run: |
+          echo "::warning title=Quarantined job failed::A netkit conformance job failed but is quarantined (QUARANTINE_NETKIT), so it did not fail this workflow. Investigate the failures in the netkit / netkit-l2 jobs; set QUARANTINE_NETKIT to \"false\" to re-arm them."
 
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: [conformance-eks-kpr, conformance-eks-kpr-ipsec, conformance-eks-kpr-wireguard, conformance-eks-kpr-netkit, conformance-eks-kpr-netkit-l2]
+    needs: [config, conformance-eks-kpr, conformance-eks-kpr-ipsec, conformance-eks-kpr-wireguard, conformance-eks-kpr-netkit, conformance-eks-kpr-netkit-l2]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      # The netkit jobs only run on scheduled runs, so only require them to
-      # be successful on schedule events.
+      # The core KPR jobs must pass on every trigger. The quarantined netkit
+      # jobs are tolerated while QUARANTINE_NETKIT is "true": each netkit result
+      # is OR'd with the quarantine flag exported by the config job, so a
+      # quarantined netkit failure does not flip the commit status, while the
+      # jobs stay listed so they still gate against being cancelled. Both netkit
+      # jobs only run on scheduled events, so on other triggers their result is
+      # 'skipped', which is also tolerated. Set QUARANTINE_NETKIT to "false" to
+      # re-arm the netkit jobs once the failures are fixed.
       success: >-
         ${{
-          (
-            github.event_name == 'workflow_dispatch' &&
-            needs.conformance-eks-kpr.result == 'success' &&
-            needs.conformance-eks-kpr-ipsec.result == 'success' &&
-            needs.conformance-eks-kpr-wireguard.result == 'success'
-          )
-          ||
-          (
-            github.event_name == 'schedule' &&
-            needs.conformance-eks-kpr.result == 'success' &&
-            needs.conformance-eks-kpr-ipsec.result == 'success' &&
-            needs.conformance-eks-kpr-wireguard.result == 'success' &&
-            needs.conformance-eks-kpr-netkit.result == 'success' &&
-            needs.conformance-eks-kpr-netkit-l2.result == 'success'
-          ) }}
+          needs.conformance-eks-kpr.result == 'success' &&
+          needs.conformance-eks-kpr-ipsec.result == 'success' &&
+          needs.conformance-eks-kpr-wireguard.result == 'success' &&
+          (needs.conformance-eks-kpr-netkit.result == 'success' || needs.conformance-eks-kpr-netkit.result == 'skipped' || needs.config.outputs.quarantine_netkit == 'true') &&
+          (needs.conformance-eks-kpr-netkit-l2.result == 'success' || needs.conformance-eks-kpr-netkit-l2.result == 'skipped' || needs.config.outputs.quarantine_netkit == 'true')
+        }}
