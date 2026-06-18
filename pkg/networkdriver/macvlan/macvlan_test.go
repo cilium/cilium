@@ -4,12 +4,12 @@
 package macvlan
 
 import (
-	"errors"
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -17,43 +17,9 @@ import (
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-// mockNetlinkOps records calls to LinkAdd and LinkDel so tests can assert the
-// exact sequence of operations performed by setupMacvlans.
-type mockNetlinkOps struct {
-	added   []string
-	deleted []string
-
-	// Injected errors keyed by interface name. A nil value means success.
-	addErrors map[string]error
-	delErrors map[string]error
-}
-
-func newMockNetlinkOps() *mockNetlinkOps {
-	return &mockNetlinkOps{
-		addErrors: make(map[string]error),
-		delErrors: make(map[string]error),
-	}
-}
-
-func (m *mockNetlinkOps) LinkAdd(link netlink.Link) error {
-	name := link.Attrs().Name
-	m.added = append(m.added, name)
-	return m.addErrors[name]
-}
-
-func (m *mockNetlinkOps) LinkDel(link netlink.Link) error {
-	name := link.Attrs().Name
-	m.deleted = append(m.deleted, name)
-	return m.delErrors[name]
-}
-
-// installMockNetlinkOps wires the mock's LinkAdd/LinkDel into the manager.
-func installMockNetlinkOps(mgr *MacvlanManager, m *mockNetlinkOps) {
-	mgr.netlinkLinkAdd = m.LinkAdd
-	mgr.netlinkLinkDel = m.LinkDel
-}
-
 // parentLink returns a minimal Device link that acts as a parent interface.
+// It is deliberately a *netlink.Device (not a *netlink.Macvlan) so it can also
+// be used to exercise the "not a macvlan" guard in Free.
 func parentLink(name string, index int) netlink.Link {
 	return &netlink.Device{
 		LinkAttrs: netlink.LinkAttrs{
@@ -63,18 +29,62 @@ func parentLink(name string, index int) netlink.Link {
 	}
 }
 
-// newTestManager builds a MacvlanManager whose link-lister returns the
-// provided links without touching the real kernel.
-func newTestManager(links []netlink.Link, ifaces []v2alpha1.MacvlanDeviceConfig) *MacvlanManager {
-	return &MacvlanManager{
-		logger: slog.Default(),
-		config: &v2alpha1.MacvlanDeviceManagerConfig{Ifaces: ifaces},
-		netlinkLinkLister: func() ([]netlink.Link, error) {
-			return links, nil
-		},
-		netlinkLinkAdd: func(link netlink.Link) error { return nil },
-		netlinkLinkDel: func(link netlink.Link) error { return nil },
+// fakeNetlink is an in-memory stand-in for the package-level netlink seams used
+// by MacvlanDevice.Setup/Free. LinkAdd reflects created interfaces back into the
+// links map so a subsequent LinkByName observes them.
+type fakeNetlink struct {
+	links   map[string]netlink.Link
+	addErrs []error // consumed in order, one per LinkAdd call (nil once exhausted)
+	delErr  error
+	added   []netlink.Link
+	deleted []netlink.Link
+}
+
+func (f *fakeNetlink) linkByName(name string) (netlink.Link, error) {
+	if l, ok := f.links[name]; ok {
+		return l, nil
 	}
+	return nil, netlink.LinkNotFoundError{}
+}
+
+func (f *fakeNetlink) linkAdd(link netlink.Link) error {
+	var err error
+	if len(f.addErrs) > 0 {
+		err, f.addErrs = f.addErrs[0], f.addErrs[1:]
+	}
+	if err != nil {
+		return err
+	}
+	f.added = append(f.added, link)
+	if f.links == nil {
+		f.links = make(map[string]netlink.Link)
+	}
+	f.links[link.Attrs().Name] = link
+	return nil
+}
+
+func (f *fakeNetlink) linkDel(link netlink.Link) error {
+	if f.delErr != nil {
+		return f.delErr
+	}
+	f.deleted = append(f.deleted, link)
+	delete(f.links, link.Attrs().Name)
+	return nil
+}
+
+// install swaps the package-level netlink seams for the fake and restores them
+// when the test ends.
+func (f *fakeNetlink) install(t *testing.T) {
+	t.Helper()
+	origByName, origAdd, origDel := netlinkLinkByName, netlinkLinkAdd, netlinkLinkDel
+	netlinkLinkByName = f.linkByName
+	netlinkLinkAdd = f.linkAdd
+	netlinkLinkDel = f.linkDel
+	t.Cleanup(func() {
+		netlinkLinkByName = origByName
+		netlinkLinkAdd = origAdd
+		netlinkLinkDel = origDel
+	})
 }
 
 // ── GetAttrs ─────────────────────────────────────────────────────────────────
@@ -84,9 +94,6 @@ func TestMacvlanDevice_GetAttrs(t *testing.T) {
 		Name:            "eth0-0",
 		ParentName:      "eth0",
 		KernelIfaceName: "eth0.0",
-		HWAddr:          "00:11:22:33:44:55",
-		MTU:             1500,
-		Flags:           "up|broadcast|running",
 		Mode:            netlink.MACVLAN_MODE_BRIDGE,
 	}
 
@@ -95,10 +102,17 @@ func TestMacvlanDevice_GetAttrs(t *testing.T) {
 	require.NotNil(t, attrs)
 	require.Equal(t, "eth0-0", *attrs[types.IfNameLabel].StringValue)
 	require.Equal(t, "eth0.0", *attrs[types.KernelIfNameLabel].StringValue)
-	require.Equal(t, "00:11:22:33:44:55", *attrs[types.HWAddrLabel].StringValue)
-	require.Equal(t, int64(1500), *attrs[types.MTULabel].IntValue)
-	require.Equal(t, "eth0", *attrs["parentIfName"].StringValue)
-	require.Equal(t, "bridge", *attrs["macvlanMode"].StringValue)
+	require.Equal(t, "eth0", *attrs[types.ParentIfNameLabel].StringValue)
+	require.Equal(t, "bridge", *attrs[types.MacVlanModeLabel].StringValue)
+
+	// Runtime-only attributes are not known at advertise time for on-demand
+	// devices and must not be published (an mtu:0 would break DRA CEL selectors).
+	_, hasHWAddr := attrs[types.HWAddrLabel]
+	require.False(t, hasHWAddr)
+	_, hasMTU := attrs[types.MTULabel]
+	require.False(t, hasMTU)
+	_, hasFlags := attrs[types.FlagsLabel]
+	require.False(t, hasFlags)
 }
 
 // ── Match ─────────────────────────────────────────────────────────────────────
@@ -262,9 +276,6 @@ func TestMacvlanManager_RestoreDevice(t *testing.T) {
 		Name:            "eth0-0",
 		ParentName:      "eth0",
 		KernelIfaceName: "eth0.0",
-		HWAddr:          "00:11:22:33:44:55",
-		MTU:             1500,
-		Flags:           "up|broadcast|running",
 		Mode:            netlink.MACVLAN_MODE_BRIDGE,
 	}
 
@@ -280,182 +291,259 @@ func TestMacvlanManager_RestoreDevice(t *testing.T) {
 	require.Equal(t, dev, *restoredDev)
 }
 
+// ListDevices advertises Count discrete devices per configured parent, derived
+// purely from configuration with no kernel scan.
 func TestMacvlanManager_ListDevices(t *testing.T) {
-	parentLk := &netlink.Device{
-		LinkAttrs: netlink.LinkAttrs{Name: "eth0", Index: 2, Flags: 1, MTU: 1500},
-	}
-
-	mockLinks := []netlink.Link{
-		&netlink.Macvlan{
-			LinkAttrs: netlink.LinkAttrs{Name: "eth0.0", Index: 10, ParentIndex: 2, Flags: 1, MTU: 1500},
-			Mode:      netlink.MACVLAN_MODE_BRIDGE,
-		},
-		&netlink.Macvlan{
-			LinkAttrs: netlink.LinkAttrs{Name: "eth0.1", Index: 11, ParentIndex: 2, Flags: 1, MTU: 1500},
-			Mode:      netlink.MACVLAN_MODE_BRIDGE,
-		},
-		&netlink.Macvlan{
-			LinkAttrs: netlink.LinkAttrs{Name: "eth0.2", Index: 12, ParentIndex: 2, Flags: 0, MTU: 1500},
-			Mode:      netlink.MACVLAN_MODE_BRIDGE,
-		},
-		parentLk,
-	}
-
-	origLinkByIndex := netlinkLinkByIndex
-	t.Cleanup(func() { netlinkLinkByIndex = origLinkByIndex })
-
-	netlinkLinkByIndex = func(index int) (netlink.Link, error) {
-		if index == 2 {
-			return parentLk, nil
-		}
-		return nil, netlink.LinkNotFoundError{}
-	}
-
 	mgr := &MacvlanManager{
-		logger:            slog.Default(),
-		config:            &v2alpha1.MacvlanDeviceManagerConfig{},
-		netlinkLinkLister: func() ([]netlink.Link, error) { return mockLinks, nil },
+		logger: slog.Default(),
+		config: &v2alpha1.MacvlanDeviceManagerConfig{
+			Ifaces: []v2alpha1.MacvlanDeviceConfig{
+				{ParentIfName: "eth0", Mode: "bridge", Count: 3},
+				{ParentIfName: "eth1", Mode: "private", Count: 1},
+				{ParentIfName: "eth2", Mode: "bridge", Count: 0}, // advertises nothing
+			},
+		},
 	}
 
 	devices, err := mgr.ListDevices()
 	require.NoError(t, err)
-	require.Len(t, devices, 3)
+	require.Len(t, devices, 4)
 
 	var names, kernelNames []string
+	modeByName := make(map[string]netlink.MacvlanMode)
 	for _, dev := range devices {
 		names = append(names, dev.IfName())
 		kernelNames = append(kernelNames, dev.KernelIfName())
+		mv, ok := dev.(*MacvlanDevice)
+		require.True(t, ok)
+		modeByName[dev.IfName()] = mv.Mode
 	}
 
-	t.Run("IfName uses dash notation", func(t *testing.T) {
-		require.ElementsMatch(t, []string{"eth0-0", "eth0-1", "eth0-2"}, names)
+	require.ElementsMatch(t, []string{"eth0-0", "eth0-1", "eth0-2", "eth1-0"}, names)
+	require.ElementsMatch(t, []string{"eth0.0", "eth0.1", "eth0.2", "eth1.0"}, kernelNames)
+	require.Equal(t, netlink.MACVLAN_MODE_BRIDGE, modeByName["eth0-0"])
+	require.Equal(t, netlink.MACVLAN_MODE_PRIVATE, modeByName["eth1-0"])
+}
+
+func TestMacvlanManager_ListDevices_InvalidMode(t *testing.T) {
+	mgr := &MacvlanManager{
+		logger: slog.Default(),
+		config: &v2alpha1.MacvlanDeviceManagerConfig{
+			Ifaces: []v2alpha1.MacvlanDeviceConfig{
+				{ParentIfName: "eth0", Mode: "bogus", Count: 1},
+			},
+		},
+	}
+
+	_, err := mgr.ListDevices()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "bogus")
+}
+
+// ── Setup ──────────────────────────────────────────────────────────────────
+
+func TestMacvlanDevice_Setup(t *testing.T) {
+	dev := MacvlanDevice{
+		Name:            "eth0-0",
+		ParentName:      "eth0",
+		KernelIfaceName: "eth0.0",
+		Mode:            netlink.MACVLAN_MODE_BRIDGE,
+	}
+
+	t.Run("creates macvlan in root namespace", func(t *testing.T) {
+		f := &fakeNetlink{links: map[string]netlink.Link{"eth0": parentLink("eth0", 2)}}
+		f.install(t)
+
+		require.NoError(t, dev.Setup(types.DeviceConfig{}))
+
+		require.Len(t, f.added, 1)
+		mv, ok := f.added[0].(*netlink.Macvlan)
+		require.True(t, ok)
+		require.Equal(t, "eth0.0", mv.Attrs().Name)
+		require.Equal(t, 2, mv.Attrs().ParentIndex)
+		require.Equal(t, netlink.MACVLAN_MODE_BRIDGE, mv.Mode)
+		require.Empty(t, f.deleted)
 	})
-	t.Run("KernelIfName preserves dot notation", func(t *testing.T) {
-		require.ElementsMatch(t, []string{"eth0.0", "eth0.1", "eth0.2"}, kernelNames)
+
+	t.Run("parent interface missing returns error", func(t *testing.T) {
+		f := &fakeNetlink{}
+		f.install(t)
+
+		err := dev.Setup(types.DeviceConfig{})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "eth0")
+		require.Empty(t, f.added)
+	})
+
+	t.Run("EEXIST with matching config adopts existing device", func(t *testing.T) {
+		existing := &netlink.Macvlan{
+			LinkAttrs: netlink.LinkAttrs{Name: "eth0.0", ParentIndex: 2},
+			Mode:      netlink.MACVLAN_MODE_BRIDGE,
+		}
+		f := &fakeNetlink{
+			links: map[string]netlink.Link{
+				"eth0":   parentLink("eth0", 2),
+				"eth0.0": existing,
+			},
+			addErrs: []error{unix.EEXIST},
+		}
+		f.install(t)
+
+		require.NoError(t, dev.Setup(types.DeviceConfig{}))
+		// Adopted, not replaced.
+		require.Empty(t, f.deleted)
+		require.Empty(t, f.added)
+	})
+
+	t.Run("EEXIST with mismatched mode replaces device", func(t *testing.T) {
+		existing := &netlink.Macvlan{
+			LinkAttrs: netlink.LinkAttrs{Name: "eth0.0", ParentIndex: 2},
+			Mode:      netlink.MACVLAN_MODE_PRIVATE, // differs from dev.Mode (bridge)
+		}
+		f := &fakeNetlink{
+			links: map[string]netlink.Link{
+				"eth0":   parentLink("eth0", 2),
+				"eth0.0": existing,
+			},
+			// First add fails EEXIST; the recreate after delete succeeds.
+			addErrs: []error{unix.EEXIST},
+		}
+		f.install(t)
+
+		require.NoError(t, dev.Setup(types.DeviceConfig{}))
+		require.Len(t, f.deleted, 1)
+		require.Equal(t, "eth0.0", f.deleted[0].Attrs().Name)
+		require.Len(t, f.added, 1)
+		mv, ok := f.added[0].(*netlink.Macvlan)
+		require.True(t, ok)
+		require.Equal(t, netlink.MACVLAN_MODE_BRIDGE, mv.Mode)
+	})
+
+	t.Run("EEXIST with mismatched parent replaces device", func(t *testing.T) {
+		existing := &netlink.Macvlan{
+			LinkAttrs: netlink.LinkAttrs{Name: "eth0.0", ParentIndex: 99}, // wrong parent
+			Mode:      netlink.MACVLAN_MODE_BRIDGE,
+		}
+		f := &fakeNetlink{
+			links: map[string]netlink.Link{
+				"eth0":   parentLink("eth0", 2),
+				"eth0.0": existing,
+			},
+			addErrs: []error{unix.EEXIST},
+		}
+		f.install(t)
+
+		require.NoError(t, dev.Setup(types.DeviceConfig{}))
+		require.Len(t, f.deleted, 1)
+		require.Len(t, f.added, 1)
 	})
 }
 
-// ── setupMacvlans ─────────────────────────────────────────────────────────────
+// ── Free ───────────────────────────────────────────────────────────────────
 
-func TestSetupMacvlans(t *testing.T) {
-	t.Run("success creates interfaces and nothing is deleted", func(t *testing.T) {
-		ifaces := []v2alpha1.MacvlanDeviceConfig{
-			{ParentIfName: "eth0", Mode: "bridge", Count: 3},
-		}
-		mock := newMockNetlinkOps()
-		mgr := newTestManager([]netlink.Link{parentLink("eth0", 1)}, ifaces)
-		installMockNetlinkOps(mgr, mock)
+func TestMacvlanDevice_Free(t *testing.T) {
+	dev := MacvlanDevice{
+		Name:            "eth0-0",
+		ParentName:      "eth0",
+		KernelIfaceName: "eth0.0",
+		Mode:            netlink.MACVLAN_MODE_BRIDGE,
+	}
 
-		require.NoError(t, mgr.setupMacvlans(ifaces))
-		require.Equal(t, []string{"eth0.0", "eth0.1", "eth0.2"}, mock.added)
-		require.Empty(t, mock.deleted)
+	t.Run("deletes existing macvlan", func(t *testing.T) {
+		mv := &netlink.Macvlan{LinkAttrs: netlink.LinkAttrs{Name: "eth0.0"}}
+		f := &fakeNetlink{links: map[string]netlink.Link{"eth0.0": mv}}
+		f.install(t)
+
+		require.NoError(t, dev.Free(types.DeviceConfig{}))
+		require.Len(t, f.deleted, 1)
+		require.Equal(t, "eth0.0", f.deleted[0].Attrs().Name)
 	})
 
-	t.Run("empty ifaces is a no-op", func(t *testing.T) {
-		mock := newMockNetlinkOps()
-		mgr := newTestManager(nil, nil)
-		installMockNetlinkOps(mgr, mock)
+	t.Run("interface already gone is a no-op", func(t *testing.T) {
+		f := &fakeNetlink{}
+		f.install(t)
 
-		require.NoError(t, mgr.setupMacvlans(nil))
-		require.Empty(t, mock.added)
-		require.Empty(t, mock.deleted)
+		require.NoError(t, dev.Free(types.DeviceConfig{}))
+		require.Empty(t, f.deleted)
 	})
 
-	t.Run("LinkAdd error triggers cleanup of previously created interfaces", func(t *testing.T) {
-		// eth0.1 will fail; eth0.0 was already created and eth0.2 succeeds after the continue.
-		mock := newMockNetlinkOps()
-		mock.addErrors["eth0.1"] = errors.New("kernel error")
+	t.Run("refuses to delete a non-macvlan interface", func(t *testing.T) {
+		f := &fakeNetlink{links: map[string]netlink.Link{"eth0.0": parentLink("eth0.0", 5)}}
+		f.install(t)
 
-		ifaces := []v2alpha1.MacvlanDeviceConfig{
-			{ParentIfName: "eth0", Mode: "bridge", Count: 3},
-		}
-		mgr := newTestManager([]netlink.Link{parentLink("eth0", 1)}, ifaces)
-		installMockNetlinkOps(mgr, mock)
-
-		err := mgr.setupMacvlans(ifaces)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "eth0.1")
-
-		// All three were attempted; eth0.1 failed (not tracked), so only eth0.0 and eth0.2 are cleaned up.
-		require.Equal(t, []string{"eth0.0", "eth0.1", "eth0.2"}, mock.added)
-		require.Equal(t, []string{"eth0.0", "eth0.2"}, mock.deleted)
+		err := dev.Free(types.DeviceConfig{})
+		require.ErrorIs(t, err, errNotAMacvlan)
+		require.Empty(t, f.deleted)
 	})
+}
 
-	t.Run("cleanup spans multiple parents on error in second parent", func(t *testing.T) {
-		mock := newMockNetlinkOps()
-		mock.addErrors["eth1.0"] = errors.New("kernel error")
+// ── parseMacvlanMode ─────────────────────────────────────────────────────────
 
+func TestParseMacvlanMode(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    netlink.MacvlanMode
+		wantErr bool
+	}{
+		{in: "", want: netlink.MACVLAN_MODE_BRIDGE},
+		{in: "bridge", want: netlink.MACVLAN_MODE_BRIDGE},
+		{in: "private", want: netlink.MACVLAN_MODE_PRIVATE},
+		{in: "vepa", want: netlink.MACVLAN_MODE_VEPA},
+		{in: "passthru", want: netlink.MACVLAN_MODE_PASSTHRU},
+		{in: "source", want: netlink.MACVLAN_MODE_SOURCE},
+		{in: "nonsense", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			got, err := parseMacvlanMode(tt.in)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// ── validateConfig ───────────────────────────────────────────────────────────
+
+func TestMacvlanManager_validateConfig(t *testing.T) {
+	links := []netlink.Link{parentLink("eth0", 1), parentLink("eth1", 2)}
+	lister := func() ([]netlink.Link, error) { return links, nil }
+
+	t.Run("all parents present and modes valid", func(t *testing.T) {
+		mgr := &MacvlanManager{logger: slog.Default(), netlinkLinkLister: lister}
 		ifaces := []v2alpha1.MacvlanDeviceConfig{
 			{ParentIfName: "eth0", Mode: "bridge", Count: 2},
-			{ParentIfName: "eth1", Mode: "bridge", Count: 1},
+			{ParentIfName: "eth1", Mode: "", Count: 1},
 		}
-		mgr := newTestManager([]netlink.Link{parentLink("eth0", 1), parentLink("eth1", 2)}, ifaces)
-		installMockNetlinkOps(mgr, mock)
-
-		err := mgr.setupMacvlans(ifaces)
-		require.Error(t, err)
-
-		require.Equal(t, []string{"eth0.0", "eth0.1", "eth1.0"}, mock.added)
-		// eth0.0 and eth0.1 created before the error must be cleaned up.
-		require.Equal(t, []string{"eth0.0", "eth0.1"}, mock.deleted)
+		require.NoError(t, mgr.validateConfig(ifaces))
 	})
 
-	t.Run("missing parent interface errors and cleans up earlier interfaces", func(t *testing.T) {
-		mock := newMockNetlinkOps()
+	t.Run("empty config is a no-op", func(t *testing.T) {
+		mgr := &MacvlanManager{logger: slog.Default(), netlinkLinkLister: lister}
+		require.NoError(t, mgr.validateConfig(nil))
+	})
 
+	t.Run("missing parent interface errors", func(t *testing.T) {
+		mgr := &MacvlanManager{logger: slog.Default(), netlinkLinkLister: lister}
 		ifaces := []v2alpha1.MacvlanDeviceConfig{
-			{ParentIfName: "eth0", Mode: "bridge", Count: 2},
-			{ParentIfName: "eth1", Mode: "bridge", Count: 1}, // eth1 not in link list
+			{ParentIfName: "missing0", Mode: "bridge", Count: 1},
 		}
-		mgr := newTestManager([]netlink.Link{parentLink("eth0", 1)}, ifaces)
-		installMockNetlinkOps(mgr, mock)
-
-		err := mgr.setupMacvlans(ifaces)
+		err := mgr.validateConfig(ifaces)
 		require.Error(t, err)
 		require.ErrorIs(t, err, errInterfaceNotFound)
-
-		require.Equal(t, []string{"eth0.0", "eth0.1"}, mock.added)
-		require.Equal(t, []string{"eth0.0", "eth0.1"}, mock.deleted)
 	})
 
-	t.Run("existing interfaces are skipped and not recreated", func(t *testing.T) {
-		mock := newMockNetlinkOps()
-
-		existingMacvlan := &netlink.Macvlan{
-			LinkAttrs: netlink.LinkAttrs{Name: "eth0.0", Index: 10, ParentIndex: 1, Flags: 1},
-			Mode:      netlink.MACVLAN_MODE_BRIDGE,
-		}
-
+	t.Run("invalid mode errors", func(t *testing.T) {
+		mgr := &MacvlanManager{logger: slog.Default(), netlinkLinkLister: lister}
 		ifaces := []v2alpha1.MacvlanDeviceConfig{
-			{ParentIfName: "eth0", Mode: "bridge", Count: 2},
+			{ParentIfName: "eth0", Mode: "bogus", Count: 1},
 		}
-		mgr := newTestManager([]netlink.Link{parentLink("eth0", 1), existingMacvlan}, ifaces)
-		installMockNetlinkOps(mgr, mock)
-
-		require.NoError(t, mgr.setupMacvlans(ifaces))
-		// eth0.0 was skipped; only eth0.1 should have been created.
-		require.Equal(t, []string{"eth0.1"}, mock.added)
-		require.Empty(t, mock.deleted)
-	})
-
-	t.Run("cleanup LinkDel error does not shadow original add error", func(t *testing.T) {
-		mock := newMockNetlinkOps()
-		mock.addErrors["eth0.1"] = errors.New("kernel add error")
-		mock.delErrors["eth0.0"] = errors.New("kernel del error")
-
-		ifaces := []v2alpha1.MacvlanDeviceConfig{
-			{ParentIfName: "eth0", Mode: "bridge", Count: 2},
-		}
-		mgr := newTestManager([]netlink.Link{parentLink("eth0", 1)}, ifaces)
-		installMockNetlinkOps(mgr, mock)
-
-		err := mgr.setupMacvlans(ifaces)
+		err := mgr.validateConfig(ifaces)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "eth0.1")
-		require.ErrorContains(t, err, "kernel add error")
-		require.NotErrorIs(t, err, errors.New("kernel del error"), "cleanup errors must not propagate")
-
-		// Cleanup was still attempted for the successfully created eth0.0.
-		require.Equal(t, []string{"eth0.0"}, mock.deleted)
+		require.ErrorContains(t, err, "bogus")
 	})
 }
