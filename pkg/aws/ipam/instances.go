@@ -44,6 +44,7 @@ type EC2API interface {
 	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error)
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error
+	AssignENIIPv6Prefix(ctx context.Context, eniID string) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
 	GetInstanceTypes(context.Context) ([]ec2_types.InstanceTypeInfo, error)
 	AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error)

@@ -280,6 +280,11 @@ func (n *Node) GetAttachedCIDRs() []netip.Prefix {
 				attached = append(attached, prefix.Prefix)
 			}
 		}
+		for _, prefix := range eni.IPv6Prefixes {
+			if prefix.IsValid() {
+				attached = append(attached, prefix.Prefix)
+			}
+		}
 		for _, addr := range eni.Addresses {
 			if addr.IsValid() {
 				attached = append(attached, netip.PrefixFrom(addr.Addr, addr.BitLen()))
@@ -540,24 +545,33 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 	isPrefixDelegated := n.node.Ops().IsPrefixDelegated()
 	n.mutex.RUnlock()
 
-	if isPrefixDelegated {
-		numPrefixes := iputil.PrefixCeil(a.IPv4.AvailableForAllocation, option.ENIPDBlockSizeIPv4)
-		err := n.manager.ec2api.AssignENIPrefixes(ctx, a.InterfaceID, int32(numPrefixes))
-		if !isSubnetAtPrefixCapacity(err) {
+	if a.IPv6.MaxPrefixesToAllocate > 0 {
+		err := n.manager.ec2api.AssignENIIPv6Prefix(ctx, a.InterfaceID)
+		if err != nil {
 			return err
 		}
-		// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
-		// We should attempt to allocate /32 IPs.
-		n.logger.Load().Warn(
-			"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
-			logfields.Node, n.k8sObj.Name,
-		)
 	}
-	assignedIPs, err := n.manager.ec2api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
-	if err != nil {
-		return err
+
+	if a.IPv4.AvailableForAllocation > 0 {
+		if isPrefixDelegated {
+			numPrefixes := iputil.PrefixCeil(a.IPv4.AvailableForAllocation, option.ENIPDBlockSizeIPv4)
+			err := n.manager.ec2api.AssignENIPrefixes(ctx, a.InterfaceID, int32(numPrefixes))
+			if !isSubnetAtPrefixCapacity(err) {
+				return err
+			}
+			// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
+			// We should attempt to allocate /32 IPs.
+			n.logger.Load().Warn(
+				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
+				logfields.Node, n.k8sObj.Name,
+			)
+		}
+		assignedIPs, err := n.manager.ec2api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
+		if err != nil {
+			return err
+		}
+		n.manager.AddIPsToENI(n.node.InstanceID(), a.InterfaceID, assignedIPs)
 	}
-	n.manager.AddIPsToENI(n.node.InstanceID(), a.InterfaceID, assignedIPs)
 	return nil
 }
 
@@ -725,6 +739,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	desc := "Cilium-CNI (" + n.node.InstanceID() + ")"
 
 	// Calculate the number of IPs to allocate for the new ENI.
+	allocateIPv6 := allocation.IPv6.MaxPrefixesToAllocate > 0
 	var toAllocate int
 	if isPrefixDelegated {
 		// For prefix delegation mode, we need to consider the instance type limits.
@@ -739,7 +754,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 		toAllocate = min(allocation.IPv4.MaxIPsToAllocate, limits.IPv4-1)
 	}
 	// Validate whether request has already been fulfilled in the meantime
-	if toAllocate == 0 {
+	if toAllocate == 0 && !allocateIPv6 {
 		return 0, "", nil
 	}
 
@@ -753,7 +768,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	)
 	scopedLog.Info("No more IPs available, creating new ENI")
 
-	eniID, eni, err := n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated, false)
+	eniID, eni, err := n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated, allocateIPv6)
 	if err != nil {
 		if isPrefixDelegated && isSubnetAtPrefixCapacity(err) {
 			// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
@@ -762,7 +777,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
 				logfields.Node, n.k8sObj.Name,
 			)
-			eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false, false)
+			eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false, allocateIPv6)
 		}
 		if err != nil {
 			return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
@@ -899,9 +914,10 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 				// capacity.
 				stats.NodeCapacity -= effectiveLimits
 				return nil
-			} else {
-				stats.NodeCapacity += leftoverPrefixCapcity
 			}
+
+			stats.NodeCapacity += leftoverPrefixCapcity
+			stats.NodeIPv6Prefixes += len(e.IPv6Prefixes)
 
 			availableOnENI := max(effectiveLimits-len(e.Addresses), 0)
 			if availableOnENI > 0 {
