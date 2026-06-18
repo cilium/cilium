@@ -172,8 +172,8 @@ func (i *identitySelector) IsNone() bool {
 	return i.key == noneSelectorKey
 }
 
-// String returns the map key for this selector
-func (i *identitySelector) String() string {
+// Key returns the map key for this selector
+func (i *identitySelector) Key() string {
 	return i.key
 }
 

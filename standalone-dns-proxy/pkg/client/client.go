@@ -585,7 +585,7 @@ func (d *DNSServerIdentity) Selects(identity identity.NumericIdentity) bool {
 	return slices.Contains(d.Identities, identity)
 }
 
-func (d *DNSServerIdentity) String() string {
+func (d *DNSServerIdentity) Key() string {
 	identityStrings := make([]string, len(d.Identities))
 	for i, id := range d.Identities {
 		identityStrings[i] = strconv.FormatUint(uint64(id), 10)

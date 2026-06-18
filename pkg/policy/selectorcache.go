@@ -639,7 +639,7 @@ func (sc *SelectorCache) AddIdentitySelectorForTest(user CachedSelectionUser, es
 // lock must be held
 func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
 	start := time.Now()
-	key := selector.String()
+	key := selector.Key()
 	sel, exists := sc.selectors.Get(key)
 	if exists && sel.removeUser(user, sc.localIdentityNotifier) {
 		sc.selectors.Delete(sel)
@@ -669,7 +669,7 @@ func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user Cac
 // ChangeUser changes the CachedSelectionUser that gets updates on the
 // updates on the cached selector.
 func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSelectionUser) {
-	key := selector.String()
+	key := selector.Key()
 	sc.mutex.Lock()
 	sel, exists := sc.selectors.Get(key)
 	if exists {
