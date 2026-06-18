@@ -36,6 +36,10 @@ func Current() (*NetNS, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+func GetNetNSCookie() (uint64, error) {
+	return 0, fmt.Errorf("not implemented")
+}
+
 func All() (iter.Seq2[string, *NetNS], <-chan error) {
 	errs := make(chan error, 1)
 	errs <- fmt.Errorf("not implemented")
