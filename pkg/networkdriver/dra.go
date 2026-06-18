@@ -255,24 +255,6 @@ func (driver *Driver) applyAddressToConfig(
 }
 
 func (driver *Driver) applyAddressesFromAnnotation(ctx context.Context, claim *resourceapi.ResourceClaim, podRef resourceapi.ResourceClaimConsumerReference, devicesCfg map[string]types.DeviceConfig) (err error) {
-	// Log the outcome once, regardless of which step returned.
-	defer func() {
-		if err != nil {
-			driver.logger.ErrorContext(ctx, "failed to apply static IP addresses from pod annotation",
-				logfields.K8sNamespace, claim.Namespace,
-				logfields.Name, claim.Name,
-				logfields.K8sPodName, podRef,
-				logfields.Error, err,
-			)
-			return
-		}
-		driver.logger.DebugContext(ctx, "applied static IP addresses from pod annotation",
-			logfields.K8sNamespace, claim.Namespace,
-			logfields.Name, claim.Name,
-			logfields.K8sPodName, podRef,
-		)
-	}()
-
 	pod, err := driver.podForClaim(ctx, claim, podRef)
 	if err != nil {
 		return err
@@ -648,7 +630,20 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 
 	// Where available, apply static IP addresses from the pod annotation.
 	if err := driver.applyAddressesFromAnnotation(ctx, claim, pod, deviceClaimConfigs); err != nil {
+		driver.logger.ErrorContext(ctx, "failed to apply static IP addresses from pod annotation",
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+			logfields.K8sPodName, pod.Name,
+			logfields.Error, err,
+		)
+
 		return kubeletplugin.PrepareResult{Err: err}
+	} else {
+		driver.logger.DebugContext(ctx, "applied static IP addresses from pod annotation",
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+			logfields.K8sPodName, pod,
+		)
 	}
 
 	if err := validatePodIfNames(claim, deviceClaimConfigs); err != nil {
