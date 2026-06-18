@@ -38,6 +38,7 @@ Label                                               Description
 ``!annotation.*``                                   Ignore all ``annotation`` labels
 ``!controller-uid``                                 Ignore all ``controller-uid`` labels
 ``!etcd_node``                                      Ignore all ``etcd_node`` labels
+``!topology\.kubernetes\.io``                       Ignore all ``topology.kubernetes.io`` labels
 =================================================== =========================================================
 
 The above label patterns are all *exclusive label patterns*, that is to say
