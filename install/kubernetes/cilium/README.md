@@ -151,7 +151,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.events.default.rateLimit | int | `0` | Configure the limit of messages per second that can be written to BPF events map. The number of messages is averaged, meaning that if no messages were written to the map over 5 seconds, it's possible to write more events in the 6th second. If rateLimit is greater than 0, non-zero value for burstLimit must also be provided lest the configuration is considered invalid. Setting both burstLimit and rateLimit to 0 disables BPF events rate limiting. |
 | bpf.events.drop.enabled | bool | `true` | Enable drop events. |
 | bpf.events.policyVerdict.enabled | bool | `true` | Enable policy verdict events. |
-| bpf.events.trace.enabled | bool | `true` | Enable trace events. |
+| bpf.events.trace.enabled | bool | `true` | Enable trace events. If this is set to false and socketLB.tracing=true it will still log TRACE events.  |
 | bpf.hostLegacyRouting | bool | `false` | Configure whether direct routing mode should route traffic via host stack (true) or directly and more efficiently out of BPF (false) if the kernel supports it. The latter has the implication that it will also bypass netfilter in the host namespace. |
 | bpf.lbAlgorithmAnnotation | bool | `false` | Enable the option to define the load balancing algorithm on a per-service basis through service.cilium.io/lb-algorithm annotation. |
 | bpf.lbExternalClusterIP | bool | `false` | Allow cluster external access to ClusterIP services. |
