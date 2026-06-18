@@ -183,6 +183,7 @@ cilium-agent [flags]
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-remote-node-masquerade                             Masquerade packets from endpoints leaving the host destined to a remote node in BPF masquerading mode. This option requires to set enable-bpf-masquerade to true.
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
+      --enable-scale-to-zero                                      Track scale-to-zero annotated services and export a per-service demand metric so an external autoscaler can scale them from and to zero.
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-standalone-dns-proxy                               Enables standalone DNS proxy

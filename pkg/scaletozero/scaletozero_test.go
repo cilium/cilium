@@ -6,7 +6,6 @@ package scaletozero
 import (
 	"context"
 	"errors"
-	"io"
 	"iter"
 	"log/slog"
 	"os"
@@ -46,7 +45,7 @@ func (f fakeSockRevNat) addCounts(_ map[loadbalancer.ServiceID]loadbalancer.Serv
 func newTestController() (*controller, *fake.ScaleToZeroMap) {
 	fm := fake.NewFakeScaleToZeroMap()
 	c := &controller{
-		log:            slog.New(slog.NewTextHandler(io.Discard, nil)),
+		log:            slog.New(slog.DiscardHandler),
 		metrics:        newMetrics(),
 		s2zMap:         fm,
 		lastActivation: map[loadbalancer.ServiceName]time.Time{},
@@ -181,7 +180,7 @@ func TestPeriodicActivationsHoldDemandAcrossScans(t *testing.T) {
 	noConns := map[loadbalancer.ServiceID]int{}
 
 	// Six rate-limit intervals of traffic, with a scan landing between signals.
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		at := start.Add(time.Duration(i) * scanInterval)
 		c.activate(fm.Tracked(), 7, at)            // datapath re-signal
 		c.publishDemand(fm.Tracked(), noConns, at) // scan sees no open conns

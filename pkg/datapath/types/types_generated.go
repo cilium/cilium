@@ -844,6 +844,19 @@ type RemoteEndpointInfo struct {
 	_   [1]byte
 }
 
+// ScaleToZeroKey is generated from the BPF C type scale_to_zero_key.
+type ScaleToZeroKey struct {
+	_     structs.HostLayout
+	SvcID uint16
+	Pad   uint16
+}
+
+// ScaleToZeroValue is generated from the BPF C type scale_to_zero_value.
+type ScaleToZeroValue struct {
+	_          structs.HostLayout
+	LastEmitNs uint64
+}
+
 // SkipLB4Key is generated from the BPF C type skip_lb4_key.
 type SkipLB4Key struct {
 	_           structs.HostLayout
