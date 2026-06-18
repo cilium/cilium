@@ -262,6 +262,8 @@ type Selector interface {
 	GetCIDRPrefixes() []netip.Prefix
 
 	MetricsClass() string
+
+	MarshalJSON() ([]byte, error)
 }
 
 // +deepequal-gen=true

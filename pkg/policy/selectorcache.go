@@ -316,8 +316,12 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 		for i := range selections {
 			ids = append(ids, int64(selections[i]))
 		}
+		s := key
+		if b, err := sel.source.MarshalJSON(); err == nil {
+			s = string(b)
+		}
 		selMdl := &models.SelectorIdentityMapping{
-			Selector:   key,
+			Selector:   s,
 			Identities: ids,
 			Users:      int64(sel.numUsers()),
 			Labels:     labelArrayListToModel(sel.GetMetadataLabels()),
