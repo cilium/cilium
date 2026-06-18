@@ -304,6 +304,11 @@ func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg
 	devCfg.vlan = cfg.Vlan
 
 	if cfg.NetworkConfig == "" {
+		if cfg.IPPool != "" {
+			v4NetMask := netip.IPv4Unspecified().BitLen()
+			v6NetMask := netip.IPv6Unspecified().BitLen()
+			return devCfg, driver.allocateAddressesForDevice(ctx, &devCfg, device, cfg.IPPool, v4NetMask, v6NetMask)
+		}
 		return devCfg, nil
 	}
 
@@ -348,25 +353,42 @@ func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg
 	v6FromPool := !cfg.IPv6Addr.IsValid() && pool != "" && driver.ipv6Enabled
 
 	if v4FromPool || v6FromPool {
-		devCfg.ipPool = pool
-
-		v4PoolAddr, v6PoolAddr, err := driver.addrsForDevice(ctx, device, ipam.Pool(pool), v4FromPool, v6FromPool)
-
-		// persist allocated addresses into device config even in case of error:
-		// this way the addresses will be released during rollback, if needed
-		if v4FromPool {
-			devCfg.ipv4 = netip.PrefixFrom(v4PoolAddr, targetCfg.IPv4NetMask)
-		}
-		if v6FromPool {
-			devCfg.ipv6 = netip.PrefixFrom(v6PoolAddr, targetCfg.IPv6NetMask)
-		}
-
-		if err != nil {
+		if err := driver.allocateAddressesForDevice(ctx, &devCfg, device, pool, targetCfg.IPv4NetMask, targetCfg.IPv6NetMask); err != nil {
 			return devCfg, err
 		}
 	}
 
 	return devCfg, nil
+}
+
+func (driver *Driver) allocateAddressesForDevice(
+	ctx context.Context,
+	devCfg *netDevConfig,
+	device string,
+	pool string,
+	v4NetMask int,
+	v6NetMask int,
+) error {
+	v4FromPool := !devCfg.ipv4.IsValid() && driver.ipv4Enabled
+	v6FromPool := !devCfg.ipv6.IsValid() && driver.ipv6Enabled
+	if !v4FromPool && !v6FromPool {
+		return nil
+	}
+
+	devCfg.ipPool = pool
+
+	v4PoolAddr, v6PoolAddr, err := driver.addrsForDevice(ctx, device, ipam.Pool(pool), v4FromPool, v6FromPool)
+
+	// Persist allocated addresses into device config even in case of error:
+	// this way the addresses will be released during rollback, if needed.
+	if v4FromPool {
+		devCfg.ipv4 = netip.PrefixFrom(v4PoolAddr, v4NetMask)
+	}
+	if v6FromPool {
+		devCfg.ipv6 = netip.PrefixFrom(v6PoolAddr, v6NetMask)
+	}
+
+	return err
 }
 
 func (driver *Driver) addrsForDevice(ctx context.Context, device string, pool ipam.Pool, v4Needed, v6Needed bool) (netip.Addr, netip.Addr, error) {
