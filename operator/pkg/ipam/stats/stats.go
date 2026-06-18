@@ -17,11 +17,8 @@ type InterfaceStats struct {
 	// for IPv4 address allocation.
 	RemainingAvailableInterfaceCount int
 
-	// NodeIPv6Capacity is the current inferred total capacity for a Node to schedule
-	// IPv6 addresses.
-	//
-	// This does not account for currently used addresses.
-	NodeIPv6Capacity int
+	// NodeIPv6Prefixes is the current number of IPv6 prefixes available on the node.
+	NodeIPv6Prefixes int
 
 	// RemainingAvailableIPv6InterfaceCount is the number of interfaces currently available
 	// for IPv6 address allocation.

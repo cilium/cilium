@@ -99,7 +99,10 @@ type Node struct {
 	// ipv4Alloc represents IPv4-specific allocation attributes for this node
 	ipv4Alloc ipAllocAttrs
 
-	// TODO: Add support for IPv6 allocation: https://github.com/cilium/cilium/issues/19251
+	// waitingForPoolMaintenance is true when the node is subject to an
+	// IP address allocation or release which must be performed before
+	// another allocation or release can be attempted
+	waitingForPoolMaintenance bool
 
 	// resyncNeeded is set to the current time when a resync with the
 	// instances API is required. The timestamp is required to ensure that this is
@@ -155,11 +158,6 @@ type Node struct {
 
 // ipAllocAttrs represents IP-specific allocation attributes.
 type ipAllocAttrs struct {
-	// waitingForPoolMaintenance is true when the node is subject to an
-	// IP address allocation or release which must be performed before
-	// another allocation or release can be attempted
-	waitingForPoolMaintenance bool
-
 	// available is the map of IP addresses available to this node
 	available ipamTypes.AllocationMap
 
@@ -197,6 +195,12 @@ type IPStatistics struct {
 	// AvailableIPs is the number of IPs currently allocated and available for assignment.
 	AvailableIPs int
 
+	// AvailablePrefixes is the number of IP prefixes currently allocated and
+	// available for assignment. (Used for IPv6 prefixes)
+	// Since IPv6 prefixes are very large it does not make sense to keep track of
+	// the effective number of IPv6 addresses available for assignment.
+	AvailablePrefixes int
+
 	// Capacity is the max inferred IPAM IP capacity for the node.
 	// In theory, this provides an upper limit on the number of Cilium IPs that
 	// this Node can support.
@@ -205,6 +209,11 @@ type IPStatistics struct {
 	// NeededIPs is the number of IPs needed to reach the PreAllocate
 	// watermark
 	NeededIPs int
+
+	// NeededPrefixes is the number of prefixes needed.
+	//
+	// Used for IPv6 prefixes
+	NeededPrefixes int
 
 	// ExcessIPs is the number of free IPs exceeding MaxAboveWatermark
 	ExcessIPs int
@@ -310,14 +319,14 @@ func (n *Node) getMaxAllocate() int {
 func (n *Node) getStaticIPTags() ipamTypes.Tags {
 	if n.resource.Spec.IPAM.StaticIPTags != nil {
 		return n.resource.Spec.IPAM.StaticIPTags
-	} else {
-		return ipamTypes.Tags{}
 	}
+	return ipamTypes.Tags{}
 }
 
 // GetNeededAddresses returns the number of needed addresses that need to be
 // allocated or released. A positive number is returned to indicate allocation.
 // A negative number is returned to indicate release of addresses.
+// This only checks IPv4 since IPv6 subnets rarely reach exhaustion
 func (n *Node) GetNeededAddresses() int {
 	stats := n.Stats()
 
@@ -355,12 +364,8 @@ func getPendingPodCount(nodeName string) (int, error) {
 	return pendingPods, nil
 }
 
-func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAllocate int) (neededIPs int) {
-	neededIPs = preAllocate - (availableIPs - usedIPs)
-
-	if minAllocate > 0 {
-		neededIPs = max(neededIPs, minAllocate-availableIPs)
-	}
+func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAllocate int) int {
+	neededIPs := max(preAllocate+usedIPs-availableIPs, minAllocate-availableIPs)
 
 	// If maxAllocate is set (> 0) and neededIPs is higher than the
 	// maxAllocate value, we only return the amount of IPs that can
@@ -369,10 +374,7 @@ func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAllo
 		neededIPs = maxAllocate - availableIPs
 	}
 
-	if neededIPs < 0 {
-		neededIPs = 0
-	}
-	return
+	return max(neededIPs, 0)
 }
 
 func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAboveWatermark int) (excessIPs int) {
@@ -404,17 +406,17 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 	return
 }
 
-// poolRequestedIPv4 returns the total IPv4 address demand from the "default"
-// pool in Spec.IPAM.Pools.Requested, if present. This field is written by
-// agents using the multi-pool allocator. Agents using the CRD allocator do
-// not populate this field.
-func poolRequestedIPv4(resource *v2.CiliumNode) (int, bool) {
+// poolRequestedIPs returns the total IPv4 and IPv6 address demand from the
+// "default" pool in Spec.IPAM.Pools.Requested, if present. This field is
+// written by agents using the multi-pool allocator. Agents using the CRD
+// allocator do not populate this field.
+func poolRequestedIPs(resource *v2.CiliumNode) (int, int, bool) {
 	for _, req := range resource.Spec.IPAM.Pools.Requested {
 		if req.Pool == defaults.IPAMDefaultIPPool {
-			return req.Needed.IPv4Addrs, true
+			return req.Needed.IPv4Addrs, req.Needed.IPv6Addrs, true
 		}
 	}
-	return 0, false
+	return 0, 0, false
 }
 
 // isMultiPoolNodeLocked returns true if this node's agent uses the multi-pool
@@ -426,7 +428,7 @@ func (n *Node) isMultiPoolNodeLocked() bool {
 	if n.resource == nil {
 		return false
 	}
-	_, hasPoolRequest := poolRequestedIPv4(n.resource)
+	_, _, hasPoolRequest := poolRequestedIPs(n.resource)
 	return hasPoolRequest && len(n.resource.Status.IPAM.Used) == 0
 }
 
@@ -454,7 +456,7 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 	now := time.Now()
 
 	if n.previousAllocatedCIDRs == nil {
-		// Seed: mark any CIDR attached on the ENI but missing from
+		// Seed: mark any IPv4 CIDR attached on the ENI but missing from
 		// Allocated. Recovers releases that would otherwise be lost
 		// across operator restart (the agent removed the CIDR while
 		// the operator was down, so there is no transition to observe
@@ -464,7 +466,7 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 		// excessIPReleaseDelay, and the reconciliation loop below will
 		// clear them from the marked map before any EC2 call happens.
 		for _, cidr := range attachedCIDRs {
-			if !currentCIDRs.Has(cidr) {
+			if cidr.Addr().Is4() && !currentCIDRs.Has(cidr) {
 				n.multiPoolCIDRsMarkedForRelease[cidr] = now
 				n.logger.Load().Debug("Marking CIDR for release at seed", logfields.CIDR, cidr)
 			}
@@ -474,7 +476,7 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 	}
 
 	for cidr := range n.previousAllocatedCIDRs {
-		if !currentCIDRs.Has(cidr) {
+		if cidr.Addr().Is4() && !currentCIDRs.Has(cidr) {
 			if _, already := n.multiPoolCIDRsMarkedForRelease[cidr]; !already {
 				n.multiPoolCIDRsMarkedForRelease[cidr] = now
 				n.logger.Load().Debug("Marking CIDR for release", logfields.CIDR, cidr)
@@ -577,13 +579,13 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 
 func (n *Node) requirePoolMaintenance() {
 	n.mutex.Lock()
-	n.ipv4Alloc.waitingForPoolMaintenance = true
+	n.waitingForPoolMaintenance = true
 	n.mutex.Unlock()
 }
 
 func (n *Node) poolMaintenanceComplete() {
 	n.mutex.Lock()
-	n.ipv4Alloc.waitingForPoolMaintenance = false
+	n.waitingForPoolMaintenance = false
 	n.mutex.Unlock()
 }
 
@@ -675,6 +677,7 @@ func (n *Node) recalculate(ctx context.Context) {
 	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
 	n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
 	n.stats.IPv4.Capacity = stats.NodeCapacity
+	n.stats.IPv6.AvailablePrefixes = stats.NodeIPv6Prefixes
 
 	// Starting with 1.20, agents use the multi-pool allocator in ENI IPAM mode
 	// and write their demand to Spec.IPAM.Pools.Requested (and stop writing
@@ -686,10 +689,17 @@ func (n *Node) recalculate(ctx context.Context) {
 	// Both those logic branches exist in order to offer a smooth upgrade/downgrade path
 	// between 1.19 and 1.20: an operator upgraded to 1.20 will still honor the API
 	// contract expected by 1.19 agents.
-	if requested, ok := poolRequestedIPv4(n.resource); ok && len(n.resource.Status.IPAM.Used) == 0 {
+	if requestedIPv4, requestedIPv6, ok := poolRequestedIPs(n.resource); ok && len(n.resource.Status.IPAM.Used) == 0 {
 		// The agent's demand is computed as inUse + preAllocate (linear
 		// pre-allocation). Subtracting preAllocate recovers exact usage.
-		n.stats.IPv4.UsedIPs = max(0, requested-n.getPreAllocate())
+		n.stats.IPv4.UsedIPs = max(0, requestedIPv4-n.getPreAllocate())
+		// If the agent uses IPv6 and no IPv6 prefix is available on the
+		// node, request one. A single prefix is enough and is never
+		// released, so reset to 0 once a prefix is present.
+		n.stats.IPv6.NeededPrefixes = 0
+		if requestedIPv6 > 0 && n.stats.IPv6.AvailablePrefixes == 0 {
+			n.stats.IPv6.NeededPrefixes = 1
+		}
 	} else {
 		n.stats.IPv4.UsedIPs = len(n.resource.Status.IPAM.Used)
 	}
@@ -699,11 +709,13 @@ func (n *Node) recalculate(ctx context.Context) {
 	scopedLog.Debug(
 		"Recalculated needed addresses",
 		logfields.Available, n.stats.IPv4.AvailableIPs,
+		logfields.AvailableIPv6Prefixes, n.stats.IPv6.AvailablePrefixes,
 		logfields.Capacity, n.stats.IPv4.Capacity,
 		logfields.Used, n.stats.IPv4.UsedIPs,
 		logfields.ToAllocate, n.stats.IPv4.NeededIPs,
 		logfields.ToRelease, n.stats.IPv4.ExcessIPs,
-		logfields.WaitingForPoolMaintenance, n.ipv4Alloc.waitingForPoolMaintenance,
+		logfields.NeededIPv6Prefixes, n.stats.IPv6.NeededPrefixes,
+		logfields.WaitingForPoolMaintenance, n.waitingForPoolMaintenance,
 		logfields.ResyncNeeded, n.resyncNeeded,
 		logfields.RemainingInterfaces, stats.RemainingAvailableInterfaceCount,
 	)
@@ -714,7 +726,7 @@ func (n *Node) allocationNeeded() bool {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
-	if n.ipv4Alloc.waitingForPoolMaintenance {
+	if n.waitingForPoolMaintenance {
 		return false
 	}
 
@@ -722,21 +734,17 @@ func (n *Node) allocationNeeded() bool {
 		return false
 	}
 
-	if n.stats.IPv4.NeededIPs > 0 {
-		return true
-	}
-
 	if len(n.getStaticIPTags()) > 0 && n.stats.IPv4.AssignedStaticIP == "" {
 		return true
 	}
 
-	return false
+	return n.stats.IPv4.NeededIPs > 0 || n.stats.IPv6.NeededPrefixes > 0
 }
 
 // releaseNeeded returns true if this node requires IPs to be released
 func (n *Node) releaseNeeded() (needed bool) {
 	n.mutex.RLock()
-	needed = n.manager.releaseExcessIPs && !n.ipv4Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.ExcessIPs > 0
+	needed = n.manager.releaseExcessIPs && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.ExcessIPs > 0
 	if n.resource != nil {
 		releaseInProgress := len(n.resource.Status.IPAM.ReleaseIPs) > 0
 		needed = needed || releaseInProgress
@@ -834,6 +842,9 @@ type AllocationAction struct {
 
 	// IPv4 represents IPv4-specific allocation actions.
 	IPv4 IPAllocationAction
+
+	// IPv6 represents IPv6-specific allocation actions.
+	IPv6 IPAllocationAction
 }
 
 // IPAllocationAction is the IP-specific action to be taken to resolve allocation deficits
@@ -851,6 +862,11 @@ type IPAllocationAction struct {
 	// defined by NodeOperations.{ MinAllocate() | PreAllocate() |
 	// getMaxAboveWatermark() }.
 	MaxIPsToAllocate int
+
+	// MaxPrefixesToAllocate is set by the core IPAM layer before
+	// NodeOperations.AllocateIPs() is called and defines the maximum
+	// number of prefixes to allocate.
+	MaxPrefixesToAllocate int
 
 	// InterfaceCandidates is the number of attached interfaces with IPs
 	// available for allocation.
@@ -922,7 +938,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 
 	// Validate that the node still requires addresses to be allocated, the
 	// request may have been resolved in the meantime.
-	if stats.IPv4.NeededIPs == 0 {
+	if stats.IPv4.NeededIPs == 0 && stats.IPv6.NeededPrefixes == 0 {
 		return nil, nil
 	}
 
@@ -950,27 +966,25 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	a.allocation.IPv4.MaxIPsToAllocate = stats.IPv4.NeededIPs + n.getMaxAboveWatermark() + surgeAllocate
 	n.mutex.RUnlock()
 
-	scopedLog := n.logger.Load()
-	if a.allocation != nil {
-		n.mutex.Lock()
-		n.stats.IPv4.RemainingInterfaces = a.allocation.IPv4.InterfaceCandidates + a.allocation.EmptyInterfaceSlots
-		stats = n.stats
-		n.mutex.Unlock()
-		scopedLog = n.logger.Load().With(
-			logfields.SelectedInterface, a.allocation.InterfaceID,
-			logfields.SelectedPoolID, a.allocation.PoolID,
-			logfields.MaxIPsToAllocate, a.allocation.IPv4.MaxIPsToAllocate,
-			logfields.AvailableForAllocation, a.allocation.IPv4.AvailableForAllocation,
-			logfields.EmptyInterfaceSlots, a.allocation.EmptyInterfaceSlots,
-		)
-	}
+	a.allocation.IPv6.MaxPrefixesToAllocate = stats.IPv6.NeededPrefixes
 
-	scopedLog.Info(
+	n.mutex.Lock()
+	n.stats.IPv4.RemainingInterfaces = a.allocation.IPv4.InterfaceCandidates + a.allocation.EmptyInterfaceSlots
+	stats = n.stats
+	n.mutex.Unlock()
+
+	n.logger.Load().Info(
 		"Resolving IP deficit of node",
 		logfields.Available, stats.IPv4.AvailableIPs,
 		logfields.Used, stats.IPv4.UsedIPs,
 		logfields.NeededIPs, stats.IPv4.NeededIPs,
+		logfields.NeededIPv6Prefixes, stats.IPv6.NeededPrefixes,
 		logfields.RemainingInterfaces, stats.IPv4.RemainingInterfaces,
+		logfields.SelectedInterface, a.allocation.InterfaceID,
+		logfields.SelectedPoolID, a.allocation.PoolID,
+		logfields.MaxIPsToAllocate, a.allocation.IPv4.MaxIPsToAllocate,
+		logfields.AvailableForAllocation, a.allocation.IPv4.AvailableForAllocation,
+		logfields.EmptyInterfaceSlots, a.allocation.EmptyInterfaceSlots,
 	)
 
 	return a, nil
@@ -1204,7 +1218,7 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 	}
 
 	// Assign needed addresses
-	if a.allocation.IPv4.AvailableForAllocation > 0 {
+	if a.allocation.IPv4.AvailableForAllocation > 0 || a.allocation.IPv6.MaxPrefixesToAllocate > 0 {
 		a.allocation.IPv4.AvailableForAllocation = min(a.allocation.IPv4.AvailableForAllocation, a.allocation.IPv4.MaxIPsToAllocate)
 
 		start := time.Now()
