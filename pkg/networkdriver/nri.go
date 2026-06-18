@@ -167,13 +167,14 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 						return fmt.Errorf("failed to set interface name: %w", err)
 					}
 
+					if err := netlink.LinkSetUp(l); err != nil {
+						return err
+					}
+
 					if err := driver.configureIPs(l, add, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
 						return err
 					}
 					if err := driver.configureRoutes(log, l, add, a.Config.Routes); err != nil {
-						return err
-					}
-					if err := netlink.LinkSetUp(l); err != nil {
 						return err
 					}
 
@@ -245,6 +246,12 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 		for _, devices := range alloc {
 			if err := podNs.Do(func() error {
 				for _, a := range devices {
+					if a.Manager == types.DeviceManagerTypeMacvlan {
+						// macvlan does not need cleaning up - netns delete
+						// gets rid of it.
+						continue
+					}
+
 					// Determine the interface name in the pod namespace
 					ifName := a.Device.KernelIfName()
 					if a.Config.PodIfName != "" {
