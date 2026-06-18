@@ -182,6 +182,9 @@ jobs:
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/cilium-newest/install/kubernetes/cilium
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
+          image-pull-secret: "cilium-registry"
 
       - name: Get connectivity test flags
         id: e2e_config
@@ -290,6 +293,16 @@ jobs:
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Create imagePullSecrets
+        run: |
+          for context in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+            kubectl --context $context create secret docker-registry cilium-registry \
+              --namespace kube-system \
+              --docker-server=${{ vars.DOCKER_READ_HOST }} \
+              --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+              --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
+          done
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@2c40f81b9180be6a5e52b8caf7f1de75202ec0fc # v0.19.4
@@ -430,6 +443,9 @@ jobs:
         with:
           image-tag: ${{ steps.downgrade-branch.outputs.sha }}
           chart-dir: ./untrusted/cilium-downgrade/install/kubernetes/cilium
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
+          image-pull-secret: "cilium-registry"
 
       - name: Wait for images to be available (downgrade)
         timeout-minutes: 10
