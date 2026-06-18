@@ -89,4 +89,4 @@ Installation
             $ cilium status
 
 It is also recommended that you :ref:`install Hubble CLI<hubble_cli_install>`
-which will be used used to observe the traffic in later steps.
+which will be used to observe the traffic in later steps.
