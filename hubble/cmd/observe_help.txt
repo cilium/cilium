@@ -72,9 +72,11 @@ Filters Flags:
       --node-label filter                   Show only flows observed on nodes matching the given label filter (e.g. "key1=value1", "io.cilium/egress-gateway")
       --node-name filter                    Show all flows which match the given node names (e.g. "k8s*", "test-cluster/*.company.com")
       --not filter[=true]                   Reverses the next filter to be blacklist i.e. --not --from-ip 2.2.2.2
+      --not-reply filter[=true]             Show only non-reply flows
       --pod filter                          Show all flows related to the given pod name prefix ([namespace/]<pod-name>). If namespace is not provided, 'default' is used.
       --port filter                         Show only flows with given port in either source or destination (e.g. 8080)
       --protocol filter                     Show only flows which match the given L4/L7 flow protocol (e.g. "udp", "http")
+      --reply filter[=true]                 Show only reply flows
       --service filter                      Shows flows where either the source or destination IP address matches the ClusterIP address of the given service name prefix ([namespace/]<svc-name>). If namespace is not provided, 'default' is used. 
       --snat-ip filter                      Show all flows SNATed with the given IP address. Each of the SNAT IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
       --tcp-flags filter                    Show only flows which match the given TCP flags (e.g. "syn", "ack", "fin")
