@@ -5,12 +5,14 @@ package clustermesh
 
 import (
 	"iter"
+	"log/slog"
 
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -21,24 +23,32 @@ func injectSelectBackends(cm *ClusterMesh, expCfg loadbalancer.Config, w *writer
 		// ClusterMesh disabled, do not change the backend selection.
 		return
 	}
-	w.SetSelectBackendsFunc(NewClusterMeshSelectBackends(w).SelectBackends)
+	w.SetSelectBackendsFunc(NewClusterMeshSelectBackends(w, cm.conf.Logger).SelectBackends)
 }
 
 type ClusterMeshSelectBackends struct {
-	w *writer.Writer
+	w   *writer.Writer
+	log *slog.Logger
 }
 
 // NewClusterMeshSelectBackends returns a reusable selector wrapper for the
 // ClusterMesh ServiceAffinity and IncludeExternal backend selection policy.
 // This allows other packages to compose the ClusterMesh behavior instead of
 // duplicating it.
-func NewClusterMeshSelectBackends(w *writer.Writer) ClusterMeshSelectBackends {
-	return ClusterMeshSelectBackends{w: w}
+func NewClusterMeshSelectBackends(w *writer.Writer, log *slog.Logger) ClusterMeshSelectBackends {
+	return ClusterMeshSelectBackends{w: w, log: log}
 }
 
 func (sb ClusterMeshSelectBackends) SelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadbalancer.Backend, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[*loadbalancer.Backend, statedb.Revision] {
 	defaultBackends := sb.w.DefaultSelectBackends(txn, bes, svc, optionalFrontend)
-	affinity := annotation.GetAnnotationServiceAffinity(svc)
+	affinity, err := annotation.GetAnnotationServiceAffinity(svc)
+	if err != nil {
+		sb.log.Warn("Ignoring annotation",
+			logfields.Service, svc.Name.Name(),
+			logfields.K8sNamespace, svc.Name.Namespace(),
+			logfields.Error, err,
+		)
+	}
 
 	useLocal := true
 	localActiveBackends := 0

@@ -67,25 +67,49 @@ func TestGetAnnotationServiceAffinity(t *testing.T) {
 	obj := &object{
 		Annotations: map[string]string{GlobalService: "true", ServiceAffinity: "local"},
 	}
-	require.Equal(t, ServiceAffinityLocal, GetAnnotationServiceAffinity(obj))
+	affinity, err := GetAnnotationServiceAffinity(obj)
+	require.NoError(t, err)
+	require.Equal(t, ServiceAffinityLocal, affinity)
 
 	obj = &object{
 		Annotations: map[string]string{GlobalService: "true", ServiceAffinity: "remote"},
 	}
-	require.Equal(t, ServiceAffinityRemote, GetAnnotationServiceAffinity(obj))
+	affinity, err = GetAnnotationServiceAffinity(obj)
+	require.NoError(t, err)
+	require.Equal(t, ServiceAffinityRemote, affinity)
 
 	obj = &object{
 		Annotations: map[string]string{GlobalService: "true", ServiceAffinityAlias: "local"},
 	}
-	require.Equal(t, ServiceAffinityLocal, GetAnnotationServiceAffinity(obj))
+	affinity, err = GetAnnotationServiceAffinity(obj)
+	require.NoError(t, err)
+	require.Equal(t, ServiceAffinityLocal, affinity)
 
 	obj = &object{
 		Annotations: map[string]string{ServiceAffinity: "remote"},
 	}
-	require.Equal(t, ServiceAffinityNone, GetAnnotationServiceAffinity(obj))
+	affinity, err = GetAnnotationServiceAffinity(obj)
+	require.NoError(t, err)
+	require.Equal(t, ServiceAffinityNone, affinity)
 
 	obj = &object{
 		Annotations: map[string]string{},
 	}
-	require.Equal(t, ServiceAffinityNone, GetAnnotationServiceAffinity(obj))
+	affinity, err = GetAnnotationServiceAffinity(obj)
+	require.NoError(t, err)
+	require.Equal(t, ServiceAffinityNone, affinity)
+
+	obj = &object{
+		Annotations: map[string]string{GlobalService: "true", ServiceAffinity: "none"},
+	}
+	affinity, err = GetAnnotationServiceAffinity(obj)
+	require.NoError(t, err)
+	require.Equal(t, ServiceAffinityNone, affinity)
+
+	obj = &object{
+		Annotations: map[string]string{GlobalService: "true", ServiceAffinity: "invalid_value"},
+	}
+	affinity, err = GetAnnotationServiceAffinity(obj)
+	require.Error(t, err)
+	require.Equal(t, ServiceAffinityNone, affinity)
 }

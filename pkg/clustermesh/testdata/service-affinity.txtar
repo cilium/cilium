@@ -35,6 +35,16 @@ db/cmp frontends frontends-local.table
 kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
 db/cmp frontends frontends-remote.table
 
+# Flip affinity to "none". Both local and remote are used.
+sed 'affinity: "remote"' 'affinity: "none"' service.yaml
+k8s/update service.yaml
+db/cmp frontends frontends-all.table
+
+# Set an invalid affinity value. Treated as none.
+sed 'affinity: "none"' 'affinity: "invalid_value"' service.yaml
+k8s/update service.yaml
+db/cmp frontends frontends-all.table
+
 # Remove affinity. Now both local and remote are used.
 sed 'affinity:' 'affinity-nope:' service.yaml
 k8s/update service.yaml
