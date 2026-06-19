@@ -11,7 +11,9 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -113,6 +115,43 @@ func TestLocalNodeStore(t *testing.T) {
 	// states may get skipped.
 	assert.NotEmpty(t, observed)
 	assert.Subset(t, expected, observed)
+}
+
+func TestWaitForLocalNodeInit(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+
+	wtxn := db.WriteTxn(nodes)
+	localInitDone := nodes.RegisterInitializer(wtxn, LocalNodeTableInitializerName)
+	otherInitDone := nodes.RegisterInitializer(wtxn, "other")
+	wtxn.Commit()
+
+	pending := nodes.PendingInitializers(db.ReadTxn())
+	require.Contains(t, pending, LocalNodeTableInitializerName)
+	require.Contains(t, pending, "other")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	_, err = WaitForLocalNodeInit(ctx, db, nodes)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	wtxn = db.WriteTxn(nodes)
+	localInitDone(wtxn)
+	wtxn.Commit()
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	txn, err := WaitForLocalNodeInit(ctx, db, nodes)
+	require.NoError(t, err)
+
+	pending = nodes.PendingInitializers(txn)
+	require.NotContains(t, pending, LocalNodeTableInitializerName)
+	require.Contains(t, pending, "other")
+
+	wtxn = db.WriteTxn(nodes)
+	otherInitDone(wtxn)
+	wtxn.Commit()
 }
 
 func BenchmarkLocalNodeStoreGet(b *testing.B) {

@@ -17,11 +17,15 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
-// LocalNode is the local Cilium node. This is derived from the k8s corev1.Node object.
+// LocalNode is an alias for the [Node] type to mark that we expect this
+// to be the local node.
+type LocalNode = Node
+
+// Node is a Cilium node. It is the local node if [Node.Local] is non-nil.
 //
 // +k8s:deepcopy-gen=true
 // +deepequal-gen=true
-type LocalNode struct {
+type Node struct {
 	types.Node
 
 	// Local is non-nil if this is the local node. This carries additional
@@ -30,7 +34,7 @@ type LocalNode struct {
 }
 
 // TableHeader implements statedb.TableWritable.
-func (n *LocalNode) TableHeader() []string {
+func (n *Node) TableHeader() []string {
 	return []string{
 		"Name",
 		"Source",
@@ -39,7 +43,7 @@ func (n *LocalNode) TableHeader() []string {
 }
 
 // TableRow implements statedb.TableWritable.
-func (n *LocalNode) TableRow() []string {
+func (n *Node) TableRow() []string {
 	addrs := make([]string, len(n.IPAddresses))
 	for i := range n.IPAddresses {
 		addrs[i] = string(n.IPAddresses[i].Type) + ":" + n.IPAddresses[i].ToString()
@@ -52,7 +56,7 @@ func (n *LocalNode) TableRow() []string {
 	}
 }
 
-var _ statedb.TableWritable = &LocalNode{}
+var _ statedb.TableWritable = &Node{}
 
 // LocalNodeInfo is the additional information about the local node that
 // is only used internally.
@@ -127,11 +131,11 @@ func (in *LocalNodeInfo) DeepEqual(other *LocalNodeInfo) bool {
 }
 
 const (
-	LocalNodeTableName = "local-node"
+	NodeTableName = "nodes"
 )
 
 var (
-	LocalNodeNameIndex = statedb.Index[*LocalNode, string]{
+	NodeNameIndex = statedb.Index[*Node, string]{
 		Name: "name",
 		FromObject: func(obj *LocalNode) index.KeySet {
 			return index.NewKeySet(index.String(obj.Fullname()))
@@ -140,9 +144,9 @@ var (
 		FromString: index.FromString,
 		Unique:     true,
 	}
-	NodeByName = LocalNodeNameIndex.Query
+	NodeByName = NodeNameIndex.Query
 
-	LocalNodeLocalIndex = statedb.Index[*LocalNode, bool]{
+	NodeLocalIndex = statedb.Index[*Node, bool]{
 		Name: "local",
 		FromObject: func(obj *LocalNode) index.KeySet {
 			if obj.Local == nil {
@@ -156,15 +160,15 @@ var (
 		Unique:     true,
 	}
 
-	NodeByLocal    = LocalNodeLocalIndex.Query
+	NodeByLocal    = NodeLocalIndex.Query
 	LocalNodeQuery = NodeByLocal(true)
 )
 
-func NewLocalNodeTable(db *statedb.DB) (statedb.RWTable[*LocalNode], error) {
+func NewNodeTable(db *statedb.DB) (statedb.RWTable[*Node], error) {
 	return statedb.NewTable(
 		db,
-		LocalNodeTableName,
-		LocalNodeNameIndex,
-		LocalNodeLocalIndex,
+		NodeTableName,
+		NodeNameIndex,
+		NodeLocalIndex,
 	)
 }
