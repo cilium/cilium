@@ -709,6 +709,9 @@ func (ct *ConnectivityTest) forceDeploy(ctx context.Context) error {
 		if err := ct.DeleteCCNPTestEnv(ctx, client); err != nil {
 			return err
 		}
+		if err := ct.DeleteNonGlobalNSTestEnv(ctx, client); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -954,6 +957,91 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 	return nil
 }
 
+const (
+	NonGlobalNSName      = "cilium-test-ns-not-global"
+	NonGlobalDenyNSName  = "cilium-test-ns-not-global-denied"
+	NonGlobalServerName  = "server-non-global"
+	NonGlobalClientName  = "client-non-global"
+	NonGlobalServiceName = "echo-non-global"
+	NonGlobalPort        = 8080
+)
+
+func (ct *ConnectivityTest) deployNonGlobalNS(ctx context.Context, ns string) error {
+	clients := ct.Clients()
+	if len(clients) < 2 {
+		return fmt.Errorf("non-global namespace test requires at least 2 clusters")
+	}
+	localClient, remoteClient := clients[0], clients[1]
+
+	for _, client := range clients {
+		if _, err := client.GetNamespace(ctx, ns, metav1.GetOptions{}); err != nil {
+			ct.Logf("✨ [%s] Creating non-global namespace %s...", client.ClusterName(), ns)
+			nsObj := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name:        ns,
+				Annotations: map[string]string{annotation.GlobalNamespace: "false"},
+			}}
+			if _, err = client.CreateNamespace(ctx, nsObj, metav1.CreateOptions{}); err != nil {
+				return fmt.Errorf("unable to create namespace %s: %w", ns, err)
+			}
+		}
+	}
+
+	if err := deployNonGlobalWorkload(ctx, ct, remoteClient, ns, NonGlobalServerName, kindEchoName, true); err != nil {
+		return err
+	}
+	if err := deployNonGlobalWorkload(ctx, ct, localClient, ns, NonGlobalClientName, kindClientName, false); err != nil {
+		return err
+	}
+
+	for _, client := range clients {
+		if _, err := client.GetService(ctx, ns, NonGlobalServiceName, metav1.GetOptions{}); err != nil {
+			ct.Logf("✨ [%s] Deploying %s service in namespace %s...", client.ClusterName(), NonGlobalServiceName, ns)
+			svc := newService(NonGlobalServiceName, map[string]string{"name": NonGlobalServerName}, nil, "http", NonGlobalPort, string(corev1.ServiceTypeClusterIP))
+			svc.ObjectMeta.Annotations = map[string]string{
+				"service.cilium.io/global": "true",
+				"io.cilium/global-service": "true",
+			}
+			if _, err = client.CreateService(ctx, ns, svc, metav1.CreateOptions{}); err != nil {
+				return fmt.Errorf("unable to create service %s: %w", NonGlobalServiceName, err)
+			}
+		}
+	}
+
+	if err := WaitForDeployment(ctx, ct, remoteClient, ns, NonGlobalServerName); err != nil {
+		return err
+	}
+	if err := WaitForDeployment(ctx, ct, localClient, ns, NonGlobalClientName); err != nil {
+		return err
+	}
+	return nil
+}
+
+func deployNonGlobalWorkload(ctx context.Context, ct *ConnectivityTest, client *k8s.Client, ns, name, kind string, isServer bool) error {
+	if _, err := client.GetDeployment(ctx, ns, name, metav1.GetOptions{}); err == nil {
+		return nil
+	}
+	ct.Logf("✨ [%s] Deploying %s in namespace %s...", client.ClusterName(), name, ns)
+	params := deploymentParameters{
+		Name: name,
+		Kind: kind,
+	}
+	if isServer {
+		params.Image = ct.params.JSONMockImage
+		params.Port = NonGlobalPort
+		params.ReadinessProbe = newLocalReadinessProbe(NonGlobalPort, "/")
+	} else {
+		params.Image = ct.params.CurlImage
+		params.Command = []string{"/usr/bin/pause"}
+	}
+	if _, err := client.CreateServiceAccount(ctx, ns, k8s.NewServiceAccount(name), metav1.CreateOptions{}); err != nil {
+		return fmt.Errorf("unable to create service account %s: %w", name, err)
+	}
+	if _, err := client.CreateDeployment(ctx, ns, newDeployment(params), metav1.CreateOptions{}); err != nil {
+		return fmt.Errorf("unable to create deployment %s: %w", name, err)
+	}
+	return nil
+}
+
 func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 
 	for _, namespaceName := range []string{ccnpTestNamespace1, ccnpTestNamespace2} {
@@ -1000,6 +1088,16 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	for _, client := range ct.Clients() {
 		if err := ct.deployNamespace(ctx, client, ct.params.TestNamespace); err != nil {
 			return err
+		}
+	}
+
+	// Deploy the non-global namespace actors (only in the first test namespace
+	// in case of concurrent runs, as the namespaces are shared)
+	if ct.params.MultiCluster != "" && ct.params.TestNamespaceIndex == 0 && versioncheck.MustCompile(">=1.20.0")(ct.CiliumVersion) {
+		for _, ns := range []string{NonGlobalNSName, NonGlobalDenyNSName} {
+			if err := ct.deployNonGlobalNS(ctx, ns); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -2573,6 +2671,24 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 	return nil
 }
 
+func (ct *ConnectivityTest) DeleteNonGlobalNSTestEnv(ctx context.Context, client *k8s.Client) error {
+	for _, ns := range []string{NonGlobalNSName, NonGlobalDenyNSName} {
+		_, err := client.GetNamespace(ctx, ns, metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
+		ct.Logf("⌛ [%s] Waiting for namespace %s to disappear", client.ClusterName(), ns)
+		for err == nil {
+			time.Sleep(time.Second)
+			// Retry the namespace deletion in-case the previous delete was
+			// rejected, i.e. by yahoo/k8s-namespace-guard
+			_ = client.DeleteNamespace(ctx, ns, metav1.DeleteOptions{})
+			_, err = client.GetNamespace(ctx, ns, metav1.GetOptions{})
+		}
+	}
+	return nil
+}
+
 func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context, client *k8s.Client) error {
 	ct.Debugf("🔥 [%s] Deleting test-conn-disrupt deployments...", client.ClusterName())
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
@@ -2647,6 +2763,11 @@ func (ct *ConnectivityTest) CleanupConnectivityTest(ctx context.Context) error {
 		// Delete CCNP test environments
 		if err := ct.DeleteCCNPTestEnv(ctx, client); err != nil {
 			ct.Warnf("[%s] Failed to delete CCNP test environment: %v", client.ClusterName(), err)
+		}
+
+		// Delete non-global namespace test environments
+		if err := ct.DeleteNonGlobalNSTestEnv(ctx, client); err != nil {
+			ct.Warnf("[%s] Failed to delete non-global namespace test environment: %v", client.ClusterName(), err)
 		}
 
 		ct.Logf("✅ [%s] Cleanup complete", client.ClusterName())

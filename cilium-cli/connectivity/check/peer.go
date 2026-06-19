@@ -72,6 +72,18 @@ type Pod struct {
 	Outside bool
 }
 
+// NewPod constructs a Pod peer, allowing tests to build peers for pods they
+// deploy themselves.
+func NewPod(client *k8s.Client, pod *corev1.Pod, scheme, path string, port uint32) Pod {
+	return Pod{
+		K8sClient: client,
+		Pod:       pod,
+		scheme:    scheme,
+		path:      path,
+		port:      port,
+	}
+}
+
 func (p Pod) String() string {
 	return p.Name()
 }
