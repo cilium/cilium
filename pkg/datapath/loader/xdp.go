@@ -231,6 +231,9 @@ func xdpPermutations(spec *ebpf.CollectionSpec) iter.Seq2[int, *ebpf.CollectionS
 func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 	xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec,
 	lnc *config.Config) error {
+	capture := newXDPAttachErrorCapture(logger)
+	defer capture.Close()
+
 	var (
 		obj    xdpObjects
 		commit func() error
@@ -280,6 +283,9 @@ func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 		break
 	}
 	if err != nil {
+		if msg := capture.message(); msg != "" {
+			return fmt.Errorf("attaching XDP program: %w: %s", err, msg)
+		}
 		return fmt.Errorf("attaching XDP program: %w", err)
 	}
 
