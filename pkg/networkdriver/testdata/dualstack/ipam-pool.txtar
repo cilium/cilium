@@ -12,7 +12,7 @@ driver/ipam/restore-finished
 * driver/prepare-resource-claims default/test-pod-test-4d5bl
 
 # Check allocated addresses
-* driver/check-claim-addresses default/test-pod-test-4d5bl test-device test-ip-pool
+* driver/check-claim-addresses default/test-pod-test-4d5bl test-device-1 test-ip-pool
 
 # Check ResourceClaim status redacting transition time and IP addresses
 k8s/get resource.k8s.io.v1.resourceclaims default/test-pod-test-4d5bl -o claim.actual.yaml
@@ -81,9 +81,9 @@ status:
           parameters:
             ip-pool: test-ip-pool
       results:
-      - device: test-device
+      - device: test-device-1
         driver: test.cilium.k8s.io
-        pool: test-device-pool
+        pool: test-device-1-pool
         request: test-request
   reservedFor:
   - resource: pods
@@ -110,9 +110,9 @@ status:
         - test-request
         source: FromClaim
       results:
-      - device: test-device
+      - device: test-device-1
         driver: test.cilium.k8s.io
-        pool: test-device-pool
+        pool: test-device-1-pool
         request: test-request
   devices:
   - conditions:
@@ -130,16 +130,16 @@ status:
         Flags: ""
         HWAddr: ""
         MTU: 0
-        Name: test-device
+        Name: test-device-1
       Manager: '"dummy"'
-    device: test-device
+    device: test-device-1
     driver: test.cilium.k8s.io
     networkData:
-      interfaceName: test-device
+      interfaceName: test-device-1
       ips:
       - <redacted>
       - <redacted>
-    pool: test-device-pool
+    pool: test-device-1-pool
   reservedFor:
   - name: test-pod
     resource: pods

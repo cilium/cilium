@@ -80,8 +80,10 @@ func TestScript(t *testing.T) {
 			defer testutils.GoleakVerifyNone(t)
 
 			const (
-				testDevice = "test-device"
-				testDriver = "test.cilium.k8s.io"
+				testDevice1 = "test-device-1"
+				testDevice2 = "test-device-2"
+				testDevice3 = "test-device-3"
+				testDriver  = "test.cilium.k8s.io"
 			)
 
 			var (
@@ -171,9 +173,9 @@ func TestScript(t *testing.T) {
 						},
 						devices: map[types.DeviceManagerType][]types.Device{
 							types.DeviceManagerTypeDummy: {
-								&dummy.DummyDevice{
-									Name: testDevice,
-								},
+								&dummy.DummyDevice{Name: testDevice1},
+								&dummy.DummyDevice{Name: testDevice2},
+								&dummy.DummyDevice{Name: testDevice3},
 							},
 						},
 						allocations:            make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
