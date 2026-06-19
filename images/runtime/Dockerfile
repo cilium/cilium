@@ -21,9 +21,12 @@ RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
     ./build-gops.sh
-# download-cni.sh will build both archs at the same time
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
-    ./download-cni.sh
+
+ARG TARGETARCH
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
+    --mount=target=/root/.cache,type=cache \
+    --mount=target=/go/pkg/mod,type=cache \
+    ./build-cni.sh
 
 FROM ${UBUNTU_IMAGE} AS rootfs
 
