@@ -345,6 +345,8 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/client_egress_to_cidr*.go @cilium/sig-policy
 /cilium-cli/connectivity/builder/client_egress_to_echo*.go @cilium/sig-policy
 /cilium-cli/connectivity/builder/cluster_entity_multi_cluster.go @cilium/sig-clustermesh
+/cilium-cli/connectivity/builder/clustermesh_* @cilium/sig-clustermesh
+/cilium-cli/connectivity/builder/manifests/clustermesh-* @cilium/sig-clustermesh
 /cilium-cli/connectivity/builder/dns_only.go @cilium/fqdn
 /cilium-cli/connectivity/builder/echo_ingress.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/echo_ingress_auth_always_fail.go @cilium/sig-servicemesh
@@ -368,7 +370,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/ztunnel*.go @cilium/ztunnel
 /cilium-cli/connectivity/perf/** @cilium/sig-scalability
 /cilium-cli/connectivity/tests/bgp.go @cilium/sig-bgp
-/cilium-cli/connectivity/tests/clustermesh-endpointslice-sync.go @cilium/sig-clustermesh
+/cilium-cli/connectivity/tests/clustermesh-* @cilium/sig-clustermesh
 /cilium-cli/connectivity/tests/egressgateway.go @cilium/egress-gateway
 /cilium-cli/connectivity/tests/encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/tests/encryption_v2.go @cilium/sig-encryption
