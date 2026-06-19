@@ -3,7 +3,10 @@
 
 package annotation
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	ServiceAffinityNone   = ""
@@ -33,15 +36,24 @@ func GetAnnotationShared(obj annotatedObject) bool {
 	return true
 }
 
-func GetAnnotationServiceAffinity(obj annotatedObject) string {
+func GetAnnotationServiceAffinity(obj annotatedObject) (string, error) {
 	// The ServiceAffinity annotation is ignored if the service is not declared as global.
 	if !GetAnnotationIncludeExternal(obj) {
-		return ServiceAffinityNone
+		return ServiceAffinityNone, nil
 	}
 
 	if value, ok := Get(obj, ServiceAffinity, ServiceAffinityAlias); ok {
-		return strings.ToLower(value)
+		switch strings.ToLower(value) {
+		case "none", "":
+			return ServiceAffinityNone, nil
+		case "local":
+			return ServiceAffinityLocal, nil
+		case "remote":
+			return ServiceAffinityRemote, nil
+		default:
+			return ServiceAffinityNone, fmt.Errorf("unrecognized service affinity value: %q", value)
+		}
 	}
 
-	return ServiceAffinityNone
+	return ServiceAffinityNone, nil
 }
