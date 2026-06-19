@@ -16,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/lookup"
@@ -36,7 +37,6 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/sys/unix"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -281,20 +281,20 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	p.RUnlock()
 
 	restored := make(restore.DNSRules)
-	regexToSelectors := make(map[restore.PortProto]map[*regexp.Regexp]sets.Set[policy.CachedSelector])
+	regexToSelectors := make(map[restore.PortProto]map[*regexp.Regexp]set.Set[policy.CachedSelector])
 	for pp, selRegexes := range portProtoToSelRegex {
 		var ipRules restore.IPRules
 
-		regexToSelectors[pp] = make(map[*regexp.Regexp]sets.Set[policy.CachedSelector])
+		regexToSelectors[pp] = make(map[*regexp.Regexp]set.Set[policy.CachedSelector])
 
 		for _, selRegex := range selRegexes {
 			if regexToSelectors[pp][selRegex.re] == nil {
-				regexToSelectors[pp][selRegex.re] = sets.New[policy.CachedSelector]()
+				regexToSelectors[pp][selRegex.re] = set.NewSet[policy.CachedSelector]()
 			}
 			regexToSelectors[pp][selRegex.re].Insert(selRegex.cs)
 		}
 
-		var firstSelectorSet sets.Set[policy.CachedSelector]
+		var firstSelectorSet set.Set[policy.CachedSelector]
 		allequal := true
 
 		for _, selectorSet := range regexToSelectors[pp] {
