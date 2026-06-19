@@ -281,26 +281,27 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	p.RUnlock()
 
 	restored := make(restore.DNSRules)
-	regexToSelectors := make(map[restore.PortProto]map[*regexp.Regexp]set.Set[policy.CachedSelector])
+	regexToSelectors := make(map[restore.PortProto]map[*regexp.Regexp]*set.Set[policy.CachedSelector])
 	for pp, selRegexes := range portProtoToSelRegex {
 		var ipRules restore.IPRules
 
-		regexToSelectors[pp] = make(map[*regexp.Regexp]set.Set[policy.CachedSelector])
+		regexToSelectors[pp] = make(map[*regexp.Regexp]*set.Set[policy.CachedSelector])
 
 		for _, selRegex := range selRegexes {
 			if regexToSelectors[pp][selRegex.re] == nil {
-				regexToSelectors[pp][selRegex.re] = set.NewSet[policy.CachedSelector]()
+				s := set.NewSet[policy.CachedSelector]()
+				regexToSelectors[pp][selRegex.re] = &s
 			}
 			regexToSelectors[pp][selRegex.re].Insert(selRegex.cs)
 		}
 
-		var firstSelectorSet set.Set[policy.CachedSelector]
+		var firstSelectorSet *set.Set[policy.CachedSelector]
 		allequal := true
 
 		for _, selectorSet := range regexToSelectors[pp] {
 			if firstSelectorSet == nil {
 				firstSelectorSet = selectorSet
-			} else if !selectorSet.Equal(firstSelectorSet) {
+			} else if !selectorSet.Equal(*firstSelectorSet) {
 				allequal = false
 				break
 			}
