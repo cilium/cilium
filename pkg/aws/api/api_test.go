@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type Filters []ec2_types.Filter
@@ -140,6 +141,56 @@ func TestNewTagsFilters(t *testing.T) {
 			sort.Sort(Filters(got))
 			sort.Sort(Filters(tt.want))
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestParseENIPublicIP(t *testing.T) {
+	newIface := func(assoc *ec2_types.NetworkInterfaceAssociation) *ec2_types.NetworkInterface {
+		return &ec2_types.NetworkInterface{
+			PrivateIpAddress: aws.String("10.0.0.1"),
+			Association:      assoc,
+		}
+	}
+
+	tests := []struct {
+		name           string
+		assoc          *ec2_types.NetworkInterfaceAssociation
+		wantPublicIP   string
+		wantValidPubIP bool
+	}{
+		{
+			name:           "no association",
+			assoc:          nil,
+			wantValidPubIP: false,
+		},
+		{
+			name:           "association without a public IP (nil pointer)",
+			assoc:          &ec2_types.NetworkInterfaceAssociation{},
+			wantValidPubIP: false,
+		},
+		{
+			name:           "association with an empty public IP",
+			assoc:          &ec2_types.NetworkInterfaceAssociation{PublicIp: aws.String("")},
+			wantValidPubIP: false,
+		},
+		{
+			name:           "association with a valid public IP",
+			assoc:          &ec2_types.NetworkInterfaceAssociation{PublicIp: aws.String("203.0.113.1")},
+			wantPublicIP:   "203.0.113.1",
+			wantValidPubIP: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, eni, err := parseENI(newIface(tt.assoc), nil, nil, false)
+			require.NoError(t, err)
+			require.NotNil(t, eni)
+			assert.Equal(t, tt.wantValidPubIP, eni.PublicIP.IsValid())
+			if tt.wantValidPubIP {
+				assert.Equal(t, tt.wantPublicIP, eni.PublicIP.String())
+			}
 		})
 	}
 }

@@ -552,7 +552,12 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		eni.Prefixes = append(eni.Prefixes, iputil.PrefixFrom(p))
 	}
 
-	if iface.Association != nil && iface.Association.PublicIp != nil {
+	// An Association can be present without a public IPv4 address (e.g. an
+	// IPv6-only, carrier or customer-owned-IP association), in which case
+	// PublicIp is a non-nil pointer to an empty string. Guard on the
+	// dereferenced value rather than the pointer so that case is treated as
+	// "no public IP" instead of failing to parse an empty string.
+	if iface.Association != nil && aws.ToString(iface.Association.PublicIp) != "" {
 		publicIP, err := netip.ParseAddr(aws.ToString(iface.Association.PublicIp))
 		if err != nil {
 			return "", nil, fmt.Errorf("unable to parse ENI public IP %q: %w", aws.ToString(iface.Association.PublicIp), err)
