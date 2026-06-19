@@ -416,8 +416,8 @@ func computeLoadAssignments(
 		}
 	}
 
-	// Keep track of number of active and terminating backends and only use
-	// terminating backends if active are not available.
+	// Keep track of number of active backends. Terminating backends are included
+	// as DRAINING when active backends exist, or as fallbacks when they do not.
 	numActive, numTerminating := 0, 0
 
 	for be := range backends {
@@ -489,10 +489,6 @@ func computeLoadAssignments(
 		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
 		for _, addr := range slices.Sorted(maps.Keys(bes)) {
 			be := bes[addr]
-			if numActive != 0 && be.State == loadbalancer.BackendStateTerminating {
-				// We can skip terminating backends since active backends exist.
-				continue
-			}
 
 			// The below is to make sure that UDP and SCTP are not allowed instead of comparing with lb.TCP
 			// The reason is to avoid extra dependencies with ongoing work to differentiate protocols in datapath,
@@ -501,7 +497,7 @@ func computeLoadAssignments(
 				continue
 			}
 
-			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
+			lbEp := &envoy_config_endpoint.LbEndpoint{
 				HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
 					Endpoint: &envoy_config_endpoint.Endpoint{
 						Address: &envoy_config_core.Address{
@@ -516,7 +512,15 @@ func computeLoadAssignments(
 						},
 					},
 				},
-			})
+			}
+			if be.State == loadbalancer.BackendStateTerminating && numActive > 0 {
+				// Keep terminating backends in the EDS set as DRAINING so Envoy
+				// stops sending new connections while allowing in-flight requests
+				// to complete. Hard-removing them causes immediate connection
+				// resets on endpoint churn.
+				lbEp.HealthStatus = envoy_config_core.HealthStatus_DRAINING
+			}
+			lbEndpoints = append(lbEndpoints, lbEp)
 		}
 
 		endpoints := []*envoy_config_endpoint.LocalityLbEndpoints{{LbEndpoints: lbEndpoints}}
