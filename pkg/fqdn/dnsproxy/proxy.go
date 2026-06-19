@@ -16,11 +16,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cilium/dns"
-	"go4.org/netipx"
-	"golang.org/x/sync/semaphore"
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/lookup"
@@ -37,6 +32,11 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/dns"
+	"go4.org/netipx"
+	"golang.org/x/sync/semaphore"
+	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -281,25 +281,39 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	p.RUnlock()
 
 	restored := make(restore.DNSRules)
+	regexToSelectors := make(map[restore.PortProto]map[*regexp.Regexp]sets.Set[policy.CachedSelector])
 	for pp, selRegexes := range portProtoToSelRegex {
 		var ipRules restore.IPRules
-		if len(selRegexes) > 0 {
-			sameRegex := true
-			firstPattern := selRegexes[0].re.String()
-			// checking for same regex
-			for _, sr := range selRegexes[1:] {
-				if sr.re.String() != firstPattern {
-					sameRegex = false
-					break
-				}
-			}
 
-			if sameRegex {
-				ipRules = append(ipRules, asIPRule(selRegexes[0].re, nil))
-				restored[pp] = ipRules
-				continue
+		regexToSelectors[pp] = make(map[*regexp.Regexp]sets.Set[policy.CachedSelector])
+
+		for _, selRegex := range selRegexes {
+			if regexToSelectors[pp][selRegex.re] == nil {
+				regexToSelectors[pp][selRegex.re] = sets.New[policy.CachedSelector]()
+			}
+			regexToSelectors[pp][selRegex.re].Insert(selRegex.cs)
+		}
+
+		var firstSelectorSet sets.Set[policy.CachedSelector]
+		allequal := true
+
+		for _, selectorSet := range regexToSelectors[pp] {
+			if firstSelectorSet == nil {
+				firstSelectorSet = selectorSet
+			} else if !selectorSet.Equal(firstSelectorSet) {
+				allequal = false
+				break
 			}
 		}
+
+		if allequal {
+			for re := range regexToSelectors[pp] {
+				ipRules = append(ipRules, asIPRule(re, nil))
+			}
+			restored[pp] = ipRules
+			continue
+		}
+
 		for _, selRegex := range selRegexes {
 			if selRegex.cs.IsWildcard() {
 				ipRules = append(ipRules, asIPRule(selRegex.re, nil))
