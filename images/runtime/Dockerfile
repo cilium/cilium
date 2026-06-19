@@ -25,7 +25,7 @@ ARG TARGETARCH
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     --mount=target=/root/.cache,type=cache \
     --mount=target=/go/pkg/mod,type=cache \
-    ./download-cni.sh
+    ./build-cni.sh
 
 FROM ${UBUNTU_IMAGE} AS rootfs
 
