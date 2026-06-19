@@ -32,9 +32,9 @@ status:
             ipv4Addr: 10.30.0.1/32
             ipv6Addr: fd00:300:1::1/128
       results:
-      - device: test-device
+      - device: test-device-1
         driver: test.cilium.k8s.io
-        pool: test-device-pool
+        pool: test-device-1-pool
         request: test-request
   reservedFor:
   - resource: pods
@@ -63,9 +63,9 @@ status:
         - test-request
         source: FromClaim
       results:
-      - device: test-device
+      - device: test-device-1
         driver: test.cilium.k8s.io
-        pool: test-device-pool
+        pool: test-device-1-pool
         request: test-request
   devices:
   - conditions:
@@ -82,16 +82,16 @@ status:
         Flags: ""
         HWAddr: ""
         MTU: 0
-        Name: test-device
+        Name: test-device-1
       Manager: '"dummy"'
-    device: test-device
+    device: test-device-1
     driver: test.cilium.k8s.io
     networkData:
-      interfaceName: test-device
+      interfaceName: test-device-1
       ips:
       - 10.30.0.1/32
       - fd00:300:1::1/128
-    pool: test-device-pool
+    pool: test-device-1-pool
   reservedFor:
   - name: test-pod
     resource: pods
