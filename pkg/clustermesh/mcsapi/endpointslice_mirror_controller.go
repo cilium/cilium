@@ -37,8 +37,22 @@ const (
 	// the component managing an EndpointSlice.
 	endpointSliceLocalMCSAPIControllerName = "endpointslice-local-mcsapi-controller.cilium.io"
 	localEndpointSliceLabel                = annotation.ServicePrefix + "/local-endpointslice"
+	derivedEndpointSliceByLocalNameIndex   = "mcs.cilium.io/derived-endpointslice-by-local-name"
 	malformedDerivedEndpointSlicePrefix    = "@malformed-derived|"
 )
+
+func derivedEndpointSliceByLocalNameIndexFunc(obj client.Object) []string {
+	epSlice := obj.(*discoveryv1.EndpointSlice)
+	if epSlice.Labels[discoveryv1.LabelManagedBy] != endpointSliceLocalMCSAPIControllerName {
+		return nil
+	}
+
+	localName := epSlice.Labels[localEndpointSliceLabel]
+	if localName == "" {
+		return nil
+	}
+	return []string{localName}
+}
 
 func malformedDerivedEndpointSliceRequest(name string) string {
 	return malformedDerivedEndpointSlicePrefix + name
@@ -101,14 +115,13 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) getLocalEndpointSlice(ctx context.
 }
 
 func (r *mcsAPIEndpointSliceMirrorReconciler) getAndCleanupDerivedEndpointSlice(ctx context.Context, key types.NamespacedName, localEpSlice *discoveryv1.EndpointSlice) (*discoveryv1.EndpointSlice, error) {
-	serviceReq, _ := labels.NewRequirement(localEndpointSliceLabel, selection.Equals, []string{key.Name})
-	managedByReq, _ := labels.NewRequirement(discoveryv1.LabelManagedBy, selection.Equals, []string{endpointSliceLocalMCSAPIControllerName})
-	selector := labels.NewSelector()
-	selector = selector.Add(*serviceReq)
-	selector = selector.Add(*managedByReq)
-
 	var epSliceList discoveryv1.EndpointSliceList
-	if err := r.Client.List(ctx, &epSliceList, &client.ListOptions{Namespace: key.Namespace, LabelSelector: selector}); err != nil {
+	if err := r.Client.List(
+		ctx, &epSliceList,
+		client.InNamespace(key.Namespace),
+		client.MatchingFields{derivedEndpointSliceByLocalNameIndex: key.Name},
+		client.MatchingLabels{discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName},
+	); err != nil {
 		return nil, err
 	}
 
@@ -378,6 +391,15 @@ func endpointSliceMirrorRequests(obj client.Object) []ctrl.Request {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *mcsAPIEndpointSliceMirrorReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&discoveryv1.EndpointSlice{},
+		derivedEndpointSliceByLocalNameIndex,
+		derivedEndpointSliceByLocalNameIndexFunc,
+	); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("EndpointSliceMirrorMCSAPI").
 		Watches(&discoveryv1.EndpointSlice{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []ctrl.Request {
