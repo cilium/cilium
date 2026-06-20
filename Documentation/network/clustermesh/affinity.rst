@@ -18,7 +18,7 @@ Enabling Global Service Affinity
 ################################
 
 Load-balancing across multiple clusters might not be ideal in some cases.
-The annotation ``service.cilium.io/affinity: "local|remote|none"`` can be used
+The annotation ``service.cilium.io/affinity: "none|local|remote"`` can be used
 to specify the preferred endpoint destination.
 
 For example, if the value of annotation ``service.cilium.io/affinity`` is local,
@@ -34,12 +34,12 @@ remote endpoints if and only if all of local backends are not available or unhea
      annotations:
         service.cilium.io/global: "true"
         # Possible values:
+        # - none (default)
+        #    no preference. Default behavior if this annotation does not exist
         # - local
         #    preferred endpoints from local cluster if available
         # - remote
         #    preferred endpoints from remote cluster if available
-        # none (default)
-        #    no preference. Default behavior if this annotation does not exist
         service.cilium.io/affinity: "local"
    spec:
      type: ClusterIP
