@@ -502,6 +502,7 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithObjects(endpointsliceMirrorFixtures...).
 		WithScheme(testScheme()).
+		WithIndex(&discoveryv1.EndpointSlice{}, derivedEndpointSliceByLocalNameIndex, derivedEndpointSliceByLocalNameIndexFunc).
 		Build()
 	r := &mcsAPIEndpointSliceMirrorReconciler{
 		Client:      c,
