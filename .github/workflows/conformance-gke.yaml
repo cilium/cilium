@@ -96,7 +96,7 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 571.0.0
+  gcloud_version: 572.0.0
 
 jobs:
   echo-inputs:
@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@74fb5f98372c3a0ab060b7256a53ec7dfb6dd9be # main
+        uses: cilium/cilium/.github/actions/set-commit-status@d9de113a74a63d72bbd6f8889eac76de38211d9b # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -264,7 +264,7 @@ jobs:
 
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@74fb5f98372c3a0ab060b7256a53ec7dfb6dd9be # main
+        uses: cilium/cilium/.github/actions/set-commit-status@d9de113a74a63d72bbd6f8889eac76de38211d9b # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
