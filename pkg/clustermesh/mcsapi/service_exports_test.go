@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package operator
+package mcsapi
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestGlobalServiceExportCache(t *testing.T) {
-	globalServiceExports := NewGlobalServiceExportCache()
+	globalServiceExports := newGlobalServiceExportCache()
 
 	globalServiceExports.OnUpdate(&mcsapitypes.MCSAPIServiceSpec{
 		Cluster:   "cluster1",

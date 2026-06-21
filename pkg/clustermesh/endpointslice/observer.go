@@ -20,7 +20,7 @@ func newFactory(params params) observer.Factory {
 	return func(cluster string, onSync func()) observer.Observer {
 		obs := &endpointSliceObserver{
 			logger:        params.Logger.With(logfields.ClusterName, cluster),
-			name:          cluster,
+			cluster:       cluster,
 			serviceModeV2: params.ServiceModeV2,
 			onSync:        onSync,
 		}
@@ -48,7 +48,7 @@ func newFactory(params params) observer.Factory {
 
 type endpointSliceObserver struct {
 	logger        *slog.Logger
-	name          string
+	cluster       string
 	clusterID     uint32
 	serviceModeV2 types.ServiceModeV2
 	store         store.WatchStore
@@ -77,7 +77,7 @@ func (o *endpointSliceObserver) Register(mgr store.WatchStoreManager, backend kv
 	if o.serviceModeV2.ShouldWatchEndpointSlices() && cfg.Capabilities.EndpointSlicesExportMode != types.EndpointSlicesExportModeServicesOnly {
 		o.enabled.Store(true)
 		mgr.Register(prefix, func(ctx context.Context) {
-			o.store.Watch(ctx, backend, kvstore.JoinKey(prefix, o.name))
+			o.store.Watch(ctx, backend, kvstore.JoinKey(prefix, o.cluster))
 		})
 		return
 	}
@@ -86,7 +86,7 @@ func (o *endpointSliceObserver) Register(mgr store.WatchStoreManager, backend kv
 	if o.serviceModeV2.ShouldWatchEndpointSlices() {
 		o.logger.Error("Remote cluster does not support endpoint slice resources while Cilium is configured to watch them. "+
 			"Global Services and MCS-API will not take into account any backends from this cluster!",
-			logfields.ClusterName, o.name)
+			logfields.ClusterName, o.cluster)
 	}
 
 	// Drain any existing endpoint slices in case the remote cluster no longer supports them.
