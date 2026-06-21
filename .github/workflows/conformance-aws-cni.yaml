@@ -59,7 +59,7 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.227.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.36.1
+  kubectl_version: v1.36.2
 
 jobs:
   echo-inputs:
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@8bdfad48aeee0582d2f48da02c44bb52ec50c454 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@d9de113a74a63d72bbd6f8889eac76de38211d9b # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -164,7 +164,7 @@ jobs:
 
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@8bdfad48aeee0582d2f48da02c44bb52ec50c454 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@d9de113a74a63d72bbd6f8889eac76de38211d9b # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
