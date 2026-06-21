@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package operator
+package mcsapi
 
 import (
 	"maps"
@@ -20,7 +20,7 @@ type (
 	ServiceExportsByCluster   map[string]*mcsapitypes.MCSAPIServiceSpec
 )
 
-type GlobalServiceExportCache struct {
+type globalServiceExportCache struct {
 	mutex lock.RWMutex
 	cache ServiceExportsByNamespace
 
@@ -29,15 +29,15 @@ type GlobalServiceExportCache struct {
 	size uint64
 }
 
-func NewGlobalServiceExportCache() *GlobalServiceExportCache {
-	return &GlobalServiceExportCache{
+func newGlobalServiceExportCache() *globalServiceExportCache {
+	return &globalServiceExportCache{
 		cache: ServiceExportsByNamespace{},
 	}
 }
 
 // GetServiceExportsName returns all the service exports for a specific namespace
 // that have at least one service export in one of the remote cluster in the mesh.
-func (c *GlobalServiceExportCache) GetServiceExportsName(namespace string) []string {
+func (c *globalServiceExportCache) GetServiceExportsName(namespace string) []string {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -46,7 +46,7 @@ func (c *GlobalServiceExportCache) GetServiceExportsName(namespace string) []str
 
 // GetServiceExportByCluster returns a shallow copy of the GlobalServiceExport
 // object, thus the MCSAPIServiceSpec objects should not be mutated.
-func (c *GlobalServiceExportCache) GetServiceExportByCluster(serviceExportNN types.NamespacedName) ServiceExportsByCluster {
+func (c *globalServiceExportCache) GetServiceExportByCluster(serviceExportNN types.NamespacedName) ServiceExportsByCluster {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -61,7 +61,7 @@ func (c *GlobalServiceExportCache) GetServiceExportByCluster(serviceExportNN typ
 	return maps.Clone(svcExportsByCluster)
 }
 
-func (c *GlobalServiceExportCache) OnUpdate(svcExport *mcsapitypes.MCSAPIServiceSpec) {
+func (c *globalServiceExportCache) OnUpdate(svcExport *mcsapitypes.MCSAPIServiceSpec) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -80,7 +80,7 @@ func (c *GlobalServiceExportCache) OnUpdate(svcExport *mcsapitypes.MCSAPIService
 	svcExportsByCluster[svcExport.Cluster] = svcExport
 }
 
-func (c *GlobalServiceExportCache) OnDelete(svcExport *mcsapitypes.MCSAPIServiceSpec) bool {
+func (c *globalServiceExportCache) OnDelete(svcExport *mcsapitypes.MCSAPIServiceSpec) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -114,22 +114,22 @@ func (c *GlobalServiceExportCache) OnDelete(svcExport *mcsapitypes.MCSAPIService
 	return true
 }
 
-func (c *GlobalServiceExportCache) Size() uint64 {
+func (c *globalServiceExportCache) Size() uint64 {
 	return c.size
 }
 
 type remoteServiceExportObserver struct {
-	cache *GlobalServiceExportCache
+	cache *globalServiceExportCache
 
 	onUpdate func(*mcsapitypes.MCSAPIServiceSpec)
 	onDelete func(*mcsapitypes.MCSAPIServiceSpec)
 }
 
-// NewServiceExportsObserver returns an observer implementing the logic to convert
+// newServiceExportsObserver returns an observer implementing the logic to convert
 // and filter export notifications, update the global service export cache and
 // call the upstream handlers when appropriate.
-func NewServiceExportsObserver(
-	cache *GlobalServiceExportCache, onUpdate, onDelete func(*mcsapitypes.MCSAPIServiceSpec),
+func newServiceExportsObserver(
+	cache *globalServiceExportCache, onUpdate, onDelete func(*mcsapitypes.MCSAPIServiceSpec),
 ) store.Observer {
 	return &remoteServiceExportObserver{
 		cache: cache,

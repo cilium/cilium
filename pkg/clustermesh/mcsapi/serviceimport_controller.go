@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
-	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -53,7 +52,7 @@ type mcsAPIServiceImportReconciler struct {
 	Logger *slog.Logger
 
 	cluster                    string
-	globalServiceExports       *operator.GlobalServiceExportCache
+	globalServiceExports       *globalServiceExportCache
 	remoteClusterServiceSource *remoteClusterServiceExportSource
 
 	enableIPv4 bool
@@ -62,7 +61,7 @@ type mcsAPIServiceImportReconciler struct {
 	namespaceConfig cmnamespace.Config
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool, namespaceConfig cmnamespace.Config) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *globalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool, namespaceConfig cmnamespace.Config) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
@@ -167,7 +166,7 @@ type portMerge struct {
 // orderSvcExportByPriority order the service export by priority (oldest to newest
 // service exports). If export times of two service exports are equal
 // it also sort by cluster name.
-func orderSvcExportByPriority(svcExportByCluster operator.ServiceExportsByCluster) []*mcsapitypes.MCSAPIServiceSpec {
+func orderSvcExportByPriority(svcExportByCluster ServiceExportsByCluster) []*mcsapitypes.MCSAPIServiceSpec {
 	return slices.SortedFunc(maps.Values(svcExportByCluster), func(a, b *mcsapitypes.MCSAPIServiceSpec) int {
 		if a.ExportCreationTimestamp.Equal(&b.ExportCreationTimestamp) {
 			return strings.Compare(a.Cluster, b.Cluster)
@@ -355,7 +354,7 @@ func (r mcsAPIServiceImportReconciler) filterSupportedIPFamilies(ipfamilies []co
 	return supportedIPFamilies
 }
 
-func getClustersStatus(svcExportByCluster operator.ServiceExportsByCluster) []mcsapiv1beta1.ClusterStatus {
+func getClustersStatus(svcExportByCluster ServiceExportsByCluster) []mcsapiv1beta1.ClusterStatus {
 	clusters := make([]mcsapiv1beta1.ClusterStatus, 0, len(svcExportByCluster))
 	for _, cluster := range slices.Sorted(maps.Keys(svcExportByCluster)) {
 		clusters = append(clusters, mcsapiv1beta1.ClusterStatus{
@@ -592,7 +591,7 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		localSvcSpec := fromServiceToMCSAPIServiceSpec(localSvc, r.cluster, svcExport)
 		if svcExportByCluster == nil {
-			svcExportByCluster = operator.ServiceExportsByCluster{}
+			svcExportByCluster = ServiceExportsByCluster{}
 		}
 		svcExportByCluster[r.cluster] = localSvcSpec
 	}
@@ -821,6 +820,10 @@ type remoteClusterServiceExportSource struct {
 
 	ctx   context.Context
 	queue workqueue.TypedRateLimitingInterface[ctrl.Request]
+}
+
+func newRemoteClusterServiceExportSource(logger *slog.Logger) *remoteClusterServiceExportSource {
+	return &remoteClusterServiceExportSource{Logger: logger}
 }
 
 func (s *remoteClusterServiceExportSource) onClusterServiceExportEvent(svcExport *mcsapitypes.MCSAPIServiceSpec) {

@@ -18,6 +18,7 @@ import (
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
+	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s/apis"
@@ -30,6 +31,13 @@ import (
 var Cell = cell.Module(
 	"mcsapi",
 	"Multi-Cluster Services API",
+
+	cell.Provide(func(params paramsObserver) observer.FactoryOut {
+		return observer.NewFactoryOut(newFactory(params))
+	}),
+	cell.ProvidePrivate(newGlobalServiceExportCache),
+	cell.ProvidePrivate(newRemoteClusterServiceExportSource),
+	metrics.Metric(NewMetrics),
 	cell.Invoke(registerMCSAPIController),
 
 	cell.Provide(newMCSAPICRDs),
@@ -53,6 +61,8 @@ type mcsAPIParams struct {
 	Logger          *slog.Logger
 	JobGroup        job.Group
 	MetricsRegistry *metrics.Registry
+	Cache           *globalServiceExportCache
+	Source          *remoteClusterServiceExportSource
 
 	NamespaceConfig cmnamespace.Config
 }
@@ -106,12 +116,9 @@ func registerMCSAPIController(params mcsAPIParams) error {
 
 	registerMCSAPICollector(params.MetricsRegistry, params.Logger, params.CtrlRuntimeManager.GetClient())
 
-	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: params.Logger}
-	params.ClusterMesh.RegisterClusterServiceExportUpdateHook(remoteClusterServiceSource.onClusterServiceExportEvent)
-	params.ClusterMesh.RegisterClusterServiceExportDeleteHook(remoteClusterServiceSource.onClusterServiceExportEvent)
 	svcImportReconciler := newMCSAPIServiceImportReconciler(
 		params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name,
-		params.ClusterMesh.GlobalServiceExports(), remoteClusterServiceSource,
+		params.Cache, params.Source,
 		params.AgentConfig.EnableIPv4, params.AgentConfig.EnableIPv6,
 		params.NamespaceConfig,
 	)
@@ -119,7 +126,7 @@ func registerMCSAPIController(params mcsAPIParams) error {
 	params.JobGroup.Add(job.OneShot("mcsapi-main", func(ctx context.Context, health cell.Health) error {
 		params.Logger.Info("Bootstrap Multi-Cluster Services API support")
 
-		if err := params.ClusterMesh.ServiceExportsSynced(ctx); err != nil {
+		if err := params.ClusterMesh.ObserverSynced(ctx, mcsapitypes.Name); err != nil {
 			return nil // The parent context expired, and we are already terminating
 		}
 

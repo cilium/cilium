@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 const subsystem = "mcsapi"
@@ -142,5 +143,21 @@ func (c *mcsAPICollector) Collect(ch chan<- prometheus.Metric) {
 			}
 			ch <- metric
 		}
+	}
+}
+
+type Metrics struct {
+	// TotalServiceExports tracks the number of total MCS-API service exports per remote cluster.
+	TotalServiceExports metric.Vec[metric.Gauge]
+}
+
+func NewMetrics() Metrics {
+	return Metrics{
+		TotalServiceExports: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace: metrics.CiliumOperatorNamespace,
+			Subsystem: metrics.SubsystemClusterMesh,
+			Name:      "remote_cluster_service_exports",
+			Help:      "The total number of MCS-API service exports in the remote cluster",
+		}, []string{metrics.LabelTargetCluster}),
 	}
 }
