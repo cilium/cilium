@@ -9,8 +9,6 @@ import (
 	"log/slog"
 	"sync/atomic"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslice"
@@ -44,8 +42,6 @@ type remoteCluster struct {
 
 	// remoteServices is the shared store representing services in remote clusters
 	remoteServices store.WatchStore
-	// remoteServiceExports is the shared store representing service exports in remote clusters
-	remoteServiceExports store.WatchStore
 
 	// observers are observers watching additional prefixes.
 	observers map[observer.Name]observer.Observer
@@ -97,17 +93,6 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		}
 	}
 
-	if rc.clusterMeshEnableMCSAPI && config.Capabilities.ServiceExportsEnabled != nil {
-		mgr.Register(adapter(mcsapitypes.ServiceExportStorePrefix), func(ctx context.Context) {
-			rc.remoteServiceExports.Watch(ctx, backend, kvstore.JoinKey(adapter(mcsapitypes.ServiceExportStorePrefix), rc.name))
-		})
-	} else {
-		// Drain the remote service exports in case the remote cluster no longer supports them
-		rc.remoteServiceExports.Drain()
-		// Mimic that service exports are synced if not enabled
-		rc.synced.serviceExports.Stop()
-	}
-
 	for _, obs := range rc.observers {
 		obs.Register(mgr, backend, config)
 	}
@@ -131,7 +116,6 @@ func (rc *remoteCluster) Stop() {
 // prevents the operator from maintaining state for potentially stale information.
 func (rc *remoteCluster) RevokeCache(ctx context.Context) {
 	rc.remoteServices.Drain()
-	rc.remoteServiceExports.Drain()
 
 	for _, obs := range rc.observers {
 		obs.Revoke()
@@ -146,7 +130,6 @@ func (rc *remoteCluster) Remove(context.Context) {
 	// is removed, and not in case the operator is shutting down, otherwise we
 	// would break existing connections on restart.
 	rc.remoteServices.Drain()
-	rc.remoteServiceExports.Drain()
 
 	for _, obs := range rc.observers {
 		obs.Drain()
@@ -155,17 +138,15 @@ func (rc *remoteCluster) Remove(context.Context) {
 
 type synced struct {
 	wait.SyncedCommon
-	services       *lock.StoppableWaitGroup
-	serviceExports *lock.StoppableWaitGroup
-	observers      map[observer.Name]chan struct{}
+	services  *lock.StoppableWaitGroup
+	observers map[observer.Name]chan struct{}
 }
 
 func newSynced() synced {
 	return synced{
-		SyncedCommon:   wait.NewSyncedCommon(),
-		services:       lock.NewStoppableWaitGroup(),
-		serviceExports: lock.NewStoppableWaitGroup(),
-		observers:      make(map[observer.Name]chan struct{}),
+		SyncedCommon: wait.NewSyncedCommon(),
+		services:     lock.NewStoppableWaitGroup(),
+		observers:    make(map[observer.Name]chan struct{}),
 	}
 }
 
@@ -174,13 +155,6 @@ func newSynced() synced {
 // or the given context is canceled.
 func (s *synced) Services(ctx context.Context) error {
 	return s.Wait(ctx, s.services.WaitChannel())
-}
-
-// ServiceExports returns after that the initial list of service exports has been
-// received from the remote cluster, the remote cluster is disconnected,
-// or the given context is canceled.
-func (s *synced) ServiceExports(ctx context.Context) error {
-	return s.Wait(ctx, s.serviceExports.WaitChannel())
 }
 
 // ObserverSynced returns after that either the given named observer has
@@ -208,7 +182,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	}
 
 	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
-	status.NumServiceExports = int64(rc.remoteServiceExports.NumEntries())
+	status.NumServiceExports = int64(get(mcsapitypes.Name).Entries)
 	isServicesWatched := rc.clusterMeshEnableEndpointSync && rc.clusterMeshServiceModeV2.ShouldWatchLegacyServices()
 
 	status.Synced = &models.RemoteClusterSynced{
@@ -219,17 +193,15 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 		Endpoints:  true,
 		Identities: true,
 	}
-	if status.Config != nil && status.Config.ServiceExportsEnabled != nil &&
-		rc.clusterMeshEnableMCSAPI {
-		status.Synced.ServiceExports = ptr.To(rc.remoteServiceExports.Synced())
-	}
 	if get(endpointslice.Name).Enabled {
 		status.Synced.EndpointSlices = new(get(endpointslice.Name).Synced)
+	}
+	if get(mcsapitypes.Name).Enabled {
+		status.Synced.ServiceExports = new(get(mcsapitypes.Name).Synced)
 	}
 
 	status.Ready = status.Ready &&
 		status.Synced.Nodes && status.Synced.Services &&
-		(status.Synced.ServiceExports == nil || *status.Synced.ServiceExports) &&
 		status.Synced.Identities && status.Synced.Endpoints
 
 	// We mark the status as ready only after being sure that all observers

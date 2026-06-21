@@ -15,10 +15,13 @@ import (
 	"k8s.io/utils/ptr"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
+	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 )
+
+const Name observer.Name = "service exports"
 
 var (
 	// ServiceExportStorePrefix is the kvstore prefix of the shared store
