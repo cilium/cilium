@@ -43,11 +43,16 @@ func newFactory(params paramsObserver) observer.Factory {
 				mcsapitypes.ClusterNameValidator(cluster),
 				mcsapitypes.NamespacedNameValidator(),
 			),
-			newServiceExportsObserver(
-				params.Cache,
-				params.Source.onClusterServiceExportEvent,
-				params.Source.onClusterServiceExportEvent,
-			),
+			&store.FuncObserver[*mcsapitypes.ValidatingMCSAPIServiceSpec]{
+				OnUpdateFunc: func(obj *mcsapitypes.ValidatingMCSAPIServiceSpec) {
+					params.Cache.OnUpdate(&obj.MCSAPIServiceSpec)
+					params.Source.onClusterServiceExportEvent(&obj.MCSAPIServiceSpec)
+				},
+				OnDeleteFunc: func(obj *mcsapitypes.ValidatingMCSAPIServiceSpec) {
+					params.Cache.OnDelete(&obj.MCSAPIServiceSpec)
+					params.Source.onClusterServiceExportEvent(&obj.MCSAPIServiceSpec)
+				},
+			},
 			store.RWSWithOnSyncCallback(func(context.Context) { onSync() }),
 			store.RWSWithEntriesMetric(params.Metrics.TotalServiceExports.WithLabelValues(cluster)),
 		)
