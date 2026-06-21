@@ -170,6 +170,25 @@ type Key interface {
 	Unmarshal(key string, data []byte) error
 }
 
+// FuncObserver is an implementation of the Observer interface. It provides a
+// convenient way to implement an observer without having to create a new type.
+type FuncObserver[T Key] struct {
+	OnUpdateFunc func(T)
+	OnDeleteFunc func(T)
+}
+
+func (o *FuncObserver[T]) OnUpdate(k Key) {
+	if o.OnUpdateFunc != nil {
+		o.OnUpdateFunc(k.(T))
+	}
+}
+
+func (o *FuncObserver[T]) OnDelete(k NamedKey) {
+	if o.OnDeleteFunc != nil {
+		o.OnDeleteFunc(k.(T))
+	}
+}
+
 // KVPair represents a basic implementation of the Key interface
 type KVPair struct {
 	Key   string

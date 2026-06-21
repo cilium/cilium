@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
-	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -116,39 +115,4 @@ func (c *globalServiceExportCache) OnDelete(svcExport *mcsapitypes.MCSAPIService
 
 func (c *globalServiceExportCache) Size() uint64 {
 	return c.size
-}
-
-type remoteServiceExportObserver struct {
-	cache *globalServiceExportCache
-
-	onUpdate func(*mcsapitypes.MCSAPIServiceSpec)
-	onDelete func(*mcsapitypes.MCSAPIServiceSpec)
-}
-
-// newServiceExportsObserver returns an observer implementing the logic to convert
-// and filter export notifications, update the global service export cache and
-// call the upstream handlers when appropriate.
-func newServiceExportsObserver(
-	cache *globalServiceExportCache, onUpdate, onDelete func(*mcsapitypes.MCSAPIServiceSpec),
-) store.Observer {
-	return &remoteServiceExportObserver{
-		cache: cache,
-
-		onUpdate: onUpdate,
-		onDelete: onDelete,
-	}
-}
-
-// OnUpdate is called when a service export in a remote cluster is updated
-func (r *remoteServiceExportObserver) OnUpdate(key store.Key) {
-	svcExport := &(key.(*mcsapitypes.ValidatingMCSAPIServiceSpec).MCSAPIServiceSpec)
-	r.cache.OnUpdate(svcExport)
-	r.onUpdate(svcExport)
-}
-
-// OnDelete is called when a service export in a remote cluster is deleted
-func (r *remoteServiceExportObserver) OnDelete(key store.NamedKey) {
-	svcExport := &(key.(*mcsapitypes.ValidatingMCSAPIServiceSpec).MCSAPIServiceSpec)
-	r.cache.OnDelete(svcExport)
-	r.onDelete(svcExport)
 }
