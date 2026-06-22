@@ -791,7 +791,7 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	return NAT_PUNT_TO_STACK;
 }
 
-static __always_inline int
+__noinline __weak int
 snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			 fraginfo_t fraginfo, int l4_off,
 			 struct ipv4_nat_target *target)
