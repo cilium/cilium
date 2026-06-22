@@ -329,14 +329,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
-	struct ipv4_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
-#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-		.cluster_id = cluster_id,
-#endif
-	};
-	struct ipv4_ct_tuple tuple = {};
+	struct snat_v4_args *args;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
@@ -347,7 +340,15 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
-	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
+	args = AUX(snat_v4_args);
+	memset(args, 0, sizeof(*args));
+	args->target.min_port = NODEPORT_PORT_MIN_NAT;
+	args->target.max_port = NODEPORT_PORT_MAX_NAT;
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+	args->target.cluster_id = cluster_id,
+#endif
+
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &args->tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_MASQUERADE_IPV4)) {
@@ -361,38 +362,38 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 			 * parent interface.
 			 */
 			ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
-						CT_EGRESS, &tuple);
+						CT_EGRESS, &args->tuple);
 			if (ret < 0 && ret != DROP_CT_UNKNOWN_PROTO)
 				return ret;
 
 			if (ret != DROP_CT_UNKNOWN_PROTO &&
-			    ct_is_reply4(get_ct_map4(&tuple), &tuple))
+			    ct_is_reply4(get_ct_map4(&args->tuple), &args->tuple))
 				return redirect_neigh(ep->parent_ifindex, NULL, 0, 0);
 		}
 	}
 
-	if (lb_is_svc_proto(tuple.nexthdr) &&
-	    nodeport_has_nat_conflict_ipv4(ctx, ip4, &target))
+	if (lb_is_svc_proto(args->tuple.nexthdr) &&
+	    nodeport_has_nat_conflict_ipv4(ctx, ip4, &args->target))
 		goto apply_snat;
 
-	ret = snat_v4_needs_masquerade(ctx, &tuple, fraginfo, l4_off, &target);
+	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off);
 	if (IS_ERR(ret))
 		goto out;
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
-	if (target.egress_gateway) {
+	if (args->target.egress_gateway) {
 		/* from-overlay has already picked the correct egress interface: */
 		if (ctx_egw_done(ctx))
 			goto apply_snat;
 
 		/* Stay on the desired egress interface: */
-		if (target.ifindex && target.ifindex == CONFIG(interface_ifindex))
+		if (args->target.ifindex && args->target.ifindex == CONFIG(interface_ifindex))
 			goto apply_snat;
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
-		ret = egress_gw_fib_lookup_and_redirect(ctx, target.addr,
-							tuple.daddr, target.ifindex,
-							target.tbid, ext_err);
+		ret = egress_gw_fib_lookup_and_redirect(ctx, args->target.addr,
+							args->tuple.daddr, args->target.ifindex,
+							args->target.tbid, ext_err);
 		if (ret != CTX_ACT_OK)
 			return ret;
 
@@ -402,9 +403,9 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 #endif
 
 apply_snat:
-	*saddr = tuple.saddr;
-	ret = snat_v4_nat(ctx, &tuple, ip4, fraginfo, l4_off,
-			  &target, trace, ext_err);
+	*saddr = args->tuple.saddr;
+	ret = snat_v4_nat(ctx, &args->tuple, ip4, fraginfo, l4_off,
+			  &args->target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
 

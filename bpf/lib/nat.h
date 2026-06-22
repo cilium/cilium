@@ -791,19 +791,28 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	return NAT_PUNT_TO_STACK;
 }
 
+/* Store struct ipv6_ct_tuple and struct ipv6_nat_target objects in maps to
+ * optimize stack usage.
+ */
+struct snat_v4_args {
+	struct ipv4_ct_tuple tuple;
+	struct ipv4_nat_target target;
+};
+
+DEFINE_AUX(struct snat_v4_args, snat_v4_args);
+
 __noinline __weak int
-snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-			 fraginfo_t fraginfo, int l4_off,
-			 struct ipv4_nat_target *target)
+snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off)
 {
+	struct snat_v4_args *args = AUX(snat_v4_args);
 	void *data, *data_end;
 	struct iphdr *ip4;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	return __snat_v4_needs_masquerade(ctx, tuple, ip4, fraginfo,
-					  l4_off, target);
+	return __snat_v4_needs_masquerade(ctx, &args->tuple, ip4, fraginfo,
+					  l4_off, &args->target);
 }
 
 static __always_inline __maybe_unused int
