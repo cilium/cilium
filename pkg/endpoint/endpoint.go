@@ -1258,6 +1258,15 @@ func (e *Endpoint) replaceNonGeneratedIdentityLabels(sourceFilter string, l labe
 type DeleteConfig struct {
 	NoIPRelease       bool
 	NoIdentityRelease bool
+
+	// EndpointOwnsIP reports whether the given IP is still owned by the
+	// endpoint being deleted. It guards the per-endpoint routing rule
+	// teardown against a stale delete: in ENI/Azure IPAM mode the rules are
+	// keyed solely by IP address, so a late teardown for an IP that has since
+	// been reused by another endpoint would otherwise strip the live owner's
+	// rules, silently breaking its egress. When nil, the check is skipped and
+	// rules are always deleted.
+	EndpointOwnsIP func(ip netip.Addr) bool
 }
 
 // leaveLocked removes the endpoint's directory from the system. Must be called
@@ -2675,16 +2684,30 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		// This is a best-effort attempt to cleanup. We expect there to be one
 		// ingress rule and multiple egress rules. If we find more rules than
 		// expected, we delete all rules referring to a per-ENI routing table ID.
-		if e.IPv4.IsValid() {
-			if err := linuxrouting.Delete(e.getLogger(), e.IPv4); err != nil {
+		//
+		// The routing rules are keyed solely by IP address, so a stale teardown
+		// for an IP that has since been reused by another endpoint would strip
+		// the live owner's rules. Guard against that by only deleting the rules
+		// if this endpoint still owns the IP.
+		deleteRoutingRules := func(ip netip.Addr) {
+			if conf.EndpointOwnsIP != nil && !conf.EndpointOwnsIP(ip) {
+				e.getLogger().Info(
+					"Skipping deletion of endpoint routing rules: IP is no longer owned by this endpoint",
+					logfields.IPAddr, ip,
+				)
+				return
+			}
+			if err := linuxrouting.Delete(e.getLogger(), ip); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
 			}
 		}
 
+		if e.IPv4.IsValid() {
+			deleteRoutingRules(e.IPv4)
+		}
+
 		if e.IPv6.IsValid() {
-			if err := linuxrouting.Delete(e.getLogger(), e.IPv6); err != nil {
-				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
-			}
+			deleteRoutingRules(e.IPv6)
 		}
 	}
 

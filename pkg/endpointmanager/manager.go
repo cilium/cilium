@@ -504,6 +504,17 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 	isRestored := ep.GetState() == endpoint.StateRestoring
 
 	mgr.unexpose(ep)
+
+	// Guard the per-endpoint routing rule teardown against a stale delete. By
+	// this point unexpose has removed ep from the IP index, so LookupIP returns
+	// nil when no one owns the IP (safe to delete our rules) and the new owner
+	// when the IP has already been reused (skip, deleting would strip its
+	// rules). It can never return ep itself.
+	conf.EndpointOwnsIP = func(ip netip.Addr) bool {
+		owner := mgr.LookupIP(ip)
+		return owner == nil || owner == ep
+	}
+
 	result := ep.Delete(conf)
 
 	// Restored endpoints never had an ID allocated.
