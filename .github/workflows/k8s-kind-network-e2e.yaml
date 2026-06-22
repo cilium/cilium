@@ -66,8 +66,8 @@ jobs:
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
-      - name: Checkout code
-        if: ${{ !github.event.workflow_dispatch }}
+      - name: Checkout code (untrusted)
+        if: ${{ !github.event.pull_request }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
