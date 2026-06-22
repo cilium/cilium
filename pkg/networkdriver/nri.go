@@ -153,7 +153,38 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 			for _, a := range devices {
 				l, err := safenetlink.LinkByName(a.Device.KernelIfName())
 				if err != nil {
-					return err
+					// The kernel link can be absent here when the node
+					// rebooted: the reboot reaped the pod netns (and with
+					// it any on-demand device such as a macvlan
+					// sub-interface), and the restore path rebuilt the
+					// in-memory allocation WITHOUT re-creating the kernel
+					// device — Device.Setup runs only on the prepare path,
+					// which is short-circuited for a restored allocation.
+					//
+					// Only the (re)creation of the sandbox drives
+					// RunPodSandbox, so this is the one moment that
+					// unambiguously means "the device must exist now but
+					// doesn't". An agent restart leaves the sandbox intact
+					// and never reaches here, so re-creating on demand
+					// cannot duplicate a healthy in-pod link. Every
+					// Device.Setup is idempotent (macvlan adopts/recreates
+					// via EEXIST, sr-iov re-applies VLAN, dummy is a no-op),
+					// so this is safe to retry.
+					if !errors.As(err, &netlink.LinkNotFoundError{}) {
+						return err
+					}
+
+					log.InfoContext(ctx, "allocated device link not found; re-creating on demand",
+						logfields.Device, a.Device.KernelIfName())
+
+					if setupErr := a.Device.Setup(a.Config); setupErr != nil {
+						return fmt.Errorf("failed to re-create device %s on demand: %w", a.Device.KernelIfName(), setupErr)
+					}
+
+					l, err = safenetlink.LinkByName(a.Device.KernelIfName())
+					if err != nil {
+						return fmt.Errorf("device %s still not found after re-creating it on demand: %w", a.Device.KernelIfName(), err)
+					}
 				}
 
 				if err := netlink.LinkSetNsFd(l, podNs.FD()); err != nil {
@@ -246,9 +277,11 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 		for _, devices := range alloc {
 			if err := podNs.Do(func() error {
 				for _, a := range devices {
-					if a.Manager == types.DeviceManagerTypeMacvlan {
-						// macvlan does not need cleaning up - netns delete
-						// gets rid of it.
+					if a.Manager == types.DeviceManagerTypeMacvlan ||
+						a.Manager == types.DeviceManagerTypeDummy {
+						// macvlan and dummy are on-demand virtual devices: the
+						// netns delete that follows tears them down, so there is
+						// nothing to move back to the root namespace.
 						continue
 					}
 
