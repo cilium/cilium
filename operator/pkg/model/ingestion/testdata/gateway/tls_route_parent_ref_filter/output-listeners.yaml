@@ -1,0 +1,26 @@
+- hostname: example.com
+  name: tls-443
+  port: 443
+  routes:
+  - backends:
+    - name: my-service
+      namespace: default
+      port:
+        port: 443
+    hostnames:
+    - example.com
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
+- hostname: example.com
+  name: tls-8443
+  port: 8443
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1

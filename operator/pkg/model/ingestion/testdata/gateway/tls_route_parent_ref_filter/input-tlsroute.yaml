@@ -1,0 +1,17 @@
+- metadata:
+    creationTimestamp: null
+    name: tls
+    namespace: default
+  spec:
+    hostnames:
+    - example.com
+    parentRefs:
+    - name: my-gateway
+      namespace: default
+      port: 443
+    rules:
+    - backendRefs:
+      - name: my-service
+        port: 443
+  status:
+    parents: null
