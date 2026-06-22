@@ -66,6 +66,12 @@ var (
 		"is_reply",
 		"Summary",
 		"ip_trace_id",
+		"traffic_direction",
+		"policy_match_type",
+		"ingress_allowed_by",
+		"ingress_denied_by",
+		"egress_allowed_by",
+		"egress_denied_by",
 	}
 )
 
