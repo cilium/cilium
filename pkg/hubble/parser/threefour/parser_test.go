@@ -83,6 +83,21 @@ var (
 	}
 )
 
+
+// serializeTraceNotify writes a TraceNotify struct in native byte order and
+// appends packetData. This avoids hardcoding little-endian byte arrays, making
+// the tests portable across architectures.
+func serializeTraceNotify(t testing.TB, tn *monitor.TraceNotify, packetData []byte) []byte {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	if err := binary.Write(buf, byteorder.Native, tn); err != nil {
+		t.Fatalf("binary.Write TraceNotify: %v", err)
+	}
+	buf.Truncate(int(tn.DataOffset()))
+	buf.Write(packetData)
+	return buf.Bytes()
+}
+
 func directionFromProto(direction flowpb.TrafficDirection) trafficdirection.TrafficDirection {
 	switch direction {
 	case flowpb.TrafficDirection_INGRESS:
@@ -107,14 +122,16 @@ func TestL34DecodeEmpty(t *testing.T) {
 }
 
 func TestL34DecodeVXLANOverlay(t *testing.T) {
-	payload := []byte{
-		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
-		0, 0, 0, 0, // source labels
-		0, 0, 0, 0, // destination labels
-		0, 0, // destination ID
-		1,          // trace reason = TraceReasonCtEstablished
-		4,          // flags = TraceNotifyFlagIsVXLAN
-		0, 0, 0, 0, // ifindex
+	payload := serializeTraceNotify(t, &monitor.TraceNotify{
+		Type:     monitorAPI.MessageTypeTrace,
+		ObsPoint: monitorAPI.TraceFromHost,
+		Hash:     0x391a7c07,
+		OrigLen:  66,
+		CapLen:   66,
+		Reason:   monitor.TraceReasonCtEstablished,
+		Flags:    monitor.TraceNotifyFlagIsVXLAN,
+		Version:  monitor.TraceNotifyVersion0,
+	}, []byte{
 		// Packet generated via Scapy:
 		// p = Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16")/IP(src="192.168.1.1",dst="192.168.1.2")/UDP(sport=8472,dport=9999)/VXLAN(vni=2)/Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="10.1.0.1",dst="10.1.0.2")/TCP(sport=54222,dport=8080)
 		// print(", ".join(hex(b) for b in raw(p)))
@@ -128,7 +145,7 @@ func TestL34DecodeVXLANOverlay(t *testing.T) {
 		0x1, 0xa, 0x1, 0x0, 0x2, 0xd3, 0xce, 0x1f, 0x90, 0x0, 0x0, 0x0,
 		0x0, 0x0, 0x0, 0x0, 0x0, 0x50, 0x2, 0x20, 0x0, 0x88, 0x7f, 0x0,
 		0x0,
-	}
+	})
 
 	// parser setup.
 	endpointGetter := &testutils.NoopEndpointGetter
@@ -180,14 +197,16 @@ func TestL34DecodeVXLANOverlay(t *testing.T) {
 }
 
 func TestL34DecodeGeneveOverlay(t *testing.T) {
-	payload := []byte{
-		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
-		0, 0, 0, 0, // source labels
-		0, 0, 0, 0, // destination labels
-		0, 0, // destination ID
-		1,          // trace reason = TraceReasonCtEstablished
-		8,          // flags = TraceNotifyFlagIsGeneve
-		0, 0, 0, 0, // ifindex
+	payload := serializeTraceNotify(t, &monitor.TraceNotify{
+		Type:     monitorAPI.MessageTypeTrace,
+		ObsPoint: monitorAPI.TraceFromHost,
+		Hash:     0x391a7c07,
+		OrigLen:  66,
+		CapLen:   66,
+		Reason:   monitor.TraceReasonCtEstablished,
+		Flags:    monitor.TraceNotifyFlagIsGeneve,
+		Version:  monitor.TraceNotifyVersion0,
+	}, []byte{
 		// Packet generated via Scapy:
 		// Ether(src="01:02:03:04:05:06", dst="11:12:13:14:15:16")/IP(src="192.168.1.1",dst="192.168.1.2")/UDP(sport=6081,dport=9999)/GENEVE(vni=2)/Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="10.1.0.1",dst="10.1.0.2")/TCP(sport=54222,dport=8080)
 		// print(", ".join(hex(b) for b in raw(p)))
@@ -201,7 +220,7 @@ func TestL34DecodeGeneveOverlay(t *testing.T) {
 		0x1, 0xa, 0x1, 0x0, 0x2, 0xd3, 0xce, 0x1f, 0x90, 0x0, 0x0, 0x0,
 		0x0, 0x0, 0x0, 0x0, 0x0, 0x50, 0x2, 0x20, 0x0, 0x88, 0x7f, 0x0,
 		0x0,
-	}
+	})
 
 	// parser setup.
 	endpointGetter := &testutils.NoopEndpointGetter
@@ -253,14 +272,22 @@ func TestL34DecodeGeneveOverlay(t *testing.T) {
 }
 
 func BenchmarkL34DecodeOverlay(b *testing.B) {
-	d := []byte{4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 0, 0, 0, 0, 17, 18, 19,
+	d := serializeTraceNotify(b, &monitor.TraceNotify{
+		Type:     monitorAPI.MessageTypeTrace,
+		ObsPoint: monitorAPI.TraceFromHost,
+		Hash:     0x391a7c07,
+		OrigLen:  66,
+		CapLen:   66,
+		Reason:   monitor.TraceReasonCtEstablished,
+		Flags:    monitor.TraceNotifyFlagIsVXLAN,
+		Version:  monitor.TraceNotifyVersion0,
+	}, []byte{17, 18, 19,
 		20, 21, 22, 1, 2, 3, 4, 5, 6, 8, 0, 69, 0, 0, 90, 0, 1, 0, 0,
 		64, 17, 247, 62, 192, 168, 1, 1, 192, 168, 1, 2, 33, 24, 39,
 		15, 0, 70, 144, 135, 12, 0, 0, 3, 0, 0, 2, 0, 2, 51, 69, 103,
 		137, 171, 1, 35, 69, 103, 137, 171, 8, 0, 69, 0, 0, 40, 0, 1,
 		0, 0, 64, 6, 102, 203, 10, 1, 0, 1, 10, 1, 0, 2, 211, 206, 31,
-		144, 0, 0, 0, 0, 0, 0, 0, 0, 80, 16, 32, 0, 136, 113, 0, 0}
+		144, 0, 0, 0, 0, 0, 0, 0, 0, 80, 16, 32, 0, 136, 113, 0, 0})
 
 	endpointGetter := &testutils.NoopEndpointGetter
 	dnsGetter := &testutils.NoopDNSGetter
@@ -281,19 +308,20 @@ func BenchmarkL34DecodeOverlay(b *testing.B) {
 func TestL34Decode(t *testing.T) {
 	// SOURCE          					DESTINATION           TYPE   SUMMARY
 	// 192.168.60.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
-	d := []byte{
-		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
-		1, 0, 0, 0, // source labels
-		0, 0, 0, 0, // destination labels
-		0, 0, // destination ID
-		0x81,       // "established" trace reason with the encrypt bit set
-		0,          // flags
-		0, 0, 0, 0, // ifindex
-		246, 141, 178, 45, 33, 217, 246, 141, 178,
+	d := serializeTraceNotify(t, &monitor.TraceNotify{
+		Type:     monitorAPI.MessageTypeTrace,
+		ObsPoint: monitorAPI.TraceFromHost,
+		Hash:     0x391a7c07,
+		OrigLen:  66,
+		CapLen:   66,
+		SrcLabel: 1,
+		Reason:   monitor.TraceReasonCtEstablished | monitor.TraceReasonEncryptMask,
+		Version:  monitor.TraceNotifyVersion0,
+	}, []byte{246, 141, 178, 45, 33, 217, 246, 141, 178,
 		45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
 		168, 60, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180,
 		152, 129, 103, 128, 16, 1, 152, 216, 156, 0, 0, 1, 1, 8, 10, 0, 90, 176,
-		98, 0, 90, 176, 97, 0, 0}
+		98, 0, 90, 176, 97, 0, 0})
 
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {

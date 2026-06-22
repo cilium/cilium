@@ -11,7 +11,7 @@ set -o nounset
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=cni-version.sh
 source "${script_dir}/cni-version.sh"
-
+echo "https://github.com/containernetworking/plugins/releases/download/v${cni_version}/cni-plugins-linux-${TARGETARCH}-v${cni_version}.tgz"
 curl --fail --show-error --silent --location "https://github.com/containernetworking/plugins/releases/download/v${cni_version}/cni-plugins-linux-${TARGETARCH}-v${cni_version}.tgz" --output "/tmp/cni-${TARGETARCH}.tgz"
 printf "%s %s" "${cni_sha512[${TARGETARCH}]}" "/tmp/cni-${TARGETARCH}.tgz" | sha512sum -c
 mkdir -p "/out/cni"

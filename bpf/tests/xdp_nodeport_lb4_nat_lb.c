@@ -10,6 +10,9 @@
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
 
+/* Skip ingress policy checks */
+#define USE_BPF_PROG_FOR_INGRESS_POLICY
+
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -25,8 +28,6 @@
 #define BACKEND_IP_REMOTE	v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
 
-#define DEFAULT_IFACE	24
-
 #define fib_lookup mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
@@ -41,9 +42,6 @@ static volatile const __u8 *remote_backend_mac = mac_five;
 #include <bpf/section.h>
 #include <linux/bpf.h>
 #include <linux/types.h>
-
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
 
 struct mock_settings {
 	__be16 nat_source_port;
@@ -63,10 +61,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	__u32 key = 0;
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
 
-	if (settings && settings->fail_fib) {
-		params->ifindex = DEFAULT_IFACE;
+	if (settings && settings->fail_fib)
 		return BPF_FIB_LKUP_RET_NO_NEIGH;
-	}
 
 	params->ifindex = 0;
 
@@ -83,12 +79,9 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include "lib/bpf_xdp.h"
 
-ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
-
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
-#include "lib/network_device.h"
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -150,8 +143,6 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
-	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
-
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -200,7 +191,7 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
 	if (l4->check != bpf_htons(0x3771))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_ntohs(0x3771));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -418,7 +409,7 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	struct tcphdr *l4;
 	void *data;
-	__be16 nat_source_port = 0;
+	__u16 nat_source_port = 0;
 	__u32 key = 0;
 
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
@@ -499,7 +490,7 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("dst port hasn't been RevNATed to client port");
 
 	if (l4->check != bpf_htons(0x6148))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_ntohs(0x6148));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -544,16 +535,12 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 	if (settings)
 		settings->fail_fib = true;
 
-	cilium_device_add_entry(DEFAULT_IFACE, (__u8 *)lb_mac, 0);
-
 	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "xdp_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	cilium_device_del_entry(DEFAULT_IFACE);
-
 	return check_reply(ctx);
 }
 
@@ -616,8 +603,6 @@ int nodeport_l7delegate_local_check(const struct __ctx_buff *ctx)
 	__u32 *meta;
 
 	test_init();
-
-	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;

@@ -4,7 +4,7 @@
 package murmur3
 
 import (
-	"unsafe"
+	"encoding/binary"
 )
 
 // Hash128 calculates a 128 bits hash for the given data. It returns different
@@ -24,9 +24,9 @@ func Hash128(data []byte, seed uint32) (uint64, uint64) {
 	h2 := uint64(seed)
 
 	for i := range nblocks {
-		tmp := (*[2]uint64)(unsafe.Pointer(&data[i*16]))
-		k1 := tmp[0]
-		k2 := tmp[1]
+		block := data[i*16:]
+		k1 := binary.LittleEndian.Uint64(block[0:8])
+		k2 := binary.LittleEndian.Uint64(block[8:16])
 
 		k1 *= c1
 		k1 = rotl64(k1, 31)

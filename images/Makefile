@@ -12,7 +12,7 @@ ifeq ($(PUSH),true)
 OUTPUT := "type=registry,push=true"
 endif
 
-PLATFORMS=linux/amd64,linux/arm64
+PLATFORMS?=linux/amd64,linux/arm64
 RUNTIME_IMAGE=quay.io/cilium/cilium-runtime
 RUNTIME_DIRECTORY?=images/runtime
 

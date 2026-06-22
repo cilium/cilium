@@ -7,6 +7,7 @@ import (
 	"context"
 	"runtime"
 	"sync"
+	"os/exec"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -20,6 +21,9 @@ import (
 )
 
 func TestObjectCache(t *testing.T) {
+	if _, err := exec.LookPath("clang"); err != nil {
+		t.Skip("clang not found, skipping BPF compilation test")
+	}
 	tmpDir := t.TempDir()
 
 	setupCompilationDirectories(t)
@@ -59,6 +63,9 @@ func TestObjectCache(t *testing.T) {
 }
 
 func TestObjectCacheParallel(t *testing.T) {
+	if _, err := exec.LookPath("clang"); err != nil {
+		t.Skip("clang not found, skipping BPF compilation test")
+	}
 	tmpDir := t.TempDir()
 
 	setupCompilationDirectories(t)

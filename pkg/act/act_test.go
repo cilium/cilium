@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/act"
 	"github.com/cilium/cilium/pkg/option"
@@ -305,8 +306,13 @@ func TestReconcileServices(t *testing.T) {
 		123: {24: nl, 26: nl, 27: nl, 29: nl},
 		124: {25: nl, 26: nl, 27: nl, 28: nl},
 	}
-	// {24, 26, 27} but in host byte order
-	activeServices := []loadbalancer.ServiceID{24 * 256, 26 * 256, 27 * 256}
+	// Service IDs are stored in the tracker map after HostToNetwork16 conversion.
+	// Use the same conversion here so the test is endian-portable.
+	activeServices := []loadbalancer.ServiceID{
+		loadbalancer.ServiceID(byteorder.HostToNetwork16(24)),
+		loadbalancer.ServiceID(byteorder.HostToNetwork16(26)),
+		loadbalancer.ServiceID(byteorder.HostToNetwork16(27)),
+	}
 	a.svcIDs = func() []loadbalancer.ServiceID {
 		return activeServices
 	}

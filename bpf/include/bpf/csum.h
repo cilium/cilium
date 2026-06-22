@@ -35,6 +35,7 @@ static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
 {
 	if (__builtin_constant_p(size_from) &&
 	    __builtin_constant_p(size_to)) {
+#if __BYTE_ORDER__ != __ORDER_BIG_ENDIAN__
 		/* Optimizations for frequent hot-path cases that are tiny to just
 		 * inline into the code instead of calling more expensive helper.
 		 */
@@ -45,6 +46,14 @@ static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
 			return csum_add(seed,
 					csum_add(~(*(__u32 *)from),
 						 *(__u32 *)to));
+#else
+		/* On big-endian targets (bpfeb/s390x), the inline __u32
+		 * optimization produces incorrect ones-complement intermediates
+		 * because the carry structure of csum_add on a host-order 32-bit
+		 * integer differs from summing two network-order 16-bit words.
+		 * Fall through to csum_diff_external which uses csum_partial.
+		 */
+#endif
 	}
 
 	return csum_diff_external(from, size_from, to, size_to, seed);

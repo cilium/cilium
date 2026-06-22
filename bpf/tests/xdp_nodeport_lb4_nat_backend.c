@@ -10,6 +10,9 @@
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
 
+/* Skip ingress policy checks */
+#define USE_BPF_PROG_FOR_INGRESS_POLICY
+
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -23,8 +26,6 @@
 #define BACKEND_PORT		__bpf_htons(8080)
 
 #include "lib/bpf_xdp.h"
-
-ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
@@ -91,8 +92,6 @@ int nodeport_nat_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_init();
 
-	endpoint_v4_del_entry(BACKEND_IP);
-
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -141,7 +140,7 @@ int nodeport_nat_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x9c02))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_ntohs(0x9c02));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }

@@ -188,8 +188,6 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	test_init();
 
-	endpoint_v4_del_entry(BACKEND_IP);
-
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -246,7 +244,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x3771))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3771));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
@@ -266,10 +264,19 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("no CT entry for DSR found");
 	if (!ct_entry->dsr_internal)
 		test_fatal("CT entry doesn't have the .dsr_internal flag set");
-	if (ct_entry->nat_addr.p4 != FRONTEND_IP)
-		test_fatal("CT entry has wrong RevDNAT address");
-	if (ct_entry->nat_port != FRONTEND_PORT)
-		test_fatal("CT entry has wrong RevDNAT port");
+
+	struct ipv4_nat_entry *nat_entry;
+
+	tuple.sport = BACKEND_PORT;
+	tuple.dport = CLIENT_PORT;
+
+	nat_entry = snat_v4_lookup(&tuple);
+	if (!nat_entry)
+		test_fatal("no SNAT entry for DSR found");
+	if (nat_entry->to_saddr != FRONTEND_IP)
+		test_fatal("SNAT entry has wrong address");
+	if (nat_entry->to_sport != FRONTEND_PORT)
+		test_fatal("SNAT entry has wrong port");
 
 	test_finish();
 }
@@ -353,7 +360,7 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x6149))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x6149));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -375,6 +382,41 @@ int nodeport_dsr_backend_reply_setup(struct __ctx_buff *ctx)
 
 CHECK("tc", "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_check(const struct __ctx_buff *ctx)
+{
+	return check_reply(ctx);
+}
+
+/* Test that the backend node revDNATs a reply from the
+ * DSR backend, and sends the reply back to the client.
+ * Even without the NAT entry.
+ */
+PKTGEN("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_pktgen(struct __ctx_buff *ctx)
+{
+	return build_reply(ctx);
+}
+
+SETUP("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_setup(struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple tuple = {
+		.daddr = CLIENT_IP,
+		.saddr = BACKEND_IP,
+		.dport = CLIENT_PORT,
+		.sport = BACKEND_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags = CT_EGRESS,
+	};
+
+	/* Delete the NAT entry, fall back to the NAT info in the CT entry. */
+	if (map_delete_elem(&cilium_snat_v4_external, &tuple))
+		return TEST_ERROR;
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
 }
@@ -437,9 +479,6 @@ int nodeport_dsr_backend_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_dsr_backend_redirect")
 int nodeport_dsr_backend_redirect_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
-			      (__u8 *)backend_mac, (__u8 *)node_mac);
-
 	return netdev_receive_packet(ctx);
 }
 
@@ -454,8 +493,6 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
-
-	endpoint_v4_del_entry(BACKEND_IP);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
@@ -513,7 +550,7 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x2c70))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
@@ -533,6 +570,19 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 		test_fatal("no CT entry for DSR found");
 	if (!ct_entry->dsr_internal)
 		test_fatal("CT entry doesn't have the .dsr_internal flag set");
+
+	struct ipv4_nat_entry *nat_entry;
+
+	tuple.sport = BACKEND_PORT;
+	tuple.dport = CLIENT_PORT;
+
+	nat_entry = snat_v4_lookup(&tuple);
+	if (!nat_entry)
+		test_fatal("no SNAT entry for DSR found");
+	if (nat_entry->to_saddr != FRONTEND_IP)
+		test_fatal("SNAT entry has wrong address");
+	if (nat_entry->to_sport != FRONTEND_PORT)
+		test_fatal("SNAT entry has wrong port");
 
 	test_finish();
 }
@@ -627,7 +677,7 @@ int nodeport_dsr_backend_redirect_reply_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x2c70))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }

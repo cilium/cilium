@@ -62,6 +62,12 @@ enum {
 
 typedef __u64 mac_t;
 
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define mac_t_to_bytes(x) __builtin_bswap64(x)
+#else
+#define mac_t_to_bytes(x) (x)
+#endif
+
 union v4addr {
 	__u8 addr[4];
 	__be32 be32;

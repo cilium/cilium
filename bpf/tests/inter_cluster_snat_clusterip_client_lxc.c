@@ -60,7 +60,6 @@ ASSIGN_CONFIG(__u32, cluster_id, 1)
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP})
 
 ASSIGN_CONFIG(__u32, security_label, 0x10042)
-ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -210,7 +209,7 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst port hasn't been NATed to backend port");
 
 	if (l4->check != bpf_htons(0x35ec))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x35ec));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Check service conntrack state is in the default CT */
 	tuple.daddr = FRONTEND_IP;
@@ -254,7 +253,7 @@ SETUP("tc", "02_overlay_to_lxc_synack")
 int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
-	local_delivery_fill_meta(ctx, BACKEND_IDENTITY, true, false, false, true, 2);
+	local_delivery_fill_meta(ctx, BACKEND_IDENTITY, true, false, true, 2);
 
 	return pod_receive_packet_by_tailcall(ctx);
 }
@@ -317,7 +316,7 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port is not client port");
 
 	if (l4->check != bpf_htons(0xc2c5))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xc2c5));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Make sure we hit the conntrack entry */
 	tuple.daddr   = CLIENT_IP;
@@ -407,7 +406,7 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port hasn't been NATed to backend port");
 
 	if (l4->check != bpf_htons(0x35de))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x35de));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Make sure we hit the conntrack entry */
 	tuple.daddr   = CLIENT_IP;

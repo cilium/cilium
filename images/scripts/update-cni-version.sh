@@ -24,7 +24,7 @@ cni_version="${1}"
 # an old version that doesn't support associative arrays
 cni_sha512=()
 
-for arch in amd64 arm64 ; do
+for arch in amd64 arm64 s390x ; do
   tmpout="$(mktemp)"
   curl --fail --show-error --silent --location \
     "https://github.com/containernetworking/plugins/releases/download/v${cni_version}/cni-plugins-linux-${arch}-v${cni_version}.tgz.sha512" \
@@ -40,4 +40,5 @@ cni_version="${cni_version}"
 declare -A cni_sha512
 cni_sha512[amd64]="${cni_sha512[0]}"
 cni_sha512[arm64]="${cni_sha512[1]}"
+cni_sha512[s390x]="${cni_sha512[2]}"
 EOF

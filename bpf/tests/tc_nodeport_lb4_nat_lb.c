@@ -9,10 +9,13 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_HOST_ROUTING
+#define ENABLE_EGRESS_GATEWAY	1
+#define ENABLE_MASQUERADE_IPV4	1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_IP_2		v4_ext_two
+#define CLIENT_NODE_IP		v4_node_two
 
 #define FRONTEND_IP_LOCAL	v4_svc_one
 #define FRONTEND_IP_REMOTE	v4_svc_two
@@ -29,6 +32,7 @@
 #define DEFAULT_IFACE		24
 #define BACKEND_IFACE		25
 #define SVC_EGRESS_IFACE	26
+#define ENCAP_IFINDEX		42
 
 #define BACKEND_EP_ID		127
 
@@ -149,14 +153,12 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 #include "lib/bpf_host.h"
 
+#include "lib/egressgw_policy.h"
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
-
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -218,8 +220,6 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
-	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
-
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -263,7 +263,7 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
 	if (l4->check != bpf_htons(0x3771))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3771));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -356,7 +356,7 @@ int nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x6149))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x6149));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -394,9 +394,6 @@ int nodeport_local_backend_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_local_backend_redirect")
 int nodeport_local_backend_redirect_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
-			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
-
 	return netdev_receive_packet(ctx);
 }
 
@@ -410,8 +407,6 @@ int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
-
-	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
@@ -456,7 +451,7 @@ int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
 	if (l4->check != bpf_htons(0x2c70))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -551,7 +546,7 @@ int nodeport_local_backend_redirect_reply_check(const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x2c70))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -592,9 +587,6 @@ int nodeport_udp_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
 
-	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
-			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
-
 	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_UDP, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125,
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
@@ -612,8 +604,6 @@ int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
-
-	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
@@ -658,7 +648,7 @@ int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("dst port hasn't been NATed to backend port");
 
 	if (l4->check != bpf_htons(0x699a))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x699a));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -765,7 +755,7 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	struct tcphdr *l4;
 	void *data;
-	__be16 nat_source_port = 0;
+	__u16 nat_source_port = 0;
 	__u32 key = 0;
 
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
@@ -833,7 +823,7 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("dst port hasn't been RevNATed to client port");
 
 	if (l4->check != bpf_htons(0x6148))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x6148));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -856,6 +846,33 @@ int nodeport_nat_fwd_reply_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_check(const struct __ctx_buff *ctx)
 {
+	return check_reply(ctx);
+}
+
+/* Test that the LB RevDNATs and RevSNATs a reply from the
+ * NAT remote backend, and sends it back to the client.
+ * Even when there's a catch-all EGW policy configured.
+ */
+PKTGEN("tc", "tc_nodeport_nat_fwd_reply2_egw")
+int nodeport_nat_fwd_reply2_egw_pktgen(struct __ctx_buff *ctx)
+{
+	return build_reply(ctx);
+}
+
+SETUP("tc", "tc_nodeport_nat_fwd_reply2_egw")
+int nodeport_nat_fwd_reply2_egw_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v4_add_entry(CLIENT_IP, 0, 112200, CLIENT_NODE_IP, 0);
+	add_egressgw_policy_entry(CLIENT_IP, v4_all, 0, LB_IP, LB_IP);
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_nat_fwd_reply2_egw")
+int nodeport_nat_fwd_reply2_egw_check(const struct __ctx_buff *ctx)
+{
+	del_egressgw_policy_entry(CLIENT_IP, v4_all, 0);
+
 	return check_reply(ctx);
 }
 
@@ -907,7 +924,7 @@ SETUP("tc", "tc_nodeport_nat_fwd_reply_punt")
 int nodeport_nat_fwd_reply_punt_setup(struct __ctx_buff *ctx)
 {
 	/* Delete the Rev NAT */
-	__be16 nat_source_port = 0;
+	__u16 nat_source_port = 0;
 	__u32 key = 0;
 
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
@@ -1146,7 +1163,7 @@ int nodeport_nat_fwd_original_renated_check(const struct __ctx_buff *ctx)
 	struct tcphdr *l4;
 	struct iphdr *l3;
 	__u32 key = 0;
-	__be16 nat_source_port = 0;
+	__u16 nat_source_port = 0;
 
 	test_init();
 
@@ -1285,7 +1302,7 @@ int nodeport_nat_fwd_verify_restored_original_entry_check(struct __ctx_buff *ctx
 	struct tcphdr *l4;
 	struct iphdr *l3;
 	__u32 key = 0;
-	__be16 nat_source_port = 0;
+	__u16 nat_source_port = 0;
 
 	test_init();
 

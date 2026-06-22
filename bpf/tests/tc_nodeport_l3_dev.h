@@ -65,9 +65,7 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 # include "lib/endpoint.h"
 
 const union macaddr router_mac = { .addr = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00} };
-const union macaddr cilium_host_mac = { .addr = {0xce, 0x72, 0xa7, 0x03, 0x88, 0x56} };
 
-ASSIGN_CONFIG(union macaddr, cilium_host_mac, cilium_host_mac)
 ASSIGN_CONFIG(union macaddr, interface_mac, router_mac)
 #endif
 
@@ -76,8 +74,6 @@ ASSIGN_CONFIG(union macaddr, interface_mac, router_mac)
 # include "bpf_host.c"
 # include "lib/endpoint.h"
 #endif
-
-#include "lib/metrics.h"
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -185,13 +181,17 @@ l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx, bool is_ingress, bool is_ip
 	void *data = (void *)(long)ctx->data;
 	void *data_end = (void *)(long)ctx->data_end;
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
+	struct metrics_key key = {
+#if defined(IS_BPF_HOST)
+		.reason = is_ingress ? REASON_PLAINTEXT : REASON_FORWARDED,
+#endif
+#if defined(IS_BPF_WIREGUARD)
+		.reason = is_ingress ? REASON_DECRYPTING : REASON_ENCRYPTING,
+#endif
+		.dir = is_ingress ? METRIC_INGRESS : METRIC_EGRESS,
+	};
 
-	if (is_defined(IS_BPF_HOST))
-		metrics_del_entry(is_ingress ? REASON_PLAINTEXT : REASON_FORWARDED,
-				  is_ingress ? METRIC_INGRESS : METRIC_EGRESS);
-	if (is_defined(IS_BPF_WIREGUARD))
-		metrics_del_entry(is_ingress ? REASON_DECRYPTING : REASON_ENCRYPTING,
-				  is_ingress ? METRIC_INGRESS : METRIC_EGRESS);
+	map_delete_elem(&cilium_metrics, &key);
 
 	if (is_ipv4)
 		if (is_host)
@@ -248,13 +248,6 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 	};
 
 	test_init();
-
-	if (is_ipv4) {
-		if (is_host)
-			endpoint_v4_del_entry(TEST_IP_NODE_LOCAL);
-		else
-			endpoint_v4_del_entry(TEST_IP_LOCAL);
-	}
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
@@ -371,27 +364,23 @@ l3_check:
 	if (is_ipv4)
 		if (is_host) {
 			if (l4->check != bpf_htons(0x118e))
-				test_fatal("L4 checksum is invalid: %x != %x",
-					   l4->check, bpf_htons(0x118e));
+				test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 		} else {
 			if (l4->check != bpf_htons(0xb83c))
-				test_fatal("L4 checksum is invalid: %x != %x",
-					   l4->check, bpf_htons(0xb83c));
+				test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 		}
 	else
 		if (is_host) {
 			if (l4->check != bpf_htons(0x3f82))
-				test_fatal("L4 checksum is invalid: %x != %x",
-					   l4->check, bpf_htons(0x3f82));
+				test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 		} else {
 			if (l4->check != bpf_htons(0x3f84))
-				test_fatal("L4 checksum is invalid: %x != %x",
-					   l4->check, bpf_htons(0x843f));
+				test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 		}
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("payload out of bounds");
+		test_fatal("paylaod out of bounds\n");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");

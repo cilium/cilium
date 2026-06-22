@@ -14,7 +14,8 @@
 #define ENCAP_IFINDEX	42
 #define IFACE_IFINDEX	44
 
-#define EGRESS_GATEWAY_RT_TBID		3
+/* Provide the desired egress interface to the datapath */
+#define EGRESS_IFINDEX	IFACE_IFINDEX
 
 #define fib_lookup mock_fib_lookup
 static __always_inline __maybe_unused long
@@ -48,34 +49,10 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 	return CTX_ACT_OK;
 }
 
-struct fib_lookup_settings {
-	bool fib_lookup_called;
-};
-
-struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(value_size, sizeof(struct fib_lookup_settings));
-	__uint(max_entries, 1);
-} fib_lookup_settings_map __section_maps_btf;
-
 static __always_inline __maybe_unused long
 mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
 		int plen __maybe_unused, __u32 flags __maybe_unused)
 {
-	__u32 key = 0;
-	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
-
-	if (settings) {
-		settings->fib_lookup_called = true;
-
-		if (flags != (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID))
-			return -1;
-
-		if (params->tbid != EGRESS_GATEWAY_RT_TBID)
-			return -2;
-	}
-
 	params->ifindex = IFACE_IFINDEX;
 	return 0;
 }
@@ -83,7 +60,7 @@ mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_
 /* Test that a packet matching an egress gateway policy on the from-overlay program
  * gets correctly redirected to the target netdev.
  */
-PKTGEN("tc", "tc_egressgw_redirect_from_overlay_with_rt_info")
+PKTGEN("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface")
 int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -92,37 +69,23 @@ int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_redirect_from_overlay_with_rt_info")
+SETUP("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface")
 int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
-	__u32 key = 0;
-	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
-
-	if (!settings)
-		return TEST_ERROR;
-
-	settings->fib_lookup_called = false;
-
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
-				  EGRESS_IP, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & bpf_htonl(0xFFFFFF00), 24, GATEWAY_NODE_IP,
+				  EGRESS_IP);
 
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_redirect_from_overlay_with_rt_info")
+CHECK("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface")
 int egressgw_redirect_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
 			.status_code = TC_ACT_REDIRECT,
 	});
-	__u32 key = 0;
 
-	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
-
-	if (!settings || !settings->fib_lookup_called)
-		return TEST_ERROR;
-
-	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & bpf_htonl(0xFFFFFF00), 24);
 
 	return ret;
 }
@@ -130,7 +93,7 @@ int egressgw_redirect_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the from-overlay program
  * gets correctly redirected to the target netdev for IPv6.
  */
-PKTGEN("tc", "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
+PKTGEN("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface_v6")
 int egressgw_redirect_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -139,28 +102,20 @@ int egressgw_redirect_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
+SETUP("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface_v6")
 int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
 	union v6addr client_ip = CLIENT_IP_V6;
 	union v6addr egress_ip = EGRESS_IP_V6;
 
-	__u32 key = 0;
-	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
-
-	if (!settings)
-		return TEST_ERROR;
-
-	settings->fib_lookup_called = false;
-
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip, 0);
+				     &egress_ip, EGRESS_IFINDEX);
 
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
+CHECK("tc", "tc_egressgw_redirect_from_overlay_with_egress_interface_v6")
 int egressgw_redirect_check_v6(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -169,12 +124,6 @@ int egressgw_redirect_check_v6(const struct __ctx_buff *ctx)
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
 			.status_code = TC_ACT_REDIRECT,
 	});
-	__u32 key = 0;
-
-	struct fib_lookup_settings *settings = map_lookup_elem(&fib_lookup_settings_map, &key);
-
-	if (!settings || !settings->fib_lookup_called)
-		return TEST_ERROR;
 
 	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX);
 

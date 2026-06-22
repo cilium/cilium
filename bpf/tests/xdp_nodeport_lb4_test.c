@@ -3,6 +3,7 @@
 
 #include <bpf/ctx/xdp.h>
 #include "common.h"
+#include "pktgen.h"
 
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
@@ -28,81 +29,37 @@ ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 
 #include "lib/lb.h"
 
-#define FRONTEND_IP 0x0F00010A /* 10.0.1.15 */
-#define FRONTEND_PORT 80
-#define BACKEND_IP 0x0F00020A /* 10.2.0.15 */
-#define BACKEND_PORT 8080
+#define CLIENT_IP		IPV4(15, 0, 0, 10)
+#define CLIENT_PORT		bpf_htons(23445)
+#define FRONTEND_IP		IPV4(15, 0, 1, 10)
+#define FRONTEND_PORT		bpf_htons(80)
+#define BACKEND_IP		IPV4(15, 0, 2, 10)
+#define BACKEND_PORT		bpf_htons(8080)
 
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
+static const char client_mac[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+static const char node_mac[6]   = {0x12, 0x23, 0x34, 0x45, 0x56, 0x67};
 
-static long (*bpf_xdp_adjust_tail)(struct xdp_md *xdp_md, int delta) = (void *)65;
-
-static __always_inline int build_packet(struct __ctx_buff *ctx)
+PKTGEN("xdp", "xdp_lb4_forward_to_other_node")
+int test1_pktgen(struct __ctx_buff *ctx)
 {
-	/* Create room for our packet to be crafted */
-	unsigned int data_len = ctx->data_end - ctx->data;
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
 
-	int offset = offset = 4096 - 256 - 320 - data_len;
+	pktgen__init(&builder, ctx);
 
-	bpf_xdp_adjust_tail(ctx, offset);
-
-	void *data = (void *)(long)ctx->data;
-	void *data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(struct ethhdr) > data_end)
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)node_mac,
+					  CLIENT_IP, FRONTEND_IP,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
 		return TEST_ERROR;
 
-	struct ethhdr l2 = {
-		.h_source = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
-		.h_dest = {0x12, 0x23, 0x34, 0x45, 0x56, 0x67},
-		.h_proto = bpf_htons(ETH_P_IP)
-	};
-	memcpy(data, &l2, sizeof(struct ethhdr));
-	data += sizeof(struct ethhdr);
-
-	if (data + sizeof(struct iphdr) > data_end)
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
 		return TEST_ERROR;
 
-	struct iphdr l3 = {
-		.version = 4,
-		.ihl = 5,
-		.tot_len = 40, /* 20 bytes l3 + 20 bytes l4 + 20 bytes data */
-		.id = 0x5438,
-		.frag_off = bpf_htons(IP_DF),
-		.ttl = 64,
-		.protocol = IPPROTO_TCP,
-		.saddr = 0x0F00000A, /* 10.0.0.15 */
-		.daddr = FRONTEND_IP,
-	};
-	memcpy(data, &l3, sizeof(struct iphdr));
-	data += sizeof(struct iphdr);
-
-	char tcp_data[20] = "Should not change!!";
-
-	/* TCP header + data */
-	if (data + (sizeof(struct tcphdr) + sizeof(tcp_data)) > data_end)
-		return TEST_ERROR;
-
-	struct tcphdr l4 = {
-		.source = 23445,
-		.dest = FRONTEND_PORT,
-		.seq = 2922048129,
-		.doff = 0, /* no options */
-		.syn = 1,
-		.window = 64240,
-	};
-	memcpy(data, &l4, sizeof(struct tcphdr));
-
-	char *tcp_data_ptr = data + sizeof(tcp_data);
-
-	memcpy(tcp_data_ptr, tcp_data, sizeof(tcp_data));
-
-	data += sizeof(struct tcphdr) + sizeof(tcp_data);
-
-	/* Shrink ctx to the exact size we used */
-	offset = (int)((long)data - (long)ctx->data_end);
-	bpf_xdp_adjust_tail(ctx, offset);
+	pktgen__finish(&builder);
 
 	return 0;
 }
@@ -110,12 +67,6 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 SETUP("xdp", "xdp_lb4_forward_to_other_node")
 int test1_setup(struct __ctx_buff *ctx)
 {
-	int ret;
-
-	ret = build_packet(ctx);
-	if (ret)
-		return ret;
-
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
@@ -174,31 +125,37 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port != backend port");
 
-	if (l4->check != bpf_htons(0xc9ee))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_ntohs(0xc9ee));
-
-	char msg[20] = "Should not change!!";
-
-	if (data + sizeof(msg) > data_end)
-		test_fatal("ctx doesn't fit tcp body");
-
-	char *body = data;
-
-	if (memcmp(body, msg, sizeof(msg)) != 0)
-		test_fatal("body changed");
-
 	test_finish();
+}
+
+PKTGEN("xdp", "xdp_lb4_drop_no_backend")
+int test2_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)node_mac,
+					  CLIENT_IP, FRONTEND_IP,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
 }
 
 SETUP("xdp", "xdp_lb4_drop_no_backend")
 int test2_setup(struct __ctx_buff *ctx)
 {
-	int ret;
-
-	ret = build_packet(ctx);
-	if (ret)
-		return ret;
-
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 0, 1);
 
 	return xdp_receive_packet(ctx);

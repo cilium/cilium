@@ -97,11 +97,19 @@ struct remote_endpoint_info {
 	} tunnel_endpoint;
 	__u16		pad;
 	__u8		key;
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	__u8		pad2:4,
+			flag_remote_cluster:1,
+			flag_ipv6_tunnel_ep:1,
+			flag_has_tunnel_ep:1,
+			flag_skip_tunnel:1;
+#else
 	__u8		flag_skip_tunnel:1,
 			flag_has_tunnel_ep:1,
 			flag_ipv6_tunnel_ep:1,
 			flag_remote_cluster:1,
 			pad2:4;
+#endif
 };
 
 struct ipcache_key {

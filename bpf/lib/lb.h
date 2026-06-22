@@ -130,8 +130,7 @@ union lb4_affinity_client_id {
 struct lb4_affinity_key {
 	union lb4_affinity_client_id client_id;
 	__u16 rev_nat_id;
-	__u8 netns_cookie:1,
-	     reserved:7;
+	__u8 netns_cookie;
 	__u8 pad1;
 	__u32 pad2;
 } __packed;
@@ -144,8 +143,7 @@ union lb6_affinity_client_id {
 struct lb6_affinity_key {
 	union lb6_affinity_client_id client_id;
 	__u16 rev_nat_id;
-	__u8 netns_cookie:1,
-	     reserved:7;
+	__u8 netns_cookie;
 	__u8 pad1;
 	__u32 pad2;
 } __packed;
