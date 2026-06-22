@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"slices"
 
@@ -56,6 +57,20 @@ func newCIDRPool(logger *slog.Logger, allowFirstIP, allowLastIP bool) *cidrPool 
 		allowFirstIP: allowFirstIP,
 		allowLastIP:  allowLastIP,
 	}
+}
+
+// cidrRangeOpts returns the ipallocator range options matching the pool's
+// first/last IP settings. Delegated prefixes set both, so the network and
+// broadcast addresses of each CIDR become allocatable.
+func (p *cidrPool) cidrRangeOpts() []ipallocator.CIDRRangeOption {
+	var opts []ipallocator.CIDRRangeOption
+	if p.allowFirstIP {
+		opts = append(opts, ipallocator.WithAllowFirstIP())
+	}
+	if p.allowLastIP {
+		opts = append(opts, ipallocator.WithAllowLastIP())
+	}
+	return opts
 }
 
 func (p *cidrPool) allocate(addr netip.Addr) error {
@@ -186,6 +201,41 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 		totalFree += ipAllocator.Free()
 	}
 
+	// Reclaim previously-released CIDRs when demand has grown back and we
+	// no longer have enough free IPs. A CIDR stays in p.released only while
+	// it is still advertised in the CiliumNode (updatePool removes it from
+	// the set as soon as the operator stops advertising it), so reclaiming
+	// here never re-adds a CIDR that has actually been detached. Without
+	// this, a released-but-still-attached prefix is stranded forever: the
+	// operator may not detach it (e.g. release-excess-ips disabled), so it
+	// never leaves the advertised set, while updatePool refuses to recreate
+	// its allocator because it is still in p.released. The result is
+	// permanent exhaustion until the agent restarts.
+	if totalFree < neededIPs && len(p.released) > 0 {
+		// Reclaim in a deterministic order to avoid churn across calls.
+		reclaim := slices.SortedFunc(maps.Keys(p.released), func(a, b netip.Prefix) int {
+			if c := a.Addr().Compare(b.Addr()); c != 0 {
+				return c
+			}
+			return a.Bits() - b.Bits()
+		})
+
+		rangeOpts := p.cidrRangeOpts()
+		for _, prefix := range reclaim {
+			if totalFree >= neededIPs {
+				break
+			}
+			ipAllocator := ipallocator.NewCIDRRange(prefix, rangeOpts...)
+			if ipAllocator.Free() == 0 {
+				continue // too-small CIDR, keep it released
+			}
+			p.ipAllocators = append(p.ipAllocators, ipAllocator)
+			delete(p.released, prefix)
+			totalFree += ipAllocator.Free()
+			p.logger.Debug("reclaiming released CIDR", logfields.CIDR, prefix)
+		}
+	}
+
 	// Iterate over CIDRs in reverse order, so we prioritize releasing
 	// later CIDRs.
 	retainedAllocators := []*ipallocator.Range{}
@@ -277,13 +327,7 @@ func (p *cidrPool) updatePool(prefixes []netip.Prefix) {
 	}
 
 	// Create and add new IP allocators to newIPAllocators.
-	var rangeOpts []ipallocator.CIDRRangeOption
-	if p.allowFirstIP {
-		rangeOpts = append(rangeOpts, ipallocator.WithAllowFirstIP())
-	}
-	if p.allowLastIP {
-		rangeOpts = append(rangeOpts, ipallocator.WithAllowLastIP())
-	}
+	rangeOpts := p.cidrRangeOpts()
 	for _, prefix := range prefixes {
 		if _, ok := existingAllocators[prefix]; ok {
 			continue
