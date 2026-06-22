@@ -13,12 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/hubble/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
+	"github.com/cilium/cilium/pkg/monitor/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -108,6 +111,7 @@ func TestPrinter_WriteProtoFlow(t *testing.T) {
 	policyAllowed.IsReply = nil
 	policyAllowed.TrafficDirection = flowpb.TrafficDirection_INGRESS
 	policyAllowed.IngressAllowedBy = []*flowpb.Policy{{Name: "my-policy", Namespace: "my-policy-namespace", Kind: "CiliumNetworkPolicy"}, {Name: "my-policy-2", Kind: "CiliumClusterwideNetworkPolicy"}}
+	policyAllowed.PolicyMatchType = api.PolicyMatchL3Only
 
 	policyAudited := proto.Clone(&f).(*flowpb.Flow)
 	policyAudited.EventType = &flowpb.CiliumEventType{
@@ -117,6 +121,11 @@ func TestPrinter_WriteProtoFlow(t *testing.T) {
 	policyAudited.IsReply = nil
 	policyAudited.TrafficDirection = flowpb.TrafficDirection_EGRESS
 	policyAudited.EgressDeniedBy = []*flowpb.Policy{{Name: "my-policy", Namespace: "my-policy-namespace", Kind: "CiliumNetworkPolicy"}}
+
+	fmp, err := fieldmaskpb.New(&flowpb.Flow{}, defaults.FieldMask...)
+	require.NoError(t, err)
+	fm, err := fieldmask.New(fmp)
+	require.NoError(t, err)
 
 	type args struct {
 		f     *flowpb.Flow
@@ -271,7 +280,7 @@ Jan  1 00:20:34.567   k8s1   1.1.1.1:31793   2.2.2.2:8080   Policy denied   DROP
 			wantErr: false,
 			expected: "Jan  1 00:20:34.567 [k8s1]: " +
 				"1.1.1.1:31793 (health) <> 2.2.2.2:8080 (ID:12345) " +
-				"policy-verdict:none INGRESS ALLOWED BY my-policy (CiliumNetworkPolicy), my-policy-2 (CiliumClusterwideNetworkPolicy) (TCP Flags: SYN)\n",
+				"policy-verdict:L3-Only INGRESS ALLOWED BY my-policy (CiliumNetworkPolicy), my-policy-2 (CiliumClusterwideNetworkPolicy) (TCP Flags: SYN)\n",
 		},
 		{
 			name: "compact-policy-verdict-audited-with-policy-name",
@@ -437,10 +446,14 @@ DESTINATION: 2.2.2.2:8080
 			f := proto.Clone(tt.args.f).(*flowpb.Flow)
 			proto.Merge(f, tt.args.merge)
 
+			fc := &flowpb.Flow{}
+			fm.Copy(fc.ProtoReflect(), f.ProtoReflect())
+
 			p := New(tt.options...)
 			res := &observerpb.GetFlowsResponse{
-				ResponseTypes: &observerpb.GetFlowsResponse_Flow{Flow: f},
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{Flow: fc},
 			}
+
 			// writes a node status event into the error stream
 			if err := p.WriteProtoFlow(res); (err != nil) != tt.wantErr {
 				t.Errorf("WriteProtoFlow() error = %v, wantErr %v", err, tt.wantErr)
