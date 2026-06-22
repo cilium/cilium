@@ -23,7 +23,8 @@ import (
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/networkdriver/dummy"
+	"github.com/cilium/cilium/pkg/networkdriver/macvlan"
+	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	testnetns "github.com/cilium/cilium/pkg/testutils/netns"
@@ -41,11 +42,18 @@ import (
 //   - "stop recovers netns from Synchronize after restart": containerd < 2.1 across an
 //     agent restart; the in-memory cache is lost and rebuilt from the NRI Synchronize
 //     replay before the buggy StopPodSandbox arrives.
+//
+// sr-iov is used deliberately: macvlan and dummy are on-demand virtual devices that
+// StopPodSandbox leaves in the pod netns to be reaped on netns deletion, so sr-iov is the
+// only type that still travels back to root and exercises the rename/move-back/IP-and-route
+// teardown path asserted below. The kernel link is a netlink.Dummy stand-in because a real
+// VF cannot be created in a unit test; only the allocation's Manager (SRIOV) drives the
+// code path under test.
 func TestPrivilegedRunStopPodSandbox(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	const (
-		deviceName = "dummy0"
+		deviceName = "sriovvf0"
 		podIfName  = "net1"
 	)
 
@@ -65,9 +73,10 @@ func TestPrivilegedRunStopPodSandbox(t *testing.T) {
 	)
 
 	// setup builds a fresh network scaffold and driver for a single subtest: a root and
-	// a pod netns (pinned and wired into the package path globals), a dummy device in the
-	// root netns, and a Driver holding one allocation for that device. Returns the driver
-	// plus the handles each subtest needs. All cleanup is registered on the subtest's t.
+	// a pod netns (pinned and wired into the package path globals), an sr-iov VF stand-in
+	// (a netlink.Dummy, since a real VF cannot be created in a unit test) in the root
+	// netns, and a Driver holding one allocation for that device. Returns the driver plus
+	// the handles each subtest needs. All cleanup is registered on the subtest's t.
 	setup := func(t *testing.T) (driver *Driver, rootNS, podNS *testnetns.NetNS, podNSPath string) {
 		t.Helper()
 
@@ -106,13 +115,13 @@ func TestPrivilegedRunStopPodSandbox(t *testing.T) {
 				podUID: {
 					claimUID: {
 						{
-							Device: &dummy.DummyDevice{Name: deviceName},
+							Device: &sriov.PciDevice{KernelIfaceName: deviceName},
 							Config: types.DeviceConfig{
 								IPv4Addr:  ipv4Addr,
 								PodIfName: podIfName,
 								Routes:    routes,
 							},
-							Manager: types.DeviceManagerTypeDummy,
+							Manager: types.DeviceManagerTypeSRIOV,
 						},
 					},
 				},
@@ -370,6 +379,150 @@ func TestPrivilegedRunStopPodSandbox(t *testing.T) {
 
 		assertBuggyStopRecovers(t, driver, rootNS, podNS)
 	})
+}
+
+// TestPrivilegedRunPodSandboxRecreatesMissingDevice reproduces the post-reboot
+// state: a macvlan allocation has been restored into driver.allocations, but the
+// on-demand kernel link does not exist (the reboot reaped the pod netns and the
+// link along with it, and the restore path does not call Device.Setup). The first
+// RunPodSandbox after the reboot must re-create the link on demand and move it
+// into the pod, instead of failing with "Link not found" and crash-looping the
+// sandbox.
+//
+// macvlan is used deliberately: it is the only device type whose Setup creates a
+// kernel link, so it is the only type that can reach this state.
+func TestPrivilegedRunPodSandboxRecreatesMissingDevice(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	const (
+		rootNSName = "nri-recreate-root"
+		podNSName  = "nri-recreate-pod"
+		parentName = "nri-parent0"
+		kernelName = "nri-parent0.7"
+		podIfName  = "mvl0"
+	)
+
+	var (
+		podUID   = kubetypes.UID("cccccccc-0000-0000-0000-000000000003")
+		claimUID = kubetypes.UID("dddddddd-0000-0000-0000-000000000004")
+		ipv4Addr = netip.MustParsePrefix("10.20.0.1/24")
+	)
+
+	rootNS := testnetns.NewNetNS(t)
+	podNS := testnetns.NewNetNS(t)
+
+	pinDir := t.TempDir()
+	rootNSPath := filepath.Join(pinDir, rootNSName)
+	podNSPath := filepath.Join(pinDir, podNSName)
+	pinNetNS(t, rootNS, rootNSPath)
+	pinNetNS(t, podNS, podNSPath)
+
+	origPodNetNSPath := podNetNSPath
+	origRootNetNSPath := rootNetNSPath
+	t.Cleanup(func() {
+		podNetNSPath = origPodNetNSPath
+		rootNetNSPath = origRootNetNSPath
+	})
+	podNetNSPath = pinDir
+	rootNetNSPath = rootNSPath
+
+	// Create only the macvlan parent in root. The macvlan sub-interface itself
+	// is deliberately absent — this is the crux of the post-reboot bug.
+	require.NoError(t, rootNS.Do(func() error {
+		return netlink.LinkAdd(&netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{Name: parentName},
+		})
+	}))
+
+	require.NoError(t, rootNS.Do(func() error {
+		if _, err := safenetlink.LinkByName(kernelName); err == nil {
+			return fmt.Errorf("precondition failed: %q must not exist before RunPodSandbox", kernelName)
+		}
+		return nil
+	}))
+
+	driver := &Driver{
+		logger: hivetest.Logger(t),
+		allocations: map[kubetypes.UID]map[kubetypes.UID][]allocation{
+			podUID: {
+				claimUID: {
+					{
+						Device: &macvlan.MacvlanDevice{
+							Name:            "nri-parent0-7",
+							ParentName:      parentName,
+							KernelIfaceName: kernelName,
+							Mode:            netlink.MACVLAN_MODE_BRIDGE,
+						},
+						Config: types.DeviceConfig{
+							IPv4Addr:  ipv4Addr,
+							PodIfName: podIfName,
+						},
+						Manager: types.DeviceManagerTypeMacvlan,
+					},
+				},
+			},
+		},
+		podNetns:    make(map[kubetypes.UID]string),
+		ipv4Enabled: true,
+	}
+	podSandbox := &api.PodSandbox{
+		Name:      "test-recreate-pod",
+		Uid:       string(podUID),
+		Namespace: "default",
+		Linux: &api.LinuxPodSandbox{
+			Namespaces: []*api.LinuxNamespace{
+				{
+					Type: "network",
+					Path: podNSPath,
+				},
+			},
+		},
+	}
+
+	// RunPodSandbox must NOT fail even though the kernel link is missing: it
+	// re-creates it on demand via Device.Setup.
+	require.NoError(t, rootNS.Do(func() error {
+		return driver.RunPodSandbox(t.Context(), podSandbox)
+	}))
+
+	// The re-created link must end up in the pod netns under the pod-facing name.
+	require.NoError(t, podNS.Do(func() error {
+		link, err := safenetlink.LinkByName(podIfName)
+		if err != nil {
+			return fmt.Errorf("expected re-created %q to be present in pod netns: %w", podIfName, err)
+		}
+		if _, ok := link.(*netlink.Macvlan); !ok {
+			return fmt.Errorf("expected %q to be a macvlan, got %T", podIfName, link)
+		}
+		if link.Attrs().Flags&net.FlagUp == 0 {
+			return fmt.Errorf("expected %q to be up", podIfName)
+		}
+
+		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+		if err != nil {
+			return fmt.Errorf("failed to list %q addresses", podIfName)
+		}
+		if found := slices.ContainsFunc(addrs, func(addr netlink.Addr) bool {
+			prefix, ok := netipx.FromStdIPNet(addr.IPNet)
+			if !ok {
+				return false
+			}
+			return ipv4Addr.Compare(prefix) == 0
+		}); !found {
+			return fmt.Errorf("expected address %q to be assigned to %q", ipv4Addr, podIfName)
+		}
+
+		return nil
+	}))
+
+	// Nothing must be left behind in root: the on-demand link lives only in the
+	// pod, exactly as it would after a healthy initial prepare.
+	require.NoError(t, rootNS.Do(func() error {
+		if _, err := safenetlink.LinkByName(kernelName); err == nil {
+			return fmt.Errorf("expected %q not to remain in root netns", kernelName)
+		}
+		return nil
+	}))
 }
 
 func pinNetNS(t *testing.T, ns *testnetns.NetNS, target string) {

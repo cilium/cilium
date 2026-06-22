@@ -54,6 +54,15 @@ spec:
                   dummy:
                     description: Configuration for the dummy device manager
                     properties:
+                      count:
+                        default: 0
+                        description: |-
+                          Number of dummy links to create and advertise. The driver synthesises
+                          Count discrete devices named dummy0..dummy<Count-1>; each is created on
+                          demand when a claim is prepared and destroyed with the pod netns. The
+                          (Count+1)th claim stays Pending.
+                        minimum: 0
+                        type: integer
                       enabled:
                         default: false
                         type: boolean

@@ -243,6 +243,16 @@ type DummyDeviceManagerConfig struct {
 	// +kubebuilder:default=false
 	// +kubebuilder:validation:Optional
 	Enabled bool `json:"enabled,omitempty"`
+
+	// Number of dummy links to create and advertise. The driver synthesises
+	// Count discrete devices named dummy0..dummy<Count-1>; each is created on
+	// demand when a claim is prepared and destroyed with the pod netns. The
+	// (Count+1)th claim stays Pending.
+	//
+	// +kubebuilder:default=0
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	Count int `json:"count,omitempty"`
 }
 
 // Configuration for the macvlan device manager.
