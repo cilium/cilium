@@ -274,8 +274,9 @@ type multiPoolManager struct {
 	poolsUpdated    chan struct{}
 	finishedRestore map[Family]bool
 
-	nodeMutex lock.Mutex
-	node      *ciliumv2.CiliumNode
+	nodeMutex  lock.Mutex
+	node       *ciliumv2.CiliumNode
+	nodeSynced bool
 
 	jobGroup   job.Group
 	k8sUpdater job.Trigger
@@ -327,6 +328,8 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 			func(ctx context.Context, health cell.Health) error {
 				for ev := range p.Node.Events(ctx) {
 					switch ev.Kind {
+					case resource.Sync:
+						mgr.setNodeSynced()
 					case resource.Upsert:
 						mgr.ciliumNodeUpdated(ev.Object)
 					case resource.Delete:
@@ -563,13 +566,14 @@ func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
 }
 
 func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
-	m.poolsMutex.Lock()
-
 	curNode := m.getNode()
 	if curNode == nil {
-		m.poolsMutex.Unlock()
 		return nil
 	}
+
+	nodeSynced := m.isNodeSynced()
+
+	m.poolsMutex.Lock()
 
 	newNode := curNode.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
@@ -644,11 +648,9 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	// Only update Allocated once local pools have been populated. Before
 	// that, the agent has no CIDRs of its own and updating with an empty
 	// Allocated would clear CIDRs that may still be in use from a
-	// previous agent run. Once the agent has observed at least one CIDR
-	// (from Status.ENI.ENIs in ENI mode, or from Pools.Allocated in
-	// standard multi-pool mode), it updates Allocated to communicate
-	// in-use CIDRs back to the operator.
-	if len(m.pools) > 0 {
+	// previous agent run. Once the CiliumNode resource has been synced
+	// it updates Allocated to communicate in-use CIDRs back to the operator.
+	if nodeSynced {
 		newPoolsSpec.Allocated = allocated
 	} else {
 		pools := m.poolsAccessor.FromResource(curNode)
@@ -933,4 +935,18 @@ func (m *multiPoolManager) setNode(node *ciliumv2.CiliumNode) *ciliumv2.CiliumNo
 	oldNode := m.node
 	m.node = node
 	return oldNode
+}
+
+func (m *multiPoolManager) isNodeSynced() bool {
+	m.nodeMutex.Lock()
+	defer m.nodeMutex.Unlock()
+
+	return m.nodeSynced
+}
+
+func (m *multiPoolManager) setNodeSynced() {
+	m.nodeMutex.Lock()
+	defer m.nodeMutex.Unlock()
+
+	m.nodeSynced = true
 }
