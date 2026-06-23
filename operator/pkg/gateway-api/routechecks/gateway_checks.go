@@ -238,7 +238,7 @@ func CheckGatewayMatchingProtocol(input Input, parentRef gatewayv1.ParentReferen
 	owner, err := input.GetListenerOwner(parentRef)
 	if err != nil {
 		input.SetParentCondition(parentRef, metav1.Condition{
-			Type:    "Accepted",
+			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionFalse,
 			Reason:  "Invalid" + input.GetGVK().Kind,
 			Message: err.Error(),
@@ -247,24 +247,19 @@ func CheckGatewayMatchingProtocol(input Input, parentRef gatewayv1.ParentReferen
 		return false, nil
 	}
 
-	supportedProtocols := input.GetValidProtocols()
-
-	found := false
+	routeProtocols := input.GetValidProtocols()
 	for _, listener := range owner.GetListeners() {
-		if slices.Contains(supportedProtocols, listener.Protocol) {
-			found = true
+		if slices.Contains(routeProtocols, listener.Protocol) {
+			return true, nil
 		}
 	}
-	if !found {
-		input.SetParentCondition(parentRef, metav1.Condition{
-			Type:    string(gatewayv1.RouteConditionAccepted),
-			Status:  metav1.ConditionFalse,
-			Reason:  "NotAllowedByListeners",
-			Message: fmt.Sprintf("No Listener with matching Protocol. Allowed protocols: %s", supportedProtocols),
-		})
 
-		return false, nil
-	}
+	input.SetParentCondition(parentRef, metav1.Condition{
+		Type:    string(gatewayv1.RouteConditionAccepted),
+		Status:  metav1.ConditionFalse,
+		Reason:  string(gatewayv1.RouteReasonNotAllowedByListeners),
+		Message: fmt.Sprintf("No matching listener protocol; route requires one of: %v", routeProtocols),
+	})
 
-	return true, nil
+	return false, nil
 }
