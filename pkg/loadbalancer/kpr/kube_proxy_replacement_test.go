@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package initializer
+package kpr
 
 import (
 	"regexp"
@@ -17,7 +17,6 @@ import (
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
@@ -45,21 +44,18 @@ type kprConfig struct {
 	lbModeAnnotation bool
 
 	lbConfig    loadbalancer.Config
-	kprConfig   kpr.KPRConfig
 	ipsecConfig ipsec.Config
 }
 
 func (cfg *kprConfig) set() (err error) {
 	cfg.lbConfig = loadbalancer.DefaultConfig
 
-	kprFlags := kpr.KPRFlags{
-		KubeProxyReplacement: cfg.kubeProxyReplacement,
-		EnableSocketLB:       cfg.enableSocketLB,
-	}
-
-	cfg.kprConfig, err = kpr.NewKPRConfig(kprFlags)
-	if err != nil {
-		return err
+	cfg.lbConfig.KubeProxyReplacement = cfg.kubeProxyReplacement
+	cfg.lbConfig.EnableSocketLB = cfg.enableSocketLB
+	// Enabling the kube-proxy replacement implies socket-based load-balancing,
+	// mirroring the logic in loadbalancer.NewConfig.
+	if cfg.lbConfig.KubeProxyReplacement {
+		cfg.lbConfig.EnableSocketLB = true
 	}
 
 	cfg.ipsecConfig = fakeipsec.Config{EnableIPsec: cfg.enableIPSec}
@@ -96,14 +92,13 @@ func errorMatch(err error, regex string) assert.Comparison {
 	}
 }
 
-func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, tc tunnel.Config, wgCfg wireguard.Config) {
+func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, tc tunnel.Config, wgCfg wireguard.Config) {
 	logger := hivetest.Logger(t)
 	kprManager := &kprInitializer{
 		logger:       logger,
 		sysctl:       sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		tunnelConfig: tc,
 		lbConfig:     lbConfig,
-		kprCfg:       kprCfg,
 		wgCfg:        wgCfg,
 	}
 	err := kprManager.InitKubeProxyReplacementOptions()
@@ -114,7 +109,7 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg 
 			return
 		}
 	}
-	require.Equal(t, cfg.enableSocketLB, kprCfg.EnableSocketLB)
+	require.Equal(t, cfg.enableSocketLB, lbConfig.EnableSocketLB)
 	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting)
 	require.Equal(t, cfg.installNoConntrackIptRules, option.Config.InstallNoConntrackIptRules)
 	require.Equal(t, cfg.enableBPFMasquerade, option.Config.EnableBPFMasquerade)
@@ -421,7 +416,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 		cfg := def
 		testCase.mod(&cfg)
 		require.NoError(t, cfg.set())
-		testCase.out.verify(t, cfg.lbConfig, cfg.kprConfig, tunnel.NewTestConfig(cfg.tunnelProtocol), fakewireguard.Config{})
+		testCase.out.verify(t, cfg.lbConfig, tunnel.NewTestConfig(cfg.tunnelProtocol), fakewireguard.Config{})
 		def.set()
 	}
 }

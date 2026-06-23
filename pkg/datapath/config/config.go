@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -253,8 +252,6 @@ type Config struct {
 	// Maglev configuration provides the maglev table sizes and seeds for
 	// the BPF programs.
 	MaglevConfig maglev.Config
-
-	KPRConfig kpr.KPRConfig
 
 	SvcRouteConfig svcrouteconfig.RoutesConfig
 

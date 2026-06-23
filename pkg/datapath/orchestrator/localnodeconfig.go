@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -65,7 +64,6 @@ func newLocalNodeConfig(
 	masqInterface string,
 	xdpConfig xdp.Config,
 	lbConfig loadbalancer.Config,
-	kprCfg kpr.KPRConfig,
 	svcCfg svcrouteconfig.RoutesConfig,
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
@@ -100,7 +98,7 @@ func newLocalNodeConfig(
 
 	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
 	var directRoutingDevice *tables.Device
-	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgAgent.Enabled()) {
+	if option.Config.DirectRoutingDeviceRequired(lbConfig.KubeProxyReplacement, wgAgent.Enabled()) {
 		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 		if drd == nil {
 			// If the direct routing device is not present return the watch channel along with an error.
@@ -199,7 +197,6 @@ func newLocalNodeConfig(
 		IPv6PodSubnets:               cidr.NewCIDRSlice(daemon.IPv6PodSubnets),
 		XDPConfig:                    xdpConfig,
 		LBConfig:                     lbConfig,
-		KPRConfig:                    kprCfg,
 		SvcRouteConfig:               svcCfg,
 		MaglevConfig:                 maglevConfig,
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),

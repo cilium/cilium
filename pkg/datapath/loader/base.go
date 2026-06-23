@@ -375,7 +375,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
 	defer cancel()
 
-	if lnc.KPRConfig.EnableSocketLB {
+	if lnc.LBConfig.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
 		if err := compileWithOptions(ctx, l.logger, socketProg, socketObj, nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)

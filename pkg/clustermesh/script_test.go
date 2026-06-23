@@ -40,7 +40,6 @@ import (
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
@@ -113,11 +112,6 @@ func TestScript(t *testing.T) {
 						EnableIPv6: true,
 					}
 				},
-				func() kpr.KPRConfig {
-					return kpr.KPRConfig{
-						KubeProxyReplacement: true,
-					}
-				},
 				func() store.Factory {
 					return storeFactory
 				},
@@ -176,6 +170,7 @@ func TestScript(t *testing.T) {
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h.RegisterFlags(flags)
 		flags.Set("clustermesh-config", configDir)
+		flags.Set("kube-proxy-replacement", "true")
 
 		// Parse the shebang arguments in the script.
 		require.NoError(t, flags.Parse(args), "flags.Parse")

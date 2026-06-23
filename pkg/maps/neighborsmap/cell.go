@@ -7,7 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -22,8 +22,8 @@ var Cell = cell.Module(
 	cell.Provide(newNeighborsMap),
 )
 
-func newNeighborsMap(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig, kprConfig kpr.KPRConfig) bpf.MapOut[Map] {
-	if !kprConfig.KubeProxyReplacement {
+func newNeighborsMap(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig, lbConfig loadbalancer.Config) bpf.MapOut[Map] {
+	if !lbConfig.KubeProxyReplacement {
 		return bpf.NewMapOut(Map(nil))
 	}
 

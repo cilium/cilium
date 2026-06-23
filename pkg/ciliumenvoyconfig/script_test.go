@@ -46,7 +46,6 @@ import (
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -101,11 +100,6 @@ func TestScript(t *testing.T) {
 						EnableEnvoyConfig: true,
 					}
 				},
-				func() kpr.KPRConfig {
-					return kpr.KPRConfig{
-						KubeProxyReplacement: true,
-					}
-				},
 				func() *loadbalancer.TestConfig {
 					return &loadbalancer.TestConfig{}
 				},
@@ -151,6 +145,10 @@ func TestScript(t *testing.T) {
 				})
 			}),
 		)
+
+		hive.AddConfigOverride(h, func(c *loadbalancer.UserConfig) {
+			c.KubeProxyReplacement = true
+		})
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h.RegisterFlags(flags)

@@ -84,7 +84,7 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	//
 	// The NodePort code must identify locally generated traffic to avoid
 	// NAT port allocation conflicts.
-	if (params.KPRConfig.KubeProxyReplacement || params.DaemonConfig.EnableBPFMasquerade) && !params.DaemonConfig.InstallIptRules {
+	if (params.LBConfig.KubeProxyReplacement || params.DaemonConfig.EnableBPFMasquerade) && !params.DaemonConfig.InstallIptRules {
 		return fmt.Errorf("kube-proxy replacement (--%s) or BPF masquerade (--%s) requires iptables rules (--%s=\"true\")",
 			option.KubeProxyReplacement, option.EnableBPFMasquerade, option.InstallIptRules)
 	}
@@ -174,7 +174,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	drdName := ""
 	directRoutingDevice, _ := params.DirectRoutingDevice.Get(ctx, rxn)
 	if directRoutingDevice == nil {
-		if params.DaemonConfig.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) {
+		if params.DaemonConfig.AreDevicesRequired(params.LBConfig.KubeProxyReplacement, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) {
 			// Fail hard if devices are required to function.
 			return fmt.Errorf("unable to determine direct routing device. Use --%s to specify it", option.DirectRoutingDevice)
 		}

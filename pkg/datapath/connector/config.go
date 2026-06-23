@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -117,7 +117,7 @@ type connectorParams struct {
 	DaemonConfig *option.DaemonConfig
 	WgAgent      wgTypes.Agent
 	TunnelConfig tunnel.Config
-	KPRConfig    kpr.KPRConfig
+	LBConfig     loadbalancer.Config
 }
 
 func canUseNetkit(p connectorParams) error {
@@ -140,7 +140,7 @@ func canUseNetkit(p connectorParams) error {
 	if p.DaemonConfig.IptablesMasqueradingEnabled() {
 		return fmt.Errorf("netkit devices require BPF masquerade (--%s=true)", option.EnableBPFMasquerade)
 	}
-	if !p.KPRConfig.KubeProxyReplacement {
+	if !p.LBConfig.KubeProxyReplacement {
 		return fmt.Errorf("netkit devices require --%s", option.KubeProxyReplacement)
 	}
 

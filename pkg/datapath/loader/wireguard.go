@@ -88,7 +88,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, reg *reg
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
 	// Attach/detach cil_to_wireguard to/from egress.
-	if option.Config.NeedEgressOnWireGuardDevice(lnc.KPRConfig, lnc.EnableWireguard) {
+	if option.Config.NeedEgressOnWireGuardDevice(lnc.LBConfig.KubeProxyReplacement, lnc.EnableWireguard) {
 		if err := attachSKBProgram(logger, device, obj.ToWireguard, symbolToWireguard,
 			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s egress: %w", device, err)

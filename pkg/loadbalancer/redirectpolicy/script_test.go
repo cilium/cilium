@@ -30,7 +30,6 @@ import (
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -94,11 +93,6 @@ func TestScript(t *testing.T) {
 							EnableLocalRedirectPolicy: true,
 						}
 					},
-					func() kpr.KPRConfig {
-						return kpr.KPRConfig{
-							KubeProxyReplacement: true,
-						}
-					},
 					func() redirectpolicy.TestSkipLBMap {
 						// Only use fake SkipLBMap if we're running unprivileged tests.
 						if testutils.IsPrivileged() {
@@ -108,6 +102,10 @@ func TestScript(t *testing.T) {
 					},
 				),
 			)
+
+			hive.AddConfigOverride(h, func(c *loadbalancer.UserConfig) {
+				c.KubeProxyReplacement = true
+			})
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 			h.RegisterFlags(flags)
