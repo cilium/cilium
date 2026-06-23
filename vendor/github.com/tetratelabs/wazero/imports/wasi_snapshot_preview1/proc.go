@@ -21,7 +21,7 @@ import (
 var procExit = &wasm.HostFunc{
 	ExportName: wasip1.ProcExitName,
 	Name:       wasip1.ProcExitName,
-	ParamTypes: []api.ValueType{i32},
+	ParamTypes: []wasm.ValueType{i32},
 	ParamNames: []string{"rval"},
 	Code:       wasm.Code{GoFunc: api.GoModuleFunc(procExitFn)},
 }
@@ -41,4 +41,4 @@ func procExitFn(ctx context.Context, mod api.Module, params []uint64) {
 // procRaise is stubbed and will never be supported, as it was removed.
 //
 // See https://github.com/WebAssembly/WASI/pull/136
-var procRaise = stubFunction(wasip1.ProcRaiseName, []api.ValueType{i32}, "sig")
+var procRaise = stubFunction(wasip1.ProcRaiseName, []wasm.ValueType{i32}, "sig")

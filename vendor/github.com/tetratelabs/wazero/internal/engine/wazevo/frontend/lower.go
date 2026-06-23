@@ -65,6 +65,7 @@ const (
 	controlFrameKindIfWithElse
 	controlFrameKindIfWithoutElse
 	controlFrameKindBlock
+	controlFrameKindTryTable
 )
 
 // String implements fmt.Stringer for debugging.
@@ -80,6 +81,8 @@ func (k controlFrameKind) String() string {
 		return "if_without_else"
 	case controlFrameKindBlock:
 		return "block"
+	case controlFrameKindTryTable:
+		return "try_table"
 	default:
 		panic(k)
 	}
@@ -1443,6 +1446,11 @@ func (c *Compiler) lowerCurrentOpcode() {
 
 		unreachable := state.unreachable
 		if !unreachable {
+			// For try_table, emit the leave trampoline before the jump to the following block.
+			if ctrl.kind == controlFrameKindTryTable {
+				c.emitTryTableLeave()
+			}
+
 			// Top n-th args will be used as a result of the current control frame.
 			args := c.nPeekDup(len(ctrl.blockType.Results))
 
@@ -1477,6 +1485,7 @@ func (c *Compiler) lowerCurrentOpcode() {
 			break
 		}
 
+		c.emitTryTableLeaves(int(labelIndex))
 		targetBlk, argNum := state.brTargetArgNumFor(labelIndex)
 		args := c.nPeekDup(argNum)
 		c.insertJumpToBlock(args, targetBlk)
@@ -1494,6 +1503,21 @@ func (c *Compiler) lowerCurrentOpcode() {
 		targetBlk, argNum := state.brTargetArgNumFor(labelIndex)
 		args := c.nPeekDup(argNum)
 		var sealTargetBlk bool
+
+		// If the branch exits any try_table frames, emit TryTableLeave
+		// calls in a trampoline block that only runs on the taken path.
+		if c.branchExitsTryTable(int(labelIndex)) {
+			current := builder.CurrentBlock()
+			trampolineBlk := builder.AllocateBasicBlock()
+			builder.SetCurrentBlock(trampolineBlk)
+			c.emitTryTableLeaves(int(labelIndex))
+			c.insertJumpToBlock(args, targetBlk)
+			builder.SetCurrentBlock(current)
+			targetBlk = trampolineBlk
+			sealTargetBlk = true
+			args = ssa.ValuesNil
+		}
+
 		if c.needListener && targetBlk.ReturnBlock() { // In this case, we have to call the listener before returning.
 			// Save the currently active block.
 			current := builder.CurrentBlock()
@@ -1559,6 +1583,7 @@ func (c *Compiler) lowerCurrentOpcode() {
 		if state.unreachable {
 			break
 		}
+		c.emitTryTableLeaves(len(state.controlFrames))
 		if c.needListener {
 			c.callListenerAfter()
 		}
@@ -3355,7 +3380,12 @@ func (c *Compiler) lowerCurrentOpcode() {
 		state.push(refFuncRet)
 
 	case wasm.OpcodeRefNull:
-		c.loweringState.pc++ // skips the reference type as we treat both of them as i64(0).
+		switch reftype := c.wasmFunctionBody[c.loweringState.pc+1]; wasm.ValueType(reftype) {
+		case wasm.ValueTypeFuncref, wasm.ValueTypeExternref, wasm.ValueTypeExnref:
+			c.loweringState.pc++
+		default:
+			c.readI32u()
+		}
 		if state.unreachable {
 			break
 		}
@@ -3399,6 +3429,9 @@ func (c *Compiler) lowerCurrentOpcode() {
 		if state.unreachable {
 			break
 		}
+		// Per spec, return_call leaves the current frame, so all enclosing
+		// try_table handlers must be popped before the tail call.
+		c.emitTryTableLeaves(len(c.state().controlFrames))
 		_, _ = typeIndex, tableIndex
 		c.lowerTailCallReturnCallIndirect(typeIndex, tableIndex)
 		state.unreachable = true
@@ -3408,7 +3441,394 @@ func (c *Compiler) lowerCurrentOpcode() {
 		if state.unreachable {
 			break
 		}
+		// Per spec, return_call leaves the current frame, so all enclosing
+		// try_table handlers must be popped before the tail call.
+		c.emitTryTableLeaves(len(c.state().controlFrames))
 		c.lowerTailCallReturnCall(fnIndex)
+		state.unreachable = true
+
+	case wasm.OpcodeThrow:
+		tagIndex := c.readI32u()
+		if state.unreachable {
+			break
+		}
+		tagType := c.resolveTagType(tagIndex)
+		// Pop the tag's param values from the stack.
+		var throwParams []ssa.Value
+		if tagType != nil {
+			throwParams = make([]ssa.Value, len(tagType.Params))
+			for i := len(tagType.Params) - 1; i >= 0; i-- {
+				throwParams[i] = state.pop()
+			}
+		}
+
+		c.storeCallerModuleContext()
+
+		tagIdxVal := builder.AllocateInstruction().AsIconst64(uint64(tagIndex)).Insert(builder).Return()
+
+		// We need to store the throwParams in the exception and then throw it.
+		// However, each exception might have a variable number of parameters,
+		// so we let Go allocate the reference on the heap.
+		// The Go side allocates the Exception object (Params sized to nParams)
+		// and stores the pointer to the backing-array into execCtx.exceptionParamsPtr.
+		throwAllocPtr := builder.AllocateInstruction().
+			AsLoad(c.execCtxPtrValue,
+				wazevoapi.ExecutionContextOffsetThrowAllocTrampolineAddress.U32(),
+				ssa.TypeI64,
+			).Insert(builder).Return()
+		throwAllocArgs := c.allocateVarLengthValues(2, c.execCtxPtrValue, tagIdxVal)
+		exnref := builder.AllocateInstruction().
+			AsCallIndirect(throwAllocPtr, &c.throwAllocSig, throwAllocArgs).
+			Insert(builder).Return()
+
+		// Reload memory pointers invalidated by the Go call.
+		c.reloadAfterCall()
+
+		// We can now store each param directly into Exception.Params using the pointer
+		// stored into execCtx.exceptionParamsPtr.
+		if len(throwParams) > 0 {
+			paramsPtr := builder.AllocateInstruction().
+				AsLoad(c.execCtxPtrValue,
+					wazevoapi.ExecutionContextOffsetExceptionParamsPtr.U32(),
+					ssa.TypeI64,
+				).Insert(builder).Return()
+			for i, v := range throwParams {
+				switch v.Type() {
+				case ssa.TypeF32:
+					v = builder.AllocateInstruction().AsBitcast(v, ssa.TypeI32).Insert(builder).Return()
+				case ssa.TypeF64:
+					v = builder.AllocateInstruction().AsBitcast(v, ssa.TypeI64).Insert(builder).Return()
+				}
+				builder.AllocateInstruction().
+					AsStore(ssa.OpcodeStore, v, paramsPtr, uint32(i)*8).
+					Insert(builder)
+			}
+		}
+
+		// We return again control to Go to search and dispatch to a matching catch clause.
+		c.emitThrow(exnref)
+		state.unreachable = true
+
+	case wasm.OpcodeThrowRef:
+		if state.unreachable {
+			break
+		}
+		exnref := state.pop()
+		// Check for null exnref.
+		zero := builder.AllocateInstruction().AsIconst64(0).Insert(builder).Return()
+		isNull := builder.AllocateInstruction()
+		isNull.AsIcmp(exnref, zero, ssa.IntegerCmpCondEqual)
+		builder.InsertInstruction(isNull)
+		exitIfNull := builder.AllocateInstruction()
+		exitIfNull.AsExitIfTrueWithCode(c.execCtxPtrValue, isNull.Return(), wazevoapi.ExitCodeNullReference)
+		builder.InsertInstruction(exitIfNull)
+
+		c.storeCallerModuleContext()
+
+		c.emitThrow(exnref)
+		state.unreachable = true
+
+	case wasm.OpcodeTryTable:
+		bt := c.readBlockType()
+
+		if state.unreachable {
+			state.unreachableDepth++
+			// Still need to skip the catch clause bytes in the unreachable case.
+			c.skipTryTableCatchClauses()
+			break
+		}
+
+		// Parse catch clauses.
+		c.loweringState.pc++
+		catchCount, catchNum, _ := leb128.LoadUint32(c.wasmFunctionBody[c.loweringState.pc:])
+		c.loweringState.pc += int(catchNum) - 1
+
+		var catchClauses []catchClause
+		for i := uint32(0); i < catchCount; i++ {
+			c.loweringState.pc++
+			kind := c.wasmFunctionBody[c.loweringState.pc]
+			var tagIdx uint32
+			switch kind {
+			case wasm.CatchKindCatch, wasm.CatchKindCatchRef:
+				c.loweringState.pc++
+				var n uint64
+				tagIdx, n, _ = leb128.LoadUint32(c.wasmFunctionBody[c.loweringState.pc:])
+				c.loweringState.pc += int(n) - 1
+			case wasm.CatchKindCatchAll, wasm.CatchKindCatchAllRef:
+				// No tagIdx for catch_all variants.
+			}
+			c.loweringState.pc++
+			labelIdx, n, _ := leb128.LoadUint32(c.wasmFunctionBody[c.loweringState.pc:])
+			c.loweringState.pc += int(n) - 1
+			catchClauses = append(catchClauses, catchClause{kind: kind, tagIndex: tagIdx, labelIdx: labelIdx})
+		}
+
+		// Register catch clauses in the table and get the try_table ID.
+		var clauseInstances []wazevoapi.CatchClauseInstance
+		for _, cc := range catchClauses {
+			clauseInstances = append(clauseInstances, wazevoapi.CatchClauseInstance{
+				Kind:     cc.kind,
+				TagIndex: cc.tagIndex,
+			})
+		}
+		tryTableID := c.catchClauseTable.Append(clauseInstances)
+
+		// Allocate the following block (after try_table end) and body block.
+		followingBlk := builder.AllocateBasicBlock()
+		c.addBlockParamsFromWasmTypes(bt.Results, followingBlk)
+		bodyBlk := builder.AllocateBasicBlock()
+
+		if len(catchClauses) > 0 {
+			// Store the caller module context so the dispatch loop can find the module.
+			c.storeCallerModuleContext()
+
+			// For each catch clause, create a handler block that loads exception
+			// params and jumps to the wasm target label.
+			// NOTE: catch clause label indices do NOT include the try_table itself
+			// (the try_table is pushed onto the control stack after the catch clauses
+			// are processed, per the spec). So we resolve labels BEFORE pushing.
+			varPool := builder.VarLengthPool()
+			targets := varPool.Allocate(len(catchClauses) + 1) // +1 for bodyBlk
+
+			currentBlk := builder.CurrentBlock()
+			for _, cc := range catchClauses {
+				handlerBlk := builder.AllocateBasicBlock()
+				builder.SetCurrentBlock(handlerBlk)
+				c.reloadAfterCall()
+
+				// Resolve the wasm target label.
+				targetBlk, _ := state.brTargetArgNumFor(cc.labelIdx)
+
+				// Load exception params and jump to wasm target.
+				var brArgs []ssa.Value
+				switch cc.kind {
+				case wasm.CatchKindCatch:
+					if tagType := c.resolveTagType(cc.tagIndex); tagType != nil {
+						brArgs = c.loadExceptionParams(tagType)
+					}
+				case wasm.CatchKindCatchRef:
+					if tagType := c.resolveTagType(cc.tagIndex); tagType != nil {
+						brArgs = c.loadExceptionParams(tagType)
+					}
+					brArgs = append(brArgs, c.loadExnRef())
+				case wasm.CatchKindCatchAll:
+					// No values.
+				case wasm.CatchKindCatchAllRef:
+					brArgs = append(brArgs, c.loadExnRef())
+				}
+
+				jmpArgs := c.allocateVarLengthValues(len(brArgs), brArgs...)
+				c.insertJumpToBlock(jmpArgs, targetBlk)
+
+				targets = targets.Append(varPool, ssa.Value(handlerBlk.ID()))
+			}
+			// Last target is the body block (default for clauseIdx == -1 / out of range).
+			targets = targets.Append(varPool, ssa.Value(bodyBlk.ID()))
+
+			// Back to the original block: call the try_table enter trampoline,
+			// then dispatch on the caught clause index.
+			builder.SetCurrentBlock(currentBlk)
+			encodedExitCode := uint64(wazevoapi.ExitCodeTryTableEnter | wazevoapi.ExitCode(tryTableID<<8))
+
+			// Load trampoline address from execCtx.
+			enterPtr := builder.AllocateInstruction().
+				AsLoad(c.execCtxPtrValue,
+					wazevoapi.ExecutionContextOffsetTryTableEnterTrampolineAddress.U32(),
+					ssa.TypeI64,
+				).Insert(builder).Return()
+
+			// Call the trampoline: (execCtx, encodedExitCode) -> ().
+			exitCodeVal := builder.AllocateInstruction().AsIconst64(encodedExitCode).Insert(builder).Return()
+			args := c.allocateVarLengthValues(2, c.execCtxPtrValue, exitCodeVal)
+			builder.AllocateInstruction().
+				AsCallIndirect(enterPtr, &c.tryTableEnterSig, args).
+				Insert(builder)
+
+			// Load the caught clause index written by the dispatch loop.
+			clauseIdx := builder.AllocateInstruction().
+				AsLoad(c.execCtxPtrValue,
+					wazevoapi.ExecutionContextOffsetCaughtExceptionClauseIdx.U32(),
+					ssa.TypeI64,
+				).Insert(builder).Return()
+
+			// Dispatch to handler blocks or body block via br_table.
+			brTable := builder.AllocateInstruction()
+			brTable.AsBrTable(clauseIdx, targets)
+			builder.InsertInstruction(brTable)
+
+			// Seal handler blocks after BrTable is inserted (so predecessors are registered).
+			for _, targetID := range targets.View() {
+				blk := builder.BasicBlock(ssa.BasicBlockID(targetID))
+				if !blk.Sealed() {
+					builder.Seal(blk)
+				}
+			}
+		} else {
+			// No catch clauses — try_table acts as a plain block.
+			// Jump directly to body without entering exception handling.
+			c.insertJumpToBlock(ssa.ValuesNil, bodyBlk)
+		}
+
+		if !bodyBlk.Sealed() {
+			builder.Seal(bodyBlk)
+		}
+		builder.SetCurrentBlock(bodyBlk)
+		if len(catchClauses) > 0 {
+			// Body block is entered after the trampoline call, so we need to reload.
+			c.reloadAfterCall()
+		}
+
+		// Push the try_table control frame AFTER resolving catch labels.
+		state.ctrlPush(controlFrame{
+			kind:                         controlFrameKindTryTable,
+			originalStackLenWithoutParam: len(state.values) - len(bt.Params),
+			followingBlock:               followingBlk,
+			blockType:                    bt,
+		})
+
+	case wasm.OpcodeRefAsNonNull:
+		if state.unreachable {
+			break
+		}
+		r := state.pop()
+		zero := builder.AllocateInstruction().AsIconst64(0).Insert(builder)
+		checkNull := builder.AllocateInstruction().
+			AsIcmp(r, zero.Return(), ssa.IntegerCmpCondEqual).
+			Insert(builder).Return()
+		exitIfNull := builder.AllocateInstruction()
+		exitIfNull.AsExitIfTrueWithCode(c.execCtxPtrValue, checkNull, wazevoapi.ExitCodeNullReference)
+		builder.InsertInstruction(exitIfNull)
+		state.push(r)
+
+	case wasm.OpcodeBrOnNull:
+		labelIndex := c.readI32u()
+		if state.unreachable {
+			break
+		}
+
+		r := state.pop()
+		zero := builder.AllocateInstruction().AsIconst64(0).Insert(builder)
+		isNull := builder.AllocateInstruction().
+			AsIcmp(r, zero.Return(), ssa.IntegerCmpCondEqual).
+			Insert(builder).Return()
+
+		targetBlk, argNum := state.brTargetArgNumFor(labelIndex)
+		args := c.nPeekDup(argNum)
+		var sealTargetBlk bool
+
+		if c.branchExitsTryTable(int(labelIndex)) {
+			current := builder.CurrentBlock()
+			trampolineBlk := builder.AllocateBasicBlock()
+			builder.SetCurrentBlock(trampolineBlk)
+			c.emitTryTableLeaves(int(labelIndex))
+			c.insertJumpToBlock(args, targetBlk)
+			builder.SetCurrentBlock(current)
+			targetBlk = trampolineBlk
+			sealTargetBlk = true
+			args = ssa.ValuesNil
+		}
+
+		if c.needListener && targetBlk.ReturnBlock() {
+			current := builder.CurrentBlock()
+			targetBlk = builder.AllocateBasicBlock()
+			builder.SetCurrentBlock(targetBlk)
+			sealTargetBlk = true
+			c.callListenerAfter()
+			instr := builder.AllocateInstruction()
+			instr.AsReturn(args)
+			builder.InsertInstruction(instr)
+			args = ssa.ValuesNil
+			builder.SetCurrentBlock(current)
+		}
+
+		brnz := builder.AllocateInstruction()
+		brnz.AsBrnz(isNull, args, targetBlk)
+		builder.InsertInstruction(brnz)
+
+		if sealTargetBlk {
+			builder.Seal(targetBlk)
+		}
+
+		// Fall-through: ref is non-null, push it back.
+		elseBlk := builder.AllocateBasicBlock()
+		c.insertJumpToBlock(ssa.ValuesNil, elseBlk)
+		builder.Seal(elseBlk)
+		builder.SetCurrentBlock(elseBlk)
+		state.push(r)
+
+	case wasm.OpcodeBrOnNonNull:
+		labelIndex := c.readI32u()
+		if state.unreachable {
+			break
+		}
+
+		r := state.pop()
+		zero := builder.AllocateInstruction().AsIconst64(0).Insert(builder)
+		isNonNull := builder.AllocateInstruction().
+			AsIcmp(r, zero.Return(), ssa.IntegerCmpCondNotEqual).
+			Insert(builder).Return()
+
+		// When non-null, branch to label with args + the non-null ref.
+		targetBlk, argNum := state.brTargetArgNumFor(labelIndex)
+		// The branch delivers argNum-1 values from the stack plus the ref.
+		// The ref is the last value delivered to the label target.
+		args := c.nPeekDup(argNum - 1)
+		args = args.Append(builder.VarLengthPool(), r)
+		var sealTargetBlk bool
+
+		if c.branchExitsTryTable(int(labelIndex)) {
+			current := builder.CurrentBlock()
+			trampolineBlk := builder.AllocateBasicBlock()
+			builder.SetCurrentBlock(trampolineBlk)
+			c.emitTryTableLeaves(int(labelIndex))
+			c.insertJumpToBlock(args, targetBlk)
+			builder.SetCurrentBlock(current)
+			targetBlk = trampolineBlk
+			sealTargetBlk = true
+			args = ssa.ValuesNil
+		}
+
+		if c.needListener && targetBlk.ReturnBlock() {
+			current := builder.CurrentBlock()
+			targetBlk = builder.AllocateBasicBlock()
+			builder.SetCurrentBlock(targetBlk)
+			sealTargetBlk = true
+			c.callListenerAfter()
+			instr := builder.AllocateInstruction()
+			instr.AsReturn(args)
+			builder.InsertInstruction(instr)
+			args = ssa.ValuesNil
+			builder.SetCurrentBlock(current)
+		}
+
+		brnz := builder.AllocateInstruction()
+		brnz.AsBrnz(isNonNull, args, targetBlk)
+		builder.InsertInstruction(brnz)
+
+		if sealTargetBlk {
+			builder.Seal(targetBlk)
+		}
+
+		// Fall-through: ref is null, nothing extra pushed.
+		elseBlk := builder.AllocateBasicBlock()
+		c.insertJumpToBlock(ssa.ValuesNil, elseBlk)
+		builder.Seal(elseBlk)
+		builder.SetCurrentBlock(elseBlk)
+
+	case wasm.OpcodeCallRef:
+		typeIndex := c.readI32u()
+		if state.unreachable {
+			break
+		}
+		c.lowerCallRef(typeIndex)
+
+	case wasm.OpcodeReturnCallRef:
+		typeIndex := c.readI32u()
+		if state.unreachable {
+			break
+		}
+		c.emitTryTableLeaves(len(c.state().controlFrames))
+		c.lowerTailCallReturnCallRef(typeIndex)
 		state.unreachable = true
 
 	default:
@@ -3693,6 +4113,91 @@ func (c *Compiler) lowerTailCallReturnCallIndirect(typeIndex, tableIndex uint32)
 	builder := c.ssaBuilder
 	state := c.state()
 	executablePtr, typ, args := c.prepareCallIndirect(typeIndex, tableIndex)
+
+	call := builder.AllocateInstruction()
+	call.AsTailCallReturnCallIndirect(executablePtr, c.signatures[typ], args)
+	builder.InsertInstruction(call)
+
+	// In a proper tail call, the following code is unreachable since execution
+	// transfers to the callee. However, sometimes the backend might need to fall back to
+	// a regular call, so we include return handling and let the backend delete it
+	// when redundant.
+	// For details, see internal/engine/RATIONALE.md
+	first, rest := call.Returns()
+	if first.Valid() {
+		state.push(first)
+	}
+	for _, v := range rest {
+		state.push(v)
+	}
+
+	c.reloadAfterCall()
+	c.lowerReturn(builder)
+}
+
+func (c *Compiler) prepareCallRef(typeIndex uint32) (ssa.Value, *wasm.FunctionType, ssa.Values) {
+	builder := c.ssaBuilder
+	state := c.state()
+
+	functionInstancePtr := state.pop()
+
+	// Check if it is not the null pointer.
+	zero := builder.AllocateInstruction()
+	zero.AsIconst64(0)
+	builder.InsertInstruction(zero)
+	checkNull := builder.AllocateInstruction()
+	checkNull.AsIcmp(functionInstancePtr, zero.Return(), ssa.IntegerCmpCondEqual)
+	builder.InsertInstruction(checkNull)
+	exitIfNull := builder.AllocateInstruction()
+	exitIfNull.AsExitIfTrueWithCode(c.execCtxPtrValue, checkNull.Return(), wazevoapi.ExitCodeNullReference)
+	builder.InsertInstruction(exitIfNull)
+
+	// Load the executable and moduleContextOpaquePtr from the function instance.
+	loadExecutablePtr := builder.AllocateInstruction()
+	loadExecutablePtr.AsLoad(functionInstancePtr, wazevoapi.FunctionInstanceExecutableOffset, ssa.TypeI64)
+	builder.InsertInstruction(loadExecutablePtr)
+	executablePtr := loadExecutablePtr.Return()
+	loadModuleContextOpaquePtr := builder.AllocateInstruction()
+	loadModuleContextOpaquePtr.AsLoad(functionInstancePtr, wazevoapi.FunctionInstanceModuleContextOpaquePtrOffset, ssa.TypeI64)
+	builder.InsertInstruction(loadModuleContextOpaquePtr)
+	moduleContextOpaquePtr := loadModuleContextOpaquePtr.Return()
+
+	typ := &c.m.TypeSection[typeIndex]
+	tail := len(state.values) - len(typ.Params)
+	vs := state.values[tail:]
+	state.values = state.values[:tail]
+	args := c.allocateVarLengthValues(2+len(vs), c.execCtxPtrValue, moduleContextOpaquePtr)
+	args = args.Append(builder.VarLengthPool(), vs...)
+
+	c.storeCallerModuleContext()
+
+	return executablePtr, typ, args
+}
+
+func (c *Compiler) lowerCallRef(typeIndex uint32) {
+	builder := c.ssaBuilder
+	state := c.state()
+	executablePtr, typ, args := c.prepareCallRef(typeIndex)
+
+	call := builder.AllocateInstruction()
+	call.AsCallIndirect(executablePtr, c.signatures[typ], args)
+	builder.InsertInstruction(call)
+
+	first, rest := call.Returns()
+	if first.Valid() {
+		state.push(first)
+	}
+	for _, v := range rest {
+		state.push(v)
+	}
+
+	c.reloadAfterCall()
+}
+
+func (c *Compiler) lowerTailCallReturnCallRef(typeIndex uint32) {
+	builder := c.ssaBuilder
+	state := c.state()
+	executablePtr, typ, args := c.prepareCallRef(typeIndex)
 
 	call := builder.AllocateInstruction()
 	call.AsTailCallReturnCallIndirect(executablePtr, c.signatures[typ], args)
@@ -4026,6 +4531,185 @@ func (c *Compiler) storeCallerModuleContext() {
 	builder.InsertInstruction(store)
 }
 
+// resolveTagType returns the FunctionType for the tag at the given module-local index.
+func (c *Compiler) resolveTagType(tagIndex uint32) *wasm.FunctionType {
+	if tagIndex < c.m.ImportTagCount {
+		cur := uint32(0)
+		for i := range c.m.ImportSection {
+			imp := &c.m.ImportSection[i]
+			if imp.Type != wasm.ExternTypeTag {
+				continue
+			}
+			if tagIndex == cur {
+				return &c.m.TypeSection[imp.DescTag]
+			}
+			cur++
+		}
+	} else {
+		tagSectionIdx := tagIndex - c.m.ImportTagCount
+		if tagSectionIdx < uint32(len(c.m.TagSection)) {
+			typeIdx := c.m.TagSection[tagSectionIdx].Type
+			return &c.m.TypeSection[typeIdx]
+		}
+	}
+	return nil
+}
+
+// emitThrow emits a call to the shared throw trampoline with the given exnref,
+// followed by an unreachable exit (throw never returns).
+func (c *Compiler) emitThrow(exnref ssa.Value) {
+	builder := c.ssaBuilder
+	throwPtr := builder.AllocateInstruction().
+		AsLoad(c.execCtxPtrValue,
+			wazevoapi.ExecutionContextOffsetThrowTrampolineAddress.U32(),
+			ssa.TypeI64,
+		).Insert(builder).Return()
+	throwArgs := c.allocateVarLengthValues(2, c.execCtxPtrValue, exnref)
+	builder.AllocateInstruction().
+		AsCallIndirect(throwPtr, &c.throwSig, throwArgs).
+		Insert(builder)
+
+	exit := builder.AllocateInstruction()
+	exit.AsExitWithCode(c.execCtxPtrValue, wazevoapi.ExitCodeUnreachable)
+	builder.InsertInstruction(exit)
+}
+
+// emitTryTableLeave emits a trampoline call to pop the try handler in the dispatch loop.
+func (c *Compiler) emitTryTableLeave() {
+	builder := c.ssaBuilder
+	c.storeCallerModuleContext()
+
+	leavePtr := builder.AllocateInstruction().
+		AsLoad(c.execCtxPtrValue,
+			wazevoapi.ExecutionContextOffsetTryTableLeaveTrampolineAddress.U32(),
+			ssa.TypeI64,
+		).Insert(builder).Return()
+
+	args := c.allocateVarLengthValues(1, c.execCtxPtrValue)
+	builder.AllocateInstruction().
+		AsCallIndirect(leavePtr, &c.tryTableLeaveSig, args).
+		Insert(builder)
+}
+
+// branchExitsTryTable returns true if a branch to the given depth would
+// exit at least one try_table frame.
+func (c *Compiler) branchExitsTryTable(depth int) bool {
+	state := c.state()
+	tail := len(state.controlFrames) - 1
+	for i := 0; i < depth; i++ {
+		if state.controlFrames[tail-i].kind == controlFrameKindTryTable {
+			return true
+		}
+	}
+	return false
+}
+
+// emitTryTableLeaves emits TryTableLeave calls for try_table frames
+// that would be exited by a branch to the given depth.
+func (c *Compiler) emitTryTableLeaves(depth int) {
+	state := c.state()
+	tail := len(state.controlFrames) - 1
+	for i := 0; i < depth; i++ {
+		if state.controlFrames[tail-i].kind == controlFrameKindTryTable {
+			c.emitTryTableLeave()
+		}
+	}
+}
+
+// catchClause holds a parsed catch clause from a try_table instruction.
+type catchClause struct {
+	kind     byte
+	tagIndex uint32
+	labelIdx uint32
+}
+
+// loadExceptionParams loads the exception params from the caught Exception's
+// Params slice. The dispatch loop sets execCtx.exceptionParamsPtr to the
+// slice's backing-array pointer after matching a handler. We load that pointer
+// and then read each param from [ptr + i*8], mirroring the stores emitted by
+// the throw lowering. Float params were bitcast to integers at the throw site,
+// so we load as integer and bitcast back to the original type.
+func (c *Compiler) loadExceptionParams(tagType *wasm.FunctionType) []ssa.Value {
+	if len(tagType.Params) == 0 {
+		return nil
+	}
+	builder := c.ssaBuilder
+
+	// Load the pointer to the caught Exception's Params backing array.
+	paramsPtr := builder.AllocateInstruction().
+		AsLoad(c.execCtxPtrValue,
+			wazevoapi.ExecutionContextOffsetExceptionParamsPtr.U32(),
+			ssa.TypeI64,
+		).Insert(builder).Return()
+
+	var values []ssa.Value
+	for i, vt := range tagType.Params {
+		offset := uint32(i) * 8
+		ssaType := WasmTypeToSSAType(vt)
+		switch ssaType {
+		case ssa.TypeF32:
+			// Stored as i32 at throw site; bitcast back to f32.
+			raw := builder.AllocateInstruction().
+				AsLoad(paramsPtr, offset, ssa.TypeI32).
+				Insert(builder).Return()
+			val := builder.AllocateInstruction().AsBitcast(raw, ssa.TypeF32).Insert(builder).Return()
+			values = append(values, val)
+		case ssa.TypeF64:
+			// Stored as i64 at throw site; bitcast back to f64.
+			raw := builder.AllocateInstruction().
+				AsLoad(paramsPtr, offset, ssa.TypeI64).
+				Insert(builder).Return()
+			val := builder.AllocateInstruction().AsBitcast(raw, ssa.TypeF64).Insert(builder).Return()
+			values = append(values, val)
+		default:
+			val := builder.AllocateInstruction().
+				AsLoad(paramsPtr, offset, ssaType).
+				Insert(builder).Return()
+			values = append(values, val)
+		}
+	}
+	return values
+}
+
+// loadExnRef loads the exnref (pointer to Exception) from the executionContext.
+// The dispatch loop writes it to exceptionPtr after matching a handler.
+func (c *Compiler) loadExnRef() ssa.Value {
+	builder := c.ssaBuilder
+	return builder.AllocateInstruction().
+		AsLoad(c.execCtxPtrValue,
+			wazevoapi.ExecutionContextOffsetExceptionPtr.U32(),
+			ssa.TypeI64,
+		).Insert(builder).Return()
+}
+
+// skipTryTableCatchClauses advances the bytecode PC past the catch clauses
+// of a try_table instruction. This is used both in reachable and unreachable states.
+func (c *Compiler) skipTryTableCatchClauses() {
+	c.loweringState.pc++
+	catchCount, catchNum, _ := leb128.LoadUint32(c.wasmFunctionBody[c.loweringState.pc:])
+	c.loweringState.pc += int(catchNum) - 1
+	for i := uint32(0); i < catchCount; i++ {
+		c.loweringState.pc++
+		kind := c.wasmFunctionBody[c.loweringState.pc]
+		switch kind {
+		case wasm.CatchKindCatch, wasm.CatchKindCatchRef:
+			// Read tag index.
+			c.loweringState.pc++
+			_, n, _ := leb128.LoadUint32(c.wasmFunctionBody[c.loweringState.pc:])
+			c.loweringState.pc += int(n) - 1
+			// Read label index.
+			c.loweringState.pc++
+			_, n, _ = leb128.LoadUint32(c.wasmFunctionBody[c.loweringState.pc:])
+			c.loweringState.pc += int(n) - 1
+		case wasm.CatchKindCatchAll, wasm.CatchKindCatchAllRef:
+			// Read label index.
+			c.loweringState.pc++
+			_, n, _ := leb128.LoadUint32(c.wasmFunctionBody[c.loweringState.pc:])
+			c.loweringState.pc += int(n) - 1
+		}
+	}
+}
+
 func (c *Compiler) readByte() byte {
 	v := c.wasmFunctionBody[c.loweringState.pc+1]
 	c.loweringState.pc++
@@ -4181,6 +4865,7 @@ func (c *Compiler) lowerBrTable(labels []uint32, index ssa.Value) {
 		targetBlk, _ := state.brTargetArgNumFor(l)
 		trampoline := builder.AllocateBasicBlock()
 		builder.SetCurrentBlock(trampoline)
+		c.emitTryTableLeaves(int(l))
 		c.insertJumpToBlock(args, targetBlk)
 		trampolineBlockIDs = trampolineBlockIDs.Append(builder.VarLengthPool(), ssa.Value(trampoline.ID()))
 	}

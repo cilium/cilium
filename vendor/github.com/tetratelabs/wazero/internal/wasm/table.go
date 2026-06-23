@@ -6,18 +6,18 @@ import (
 	"sync"
 
 	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/internal/leb128"
 )
 
 // Table describes the limits of elements and its type in a table.
 type Table struct {
-	Min  uint32
-	Max  *uint32
-	Type RefType
+	Min      uint32
+	Max      *uint32
+	Type     RefType
+	InitExpr *ConstantExpression
 }
 
-// RefType is either RefTypeFuncref or RefTypeExternref as of WebAssembly core 2.0.
-type RefType = byte
+// RefType is a reference type used for table elements.
+type RefType = ValueType
 
 const (
 	// RefTypeFuncref represents a reference to a function.
@@ -66,47 +66,14 @@ type ElementSegment struct {
 
 	// Followings are set/used regardless of the Mode.
 
-	// Init indices are (nullable) table elements where each index is the function index by which the module initialize the table.
-	Init []Index
+	// Init expressions are table elements where each expression evaluates to the function index by which the module initialize the table.
+	Init []ConstantExpression
 
 	// Type holds the type of this element segment, which is the RefType in WebAssembly 2.0.
 	Type RefType
 
 	// Mode is the mode of this element segment.
 	Mode ElementMode
-}
-
-const (
-	// ElementInitNullReference represents the null reference in ElementSegment's Init.
-	// In Wasm spec, an init item represents either Function's Index or null reference,
-	// and in wazero, we limit the maximum number of functions available in a module to
-	// MaximumFunctionIndex. Therefore, it is safe to use 1 << 31 to represent the null
-	// reference in Element segments.
-	ElementInitNullReference Index = 1 << 31
-	// elementInitImportedGlobalReferenceType represents an init item which is resolved via an imported global constexpr.
-	// The actual function reference stored at Global is only known at instantiation-time, so we set this flag
-	// to items of ElementSegment.Init at binary decoding, and unwrap this flag at instantiation to resolve the value.
-	//
-	// This might collide the init element resolved via ref.func instruction which is resolved with the func index at decoding,
-	// but in practice, that is not allowed in wazero thanks to our limit MaximumFunctionIndex. Thus, it is safe to set this flag
-	// in init element to indicate as such.
-	elementInitImportedGlobalReferenceType Index = 1 << 30
-)
-
-// unwrapElementInitGlobalReference takes an item of the init vector of an ElementSegment,
-// and returns the Global index if it is supposed to get generated from a global.
-// ok is true if the given init item is as such.
-func unwrapElementInitGlobalReference(init Index) (_ Index, ok bool) {
-	if init&elementInitImportedGlobalReferenceType == elementInitImportedGlobalReferenceType {
-		return init &^ elementInitImportedGlobalReferenceType, true
-	}
-	return init, false
-}
-
-// WrapGlobalIndexAsElementInit wraps the given index as an init item which is resolved via an imported global value.
-// See the comments on elementInitImportedGlobalReferenceType for more details.
-func WrapGlobalIndexAsElementInit(init Index) Index {
-	return init | elementInitImportedGlobalReferenceType
 }
 
 // IsActive returns true if the element segment is "active" mode which requires the runtime to initialize table
@@ -174,20 +141,39 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []Table,
 
 		// Any offset applied is to the element, not the function index: validate here if the funcidx is sound.
 		for ei, init := range elem.Init {
-			if init == ElementInitNullReference {
-				continue
+			_, initType, err := evaluateConstExpr(
+				&init,
+				func(globalIndex Index) (ValueType, uint64, uint64, error) {
+					if globalIndex >= Index(globalsCount) {
+						return 0, 0, 0, fmt.Errorf("%s[%d].init[%d] global index %d out of range", SectionIDName(SectionIDElement), idx, ei, globalIndex)
+					}
+					vt, err := m.resolveConstExprGlobalType(enabledFeatures, SectionIDElement, idx, globalIndex)
+					return vt, 0, 0, err
+				},
+				func(funcIndex Index) (Reference, error) {
+					if funcIndex >= Index(funcCount) {
+						return 0, fmt.Errorf("%s[%d].init[%d] func index %d out of range", SectionIDName(SectionIDElement), idx, ei, funcIndex)
+					}
+					return 0, nil
+				},
+			)
+			if err != nil {
+				return err
 			}
-			index, ok := unwrapElementInitGlobalReference(init)
-			if ok {
-				if index >= globalsCount {
-					return fmt.Errorf("%s[%d].init[%d] global index %d out of range", SectionIDName(SectionIDElement), idx, ei, index)
+
+			switch elem.Type {
+			case RefTypeFuncref:
+				if initType != ValueTypeFuncref {
+					return fmt.Errorf("%s[%d].init[%d] must be funcref but was %s", SectionIDName(SectionIDElement), idx, ei, ValueTypeName(initType))
 				}
-			} else {
-				if elem.Type == RefTypeExternref {
-					return fmt.Errorf("%s[%d].init[%d] must be ref.null but was %d", SectionIDName(SectionIDElement), idx, ei, init)
+			case RefTypeExternref:
+				if initType != ValueTypeExternref {
+					return fmt.Errorf("%s[%d].init[%d] must be externref but was %s", SectionIDName(SectionIDElement), idx, ei, ValueTypeName(initType))
 				}
-				if index >= funcCount {
-					return fmt.Errorf("%s[%d].init[%d] func index %d out of range", SectionIDName(SectionIDElement), idx, ei, index)
+			default:
+				if !isRefSubtypeOf(initType, elem.Type) && initType != ValueTypeFuncref {
+					return fmt.Errorf("%s[%d].init[%d] must be %s but was %s",
+						SectionIDName(SectionIDElement), idx, ei, ValueTypeName(elem.Type), ValueTypeName(initType))
 				}
 			}
 		}
@@ -198,38 +184,49 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []Table,
 			}
 
 			t := tables[elem.TableIndex]
-			if t.Type != elem.Type {
+			if !isRefSubtypeOf(elem.Type, t.Type) {
 				return fmt.Errorf("element type mismatch: table has %s but element has %s",
 					RefTypeName(t.Type), RefTypeName(elem.Type),
 				)
 			}
 
-			// global.get needs to be discovered during initialization
-			oc := elem.OffsetExpr.Opcode
-			if oc == OpcodeGlobalGet {
-				globalIdx, _, err := leb128.LoadUint32(elem.OffsetExpr.Data)
-				if err != nil {
-					return fmt.Errorf("%s[%d] couldn't read global.get parameter: %w", SectionIDName(SectionIDElement), idx, err)
-				} else if err = m.verifyImportGlobalI32(SectionIDElement, idx, globalIdx); err != nil {
+			hasGlobalRef := false
+
+			offsetExprResults, offsetExprType, err := evaluateConstExpr(
+				&elem.OffsetExpr,
+				func(globalIndex Index) (ValueType, uint64, uint64, error) {
+					hasGlobalRef = true
+
+					if globalIndex >= Index(globalsCount) {
+						return 0, 0, 0, fmt.Errorf("%s[%d] global index %d out of range", SectionIDName(SectionIDElement), idx, globalIndex)
+					}
+
+					vt, err := m.resolveConstExprGlobalType(enabledFeatures, SectionIDElement, idx, globalIndex)
+					if err != nil {
+						return 0, 0, 0, err
+					}
+
+					if vt != ValueTypeI32 {
+						return 0, 0, 0, fmt.Errorf("%s[%d] (global.get %d): import[%d].global.ValType != i32", SectionIDName(SectionIDElement), idx, globalIndex, i)
+					}
+					return ValueTypeI32, 0, 0, nil
+				},
+				func(funcIndex Index) (Reference, error) {
+					return 0, nil
+				},
+			)
+			if err != nil {
+				return fmt.Errorf("%s[%d] couldn't evaluate offset expression: %w", SectionIDName(SectionIDElement), idx, err)
+			}
+			if offsetExprType != ValueTypeI32 {
+				return fmt.Errorf("%s[%d] offset expression must return i32 but was %s", SectionIDName(SectionIDElement), idx, ValueTypeName(offsetExprType))
+			}
+
+			if !enabledFeatures.IsEnabled(api.CoreFeatureReferenceTypes) && !hasGlobalRef && elem.TableIndex >= importedTableCount {
+				offset := uint32(offsetExprResults[0])
+				if err = checkSegmentBounds(t.Min, uint64(initCount)+uint64(offset), idx); err != nil {
 					return err
 				}
-			} else if oc == OpcodeI32Const {
-				// Per https://github.com/WebAssembly/spec/blob/wg-1.0/test/core/elem.wast#L117 we must pass if imported
-				// table has set its min=0. Per https://github.com/WebAssembly/spec/blob/wg-1.0/test/core/elem.wast#L142, we
-				// have to do fail if module-defined min=0.
-				if !enabledFeatures.IsEnabled(api.CoreFeatureReferenceTypes) && elem.TableIndex >= importedTableCount {
-					// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
-					o, _, err := leb128.LoadInt32(elem.OffsetExpr.Data)
-					if err != nil {
-						return fmt.Errorf("%s[%d] couldn't read i32.const parameter: %w", SectionIDName(SectionIDElement), idx, err)
-					}
-					offset := Index(o)
-					if err = checkSegmentBounds(t.Min, uint64(initCount)+uint64(offset), idx); err != nil {
-						return err
-					}
-				}
-			} else {
-				return fmt.Errorf("%s[%d] has an invalid const expression: %s", SectionIDName(SectionIDElement), idx, InstructionName(oc))
 			}
 		}
 	}
@@ -247,11 +244,20 @@ func (m *ModuleInstance) buildTables(module *Module, skipBoundCheck bool) (err e
 	idx := module.ImportTableCount
 	for i := range module.TableSection {
 		tsec := &module.TableSection[i]
-		// The module defining the table is the one that sets its Min/Max etc.
-		m.Tables[idx] = &TableInstance{
+		t := &TableInstance{
 			References: make([]Reference, tsec.Min), Min: tsec.Min, Max: tsec.Max,
 			Type: tsec.Type,
 		}
+		if tsec.InitExpr != nil {
+			initVals := evaluateConstExprInModuleInstance(tsec.InitExpr, m)
+			if len(initVals) > 0 && initVals[0] != 0 {
+				initRef := Reference(initVals[0])
+				for j := range t.References {
+					t.References[j] = initRef
+				}
+			}
+		}
+		m.Tables[idx] = t
 		idx++
 	}
 
@@ -259,18 +265,7 @@ func (m *ModuleInstance) buildTables(module *Module, skipBoundCheck bool) (err e
 		for elemI := range module.ElementSection { // Do not loop over the value since elementSegments is a slice of value.
 			elem := &module.ElementSection[elemI]
 			table := m.Tables[elem.TableIndex]
-			var offset uint32
-			if elem.OffsetExpr.Opcode == OpcodeGlobalGet {
-				// Ignore error as it's already validated.
-				globalIdx, _, _ := leb128.LoadUint32(elem.OffsetExpr.Data)
-				global := m.Globals[globalIdx]
-				offset = uint32(global.Val)
-			} else { // i32.const
-				// Ignore error as it's already validated.
-				o, _, _ := leb128.LoadInt32(elem.OffsetExpr.Data)
-				offset = uint32(o)
-			}
-
+			offset := uint32(evaluateConstExprInModuleInstance(&elem.OffsetExpr, m)[0])
 			// Check to see if we are out-of-bounds
 			initCount := uint64(len(elem.Init))
 			if err = checkSegmentBounds(table.Min, uint64(offset)+initCount, Index(elemI)); err != nil {
@@ -293,23 +288,6 @@ func checkSegmentBounds(min uint32, requireMin uint64, idx Index) error { // uin
 		return fmt.Errorf("%s[%d].init exceeds min table size", SectionIDName(SectionIDElement), idx)
 	}
 	return nil
-}
-
-func (m *Module) verifyImportGlobalI32(sectionID SectionID, sectionIdx Index, idx uint32) error {
-	ig := uint32(math.MaxUint32) // +1 == 0
-	for i := range m.ImportSection {
-		imp := &m.ImportSection[i]
-		if imp.Type == ExternTypeGlobal {
-			ig++
-			if ig == idx {
-				if imp.DescGlobal.ValType != ValueTypeI32 {
-					return fmt.Errorf("%s[%d] (global.get %d): import[%d].global.ValType != i32", SectionIDName(sectionID), sectionIdx, idx, i)
-				}
-				return nil
-			}
-		}
-	}
-	return fmt.Errorf("%s[%d] (global.get %d): out of range of imported globals", SectionIDName(sectionID), sectionIdx, idx)
 }
 
 // Grow appends the `initialRef` by `delta` times into the References slice.

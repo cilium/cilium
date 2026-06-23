@@ -14,6 +14,14 @@ func CompilerSupported() bool {
 }
 
 func CompilerSupports(features api.CoreFeatures) bool {
+	if !compilerPlatformSupports(features) {
+		return false
+	}
+	// Won't panic
+	return executableMmapSupported()
+}
+
+func compilerPlatformSupports(features api.CoreFeatures) bool {
 	switch runtime.GOOS {
 	case "linux", "darwin", "freebsd", "netbsd", "windows":
 		if runtime.GOARCH == "arm64" {
@@ -30,7 +38,7 @@ func CompilerSupports(features api.CoreFeatures) bool {
 	}
 }
 
-// MmapCodeSegment copies the code into the executable region and returns the byte slice of the region.
+// MmapCodeSegment allocates and returns a byte slice to copy executable code into.
 //
 // See https://man7.org/linux/man-pages/man2/mmap.2.html for mmap API and flags.
 func MmapCodeSegment(size int) ([]byte, error) {
@@ -46,4 +54,18 @@ func MunmapCodeSegment(code []byte) error {
 		panic("BUG: MunmapCodeSegment with zero length")
 	}
 	return munmapCodeSegment(code)
+}
+
+func executableMmapSupported() bool {
+	seg, err := MmapCodeSegment(1)
+	if err != nil {
+		return false
+	}
+	defer func() {
+		_ = MunmapCodeSegment(seg)
+	}()
+	if err := MprotectCodeSegment(seg); err != nil {
+		return false
+	}
+	return true
 }

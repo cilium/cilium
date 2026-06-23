@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -128,7 +129,13 @@ func Load(configPath string) (*Config, error) {
 
 	// decode config content if the config file exists
 	if err := json.NewDecoder(configFile).Decode(&cfg.content); err != nil {
-		return nil, fmt.Errorf("failed to decode config file at %s: %w: %v", configPath, ErrInvalidConfigFormat, err)
+		if errors.Is(err, io.EOF) {
+			// empty or whitespace only file
+			cfg.content = make(map[string]json.RawMessage)
+			cfg.authsCache = make(map[string]json.RawMessage)
+			return cfg, nil
+		}
+		return nil, fmt.Errorf("failed to decode config file %s: %w: %v", configPath, ErrInvalidConfigFormat, err)
 	}
 
 	if credsStoreBytes, ok := cfg.content[configFieldCredentialsStore]; ok {

@@ -24,7 +24,7 @@ import (
 // Once is an object that will perform exactly one action.
 // Unlike sync.Once, this Once allows the action to have return values.
 type Once struct {
-	result interface{}
+	result any
 	err    error
 	status chan bool
 }
@@ -46,7 +46,7 @@ func NewOnce() *Once {
 // Besides the return value of the function f, including the error, Do returns
 // true if the function f passed is called first and is not cancelled, deadline
 // exceeded, or panicking. Otherwise, returns false.
-func (o *Once) Do(ctx context.Context, f func() (interface{}, error)) (bool, interface{}, error) {
+func (o *Once) Do(ctx context.Context, f func() (any, error)) (bool, any, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			o.status <- true

@@ -45,6 +45,8 @@ func (m *Module) SectionElementCount(sectionID SectionID) uint32 { // element as
 		return uint32(len(m.CodeSection))
 	case SectionIDData:
 		return uint32(len(m.DataSection))
+	case SectionIDTag:
+		return uint32(len(m.TagSection))
 	default:
 		panic(fmt.Errorf("BUG: unknown section: %d", sectionID))
 	}

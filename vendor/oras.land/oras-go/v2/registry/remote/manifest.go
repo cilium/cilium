@@ -16,6 +16,7 @@ limitations under the License.
 package remote
 
 import (
+	"slices"
 	"strings"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -41,12 +42,7 @@ func isManifest(manifestMediaTypes []string, desc ocispec.Descriptor) bool {
 	if len(manifestMediaTypes) == 0 {
 		manifestMediaTypes = defaultManifestMediaTypes
 	}
-	for _, mediaType := range manifestMediaTypes {
-		if desc.MediaType == mediaType {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(manifestMediaTypes, desc.MediaType)
 }
 
 // manifestAcceptHeader generates the set in the `Accept` header for resolving

@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 	"github.com/tetratelabs/wazero/internal/leb128"
 	"github.com/tetratelabs/wazero/internal/wasm"
 	"github.com/tetratelabs/wazero/internal/wasmdebug"
@@ -113,7 +114,7 @@ func DecodeModule(
 		case wasm.SectionIDType:
 			m.TypeSection, err = decodeTypeSection(enabledFeatures, r)
 		case wasm.SectionIDImport:
-			m.ImportSection, m.ImportPerModule, m.ImportFunctionCount, m.ImportGlobalCount, m.ImportMemoryCount, m.ImportTableCount, err = decodeImportSection(r, memSizer, memoryLimitPages, enabledFeatures)
+			m.ImportSection, m.ImportPerModule, m.ImportFunctionCount, m.ImportGlobalCount, m.ImportMemoryCount, m.ImportTableCount, m.ImportTagCount, err = decodeImportSection(r, memSizer, memoryLimitPages, enabledFeatures)
 			if err != nil {
 				return nil, err // avoid re-wrapping the error.
 			}
@@ -123,6 +124,11 @@ func DecodeModule(
 			m.TableSection, err = decodeTableSection(r, enabledFeatures)
 		case wasm.SectionIDMemory:
 			m.MemorySection, err = decodeMemorySection(r, enabledFeatures, memSizer, memoryLimitPages)
+		case wasm.SectionIDTag:
+			if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesExceptionHandling); err != nil {
+				return nil, fmt.Errorf("tag section not supported as %v", err)
+			}
+			m.TagSection, err = decodeTagSection(r)
 		case wasm.SectionIDGlobal:
 			if m.GlobalSection, err = decodeGlobalSection(r, enabledFeatures); err != nil {
 				return nil, err // avoid re-wrapping the error.
@@ -176,8 +182,15 @@ func checkSectionOrder(current, previous wasm.SectionID) (byte, bool) {
 		return previous, true
 	}
 
-	// DataCount was introduced in Wasm 2.0,
-	// and it's the maximum we support so far.
+	// Tag section (ID 13) must come after Memory (5) and before Global (6).
+	if current == wasm.SectionIDTag {
+		return current, previous <= wasm.SectionIDMemory
+	}
+	if previous == wasm.SectionIDTag {
+		return current, current >= wasm.SectionIDGlobal
+	}
+
+	// DataCount was introduced in Wasm 2.0.
 	// It must come after Element and before Code.
 	if current > wasm.SectionIDDataCount {
 		return current, false
@@ -188,9 +201,6 @@ func checkSectionOrder(current, previous wasm.SectionID) (byte, bool) {
 	if previous == wasm.SectionIDDataCount {
 		return current, current >= wasm.SectionIDCode
 	}
-
-	// Tag will be introduced in Wasm 3.0.
-	// It must come after Memory and before Global.
 
 	// Otherwise, strictly increasing order.
 	return current, current > previous

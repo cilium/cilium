@@ -30,6 +30,25 @@ const (
 	ExitCodeMemoryWait64
 	ExitCodeMemoryNotify
 	ExitCodeUnalignedAtomic
+	// ExitCodeThrowAlloc is the first phase of wasm throw: Go allocates the
+	// Exception heap object (with Params sized to the tag's param count) and
+	// writes its Params data pointer to execCtx.exceptionParamsPtr.
+	// Compiled code then stores params directly into the Exception.Params slice,
+	// followed by ExitCodeThrow to search for a matching handler.
+	ExitCodeThrowAlloc
+	// ExitCodeThrow is the shared throw/throw_ref exit code.
+	// The exnref is passed on the stack. The handler searches for a
+	// matching catch clause and restores the stack checkpoint.
+	ExitCodeThrow
+	// ExitCodeNullReference is an exit code for a null reference trap (throw_ref with null exnref).
+	ExitCodeNullReference
+	// ExitCodeTryTableEnter is an exit code for entering a try_table block.
+	// The catch clause info is encoded in the upper bits. The dispatch loop
+	// saves the current SP/FP/returnAddress as a try handler checkpoint.
+	ExitCodeTryTableEnter
+	// ExitCodeTryTableLeave is an exit code for leaving a try_table block.
+	// The dispatch loop pops the most recent try handler.
+	ExitCodeTryTableLeave
 	exitCodeMax
 )
 
@@ -86,6 +105,16 @@ func (e ExitCode) String() string {
 		return "memory_wait64"
 	case ExitCodeMemoryNotify:
 		return "memory_notify"
+	case ExitCodeThrowAlloc:
+		return "throw_alloc"
+	case ExitCodeThrow:
+		return "throw"
+	case ExitCodeNullReference:
+		return "null_reference"
+	case ExitCodeTryTableEnter:
+		return "try_table_enter"
+	case ExitCodeTryTableLeave:
+		return "try_table_leave"
 	}
 	panic("TODO")
 }
@@ -106,4 +135,16 @@ func ExitCodeCallGoFunctionWithIndex(index int, withListener bool) ExitCode {
 
 func GoFunctionIndexFromExitCode(exitCode ExitCode) int {
 	return int(exitCode >> 8)
+}
+
+// TryTableIDFromExitCode extracts the try-table ID from an ExitCodeTryTableEnter
+// exit code. Uses the same encoding as GoFunctionIndexFromExitCode (upper 24 bits).
+func TryTableIDFromExitCode(exitCode ExitCode) int {
+	return GoFunctionIndexFromExitCode(exitCode)
+}
+
+// CatchClauseInstance is a runtime catch clause with resolved tag index.
+type CatchClauseInstance struct {
+	Kind     byte   // wasm.CatchKindCatch, etc.
+	TagIndex uint32 // module-local tag index
 }

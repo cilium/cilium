@@ -25,7 +25,6 @@ import (
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/internal/container/set"
-	"oras.land/oras-go/v2/internal/descriptor"
 	"oras.land/oras-go/v2/internal/status"
 	"oras.land/oras-go/v2/internal/syncutil"
 )
@@ -34,9 +33,9 @@ import (
 type Memory struct {
 	// nodes has the following properties and behaviors:
 	//  1. a node exists in Memory.nodes if and only if it exists in the memory
-	//  2. Memory.nodes saves the ocispec.Descriptor map keys, which are used by
+	//  2. Memory.nodes saves the ocispec.Descriptor indexed by digest, which are used by
 	//    the other fields.
-	nodes map[descriptor.Descriptor]ocispec.Descriptor
+	nodes map[digest.Digest]ocispec.Descriptor
 
 	// predecessors has the following properties and behaviors:
 	//  1. a node exists in Memory.predecessors if it has at least one predecessor
@@ -44,14 +43,14 @@ type Memory struct {
 	//    the memory.
 	//  2. a node does not exist in Memory.predecessors, if it doesn't have any predecessors
 	//    in the memory.
-	predecessors map[descriptor.Descriptor]set.Set[descriptor.Descriptor]
+	predecessors map[digest.Digest]set.Set[digest.Digest]
 
 	// successors has the following properties and behaviors:
 	//  1. a node exists in Memory.successors if and only if it exists in the memory.
 	//  2. a node's entry in Memory.successors is always consistent with the actual
 	//    content of the node, regardless of whether or not each successor exists
 	//    in the memory.
-	successors map[descriptor.Descriptor]set.Set[descriptor.Descriptor]
+	successors map[digest.Digest]set.Set[digest.Digest]
 
 	lock sync.RWMutex
 }
@@ -59,9 +58,9 @@ type Memory struct {
 // NewMemory creates a new memory PredecessorFinder.
 func NewMemory() *Memory {
 	return &Memory{
-		nodes:        make(map[descriptor.Descriptor]ocispec.Descriptor),
-		predecessors: make(map[descriptor.Descriptor]set.Set[descriptor.Descriptor]),
-		successors:   make(map[descriptor.Descriptor]set.Set[descriptor.Descriptor]),
+		nodes:        make(map[digest.Digest]ocispec.Descriptor),
+		predecessors: make(map[digest.Digest]set.Set[digest.Digest]),
+		successors:   make(map[digest.Digest]set.Set[digest.Digest]),
 	}
 }
 
@@ -108,14 +107,13 @@ func (m *Memory) Predecessors(_ context.Context, node ocispec.Descriptor) ([]oci
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	key := descriptor.FromOCI(node)
-	set, exists := m.predecessors[key]
+	set, exists := m.predecessors[node.Digest]
 	if !exists {
 		return nil, nil
 	}
 	var res []ocispec.Descriptor
-	for k := range set {
-		res = append(res, m.nodes[k])
+	for digest := range set {
+		res = append(res, m.nodes[digest])
 	}
 	return res, nil
 }
@@ -126,25 +124,24 @@ func (m *Memory) Remove(node ocispec.Descriptor) []ocispec.Descriptor {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	nodeKey := descriptor.FromOCI(node)
 	var danglings []ocispec.Descriptor
 	// remove the node from its successors' predecessor list
-	for successorKey := range m.successors[nodeKey] {
-		predecessorEntry := m.predecessors[successorKey]
-		predecessorEntry.Delete(nodeKey)
+	for successorDigest := range m.successors[node.Digest] {
+		predecessorEntry := m.predecessors[successorDigest]
+		predecessorEntry.Delete(node.Digest)
 
 		// if none of the predecessors of the node still exists, we remove the
 		// predecessors entry and return it as a dangling node. Otherwise, we do
 		// not remove the entry.
 		if len(predecessorEntry) == 0 {
-			delete(m.predecessors, successorKey)
-			if _, exists := m.nodes[successorKey]; exists {
-				danglings = append(danglings, m.nodes[successorKey])
+			delete(m.predecessors, successorDigest)
+			if _, exists := m.nodes[successorDigest]; exists {
+				danglings = append(danglings, m.nodes[successorDigest])
 			}
 		}
 	}
-	delete(m.successors, nodeKey)
-	delete(m.nodes, nodeKey)
+	delete(m.successors, node.Digest)
+	delete(m.nodes, node.Digest)
 	return danglings
 }
 
@@ -154,8 +151,8 @@ func (m *Memory) DigestSet() set.Set[digest.Digest] {
 	defer m.lock.RUnlock()
 
 	s := set.New[digest.Digest]()
-	for desc := range m.nodes {
-		s.Add(desc.Digest)
+	for digest := range m.nodes {
+		s.Add(digest)
 	}
 	return s
 }
@@ -170,22 +167,20 @@ func (m *Memory) index(ctx context.Context, fetcher content.Fetcher, node ocispe
 	defer m.lock.Unlock()
 
 	// index the node
-	nodeKey := descriptor.FromOCI(node)
-	m.nodes[nodeKey] = node
+	m.nodes[node.Digest] = node
 
 	// for each successor, put it into the node's successors list, and
 	// put node into the succeesor's predecessors list
-	successorSet := set.New[descriptor.Descriptor]()
-	m.successors[nodeKey] = successorSet
+	successorSet := set.New[digest.Digest]()
+	m.successors[node.Digest] = successorSet
 	for _, successor := range successors {
-		successorKey := descriptor.FromOCI(successor)
-		successorSet.Add(successorKey)
-		predecessorSet, exists := m.predecessors[successorKey]
+		successorSet.Add(successor.Digest)
+		predecessorSet, exists := m.predecessors[successor.Digest]
 		if !exists {
-			predecessorSet = set.New[descriptor.Descriptor]()
-			m.predecessors[successorKey] = predecessorSet
+			predecessorSet = set.New[digest.Digest]()
+			m.predecessors[successor.Digest] = predecessorSet
 		}
-		predecessorSet.Add(nodeKey)
+		predecessorSet.Add(node.Digest)
 	}
 	return successors, nil
 }
@@ -195,7 +190,6 @@ func (m *Memory) Exists(node ocispec.Descriptor) bool {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	nodeKey := descriptor.FromOCI(node)
-	_, exists := m.nodes[nodeKey]
+	_, exists := m.nodes[node.Digest]
 	return exists
 }

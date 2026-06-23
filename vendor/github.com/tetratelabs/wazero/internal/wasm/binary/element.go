@@ -2,7 +2,6 @@ package binary
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	"github.com/tetratelabs/wazero/api"
@@ -21,13 +20,13 @@ func ensureElementKindFuncRef(r *bytes.Reader) error {
 	return nil
 }
 
-func decodeElementInitValueVector(r *bytes.Reader) ([]wasm.Index, error) {
+func decodeElementInitValueVector(r *bytes.Reader) ([]wasm.ConstantExpression, error) {
 	vs, _, err := leb128.DecodeUint32(r)
 	if err != nil {
 		return nil, fmt.Errorf("get size of vector: %w", err)
 	}
 
-	vec := make([]wasm.Index, vs)
+	vec := make([]wasm.ConstantExpression, vs)
 	for i := range vec {
 		u32, _, err := leb128.DecodeUint32(r)
 		if err != nil {
@@ -37,61 +36,43 @@ func decodeElementInitValueVector(r *bytes.Reader) ([]wasm.Index, error) {
 		if u32 >= wasm.MaximumFunctionIndex {
 			return nil, fmt.Errorf("too large function index in Element init: %d", u32)
 		}
-		vec[i] = u32
+		vec[i] = wasm.NewConstantExpressionFromOpcode(wasm.OpcodeRefFunc, leb128.EncodeUint32(u32))
 	}
 	return vec, nil
 }
 
-func decodeElementConstExprVector(r *bytes.Reader, elemType wasm.RefType, enabledFeatures api.CoreFeatures) ([]wasm.Index, error) {
+func decodeElementConstExprVector(r *bytes.Reader, elemType wasm.RefType, enabledFeatures api.CoreFeatures) ([]wasm.ConstantExpression, error) {
 	vs, _, err := leb128.DecodeUint32(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the size of constexpr vector: %w", err)
 	}
-	vec := make([]wasm.Index, vs)
+	vec := make([]wasm.ConstantExpression, vs)
 	for i := range vec {
-		var expr wasm.ConstantExpression
-		err := decodeConstantExpression(r, enabledFeatures, &expr)
+		err := decodeConstantExpression(r, enabledFeatures, &vec[i])
 		if err != nil {
 			return nil, err
 		}
-		switch expr.Opcode {
-		case wasm.OpcodeRefFunc:
-			if elemType != wasm.RefTypeFuncref {
-				return nil, fmt.Errorf("element type mismatch: want %s, but constexpr has funcref", wasm.RefTypeName(elemType))
-			}
-			v, _, _ := leb128.LoadUint32(expr.Data)
-			if v >= wasm.MaximumFunctionIndex {
-				return nil, fmt.Errorf("too large function index in Element init: %d", v)
-			}
-			vec[i] = v
-		case wasm.OpcodeRefNull:
-			if elemType != expr.Data[0] {
-				return nil, fmt.Errorf("element type mismatch: want %s, but constexpr has %s",
-					wasm.RefTypeName(elemType), wasm.RefTypeName(expr.Data[0]))
-			}
-			vec[i] = wasm.ElementInitNullReference
-		case wasm.OpcodeGlobalGet:
-			i32, _, _ := leb128.LoadInt32(expr.Data)
-			// Resolving the reference type from globals is done at instantiation phase. See the comment on
-			// wasm.elementInitImportedGlobalReferenceType.
-			vec[i] = wasm.WrapGlobalIndexAsElementInit(wasm.Index(i32))
-		default:
-			return nil, fmt.Errorf("const expr must be either ref.null or ref.func but was %s", wasm.InstructionName(expr.Opcode))
-		}
+		// Expression will be validated later since we don't yet have globals to resolve the types yet.
+
 	}
 	return vec, nil
 }
 
-func decodeElementRefType(r *bytes.Reader) (ret wasm.RefType, err error) {
-	ret, err = r.ReadByte()
+func decodeElementRefType(r *bytes.Reader) (wasm.RefType, error) {
+	b, err := r.ReadByte()
 	if err != nil {
-		err = fmt.Errorf("read element ref type: %w", err)
-		return
+		return 0, fmt.Errorf("read element ref type: %w", err)
 	}
-	if ret != wasm.RefTypeFuncref && ret != wasm.RefTypeExternref {
-		return 0, errors.New("ref type must be funcref or externref for element as of WebAssembly 2.0")
+	switch b {
+	case wasm.RefPrefixNullable, wasm.RefPrefixNonNullable:
+		return decodeRefType(r, b == wasm.RefPrefixNullable)
+	default:
+		ret := wasm.ValueType(b)
+		if ret != wasm.RefTypeFuncref && ret != wasm.RefTypeExternref {
+			return 0, fmt.Errorf("invalid ref type for element: 0x%x", b)
+		}
+		return ret, nil
 	}
-	return
 }
 
 const (
@@ -142,7 +123,7 @@ func decodeElementSegment(r *bytes.Reader, enabledFeatures api.CoreFeatures, ret
 		}
 
 		ret.Mode = wasm.ElementModeActive
-		ret.Type = wasm.RefTypeFuncref
+		ret.Type = wasm.RefTypeFuncref.AsNonNullable()
 		return nil
 	case elementSegmentPrefixPassiveFuncrefValueVector:
 		// Prefix 1 requires funcref.
@@ -155,7 +136,7 @@ func decodeElementSegment(r *bytes.Reader, enabledFeatures api.CoreFeatures, ret
 			return err
 		}
 		ret.Mode = wasm.ElementModePassive
-		ret.Type = wasm.RefTypeFuncref
+		ret.Type = wasm.RefTypeFuncref.AsNonNullable()
 		return nil
 	case elementSegmentPrefixActiveFuncrefValueVectorWithTableIndex:
 		ret.TableIndex, _, err = leb128.DecodeUint32(r)
@@ -185,7 +166,7 @@ func decodeElementSegment(r *bytes.Reader, enabledFeatures api.CoreFeatures, ret
 		}
 
 		ret.Mode = wasm.ElementModeActive
-		ret.Type = wasm.RefTypeFuncref
+		ret.Type = wasm.RefTypeFuncref.AsNonNullable()
 		return nil
 	case elementSegmentPrefixDeclarativeFuncrefValueVector:
 		// Prefix 3 requires funcref.
@@ -196,7 +177,7 @@ func decodeElementSegment(r *bytes.Reader, enabledFeatures api.CoreFeatures, ret
 		if err != nil {
 			return err
 		}
-		ret.Type = wasm.RefTypeFuncref
+		ret.Type = wasm.RefTypeFuncref.AsNonNullable()
 		ret.Mode = wasm.ElementModeDeclarative
 		return nil
 	case elementSegmentPrefixActiveFuncrefConstExprVector:

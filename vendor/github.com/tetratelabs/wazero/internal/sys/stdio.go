@@ -5,7 +5,6 @@ import (
 	"os"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/internal/sysfs"
 	"github.com/tetratelabs/wazero/sys"
 )
@@ -22,6 +21,19 @@ type StdinFile struct {
 func (f *StdinFile) Read(buf []byte) (int, experimentalsys.Errno) {
 	n, err := f.Reader.Read(buf)
 	return n, experimentalsys.UnwrapOSError(err)
+}
+
+// Poll implements the same method as documented on experimentalsys.Pollable
+func (f *StdinFile) Poll(flag experimentalsys.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+	if p, ok := f.Reader.(experimentalsys.Pollable); ok {
+		return p.Poll(flag, timeoutMillis)
+	}
+
+	if flag != experimentalsys.POLLIN {
+		return false, experimentalsys.ENOTSUP
+	}
+
+	return true, 0 // No poll support; assume always ready
 }
 
 type writerFile struct {
@@ -48,9 +60,9 @@ func (noopStdinFile) Read([]byte) (int, experimentalsys.Errno) {
 	return 0, 0 // Always EOF
 }
 
-// Poll implements the same method as documented on fsapi.File
-func (noopStdinFile) Poll(flag fsapi.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
-	if flag != fsapi.POLLIN {
+// Poll implements the same method as documented on experimentalsys.Pollable
+func (noopStdinFile) Poll(flag experimentalsys.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+	if flag != experimentalsys.POLLIN {
 		return false, experimentalsys.ENOTSUP
 	}
 	return true, 0 // always ready to read nothing
@@ -83,21 +95,6 @@ func (noopStdioFile) IsDir() (bool, experimentalsys.Errno) {
 
 // Close implements the same method as documented on sys.File
 func (noopStdioFile) Close() (errno experimentalsys.Errno) { return }
-
-// IsNonblock implements the same method as documented on fsapi.File
-func (noopStdioFile) IsNonblock() bool {
-	return false
-}
-
-// SetNonblock implements the same method as documented on fsapi.File
-func (noopStdioFile) SetNonblock(bool) experimentalsys.Errno {
-	return experimentalsys.ENOSYS
-}
-
-// Poll implements the same method as documented on fsapi.File
-func (noopStdioFile) Poll(fsapi.Pflag, int32) (ready bool, errno experimentalsys.Errno) {
-	return false, experimentalsys.ENOSYS
-}
 
 func stdinFileEntry(r io.Reader) (*FileEntry, error) {
 	if r == nil {

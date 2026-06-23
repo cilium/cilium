@@ -268,6 +268,9 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 		return signature_I32_None, nil
 	case wasm.OpcodeElse, wasm.OpcodeEnd, wasm.OpcodeBr:
 		return signature_None_None, nil
+	case wasm.OpcodeThrow, wasm.OpcodeThrowRef, wasm.OpcodeTryTable:
+		// Stack manipulation handled dynamically by the compiler.
+		return signature_None_None, nil
 	case wasm.OpcodeBrIf, wasm.OpcodeBrTable:
 		return signature_I32_None, nil
 	case wasm.OpcodeReturn:
@@ -276,6 +279,17 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 		return c.funcTypeToSigs.get(c.funcs[index], false /* direct */), nil
 	case wasm.OpcodeCallIndirect, wasm.OpcodeTailCallReturnCallIndirect:
 		return c.funcTypeToSigs.get(index, true /* call_indirect */), nil
+	case wasm.OpcodeCallRef, wasm.OpcodeReturnCallRef:
+		return c.funcTypeToSigs.getCallRef(index), nil
+	case wasm.OpcodeRefAsNonNull:
+		// Pop a ref (i64), push it back (i64). Traps if null at runtime.
+		return signature_I64_I64, nil
+	case wasm.OpcodeBrOnNull:
+		// Pop a ref (i64). If null, branch; if non-null, push ref back.
+		return signature_I64_None, nil
+	case wasm.OpcodeBrOnNonNull:
+		// Pop a ref (i64). If non-null, push and branch; if null, fall through.
+		return signature_I64_None, nil
 	case wasm.OpcodeDrop:
 		return signature_Unknown_None, nil
 	case wasm.OpcodeSelect, wasm.OpcodeTypedSelect:
@@ -650,6 +664,7 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 type funcTypeToIRSignatures struct {
 	directCalls   []*signature
 	indirectCalls []*signature
+	callRefCalls  []*signature
 	wasmTypes     []wasm.FunctionType
 }
 
@@ -694,13 +709,36 @@ func (f *funcTypeToIRSignatures) get(typeIndex wasm.Index, indirect bool) *signa
 	return sig
 }
 
+// getCallRef returns the *signature for call_ref, which is like a direct call
+// but with an extra i64 input for the funcref operand.
+func (f *funcTypeToIRSignatures) getCallRef(typeIndex wasm.Index) *signature {
+	if sig := f.callRefCalls[typeIndex]; sig != nil {
+		return sig
+	}
+	tp := &f.wasmTypes[typeIndex]
+	sig := &signature{
+		in:  make([]unsignedType, 0, len(tp.Params)+1),
+		out: make([]unsignedType, 0, len(tp.Results)),
+	}
+	for _, vt := range tp.Params {
+		sig.in = append(sig.in, wasmValueTypeTounsignedType(vt))
+	}
+	sig.in = append(sig.in, unsignedTypeI64) // funcref operand
+	for _, vt := range tp.Results {
+		sig.out = append(sig.out, wasmValueTypeTounsignedType(vt))
+	}
+	f.callRefCalls[typeIndex] = sig
+	return sig
+}
+
 func wasmValueTypeTounsignedType(vt wasm.ValueType) unsignedType {
 	switch vt {
 	case wasm.ValueTypeI32:
 		return unsignedTypeI32
 	case wasm.ValueTypeI64,
 		// From interpreterir layer, ref type values are opaque 64-bit pointers.
-		wasm.ValueTypeExternref, wasm.ValueTypeFuncref:
+		wasm.ValueTypeExternref, wasm.ValueTypeFuncref,
+		wasm.ValueTypeExnref:
 		return unsignedTypeI64
 	case wasm.ValueTypeF32:
 		return unsignedTypeF32
@@ -708,6 +746,11 @@ func wasmValueTypeTounsignedType(vt wasm.ValueType) unsignedType {
 		return unsignedTypeF64
 	case wasm.ValueTypeV128:
 		return unsignedTypeV128
+	default:
+		// Concrete ref types (ref $t) have variable bit patterns.
+		if vt.IsRef() {
+			return unsignedTypeI64
+		}
 	}
 	panic("unreachable")
 }
@@ -718,7 +761,8 @@ func wasmValueTypeToUnsignedOutSignature(vt wasm.ValueType) *signature {
 		return signature_None_I32
 	case wasm.ValueTypeI64,
 		// From interpreterir layer, ref type values are opaque 64-bit pointers.
-		wasm.ValueTypeExternref, wasm.ValueTypeFuncref:
+		wasm.ValueTypeExternref, wasm.ValueTypeFuncref,
+		wasm.ValueTypeExnref:
 		return signature_None_I64
 	case wasm.ValueTypeF32:
 		return signature_None_F32
@@ -726,6 +770,10 @@ func wasmValueTypeToUnsignedOutSignature(vt wasm.ValueType) *signature {
 		return signature_None_F64
 	case wasm.ValueTypeV128:
 		return signature_None_V128
+	default:
+		if vt.IsRef() {
+			return signature_None_I64
+		}
 	}
 	panic("unreachable")
 }
@@ -736,7 +784,8 @@ func wasmValueTypeToUnsignedInSignature(vt wasm.ValueType) *signature {
 		return signature_I32_None
 	case wasm.ValueTypeI64,
 		// From interpreterir layer, ref type values are opaque 64-bit pointers.
-		wasm.ValueTypeExternref, wasm.ValueTypeFuncref:
+		wasm.ValueTypeExternref, wasm.ValueTypeFuncref,
+		wasm.ValueTypeExnref:
 		return signature_I64_None
 	case wasm.ValueTypeF32:
 		return signature_F32_None
@@ -744,6 +793,10 @@ func wasmValueTypeToUnsignedInSignature(vt wasm.ValueType) *signature {
 		return signature_F64_None
 	case wasm.ValueTypeV128:
 		return signature_V128_None
+	default:
+		if vt.IsRef() {
+			return signature_I64_None
+		}
 	}
 	panic("unreachable")
 }
@@ -754,7 +807,8 @@ func wasmValueTypeToUnsignedInOutSignature(vt wasm.ValueType) *signature {
 		return signature_I32_I32
 	case wasm.ValueTypeI64,
 		// At interpreterir layer, ref type values are opaque 64-bit pointers.
-		wasm.ValueTypeExternref, wasm.ValueTypeFuncref:
+		wasm.ValueTypeExternref, wasm.ValueTypeFuncref,
+		wasm.ValueTypeExnref:
 		return signature_I64_I64
 	case wasm.ValueTypeF32:
 		return signature_F32_F32
@@ -762,6 +816,10 @@ func wasmValueTypeToUnsignedInOutSignature(vt wasm.ValueType) *signature {
 		return signature_F64_F64
 	case wasm.ValueTypeV128:
 		return signature_V128_V128
+	default:
+		if vt.IsRef() {
+			return signature_I64_I64
+		}
 	}
 	panic("unreachable")
 }

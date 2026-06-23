@@ -118,8 +118,8 @@ func isReferrersFilterApplied(applied, requested string) bool {
 	if applied == "" || requested == "" {
 		return false
 	}
-	filters := strings.Split(applied, ",")
-	for _, f := range filters {
+	filters := strings.SplitSeq(applied, ",")
+	for f := range filters {
 		if f == requested {
 			return true
 		}
