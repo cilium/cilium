@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type gcStats struct {
@@ -89,10 +90,13 @@ func statStartGc(m *Map) gcStats {
 	} else {
 		result.proto = gcProtocolAny
 	}
+	result.DumpStats.Started = time.Now()
 	return result
 }
 
 func (s *gcStats) finish() {
+	s.DumpStats.Finished = time.Now()
+
 	duration := s.Duration()
 	family := s.family.String()
 	switch s.family {
