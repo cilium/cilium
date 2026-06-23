@@ -9,6 +9,22 @@
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct xdp_md *ctx __maybe_unused)
 {
+	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+
+	/* Unlike __sk_buff->cb[] in tcx (per-skb), the XDP "meta" lives
+	 * in a per-CPU PERCPU_ARRAY (cilium_xdp_scratch) that persists
+	 * across packets on the same CPU. CB slots can alias. Thus zero
+	 * the CB region on each program entry to mirror the TC behavior.
+	 * Leave RECIRC_MARKER / XFER_MARKER (offsets 5/6) intact; they
+	 * have their own dedicated clears.
+	 */
+	if (always_succeeds(data_meta)) {
+		data_meta[0] = 0;
+		data_meta[1] = 0;
+		data_meta[2] = 0;
+		data_meta[3] = 0;
+		data_meta[4] = 0;
+	}
 }
 
 static __always_inline __maybe_unused void
