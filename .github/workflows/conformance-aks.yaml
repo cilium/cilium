@@ -339,6 +339,12 @@ jobs:
           version: ${{ matrix.version }}
           tags: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}"
           taints: ${{ env.cost_reduction }}
+          # IPsec requires the esp4/esp6 kernel modules, which AKS blacklists on
+          # Ubuntu/AzureLinux-2.0 nodes as an LPE mitigation (Azure/AKS#5753).
+          # The blacklist is descoped only on AzureLinux 3.0 (kernel
+          # 6.6.139.1-1.azl3+, Azure/AgentBaker#8546), so run the IPsec job on
+          # AzureLinux where ESP works and cilium-agent can start.
+          os_sku: ${{ steps.vars.outputs.ipsec == 'true' && 'AzureLinux' || '' }}
 
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
