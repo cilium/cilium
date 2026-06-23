@@ -314,3 +314,43 @@ type File interface {
 	//     https://pubs.opengroup.org/onlinepubs/9699919799/functions/close.html
 	Close() Errno
 }
+
+// PollableFile is a File that additionally supports polling for readiness
+// and non-blocking mode. This is separated from File to avoid breaking
+// downstream implementations that do not need polling.
+//
+// Implementations should embed UnimplementedFile for forward compatibility
+// of the base File methods, and add Poll, IsNonblock, and SetNonblock.
+//
+// # Notes
+//
+//   - This is the public equivalent of the internal fsapi.File interface.
+//   - See Pollable for a standalone poll interface usable with io.Reader
+//     or fs.File implementations that are not full File implementations.
+type PollableFile interface {
+	File
+	Pollable
+
+	// IsNonblock returns true if the file was opened with O_NONBLOCK, or
+	// SetNonblock was successfully enabled on this file.
+	//
+	// # Notes
+	//
+	//   - This might not match the underlying state of the file descriptor if
+	//     the file was not opened via OpenFile.
+	IsNonblock() bool
+
+	// SetNonblock toggles the non-blocking mode (O_NONBLOCK) of this file.
+	//
+	// # Errors
+	//
+	// A zero Errno is success. The below are expected otherwise:
+	//   - ENOSYS: the implementation does not support this function.
+	//   - EBADF: the file or directory was closed.
+	//
+	// # Notes
+	//
+	//   - This is like syscall.SetNonblock and `fcntl` with O_NONBLOCK in
+	//     POSIX. See https://pubs.opengroup.org/onlinepubs/9699919799/functions/fcntl.html
+	SetNonblock(enable bool) Errno
+}

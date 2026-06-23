@@ -10,7 +10,6 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 )
 
@@ -70,8 +69,8 @@ func setNonblockSocket(fd uintptr, enabled bool) sys.Errno {
 	return sys.UnwrapOSError(errno)
 }
 
-func _pollSock(conn syscall.Conn, flag fsapi.Pflag, timeoutMillis int32) (bool, sys.Errno) {
-	if flag != fsapi.POLLIN {
+func _pollSock(conn syscall.Conn, flag sys.Pflag, timeoutMillis int32) (bool, sys.Errno) {
+	if flag != sys.POLLIN {
 		return false, sys.ENOTSUP
 	}
 	n, errno := syscallConnControl(conn, func(fd uintptr) (int, sys.Errno) {

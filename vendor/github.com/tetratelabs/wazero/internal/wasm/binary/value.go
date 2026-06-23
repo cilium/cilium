@@ -16,21 +16,59 @@ func decodeValueTypes(r *bytes.Reader, num uint32) ([]wasm.ValueType, error) {
 		return nil, nil
 	}
 
-	ret := make([]wasm.ValueType, num)
-	_, err := io.ReadFull(r, ret)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, v := range ret {
-		switch v {
-		case wasm.ValueTypeI32, wasm.ValueTypeF32, wasm.ValueTypeI64, wasm.ValueTypeF64,
-			wasm.ValueTypeExternref, wasm.ValueTypeFuncref, wasm.ValueTypeV128:
+	ret := make([]wasm.ValueType, 0, num)
+	for i := uint32(0); i < num; i++ {
+		b, err := r.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+		switch b {
+		case wasm.ValueTypeI32.Kind(), wasm.ValueTypeF32.Kind(), wasm.ValueTypeI64.Kind(), wasm.ValueTypeF64.Kind(),
+			wasm.ValueTypeExternref.Kind(), wasm.ValueTypeFuncref.Kind(), wasm.ValueTypeV128.Kind(),
+			wasm.ValueTypeExnref.Kind():
+			ret = append(ret, wasm.ValueType(b))
+		case wasm.RefPrefixNullable, wasm.RefPrefixNonNullable:
+			vt, err := decodeRefType(r, b == wasm.RefPrefixNullable)
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, vt)
 		default:
-			return nil, fmt.Errorf("invalid value type: %d", v)
+			return nil, fmt.Errorf("invalid value type: %d", b)
 		}
 	}
 	return ret, nil
+}
+
+// decodeRefType decodes a heap type from r and returns the corresponding
+// ValueType with the given nullability. Abstract nullable refs are desugared
+// to their short forms:
+//   - (ref null func)   -> funcref
+//   - (ref null extern) -> externref
+//   - (ref null exn)    -> exnref
+func decodeRefType(r *bytes.Reader, nullable bool) (wasm.ValueType, error) {
+	ht, _, err := leb128.DecodeInt33AsInt64(r)
+	if err != nil {
+		return 0, fmt.Errorf("read ref heap type: %w", err)
+	}
+	var vt wasm.ValueType
+	switch ht {
+	case wasm.HeapTypeFunc:
+		vt = wasm.ValueTypeFuncref
+	case wasm.HeapTypeExtern:
+		vt = wasm.ValueTypeExternref
+	case wasm.HeapTypeExn:
+		vt = wasm.ValueTypeExnref
+	default:
+		if ht < 0 {
+			return 0, fmt.Errorf("unknown abstract heap type: %d", ht)
+		}
+		vt = wasm.ValueTypeConcreteRef(uint32(ht), nullable)
+	}
+	if !nullable {
+		vt = vt.AsNonNullable()
+	}
+	return vt, nil
 }
 
 // decodeUTF8 decodes a size prefixed string from the reader, returning it and the count of bytes read.

@@ -8,9 +8,9 @@ This repository holds helm templates for the following Cilium releases:
 EOF
 
 for version in \
-    $(find -- * -name 'cilium-*.tgz' ! -name "*dev*" \
-    | cut -d - -f 2- \
-    | xargs basename -s .tgz \
+    $(find . -maxdepth 1 -type f -name 'cilium-*.tgz' ! -name "*dev*" \
+    | xargs -n1 basename -s .tgz \
+    | sed 's/^cilium-//' \
     | sed '/-/!{s/$/_/;}' \
     | sort -Vr \
     | sed 's/_$//'); do
@@ -24,9 +24,9 @@ This repository holds helm templates for the following Tetragon releases:
 EOF
 
 for version in \
-    $(find -- * -name 'tetragon-*.tgz' ! -name "*dev*" \
-    | cut -d - -f 2- \
-    | xargs basename -s .tgz \
+    $(find . -maxdepth 1 -type f -name 'tetragon-*.tgz' ! -name "*dev*" \
+    | xargs -n1 basename -s .tgz \
+    | sed 's/^tetragon-//' \
     | sed '/-/!{s/$/_/;}' \
     | sort -Vr \
     | sed 's/_$//'); do

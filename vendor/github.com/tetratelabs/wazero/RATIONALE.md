@@ -49,7 +49,7 @@ That module is maintained by the Go authors, and covers OSes that the syscall
 package neglects.
 
 After [heavy consideration](https://github.com/wazero/wazero/issues/2434) we
-decided to it as a dependency.
+decided to add it as a dependency.
 
 Using was shown to improve the experience of using wazero on older,
 or less common, OSes without increasing the maintenance work, or creating

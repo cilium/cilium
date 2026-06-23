@@ -125,12 +125,32 @@ spectest_tail_call_dir := $(spectest_base_dir)/tail-call
 spectest_tail_call_testdata_dir := $(spectest_tail_call_dir)/testdata
 spec_version_tail_call := 88e97b0f742f4c3ee01fea683da130f344dd7b02
 
+spectest_extended_const_dir := $(spectest_base_dir)/extended-const
+spectest_extended_const_testdata_dir := $(spectest_extended_const_dir)/testdata
+
+spectest_exception_handling_dir := $(spectest_base_dir)/exception-handling
+spectest_exception_handling_testdata_dir := $(spectest_exception_handling_dir)/testdata
+spec_version_exception_handling := 13734f8fb871a5dab939070f893adbd90bffe28c
+
+spectest_typed_function_references_dir := $(spectest_base_dir)/typed-function-references
+spectest_typed_function_references_testdata_dir := $(spectest_typed_function_references_dir)/testdata
+spec_version_typed_function_references := 74d2ec81d15efd3c0f2fba46a023f376101d8e46
+typed_function_references_wast_files := \
+	br_on_non_null.wast br_on_null.wast br_table.wast call_ref.wast elem.wast \
+	func.wast linking.wast local_init.wast ref.wast ref_as_non_null.wast \
+	ref_func.wast ref_is_null.wast ref_null.wast return_call_indirect.wast \
+	return_call_ref.wast return_call.wast select.wast table-sub.wast table.wast \
+	type-equivalence.wast unreached-invalid.wast unreached-valid.wast
+
 .PHONY: build.spectest
 build.spectest:
 	@$(MAKE) build.spectest.v1
 	@$(MAKE) build.spectest.v2
 	@$(MAKE) build.spectest.threads
 	@$(MAKE) build.spectest.tail_call
+	@$(MAKE) build.spectest.extended_const
+	@$(MAKE) build.spectest.exception_handling
+	@$(MAKE) build.spectest.typed_function_references
 
 .PHONY: build.spectest.v1
 build.spectest.v1: # Note: wabt by default uses >1.0 features, so wast2json flags might drift as they include more. See WebAssembly/wabt#1878
@@ -183,6 +203,12 @@ build.spectest.threads:
 		wast2json --enable-threads --debug-names $$f; \
 	done
 
+.PHONY: build.spectest.extended_const
+build.spectest.extended_const:
+	@cd $(spectest_extended_const_testdata_dir) && for f in `find . -name '*.wast'`; do \
+		wast2json --enable-extended-const --debug-names $$f; \
+	done
+
 .PHONY: build.spectest.tail_call
 build.spectest.tail_call:
 	@rm -rf $(spectest_tail_call_testdata_dir)
@@ -191,6 +217,29 @@ build.spectest.tail_call:
 		&& curl -sSL 'https://api.github.com/repos/WebAssembly/testsuite/contents/proposals/tail-call?ref=$(spec_version_tail_call)' | jq -r '.[]| .download_url' | grep -E ".wast" | xargs -Iurl curl -sJL url -O
 	@cd $(spectest_tail_call_testdata_dir) && for f in `find . -name '*.wast'`; do \
 		wast2json --enable-tail-call --debug-names $$f; \
+	done
+
+.PHONY: build.spectest.exception_handling
+build.spectest.exception_handling:
+	@rm -rf $(spectest_exception_handling_testdata_dir)
+	@mkdir -p $(spectest_exception_handling_testdata_dir)
+	@cd $(spectest_exception_handling_testdata_dir) \
+		&& curl -sSL 'https://api.github.com/repos/WebAssembly/spec/contents/test/core/exceptions?ref=$(spec_version_exception_handling)' \
+		| jq -r '.[]| .download_url' | grep -E ".wast" | xargs -Iurl curl -sJL url -O
+	@cd $(spectest_exception_handling_testdata_dir) && for f in `find . -name '*.wast'`; do \
+		wasm-tools json-from-wast --wasm-dir . -o $$(basename $$f .wast).json $$f || true; \
+	done
+
+.PHONY: build.spectest.typed_function_references
+build.spectest.typed_function_references:
+	@rm -rf $(spectest_typed_function_references_testdata_dir)
+	@mkdir -p $(spectest_typed_function_references_testdata_dir)
+	@cd $(spectest_typed_function_references_testdata_dir) \
+		&& for f in $(typed_function_references_wast_files); do \
+			curl -sJL "https://raw.githubusercontent.com/WebAssembly/function-references/$(spec_version_typed_function_references)/test/core/$$f" -O; \
+		done
+	@cd $(spectest_typed_function_references_testdata_dir) && for f in `find . -name '*.wast'`; do \
+		wasm-tools json-from-wast --wasm-dir . -o $$(basename $$f .wast).json $$f || true; \
 	done
 
 .PHONY: test

@@ -1,13 +1,17 @@
 package wazevo
 
 import (
+	"context"
 	"encoding/binary"
+	"fmt"
 	"unsafe"
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
 	"github.com/tetratelabs/wazero/internal/engine/wazevo/wazevoapi"
+	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/wasm"
+	"github.com/tetratelabs/wazero/internal/wasmdebug"
 	"github.com/tetratelabs/wazero/internal/wasmruntime"
 )
 
@@ -132,6 +136,14 @@ func (m *moduleEngine) setupOpaque() {
 		}
 	}
 
+	if tagOffset := offsets.TagsBegin; tagOffset >= 0 {
+		for _, tag := range inst.Tags {
+			binary.LittleEndian.PutUint64(opaque[tagOffset:],
+				uint64(uintptr(unsafe.Pointer(tag))))
+			tagOffset += 8
+		}
+	}
+
 	if beforeListenerOffset := offsets.BeforeListenerTrampolines1stElement; beforeListenerOffset >= 0 {
 		binary.LittleEndian.PutUint64(opaque[beforeListenerOffset:], uint64(uintptr(unsafe.Pointer(&m.parent.listenerBeforeTrampolines[0]))))
 	}
@@ -158,6 +170,21 @@ func (m *moduleEngine) NewFunction(index wasm.Index) api.Function {
 		return imported.me.NewFunction(imported.indexInModule)
 	} else {
 		localIndex -= importedFnCount
+	}
+
+	if source := m.module.Source; source.IsHostModule {
+		// For host modules, we need to look up the GoFunction from the CodeSection.
+		def := source.FunctionDefinition(localIndex)
+		goF := source.CodeSection[localIndex].GoFunc
+		switch typed := goF.(type) {
+		case api.GoFunction:
+			// GoFunction doesn't need looked up module.
+			return &hostFunction{def: def, g: goFunctionAsGoModuleFunction(typed)}
+		case api.GoModuleFunction:
+			return &hostFunction{def: def, lookedUpModule: m.module, g: typed}
+		default:
+			panic(fmt.Sprintf("unexpected GoFunc type: %T", goF))
+		}
 	}
 
 	src := m.module.Source
@@ -189,6 +216,10 @@ func (m *moduleEngine) NewFunction(index wasm.Index) api.Function {
 	ce.execCtx.memoryWait32TrampolineAddress = sharedFunctions.memoryWait32Address
 	ce.execCtx.memoryWait64TrampolineAddress = sharedFunctions.memoryWait64Address
 	ce.execCtx.memoryNotifyTrampolineAddress = sharedFunctions.memoryNotifyAddress
+	ce.execCtx.throwAllocTrampolineAddress = sharedFunctions.throwAllocTrampolineAddress
+	ce.execCtx.throwTrampolineAddress = sharedFunctions.throwTrampolineAddress
+	ce.execCtx.tryTableEnterTrampolineAddress = sharedFunctions.tryTableEnterAddress
+	ce.execCtx.tryTableLeaveTrampolineAddress = sharedFunctions.tryTableLeaveAddress
 	ce.execCtx.memmoveAddress = memmovPtr
 	ce.init()
 	return ce
@@ -242,15 +273,13 @@ func (m *moduleEngine) ResolveImportedFunction(index, descFunc, indexInImportedM
 	executableOffset, moduleCtxOffset, typeIDOffset := m.parent.offsets.ImportedFunctionOffset(index)
 	importedME := importedModuleEngine.(*moduleEngine)
 
-	if int(indexInImportedModule) >= len(importedME.importedFunctions) {
-		indexInImportedModule -= wasm.Index(len(importedME.importedFunctions))
-	} else {
+	if int(indexInImportedModule) < len(importedME.importedFunctions) {
 		imported := &importedME.importedFunctions[indexInImportedModule]
 		m.ResolveImportedFunction(index, descFunc, imported.indexInModule, imported.me)
 		return // Recursively resolve the imported function.
 	}
 
-	offset := importedME.parent.functionOffsets[indexInImportedModule]
+	offset := importedME.parent.functionOffsets[indexInImportedModule-wasm.Index(len(importedME.importedFunctions))]
 	typeID := m.module.TypeIDs[descFunc]
 	executable := &importedME.parent.executable[offset]
 	// Write functionInstance.
@@ -329,4 +358,46 @@ func (m *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.Functio
 
 func moduleInstanceFromOpaquePtr(ptr *byte) *wasm.ModuleInstance {
 	return *(**wasm.ModuleInstance)(unsafe.Pointer(ptr))
+}
+
+type hostFunction struct {
+	internalapi.WazeroOnly
+	def            *wasm.FunctionDefinition
+	lookedUpModule *wasm.ModuleInstance
+	g              api.GoModuleFunction
+}
+
+// goFunctionAsGoModuleFunction converts api.GoFunction to api.GoModuleFunction which ignores the api.Module argument.
+func goFunctionAsGoModuleFunction(g api.GoFunction) api.GoModuleFunction {
+	return api.GoModuleFunc(func(ctx context.Context, _ api.Module, stack []uint64) {
+		g.Call(ctx, stack)
+	})
+}
+
+// Definition implements api.Function.
+func (f *hostFunction) Definition() api.FunctionDefinition { return f.def }
+
+// Call implements api.Function.
+func (f *hostFunction) Call(ctx context.Context, params ...uint64) ([]uint64, error) {
+	typ := f.def.Functype
+	stackSize := typ.ParamNumInUint64
+	rn := typ.ResultNumInUint64
+	if rn > stackSize {
+		stackSize = rn
+	}
+	stack := make([]uint64, stackSize)
+	copy(stack, params)
+	return stack[:rn], f.CallWithStack(ctx, stack)
+}
+
+// CallWithStack implements api.Function.
+func (f *hostFunction) CallWithStack(ctx context.Context, stack []uint64) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			builder := wasmdebug.NewErrorBuilder()
+			err = builder.FromRecovered(r)
+		}
+	}()
+	f.g.Call(ctx, f.lookedUpModule, stack)
+	return nil
 }

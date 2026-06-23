@@ -254,7 +254,7 @@ func CleanScopes(scopes []string) []string {
 			actionSet = make(map[string]struct{})
 			namedActions[resourceName] = actionSet
 		}
-		for _, action := range strings.Split(actions, ",") {
+		for action := range strings.SplitSeq(actions, ",") {
 			if action != "" {
 				actionSet[action] = struct{}{}
 			}

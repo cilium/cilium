@@ -6,11 +6,10 @@ import (
 	"os"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/sys"
 )
 
-func newOsFile(path string, flag experimentalsys.Oflag, perm fs.FileMode, f *os.File) fsapi.File {
+func newOsFile(path string, flag experimentalsys.Oflag, perm fs.FileMode, f *os.File) experimentalsys.File {
 	// On POSIX, if a file is removed from or added to the directory after the
 	// most recent call to opendir() or rewinddir(), whether a subsequent call
 	// to readdir() returns an entry for that file is unspecified.
@@ -153,12 +152,12 @@ func (f *osFile) checkSameFile(osf *os.File) experimentalsys.Errno {
 	return experimentalsys.ENOENT
 }
 
-// IsNonblock implements the same method as documented on fsapi.File
+// IsNonblock implements the same method as documented on experimentalsys.PollableFile
 func (f *osFile) IsNonblock() bool {
 	return isNonblock(f)
 }
 
-// SetNonblock implements the same method as documented on fsapi.File
+// SetNonblock implements the same method as documented on experimentalsys.PollableFile
 func (f *osFile) SetNonblock(enable bool) (errno experimentalsys.Errno) {
 	if enable {
 		f.flag |= experimentalsys.O_NONBLOCK
@@ -229,8 +228,8 @@ func (f *osFile) Seek(offset int64, whence int) (newOffset int64, errno experime
 	return
 }
 
-// Poll implements the same method as documented on fsapi.File
-func (f *osFile) Poll(flag fsapi.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+// Poll implements the same method as documented on experimentalsys.Pollable
+func (f *osFile) Poll(flag experimentalsys.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
 	return poll(f.fd, flag, timeoutMillis)
 }
 

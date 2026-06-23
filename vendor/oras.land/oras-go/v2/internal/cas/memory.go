@@ -80,7 +80,7 @@ func (m *Memory) Exists(_ context.Context, target ocispec.Descriptor) (bool, err
 // necessarily correspond to any consistent snapshot of the storage contents.
 func (m *Memory) Map() map[descriptor.Descriptor][]byte {
 	res := make(map[descriptor.Descriptor][]byte)
-	m.content.Range(func(key, value interface{}) bool {
+	m.content.Range(func(key, value any) bool {
 		res[key.(descriptor.Descriptor)] = value.([]byte)
 		return true
 	})

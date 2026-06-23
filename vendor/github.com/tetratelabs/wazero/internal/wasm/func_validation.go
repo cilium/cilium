@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,9 +30,9 @@ const maximumValuesOnStack = 1 << 27
 // Returns an error if the instruction sequence is not valid,
 // or potentially it can exceed the maximum number of values on the stack.
 func (m *Module) validateFunction(sts *stacks, enabledFeatures api.CoreFeatures, idx Index, functions []Index,
-	globals []GlobalType, memory *Memory, tables []Table, declaredFunctionIndexes map[Index]struct{}, br *bytes.Reader,
+	globals []GlobalType, memory *Memory, tables []Table, tags []Index, declaredFunctionIndexes map[Index]struct{}, br *bytes.Reader,
 ) error {
-	return m.validateFunctionWithMaxStackValues(sts, enabledFeatures, idx, functions, globals, memory, tables, maximumValuesOnStack, declaredFunctionIndexes, br)
+	return m.validateFunctionWithMaxStackValues(sts, enabledFeatures, idx, functions, globals, memory, tables, tags, maximumValuesOnStack, declaredFunctionIndexes, br)
 }
 
 func readMemArg(pc uint64, body []byte) (align, offset uint32, read uint64, err error) {
@@ -69,6 +70,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 	globals []GlobalType,
 	memory *Memory,
 	tables []Table,
+	tags []Index,
 	maxStackValues int,
 	declaredFunctionIndexes map[Index]struct{},
 	br *bytes.Reader,
@@ -98,7 +100,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			} else {
 				instName = InstructionName(op)
 			}
-			fmt.Printf("handling %s, stack=%s, blocks: %v\n", instName, valueTypeStack.stack, controlBlockStack)
+			fmt.Printf("handling %s, stack=%v, blocks: %v\n", instName, valueTypeStack.stack, controlBlockStack)
 		}
 
 		if len(controlBlockStack.stack) == 0 {
@@ -347,6 +349,9 @@ func (m *Module) validateFunctionWithMaxStackValues(
 					return fmt.Errorf("invalid local index for %s %d >= %d(=len(locals)+len(parameters))",
 						OpcodeLocalGetName, index, l)
 				}
+				if err := sts.requireLocalInit(index, inputLen, localTypes); err != nil {
+					return err
+				}
 				if index < inputLen {
 					valueTypeStack.push(functionType.Params[index])
 				} else {
@@ -367,6 +372,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				if err := valueTypeStack.popAndVerifyType(expType); err != nil {
 					return err
 				}
+				sts.markLocalInit(index, inputLen, localTypes)
 			case OpcodeLocalTee:
 				inputLen := uint32(len(functionType.Params))
 				if l := uint32(len(localTypes)) + inputLen; index >= l {
@@ -383,6 +389,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 					return err
 				}
 				valueTypeStack.push(expType)
+				sts.markLocalInit(index, inputLen, localTypes)
 			case OpcodeGlobalGet:
 				if index >= uint32(len(globals)) {
 					return fmt.Errorf("invalid index for %s", OpcodeGlobalGetName)
@@ -503,9 +510,8 @@ func (m *Module) validateFunctionWithMaxStackValues(
 						return err
 					}
 					if actual == valueTypeUnknown {
-						// Re-assign the expected type to unknown.
 						defaultLabelType[index] = valueTypeUnknown
-					} else if actual != exp {
+					} else if !isRefSubtypeOf(actual, exp) {
 						return typeMismatchError(true, OpcodeBrTableName, actual, exp, i)
 					}
 				}
@@ -530,14 +536,151 @@ func (m *Module) validateFunctionWithMaxStackValues(
 					return fmt.Errorf("inconsistent block type length for %s at %d; %v (ln=%d) != %v (l=%d)", OpcodeBrTableName, l, defaultLabelType, ln, tableLabelType, l)
 				}
 				for i := range defaultLabelType {
-					if defaultLabelType[i] != valueTypeUnknown && defaultLabelType[i] != tableLabelType[i] {
-						return fmt.Errorf("incosistent block type for %s at %d", OpcodeBrTableName, l)
+					if defaultLabelType[i] != valueTypeUnknown && !areRefTypesCompatible(defaultLabelType[i], tableLabelType[i]) {
+						return fmt.Errorf("inconsistent block type for %s at %d", OpcodeBrTableName, l)
 					}
 				}
 			}
 
 			// br_table instruction is stack-polymorphic.
 			valueTypeStack.unreachable()
+		} else if op == OpcodeThrow {
+			if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesExceptionHandling); err != nil {
+				return fmt.Errorf("%s invalid as %v", OpcodeThrowName, err)
+			}
+			pc++
+			tagIndex, num, err := leb128.LoadUint32(body[pc:])
+			if err != nil {
+				return fmt.Errorf("read immediate: %v", err)
+			}
+			pc += num - 1
+			if tagIndex >= uint32(len(tags)) {
+				return fmt.Errorf("invalid tag index for %s: %d", OpcodeThrowName, tagIndex)
+			}
+			tagType := &m.TypeSection[tags[tagIndex]]
+			// Pop values matching the tag's params in reverse order.
+			for i := len(tagType.Params) - 1; i >= 0; i-- {
+				if err := valueTypeStack.popAndVerifyType(tagType.Params[i]); err != nil {
+					return fmt.Errorf("type mismatch on %s operation: %v", OpcodeThrowName, err)
+				}
+			}
+			// throw is stack-polymorphic (never returns).
+			valueTypeStack.unreachable()
+		} else if op == OpcodeThrowRef {
+			if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesExceptionHandling); err != nil {
+				return fmt.Errorf("%s invalid as %v", OpcodeThrowRefName, err)
+			}
+			if err := valueTypeStack.popAndVerifyType(ValueTypeExnref); err != nil {
+				return fmt.Errorf("type mismatch on %s: %v", OpcodeThrowRefName, err)
+			}
+			// throw_ref is stack-polymorphic (never returns).
+			valueTypeStack.unreachable()
+		} else if op == OpcodeTryTable {
+			if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesExceptionHandling); err != nil {
+				return fmt.Errorf("%s invalid as %v", OpcodeTryTableName, err)
+			}
+			br.Reset(body[pc+1:])
+			bt, num, err := DecodeBlockType(m.TypeSection, br, enabledFeatures)
+			if err != nil {
+				return fmt.Errorf("read block: %w", err)
+			}
+			pc += num
+
+			// Read catch clause count.
+			catchCount, catchNum, err := leb128.LoadUint32(body[pc+1:])
+			if err != nil {
+				return fmt.Errorf("read catch count: %v", err)
+			}
+			pc += catchNum
+
+			// Validate each catch clause.
+			for i := uint32(0); i < catchCount; i++ {
+				pc++
+				catchKind := body[pc]
+				switch catchKind {
+				case CatchKindCatch, CatchKindCatchRef:
+					pc++
+					tagIdx, tagNum, err := leb128.LoadUint32(body[pc:])
+					if err != nil {
+						return fmt.Errorf("read catch tag index: %v", err)
+					}
+					pc += tagNum - 1
+					if tagIdx >= uint32(len(tags)) {
+						return fmt.Errorf("invalid tag index in catch clause: %d", tagIdx)
+					}
+					tagType := &m.TypeSection[tags[tagIdx]]
+					pc++
+					labelIdx, labelNum, err := leb128.LoadUint32(body[pc:])
+					if err != nil {
+						return fmt.Errorf("read catch label index: %v", err)
+					}
+					pc += labelNum - 1
+					if int(labelIdx) >= len(controlBlockStack.stack) {
+						return fmt.Errorf("invalid label index in catch clause: %d", labelIdx)
+					}
+					// Validate that the target label can accept the catch values.
+					target := &controlBlockStack.stack[len(controlBlockStack.stack)-int(labelIdx)-1]
+					var expectedTypes []ValueType
+					if target.op == OpcodeLoop {
+						expectedTypes = target.blockType.Params
+					} else {
+						expectedTypes = target.blockType.Results
+					}
+					var catchTypes []ValueType
+					catchTypes = append(catchTypes, tagType.Params...)
+					if catchKind == CatchKindCatchRef {
+						catchTypes = append(catchTypes, ValueTypeExnref.AsNonNullable())
+					}
+					if len(catchTypes) != len(expectedTypes) {
+						return fmt.Errorf("catch clause type mismatch: catch delivers %d values but label expects %d", len(catchTypes), len(expectedTypes))
+					}
+					for j := range catchTypes {
+						if !isRefSubtypeOf(catchTypes[j], expectedTypes[j]) {
+							return fmt.Errorf("catch clause type mismatch at index %d: %v is not a subtype of %v", j, catchTypes[j], expectedTypes[j])
+						}
+					}
+				case CatchKindCatchAll, CatchKindCatchAllRef:
+					pc++
+					labelIdx, labelNum, err := leb128.LoadUint32(body[pc:])
+					if err != nil {
+						return fmt.Errorf("read catch_all label index: %v", err)
+					}
+					pc += labelNum - 1
+					if int(labelIdx) >= len(controlBlockStack.stack) {
+						return fmt.Errorf("invalid label index in catch_all clause: %d", labelIdx)
+					}
+					target := &controlBlockStack.stack[len(controlBlockStack.stack)-int(labelIdx)-1]
+					var expectedTypes []ValueType
+					if target.op == OpcodeLoop {
+						expectedTypes = target.blockType.Params
+					} else {
+						expectedTypes = target.blockType.Results
+					}
+					var catchTypes []ValueType
+					if catchKind == CatchKindCatchAllRef {
+						catchTypes = append(catchTypes, ValueTypeExnref.AsNonNullable())
+					}
+					if len(catchTypes) != len(expectedTypes) {
+						return fmt.Errorf("catch_all clause type mismatch: catch delivers %d values but label expects %d", len(catchTypes), len(expectedTypes))
+					}
+					for j := range catchTypes {
+						if !isRefSubtypeOf(catchTypes[j], expectedTypes[j]) {
+							return fmt.Errorf("catch_all clause type mismatch at index %d", j)
+						}
+					}
+				default:
+					return fmt.Errorf("invalid catch kind: %#x", catchKind)
+				}
+			}
+
+			controlBlockStack.push(pc, 0, 0, bt, 0, op)
+			if err = valueTypeStack.popParams(op, bt.Params, false); err != nil {
+				return err
+			}
+			for _, p := range bt.Params {
+				valueTypeStack.push(p)
+			}
+			valueTypeStack.pushStackLimit(len(bt.Params))
 		} else if op == OpcodeCall || op == OpcodeTailCallReturnCall {
 			pc++
 			index, num, err := leb128.LoadUint32(body[pc:])
@@ -557,20 +700,11 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			}
 
 			funcType := &m.TypeSection[functions[index]]
-			for i := 0; i < len(funcType.Params); i++ {
-				if err := valueTypeStack.popAndVerifyType(funcType.Params[len(funcType.Params)-1-i]); err != nil {
-					return fmt.Errorf("type mismatch on %s operation param type: %v", opcodeName, err)
-				}
-			}
-			for _, exp := range funcType.Results {
-				valueTypeStack.push(exp)
+			if err := sts.validateCallSignature(opcodeName, funcType); err != nil {
+				return err
 			}
 			if op == OpcodeTailCallReturnCall {
-				if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesTailCall); err != nil {
-					return fmt.Errorf("%s invalid as %v", OpcodeTailCallReturnCallName, err)
-				}
-				// Same formatting as OpcodeEnd on the outer-most block
-				if err := valueTypeStack.requireStackValues(false, "", functionType.Results, false); err != nil {
+				if err := sts.validateReturnCall(OpcodeTailCallReturnCallName, enabledFeatures, funcType, functionType); err != nil {
 					return err
 				}
 				// behaves as a jump.
@@ -619,21 +753,39 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				return fmt.Errorf("cannot pop the offset in table for %s", opcodeName)
 			}
 			funcType := &m.TypeSection[typeIndex]
-			for i := 0; i < len(funcType.Params); i++ {
-				if err = valueTypeStack.popAndVerifyType(funcType.Params[len(funcType.Params)-1-i]); err != nil {
-					return fmt.Errorf("type mismatch on %s operation input type", opcodeName)
-				}
+			if err := sts.validateCallSignature(opcodeName, funcType); err != nil {
+				return err
 			}
-			for _, exp := range funcType.Results {
-				valueTypeStack.push(exp)
-			}
-
 			if op == OpcodeTailCallReturnCallIndirect {
-				if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesTailCall); err != nil {
-					return fmt.Errorf("%s invalid as %v", OpcodeTailCallReturnCallIndirectName, err)
+				if err := sts.validateReturnCall(OpcodeTailCallReturnCallIndirectName, enabledFeatures, funcType, functionType); err != nil {
+					return err
 				}
-				// Same formatting as OpcodeEnd on the outer-most block
-				if err := valueTypeStack.requireStackValues(false, "", functionType.Results, false); err != nil {
+				// behaves as a jump.
+				valueTypeStack.unreachable()
+			}
+		} else if op == OpcodeCallRef || op == OpcodeReturnCallRef {
+			if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesTypedFunctionReferences); err != nil {
+				return fmt.Errorf("%s invalid as %v", instructionNames[op], err)
+			}
+			pc++
+			typeIndex, num, err := leb128.LoadUint32(body[pc:])
+			if err != nil {
+				return fmt.Errorf("read immediate: %v", err)
+			}
+			pc += num - 1
+			if int(typeIndex) >= len(m.TypeSection) {
+				return fmt.Errorf("invalid type index at %s: %d", instructionNames[op], typeIndex)
+			}
+			// Pop the funcref operand (nullable concrete ref to the type).
+			if err := valueTypeStack.popAndVerifyType(ValueTypeConcreteRef(typeIndex, true)); err != nil {
+				return fmt.Errorf("type mismatch on %s operation: %v", instructionNames[op], err)
+			}
+			funcType := &m.TypeSection[typeIndex]
+			if err := sts.validateCallSignature(instructionNames[op], funcType); err != nil {
+				return err
+			}
+			if op == OpcodeReturnCallRef {
+				if err := sts.validateReturnCall(OpcodeReturnCallRefName, enabledFeatures, funcType, functionType); err != nil {
 					return err
 				}
 				// behaves as a jump.
@@ -859,13 +1011,28 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			switch op {
 			case OpcodeRefNull:
 				pc++
-				switch reftype := body[pc]; reftype {
+				switch reftype := body[pc]; ValueType(reftype) {
 				case ValueTypeExternref:
 					valueTypeStack.push(ValueTypeExternref)
 				case ValueTypeFuncref:
 					valueTypeStack.push(ValueTypeFuncref)
+				case ValueTypeExnref:
+					valueTypeStack.push(ValueTypeExnref)
 				default:
-					return fmt.Errorf("unknown type for ref.null: 0x%x", reftype)
+					// Concrete type index encoded as LEB128 u32.
+					if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesTypedFunctionReferences); err != nil {
+						return fmt.Errorf("ref.null with concrete type invalid as %v", err)
+					}
+					br.Reset(body[pc:])
+					typeIdx, num, err := leb128.DecodeUint32(br)
+					if err != nil {
+						return fmt.Errorf("unknown type for ref.null: 0x%x", reftype)
+					}
+					if int(typeIdx) >= len(m.TypeSection) {
+						return fmt.Errorf("unknown type for ref.null: type index %d out of range", typeIdx)
+					}
+					pc += uint64(num) - 1
+					valueTypeStack.push(ValueTypeConcreteRef(typeIdx, true))
 				}
 			case OpcodeRefIsNull:
 				tp, err := valueTypeStack.pop()
@@ -885,8 +1052,119 @@ func (m *Module) validateFunctionWithMaxStackValues(
 					return fmt.Errorf("undeclared function index %d for ref.func", index)
 				}
 				pc += num - 1
-				valueTypeStack.push(ValueTypeFuncref)
+				if enabledFeatures.IsEnabled(experimental.CoreFeaturesTypedFunctionReferences) {
+					valueTypeStack.push(ValueTypeConcreteRef(functions[index], false))
+				} else {
+					valueTypeStack.push(ValueTypeFuncref)
+				}
 			}
+		} else if op == OpcodeRefAsNonNull {
+			if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesTypedFunctionReferences); err != nil {
+				return fmt.Errorf("%s invalid as %v", OpcodeRefAsNonNullName, err)
+			}
+			tp, err := valueTypeStack.pop()
+			if err != nil {
+				return fmt.Errorf("cannot pop the operand for %s: %v", OpcodeRefAsNonNullName, err)
+			} else if !isReferenceValueType(tp) && tp != valueTypeUnknown {
+				return fmt.Errorf("type mismatch: expected reference type but was %s for %s", ValueTypeName(tp), OpcodeRefAsNonNullName)
+			}
+			if tp == valueTypeUnknown {
+				valueTypeStack.push(tp)
+			} else {
+				valueTypeStack.push(tp.AsNonNullable())
+			}
+		} else if op == OpcodeBrOnNull {
+			if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesTypedFunctionReferences); err != nil {
+				return fmt.Errorf("%s invalid as %v", OpcodeBrOnNullName, err)
+			}
+			pc++
+			index, num, err := leb128.LoadUint32(body[pc:])
+			if err != nil {
+				return fmt.Errorf("read immediate: %v", err)
+			} else if int(index) >= len(controlBlockStack.stack) {
+				return fmt.Errorf("invalid %s operation: index out of range", OpcodeBrOnNullName)
+			}
+			pc += num - 1
+			// Pop the reference operand.
+			tp, err := valueTypeStack.pop()
+			if err != nil {
+				return fmt.Errorf("cannot pop the operand for %s: %v", OpcodeBrOnNullName, err)
+			} else if !isReferenceValueType(tp) && tp != valueTypeUnknown {
+				return fmt.Errorf("type mismatch: expected reference type but was %s for %s", ValueTypeName(tp), OpcodeBrOnNullName)
+			}
+			// If null, branch with the label's expected values (without the ref).
+			target := &controlBlockStack.stack[len(controlBlockStack.stack)-int(index)-1]
+			var targetResultType []ValueType
+			if target.op == OpcodeLoop {
+				targetResultType = target.blockType.Params
+			} else {
+				targetResultType = target.blockType.Results
+			}
+			if err = valueTypeStack.popResults(op, targetResultType, false); err != nil {
+				return err
+			}
+			// Push back the label results (they stay on the stack for the fall-through path).
+			for _, t := range targetResultType {
+				valueTypeStack.push(t)
+			}
+			// On the fall-through path, the non-null ref is on the stack.
+			if tp != valueTypeUnknown {
+				valueTypeStack.push(tp.AsNonNullable())
+			} else {
+				valueTypeStack.push(tp)
+			}
+		} else if op == OpcodeBrOnNonNull {
+			if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesTypedFunctionReferences); err != nil {
+				return fmt.Errorf("%s invalid as %v", OpcodeBrOnNonNullName, err)
+			}
+			pc++
+			index, num, err := leb128.LoadUint32(body[pc:])
+			if err != nil {
+				return fmt.Errorf("read immediate: %v", err)
+			} else if int(index) >= len(controlBlockStack.stack) {
+				return fmt.Errorf("invalid %s operation: index out of range", OpcodeBrOnNonNullName)
+			}
+			pc += num - 1
+			// Pop the reference operand.
+			tp, err := valueTypeStack.pop()
+			if err != nil {
+				return fmt.Errorf("cannot pop the operand for %s: %v", OpcodeBrOnNonNullName, err)
+			} else if !isReferenceValueType(tp) && tp != valueTypeUnknown {
+				return fmt.Errorf("type mismatch: expected reference type but was %s for %s", ValueTypeName(tp), OpcodeBrOnNonNullName)
+			}
+			// If non-null, branch to label with the label's expected values.
+			// The non-null ref is the LAST value delivered to the label.
+			target := &controlBlockStack.stack[len(controlBlockStack.stack)-int(index)-1]
+			var targetResultType []ValueType
+			if target.op == OpcodeLoop {
+				targetResultType = target.blockType.Params
+			} else {
+				targetResultType = target.blockType.Results
+			}
+			// The branch delivers: [label types..., non-null ref].
+			// So the last type in the target must match the non-null ref.
+			if len(targetResultType) == 0 {
+				return fmt.Errorf("type mismatch on %s: label has no results but needs a ref type", OpcodeBrOnNonNullName)
+			}
+			nonNullTp := tp
+			if nonNullTp != valueTypeUnknown {
+				nonNullTp = tp.AsNonNullable()
+			}
+			lastTarget := targetResultType[len(targetResultType)-1]
+			if nonNullTp != valueTypeUnknown && !isRefSubtypeOf(nonNullTp, lastTarget) {
+				return fmt.Errorf("type mismatch on %s: ref type %s is not a subtype of label's last result %s",
+					OpcodeBrOnNonNullName, ValueTypeName(nonNullTp), ValueTypeName(lastTarget))
+			}
+			// Pop and verify the remaining label types (all except the last which is the ref).
+			remaining := targetResultType[:len(targetResultType)-1]
+			if err = valueTypeStack.popResults(op, remaining, false); err != nil {
+				return err
+			}
+			// Push back the remaining label results for the fall-through path.
+			for _, t := range remaining {
+				valueTypeStack.push(t)
+			}
+			// On the fall-through (null) path, nothing extra is pushed.
 		} else if op == OpcodeTableGet || op == OpcodeTableSet {
 			if err := enabledFeatures.RequireEnabled(api.CoreFeatureReferenceTypes); err != nil {
 				return fmt.Errorf("%s is invalid as %v", InstructionName(op), err)
@@ -902,7 +1180,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 
 			refType := tables[tableIndex].Type
 			if op == OpcodeTableGet {
-				if err := valueTypeStack.popAndVerifyType(api.ValueTypeI32); err != nil {
+				if err := valueTypeStack.popAndVerifyType(ValueTypeI32); err != nil {
 					return fmt.Errorf("cannot pop the operand for table.get: %v", err)
 				}
 				valueTypeStack.push(refType)
@@ -910,7 +1188,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				if err := valueTypeStack.popAndVerifyType(refType); err != nil {
 					return fmt.Errorf("cannot pop the operand for table.set: %v", err)
 				}
-				if err := valueTypeStack.popAndVerifyType(api.ValueTypeI32); err != nil {
+				if err := valueTypeStack.popAndVerifyType(ValueTypeI32); err != nil {
 					return fmt.Errorf("cannot pop the operand for table.set: %v", err)
 				}
 			}
@@ -1039,7 +1317,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 						return fmt.Errorf("table of index %d not found", tableIndex)
 					}
 
-					if m.ElementSection[elementIndex].Type != tables[tableIndex].Type {
+					if !isRefSubtypeOf(m.ElementSection[elementIndex].Type, tables[tableIndex].Type) {
 						return fmt.Errorf("type mismatch for table.init: element type %s does not match table type %s",
 							RefTypeName(m.ElementSection[elementIndex].Type),
 							RefTypeName(tables[tableIndex].Type),
@@ -1086,7 +1364,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 						return fmt.Errorf("table of index %d not found", srcTableIndex)
 					}
 
-					if tables[srcTableIndex].Type != tables[dstTableIndex].Type {
+					if !isRefSubtypeOf(tables[srcTableIndex].Type, tables[dstTableIndex].Type) {
 						return fmt.Errorf("table type mismatch for table.copy: %s (src) != %s (dst)",
 							RefTypeName(tables[srcTableIndex].Type), RefTypeName(tables[dstTableIndex].Type))
 					}
@@ -1446,6 +1724,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				return fmt.Errorf("read block: %w", err)
 			}
 			controlBlockStack.push(pc, 0, 0, bt, num, 0)
+			controlBlockStack.stack[len(controlBlockStack.stack)-1].savedInitLocals = maps.Clone(sts.initLocals)
 			if err = valueTypeStack.popParams(op, bt.Params, false); err != nil {
 				return err
 			}
@@ -1834,6 +2113,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				return fmt.Errorf("read block: %w", err)
 			}
 			controlBlockStack.push(pc, 0, 0, bt, num, op)
+			controlBlockStack.stack[len(controlBlockStack.stack)-1].savedInitLocals = maps.Clone(sts.initLocals)
 			if err = valueTypeStack.popParams(op, bt.Params, false); err != nil {
 				return err
 			}
@@ -1850,6 +2130,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				return fmt.Errorf("read block: %w", err)
 			}
 			controlBlockStack.push(pc, 0, 0, bt, num, op)
+			controlBlockStack.stack[len(controlBlockStack.stack)-1].savedInitLocals = maps.Clone(sts.initLocals)
 			if err = valueTypeStack.popAndVerifyType(ValueTypeI32); err != nil {
 				return fmt.Errorf("cannot pop the operand for 'if': %v", err)
 			}
@@ -1873,6 +2154,8 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			if err := valueTypeStack.popResults(OpcodeIf, bl.blockType.Results, true); err != nil {
 				return err
 			}
+			// Restore init locals to the state at if-entry for the else branch.
+			sts.initLocals = maps.Clone(bl.savedInitLocals)
 			// Before entering instructions inside else, we pop all the values pushed by then block.
 			valueTypeStack.resetAtStackLimit()
 			// Plus we have to push any block params again.
@@ -1882,6 +2165,10 @@ func (m *Module) validateFunctionWithMaxStackValues(
 		} else if op == OpcodeEnd {
 			bl := controlBlockStack.pop()
 			bl.endAt = pc
+			// Restore init locals to the state at block entry (skip for outermost function block).
+			if len(controlBlockStack.stack) > 0 {
+				sts.initLocals = bl.savedInitLocals
+			}
 
 			// OpcodeEnd can end a block or the function itself. Check to see what it is:
 
@@ -1889,7 +2176,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			if ifMissingElse {
 				// If this is the end of block without else, the number of block's results and params must be same.
 				// Otherwise, the value stack would result in the inconsistent state at runtime.
-				if !bytes.Equal(bl.blockType.Results, bl.blockType.Params) {
+				if !slices.Equal(bl.blockType.Results, bl.blockType.Params) {
 					return typeCountError(false, OpcodeElseName, bl.blockType.Params, bl.blockType.Results)
 				}
 				// -1 skips else, to handle if block without else properly.
@@ -1952,19 +2239,49 @@ func (m *Module) validateFunctionWithMaxStackValues(
 					return fmt.Errorf("too many type immediates for %s", InstructionName(op))
 				}
 				pc++
-				tp := body[pc]
-				if tp != ValueTypeI32 && tp != ValueTypeI64 && tp != ValueTypeF32 && tp != ValueTypeF64 &&
-					tp != api.ValueTypeExternref && tp != ValueTypeFuncref && tp != ValueTypeV128 {
-					return fmt.Errorf("invalid type %s for %s", ValueTypeName(tp), OpcodeTypedSelectName)
+				b := body[pc]
+				switch b {
+				case RefPrefixNullable, RefPrefixNonNullable:
+					br.Reset(body[pc+1:])
+					ht, num, err := leb128.DecodeInt33AsInt64(br)
+					if err != nil {
+						return fmt.Errorf("read heap type for %s: %v", OpcodeTypedSelectName, err)
+					}
+					pc += uint64(num)
+					switch ht {
+					case HeapTypeFunc:
+						// ok
+					case HeapTypeExtern:
+						// ok
+					case HeapTypeExn:
+						// ok
+					default:
+						if ht < 0 {
+							return fmt.Errorf("invalid heap type for %s: %d", OpcodeTypedSelectName, ht)
+						}
+						if int(ht) >= len(m.TypeSection) {
+							return fmt.Errorf("unknown type for %s: type index %d out of range", OpcodeTypedSelectName, ht)
+						}
+					}
+				default:
+					tp := ValueType(b)
+					if tp != ValueTypeI32 && tp != ValueTypeI64 && tp != ValueTypeF32 && tp != ValueTypeF64 &&
+						tp != ValueTypeExternref && tp != ValueTypeFuncref && tp != ValueTypeV128 {
+						return fmt.Errorf("invalid type %s for %s", ValueTypeName(tp), OpcodeTypedSelectName)
+					}
 				}
 			} else if isReferenceValueType(v1) || isReferenceValueType(v2) {
 				return fmt.Errorf("reference types cannot be used for non typed select instruction")
 			}
 
-			if v1 != v2 && v1 != valueTypeUnknown && v2 != valueTypeUnknown {
+			if v1 != valueTypeUnknown && v2 != valueTypeUnknown && !areRefTypesCompatible(v1, v2) {
 				return fmt.Errorf("type mismatch on 1st and 2nd select operands")
 			}
 			if v1 == valueTypeUnknown {
+				valueTypeStack.push(v2)
+			} else if v2 == valueTypeUnknown {
+				valueTypeStack.push(v1)
+			} else if isRefSubtypeOf(v1, v2) {
 				valueTypeStack.push(v2)
 			} else {
 				valueTypeStack.push(v1)
@@ -1973,6 +2290,10 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			// unreachable instruction is stack-polymorphic.
 			valueTypeStack.unreachable()
 		} else if op == OpcodeNop {
+		} else if enabledFeatures.IsEnabled(experimental.CoreFeaturesExceptionHandling) &&
+			(op == OpcodeLegacyTry || op == OpcodeLegacyCatch || op == OpcodeLegacyRethrow ||
+				op == OpcodeLegacyDelegate || op == OpcodeLegacyCatchAll) {
+			return fmt.Errorf("legacy exception handling instruction 0x%x not supported; recompile with wasm-opt --translate-to-exnref", op)
 		} else {
 			return fmt.Errorf("invalid instruction 0x%x", op)
 		}
@@ -2047,6 +2368,8 @@ type stacks struct {
 	cs controlBlockStack
 	// ls is the label slice that is reused for each br_table instruction.
 	ls []uint32
+	// initLocals tracks which non-nullable ref locals have been initialized.
+	initLocals map[uint32]struct{}
 }
 
 func (sts *stacks) reset(functionType *FunctionType) {
@@ -2057,10 +2380,62 @@ func (sts *stacks) reset(functionType *FunctionType) {
 	sts.cs.stack = sts.cs.stack[:0]
 	sts.cs.stack = append(sts.cs.stack, controlBlock{blockType: functionType})
 	sts.ls = sts.ls[:0]
+	clear(sts.initLocals)
+	if sts.initLocals == nil {
+		sts.initLocals = make(map[uint32]struct{})
+	}
+}
+
+func (sts *stacks) validateCallSignature(opName string, funcType *FunctionType) error {
+	for i := len(funcType.Params) - 1; i >= 0; i-- {
+		if err := sts.vs.popAndVerifyType(funcType.Params[i]); err != nil {
+			return fmt.Errorf("type mismatch on %s operation param type: %v", opName, err)
+		}
+	}
+	for _, exp := range funcType.Results {
+		sts.vs.push(exp)
+	}
+	return nil
+}
+
+func (sts *stacks) validateReturnCall(
+	opName string,
+	enabledFeatures api.CoreFeatures,
+	calleeFuncType, callerFuncType *FunctionType,
+) error {
+	if err := enabledFeatures.RequireEnabled(experimental.CoreFeaturesTailCall); err != nil {
+		return fmt.Errorf("%s invalid as %v", opName, err)
+	}
+	if len(calleeFuncType.Results) != len(callerFuncType.Results) {
+		return fmt.Errorf("type mismatch on %s: caller returns %d values but callee returns %d",
+			opName, len(callerFuncType.Results), len(calleeFuncType.Results))
+	}
+	return sts.vs.requireStackValues(false, "", callerFuncType.Results, false)
 }
 
 type controlBlockStack struct {
 	stack []controlBlock
+}
+
+func (sts *stacks) requireLocalInit(index, inputLen uint32, localTypes []ValueType) error {
+	if index >= inputLen {
+		lt := localTypes[index-inputLen]
+		if lt.IsRef() && !lt.IsNullable() {
+			if _, ok := sts.initLocals[index]; !ok {
+				return fmt.Errorf("uninitialized local %d", index)
+			}
+		}
+	}
+	return nil
+}
+
+func (sts *stacks) markLocalInit(index, inputLen uint32, localTypes []ValueType) {
+	if index >= inputLen {
+		lt := localTypes[index-inputLen]
+		if lt.IsRef() && !lt.IsNullable() {
+			sts.initLocals[index] = struct{}{}
+		}
+	}
 }
 
 func (s *controlBlockStack) pop() *controlBlock {
@@ -2125,7 +2500,7 @@ func (s *valueTypeStack) popAndVerifyType(expected ValueType) error {
 	if !ok {
 		return fmt.Errorf("%s missing", ValueTypeName(expected))
 	}
-	if have != expected && have != valueTypeUnknown && expected != valueTypeUnknown {
+	if have != valueTypeUnknown && expected != valueTypeUnknown && !isRefSubtypeOf(have, expected) {
 		return fmt.Errorf("type mismatch: expected %s, but was %s", ValueTypeName(expected), ValueTypeName(have))
 	}
 	return nil
@@ -2207,7 +2582,7 @@ func (s *valueTypeStack) requireStackValues(
 	// Finally, check the types of the values:
 	for i, v := range s.requireStackValuesTmp {
 		nextWant := want[countWanted-i-1] // have is in reverse order (stack)
-		if v != nextWant && v != valueTypeUnknown && nextWant != valueTypeUnknown {
+		if v != valueTypeUnknown && nextWant != valueTypeUnknown && !isRefSubtypeOf(v, nextWant) {
 			return typeMismatchError(isParam, context, v, nextWant, i)
 		}
 	}
@@ -2304,6 +2679,8 @@ type controlBlock struct {
 	blockTypeBytes         uint64
 	// op is zero when the outermost block
 	op Opcode
+	// savedInitLocals is the set of initialized locals at the time this block was entered.
+	savedInitLocals map[uint32]struct{}
 }
 
 // DecodeBlockType decodes the type index from a positive 33-bit signed integer. Negative numbers indicate up to one
@@ -2336,6 +2713,54 @@ func DecodeBlockType(types []FunctionType, r *bytes.Reader, enabledFeatures api.
 		ret = blockType_v_funcref
 	case -17: // 0x6f in original byte = externref
 		ret = blockType_v_externref
+	case -23: // 0x69 in original byte = exnref
+		ret = blockType_v_exnref
+	case -29: // 0x63 = ref null (nullable)
+		ht, htNum, err := leb128.DecodeInt33AsInt64(r)
+		if err != nil {
+			return nil, 0, fmt.Errorf("read ref heap type in block: %w", err)
+		}
+		num += htNum
+		switch ht {
+		case HeapTypeExn:
+			ret = blockType_v_exnref
+		case HeapTypeFunc:
+			ret = blockType_v_funcref
+		case HeapTypeExtern:
+			ret = blockType_v_externref
+		default:
+			if ht < 0 {
+				return nil, 0, fmt.Errorf("unknown abstract heap type in block: %d", ht)
+			}
+			if int64(len(types)) <= ht {
+				return nil, 0, fmt.Errorf("unknown type")
+			}
+			vt := ValueTypeConcreteRef(uint32(ht), true)
+			ret = &FunctionType{Results: []ValueType{vt}, ResultNumInUint64: 1}
+		}
+	case -28: // 0x64 = ref (non-nullable)
+		ht, htNum, err := leb128.DecodeInt33AsInt64(r)
+		if err != nil {
+			return nil, 0, fmt.Errorf("read ref heap type in block: %w", err)
+		}
+		num += htNum
+		switch ht {
+		case HeapTypeExn:
+			ret = &FunctionType{Results: []ValueType{ValueTypeExnref.AsNonNullable()}, ResultNumInUint64: 1}
+		case HeapTypeFunc:
+			ret = &FunctionType{Results: []ValueType{ValueTypeFuncref.AsNonNullable()}, ResultNumInUint64: 1}
+		case HeapTypeExtern:
+			ret = &FunctionType{Results: []ValueType{ValueTypeExternref.AsNonNullable()}, ResultNumInUint64: 1}
+		default:
+			if ht < 0 {
+				return nil, 0, fmt.Errorf("unknown abstract heap type in block: %d", ht)
+			}
+			if int64(len(types)) <= ht {
+				return nil, 0, fmt.Errorf("unknown type")
+			}
+			vt := ValueTypeConcreteRef(uint32(ht), false)
+			ret = &FunctionType{Results: []ValueType{vt}, ResultNumInUint64: 1}
+		}
 	default:
 		if err = enabledFeatures.RequireEnabled(api.CoreFeatureMultiValue); err != nil {
 			return nil, num, fmt.Errorf("block with function type return invalid as %v", err)
@@ -2358,6 +2783,7 @@ var (
 	blockType_v_v128      = &FunctionType{Results: []ValueType{ValueTypeV128}, ResultNumInUint64: 2}
 	blockType_v_funcref   = &FunctionType{Results: []ValueType{ValueTypeFuncref}, ResultNumInUint64: 1}
 	blockType_v_externref = &FunctionType{Results: []ValueType{ValueTypeExternref}, ResultNumInUint64: 1}
+	blockType_v_exnref    = &FunctionType{Results: []ValueType{ValueTypeExnref}, ResultNumInUint64: 1}
 )
 
 // SplitCallStack returns the input stack resliced to the count of params and

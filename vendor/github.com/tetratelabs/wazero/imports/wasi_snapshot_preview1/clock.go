@@ -37,7 +37,7 @@ import (
 // Note: This is similar to `clock_getres` in POSIX.
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#-clock_res_getid-clockid---errno-timestamp
 // See https://linux.die.net/man/3/clock_getres
-var clockResGet = newHostFunc(wasip1.ClockResGetName, clockResGetFn, []api.ValueType{i32, i32}, "id", "result.resolution")
+var clockResGet = newHostFunc(wasip1.ClockResGetName, clockResGetFn, []wasm.ValueType{i32, i32}, "id", "result.resolution")
 
 func clockResGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys
@@ -90,7 +90,7 @@ func clockResGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno
 // Note: This is similar to `clock_gettime` in POSIX.
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#-clock_time_getid-clockid-precision-timestamp---errno-timestamp
 // See https://linux.die.net/man/3/clock_gettime
-var clockTimeGet = newHostFunc(wasip1.ClockTimeGetName, clockTimeGetFn, []api.ValueType{i32, i64, i32}, "id", "precision", "result.timestamp")
+var clockTimeGet = newHostFunc(wasip1.ClockTimeGetName, clockTimeGetFn, []wasm.ValueType{i32, i64, i32}, "id", "precision", "result.timestamp")
 
 func clockTimeGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys

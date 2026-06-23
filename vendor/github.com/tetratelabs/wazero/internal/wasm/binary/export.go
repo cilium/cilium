@@ -21,7 +21,7 @@ func decodeExport(r *bytes.Reader, ret *wasm.Export) (err error) {
 
 	ret.Type = b
 	switch ret.Type {
-	case wasm.ExternTypeFunc, wasm.ExternTypeTable, wasm.ExternTypeMemory, wasm.ExternTypeGlobal:
+	case wasm.ExternTypeFunc, wasm.ExternTypeTable, wasm.ExternTypeMemory, wasm.ExternTypeGlobal, wasm.ExternTypeTag:
 		if ret.Index, _, err = leb128.DecodeUint32(r); err != nil {
 			err = fmt.Errorf("error decoding export index: %w", err)
 		}

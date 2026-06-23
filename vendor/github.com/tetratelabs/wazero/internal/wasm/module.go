@@ -6,15 +6,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
-	"github.com/tetratelabs/wazero/internal/ieee754"
-	"github.com/tetratelabs/wazero/internal/leb128"
 	"github.com/tetratelabs/wazero/internal/wasmdebug"
 )
 
@@ -96,6 +94,19 @@ type Module struct {
 	//
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#memory-section%E2%91%A0
 	MemorySection *Memory
+
+	// TagSection contains each tag defined in this module for exception handling.
+	//
+	// Tag indexes are offset by any imported tags because the tag index begins with imports, followed by
+	// ones defined in this module.
+	//
+	// Note: In the Binary Format, this is SectionIDTag.
+	//
+	// See https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md
+	TagSection []Tag
+
+	// ImportTagCount is the cached count of imported tags set during decoding.
+	ImportTagCount Index
 
 	// GlobalSection contains each global defined in this module.
 	//
@@ -227,6 +238,16 @@ func boolToByte(b bool) (ret byte) {
 
 // typeOfFunction returns the wasm.FunctionType for the given function space index or nil.
 func (m *Module) typeOfFunction(funcIdx Index) *FunctionType {
+	typeIdx, ok := m.typeIndexOfFunction(funcIdx)
+	if !ok {
+		return nil
+	}
+	return &m.TypeSection[typeIdx]
+}
+
+// typeIndexOfFunction returns the type section index for the given function
+// space index, or false if the index is out of range.
+func (m *Module) typeIndexOfFunction(funcIdx Index) (Index, bool) {
 	typeSectionLength, importedFunctionCount := uint32(len(m.TypeSection)), m.ImportFunctionCount
 	if funcIdx < importedFunctionCount {
 		// Imports are not exclusively functions. This is the current function index in the loop.
@@ -238,9 +259,9 @@ func (m *Module) typeOfFunction(funcIdx Index) *FunctionType {
 			}
 			if funcIdx == cur {
 				if imp.DescFunc >= typeSectionLength {
-					return nil
+					return 0, false
 				}
-				return &m.TypeSection[imp.DescFunc]
+				return imp.DescFunc, true
 			}
 			cur++
 		}
@@ -248,13 +269,13 @@ func (m *Module) typeOfFunction(funcIdx Index) *FunctionType {
 
 	funcSectionIdx := funcIdx - m.ImportFunctionCount
 	if funcSectionIdx >= uint32(len(m.FunctionSection)) {
-		return nil
+		return 0, false
 	}
 	typeIdx := m.FunctionSection[funcSectionIdx]
 	if typeIdx >= typeSectionLength {
-		return nil
+		return 0, false
 	}
-	return &m.TypeSection[typeIdx]
+	return typeIdx, true
 }
 
 func (m *Module) Validate(enabledFeatures api.CoreFeatures) error {
@@ -263,12 +284,20 @@ func (m *Module) Validate(enabledFeatures api.CoreFeatures) error {
 		tp.CacheNumInUint64()
 	}
 
+	if err := m.validateConcreteRefTypes(); err != nil {
+		return err
+	}
+
 	if err := m.validateStartSection(); err != nil {
 		return err
 	}
 
-	functions, globals, memory, tables, err := m.AllDeclarations()
+	functions, globals, memory, tables, tags, err := m.AllDeclarations()
 	if err != nil {
+		return err
+	}
+
+	if err = m.validateTableInitExprs(globals, uint32(len(functions))); err != nil {
 		return err
 	}
 
@@ -284,12 +313,12 @@ func (m *Module) Validate(enabledFeatures api.CoreFeatures) error {
 		return err
 	}
 
-	if err = m.validateExports(enabledFeatures, functions, globals, memory, tables); err != nil {
+	if err = m.validateExports(enabledFeatures, functions, globals, memory, tables, tags); err != nil {
 		return err
 	}
 
 	if m.CodeSection != nil {
-		if err = m.validateFunctions(enabledFeatures, functions, globals, memory, tables, MaximumFunctionIndex); err != nil {
+		if err = m.validateFunctions(enabledFeatures, functions, globals, memory, tables, tags, MaximumFunctionIndex); err != nil {
 			return err
 		}
 	} // No need to validate host functions as NewHostModule validates
@@ -300,6 +329,65 @@ func (m *Module) Validate(enabledFeatures api.CoreFeatures) error {
 
 	if err = m.validateDataCountSection(); err != nil {
 		return err
+	}
+
+	if err = m.validateTagSection(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Module) validateConcreteRefTypes() error {
+	numTypes := uint32(len(m.TypeSection))
+	for i, g := range m.GlobalSection {
+		if vt := g.Type.ValType; vt.IsConcreteRef() && vt.TypeIndex() >= numTypes {
+			return fmt.Errorf("unknown type %d in global[%d]", vt.TypeIndex(), i)
+		}
+	}
+	for i, t := range m.TableSection {
+		if vt := t.Type; vt.IsConcreteRef() && vt.TypeIndex() >= numTypes {
+			return fmt.Errorf("unknown type %d in table[%d]", vt.TypeIndex(), i)
+		}
+	}
+	for i, c := range m.CodeSection {
+		for j, lt := range c.LocalTypes {
+			if lt.IsConcreteRef() && lt.TypeIndex() >= numTypes {
+				return fmt.Errorf("unknown type %d in func[%d].local[%d]", lt.TypeIndex(), i, j)
+			}
+		}
+	}
+	for i, e := range m.ElementSection {
+		if vt := e.Type; vt.IsConcreteRef() && vt.TypeIndex() >= numTypes {
+			return fmt.Errorf("unknown type %d in element[%d]", vt.TypeIndex(), i)
+		}
+	}
+	return nil
+}
+
+func (m *Module) validateTableInitExprs(globals []GlobalType, numFuncs uint32) error {
+	importedGlobals := globals[:m.ImportGlobalCount]
+	for i, t := range m.TableSection {
+		if !t.Type.IsNullable() && t.InitExpr == nil {
+			return fmt.Errorf("type mismatch: non-nullable table[%d] requires an init expression", i)
+		}
+		if t.InitExpr != nil {
+			if err := m.validateConstExpression(importedGlobals, numFuncs, t.InitExpr, t.Type); err != nil {
+				return fmt.Errorf("table[%d] init: %w", i, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (m *Module) validateTagSection() error {
+	for i, tag := range m.TagSection {
+		if tag.Type >= uint32(len(m.TypeSection)) {
+			return fmt.Errorf("tag[%d] type index out of range", i)
+		}
+		ft := &m.TypeSection[tag.Type]
+		if len(ft.Results) > 0 {
+			return fmt.Errorf("tag[%d] type must have empty results, got %v", i, ft.Results)
+		}
 	}
 	return nil
 }
@@ -330,14 +418,14 @@ func (m *Module) validateGlobals(globals []GlobalType, numFuncts, maxGlobals uin
 	importedGlobals := globals[:m.ImportGlobalCount]
 	for i := range m.GlobalSection {
 		g := &m.GlobalSection[i]
-		if err := validateConstExpression(importedGlobals, numFuncts, &g.Init, g.Type.ValType); err != nil {
+		if err := m.validateConstExpression(importedGlobals, numFuncts, &g.Init, g.Type.ValType); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions []Index, globals []GlobalType, memory *Memory, tables []Table, maximumFunctionIndex uint32) error {
+func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions []Index, globals []GlobalType, memory *Memory, tables []Table, tags []Index, maximumFunctionIndex uint32) error {
 	if uint32(len(functions)) > maximumFunctionIndex {
 		return fmt.Errorf("too many functions (%d) in a module", len(functions))
 	}
@@ -353,7 +441,7 @@ func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions [
 		return fmt.Errorf("code count (%d) != function count (%d)", codeCount, functionCount)
 	}
 
-	declaredFuncIndexes, err := m.declaredFunctionIndexes()
+	declaredFuncIndexes, err := m.declaredFunctionIndexes(enabledFeatures)
 	if err != nil {
 		return err
 	}
@@ -371,7 +459,7 @@ func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions [
 		if c.GoFunc != nil {
 			continue
 		}
-		if err = m.validateFunction(vs, enabledFeatures, Index(idx), functions, globals, memory, tables, declaredFuncIndexes, br); err != nil {
+		if err = m.validateFunction(vs, enabledFeatures, Index(idx), functions, globals, memory, tables, tags, declaredFuncIndexes, br); err != nil {
 			return fmt.Errorf("invalid %s: %w", m.funcDesc(SectionIDFunction, Index(idx)), err)
 		}
 	}
@@ -397,7 +485,7 @@ func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions [
 //
 // See https://github.com/WebAssembly/reference-types/issues/31
 // See https://github.com/WebAssembly/reference-types/issues/76
-func (m *Module) declaredFunctionIndexes() (ret map[Index]struct{}, err error) {
+func (m *Module) declaredFunctionIndexes(enabledFeatures api.CoreFeatures) (ret map[Index]struct{}, err error) {
 	ret = map[uint32]struct{}{}
 
 	for i := range m.ExportSection {
@@ -409,23 +497,39 @@ func (m *Module) declaredFunctionIndexes() (ret map[Index]struct{}, err error) {
 
 	for i := range m.GlobalSection {
 		g := &m.GlobalSection[i]
-		if g.Init.Opcode == OpcodeRefFunc {
-			var index uint32
-			index, _, err = leb128.LoadUint32(g.Init.Data)
-			if err != nil {
-				err = fmt.Errorf("%s[%d] failed to initialize: %w", SectionIDName(SectionIDGlobal), i, err)
-				return
-			}
-			ret[index] = struct{}{}
+
+		_, _, initErr := evaluateConstExpr(
+			&g.Init,
+			func(globalIndex Index) (ValueType, uint64, uint64, error) {
+				vt, err := m.resolveConstExprGlobalType(enabledFeatures, SectionIDGlobal, Index(i), globalIndex)
+				return vt, 0, 0, err
+			},
+			func(funcIndex Index) (Reference, error) {
+				ret[funcIndex] = struct{}{}
+				return 0, nil
+			},
+		)
+
+		if initErr != nil {
+			err = fmt.Errorf("%s[%d] failed to initialize: %w", SectionIDName(SectionIDGlobal), i, initErr)
+			return
 		}
 	}
 
 	for i := range m.ElementSection {
 		elem := &m.ElementSection[i]
-		for _, index := range elem.Init {
-			if index != ElementInitNullReference {
-				ret[index] = struct{}{}
-			}
+		for _, initExpr := range elem.Init {
+			_, _, _ = evaluateConstExpr(
+				&initExpr,
+				func(globalIndex Index) (ValueType, uint64, uint64, error) {
+					vt, err := m.resolveConstExprGlobalType(enabledFeatures, SectionIDElement, Index(i), globalIndex)
+					return vt, 0, 0, err
+				},
+				func(funcIndex Index) (Reference, error) {
+					ret[funcIndex] = struct{}{}
+					return 0, nil
+				},
+			)
 		}
 	}
 	return
@@ -467,7 +571,7 @@ func (m *Module) validateMemory(memory *Memory, globals []GlobalType, _ api.Core
 	for i := range m.DataSection {
 		d := &m.DataSection[i]
 		if !d.IsPassive() {
-			if err := validateConstExpression(importedGlobals, 0, &d.OffsetExpression, ValueTypeI32); err != nil {
+			if err := m.validateConstExpression(importedGlobals, 0, &d.OffsetExpression, ValueTypeI32); err != nil {
 				return fmt.Errorf("calculate offset: %w", err)
 			}
 		}
@@ -493,12 +597,19 @@ func (m *Module) validateImports(enabledFeatures api.CoreFeatures) error {
 			if err := enabledFeatures.RequireEnabled(api.CoreFeatureMutableGlobal); err != nil {
 				return fmt.Errorf("invalid import[%q.%q] global: %w", imp.Module, imp.Name, err)
 			}
+		case ExternTypeTag:
+			if int(imp.DescTag) >= len(m.TypeSection) {
+				return fmt.Errorf("invalid import[%q.%q] tag: type index out of range", imp.Module, imp.Name)
+			}
+			if len(m.TypeSection[imp.DescTag].Results) > 0 {
+				return fmt.Errorf("invalid import[%q.%q] tag: tag types must have no results", imp.Module, imp.Name)
+			}
 		}
 	}
 	return nil
 }
 
-func (m *Module) validateExports(enabledFeatures api.CoreFeatures, functions []Index, globals []GlobalType, memory *Memory, tables []Table) error {
+func (m *Module) validateExports(enabledFeatures api.CoreFeatures, functions []Index, globals []GlobalType, memory *Memory, tables []Table, tags []Index) error {
 	for i := range m.ExportSection {
 		exp := &m.ExportSection[i]
 		index := exp.Index
@@ -525,78 +636,43 @@ func (m *Module) validateExports(enabledFeatures api.CoreFeatures, functions []I
 			if index >= uint32(len(tables)) {
 				return fmt.Errorf("table for export[%q] out of range", exp.Name)
 			}
+		case ExternTypeTag:
+			if index >= uint32(len(tags)) {
+				return fmt.Errorf("tag for export[%q] out of range", exp.Name)
+			}
 		}
 	}
 	return nil
 }
 
-func validateConstExpression(globals []GlobalType, numFuncs uint32, expr *ConstantExpression, expectedType ValueType) (err error) {
-	var actualType ValueType
-	switch expr.Opcode {
-	case OpcodeI32Const:
-		// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
-		_, _, err = leb128.LoadInt32(expr.Data)
-		if err != nil {
-			return fmt.Errorf("read i32: %w", err)
-		}
-		actualType = ValueTypeI32
-	case OpcodeI64Const:
-		// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
-		_, _, err = leb128.LoadInt64(expr.Data)
-		if err != nil {
-			return fmt.Errorf("read i64: %w", err)
-		}
-		actualType = ValueTypeI64
-	case OpcodeF32Const:
-		_, err = ieee754.DecodeFloat32(expr.Data)
-		if err != nil {
-			return fmt.Errorf("read f32: %w", err)
-		}
-		actualType = ValueTypeF32
-	case OpcodeF64Const:
-		_, err = ieee754.DecodeFloat64(expr.Data)
-		if err != nil {
-			return fmt.Errorf("read f64: %w", err)
-		}
-		actualType = ValueTypeF64
-	case OpcodeGlobalGet:
-		id, _, err := leb128.LoadUint32(expr.Data)
-		if err != nil {
-			return fmt.Errorf("read index of global: %w", err)
-		}
-		if uint32(len(globals)) <= id {
-			return fmt.Errorf("global index out of range")
-		}
-		actualType = globals[id].ValType
-	case OpcodeRefNull:
-		if len(expr.Data) == 0 {
-			return fmt.Errorf("read reference type for ref.null: %w", io.ErrShortBuffer)
-		}
-		reftype := expr.Data[0]
-		if reftype != RefTypeFuncref && reftype != RefTypeExternref {
-			return fmt.Errorf("invalid type for ref.null: 0x%x", reftype)
-		}
-		actualType = reftype
-	case OpcodeRefFunc:
-		index, _, err := leb128.LoadUint32(expr.Data)
-		if err != nil {
-			return fmt.Errorf("read i32: %w", err)
-		} else if index >= numFuncs {
-			return fmt.Errorf("ref.func index out of range [%d] with length %d", index, numFuncs-1)
-		}
-		actualType = ValueTypeFuncref
-	case OpcodeVecV128Const:
-		if len(expr.Data) != 16 {
-			return fmt.Errorf("%s needs 16 bytes but was %d bytes", OpcodeVecV128ConstName, len(expr.Data))
-		}
-		actualType = ValueTypeV128
-	default:
-		return fmt.Errorf("invalid opcode for const expression: 0x%x", expr.Opcode)
+func (m *Module) validateConstExpression(globals []GlobalType, numFuncs uint32, expr *ConstantExpression, expectedType ValueType) (err error) {
+	var lastRefFuncIdx Index
+	_, typ, err := evaluateConstExpr(
+		expr,
+		func(globalIndex Index) (ValueType, uint64, uint64, error) {
+			if uint32(len(globals)) <= globalIndex {
+				return 0, 0, 0, fmt.Errorf("global index out of range")
+			}
+			return globals[globalIndex].ValType, 0, 0, nil
+		},
+		func(funcIndex Index) (Reference, error) {
+			if funcIndex >= numFuncs {
+				return 0, fmt.Errorf("ref.func index out of range [%d] with length %d", funcIndex, numFuncs-1)
+			}
+			lastRefFuncIdx = funcIndex
+			return 0, nil
+		},
+	)
+	if err != nil {
+		return err
 	}
-
-	if actualType != expectedType {
-		return fmt.Errorf("const expression type mismatch expected %s but got %s",
-			ValueTypeName(expectedType), ValueTypeName(actualType))
+	if typ == ValueTypeFuncref {
+		if typeIndex, ok := m.typeIndexOfFunction(lastRefFuncIdx); ok {
+			typ = ValueTypeConcreteRef(typeIndex, false)
+		}
+	}
+	if !isRefSubtypeOf(typ, expectedType) {
+		return fmt.Errorf("const expression type mismatch expected %s but got %s", ValueTypeName(expectedType), ValueTypeName(typ))
 	}
 	return nil
 }
@@ -607,6 +683,16 @@ func (m *Module) validateDataCountSection() (err error) {
 			*m.DataCountSection, len(m.DataSection))
 	}
 	return
+}
+
+func (m *ModuleInstance) buildTags(module *Module) {
+	for i := range module.TagSection {
+		tag := &module.TagSection[i]
+		t := &TagInstance{
+			Type: &module.TypeSection[tag.Type],
+		}
+		m.Tags[i+int(module.ImportTagCount)] = t
+	}
 }
 
 func (m *ModuleInstance) buildGlobals(module *Module, funcRefResolver func(funcIndex Index) Reference) {
@@ -625,6 +711,48 @@ func (m *ModuleInstance) buildGlobals(module *Module, funcRefResolver func(funcI
 		g.Type = gs.Type
 		g.initialize(importedGlobals, &gs.Init, funcRefResolver)
 	}
+}
+
+func (m *Module) resolveConstExprGlobalType(enabledFeatures api.CoreFeatures, sectionID SectionID, sectionIdx Index, idx Index) (ValueType, error) {
+	if idx < m.ImportGlobalCount {
+		// Imports are not exclusively globals. This is the current global index in the loop.
+		cur := uint32(0)
+		for i := range m.ImportSection {
+			imp := &m.ImportSection[i]
+			if imp.Type != ExternTypeGlobal {
+				continue
+			}
+			if idx == cur {
+				return imp.DescGlobal.ValType, nil
+			}
+			cur++
+		}
+
+		// should not happen as idx < ImportGlobalCount
+		return 0, fmt.Errorf("index %d not found in imported globals", idx)
+	}
+
+	// NOTE: in the <= 2.0 spec, global.get in a constant expression can only refer to imported globals.
+	// In version 3.0, this restriction is removed, and all globals prior to the current one are allowed.
+	// To avoid implementing too many flags, this relaxation is gated behind the CoreFeaturesExtendedConst flag,
+	// which includes other related extensions in constant expressions.
+	if !enabledFeatures.IsEnabled(experimental.CoreFeaturesExtendedConst) {
+		return 0, fmt.Errorf("%s[%d] (global.get %d): out of range of imported globals", SectionIDName(sectionID), sectionIdx, idx)
+	}
+
+	idx -= uint32(m.ImportGlobalCount)
+
+	// Check that the given global has been initialized.
+	if sectionIdx == Index(SectionIDGlobal) && idx >= sectionIdx {
+		return 0, fmt.Errorf("%s[%d] global %d out of range of initialized globals", SectionIDName(sectionID), sectionIdx, idx)
+	}
+
+	// Bounds check:
+	if idx >= uint32(len(m.GlobalSection)) {
+		return 0, fmt.Errorf("%s[%d] (global.get %d): out of range of initialized globals", SectionIDName(sectionID), sectionIdx, idx)
+	}
+
+	return m.GlobalSection[idx].Type.ValType, nil
 }
 
 func paramNames(localNames IndirectNameMap, funcIdx uint32, paramLen int) []string {
@@ -685,6 +813,13 @@ type FunctionType struct {
 
 	// ResultsNumInUint64 is the number of uint64 values requires to represent the Wasm result type.
 	ResultNumInUint64 int
+
+	// RecGroupSize is the size of the rec group this type belongs to.
+	// Standalone types (not in an explicit rec group) have RecGroupSize 1.
+	RecGroupSize int
+
+	// RecGroupPosition is the 0-based position of this type within its rec group.
+	RecGroupPosition int
 }
 
 func (f *FunctionType) CacheNumInUint64() {
@@ -709,7 +844,16 @@ func (f *FunctionType) CacheNumInUint64() {
 
 // EqualsSignature returns true if the function type has the same parameters and results.
 func (f *FunctionType) EqualsSignature(params []ValueType, results []ValueType) bool {
-	return bytes.Equal(f.Params, params) && bytes.Equal(f.Results, results)
+	return slices.Equal(f.Params, params) && slices.Equal(f.Results, results)
+}
+
+// EqualsType returns true if the function types are structurally equal AND
+// belong to the same rec group position/size (GC proposal type identity).
+func (f *FunctionType) EqualsType(other *FunctionType) bool {
+	if !f.EqualsSignature(other.Params, other.Results) {
+		return false
+	}
+	return f.RecGroupSize == other.RecGroupSize && f.RecGroupPosition == other.RecGroupPosition
 }
 
 // key gets or generates the key for Store.typeIDs. e.g. "i32_v" for one i32 parameter and no (void) result.
@@ -731,6 +875,9 @@ func (f *FunctionType) key() string {
 	}
 	if len(f.Results) == 0 {
 		ret += "v"
+	}
+	if f.RecGroupSize > 1 {
+		ret += fmt.Sprintf("|rec%d/%d", f.RecGroupPosition, f.RecGroupSize)
 	}
 	f.string = ret
 	return ret
@@ -757,6 +904,8 @@ type Import struct {
 	DescMem *Memory
 	// DescGlobal is the inlined GlobalType when Type equals ExternTypeGlobal
 	DescGlobal GlobalType
+	// DescTag is the type index when Type equals ExternTypeTag
+	DescTag Index
 	// IndexPerType has the index of this import per ExternType.
 	IndexPerType Index
 }
@@ -793,6 +942,13 @@ func (m *Memory) Validate(memoryLimitPages uint32) error {
 	return nil
 }
 
+// Tag represents an exception tag defined in the tag section.
+// The Type field is an index into the TypeSection; the referenced function type
+// must have empty results (tags carry parameters but produce no results).
+type Tag struct {
+	Type Index
+}
+
 type GlobalType struct {
 	ValType ValueType
 	Mutable bool
@@ -801,11 +957,6 @@ type GlobalType struct {
 type Global struct {
 	Type GlobalType
 	Init ConstantExpression
-}
-
-type ConstantExpression struct {
-	Opcode Opcode
-	Data   []byte
 }
 
 // Export is the binary representation of an export indicated by Type
@@ -931,8 +1082,8 @@ type NameMapAssoc struct {
 	NameMap NameMap
 }
 
-// AllDeclarations returns all declarations for functions, globals, memories and tables in a module including imported ones.
-func (m *Module) AllDeclarations() (functions []Index, globals []GlobalType, memory *Memory, tables []Table, err error) {
+// AllDeclarations returns all declarations for functions, globals, memories, tables and tags in a module including imported ones.
+func (m *Module) AllDeclarations() (functions []Index, globals []GlobalType, memory *Memory, tables []Table, tags []Index, err error) {
 	for i := range m.ImportSection {
 		imp := &m.ImportSection[i]
 		switch imp.Type {
@@ -944,6 +1095,8 @@ func (m *Module) AllDeclarations() (functions []Index, globals []GlobalType, mem
 			memory = imp.DescMem
 		case ExternTypeTable:
 			tables = append(tables, imp.DescTable)
+		case ExternTypeTag:
+			tags = append(tags, imp.DescTag)
 		}
 	}
 
@@ -951,6 +1104,10 @@ func (m *Module) AllDeclarations() (functions []Index, globals []GlobalType, mem
 	for i := range m.GlobalSection {
 		g := &m.GlobalSection[i]
 		globals = append(globals, g.Type)
+	}
+	for i := range m.TagSection {
+		t := &m.TagSection[i]
+		tags = append(tags, t.Type)
 	}
 	if m.MemorySection != nil {
 		if memory != nil { // shouldn't be possible due to Validate
@@ -993,6 +1150,11 @@ const (
 	// See https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/binary/modules.html#data-count-section
 	// See https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/appendix/changes.html#bulk-memory-and-table-instructions
 	SectionIDDataCount
+
+	// SectionIDTag is for exception handling tags.
+	//
+	// See https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md
+	SectionIDTag SectionID = 13
 )
 
 // SectionIDName returns the canonical name of a module section.
@@ -1025,37 +1187,151 @@ func SectionIDName(sectionID SectionID) string {
 		return "data"
 	case SectionIDDataCount:
 		return "data_count"
+	case SectionIDTag:
+		return "tag"
 	}
 	return "unknown"
 }
 
-// ValueType is an alias of api.ValueType defined to simplify imports.
-type ValueType = api.ValueType
+// ValueType represents a WebAssembly value type as a uint64.
+//
+// Layout:
+//
+//	bits  0-7:  kind byte (backward-compatible with api.ValueType)
+//	bits  8-15: flags (nullability, concrete ref)
+//	bits 32-63: type index (for concrete refs like (ref $3))
+type ValueType uint64
 
 const (
-	ValueTypeI32 = api.ValueTypeI32
-	ValueTypeI64 = api.ValueTypeI64
-	ValueTypeF32 = api.ValueTypeF32
-	ValueTypeF64 = api.ValueTypeF64
-	// TODO: ValueTypeV128 is not exposed in the api pkg yet.
-	ValueTypeV128 ValueType = 0x7b
-	// TODO: ValueTypeFuncref is not exposed in the api pkg yet.
-	ValueTypeFuncref   ValueType = 0x70
-	ValueTypeExternref           = api.ValueTypeExternref
+	flagNonNullable ValueType = 1 << 8
+	flagConcreteRef ValueType = 1 << 9
 )
 
-// ValueTypeName is an alias of api.ValueTypeName defined to simplify imports.
-func ValueTypeName(t ValueType) string {
-	if t == ValueTypeFuncref {
-		return "funcref"
-	} else if t == ValueTypeV128 {
-		return "v128"
+const (
+	ValueTypeI32       ValueType = 0x7f
+	ValueTypeI64       ValueType = 0x7e
+	ValueTypeF32       ValueType = 0x7d
+	ValueTypeF64       ValueType = 0x7c
+	ValueTypeV128      ValueType = 0x7b
+	ValueTypeFuncref   ValueType = 0x70
+	ValueTypeExternref ValueType = 0x6f
+	ValueTypeExnref    ValueType = 0x69
+)
+
+// Kind returns the base type byte (bits 0-7).
+func (v ValueType) Kind() byte { return byte(v) }
+
+// IsRef returns true if this is a reference type (including non-nullable variants).
+func (v ValueType) IsRef() bool {
+	k := v.Kind()
+	return k == ValueTypeFuncref.Kind() || k == ValueTypeExternref.Kind() || k == ValueTypeExnref.Kind() ||
+		v&flagConcreteRef != 0
+}
+
+// IsNullable returns true if this reference type is nullable. Must only be called on ref types.
+func (v ValueType) IsNullable() bool { return v.IsRef() && v&flagNonNullable == 0 }
+
+// IsConcreteRef returns true if this is a concrete reference type with a type index.
+func (v ValueType) IsConcreteRef() bool { return v&flagConcreteRef != 0 }
+
+// TypeIndex returns the concrete type index (bits 32-63).
+func (v ValueType) TypeIndex() uint32 { return uint32(v >> 32) }
+
+// AsNonNullable returns a copy with the non-nullable flag set.
+func (v ValueType) AsNonNullable() ValueType { return v | flagNonNullable }
+
+// AsNullable returns a copy with the non-nullable flag cleared.
+func (v ValueType) AsNullable() ValueType { return v &^ flagNonNullable }
+
+// ValueTypeConcreteRef creates a concrete reference type with the given type index and nullability.
+func ValueTypeConcreteRef(typeIndex uint32, nullable bool) ValueType {
+	v := ValueTypeFuncref | flagConcreteRef | ValueType(typeIndex)<<32
+	if !nullable {
+		v |= flagNonNullable
 	}
-	return api.ValueTypeName(t)
+	return v
+}
+
+const (
+	// RefPrefixNullable is the binary encoding prefix for nullable reference types (ref null <heaptype>).
+	RefPrefixNullable byte = 0x63
+	// RefPrefixNonNullable is the binary encoding prefix for non-nullable reference types (ref <heaptype>).
+	RefPrefixNonNullable byte = 0x64
+)
+
+const (
+	// HeapTypeFunc is the abstract heap type for function references.
+	HeapTypeFunc int64 = -16
+	// HeapTypeExtern is the abstract heap type for external references.
+	HeapTypeExtern int64 = -17
+	// HeapTypeExn is the abstract heap type for exception references.
+	HeapTypeExn int64 = -23
+)
+
+// ValueTypeName returns the name of a ValueType.
+func ValueTypeName(t ValueType) string {
+	if t.IsConcreteRef() {
+		if t.IsNullable() {
+			return fmt.Sprintf("(ref null %d)", t.TypeIndex())
+		}
+		return fmt.Sprintf("(ref %d)", t.TypeIndex())
+	}
+	switch t.AsNullable() {
+	case ValueTypeI32:
+		return "i32"
+	case ValueTypeI64:
+		return "i64"
+	case ValueTypeF32:
+		return "f32"
+	case ValueTypeF64:
+		return "f64"
+	case ValueTypeV128:
+		return "v128"
+	case ValueTypeFuncref:
+		if !t.IsNullable() {
+			return "(ref func)"
+		}
+		return "funcref"
+	case ValueTypeExternref:
+		if !t.IsNullable() {
+			return "(ref extern)"
+		}
+		return "externref"
+	case ValueTypeExnref:
+		if !t.IsNullable() {
+			return "(ref exn)"
+		}
+		return "exnref"
+	}
+	return "unknown"
 }
 
 func isReferenceValueType(vt ValueType) bool {
-	return vt == ValueTypeExternref || vt == ValueTypeFuncref
+	return vt.IsRef()
+}
+
+// isRefSubtypeOf returns true if actual is a subtype of (or equal to) expected.
+// Non-nullable is a subtype of nullable. Concrete function refs are subtypes of funcref.
+func isRefSubtypeOf(actual, expected ValueType) bool {
+	if actual == expected {
+		return true
+	}
+	// Non-nullable is subtype of nullable (same kind/index).
+	if actual.AsNullable() == expected.AsNullable() && expected.IsNullable() {
+		return true
+	}
+	// Concrete function ref is subtype of (abstract) funcref (nullable or non-nullable).
+	if actual.IsConcreteRef() && expected.Kind() == ValueTypeFuncref.Kind() {
+		if !actual.IsNullable() || expected.IsNullable() {
+			return true
+		}
+	}
+	return false
+}
+
+// areRefTypesCompatible returns true if either type is a subtype of the other.
+func areRefTypesCompatible(a, b ValueType) bool {
+	return isRefSubtypeOf(a, b) || isRefSubtypeOf(b, a)
 }
 
 // ExternType is an alias of api.ExternType defined to simplify imports.
@@ -1070,9 +1346,14 @@ const (
 	ExternTypeMemoryName = api.ExternTypeMemoryName
 	ExternTypeGlobal     = api.ExternTypeGlobal
 	ExternTypeGlobalName = api.ExternTypeGlobalName
+	ExternTypeTag        = ExternType(0x04)
+	ExternTypeTagName    = "tag"
 )
 
 // ExternTypeName is an alias of api.ExternTypeName defined to simplify imports.
-func ExternTypeName(t ValueType) string {
+func ExternTypeName(t ExternType) string {
+	if t == ExternTypeTag {
+		return ExternTypeTagName
+	}
 	return api.ExternTypeName(t)
 }

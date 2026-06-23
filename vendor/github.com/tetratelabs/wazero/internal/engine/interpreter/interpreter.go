@@ -130,6 +130,39 @@ func (e *moduleEngine) OwnsGlobals() bool { return false }
 // MemoryGrown implements wasm.ModuleEngine.
 func (e *moduleEngine) MemoryGrown() {}
 
+// restorable is implemented by panic values that can restore callEngine state.
+// Both *snapshot (snapshotter API) and *thrownException (exception handling)
+// implement this interface.
+type restorable interface {
+	// canRestore unwinds ce.frames to callerFrameCount and checks whether a
+	// handler exists at that depth. If no handler is found, the caller
+	// re-panics and the next outer callWithUnwind unwinds further.
+	canRestore(ce *callEngine, callerFrameCount int) bool
+	// doRestore restores the callEngine state to the given stack frame depth.
+	doRestore(ce *callEngine, callerFrameCount int)
+}
+
+// thrownException is the panic value for wasm exception propagation.
+type thrownException struct {
+	exception *wasm.Exception
+	// Fields populated by canRestore for doRestore.
+	clause *exceptionTableCatchClause
+	values []uint64
+}
+
+func (t *thrownException) canRestore(ce *callEngine, callerFrameCount int) bool {
+	ce.frames = ce.frames[:callerFrameCount]
+	frame := ce.frames[callerFrameCount-1]
+	t.clause, t.values = searchExceptionTable(t.exception, frame)
+	return t.clause != nil
+}
+
+func (t *thrownException) doRestore(ce *callEngine, callerFrameCount int) {
+	frame := ce.frames[callerFrameCount-1]
+	ce.applyExceptionHandler(frame, t.clause, t.values)
+	t.clause, t.values = nil, nil
+}
+
 // callEngine holds context per moduleEngine.Call, and shared across all the
 // function calls originating from the same moduleEngine.Call execution.
 //
@@ -149,6 +182,94 @@ type callEngine struct {
 
 	// stackiterator for Listeners to walk frames and stack.
 	stackIterator stackIterator
+}
+
+// matchCatchClause checks whether a single catch clause matches the given exception.
+// Returns whether it matched and the values to push onto the stack.
+func matchCatchClause(kind byte, clauseTag *wasm.TagInstance, exn *wasm.Exception) (matched bool, values []uint64) {
+	switch kind {
+	case wasm.CatchKindCatch:
+		if exn.Tag == clauseTag {
+			return true, slices.Clone(exn.Params)
+		}
+	case wasm.CatchKindCatchRef:
+		if exn.Tag == clauseTag {
+			values = slices.Clone(exn.Params)
+			values = append(values, uint64(uintptr(unsafe.Pointer(exn))))
+			return true, values
+		}
+	case wasm.CatchKindCatchAll:
+		return true, nil
+	case wasm.CatchKindCatchAllRef:
+		return true, []uint64{uint64(uintptr(unsafe.Pointer(exn)))}
+	}
+	return false, nil
+}
+
+// searchExceptionTable searches the compiled function's static exception table
+// for a handler matching the given exception at the current PC. Returns the
+// matched clause and catch values, or nil if no handler matches. Searches
+// backwards so inner try_tables (which have higher indices) are checked first.
+// This function is pure — it does not modify callEngine state.
+func searchExceptionTable(exn *wasm.Exception, frame *callFrame) (*exceptionTableCatchClause, []uint64) {
+	table := frame.f.parent.exceptionTable
+	pc := frame.pc
+	for i := len(table) - 1; i >= 0; i-- {
+		entry := &table[i]
+		if pc < entry.startPC || pc >= entry.endPC {
+			continue
+		}
+		for j := range entry.clauses {
+			clause := &entry.clauses[j]
+			var clauseTag *wasm.TagInstance
+			if clause.kind == wasm.CatchKindCatch || clause.kind == wasm.CatchKindCatchRef {
+				clauseTag = frame.f.moduleInstance.Tags[clause.tagIndex]
+			}
+			matched, values := matchCatchClause(clause.kind, clauseTag, exn)
+			if matched {
+				return clause, values
+			}
+		}
+	}
+	return nil, nil
+}
+
+// applyExceptionHandler applies a matched exception table clause to the callEngine state.
+func (ce *callEngine) applyExceptionHandler(frame *callFrame, clause *exceptionTableCatchClause, values []uint64) {
+	ce.stack = ce.stack[:frame.base-frame.f.funcType.ParamNumInUint64+clause.targetStackDepth]
+	ce.stack = append(ce.stack, values...)
+	frame.pc = clause.targetPC
+}
+
+// callWithUnwind calls the target function with support for stack unwinding
+// (exception handling and snapshot restores). Returns true if the frame was
+// unwound (caller should refresh frame/body/bodyLen and continue the loop).
+// Returns false on normal return (caller should do frame.pc++).
+func (ce *callEngine) callWithUnwind(ctx context.Context, m *wasm.ModuleInstance, tf *function) bool {
+	// Short-circuit: skip defer/recover overhead when neither exception
+	// handlers nor the snapshotter are active for the calling frame.
+	frame := ce.frames[len(ce.frames)-1]
+	if len(frame.f.parent.exceptionTable) == 0 && ctx.Value(expctxkeys.EnableSnapshotterKey{}) == nil {
+		ce.callFunction(ctx, m, tf)
+		return false
+	}
+
+	callerFrameCount := len(ce.frames)
+	caught := false
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if v, ok := r.(restorable); ok && v.canRestore(ce, callerFrameCount) {
+					v.doRestore(ce, callerFrameCount)
+					caught = true
+					return
+				}
+				panic(r)
+			}
+		}()
+		ce.callFunction(ctx, m, tf)
+	}()
+	return caught
 }
 
 func (e *moduleEngine) newCallEngine(compiled *function) *callEngine {
@@ -233,6 +354,7 @@ type callFrame struct {
 type compiledFunction struct {
 	source              *wasm.Module
 	body                []unionOperation
+	exceptionTable      []exceptionTableEntry
 	listener            experimental.FunctionListener
 	offsetsInWasmBinary []uint64
 	hostFn              interface{}
@@ -284,7 +406,11 @@ func (s *snapshot) Restore(ret []uint64) {
 	panic(s)
 }
 
-func (s *snapshot) doRestore() {
+func (s *snapshot) canRestore(ce *callEngine, _ int) bool {
+	return s.ce == ce
+}
+
+func (s *snapshot) doRestore(_ *callEngine, _ int) {
 	ce := s.ce
 
 	ce.stack = s.stack
@@ -493,8 +619,45 @@ func (e *engine) lowerIR(ir *compilationResult, ret *compiledFunction) error {
 			}
 		case operationKindTailCallReturnCallIndirect:
 			e.setLabelAddress(&op.Us[1], label(op.Us[1]), labelAddressResolutions)
+		case operationKindBrOnNull:
+			e.setLabelAddress(&op.U1, label(op.U1), labelAddressResolutions)
+			e.setLabelAddress(&op.U2, label(op.U2), labelAddressResolutions)
+		case operationKindBrOnNonNull:
+			e.setLabelAddress(&op.U1, label(op.U1), labelAddressResolutions)
+			e.setLabelAddress(&op.U2, label(op.U2), labelAddressResolutions)
+		case operationKindReturnCallRef:
+			e.setLabelAddress(&op.Us[1], label(op.Us[1]), labelAddressResolutions)
 		}
 	}
+
+	// Resolve exception table entries (translate labels to PC).
+	if len(ir.PendingExceptionTable) > 0 {
+		ret.exceptionTable = make([]exceptionTableEntry, len(ir.PendingExceptionTable))
+		for i, pe := range ir.PendingExceptionTable {
+			contLabel := newLabel(labelKindContinuation, pe.continuationFrameID)
+			var endPC uint64
+			e.setLabelAddress(&endPC, contLabel, labelAddressResolutions)
+
+			clauses := make([]exceptionTableCatchClause, len(pe.clauses))
+			for j, clause := range pe.clauses {
+				var targetPC uint64
+				e.setLabelAddress(&targetPC, clause.targetLabel, labelAddressResolutions)
+				clauses[j] = exceptionTableCatchClause{
+					kind:             clause.kind,
+					tagIndex:         clause.tagIndex,
+					targetPC:         targetPC,
+					targetStackDepth: clause.targetStackDepth,
+				}
+			}
+
+			ret.exceptionTable[i] = exceptionTableEntry{
+				startPC: uint64(pe.startOpIndex),
+				endPC:   endPC,
+				clauses: clauses,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -644,6 +807,11 @@ func (ce *callEngine) recoverOnCall(ctx context.Context, m *wasm.ModuleInstance,
 		panic(s)
 	}
 
+	// If an exception reached the top level without being caught, convert it to an uncaught exception error.
+	if _, ok := v.(*thrownException); ok {
+		v = wasmruntime.ErrRuntimeUncaughtException
+	}
+
 	builder := wasmdebug.NewErrorBuilder()
 	frameCount := len(ce.frames)
 	functionListeners := make([]functionListenerInvocation, 0, 16)
@@ -761,30 +929,26 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			ce.drop(op.Us[v+1])
 			frame.pc = op.Us[v]
 		case operationKindCall:
-			func() {
-				if ctx.Value(expctxkeys.EnableSnapshotterKey{}) != nil {
-					defer func() {
-						if r := recover(); r != nil {
-							if s, ok := r.(*snapshot); ok && s.ce == ce {
-								s.doRestore()
-								frame = ce.frames[len(ce.frames)-1]
-								body = frame.f.parent.body
-								bodyLen = uint64(len(body))
-							} else {
-								panic(r)
-							}
-						}
-					}()
-				}
-				ce.callFunction(ctx, f.moduleInstance, &functions[op.U1])
-			}()
+			frameUnwound := ce.callWithUnwind(ctx, f.moduleInstance, &functions[op.U1])
+			if frameUnwound {
+				frame = ce.frames[len(ce.frames)-1]
+				body = frame.f.parent.body
+				bodyLen = uint64(len(body))
+				continue
+			}
 			frame.pc++
 		case operationKindCallIndirect:
 			offset := ce.popValue()
 			table := tables[op.U2]
 			tf := ce.functionForOffset(table, offset, typeIDs[op.U1])
 
-			ce.callFunction(ctx, f.moduleInstance, tf)
+			frameUnwound := ce.callWithUnwind(ctx, f.moduleInstance, tf)
+			if frameUnwound {
+				frame = ce.frames[len(ce.frames)-1]
+				body = frame.f.parent.body
+				bodyLen = uint64(len(body))
+				continue
+			}
 			frame.pc++
 		case operationKindDrop:
 			ce.drop(op.U1)
@@ -973,7 +1137,10 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 		case operationKindNe:
 			var b bool
 			switch unsignedType(op.B1) {
-			case unsignedTypeI32, unsignedTypeI64:
+			case unsignedTypeI32:
+				v2, v1 := ce.popValue(), ce.popValue()
+				b = uint32(v1) != uint32(v2)
+			case unsignedTypeI64:
 				v2, v1 := ce.popValue(), ce.popValue()
 				b = v1 != v2
 			case unsignedTypeF32:
@@ -990,7 +1157,11 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			}
 			frame.pc++
 		case operationKindEqz:
-			if ce.popValue() == 0 {
+			v := ce.popValue()
+			if unsignedInt(op.B1) == unsignedInt32 {
+				v = uint64(uint32(v))
+			}
+			if v == 0 {
 				ce.pushValue(1)
 			} else {
 				ce.pushValue(0)
@@ -1005,7 +1176,9 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 				b = int32(v1) < int32(v2)
 			case signedTypeInt64:
 				b = int64(v1) < int64(v2)
-			case signedTypeUint32, signedTypeUint64:
+			case signedTypeUint32:
+				b = uint32(v1) < uint32(v2)
+			case signedTypeUint64:
 				b = v1 < v2
 			case signedTypeFloat32:
 				b = math.Float32frombits(uint32(v1)) < math.Float32frombits(uint32(v2))
@@ -1027,7 +1200,9 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 				b = int32(v1) > int32(v2)
 			case signedTypeInt64:
 				b = int64(v1) > int64(v2)
-			case signedTypeUint32, signedTypeUint64:
+			case signedTypeUint32:
+				b = uint32(v1) > uint32(v2)
+			case signedTypeUint64:
 				b = v1 > v2
 			case signedTypeFloat32:
 				b = math.Float32frombits(uint32(v1)) > math.Float32frombits(uint32(v2))
@@ -1049,7 +1224,9 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 				b = int32(v1) <= int32(v2)
 			case signedTypeInt64:
 				b = int64(v1) <= int64(v2)
-			case signedTypeUint32, signedTypeUint64:
+			case signedTypeUint32:
+				b = uint32(v1) <= uint32(v2)
+			case signedTypeUint64:
 				b = v1 <= v2
 			case signedTypeFloat32:
 				b = math.Float32frombits(uint32(v1)) <= math.Float32frombits(uint32(v2))
@@ -1071,7 +1248,9 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 				b = int32(v1) >= int32(v2)
 			case signedTypeInt64:
 				b = int64(v1) >= int64(v2)
-			case signedTypeUint32, signedTypeUint64:
+			case signedTypeUint32:
+				b = uint32(v1) >= uint32(v2)
+			case signedTypeUint64:
 				b = v1 >= v2
 			case signedTypeFloat32:
 				b = math.Float32frombits(uint32(v1)) >= math.Float32frombits(uint32(v2))
@@ -1166,6 +1345,10 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			v2, v1 := ce.popValue(), ce.popValue()
 			switch t {
 			case signedTypeFloat32, signedTypeFloat64: // not integers
+			case signedTypeInt32, signedTypeUint32:
+				if uint32(v2) == 0 {
+					panic(wasmruntime.ErrRuntimeIntegerDivideByZero)
+				}
 			default:
 				if v2 == 0 {
 					panic(wasmruntime.ErrRuntimeIntegerDivideByZero)
@@ -1203,8 +1386,15 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			frame.pc++
 		case operationKindRem:
 			v2, v1 := ce.popValue(), ce.popValue()
-			if v2 == 0 {
-				panic(wasmruntime.ErrRuntimeIntegerDivideByZero)
+			switch signedInt(op.B1) {
+			case signedInt32, signedUint32:
+				if uint32(v2) == 0 {
+					panic(wasmruntime.ErrRuntimeIntegerDivideByZero)
+				}
+			default:
+				if v2 == 0 {
+					panic(wasmruntime.ErrRuntimeIntegerDivideByZero)
+				}
 			}
 			switch signedInt(op.B1) {
 			case signedInt32:
@@ -4346,6 +4536,35 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			memoryInst.Mux.Unlock()
 			ce.pushValue(uint64(old))
 			frame.pc++
+		case operationKindThrow:
+			tagIndex := uint32(op.U1)
+			tag := moduleInst.Tags[tagIndex]
+			paramCount := len(tag.Type.Params)
+			params := make([]uint64, paramCount)
+			for i := paramCount - 1; i >= 0; i-- {
+				params[i] = ce.popValue()
+			}
+			exn := &wasm.Exception{Tag: tag, Params: params}
+			if clause, values := searchExceptionTable(exn, frame); clause != nil {
+				ce.applyExceptionHandler(frame, clause, values)
+				continue
+			}
+			panic(&thrownException{exception: exn})
+
+		case operationKindThrowRef:
+			v := ce.popValue()
+			if v == 0 {
+				panic(wasmruntime.ErrRuntimeNullReference) // throw_ref on null exnref traps
+			}
+			// Read the Exception pointer directly from the uint64 value to avoid
+			// conversion from uintptr into unsafe.Pointer, which triggers checkptr.
+			exn := *(**wasm.Exception)(unsafe.Pointer(&v))
+			if clause, values := searchExceptionTable(exn, frame); clause != nil {
+				ce.applyExceptionHandler(frame, clause, values)
+				continue
+			}
+			panic(&thrownException{exception: exn})
+
 		case operationKindTailCallReturnCall:
 			f := &functions[op.U1]
 			ce.dropForTailCall(frame, f)
@@ -4361,7 +4580,13 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			// For details, see internal/engine/RATIONALE.md
 			if tf.moduleInstance != f.moduleInstance {
 				// Revert to a normal call.
-				ce.callFunction(ctx, f.moduleInstance, tf)
+				frameUnwound := ce.callWithUnwind(ctx, f.moduleInstance, tf)
+				if frameUnwound {
+					frame = ce.frames[len(ce.frames)-1]
+					body = frame.f.parent.body
+					bodyLen = uint64(len(body))
+					continue
+				}
 				// Return
 				ce.drop(op.Us[0])
 				// Jump to the function frame (return)
@@ -4371,6 +4596,73 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 
 			ce.dropForTailCall(frame, tf)
 			body, bodyLen = ce.resetPc(frame, tf)
+
+		case operationKindCallRef:
+			ref := ce.popValue()
+			if ref == 0 {
+				panic(wasmruntime.ErrRuntimeNullReference)
+			}
+			tf := functionFromUintptr(uintptr(ref))
+
+			frameUnwound := ce.callWithUnwind(ctx, f.moduleInstance, tf)
+			if frameUnwound {
+				frame = ce.frames[len(ce.frames)-1]
+				body = frame.f.parent.body
+				bodyLen = uint64(len(body))
+				continue
+			}
+			frame.pc++
+
+		case operationKindReturnCallRef:
+			ref := ce.popValue()
+			if ref == 0 {
+				panic(wasmruntime.ErrRuntimeNullReference)
+			}
+			tf := functionFromUintptr(uintptr(ref))
+
+			if tf.moduleInstance != f.moduleInstance {
+				frameUnwound := ce.callWithUnwind(ctx, f.moduleInstance, tf)
+				if frameUnwound {
+					frame = ce.frames[len(ce.frames)-1]
+					body = frame.f.parent.body
+					bodyLen = uint64(len(body))
+					continue
+				}
+				ce.drop(op.Us[0])
+				frame.pc = op.Us[1]
+				continue
+			}
+
+			ce.dropForTailCall(frame, tf)
+			body, bodyLen = ce.resetPc(frame, tf)
+
+		case operationKindRefAsNonNull:
+			ref := ce.popValue()
+			if ref == 0 {
+				panic(wasmruntime.ErrRuntimeNullReference)
+			}
+			ce.pushValue(ref)
+			frame.pc++
+
+		case operationKindBrOnNull:
+			ref := ce.popValue()
+			if ref == 0 {
+				ce.drop(op.U3)
+				frame.pc = op.U1
+			} else {
+				ce.pushValue(ref)
+				frame.pc = op.U2
+			}
+
+		case operationKindBrOnNonNull:
+			ref := ce.popValue()
+			if ref != 0 {
+				ce.drop(op.U3)
+				ce.pushValue(ref)
+				frame.pc = op.U1
+			} else {
+				frame.pc = op.U2
+			}
 
 		default:
 			frame.pc++
@@ -4623,7 +4915,9 @@ func (ce *callEngine) callNativeFuncWithListener(ctx context.Context, m *wasm.Mo
 // popMemoryOffset takes a memory offset off the stack for use in load and store instructions.
 // As the top of stack value is 64-bit, this ensures it is in range before returning it.
 func (ce *callEngine) popMemoryOffset(op *unionOperation) uint32 {
-	offset := op.U2 + ce.popValue()
+	// Memory addresses are i32; mask to 32 bits to ignore any
+	// garbage in the upper bits of the uint64 stack slot.
+	offset := op.U2 + uint64(uint32(ce.popValue()))
 	if offset > math.MaxUint32 {
 		panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
 	}

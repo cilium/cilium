@@ -24,6 +24,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -872,6 +873,25 @@ func (s *blobStore) Push(ctx context.Context, expected ocispec.Descriptor, conte
 	return s.completePushAfterInitialPost(ctx, req, resp, expected, content)
 }
 
+// sameUploadHost reports whether location and reqURL refer to the same host,
+// normalizing implicit default ports (80 for http, 443 for https) so that
+// e.g. "example.com" and "example.com:443" compare equal over HTTPS.
+func sameUploadHost(location, reqURL *url.URL) bool {
+	if location.Hostname() != reqURL.Hostname() {
+		return false
+	}
+	canonicalPort := func(u *url.URL) string {
+		if p := u.Port(); p != "" {
+			return p
+		}
+		if u.Scheme == "https" {
+			return "443"
+		}
+		return "80"
+	}
+	return canonicalPort(location) == canonicalPort(reqURL)
+}
+
 // completePushAfterInitialPost implements step 2 of the push protocol. This can be invoked either by
 // Push or by Mount when the receiving repository does not implement the
 // mount endpoint.
@@ -893,6 +913,15 @@ func (s *blobStore) completePushAfterInitialPost(ctx context.Context, req *http.
 	// if location port 443 is missing, add it back
 	if reqPort == "443" && locationHostname == reqHostname && locationPort == "" {
 		location.Host = locationHostname + ":" + reqPort
+	}
+	// Validate the Location stays on the same host to prevent credentials from
+	// being forwarded to an attacker-controlled endpoint.
+	// Reference: https://github.com/oras-project/oras-go/security/advisories/GHSA-jxpm-75mh-9fp7
+	if !sameUploadHost(location, req.URL) {
+		return fmt.Errorf("blob upload Location %q is on a different host than the registry %q", location.Host, req.URL.Host)
+	}
+	if req.URL.Scheme == "https" && location.Scheme != "https" {
+		return fmt.Errorf("blob upload Location %q downgrades scheme from https", location.Host)
 	}
 	url := location.String()
 	req, err = http.NewRequestWithContext(ctx, http.MethodPut, url, content)

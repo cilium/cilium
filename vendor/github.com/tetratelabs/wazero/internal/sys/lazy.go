@@ -2,7 +2,6 @@ package sys
 
 import (
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/sys"
 )
 
@@ -133,19 +132,4 @@ func (d *lazyDir) Close() experimentalsys.Errno {
 		return 0 // never opened
 	}
 	return f.Close()
-}
-
-// IsNonblock implements the same method as documented on fsapi.File
-func (d *lazyDir) IsNonblock() bool {
-	return false
-}
-
-// SetNonblock implements the same method as documented on fsapi.File
-func (d *lazyDir) SetNonblock(bool) experimentalsys.Errno {
-	return experimentalsys.EISDIR
-}
-
-// Poll implements the same method as documented on fsapi.File
-func (d *lazyDir) Poll(fsapi.Pflag, int32) (ready bool, errno experimentalsys.Errno) {
-	return false, experimentalsys.ENOSYS
 }

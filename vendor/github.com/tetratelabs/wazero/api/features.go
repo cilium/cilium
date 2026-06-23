@@ -209,6 +209,20 @@ func featureName(f CoreFeatures) string {
 	case CoreFeatureSIMD:
 		// match https://github.com/WebAssembly/spec/blob/wg-2.0.draft1/proposals/simd/SIMD.md
 		return "simd"
+	// The cases below cover features defined in the experimental package
+	// (experimental.CoreFeaturesThreads, CoreFeaturesTailCall,
+	// experimental.CoreFeaturesExtendedConst, experimental.CoreFeaturesExceptionHandling).
+	// They cannot be imported here (circular dependency), so we match by value.
+	case CoreFeatureSIMD << 1: // experimental.CoreFeaturesThreads
+		return "threads"
+	case CoreFeatureSIMD << 2: // experimental.CoreFeaturesTailCall
+		return "tail-call"
+	case CoreFeatureSIMD << 3: // experimental.CoreFeaturesExtendedConst
+		return "extended-const"
+	case CoreFeatureSIMD << 4: // experimental.CoreFeaturesExceptionHandling
+		return "exception-handling"
+	case CoreFeatureSIMD << 5: // experimental.CoreFeaturesTypedFunctionReferences
+		return "typed-function-references"
 	}
 	return ""
 }

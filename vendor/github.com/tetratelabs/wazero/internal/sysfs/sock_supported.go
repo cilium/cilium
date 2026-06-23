@@ -7,7 +7,6 @@ import (
 	"syscall"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 )
 
@@ -15,7 +14,7 @@ import (
 func (f *tcpListenerFile) Accept() (socketapi.TCPConn, experimentalsys.Errno) {
 	// Ensure we have an incoming connection, otherwise return immediately.
 	if f.nonblock {
-		if ready, errno := _pollSock(f.tl, fsapi.POLLIN, 0); !ready || errno != 0 {
+		if ready, errno := _pollSock(f.tl, experimentalsys.POLLIN, 0); !ready || errno != 0 {
 			return nil, experimentalsys.EAGAIN
 		}
 	}
@@ -30,7 +29,7 @@ func (f *tcpListenerFile) Accept() (socketapi.TCPConn, experimentalsys.Errno) {
 	}
 }
 
-// SetNonblock implements the same method as documented on fsapi.File
+// SetNonblock implements the same method as documented on experimentalsys.PollableFile
 func (f *tcpListenerFile) SetNonblock(enabled bool) (errno experimentalsys.Errno) {
 	f.nonblock = enabled
 	_, errno = syscallConnControl(f.tl, func(fd uintptr) (int, experimentalsys.Errno) {

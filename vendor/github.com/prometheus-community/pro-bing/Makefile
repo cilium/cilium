@@ -1,32 +1,14 @@
-GO           ?= go
-GOFMT        ?= $(GO)fmt
-GOOPTS       ?=
-GO111MODULE  :=
-pkgs          = ./...
+# Copyright The Prometheus Authors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-all: style vet build test
-
-.PHONY: build
-build:
-	@echo ">> building ping"
-	GO111MODULE=$(GO111MODULE) $(GO) build $(GOOPTS) ./cmd/ping
-
-.PHONY: style
-style:
-	@echo ">> checking code style"
-	@fmtRes=$$($(GOFMT) -d $$(find . -path ./vendor -prune -o -name '*.go' -print)); \
-	if [ -n "$${fmtRes}" ]; then \
-		echo "gofmt checking failed!"; echo "$${fmtRes}"; echo; \
-		echo "Please ensure you are using $$($(GO) version) for formatting code."; \
-		exit 1; \
-	fi
-
-.PHONY: test
-test:
-	@echo ">> running all tests"
-	GO111MODULE=$(GO111MODULE) $(GO) test -race -cover $(GOOPTS) $(pkgs)
-
-.PHONY: vet
-vet:
-	@echo ">> vetting code"
-	GO111MODULE=$(GO111MODULE) $(GO) vet $(GOOPTS) $(pkgs)
+include Makefile.common

@@ -96,7 +96,7 @@ OpenBSD, DragonFly BSD, illumos and Solaris.
 We also test cross compilation for many `GOOS` and `GOARCH` combinations.
 
 * Interpreter
-  * Linux is tested on amd64 and arm64 (native) as well as riscv64 via emulation.
+  * Linux is tested on amd64, arm64 and riscv64.
   * Windows, FreeBSD, NetBSD, OpenBSD, DragonFly BSD, illumos and Solaris are
     tested only on amd64.
   * macOS is tested only on arm64.

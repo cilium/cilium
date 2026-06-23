@@ -7,7 +7,6 @@ import (
 	"syscall"
 
 	"github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 )
 
@@ -18,9 +17,9 @@ func newTCPListenerFile(tl *net.TCPListener) socketapi.TCPSock {
 	return newDefaultTCPListenerFile(tl)
 }
 
-func _pollSock(conn syscall.Conn, flag fsapi.Pflag, timeoutMillis int32) (bool, sys.Errno) {
+func _pollSock(conn syscall.Conn, flag sys.Pflag, timeoutMillis int32) (bool, sys.Errno) {
 	n, errno := syscallConnControl(conn, func(fd uintptr) (int, sys.Errno) {
-		if ready, errno := poll(fd, fsapi.POLLIN, 0); !ready || errno != 0 {
+		if ready, errno := poll(fd, sys.POLLIN, 0); !ready || errno != 0 {
 			return -1, errno
 		} else {
 			return 0, errno

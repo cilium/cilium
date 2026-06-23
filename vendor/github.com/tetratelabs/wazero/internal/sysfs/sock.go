@@ -5,7 +5,6 @@ import (
 	"os"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 	"github.com/tetratelabs/wazero/sys"
 )
@@ -71,13 +70,13 @@ func (f *tcpListenerFile) Addr() *net.TCPAddr {
 	return f.tl.Addr().(*net.TCPAddr)
 }
 
-// IsNonblock implements the same method as documented on fsapi.File
+// IsNonblock implements the same method as documented on experimentalsys.PollableFile
 func (f *tcpListenerFile) IsNonblock() bool {
 	return f.nonblock
 }
 
-// Poll implements the same method as documented on fsapi.File
-func (f *tcpListenerFile) Poll(flag fsapi.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+// Poll implements the same method as documented on experimentalsys.Pollable
+func (f *tcpListenerFile) Poll(flag experimentalsys.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
 	return false, experimentalsys.ENOSYS
 }
 
@@ -167,7 +166,7 @@ func (f *tcpConnFile) close() experimentalsys.Errno {
 	return f.Shutdown(socketapi.SHUT_RDWR)
 }
 
-// SetNonblock implements the same method as documented on fsapi.File
+// SetNonblock implements the same method as documented on experimentalsys.PollableFile
 func (f *tcpConnFile) SetNonblock(enabled bool) (errno experimentalsys.Errno) {
 	f.nonblock = enabled
 	_, errno = syscallConnControl(f.tc, func(fd uintptr) (int, experimentalsys.Errno) {
@@ -176,12 +175,12 @@ func (f *tcpConnFile) SetNonblock(enabled bool) (errno experimentalsys.Errno) {
 	return
 }
 
-// IsNonblock implements the same method as documented on fsapi.File
+// IsNonblock implements the same method as documented on experimentalsys.PollableFile
 func (f *tcpConnFile) IsNonblock() bool {
 	return f.nonblock
 }
 
-// Poll implements the same method as documented on fsapi.File
-func (f *tcpConnFile) Poll(flag fsapi.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+// Poll implements the same method as documented on experimentalsys.Pollable
+func (f *tcpConnFile) Poll(flag experimentalsys.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
 	return false, experimentalsys.ENOSYS
 }

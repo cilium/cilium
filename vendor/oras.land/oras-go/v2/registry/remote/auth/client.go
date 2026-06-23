@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -136,7 +137,50 @@ func (c *Client) send(req *http.Request) (*http.Response, error) {
 	for key, values := range c.Header {
 		req.Header[key] = append(req.Header[key], values...)
 	}
-	return c.client().Do(req)
+	// Drop the Authorization header when a redirect crosses an HTTP origin
+	// (scheme, host, or port). The standard library only strips sensitive
+	// headers when the hostname changes, so a redirect to a different port on
+	// the same host would otherwise forward credentials to an unintended
+	// endpoint. Any caller-provided CheckRedirect is preserved.
+	// Reference: https://github.com/oras-project/oras-go/security/advisories/GHSA-vh4v-2xq2-g5cg
+	client := c.client()
+	clientCopy := *client
+	checkRedirect := client.CheckRedirect
+	clientCopy.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) > 0 && !sameHTTPOrigin(via[len(via)-1].URL, req.URL) {
+			req.Header.Del("Authorization")
+		}
+		if checkRedirect != nil {
+			return checkRedirect(req, via)
+		}
+		return nil
+	}
+	return clientCopy.Do(req)
+}
+
+// sameHTTPOrigin reports whether a and b share the same HTTP origin, i.e. the
+// same scheme and host. Default ports are normalized so that, for example,
+// "example.com" and "example.com:443" compare equal over https.
+func sameHTTPOrigin(a, b *url.URL) bool {
+	if !strings.EqualFold(a.Scheme, b.Scheme) {
+		return false
+	}
+	return canonicalHost(a) == canonicalHost(b)
+}
+
+// canonicalHost returns the lower-cased host of u with the default port for its
+// scheme applied when no explicit port is present.
+func canonicalHost(u *url.URL) string {
+	port := u.Port()
+	if port == "" {
+		switch strings.ToLower(u.Scheme) {
+		case "https":
+			port = "443"
+		case "http":
+			port = "80"
+		}
+	}
+	return strings.ToLower(u.Hostname()) + ":" + port
 }
 
 // credential resolves the credential for the given registry.
@@ -154,6 +198,49 @@ func (c *Client) cache() Cache {
 		return noCache{}
 	}
 	return c.Cache
+}
+
+// validateRealm rejects bearer token realm URLs that would have the client
+// forward credentials to obviously unsafe destinations:
+//
+//   - schemes other than http or https,
+//   - http realms when the registry was contacted over https (TLS downgrade),
+//   - hosts that are IP literals in loopback, link-local, private, or
+//     unspecified ranges (e.g. cloud instance metadata services such as
+//     169.254.169.254).
+//
+// Cross-host realms with a public hostname are permitted, because the
+// distribution spec allows a separate token endpoint (e.g. Docker Hub's
+// auth.docker.io). When the registry itself is reached at the same hostname
+// as the realm, the IP-literal check is skipped so loopback and in-cluster
+// deployments continue to work.
+func validateRealm(realm string, registryURL *url.URL) error {
+	if realm == "" {
+		return nil
+	}
+	realmURL, err := url.Parse(realm)
+	if err != nil {
+		return fmt.Errorf("failed to parse bearer realm %q: %w", realm, err)
+	}
+	switch realmURL.Scheme {
+	case "https":
+		// always allowed
+	case "http":
+		if registryURL != nil && registryURL.Scheme == "https" {
+			return fmt.Errorf("bearer realm %q uses http but registry was contacted over https", realm)
+		}
+	default:
+		return fmt.Errorf("bearer realm %q uses unsupported scheme %q", realm, realmURL.Scheme)
+	}
+	if ip := net.ParseIP(realmURL.Hostname()); ip != nil {
+		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+			ip.IsPrivate() || ip.IsUnspecified() {
+			if registryURL == nil || realmURL.Hostname() != registryURL.Hostname() {
+				return fmt.Errorf("bearer realm host %q is a loopback, link-local, private, or unspecified address", realmURL.Hostname())
+			}
+		}
+	}
+	return nil
 }
 
 // SetUserAgent sets the user agent for all out-going requests.
@@ -182,6 +269,9 @@ func (c *Client) Do(originalReq *http.Request) (*http.Response, error) {
 	var attemptedKey string
 	cache := c.cache()
 	host := originalReq.Host
+	if host == "" {
+		host = originalReq.URL.Host
+	}
 	scheme, err := cache.GetScheme(ctx, host)
 	if err == nil {
 		switch scheme {
@@ -205,6 +295,13 @@ func (c *Client) Do(originalReq *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusUnauthorized {
+		return resp, nil
+	}
+	// If the challenge came from a different origin than originally requested
+	// (e.g. the request was redirected to another host or port), do not resolve
+	// or send the registry credentials to that origin.
+	// Reference: https://github.com/oras-project/oras-go/security/advisories/GHSA-vh4v-2xq2-g5cg
+	if resp.Request != nil && !sameHTTPOrigin(originalReq.URL, resp.Request.URL) {
 		return resp, nil
 	}
 
@@ -257,6 +354,9 @@ func (c *Client) Do(originalReq *http.Request) (*http.Response, error) {
 
 		// attempt with credentials
 		realm := params["realm"]
+		if err := validateRealm(realm, originalReq.URL); err != nil {
+			return nil, fmt.Errorf("%s %q: %w", resp.Request.Method, resp.Request.URL, err)
+		}
 		service := params["service"]
 		token, err := cache.Set(ctx, host, SchemeBearer, key, func(ctx context.Context) (string, error) {
 			return c.fetchBearerToken(ctx, host, realm, service, scopes)

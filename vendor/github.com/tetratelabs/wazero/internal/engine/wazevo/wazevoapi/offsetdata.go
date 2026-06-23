@@ -53,6 +53,23 @@ const (
 	ExecutionContextOffsetMemoryWait32TrampolineAddress Offset = 1160
 	ExecutionContextOffsetMemoryWait64TrampolineAddress Offset = 1168
 	ExecutionContextOffsetMemoryNotifyTrampolineAddress Offset = 1176
+	// ExecutionContextOffsetThrowAllocTrampolineAddress is the address of the
+	// throw-alloc trampoline, which allocates the Exception heap object,
+	// sets exceptionParamsPtr, and returns the exnref.
+	ExecutionContextOffsetThrowAllocTrampolineAddress    Offset = 1184
+	ExecutionContextOffsetThrowTrampolineAddress         Offset = 1192
+	ExecutionContextOffsetTryTableEnterTrampolineAddress Offset = 1200
+	ExecutionContextOffsetTryTableLeaveTrampolineAddress Offset = 1208
+	// ExecutionContextOffsetExceptionPtr holds the pointer to the Exception struct,
+	// used on the throw side and by catch_ref/catch_all_ref handlers.
+	ExecutionContextOffsetExceptionPtr Offset = 1216
+	// ExecutionContextOffsetExceptionParamsPtr points into the Exception's
+	// Params slice backing array. Used by both throw (store params) and
+	// catch (load params) sides.
+	ExecutionContextOffsetExceptionParamsPtr Offset = 1224
+	// ExecutionContextOffsetCaughtExceptionClauseIdx is the matched catch clause index
+	// written by handleException and read by compiled handler dispatch code.
+	ExecutionContextOffsetCaughtExceptionClauseIdx Offset = 1232
 )
 
 // ModuleContextOffsetData allows the compilers to get the information about offsets to the fields of wazevo.moduleContextOpaque,
@@ -66,6 +83,7 @@ type ModuleContextOffsetData struct {
 	GlobalsBegin,
 	TypeIDs1stElement,
 	TablesBegin,
+	TagsBegin,
 	BeforeListenerTrampolines1stElement,
 	AfterListenerTrampolines1stElement,
 	DataInstances1stElement,
@@ -120,6 +138,11 @@ func (m *ModuleContextOffsetData) LocalMemoryLen() Offset {
 // TableOffset returns an offset of the i-th table instance.
 func (m *ModuleContextOffsetData) TableOffset(tableIndex int) Offset {
 	return m.TablesBegin + Offset(tableIndex)*8
+}
+
+// TagOffset returns an offset of the i-th tag instance pointer.
+func (m *ModuleContextOffsetData) TagOffset(tagIndex int) Offset {
+	return m.TagsBegin + Offset(tagIndex)*8
 }
 
 // NewModuleContextOffsetData creates a ModuleContextOffsetData determining the structure of moduleContextOpaque for the given Module.
@@ -183,6 +206,15 @@ func NewModuleContextOffsetData(m *wasm.Module, withListener bool) ModuleContext
 	} else {
 		ret.TypeIDs1stElement = -1
 		ret.TablesBegin = -1
+	}
+
+	if tags := int(m.ImportTagCount) + len(m.TagSection); tags > 0 {
+		offset = align8(offset)
+		ret.TagsBegin = offset
+		// Pointers to *wasm.TagInstance.
+		offset += Offset(tags) * 8
+	} else {
+		ret.TagsBegin = -1
 	}
 
 	if withListener {

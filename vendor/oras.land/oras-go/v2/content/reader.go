@@ -24,6 +24,12 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// maxDescriptorSize is the upper-bound for descriptor sizes accepted by
+// ReadAll. Descriptors sourced from attacker-supplied OCI layouts can carry
+// arbitrarily large Size values; without this cap, make([]byte, desc.Size)
+// triggers a runtime panic before any allocation occurs.
+const maxDescriptorSize = 32 * 1024 * 1024 // 32 MiB
+
 var (
 	// ErrInvalidDescriptorSize is returned by ReadAll() when
 	// the descriptor has an invalid size.
@@ -119,7 +125,7 @@ func NewVerifyReader(r io.Reader, desc ocispec.Descriptor) *VerifyReader {
 // The read content is verified against the size and the digest
 // using a VerifyReader.
 func ReadAll(r io.Reader, desc ocispec.Descriptor) ([]byte, error) {
-	if desc.Size < 0 {
+	if desc.Size < 0 || desc.Size > maxDescriptorSize {
 		return nil, ErrInvalidDescriptorSize
 	}
 	buf := make([]byte, desc.Size)
