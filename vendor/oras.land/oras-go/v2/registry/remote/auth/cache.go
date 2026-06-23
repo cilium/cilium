@@ -109,7 +109,7 @@ func (cc *concurrentCache) Set(ctx context.Context, registry string, scheme Sche
 	}, " ")
 	statusValue, _ := cc.status.LoadOrStore(statusKey, syncutil.NewOnce())
 	fetchOnce := statusValue.(*syncutil.Once)
-	fetchedFirst, result, err := fetchOnce.Do(ctx, func() (interface{}, error) {
+	fetchedFirst, result, err := fetchOnce.Do(ctx, func() (any, error) {
 		return fetch(ctx)
 	})
 	if fetchedFirst {

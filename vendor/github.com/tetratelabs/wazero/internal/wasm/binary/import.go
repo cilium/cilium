@@ -42,6 +42,22 @@ func decodeImport(
 		ret.DescMem, err = decodeMemory(r, enabledFeatures, memorySizer, memoryLimitPages)
 	case wasm.ExternTypeGlobal:
 		ret.DescGlobal, err = decodeGlobalType(r)
+	case wasm.ExternTypeTag:
+		if err = enabledFeatures.RequireEnabled(api.CoreFeatureSIMD << 4); err != nil { // CoreFeaturesExceptionHandling
+			err = fmt.Errorf("tag imports require exception handling feature: %w", err)
+			break
+		}
+		// Tag import: read attribute byte (must be 0x00) then type index.
+		var attr byte
+		attr, err = r.ReadByte()
+		if err != nil {
+			break
+		}
+		if attr != 0x00 {
+			err = fmt.Errorf("invalid tag attribute: %#x", attr)
+			break
+		}
+		ret.DescTag, _, err = leb128.DecodeUint32(r)
 	default:
 		err = fmt.Errorf("%w: invalid byte for importdesc: %#x", ErrInvalidByte, b)
 	}

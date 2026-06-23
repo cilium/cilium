@@ -182,6 +182,16 @@ func serializeCompiledModule(wazeroVersion string, cm *compiledModule) io.Reader
 	} else {
 		buf.WriteByte(0) // indicates that source map is not present.
 	}
+	// Catch clause table: number of try_tables (4 bytes), then for each:
+	//   clause count (4 bytes), then for each clause: kind (1 byte) + tagIndex (4 bytes).
+	buf.Write(u32.LeBytes(uint32(len(cm.catchClauseTable))))
+	for _, clauses := range cm.catchClauseTable {
+		buf.Write(u32.LeBytes(uint32(len(clauses))))
+		for _, c := range clauses {
+			buf.WriteByte(c.Kind)
+			buf.Write(u32.LeBytes(c.TagIndex))
+		}
+	}
 	return bytes.NewReader(buf.Bytes())
 }
 
@@ -289,6 +299,32 @@ func deserializeCompiledModule(wazeroVersion string, reader io.ReadCloser) (cm *
 			sm.wasmBinaryOffsets = append(sm.wasmBinaryOffsets, wasmBinaryOffset)
 			// executableOffsets is absolute address, so we need to add executableOffset.
 			sm.executableOffsets = append(sm.executableOffsets, uintptr(executableRelativeOffset)+executableOffset)
+		}
+	}
+	// Catch clause table.
+	if _, err = io.ReadFull(reader, eightBytes[:4]); err != nil {
+		// Treat old cache entries without catch clause data as stale (trigger recompile).
+		return nil, true, nil
+	}
+	tableLen := binary.LittleEndian.Uint32(eightBytes[:4])
+	if tableLen > 0 {
+		cm.catchClauseTable = make([][]wazevoapi.CatchClauseInstance, tableLen)
+		for i := uint32(0); i < tableLen; i++ {
+			if _, err = io.ReadFull(reader, eightBytes[:4]); err != nil {
+				return nil, false, fmt.Errorf("compilationcache: error reading catch clause count for try_table[%d]: %v", i, err)
+			}
+			clauseCount := binary.LittleEndian.Uint32(eightBytes[:4])
+			clauses := make([]wazevoapi.CatchClauseInstance, clauseCount)
+			for j := uint32(0); j < clauseCount; j++ {
+				if _, err = io.ReadFull(reader, eightBytes[:5]); err != nil {
+					return nil, false, fmt.Errorf("compilationcache: error reading catch clause[%d][%d]: %v", i, j, err)
+				}
+				clauses[j] = wazevoapi.CatchClauseInstance{
+					Kind:     eightBytes[0],
+					TagIndex: binary.LittleEndian.Uint32(eightBytes[1:5]),
+				}
+			}
+			cm.catchClauseTable[i] = clauses
 		}
 	}
 	return

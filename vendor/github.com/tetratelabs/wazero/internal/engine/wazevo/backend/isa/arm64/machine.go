@@ -370,14 +370,14 @@ func (m *machine) resolveAddressingMode(arg0offset, ret0offset int64, i *instruc
 
 // resolveRelativeAddresses resolves the relative addresses before encoding.
 func (m *machine) resolveRelativeAddresses(ctx context.Context) {
-	for {
-		if len(m.unresolvedAddressModes) > 0 {
-			arg0offset, ret0offset := m.arg0OffsetFromSP(), m.ret0OffsetFromSP()
-			for _, i := range m.unresolvedAddressModes {
-				m.resolveAddressingMode(arg0offset, ret0offset, i)
-			}
+	if len(m.unresolvedAddressModes) > 0 {
+		arg0offset, ret0offset := m.arg0OffsetFromSP(), m.ret0OffsetFromSP()
+		for _, i := range m.unresolvedAddressModes {
+			m.resolveAddressingMode(arg0offset, ret0offset, i)
 		}
-
+		m.unresolvedAddressModes = m.unresolvedAddressModes[:0]
+	}
+	for {
 		// Reuse the slice to gather the unresolved conditional branches.
 		m.condBrRelocs = m.condBrRelocs[:0]
 

@@ -269,7 +269,7 @@ func writeOffsetsAndNullTerminatedValues(mem api.Memory, values [][]byte, offset
 func newHostFunc(
 	name string,
 	goFunc wasiFunc,
-	paramTypes []api.ValueType,
+	paramTypes []wasm.ValueType,
 	paramNames ...string,
 ) *wasm.HostFunc {
 	return &wasm.HostFunc{
@@ -277,7 +277,7 @@ func newHostFunc(
 		Name:        name,
 		ParamTypes:  paramTypes,
 		ParamNames:  paramNames,
-		ResultTypes: []api.ValueType{i32},
+		ResultTypes: []wasm.ValueType{i32},
 		ResultNames: []string{"errno"},
 		Code:        wasm.Code{GoFunc: goFunc},
 	}
@@ -305,7 +305,7 @@ func stubFunction(name string, paramTypes []wasm.ValueType, paramNames ...string
 		Name:        name,
 		ParamTypes:  paramTypes,
 		ParamNames:  paramNames,
-		ResultTypes: []api.ValueType{i32},
+		ResultTypes: []wasm.ValueType{i32},
 		ResultNames: []string{"errno"},
 		Code: wasm.Code{
 			GoFunc: api.GoModuleFunc(func(_ context.Context, _ api.Module, stack []uint64) { stack[0] = uint64(wasip1.ErrnoNosys) }),

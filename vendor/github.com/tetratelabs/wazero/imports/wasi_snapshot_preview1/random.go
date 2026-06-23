@@ -34,7 +34,7 @@ import (
 //	    buf --^
 //
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#-random_getbuf-pointeru8-bufLen-size---errno
-var randomGet = newHostFunc(wasip1.RandomGetName, randomGetFn, []api.ValueType{i32, i32}, "buf", "buf_len")
+var randomGet = newHostFunc(wasip1.RandomGetName, randomGetFn, []wasm.ValueType{i32, i32}, "buf", "buf_len")
 
 func randomGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys

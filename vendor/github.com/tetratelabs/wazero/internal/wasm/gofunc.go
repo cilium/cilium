@@ -1,12 +1,12 @@
 package wasm
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 
 	"github.com/tetratelabs/wazero/api"
 )
@@ -47,7 +47,7 @@ func (f *reflectGoModuleFunction) EqualTo(that interface{}) bool {
 		return false
 	} else {
 		// TODO compare reflect pointers
-		return bytes.Equal(f.params, f2.params) && bytes.Equal(f.results, f2.results)
+		return slices.Equal(f.params, f2.params) && slices.Equal(f.results, f2.results)
 	}
 }
 
@@ -67,7 +67,7 @@ func (f *reflectGoFunction) EqualTo(that interface{}) bool {
 	} else {
 		// TODO compare reflect pointers
 		return f.pk == f2.pk &&
-			bytes.Equal(f.params, f2.params) && bytes.Equal(f.results, f2.results)
+			slices.Equal(f.params, f2.params) && slices.Equal(f.results, f2.results)
 	}
 }
 

@@ -41,7 +41,7 @@ import (
 // See argsSizesGet
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#args_get
 // See https://en.wikipedia.org/wiki/Null-terminated_string
-var argsGet = newHostFunc(wasip1.ArgsGetName, argsGetFn, []api.ValueType{i32, i32}, "argv", "argv_buf")
+var argsGet = newHostFunc(wasip1.ArgsGetName, argsGetFn, []wasm.ValueType{i32, i32}, "argv", "argv_buf")
 
 func argsGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys
@@ -78,7 +78,7 @@ func argsGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 // See argsGet
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#args_sizes_get
 // See https://en.wikipedia.org/wiki/Null-terminated_string
-var argsSizesGet = newHostFunc(wasip1.ArgsSizesGetName, argsSizesGetFn, []api.ValueType{i32, i32}, "result.argc", "result.argv_len")
+var argsSizesGet = newHostFunc(wasip1.ArgsSizesGetName, argsSizesGetFn, []wasm.ValueType{i32, i32}, "result.argc", "result.argv_len")
 
 func argsSizesGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys

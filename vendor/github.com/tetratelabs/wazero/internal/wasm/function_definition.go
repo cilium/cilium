@@ -168,8 +168,8 @@ func (f *FunctionDefinition) GoFunction() interface{} {
 }
 
 // ParamTypes implements api.FunctionDefinition ParamTypes.
-func (f *FunctionDefinition) ParamTypes() []ValueType {
-	return f.Functype.Params
+func (f *FunctionDefinition) ParamTypes() []api.ValueType {
+	return ToApiValueType(f.Functype.Params)
 }
 
 // ParamNames implements the same method as documented on api.FunctionDefinition.
@@ -178,11 +178,33 @@ func (f *FunctionDefinition) ParamNames() []string {
 }
 
 // ResultTypes implements api.FunctionDefinition ResultTypes.
-func (f *FunctionDefinition) ResultTypes() []ValueType {
-	return f.Functype.Results
+func (f *FunctionDefinition) ResultTypes() []api.ValueType {
+	return ToApiValueType(f.Functype.Results)
 }
 
 // ResultNames implements the same method as documented on api.FunctionDefinition.
 func (f *FunctionDefinition) ResultNames() []string {
 	return f.resultNames
+}
+
+func ToApiValueType(values []ValueType) []api.ValueType {
+	if values == nil {
+		return nil
+	}
+	apiValues := make([]api.ValueType, len(values))
+	for i, v := range values {
+		apiValues[i] = api.ValueType(v)
+	}
+	return apiValues
+}
+
+func FromApiValueType(apiValues []api.ValueType) []ValueType {
+	if apiValues == nil {
+		return nil
+	}
+	values := make([]ValueType, len(apiValues))
+	for i, v := range apiValues {
+		values[i] = ValueType(v)
+	}
+	return values
 }

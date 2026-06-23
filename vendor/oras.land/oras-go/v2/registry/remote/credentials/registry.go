@@ -81,10 +81,12 @@ func Credential(store Store) auth.CredentialFunc {
 
 // ServerAddressFromRegistry maps a registry to a server address, which is used as
 // a key for credentials store. The Docker CLI expects that the credentials of
-// the registry 'docker.io' will be added under the key "https://index.docker.io/v1/".
+// the registry 'registry-1.docker.io' or the alias 'docker.io' will be added
+// under the key "https://index.docker.io/v1/".
 // See: https://github.com/moby/moby/blob/v24.0.2/registry/config.go#L25-L48
 func ServerAddressFromRegistry(registry string) string {
-	if registry == "docker.io" {
+	if registry == "docker.io" ||
+		registry == "registry-1.docker.io" {
 		return "https://index.docker.io/v1/"
 	}
 	return registry

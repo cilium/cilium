@@ -38,6 +38,7 @@ func ScriptCommands(db *DB) hive.ScriptCmdsOut {
 		"db/lowerbound":  LowerBoundCmd(db),
 		"db/watch":       WatchCmd(db),
 		"db/initialized": InitializedCmd(db),
+		"db/dump":        DumpCmd(db),
 	})
 }
 
@@ -60,7 +61,7 @@ func DBCmd(db *DB) script.Cmd {
 				"",
 				"The individual tables can be manipulated and inspected with the",
 				"other commands. See 'help -v db/show' etc. for detailed help.",
-				"Here is some examples to get you statred:",
+				"Here is some examples to get you started:",
 				"",
 				"> db/show example",
 				"Name   X",
@@ -89,6 +90,46 @@ func DBCmd(db *DB) script.Cmd {
 			}
 			w.Flush()
 			return nil, nil
+		},
+	)
+}
+
+func DumpCmd(db *DB) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Dump StateDB contents as JSON",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("out", "o", "", "File to write to instead of stdout")
+			},
+			Detail: []string{
+				"The contents are written to stdout, but can be written to",
+				"a file instead with the -o flag.",
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			file, err := s.Flags.GetString("out")
+			if err != nil {
+				return nil, err
+			}
+
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				var (
+					buf strings.Builder
+					w   io.Writer = &buf
+				)
+
+				if file != "" {
+					f, err := os.OpenFile(s.Path(file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+					if err != nil {
+						return "", "", fmt.Errorf("OpenFile(%s): %w", file, err)
+					}
+					defer f.Close()
+					w = f
+				}
+
+				err = db.ReadTxn().WriteJSON(w)
+				return buf.String(), "", err
+			}, nil
 		},
 	)
 }
@@ -383,7 +424,7 @@ func CompareCmd(db *DB) script.Cmd {
 				joined := joinByPositions(columnNames, columnPositions, false)
 				fmt.Fprintf(w, "  %s\n", joined)
 				var actual strings.Builder
-				fmt.Fprintf(&actual, "  %s\n", joined)
+				fmt.Fprintf(&actual, "%s\n", joined)
 
 				objs, watch := tbl.AllWatch(db.ReadTxn())
 				for obj := range objs {

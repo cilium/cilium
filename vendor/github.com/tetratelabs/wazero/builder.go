@@ -243,13 +243,13 @@ type hostFunctionBuilder struct {
 
 // WithGoFunction implements HostFunctionBuilder.WithGoFunction
 func (h *hostFunctionBuilder) WithGoFunction(fn api.GoFunction, params, results []api.ValueType) HostFunctionBuilder {
-	h.fn = &wasm.HostFunc{ParamTypes: params, ResultTypes: results, Code: wasm.Code{GoFunc: fn}}
+	h.fn = &wasm.HostFunc{ParamTypes: wasm.FromApiValueType(params), ResultTypes: wasm.FromApiValueType(results), Code: wasm.Code{GoFunc: fn}}
 	return h
 }
 
 // WithGoModuleFunction implements HostFunctionBuilder.WithGoModuleFunction
 func (h *hostFunctionBuilder) WithGoModuleFunction(fn api.GoModuleFunction, params, results []api.ValueType) HostFunctionBuilder {
-	h.fn = &wasm.HostFunc{ParamTypes: params, ResultTypes: results, Code: wasm.Code{GoFunc: fn}}
+	h.fn = &wasm.HostFunc{ParamTypes: wasm.FromApiValueType(params), ResultTypes: wasm.FromApiValueType(results), Code: wasm.Code{GoFunc: fn}}
 	return h
 }
 

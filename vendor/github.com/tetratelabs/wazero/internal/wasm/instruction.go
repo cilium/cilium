@@ -20,6 +20,20 @@ const (
 	// OpcodeElse brackets a sequence of instructions enclosed by an OpcodeIf. A branch instruction on a then label
 	// breaks out to after the OpcodeEnd on the enclosing OpcodeIf.
 	OpcodeElse Opcode = 0x05
+
+	// Exception handling instructions (toggled with CoreFeaturesExceptionHandling)
+
+	// OpcodeThrow throws an exception with the given tag.
+	OpcodeThrow Opcode = 0x08
+	// OpcodeThrowRef re-throws the exception referenced by an exnref value.
+	OpcodeThrowRef Opcode = 0x0a
+
+	// Legacy exception handling opcodes (not supported; use wasm-opt --translate-to-exnref)
+
+	OpcodeLegacyTry     Opcode = 0x06
+	OpcodeLegacyCatch   Opcode = 0x07
+	OpcodeLegacyRethrow Opcode = 0x09
+
 	// OpcodeEnd terminates a control instruction OpcodeBlock, OpcodeLoop or OpcodeIf.
 	OpcodeEnd Opcode = 0x0b
 
@@ -47,6 +61,16 @@ const (
 	OpcodeDrop        Opcode = 0x1a
 	OpcodeSelect      Opcode = 0x1b
 	OpcodeTypedSelect Opcode = 0x1c
+
+	// Legacy exception handling opcodes (not supported; use wasm-opt --translate-to-exnref)
+
+	OpcodeLegacyDelegate Opcode = 0x18
+	OpcodeLegacyCatchAll Opcode = 0x19
+
+	// Exception handling instructions (toggled with CoreFeaturesExceptionHandling)
+
+	// OpcodeTryTable brackets a sequence of instructions with catch clauses for exception handling.
+	OpcodeTryTable Opcode = 0x1f
 
 	// variable instructions
 
@@ -249,6 +273,18 @@ const (
 	//
 	// Currently, this is only supported in the constant expression in element segments.
 	OpcodeRefFunc = 0xd2
+
+	// Typed function references instructions (toggled with CoreFeaturesTypedFunctionReferences)
+
+	// OpcodeRefAsNonNull pops a nullable reference and traps if null, otherwise pushes
+	// the non-nullable version.
+	OpcodeRefAsNonNull Opcode = 0xd4
+	// OpcodeBrOnNull pops a reference and branches if null, otherwise pushes
+	// the non-nullable reference.
+	OpcodeBrOnNull Opcode = 0xd5
+	// OpcodeBrOnNonNull pops a reference and branches if non-null (carrying the ref),
+	// otherwise falls through.
+	OpcodeBrOnNonNull Opcode = 0xd6
 
 	// Below are toggled with CoreFeatureSignExtensionOps
 
@@ -787,6 +823,14 @@ const (
 	OpcodeTailCallReturnCallIndirect OpcodeTailCall = 0x13
 )
 
+// OpcodeCallRef and OpcodeReturnCallRef are typed function references instructions.
+//
+// These opcodes are toggled with CoreFeaturesTypedFunctionReferences.
+const (
+	OpcodeCallRef       Opcode = 0x14
+	OpcodeReturnCallRef Opcode = 0x15
+)
+
 const (
 	OpcodeUnreachableName       = "unreachable"
 	OpcodeNopName               = "nop"
@@ -962,9 +1006,14 @@ const (
 	OpcodeF32ReinterpretI32Name = "f32.reinterpret_i32"
 	OpcodeF64ReinterpretI64Name = "f64.reinterpret_i64"
 
-	OpcodeRefNullName   = "ref.null"
-	OpcodeRefIsNullName = "ref.is_null"
-	OpcodeRefFuncName   = "ref.func"
+	OpcodeRefNullName       = "ref.null"
+	OpcodeRefIsNullName     = "ref.is_null"
+	OpcodeRefFuncName       = "ref.func"
+	OpcodeRefAsNonNullName  = "ref.as_non_null"
+	OpcodeBrOnNullName      = "br_on_null"
+	OpcodeBrOnNonNullName   = "br_on_non_null"
+	OpcodeCallRefName       = "call_ref"
+	OpcodeReturnCallRefName = "return_call_ref"
 
 	OpcodeTableGetName = "table.get"
 	OpcodeTableSetName = "table.set"
@@ -989,6 +1038,8 @@ var instructionNames = [256]string{
 	OpcodeLoop:              OpcodeLoopName,
 	OpcodeIf:                OpcodeIfName,
 	OpcodeElse:              OpcodeElseName,
+	OpcodeThrow:             OpcodeThrowName,
+	OpcodeThrowRef:          OpcodeThrowRefName,
 	OpcodeEnd:               OpcodeEndName,
 	OpcodeBr:                OpcodeBrName,
 	OpcodeBrIf:              OpcodeBrIfName,
@@ -996,6 +1047,7 @@ var instructionNames = [256]string{
 	OpcodeReturn:            OpcodeReturnName,
 	OpcodeCall:              OpcodeCallName,
 	OpcodeCallIndirect:      OpcodeCallIndirectName,
+	OpcodeTryTable:          OpcodeTryTableName,
 	OpcodeDrop:              OpcodeDropName,
 	OpcodeSelect:            OpcodeSelectName,
 	OpcodeTypedSelect:       OpcodeTypedSelectName,
@@ -1157,9 +1209,14 @@ var instructionNames = [256]string{
 	OpcodeF32ReinterpretI32: OpcodeF32ReinterpretI32Name,
 	OpcodeF64ReinterpretI64: OpcodeF64ReinterpretI64Name,
 
-	OpcodeRefNull:   OpcodeRefNullName,
-	OpcodeRefIsNull: OpcodeRefIsNullName,
-	OpcodeRefFunc:   OpcodeRefFuncName,
+	OpcodeRefNull:       OpcodeRefNullName,
+	OpcodeRefIsNull:     OpcodeRefIsNullName,
+	OpcodeRefFunc:       OpcodeRefFuncName,
+	OpcodeRefAsNonNull:  OpcodeRefAsNonNullName,
+	OpcodeBrOnNull:      OpcodeBrOnNullName,
+	OpcodeBrOnNonNull:   OpcodeBrOnNonNullName,
+	OpcodeCallRef:       OpcodeCallRefName,
+	OpcodeReturnCallRef: OpcodeReturnCallRefName,
 
 	OpcodeTableGet: OpcodeTableGetName,
 	OpcodeTableSet: OpcodeTableSetName,
@@ -1889,3 +1946,17 @@ var tailCallInstructionName = map[OpcodeTailCall]string{
 func TailCallInstructionName(oc OpcodeTailCall) (ret string) {
 	return tailCallInstructionName[oc]
 }
+
+// Catch clause kinds used within try_table encoding.
+const (
+	CatchKindCatch       byte = 0x00
+	CatchKindCatchRef    byte = 0x01
+	CatchKindCatchAll    byte = 0x02
+	CatchKindCatchAllRef byte = 0x03
+)
+
+const (
+	OpcodeThrowName    = "throw"
+	OpcodeThrowRefName = "throw_ref"
+	OpcodeTryTableName = "try_table"
+)

@@ -41,7 +41,7 @@ import (
 // See environSizesGet
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#environ_get
 // See https://en.wikipedia.org/wiki/Null-terminated_string
-var environGet = newHostFunc(wasip1.EnvironGetName, environGetFn, []api.ValueType{i32, i32}, "environ", "environ_buf")
+var environGet = newHostFunc(wasip1.EnvironGetName, environGetFn, []wasm.ValueType{i32, i32}, "environ", "environ_buf")
 
 func environGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys
@@ -81,7 +81,7 @@ func environGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno 
 // See environGet
 // https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#environ_sizes_get
 // and https://en.wikipedia.org/wiki/Null-terminated_string
-var environSizesGet = newHostFunc(wasip1.EnvironSizesGetName, environSizesGetFn, []api.ValueType{i32, i32}, "result.environc", "result.environv_len")
+var environSizesGet = newHostFunc(wasip1.EnvironSizesGetName, environSizesGetFn, []wasm.ValueType{i32, i32}, "result.environc", "result.environv_len")
 
 func environSizesGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys
