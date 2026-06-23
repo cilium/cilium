@@ -284,82 +284,59 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	for pp, regexMap := range regexToSelectors {
 		var ipRules restore.IPRules
 
-		regexToSelectors[pp] = make(map[*regexp.Regexp]*set.Set[policy.CachedSelector])
-
-		// Check if all regexes for this pp  have identical selector sets .
-		// if it does we can just skip the ip lookup as there is no change in the policy outcome regardless of which selector is making request.
-		var firstSelectorSet *set.Set[policy.CachedSelector]
-		allequal := true
-
-		for _, selectorSet := range regexMap {
-			if firstSelectorSet == nil {
-				firstSelectorSet = selectorSet
-			} else if !selectorSet.Equal(*firstSelectorSet) {
-				allequal = false
-				break
-			}
-		}
-
-		if allequal {
-			for re := range regexMap {
-				ipRules = append(ipRules, asIPRule(re, nil))
-			}
-			restored[pp] = ipRules
-			continue
-		}
-
 		for regex, selectorSet := range regexMap {
 			for cs := range selectorSet.Members() {
 				if cs.IsWildcard() {
 					ipRules = append(ipRules, asIPRule(regex, nil))
-					continue
-				}
-				ips := make(map[restore.RuleIPOrCIDR]struct{})
-				count := 0
-				nids := cs.GetSelections()
-			Loop:
-				for _, nid := range nids {
-					// Note: p.RLock must not be held during this call to IPCache
-					nidIPs := p.proxyLookupHandler.LookupByIdentity(nid)
-					p.RLock()
-					for _, ip := range nidIPs {
-						rip, err := restore.ParseRuleIPOrCIDR(ip)
-						if err != nil {
-							if errors.Is(err, restore.ErrRemoteClusterAddr) {
-								// ignore non-local IPs or CIDRs
+				} else {
+					ips := make(map[restore.RuleIPOrCIDR]struct{})
+					count := 0
+					nids := cs.GetSelections()
+				Loop:
+					for _, nid := range nids {
+						// Note: p.RLock must not be held during this call to IPCache
+						nidIPs := p.proxyLookupHandler.LookupByIdentity(nid)
+						p.RLock()
+						for _, ip := range nidIPs {
+							rip, err := restore.ParseRuleIPOrCIDR(ip)
+							if err != nil {
+								if errors.Is(err, restore.ErrRemoteClusterAddr) {
+									// ignore non-local IPs or CIDRs
+									continue
+								}
+								p.logger.Warn(
+									"Could not parse IP for a DNS rule (?!), skipping",
+									logfields.EndpointID, endpointID,
+									logfields.Port, pp.Port(),
+									logfields.Protocol, pp.Protocol(),
+									logfields.EndpointLabelSelector, selectorSet,
+									logfields.IPAddr, ip,
+								)
 								continue
 							}
-							p.logger.Warn(
-								"Could not parse IP for a DNS rule (?!), skipping",
-								logfields.EndpointID, endpointID,
-								logfields.Port, pp.Port(),
-								logfields.Protocol, pp.Protocol(),
-								logfields.EndpointLabelSelector, selectorSet,
-								logfields.IPAddr, ip,
-							)
-							continue
+							if rip.IsAddr() && p.skipIPInRestorationRLocked(rip.Addr()) {
+								continue
+							}
+							ips[rip] = struct{}{}
+							count++
+							if count > p.maxIPsPerRestoredDNSRule {
+								p.logger.Warn(
+									"Too many IPs for a DNS rule, skipping the rest",
+									logfields.EndpointID, endpointID,
+									logfields.Port, pp.Port(),
+									logfields.Protocol, pp.Protocol(),
+									logfields.Limit, p.maxIPsPerRestoredDNSRule,
+									logfields.Count, len(nidIPs),
+								)
+								p.RUnlock()
+								break Loop
+							}
 						}
-						if rip.IsAddr() && p.skipIPInRestorationRLocked(rip.Addr()) {
-							continue
-						}
-						ips[rip] = struct{}{}
-						count++
-						if count > p.maxIPsPerRestoredDNSRule {
-							p.logger.Warn(
-								"Too many IPs for a DNS rule, skipping the rest",
-								logfields.EndpointID, endpointID,
-								logfields.Port, pp.Port(),
-								logfields.Protocol, pp.Protocol(),
-								logfields.Limit, p.maxIPsPerRestoredDNSRule,
-								logfields.Count, len(nidIPs),
-							)
-							p.RUnlock()
-							break Loop
-						}
+						p.RUnlock()
 					}
-					p.RUnlock()
+					ipRules = append(ipRules, asIPRule(regex, ips))
 				}
-				ipRules = append(ipRules, asIPRule(regex, ips))
+
 			}
 			restored[pp] = ipRules
 		}
