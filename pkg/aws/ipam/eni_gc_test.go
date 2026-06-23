@@ -49,13 +49,13 @@ func TestStartENIGarbageCollector(t *testing.T) {
 
 	untaggedENIs := map[string]bool{}
 	for range 8 {
-		eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "subnet-1", "desc", []string{"sg-1", "sg-2"}, false)
+		eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "subnet-1", "desc", []string{"sg-1", "sg-2"}, false, false)
 		require.NoError(t, err)
 		untaggedENIs[eniID] = true
 	}
 
 	createTaggedENI := func() string {
-		eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "subnet-2", "desc", []string{"sg-1", "sg-2"}, false)
+		eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "subnet-2", "desc", []string{"sg-1", "sg-2"}, false, false)
 		require.NoError(t, err)
 		err = ec2api.TagENI(t.Context(), eniID, tags)
 		require.NoError(t, err)
