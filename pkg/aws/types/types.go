@@ -165,10 +165,15 @@ type ENI struct {
 	// +optional
 	Addresses []iputil.Addr `json:"addresses,omitempty"`
 
-	// Prefixes is the list of all /28 prefixes associated with the ENI
+	// Prefixes is the list of all IPv4 /28 delegated prefixes associated with the ENI
 	//
 	// +optional
 	Prefixes []iputil.Prefix `json:"prefixes,omitempty"`
+
+	// IPv6Prefixes is the list of all IPv6 /80 delegated prefixes associated with the ENI
+	//
+	// +optional
+	IPv6Prefixes []iputil.Prefix `json:"ipv6-prefixes,omitempty"`
 
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`

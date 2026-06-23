@@ -74,6 +74,13 @@ func (in *ENI) DeepCopyInto(out *ENI) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.IPv6Prefixes != nil {
+		in, out := &in.IPv6Prefixes, &out.IPv6Prefixes
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.SecurityGroups != nil {
 		in, out := &in.SecurityGroups, &out.SecurityGroups
 		*out = make([]string, len(*in))
