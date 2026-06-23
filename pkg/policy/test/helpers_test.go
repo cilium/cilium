@@ -101,7 +101,6 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 				f.epm = epm
 
 				option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
-				defer func() { option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore }()
 
 				<-f.allocator.(*cache.CachingIdentityAllocator).InitIdentityAllocator(client, nil)
 
