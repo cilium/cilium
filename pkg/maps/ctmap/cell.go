@@ -5,7 +5,6 @@ package ctmap
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/cilium/hive/cell"
 
@@ -52,9 +51,9 @@ func newCTMaps(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig, regi
 
 // CTMaps provides access to the active connection tracking BPF maps.
 type CTMaps interface {
-	// ActiveMaps returns a slice of global CT maps that are used, depending
+	// ActiveMaps returns the global CT maps that are used, depending
 	// on whether IPv4 and/or IPv6 is configured.
-	ActiveMaps() []*Map
+	ActiveMaps() []MapPair
 }
 
 type ctMaps struct {
@@ -66,12 +65,19 @@ type ctMaps struct {
 
 var _ CTMaps = (*ctMaps)(nil)
 
-func (r *ctMaps) ActiveMaps() []*Map {
-	return slices.DeleteFunc([]*Map{r.v4TCPMap, r.v4AnyMap, r.v6TCPMap, r.v6AnyMap}, func(m *Map) bool { return m == nil })
+func (r *ctMaps) ActiveMaps() []MapPair {
+	var pairs []MapPair
+	if r.v4TCPMap != nil {
+		pairs = append(pairs, MapPair{TCP: r.v4TCPMap, Any: r.v4AnyMap})
+	}
+	if r.v6TCPMap != nil {
+		pairs = append(pairs, MapPair{TCP: r.v6TCPMap, Any: r.v6AnyMap})
+	}
+	return pairs
 }
 
 func (r *ctMaps) init() error {
-	for _, m := range r.ActiveMaps() {
+	for _, m := range FlattenMaps(r.ActiveMaps()) {
 		if err := m.OpenOrCreate(); err != nil {
 			return fmt.Errorf("failed to open and create %s map: %w", m.Name(), err)
 		}
@@ -81,7 +87,7 @@ func (r *ctMaps) init() error {
 }
 
 func (r *ctMaps) close() error {
-	for _, m := range r.ActiveMaps() {
+	for _, m := range FlattenMaps(r.ActiveMaps()) {
 		if err := m.Close(); err != nil {
 			return fmt.Errorf("failed to close %s map: %w", m.Name(), err)
 		}

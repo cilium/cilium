@@ -45,7 +45,7 @@ type EndpointManager interface {
 	GetEndpoints() []*endpoint.Endpoint
 }
 
-type AdditionalCTMapsFunc func() []ctmap.MapPair
+type AdditionalCTMapsFunc func() []ctmap.MapPairWithMeta
 
 type AdditionalCTMapsOut struct {
 	cell.Out
@@ -376,7 +376,7 @@ func (gc *GC) enableWithConfig(
 
 func (gc *GC) Run(filter ctmap.GCFilter) (int, error) {
 	totalDeleted := 0
-	for _, m := range gc.ctMaps.ActiveMaps() {
+	for _, m := range ctmap.FlattenMaps(gc.ctMaps.ActiveMaps()) {
 		deleted, err := m.GC(filter, gc.next4, gc.next6)
 		if err != nil {
 			gc.logger.Error("failed to run GC on map",
@@ -415,8 +415,13 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 	// The value defines whether the maps need to be opened and closed.
 	maps := []*gcMap{}
 
-	for _, m := range gc.ctMaps.ActiveMaps() {
-		maps = append(maps, &gcMap{m: m, openCloseRequired: false})
+	pairs := []ctmap.MapPair{}
+
+	for _, pair := range gc.ctMaps.ActiveMaps() {
+		maps = append(maps,
+			&gcMap{m: pair.TCP, openCloseRequired: false},
+			&gcMap{m: pair.Any, openCloseRequired: false})
+		pairs = append(pairs, pair)
 	}
 
 	// Inject additional maps (e.g. per cluster ID maps)
@@ -425,6 +430,7 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 			maps = append(maps,
 				&gcMap{m: mapPair.TCP, openCloseRequired: !mapPair.IsOpen},
 				&gcMap{m: mapPair.Any, openCloseRequired: !mapPair.IsOpen})
+			pairs = append(pairs, mapPair.MapPair)
 		}
 	}
 
@@ -472,13 +478,12 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 	}
 
 	if triggeredBySignal {
-		// This works under the assumption that [maps] contains consecutive pairs
-		// of CT maps, respectively of TCP and ANY type, which is enforced for
-		// additional maps injected above
-		for i := 0; i+1 < len(maps); i += 2 {
+		for _, pair := range pairs {
+			if pair.TCP == nil || pair.Any == nil {
+				continue
+			}
 			startTime := time.Now()
-			ctMapTCP, ctMapAny := maps[i], maps[i+1]
-			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP.m, ctMapAny.m)
+			stats := ctmap.PurgeOrphanNATEntries(pair.TCP, pair.Any)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
 				gc.logger.Info(
 					"Deleted orphan SNAT entries from map",
@@ -509,7 +514,7 @@ func (gc *GC) calculateCTMapPressure() {
 		},
 		DoFunc: func(context.Context) error {
 			var errs error
-			for _, m := range gc.ctMaps.ActiveMaps() {
+			for _, m := range ctmap.FlattenMaps(gc.ctMaps.ActiveMaps()) {
 				ctx, cancelCtx := context.WithTimeout(ctx, ctmapPressureInterval)
 				defer cancelCtx()
 				count, err := m.Count(ctx)

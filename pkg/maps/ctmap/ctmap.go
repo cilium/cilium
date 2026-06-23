@@ -200,9 +200,21 @@ type GCEvent struct {
 type MapPair struct {
 	TCP *Map
 	Any *Map
+}
+
+type MapPairWithMeta struct {
+	MapPair
 
 	// IsOpen indicates that the above map pair is already open and must not be opened/closed by GC
 	IsOpen bool
+}
+
+func FlattenMaps(pairs []MapPair) []*Map {
+	maps := make([]*Map, 0, len(pairs)*2)
+	for _, pair := range pairs {
+		maps = append(maps, pair.TCP, pair.Any)
+	}
+	return maps
 }
 
 type natDeleteFunc func(natMap *nat.Map, key tuple.TupleKey) error
