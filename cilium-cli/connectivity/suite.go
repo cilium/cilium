@@ -6,6 +6,7 @@ package connectivity
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/builder"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -42,10 +43,10 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 			if err == nil || junitWritten || junitCollector == nil {
 				return
 			}
-			junitCollector.RecordInfrastructureFailure(err)
-			if werr := junitCollector.Write(); werr != nil {
-				connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, werr)
+			if len(connTests) == 0 || connTests[0] == nil {
+				return
 			}
+			err = writeInfrastructureJUnit(junitCollector, connTests[0], err)
 		}()
 	}
 
@@ -94,12 +95,31 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 
 	if junitCollector != nil {
 		if werr := junitCollector.Write(); werr != nil {
-			connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, werr)
+			if len(connTests) > 0 && connTests[0] != nil {
+				connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, werr)
+			}
+			err = errors.Join(err, fmt.Errorf("writing junit report: %w", werr))
 		} else {
 			junitWritten = true
 		}
 	}
 	return err
+}
+
+func writeInfrastructureJUnit(collector *check.JUnitCollector, ct *check.ConnectivityTest, failure error) error {
+	if failure == nil {
+		return nil
+	}
+	if collector == nil || ct == nil {
+		return failure
+	}
+
+	collector.RecordInfrastructureFailure(failure)
+	if werr := collector.Write(); werr != nil {
+		ct.Failf("writing to junit file %s failed: %s", ct.Params().JunitFile, werr)
+		return errors.Join(failure, fmt.Errorf("writing junit report: %w", werr))
+	}
+	return failure
 }
 
 func setupConnectivityTests(ctx context.Context, connTest []*check.ConnectivityTest, hooks Hooks) error {

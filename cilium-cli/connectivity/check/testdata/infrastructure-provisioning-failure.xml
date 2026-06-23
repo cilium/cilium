@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuites tests="1" disabled="0" errors="0" failures="1" time="0">
+      <testsuite name="connectivity test" id="0" package="cilium" tests="1" errors="0" failures="1" time="0" timestamp="2026-06-17T12:00:00Z">
+          <properties>
+              <property name="Args" value=""></property>
+          </properties>
+          <testcase name="Infrastructure/Provisioning" classname="connectivity test" status="failed" time="0">
+              <failure message="Infrastructure/Provisioning failed" type="failure">timeout reached waiting for deployment cilium-test-1/client to become ready (last error: pods not ready)</failure>
+          </testcase>
+      </testsuite>
+  </testsuites>

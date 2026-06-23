@@ -56,7 +56,7 @@ type JUnitCollector struct {
 // Collect collects ConnectivityTest instance test results.
 // The method is not thread safe.
 func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
-	if j.junitFile == "" || len(ct.tests) == 0 {
+	if j == nil || j.testSuite == nil || j.junitFile == "" || ct == nil || len(ct.tests) == 0 {
 		return
 	}
 
@@ -124,7 +124,7 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 // example when pod provisioning or connectivity test setup fails before any
 // individual connectivity tests are executed.
 func (j *JUnitCollector) RecordInfrastructureFailure(err error) {
-	if j == nil || j.junitFile == "" || err == nil {
+	if j == nil || j.testSuite == nil || j.junitFile == "" || err == nil {
 		return
 	}
 
@@ -149,7 +149,7 @@ func (j *JUnitCollector) RecordInfrastructureFailure(err error) {
 
 // Write writes collected JUnit results into a single report file.
 func (j *JUnitCollector) Write() error {
-	if j.testSuite.Tests == 0 {
+	if j == nil || j.testSuite == nil || j.junitFile == "" || j.testSuite.Tests == 0 {
 		return nil
 	}
 
