@@ -16,7 +16,7 @@ status:
   parents:
     - conditions:
         - lastTransitionTime: "2025-08-15T00:36:04Z"
-          message: "No Listener with matching Protocol. Allowed protocols: [TLS]"
+          message: "No matching listener protocol; route requires one of: [TLS]"
           reason: NotAllowedByListeners
           status: "False"
           type: Accepted
