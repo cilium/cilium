@@ -28,6 +28,11 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
     --mount=target=/go/pkg/mod,type=cache \
     ./build-cni.sh
 
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
+    --mount=target=/root/.cache,type=cache \
+    --mount=target=/go/pkg/mod,type=cache \
+    ./build-iptables-wrapper.sh
+
 FROM ${UBUNTU_IMAGE} AS rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
@@ -46,12 +51,16 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 COPY --from=iptables-dist /iptables /iptables
 RUN dpkg -i /iptables/*\.deb && rm -rf /iptables
 
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
-    ./iptables-wrapper-installer.sh --no-sanity-check
+COPY --from=go-builder /out /
+
+# Symlink the iptables and ip6tables binaries to the iptables-wrapper binary.
+# On its first invocation the wrapper detects whether the host is using the
+# legacy or nft iptables backend and re-points these symlinks at the matching
+# backend before re-execing the original command.
+RUN /usr/sbin/iptables-wrapper install
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local/bin/bpftool /usr/local/bin/bpftool
-COPY --from=go-builder /out /
 
 FROM scratch
 LABEL maintainer="maintainer@cilium.io"
