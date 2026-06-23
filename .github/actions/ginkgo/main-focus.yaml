@@ -78,11 +78,8 @@ include:
   ###
   # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests proxy visibility with L7 default-allow rules
   # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests proxy visibility with L7 rules
-  # K8sPolicyTestExtended Validate toEntities KubeAPIServer Allows connection to KubeAPIServer
-  # K8sPolicyTestExtended Validate toEntities KubeAPIServer Denies connection to KubeAPIServer
-  # K8sPolicyTestExtended Validate toEntities KubeAPIServer Still allows connection to KubeAPIServer with a duplicate policy
   - focus: "f06-agent-policy-basic"
-    cliFocus: "K8sAgentPolicyTest Basic|K8sPolicyTestExtended"
+    cliFocus: "K8sAgentPolicyTest Basic"
 
   ###
   # K8sAgentHubbleTest Hubble Observe Test FQDN Policy with Relay
