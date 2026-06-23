@@ -23,6 +23,10 @@ inputs:
     description: ''
     required: false
     default: ''
+  os_sku:
+    description: 'Node pool OS SKU to pass to "az aks create --os-sku" (e.g. AzureLinux). Empty uses the AKS default (Ubuntu).'
+    required: false
+    default: ''
 runs:
   using: composite
   steps:
@@ -39,6 +43,7 @@ runs:
       run: |
         TAGS=""
         VERSION=""
+        OS_SKU=""
 
         if [[ -n "${{ inputs.tags }}" ]]; then
           TAGS="--tags ${{ inputs.tags }}"
@@ -46,6 +51,10 @@ runs:
 
         if [[ -n "${{ inputs.version }}" ]]; then
           VERSION="--kubernetes-version ${{ inputs.version }}"
+        fi
+
+        if [[ -n "${{ inputs.os_sku }}" ]]; then
+          OS_SKU="--os-sku ${{ inputs.os_sku }}"
         fi
 
         # Create group
@@ -60,6 +69,7 @@ runs:
           --name ${{ inputs.cluster_name }} \
           --location ${{ inputs.location }} \
           $VERSION \
+          $OS_SKU \
           --network-plugin none \
           --node-count "$(( ${{ inputs.node_count }} + 2 ))" \
           --ip-families ipv4,ipv6 \
