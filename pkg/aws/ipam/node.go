@@ -753,7 +753,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	)
 	scopedLog.Info("No more IPs available, creating new ENI")
 
-	eniID, eni, err := n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated)
+	eniID, eni, err := n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated, false)
 	if err != nil {
 		if isPrefixDelegated && isSubnetAtPrefixCapacity(err) {
 			// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
@@ -762,7 +762,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
 				logfields.Node, n.k8sObj.Name,
 			)
-			eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false)
+			eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false, false)
 		}
 		if err != nil {
 			return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)

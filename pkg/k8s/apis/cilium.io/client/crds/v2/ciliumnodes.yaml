@@ -643,6 +643,13 @@ spec:
                         ip:
                           description: IP is the primary IP of the ENI
                           type: string
+                        ipv6-prefixes:
+                          description: IPv6Prefixes is the list of all IPv6 /80 delegated
+                            prefixes associated with the ENI
+                          items:
+                            format: cidr
+                            type: string
+                          type: array
                         mac:
                           description: MAC is the mac address of the ENI
                           type: string
@@ -652,8 +659,8 @@ spec:
                             FirstInterfaceIndex
                           type: integer
                         prefixes:
-                          description: Prefixes is the list of all /28 prefixes associated
-                            with the ENI
+                          description: Prefixes is the list of all IPv4 /28 delegated
+                            prefixes associated with the ENI
                           items:
                             format: cidr
                             type: string
