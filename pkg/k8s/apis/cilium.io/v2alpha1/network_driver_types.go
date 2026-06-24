@@ -341,6 +341,45 @@ type CiliumResourceNetworkConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	IPv6 *IPv6NetworkConfigSpec `json:"ipv6,omitempty"`
+
+	// Sysctl is a set of fully-qualified sysctl key/value pairs (e.g.
+	// "net.core.somaxconn": "500") applied verbatim inside the network
+	// namespace of every pod using this network config.
+	//
+	// Keys targeting a specific named interface (net.<family>.conf.<name>.* or
+	// net.<family>.neigh.<name>.*) are rejected, except for the "all" and
+	// "default" pseudo-interfaces. Use InterfaceSysctl to configure the
+	// allocated interface itself.
+	//
+	// +kubebuilder:validation:Optional
+	Sysctl map[string]string `json:"sysctl,omitempty"`
+
+	// InterfaceSysctl holds sysctl settings scoped to the interface allocated
+	// to the pod. Each key is the trailing parameter name (e.g. "arp_filter"),
+	// automatically prefixed with net.<family>.conf.<interface>. for the
+	// interface this claim allocates.
+	//
+	// +kubebuilder:validation:Optional
+	InterfaceSysctl *InterfaceSysctl `json:"interfaceSysctl,omitempty"`
+}
+
+// InterfaceSysctl holds per-address-family sysctl settings applied to the
+// interface allocated to the pod. Each map key is the trailing parameter name
+// (the leaf under net.<family>.conf.<interface>.) and the value is what to set.
+//
+// +deepequal-gen=true
+type InterfaceSysctl struct {
+	// IPv4 maps a leaf parameter under net.ipv4.conf.<interface>. to its value
+	// (e.g. "arp_filter": "1").
+	//
+	// +kubebuilder:validation:Optional
+	IPv4 map[string]string `json:"ipv4,omitempty"`
+
+	// IPv6 maps a leaf parameter under net.ipv6.conf.<interface>. to its value
+	// (e.g. "disable_ipv6": "0").
+	//
+	// +kubebuilder:validation:Optional
+	IPv6 map[string]string `json:"ipv6,omitempty"`
 }
 
 type IPv4NetworkConfigSpec struct {
