@@ -2,6 +2,8 @@ name: Conformance Ingress (ci-ingress)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
+
   workflow_dispatch:
     inputs:
       PR-number:
@@ -45,6 +47,7 @@ concurrency:
   # - Workflow name
   # - Event type
   # - A unique identifier depending on event type:
+  #   - pull_request: PR number
   #   - schedule: SHA
   #   - workflow_dispatch: PR number
   #
@@ -55,6 +58,7 @@ concurrency:
     ${{ github.event_name }}
     ${{
       (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
   cancel-in-progress: true
@@ -74,6 +78,7 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
+    if: ${{ github.event_name != 'pull_request' }}
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
@@ -142,6 +147,7 @@ jobs:
 
     steps:
       - name: Set commit status to pending
+        if: ${{ github.event_name != 'pull_request' }}
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
         with:
           sha: ${{ inputs.SHA || github.sha }}

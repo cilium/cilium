@@ -2,6 +2,8 @@ name: Conformance Kind Envoy Embedded
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
+
   workflow_dispatch:
     inputs:
       PR-number:
@@ -48,7 +50,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.PR-number || github.event.after }}
+  group: ${{ github.workflow }}-${{ inputs.PR-number || github.event.pull_request.number || github.event.after || github.sha }}
   cancel-in-progress: true
 
 env:
@@ -65,6 +67,7 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
+    if: ${{ github.event_name != 'pull_request' }}
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
