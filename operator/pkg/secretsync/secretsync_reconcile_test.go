@@ -25,6 +25,8 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	gateway_api "github.com/cilium/cilium/operator/pkg/gateway-api"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -33,6 +35,12 @@ import (
 var secretsNamespace = "cilium-secrets-test"
 
 const testSecretSyncControllerName = "example.com/test-gateway-controller"
+
+func withGatewaySecretIndexes(b *fake.ClientBuilder) *fake.ClientBuilder {
+	return b.
+		WithIndex(&gatewayv1.Gateway{}, helpers.GatewaySecretIndex, indexers.IndexGatewayBySecret).
+		WithIndex(&gatewayv1.ListenerSet{}, helpers.ListenerSetSecretIndex, indexers.IndexListenerSetBySecret)
+}
 
 var secretFixture = []client.Object{
 	&corev1.Secret{
@@ -200,9 +208,9 @@ var secretFixture = []client.Object{
 func Test_SecretSync_Reconcile(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
-	c := fake.NewClientBuilder().
+	c := withGatewaySecretIndexes(fake.NewClientBuilder().
 		WithScheme(testScheme()).
-		WithObjects(secretFixture...).
+		WithObjects(secretFixture...)).
 		Build()
 
 	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testSecretSyncControllerName)
@@ -415,9 +423,9 @@ var secretFixtureTypeChange = []client.Object{
 func Test_SecretSync_Reconcile_TypeChange(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
-	c := fake.NewClientBuilder().
+	c := withGatewaySecretIndexes(fake.NewClientBuilder().
 		WithScheme(testScheme()).
-		WithObjects(secretFixtureTypeChange...).
+		WithObjects(secretFixtureTypeChange...)).
 		Build()
 
 	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testSecretSyncControllerName)
@@ -471,9 +479,9 @@ var secretFixtureDefaultSecret = []client.Object{
 func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
-	c := fake.NewClientBuilder().
+	c := withGatewaySecretIndexes(fake.NewClientBuilder().
 		WithScheme(testScheme()).
-		WithObjects(secretFixtureDefaultSecret...).
+		WithObjects(secretFixtureDefaultSecret...)).
 		Build()
 	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testSecretSyncControllerName)
 	r := secretsync.NewSecretSyncReconciler(c, logger, []*secretsync.SecretSyncRegistration{
