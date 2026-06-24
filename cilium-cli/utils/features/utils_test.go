@@ -56,3 +56,129 @@ func TestComputeFailureExceptions(t *testing.T) {
 		})
 	}
 }
+
+func TestSameSubnet(t *testing.T) {
+	tests := []struct {
+		name     string
+		ip1      string
+		ip2      string
+		topology string
+		expected bool
+	}{
+		{
+			name:     "empty topology",
+			ip1:      "10.0.0.1",
+			ip2:      "10.0.0.2",
+			topology: "",
+			expected: false,
+		},
+		{
+			name:     "same subnet single CIDR",
+			ip1:      "10.0.0.1",
+			ip2:      "10.0.0.2",
+			topology: "10.0.0.0/24",
+			expected: true,
+		},
+		{
+			name:     "different subnets single CIDR",
+			ip1:      "10.0.0.1",
+			ip2:      "10.1.0.1",
+			topology: "10.0.0.0/24",
+			expected: false,
+		},
+		{
+			name:     "same group multiple CIDRs",
+			ip1:      "10.0.0.1",
+			ip2:      "10.10.0.1",
+			topology: "10.0.0.0/24,10.10.0.0/24",
+			expected: true,
+		},
+		{
+			name:     "different groups",
+			ip1:      "10.0.0.1",
+			ip2:      "10.20.0.1",
+			topology: "10.0.0.0/24,10.10.0.0/24;10.20.0.0/24",
+			expected: false,
+		},
+		{
+			name:     "same group second group",
+			ip1:      "10.20.0.1",
+			ip2:      "10.20.0.2",
+			topology: "10.0.0.0/24,10.10.0.0/24;10.20.0.0/24",
+			expected: true,
+		},
+		{
+			name:     "ipv6 same subnet",
+			ip1:      "2001:db8:85a3::1",
+			ip2:      "2001:db8:85a3::2",
+			topology: "2001:db8:85a3::/64",
+			expected: true,
+		},
+		{
+			name:     "ipv6 different subnets",
+			ip1:      "2001:db8:85a3::1",
+			ip2:      "2001:db8:85a4::1",
+			topology: "2001:db8:85a3::/64",
+			expected: false,
+		},
+		{
+			name:     "mixed ipv4 and ipv6 in same group",
+			ip1:      "10.0.0.1",
+			ip2:      "2001:db8:85a3::1",
+			topology: "10.0.0.0/24,2001:db8:85a3::/64",
+			expected: true, // both IPs are in CIDRs within the same group
+		},
+		{
+			name:     "invalid ip1",
+			ip1:      "invalid",
+			ip2:      "10.0.0.2",
+			topology: "10.0.0.0/24",
+			expected: false,
+		},
+		{
+			name:     "invalid ip2",
+			ip1:      "10.0.0.1",
+			ip2:      "invalid",
+			topology: "10.0.0.0/24",
+			expected: false,
+		},
+		{
+			name:     "complex topology with three groups",
+			ip1:      "10.0.0.1",
+			ip2:      "10.10.0.1",
+			topology: "10.0.0.0/24,10.10.0.0/24;10.20.0.0/24;2001:db8:85a3::/64",
+			expected: true,
+		},
+		{
+			name:     "ip1 in group but ip2 not in any group",
+			ip1:      "10.0.0.1",
+			ip2:      "192.168.1.1",
+			topology: "10.0.0.0/24,10.10.0.0/24;10.20.0.0/24",
+			expected: false,
+		},
+		{
+			name:     "both IPs in different CIDRs within same group",
+			ip1:      "10.0.0.5",
+			ip2:      "10.10.0.5",
+			topology: "10.0.0.0/24,10.10.0.0/24",
+			expected: true,
+		},
+		{
+			name:     "topology with spaces",
+			ip1:      "10.0.0.1",
+			ip2:      "10.10.0.1",
+			topology: "10.0.0.0/24 , 10.10.0.0/24 ; 10.20.0.0/24",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SameSubnet(tt.ip1, tt.ip2, tt.topology)
+			if result != tt.expected {
+				t.Errorf("SameSubnet(%q, %q, %q) = %v, want %v",
+					tt.ip1, tt.ip2, tt.topology, result, tt.expected)
+			}
+		})
+	}
+}
