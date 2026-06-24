@@ -1229,6 +1229,33 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	return value, nil
 }
 
+// LookupTo looks up key and unmarshals the result into the caller-provided
+// value instead of allocating a fresh one via m.value.New() as Lookup does.
+// This avoids a per-call allocation in hot per-entry loops (for example the
+// conntrack GC delete path) that only need to read an existing value into a
+// buffer the caller already owns and reuses.
+func (m *Map) LookupTo(key MapKey, value MapValue) error {
+	if err := m.Open(); err != nil {
+		return err
+	}
+
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	var duration *spanstat.SpanStat
+	if metrics.BPFSyscallDuration.IsEnabled() {
+		duration = spanstat.Start()
+	}
+
+	err := m.m.Lookup(key, value)
+
+	if metrics.BPFSyscallDuration.IsEnabled() {
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpLookup, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
+	}
+
+	return err
+}
+
 func (m *Map) Update(key MapKey, value MapValue) error {
 	var err error
 
