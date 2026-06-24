@@ -209,7 +209,10 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 			logfields.Required, required,
 			logfields.Available, numAvailable,
 		)
-		if minimumReached {
+		requestedStaticIP, assignedStaticIP := store.staticIPStatus()
+		staticIPReady := !requestedStaticIP || assignedStaticIP != ""
+
+		if minimumReached && staticIPReady {
 			scopedLog.Info(
 				"All required IPs are available in CRD-backed allocation pool",
 			)
@@ -353,6 +356,17 @@ func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore) (mi
 	}
 
 	return
+}
+
+func (n *nodeStore) staticIPStatus() (requested bool, assigned string) {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	if n.ownNode == nil {
+		return false, ""
+	}
+
+	return len(n.ownNode.Spec.IPAM.StaticIPTags) > 0, n.ownNode.Status.IPAM.AssignedStaticIP
 }
 
 // deleteLocalNodeResource is called when the CiliumNode resource representing

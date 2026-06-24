@@ -1478,6 +1478,60 @@ func TestMultiPoolManagerUpdatesFirstLastIPSettingsBeforeAllocation(t *testing.T
 	require.Equal(t, lastIP, result.IP)
 }
 
+func Test_multiPoolManager_staticIPStatus(t *testing.T) {
+	newNode := func(tags map[string]string, assigned string) *ciliumv2.CiliumNode {
+		return &ciliumv2.CiliumNode{
+			Spec: ciliumv2.NodeSpec{
+				IPAM: types.IPAMSpec{StaticIPTags: tags},
+			},
+			Status: ciliumv2.NodeStatus{
+				IPAM: types.IPAMStatus{AssignedStaticIP: assigned},
+			},
+		}
+	}
+
+	tests := []struct {
+		name                  string
+		node                  *ciliumv2.CiliumNode
+		wantRequestedStaticIP bool
+		wantAssignedStaticIP  string
+	}{
+		{
+			name:                  "nil node",
+			node:                  nil,
+			wantRequestedStaticIP: false,
+			wantAssignedStaticIP:  "",
+		},
+		{
+			name:                  "no static IP requested",
+			node:                  newNode(nil, ""),
+			wantRequestedStaticIP: false,
+			wantAssignedStaticIP:  "",
+		},
+		{
+			name:                  "static IP requested but not yet assigned",
+			node:                  newNode(map[string]string{"env": "prod"}, ""),
+			wantRequestedStaticIP: true,
+			wantAssignedStaticIP:  "",
+		},
+		{
+			name:                  "static IP requested and assigned",
+			node:                  newNode(map[string]string{"env": "prod"}, "1.2.3.4"),
+			wantRequestedStaticIP: true,
+			wantAssignedStaticIP:  "1.2.3.4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mgr := &multiPoolManager{node: tt.node}
+			requested, assigned := mgr.staticIPStatus()
+			assert.Equal(t, tt.wantRequestedStaticIP, requested)
+			assert.Equal(t, tt.wantAssignedStaticIP, assigned)
+		})
+	}
+}
+
 func insertPool(t *testing.T, db *statedb.DB, tbl statedb.RWTable[podippool.LocalPodIPPool], name string, skipMasq bool, allowFirstAndLastIPs ...bool) {
 	t.Helper()
 	ann := map[string]string{}
