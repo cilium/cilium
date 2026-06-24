@@ -72,6 +72,8 @@ var (
 		"ingress_denied_by",
 		"egress_allowed_by",
 		"egress_denied_by",
+		"ext_error",
+		"ext_drop_reason_desc",
 	}
 )
 
