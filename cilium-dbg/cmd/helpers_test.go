@@ -148,8 +148,6 @@ func TestExpandNestedJSON(t *testing.T) {
       "external-identifiers": {
         "container-id": "1968a48396a0e42f3faad360a7ffa23d8629faddee7f828408bf177d3eeac47a",
         "container-name": "client",
-        "docker-endpoint-id": "05a27bef9f339e5ae25a191108b91ee1e7fdc2696d2c46908645157a62438ccd",
-        "docker-network-id": "e3ea8f2e1df2250df6702fd802ea0d3706091c1b374db998d48e7327bf9bd0fe",
         "pod-name": "/"
       },
       "health": {
@@ -161,14 +159,14 @@ func TestExpandNestedJSON(t *testing.T) {
       "identity": {
         "id": 62004,
         "labels": [
-          "container:id.client"
+          "k8s:id=client"
         ],
         "labelsSHA256": "c2e7b3482b5e9e1abca840b8cc5568ff876c7524d723b3068683f539008537dc"
       },
       "labels": {
         "realized": {},
         "security-relevant": [
-          "container:id.client"
+          "k8s:id=client"
         ]
       },
       "log": [
@@ -356,8 +354,6 @@ func TestExpandNestedJSON(t *testing.T) {
       "external-identifiers": {
         "container-id": "1968a48396a0e42f3faad360a7ffa23d8629faddee7f828408bf177d3eeac47a",
         "container-name": "client",
-        "docker-endpoint-id": "05a27bef9f339e5ae25a191108b91ee1e7fdc2696d2c46908645157a62438ccd",
-        "docker-network-id": "e3ea8f2e1df2250df6702fd802ea0d3706091c1b374db998d48e7327bf9bd0fe",
         "pod-name": "/"
       },
       "health": {
@@ -369,14 +365,14 @@ func TestExpandNestedJSON(t *testing.T) {
       "identity": {
         "id": 62004,
         "labels": [
-          "container:id.client"
+          "k8s:id=client"
         ],
         "labelsSHA256": "c2e7b3482b5e9e1abca840b8cc5568ff876c7524d723b3068683f539008537dc"
       },
       "labels": {
         "realized": {},
         "security-relevant": [
-          "container:id.client"
+          "k8s:id=client"
         ]
       },
       "log": [
