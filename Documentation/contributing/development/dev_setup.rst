@@ -515,55 +515,6 @@ At last you might want to check the chart using the ``lint`` target:
    $ make -C install/kubernetes lint
 
 
-Optional: Docker and IPv6
--------------------------
-
-Note that these instructions are useful to you if you care about having IPv6
-addresses for your Docker containers.
-
-If you'd like IPv6 addresses, you will need to follow these steps:
-
-1) Edit ``/etc/docker/daemon.json`` and set the ``ipv6`` key to ``true``.
-
-   .. code-block:: json
-
-      {
-        "ipv6": true
-      }
-
-
-   If that doesn't work alone, try assigning a fixed range. Many people have
-   reported trouble with IPv6 and Docker. `Source here.
-   <https://github.com/moby/moby/issues/29443#issuecomment-495808871>`_
-
-   .. code-block:: json
-
-      {
-        "ipv6": true,
-        "fixed-cidr-v6": "2001:db8:1::/64"
-      }
-
-
-   And then:
-
-   .. code-block:: shell-session
-
-    ip -6 route add 2001:db8:1::/64 dev docker0
-    sysctl net.ipv6.conf.default.forwarding=1
-    sysctl net.ipv6.conf.all.forwarding=1
-
-
-2) Restart the docker daemon to pick up the new configuration.
-
-3) The new command for creating a network managed by Cilium:
-
-   .. code-block:: shell-session
-
-      $ docker network create --ipv6 --driver cilium --ipam-driver cilium cilium-net
-
-
-Now new containers will have an IPv6 address assigned to them.
-
 Debugging
 ---------
 
@@ -670,8 +621,8 @@ endpoints appearing in the "not-ready" state and never switching out of it:
     $ cilium-dbg endpoint list
     ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                     IPv4            STATUS
                ENFORCEMENT
-    48896      Disabled      266        container:id.server           fd02::c0a8:210b:0:bf00   10.11.13.37     not-ready
-    60670      Disabled      267        container:id.client           fd02::c0a8:210b:0:ecfe   10.11.167.158   not-ready
+    48896      Disabled      266        k8s:id=server                 fd02::c0a8:210b:0:bf00   10.11.13.37     not-ready
+    60670      Disabled      267        k8s:id=client                 fd02::c0a8:210b:0:ecfe   10.11.167.158   not-ready
 
 Running ``cilium-dbg endpoint get`` for one of the endpoints will provide a
 description of known state about it, which includes eBPF verification logs.
@@ -704,5 +655,4 @@ for debugging what is going on inside them, for example:
     Value:
     00000000  01 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
     00000010  00 00 00 00 00 00 00 00                           |........|
-
 
