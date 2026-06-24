@@ -272,6 +272,7 @@ type multiPoolManager struct {
 	poolsMutex      lock.Mutex
 	pools           map[Pool]*poolPair
 	poolsUpdated    chan struct{}
+	staticIPUpdated chan struct{}
 	finishedRestore map[Family]bool
 
 	nodeMutex lock.Mutex
@@ -303,6 +304,7 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		pendingIPsPerPool:      newPendingAllocationsPerPool(p.Logger),
 		pools:                  map[Pool]*poolPair{},
 		poolsUpdated:           make(chan struct{}, 1),
+		staticIPUpdated:        make(chan struct{}, 1),
 		jobGroup:               p.JobGroup,
 		k8sUpdater:             job.NewTrigger(job.WithDebounce(p.CiliumNodeUpdateRate)),
 		cnClient:               p.CNClient,
@@ -349,6 +351,7 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 	)
 
 	mgr.waitForAllPools()
+	mgr.waitForStaticIP()
 
 	return mgr
 }
@@ -370,6 +373,27 @@ func (m *multiPoolManager) waitForAllPools() {
 				allPoolsReady = m.waitForPool(ctx, IPv6, pool) && allPoolsReady
 			}
 			cancel()
+		}
+	}
+}
+
+// waitForStaticIP blocks until a requested static IP address has been assigned
+// to the local node by the operator. If no static IP was requested, it returns
+// immediately.
+func (m *multiPoolManager) waitForStaticIP() {
+	for {
+		requested, assigned := m.staticIPStatus()
+		if !requested || assigned != "" {
+			return
+		}
+
+		select {
+		case <-m.staticIPUpdated:
+		case <-time.After(5 * time.Second):
+			m.logger.Info(
+				"Waiting for static IP address to be assigned",
+				logfields.HelpMessage, "Check if cilium-operator pod is running and does not have any warnings or error messages.",
+			)
 		}
 	}
 }
@@ -435,10 +459,29 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	if oldNode == nil {
 		m.k8sUpdater.Trigger()
 	}
+
+	// Signal any goroutine waiting in waitForStaticIP if the static IP
+	// request or assignment changed.
+	if oldNode == nil ||
+		!maps.Equal(oldNode.Spec.IPAM.StaticIPTags, newNode.Spec.IPAM.StaticIPTags) ||
+		oldNode.Status.IPAM.AssignedStaticIP != newNode.Status.IPAM.AssignedStaticIP {
+		select {
+		case m.staticIPUpdated <- struct{}{}:
+		default:
+		}
+	}
 }
 
 func (m *multiPoolManager) localNodeUpdated() <-chan struct{} {
 	return m.localNodeUpdate
+}
+
+func (m *multiPoolManager) staticIPStatus() (requested bool, assigned string) {
+	node := m.getNode()
+	if node == nil {
+		return false, ""
+	}
+	return len(node.Spec.IPAM.StaticIPTags) > 0, node.Status.IPAM.AssignedStaticIP
 }
 
 // neededIPCeil rounds up numIPs to the next but one multiple of preAlloc.
