@@ -159,9 +159,10 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 
 	// Install an unconditional rule so all traffic from the endpoint
 	// (including external/internet traffic) is routed through the correct ENI.
-	// Scoping the rules to the VPC CIDRs let external traffic fall through to
-	// the main routing table and be routed via the wrong interface, resulting
-	// in drops. See https://github.com/cilium/cilium/issues/45137.
+	// A previous implementation scoped rules to the VPC CIDRs, which let
+	// external traffic fall through to the default routing table and be routed
+	// via the wrong interface, resulting in drops.
+	// See https://github.com/cilium/cilium/issues/45137.
 	if err := replaceRule(route.Rule{
 		Priority: egressPriority,
 		From:     &ipWithMask,
