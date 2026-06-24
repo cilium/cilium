@@ -98,32 +98,12 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 	}
 	tableID = computeTableIDFromIfaceNumber(info.useCompatEgressPriority(), ifaceNum)
 
-	if info.Masquerade && (info.IpamMode == ipamOption.IPAMENI || info.IpamMode == ipamOption.IPAMAzure) {
-		// Lookup a VPC specific table for all traffic from an endpoint to the
-		// CIDR configured for the VPC on which the endpoint has the IP on.
-		// ReplaceRule doesn't handle an all-zero CIDR and can return "file exists",
-		// so omit To for unspecified CIDRs both here and in delete.
-		for _, cidr := range info.CIDRs {
-			rule := route.Rule{
-				Priority: egressPriority,
-				From:     &ipWithMask,
-				Table:    tableID,
-				Protocol: linux_defaults.RTProto,
-			}
-			if !cidr.IP.IsUnspecified() {
-				rule.To = &cidr
-			}
-			if err := replaceRule(rule); err != nil {
-				return fmt.Errorf("unable to install ip rule: %w", err)
-			}
-		}
-	}
-
-	// Always install an unconditional rule to ensure all traffic from the
-	// endpoint (including external/internet traffic) is routed through the
-	// correct ENI. Without this, external traffic may fall through to the
-	// default routing table and be routed via the wrong interface, resulting
-	// in drops. See https://github.com/cilium/cilium/issues/45137.
+	// Install an unconditional rule so all traffic from the endpoint
+	// (including external/internet traffic) is routed through the correct ENI.
+	// A previous implementation scoped rules to the VPC CIDRs, which let
+	// external traffic fall through to the default routing table and be routed
+	// via the wrong interface, resulting in drops.
+	// See https://github.com/cilium/cilium/issues/45137.
 	if err := replaceRule(route.Rule{
 		Priority: egressPriority,
 		From:     &ipWithMask,
