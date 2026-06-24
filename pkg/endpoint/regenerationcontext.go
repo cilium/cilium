@@ -57,7 +57,7 @@ func (r regenerationFailureReason) String() string {
 	}
 }
 
-// IsPolicyFailure indicates if the the regeneration failed due any policy related reason.
+// IsPolicyFailure indicates if the regeneration failed due any policy related reason.
 func (r regenerationFailureReason) IsPolicyFailure() bool {
 	return r == regenerationFailureReasonPolicyRegenerationError ||
 		r == regenerationFailureReasonEndpointPolicyUpdateError ||

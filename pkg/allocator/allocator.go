@@ -258,7 +258,7 @@ type Backend interface {
 	// have been created by other agents.
 	Get(ctx context.Context, key AllocatorKey) (idpool.ID, error)
 
-	// GetIfLocked behaves like Get, but but when lock is non-nil the
+	// GetIfLocked behaves like Get, but when lock is non-nil the
 	// operation proceeds only if it is still valid.
 	GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error)
 
