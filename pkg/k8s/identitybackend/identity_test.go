@@ -35,7 +35,7 @@ func TestSelectK8sLabels(t *testing.T) {
 			selected: map[string]string{},
 		},
 		{
-			input:    map[string]string{"k8s:io.kubernetes.pod.namespace": "bar", "k8s:abc": "def", "container:something": "else"},
+			input:    map[string]string{"k8s:io.kubernetes.pod.namespace": "bar", "k8s:abc": "def", "cni:something": "else"},
 			selected: map[string]string{"io.kubernetes.pod.namespace": "bar"},
 		},
 		{

@@ -31,7 +31,7 @@ const (
 	reservedLabelsPattern = labels.LabelSourceReserved + ":.*"
 )
 
-// LabelPrefix is the cilium's representation of a container label.
+// LabelPrefix is Cilium's representation of a label prefix.
 // +k8s:deepcopy-gen=false
 // +k8s:openapi-gen=false
 // +deepequal-gen=false

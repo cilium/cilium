@@ -12,7 +12,7 @@ import (
 func TestK8sLabelArrayLookup(t *testing.T) {
 	lbls := K8sLabelArray{
 		NewLabel("env", "devel", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceK8s),
 	}
 	var hasTests = []struct {
 		input    string // input
@@ -22,16 +22,16 @@ func TestK8sLabelArrayLookup(t *testing.T) {
 		{"", "", false},
 		{"any", "", false},
 		{"env", "devel", true},
-		{"container.env", "", false},
-		{"container:env", "", false},
+		{"k8s.env", "", false},
+		{"k8s:env", "", false},
 		{"any:env", "", false},
 		{"any.env", "devel", true},
 		{"any:user", "", false},
 		{"any.user", "bob", true},
 		{"user", "bob", true},
-		{"container.user", "bob", true},
-		{"container:user", "", false},
-		{"container:bob", "", false},
+		{"k8s.user", "bob", true},
+		{"k8s:user", "", false},
+		{"k8s:bob", "", false},
 	}
 	for _, tt := range hasTests {
 		t.Logf("Lookup %s", tt.input)

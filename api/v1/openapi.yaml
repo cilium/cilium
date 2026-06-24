@@ -3929,7 +3929,7 @@ definitions:
         type: string
 
   Label:
-    description: Label is the Cilium's representation of a container label
+    description: Label is Cilium's representation of a label
     type: object
     properties:
       key:
@@ -3937,7 +3937,7 @@ definitions:
       value:
         type: string
       source:
-        description: Source can be one of the above values (e.g. LabelSourceContainer)
+        description: Source can be one of the above values (e.g. LabelSourceK8s)
         type: string
   LabelArray:
     description: LabelArray is an array of labels forming a set

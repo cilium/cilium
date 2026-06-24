@@ -44,7 +44,7 @@ func TestPrivilegedParse(t *testing.T) {
 func TestHas(t *testing.T) {
 	lbls := LabelArray{
 		NewLabel("env", "devel", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceK8s),
 	}
 	var hasTests = []struct {
 		input    string // input
@@ -53,16 +53,16 @@ func TestHas(t *testing.T) {
 		{"", false},
 		{"any", false},
 		{"env", true},
-		{"container.env", false},
-		{"container:env", false},
+		{"k8s.env", false},
+		{"k8s:env", false},
 		{"any:env", true},
 		{"any.env", false},
 		{"any:user", true},
 		{"any.user", false},
 		{"user", true},
-		{"container.user", false},
-		{"container:user", true},
-		{"container:bob", false},
+		{"k8s.user", false},
+		{"k8s:user", true},
+		{"k8s:bob", false},
 	}
 	for _, tt := range hasTests {
 		t.Logf("has %q?", tt.input)
@@ -73,14 +73,14 @@ func TestHas(t *testing.T) {
 func TestEquals(t *testing.T) {
 	lbls1 := LabelArray{
 		NewLabel("env", "devel", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceK8s),
 	}
 	lbls2 := LabelArray{
 		NewLabel("env", "devel", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceK8s),
 	}
 	lbls3 := LabelArray{
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceK8s),
 		NewLabel("env", "devel", LabelSourceAny),
 	}
 	lbls4 := LabelArray{
@@ -148,15 +148,15 @@ func TestLess(t *testing.T) {
 	}
 	lbls5 := LabelArray{
 		NewLabel("env", "prod", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceK8s),
 	}
 	lbls6 := LabelArray{
 		NewLabel("env", "prod", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceK8s),
 	}
 	lbls7 := LabelArray{
 		NewLabel("env", "prod", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceK8s),
 		NewLabel("xyz", "", LabelSourceAny),
 	}
 	lbls8 := LabelArray{
@@ -241,13 +241,13 @@ func TestLess(t *testing.T) {
 func TestOutputConversions(t *testing.T) {
 	lbls := LabelArray{
 		NewLabel("env", "devel", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("user", "bob", LabelSourceCNI),
 		NewLabel("something", "somethingelse", LabelSourceK8s),
 		NewLabel("nosource", "value", ""),
 		NewLabel("nosource", "value", "actuallyASource"),
 	}
 
-	expectMdl := []string{"any:env=devel", "container:user=bob", "k8s:something=somethingelse", "unspec:nosource=value", "actuallyASource:nosource=value"}
+	expectMdl := []string{"any:env=devel", "cni:user=bob", "k8s:something=somethingelse", "unspec:nosource=value", "actuallyASource:nosource=value"}
 	sort.StringSlice(expectMdl).Sort()
 	mdl := lbls.GetModel()
 	sort.StringSlice(mdl).Sort()
@@ -256,14 +256,14 @@ func TestOutputConversions(t *testing.T) {
 		require.Equal(t, expectMdl[i], mdl[i])
 	}
 
-	expectString := "[any:env=devel container:user=bob k8s:something=somethingelse unspec:nosource=value actuallyASource:nosource=value]"
+	expectString := "[any:env=devel cni:user=bob k8s:something=somethingelse unspec:nosource=value actuallyASource:nosource=value]"
 	require.Equal(t, expectString, lbls.String())
 
 	// Note: the two nosource entries do not alias when rendered into the StringMap
 	// format, because they have different sources.
 	expectMap := map[string]string{
 		"any:env":                       "devel",
-		"container:user":                "bob",
+		"cni:user":                      "bob",
 		"k8s:something":                 "somethingelse",
 		LabelSourceUnspec + ":nosource": "value",
 		"actuallyASource:nosource":      "value"}

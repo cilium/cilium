@@ -3157,13 +3157,12 @@ spec:
                   or delete strings based on labels. Labels are not required to be
                   unique, multiple rules can have overlapping or identical labels.
                 items:
-                  description: Label is the Cilium's representation of a container
-                    label.
+                  description: Label is Cilium's representation of a label.
                   properties:
                     key:
                       type: string
                     source:
-                      description: 'Source can be one of the above values (e.g.: LabelSourceContainer).'
+                      description: 'Source can be one of the above values (e.g.: LabelSourceK8s).'
                       type: string
                     value:
                       type: string
@@ -6364,14 +6363,13 @@ spec:
                     or delete strings based on labels. Labels are not required to be
                     unique, multiple rules can have overlapping or identical labels.
                   items:
-                    description: Label is the Cilium's representation of a container
-                      label.
+                    description: Label is Cilium's representation of a label.
                     properties:
                       key:
                         type: string
                       source:
                         description: 'Source can be one of the above values (e.g.:
-                          LabelSourceContainer).'
+                          LabelSourceK8s).'
                         type: string
                       value:
                         type: string
