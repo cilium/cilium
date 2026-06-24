@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/containerd/nri/pkg/api"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
@@ -23,6 +24,7 @@ import (
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/networkdriver/macvlan"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -120,6 +122,9 @@ func TestPrivilegedRunStopPodSandbox(t *testing.T) {
 								IPv4Addr:  ipv4Addr,
 								PodIfName: podIfName,
 								Routes:    routes,
+								InterfaceSysctlIPv4: map[string]string{
+									"arp_filter": "1",
+								},
 							},
 							Manager: types.DeviceManagerTypeSRIOV,
 						},
@@ -159,6 +164,16 @@ func TestPrivilegedRunStopPodSandbox(t *testing.T) {
 		require.NoError(t, podNS.Do(func() error {
 			if _, err := safenetlink.LinkByName(podIfName); err != nil {
 				return fmt.Errorf("expected %q in pod netns before StopPodSandbox: %w", podIfName, err)
+			}
+			// Verify the interface-scoped sysctl was applied to the renamed
+			// interface inside the pod netns: net.ipv4.conf.<podIfName>.arp_filter.
+			sc := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+			arpFilter, err := sc.Read([]string{"net", "ipv4", "conf", podIfName, "arp_filter"})
+			if err != nil {
+				return fmt.Errorf("failed to read arp_filter sysctl for %q: %w", podIfName, err)
+			}
+			if arpFilter != "1" {
+				return fmt.Errorf("expected arp_filter=1 on %q, got %q", podIfName, arpFilter)
 			}
 			return nil
 		}))

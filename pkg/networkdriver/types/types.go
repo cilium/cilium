@@ -208,6 +208,14 @@ type DeviceConfig struct {
 	Routes        []Route      `json:"routes,omitempty"`
 	Vlan          uint16       `json:"vlan,omitempty"`
 	PodIfName     string       `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
+
+	// Sysctl holds fully-qualified sysctl key/value pairs applied verbatim
+	// inside the pod network namespace.
+	Sysctl map[string]string `json:"sysctl,omitempty"`
+	// InterfaceSysctlIPv4/IPv6 hold leaf parameters applied under
+	// net.<family>.conf.<interface>. for the allocated interface.
+	InterfaceSysctlIPv4 map[string]string `json:"interfaceSysctlIPv4,omitempty"`
+	InterfaceSysctlIPv6 map[string]string `json:"interfaceSysctlIPv6,omitempty"`
 }
 
 func (d *DeviceConfig) Empty() bool {
@@ -217,7 +225,10 @@ func (d *DeviceConfig) Empty() bool {
 		d.IPPool == "" &&
 		d.Routes == nil &&
 		d.Vlan == 0 &&
-		d.PodIfName == ""
+		d.PodIfName == "" &&
+		len(d.Sysctl) == 0 &&
+		len(d.InterfaceSysctlIPv4) == 0 &&
+		len(d.InterfaceSysctlIPv6) == 0
 }
 
 type SerializedDevice struct {
