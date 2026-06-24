@@ -10,6 +10,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -60,6 +61,10 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
+
+	if option.Config.EncryptionStrictEgressCIDR.IsValid() {
+		cfg.StrictEgressEncryption = strictEgressEncryptionCfg(lnc)
+	}
 
 	return cfg
 }
@@ -185,4 +190,17 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	}
 
 	return cfg
+}
+
+// strictEgressEncryptionCfg returns a StrictEncryptionCfg struct populated with
+// the required IPv4 network and interface parameters based on the global
+// encryption settings and the provided local node configuration.
+func strictEgressEncryptionCfg(lnc *Config) types.StrictEncryptionCfg {
+	return types.StrictEncryptionCfg{
+		Enabled:          option.Config.EnableEncryptionStrictModeEgress,
+		IPv4Net:          types.V4Addr{Addr: option.Config.EncryptionStrictEgressCIDR.Addr().As4()},
+		IPv4EncryptIface: types.V4Addr{Addr: lnc.NodeIPv4.As4()},
+		IPv4NetSize:      uint8(option.Config.EncryptionStrictEgressCIDR.Bits()),
+		IPv4Overlapping:  option.Config.EncryptionStrictEgressAllowRemoteNodeIdentities,
+	}
 }
