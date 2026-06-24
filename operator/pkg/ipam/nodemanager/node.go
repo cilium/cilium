@@ -929,7 +929,13 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	stats := n.Stats()
 	// Validate that the node still requires addresses to be released, the
 	// request may have been resolved in the meantime.
-	if n.manager.releaseExcessIPs && stats.IPv4.ExcessIPs > 0 {
+
+	// Multi-pool nodes don't use the 4-state handshake. Release is
+	// handled by handleMultiPoolCIDRRelease.
+	n.mutex.RLock()
+	isMultiPool := n.isMultiPoolNodeLocked()
+	n.mutex.RUnlock()
+	if !isMultiPool && n.manager.releaseExcessIPs && stats.IPv4.ExcessIPs > 0 {
 		a.release = n.ops.PrepareIPRelease(stats.IPv4.ExcessIPs, n.logger.Load())
 		if a.release != nil && len(a.release.IPsToRelease) > 0 {
 			return a, nil
