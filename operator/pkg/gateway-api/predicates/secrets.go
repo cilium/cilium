@@ -12,8 +12,8 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
-func SecretUsedInGatewayFn(c client.Client, logger *slog.Logger) func(obj client.Object) bool {
+func SecretUsedInGatewayFn(c client.Client, controllerName string, logger *slog.Logger) func(obj client.Object) bool {
 	return func(obj client.Object) bool {
-		return len(helpers.GetGatewaysForSecret(context.Background(), c, obj, logger)) > 0
+		return len(helpers.GetGatewaysForSecret(context.Background(), c, obj, controllerName, logger)) > 0
 	}
 }
