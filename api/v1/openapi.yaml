@@ -36,8 +36,8 @@ paths:
       summary: Get health of Cilium daemon
       description: |
         Returns health and status information of the Cilium daemon and related
-        components such as the local container runtime, connected datastore,
-        Kubernetes integration and Hubble.
+        components such as the connected datastore, Kubernetes integration and
+        Hubble.
       tags:
       - daemon
       parameters:
@@ -1861,9 +1861,6 @@ definitions:
         "$ref": "#/definitions/Status"
       cni-file:
         description: Status of the CNI configuration file
-        "$ref": "#/definitions/Status"
-      container-runtime:
-        description: Status of local container runtime
         "$ref": "#/definitions/Status"
       host-firewall:
         description: Status of the host firewall

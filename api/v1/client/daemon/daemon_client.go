@@ -402,8 +402,8 @@ func (a *Client) GetDebuginfoContext(ctx context.Context, params *GetDebuginfoPa
 
 	Returns health and status information of the Cilium daemon and related
 
-components such as the local container runtime, connected datastore,
-Kubernetes integration and Hubble.
+components such as the connected datastore, Kubernetes integration and
+Hubble.
 .
 
 	This method does not support injected context.
@@ -427,8 +427,8 @@ func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*Ge
 
 	Returns health and status information of the Cilium daemon and related
 
-components such as the local container runtime, connected datastore,
-Kubernetes integration and Hubble.
+components such as the connected datastore, Kubernetes integration and
+Hubble.
 .
 
 	Do not use the deprecated [GetHealthzParams.Context] with this method: it would be ignored.

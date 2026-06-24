@@ -62,9 +62,6 @@ type StatusResponse struct {
 	// Status of configured datapath mode
 	ConfiguredDatapathMode ConfiguredDatapathMode `json:"configured-datapath-mode,omitempty"`
 
-	// Status of local container runtime
-	ContainerRuntime *Status `json:"container-runtime,omitempty"`
-
 	// Status of all endpoint controllers
 	Controllers ControllerStatuses `json:"controllers,omitempty"`
 
@@ -168,10 +165,6 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateConfiguredDatapathMode(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateContainerRuntime(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -501,29 +494,6 @@ func (m *StatusResponse) validateConfiguredDatapathMode(formats strfmt.Registry)
 		}
 
 		return err
-	}
-
-	return nil
-}
-
-func (m *StatusResponse) validateContainerRuntime(formats strfmt.Registry) error {
-	if typeutils.IsZero(m.ContainerRuntime) { // not required
-		return nil
-	}
-
-	if m.ContainerRuntime != nil {
-		if err := m.ContainerRuntime.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
-				return ve.ValidateName("container-runtime")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
-				return ce.ValidateName("container-runtime")
-			}
-
-			return err
-		}
 	}
 
 	return nil
@@ -1003,10 +973,6 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 		res = append(res, err)
 	}
 
-	if err := m.contextValidateContainerRuntime(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.contextValidateControllers(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -1349,31 +1315,6 @@ func (m *StatusResponse) contextValidateConfiguredDatapathMode(ctx context.Conte
 		}
 
 		return err
-	}
-
-	return nil
-}
-
-func (m *StatusResponse) contextValidateContainerRuntime(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.ContainerRuntime != nil {
-
-		if typeutils.IsZero(m.ContainerRuntime) { // not required
-			return nil
-		}
-
-		if err := m.ContainerRuntime.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
-				return ve.ValidateName("container-runtime")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
-				return ce.ValidateName("container-runtime")
-			}
-
-			return err
-		}
 	}
 
 	return nil

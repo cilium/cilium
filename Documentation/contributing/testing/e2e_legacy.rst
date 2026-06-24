@@ -580,7 +580,6 @@ test an exhaustive data will be added.
 	level=info msg="Vagrant: running command \"vagrant ssh-config runtime\""
 	cmd: "sudo cilium-dbg status" exitCode: 0
 	 KVStore:            Ok         Etcd: 172.17.0.3:4001
-	ContainerRuntime:   Ok
 	Kubernetes:         Disabled
 	Kubernetes APIs:    [""]
 	Cilium:             Ok   OK

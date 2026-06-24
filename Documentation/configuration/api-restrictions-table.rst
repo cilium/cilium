@@ -55,8 +55,8 @@ GetFqdnCacheID            Retrieves the list of DNS lookups intercepted from the
 GetFqdnNames              Retrieves the list of DNS-related fields (names to poll,
                           selectors and their corresponding regexes).
 GetHealthz                Returns health and status information of the Cilium daemon
-                          and related components such as the local container runtime,
-                          connected datastore, Kubernetes integration and Hubble.
+                          and related components such as the connected datastore,
+                          Kubernetes integration and Hubble.
 GetIP                     Retrieves a list of IPs with known associated information
                           such as their identities, host addresses, Kubernetes pod
                           names, etc. The list can optionally filtered by a CIDR IP

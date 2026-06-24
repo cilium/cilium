@@ -107,7 +107,6 @@ Check the status of the agent
 
     $ cilium-dbg status
     KVStore:                Ok         Etcd: 172.17.0.3:4001
-    ContainerRuntime:       Ok
     Kubernetes:             Disabled
     Cilium:                 Ok         OK
     NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory
@@ -123,7 +122,6 @@ Get a detailed status of the agent:
 
     $ cilium-dbg status --all-controllers --all-health --all-redirects
     KVStore:                Ok         Etcd: 172.17.0.3:4001
-    ContainerRuntime:       Ok
     Kubernetes:             Disabled
     Cilium:                 Ok         OK
     NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory
@@ -349,4 +347,3 @@ resource can be used.
     5766=ingress
     51796=none
     40355=none
-
