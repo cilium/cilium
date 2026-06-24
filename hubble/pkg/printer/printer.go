@@ -191,6 +191,9 @@ func GetFlowType(f *flowpb.Flow) string {
 	case api.MessageTypeTrace:
 		return api.TraceObservationPoint(uint8(f.GetEventType().GetSubType()))
 	case api.MessageTypeDrop:
+		if desc := f.GetExtDropReasonDesc(); desc != "" {
+			return desc
+		}
 		return api.DropReason(uint8(f.GetEventType().GetSubType()))
 	case api.MessageTypePolicyVerdict:
 		return fmt.Sprintf("%s:%s %s",

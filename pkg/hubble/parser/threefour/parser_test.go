@@ -620,6 +620,12 @@ func TestDecodeDropNotify(t *testing.T) {
 			IPTraceID: id,
 		}
 	}
+	dropNotifyWithReason := func(version uint8, subType uint8, extError int8) monitor.DropNotify {
+		dn := dropNotify(version)
+		dn.SubType = subType
+		dn.ExtError = extError
+		return dn
+	}
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
 			m := map[identity.NumericIdentity][]string{
@@ -672,6 +678,73 @@ func TestDecodeDropNotify(t *testing.T) {
 				},
 				Summary: "IPv4",
 				File:    &flowpb.FileInfo{Name: "bpf_host.c"},
+			},
+		},
+		{
+			name:      "v3 with ext_error",
+			dn:        dropNotifyWithReason(3, 132 /* Invalid source ip */, 7),
+			srcLabels: []string{"k8s:src=label"},
+			dstLabels: []string{"k8s:dst=label"},
+			want: &flowpb.Flow{
+				Verdict: flowpb.Verdict_DROPPED,
+				Ethernet: &flowpb.Ethernet{
+					Source:      "01:02:03:04:05:06",
+					Destination: "04:05:06:07:08:09",
+				},
+				IP: &flowpb.IP{
+					Source:      "1.2.3.4",
+					Destination: "1.2.3.4",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				Source: &flowpb.Endpoint{
+					Identity: 123,
+					Labels:   []string{"k8s:src=label"},
+				},
+				Destination: &flowpb.Endpoint{
+					Identity: 456,
+					Labels:   []string{"k8s:dst=label"},
+				},
+				Type:              flowpb.FlowType_L3_L4,
+				EventType:         &flowpb.CiliumEventType{Type: 1, SubType: 132},
+				Summary:           "IPv4",
+				File:              &flowpb.FileInfo{Name: "bpf_host.c"},
+				DropReason:        132,
+				DropReasonDesc:    flowpb.DropReason_INVALID_SOURCE_IP,
+				ExtError:          7,
+				ExtDropReasonDesc: "Invalid source ip, 7",
+			},
+		},
+		{
+			name:      "v3 with drop reason but no ext_error",
+			dn:        dropNotifyWithReason(3, 169 /* FIB lookup failed */, 0),
+			srcLabels: []string{"k8s:src=label"},
+			dstLabels: []string{"k8s:dst=label"},
+			want: &flowpb.Flow{
+				Verdict: flowpb.Verdict_DROPPED,
+				Ethernet: &flowpb.Ethernet{
+					Source:      "01:02:03:04:05:06",
+					Destination: "04:05:06:07:08:09",
+				},
+				IP: &flowpb.IP{
+					Source:      "1.2.3.4",
+					Destination: "1.2.3.4",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				Source: &flowpb.Endpoint{
+					Identity: 123,
+					Labels:   []string{"k8s:src=label"},
+				},
+				Destination: &flowpb.Endpoint{
+					Identity: 456,
+					Labels:   []string{"k8s:dst=label"},
+				},
+				Type:              flowpb.FlowType_L3_L4,
+				EventType:         &flowpb.CiliumEventType{Type: 1, SubType: 169},
+				Summary:           "IPv4",
+				File:              &flowpb.FileInfo{Name: "bpf_host.c"},
+				DropReason:        169,
+				DropReasonDesc:    flowpb.DropReason_FIB_LOOKUP_FAILED,
+				ExtDropReasonDesc: "FIB lookup failed",
 			},
 		},
 		{

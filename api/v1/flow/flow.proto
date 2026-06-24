@@ -96,6 +96,19 @@ message Flow {
     // only applicable to Verdict = DROPPED.
     DropReason drop_reason_desc = 25;
 
+    // ext_error is the extended error code reported by the datapath alongside
+    // the primary drop reason (see DropNotify.ExtError in pkg/monitor). It
+    // provides additional context for the drop (for example, the BPF FIB
+    // lookup result for DROP_NO_FIB). Only applicable to Verdict = DROPPED.
+    int32 ext_error = 42;
+
+    // ext_drop_reason_desc is the human-readable extended drop reason
+    // combining drop_reason_desc with ext_error (equivalent to the string
+    // produced by cilium monitor's DropReasonExt). Only set for drops
+    // reported via DropNotify; not populated for policy verdict denials,
+    // which carry their reason in drop_reason_desc.
+    string ext_drop_reason_desc = 43;
+
     // is_reply indicates that this was a packet (L4) or message (L7) in the
     // reply direction. May be absent (in which case it is unknown whether it
     // is a reply or not).
