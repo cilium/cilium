@@ -922,11 +922,6 @@ func (in *StatusResponse) DeepCopyInto(out *StatusResponse) {
 		*out = new(Status)
 		**out = **in
 	}
-	if in.ContainerRuntime != nil {
-		in, out := &in.ContainerRuntime, &out.ContainerRuntime
-		*out = new(Status)
-		**out = **in
-	}
 	if in.Controllers != nil {
 		in, out := &in.Controllers, &out.Controllers
 		*out = make(ControllerStatuses, len(*in))

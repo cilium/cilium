@@ -35,8 +35,8 @@ func NewGetHealthz(ctx *middleware.Context, handler GetHealthzHandler) *GetHealt
 # Get health of Cilium daemon
 
 Returns health and status information of the Cilium daemon and related
-components such as the local container runtime, connected datastore,
-Kubernetes integration and Hubble.
+components such as the connected datastore, Kubernetes integration and
+Hubble.
 */
 type GetHealthz struct {
 	Context *middleware.Context

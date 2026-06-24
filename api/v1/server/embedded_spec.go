@@ -867,7 +867,7 @@ func init() {
     },
     "/healthz": {
       "get": {
-        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration and Hubble.\n",
+        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the connected datastore, Kubernetes integration and\nHubble.\n",
         "tags": [
           "daemon"
         ],
@@ -4769,10 +4769,6 @@ func init() {
           "description": "Status of configured datapath mode",
           "$ref": "#/definitions/ConfiguredDatapathMode"
         },
-        "container-runtime": {
-          "description": "Status of local container runtime",
-          "$ref": "#/definitions/Status"
-        },
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
@@ -6154,7 +6150,7 @@ func init() {
     },
     "/healthz": {
       "get": {
-        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration and Hubble.\n",
+        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the connected datastore, Kubernetes integration and\nHubble.\n",
         "tags": [
           "daemon"
         ],
@@ -10633,10 +10629,6 @@ func init() {
         "configured-datapath-mode": {
           "description": "Status of configured datapath mode",
           "$ref": "#/definitions/ConfiguredDatapathMode"
-        },
-        "container-runtime": {
-          "description": "Status of local container runtime",
-          "$ref": "#/definitions/Status"
         },
         "controllers": {
           "description": "Status of all endpoint controllers",
