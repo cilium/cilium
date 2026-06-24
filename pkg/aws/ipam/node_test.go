@@ -312,8 +312,8 @@ func TestGetAttachedCIDRs(t *testing.T) {
 				Prefixes:  []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28"))},
 			},
 			"eni-2": {
-				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("2001:db8::1"))},
-				Prefixes:  []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1::/80"))},
+				Addresses:    []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("2001:db8::1"))},
+				IPv6Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1::/80"))},
 			},
 		})
 
