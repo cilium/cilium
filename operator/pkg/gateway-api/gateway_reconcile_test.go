@@ -369,6 +369,9 @@ func Test_Conformance(t *testing.T) {
 		{name: "listenerset-allowed-routes-kinds", skipCEC: true, gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "allowed-route-kinds", Namespace: "gateway-conformance-infra"}},
 		}},
+		{name: "listenerset-valid-with-invalid-gateway-listener", skipCEC: true, gateway: []gwDetails{
+			{FullName: types.NamespacedName{Name: "valid-listenerset-only", Namespace: "gateway-conformance-infra"}, wantErr: true},
+		}},
 		// A Route that targets the Gateway must not leak into a ListenerSet's
 		// L4 listeners, even when the Route lives in a namespace the ListenerSet
 		// listener would otherwise allow.
