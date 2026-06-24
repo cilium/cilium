@@ -183,6 +183,7 @@ func newLocalNodeConfig(
 		EnableIPv4:                   daemon.EnableIPv4,
 		EnableIPv6:                   daemon.EnableIPv6,
 		EnableEncapsulation:          daemon.TunnelingEnabled(),
+		RequiresNativeRouting:        daemon.RequiresNativeRouting(),
 		TunnelProtocol:               tunnelCfg.EncapProtocol().ToDpID(),
 		TunnelPort:                   tunnelCfg.Port(),
 		EnableAutoDirectRouting:      daemon.EnableAutoDirectRouting,
