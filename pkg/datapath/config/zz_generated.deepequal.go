@@ -170,6 +170,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.EnableEncapsulation != other.EnableEncapsulation {
 		return false
 	}
+	if in.RequiresNativeRouting != other.RequiresNativeRouting {
+		return false
+	}
 	if in.TunnelProtocol != other.TunnelProtocol {
 		return false
 	}
