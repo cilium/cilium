@@ -2,6 +2,8 @@ name: Conformance Gateway API (ci-gateway-api)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
+
   workflow_dispatch:
     inputs:
       PR-number:
@@ -50,6 +52,7 @@ concurrency:
   # - Workflow name
   # - Event type
   # - A unique identifier depending on event type:
+  #   - pull_request: PR number
   #   - schedule: SHA
   #   - workflow_dispatch: PR number
   #
@@ -60,6 +63,7 @@ concurrency:
     ${{ github.event_name }}
     ${{
       (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
@@ -80,6 +84,7 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
+    if: ${{ github.event_name != 'pull_request' }}
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
@@ -147,9 +152,10 @@ jobs:
             ]
           }'
 
-          # Use the complete matrix for nightly runs and stable branch scheduled
-          # workflow_dispatch invocations from Ariane. Use the default entry for PRs.
-          if [[ "$event_name" == "push" || "$event_name" == "schedule" || "$pr_number" == v* ]]; then
+          # Use the complete matrix for nightly runs, temporary pull_request validation,
+          # and stable branch scheduled workflow_dispatch invocations from Ariane.
+          # Use the default entry for normal PR workflow_dispatch invocations.
+          if [[ "$event_name" == "push" || "$event_name" == "pull_request" || "$event_name" == "schedule" || "$pr_number" == v* ]]; then
             RESULT=$(jq -c . <<< "$MATRIX")
           else
             RESULT=$(jq -c '{include: [.include[] | select(.default)]}' <<< "$MATRIX")
@@ -169,6 +175,7 @@ jobs:
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     steps:
       - name: Set commit status to pending
+        if: ${{ github.event_name != 'pull_request' }}
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
