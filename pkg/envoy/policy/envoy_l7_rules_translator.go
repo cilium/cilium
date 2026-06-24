@@ -5,7 +5,6 @@ package envoypolicy
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 type EnvoyL7RulesTranslator interface {
@@ -267,8 +267,5 @@ func (r *envoyL7RulesTranslator) getSecretString(hdr *policyapi.HeaderMatch, ns 
 }
 
 func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, policySecretsNamespace string) string {
-	if policySecretsNamespace == "" {
-		return fmt.Sprintf("%s/%s", namespacedName.Namespace, namespacedName.Name)
-	}
-	return fmt.Sprintf("%s/%s-%s", policySecretsNamespace, namespacedName.Namespace, namespacedName.Name)
+	return syncnames.SyncedSDSSecretName(policySecretsNamespace, namespacedName)
 }

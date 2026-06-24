@@ -94,7 +94,7 @@ spec:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
               commonTlsContext:
                 tlsCertificateSdsSecretConfigs:
-                  - name: cilium-secrets/gateway-conformance-infra-cross-protocol-tls
+                  - name: cilium-secrets/cilium-sync-secret-9e3240dd5d81ba618935c49937e7e7dbefac584583bbc8129c126827692366f5
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:

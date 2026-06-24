@@ -18,6 +18,7 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -40,7 +41,7 @@ func (r *configMapSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			// Check whether synced secret needs to be deleted from the registered secret namespaces.
 			for _, ns := range r.secretNamespaces {
 				// Check if there's an existing synced secret for the deleted Secret
-				deleted, err := r.cleanupSyncedSecret(ctx, req, scopedLog, ns)
+				deleted, err := r.cleanupSyncedSecret(ctx, req, scopedLog, ns, syncnames.SyncedConfigMapSecretName, syncnames.LegacySyncedConfigMapSecretName)
 				if err != nil {
 					return controllerruntime.Fail(err)
 				}
@@ -72,6 +73,10 @@ func (r *configMapSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				return controllerruntime.Fail(err)
 			}
 
+			if _, err := r.cleanupSyncedSecret(ctx, req, scopedLog, reg.SecretsNamespace, syncnames.LegacySyncedConfigMapSecretName); err != nil {
+				return controllerruntime.Fail(err)
+			}
+
 			synced = true
 			delete(cleanupNamespaces, reg.SecretsNamespace)
 		}
@@ -83,7 +88,7 @@ func (r *configMapSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// where the secret is no longer referenced by any registration.
 	for ns := range cleanupNamespaces {
 		// Check if there's an existing synced secret that should be deleted
-		deleted, err := r.cleanupSyncedSecret(ctx, req, scopedLog, ns)
+		deleted, err := r.cleanupSyncedSecret(ctx, req, scopedLog, ns, syncnames.SyncedConfigMapSecretName, syncnames.LegacySyncedConfigMapSecretName)
 		if err != nil {
 			return controllerruntime.Fail(err)
 		}
@@ -116,27 +121,43 @@ func (r *configMapSyncer) getJitteredResyncInterval() time.Duration {
 	return r.resyncInterval - randomJitter
 }
 
-func (r *configMapSyncer) cleanupSyncedSecret(ctx context.Context, req reconcile.Request, scopedLog *slog.Logger, ns string) (bool, error) {
-	syncSecret := &corev1.Secret{}
-	syncedSecretName := types.NamespacedName{Namespace: ns, Name: req.Namespace + "-cfgmap-" + req.Name}
-	if err := r.client.Get(ctx, syncedSecretName, syncSecret); err == nil {
+func (r *configMapSyncer) cleanupSyncedSecret(ctx context.Context, req reconcile.Request, scopedLog *slog.Logger, ns string, nameFuncs ...func(types.NamespacedName) string) (bool, error) {
+	source := req.NamespacedName
+	deleted := false
+
+	for _, nameFunc := range nameFuncs {
+		syncSecret := &corev1.Secret{}
+		syncedSecretName := types.NamespacedName{Namespace: ns, Name: nameFunc(source)}
+		if err := r.client.Get(ctx, syncedSecretName, syncSecret); err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			return deleted, err
+		}
+
+		if !isOwnedBy(syncSecret, source, OwningConfigMapNamespace, OwningConfigMapName) {
+			scopedLog.DebugContext(ctx, "Skipping synced secret cleanup because ownership labels do not match", logfields.K8sNamespace, ns)
+			continue
+		}
+
 		// Try to delete existing synced secret
 		scopedLog.DebugContext(ctx, "Delete synced secret", logfields.K8sNamespace, ns)
 		if err := r.client.Delete(ctx, syncSecret); err != nil {
 			return true, err
 		}
-
-		return true, nil
+		deleted = true
 	}
 
-	return false, nil
+	return deleted, nil
 }
 
 func configMapToSyncSecret(secretsNamespace string, original *corev1.ConfigMap) (*corev1.Secret, error) {
 	s := &corev1.Secret{}
 	s.SetNamespace(secretsNamespace)
-	s.SetName(original.Namespace + "-cfgmap-" + original.Name)
+	s.SetName(syncnames.SyncedConfigMapSecretName(types.NamespacedName{Namespace: original.Namespace, Name: original.Name}))
+	source := types.NamespacedName{Namespace: original.Namespace, Name: original.Name}
 	s.SetAnnotations(original.GetAnnotations())
+	setSourceAnnotations(s, SourceKindConfigMap, source)
 	s.SetLabels(original.GetLabels())
 	if s.Labels == nil {
 		s.Labels = map[string]string{}
@@ -162,6 +183,10 @@ func (r *configMapSyncer) ensureSyncedSecret(ctx context.Context, desired *corev
 		if k8serrors.IsNotFound(err) {
 			return r.client.Create(ctx, desired)
 		}
+		return err
+	}
+
+	if err := ensureOwnedBy(existing, desired, OwningConfigMapNamespace, OwningConfigMapName); err != nil {
 		return err
 	}
 

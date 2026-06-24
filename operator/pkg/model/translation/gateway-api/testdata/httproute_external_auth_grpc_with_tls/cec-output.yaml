@@ -136,7 +136,7 @@ spec:
             combinedValidationContext:
               defaultValidationContext: {}
               validationContextSdsSecretConfig:
-                name: cilium-secrets/default-cfgmap-ca-cert
+                name: cilium-secrets/cilium-sync-cfgmap-ca69f479872195ddf0c746b372fde7d6eb588087afb68c393439bc065a98e496
             tlsParams:
               tlsMaximumProtocolVersion: TLSv1_3
           sni: auth-service.example.com

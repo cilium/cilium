@@ -8,6 +8,8 @@ import (
 	"slices"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -23,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 func TestSharedIngressTranslator_getBackendServices(t *testing.T) {
@@ -429,7 +432,7 @@ func TestSharedIngressTranslator_getListener(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)
-	require.Equal(t, "cilium-secrets/dummy-namespace-dummy-secret", downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
+	require.Equal(t, syncnames.SyncedSDSSecretName("cilium-secrets", types.NamespacedName{Namespace: "dummy-namespace", Name: "dummy-secret"}), downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
 	require.Nil(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetSdsConfig())
 }
 

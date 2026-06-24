@@ -84,7 +84,7 @@ spec:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
               commonTlsContext:
                 tlsCertificateSdsSecretConfigs:
-                  - name: cilium-secrets/gateway-conformance-infra-tls-validity-checks-certificate
+                  - name: cilium-secrets/cilium-sync-secret-261c3c0ed7182ef9200310151d846ebc492656fb3bcdf448223b3495dcc9016a
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
@@ -139,7 +139,7 @@ spec:
             combinedValidationContext:
               defaultValidationContext: {}
               validationContextSdsSecretConfig:
-                name: cilium-secrets/gateway-conformance-infra-cfgmap-tls-checks-ca-certificate
+                name: cilium-secrets/cilium-sync-cfgmap-f3757660099595ce0587b4d45f08d43da98e3f80d7c9fa16d991dbd0946ee01b
           sni: abc.example.com
       type: EDS
       typedExtensionProtocolOptions:

@@ -128,7 +128,7 @@ spec:
           '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
           commonTlsContext:
             tlsCertificateSdsSecretConfigs:
-            - name: cilium-secrets/dummy-namespace-tls-another-very-secure-server-com
+            - name: cilium-secrets/cilium-sync-secret-6b9e9e2492d76369e93988d03c345e488b95b4dda1103168b1e6ff30702df36d
     - filterChainMatch:
         serverNames:
         - very-secure.server.com
@@ -176,7 +176,7 @@ spec:
           '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
           commonTlsContext:
             tlsCertificateSdsSecretConfigs:
-            - name: cilium-secrets/dummy-namespace-tls-very-secure-server-com
+            - name: cilium-secrets/cilium-sync-secret-d24305e95e142f8895855d63e1425e45b8eaed323a0eab4eb84e9d3334df4051
     listenerFilters:
     - name: envoy.filters.listener.tls_inspector
       typedConfig:

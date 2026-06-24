@@ -11,11 +11,13 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_extensions_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 const (
@@ -202,7 +204,7 @@ func (r *secretSyncer) k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_exten
 }
 
 func getEnvoySecretName(namespace, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
+	return syncnames.SourceSDSSecretName(types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 func (r *secretSyncer) getTLSSessionTicketKeys(data map[string]slim_corev1.Bytes) []*envoy_config_core_v3.DataSource {

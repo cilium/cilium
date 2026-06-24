@@ -56,7 +56,7 @@ spec:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
               commonTlsContext:
                 tlsCertificateSdsSecretConfigs:
-                  - name: cilium-secrets/gateway-conformance-infra-ns-restricted-tls
+                  - name: cilium-secrets/cilium-sync-secret-81d5b0bc773836eb895d632bb828ae299373ed522137978b10722821a7522210
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
@@ -117,7 +117,7 @@ spec:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
               commonTlsContext:
                 tlsCertificateSdsSecretConfigs:
-                  - name: cilium-secrets/gateway-conformance-infra-ns-restricted-tls
+                  - name: cilium-secrets/cilium-sync-secret-81d5b0bc773836eb895d632bb828ae299373ed522137978b10722821a7522210
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:

@@ -121,7 +121,7 @@ spec:
             combinedValidationContext:
               defaultValidationContext: {}
               validationContextSdsSecretConfig:
-                name: cilium-secrets/gateway-conformance-infra-cfgmap-mismatch-ca-certificate
+                name: cilium-secrets/cilium-sync-cfgmap-b12423955ebfb5ff0e4c9b01e91a2f2325aba4de2924d35b2799aa2e51462c24
           sni: abc.example.com
       type: EDS
       typedExtensionProtocolOptions:
@@ -147,7 +147,7 @@ spec:
             combinedValidationContext:
               defaultValidationContext: {}
               validationContextSdsSecretConfig:
-                name: cilium-secrets/gateway-conformance-infra-cfgmap-tls-checks-ca-certificate
+                name: cilium-secrets/cilium-sync-cfgmap-f3757660099595ce0587b4d45f08d43da98e3f80d7c9fa16d991dbd0946ee01b
           sni: mismatch.example.com
       type: EDS
       typedExtensionProtocolOptions:
@@ -173,7 +173,7 @@ spec:
             combinedValidationContext:
               defaultValidationContext: {}
               validationContextSdsSecretConfig:
-                name: cilium-secrets/gateway-conformance-infra-cfgmap-tls-checks-ca-certificate
+                name: cilium-secrets/cilium-sync-cfgmap-f3757660099595ce0587b4d45f08d43da98e3f80d7c9fa16d991dbd0946ee01b
           sni: abc.example.com
       type: EDS
       typedExtensionProtocolOptions:

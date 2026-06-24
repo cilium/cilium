@@ -11,8 +11,10 @@ import (
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 type ClusterMutator func(*envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster
@@ -142,11 +144,13 @@ func withTLSOrigination(secretsNamespace string, tls *model.BackendTLSOriginatio
 							//
 							// * BackendTLSPolicy references ConfigMap
 							// * SecretSync sees ConfigMap reference
-							// * SecretSync copies ConfigMap into Secret in the configured secrets namespace, using the below
-							//   naming format
-							// * This translation references that Secret
+							// * SecretSync copies ConfigMap into Secret in the configured secrets namespace
+							// * This translation references that Secret using the shared sync name
 							// * The Cilium Agent reads the Secret directly and suppies it to Envoy via SDS.
-							Name: secretsNamespace + "/" + tls.CACertRef.Namespace + "-cfgmap-" + tls.CACertRef.Name,
+							Name: syncnames.SyncedConfigMapSDSSecretName(secretsNamespace, types.NamespacedName{
+								Namespace: tls.CACertRef.Namespace,
+								Name:      tls.CACertRef.Name,
+							}),
 						},
 					},
 				},

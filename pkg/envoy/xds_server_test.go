@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -1721,11 +1722,11 @@ func newEgressPortNetworkPolicyReturnVal(tls *cilium.TLSContext) []*cilium.PortN
 }
 
 var ciliumTLSContextOnlyValidatingSDSDetails = &cilium.TLSContext{
-	ValidationContextSdsSecret: "cilium-secrets/testnamespace-testsecret",
+	ValidationContextSdsSecret: syncnames.SyncedSDSSecretName("cilium-secrets", k8sTypes.NamespacedName{Namespace: "testnamespace", Name: "testsecret"}),
 }
 
 var ciliumTLSContextOnlySDSDetails = &cilium.TLSContext{
-	TlsSdsSecret: "cilium-secrets/testnamespace-testsecret",
+	TlsSdsSecret: syncnames.SyncedSDSSecretName("cilium-secrets", k8sTypes.NamespacedName{Namespace: "testnamespace", Name: "testsecret"}),
 }
 
 var ciliumTLSContextOnlyTrustedCa = &cilium.TLSContext{
@@ -1872,10 +1873,10 @@ var ExpectedPerPortPoliciesBothWaysTLSSDS = []*cilium.PortNetworkPolicy{
 			Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 			RemotePolicies: []uint32{1001, 1002},
 			DownstreamTlsContext: &cilium.TLSContext{
-				TlsSdsSecret: "cilium-secrets/tlsns-terminating-tls",
+				TlsSdsSecret: syncnames.SyncedSDSSecretName("cilium-secrets", k8sTypes.NamespacedName{Namespace: "tlsns", Name: "terminating-tls"}),
 			},
 			UpstreamTlsContext: &cilium.TLSContext{
-				ValidationContextSdsSecret: "cilium-secrets/tlsns-originating-tls",
+				ValidationContextSdsSecret: syncnames.SyncedSDSSecretName("cilium-secrets", k8sTypes.NamespacedName{Namespace: "tlsns", Name: "originating-tls"}),
 			},
 		}},
 	},

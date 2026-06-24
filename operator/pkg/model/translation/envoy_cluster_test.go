@@ -6,6 +6,8 @@ package translation
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -13,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 func Test_withClusterLbPolicy(t *testing.T) {
@@ -131,7 +134,7 @@ func Test_withTLSOrigination(t *testing.T) {
 		combined := upstreamTLS.CommonTlsContext.GetCombinedValidationContext()
 		require.NotNil(t, combined)
 		sdsName := combined.ValidationContextSdsSecretConfig.GetName()
-		require.Equal(t, "my-secrets-ns/my-namespace-cfgmap-my-ca-configmap", sdsName)
+		require.Equal(t, syncnames.SyncedConfigMapSDSSecretName("my-secrets-ns", types.NamespacedName{Namespace: "my-namespace", Name: "my-ca-configmap"}), sdsName)
 	})
 
 	t.Run("default secrets namespace produces correct SDS name", func(t *testing.T) {
@@ -146,7 +149,7 @@ func Test_withTLSOrigination(t *testing.T) {
 		combined := upstreamTLS.CommonTlsContext.GetCombinedValidationContext()
 		require.NotNil(t, combined)
 		sdsName := combined.ValidationContextSdsSecretConfig.GetName()
-		require.Equal(t, "cilium-secrets/my-namespace-cfgmap-my-ca-configmap", sdsName)
+		require.Equal(t, syncnames.SyncedConfigMapSDSSecretName("cilium-secrets", types.NamespacedName{Namespace: "my-namespace", Name: "my-ca-configmap"}), sdsName)
 	})
 }
 

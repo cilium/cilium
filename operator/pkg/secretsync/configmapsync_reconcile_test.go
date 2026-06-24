@@ -4,6 +4,7 @@
 package secretsync_test
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,6 +23,7 @@ import (
 	gateway_api "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 const testConfigMapSyncControllerName = "example.com/test-gateway-controller"
@@ -63,8 +66,8 @@ var configMapFixture = []client.Object{
 			Namespace: secretsNamespace,
 			Name:      "test-cfgmap-synced-configmap-with-source-and-ref",
 			Labels: map[string]string{
-				secretsync.OwningSecretNamespace: "test",
-				secretsync.OwningSecretName:      "synced-configmap-with-source-and-ref",
+				secretsync.OwningConfigMapNamespace: "test",
+				secretsync.OwningConfigMapName:      "synced-configmap-with-source-and-ref",
 			},
 		},
 	},
@@ -273,7 +276,7 @@ func Test_ConfigMapSync_Reconcile(t *testing.T) {
 		require.True(t, resultHasResync(result))
 
 		secret := &corev1.Secret{}
-		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-cfgmap-synced-configmap-with-source-and-ref"}, secret)
+		err = c.Get(t.Context(), syncedConfigMapSecretKey(secretsNamespace, "test", "synced-configmap-with-source-and-ref"), secret)
 		require.NoError(t, err)
 	})
 
@@ -289,10 +292,9 @@ func Test_ConfigMapSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-cfgmap-configmap-with-other-ref-not-synced"}, secret)
+		err = c.Get(t.Context(), syncedConfigMapSecretKey(secretsNamespace, "test", "configmap-with-other-ref-not-synced"), secret)
 
-		require.Error(t, err)
-		require.ErrorContains(t, err, "secrets \"test-cfgmap-configmap-with-other-ref-not-synced\" not found")
+		require.True(t, k8sErrors.IsNotFound(err))
 	})
 
 	t.Run("create synced secret for source secret that is referenced by a Cilium Gateway resource", func(t *testing.T) {
@@ -306,7 +308,71 @@ func Test_ConfigMapSync_Reconcile(t *testing.T) {
 		require.True(t, resultHasResync(result))
 
 		secret := &corev1.Secret{}
-		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-cfgmap-configmap-referenced-not-synced"}, secret)
+		err = c.Get(t.Context(), syncedConfigMapSecretKey(secretsNamespace, "test", "configmap-referenced-not-synced"), secret)
 		require.NoError(t, err)
+		requireSourceAnnotations(t, secret, secretsync.SourceKindConfigMap, "test", "configmap-referenced-not-synced")
 	})
+}
+
+func Test_ConfigMapSync_Reconcile_SourceNameCollision(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	first := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "ca-prod"},
+		Data:       map[string]string{"ca.crt": "first"},
+	}
+	second := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a-ca", Name: "prod"},
+		Data:       map[string]string{"ca.crt": "second"},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme()).
+		WithObjects(first, second).
+		Build()
+
+	referenced := map[types.NamespacedName]struct{}{
+		{Namespace: first.Namespace, Name: first.Name}:   {},
+		{Namespace: second.Namespace, Name: second.Name}: {},
+	}
+	r := secretsync.NewConfigMapSyncReconciler(c, logger, []*secretsync.ConfigMapSyncRegistration{
+		{
+			RefObjectCheckFunc: func(_ context.Context, _ client.Client, _ *slog.Logger, obj *corev1.ConfigMap) bool {
+				_, ok := referenced[types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}]
+				return ok
+			},
+			SecretsNamespace: secretsNamespace,
+		},
+	}, time.Minute, 0.1)
+
+	for _, source := range []*corev1.ConfigMap{first, second} {
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
+			NamespacedName: types.NamespacedName{Namespace: source.Namespace, Name: source.Name},
+		})
+		require.NoError(t, err)
+		require.True(t, resultHasResync(result))
+	}
+
+	firstSynced := &corev1.Secret{}
+	err := c.Get(t.Context(), syncedConfigMapSecretKey(secretsNamespace, first.Namespace, first.Name), firstSynced)
+	require.NoError(t, err)
+	require.Equal(t, []byte("first"), firstSynced.Data["ca.crt"])
+	requireSourceAnnotations(t, firstSynced, secretsync.SourceKindConfigMap, first.Namespace, first.Name)
+
+	secondSynced := &corev1.Secret{}
+	err = c.Get(t.Context(), syncedConfigMapSecretKey(secretsNamespace, second.Namespace, second.Name), secondSynced)
+	require.NoError(t, err)
+	require.Equal(t, []byte("second"), secondSynced.Data["ca.crt"])
+	requireSourceAnnotations(t, secondSynced, secretsync.SourceKindConfigMap, second.Namespace, second.Name)
+	require.NotEqual(t, firstSynced.Name, secondSynced.Name)
+}
+
+func syncedConfigMapSecretKey(secretsNamespace, sourceNamespace, sourceName string) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: secretsNamespace,
+		Name: syncnames.SyncedConfigMapSecretName(types.NamespacedName{
+			Namespace: sourceNamespace,
+			Name:      sourceName,
+		}),
+	}
 }
