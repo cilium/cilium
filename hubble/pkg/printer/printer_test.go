@@ -857,6 +857,35 @@ func Test_getFlowType(t *testing.T) {
 			want: "policy-verdict:none INGRESS",
 		},
 		{
+			name: "Drop with extended reason",
+			args: args{
+				f: &flowpb.Flow{
+					Verdict: flowpb.Verdict_DROPPED,
+					EventType: &flowpb.CiliumEventType{
+						Type:    monitorAPI.MessageTypeDrop,
+						SubType: 132,
+					},
+					DropReasonDesc:    flowpb.DropReason_INVALID_SOURCE_IP,
+					ExtError:          7,
+					ExtDropReasonDesc: "Invalid source ip, 7",
+				},
+			},
+			want: "Invalid source ip, 7",
+		},
+		{
+			name: "Drop without extended reason falls back to subtype",
+			args: args{
+				f: &flowpb.Flow{
+					Verdict: flowpb.Verdict_DROPPED,
+					EventType: &flowpb.CiliumEventType{
+						Type:    monitorAPI.MessageTypeDrop,
+						SubType: 169,
+					},
+				},
+			},
+			want: monitorAPI.DropReason(169),
+		},
+		{
 			name: "SockLB pre-translate",
 			args: args{
 				f: &flowpb.Flow{
