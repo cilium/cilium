@@ -61,6 +61,8 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
+	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
+
 	return cfg
 }
 
@@ -107,6 +109,8 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
+
+	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
 
 	return cfg
 }
@@ -174,6 +178,8 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
+
+	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
 
 	switch link.(type) {
 	case *netlink.Bridge:
