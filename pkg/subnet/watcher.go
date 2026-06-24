@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	subnetTable "github.com/cilium/cilium/pkg/maps/subnet"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 type watcherParams struct {
@@ -25,6 +26,7 @@ type watcherParams struct {
 	SubnetTable        statedb.RWTable[subnetTable.SubnetTableEntry]
 	DB                 *statedb.DB
 	JobGroup           job.Group
+	NodeHandler        node.Handler `optional:"true"`
 }
 
 type SubnetWatcher struct {
@@ -33,6 +35,7 @@ type SubnetWatcher struct {
 	subnetTable        statedb.RWTable[subnetTable.SubnetTableEntry]
 	db                 *statedb.DB
 	jobGroup           job.Group
+	nodeHandler        node.Handler
 }
 
 func newSubnetWatcher(params watcherParams) *SubnetWatcher {
@@ -42,11 +45,12 @@ func newSubnetWatcher(params watcherParams) *SubnetWatcher {
 		subnetTable:        params.SubnetTable,
 		db:                 params.DB,
 		jobGroup:           params.JobGroup,
+		nodeHandler:        params.NodeHandler,
 	}
 }
 
 func (w *SubnetWatcher) processSubnetConfigEntry(entry dynamicconfig.DynamicConfig) error {
-	subnetEntries, err := decodeJson(entry.Value)
+	subnetEntries, err := DecodeTopology(entry.Value)
 	if err != nil {
 		return fmt.Errorf("failed to decode subnet-topology dynamic config value: %w", err)
 	}
@@ -65,10 +69,16 @@ func (w *SubnetWatcher) processSubnetConfigEntry(entry dynamicconfig.DynamicConf
 		}
 	}
 	wTx.Commit()
+
+	// Trigger re-evaluation of all node routes based on new topology
+	if w.nodeHandler != nil {
+		w.nodeHandler.AllNodeValidateImplementation()
+	}
+
 	return nil
 }
 
-// decodeJson decodes a JSON string into a slice of SubnetTableEntry.
+// DecodeTopology decodes a topology string into a slice of SubnetTableEntry.
 // Ex: data=10.0.0.1/24,10.10.0.1/24;10.20.0.1/24;2001:0db8:85a3::/64
 // would decode into four SubnetTableEntry objects.
 // | Key | Value |
@@ -77,7 +87,7 @@ func (w *SubnetWatcher) processSubnetConfigEntry(entry dynamicconfig.DynamicConf
 // | 10.10.0.1/24 | 1 |
 // | 10.20.0.1/24 | 2 |
 // | 2001:0db8:85a3::/64 | 3 |
-func decodeJson(data string) ([]subnetTable.SubnetTableEntry, error) {
+func DecodeTopology(data string) ([]subnetTable.SubnetTableEntry, error) {
 	data = strings.TrimSpace(data)
 	if data == "" {
 		return []subnetTable.SubnetTableEntry{}, nil

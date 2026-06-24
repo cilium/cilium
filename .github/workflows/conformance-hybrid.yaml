@@ -1,0 +1,243 @@
+name: Conformance Kind Hybrid
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  kind_config: .github/kind-config-dual.yaml
+
+jobs:
+  installation-and-connectivity:
+    name: "Installation and Connectivity Test"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      job_name: "Installation and Connectivity Test"
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Add external docker network
+        uses: ./.github/actions/kind-external-network
+        id: external_network
+
+      - name: Create kind cluster
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Add external targets to kind cluster
+        uses: ./.github/actions/kind-external-targets
+        id: external_targets
+        with:
+          kind_network: ${{ steps.external_network.outputs.kind_network }}
+          ipv4_external_target: ${{ steps.external_network.outputs.ipv4_external_target }}
+          ipv4_other_external_target: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+          ipv6_external_target: ${{ steps.external_network.outputs.ipv6_external_target }}
+          ipv6_other_external_target: ${{ steps.external_network.outputs.ipv6_other_external_target }}
+
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          hubble: false
+          include-unsafe-tests: true
+          test-concurrency: 5
+          external-cidr: ${{ steps.external_network.outputs.ipv4_external_cidr }}
+          external-cidrv6: ${{ steps.external_network.outputs.ipv6_external_cidr }}
+          external-ip: ${{ steps.external_network.outputs.ipv4_external_target }}
+          external-ipv6: ${{ steps.external_network.outputs.ipv6_external_target }}
+          external-other-ip: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+          external-other-ipv6: ${{ steps.external_network.outputs.ipv6_other_external_target }}
+          external-other-target: ${{ steps.external_targets.outputs.other_external_target_name }}
+          external-target: ${{ steps.external_targets.outputs.external_target_name }}
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          # Note: On Kind, we install Cilium with HostPort (portmap CNI chaining) enabled,
+          # to ensure coverage of that feature in cilium connectivity test
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=hubble.relay.enabled=true
+            --helm-set=cni.chainingMode=portmap \
+            --helm-set-string=kubeProxyReplacement=true \
+            --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set=tls.readSecretsOnlyFromSecretsNamespace=true \
+            --helm-set=tls.secretSync.enabled=true \
+            --helm-set=envoy.enabled=false \
+            --helm-set=ipv6.enabled=true \
+            --helm-set-string=routingMode=hybrid \
+            --helm-set-string=tunnelProtocol=vxlan \
+            --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 \
+            --wait=false"
+          # Note: subnetTopology is passed directly on the cilium install line below
+          # rather than round-tripped through $GITHUB_OUTPUT, because its value
+          # contains ';' (group separator: distinct identity per node subnet) which
+          # cannot be safely expanded through the unquoted echo used here.
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
+            --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \
+            --external-target-ipv6-capable"
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@3ce83aa3b4ea3ce6d97023c4d83c22b73a4ed3b4 # v0.19.2
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --helm-set-string=subnetTopology='10.244.0.0/24;10.244.1.0/24'
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait --interactive=false
+          kubectl -n kube-system get pods
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run connectivity test
+        id: run-tests
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --curl-parallel 3 \
+            --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
+
+      - name: Validate hybrid native routing path
+        if: ${{ steps.install-cilium.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # subnetTopology covers both nodes' pod /24s, so cross-node pod-to-pod
+          # traffic must take the native (non-VXLAN) path.
+          # Native:  pod -> L3 router -> pod, one TTL decrement => TTL=62 (from default 64).
+          # Tunnel:  inner TTL preserved across VXLAN encap, one decrement     => TTL=63.
+
+          mapfile -t NODES < <(kubectl get nodes --no-headers -o custom-columns=":metadata.name" | sort)
+          if [ "${#NODES[@]}" -lt 2 ]; then
+            echo "FAIL: need >= 2 nodes, got ${#NODES[@]}"
+            exit 1
+          fi
+          SRC_NODE="${NODES[0]}"
+          DST_NODE="${NODES[1]}"
+          echo "src node=${SRC_NODE} dst node=${DST_NODE}"
+
+          for i in 0 1; do
+            node="$( [ "${i}" = 0 ] && echo "${SRC_NODE}" || echo "${DST_NODE}" )"
+            kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: hybrid-validate-${i}
+            labels: { app: hybrid-validate }
+          spec:
+            nodeName: ${node}
+            containers:
+            - name: nettool
+              image: nicolaka/netshoot:latest
+              command: ["sleep", "infinity"]
+            terminationGracePeriodSeconds: 0
+          EOF
+          done
+          kubectl wait --for=condition=Ready pod/hybrid-validate-0 pod/hybrid-validate-1 --timeout=180s
+
+          DST_IP=$(kubectl get pod hybrid-validate-1 -o jsonpath='{.status.podIP}')
+          SRC_CILIUM=$(kubectl -n kube-system get pods -l k8s-app=cilium \
+            -o jsonpath="{.items[?(@.spec.nodeName=='${SRC_NODE}')].metadata.name}")
+
+          vxlan_tx() {
+            kubectl -n kube-system exec "${SRC_CILIUM}" -- \
+              sh -c "cat /sys/class/net/cilium_vxlan/statistics/tx_packets 2>/dev/null || echo 0"
+          }
+
+          VXLAN_BEFORE=$(vxlan_tx)
+          PING_OUT=$(kubectl exec hybrid-validate-0 -- ping -c 3 -W 5 "${DST_IP}" 2>&1)
+          echo "${PING_OUT}"
+          VXLAN_AFTER=$(vxlan_tx)
+
+          LOSS=$(echo "${PING_OUT}" | grep -oP '[0-9]+(?=% packet loss)' | head -1)
+          TTL=$(echo "${PING_OUT}" | grep -oP 'ttl=\K[0-9]+' | head -1)
+          DELTA=$(( VXLAN_AFTER - VXLAN_BEFORE ))
+          echo "result: loss=${LOSS}% ttl=${TTL} vxlan_tx_delta=${DELTA}"
+
+          if [ "${LOSS}" != "0" ]; then
+            echo "FAIL: cross-node ping had ${LOSS}% loss"
+            exit 1
+          fi
+          if [ "${TTL}" != "62" ] && [ "${TTL}" != "61" ]; then
+            echo "FAIL: TTL=${TTL}, expected 61-62 for native routing"
+            exit 1
+          fi
+          if [ "${DELTA}" -ne 0 ]; then
+            echo "FAIL: cilium_vxlan tx_packets grew by ${DELTA}, expected 0 for native routing"
+            exit 1
+          fi
+          echo "PASS: native routing verified (TTL=${TTL}, vxlan_tx_delta=${DELTA})"
+
+          # Diagnostic: dump BPF subnet map.
+          kubectl -n kube-system exec "${SRC_CILIUM}" -- \
+            sh -c "bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_subnet_map 2>/dev/null || true"
+
+      - name: Run common post steps
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}

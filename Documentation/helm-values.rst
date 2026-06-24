@@ -3829,7 +3829,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`routingMode`
-     - Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel
+     - Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel   - hybrid
      - string
      - ``"tunnel"``
    * - :spelling:ignore:`scheduling`
@@ -3980,6 +3980,10 @@
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - :spelling:ignore:`subnetTopology`
+     - Subnet topology configuration, only used when routingMode is set to hybrid. Specifies which CIDR subnets have direct (native) connectivity to each other. CIDRs separated by commas share native connectivity (same connectivity group). Semicolons separate independent connectivity groups. Traffic is routed natively only if both source and destination IPs match CIDRs in the same connectivity group. All other traffic is encapsulated (tunneled), including traffic where either IP does not match any configured CIDR. Example: "10.0.0.0/24,10.10.0.0/24;10.20.0.0/24" defines two groups: group 1 contains 10.0.0.0/24 and 10.10.0.0/24 (native between them), group 2 contains 10.20.0.0/24 (native within itself). Cross-group traffic is tunneled. If left empty while routingMode is hybrid, all traffic is encapsulated (same as tunnel mode).
+     - string
+     - ``""``
    * - :spelling:ignore:`synchronizeK8sNodes`
      - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
      - bool
