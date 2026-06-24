@@ -81,6 +81,7 @@ type Driver struct {
 	db                     *statedb.DB
 	resourceNetworkConfigs statedb.Table[resourceNetworkConfig]
 	localNodeStore         *node.LocalNodeStore
+	hostProcPath           string
 }
 
 type allocation struct {

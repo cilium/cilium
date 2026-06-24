@@ -271,15 +271,30 @@ func (ay *directSysctl) ReadInt(name []string) (int64, error) {
 // parameterElemRx matches an element of a sysctl parameter.
 var parameterElemRx = regexp.MustCompile(`(?i)\A[-0-9_a-z\.]+\z`)
 
+// ValidateParameter checks that every element of a sysctl parameter name is
+// well-formed (non-empty and limited to the allowed character set). It is the
+// canonical validation used when building the /proc/sys path, exported so other
+// packages can reject malformed sysctl settings early instead of duplicating
+// the rule.
+func ValidateParameter(name []string) error {
+	if len(name) == 0 {
+		return fmt.Errorf("empty sysctl parameter")
+	}
+	for _, elem := range name {
+		if !parameterElemRx.MatchString(elem) {
+			return fmt.Errorf("invalid sysctl parameter: %q", strings.Join(name, "."))
+		}
+	}
+	return nil
+}
+
 // parameterPath returns the path to the sysctl file for parameter name.
 //
 // It should by used directly only by binaries that do not rely on the
 // hive and cells framework, like cilium-cni and cilium-health.
 func parameterPath(procFs string, name []string) (string, error) {
-	for _, elem := range name {
-		if !parameterElemRx.MatchString(elem) {
-			return "", fmt.Errorf("invalid sysctl parameter: %q", strings.Join(name, "."))
-		}
+	if err := ValidateParameter(name); err != nil {
+		return "", err
 	}
 	return filepath.Join(append([]string{procFs, "sys"}, name...)...), nil
 }

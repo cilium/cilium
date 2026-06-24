@@ -1,0 +1,119 @@
+hive start
+
+k8s/add network-config.yaml claim.yaml
+driver/prepare-resource-claims default/test-claim
+
+k8s/get resource.k8s.io.v1.resourceclaims default/test-claim -o actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<timestamp>"' actual.yaml
+cmp actual.yaml expected.yaml
+
+driver/unprepare-resource-claims default/test-claim
+
+hive stop
+
+-- network-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumResourceNetworkConfig
+metadata:
+  name: test-network-config
+spec:
+- nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: test-local-node
+  sysctl:
+    net.core.somaxconn: "500"
+    net.ipv4.conf.all.rp_filter: "0"
+  interfaceSysctl:
+    ipv4:
+      arp_filter: "1"
+    ipv6:
+      disable_ipv6: "0"
+
+-- claim.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-claim
+  namespace: default
+  uid: ba3c7922-9a56-44eb-a96f-84ee8b74dd23
+spec: {}
+status:
+  allocation:
+    devices:
+      config:
+      - source: FromClaim
+        requests:
+        - test-request
+        opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            networkConfig: test-network-config
+      results:
+      - device: test-device-1
+        driver: test.cilium.k8s.io
+        pool: test-device-1-pool
+        request: test-request
+  reservedFor:
+  - resource: pods
+    name: test-pod
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
+
+-- expected.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-claim
+  namespace: default
+spec:
+  devices:
+    requests: null
+status:
+  allocation:
+    devices:
+      config:
+      - opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            networkConfig: test-network-config
+        requests:
+        - test-request
+        source: FromClaim
+      results:
+      - device: test-device-1
+        driver: test.cilium.k8s.io
+        pool: test-device-1-pool
+        request: test-request
+  devices:
+  - conditions:
+    - lastTransitionTime: "<timestamp>"
+      message: Device is ready
+      reason: Ready
+      status: "True"
+      type: Ready
+    data:
+      Config:
+        interfaceSysctlIPv4:
+          arp_filter: "1"
+        interfaceSysctlIPv6:
+          disable_ipv6: "0"
+        ipv4Addr: ""
+        ipv6Addr: ""
+        networkConfig: test-network-config
+        sysctl:
+          net.core.somaxconn: "500"
+          net.ipv4.conf.all.rp_filter: "0"
+      Dev:
+        Flags: ""
+        HWAddr: ""
+        MTU: 0
+        Name: test-device-1
+      Manager: '"dummy"'
+    device: test-device-1
+    driver: test.cilium.k8s.io
+    networkData:
+      interfaceName: test-device-1
+    pool: test-device-1-pool
+  reservedFor:
+  - name: test-pod
+    resource: pods
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
