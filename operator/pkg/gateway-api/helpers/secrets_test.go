@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package helpers
+package helpers_test
 
 import (
 	"testing"
@@ -16,32 +16,95 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 )
 
+const testGatewayControllerName = "io.cilium/gateway-controller"
+
+func withSecretIndexes(b *fake.ClientBuilder) *fake.ClientBuilder {
+	return b.
+		WithIndex(&gatewayv1.Gateway{}, helpers.GatewaySecretIndex, indexers.IndexGatewayBySecret).
+		WithIndex(&gatewayv1.ListenerSet{}, helpers.ListenerSetSecretIndex, indexers.IndexListenerSetBySecret)
+}
+
 func Test_getGatewaysForSecret(t *testing.T) {
-	c := fake.NewClientBuilder().WithScheme(TestScheme(AllOptionalKinds)).WithObjects(testhelpers.ControllerTestFixture...).Build()
+	c := withSecretIndexes(fake.NewClientBuilder().WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).WithObjects(testhelpers.ControllerTestFixture...)).Build()
 	logger := hivetest.Logger(t)
 
 	t.Run("secret is used in gateway", func(t *testing.T) {
-		gwList := GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
+		gwList := helpers.GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "tls-secret",
 				Namespace: "default",
 			},
-		}, logger)
+		}, testGatewayControllerName, logger)
 
 		require.Len(t, gwList, 1)
 		require.Equal(t, "valid-gateway", gwList[0].Name)
 	})
 
 	t.Run("secret is not used in gateway", func(t *testing.T) {
-		gwList := GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
+		gwList := helpers.GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "tls-secret-not-used",
 				Namespace: "default",
 			},
-		}, logger)
+		}, testGatewayControllerName, logger)
+
+		require.Empty(t, gwList)
+	})
+
+	t.Run("secret is used only in gateway for different controller", func(t *testing.T) {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "third-party-secret",
+				Namespace: "default",
+			},
+			Type: corev1.SecretTypeTLS,
+		}
+		gwc := &gatewayv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "third-party",
+			},
+			Spec: gatewayv1.GatewayClassSpec{
+				ControllerName: "example.com/third-party-controller",
+			},
+		}
+		gw := &gatewayv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "third-party-gateway",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.GatewaySpec{
+				GatewayClassName: "third-party",
+				Listeners: []gatewayv1.Listener{
+					{
+						Name:     "https",
+						Port:     443,
+						Protocol: gatewayv1.HTTPSProtocolType,
+						TLS: &gatewayv1.ListenerTLSConfig{
+							CertificateRefs: []gatewayv1.SecretObjectReference{
+								{Name: "third-party-secret"},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		c := withSecretIndexes(fake.NewClientBuilder().
+			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			WithObjects(secret, gwc, gw)).
+			Build()
+
+		gwList := helpers.GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "third-party-secret",
+				Namespace: "default",
+			},
+		}, testGatewayControllerName, logger)
 
 		require.Empty(t, gwList)
 	})
@@ -97,32 +160,32 @@ func Test_getGatewaysForSecretInListenerSet(t *testing.T) {
 		},
 	}
 
-	c := fake.NewClientBuilder().
-		WithScheme(TestScheme(AllOptionalKinds)).
+	c := withSecretIndexes(fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 		WithObjects(testhelpers.ControllerTestFixture...).
-		WithObjects(lsSecret, gw, ls).
+		WithObjects(lsSecret, gw, ls)).
 		Build()
 	logger := hivetest.Logger(t)
 
 	t.Run("secret referenced from ListenerSet resolves to parent Gateway", func(t *testing.T) {
-		gwList := GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
+		gwList := helpers.GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ls-tls-secret",
 				Namespace: "default",
 			},
-		}, logger)
+		}, testGatewayControllerName, logger)
 
 		require.Len(t, gwList, 1)
 		require.Equal(t, "parent-gateway", gwList[0].Name)
 	})
 
 	t.Run("secret not referenced from any ListenerSet", func(t *testing.T) {
-		gwList := GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
+		gwList := helpers.GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "unknown-secret",
 				Namespace: "default",
 			},
-		}, logger)
+		}, testGatewayControllerName, logger)
 
 		require.Empty(t, gwList)
 	})
@@ -197,20 +260,20 @@ func Test_getGatewaysForSecretFromBothGatewayAndListenerSet(t *testing.T) {
 		},
 	}
 
-	c := fake.NewClientBuilder().
-		WithScheme(TestScheme(AllOptionalKinds)).
+	c := withSecretIndexes(fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 		WithObjects(testhelpers.ControllerTestFixture...).
-		WithObjects(sharedSecret, gwA, gwB, ls).
+		WithObjects(sharedSecret, gwA, gwB, ls)).
 		Build()
 	logger := hivetest.Logger(t)
 
 	t.Run("returns both gateways when secret is referenced from Gateway and ListenerSet", func(t *testing.T) {
-		gwList := GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
+		gwList := helpers.GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "shared-secret",
 				Namespace: "default",
 			},
-		}, logger)
+		}, testGatewayControllerName, logger)
 
 		require.Len(t, gwList, 2)
 		names := []string{gwList[0].Name, gwList[1].Name}
@@ -276,20 +339,20 @@ func Test_getGatewaysForSecretDeduplication(t *testing.T) {
 		},
 	}
 
-	c := fake.NewClientBuilder().
-		WithScheme(TestScheme(AllOptionalKinds)).
+	c := withSecretIndexes(fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 		WithObjects(testhelpers.ControllerTestFixture...).
-		WithObjects(sharedSecret, gw, ls).
+		WithObjects(sharedSecret, gw, ls)).
 		Build()
 	logger := hivetest.Logger(t)
 
 	t.Run("same gateway is not duplicated when secret is referenced from both Gateway and ListenerSet", func(t *testing.T) {
-		gwList := GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
+		gwList := helpers.GetGatewaysForSecret(t.Context(), c, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "dedup-secret",
 				Namespace: "default",
 			},
-		}, logger)
+		}, testGatewayControllerName, logger)
 
 		require.Len(t, gwList, 1)
 		require.Equal(t, "dedup-gateway", gwList[0].Name)

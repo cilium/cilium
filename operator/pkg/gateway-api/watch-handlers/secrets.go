@@ -16,9 +16,9 @@ import (
 )
 
 // EnqueueRequestForTLSSecret returns an event handler for any changes with TLS secrets
-func EnqueueRequestForTLSSecret(c client.Client, logger *slog.Logger) handler.EventHandler {
+func EnqueueRequestForTLSSecret(c client.Client, controllerName string, logger *slog.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
-		gateways := helpers.GetGatewaysForSecret(ctx, c, a, logger)
+		gateways := helpers.GetGatewaysForSecret(ctx, c, a, controllerName, logger)
 		reqs := make([]reconcile.Request, 0, len(gateways))
 		for _, gw := range gateways {
 			reqs = append(reqs, reconcile.Request{

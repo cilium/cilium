@@ -91,6 +91,11 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ImplementationGatewayIndex, err)
 	}
 
+	// Index Gateways by referenced TLS Secrets
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, helpers.GatewaySecretIndex, indexers.IndexGatewayBySecret); err != nil {
+		return fmt.Errorf("failed to setup field indexer %q: %w", helpers.GatewaySecretIndex, err)
+	}
+
 	// Add indexes for TLSRoutes
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
 		indexers.BackendServiceTLSRouteIndex: indexers.GenerateIndexerTLSRoutebyBackendService(r.Client, r.logger),
@@ -146,6 +151,10 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ListenerSetGatewayIndex, err)
 		}
 
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.ListenerSet{}, helpers.ListenerSetSecretIndex, indexers.IndexListenerSetBySecret); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", helpers.ListenerSetSecretIndex, err)
+		}
+
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.HTTPRouteListenerSetIndex, indexers.IndexHTTPRouteByListenerSet); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.HTTPRouteListenerSetIndex, err)
 		}
@@ -187,8 +196,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.TLSRoute{}, watchhandlers.EnqueueRequestForOwningTLSRoute(r.Client, r.logger, r.controllerName)).
 		// Watch related secrets used to configure TLS
 		Watches(&corev1.Secret{},
-			watchhandlers.EnqueueRequestForTLSSecret(r.Client, r.logger),
-			builder.WithPredicates(predicate.NewPredicateFuncs(predicates.SecretUsedInGatewayFn(r.Client, r.logger)))).
+			watchhandlers.EnqueueRequestForTLSSecret(r.Client, r.controllerName, r.logger),
+			builder.WithPredicates(predicate.NewPredicateFuncs(predicates.SecretUsedInGatewayFn(r.Client, r.controllerName, r.logger)))).
 		// Watch related namespace in allowed namespaces
 		Watches(&corev1.Namespace{},
 			watchhandlers.EnqueueRequestForAllowedNamespace(r.Client, r.logger)).

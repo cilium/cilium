@@ -72,14 +72,7 @@ func (h *SecretSyncHandler) EnqueueTLSSecrets() handler.EventHandler {
 }
 
 func (h *SecretSyncHandler) IsReferencedByGateway(ctx context.Context, _ client.Client, _ *slog.Logger, obj *corev1.Secret) bool {
-	gateways := helpers.GetGatewaysForSecret(ctx, h.client, obj, h.logger)
-	for _, gw := range gateways {
-		if helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
-			return true
-		}
-	}
-
-	return false
+	return len(helpers.GetGatewaysForSecret(ctx, h.client, obj, h.controllerName, h.logger)) > 0
 }
 
 // Enqueue BackendTLSPolicyConfigmaps produces a handler.EventHandler that, when it is passed a
