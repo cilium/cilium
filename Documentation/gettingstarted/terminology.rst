@@ -20,8 +20,8 @@ set of resources as they allow for arbitrary grouping and creation of sets.
 Whenever something needs to be described, addressed or selected, it is done
 based on labels:
 
-- `Endpoints` are assigned labels as derived from the container runtime,
-  orchestration system, or other sources.
+- `Endpoints` are assigned labels derived from Kubernetes, Cilium-reserved
+  identities, or other Cilium-managed sources.
 - `Network policies` select pairs of `endpoints` which are allowed to
   communicate based on labels. The policies themselves are identified by labels
   as well.
@@ -45,23 +45,17 @@ selector.
 Label Source
 ------------
 
-A label can be derived from various sources. For example, an `endpoint`_ will
-derive the labels associated to the container by the local container runtime as
-well as the labels associated with the pod as provided by Kubernetes. As these
-two label namespaces are not aware of each other, this may result in
-conflicting label keys.
+A label can be derived from various sources. For example, an `endpoint`_ can
+derive labels from the Kubernetes pod associated with it. Different sources can
+use overlapping label keys.
 
 To resolve this potential conflict, Cilium prefixes all label keys with
 ``source:`` to indicate the source of the label when importing labels, e.g.
-``k8s:role=frontend``, ``container:user=joe``, ``k8s:role=backend``. This means
-that when you run a Docker container using ``docker run [...] -l foo=bar``, the
-label ``container:foo=bar`` will appear on the Cilium endpoint representing the
-container. Similarly, a Kubernetes pod started with the label ``foo: bar``
-will be represented with a Cilium endpoint associated with the label
-``k8s:foo=bar``. A unique name is allocated for each potential source. The
-following label sources are currently supported:
+``k8s:role=frontend``. A Kubernetes pod started with the label ``foo: bar`` will
+be represented with a Cilium endpoint associated with the label ``k8s:foo=bar``.
+A unique name is allocated for each potential source. The following label
+sources are currently supported:
 
-- ``container:`` for labels derived from the local container runtime
 - ``k8s:`` for labels derived from Kubernetes
 - ``reserved:`` for special reserved labels, see :ref:`reserved_labels`.
 - ``unspec:`` for labels with unspecified source
@@ -108,43 +102,23 @@ an individual cluster node.
 Endpoint Metadata
 -----------------
 
-An endpoint automatically derives metadata from the application containers
-associated with the endpoint. The metadata can then be used to identify the
-endpoint for security/policy, load-balancing and routing purposes.
+An endpoint automatically derives metadata from the workload associated with
+the endpoint. The metadata can then be used to identify the endpoint for
+security/policy, load-balancing and routing purposes.
 
-The source of the metadata will depend on the orchestration system and
-container runtime in use. The following metadata retrieval mechanisms are
-currently supported:
+The following metadata retrieval mechanism is currently supported:
 
-+---------------------+---------------------------------------------------+
-| System              | Description                                       |
-+=====================+===================================================+
-| Kubernetes          | Pod labels (via k8s API)                          |
-+---------------------+---------------------------------------------------+
-| containerd (Docker) | Container labels (via Docker API)                 |
-+---------------------+---------------------------------------------------+
++------------+---------------------------------------------------+
+| System     | Description                                       |
++============+===================================================+
+| Kubernetes | Pod labels (via k8s API)                          |
++------------+---------------------------------------------------+
 
 Metadata is attached to endpoints in the form of `labels`.
 
-The following example launches a container with the label ``app=benchmark``
-which is then associated with the endpoint. The label is prefixed with
-``container:`` to indicate that the label was derived from the container
-runtime.
-
-.. code-block:: shell-session
-
-    $ docker run --net cilium -d -l app=benchmark tgraf/netperf
-    aaff7190f47d071325e7af06577f672beff64ccc91d2b53c42262635c063cf1c
-    $ cilium-dbg endpoint list
-    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4            STATUS
-               ENFORCEMENT
-    62006      Disabled      257        container:app=benchmark       f00d::a00:20f:0:f236   10.15.116.202   ready
-
-
-An endpoint can have metadata associated from multiple sources. A typical
-example is a Kubernetes cluster which uses containerd as the container runtime.
-Endpoints will derive Kubernetes pod labels (prefixed with the ``k8s:`` source
-prefix) and containerd labels (prefixed with ``container:`` source prefix).
+For example, a Kubernetes pod started with the label ``app=benchmark`` is
+represented by a Cilium endpoint associated with the label
+``k8s:app=benchmark``.
 
 .. _identity:
 
@@ -167,11 +141,11 @@ What is an Identity?
 --------------------
 
 The identity of an endpoint is derived based on the `labels` associated with
-the pod or container which are derived to the `endpoint`_. When a pod or
-container is started, Cilium will create an `endpoint`_ based on the event
-received by the container runtime to represent the pod or container on the
-network. As a next step, Cilium will resolve the identity of the `endpoint`_
-created. Whenever the `labels` of the pod or container change, the identity is
+the pod or workload represented by the `endpoint`_. When a pod or workload is
+started, Cilium will create an `endpoint`_ based on the event received from the
+orchestration system to represent it on the network. As a next step, Cilium
+will resolve the identity of the `endpoint`_ created.
+Whenever the `labels` of the pod or workload change, the identity is
 reconfirmed and automatically modified as required.
 
 .. _security relevant labels:
@@ -179,9 +153,9 @@ reconfirmed and automatically modified as required.
 Security Relevant Labels
 ------------------------
 
-Not all `labels` associated with a container or pod are meaningful when
+Not all `labels` associated with a pod or workload are meaningful when
 deriving the `identity`. Labels may be used to store metadata such as the
-timestamp when a container was launched. Cilium requires to know which labels
+timestamp when a workload was launched. Cilium requires to know which labels
 are meaningful and are subject to being considered when deriving the identity.
 For this purpose, the user is required to specify a list of string prefixes of
 meaningful labels. The standard behavior is to include all labels which start
@@ -303,4 +277,3 @@ node address is printed out when the ``cilium-agent`` starts:
     Node-IPv6: f00d::ac10:14:0:1
     External-Node IPv4: 172.16.0.20
     Internal-Node IPv4: 10.200.28.238
-

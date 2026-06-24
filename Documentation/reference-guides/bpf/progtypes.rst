@@ -762,7 +762,7 @@ given problem to solve.
   aggregation rather than pushing everything up to user space as well as
   custom annotations for packets pushed into the ring buffer. The latter is
   also heavily used in Cilium where packet drops can be further annotated
-  to correlate container labels and reasons for why a given packet had to
+  to correlate endpoint labels and reasons for why a given packet had to
   be dropped (such as due to policy violation) in order to provide a richer
   context.
 
