@@ -1465,3 +1465,67 @@ func TestReplaceByResource(t *testing.T) {
 	assert.True(t, sc.selectors.Empty())
 	assert.Equal(t, 2, oldRuleCnt)
 }
+
+func TestRepositorySnapshot(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(t, logger).withIDs(ruleTestIDs)
+	orig := td.repo
+
+	resource := ipcachetypes.ResourceID("foo")
+
+	r1 := policytypes.PolicyEntry{
+		Verdict:     types.Allow,
+		Subject:     labelSelectorA,
+		Labels:      labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, "r1", labels.LabelSourceAny)},
+		Ingress:     true,
+		L3:          types.ToSelectors(endpointSelectorC),
+		DefaultDeny: true,
+	}
+
+	r2 := policytypes.PolicyEntry{
+		Verdict:     types.Deny,
+		Subject:     types.NewLabelSelector(endpointSelectorB),
+		Labels:      labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, "r2", labels.LabelSourceAny)},
+		Ingress:     true,
+		L3:          types.ToSelectors(endpointSelectorC),
+		DefaultDeny: true,
+	}
+	orig.ReplaceByResource(policytypes.PolicyEntries{&r1}, resource)
+
+	// Resolve policy for an endpoint
+	selPolicy, err := td.repo.resolvePolicyLocked(idA)
+	require.NoError(t, err)
+	defer selPolicy.Detach()
+	epPolicy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	epPolicy.Ready()
+
+	// Now, take a snapshot.
+	snap, _ := orig.Snapshot(logger, nil, nil)
+
+	assert.Equal(t, orig.selectorCache.getIdentities(), snap.selectorCache.getIdentities())
+	beforeRules := orig.GetRulesList().Policy
+	assert.Equal(t, beforeRules, snap.GetRulesList().Policy)
+
+	// Add a new identity to the "real" policy engine
+
+	// Ensure that adding a new identity to the "original" does not appear in the second
+	td.addIdentity(fooIdentity)
+	assert.NotEqual(t, orig.selectorCache.getIdentities(), snap.selectorCache.getIdentities())
+
+	// Ensure the cloned selector caches make sense:
+	// - no peer selectors, as we've not yet resolved policy
+	// - one subject selector, as we added a new policy
+	assert.Empty(t, snap.selectorCache.selectors.selectors, 0)
+
+	assert.Len(t, snap.subjectSelectorCache.selectors.selectors, 1)
+	assert.Len(t, orig.subjectSelectorCache.selectors.selectors, 1)
+
+	// Ensure that changing `snap` does not touch `orig`
+	snap.ReplaceByResource(policytypes.PolicyEntries{&r2}, "bar")
+	assert.NotEqual(t, orig.GetRulesList().Policy, snap.GetRulesList().Policy)
+	assert.NotEqual(t, orig.subjectSelectorCache.GetModel(), snap.subjectSelectorCache.GetModel())
+	assert.Len(t, snap.subjectSelectorCache.selectors.selectors, 2)
+	assert.Len(t, orig.subjectSelectorCache.selectors.selectors, 1)
+
+	assert.Equal(t, beforeRules, orig.GetRulesList().Policy)
+}
