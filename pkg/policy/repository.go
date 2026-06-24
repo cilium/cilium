@@ -207,7 +207,6 @@ func (p *Repository) addListLocked(entries types.PolicyEntries) (ruleSlice, uint
 
 func (p *Repository) insert(r *rule) {
 	p.rules[r.key] = r
-	p.metricsManager.AddRule(r.PolicyEntry)
 	namespace := r.key.resource.Namespace()
 	if _, ok := p.rulesByNamespace[namespace]; !ok {
 		p.rulesByNamespace[namespace] = sets.New[ruleKey]()
@@ -221,7 +220,10 @@ func (p *Repository) insert(r *rule) {
 		p.rulesByResource[rid][r.key] = r
 	}
 
-	metrics.Policy.Inc()
+	if p.metricsManager != nil {
+		p.metricsManager.AddRule(r.PolicyEntry)
+		metrics.Policy.Inc()
+	}
 }
 
 func (p *Repository) del(key ruleKey) {
@@ -229,7 +231,6 @@ func (p *Repository) del(key ruleKey) {
 	if r == nil {
 		return
 	}
-	p.metricsManager.DelRule(r.PolicyEntry)
 	delete(p.rules, key)
 	namespace := r.key.resource.Namespace()
 	p.rulesByNamespace[namespace].Delete(key)
@@ -244,7 +245,10 @@ func (p *Repository) del(key ruleKey) {
 			delete(p.rulesByResource, rid)
 		}
 	}
-	metrics.Policy.Dec()
+	if p.metricsManager != nil {
+		p.metricsManager.DelRule(r.PolicyEntry)
+		metrics.Policy.Dec()
+	}
 }
 
 // newRule allocates a CachedSelector for a given rule.
@@ -312,7 +316,9 @@ func (p *Repository) GetRevision() uint64 {
 
 // BumpRevision allows forcing policy regeneration
 func (p *Repository) BumpRevision() uint64 {
-	metrics.PolicyRevision.Inc()
+	if p.metricsManager != nil {
+		metrics.PolicyRevision.Inc()
+	}
 	return p.revision.Add(1)
 }
 
@@ -744,4 +750,44 @@ func RepositoryScriptCmds(p *Repository) map[string]script.Cmd {
 			},
 		),
 	}
+}
+
+// Snapshot returns a repository that is "disconnected" from the rest of the daemon.
+// It includes a static snapshot of the selectorcache and an empty policy cache.
+//
+// It has all existing rules and identities.
+func (p *Repository) Snapshot(logger *slog.Logger, cm certificatemanager.CertificateManager, rt envoypolicy.EnvoyL7RulesTranslator) (*Repository, identity.IdentityMap) {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
+	ids := p.selectorCache.getIdentities()
+
+	out := NewPolicyRepository(
+		logger,
+		ids,
+		cm,
+		rt,
+		identitymanager.NewIDManager(logger),
+		nil, // disable metrics
+	)
+	out.namedPortsGetter = p.namedPortsGetter
+
+	// Insert all rules in to the new policy repository.
+	//
+	// These need to be inserted as if they were coming externally, so selectors
+	// will be allocated in the new selectorcache.
+	for k, r := range p.rules {
+		newRule := out.newRule(r.PolicyEntry, k)
+		out.insert(newRule)
+	}
+
+	return out, ids
+}
+
+// ResolvePolicy directly calculates policy. This should only used be for debug or test code.
+func (p *Repository) ResolvePolicy(securityIdentity *identity.Identity) (SelectorPolicy, error) {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
+	return p.resolvePolicyLocked(securityIdentity)
 }
