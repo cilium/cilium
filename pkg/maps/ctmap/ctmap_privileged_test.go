@@ -1023,18 +1023,34 @@ func populateFakeDataCTMap4(tb testing.TB, m CtMap, size int) map[*CtKey4Global]
 }
 
 func BenchmarkPrivilegedCtGcTcpXL(t *testing.B) {
-	benchmarkCtGc(t, 1<<24) // max size
+	benchmarkCtGc(t, 1<<24, false) // max size
 }
 
 func BenchmarkPrivilegedCtGcTcpL(t *testing.B) {
-	benchmarkCtGc(t, 1<<22)
+	benchmarkCtGc(t, 1<<22, false)
 }
 
 func BenchmarkPrivilegedCtGcTcpM(t *testing.B) {
-	benchmarkCtGc(t, 1<<17)
+	benchmarkCtGc(t, 1<<17, false)
 }
 
-func benchmarkCtGc(t *testing.B, size int) {
+// The *Expired variants populate entries that are already expired at GC time,
+// so GC actually deletes them and the per-entry re-lookup + delete path runs.
+// The non-Expired variants above keep entries live, so GC walks but deletes
+// nothing.
+func BenchmarkPrivilegedCtGcTcpXLExpired(t *testing.B) {
+	benchmarkCtGc(t, 1<<24, true) // max size
+}
+
+func BenchmarkPrivilegedCtGcTcpLExpired(t *testing.B) {
+	benchmarkCtGc(t, 1<<22, true)
+}
+
+func BenchmarkPrivilegedCtGcTcpMExpired(t *testing.B) {
+	benchmarkCtGc(t, 1<<17, true)
+}
+
+func benchmarkCtGc(t *testing.B, size int, expireAll bool) {
 	for t.Loop() {
 		t.StopTimer()
 		setupCTMap(t)
@@ -1082,6 +1098,11 @@ func benchmarkCtGc(t *testing.B, size int) {
 				Packets:  1,
 				Bytes:    216,
 				Lifetime: 2,
+			}
+			if expireAll {
+				// Lifetime 0 < GCFilter.Time (1) below, so GC deletes every
+				// entry and the delete path is exercised for the whole map.
+				ctVal.Lifetime = 0
 			}
 			err = ctMap.Map.Update(ctKey, ctVal)
 			assert.NoError(t, err)
