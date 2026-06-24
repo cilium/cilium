@@ -360,7 +360,7 @@ func TestLabelSelectorFilter(t *testing.T) {
 					{
 						Event: &flowpb.Flow{
 							Source: &flowpb.Endpoint{
-								Labels: []string{"container:foo=bar", "reserved:host"},
+								Labels: []string{"cni:foo=bar", "reserved:host"},
 							},
 						},
 					},
@@ -406,7 +406,7 @@ func TestLabelSelectorFilter(t *testing.T) {
 					{
 						Event: &flowpb.Flow{
 							Source: &flowpb.Endpoint{
-								Labels: []string{"container:foo=bar", "reserved:host"},
+								Labels: []string{"cni:foo=bar", "reserved:host"},
 							},
 						},
 					},

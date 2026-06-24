@@ -13,7 +13,7 @@ func TestLabelArrayListEquals(t *testing.T) {
 	list1 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 		{
 			NewLabel("foo", "bar", LabelSourceAny),
@@ -22,7 +22,7 @@ func TestLabelArrayListEquals(t *testing.T) {
 	list2 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 		{
 			NewLabel("foo", "bar", LabelSourceAny),
@@ -34,13 +34,13 @@ func TestLabelArrayListEquals(t *testing.T) {
 		},
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 	}
 	list4 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 	}
 	list5 := LabelArrayList(nil)
@@ -96,14 +96,14 @@ func TestLabelArrayListSort(t *testing.T) {
 	list1 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 		{
 			NewLabel("aaa", "", LabelSourceReserved),
 		},
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 			NewLabel("xyz", "", LabelSourceAny),
 		},
 		{
@@ -124,11 +124,11 @@ func TestLabelArrayListSort(t *testing.T) {
 		},
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 			NewLabel("xyz", "", LabelSourceAny),
 		},
 		{
@@ -174,11 +174,11 @@ func TestModelsFromLabelArrayListString(t *testing.T) {
 		},
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 			NewLabel("xyz", "", LabelSourceAny),
 		},
 		{
@@ -189,8 +189,8 @@ func TestModelsFromLabelArrayListString(t *testing.T) {
 		{""},
 		{"reserved:aaa"},
 		{"any:env=devel"},
-		{"any:env=devel", "container:user=bob"},
-		{"any:env=devel", "container:user=bob", "any:xyz"},
+		{"any:env=devel", "k8s:user=bob"},
+		{"any:env=devel", "k8s:user=bob", "any:xyz"},
 		{"any:foo=bar"},
 	}
 
@@ -205,7 +205,7 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 	list1 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 		{
 			NewLabel("foo", "bar", LabelSourceAny),
@@ -214,7 +214,7 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 	list2 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 		{
 			NewLabel("foo", "bar", LabelSourceAny),
@@ -226,13 +226,13 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 		},
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 	}
 	list4 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 	}
 	list5 := LabelArrayList(nil)
@@ -240,14 +240,14 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 	list7 := LabelArrayList{
 		{
 			NewLabel("env", "prod", LabelSourceAny),
-			NewLabel("user", "alice", LabelSourceContainer),
+			NewLabel("user", "alice", LabelSourceK8s),
 		},
 	}
 
 	expected1 := LabelArrayList{
 		{
 			NewLabel("env", "devel", LabelSourceAny),
-			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("user", "bob", LabelSourceK8s),
 		},
 		{
 			NewLabel("foo", "bar", LabelSourceAny),
@@ -269,11 +269,11 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 		{name: "two different lists", a: list1, b: list7, expected: LabelArrayList{
 			{
 				NewLabel("env", "devel", LabelSourceAny),
-				NewLabel("user", "bob", LabelSourceContainer),
+				NewLabel("user", "bob", LabelSourceK8s),
 			},
 			{
 				NewLabel("env", "prod", LabelSourceAny),
-				NewLabel("user", "alice", LabelSourceContainer),
+				NewLabel("user", "alice", LabelSourceK8s),
 			},
 			{
 				NewLabel("foo", "bar", LabelSourceAny),
