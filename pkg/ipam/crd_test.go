@@ -19,6 +19,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/ipmasq"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -181,6 +182,56 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	cn.Status.IPAM.ReleaseIPs["1.1.1.3"] = ipamOption.IPAMMarkForRelease
 	sharedNodeStore.updateLocalNodeResource(cn)
 	require.Equal(t, ipamOption.IPAMDoNotRelease, string(cn.Status.IPAM.ReleaseIPs["1.1.1.3"]))
+}
+
+func TestNodeStoreStaticIPStatus(t *testing.T) {
+	newNode := func(tags map[string]string, assigned string) *ciliumv2.CiliumNode {
+		cn := newCiliumNode("node1", 0, 0, 0)
+		cn.Spec.IPAM.StaticIPTags = tags
+		cn.Status.IPAM.AssignedStaticIP = assigned
+		return cn
+	}
+
+	tests := []struct {
+		name                  string
+		ownNode               *ciliumv2.CiliumNode
+		wantRequestedStaticIP bool
+		wantAssignedStaticIP  string
+	}{
+		{
+			name:                  "nil node",
+			ownNode:               nil,
+			wantRequestedStaticIP: false,
+			wantAssignedStaticIP:  "",
+		},
+		{
+			name:                  "no static IP requested",
+			ownNode:               newNode(nil, ""),
+			wantRequestedStaticIP: false,
+			wantAssignedStaticIP:  "",
+		},
+		{
+			name:                  "static IP requested but not yet assigned",
+			ownNode:               newNode(map[string]string{"env": "prod"}, ""),
+			wantRequestedStaticIP: true,
+			wantAssignedStaticIP:  "",
+		},
+		{
+			name:                  "static IP requested and assigned",
+			ownNode:               newNode(map[string]string{"env": "prod"}, "1.2.3.4"),
+			wantRequestedStaticIP: true,
+			wantAssignedStaticIP:  "1.2.3.4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &nodeStore{ownNode: tt.ownNode}
+			requested, assigned := store.staticIPStatus()
+			assert.Equal(t, tt.wantRequestedStaticIP, requested)
+			assert.Equal(t, tt.wantAssignedStaticIP, assigned)
+		})
+	}
 }
 
 type ipMasqMapDummy struct{}
