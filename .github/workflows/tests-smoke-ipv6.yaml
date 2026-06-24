@@ -64,35 +64,9 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
-  check_changes:
-    name: Deduce required tests from code changes
-    runs-on: ubuntu-24.04
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
-    steps:
-      - name: Checkout code
-        if: ${{ !github.event.workflow_dispatch }}
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Check code changes
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
-        id: tested-tree
-        with:
-          # For `push` events, compare against the `ref` base branch
-          # For `workflow_dispatch` events, this is ignored and will compare against the pull request base branch
-          base: ${{ github.ref }}
-          filters: |
-            src:
-              - '!(test|Documentation)/**'
-              - '!**/*.md'
-
   conformance-test-ipv6:
     env:
       job_name: "Conformance Smoke Test with IPv6"
-    needs: check_changes
-    if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-24.04
     name: Installation and Conformance Test (ipv6)
     steps:
