@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/fake"
 	"github.com/cilium/hive/hivetest"
@@ -352,6 +353,166 @@ func TestPrivilegedCtGcTcp(t *testing.T) {
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
 	require.Empty(t, buf)
+}
+
+// TestPrivilegedCtGcReopenedEntry verifies that purgeCtEntry skips deleting an
+// entry that the GC filter no longer selects when re-looked up, and deletes it
+// otherwise.
+//
+// purgeCtEntry is only reached after cleanup() has already selected the entry
+// for deletion from the batch-read snapshot. The subtests that call it directly
+// stand in for that decision: each one seeds the map with the value the
+// datapath left behind after the batch read, so the re-lookup is what decides.
+func TestPrivilegedCtGcReopenedEntry(t *testing.T) {
+	setupCTMap(t)
+
+	ctMapName := MapNameTCP4Global + "_test"
+	ctMap := newMap(ctMapName, mapTypeIPv4TCPGlobal)
+	err := ctMap.OpenOrCreate()
+	require.NoError(t, err)
+	defer ctMap.Map.Unpin()
+
+	key := &CtKey4Global{
+		tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				SourceAddr: types.IPv4{192, 168, 61, 12},
+				DestAddr:   types.IPv4{192, 168, 61, 11},
+				SourcePort: 0x3195,
+				DestPort:   0x50,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
+		},
+	}
+
+	// The periodic GC filter: entries with Lifetime below Time are expired.
+	expired := GCFilter{RemoveExpired: true, Time: 40000}
+
+	t.Run("reopened entry is not deleted", func(t *testing.T) {
+		// GC captured this entry as expired, then the datapath reopened it and
+		// refreshed Lifetime past the filter's reference time.
+		err := ctMap.Map.Update(key, &CtEntry{Packets: 5, Bytes: 600, Lifetime: 50000})
+		require.NoError(t, err)
+
+		scratch := &CtEntry{}
+
+		err = ctMap.purgeCtEntry(key, key, scratch, expired, nil, func(GCEvent) {}, nil)
+		require.ErrorIs(t, err, errDeferredReopened)
+
+		_, err = ctMap.Map.Lookup(key)
+		require.NoError(t, err, "reopened entry must not be deleted")
+
+		require.NoError(t, ctMap.Map.Delete(key))
+	})
+
+	t.Run("unchanged entry is deleted", func(t *testing.T) {
+		// Nothing touched the entry after the batch read, so the re-lookup sees
+		// the same expired value GC captured.
+		live := &CtEntry{Packets: 1, Bytes: 216, Lifetime: 38000}
+		err := ctMap.Map.Update(key, live)
+		require.NoError(t, err)
+
+		scratch := &CtEntry{}
+
+		err = ctMap.purgeCtEntry(key, key, scratch, expired, nil, func(GCEvent) {}, nil)
+		require.NoError(t, err)
+
+		_, err = ctMap.Map.Lookup(key)
+		require.Error(t, err, "unchanged entry must be deleted")
+	})
+
+	t.Run("refreshed but still expired entry is deleted", func(t *testing.T) {
+		// The datapath touched the entry after the batch read, but the refreshed
+		// Lifetime is still below the filter's reference time, so the re-lookup
+		// still selects it.
+		err := ctMap.Map.Update(key, &CtEntry{Packets: 5, Bytes: 600, Lifetime: 39000})
+		require.NoError(t, err)
+
+		scratch := &CtEntry{}
+
+		err = ctMap.purgeCtEntry(key, key, scratch, expired, nil, func(GCEvent) {}, nil)
+		require.NoError(t, err)
+
+		_, err = ctMap.Map.Lookup(key)
+		require.Error(t, err, "entry that is still expired must be deleted")
+	})
+
+	t.Run("entry matched by IP is deleted regardless of Lifetime", func(t *testing.T) {
+		// scrubIPsInConntrackTableLocked() selects on IPs only, so a Lifetime
+		// refreshed past expiry after the batch read must not defer the delete.
+		err := ctMap.Map.Update(key, &CtEntry{Packets: 5, Bytes: 600, Lifetime: 50000})
+		require.NoError(t, err)
+
+		scratch := &CtEntry{}
+		matchIPs := GCFilter{MatchIPs: map[NetAddr]struct{}{
+			{Addr: netip.MustParseAddr("192.168.61.11")}: {},
+		}}
+
+		err = ctMap.purgeCtEntry(key, key, scratch, matchIPs, nil, func(GCEvent) {}, nil)
+		require.NoError(t, err)
+
+		_, err = ctMap.Map.Lookup(key)
+		require.Error(t, err, "entry matched by IP must be deleted")
+	})
+
+	t.Run("missing entry surfaces the lookup error", func(t *testing.T) {
+		// The previous subtest deleted the entry, just as an LRU eviction
+		// between the batch read and the delete would have.
+		scratch := &CtEntry{}
+
+		err := ctMap.purgeCtEntry(key, key, scratch, expired, nil, func(GCEvent) {}, nil)
+		require.ErrorIs(t, err, ebpf.ErrKeyNotExist)
+	})
+
+	// The subtests above drive purgeCtEntry directly. The ones below pin how
+	// cleanup() sorts each outcome into gcStats, which is what the
+	// cilium_datapath_conntrack_gc_entries gauge reports.
+
+	t.Run("cleanup counts a reopened entry as alive", func(t *testing.T) {
+		// Live value: the datapath reopened the entry mid-pass.
+		err := ctMap.Map.Update(key, &CtEntry{Packets: 5, Bytes: 600, Lifetime: 50000})
+		require.NoError(t, err)
+
+		stats := gcStats{logger: ctMap.Logger}
+		cb := ctMap.cleanup(expired, nil, &stats, func(GCEvent) {}, false)
+		// The callback sees the expired snapshot, as the batch read captured it.
+		cb(key, &CtEntry{Packets: 1, Bytes: 216, Lifetime: 38000})
+
+		require.Equal(t, uint32(1), stats.aliveEntries, "deferred delete must count as alive")
+		require.Equal(t, uint32(0), stats.deleted)
+		require.Equal(t, uint32(0), stats.skipped)
+
+		_, err = ctMap.Map.Lookup(key)
+		require.NoError(t, err, "reopened entry must not be deleted")
+
+		require.NoError(t, ctMap.Map.Delete(key))
+	})
+
+	t.Run("cleanup counts an expired entry as deleted", func(t *testing.T) {
+		live := &CtEntry{Packets: 1, Bytes: 216, Lifetime: 38000}
+		err := ctMap.Map.Update(key, live)
+		require.NoError(t, err)
+
+		stats := gcStats{logger: ctMap.Logger}
+		cb := ctMap.cleanup(expired, nil, &stats, func(GCEvent) {}, false)
+		cb(key, live)
+
+		require.Equal(t, uint32(1), stats.deleted)
+		require.Equal(t, uint32(0), stats.aliveEntries)
+		require.Equal(t, uint32(0), stats.skipped)
+	})
+
+	t.Run("cleanup counts a missing key as skipped", func(t *testing.T) {
+		// The previous subtest deleted the entry, just as an LRU eviction
+		// between the batch read and the delete would have.
+		stats := gcStats{logger: ctMap.Logger}
+		cb := ctMap.cleanup(expired, nil, &stats, func(GCEvent) {}, false)
+		cb(key, &CtEntry{Packets: 1, Bytes: 216, Lifetime: 38000})
+
+		require.Equal(t, uint32(1), stats.skipped)
+		require.Equal(t, uint32(0), stats.aliveEntries)
+		require.Equal(t, uint32(0), stats.deleted)
+	})
 }
 
 // TestPrivilegedCtGcDsr tests whether DSR NAT entries are removed upon a removal of
