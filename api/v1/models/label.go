@@ -12,7 +12,7 @@ import (
 	"github.com/go-openapi/swag/jsonutils"
 )
 
-// Label Label is the Cilium's representation of a container label
+// Label Label is Cilium's representation of a label
 //
 // swagger:model Label
 type Label struct {
@@ -20,7 +20,7 @@ type Label struct {
 	// key
 	Key string `json:"key,omitempty"`
 
-	// Source can be one of the above values (e.g. LabelSourceContainer)
+	// Source can be one of the above values (e.g. LabelSourceK8s)
 	Source string `json:"source,omitempty"`
 
 	// value

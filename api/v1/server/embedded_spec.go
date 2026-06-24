@@ -3771,14 +3771,14 @@ func init() {
       }
     },
     "Label": {
-      "description": "Label is the Cilium's representation of a container label",
+      "description": "Label is Cilium's representation of a label",
       "type": "object",
       "properties": {
         "key": {
           "type": "string"
         },
         "source": {
-          "description": "Source can be one of the above values (e.g. LabelSourceContainer)",
+          "description": "Source can be one of the above values (e.g. LabelSourceK8s)",
           "type": "string"
         },
         "value": {
@@ -9554,14 +9554,14 @@ func init() {
       }
     },
     "Label": {
-      "description": "Label is the Cilium's representation of a container label",
+      "description": "Label is Cilium's representation of a label",
       "type": "object",
       "properties": {
         "key": {
           "type": "string"
         },
         "source": {
-          "description": "Source can be one of the above values (e.g. LabelSourceContainer)",
+          "description": "Source can be one of the above values (e.g. LabelSourceK8s)",
           "type": "string"
         },
         "value": {
