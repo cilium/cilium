@@ -257,3 +257,116 @@ type MacvlanDeviceConfig struct {
 	// +kubebuilder:validation:Enum=private;vepa;bridge;passthru;source
 	Mode string `json:"mode,omitempty"`
 }
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium},singular="ciliumresourcenetworkconfig",path="ciliumresourcenetworkconfigs",scope="Cluster",shortName={crnc}
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+
+// CiliumResourceNetworkConfig defines the network parameters to configure a network resource
+// claimed from a workload.
+type CiliumResourceNetworkConfig struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Spec []CiliumResourceNetworkConfigSpec `json:"spec"`
+}
+
+type CiliumResourceNetworkConfigSpec struct {
+	// NodeSelector selects a group of nodes where this configuration
+	// should be applied
+	// If empty / nil this config applies to all nodes.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
+
+	// IPPool is the IP pool from which to get addresses
+	//
+	// +kubebuilder:validation:Optional
+	IPPool string `json:"ipPool"`
+
+	// IPv4 specifies the network configuration for allocated IPv4 addresses
+	//
+	// +kubebuilder:validation:Optional
+	IPv4 *IPv4NetworkConfigSpec `json:"ipv4,omitempty"`
+
+	// IPv6 specifies the network configuration for allocated IPv6 addresses
+	//
+	// +kubebuilder:validation:Optional
+	IPv6 *IPv6NetworkConfigSpec `json:"ipv6,omitempty"`
+}
+
+type IPv4NetworkConfigSpec struct {
+	// Netmask is the network mask associated to the allocated IPv4 addresses
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=32
+	// +kubebuilder:validation:ExclusiveMaximum=false
+	NetMask uint8 `json:"netMask"`
+
+	// +kubebuilder:validation:Optional
+	StaticRoutes []IPv4StaticRouteSpec `json:"staticRoutes,omitempty"`
+}
+
+type IPv6NetworkConfigSpec struct {
+	// Netmask is the network mask associated to the allocated IPv6 addresses
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=128
+	// +kubebuilder:validation:ExclusiveMaximum=false
+	NetMask uint8 `json:"netMask"`
+
+	// StaticRoutes lists the routes that are added when configuring the network resource
+	//
+	// +kubebuilder:validation:Optional
+	StaticRoutes []IPv6StaticRouteSpec `json:"staticRoutes,omitempty"`
+}
+
+type IPv4StaticRouteSpec struct {
+	// Destination specifies the route destination parameter
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=cidr
+	Destination string `json:"destination"`
+
+	// Gateway specifies the route gateway address
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=ipv4
+	Gateway string `json:"gateway"`
+}
+
+type IPv6StaticRouteSpec struct {
+	// Destination specifies the route destination parameter
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=cidr
+	Destination string `json:"destination"`
+
+	// Gateway specifies the route gateway address
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=ipv6
+	Gateway string `json:"gateway"`
+}
+
+// CiliumResourceNetworkConfigList is a list of CiliumResourceNetworkConfig objects.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
+type CiliumResourceNetworkConfigList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	// +kubebuilder:validation:Required
+	Items []CiliumResourceNetworkConfig `json:"Items"`
+}

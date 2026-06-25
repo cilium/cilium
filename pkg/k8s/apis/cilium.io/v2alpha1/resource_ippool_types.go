@@ -39,10 +39,10 @@ type ResourceIPPoolSpec struct {
 	IPv6 *IPv6PoolSpec `json:"ipv6"`
 }
 
+// CiliumResourceIPPoolList is a list of CiliumResourceIPPool objects.
+//
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=false
-
-// CiliumResourceIPPoolList is a list of CiliumResourceIPPool objects.
 type CiliumResourceIPPoolList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
