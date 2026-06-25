@@ -290,6 +290,11 @@ const (
 
 	// FIBTableID is the annotation used to specify the FIB table ID for egress routing.
 	FIBTableID = NetworkPrefix + "/fib-table-id"
+
+	// NetworkDriverStaticAddresses is the pod annotation used to specify static IP
+	// addresses for network driver DRA requests. The value is a JSON object
+	// ResourceClaim's requests to objects containing v4 and v6 addresses.
+	NetworkDriverStaticAddresses = IPAMPrefix + "/network-driver-static-addresses"
 )
 
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.
