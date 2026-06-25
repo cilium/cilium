@@ -774,6 +774,28 @@ func (m *Model) NeedsCrossProtocolSplit() bool {
 	return false
 }
 
+func (m *Model) HasTLSPassthroughListenerWithoutRoutes() bool {
+	for _, listener := range m.TLSPassthrough {
+		if len(listener.Routes) == 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *Model) HasTLSPassthroughRouteWithoutBackends() bool {
+	for _, listener := range m.TLSPassthrough {
+		for _, route := range listener.Routes {
+			if len(route.Backends) == 0 {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 type filterChainMatch struct {
 	hostname string
 	port     uint32
@@ -807,6 +829,13 @@ func (m *Model) tlsPassthroughFilterChainMatches() []filterChainMatch {
 	var matches []filterChainMatch
 	seen := map[filterChainMatch]struct{}{}
 	for _, l := range m.TLSPassthrough {
+		if len(l.Routes) == 0 {
+			match := filterChainMatch{hostname: normalizeHostname(l.Hostname), port: l.Port}
+			if _, ok := seen[match]; !ok {
+				seen[match] = struct{}{}
+				matches = append(matches, match)
+			}
+		}
 		for _, r := range l.Routes {
 			if len(r.Hostnames) == 0 {
 				match := filterChainMatch{hostname: allHosts, port: l.Port}
@@ -831,12 +860,7 @@ func (m *Model) tlsPassthroughFilterChainMatches() []filterChainMatch {
 
 // IsTLSPassthroughListenerConfigured returns true if the model has any TLS Passthrough listeners.
 func (m *Model) IsTLSPassthroughListenerConfigured() bool {
-	for _, l := range m.TLSPassthrough {
-		if len(l.Routes) > 0 {
-			return true
-		}
-	}
-	return false
+	return len(m.TLSPassthrough) > 0
 }
 
 // HTTPPorts returns a list of unique ports for all HTTP listeners.
@@ -865,9 +889,7 @@ func (m *Model) IsCORSFilterConfigured() bool {
 func (m *Model) TLSPassthroughPorts() []uint32 {
 	var ports []uint32
 	for _, l := range m.TLSPassthrough {
-		if len(l.Routes) > 0 {
-			ports = append(ports, l.Port)
-		}
+		ports = append(ports, l.Port)
 	}
 	return slices.SortedUnique(ports)
 }

@@ -243,7 +243,7 @@ func TestIsTLSPassthroughListenerConfigured(t *testing.T) {
 					{Port: 443},
 				},
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name: "mixed — one with routes, one without",
@@ -263,7 +263,7 @@ func TestIsTLSPassthroughListenerConfigured(t *testing.T) {
 					{Port: 8443},
 				},
 			},
-			want: false,
+			want: true,
 		},
 	}
 	for _, tt := range tests {
@@ -295,7 +295,7 @@ func TestTLSPassthroughPorts(t *testing.T) {
 			want: []uint32{443, 8443},
 		},
 		{
-			name: "routeless listeners excluded",
+			name: "routeless listeners and listeners with routes",
 			model: Model{
 				TLSPassthrough: []TLSPassthroughListener{
 					{Port: 443},
@@ -303,7 +303,7 @@ func TestTLSPassthroughPorts(t *testing.T) {
 					{Port: 9443},
 				},
 			},
-			want: []uint32{8443},
+			want: []uint32{443, 8443, 9443},
 		},
 		{
 			name: "all routeless",
@@ -313,7 +313,7 @@ func TestTLSPassthroughPorts(t *testing.T) {
 					{Port: 8443},
 				},
 			},
-			want: nil,
+			want: []uint32{443, 8443},
 		},
 		{
 			name: "duplicate ports deduplicated",
@@ -693,6 +693,47 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "routeless TLS passthrough uses listener hostname for split detection",
+			model: Model{
+				HTTP: []HTTPListener{
+					{
+						Port:     443,
+						Hostname: "shared.example.test",
+						TLS:      []TLSSecret{{Name: "cert", Namespace: "ns"}},
+					},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{
+						Port:     9443,
+						Hostname: "shared.example.test",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "routeful TLS passthrough uses route hostname for split detection",
+			model: Model{
+				HTTP: []HTTPListener{
+					{
+						Port:     443,
+						Hostname: "web.example.test",
+						TLS:      []TLSSecret{{Name: "cert", Namespace: "ns"}},
+					},
+				},
+				TLSPassthrough: []TLSPassthroughListener{
+					{
+						Port:     9443,
+						Hostname: "*",
+						Routes: []TLSPassthroughRoute{
+							{Hostnames: []string{"tls.example.test"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -739,4 +780,154 @@ func TestTLSSecretsToListeners(t *testing.T) {
 	}, got[certB])
 
 	assert.Len(t, got, 2)
+}
+
+func TestHasTLSPassthroughListenerWithoutRoutes(t *testing.T) {
+	tests := []struct {
+		name  string
+		model Model
+		want  bool
+	}{
+		{
+			name:  "no TLS passthrough listeners",
+			model: Model{},
+			want:  false,
+		},
+		{
+			name: "TLS passthrough listener without routes",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{{Port: 443}},
+			},
+			want: true,
+		},
+		{
+			name: "TLS passthrough route with backend",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{
+					{
+						Port: 443,
+						Routes: []TLSPassthroughRoute{
+							{
+								Backends: []Backend{{Name: "backend", Namespace: "default", Port: &BackendPort{Port: 443}}},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "TLS passthrough route without backends",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{
+					{
+						Port:   443,
+						Routes: []TLSPassthroughRoute{{Hostnames: []string{"example.com"}}},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "one TLS passthrough route without backends among valid routes",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{
+					{
+						Port: 443,
+						Routes: []TLSPassthroughRoute{
+							{
+								Backends: []Backend{{Name: "backend", Namespace: "default", Port: &BackendPort{Port: 443}}},
+							},
+						},
+					},
+					{
+						Port:   8443,
+						Routes: []TLSPassthroughRoute{{Hostnames: []string{"missing.example.com"}}},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.model.HasTLSPassthroughListenerWithoutRoutes())
+		})
+	}
+}
+
+func TestHasTLSPassthroughRouteWithoutBackends(t *testing.T) {
+	tests := []struct {
+		name  string
+		model Model
+		want  bool
+	}{
+		{
+			name:  "no TLS passthrough listeners",
+			model: Model{},
+			want:  false,
+		},
+		{
+			name: "TLS passthrough listener without routes",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{{Port: 443}},
+			},
+			want: false,
+		},
+		{
+			name: "TLS passthrough route with backend",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{
+					{
+						Port: 443,
+						Routes: []TLSPassthroughRoute{
+							{
+								Backends: []Backend{{Name: "backend", Namespace: "default", Port: &BackendPort{Port: 443}}},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "TLS passthrough route without backends",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{
+					{
+						Port:   443,
+						Routes: []TLSPassthroughRoute{{Hostnames: []string{"example.com"}}},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "one TLS passthrough route without backends among valid routes",
+			model: Model{
+				TLSPassthrough: []TLSPassthroughListener{
+					{
+						Port: 443,
+						Routes: []TLSPassthroughRoute{
+							{
+								Backends: []Backend{{Name: "backend", Namespace: "default", Port: &BackendPort{Port: 443}}},
+							},
+						},
+					},
+					{
+						Port:   8443,
+						Routes: []TLSPassthroughRoute{{Hostnames: []string{"missing.example.com"}}},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.model.HasTLSPassthroughRouteWithoutBackends())
+		})
+	}
 }

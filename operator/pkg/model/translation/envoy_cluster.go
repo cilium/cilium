@@ -6,11 +6,13 @@ package translation
 import (
 	"fmt"
 	goslices "slices"
+	"time"
 
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -18,7 +20,9 @@ import (
 )
 
 const (
-	httpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+	httpProtocolOptionsType        = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+	blackholeClusterName           = "CiliumBlackholeCluster"
+	blackholeClusterConnectionTime = 250 * time.Millisecond
 )
 
 type HTTPVersionType int
@@ -108,6 +112,11 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 		}
 	}
 
+	if m.HasTLSPassthroughListenerWithoutRoutes() || m.HasTLSPassthroughRouteWithoutBackends() {
+		sortedClusterNames = append(sortedClusterNames, blackholeClusterName)
+		envoyClusters[blackholeClusterName], _ = i.blackholeCluster(blackholeClusterName)
+	}
+
 	goslices.Sort(sortedClusterNames)
 	res := make([]ciliumv2.XDSResource, len(sortedClusterNames))
 	for i, name := range sortedClusterNames {
@@ -162,6 +171,18 @@ func (i *cecTranslator) tcpCluster(clusterName string, clusterServiceName string
 	// Apply mutation functions for customizing the cluster.
 	for _, fn := range i.tcpClusterMutators(mutationFunc...) {
 		cluster = fn(cluster)
+	}
+
+	return toXdsResource(cluster, envoy.ClusterTypeURL)
+}
+
+func (i *cecTranslator) blackholeCluster(name string) (ciliumv2.XDSResource, error) {
+	cluster := &envoy_config_cluster_v3.Cluster{
+		Name: name,
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_STATIC,
+		},
+		ConnectTimeout: durationpb.New(blackholeClusterConnectionTime),
 	}
 
 	return toXdsResource(cluster, envoy.ClusterTypeURL)

@@ -259,8 +259,10 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 		wantWeighted     []*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight
 	}{
 		{
-			name:             "no valid backends emits no filter chain",
-			wantFilterChains: 0,
+			name:             "no valid backends uses blackhole cluster",
+			wantFilterChains: 1,
+			wantStatPrefix:   "tls-passthrough:test.example.com",
+			wantCluster:      blackholeClusterName,
 		},
 		{
 			name: "single backend",
@@ -362,6 +364,50 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 			assert.Equal(t, tt.wantWeighted, tcpProxy.GetWeightedClusters().GetClusters())
 		})
 	}
+}
+
+func Test_tlsPassthroughFilterChainsForPort(t *testing.T) {
+	m := &model.Model{
+		TLSPassthrough: []model.TLSPassthroughListener{
+			{
+				Port: 443,
+				Routes: []model.TLSPassthroughRoute{
+					{
+						Hostnames: []string{"ignored.example.com"},
+					},
+				},
+			},
+			{
+				Port: 8443,
+				Routes: []model.TLSPassthroughRoute{
+					{
+						Hostnames: []string{"blackhole.example.com"},
+					},
+					{
+						Hostnames: []string{"backend.example.com"},
+						Backends: []model.Backend{
+							tlsBackend("default", "backend", 9443, nil),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	filterChains := tlsPassthroughFilterChainsForPort(8443, m)
+	require.Len(t, filterChains, 2)
+
+	assert.Equal(t, []string{"backend.example.com"}, filterChains[0].GetFilterChainMatch().GetServerNames())
+	tcpProxy := getTCPProxy(t, filterChains[0])
+	assert.Equal(t, "tls-passthrough:backend.example.com", tcpProxy.GetStatPrefix())
+	assert.Equal(t, "default:backend:9443", tcpProxy.GetCluster())
+	assert.Nil(t, tcpProxy.GetWeightedClusters())
+
+	assert.Equal(t, []string{"blackhole.example.com"}, filterChains[1].GetFilterChainMatch().GetServerNames())
+	tcpProxy = getTCPProxy(t, filterChains[1])
+	assert.Equal(t, "tls-passthrough:blackhole.example.com", tcpProxy.GetStatPrefix())
+	assert.Equal(t, blackholeClusterName, tcpProxy.GetCluster())
+	assert.Nil(t, tcpProxy.GetWeightedClusters())
 }
 
 func Test_tlsPassthroughFilterChains_DuplicateSNIRoutesPreserveCurrentBehavior(t *testing.T) {

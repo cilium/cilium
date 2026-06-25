@@ -234,13 +234,13 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 					},
 				},
 			},
-			// port not included: TLS passthrough listener has no routes.
 			want: []*ciliumv2.ServiceListener{
 				{
 					Name:      "cilium-ingress",
 					Namespace: "kube-system",
 					Ports: []uint16{
 						80,
+						443,
 					},
 				},
 			},

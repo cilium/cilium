@@ -11,6 +11,7 @@ import (
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -163,6 +164,22 @@ func Test_tcpCluster(t *testing.T) {
 	require.Equal(t, &envoy_config_cluster_v3.Cluster_Type{
 		Type: envoy_config_cluster_v3.Cluster_EDS,
 	}, cluster.ClusterDiscoveryType)
+}
+
+func Test_blackholeCluster(t *testing.T) {
+	c := &cecTranslator{}
+	res, err := c.blackholeCluster(blackholeClusterName)
+	require.NoError(t, err)
+
+	cluster := &envoy_config_cluster_v3.Cluster{}
+	err = proto.Unmarshal(res.Value, cluster)
+
+	require.NoError(t, err)
+	require.Equal(t, blackholeClusterName, cluster.Name)
+	require.Equal(t, &envoy_config_cluster_v3.Cluster_Type{
+		Type: envoy_config_cluster_v3.Cluster_STATIC,
+	}, cluster.ClusterDiscoveryType)
+	require.Equal(t, durationpb.New(blackholeClusterConnectionTime), cluster.ConnectTimeout)
 }
 
 func extAuthBackend(ns, name string, port uint32, tls *model.BackendTLSOrigination) model.Backend {

@@ -662,19 +662,27 @@ func tlsPassthroughFilterChains(m *model.Model) []*envoy_config_listener.FilterC
 	var filterChains []*envoy_config_listener.FilterChain
 
 	for _, listener := range stableTLSPassthroughListeners(m.TLSPassthrough) {
+		if len(listener.Routes) == 0 {
+			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+				FilterChainMatch: toFilterChainMatch([]string{listener.Hostname}),
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: tcpProxyType,
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(tcpProxyForTLSPassthroughListener(listener)),
+						},
+					},
+				},
+			})
+		}
 		for _, route := range stableTLSPassthroughRoutes(listener.Routes) {
-			backends := stableTLSPassthroughBackends(route.Backends)
-			if len(backends) == 0 {
-				continue
-			}
-
 			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 				FilterChainMatch: toFilterChainMatch(route.Hostnames),
 				Filters: []*envoy_config_listener.Filter{
 					{
 						Name: tcpProxyType,
 						ConfigType: &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: toAny(tcpProxyForTLSPassthroughRoute(route, backends)),
+							TypedConfig: toAny(tcpProxyForTLSPassthroughRoute(route)),
 						},
 					},
 				},
@@ -695,19 +703,27 @@ func tlsPassthroughFilterChainsForPort(port uint32, m *model.Model) []*envoy_con
 		if listener.Port != port {
 			continue
 		}
+		if len(listener.Routes) == 0 {
+			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+				FilterChainMatch: toFilterChainMatch([]string{listener.Hostname}),
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: tcpProxyType,
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(tcpProxyForTLSPassthroughListener(listener)),
+						},
+					},
+				},
+			})
+		}
 		for _, route := range stableTLSPassthroughRoutes(listener.Routes) {
-			backends := stableTLSPassthroughBackends(route.Backends)
-			if len(backends) == 0 {
-				continue
-			}
-
 			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 				FilterChainMatch: toFilterChainMatch(route.Hostnames),
 				Filters: []*envoy_config_listener.Filter{
 					{
 						Name: tcpProxyType,
 						ConfigType: &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: toAny(tcpProxyForTLSPassthroughRoute(route, backends)),
+							TypedConfig: toAny(tcpProxyForTLSPassthroughRoute(route)),
 						},
 					},
 				},
@@ -771,9 +787,29 @@ func stableTLSPassthroughBackends(backends []model.Backend) []model.Backend {
 	return stable
 }
 
-func tcpProxyForTLSPassthroughRoute(route model.TLSPassthroughRoute, backends []model.Backend) *envoy_extensions_filters_network_tcp_v3.TcpProxy {
+func tcpProxyForTLSPassthroughListener(listener model.TLSPassthroughListener) *envoy_extensions_filters_network_tcp_v3.TcpProxy {
+	tcpProxy := &envoy_extensions_filters_network_tcp_v3.TcpProxy{
+		StatPrefix: "tls-passthrough:" + listener.Name,
+	}
+
+	tcpProxy.ClusterSpecifier = &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
+		Cluster: blackholeClusterName,
+	}
+
+	return tcpProxy
+}
+
+func tcpProxyForTLSPassthroughRoute(route model.TLSPassthroughRoute) *envoy_extensions_filters_network_tcp_v3.TcpProxy {
 	tcpProxy := &envoy_extensions_filters_network_tcp_v3.TcpProxy{
 		StatPrefix: tlsPassthroughFilterChainStatPrefix(route),
+	}
+
+	backends := stableTLSPassthroughBackends(route.Backends)
+	if len(backends) == 0 {
+		tcpProxy.ClusterSpecifier = &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
+			Cluster: blackholeClusterName,
+		}
+		return tcpProxy
 	}
 
 	if len(backends) == 1 {
