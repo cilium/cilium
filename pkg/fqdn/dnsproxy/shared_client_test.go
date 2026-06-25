@@ -541,6 +541,63 @@ func TestSharedTimeout(t *testing.T) {
 	})
 }
 
+// TestSharedClientPortReleasedGracePeriod verifies that a new GetSharedClient
+// call for the same key waits on portReleased before dialing when the previous
+// client is closing. This prevents EADDRINUSE from the kernel scheduling gap
+// between conn.Close() returning and the OS fully releasing the bound port.
+func TestSharedClientPortReleasedGracePeriod(t *testing.T) {
+	dns.HandleFunc("miek.nl.", HelloServer)
+	defer dns.HandleRemove("miek.nl.")
+
+	s, addrstr, err := runUDPServer(":0")
+	if err != nil {
+		t.Fatalf("unable to run test server: %v", err)
+	}
+	defer s.Shutdown()
+
+	m := new(dns.Msg)
+	m.SetQuestion("miek.nl.", dns.TypeSOA)
+
+	sc := NewSharedClients()
+	const key = "grace-period-test"
+
+	// First request: acquire, exchange, release.
+	c1, closer1 := sc.GetSharedClient(key, new(dns.Client), addrstr)
+	if _, _, err := c1.ExchangeShared(m); err != nil {
+		t.Fatalf("first exchange failed: %v", err)
+	}
+
+	// Grab portReleased before calling closer1 so we can observe it.
+	c1.Lock()
+	portReleased := c1.portReleased
+	c1.Unlock()
+
+	// Close the first client. portReleased must not be closed yet (closer1
+	// hasn't been called).
+	select {
+	case <-portReleased:
+		t.Fatal("portReleased closed before closer was called")
+	default:
+	}
+
+	// Release the first client — this triggers close() and closes portReleased.
+	closer1()
+
+	// portReleased must now be closed.
+	select {
+	case <-portReleased:
+	case <-time.After(time.Second):
+		t.Fatal("portReleased not closed after closer1()")
+	}
+
+	// Second request with the same key must succeed — port is free.
+	c2, closer2 := sc.GetSharedClient(key, new(dns.Client), addrstr)
+	defer closer2()
+	if _, _, err := c2.ExchangeShared(m); err != nil {
+		t.Fatalf("second exchange failed (EADDRINUSE race not fixed): %v", err)
+	}
+}
+
 func HelloServer(w dns.ResponseWriter, q *dns.Msg) {
 	r := &dns.Msg{}
 	r.SetReply(q)

@@ -101,8 +101,12 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 			client.Unlock()
 			break
 		}
-		// client was closed while we waited for it's lock, discard and try again
+		// Client is closing. Wait for portReleased before retrying — this
+		// ensures the OS has released the srcIP:srcPort so the next dial
+		// won't get EADDRINUSE.
+		portReleased := client.portReleased
 		client.Unlock()
+		<-portReleased
 		client = nil
 	}
 
@@ -127,6 +131,9 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 			s.lock.Lock()
 			delete(s.clients, key)
 			s.lock.Unlock()
+			// Signal that the OS has released the port. Any goroutine waiting in
+			// GetSharedClient on portReleased can now safely dial the same 5-tuple.
+			close(client.portReleased)
 		}
 	}
 }
@@ -159,14 +166,20 @@ type SharedClient struct {
 	lock.Mutex // protects the fields below
 	refcount   int
 	conn       *dns.Conn
+	// portReleased is closed once the upstream UDP socket bound to srcIP:srcPort
+	// has been fully closed. New clients racing the same 5-tuple wait on this
+	// before dialing to avoid EADDRINUSE from the kernel scheduling gap between
+	// conn.Close() returning and the OS releasing the port.
+	portReleased chan struct{}
 }
 
 func newSharedClient(conf *dns.Client, serverAddr string) *SharedClient {
 	return &SharedClient{
-		refcount:   1,
-		serverAddr: serverAddr,
-		Client:     conf,
-		requests:   make(chan request),
+		refcount:     1,
+		serverAddr:   serverAddr,
+		Client:       conf,
+		requests:     make(chan request),
+		portReleased: make(chan struct{}),
 	}
 }
 
