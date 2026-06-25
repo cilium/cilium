@@ -1374,7 +1374,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    __s8 *ext_err)
 {
 	struct ct_state ct_state_svc = {};
-	const struct lb6_backend *backend;
+	const struct lb6_backend *backend = NULL;
 	const struct lb6_backend *forced_be_p __maybe_unused = NULL;
 	struct lb6_backend forced_be __maybe_unused = {};
 	bool backend_local;
@@ -1439,6 +1439,8 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	ret = lb6_local(get_ct_map6(tuple), ctx, fraginfo, l4_off,
 			key, tuple, svc, &ct_state_svc, &backend,
 			ext_err, forced_be_p);
+	if (!backend) /* see v4 case */
+		ret = DROP_NO_SERVICE;
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE) {
 			if (!CONFIG(enable_no_service_endpoints_routable))
@@ -2705,7 +2707,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
-	const struct lb4_backend *backend;
+	const struct lb4_backend *backend = NULL;
 	struct ct_state ct_state_svc = {};
 	__u32 cluster_id = 0;
 	bool backend_local;
@@ -2792,6 +2794,12 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		ret = lb4_local(get_ct_map4(tuple), ctx, fraginfo, l4_off,
 				key, tuple, svc, &ct_state_svc, &backend,
 				ext_err, tmp);
+		/*
+		 * On some older kernels the verifier can lose track of the
+		 * "ret is ok => backend is ok" contract, so force it here
+		 */
+		if (!backend)
+			ret = DROP_NO_SERVICE;
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
