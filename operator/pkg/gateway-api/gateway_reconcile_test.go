@@ -135,6 +135,12 @@ func Test_Conformance(t *testing.T) {
 			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-with-infrastructure-metadata", Namespace: "gateway-conformance-infra"}}},
 		},
 		{
+			name: "gateway-invalid-parameters-ref",
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-invalid-parameters-ref", Namespace: "gateway-conformance-infra"}, wantErr: true},
+			},
+		},
+		{
 			name: "gateway-invalid-route-kind",
 			gateway: []gwDetails{
 				{FullName: types.NamespacedName{Name: "gateway-only-invalid-route-kind", Namespace: "gateway-conformance-infra"}, wantErr: true},
@@ -708,6 +714,14 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 				},
 				Spec: gatewayv1.GatewaySpec{
 					GatewayClassName: gatewayv1.ObjectName(tc.gatewayClass),
+					// Ensure handoff cleanup takes precedence over Gateway validation.
+					Infrastructure: &gatewayv1.GatewayInfrastructure{
+						ParametersRef: &gatewayv1.LocalParametersReference{
+							Group: gatewayv1.Group("invalid.io"),
+							Kind:  gatewayv1.Kind("InvalidParameters"),
+							Name:  "invalid",
+						},
+					},
 				},
 			}
 
