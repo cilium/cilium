@@ -248,24 +248,6 @@ func TestLookup(t *testing.T) {
 			},
 		},
 		{
-			name: "endpoint by container name (deprecated)",
-			cm: &apiv1.EndpointChangeRequest{
-				ContainerName: "foo",
-			},
-			setupArgs: func() args {
-				return args{
-					endpointid.NewID(endpointid.ContainerNamePrefix, "foo"),
-				}
-			},
-			setupWant: func() want {
-				return want{
-					ep:       true,
-					err:      nil,
-					errCheck: assert.EqualValues,
-				}
-			},
-		},
-		{
 			name: "endpoint by pod name",
 			cm: &apiv1.EndpointChangeRequest{
 				K8sNamespace: "default",
@@ -726,7 +708,6 @@ func TestUpdateReferences(t *testing.T) {
 				Addressing: &apiv1.AddressPair{
 					IPv4: "127.0.0.1",
 				},
-				ContainerName: "containername",
 			},
 			setupWant: func() want {
 				return want{
@@ -751,9 +732,6 @@ func TestUpdateReferences(t *testing.T) {
 		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
 
 		ep = mgr.LookupIPv4(want.ep.IPv4.String())
-		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
-
-		ep = mgr.lookupDockerContainerName(want.ep.GetContainerName())
 		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
 
 		ep = mgr.LookupCEPName(want.ep.GetK8sNamespaceAndCEPName())
