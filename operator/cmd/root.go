@@ -338,7 +338,7 @@ var (
 		cmapisrv.EndpointSliceSyncCell,
 
 		// Synchronizes K8s ServiceExports to KVStore
-		mcsapi.ServiceExportSyncCell,
+		cmapisrv.ServiceExportSyncCell,
 
 		// Cilium L7 LoadBalancing with Envoy.
 		ciliumenvoyconfig.Cell,

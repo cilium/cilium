@@ -35,13 +35,6 @@ var Cell = cell.Module(
 	cell.Provide(newMCSAPICRDs),
 )
 
-var ServiceExportSyncCell = cell.Module(
-	"service-export-sync",
-	"Synchronizes Kubernetes ServiceExports to KVStore",
-
-	cell.Invoke(registerServiceExportSync),
-)
-
 type mcsAPIParams struct {
 	cell.In
 

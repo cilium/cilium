@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package mcsapi
+package clustermesh
 
 import (
 	"context"
@@ -10,45 +10,30 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
-	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-// ServiceExportResource builds the Resource[ServiceExport] object.
-func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) resource.Resource[*mcsapiv1beta1.ServiceExport] {
-	if !cs.IsEnabled() {
-		return nil
-	}
-
-	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped(cs.MulticlusterV1beta1().ServiceExports("")),
-		opts...,
-	)
-	return resource.New[*mcsapiv1beta1.ServiceExport](
-		lc, lw, mp,
-		resource.WithMetric("ServiceExport"),
-		// Namespace index is needed for efficient lookup when namespace global status changes.
-		resource.WithIndexers(cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
-	)
-}
-
 // ServiceExportSyncCallback represents a callback that, if provided, is executed
 // when the first synchronization is completed.
 type ServiceExportSyncCallback func(context.Context)
+
+var ServiceExportSyncCell = cell.Module(
+	"service-export-sync",
+	"Synchronizes Kubernetes ServiceExports to KVStore",
+
+	cell.Invoke(registerServiceExportSync),
+)
 
 type ServiceExportSyncParameters struct {
 	cell.In
@@ -78,7 +63,7 @@ func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
 	store := cfg.StoreFactory.NewSyncStore(
 		cfg.ClusterInfo.Name,
 		cfg.KVStoreClient,
-		types.ServiceExportStorePrefix,
+		mcsapitypes.ServiceExportStorePrefix,
 	)
 
 	jg.Add(
@@ -255,7 +240,7 @@ func (s *serviceExportSync) syncMCSAPIServiceSpec(
 		return err
 	}
 	if !isGlobal {
-		return s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
+		return s.store.DeleteKey(ctx, mcsapitypes.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
 	}
 
 	svc, exist, err := serviceStore.GetByKey(key)
@@ -263,19 +248,19 @@ func (s *serviceExportSync) syncMCSAPIServiceSpec(
 		return err
 	}
 	if !exist {
-		return s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
+		return s.store.DeleteKey(ctx, mcsapitypes.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
 	}
 	svcExport, exist, err := serviceExportStore.GetByKey(key)
 	if err != nil {
 		return err
 	}
 	if !exist {
-		return s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
+		return s.store.DeleteKey(ctx, mcsapitypes.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
 	}
-	if !checkLocalSlimSvcValidForExport(svc) {
-		return s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
+	if !mcsapitypes.CheckLocalSlimSvcValidForExport(svc) {
+		return s.store.DeleteKey(ctx, mcsapitypes.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
 	}
 
-	mcsAPISvcSpec := types.FromCiliumServiceToMCSAPIServiceSpec(s.clusterName, svc, svcExport)
+	mcsAPISvcSpec := mcsapitypes.FromCiliumServiceToMCSAPIServiceSpec(s.clusterName, svc, svcExport)
 	return s.store.UpsertKey(ctx, mcsAPISvcSpec)
 }

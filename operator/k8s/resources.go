@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/hive/cell"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
-	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -38,7 +37,7 @@ var (
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(
-			mcsapi.ServiceExportResource,
+			ServiceExportResource,
 			EndpointSliceResource,
 			LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
