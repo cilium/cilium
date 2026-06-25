@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package clustermesh
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-type EndpointSliceExportSyncConfig struct {
+type EndpointSliceSyncConfig struct {
 	// Enabled if true enables the k8s EndpointSlices to kvstore synchronization.
 	Enabled bool
 
@@ -36,13 +36,13 @@ type EndpointSliceExportSyncConfig struct {
 	Synced func(context.Context)
 }
 
-// EndpointSliceExportSyncCell implements synchronization of Kubernetes EndpointSlices
+// EndpointSliceSyncCell implements synchronization of Kubernetes EndpointSlices
 // backing global services to kvstore.
-var EndpointSliceExportSyncCell = cell.Module(
-	"endpointslice-export-sync",
+var EndpointSliceSyncCell = cell.Module(
+	"endpointslice-sync",
 	"Synchronizes Kubernetes EndpointSlices to KVStore",
 
-	cell.Invoke(registerEndpointSliceExportSync),
+	cell.Invoke(registerEndpointSliceSync),
 	cell.Provide(newClusterEndpointSliceConverter),
 )
 
@@ -50,10 +50,10 @@ type ClusterEndpointSliceConverter interface {
 	Convert(event resource.Event[*slim_discovery_v1.EndpointSlice], getService func(namespace, name string) (*slim_corev1.Service, bool, error)) (upsert *clusterEndpointSlice.ClusterEndpointSlice, delete *clusterEndpointSlice.ClusterEndpointSlice, err error)
 }
 
-type EndpointSliceExportSyncParams struct {
+type EndpointSliceSyncParams struct {
 	cell.In
 
-	Config         EndpointSliceExportSyncConfig
+	Config         EndpointSliceSyncConfig
 	Log            *slog.Logger
 	ClusterInfo    cmtypes.ClusterInfo
 	Clientset      k8sClient.Clientset
@@ -66,18 +66,18 @@ type EndpointSliceExportSyncParams struct {
 	Namespaces                    resource.Resource[*slim_corev1.Namespace]
 }
 
-type endpointSliceExportSync struct {
-	EndpointSliceExportSyncParams
+type endpointSliceSync struct {
+	EndpointSliceSyncParams
 	store store.SyncStore
 }
 
-func registerEndpointSliceExportSync(jg job.Group, p EndpointSliceExportSyncParams) {
+func registerEndpointSliceSync(jg job.Group, p EndpointSliceSyncParams) {
 	if !p.Config.Enabled || !p.Clientset.IsEnabled() || !p.KVStoreClient.IsEnabled() {
 		return
 	}
 
-	s := &endpointSliceExportSync{
-		EndpointSliceExportSyncParams: p,
+	s := &endpointSliceSync{
+		EndpointSliceSyncParams: p,
 		store: p.StoreFactory.NewSyncStore(
 			p.ClusterInfo.Name,
 			p.KVStoreClient,
@@ -100,7 +100,7 @@ func registerEndpointSliceExportSync(jg job.Group, p EndpointSliceExportSyncPara
 	)
 }
 
-func (s *endpointSliceExportSync) loop(ctx context.Context, health cell.Health) error {
+func (s *endpointSliceSync) loop(ctx context.Context, health cell.Health) error {
 	converter := s.ClusterEndpointSliceConverter
 
 	services, err := s.Services.Store(ctx)

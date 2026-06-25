@@ -11,7 +11,6 @@ import (
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
-	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
@@ -77,24 +76,24 @@ var Synchronization = cell.Module(
 
 	cell.Group(
 		cell.Provide(
-			func(syncState syncstate.SyncState, svcV2Cfg cmtypes.ServiceModeV2Config) operatorWatchers.ServiceSyncConfig {
+			func(syncState syncstate.SyncState, svcV2Cfg cmtypes.ServiceModeV2Config) ServiceSyncConfig {
 				if !svcV2Cfg.ServiceModeV2.ShouldExportLegacyServices() {
-					return operatorWatchers.ServiceSyncConfig{}
+					return ServiceSyncConfig{}
 				}
-				return operatorWatchers.ServiceSyncConfig{
+				return ServiceSyncConfig{
 					Enabled: true,
 					Synced:  syncState.WaitForResource(),
 				}
 			},
-			func(syncState syncstate.SyncState) operatorWatchers.EndpointSliceExportSyncConfig {
-				return operatorWatchers.EndpointSliceExportSyncConfig{
+			func(syncState syncstate.SyncState) EndpointSliceSyncConfig {
+				return EndpointSliceSyncConfig{
 					Enabled: true,
 					Synced:  syncState.WaitForResource(),
 				}
 			},
 		),
-		operatorWatchers.ServiceSyncCell,
-		operatorWatchers.EndpointSliceExportSyncCell,
+		ServiceSyncCell,
+		EndpointSliceSyncCell,
 	),
 
 	cell.Group(

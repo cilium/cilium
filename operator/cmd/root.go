@@ -27,6 +27,7 @@ import (
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
+	cmapisrv "github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/doublewrite"
@@ -323,18 +324,18 @@ var (
 		cmnamespace.Cell,
 
 		// Synchronizes K8s services to KVStore.
-		cell.Provide(func(cfg *operatorOption.OperatorConfig, svcV2Cfg cmtypes.ServiceModeV2Config) operatorWatchers.ServiceSyncConfig {
-			return operatorWatchers.ServiceSyncConfig{
+		cell.Provide(func(cfg *operatorOption.OperatorConfig, svcV2Cfg cmtypes.ServiceModeV2Config) cmapisrv.ServiceSyncConfig {
+			return cmapisrv.ServiceSyncConfig{
 				Enabled: cfg.SyncK8sServices && svcV2Cfg.ServiceModeV2.ShouldExportLegacyServices(),
 			}
 		}),
-		cell.Provide(func(cfg *operatorOption.OperatorConfig) operatorWatchers.EndpointSliceExportSyncConfig {
-			return operatorWatchers.EndpointSliceExportSyncConfig{
+		cell.Provide(func(cfg *operatorOption.OperatorConfig) cmapisrv.EndpointSliceSyncConfig {
+			return cmapisrv.EndpointSliceSyncConfig{
 				Enabled: cfg.SyncK8sServices,
 			}
 		}),
-		operatorWatchers.ServiceSyncCell,
-		operatorWatchers.EndpointSliceExportSyncCell,
+		cmapisrv.ServiceSyncCell,
+		cmapisrv.EndpointSliceSyncCell,
 
 		// Synchronizes K8s ServiceExports to KVStore
 		mcsapi.ServiceExportSyncCell,
