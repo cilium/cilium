@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/link"
 	"github.com/gopacket/gopacket"
@@ -73,6 +74,7 @@ type ProgramHelper struct {
 
 type FeatureProbes struct {
 	ProgramHelpers map[ProgramHelper]bool
+	BPFIterNum     bool
 }
 
 // HaveProgramHelper is a wrapper around features.HaveProgramHelper() to
@@ -688,6 +690,31 @@ func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
 	return nil
 }
 
+func HaveBPFIterNum(logger *slog.Logger) error {
+	spec, err := btf.LoadKernelSpec()
+	if err != nil {
+		return fmt.Errorf("kernel BTF unavailable: %w", err)
+	}
+
+	for _, name := range []string{
+		"bpf_iter_num_new",
+		"bpf_iter_num_next",
+		"bpf_iter_num_destroy",
+	} {
+		var fn *btf.Func
+		if err := spec.TypeByName(name, &fn); err != nil {
+			if errors.Is(err, btf.ErrNotFound) {
+				return ErrNotSupported
+			}
+			logging.Fatal(logger, "failed to probe kfunc",
+				logfields.Error, err,
+				logfields.Kfunc, name)
+		}
+	}
+
+	return nil
+}
+
 // ExecuteHeaderProbes probes the kernel for a specific set of BPF features
 // which are currently used to generate various feature macros for the datapath.
 // The probe results returned in FeatureProbes are then used in the respective
@@ -712,13 +739,16 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 		probes.ProgramHelpers[ph] = (HaveProgramHelper(logger, ph.Program, ph.Helper) == nil)
 	}
 
+	probes.BPFIterNum = (HaveBPFIterNum(logger) == nil)
+
 	return &probes
 }
 
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
-		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"HAVE_SET_RETVAL":   probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"HAVE_BPF_ITER_NUM": probes.BPFIterNum,
 	}
 
 	return writeFeatureHeader(writer, features, true)

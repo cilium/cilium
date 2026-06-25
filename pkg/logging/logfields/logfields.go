@@ -1594,6 +1594,8 @@ const (
 
 	Helper = "helper"
 
+	Kfunc = "kfunc"
+
 	Routes = "routes"
 
 	RevertError = "revertError"
