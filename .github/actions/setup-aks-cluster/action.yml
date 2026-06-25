@@ -30,9 +30,8 @@ runs:
       id: get-runner-ip
       uses: ./.github/actions/get-runner-ip
       with:
-        source: https://whatismyip.azurewebsites.net/json/
-        parsing: json
-        json-key: ip
+        source: https://checkip.amazonaws.com
+        parsing: text
 
     - name: Create AKS cluster
       shell: bash
