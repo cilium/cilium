@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	loadertypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -60,6 +61,7 @@ var Cell = cell.Module(
 		StatusCollectorInterval:          5 * time.Second,
 		StatusCollectorProbeCheckTimeout: 5 * time.Minute,
 		StatusCollectorStackdumpPath:     "/run/cilium/state/agent.stack.gz",
+		DatapathReadyTimeout:             120 * time.Second,
 	}),
 	cell.Provide(newStatusCollector),
 	cell.Provide(newStatusAPIHandler),
@@ -107,6 +109,7 @@ type statusParams struct {
 	WireguardAgent   wgTypes.Agent
 	ZtunnelConfig    zconfig.Config
 	ConnectorConfig  connector.Config
+	Loader           loadertypes.Loader // for datapath readiness check
 }
 
 // Config is the collector configuration
@@ -116,6 +119,7 @@ type Config struct {
 	StatusCollectorInterval          time.Duration
 	StatusCollectorProbeCheckTimeout time.Duration
 	StatusCollectorStackdumpPath     string
+	DatapathReadyTimeout             time.Duration
 }
 
 func (r Config) Flags(flags *pflag.FlagSet) {
@@ -124,12 +128,14 @@ func (r Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("status-collector-interval", r.StatusCollectorInterval, "The interval between probe invocations")
 	flags.Duration("status-collector-probe-check-timeout", r.StatusCollectorProbeCheckTimeout, "The timeout after which all probes should have finished at least once")
 	flags.String("status-collector-stackdump-path", r.StatusCollectorStackdumpPath, "The path where probe stackdumps should be written to")
+	flags.Duration("datapath-ready-timeout", r.DatapathReadyTimeout, "Maximum time to wait for eBPF datapath initialization before reporting ready anyway")
 }
 
 func newStatusCollector(params statusParams) StatusCollector {
 	collector := &statusCollector{
 		statusParams:    params,
 		statusCollector: newCollector(params.Logger, params.Config),
+		startTime:       time.Now(),
 	}
 
 	params.JobGroup.Add(job.OneShot("probes", func(ctx context.Context, health cell.Health) error {

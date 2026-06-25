@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/go-openapi/strfmt"
 	versionapi "k8s.io/apimachinery/pkg/version"
@@ -37,7 +38,7 @@ import (
 )
 
 type StatusCollector interface {
-	GetStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse
+	GetStatus(brief bool, requireK8sConnectivity bool, requireDatapathReady bool) models.StatusResponse
 }
 
 type statusCollector struct {
@@ -46,6 +47,9 @@ type statusCollector struct {
 	statusCollector    *Collector
 
 	allProbesInitialized bool
+
+	startTime           time.Time
+	datapathTimeoutOnce sync.Once
 
 	statusParams statusParams
 }
@@ -551,7 +555,7 @@ func (d *statusCollector) dumpIPAM() *models.IPAMStatus {
 
 // getStatus returns the daemon status. If brief is provided a minimal version
 // of the StatusResponse is provided.
-func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse {
+func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool, requireDatapathReady bool) models.StatusResponse {
 	staleProbes := d.statusCollector.GetStaleProbes()
 	stale := make(map[string]strfmt.DateTime, len(staleProbes))
 	for probe, startTime := range staleProbes {
@@ -632,6 +636,12 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 			State: models.StatusStateFailure,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
+	case requireDatapathReady && !d.isDatapathReady():
+		msg := "Waiting for eBPF datapath to be ready"
+		sr.Cilium = &models.Status{
+			State: models.StatusStateFailure,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
+		}
 	default:
 		sr.Cilium = &models.Status{
 			State: models.StatusStateOk,
@@ -640,6 +650,36 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 	}
 
 	return sr
+}
+
+// isDatapathReady checks if the host eBPF datapath has been initialized.
+// Returns true if:
+//   - The host datapath channel is closed (BPF programs loaded), OR
+//   - The timeout has elapsed (deadlock prevention)
+func (d *statusCollector) isDatapathReady() bool {
+	if d.statusParams.Loader == nil {
+		return true
+	}
+	select {
+	case <-d.statusParams.Loader.HostDatapathInitialized():
+		return true
+	default:
+	}
+	// Timeout fallback: if we've been running longer than DatapathReadyTimeout,
+	// report ready anyway to prevent permanent node deadlock.
+	if d.startTime.IsZero() {
+		return true
+	}
+	if time.Since(d.startTime) > d.statusParams.Config.DatapathReadyTimeout {
+		d.datapathTimeoutOnce.Do(func() {
+			d.statusParams.Logger.Warn(
+				"Datapath readiness timeout elapsed, reporting ready without eBPF confirmation",
+				"timeout", d.statusParams.Config.DatapathReadyTimeout,
+			)
+		})
+		return true
+	}
+	return false
 }
 
 func (d *statusCollector) getProbes() []Probe {
