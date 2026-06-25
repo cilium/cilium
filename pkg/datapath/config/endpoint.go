@@ -5,6 +5,8 @@ package config
 
 import (
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -12,6 +14,26 @@ import (
 // Endpoint returns a [BPFLXC] for an Endpoint.
 func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg := NewBPFLXC(NodeConfig(lnc))
+
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPv6Masquerade {
+		var excludeCIDR *cidr.CIDR
+		if option.Config.EnableIPMasqAgent {
+			excludeCIDR = option.Config.IPv6NativeRoutingCIDR
+		} else {
+			excludeCIDR = lnc.NativeRoutingCIDRIPv6
+		}
+
+		if excludeCIDR != nil {
+			if ip16 := excludeCIDR.IP.To16(); ip16 != nil {
+				cfg.IPv6SNATExclusionDstCIDR = cast[types.V6Addr](ip16)
+			}
+			if mask16 := excludeCIDR.Mask; len(mask16) == 16 {
+				cfg.IPv6SNATExclusionDstCIDRMask = cast[types.V6Addr](mask16)
+			}
+			ones, _ := excludeCIDR.Mask.Size()
+			cfg.IPv6SNATExclusionDstCIDRLen = uint16(ones)
+		}
+	}
 
 	if ep.IPv4Address().IsValid() {
 		cfg.EndpointIPv4.Addr = ep.IPv4Address().As4()

@@ -37,6 +37,11 @@ DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 t
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
 DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
+DECLARE_CONFIG(union v6addr, ipv6_snat_exclusion_dst_cidr, "IPv6 SNAT exclusion destination CIDR")
+DECLARE_CONFIG(union v6addr, ipv6_snat_exclusion_dst_cidr_mask,
+	       "IPv6 SNAT exclusion destination CIDR mask")
+DECLARE_CONFIG(__u16, ipv6_snat_exclusion_dst_cidr_len,
+	       "IPv6 SNAT exclusion destination CIDR length")
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -1729,15 +1734,13 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	}
 #endif
 
-# ifdef IPV6_SNAT_EXCLUSION_DST_CIDR
-	{
-		union v6addr excl_cidr_mask = IPV6_SNAT_EXCLUSION_DST_CIDR_MASK;
-		union v6addr excl_cidr = IPV6_SNAT_EXCLUSION_DST_CIDR;
+	if (CONFIG(ipv6_snat_exclusion_dst_cidr_len) > 0) {
+		union v6addr excl_cidr = CONFIG(ipv6_snat_exclusion_dst_cidr);
+		union v6addr excl_cidr_mask = CONFIG(ipv6_snat_exclusion_dst_cidr_mask);
 
 		if (ipv6_addr_in_net(&tuple->daddr, &excl_cidr, &excl_cidr_mask))
 			return NAT_PUNT_TO_STACK;
 	}
-# endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
 
 	/* Do not SNAT if this is a localhost endpoint or
 	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
