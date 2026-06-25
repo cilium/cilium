@@ -200,3 +200,175 @@ Below is the same SSL error while trying to connect to ``cilium.io`` from curl.
     * Closing connection
     curl: (35) Recv failure: Connection reset by peer
     command terminated with exit code 35
+
+.. _envoy_listener_redirect:
+
+Redirect traffic to an Envoy listener
+-------------------------------------
+
+A ``toPorts`` rule can carry a ``listener`` reference that redirects matching
+traffic to a named Envoy listener defined in a CiliumEnvoyConfig (CEC) or
+CiliumClusterwideEnvoyConfig (CCEC). Instead of allowing or denying the traffic,
+Cilium hands the traffic to the Envoy proxy, where the listener can act on the
+traffic, for example to manipulate headers, route, rewrite, or observe requests.
+
+.. warning::
+
+   A ``listener`` redirect offers a lot of flexibility, but it requires writing
+   raw Envoy configuration inside the CiliumEnvoyConfig or
+   CiliumClusterwideEnvoyConfig resource. Cilium performs only minimal validation
+   on that configuration, so small mistakes are easy to make and hard to debug.
+   Prefer solving traffic-management use cases with the higher-level Cilium
+   Gateway API support, including :ref:`GAMMA <gs_gamma>` for mesh (east-west)
+   traffic, and only reach for a ``listener`` redirect when the Gateway API does
+   not cover the use case. See :ref:`gs_gateway_api` and :ref:`gs_gamma`.
+
+Configure the ``listener`` field on egress, alongside the ``ports`` inside a
+``toPorts`` entry. The ``listener`` field contains the following keys:
+
+* ``envoyConfig`` — references the CEC or CCEC that defines the listener, using
+  the ``kind`` and ``name`` keys. When ``kind`` is omitted, Cilium resolves the
+  reference within the policy's own scope: a CiliumNetworkPolicy looks for a
+  namespaced CiliumEnvoyConfig in its own namespace, and a
+  CiliumClusterwideNetworkPolicy looks for a cluster-scoped
+  CiliumClusterwideEnvoyConfig. Setting ``kind`` explicitly states which resource
+  type defines the listener. A CiliumNetworkPolicy can reference either a
+  CiliumEnvoyConfig in its namespace or, by setting
+  ``kind: CiliumClusterwideEnvoyConfig``, a cluster-scoped
+  CiliumClusterwideEnvoyConfig. A CiliumClusterwideNetworkPolicy can only
+  reference a CiliumClusterwideEnvoyConfig.
+* ``name`` — the name of the listener within that config.
+
+The following examples use CiliumNetworkPolicy, but the same ``listener`` field
+works the same way in a CiliumClusterwideNetworkPolicy.
+
+.. note::
+
+   A ``listener`` redirect cannot be combined with Layer 7 ``rules`` (HTTP or
+   DNS) in the same ``toPorts`` entry. Use the Envoy listener itself to express
+   any application-layer behavior.
+
+For how to define the listener and the supporting Envoy resources, see
+:ref:`gs_l7_traffic_management` and :ref:`gs_envoy_custom_listener`.
+
+Example (redirect to Envoy)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following rule allows all endpoints with the label ``app=myService`` to
+emit HTTP traffic to ``example.com`` on TCP port 80, and redirects that traffic
+to the Envoy listener ``add-header-listener``:
+
+.. literalinclude:: ../../../examples/policies/l4/envoy_listener_redirect.yaml
+  :language: yaml
+  :emphasize-lines: 16-20
+
+A separate CiliumClusterwideEnvoyConfig defines the referenced listener. The
+following minimal listener injects an ``X-Request-Source: cilium`` request
+header before forwarding the request upstream:
+
+.. literalinclude:: ../../../examples/policies/l4/envoy_listener_redirect_cec.yaml
+  :language: yaml
+
+The route sends matching requests to ``original-dst-cluster``, an
+``ORIGINAL_DST`` cluster defined in the same CiliumClusterwideEnvoyConfig. The
+cluster forwards each connection to the original destination of the request
+(``example.com`` in this example) after adding the header.
+
+The names in the policy must match the names in the CiliumClusterwideEnvoyConfig:
+
+* ``envoyConfig.name`` in the policy (``add-header-config``) matches the
+  ``metadata.name`` of the CiliumClusterwideEnvoyConfig.
+* ``name`` in the policy (``add-header-listener``) matches the ``name`` of the
+  listener resource inside that CiliumClusterwideEnvoyConfig.
+
+The config sets the annotation
+``cec.cilium.io/use-original-source-address: "false"``. This annotation controls
+the source address Envoy uses for the upstream connection. For a hand-written
+CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig, the annotation defaults to
+``"true"``, which keeps the original pod source address (transparent proxy). For
+pod-originated egress redirects like this example, set it to
+``"false"`` so that Envoy uses its own source address. With the
+default ``"true"``, Cilium binds the upstream socket to the intercepted
+connection's source IP and port, then connects to the same destination via the
+``ORIGINAL_DST`` cluster. The resulting upstream 5-tuple (source IP, source
+port, destination IP, destination port, protocol) is identical to the
+intercepted downstream connection that is still open. The kernel rejects the
+duplicate and the connection fails. Setting ``"false"`` lets Envoy pick a fresh
+source address for the upstream connection, which keeps every 5-tuple unique.
+
+.. note::
+
+   The Cilium Envoy proxy ships with a curated subset of Envoy extensions, not
+   the full set. Before relying on a particular filter or extension, confirm
+   that the proxy build includes it. The enabled extensions are listed in the
+   `Envoy extensions build configuration`_. Check the Cilium version you run and
+   read the configuration for that version, because the set of enabled
+   extensions changes over time.
+
+.. _Envoy extensions build configuration: https://github.com/cilium/proxy/blob/main/envoy_build_config/extensions_build_config.bzl
+
+Example (forward proxy with authentication)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+One use of an Envoy listener redirect routes egress traffic through an external
+HTTP forward proxy and injects the credentials that the forward proxy requires.
+The Envoy listener tunnels the redirected TCP connection through the forward
+proxy and adds a ``Proxy-Authorization`` header, so the application pods do not
+need to be aware of the forward proxy or hold the forward proxy's credentials.
+
+The following policy redirects internet-bound web traffic on port 80 to the
+Envoy listener. The ``toCIDRSet`` selector matches every destination except the
+private (RFC 1918) ranges, so cluster-local and private-network traffic is not
+redirected:
+
+.. literalinclude:: ../../../examples/policies/l4/envoy_forward_proxy.yaml
+  :language: yaml
+  :emphasize-lines: 23-27
+
+The listener uses a TCP proxy with a ``tunneling_config`` that adds the
+``Proxy-Authorization`` header and forwards the connection to the external
+forward proxy at ``10.0.100.10:3128``:
+
+.. literalinclude:: ../../../examples/policies/l4/envoy_forward_proxy_cec.yaml
+  :language: yaml
+
+.. note::
+
+   The example encodes static Basic credentials for illustration, which means
+   the credentials live in plain text inside the CiliumClusterwideEnvoyConfig.
+   The ``headers_to_add`` field of the TCP proxy ``tunneling_config`` accepts
+   only literal values; it cannot reference a Kubernetes secret or an Envoy
+   Secret Discovery Service (SDS) secret. Anyone who can read the
+   CiliumClusterwideEnvoyConfig can therefore read the credentials, so restrict
+   access to the resource with RBAC and treat it as sensitive. To keep
+   credentials out of the configuration entirely, the listener must be
+   redesigned around a filter that supports SDS, which is beyond the scope of
+   this example.
+
+Wildcard port
+~~~~~~~~~~~~~
+
+Setting ``port: "0"`` acts as a wildcard, matching all ports for the given
+protocol. A single rule then applies to every port without enumerating each
+port.
+
+Wildcard ports pair well with a transport-level Envoy listener such as the
+forward-proxy listener in the preceding example. Because a TCP-proxy listener
+operates on the connection rather than parsing an application protocol, the
+listener handles traffic on any port. Setting the port to ``"0"`` sends all egress TCP
+connections through the forward proxy, instead of limiting the redirect to a
+single port such as 80.
+
+The following rule redirects all internet-bound TCP egress traffic through the
+forward-proxy listener. The ``toCIDRSet`` selector matches every destination
+address except the private (RFC 1918) ranges, so traffic that stays inside the
+cluster or the local network is not redirected:
+
+.. literalinclude:: ../../../examples/policies/l4/wildcard_port_listener.yaml
+  :language: yaml
+  :emphasize-lines: 20
+
+.. note::
+
+   ``port: "0"`` cannot be combined with Layer 7 ``rules`` (HTTP or DNS);
+   ``port: "0"`` is a Layer 3/4 construct.
