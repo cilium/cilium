@@ -245,9 +245,8 @@ func (h *ciliumHealthManager) cleanupEndpoint() {
 func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig bigtcp.Config, sysctl sysctl.Sysctl) (*Client, error) {
 	var (
 		info = &models.EndpointChangeRequest{
-			ContainerName: ciliumHealth,
-			State:         models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-			Addressing:    &models.AddressPair{},
+			State:      models.EndpointStateWaitingDashForDashIdentity.Pointer(),
+			Addressing: &models.AddressPair{},
 		}
 		healthIP               net.IP
 		ip4Address, ip6Address *net.IPNet
@@ -367,7 +366,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	// Set up the endpoint routes.
 	routes, err := h.getHealthRoutes(baseCtx, mtuConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Error while getting routes for containername %q: %w", info.ContainerName, err)
+		return nil, fmt.Errorf("Error while getting routes for %s endpoint: %w", ciliumHealth, err)
 	}
 
 	err = ns.Do(func() error {

@@ -328,9 +328,6 @@ func (mgr *endpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 	case endpointid.ContainerIdPrefix:
 		return mgr.lookupContainerID(eid), nil
 
-	case endpointid.ContainerNamePrefix:
-		return mgr.lookupDockerContainerName(eid), nil
-
 	case endpointid.PodNamePrefix:
 		return mgr.lookupPodNameLocked(eid), nil
 
@@ -544,13 +541,6 @@ func (mgr *endpointManager) lookupPodNameLocked(name string) *endpoint.Endpoint 
 
 func (mgr *endpointManager) lookupCEPNameLocked(name string) *endpoint.Endpoint {
 	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.CEPNamePrefix, name)]; ok {
-		return ep
-	}
-	return nil
-}
-
-func (mgr *endpointManager) lookupDockerContainerName(name string) *endpoint.Endpoint {
-	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.ContainerNamePrefix, name)]; ok {
 		return ep
 	}
 	return nil
