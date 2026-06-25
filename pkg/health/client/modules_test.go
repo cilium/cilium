@@ -21,10 +21,11 @@ func TestGetAndFormatModulesHealth(t *testing.T) {
 		v  bool
 	}{
 		"happy": {
-			e: "Stopped(0) Degraded(2) OK(2)",
+			e: "Modules Health:	Stopped(0) Degraded(2) OK(2)",
 		},
 		"happy-verbose": {
-			e: `agent
+			e: `Modules Health:	Stopped(0) Degraded(2) OK(2)
+		agent
 		├── a
 		│   └── b
 		│       └── c
