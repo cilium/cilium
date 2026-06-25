@@ -17,9 +17,7 @@ import (
 )
 
 const (
-	noPod    = "(/)"
 	rootNode = ""
-	noErr    = "<nil>"
 )
 
 // GetAndFormatModulesHealth retrieves modules health and formats output.
