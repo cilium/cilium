@@ -5965,6 +5965,9 @@
         },
         "periodSeconds": {
           "type": "integer"
+        },
+        "requireDatapathReady": {
+          "type": "boolean"
         }
       },
       "type": "object"

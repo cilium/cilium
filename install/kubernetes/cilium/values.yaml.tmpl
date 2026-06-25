@@ -2452,6 +2452,8 @@ readinessProbe:
   failureThreshold: 3
   # -- interval between checks of the readiness probe
   periodSeconds: 30
+  # -- whether to require datapath readiness as part of the check.
+  requireDatapathReady: false
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
 # Valid options are "true" or "false".
 # ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
