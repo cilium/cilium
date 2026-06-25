@@ -104,6 +104,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Success()
 	}
 
+	// At this point, the GatewayClass is managed by Cilium, so Gateway-level validations are safe to run.
+	if ref := gw.Spec.Infrastructure; ref != nil && ref.ParametersRef != nil {
+		setGatewayAccepted(gw, false, "Invalid Gateway parameters: spec.infrastructure.parametersRef is not supported", gatewayv1.GatewayReasonInvalidParameters)
+		setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
+		return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid Gateway"), original, gw)
+	}
+
 	if ref := gwc.Spec.ParametersRef; ref != nil {
 		if !isParameterRefSupported(ref) {
 			setGatewayAccepted(gw, false, "Invalid GatewayClass parameters: spec.parametersRef.kind must be CiliumGatewayClassConfig", gatewayv1.GatewayReasonInvalidParameters)
