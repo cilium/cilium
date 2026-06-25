@@ -620,6 +620,29 @@ gateway-api-conformance: ## Run Gateway API conformance tests.
 		--cleanup-base-resources=false \
 	| $(GOTEST_FORMATTER)
 
+CILIUM_VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo "v.0.0.0-`git --no-pager log -1 --pretty='format:%cd-%h' --date='format:%Y%m%d%H%M%S'`" )
+gateway-api-conformance-report: ## Run Gateway API conformance tests with a conformance report.
+	@$(ECHO_CHECK) running Gateway API conformance tests with conformance report...
+	GATEWAY_API_CONFORMANCE_TESTS=1 \
+	GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$(GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES) \
+	GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$(GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES) \
+	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./operator/pkg/gateway-api \
+		$(GATEWAY_TEST_FLAGS) \
+		-test.run $(GATEWAY_API_CONFORMANCE_TEST_NAME) \
+		-test.timeout=29m \
+		--gateway-class cilium \
+		--all-features \
+		--allow-crds-mismatch\
+		--cleanup-base-resources=true \
+		--organization cilium \
+		--project cilium \
+		--url github.com/cilium/cilium \
+		--version $(CILIUM_VERSION) \
+		--contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
+		--conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC \
+		--report-output=$(CURDIR)/gateway-api-conformance-report.yaml \
+	| $(GOTEST_FORMATTER)
+
 MCS_API_CONFORMANCE_TEST_NAME ?= TestConformance
 mcs-api-conformance: ## Run MCS-API conformance tests.
 	@$(ECHO_CHECK) running MCS-API conformance tests...
