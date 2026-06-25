@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -136,6 +137,23 @@ func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.Metr
 		opts...,
 	)
 	return resource.New[*cilium_api_v2.CiliumLoadBalancerIPPool](lc, lw, mp, resource.WithMetric("CiliumLoadBalancerIPPool")), nil
+}
+
+func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*mcsapiv1beta1.ServiceExport], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped(cs.MulticlusterV1beta1().ServiceExports("")),
+		opts...,
+	)
+	return resource.New[*mcsapiv1beta1.ServiceExport](
+		lc,
+		lw,
+		mp,
+		resource.WithIndexers(cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
+		resource.WithMetric("ServiceExport"),
+	), nil
 }
 
 const ServiceIndex = "service"

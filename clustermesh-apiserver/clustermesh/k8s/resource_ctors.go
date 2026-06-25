@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -95,6 +96,28 @@ func CiliumIdentityResource(params k8s.CiliumResourceParams, opts ...func(*metav
 			},
 		),
 		resource.WithCRDSync(params.CRDSyncPromise)), nil
+}
+
+// ServiceExportResource builds the Resource[ServiceExport] object.
+func ServiceExportResource(params k8s.CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*mcsapiv1beta1.ServiceExport], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped(params.ClientSet.MulticlusterV1beta1().ServiceExports("")),
+		opts...,
+	)
+	return resource.New[*mcsapiv1beta1.ServiceExport](
+		params.Lifecycle, lw, mp,
+		resource.WithIndexers(cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
+		resource.WithMetric("ServiceExport"),
+		resource.WithIndexers(
+			cache.Indexers{
+				cache.NamespaceIndex: cache.MetaNamespaceIndexFunc, // index by namespace for global namespace lookups
+			},
+		),
+	), nil
 }
 
 // ciliumIdentityNamespaceIndexFunc extracts the namespace from CiliumIdentity SecurityLabels.

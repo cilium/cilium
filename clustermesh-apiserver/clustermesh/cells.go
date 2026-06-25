@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
-	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -98,11 +97,11 @@ var Synchronization = cell.Module(
 
 	cell.Group(
 		cell.Provide(
-			func(syncState syncstate.SyncState) mcsapi.ServiceExportSyncCallback {
+			func(syncState syncstate.SyncState) ServiceExportSyncCallback {
 				return syncState.WaitForResource()
 			},
 		),
-		mcsapi.ServiceExportSyncCell,
+		ServiceExportSyncCell,
 	),
 
 	cell.Group(
