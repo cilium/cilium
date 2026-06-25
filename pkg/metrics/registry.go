@@ -194,6 +194,16 @@ func (r *Registry) registerMetrics() {
 		metrics[autoMetric.Opts().GetConfigName()] = r.params.AutoMetrics[i]
 	}
 
+	// MetricsCoreOnly disables all configurable AutoMetrics.
+	// Collectors registered directly via MustRegister() are unaffected.
+	// This occurs before user overrides, allowing explicit '+' enables
+	// to take precedence.
+	if r.params.DaemonConfig != nil && r.params.DaemonConfig.MetricsCoreOnly {
+		for _, metric := range metrics {
+			metric.SetEnabled(false)
+		}
+	}
+
 	// This is a bodge for a very specific feature, inherited from the old `Daemon.additionalMetrics`.
 	// We should really find a more generic way to handle such cases.
 	metricFlags := r.params.Config.Metrics

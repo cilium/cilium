@@ -345,6 +345,9 @@ const (
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddr = "prometheus-serve-addr"
 
+	// MetricsCoreOnly disables all configurable AutoMetrics while preserving core runtime and health metrics
+	MetricsCoreOnly = "metrics-core-only"
+
 	// ExternalEnvoyProxy defines whether the Envoy is deployed externally in form of a DaemonSet or not.
 	ExternalEnvoyProxy = "external-envoy-proxy"
 
@@ -1524,6 +1527,10 @@ type DaemonConfig struct {
 	// DNS proxy at any given point in time.
 	DNSProxyConcurrencyLimit int
 
+	// MetricsCoreOnly disables all configurable AutoMetrics while preserving
+	// core runtime, health, process, endpoint and BPF metrics
+	MetricsCoreOnly bool
+
 	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
 	DNSProxyEnableTransparentMode bool
 
@@ -2685,6 +2692,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.ToFQDNsIdleConnectionGracePeriod = vp.GetDuration(ToFQDNsIdleConnectionGracePeriod)
 	c.FQDNProxyResponseMaxDelay = vp.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
+	c.MetricsCoreOnly = vp.GetBool(MetricsCoreOnly)
 	c.DNSProxyEnableTransparentMode = vp.GetBool(DNSProxyEnableTransparentMode)
 	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)
 	c.DNSProxyLockTimeout = vp.GetDuration(DNSProxyLockTimeout)

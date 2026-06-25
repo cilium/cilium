@@ -195,6 +195,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(vp, option.EnableEndpointRoutes)
 
+	flags.Bool(option.MetricsCoreOnly, false, "Disable all configurable AutoMetrics while preserving core runtime and health metrics")
+	option.BindEnv(vp, option.MetricsCoreOnly)
+
 	flags.Int(option.HealthCheckICMPFailureThreshold, defaults.HealthCheckICMPFailureThreshold, "Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy.")
 	option.BindEnv(vp, option.HealthCheckICMPFailureThreshold)
 

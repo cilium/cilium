@@ -421,6 +421,69 @@ For large clusters, consider disabling high-cardinality metrics like
          cilium-agent --prometheus-serve-addr=:9962 \
              --metrics="-cilium_node_health_connectivity_status -cilium_node_health_connectivity_latency_seconds"
 
+Core-Only Metrics Mode
+~~~~~~~~~~~~~~~~~~~~~~~
+
+For environments requiring minimal metric exposure, Cilium supports a
+``--metrics-core-only`` option that disables all configurable AutoMetrics
+while keeping core runtime, health, process, endpoint and BPF metrics enabled.
+This significantly reduces exported metrics by disabling all configurable
+AutoMetrics while preserving metrics registered outside the AutoMetrics framework.
+
+Core metrics are metrics registered outside the AutoMetrics framework and include
+runtime, health, process, endpoint and BPF collectors. These metrics provide
+essential operational visibility into Cilium's runtime state and resource usage.
+
+To enable core-only mode via CLI:
+
+.. code-block:: shell-session
+
+    cilium-agent --prometheus-serve-addr=:9962 --metrics-core-only=true
+
+Or via ConfigMap:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cilium-config
+      namespace: kube-system
+    data:
+      enable-prometheus-metrics: "true"
+      prometheus-serve-addr: ":9962"
+      metrics-core-only: "true"
+
+When ``metrics-core-only`` is enabled, explicit metric enablement using the
+existing ``+`` syntax takes precedence and re-enables the specified metric.
+You can selectively re-enable specific metrics even in core-only mode:
+
+.. code-block:: shell-session
+
+    cilium-agent --prometheus-serve-addr=:9962 \\
+      --metrics-core-only=true \\
+      --metrics="+cilium_drop_count_total +cilium_forward_count_total"
+
+Or via ConfigMap:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cilium-config
+      namespace: kube-system
+    data:
+      enable-prometheus-metrics: "true"
+      prometheus-serve-addr: ":9962"
+      metrics-core-only: "true"
+      metrics: |
+        +cilium_drop_count_total
+        +cilium_forward_count_total
+
+This approach provides a minimal baseline with the flexibility to enable
+only the metrics you need, without maintaining large deny-lists.
+
 Feature Metrics
 ~~~~~~~~~~~~~~~
 
