@@ -5254,6 +5254,17 @@
           },
           "type": "object"
         },
+        "livenessProbe": {
+          "properties": {
+            "periodSeconds": {
+              "type": "integer"
+            },
+            "timeoutSeconds": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "nodeGCInterval": {
           "type": "string"
         },
@@ -5411,6 +5422,20 @@
           },
           "type": "object"
         },
+        "readinessProbe": {
+          "properties": {
+            "failureThreshold": {
+              "type": "integer"
+            },
+            "periodSeconds": {
+              "type": "integer"
+            },
+            "timeoutSeconds": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "removeNodeTaints": {
           "type": "boolean"
         },
@@ -5457,6 +5482,17 @@
         },
         "skipCRDCreation": {
           "type": "boolean"
+        },
+        "startupProbe": {
+          "properties": {
+            "failureThreshold": {
+              "type": "integer"
+            },
+            "periodSeconds": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
         },
         "tolerations": {
           "items": {

@@ -3305,6 +3305,31 @@ operator:
   #     topologyKey: topology.kubernetes.io/zone
   #     whenUnsatisfiable: DoNotSchedule
 
+  # -- Startup probe configuration for cilium-operator.
+  # Allows the operator to take longer to initialize on resource-constrained nodes
+  # (e.g., 2-vCPU instances where startup can exceed the default 90s liveness window).
+  # Once the startup probe succeeds, the liveness probe takes over for fast crash detection.
+  startupProbe:
+    # -- failure threshold of startup probe.
+    # 30 * 10s = 300s maximum startup time.
+    failureThreshold: 30
+    # -- interval between checks of the startup probe
+    periodSeconds: 10
+  # -- Liveness probe configuration for cilium-operator.
+  livenessProbe:
+    # -- interval between checks of the liveness probe
+    periodSeconds: 10
+    # -- timeout of the liveness probe
+    timeoutSeconds: 3
+  # -- Readiness probe configuration for cilium-operator.
+  readinessProbe:
+    # -- interval between checks of the readiness probe
+    periodSeconds: 5
+    # -- timeout of the readiness probe
+    timeoutSeconds: 3
+    # -- failure threshold of the readiness probe
+    failureThreshold: 5
+
   # -- Node labels for cilium-operator pod assignment
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
   nodeSelector:
