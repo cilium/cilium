@@ -158,10 +158,6 @@ type Endpoint struct {
 	// mutex protects write operations to this endpoint structure
 	mutex lock.RWMutex
 
-	// containerName is the name given to the endpoint by the container runtime.
-	// It is not mutable once set.
-	containerName atomic.Pointer[string]
-
 	// containerID is the container ID that the container runtime has assigned to
 	// the endpoint. It is not mutable once set.
 	containerID atomic.Pointer[string]
@@ -186,7 +182,7 @@ type Endpoint struct {
 	parentIfIndex int
 
 	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
-	// (container name, container id, pod name) for this endpoint.
+	// (container id, pod name) for this endpoint.
 	// Immutable after Endpoint creation.
 	disableLegacyIdentifiers bool
 

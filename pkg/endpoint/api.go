@@ -64,9 +64,6 @@ func NewEndpointFromChangeModel(p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy
 	ep.containerIfName = model.ContainerInterfaceName
 	ep.containerNetnsPath = model.ContainerNetnsPath
 	ep.parentIfIndex = int(model.ParentInterfaceIndex)
-	if model.ContainerName != "" {
-		ep.containerName.Store(&model.ContainerName)
-	}
 	if model.ContainerID != "" {
 		ep.containerID.Store(&model.ContainerID)
 	}
@@ -169,7 +166,6 @@ func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifi
 	// Use legacy endpoint identifiers only if the endpoint has not opted out
 	if !e.disableLegacyIdentifiers {
 		identifiers.ContainerID = e.GetContainerID()
-		identifiers.ContainerName = e.GetContainerName()
 		identifiers.PodName = e.GetK8sNamespaceAndPodName()
 		identifiers.K8sPodName = e.K8sPodName
 		identifiers.K8sNamespace = e.K8sNamespace
@@ -547,11 +543,6 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		if e.setState(StateWaitingForIdentity, "Update endpoint from API PATCH") {
 			changed = true
 		}
-	}
-
-	if newContainerName := newEp.containerName.Load(); newContainerName != nil && *newContainerName != "" {
-		e.containerName.Store(newContainerName)
-		// no need to set changed here
 	}
 
 	if newContainerID := newEp.containerID.Load(); newContainerID != nil && *newContainerID != "" {

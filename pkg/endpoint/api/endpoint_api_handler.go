@@ -300,8 +300,6 @@ func (h *EndpointPatchEndpointIDHandler) Handle(params endpointapi.PatchEndpoint
 
 	// FIXME: Support changing these?
 	//  - container ID
-	//  - docker network id
-	//  - docker endpoint id
 	//
 	//  Support arbitrary changes? Support only if unset?
 	reason, err := ep.ProcessChangeRequest(newEp, validStateTransition)

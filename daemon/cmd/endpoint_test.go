@@ -30,8 +30,7 @@ func getEPTemplate(t *testing.T, ipamManager *ipam.IPAM) *models.EndpointChangeR
 	require.NotNil(t, ip6)
 
 	return &models.EndpointChangeRequest{
-		ContainerName: "foo",
-		State:         models.EndpointStateWaitingDashForDashIdentity.Pointer(),
+		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 		Addressing: &models.AddressPair{
 			IPv6: ip6.IP.String(),
 			IPv4: ip4.IP.String(),
