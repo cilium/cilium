@@ -85,11 +85,25 @@ func validateCNPs(logger *slog.Logger, clientset k8sClient.Clientset, shutdowner
 
 	ctx, initCancel := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel()
-	cnpExcluded, cnpErr := validateNPResources(ctx, clientset, npValidator.ValidateCNP, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
+	cnpExcluded, cnpErr := validateNPResources(
+		ctx,
+		clientset,
+		npValidator.ValidateCNP,
+		parseCNPRules,
+		"ciliumnetworkpolicies",
+		"CiliumNetworkPolicy",
+	)
 
 	ctx, initCancel2 := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel2()
-	ccnpExcluded, ccnpErr := validateNPResources(ctx, clientset, npValidator.ValidateCCNP, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
+	ccnpExcluded, ccnpErr := validateNPResources(
+		ctx,
+		clientset,
+		npValidator.ValidateCCNP,
+		parseCCNPRules,
+		"ciliumclusterwidenetworkpolicies",
+		"CiliumClusterwideNetworkPolicy",
+	)
 
 	if cnpErr != nil {
 		return cnpErr
@@ -97,18 +111,25 @@ func validateCNPs(logger *slog.Logger, clientset k8sClient.Clientset, shutdowner
 	if ccnpErr != nil {
 		return ccnpErr
 	}
-	log.Info("All CCNPs and CNPs valid!")
 
 	if cnpExcluded || ccnpExcluded {
-		log.Warn("Some policies reference identity-excluded labels!")
+		log.Warn("All CCNPs and CNPs are valid, but some policies reference identity-excluded labels!")
+		return nil
 	}
+
+	log.Info("All CCNPs and CNPs valid!")
 	return nil
 }
 
+type policyLister func(ctx context.Context, cont string) (*unstructured.UnstructuredList, error)
+
+// validateNPResources checks that the resource's CRD is installed and, if so,
+// validates all of its objects via the validatePolicies core.
 func validateNPResources(
 	ctx context.Context,
 	clientset k8sClient.Clientset,
-	validator func(cnp *unstructured.Unstructured) error,
+	validate func(cnp *unstructured.Unstructured) error,
+	parse func(cnp *unstructured.Unstructured) (api.Rules, error),
 	name,
 	shortName string,
 ) (bool, error) {
@@ -126,36 +147,50 @@ func validateNPResources(
 		return false, err
 	}
 
-	var (
-		policyErr error
-		excluded  bool
-		cnps      unstructured.UnstructuredList
-		cnpName   string
-	)
-	for {
-		opts := metav1.ListOptions{
-			Limit:    25,
-			Continue: cnps.GetContinue(),
-		}
-		err = clientset.
+	list := func(ctx context.Context, cont string) (*unstructured.UnstructuredList, error) {
+		var cnps unstructured.UnstructuredList
+		err := clientset.
 			CiliumV2().
 			RESTClient().
 			Get().
-			VersionedParams(&opts, scheme.ParameterCodec).
+			VersionedParams(&metav1.ListOptions{Limit: 25, Continue: cont}, scheme.ParameterCodec).
 			Resource(name).
 			Do(ctx).
 			Into(&cnps)
+		return &cnps, err
+	}
+
+	return validatePolicies(ctx, list, validate, parse, shortName)
+}
+
+// validatePolicies validates every policy returned by list and warns about
+// selectors referencing labels excluded from the security identity. It returns
+// whether any policy referenced such a label.
+func validatePolicies(
+	ctx context.Context,
+	list policyLister,
+	validate func(cnp *unstructured.Unstructured) error,
+	parse func(cnp *unstructured.Unstructured) (api.Rules, error),
+	shortName string,
+) (bool, error) {
+	var (
+		policyErr error
+		excluded  bool
+		cont      string
+	)
+	for {
+		cnps, err := list(ctx, cont)
 		if err != nil {
 			return false, err
 		}
 
 		for _, cnp := range cnps.Items {
-			if cnp.GetNamespace() != "" {
-				cnpName = fmt.Sprintf("%s/%s", cnp.GetNamespace(), cnp.GetName())
-			} else {
-				cnpName = cnp.GetName()
+			cnpName := cnp.GetName()
+			if ns := cnp.GetNamespace(); ns != "" {
+				cnpName = ns + "/" + cnpName
 			}
-			if err := validator(&cnp); err != nil {
+
+			if err := validate(&cnp); err != nil {
 				log.Error("Unexpected validation error",
 					logfields.Error, err,
 					logfields.Type, shortName,
@@ -169,47 +204,41 @@ func validateNPResources(
 				)
 			}
 
-			rules, err := cnpRules(cnp)
+			rules, err := parse(&cnp)
 			if err != nil {
-				log.Warn("Unable to parse policy for identity-label check",
+				log.Error("Unable to parse policy for identity-label check",
 					logfields.Error, err,
 					logfields.Type, shortName,
 					logfields.Name, cnpName,
 				)
+				policyErr = fmt.Errorf("Found invalid %s", shortName)
 			} else if warnExcludedIdentityLabels(rules, shortName, cnpName) {
 				excluded = true
 			}
 		}
-		if cnps.GetContinue() == "" {
+
+		cont = cnps.GetContinue()
+		if cont == "" {
 			break
 		}
 	}
 	return excluded, policyErr
 }
 
-func cnpRules(rawCNP unstructured.Unstructured) (api.Rules, error) {
-	rules := api.Rules{}
-	if rawCNP.GetNamespace() != "" {
-		var cnp cilium_v2.CiliumNetworkPolicy
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(rawCNP.Object, &cnp); err != nil {
-			return nil, err
-		}
-		if cnp.Spec != nil {
-			rules = append(rules, cnp.Spec)
-		}
-		rules = append(rules, cnp.Specs...)
-	} else {
-		var ccnp cilium_v2.CiliumClusterwideNetworkPolicy
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(rawCNP.Object, &ccnp); err != nil {
-			return nil, err
-		}
-		if ccnp.Spec != nil {
-			rules = append(rules, ccnp.Spec)
-		}
-		rules = append(rules, ccnp.Specs...)
+func parseCNPRules(rawCNP *unstructured.Unstructured) (api.Rules, error) {
+	var cnp cilium_v2.CiliumNetworkPolicy
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(rawCNP.Object, &cnp); err != nil {
+		return nil, err
 	}
+	return cnp.Parse(log, "")
+}
 
-	return rules, nil
+func parseCCNPRules(rawCNP *unstructured.Unstructured) (api.Rules, error) {
+	var ccnp cilium_v2.CiliumClusterwideNetworkPolicy
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(rawCNP.Object, &ccnp); err != nil {
+		return nil, err
+	}
+	return ccnp.Parse(log, "")
 }
 
 // warnExcludedIdentityLabels logs an advisory warning for every endpoint-selector
@@ -254,20 +283,17 @@ func endpointSelectors(rule *api.Rule) []api.EndpointSelector {
 }
 
 // excludedSelectorKeys returns the selector's label keys that the identity label
-// filter would drop. Keys are evaluated as Kubernetes labels (source k8s), as pod
-// labels are presented to the filter.
+// filter would drop. Selectors here come from Parse(), whose keys are source
+// encoded (e.g. "any:topology.kubernetes.io/zone"); Map2Labels/NewLabel strip
+// that source prefix, recovering the bare key the filter matches against.
 func excludedSelectorKeys(sel api.EndpointSelector) []string {
 	if sel.LabelSelector == nil {
 		return nil
 	}
 
-	lbls := labels.Labels{}
-	for k, v := range sel.MatchLabels {
-		l := labels.NewLabel(k, string(v), labels.LabelSourceK8s)
-		lbls[l.Key] = l
-	}
+	lbls := labels.Map2Labels(sel.MatchLabels, labels.LabelSourceAny)
 	for _, req := range sel.MatchExpressions {
-		l := labels.NewLabel(req.Key, "", labels.LabelSourceK8s)
+		l := labels.NewLabel(req.Key, "", labels.LabelSourceAny)
 		lbls[l.Key] = l
 	}
 	if len(lbls) == 0 {
