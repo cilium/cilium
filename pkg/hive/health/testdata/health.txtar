@@ -118,6 +118,7 @@ final: ""
 count: 1
 
 -- all.expected.txt --
+Modules Health:	Stopped(1) Degraded(1) OK(3)
 agent
 ├── m0
 │   ├── c0                                          [OK] ok
@@ -130,22 +131,26 @@ agent
     └── stopped                                     [STOPPED] ok
 
 -- m0.expected.txt --
+Modules Health:	Stopped(0) Degraded(1) OK(1)
 agent
 └── m0
     ├── c0                                          [OK] ok
     └── c1                                          [DEGRADED] no!
 
 -- m0.c1.expected.txt --
+Modules Health:	Stopped(0) Degraded(1) OK(0)
 agent
 └── m0
     └── c1                                          [DEGRADED] no!
 
 -- degraded.expected.txt --
+Modules Health:	Stopped(0) Degraded(1) OK(0)
 agent
 └── m0
     └── c1                                          [DEGRADED] no!
 
 -- degraded-stopped.expected.txt --
+Modules Health:	Stopped(1) Degraded(1) OK(0)
 agent
 ├── m0
 │   └── c1                                          [DEGRADED] no!
@@ -153,6 +158,7 @@ agent
     └── stopped                                     [STOPPED] ok
 
 -- foo.expected.txt --
+Modules Health:	Stopped(1) Degraded(1) OK(4)
 agent
 ├── m0
 │   ├── c0                                          [OK] ok

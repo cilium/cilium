@@ -28,6 +28,18 @@ func GetAndFormatModulesHealth(w io.Writer, ss []types.Status, verbose bool, pre
 	sort.Slice(ss, func(i, j int) bool {
 		return ss[i].ID.String() < ss[j].ID.String()
 	})
+	tally := make(map[types.Level]int, 4)
+	for _, s := range ss {
+		tally[types.Level(s.Level)] += 1
+	}
+	fmt.Fprintf(w, "Modules Health:\t%s(%d) %s(%d) %s(%d)\n",
+		types.LevelStopped,
+		tally[types.LevelStopped],
+		types.LevelDegraded,
+		tally[types.LevelDegraded],
+		types.LevelOK,
+		tally[types.LevelOK],
+	)
 	if verbose {
 		r := newRoot(rootNode)
 		for _, s := range ss {
@@ -54,20 +66,7 @@ func GetAndFormatModulesHealth(w io.Writer, ss []types.Status, verbose bool, pre
 
 		body = strings.ReplaceAll(body, "\n", "\n"+prefix)
 		fmt.Fprintln(w, prefix+body)
-		return
 	}
-	tally := make(map[types.Level]int, 4)
-	for _, s := range ss {
-		tally[types.Level(s.Level)] += 1
-	}
-	fmt.Fprintf(w, "\t%s(%d) %s(%d) %s(%d)\n",
-		types.LevelStopped,
-		tally[types.LevelStopped],
-		types.LevelDegraded,
-		tally[types.LevelDegraded],
-		types.LevelOK,
-		tally[types.LevelOK],
-	)
 }
 
 type TreeView struct {
