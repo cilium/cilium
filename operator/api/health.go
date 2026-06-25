@@ -65,12 +65,10 @@ func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Resp
 	}
 
 	if err := h.checkStatus(); err != nil {
-		if h.consecutiveErrors.Add(1) <= 3 {
-			h.log.Info("Health check failed", logfields.Error, err)
-		} else {
-			h.log.Warn("Health check failed", logfields.Error, err)
-		}
-
+		h.log.Info("Health check failed",
+			logfields.Error, err,
+			logfields.Count, h.consecutiveErrors.Add(1),
+		)
 		return operator.NewGetHealthzInternalServerError().WithPayload(err.Error())
 	}
 
