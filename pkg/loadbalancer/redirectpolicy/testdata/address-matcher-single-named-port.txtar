@@ -1,0 +1,92 @@
+# An addressMatcher LRP with a SINGLE named frontend port and a pod whose
+
+hive start
+
+# Add the LRP and the matching pod.
+k8s/add lrp-addr.yaml pod.yaml
+
+# Datapath truth: the LocalRedirect frontend carries the pod backend even
+# though the pod's container port name ("dns-upstream") differs from the
+# frontend port name ("dns").
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# The REST API model must show the same backend for the frontend mapping.
+lrp/list lrp.actual
+cmp lrp.actual lrp-list.expected
+
+-- lrp.table --
+Name           Type     FrontendType      Frontends
+test/lrp-addr  address  addr-single-port  169.254.20.10:80/TCP
+
+-- services.table --
+Name                          Source
+test/lrp-addr:local-redirect  k8s
+
+-- frontends.table --
+Address                Type           ServiceName                   Backends           RedirectTo  Status
+169.254.20.10:80/TCP   LocalRedirect  test/lrp-addr:local-redirect  10.244.2.1:80/TCP              Done
+
+-- backends.table --
+Service                       Address
+test/lrp-addr:local-redirect  10.244.2.1:80/TCP
+
+-- lrp-list.expected --
+test/lrp-addr type=addr frontend-type="IP + port"
+  169.254.20.10:80/TCP => 10.244.2.1:80/TCP (test/lrp-pod, active)
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: test
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.20.10"
+      toPorts:
+        - port: "80"
+          name: "http"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: nginx
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: nginx
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: wrong-http
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2019-07-08T09:41:59Z'
+    status: 'True'
+    type: Ready
