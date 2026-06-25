@@ -237,7 +237,7 @@ Getting Started
 ===============
 
 * `Why Cilium?`_
-* `Getting Started <gs>`_
+* `Getting Started <gs_>`_
 * `Architecture and Concepts`_
 * `Installing Cilium`_
 * `Frequently Asked Questions`_
