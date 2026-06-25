@@ -9,6 +9,8 @@
   # L7 testing: IPsec encryption has complex interaction with L7 proxy - packets
   # must be decrypted before L7 processing and re-encrypted for upstream connections
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-2'
   kernel: '6.18'
   kube-proxy: 'iptables'
@@ -19,6 +21,8 @@
   key-two: 'cbc-aes-sha256'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-3'
   kernel: '6.18'
   kube-proxy: 'iptables'
@@ -31,6 +35,8 @@
   kvstore: 'true'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-4'
   kernel: '6.1'
   kube-proxy: 'iptables'
@@ -43,6 +49,8 @@
   kvstore: 'true'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-5'
   kernel: '6.6'
   kube-proxy: 'none'
@@ -55,6 +63,8 @@
   key-two: 'cbc-aes-sha256'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-6'
   kernel: '6.1'
   kube-proxy: 'none'
@@ -70,6 +80,8 @@
   key-two: 'rfc4106-gcm-aes'
   # L7 testing: IPsec encryption + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-7'
   kernel: '5.15'
   kube-proxy: 'iptables'
@@ -81,6 +93,8 @@
   key-two: 'rfc4106-gcm-aes'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-8'
   kernel: '6.12'
   kube-proxy: 'none'
@@ -95,6 +109,8 @@
   key-two: 'rfc4106-gcm-aes'
   # L7 testing: IPsec encryption + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-9'
   kernel: '6.12'
   kube-proxy: 'none'
@@ -109,6 +125,8 @@
   key-two: 'rfc4106-gcm-aes'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
 - name: 'ipsec-10'
   kernel: '6.6'
   kube-proxy: 'none'
@@ -122,3 +140,5 @@
   key-two: 'cbc-aes-sha256'
   # L7 testing: IPsec strict mode especially critical - affects proxy traffic encryption
   test-l7: 'true'
+  host-fw: 'true'
+  skip-upgrade: 'true'
