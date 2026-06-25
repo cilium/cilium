@@ -53,17 +53,23 @@ func eachLiveRef(r *Reachable, fn func(ref string)) {
 }
 
 // allUnreachable asserts that all symbols appearing in insns are marked
-// unreachable in r, except for sym_i, which should never be marked
-// unreachable.
+// unreachable in r, except for sym_m. It lives in a static function, which is
+// always visited since the pre-6.8 verifier checks it independently of its call
+// sites. Global functions like the ones holding sym_i and sym_j are only visited
+// through live call sites.
 func allUnreachable(t *testing.T, insns asm.Instructions, r *Reachable) {
 	t.Helper()
 
 	syms := symbols(insns)
+	var staticLive bool
 	eachLiveRef(r, func(ref string) {
-		if ref != "sym_i" {
-			assert.Nil(t, syms[ref], "symbol %q should be unreachable", ref)
+		if ref == "sym_m" {
+			staticLive = true
+			return
 		}
+		assert.Nil(t, syms[ref], "symbol %q should be unreachable", ref)
 	})
+	assert.True(t, staticLive, "symbol sym_m in static func_m should be reachable")
 }
 
 // allReachable asserts that all symbols appearing in insns are marked live in
@@ -95,6 +101,7 @@ func TestReachabilitySimple(t *testing.T) {
 		SymJ    *ebpf.VariableSpec `ebpf:"__config_sym_j"`
 		SymK    *ebpf.VariableSpec `ebpf:"__config_sym_k"`
 		SymL    *ebpf.VariableSpec `ebpf:"__config_sym_l"`
+		SymM    *ebpf.VariableSpec `ebpf:"__config_sym_m"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
 	insns := obj.Program.Instructions
@@ -130,6 +137,7 @@ func TestReachabilitySimple(t *testing.T) {
 	require.NoError(t, obj.SymJ.Set(true))
 	require.NoError(t, obj.SymK.Set(int16(1)))
 	require.NoError(t, obj.SymL.Set(uint32(1)))
+	require.NoError(t, obj.SymM.Set(true))
 
 	rr, err := Reachability(blocks, obj.Program.Instructions, spec.Variables)
 	require.NoError(t, err)
