@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/metrics"
 )
@@ -40,6 +41,7 @@ type clientParams struct {
 	cell.In
 
 	Logger                *slog.Logger
+	DaemonConfig          *option.DaemonConfig
 	JobGroup              job.Group
 	FQDNConfig            service.FQDNConfig
 	DialClient            dialClient
@@ -53,6 +55,11 @@ type clientParams struct {
 // newGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
 func newGRPCClient(params clientParams) ConnectionHandler {
 	c := createGRPCClient(params)
+
+	if !params.DaemonConfig.EnableL7Proxy || !params.FQDNConfig.EnableStandaloneDNSProxy {
+		params.Logger.Info("Standalone DNS proxy gRPC client disabled")
+		return c
+	}
 
 	// The InitClient job initializes the gRPC client for communication with the Cilium agent.
 	err := c.InitClient()

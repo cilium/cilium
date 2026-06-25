@@ -146,19 +146,32 @@ type hooksParams struct {
 }
 
 func registerStandaloneDNSProxyHooks(params hooksParams) error {
-	if params.SDP.enableL7Proxy && params.SDP.enableStandaloneDNSProxy {
-		params.SDP.logger.Info("Standalone DNS proxy is enabled")
+	sdp := params.SDP
+
+	var onStart, onStop func(cell.HookContext) error
+
+	if sdp.enableL7Proxy && sdp.enableStandaloneDNSProxy {
+		sdp.logger.Info("Standalone DNS proxy is enabled")
+		onStart = func(cell.HookContext) error { return sdp.StartStandaloneDNSProxy() }
+		onStop = func(cell.HookContext) error { return sdp.StopStandaloneDNSProxy() }
 	} else {
-		return fmt.Errorf("standalone DNS proxy requires L7 proxy and standalone DNS proxy to be enabled in the configuration")
+		sdp.logger.Error("Standalone DNS proxy requires both L7 proxy and standalone DNS proxy to be enabled",
+			option.EnableL7Proxy, sdp.enableL7Proxy,
+			service.EnableStandaloneDNSProxy, sdp.enableStandaloneDNSProxy,
+		)
+		onStart = func(cell.HookContext) error {
+			sdp.setReady(true)
+			return nil
+		}
+		onStop = func(cell.HookContext) error {
+			sdp.setReady(false)
+			return nil
+		}
 	}
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			return params.SDP.StartStandaloneDNSProxy()
-		},
-		OnStop: func(cell.HookContext) error {
-			return params.SDP.StopStandaloneDNSProxy()
-		},
+		OnStart: onStart,
+		OnStop:  onStop,
 	})
 	return nil
 }
