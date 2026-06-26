@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -1493,3 +1494,112 @@ func (g fakeNodeGetter) Get(ctx context.Context) (node.LocalNode, error) {
 }
 
 type fakeNodeGetter struct{}
+
+type mockIPCache struct {
+	labels map[string]labels.Labels
+}
+
+func (m *mockIPCache) GetMetadataLabels(ip netip.Addr) labels.Labels {
+	if m.labels == nil {
+		return nil
+	}
+	return m.labels[ip.String()]
+}
+
+func TestComputeCIDRLabels(t *testing.T) {
+	// Backup and restore configuration
+	originalMode := option.Config.PolicyCIDRMatchMode
+	defer func() {
+		option.Config.PolicyCIDRMatchMode = originalMode
+	}()
+
+	ipv4 := netip.MustParseAddr("10.0.0.1")
+	ipv6 := netip.MustParseAddr("fd00::1")
+
+	lblGroup := labels.NewLabel("groupA", "", labels.LabelSourceCIDRGroup)
+	lblCIDR := labels.NewLabel("10.0.0.0/24", "", labels.LabelSourceCIDR)
+
+	tests := []struct {
+		name         string
+		matchMode    []string
+		ipv4         netip.Addr
+		ipv6         netip.Addr
+		ipcache      map[string]labels.Labels
+		expectLabels labels.Labels
+	}{
+		{
+			name:         "PolicyCIDRMatchesPods disabled",
+			matchMode:    nil,
+			ipv4:         ipv4,
+			expectLabels: labels.Labels{},
+		},
+		{
+			name:      "No labels in ipcache (IPv4 only)",
+			matchMode: []string{"pods"},
+			ipv4:      ipv4,
+			expectLabels: labels.Labels{
+				"cidr:0.0.0.0/0": labels.ParseLabel("cidr:0.0.0.0/0"),
+			},
+		},
+		{
+			name:      "No labels in ipcache (dual stack)",
+			matchMode: []string{"pods"},
+			ipv4:      ipv4,
+			ipv6:      ipv6,
+			expectLabels: labels.Labels{
+				"cidr:0.0.0.0/0": labels.ParseLabel("cidr:0.0.0.0/0"),
+				"cidr:::/0":      labels.ParseLabel("cidr:::/0"),
+			},
+		},
+		{
+			name:      "Solely cidrgroup labels in ipcache",
+			matchMode: []string{"pods"},
+			ipv4:      ipv4,
+			ipcache: map[string]labels.Labels{
+				ipv4.String(): {lblGroup.GetExtendedKey(): lblGroup},
+			},
+			expectLabels: labels.Labels{
+				lblGroup.GetExtendedKey(): lblGroup,
+				"cidr:0.0.0.0/0":          labels.ParseLabel("cidr:0.0.0.0/0"),
+			},
+		},
+		{
+			name:      "Specific cidr labels in ipcache",
+			matchMode: []string{"pods"},
+			ipv4:      ipv4,
+			ipcache: map[string]labels.Labels{
+				ipv4.String(): {lblCIDR.GetExtendedKey(): lblCIDR},
+			},
+			expectLabels: labels.Labels{
+				lblCIDR.GetExtendedKey(): lblCIDR,
+			},
+		},
+		{
+			name:      "Both cidr and cidrgroup labels in ipcache",
+			matchMode: []string{"pods"},
+			ipv4:      ipv4,
+			ipcache: map[string]labels.Labels{
+				ipv4.String(): {
+					lblCIDR.GetExtendedKey():  lblCIDR,
+					lblGroup.GetExtendedKey(): lblGroup,
+				},
+			},
+			expectLabels: labels.Labels{
+				lblCIDR.GetExtendedKey():  lblCIDR,
+				lblGroup.GetExtendedKey(): lblGroup,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			option.Config.PolicyCIDRMatchMode = tt.matchMode
+			ep := &Endpoint{
+				IPv4:    tt.ipv4,
+				IPv6:    tt.ipv6,
+				ipcache: &mockIPCache{labels: tt.ipcache},
+			}
+			assert.Equal(t, tt.expectLabels, ep.computeCIDRLabelsRLocked())
+		})
+	}
+}

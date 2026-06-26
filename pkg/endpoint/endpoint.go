@@ -142,6 +142,8 @@ type Endpoint struct {
 	policyRepo    policy.PolicyRepository
 	policyFetcher compute.PolicyRecomputer
 
+	ipcache IPCache
+
 	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
 	// information about endpoints. Initialized by manager.expose.
 	kvstoreSyncher *ipcache.IPIdentitySynchronizer
@@ -481,6 +483,11 @@ func (e *Endpoint) Close() {
 	}
 }
 
+// IPCache defines the subset of ipcache.IPCache methods used by the endpoint.
+type IPCache interface {
+	GetMetadataLabels(ip netip.Addr) labels.Labels
+}
+
 type DNSRulesAPI interface {
 	// GetDNSRules creates a fresh copy of DNS rules that can be used when
 	// endpoint is restored on a restart.
@@ -599,6 +606,7 @@ func createEndpoint(
 		policyMapFactory:   p.PolicyMapFactory,
 		policyRepo:         p.PolicyRepo,
 		policyFetcher:      p.PolicyFetcher,
+		ipcache:            p.IPCache,
 		ID:                 ID,
 		createdAt:          time.Now(),
 		proxy:              proxy,
@@ -2227,6 +2235,18 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	return myChangeRev != e.identityRevision
 }
 
+// ForceUpdateCIDRLabels triggers a re-evaluation of the endpoint's CIDR labels
+// and runs the identity resolver to update its security identity if needed.
+func (e *Endpoint) ForceUpdateCIDRLabels(ctx context.Context) {
+	if err := e.lockAlive(); err != nil {
+		return
+	}
+	e.identityRevision++
+	e.unlock()
+
+	e.runIdentityResolver(ctx, false, 0)
+}
+
 // runIdentityResolver resolves the numeric identity for the set of labels that
 // are currently configured on the endpoint.
 //
@@ -2286,12 +2306,57 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool, updat
 	return regenTriggered
 }
 
+// computeCIDRLabelsRLocked should be called with a lock held on the Endpoint.
+func (e *Endpoint) computeCIDRLabelsRLocked() labels.Labels {
+	newCIDRLabels := labels.Labels{}
+	if !option.Config.PolicyCIDRMatchesPods() || e.ipcache == nil {
+		return newCIDRLabels
+	}
+
+	for _, ip := range []netip.Addr{e.IPv4, e.IPv6} {
+		if !ip.IsValid() {
+			continue
+		}
+		hasCIDR := false
+		// Filter labels retrieved from the IPCache. We only match and propagate
+		// CIDR and CIDRGroup labels (source=cidr or source=cidrgroup). Other metadata
+		// labels (such as reserved:world or FQDN labels) are ignored.
+		for _, lbl := range e.ipcache.GetMetadataLabels(ip) {
+			if lbl.Source == labels.LabelSourceCIDR || lbl.Source == labels.LabelSourceCIDRGroup {
+				newCIDRLabels[lbl.GetExtendedKey()] = lbl
+				if lbl.Source == labels.LabelSourceCIDR {
+					hasCIDR = true
+				}
+			}
+		}
+		if !hasCIDR {
+			var wildcard string
+			if ip.Is4() {
+				wildcard = "cidr:0.0.0.0/0"
+			} else {
+				wildcard = "cidr:::/0"
+			}
+			lbl := labels.ParseLabel(wildcard)
+			newCIDRLabels[lbl.GetExtendedKey()] = lbl
+		}
+	}
+
+	return newCIDRLabels
+}
+
 func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bool, err error) {
 	// e.setState() called below, can't take a read lock.
 	if err := e.lockAlive(); err != nil {
 		return false, err
 	}
 	newLabels := e.labels.IdentityLabels()
+
+	if !newLabels.IsReserved() {
+		newLabels.RemoveFromSource(labels.LabelSourceCIDR)
+		newLabels.RemoveFromSource(labels.LabelSourceCIDRGroup)
+		maps.Copy(newLabels, e.computeCIDRLabelsRLocked())
+	}
+
 	myChangeRev := e.identityRevision
 	scopedLog := e.getLogger().With(
 		logfields.IdentityLabels, newLabels,

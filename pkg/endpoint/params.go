@@ -50,4 +50,5 @@ type EndpointParams struct {
 	IPSecConfig         ipsec.Config
 	LxcMap              lxcmap.Map
 	LocalNodeStore      node.NodeGetter
+	IPCache             IPCache
 }
