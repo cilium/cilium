@@ -63,6 +63,25 @@ db/cmp backends backends3.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps3.expected lbmaps.actual
 
+# Delete the pod, and re-create it in host network.
+cp other-pod.yaml other-pod-host-net.yaml
+replace 'hostNetwork: false' 'hostNetwork: true' other-pod-host-net.yaml
+
+k8s/delete other-pod.yaml
+k8s/add other-pod-host-net.yaml
+
+# Tables and maps should be empty
+* db/empty services frontends backends
+* lb/maps-empty
+
+# Switch the pod to pod network again
+k8s/delete other-pod-host-net.yaml
+k8s/add other-pod.yaml
+
+# Check that the hostport is propagated again to the tables
+db/cmp frontends frontends3.table
+db/cmp backends backends3.table
+
 # Cleanup
 k8s/delete other-pod.yaml
 
@@ -186,6 +205,7 @@ spec:
       protocol: UDP
     resources: {}
   nodeName: testnode
+  hostNetwork: false
   restartPolicy: Always
   schedulerName: default-scheduler
   securityContext: {}
