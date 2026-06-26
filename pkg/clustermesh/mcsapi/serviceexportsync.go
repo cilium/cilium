@@ -145,7 +145,7 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 	}
 
 	if s.clientset != nil /* clientset is nil in tests */ {
-		err := checkCRD(ctx, s.clientset, mcsapiv1beta1.SchemeGroupVersion.WithKind("serviceexports"))
+		err := client.CheckCRD(ctx, s.clientset, mcsapiv1beta1.SchemeGroupVersion.WithKind("serviceexports"))
 		if err != nil {
 			s.logger.Warn("starting synchronizing service exports without the required CRD installed", logfields.Error, err)
 			// Also pretend that the service exports are synced for the same reason

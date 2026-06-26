@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
@@ -70,34 +69,10 @@ var requiredGVK = []schema.GroupVersionKind{
 	mcsapiv1beta1.SchemeGroupVersion.WithKind("serviceexports"),
 }
 
-func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.GroupVersionKind) error {
-	if !clientset.IsEnabled() {
-		return nil
-	}
-
-	crd, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, gvk.GroupKind().String(), metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	found := false
-	for _, v := range crd.Spec.Versions {
-		if v.Name == gvk.Version {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("CRD %q does not have version %q", gvk.GroupKind().String(), gvk.Version)
-	}
-
-	return nil
-}
-
 func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error {
 	var res error
 	for _, gvk := range requiredGVK {
-		if err := checkCRD(ctx, clientset, gvk); err != nil {
+		if err := k8sClient.CheckCRD(ctx, clientset, gvk); err != nil {
 			res = errors.Join(res, err)
 		}
 	}
