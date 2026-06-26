@@ -105,17 +105,22 @@ func RegisterK8sReflector(p reflectorParams) {
 		p.SVCMetrics = NewSVCMetricsNoop()
 	}
 
-	podsComplete := p.Writer.RegisterInitializer(K8sInitializerPrefix + "pods")
 	epsComplete := p.Writer.RegisterInitializer(K8sInitializerPrefix + "endpoints")
 	svcComplete := p.Writer.RegisterInitializer(K8sInitializerPrefix + "services")
 	p.JobGroup.Add(
 		job.OneShot("reflect-services-endpoints", func(ctx context.Context, health cell.Health) error {
 			return runServiceEndpointsReflector(ctx, health, p, svcComplete, epsComplete)
 		}),
-		job.OneShot("reflect-pods", func(ctx context.Context, health cell.Health) error {
-			return runPodReflector(ctx, health, p, podsComplete)
-		}),
 	)
+
+	if p.ExtConfig.KubeProxyReplacement {
+		podsComplete := p.Writer.RegisterInitializer(K8sInitializerPrefix + "pods")
+		p.JobGroup.Add(
+			job.OneShot("reflect-pods", func(ctx context.Context, health cell.Health) error {
+				return runPodReflector(ctx, health, p, podsComplete)
+			}),
+		)
+	}
 }
 
 func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams, initComplete func(writer.WriteTxn)) error {
@@ -145,11 +150,9 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			podName := obj.Namespace + "/" + obj.Name
 			if change.Deleted {
 				rh.update(podName, nil)
-				if p.ExtConfig.KubeProxyReplacement {
-					if err := deleteHostPort(p, txn, obj); err != nil {
-						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
-							logfields.Error, err)
-					}
+				if err := deleteHostPort(p, txn, obj); err != nil {
+					p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+						logfields.Error, err)
 				}
 			} else {
 				switch obj.Status.Phase {
@@ -157,11 +160,9 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 					// Pod has been terminated. Clean up the HostPort already even before the Pod object
 					// has been removed to free up the HostPort for other pods.
 					rh.update(podName, nil)
-					if p.ExtConfig.KubeProxyReplacement {
-						if err := deleteHostPort(p, txn, obj); err != nil {
-							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
-								logfields.Error, err)
-						}
+					if err := deleteHostPort(p, txn, obj); err != nil {
+						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+							logfields.Error, err)
 					}
 				case slim_corev1.PodRunning:
 					var err error
@@ -172,9 +173,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 						continue
 					}
 
-					if p.ExtConfig.KubeProxyReplacement {
-						err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
-					}
+					err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
 					rh.update(podName, err)
 				}
 			}
