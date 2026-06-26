@@ -188,3 +188,7 @@ func (*MockEndpointManager) InitHostEndpointLabels(ctx context.Context) {
 func (*MockEndpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
 	panic("MockEndpointManager.UpdatePolicy not implemented")
 }
+
+func (*MockEndpointManager) UpdateCIDRLabels(ctx context.Context, prefix netip.Prefix) bool {
+	panic("MockEndpointManager.UpdateCIDRLabels not implemented")
+}

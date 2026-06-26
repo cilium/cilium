@@ -321,5 +321,6 @@ func (noopEndpointManager) OverrideEndpointOpts(option.OptionMap)               
 func (noopEndpointManager) InitHostEndpointLabels(context.Context)                    {}
 func (noopEndpointManager) UpdatePolicy(*set.Set[identity.NumericIdentity], uint64, uint64) {
 }
+func (noopEndpointManager) UpdateCIDRLabels(context.Context, netip.Prefix) bool { return false }
 
 var _ endpointmanager.EndpointManager = noopEndpointManager{}

@@ -2143,6 +2143,10 @@ func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
 	return slices.Contains(c.PolicyCIDRMatchMode, "nodes")
 }
 
+func (c *DaemonConfig) PolicyCIDRMatchesPods() bool {
+	return slices.Contains(c.PolicyCIDRMatchMode, "pods")
+}
+
 // PerNodeLabelsEnabled returns true if per-node labels feature
 // is enabled
 func (c *DaemonConfig) PerNodeLabelsEnabled() bool {
@@ -2150,10 +2154,10 @@ func (c *DaemonConfig) PerNodeLabelsEnabled() bool {
 }
 
 func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
-	// Currently, the only acceptable values is "nodes".
+	// Currently, the acceptable values are "nodes" and "pods".
 	for _, mode := range c.PolicyCIDRMatchMode {
 		switch mode {
-		case "nodes":
+		case "nodes", "pods":
 			continue
 		default:
 			return fmt.Errorf("unknown CIDR match mode: %s", mode)

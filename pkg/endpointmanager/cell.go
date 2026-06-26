@@ -182,6 +182,15 @@ type EndpointManager interface {
 	// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
 	// policy revision will be bumped to toRev.
 	UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64)
+
+	// UpdateCIDRLabels triggers identity resolution for all pod endpoints
+	// whose IPs are contained within the given prefix.
+	//
+	// If the prefix represents a single IP address (e.g. /32 or /128), it performs
+	// an optimized O(1) lookup and returns true if a matching local endpoint was found
+	// and had its identity resolution triggered.
+	// Otherwise, it performs a linear O(N) scan over all endpoints and returns false.
+	UpdateCIDRLabels(ctx context.Context, prefix netip.Prefix) bool
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
