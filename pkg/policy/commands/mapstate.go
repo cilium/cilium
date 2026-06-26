@@ -27,11 +27,11 @@ func msEntriesCmd(params CmdParams) script.Cmd {
 			Summary: "Display policy map state for a given endpoint",
 			Args:    "<pod-or-endpoint>+",
 			Flags: func(fs *pflag.FlagSet) {
-				fs.StringP("format", "f", "table", "Format to write in (table, json)")
+				fs.StringP("output", "o", "table", "Format to write in (table, json)")
 			},
 			AutocompleteFlag: func(_ *script.State, _ []string, flag, cur string) []string {
 				switch flag {
-				case "format":
+				case "output":
 					return filterPrefix([]string{"table", "json"}, cur)
 				}
 				return nil
@@ -42,17 +42,17 @@ func msEntriesCmd(params CmdParams) script.Cmd {
 				"The MapState is the *desired* contents of the BPF policy map.",
 				"This command dumps the desired state as understood by the agent.",
 				"",
-				`pod-or-endpoint: either numerical endpoint ID or "namespace/podname", optionall repeateds`,
+				`pod-or-endpoint: either numerical endpoint ID or "namespace/podname", optionally repeated.`,
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			return func(*script.State) (stdout, stderr string, err error) {
-				format, err := s.Flags.GetString("format")
+				output, err := s.Flags.GetString("output")
 				if err != nil {
 					return "", "", err
 				}
-				if format != "json" && format != "table" {
-					return "", "", fmt.Errorf("unsupported format %s", format)
+				if output != "json" && output != "table" {
+					return "", "", fmt.Errorf("unsupported output format %s", output)
 				}
 
 				// Collect policy from all endpoints
@@ -84,7 +84,7 @@ func msEntriesCmd(params CmdParams) script.Cmd {
 				})
 
 				// Output, in table or json format
-				switch format {
+				switch output {
 				case "json":
 					b, err := json.MarshalIndent(outs, "", "\t")
 					if err != nil {
@@ -118,7 +118,7 @@ func msEntriesCmd(params CmdParams) script.Cmd {
 					return buf.String(), "", nil
 				}
 
-				return "", "", fmt.Errorf("unsupported format %s", format)
+				return "", "", fmt.Errorf("unsupported output format %s", output)
 
 			}, nil
 		},
