@@ -1676,6 +1676,21 @@ hubble:
         #   --set hubble.redact.enabled="true"
         #   --set hubble.redact.http.headers.deny="Authorization,Proxy-Authorization"
         deny: []
+  # -- Excludes (drops entirely) HTTP headers from Layer 7 flows. Unlike
+  # `redact`, which masks a header's value but keeps its key, exclusion removes
+  # the header completely. Independent of `redact` and active whenever a list is
+  # set.
+  exclude:
+    http:
+      headers:
+        # -- List of HTTP headers to keep in flows: all other headers are excluded (dropped entirely). Note: `allow` and `deny` lists cannot be used both at the same time, only one can be present.
+        # Example:
+        #   --set hubble.exclude.http.headers.allow="Host,Content-Type"
+        allow: []
+        # -- List of HTTP headers to exclude (drop entirely) from flows: all other headers are kept. Note: `allow` and `deny` lists cannot be used both at the same time, only one can be present.
+        # Example:
+        #   --set hubble.exclude.http.headers.deny="Authorization,Proxy-Authorization"
+        deny: []
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.

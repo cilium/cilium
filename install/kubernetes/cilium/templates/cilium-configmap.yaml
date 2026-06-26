@@ -1133,6 +1133,20 @@ data:
 {{- end }}
 {{- end }}
 {{- end }}
+{{- if .Values.hubble.exclude.http.headers }}
+{{- if .Values.hubble.exclude.http.headers.allow }}
+  # Exclude (drop entirely) all http headers that do not match this list
+  hubble-exclude-http-headers-allow: {{- range .Values.hubble.exclude.http.headers.allow }}
+    {{ . }}
+{{- end }}
+{{- end }}
+{{- if .Values.hubble.exclude.http.headers.deny }}
+  # Exclude (drop entirely) all http headers that match this list
+  hubble-exclude-http-headers-deny: {{- range .Values.hubble.exclude.http.headers.deny }}
+    {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- if .Values.hubble.export }}
 {{- /* hubble export configurations moved, use default to make upgrades seemless */ -}}
 {{- /* TODO: remove default once v1.18 is released, remove warning in warnings.txt and add failure validation in validate.yaml */ -}}

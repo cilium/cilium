@@ -3071,6 +3071,29 @@
         "enabled": {
           "type": "boolean"
         },
+        "exclude": {
+          "properties": {
+            "http": {
+              "properties": {
+                "headers": {
+                  "properties": {
+                    "allow": {
+                      "items": {},
+                      "type": "array"
+                    },
+                    "deny": {
+                      "items": {},
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
         "export": {
           "properties": {
             "dynamic": {

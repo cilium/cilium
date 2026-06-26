@@ -2084,6 +2084,18 @@
      - Enable Hubble (true by default).
      - bool
      - ``true``
+   * - :spelling:ignore:`hubble.exclude`
+     - Excludes (drops entirely) HTTP headers from Layer 7 flows. Unlike ``redact``\ , which masks a header's value but keeps its key, exclusion removes the header completely. Independent of ``redact`` and active whenever a list is set.
+     - object
+     - ``{"http":{"headers":{"allow":[],"deny":[]}}}``
+   * - :spelling:ignore:`hubble.exclude.http.headers.allow`
+     - List of HTTP headers to keep in flows: all other headers are excluded (dropped entirely). Note: ``allow`` and ``deny`` lists cannot be used both at the same time, only one can be present. Example:   --set hubble.exclude.http.headers.allow="Host,Content-Type"
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.exclude.http.headers.deny`
+     - List of HTTP headers to exclude (drop entirely) from flows: all other headers are kept. Note: ``allow`` and ``deny`` lists cannot be used both at the same time, only one can be present. Example:   --set hubble.exclude.http.headers.deny="Authorization,Proxy-Authorization"
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object

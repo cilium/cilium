@@ -669,6 +669,134 @@ func TestFilterHeader(t *testing.T) {
 	}
 }
 
+func TestShouldExcludeHeader(t *testing.T) {
+	tests := []struct {
+		name            string
+		key             string
+		excludeSettings options.HttpHeadersList
+		expected        bool
+	}{
+		{
+			name:            "feature off when both lists empty",
+			key:             "authorization",
+			excludeSettings: options.HttpHeadersList{Allow: map[string]struct{}{}, Deny: map[string]struct{}{}},
+			expected:        false,
+		},
+		{
+			name:            "allow list keeps listed header",
+			key:             "Content-Type",
+			excludeSettings: options.HttpHeadersList{Allow: map[string]struct{}{"content-type": {}}},
+			expected:        false,
+		},
+		{
+			name:            "allow list excludes unlisted header",
+			key:             "Authorization",
+			excludeSettings: options.HttpHeadersList{Allow: map[string]struct{}{"content-type": {}}},
+			expected:        true,
+		},
+		{
+			name:            "deny list excludes listed header",
+			key:             "Authorization",
+			excludeSettings: options.HttpHeadersList{Deny: map[string]struct{}{"authorization": {}}},
+			expected:        true,
+		},
+		{
+			name:            "deny list keeps unlisted header",
+			key:             "Content-Type",
+			excludeSettings: options.HttpHeadersList{Deny: map[string]struct{}{"authorization": {}}},
+			expected:        false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, shouldExcludeHeader(tt.key, tt.excludeSettings))
+		})
+	}
+}
+
+func TestDecodeL7HTTPRequestHeadersExclude(t *testing.T) {
+	requestPath, err := url.Parse("http://myhost/some/path")
+	require.NoError(t, err)
+	newRecord := func() *accesslog.LogRecord {
+		lr := &accesslog.LogRecord{
+			Type:                accesslog.TypeRequest,
+			Timestamp:           fakeTimestamp,
+			NodeAddressInfo:     fakeNodeInfo,
+			ObservationPoint:    accesslog.Ingress,
+			SourceEndpoint:      fakeSourceEndpoint,
+			DestinationEndpoint: fakeDestinationEndpoint,
+			IPVersion:           accesslog.VersionIPv4,
+			Verdict:             accesslog.VerdictForwarded,
+			TransportProtocol:   accesslog.TransportProtocol(u8proto.TCP),
+			HTTP: &accesslog.LogRecordHTTP{
+				Code:     0,
+				Method:   "POST",
+				URL:      requestPath,
+				Protocol: "HTTP/1.1",
+				Headers: http.Header{
+					"Host":          {"myhost"},
+					"Authorization": {"Bearer secret"},
+				},
+			},
+		}
+		lr.SourceEndpoint.Port = 56789
+		lr.DestinationEndpoint.Port = 80
+		return lr
+	}
+
+	// Whitelist: keep only Host, exclude everything else (header key gone).
+	opts := []options.Option{options.WithExcludeHttpHeaders([]string{"host"}, nil)}
+	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
+	require.NoError(t, err)
+	f := &flowpb.Flow{}
+	require.NoError(t, parser.Decode(newRecord(), f))
+	assert.Equal(t, &flowpb.HTTP{
+		Code:     0,
+		Method:   "POST",
+		Url:      "http://myhost/some/path",
+		Protocol: "HTTP/1.1",
+		Headers: []*flowpb.HTTPHeader{
+			{Key: "Host", Value: "myhost"},
+		},
+	}, f.GetL7().GetHttp())
+
+	// Blacklist: exclude Authorization, keep the rest.
+	opts = []options.Option{options.WithExcludeHttpHeaders(nil, []string{"authorization"})}
+	parser, err = New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
+	require.NoError(t, err)
+	f = &flowpb.Flow{}
+	require.NoError(t, parser.Decode(newRecord(), f))
+	assert.Equal(t, &flowpb.HTTP{
+		Code:     0,
+		Method:   "POST",
+		Url:      "http://myhost/some/path",
+		Protocol: "HTTP/1.1",
+		Headers: []*flowpb.HTTPHeader{
+			{Key: "Host", Value: "myhost"},
+		},
+	}, f.GetL7().GetHttp())
+
+	// Exclusion composes with redact: excluded header is gone, surviving
+	// header's value is still redacted.
+	opts = []options.Option{
+		options.WithExcludeHttpHeaders(nil, []string{"authorization"}),
+		options.WithRedact(false, false, nil, []string{"host"}),
+	}
+	parser, err = New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
+	require.NoError(t, err)
+	f = &flowpb.Flow{}
+	require.NoError(t, parser.Decode(newRecord(), f))
+	assert.Equal(t, &flowpb.HTTP{
+		Code:     0,
+		Method:   "POST",
+		Url:      "http://myhost/some/path",
+		Protocol: "HTTP/1.1",
+		Headers: []*flowpb.HTTPHeader{
+			{Key: "Host", Value: defaults.SensitiveValueRedacted},
+		},
+	}, f.GetL7().GetHttp())
+}
+
 func TestDecodeL7HTTPRequestPasswordRedact(t *testing.T) {
 	requestPath, err := url.Parse("http://user:pass@myhost")
 	require.NoError(t, err)
