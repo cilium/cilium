@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/testutils"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -40,121 +39,6 @@ const (
 
 func localIdentity(n uint32) identity.NumericIdentity {
 	return identity.NumericIdentity(n) | identity.IdentityScopeLocal
-}
-
-func TestCacheManagement(t *testing.T) {
-	ep1 := testutils.NewTestEndpoint(t)
-	ep2 := testutils.NewTestEndpoint(t)
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
-	cache := repo.policyCache
-	identity := ep1.GetSecurityIdentity()
-	require.Equal(t, identity, ep2.GetSecurityIdentity())
-
-	// Nonsense delete of entry that isn't yet inserted
-	deleted := cache.delete(identity)
-	require.False(t, deleted)
-
-	// Insert identity twice. Should be the same policy.
-	policy1 := cache.insert(identity)
-	policy2 := cache.insert(identity)
-	require.Equal(t, policy2, policy1)
-
-	// Despite two insert calls, there is no reference tracking; any delete
-	// will clear the cache.
-	cacheCleared := cache.delete(identity)
-	require.True(t, cacheCleared)
-	cacheCleared = cache.delete(identity)
-	require.False(t, cacheCleared)
-
-	// Insert two distinct identities, then delete one. Other should still
-	// be there.
-	ep3 := testutils.NewTestEndpoint(t)
-	ep3.SetIdentity(1234, true)
-	identity3 := ep3.GetSecurityIdentity()
-	require.NotEqual(t, identity, identity3)
-	policy1 = cache.insert(identity)
-	policy3 := cache.insert(identity3)
-	require.NotEqual(t, policy3, policy1)
-	_ = cache.delete(identity)
-	policy3, ok := cache.lookup(identity3)
-	require.NotNil(t, policy3)
-	require.True(t, ok)
-}
-
-func TestCachePopulation(t *testing.T) {
-	ep1 := testutils.NewTestEndpoint(t)
-	ep2 := testutils.NewTestEndpoint(t)
-
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
-	repo.revision.Store(42)
-	cache := repo.policyCache
-
-	identity1 := ep1.GetSecurityIdentity()
-	require.Equal(t, identity1, ep2.GetSecurityIdentity())
-	cip1 := cache.insert(identity1)
-
-	// Calculate the policy and observe that it's cached
-	policy1, _, updated, err := cache.updateSelectorPolicy(identity1, ep1.Id)
-	require.NoError(t, err)
-	require.True(t, updated)
-	_, _, updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
-	require.NoError(t, err)
-	require.False(t, updated)
-	policy3, _, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
-	require.NotNil(t, policy1)
-	require.Same(t, policy1, policy3)
-	cip2, ok := cache.lookup(identity1)
-	require.True(t, ok)
-	require.Same(t, cip1, cip2)
-
-	// Remove the identity and observe that it is no longer available
-	cacheCleared := cache.delete(identity1)
-	require.True(t, cacheCleared)
-	_, _, _, err = cache.updateSelectorPolicy(identity1, ep1.Id)
-	require.Error(t, err)
-
-	// Attempt to update policy for non-cached endpoint and observe failure
-	ep3 := testutils.NewTestEndpoint(t)
-	ep3.SetIdentity(1234, true)
-	_, _, _, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
-	require.Error(t, err)
-
-	cache.insert(ep3.GetSecurityIdentity())
-	policy4, _, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
-
-	// policy4 must be different from ep1, ep2
-	require.NoError(t, err)
-	require.True(t, updated)
-	require.NotEqual(t, policy1, policy4)
-
-	// Insert endpoint with different identity and observe that the cache
-	// is different from ep1, ep2
-	policy5 := cache.insert(identity1)
-	idp1 := policy5.getPolicy()
-	require.Nil(t, idp1)
-
-	_, _, updated, err = cache.updateSelectorPolicy(identity1, ep1.GetID())
-	require.True(t, updated)
-	require.NoError(t, err)
-
-	idp1 = policy5.getPolicy()
-	require.NotNil(t, idp1)
-
-	identity3 := ep3.GetSecurityIdentity()
-	policy6 := cache.insert(identity3)
-	require.NotEqual(t, policy5, policy6)
-	idp3, _, updated, err := cache.updateSelectorPolicy(identity3, ep3.GetID())
-	require.NoError(t, err)
-	require.False(t, updated)
-	require.Equal(t, idp1, idp3)
-
-	repo.revision.Store(43)
-	idp3, _, updated, err = cache.updateSelectorPolicy(identity3, ep3.GetID())
-	require.NoError(t, err)
-	require.True(t, updated)
-	idp1 = policy5.getPolicy()
-
-	require.NotEqual(t, idp1, idp3)
 }
 
 // Distillery integration tests
@@ -425,6 +309,7 @@ func newPolicyDistillery(t testing.TB, selectorCache *SelectorCache) *policyDist
 		idMgr:      idMgr,
 	}
 	ret.selectorCache = selectorCache
+	idMgr.Subscribe(testpolicy.SelectorCacheObserver{Cache: ret.subjectSelectorCache})
 	return ret
 }
 
@@ -439,7 +324,9 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillEndpointPolicy distills the policy repository into an EndpointPolicy
 // Caller is responsible for Ready() & Detach() when done with the policy
 func (d *policyDistillery) distillEndpointPolicy(logger *slog.Logger, owner PolicyOwner, identity *identity.Identity) (*EndpointPolicy, error) {
-	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{}, owner.GetID())
+	d.Repository.mutex.RLock()
+	sp, err := d.Repository.resolvePolicyLocked(identity)
+	d.Repository.mutex.RUnlock()
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate policy: %w", err)
 	}
@@ -447,6 +334,7 @@ func (d *policyDistillery) distillEndpointPolicy(logger *slog.Logger, owner Poli
 	if epp == nil {
 		return nil, errors.New("policy distillation failure")
 	}
+	sp.Supersede()
 	return epp, nil
 }
 
@@ -700,11 +588,18 @@ func Test_MergeL3(t *testing.T) {
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 					t.Errorf("Policy obtained didn't match expected for endpoint %s:\nObtained: %v\nExpected: %v", labelsFoo, mapstate, tt.result)
 				}
-				for remoteID, expectedAuthTypes := range tt.auths {
-					authTypes := repo.GetAuthTypes(identity.ID, remoteID)
-					if !maps.Equal(authTypes, expectedAuthTypes) {
-						t.Errorf("Incorrect AuthTypes result for remote ID %d: obtained %v, expected %v", remoteID, authTypes, expectedAuthTypes)
+				if len(tt.auths) > 0 {
+					repo.mutex.RLock()
+					sp, err := repo.resolvePolicyLocked(identity)
+					repo.mutex.RUnlock()
+					require.NoError(t, err)
+					for remoteID, expectedAuthTypes := range tt.auths {
+						authTypes := sp.GetAuthTypes(remoteID)
+						if !maps.Equal(authTypes, expectedAuthTypes) {
+							t.Errorf("Incorrect AuthTypes result for remote ID %d: obtained %v, expected %v", remoteID, authTypes, expectedAuthTypes)
+						}
 					}
+					sp.Supersede()
 				}
 			})
 		})

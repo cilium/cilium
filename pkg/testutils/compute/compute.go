@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -32,9 +31,7 @@ func InstantiateCellForTesting(tb testing.TB, logger *slog.Logger, id, desc stri
 				},
 			),
 
-			cell.ProvidePrivate(func() (policy.PolicyRepository, stream.Observable[policy.PolicyCacheChange]) {
-				return repo, repo.PolicyCacheObservable()
-			}),
+			cell.ProvidePrivate(func() policy.PolicyRepository { return repo }),
 			cell.ProvidePrivate(func() identitymanager.IDManager { return idmgr }),
 
 			cell.Provide(

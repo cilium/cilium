@@ -48,20 +48,19 @@ type regenerationStatistics struct {
 	endpointID   uint16
 	policyStatus models.EndpointPolicyEnabled
 
-	buildPermitAcquisition     spanstat.SpanStat
-	totalTime                  spanstat.SpanStat
-	waitingForLock             spanstat.SpanStat
-	waitingForPolicyRepository spanstat.SpanStat
-	waitingForCTClean          spanstat.SpanStat
-	policyCalculation          spanstat.SpanStat
-	waitForPolicyCompute       spanstat.SpanStat
-	endpointPolicyCalculation  spanstat.SpanStat
-	proxyConfiguration         spanstat.SpanStat
-	proxyPolicyCalculation     spanstat.SpanStat
-	proxyWaitForAck            spanstat.SpanStat
-	datapathRealization        loaderMetrics.SpanStat
-	mapSync                    spanstat.SpanStat
-	prepareBuild               spanstat.SpanStat
+	buildPermitAcquisition    spanstat.SpanStat
+	totalTime                 spanstat.SpanStat
+	waitingForLock            spanstat.SpanStat
+	waitingForCTClean         spanstat.SpanStat
+	policyCalculation         spanstat.SpanStat
+	waitForPolicyCompute      spanstat.SpanStat
+	endpointPolicyCalculation spanstat.SpanStat
+	proxyConfiguration        spanstat.SpanStat
+	proxyPolicyCalculation    spanstat.SpanStat
+	proxyWaitForAck           spanstat.SpanStat
+	datapathRealization       loaderMetrics.SpanStat
+	mapSync                   spanstat.SpanStat
+	prepareBuild              spanstat.SpanStat
 	// policyDetachedTimestamp tracks the time the selector policy of the endpoint was detached.
 	// This is nil if the selector policy was still attached when the operation (policy update or endpoint regeneration)
 	// started
@@ -93,27 +92,21 @@ func (s *regenerationStatistics) SendMetrics() {
 // GetMap returns a map which key is the stat name and the value is the stat
 func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 	result := map[string]*spanstat.SpanStat{
-		"waitingForLock":             &s.waitingForLock,
-		"waitingForPolicyRepository": &s.waitingForPolicyRepository,
-		"waitingForCTClean":          &s.waitingForCTClean,
-		"policyCalculation":          &s.policyCalculation,
-		"proxyConfiguration":         &s.proxyConfiguration,
-		"waitForPolicyCompute":       &s.waitForPolicyCompute,
-		"endpointPolicyCalculation":  &s.endpointPolicyCalculation,
-		"proxyPolicyCalculation":     &s.proxyPolicyCalculation,
-		"proxyWaitForAck":            &s.proxyWaitForAck,
-		"mapSync":                    &s.mapSync,
-		"prepareBuild":               &s.prepareBuild,
-		"total":                      &s.totalTime,
-		"buildPermitAcquisition":     &s.buildPermitAcquisition,
+		"waitingForLock":            &s.waitingForLock,
+		"waitingForCTClean":         &s.waitingForCTClean,
+		"policyCalculation":         &s.policyCalculation,
+		"proxyConfiguration":        &s.proxyConfiguration,
+		"waitForPolicyCompute":      &s.waitForPolicyCompute,
+		"endpointPolicyCalculation": &s.endpointPolicyCalculation,
+		"proxyPolicyCalculation":    &s.proxyPolicyCalculation,
+		"proxyWaitForAck":           &s.proxyWaitForAck,
+		"mapSync":                   &s.mapSync,
+		"prepareBuild":              &s.prepareBuild,
+		"total":                     &s.totalTime,
+		"buildPermitAcquisition":    &s.buildPermitAcquisition,
 	}
 	maps.Copy(result, s.datapathRealization.GetMap())
 	return result
-}
-
-// used by PolicyRepository.GetSelectorPolicy
-func (s *regenerationStatistics) WaitingForPolicyRepository() *spanstat.SpanStat {
-	return &s.waitingForPolicyRepository
 }
 
 // endpointPolicyStatusMap is a map to store the endpoint id and the policy
