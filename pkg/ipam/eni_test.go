@@ -341,11 +341,21 @@ func TestBuildENIAllocationResult(t *testing.T) {
 
 	t.Run("native routing CIDR is appended", func(t *testing.T) {
 		confWithNative := &option.DaemonConfig{
+			EnableIPv4:            true,
 			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.0.0.0/8"),
 		}
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, confWithNative, nil)
 		require.NoError(t, err)
 		require.Contains(t, result.CIDRs, netip.MustParsePrefix("10.0.0.0/8"))
+	})
+
+	t.Run("IPv4 native routing CIDR is not appended when IPv4 is disabled", func(t *testing.T) {
+		confWithNative := &option.DaemonConfig{
+			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.0.0.0/8"),
+		}
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, confWithNative, nil)
+		require.NoError(t, err)
+		require.NotContains(t, result.CIDRs, netip.MustParsePrefix("10.0.0.0/8"))
 	})
 }
 
@@ -358,6 +368,9 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 			Prefixes: prefixes(
 				"10.1.1.0/28",
 				"10.1.1.16/28",
+			),
+			IPv6Prefixes: prefixes(
+				"2001:db8::/80",
 			),
 			Number: 1,
 			Subnet: awsTypes.AwsSubnet{
@@ -388,6 +401,33 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 	t.Run("IP outside all prefixes", func(t *testing.T) {
 		_, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.32"), "", node.Status.ENI.ENIs, conf, nil)
 		require.Error(t, err)
+	})
+
+	t.Run("IP in IPv6 prefix", func(t *testing.T) {
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, conf, nil)
+		require.NoError(t, err)
+		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
+		require.Equal(t, "1", result.InterfaceNumber)
+		require.Equal(t, netip.MustParseAddr("fe80:ec2::1"), result.GatewayIP)
+	})
+
+	t.Run("IPv6 native routing CIDR is appended", func(t *testing.T) {
+		confWithNative := &option.DaemonConfig{
+			EnableIPv6:            true,
+			IPv6NativeRoutingCIDR: cidr.MustParseCIDR("2001:db8::/64"),
+		}
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, confWithNative, nil)
+		require.NoError(t, err)
+		require.Contains(t, result.CIDRs, netip.MustParsePrefix("2001:db8::/64"))
+	})
+
+	t.Run("IPv6 native routing CIDR is not appended when IPv6 is disabled", func(t *testing.T) {
+		confWithNative := &option.DaemonConfig{
+			IPv6NativeRoutingCIDR: cidr.MustParseCIDR("2001:db8::/64"),
+		}
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, confWithNative, nil)
+		require.NoError(t, err)
+		require.NotContains(t, result.CIDRs, netip.MustParsePrefix("2001:db8::/64"))
 	})
 }
 
@@ -445,11 +485,38 @@ func TestBuildENIAllocationResultIPMasq(t *testing.T) {
 	)
 }
 
+func TestBuildENIAllocationResultIPMasqIPv6(t *testing.T) {
+	enis := map[string]awsTypes.ENI{
+		"eni-1": {
+			ID:           "eni-1",
+			IPv6Prefixes: prefixes("2001:db8::/80"),
+			Subnet: awsTypes.AwsSubnet{
+				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("2001:db8::/64")),
+			},
+		},
+	}
+
+	conf := &option.DaemonConfig{EnableIPv6: true, EnableIPMasqAgent: true}
+	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
+	require.NoError(t, ipMasqAgent.Start())
+	defer ipMasqAgent.Stop()
+
+	result, err := buildENIAllocationResult(hivetest.Logger(t), netip.MustParseAddr("2001:db8::1"), "", enis, conf, ipMasqAgent)
+	require.NoError(t, err)
+	// Only the IPv6 ip-masq-agent CIDRs should be appended; the family
+	// filter in buildENIAllocationResult must exclude the IPv4 defaults.
+	require.Contains(t, result.CIDRs, netip.MustParsePrefix("fe80::/10"))
+	for _, c := range result.CIDRs {
+		require.True(t, c.Addr().Is6(), "unexpected IPv4 CIDR %s for an IPv6 allocation", c)
+	}
+}
+
 func TestEniContainsIP(t *testing.T) {
 	eni := awsTypes.ENI{
-		IP:        iputil.AddrFrom(netip.MustParseAddr("10.0.0.100")),
-		Addresses: addrs("10.0.0.1", "10.0.0.2"),
-		Prefixes:  prefixes("10.0.1.0/28"),
+		IP:           iputil.AddrFrom(netip.MustParseAddr("10.0.0.100")),
+		Addresses:    addrs("10.0.0.1", "10.0.0.2"),
+		Prefixes:     prefixes("10.0.1.0/28"),
+		IPv6Prefixes: prefixes("2001:db8::/80"),
 	}
 
 	// Primary IP match
@@ -464,6 +531,11 @@ func TestEniContainsIP(t *testing.T) {
 	require.True(t, eniContainsIP(eni, netip.MustParseAddr("10.0.1.0")))
 	require.True(t, eniContainsIP(eni, netip.MustParseAddr("10.0.1.15")))
 	require.False(t, eniContainsIP(eni, netip.MustParseAddr("10.0.1.16")))
+
+	// IPv6 prefix match
+	require.True(t, eniContainsIP(eni, netip.MustParseAddr("2001:db8::")))
+	require.True(t, eniContainsIP(eni, netip.MustParseAddr("2001:db8::1")))
+	require.False(t, eniContainsIP(eni, netip.MustParseAddr("2001:db8:0:0:1::")))
 
 	// Empty ENI
 	require.False(t, eniContainsIP(awsTypes.ENI{}, netip.MustParseAddr("10.0.0.1")))
@@ -549,6 +621,23 @@ func TestENIPoolsAccessorFromResource(t *testing.T) {
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")))
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")))
 		require.Len(t, result.Allocated[0].CIDRs, 2) // 1 prefix + 1 primary IP
+	})
+
+	t.Run("IPv6 prefixes are advertised as pool CIDRs", func(t *testing.T) {
+		node := &ciliumv2.CiliumNode{}
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
+			"eni-1": {
+				Addresses:    addrs("10.0.0.1"),
+				Prefixes:     prefixes("10.0.0.16/28"),
+				IPv6Prefixes: prefixes("2001:db8::/80"),
+			},
+		}
+
+		result := eniPoolAccessor.FromResource(node)
+		require.Len(t, result.Allocated, 1)
+		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")))
+		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")))
+		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("2001:db8::/80")))
 	})
 
 	t.Run("excluded ENIs are skipped", func(t *testing.T) {
