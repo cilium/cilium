@@ -321,3 +321,76 @@ func TestConcurrentControllerUpdate(t *testing.T) {
 	require.NoError(t, mngr.RemoveControllerAndWait("test"))
 	require.Equal(t, result.Load(), events[len(events)-1].result)
 }
+
+func TestControllerUpdateDuringJitter(t *testing.T) {
+	var afterCalls atomic.Int32
+	timeAfterCh := make(chan time.Time)
+
+	// Mock timeAfter to never fire, and track how many times the controller
+	// enters the jitter sleep block.
+	oldTimeAfter := timeAfter
+	defer func() { timeAfter = oldTimeAfter }()
+	timeAfter = func(d time.Duration) <-chan time.Time {
+		afterCalls.Add(1)
+		return timeAfterCh
+	}
+
+	mngr := NewManager()
+
+	var runs atomic.Int32
+	doFunc := func(ctx context.Context) error {
+		runs.Add(1)
+		return nil
+	}
+
+	// 1. Start controller with a jitter > 0.
+	mngr.UpdateController("test-jitter", ControllerParams{
+		DoFunc: doFunc,
+		Jitter: 1 * time.Hour,
+	})
+
+	// Wait until the controller has entered the jitter sleep (afterCalls == 1)
+	require.NoError(t, testutils.WaitUntil(func() bool {
+		return afterCalls.Load() == 1
+	}, 5*time.Second))
+	require.Equal(t, int32(0), runs.Load())
+
+	// 2. Update it with Jitter = 0. It should run immediately.
+	mngr.UpdateController("test-jitter", ControllerParams{
+		DoFunc: doFunc,
+		Jitter: 0,
+	})
+
+	require.NoError(t, testutils.WaitUntil(func() bool {
+		return runs.Load() == 1
+	}, 5*time.Second))
+
+	runs.Store(0)
+
+	// 3. Update it with Jitter > 0 again. It should go back to sleep.
+	mngr.UpdateController("test-jitter", ControllerParams{
+		DoFunc: doFunc,
+		Jitter: 1 * time.Hour,
+	})
+
+	// Wait until it enters the second jitter sleep.
+	require.NoError(t, testutils.WaitUntil(func() bool {
+		return afterCalls.Load() == 2
+	}, 5*time.Second))
+	require.Equal(t, int32(0), runs.Load())
+
+	// 4. Update it with Jitter > 0 again. This should restart the jitter sleep.
+	mngr.UpdateController("test-jitter", ControllerParams{
+		DoFunc: doFunc,
+		Jitter: 1 * time.Hour,
+	})
+
+	// Wait until it enters the third jitter sleep.
+	require.NoError(t, testutils.WaitUntil(func() bool {
+		return afterCalls.Load() == 3
+	}, 5*time.Second))
+	require.Equal(t, int32(0), runs.Load())
+
+	// Cleanup
+	require.NoError(t, mngr.RemoveControllerAndWait("test-jitter"))
+}
