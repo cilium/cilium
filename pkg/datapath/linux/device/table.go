@@ -75,6 +75,15 @@ type DesiredDeviceSpec interface {
 	Properties() string
 	MarshalJSON() ([]byte, error)
 	MarshalYAML() (any, error)
+	// NeedsRecreate reports whether the existing kernel device must be deleted
+	// and re-added rather than modified in-place. It is only called when a
+	// device with this name already exists.
+	//
+	// It must return true ONLY when an immutable kernel attribute (e.g. VRF
+	// table ID, VLAN ID) actually differs between the desired spec and the
+	// existing device. Returning true unconditionally causes a destructive
+	// delete+add on every reconcile (including periodic refresh).
+	NeedsRecreate(existing netlink.Link) bool
 }
 
 type DesiredDevice struct {
