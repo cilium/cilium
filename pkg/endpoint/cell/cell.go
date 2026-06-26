@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/watchdog"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/ipcache"
 )
 
 // Endpoint control-plane meta cell.
@@ -38,4 +39,8 @@ var Cell = cell.Group(
 
 	// Cell triggers a job to ensure device tc programs remain loaded.
 	watchdog.Cell,
+
+	cell.Provide(
+		func(ipc *ipcache.IPCache) endpoint.IPCache { return ipc },
+	),
 )
