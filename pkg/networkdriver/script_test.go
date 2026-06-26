@@ -83,6 +83,7 @@ func TestScript(t *testing.T) {
 				testDevice1 = "test-device-1"
 				testDevice2 = "test-device-2"
 				testDevice3 = "test-device-3"
+				testDevice4 = "test-device-4"
 				testDriver  = "test.cilium.k8s.io"
 			)
 
@@ -179,6 +180,7 @@ func TestScript(t *testing.T) {
 								noSetupDummyDevice{&dummy.DummyDevice{Name: testDevice1}},
 								noSetupDummyDevice{&dummy.DummyDevice{Name: testDevice2}},
 								noSetupDummyDevice{&dummy.DummyDevice{Name: testDevice3}},
+								noSetupDummyDevice{&dummy.DummyDevice{Name: testDevice4}},
 							},
 						},
 						allocations:            make(map[kubetypes.UID]map[kubetypes.UID][]allocation),

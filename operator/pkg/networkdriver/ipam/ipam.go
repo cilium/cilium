@@ -99,7 +99,11 @@ func registerAllocator(p AllocatorParams) {
 									logger.InfoContext(ctx, "All CiliumResourceIPPool resources synchronized")
 									close(poolSynced)
 								case resource.Upsert:
-									err = multipool.UpsertPool(allocator, ev.Object.Name, ev.Object.Spec.IPv4, ev.Object.Spec.IPv6, false, false)
+									err = multipool.UpsertPool(
+										allocator,
+										ev.Object.Name, ev.Object.Spec.IPv4, ev.Object.Spec.IPv6,
+										ev.Object.Spec.AllowFirstIP, ev.Object.Spec.AllowLastIP,
+									)
 									action = "upsert"
 								case resource.Delete:
 									err = multipool.DeletePool(allocator, ev.Object.Name)
@@ -191,8 +195,10 @@ func autoCreatePools(ctx context.Context, client cilium_v2alpha1.CiliumResourceI
 				Name: poolName,
 			},
 			Spec: cilium_v2alpha1_api.ResourceIPPoolSpec{
-				IPv4: poolSpec.IPv4,
-				IPv6: poolSpec.IPv6,
+				IPv4:         poolSpec.IPv4,
+				IPv6:         poolSpec.IPv6,
+				AllowFirstIP: poolSpec.AllowFirstIP,
+				AllowLastIP:  poolSpec.AllowLastIP,
 			},
 		})
 	}

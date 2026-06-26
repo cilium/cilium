@@ -10,11 +10,11 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/runtime"
-	k8stesting "k8s.io/client-go/testing"
-
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8stesting "k8s.io/client-go/testing"
 
 	k8sTestClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/option"
@@ -93,6 +93,28 @@ func TestAutoCreatePools(t *testing.T) {
 			map[string]string{"test-pool": validSpec},
 			hivetest.Logger(t),
 		))
+	})
+
+	t.Run("sets first and last IP flags from pool spec", func(t *testing.T) {
+		_, cs := k8sTestClient.NewFakeClientset(hivetest.Logger(t))
+
+		require.NoError(t, autoCreatePools(
+			t.Context(),
+			cs.CiliumV2alpha1().CiliumResourceIPPools(),
+			map[string]string{
+				"test-pool": validSpec + ";allow-first-ip:true;allow-last-ip:true",
+			},
+			hivetest.Logger(t),
+		))
+
+		pool, err := cs.CiliumV2alpha1().CiliumResourceIPPools().Get(
+			context.Background(),
+			"test-pool",
+			metav1.GetOptions{},
+		)
+		require.NoError(t, err)
+		require.True(t, pool.Spec.AllowFirstIP)
+		require.True(t, pool.Spec.AllowLastIP)
 	})
 
 	t.Run("silently skips other create errors", func(t *testing.T) {
