@@ -10,6 +10,7 @@ package policy
 import (
 	"fmt"
 	"log/slog"
+	"math"
 
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -81,7 +82,11 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager iden
 		return types.LookupResult{}, ingress, egress, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
 	}
 
-	epp := selPolSrc.DistillPolicy(logger, srcEP, nil)
+	dummyRedirects := map[string]uint16{
+		FallbackRedirectID: math.MaxUint16,
+	}
+
+	epp := selPolSrc.DistillPolicy(logger, srcEP, dummyRedirects)
 	epp.Ready()
 	epp.Detach(logger)
 	key := EgressKey().WithIdentity(flow.To.ID).WithPortProto(flow.Proto, flow.Dport)
@@ -97,7 +102,7 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager iden
 	if err != nil {
 		return types.LookupResult{}, ingress, egress, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
 	}
-	epp = selPolDst.DistillPolicy(logger, dstEP, nil)
+	epp = selPolDst.DistillPolicy(logger, dstEP, dummyRedirects)
 	epp.Ready()
 	epp.Detach(logger)
 	key = IngressKey().WithIdentity(flow.From.ID).WithPortProto(flow.Proto, flow.Dport)

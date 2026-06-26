@@ -150,6 +150,8 @@ func (p *policyContext) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
 }
 
+var FallbackRedirectID = "fallback"
+
 // SelectorPolicy represents a selectorPolicy, previously resolved from
 // the policy repository and ready to be distilled against a set of identities
 // to compute datapath-level policy configuration.
@@ -266,6 +268,11 @@ func (p *EndpointPolicy) GetPolicySelectors() SelectorSnapshot {
 func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error) {
 	proxyID := ProxyID(uint16(p.PolicyOwner.GetID()), ingress, protocol, port, listener)
 	if proxyPort, exists := p.Redirects[proxyID]; exists {
+		return proxyPort, nil
+	}
+	// When simulating policy, we don't want to actually configure proxy. So, use the special
+	// fallback proxy ID
+	if proxyPort, exists := p.Redirects[FallbackRedirectID]; len(p.Redirects) == 1 && exists {
 		return proxyPort, nil
 	}
 	return 0, fmt.Errorf("Proxy port for redirect %q not found", proxyID)
