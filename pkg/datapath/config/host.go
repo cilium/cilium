@@ -184,5 +184,40 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		cfg.ProxyRedirectViaCiliumNet = true
 	}
 
+	// The VLAN bypass allowlist only applies to externally-facing devices, where
+	// cil_from_netdev/cil_to_netdev see VLAN-tagged frames. cilium_host and
+	// cilium_net are internal and never receive tagged traffic, so they keep the
+	// default (filter everything).
+	setVLANFilter(cfg, option.Config.VLANBPFBypass)
+
 	return cfg
+}
+
+// VLANFilterSlots is the max number of --vlan-bpf-bypass IDs the datapath can
+// hold. Must match VLAN_FILTER_SLOTS in bpf/lib/vlan.h.
+const VLANFilterSlots = 5
+
+// vlanFilterUnused marks an unused slot. VLAN IDs are 12-bit, so 0xFFFF is never
+// a real ID. Must match the ASSIGN_CONFIG defaults in bpf/include/bpf/config/host.h.
+const vlanFilterUnused uint16 = 0xFFFF
+
+// setVLANFilter writes the --vlan-bpf-bypass list into the vlan_filter_id_*
+// slots. 0 means allow all; unused slots get the sentinel rather than the Go
+// zero value, which the datapath would read as allow-all. The list length is
+// validated against VLANFilterSlots during option parsing.
+func setVLANFilter(cfg *BPFHost, ids []int) {
+	var slots [VLANFilterSlots]uint16
+	for i := range slots {
+		if i < len(ids) {
+			slots[i] = uint16(ids[i])
+		} else {
+			slots[i] = vlanFilterUnused
+		}
+	}
+
+	cfg.VlanFilterID0 = slots[0]
+	cfg.VlanFilterID1 = slots[1]
+	cfg.VlanFilterID2 = slots[2]
+	cfg.VlanFilterID3 = slots[3]
+	cfg.VlanFilterID4 = slots[4]
 }

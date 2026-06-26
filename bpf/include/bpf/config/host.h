@@ -23,3 +23,14 @@ DECLARE_CONFIG(__u8, eth_header_length, "Length of the Ethernet header on this d
 ASSIGN_CONFIG(__u8, eth_header_length, __ETH_HLEN)
 #define ETH_HLEN CONFIG(eth_header_length)
 #endif
+
+/* --vlan-bpf-bypass allowlist. Config slots and allow_vlan() are defined in
+ * lib/vlan.h; default all slots to 0xFFFF (unused/deny-all) for bpf_host.
+ */
+#include <lib/vlan.h>
+
+ASSIGN_CONFIG(__u16, vlan_filter_id_0, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_1, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_2, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_3, 0xFFFF)
+ASSIGN_CONFIG(__u16, vlan_filter_id_4, 0xFFFF)

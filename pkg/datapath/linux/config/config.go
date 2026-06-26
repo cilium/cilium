@@ -5,7 +5,6 @@ package config
 
 import (
 	"bufio"
-	"bytes"
 	"cmp"
 	"encoding/base64"
 	"encoding/json"
@@ -16,9 +15,6 @@ import (
 	"net"
 	"net/netip"
 	"slices"
-	"text/template"
-
-	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -114,8 +110,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	extraMacrosMap := make(dpdef.Map)
 	cDefinesMap := make(dpdef.Map)
-
-	nativeDevices := cfg.Devices
 
 	fw := bufio.NewWriter(w)
 
@@ -495,12 +489,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
 
-	vlanFilter, err := vlanFilterMacros(nativeDevices)
-	if err != nil {
-		return fmt.Errorf("rendering vlan filter macros: %w", err)
-	}
-	cDefinesMap["VLAN_FILTER(ifindex, vlan_id)"] = vlanFilter
-
 	if option.Config.DisableExternalIPMitigation {
 		cDefinesMap["DISABLE_EXTERNAL_IP_MITIGATION"] = "1"
 	}
@@ -574,71 +562,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	}
 
 	return fw.Flush()
-}
-
-// vlanFilterMacros generates VLAN_FILTER macros which
-// are written to node_config.h
-func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
-	devices := make(map[int]bool)
-	for _, device := range nativeDevices {
-		devices[device.Index] = true
-	}
-
-	allowedVlans := make(map[int]bool)
-	for _, vlanId := range option.Config.VLANBPFBypass {
-		allowedVlans[vlanId] = true
-	}
-
-	// allow all vlan id's
-	if allowedVlans[0] {
-		return "return true", nil
-	}
-
-	vlansByIfIndex := make(map[int][]int)
-
-	links, err := safenetlink.LinkList()
-	if err != nil {
-		return "", fmt.Errorf("listing network interfaces: %w", err)
-	}
-
-	for _, l := range links {
-		vlan, ok := l.(*netlink.Vlan)
-		// if it's vlan device and we're controlling vlan main device
-		// and either all vlans are allowed, or we're controlling vlan device or vlan is explicitly allowed
-		if ok && devices[vlan.ParentIndex] && (devices[vlan.Index] || allowedVlans[vlan.VlanId]) {
-			vlansByIfIndex[vlan.ParentIndex] = append(vlansByIfIndex[vlan.ParentIndex], vlan.VlanId)
-		}
-	}
-
-	vlansCount := 0
-	for _, v := range vlansByIfIndex {
-		vlansCount += len(v)
-		slices.Sort(v) // sort Vlanids in-place since safenetlink.LinkList() may return them in any order
-	}
-
-	if vlansCount == 0 {
-		return "return false", nil
-	} else if vlansCount > 5 {
-		return "", fmt.Errorf("allowed VLAN list is too big - %d entries, please use '--vlan-bpf-bypass 0' in order to allow all available VLANs", vlansCount)
-	} else {
-		vlanFilterTmpl := template.Must(template.New("vlanFilter").Parse(
-			`switch (ifindex) { \
-{{range $ifindex,$vlans := . -}} case {{$ifindex}}: \
-switch (vlan_id) { \
-{{range $vlan := $vlans -}} case {{$vlan}}: \
-{{end}}return true; \
-} \
-break; \
-{{end}}} \
-return false;`))
-
-		var vlanFilterMacro bytes.Buffer
-		if err := vlanFilterTmpl.Execute(&vlanFilterMacro, vlansByIfIndex); err != nil {
-			return "", fmt.Errorf("failed to execute template: %w", err)
-		}
-
-		return vlanFilterMacro.String(), nil
-	}
 }
 
 func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, opts *option.IntOptions) {
