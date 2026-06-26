@@ -148,6 +148,8 @@ type IPCache struct {
 	// metadata is the ipcache identity metadata map, which maps IPs to labels.
 	metadata *metadata
 
+	cidrSelectorAllocators []CIDRSelectorAllocator
+
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
 	prefixLengths *counter.PrefixLengthCounter
@@ -155,6 +157,21 @@ type IPCache struct {
 	// injectionStarted is a sync.Once so we can lazily start the prefix injection controller,
 	// but only once
 	injectionStarted sync.Once
+}
+
+// CIDRSelectorAllocator defines the interface to trigger identity resolution for
+// a CIDR selector (e.g. pod or node).
+type CIDRSelectorAllocator interface {
+	// UpdateCIDRLabels triggers identity resolution for all resources (e.g. pod endpoints)
+	// whose IPs are contained within the given prefix.
+	//
+	// Returns true if a matching local resource was found and had its identity resolution triggered.
+	UpdateCIDRLabels(ctx context.Context, prefix netip.Prefix) bool
+}
+
+// AddCIDRSelectorAllocator adds a CIDR selector allocator to this IPCache.
+func (ipc *IPCache) AddCIDRSelectorAllocator(allocator CIDRSelectorAllocator) {
+	ipc.cidrSelectorAllocators = append(ipc.cidrSelectorAllocators, allocator)
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -236,6 +253,22 @@ func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *K8sMetadata {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 	return ipc.getK8sMetadata(ip.String())
+}
+
+// GetMetadataLabels returns the merged labels for the given IP address from the metadata map.
+//
+// Callers must not call this while holding the IPCache mutex (such as via IPCache.RLock())
+//
+// Note: This returns all matching parent labels (including non-CIDR ones). The caller is
+// responsible for filtering labels if only specific label sources are needed (e.g. cidr).
+func (ipc *IPCache) GetMetadataLabels(ip netip.Addr) labels.Labels {
+	if !ip.IsValid() {
+		return nil
+	}
+	prefix := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(ip, ip.BitLen()))
+	lbls := labels.Labels{}
+	ipc.metadata.mergeLabels(lbls, prefix)
+	return lbls
 }
 
 // getK8sMetadata returns Kubernetes metadata for the given IP address.

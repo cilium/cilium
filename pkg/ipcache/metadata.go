@@ -297,15 +297,15 @@ func (m *metadata) getLockedSource(prefix cmtypes.PrefixCluster) source.Source {
 	return source.Unspec
 }
 
-// mergeParentLabels pulls down all labels from parent prefixes, with "longer" prefixes having
-// preference.
+// mergeLabels pulls down all labels from parent prefixes, with "longer" prefixes having
+// preference, including the prefix itself.
 //
 // Thus, if the ipcache contains:
 // - 10.0.0.0/8 -> "a=b, foo=bar"
 // - 10.1.0.0/16 -> "a=c"
 // - 10.1.1.0/24 -> "d=e"
 // the complete set of labels for 10.1.1.0/24 is [a=c, d=e, foo=bar]
-func (m *metadata) mergeParentLabels(lbls labels.Labels, prefixCluster cmtypes.PrefixCluster) {
+func (m *metadata) mergeLabels(lbls labels.Labels, prefixCluster cmtypes.PrefixCluster) {
 	m.Lock()
 	defer m.Unlock()
 	hasCIDR := lbls.HasSource(labels.LabelSourceCIDR) // we should only merge one CIDR label
@@ -313,7 +313,7 @@ func (m *metadata) mergeParentLabels(lbls labels.Labels, prefixCluster cmtypes.P
 	// Iterate over all shorter prefixes, from `prefix` to 0.0.0.0/0 // ::/0.
 	// Merge all labels, preferring those from longer prefixes, but only merge a single "cidr:XXX" label at most.
 	prefix := prefixCluster.AsPrefix()
-	for bits := prefix.Bits() - 1; bits >= 0; bits-- {
+	for bits := prefix.Bits(); bits >= 0; bits-- {
 		parent, _ := prefix.Addr().Unmap().Prefix(bits) // canonical
 		if info := m.getLocked(cmtypes.NewPrefixCluster(parent, prefixCluster.ClusterID())); info != nil {
 			for k, v := range info.ToLabels() {
@@ -405,6 +405,17 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		prefixInfo := ipc.metadata.get(prefix)
 		var newID *identity.Identity
 		var isNew bool
+
+		// If this prefix exactly matches a known in-cluster resource (e.g. pod or node),
+		// we don't need to allocate a standalone CIDR identity. The resource's own
+		// identity will dynamically update its CIDR labels.
+		for _, allocator := range ipc.cidrSelectorAllocators {
+			if allocator.UpdateCIDRLabels(ctx, prefix.AsPrefix()) {
+				prefixInfo = nil
+				break
+			}
+		}
+
 		if prefixInfo == nil {
 			if !entryExists {
 				// Already deleted, no new metadata to associate
@@ -706,8 +717,8 @@ func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info *resource
 
 	lbls := info.ToLabels()
 
-	// unconditionally merge any parent labels down in to this prefix
-	ipc.metadata.mergeParentLabels(lbls, prefix)
+	// unconditionally merge any parent labels down in to this prefix, including the prefix itself
+	ipc.metadata.mergeLabels(lbls, prefix)
 
 	// Enforce certain label invariants, e.g. adding or removing `reserved:world`.
 	resolveLabels(lbls, prefix)
