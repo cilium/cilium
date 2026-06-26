@@ -92,7 +92,7 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 	}
 
 	routeGVK := input.GetGVK()
-	hasKindRestriction := false
+	matchedListeners := 0
 	for _, listener := range owner.GetListeners() {
 		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
 			continue
@@ -102,20 +102,19 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 		}
 
 		if listener.AllowedRoutes == nil || len(listener.AllowedRoutes.Kinds) == 0 {
-			continue
+			return true, nil
 		}
 
-		hasKindRestriction = true
+		matchedListeners++
 		for _, kind := range listener.AllowedRoutes.Kinds {
 			if (kind.Group == nil || (kind.Group != nil && *kind.Group == gatewayv1.Group(routeGVK.Group))) &&
 				kind.Kind == gatewayv1.Kind(routeGVK.Kind) {
-				// At least one matching listener allows this route kind.
 				return true, nil
 			}
 		}
 	}
 
-	if hasKindRestriction {
+	if matchedListeners > 0 {
 		input.SetParentCondition(parentRef, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionFalse,
