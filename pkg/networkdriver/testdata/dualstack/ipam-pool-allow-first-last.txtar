@@ -1,0 +1,353 @@
+# Start hive
+hive start
+
+# Add objects
+k8s/add ippool.yaml node.yaml claim.yaml
+driver/ipam/restore-finished
+
+# Prepare claim
+# Just like in a real cluster, this is retried until successful. An initial failure
+# is not an error: as an example, when referencing a CiliumResourceIPPool, the address
+# allocation fails until the operator assigns a CIDR to the node.
+* driver/prepare-resource-claims default/test-pod-test-4d5bl
+
+# Check allocated addresses are from the pool. Four dual-stack allocations
+# exhaust the /30 and /126 CIDRs, so this only succeeds if the first and last
+# IPs are allocatable.
+* driver/check-claim-addresses default/test-pod-test-4d5bl test-device-1 test-ip-pool
+* driver/check-claim-addresses default/test-pod-test-4d5bl test-device-2 test-ip-pool
+* driver/check-claim-addresses default/test-pod-test-4d5bl test-device-3 test-ip-pool
+* driver/check-claim-addresses default/test-pod-test-4d5bl test-device-4 test-ip-pool
+
+# Check ResourceClaim status redacting transition time and randomized IP addresses.
+k8s/get resource.k8s.io.v1.resourceclaims default/test-pod-test-4d5bl -o claim.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<timestamp>"' claim.actual.yaml
+sed 'ipv4Addr: .*' 'ipv4Addr: <redacted>' claim.actual.yaml
+sed 'ipv6Addr: .*' 'ipv6Addr: <redacted>' claim.actual.yaml
+sed '- 10\.10\.0\..*/32' '- <redacted>' claim.actual.yaml
+sed '- fd00:200:1::.*/128' '- <redacted>' claim.actual.yaml
+cmp claim.actual.yaml claim.expected.yaml
+
+# Check CiliumNode resource pools after allocation.
+k8s/get cilium.io.v2.ciliumnodes test-local-node -o node.actual.yaml
+* cmp node.actual.yaml node.expected.yaml
+
+# Unprepare claim.
+driver/unprepare-resource-claims default/test-pod-test-4d5bl
+
+# Check CiliumNode resource pools after release.
+k8s/get cilium.io.v2.ciliumnodes test-local-node -o node-released.actual.yaml
+* cmp node-released.actual.yaml node-released.expected.yaml
+
+# Stop hive
+hive stop
+
+-- ippool.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumResourceIPPool
+metadata:
+  name: test-ip-pool
+spec:
+  allowFirstIP: true
+  allowLastIP: true
+  ipv4:
+    cidrs:
+    - 10.10.0.0/30
+    maskSize: 30
+  ipv6:
+    cidrs:
+    - fd00:200:1::/126
+    maskSize: 126
+
+-- node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-local-node
+  labels:
+    kubernetes.io/hostname: test-local-node
+spec: {}
+
+-- claim.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-pod-test-4d5bl
+  namespace: default
+  uid: ba3c7922-9a56-44eb-a96f-84ee8b74dd23
+spec: {}
+status:
+  allocation:
+    devices:
+      config:
+      - source: FromClaim
+        requests:
+        - test-request-1
+        opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ip-pool: test-ip-pool
+      - source: FromClaim
+        requests:
+        - test-request-2
+        opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ip-pool: test-ip-pool
+      - source: FromClaim
+        requests:
+        - test-request-3
+        opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ip-pool: test-ip-pool
+      - source: FromClaim
+        requests:
+        - test-request-4
+        opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ip-pool: test-ip-pool
+      results:
+      - device: test-device-1
+        driver: test.cilium.k8s.io
+        pool: test-device-1-pool
+        request: test-request-1
+      - device: test-device-2
+        driver: test.cilium.k8s.io
+        pool: test-device-2-pool
+        request: test-request-2
+      - device: test-device-3
+        driver: test.cilium.k8s.io
+        pool: test-device-3-pool
+        request: test-request-3
+      - device: test-device-4
+        driver: test.cilium.k8s.io
+        pool: test-device-4-pool
+        request: test-request-4
+  reservedFor:
+  - resource: pods
+    name: test-pod
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
+
+-- claim.expected.yaml --
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: test-pod-test-4d5bl
+  namespace: default
+spec:
+  devices:
+    requests: null
+status:
+  allocation:
+    devices:
+      config:
+      - opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ip-pool: test-ip-pool
+        requests:
+        - test-request-1
+        source: FromClaim
+      - opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ip-pool: test-ip-pool
+        requests:
+        - test-request-2
+        source: FromClaim
+      - opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ip-pool: test-ip-pool
+        requests:
+        - test-request-3
+        source: FromClaim
+      - opaque:
+          driver: test.cilium.k8s.io
+          parameters:
+            ip-pool: test-ip-pool
+        requests:
+        - test-request-4
+        source: FromClaim
+      results:
+      - device: test-device-1
+        driver: test.cilium.k8s.io
+        pool: test-device-1-pool
+        request: test-request-1
+      - device: test-device-2
+        driver: test.cilium.k8s.io
+        pool: test-device-2-pool
+        request: test-request-2
+      - device: test-device-3
+        driver: test.cilium.k8s.io
+        pool: test-device-3-pool
+        request: test-request-3
+      - device: test-device-4
+        driver: test.cilium.k8s.io
+        pool: test-device-4-pool
+        request: test-request-4
+  devices:
+  - conditions:
+    - lastTransitionTime: "<timestamp>"
+      message: Device is ready
+      reason: Ready
+      status: "True"
+      type: Ready
+    data:
+      Config:
+        ip-pool: test-ip-pool
+        ipv4Addr: <redacted>
+        ipv6Addr: <redacted>
+      Dev:
+        Flags: ""
+        HWAddr: ""
+        MTU: 0
+        Name: test-device-1
+      Manager: '"dummy"'
+    device: test-device-1
+    driver: test.cilium.k8s.io
+    networkData:
+      interfaceName: test-device-1
+      ips:
+      - <redacted>
+      - <redacted>
+    pool: test-device-1-pool
+  - conditions:
+    - lastTransitionTime: "<timestamp>"
+      message: Device is ready
+      reason: Ready
+      status: "True"
+      type: Ready
+    data:
+      Config:
+        ip-pool: test-ip-pool
+        ipv4Addr: <redacted>
+        ipv6Addr: <redacted>
+      Dev:
+        Flags: ""
+        HWAddr: ""
+        MTU: 0
+        Name: test-device-2
+      Manager: '"dummy"'
+    device: test-device-2
+    driver: test.cilium.k8s.io
+    networkData:
+      interfaceName: test-device-2
+      ips:
+      - <redacted>
+      - <redacted>
+    pool: test-device-2-pool
+  - conditions:
+    - lastTransitionTime: "<timestamp>"
+      message: Device is ready
+      reason: Ready
+      status: "True"
+      type: Ready
+    data:
+      Config:
+        ip-pool: test-ip-pool
+        ipv4Addr: <redacted>
+        ipv6Addr: <redacted>
+      Dev:
+        Flags: ""
+        HWAddr: ""
+        MTU: 0
+        Name: test-device-3
+      Manager: '"dummy"'
+    device: test-device-3
+    driver: test.cilium.k8s.io
+    networkData:
+      interfaceName: test-device-3
+      ips:
+      - <redacted>
+      - <redacted>
+    pool: test-device-3-pool
+  - conditions:
+    - lastTransitionTime: "<timestamp>"
+      message: Device is ready
+      reason: Ready
+      status: "True"
+      type: Ready
+    data:
+      Config:
+        ip-pool: test-ip-pool
+        ipv4Addr: <redacted>
+        ipv6Addr: <redacted>
+      Dev:
+        Flags: ""
+        HWAddr: ""
+        MTU: 0
+        Name: test-device-4
+      Manager: '"dummy"'
+    device: test-device-4
+    driver: test.cilium.k8s.io
+    networkData:
+      interfaceName: test-device-4
+      ips:
+      - <redacted>
+      - <redacted>
+    pool: test-device-4-pool
+  reservedFor:
+  - name: test-pod
+    resource: pods
+    uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
+-- node.expected.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-local-node
+  name: test-local-node
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcepools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.10.0.0/30
+        - fd00:200:1::/126
+        pool: test-ip-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+          ipv6-addrs: 4
+        pool: test-ip-pool
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- node-released.expected.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-local-node
+  name: test-local-node
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcepools: {}
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
