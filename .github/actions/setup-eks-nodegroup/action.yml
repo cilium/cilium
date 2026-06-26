@@ -37,11 +37,24 @@ runs:
       if: ${{ inputs.node_groups_override == '' }}
       shell: bash
       run: |
+        SUBNET_IDS=$(aws eks describe-cluster \
+          --name ${{ inputs.cluster_name }} \
+          --region ${{ inputs.region }} \
+          --query 'cluster.resourcesVpcConfig.subnetIds' \
+          --output text)
+        aws ec2 describe-subnets \
+          --region ${{ inputs.region }} \
+          --subnet-ids $SUBNET_IDS \
+          --query 'Subnets[].{SubnetId:SubnetId,CIDR:CidrBlock,AZ:AvailabilityZone}' \
+          --output table
+
         SUBNET=$(aws eks describe-cluster \
           --name ${{ inputs.cluster_name }} \
           --region ${{ inputs.region }} \
           --query 'cluster.resourcesVpcConfig.subnetIds[0]' \
           --output text)
+
+        echo "External subnet: $SUBNET"
 
         cat <<EOF > nodegroup-details.yaml
         managedNodeGroups:

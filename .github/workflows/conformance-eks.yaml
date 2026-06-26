@@ -512,7 +512,14 @@ jobs:
             --output text)
           # Supposed to be one subnet and one CIDR with the default setup-eks-nodegroup config.
           CIDRV4=$(echo "$CIDRS" | awk '{print $1}')
-          echo "ipv4_external_cidr=$CIDRV4" >> $GITHUB_OUTPUT
+          #echo "ipv4_external_cidr=$CIDRV4" >> $GITHUB_OUTPUT
+          echo "ipv4_external_cidr=0.0.0.0/2" >> $GITHUB_OUTPUT
+          echo "External CIDR: $CIDRV4"
+
+      - name: Debug steps
+        run: |
+          echo "ALL NODES:"
+          kubectl get nodes -o wide || :
 
       - name: Get connectivity test flags
         id: e2e_config
@@ -582,6 +589,16 @@ jobs:
           full-test: 'true'
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+
+      - name: Debug steps
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          kubectl -n kube-system get cm cilium-config -o yaml | grep -E 'ipam|masquerade|native-routing|egress-gateway' || :
+          kubectl -n kube-system exec ds/cilium -- cilium bpf egress list -o json || :
+          kubectl get pods -A -o wide | grep -E 'client-|echo-external-node' || :
+          kubectl get nodes -o wide --show-labels | grep cilium.io/no-schedule || :
+          echo "ALL NODES:"
+          kubectl get nodes -o wide || :
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
