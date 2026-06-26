@@ -6,6 +6,8 @@ package commands
 import (
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,17 +15,39 @@ import (
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/script"
+	"github.com/cilium/statedb"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 type CmdParams struct {
 	cell.In
 
 	EPL endpointmanager.EndpointsLookup
+
+	// used for staging
+	Repository policy.PolicyRepository
+	DB         *statedb.DB
+	Services   statedb.Table[*loadbalancer.Service]
+	Backends   statedb.Table[*loadbalancer.Backend]
+
+	ClusterMeshPolicyConfig cmtypes.PolicyConfig
+	Config                  *option.DaemonConfig
+	PMFactory               policymap.Factory
 }
+
+var Cell = cell.Module(
+	"policycommands",
+	"Policy script commands",
+	cell.Provide(NewPolicyCommands),
+)
 
 type PolicyCommands map[string]script.Cmd
 
@@ -31,6 +55,7 @@ func NewPolicyCommands(params CmdParams) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
 		"policy/mapstate/entries": msEntriesCmd(params),
 		"policy/mapstate/topk":    topKCmd(params),
+		"policy/mapstate/stage":   msStageCmd(params),
 	})
 }
 
@@ -39,17 +64,42 @@ func NewPolicyCommands(params CmdParams) hive.ScriptCmdsOut {
 // Accepted values are numeric endpoint IDs or <namespace/name>
 func autocompleteEndpoints(params CmdParams) func(_ *script.State, _ []string, cur string) []string {
 	return func(_ *script.State, _ []string, cur string) []string {
-		eps := params.EPL.GetEndpoints()
-		epNames := make([]string, 0, len(eps)*2)
-		for _, ep := range eps {
-			epNames = append(epNames, fmt.Sprintf("%d", ep.ID))
-			if ep.K8sNamespace != "" && ep.K8sPodName != "" {
-				epNames = append(epNames, fmt.Sprintf("%s/%s", ep.K8sNamespace, ep.K8sPodName))
-			}
-		}
-
-		return filterPrefix(epNames, cur)
+		return autocompleteEndpointsImpl(params, cur)
 	}
+}
+
+func autocompleteEndpointsImpl(params CmdParams, cur string) []string {
+	eps := params.EPL.GetEndpoints()
+	epNames := make([]string, 0, len(eps)*2)
+	for _, ep := range eps {
+		epNames = append(epNames, fmt.Sprintf("%d", ep.ID))
+		if ep.K8sNamespace != "" && ep.K8sPodName != "" {
+			epNames = append(epNames, fmt.Sprintf("%s/%s", ep.K8sNamespace, ep.K8sPodName))
+		}
+	}
+
+	return filterPrefix(epNames, cur)
+}
+
+func autocompleteFilenameImpl(state *script.State, cur string) []string {
+	entries, err := os.ReadDir(state.Path(cur))
+	dir := cur
+	file := ""
+	if err != nil {
+		dir, file = filepath.Split(state.Path(cur))
+		entries, err = os.ReadDir(dir)
+		if err != nil {
+			return nil
+		}
+	}
+
+	var suggestions []string
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), file) {
+			suggestions = append(suggestions, filepath.Join(dir, entry.Name()))
+		}
+	}
+	return suggestions
 }
 
 // lookupEPs returns the set of endpoints that match the given specs,

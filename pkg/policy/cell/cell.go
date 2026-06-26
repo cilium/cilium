@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/commands"
 	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -38,7 +37,6 @@ var Cell = cell.Module(
 	cell.Provide(newIPCacher),
 	cell.Config(defaultConfig),
 	metrics.Metric(newIdentityUpdaterMetrics),
-	cell.Provide(commands.NewPolicyCommands),
 )
 
 type Config struct {

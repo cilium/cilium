@@ -146,6 +146,8 @@ type entryOut struct {
 	Cookie    uint32 `json:"cookie"`
 
 	Origins []origin `json:"origins"`
+
+	mse policy.MapStateEntry `json:"-"`
 }
 
 func makeEntry(key policy.Key, entry policy.MapStateEntry, meta policy.RuleMeta) entryOut {
@@ -159,6 +161,8 @@ func makeEntry(key policy.Key, entry policy.MapStateEntry, meta policy.RuleMeta)
 		Verdict:   "unknown",
 		ProxyPort: entry.ProxyPort,
 		Cookie:    entry.Cookie,
+
+		mse: entry,
 	}
 
 	if key.Nexthdr == 0 {
