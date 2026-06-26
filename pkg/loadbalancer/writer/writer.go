@@ -225,12 +225,6 @@ func (w *Writer) UpsertFrontend(txn WriteTxn, params loadbalancer.FrontendParams
 		return nil, err
 	}
 
-	// Check if a frontend already exists that is associated to a different service.
-	fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(params.Address))
-	if found && !fe.ServiceName.Equal(params.ServiceName) {
-		return fe, fmt.Errorf("%w: %s is owned by %s", loadbalancer.ErrFrontendConflict, params.Address.StringWithProtocol(), fe.ServiceName)
-	}
-
 	// Lookup the service associated with the frontend. A frontend cannot be added
 	// without the service already existing.
 	svc, _, found := w.svcs.Get(txn, loadbalancer.ServiceByName(params.ServiceName))
