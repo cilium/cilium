@@ -2579,6 +2579,18 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		}
 		c.VLANBPFBypass = append(c.VLANBPFBypass, vlanID)
 	}
+	// 5 must match VLANFilterSlots in pkg/datapath/config/host.go and
+	// VLAN_FILTER_SLOTS in bpf/lib/vlan.h.
+	if len(c.VLANBPFBypass) > 5 {
+		logging.Fatal(logger, fmt.Sprintf("--%s accepts at most 5 entries, got %d; use 0 to allow all VLANs",
+			VLANBPFBypass, len(c.VLANBPFBypass)))
+	}
+	for _, id := range c.VLANBPFBypass {
+		if id != 0 && (id < 1 || id > 4094) {
+			logging.Fatal(logger, fmt.Sprintf("--%s: invalid VLAN ID %d (valid: 0 = allow all, 1-4094)",
+				VLANBPFBypass, id))
+		}
+	}
 
 	c.DisableExternalIPMitigation = vp.GetBool(DisableExternalIPMitigation)
 
