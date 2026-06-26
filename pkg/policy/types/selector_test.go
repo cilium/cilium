@@ -19,9 +19,11 @@ import (
 func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 	oldv4 := option.Config.EnableIPv4
 	oldv6 := option.Config.EnableIPv6
+	oldPolicyCIDRMatchMode := option.Config.PolicyCIDRMatchMode
 	t.Cleanup(func() {
 		option.Config.EnableIPv4 = oldv4
 		option.Config.EnableIPv6 = oldv6
+		option.Config.PolicyCIDRMatchMode = oldPolicyCIDRMatchMode
 	})
 
 	selectors := func(needKeys ...string) Selectors {
@@ -70,12 +72,12 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 	}
 
 	tt := []struct {
-		name                   string
-		rule                   api.CIDRRule
-		expected               Selectors
-		enableIPv4, enableIPv6 bool
-		matchesLabels          []string
-		notMatchesLabels       []string
+		name                                                                  string
+		rule                                                                  api.CIDRRule
+		expected                                                              Selectors
+		enableIPv4, enableIPv6, policyCIDRMatchesPods, policyCIDRMatchesNodes bool
+		matchesLabels                                                         []string
+		notMatchesLabels                                                      []string
 	}{
 		{
 			name:       "basic cidr",
@@ -83,7 +85,21 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 			expected:   selectors("cidr:1.2.3.4/32"),
 			enableIPv4: true, enableIPv6: true,
 			matchesLabels:    []string{"cidr:1.2.3.4/32;reserved:world-ipv4"},
-			notMatchesLabels: []string{"cidr:1.2.3.5/32;reserved:world-ipv4"},
+			notMatchesLabels: []string{"cidr:1.2.3.4/32", "cidr:1.2.3.5/32", "cidr:1.2.3.5/32;reserved:world-ipv4"},
+		},
+		{
+			name: "basic cidr with match scope all",
+			rule: api.CIDRRule{Cidr: "1.2.3.4/32"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:1.2.3.4/32",
+				requirements: Requirements{
+					NewExistRequirement(labels.NewLabel("1.2.3.4/32", "", labels.LabelSourceCIDR)),
+				},
+			}},
+			enableIPv4: true, enableIPv6: true,
+			policyCIDRMatchesPods: true,
+			matchesLabels:         []string{"cidr:1.2.3.4/32", "cidr:1.2.3.4/32;reserved:world-ipv4"},
+			notMatchesLabels:      []string{"cidr:1.2.3.5/32", "cidr:1.2.3.5/32;reserved:world-ipv4"},
 		},
 		{
 			name: "except",
@@ -104,8 +120,8 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 			rule:       api.CIDRRule{CIDRGroupRef: "foo"},
 			expected:   selectors("cidrgroup:io.cilium.policy.cidrgroupname/foo"),
 			enableIPv4: true, enableIPv6: true,
-			matchesLabels:    []string{"cidrgroup:io.cilium.policy.cidrgroupname/foo"},
-			notMatchesLabels: []string{"cidrgroup:io.cilium.policy.cidrgroupname/bar"},
+			matchesLabels:    []string{"cidrgroup:io.cilium.policy.cidrgroupname/foo;reserved:world-ipv4"},
+			notMatchesLabels: []string{"cidrgroup:io.cilium.policy.cidrgroupname/bar;reserved:world-ipv4"},
 		},
 		{
 			name: "cidr group with exception",
@@ -118,8 +134,8 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 				},
 			}},
 			enableIPv4: true, enableIPv6: true,
-			matchesLabels:    []string{"cidrgroup:io.cilium.policy.cidrgroupname/foo"},
-			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidrgroup:io.cilium.policy.cidrgroupname/bar"},
+			matchesLabels:    []string{"cidrgroup:io.cilium.policy.cidrgroupname/foo;reserved:world-ipv4"},
+			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidrgroup:io.cilium.policy.cidrgroupname/bar;reserved:world-ipv4"},
 		},
 		{
 			name: "cidr group ls",
@@ -134,8 +150,8 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 				encoded: true,
 			}},
 			enableIPv4: true, enableIPv6: true,
-			matchesLabels:    []string{"cidrgroup:foo=bar;cidrgroup:foo+bar"},
-			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidrgroup:foo=baz;cidrgroup:foo+baz"},
+			matchesLabels:    []string{"cidrgroup:foo=bar;cidrgroup:foo+bar;reserved:world-ipv4"},
+			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidrgroup:foo=baz;cidrgroup:foo+baz;reserved:world-ipv4"},
 		},
 		{
 			name: "cidr group ls with exceptions",
@@ -152,8 +168,8 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 				encoded: true,
 			}},
 			enableIPv4: true, enableIPv6: true,
-			matchesLabels:    []string{"cidrgroup:foo=bar;cidrgroup:foo+bar"},
-			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:192.1681.1.1/32;reserved:world-ipv4", "cidrgroup:foo=baz;cidrgroup:foo+baz"},
+			matchesLabels:    []string{"cidrgroup:foo=bar;cidrgroup:foo+bar;reserved:world-ipv4"},
+			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:192.168.1.1/32;reserved:world-ipv4", "cidrgroup:foo=baz;cidrgroup:foo+baz;reserved:world-ipv4"},
 		},
 		{
 			name: "world v4 ss",
@@ -204,7 +220,7 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 				},
 			}},
 			enableIPv4: true, enableIPv6: true,
-			matchesLabels:    []string{"reserved:world-ipv6", "cidr:::/0;reserved:world-ipv6", "cidr:::1/128;;reserved:world-ipv6"},
+			matchesLabels:    []string{"reserved:world-ipv6", "cidr:::/0;reserved:world-ipv6", "cidr:::1/128;reserved:world-ipv6"},
 			notMatchesLabels: []string{"cidr:::/0", "reserved:world", "reserved:world-ipv4", "cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:192.168.1.1/32;reserved:world-ipv4"},
 		},
 		{
@@ -222,6 +238,21 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 			notMatchesLabels: []string{"cidr:::/0;reserved:world-ipv6", "cidr:::1/128;reserved:world-ipv6", "cidr:1.2.3.4/32;reserved:world-ipv4"},
 		},
 		{
+			name: "world v4 ds except scope all",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0", ExceptCIDRs: []api.CIDR{"1.2.3.4/32"}},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0-[1.2.3.4/32]",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV4),
+					NewExceptRequirement(labels.NewLabel("1.2.3.4/32", "", labels.LabelSourceCIDR)),
+				},
+			}},
+			enableIPv4: true, enableIPv6: true,
+			policyCIDRMatchesPods: true,
+			matchesLabels:         []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:192.168.1.1/32;reserved:world-ipv4", "cidr:192.168.2.1/32"},
+			notMatchesLabels:      []string{"cidr:::/0;reserved:world-ipv6", "cidr:::1/128;reserved:world-ipv6", "cidr:1.2.3.4/32;reserved:world-ipv4", "cidr:1.2.3.4/32"},
+		},
+		{
 			name: "world v4 ds multiple exceptions",
 			rule: api.CIDRRule{Cidr: "0.0.0.0/0", ExceptCIDRs: []api.CIDR{"1.2.3.4/32", "10.1.1.0/24"}},
 			expected: Selectors{&CIDRSelector{
@@ -236,12 +267,103 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 			matchesLabels:    []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:192.168.1.1/32;reserved:world-ipv4"},
 			notMatchesLabels: []string{"cidr:::/0;reserved:world-ipv6", "cidr:::1/128;reserved:world-ipv6", "cidr:1.2.3.4/32;reserved:world-ipv4", "cidr:10.1.1.5/32;reserved:world-ipv4"},
 		},
+		{
+			name: "world v4 single stack scope all",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabel),
+				},
+			}},
+			enableIPv4: true, enableIPv6: false,
+			policyCIDRMatchesPods: true,
+			matchesLabels:         []string{"cidr:1.1.1.1/32;reserved:world", "cidr:1.1.1.1/32", "reserved:world", "cidr:1.1.1.1/32;reserved:world-ipv4"},
+			notMatchesLabels:      []string{"reserved:world-ipv4", "cidr:2001:db8::/64;reserved:world-ipv6", "cidr:2001:db8::/64"},
+		},
+		{
+			name: "world v4 dual stack scope all",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV4),
+				},
+			}},
+			enableIPv4: true, enableIPv6: true,
+			policyCIDRMatchesPods: true,
+			matchesLabels:         []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:1.1.1.1/32", "reserved:world-ipv4", "cidr:1.1.1.1/32;reserved:world"},
+			notMatchesLabels:      []string{"reserved:world", "cidr:2001:db8::/64;reserved:world-ipv6", "cidr:2001:db8::/64"},
+		},
+		{
+			name: "world v6 single stack scope all",
+			rule: api.CIDRRule{Cidr: "::/0"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:::/0",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabel),
+				},
+			}},
+			enableIPv4: false, enableIPv6: true,
+			policyCIDRMatchesPods: true,
+			matchesLabels:         []string{"cidr:2001:db8::/64;reserved:world-ipv6", "cidr:2001:db8::/64", "reserved:world"},
+			notMatchesLabels:      []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:1.1.1.1/32", "reserved:world-ipv6"},
+		},
+		{
+			name: "world v6 dual stack scope all",
+			rule: api.CIDRRule{Cidr: "::/0"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:::/0",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV6),
+				},
+			}},
+			enableIPv4: true, enableIPv6: true,
+			policyCIDRMatchesPods: true,
+			matchesLabels:         []string{"cidr:2001:db8::/64;reserved:world-ipv6", "cidr:2001:db8::/64", "reserved:world-ipv6"},
+			notMatchesLabels:      []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:1.1.1.1/32"},
+		},
+		{
+			name:                   "CIDR matching nodes enabled, matches node",
+			rule:                   api.CIDRRule{Cidr: "192.168.1.0/24"},
+			expected:               selectors("cidr:192.168.1.0/24"),
+			enableIPv4:             true,
+			enableIPv6:             true,
+			policyCIDRMatchesNodes: true,
+			matchesLabels: []string{
+				"cidr:192.168.1.10/32;reserved:remote-node",
+				"cidr:192.168.1.10/32;reserved:host",
+			},
+			notMatchesLabels: []string{
+				"cidr:192.168.1.10/32", // pod: MatchPods is false
+				"cidr:192.168.2.10/32;reserved:remote-node",
+			},
+		},
+		{
+			name:                   "CIDR matching nodes disabled, does not match node",
+			rule:                   api.CIDRRule{Cidr: "192.168.1.0/24"},
+			expected:               selectors("cidr:192.168.1.0/24"),
+			enableIPv4:             true,
+			enableIPv6:             true,
+			policyCIDRMatchesNodes: false,
+			notMatchesLabels: []string{
+				"cidr:192.168.1.10/32;reserved:remote-node",
+				"cidr:192.168.1.10/32;reserved:host",
+			},
+		},
 	}
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
 			option.Config.EnableIPv6 = test.enableIPv6
 			option.Config.EnableIPv4 = test.enableIPv4
+			option.Config.PolicyCIDRMatchMode = []string{}
+			if test.policyCIDRMatchesPods {
+				option.Config.PolicyCIDRMatchMode = append(option.Config.PolicyCIDRMatchMode, "pods")
+			}
+			if test.policyCIDRMatchesNodes {
+				option.Config.PolicyCIDRMatchMode = append(option.Config.PolicyCIDRMatchMode, "nodes")
+			}
 
 			if test.rule.CIDRGroupSelector.LabelSelector != nil {
 				test.rule.CIDRGroupSelector = api.NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, test.rule.CIDRGroupSelector.LabelSelector)
