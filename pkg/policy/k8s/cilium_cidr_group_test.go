@@ -13,6 +13,7 @@ import (
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
@@ -51,6 +52,9 @@ func TestCIDRGroupDuplicateLabelKeys(t *testing.T) {
 	// so if both CCGs produced the same map key, one label is silently dropped.
 	merged := maps.Clone(lblsBar)
 	maps.Copy(merged, lblsFoo)
+
+	// CIDR selectors require a world label by default
+	merged[labels.IDNameWorldIPv4] = labels.NewLabel(labels.IDNameWorldIPv4, "", labels.LabelSourceReserved)
 
 	arr := merged.LabelArray()
 

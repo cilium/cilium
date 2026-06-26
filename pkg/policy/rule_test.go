@@ -1125,14 +1125,14 @@ func TestL3RuleLabels(t *testing.T) {
 			Verdict:     types.Allow,
 			Subject:     labelSelectorA,
 			Labels:      ruleLabels["rule1"],
-			L3:          types.ToSelectors(api.CIDRSlice{"10.0.1.0/32"}...),
+			L3:          types.ToSelectors(api.CIDR("10.0.1.0/32")),
 		}, {
 			Ingress:     false,
 			DefaultDeny: true,
 			Verdict:     types.Allow,
 			Subject:     labelSelectorA,
 			Labels:      ruleLabels["rule1"],
-			L3:          types.ToSelectors(api.CIDRSlice{"10.1.0.0/32"}...),
+			L3:          types.ToSelectors(api.CIDR("10.1.0.0/32")),
 		}},
 		"rule2": {{
 			Ingress:     true,
@@ -1140,14 +1140,14 @@ func TestL3RuleLabels(t *testing.T) {
 			Verdict:     types.Allow,
 			Subject:     labelSelectorA,
 			Labels:      ruleLabels["rule2"],
-			L3:          types.ToSelectors(api.CIDRSlice{"10.0.2.0/32"}...),
+			L3:          types.ToSelectors(api.CIDR("10.0.2.0/32")),
 		}, {
 			Ingress:     false,
 			DefaultDeny: true,
 			Verdict:     types.Allow,
 			Subject:     labelSelectorA,
 			Labels:      ruleLabels["rule2"],
-			L3:          types.ToSelectors(api.CIDRSlice{"10.2.0.0/32"}...),
+			L3:          types.ToSelectors(api.CIDR("10.2.0.0/32")),
 		}},
 	}
 
@@ -1213,7 +1213,7 @@ func TestL3RuleLabels(t *testing.T) {
 
 						matches = false
 						for sel := range filter.PerSelectorPolicies {
-							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
+							cidrLabels := labels.ParseLabelArray("cidr:"+cidr, "reserved:world")
 							t.Logf("Testing %+v", cidrLabels)
 							cidr, ok := sel.(*identitySelector).source.(*types.CIDRSelector)
 							if ok {
