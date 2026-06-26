@@ -167,7 +167,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				})
 				testExternalTrafficPolicyLocal(kubectl, ni)
 				deploymentManager.DeleteAll()
-				deploymentManager.DeleteCilium()
 			})
 
 			It("with the host firewall and externalTrafficPolicy=Local", func() {
