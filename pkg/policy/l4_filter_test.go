@@ -114,9 +114,9 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0])
 	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0])
 
-	td.repo.policyCache.insert(idA)
-	td.repo.policyCache.insert(idB)
-	td.repo.policyCache.insert(idC)
+	idMgr.Add(idA)
+	idMgr.Add(idB)
+	idMgr.Add(idC)
 
 	return td
 }
@@ -151,6 +151,7 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(initial, nil, wg)
+	td.subjectSc.UpdateIdentities(initial, nil, wg)
 	wg.Wait()
 
 	for id := range initial {

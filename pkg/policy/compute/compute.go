@@ -5,7 +5,6 @@ package compute
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/cilium/statedb"
@@ -215,14 +214,6 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		var retry []computeRequest
 		for i := range results {
 			if results[i].res.Err != nil {
-				// Cancel the retry because the identity no longer exists.
-				if errors.Is(results[i].res.Err, policy.ErrSelectorPolicyNotCached) {
-					r.logger.Debug("Skipping policy computation for removed identity",
-						logfields.Identity, results[i].res.Identity,
-					)
-					results[i].res = Result{}
-					continue
-				}
 				// This error will result in the relevant endpoints failing
 				// to regenerate.
 				r.logger.Error("Policy computation failed for identity",
@@ -284,28 +275,28 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 	}
 }
 
-// LocalEndpointIdentityAdded is part of the identitymanager.Observer interface.
+// LocalEndpointIdentityAdded is part of the identitymanager.Observer
+// interface.
 //
-// identitymanager dispatches observer callbacks synchronously while holding
-// its mutex, so this method must stay non-blocking: enqueue the request and
-// signal the trigger, nothing else. Anything that takes a lock or waits on a
-// goroutine here will serialize identity churn agent-wide.
+// The subject selectorcache must be updated with the identity before
+// recomputation, otherwise policy will not be computed properly.
 func (r *IdentityPolicyComputer) LocalEndpointIdentityAdded(id *identity.Identity) {
 	if id == nil {
 		return
 	}
+	r.repo.UpdateIdentities(identity.IdentityMap{id.ID: id.LabelArray}, nil)
 	_, _ = r.RecomputeIdentityPolicy(id, 0)
 }
 
 // LocalEndpointIdentityRemoved is part of the identitymanager.Observer interface.
-//
-// Same constraint as LocalEndpointIdentityAdded: must remain non-blocking.
-// The statedb writes here are bounded bookkeeping.
 func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Identity) {
 	if id == nil {
 		return
 	}
 	r.logger.Debug("Identity removed", logfields.Identity, id.ID)
+
+	// See comment on LocalEndpointIdentityAdded.
+	r.repo.UpdateIdentities(nil, identity.IdentityMap{id.ID: id.LabelArray})
 
 	// Drop any pending compute requests for this identity so we don't keep
 	// re-running a stale computation.

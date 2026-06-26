@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -77,9 +76,9 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager iden
 	dstEP.remoteEndpoint = srcEP
 
 	// Resolve and look up the flow as egress from the source
-	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{}, srcEP.ID)
+	selPolSrc, _, err := repo.ComputeSelectorPolicy(flow.From)
 	if err != nil {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
+		return types.LookupResult{}, ingress, egress, fmt.Errorf("resolvePolicy(from) failed: %w", err)
 	}
 
 	dummyRedirects := map[string]uint16{
@@ -89,6 +88,7 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager iden
 	epp := selPolSrc.DistillPolicy(logger, srcEP, dummyRedirects)
 	epp.Ready()
 	epp.Detach(logger)
+	selPolSrc.Supersede()
 	key := EgressKey().WithIdentity(flow.To.ID).WithPortProto(flow.Proto, flow.Dport)
 	egressEntry, ingress, _ := epp.Lookup(key)
 	if egressEntry.IsDeny() {
@@ -98,13 +98,14 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager iden
 	}
 
 	// Resolve ingress policy for destination
-	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{}, dstEP.ID)
+	selPolDst, _, err := repo.ComputeSelectorPolicy(flow.To)
 	if err != nil {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
+		return types.LookupResult{}, ingress, egress, fmt.Errorf("resolvePolicy(to) failed: %w", err)
 	}
 	epp = selPolDst.DistillPolicy(logger, dstEP, dummyRedirects)
 	epp.Ready()
 	epp.Detach(logger)
+	selPolDst.Supersede()
 	key = IngressKey().WithIdentity(flow.From.ID).WithPortProto(flow.Proto, flow.Dport)
 	ingressEntry, egress, _ := epp.Lookup(key)
 	if ingressEntry.IsDeny() {
@@ -152,12 +153,4 @@ func (ei *endpointInfo) RegenerateIfAlive(*regeneration.ExternalRegenerationMeta
 	ch := make(chan bool)
 	close(ch)
 	return ch
-}
-
-type dummyPolicyStats struct {
-	waitingForPolicyRepository spanstat.SpanStat
-}
-
-func (s *dummyPolicyStats) WaitingForPolicyRepository() *spanstat.SpanStat {
-	return &s.waitingForPolicyRepository
 }
