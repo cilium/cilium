@@ -505,7 +505,7 @@ type Infrastructure struct {
 	Annotations map[string]string
 }
 
-// GetMatchKey returns the key to be used for matching the backend.
+// GetMatchKey returns the key for this route's request match criteria.
 func (r *HTTPRoute) GetMatchKey() string {
 	sb := strings.Builder{}
 
@@ -519,19 +519,21 @@ func (r *HTTPRoute) GetMatchKey() string {
 	sb.WriteString(r.PathMatch.String())
 	sb.WriteString("|")
 
-	sort.Slice(r.HeadersMatch, func(i, j int) bool {
-		return r.HeadersMatch[i].String() < r.HeadersMatch[j].String()
+	headers := append([]KeyValueMatch(nil), r.HeadersMatch...)
+	sort.Slice(headers, func(i, j int) bool {
+		return headers[i].String() < headers[j].String()
 	})
-	for _, hm := range r.HeadersMatch {
+	for _, hm := range headers {
 		sb.WriteString("header:")
 		sb.WriteString(hm.String())
 		sb.WriteString("|")
 	}
 
-	sort.Slice(r.QueryParamsMatch, func(i, j int) bool {
-		return r.QueryParamsMatch[i].String() < r.QueryParamsMatch[j].String()
+	queryParams := append([]KeyValueMatch(nil), r.QueryParamsMatch...)
+	sort.Slice(queryParams, func(i, j int) bool {
+		return queryParams[i].String() < queryParams[j].String()
 	})
-	for _, qm := range r.QueryParamsMatch {
+	for _, qm := range queryParams {
 		sb.WriteString("query:")
 		sb.WriteString(qm.String())
 		sb.WriteString("|")

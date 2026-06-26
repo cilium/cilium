@@ -647,8 +647,8 @@ func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostName
 }
 
 func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model.StringMatch, headers []model.KeyValueMatch, query []model.KeyValueMatch, method *string) *envoy_config_route_v3.RouteMatch {
-	headerMatchers := getHeaderMatchers(hostnames, hostNameSuffixMatch, headers, method)
-	queryMatchers := getQueryMatchers(query)
+	headerMatchers := getHeaderMatchers(hostnames, hostNameSuffixMatch, sortedKeyValueMatches(headers), method)
+	queryMatchers := getQueryMatchers(sortedKeyValueMatches(query))
 
 	switch {
 	case pathMatch.Exact != "":
@@ -694,6 +694,14 @@ func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model
 			QueryParameters: queryMatchers,
 		}
 	}
+}
+
+func sortedKeyValueMatches(matches []model.KeyValueMatch) []model.KeyValueMatch {
+	sorted := append([]model.KeyValueMatch(nil), matches...)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].String() < sorted[j].String()
+	})
+	return sorted
 }
 
 func getQueryMatchers(query []model.KeyValueMatch) []*envoy_config_route_v3.QueryParameterMatcher {
