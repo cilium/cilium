@@ -739,14 +739,6 @@ func (kub *Kubectl) GetNumCiliumNodes() int {
 	return len(strings.Split(res.SingleOut(), " ")) - len(GetNodesWithoutCilium())
 }
 
-// CreateSecret is a wrapper around `kubernetes create secret
-// <resourceName>.
-func (kub *Kubectl) CreateSecret(secretType, name, namespace, args string) *CmdRes {
-	kub.Logger().Debug(fmt.Sprintf("creating secret %s in namespace %s", name, namespace))
-	kub.ExecShort(fmt.Sprintf("kubectl delete secret %s %s -n %s", secretType, name, namespace))
-	return kub.ExecShort(fmt.Sprintf("kubectl create secret %s %s -n %s %s", secretType, name, namespace, args))
-}
-
 // ExecPodCmd executes command cmd in the specified pod residing in the specified
 // namespace. It returns a pointer to CmdRes with all the output
 func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
@@ -864,19 +856,6 @@ func (kub *Kubectl) GetPodsIPs(namespace string, filter string) (map[string]stri
 	jsonFilter := `{range .items[*]}{@.metadata.name}{"="}{@.status.podIP}{"\n"}{end}`
 	res := kub.ExecShort(fmt.Sprintf("%s -n %s get pods -l %s -o jsonpath='%s'",
 		KubectlCmd, namespace, filter, jsonFilter))
-	if !res.WasSuccessful() {
-		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
-	}
-	return res.KVOutput(), nil
-}
-
-// GetPodsHostIPs returns a map with pod name as a key and host IP name as value. It
-// only gets pods in the given namespace that match the provided filter. It
-// returns an error if pods cannot be retrieved correctly
-func (kub *Kubectl) GetPodsHostIPs(namespace string, label string) (map[string]string, error) {
-	jsonFilter := `{range .items[*]}{@.metadata.name}{"="}{@.status.hostIP}{"\n"}{end}`
-	res := kub.ExecShort(fmt.Sprintf("%s -n %s get pods -l %s -o jsonpath='%s'",
-		KubectlCmd, namespace, label, jsonFilter))
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
 	}
@@ -1034,12 +1013,6 @@ func (kub *Kubectl) getNodeIPByLabel(label string, external bool, ipFamily v1.IP
 // An error is returned if a node cannot be found.
 func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error) {
 	return kub.getNodeIPByLabel(label, external, v1.IPv4Protocol)
-}
-
-// GetNodeIPv6ByLabel returns the IPv6 of the node with cilium.io/ci-node=label.
-// An error is returned if a node cannot be found.
-func (kub *Kubectl) GetNodeIPv6ByLabel(label string, external bool) (string, error) {
-	return kub.getNodeIPByLabel(label, external, v1.IPv6Protocol)
 }
 
 func (kub *Kubectl) getIfaceByIPAddr(label string, ipAddr string) (string, error) {
@@ -2157,13 +2130,6 @@ func (kub *Kubectl) WaitTerminatingPods(timeout time.Duration) error {
 // WaitTerminatingPodsInNs waits until all nodes that are in `Terminating`
 // state are deleted correctly in the platform. In case of excedding the
 // given timeout (in seconds) it returns an error.
-func (kub *Kubectl) WaitTerminatingPodsInNs(ns string, timeout time.Duration) error {
-	return kub.WaitTerminatingPodsInNsWithFilter(ns, "", timeout)
-}
-
-// WaitTerminatingPodsInNs waits until all nodes that are in `Terminating`
-// state are deleted correctly in the platform. In case of excedding the
-// given timeout (in seconds) it returns an error.
 func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout time.Duration) error {
 	var innerErr error
 
@@ -2649,40 +2615,6 @@ func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, 
 		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription...).
 			ExpectSuccess("failed to execute %q on Cilium pod %s", cmd, pod)
 	}
-}
-
-// CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
-// with Cilium annotations. Its runtime is bounded by a maximum of `HelperTimeout`.
-// When a node is annotated with said annotations, it indicates
-// that the tunnels in the nodes are set up and that cross-node traffic can be
-// tested. Returns an error if the timeout is exceeded for waiting for the nodes
-// to be annotated.
-func (kub *Kubectl) CiliumNodesWait() (bool, error) {
-	body := func() bool {
-		filter := `{range .items[*]}{@.metadata.name}{"="}{@.spec.addresses[?(@.type=="CiliumInternalIP")].ip}{"\n"}{end}`
-		data := kub.ExecShort(fmt.Sprintf(
-			"%s get ciliumnodes -o jsonpath='%s'", KubectlCmd, filter))
-		if !data.WasSuccessful() {
-			return false
-		}
-		result := data.KVOutput()
-		for k, v := range result {
-			if IsNodeWithoutCilium(k) {
-				continue
-			}
-			if v == "" {
-				kub.Logger().Infof("Kubernetes node '%v' does not have Cilium metadata", k)
-				return false
-			}
-			kub.Logger().Infof("Kubernetes node '%v' IPv4 address: '%v'", k, v)
-		}
-		return true
-	}
-	err := WithTimeout(body, "Kubernetes node does not have cilium metadata", &TimeoutConfig{Timeout: HelperTimeout})
-	if err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 // LoadedPolicyInFirstAgent returns the policy as loaded in the first cilium
@@ -4206,26 +4138,6 @@ func (kub *Kubectl) NslookupInPod(namespace, pod string, target string) (err err
 // Cilium into the cluster.
 func (kub *Kubectl) CiliumOptions() map[string]string {
 	return kub.ciliumOptions
-}
-
-// WaitForServiceFrontend waits until the service frontend with the given ipAddr
-// appears in "cilium-dbg bpf lb list --frontends" on the given node.
-func (kub *Kubectl) WaitForServiceFrontend(nodeName, ipAddr string) error {
-	ciliumPod, err := kub.GetCiliumPodOnNodeByName(nodeName)
-	if err != nil {
-		return err
-	}
-
-	body := func() bool {
-		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
-		defer cancel()
-		cmd := fmt.Sprintf(`cilium-dbg bpf lb list --frontends | grep -q %s`, ipAddr)
-		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
-	}
-
-	return WithTimeout(body,
-		fmt.Sprintf("frontend entry for %s was not found in time", ipAddr),
-		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
 func (kub *Kubectl) AddVXLAN(nodeName, remote, dev, addr string, vxlanId int) *CmdRes {
