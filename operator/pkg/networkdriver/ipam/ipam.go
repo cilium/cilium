@@ -135,8 +135,22 @@ func registerAllocator(p AllocatorParams) {
 					job.OneShot(
 						"network-driver-initial-resync",
 						func(ctx context.Context, health cell.Health) error {
-							<-poolSynced
-							<-nodeSynced
+							// poolSynced and nodeSynced are closed by the
+							// pool/node handler jobs above on resource.Sync.
+							// On shutdown those event loops exit via context
+							// cancellation and may never close their channel,
+							// so we must also observe ctx.Done() here to avoid
+							// blocking Hive.Stop indefinitely.
+							select {
+							case <-poolSynced:
+							case <-ctx.Done():
+								return nil
+							}
+							select {
+							case <-nodeSynced:
+							case <-ctx.Done():
+								return nil
+							}
 							nodeHandler.Resync(ctx, time.Time{})
 							return nil
 						},
