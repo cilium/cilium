@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -103,6 +104,7 @@ type featuresParams struct {
 	WgConfig            wgTypes.Config
 	IPsecConfig         ipsec.Config
 	ConnectorConfig     connector.Config
+	BGPConfig           config.BGPConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {

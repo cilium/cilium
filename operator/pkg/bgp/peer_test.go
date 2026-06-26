@@ -22,6 +22,7 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
@@ -31,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type peerConfigTestFixture struct {
@@ -101,11 +101,11 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusRep
 				k8sClient.NewFakeClientset,
 				newSecretResource,
 				k8s.CiliumBGPPeerConfigResource,
-				func() *option.DaemonConfig {
-					return &option.DaemonConfig{
-						EnableBGPControlPlane:             true,
-						BGPSecretsNamespace:               "kube-system",
-						EnableBGPControlPlaneStatusReport: enableStatusReport,
+				func() config.BGPConfig {
+					return config.BGPConfig{
+						Enable:             true,
+						SecretsNamespace:   "kube-system",
+						EnableStatusReport: enableStatusReport,
 					}
 				},
 			),

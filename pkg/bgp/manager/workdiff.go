@@ -6,6 +6,7 @@ package manager
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -13,7 +14,8 @@ import (
 type reconcileDiff struct {
 	seen map[string]*v2.CiliumBGPNodeInstance
 
-	ciliumNode *v2.CiliumNode
+	ciliumNode                *v2.CiliumNode
+	bgpRouterIDAllocationMode config.BGPRouterIDAllocationModeType
 
 	register  []string
 	withdraw  []string
@@ -22,13 +24,14 @@ type reconcileDiff struct {
 
 // newReconcileDiff constructs a new *reconcileDiff with all internal structures
 // initialized.
-func newReconcileDiff(ciliumNode *v2.CiliumNode) *reconcileDiff {
+func newReconcileDiff(ciliumNode *v2.CiliumNode, bgpRouterIDAllocationMode config.BGPRouterIDAllocationModeType) *reconcileDiff {
 	return &reconcileDiff{
-		seen:       make(map[string]*v2.CiliumBGPNodeInstance),
-		ciliumNode: ciliumNode,
-		register:   []string{},
-		withdraw:   []string{},
-		reconcile:  []string{},
+		seen:                      make(map[string]*v2.CiliumBGPNodeInstance),
+		ciliumNode:                ciliumNode,
+		bgpRouterIDAllocationMode: bgpRouterIDAllocationMode,
+		register:                  []string{},
+		withdraw:                  []string{},
+		reconcile:                 []string{},
 	}
 }
 
@@ -107,7 +110,7 @@ func (wd *reconcileDiff) requiresRecreate(existing *instance.BGPInstance, desire
 		return false, fmt.Errorf("failed to get local port for instance %v: %w", desiredConfig.Name, err)
 	}
 
-	routerID, err := getRouterID(desiredConfig, wd.ciliumNode)
+	routerID, err := getRouterID(desiredConfig, wd.ciliumNode, wd.bgpRouterIDAllocationMode)
 	if err != nil {
 		return false, fmt.Errorf("failed to get router ID for instance %v: %w", desiredConfig.Name, err)
 	}

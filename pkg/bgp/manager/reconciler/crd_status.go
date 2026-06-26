@@ -25,6 +25,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
@@ -35,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -69,7 +69,7 @@ type StatusReconcilerIn struct {
 
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
-	DaemonConfig        *option.DaemonConfig
+	BGPConfig           config.BGPConfig
 	Job                 job.Group
 	ClientSet           k8s_client.Clientset
 	LocalNode           daemon_k8s.LocalCiliumNodeResource
@@ -83,7 +83,7 @@ type StatusReconcilerOut struct {
 }
 
 func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
-	if !in.DaemonConfig.BGPControlPlaneEnabled() {
+	if !in.BGPConfig.BGPControlPlaneEnabled() {
 		return StatusReconcilerOut{}
 	}
 	// CRD Status reconciler is disabled if there is no kubernetes support
@@ -106,7 +106,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 	// If the status reporting is disabled, schedule a job to cleanup
 	// status field. Otherwise, users may see the stale status that
 	// previously reported.
-	if !in.DaemonConfig.EnableBGPControlPlaneStatusReport {
+	if !in.BGPConfig.EnableStatusReport {
 		in.Job.Add(job.OneShot(
 			"bgp-crd-status-cleanup",
 			r.cleanupStatus,

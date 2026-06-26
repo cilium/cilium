@@ -32,6 +32,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
+	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/test/config"
@@ -4098,7 +4099,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"role":               "cilium-config-agent",
 		}
 
-		crdsToDelete = synced.AllCiliumCRDResourceNames()
+		crdsToDelete = synced.AllCiliumCRDResourceNames(bgpConfig.DefaultConfig)
 	)
 
 	wg.Add(len(resourcesToDelete))

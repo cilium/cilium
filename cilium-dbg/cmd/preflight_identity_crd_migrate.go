@@ -15,6 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -35,7 +36,6 @@ import (
 const opTimeout = 30 * time.Second
 
 func migrateIdentityCmd() *cobra.Command {
-
 	cmd := &cobra.Command{
 		Use:   "migrate-identity",
 		Short: "Migrate KVStore-backed identities to kubernetes CRD-backed identities",
@@ -51,10 +51,11 @@ func migrateIdentityCmd() *cobra.Command {
 
 	hive := hive.New(
 		k8sClient.Cell,
-		cell.Invoke(func(lc cell.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+		cell.Config(config.DefaultConfig),
+		cell.Invoke(func(lc cell.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner, bgpCfg config.BGPConfig) {
 			lc.Append(cell.Hook{
 				OnStart: func(ctx cell.HookContext) error {
-					return migrateIdentities(ctx, clientset, shutdowner)
+					return migrateIdentities(ctx, clientset, shutdowner, bgpCfg)
 				},
 			})
 		}),
@@ -89,7 +90,7 @@ func migrateIdentityCmd() *cobra.Command {
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
-func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
+func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner, bgpCfg config.BGPConfig) error {
 	defer shutdowner.Shutdown()
 
 	// This allows us to initialize a CRD allocator
@@ -99,7 +100,7 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 	initCtx, initCancel := context.WithTimeout(ctx, opTimeout)
 	kvstoreBackend := initKVStore(ctx, initCtx)
 
-	crdBackend, crdAllocator := initK8s(initCtx, clientset)
+	crdBackend, crdAllocator := initK8s(initCtx, clientset, bgpCfg)
 	initCancel()
 
 	log.Info("Listing identities in kvstore")
@@ -207,11 +208,11 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 
 // initK8s connects to k8s with a allocator.Backend and an initialized
 // allocator.Allocator, using the k8s config passed into the command.
-func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
+func initK8s(ctx context.Context, clientset k8sClient.Clientset, bgpCfg config.BGPConfig) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
 
 	// Update CRDs to ensure ciliumIdentity is present
-	ciliumClient.RegisterCRDs(log, clientset)
+	ciliumClient.RegisterCRDs(log, clientset, bgpCfg)
 
 	// Create a CRD Backend
 	crdBackend, err := identitybackend.NewCRDBackend(log, identitybackend.CRDBackendConfiguration{

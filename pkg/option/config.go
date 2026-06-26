@@ -884,9 +884,6 @@ const (
 	// delegated IPAM plugin.
 	InstallUplinkRoutesForDelegatedIPAM = "install-uplink-routes-for-delegated-ipam"
 
-	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
-	BGPSecretsNamespace = "bgp-secrets-namespace"
-
 	// VLANBPFBypass instructs Cilium to bypass bpf logic for vlan tagged packets
 	VLANBPFBypass = "vlan-bpf-bypass"
 
@@ -910,18 +907,6 @@ const (
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority = "bpf-filter-priority"
-
-	// Flag to enable BGP control plane features
-	EnableBGPControlPlane = "enable-bgp-control-plane"
-
-	// EnableBGPControlPlaneStatusReport enables BGP Control Plane CRD status reporting
-	EnableBGPControlPlaneStatusReport = "enable-bgp-control-plane-status-report"
-
-	// BGP router-id allocation mode
-	BGPRouterIDAllocationMode = "bgp-router-id-allocation-mode"
-
-	// BGP router-id allocation IP pool
-	BGPRouterIDAllocationIPPool = "bgp-router-id-allocation-ip-pool"
 
 	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
 	// fragmentation-needed replies to the client (when needed).
@@ -1077,14 +1062,6 @@ const (
 	// IdentityManagementModeBoth means cilium-agent and cilium-operator both manage identities
 	// (used only during migration between "agent" and "operator").
 	IdentityManagementModeBoth = "both"
-)
-
-const (
-	// BGPRouterIDAllocationModeDefault means the router-id is allocated per node
-	BGPRouterIDAllocationModeDefault = "default"
-
-	// BGPRouterIDAllocationModeIPPool means the router-id is allocated per IP pool
-	BGPRouterIDAllocationModeIPPool = "ip-pool"
 )
 
 // IPSec-related options.
@@ -1755,9 +1732,6 @@ type DaemonConfig struct {
 	// the provided comma-separated list of ports in the container network namespace
 	ContainerIPLocalReservedPorts string
 
-	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
-	BGPSecretsNamespace string
-
 	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature.
 	EnableCiliumEndpointSlice bool
 
@@ -1784,18 +1758,6 @@ type DaemonConfig struct {
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority uint16
-
-	// Enables BGP control plane features.
-	EnableBGPControlPlane bool
-
-	// Enables BGP control plane status reporting.
-	EnableBGPControlPlaneStatusReport bool
-
-	// BGPRouterIDAllocationMode is the mode to allocate the BGP router-id.
-	BGPRouterIDAllocationMode string
-
-	// BGPRouterIDAllocationIPPool is the IP pool to allocate the BGP router-id from.
-	BGPRouterIDAllocationIPPool string
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
@@ -1889,69 +1851,66 @@ type DaemonConfig struct {
 	EnableDatapathPlugins bool
 }
 
-var (
-	// Config represents the daemon configuration
-	Config = &DaemonConfig{
-		CreationTime:                    time.Now(),
-		Opts:                            NewIntOptions(&DaemonOptionLibrary),
-		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
-		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
-		IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
-		EnableHealthChecking:            defaults.EnableHealthChecking,
-		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
-		HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
-		EnableIPv4:                      defaults.EnableIPv4,
-		EnableIPv6:                      defaults.EnableIPv6,
-		PreferIpv6:                      defaults.PreferIpv6,
-		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
-		EnableSCTP:                      defaults.EnableSCTP,
-		EnableL7Proxy:                   defaults.EnableL7Proxy,
-		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
-		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
-		CiliumIdentityMaxJitter:         defaults.CiliumIdentityMaxJitter,
-		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriodK8s,
-		FixedIdentityMapping:            make(map[string]string),
-		LogOpt:                          make(map[string]string),
-		EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
-		AnnotateK8sNode:                 defaults.AnnotateK8sNode,
-		AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
-		IdentityAllocationMode:          IdentityAllocationModeKVstore,
-		AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
-		AllocatorListTimeout:            defaults.AllocatorListTimeout,
-		EnableICMPRules:                 defaults.EnableICMPRules,
-		DatapathMode:                    defaults.DatapathMode,
+// Config represents the daemon configuration
+var Config = &DaemonConfig{
+	CreationTime:                    time.Now(),
+	Opts:                            NewIntOptions(&DaemonOptionLibrary),
+	IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
+	IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
+	IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
+	EnableHealthChecking:            defaults.EnableHealthChecking,
+	EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
+	HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
+	EnableIPv4:                      defaults.EnableIPv4,
+	EnableIPv6:                      defaults.EnableIPv6,
+	PreferIpv6:                      defaults.PreferIpv6,
+	EnableIPv6NDP:                   defaults.EnableIPv6NDP,
+	EnableSCTP:                      defaults.EnableSCTP,
+	EnableL7Proxy:                   defaults.EnableL7Proxy,
+	ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
+	IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
+	CiliumIdentityMaxJitter:         defaults.CiliumIdentityMaxJitter,
+	IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriodK8s,
+	FixedIdentityMapping:            make(map[string]string),
+	LogOpt:                          make(map[string]string),
+	EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
+	AnnotateK8sNode:                 defaults.AnnotateK8sNode,
+	AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
+	IdentityAllocationMode:          IdentityAllocationModeKVstore,
+	AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
+	AllocatorListTimeout:            defaults.AllocatorListTimeout,
+	EnableICMPRules:                 defaults.EnableICMPRules,
+	DatapathMode:                    defaults.DatapathMode,
 
-		EnableVTEP:                           defaults.EnableVTEP,
-		EnableBGPControlPlane:                defaults.EnableBGPControlPlane,
-		EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
-		EnableK8sClusterNetworkPolicy:        defaults.EnableK8sClusterNetworkPolicy,
-		EnableCiliumNetworkPolicy:            defaults.EnableCiliumNetworkPolicy,
-		EnableCiliumClusterwideNetworkPolicy: defaults.EnableCiliumClusterwideNetworkPolicy,
-		PolicyCIDRMatchMode:                  defaults.PolicyCIDRMatchMode,
-		MaxConnectedClusters:                 defaults.MaxConnectedClusters,
+	EnableVTEP:                           defaults.EnableVTEP,
+	EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
+	EnableK8sClusterNetworkPolicy:        defaults.EnableK8sClusterNetworkPolicy,
+	EnableCiliumNetworkPolicy:            defaults.EnableCiliumNetworkPolicy,
+	EnableCiliumClusterwideNetworkPolicy: defaults.EnableCiliumClusterwideNetworkPolicy,
+	PolicyCIDRMatchMode:                  defaults.PolicyCIDRMatchMode,
+	MaxConnectedClusters:                 defaults.MaxConnectedClusters,
 
-		BPFDistributedLRU:             defaults.BPFDistributedLRU,
-		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
-		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
-		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
-		BPFConntrackAccounting:        defaults.BPFConntrackAccounting,
-		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
+	BPFDistributedLRU:             defaults.BPFDistributedLRU,
+	BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
+	BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
+	BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
+	BPFConntrackAccounting:        defaults.BPFConntrackAccounting,
+	EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
 
-		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
+	EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 
-		EnableSourceIPVerification: defaults.EnableSourceIPVerification,
+	EnableSourceIPVerification: defaults.EnableSourceIPVerification,
 
-		ConnectivityProbeFrequencyRatio: defaults.ConnectivityProbeFrequencyRatio,
+	ConnectivityProbeFrequencyRatio: defaults.ConnectivityProbeFrequencyRatio,
 
-		IPTracingOptionType: defaults.IPTracingOptionType,
+	IPTracingOptionType: defaults.IPTracingOptionType,
 
-		EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
+	EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
 
-		PolicyAccounting: defaults.PolicyAccounting,
+	PolicyAccounting: defaults.PolicyAccounting,
 
-		EnableDatapathPlugins: defaults.EnableDatapathPlugins,
-	}
-)
+	EnableDatapathPlugins: defaults.EnableDatapathPlugins,
+}
 
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
@@ -2532,7 +2491,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.LoadBalancerIPIPSockMark = vp.GetBool(LoadBalancerIPIPSockMark)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
-	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableRemoteNodeMasquerade = vp.GetBool(EnableRemoteNodeMasquerade)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
@@ -2843,16 +2801,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	// VTEP integration enable option
 	c.EnableVTEP = vp.GetBool(EnableVTEP)
 
-	// Enable BGP control plane features
-	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
-
-	// Enable BGP control plane status reporting
-	c.EnableBGPControlPlaneStatusReport = vp.GetBool(EnableBGPControlPlaneStatusReport)
-
-	// BGP router-id allocation mode
-	c.BGPRouterIDAllocationMode = vp.GetString(BGPRouterIDAllocationMode)
-	c.BGPRouterIDAllocationIPPool = vp.GetString(BGPRouterIDAllocationIPPool)
-
 	// Support failure-mode for policy map overflow
 	c.EnableEndpointLockdownOnPolicyOverflow = vp.GetBool(EnableEndpointLockdownOnPolicyOverflow)
 
@@ -3098,8 +3046,8 @@ func (c *DaemonConfig) SetMapElementSizes(
 	sizeofCTElement,
 	sizeofNATElement,
 	sizeofNeighElement,
-	sizeofSockRevElement int) {
-
+	sizeofSockRevElement int,
+) {
 	c.SizeofCTElement = sizeofCTElement
 	c.SizeofNATElement = sizeofNATElement
 	c.SizeofNeighElement = sizeofNeighElement
@@ -3184,16 +3132,14 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(logger *slog.Logger, vp *vipe
 		logger.Debug(fmt.Sprintf("option %s set by user to %v", CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP))
 	}
 	if !vp.IsSet(CTMapEntriesGlobalAnyName) {
-		c.CTMapEntriesGlobalAny =
-			getEntries(CTMapEntriesGlobalAnyDefault, LimitTableAutoGlobalAnyMin, LimitTableMax)
+		c.CTMapEntriesGlobalAny = getEntries(CTMapEntriesGlobalAnyDefault, LimitTableAutoGlobalAnyMin, LimitTableMax)
 		logger.Info(fmt.Sprintf("option %s set by dynamic sizing to %v",
 			CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny))
 	} else {
 		logger.Debug(fmt.Sprintf("option %s set by user to %v", CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny))
 	}
 	if !vp.IsSet(NATMapEntriesGlobalName) {
-		c.NATMapEntriesGlobal =
-			getEntries(NATMapEntriesGlobalDefault, LimitTableAutoNatGlobalMin, LimitTableMax)
+		c.NATMapEntriesGlobal = getEntries(NATMapEntriesGlobalDefault, LimitTableAutoNatGlobalMin, LimitTableMax)
 		logger.Info(fmt.Sprintf("option %s set by dynamic sizing to %v",
 			NATMapEntriesGlobalName, c.NATMapEntriesGlobal))
 		if c.NATMapEntriesGlobal > c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny {
@@ -3376,10 +3322,6 @@ func (c *DaemonConfig) diffFromFile() error {
 			cmpopts.IgnoreTypes(&OptionLibrary{}))
 	}
 	return fmt.Errorf("Config differs:\n%s", diff)
-}
-
-func (c *DaemonConfig) BGPControlPlaneEnabled() bool {
-	return c.EnableBGPControlPlane
 }
 
 func (c *DaemonConfig) IsDualStack() bool {

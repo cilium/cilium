@@ -20,10 +20,10 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/fake"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
-	"github.com/cilium/cilium/pkg/bgp/option"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
@@ -32,7 +32,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	ciliumoption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
@@ -703,15 +702,15 @@ var (
 		Address: "10.10.10.1",
 	}
 
-	bgpConfig = func() option.BGPConfig {
-		config := option.DefaultConfig
-		return config
+	bgpConfig = func() config.BGPConfig {
+		cfg := config.DefaultConfig
+		return cfg
 	}
 
-	bgpConfigWithLegacyOriginAttrEnabled = func() option.BGPConfig {
-		config := option.DefaultConfig
-		config.EnableBGPLegacyOriginAttribute = true
-		return config
+	bgpConfigWithLegacyOriginAttrEnabled = func() config.BGPConfig {
+		cfg := config.DefaultConfig
+		cfg.EnableLegacyOriginAttribute = true
+		return cfg
 	}
 )
 
@@ -2627,9 +2626,9 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 	})
 }
 
-func runServiceTests(t *testing.T, config option.BGPConfig, steps []svcTestStep) {
+func runServiceTests(t *testing.T, bgpCfg config.BGPConfig, steps []svcTestStep) {
 	// start the test hive
-	f := newServiceTestFixture(t, config)
+	f := newServiceTestFixture(t, bgpCfg)
 	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	err := f.hive.Start(log, context.Background())
 	require.NoError(t, err)
@@ -2707,7 +2706,7 @@ func runServiceTests(t *testing.T, config option.BGPConfig, steps []svcTestStep)
 	}
 }
 
-func newServiceTestFixture(t *testing.T, config option.BGPConfig) *svcTestFixture {
+func newServiceTestFixture(t *testing.T, bgpCfg config.BGPConfig) *svcTestFixture {
 	f := &svcTestFixture{
 		PeerConfigStore: store.NewMockBGPCPResourceStore[*v2.CiliumBGPPeerConfig](),
 		AdvertStore:     store.NewMockBGPCPResourceStore[*v2.CiliumBGPAdvertisement](),
@@ -2728,13 +2727,10 @@ func newServiceTestFixture(t *testing.T, config option.BGPConfig) *svcTestFixtur
 							AdvertStore:     f.AdvertStore,
 						})
 				},
-				func() *ciliumoption.DaemonConfig {
-					return &ciliumoption.DaemonConfig{
-						EnableBGPControlPlane: true,
-					}
-				},
-				func() option.BGPConfig {
-					return config
+				func() config.BGPConfig {
+					bgpCfg.Enable = true
+
+					return bgpCfg
 				},
 				func() loadbalancer.Config {
 					return loadbalancer.Config{}
