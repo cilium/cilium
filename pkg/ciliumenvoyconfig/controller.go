@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"log/slog"
 	"maps"
 	"slices"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
@@ -35,6 +37,7 @@ import (
 type cecControllerParams struct {
 	cell.In
 
+	Log            *slog.Logger
 	DB             *statedb.DB
 	JobGroup       job.Group
 	ExpConfig      loadbalancer.Config
@@ -101,9 +104,11 @@ func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *loadbalancer.Pr
 func (c *cecController) processLoop(ctx context.Context, health cell.Health) error {
 	var closedWatches []<-chan struct{}
 	backendProcessor := backendProcessor{
-		watchSets:      map[loadbalancer.ServiceName]*statedb.WatchSet{},
-		envoyResources: c.EnvoyResources,
-		writer:         c.Writer,
+		log:              c.Log,
+		watchSets:        map[loadbalancer.ServiceName]*statedb.WatchSet{},
+		prevServiceFound: map[loadbalancer.ServiceName]bool{},
+		envoyResources:   c.EnvoyResources,
+		writer:           c.Writer,
 	}
 	cecProcessor := cecProcessor{
 		watchSets:      map[types.NamespacedName]*statedb.WatchSet{},
@@ -322,15 +327,22 @@ func (c *cecProcessor) removeClusterReference(wtxn statedb.WriteTxn, cecName CEC
 // backedProcessor fills in the backends into the EnvoyResources with Origin=backendsync that were created by [cecProcessor].
 // These will be recomputed if any of the inputs change.
 type backendProcessor struct {
+	log *slog.Logger
 	// watchSets per service name. We hold onto the watches returned by queries made when computing the backends to sync
 	// per service name so we know when it needs to be recomputed.
-	watchSets      map[loadbalancer.ServiceName]*statedb.WatchSet
-	envoyResources statedb.RWTable[*EnvoyResource]
-	writer         *writer.Writer
+	watchSets        map[loadbalancer.ServiceName]*statedb.WatchSet
+	prevServiceFound map[loadbalancer.ServiceName]bool
+	envoyResources   statedb.RWTable[*EnvoyResource]
+	writer           *writer.Writer
 }
 
 func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan struct{}, allWatches *statedb.WatchSet) {
+	// Track service names observed this iteration so prevServiceFound entries can be reclaimed
+	// when the underlying envoyResource is deleted from outside this function (e.g. by
+	// cecProcessor.removeClusterReference when the last referencing CEC goes away).
+	seen := sets.New[loadbalancer.ServiceName]()
 	for res := range bs.envoyResources.List(wtxn, EnvoyResourceByOrigin(EnvoyResourceOriginBackendSync)) {
+		seen.Insert(res.ClusterServiceName())
 		// Check if any of the inputs have changed. If not we can skip processing it.
 		ws, found := bs.watchSets[res.ClusterServiceName()]
 		if found {
@@ -362,7 +374,14 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 		// Look up the referenced service for the port name to port number mappings.
 		svc, _, watchSvc, found := bs.writer.Services().GetWatch(wtxn, loadbalancer.ServiceByName(res.ClusterServiceName()))
 		ws.Add(watchSvc)
+		prevFound, hadPrev := bs.prevServiceFound[res.ClusterServiceName()]
 		if found {
+			if !hadPrev || !prevFound {
+				bs.log.Info("Service referenced by CiliumEnvoyConfig is present; syncing backends to Envoy",
+					logfields.ServiceName, res.ClusterServiceName(),
+				)
+			}
+			bs.prevServiceFound[res.ClusterServiceName()] = true
 			// Look up associated backends and update the load assignments.
 			bes, watchBes := bs.writer.BackendsForService(wtxn, svc.Name)
 			ws.Add(watchBes)
@@ -372,6 +391,12 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 				svc.PortNames,
 				bs.writer.SelectBackends(wtxn, bes, svc, nil))
 		} else {
+			if !hadPrev || prevFound {
+				bs.log.Info("Service referenced by CiliumEnvoyConfig is not present in the local service table; Envoy will have no backends for it until it appears",
+					logfields.ServiceName, res.ClusterServiceName(),
+				)
+			}
+			bs.prevServiceFound[res.ClusterServiceName()] = false
 			// No service found (yet) and thus there are no endpoints.
 			newEndpoints = nil
 		}
@@ -394,6 +419,13 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 		}
 
 		allWatches.Merge(ws)
+	}
+
+	// Reclaim prevServiceFound entries whose envoyResource has been deleted from outside this function.
+	for name := range bs.prevServiceFound {
+		if !seen.Has(name) {
+			delete(bs.prevServiceFound, name)
+		}
 	}
 }
 
