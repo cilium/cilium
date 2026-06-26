@@ -83,7 +83,7 @@ func (h *HTTPRouteInput) GetNamespace() string {
 }
 
 func (h *HTTPRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute")
+	return helpers.GatewayV1GVK("HTTPRoute")
 }
 
 func (h *HTTPRouteInput) GetRules() []GenericRule {

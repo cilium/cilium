@@ -82,7 +82,7 @@ func (t *TCPRouteInput) GetNamespace() string {
 }
 
 func (t *TCPRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1alpha2.SchemeGroupVersion.WithKind("TCPRoute")
+	return helpers.GatewayV1Alpha2GVK("TCPRoute")
 }
 
 func (t *TCPRouteInput) GetRules() []GenericRule {
