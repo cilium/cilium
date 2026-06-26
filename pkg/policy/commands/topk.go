@@ -27,11 +27,11 @@ func topKCmd(params CmdParams) script.Cmd {
 			Flags: func(fs *pflag.FlagSet) {
 				fs.IntP("num", "n", 10, "Maxiumum number of rows per endpoint to display")
 				fs.IntP("count", "c", 0, "Maxiumum number of endpoints to display")
-				fs.StringP("format", "f", "table", "Format to write in (table, json)")
+				fs.StringP("output", "o", "table", "Format to write in (table, json)")
 			},
 			AutocompleteFlag: func(_ *script.State, _ []string, flag, cur string) []string {
 				switch flag {
-				case "format":
+				case "output":
 					return filterPrefix([]string{"table", "json"}, cur)
 				}
 				return nil
@@ -56,12 +56,12 @@ func topKCmd(params CmdParams) script.Cmd {
 				if err != nil {
 					return "", "", err
 				}
-				format, err := s.Flags.GetString("format")
+				output, err := s.Flags.GetString("output")
 				if err != nil {
 					return "", "", err
 				}
-				if format != "json" && format != "table" {
-					return "", "", fmt.Errorf("unsupported format %s", format)
+				if output != "json" && output != "table" {
+					return "", "", fmt.Errorf("unsupported output format %s", output)
 				}
 
 				eps, err := lookupEPs(params.EPL, args)
@@ -82,7 +82,7 @@ func topKCmd(params CmdParams) script.Cmd {
 					outs = outs[:min(len(outs), count)]
 				}
 
-				switch format {
+				switch output {
 				case "json":
 					b, err := json.MarshalIndent(outs, "", "\t")
 					if err != nil {
