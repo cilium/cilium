@@ -13,7 +13,6 @@ import (
 
 	policyapi "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -81,7 +80,6 @@ type ipCacheParams struct {
 	IdentityRestorer       *restoration.LocalIdentityRestorer
 	CacheIdentityAllocator cache.IdentityAllocator
 	IdentityUpdater        policycell.IdentityUpdater
-	EndpointManager        endpointmanager.EndpointManager
 	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
 	CacheStatus            synced.CacheStatus
 }

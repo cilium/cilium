@@ -1234,10 +1234,11 @@ func Test_canonicalPrefix(t *testing.T) {
 func Test_metadata_mergeParentLabels(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name       string
-		existing   map[string]labels.Labels
-		prefix     string
-		wantLabels labels.Labels
+		name        string
+		existing    map[string]labels.Labels
+		prefix      string
+		includeSelf bool
+		wantLabels  labels.Labels
 	}{
 		{
 			name: "no self-match",
@@ -1246,6 +1247,26 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 			},
 			prefix:     "1.1.1.1/32",
 			wantLabels: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32")),
+		},
+
+		{
+			name: "includes self-match",
+			existing: map[string]labels.Labels{
+				"1.1.1.1/32": labels.ParseLabelArray("cidr:1.1.1.1/32", "cidrgroup:foo").Labels(),
+			},
+			prefix:      "1.1.1.1/32",
+			wantLabels:  labels.ParseLabelArray("cidr:1.1.1.1/32", "cidrgroup:foo").Labels(),
+			includeSelf: true,
+		},
+
+		{
+			name: "merge self and parents",
+			existing: map[string]labels.Labels{
+				"1.1.1.1/32": labels.ParseLabelArray("cidr:1.1.0.0/16", "cidrgroup:foo").Labels(),
+			},
+			prefix:      "1.1.1.1/32",
+			wantLabels:  labels.ParseLabelArray("cidr:1.1.0.0/16", "cidrgroup:foo").Labels(),
+			includeSelf: true,
 		},
 
 		{
@@ -1322,7 +1343,7 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 			pfx := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix(tt.prefix))
 
 			lbls := m.getLocked(pfx).ToLabels()
-			m.mergeParentLabels(lbls, pfx)
+			m.mergeLabels(lbls, pfx)
 
 			assert.Equal(t, tt.wantLabels, lbls)
 		})
@@ -1713,4 +1734,209 @@ func TestResolveFQDNLabels(t *testing.T) {
 		require.Equal(t, tc.expected, lbls, "row %d", i)
 	}
 
+}
+
+type mockCIDRSelectorAllocator struct {
+	allocatedIPs      map[netip.Addr]struct{}
+	allocatedPrefixes []netip.Prefix
+}
+
+func (m *mockCIDRSelectorAllocator) UpdateCIDRLabels(ctx context.Context, prefix netip.Prefix) bool {
+	m.allocatedPrefixes = append(m.allocatedPrefixes, prefix)
+	if prefix.IsSingleIP() {
+		_, ok := m.allocatedIPs[prefix.Addr()]
+		return ok
+	}
+	return false
+}
+
+func TestIPCachePodCIDRShadowing(t *testing.T) {
+	s := setupIPCacheTestSuite(t)
+	ctx := t.Context()
+
+	oldPolicyConfig := option.Config.PolicyCIDRMatchMode
+	t.Cleanup(func() { option.Config.PolicyCIDRMatchMode = oldPolicyConfig })
+	option.Config.PolicyCIDRMatchMode = []string{"pods"}
+
+	mockAlloc := &mockCIDRSelectorAllocator{
+		allocatedIPs: make(map[netip.Addr]struct{}),
+	}
+	s.IPIdentityCache.AddCIDRSelectorAllocator(mockAlloc)
+
+	// -------------------------------------------------------------------------
+	// Scenario 1: Pod IP CIDR is shadowed by pod endpoint first.
+	// When the pod endpoint is deleted, a standalone CIDR identity should
+	// be allocated for the remaining CIDR policy.
+	// -------------------------------------------------------------------------
+	podIP1 := "10.20.30.45"
+	podAddr1 := netip.MustParseAddr(podIP1)
+	podCIDR1 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.20.30.45/32"))
+	podIdentity1 := identity.NumericIdentity(1234)
+
+	// 1. Upsert Pod IP to IPCache
+	s.IPIdentityCache.Upsert(podIP1, nil, 0, nil, Identity{
+		ID:     podIdentity1,
+		Source: source.Kubernetes,
+	})
+	mockAlloc.allocatedIPs[podAddr1] = struct{}{}
+
+	// 2. Add CIDR Metadata matching Pod IP
+	s.IPIdentityCache.metadata.upsertLocked(podCIDR1, source.CustomResource, "r3",
+		labels.NewLabelsFromSortedList("cidr:10.20.30.45/32"),
+	)
+
+	// 3. Inject labels
+	_, err := s.IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{podCIDR1})
+	require.NoError(t, err)
+
+	// 4. Verify that it maps to Pod Identity (shadowed)
+	nid, ok := s.IPIdentityCache.LookupByPrefix(podCIDR1.String())
+	assert.True(t, ok)
+	assert.Equal(t, podIdentity1, nid.ID)
+
+	// 5. Delete Pod IP from IPCache (emulating pod deletion)
+	s.IPIdentityCache.Delete(podIP1, source.Kubernetes)
+	delete(mockAlloc.allocatedIPs, podAddr1)
+
+	// 6. Inject labels again. This should fall back to allocating a standalone CIDR identity
+	_, err = s.IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{podCIDR1})
+	require.NoError(t, err)
+
+	// 7. Verify that it now maps to a newly allocated standalone CIDR identity
+	nid, ok = s.IPIdentityCache.LookupByPrefix(podCIDR1.String())
+	assert.True(t, ok)
+	assert.NotEqual(t, podIdentity1, nid.ID)
+	assert.NotEqual(t, identity.ReservedIdentityWorldIPv4, nid.ID)
+	standaloneID1 := nid.ID
+	idObj1 := s.Allocator.LookupIdentityByID(ctx, standaloneID1)
+	require.NotNil(t, idObj1)
+
+	// -------------------------------------------------------------------------
+	// Scenario 2: Network policy exists first (allocating standalone identity),
+	// then pod endpoint is created with matching IP.
+	// The standalone identity should be released and the pod identity used.
+	// -------------------------------------------------------------------------
+	podIP2 := "10.20.30.50"
+	podAddr2 := netip.MustParseAddr(podIP2)
+	podCIDR2 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.20.30.50/32"))
+	podIdentity2 := identity.NumericIdentity(5678)
+
+	// 1. Add CIDR Metadata first
+	s.IPIdentityCache.metadata.upsertLocked(podCIDR2, source.CustomResource, "r4",
+		labels.NewLabelsFromSortedList("cidr:10.20.30.50/32"),
+	)
+
+	// 2. Inject labels. This allocates a standalone identity.
+	_, err = s.IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{podCIDR2})
+	require.NoError(t, err)
+
+	nid, ok = s.IPIdentityCache.LookupByPrefix(podCIDR2.String())
+	assert.True(t, ok)
+	assert.NotEqual(t, identity.ReservedIdentityWorldIPv4, nid.ID)
+	standaloneID2 := nid.ID
+
+	// Verify the standalone identity is registered in the allocator
+	idObj := s.Allocator.LookupIdentityByID(ctx, standaloneID2)
+	require.NotNil(t, idObj)
+
+	// 3. Upsert Pod IP to IPCache
+	s.IPIdentityCache.Upsert(podIP2, nil, 0, nil, Identity{
+		ID:     podIdentity2,
+		Source: source.Kubernetes,
+	})
+	mockAlloc.allocatedIPs[podAddr2] = struct{}{}
+
+	// 4. Inject labels. The pod should now shadow the CIDR mapping.
+	_, err = s.IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{podCIDR2})
+	require.NoError(t, err)
+
+	// 5. Verify that it maps to Pod Identity (shadowed)
+	nid, ok = s.IPIdentityCache.LookupByPrefix(podCIDR2.String())
+	assert.True(t, ok)
+	assert.Equal(t, podIdentity2, nid.ID)
+
+	// 6. Verify that the standalone identity was released and cleaned up
+	idObj = s.Allocator.LookupIdentityByID(ctx, standaloneID2)
+	assert.Nil(t, idObj, "Standalone CIDR identity should have been released from the allocator")
+
+	// -------------------------------------------------------------------------
+	// Scenario 3: Repeat lifecycle multiple times (re-creation check) to
+	// verify we don't leak references to security identities.
+	// -------------------------------------------------------------------------
+
+	// 1. Delete Pod IP again (pod goes away)
+	s.IPIdentityCache.Delete(podIP2, source.Kubernetes)
+	delete(mockAlloc.allocatedIPs, podAddr2)
+
+	// 2. Inject labels. Standalone CIDR identity should be re-allocated.
+	_, err = s.IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{podCIDR2})
+	require.NoError(t, err)
+
+	nid, ok = s.IPIdentityCache.LookupByPrefix(podCIDR2.String())
+	assert.True(t, ok)
+	assert.NotEqual(t, podIdentity2, nid.ID)
+	standaloneID2AfterDelete := nid.ID
+
+	// Standalone identity must exist in allocator
+	idObj = s.Allocator.LookupIdentityByID(ctx, standaloneID2AfterDelete)
+	require.NotNil(t, idObj)
+
+	// 3. Re-create Pod IP (pod comes back)
+	s.IPIdentityCache.Upsert(podIP2, nil, 0, nil, Identity{
+		ID:     podIdentity2,
+		Source: source.Kubernetes,
+	})
+	mockAlloc.allocatedIPs[podAddr2] = struct{}{}
+
+	// 4. Inject labels. Standalone identity should be released again.
+	_, err = s.IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{podCIDR2})
+	require.NoError(t, err)
+
+	nid, ok = s.IPIdentityCache.LookupByPrefix(podCIDR2.String())
+	assert.True(t, ok)
+	assert.Equal(t, podIdentity2, nid.ID)
+
+	// Verify it was released
+	idObj = s.Allocator.LookupIdentityByID(ctx, standaloneID2AfterDelete)
+	assert.Nil(t, idObj, "Re-allocated standalone CIDR identity should have been released again")
+
+	// Clean up Metadata
+	s.IPIdentityCache.metadata.Lock()
+	s.IPIdentityCache.metadata.remove(podCIDR1, "r3")
+	s.IPIdentityCache.metadata.remove(podCIDR2, "r4")
+	s.IPIdentityCache.metadata.Unlock()
+}
+
+func TestIPCacheSubnetCIDRInject(t *testing.T) {
+	s := setupIPCacheTestSuite(t)
+	ctx := t.Context()
+
+	oldPolicyConfig := option.Config.PolicyCIDRMatchMode
+	t.Cleanup(func() { option.Config.PolicyCIDRMatchMode = oldPolicyConfig })
+	option.Config.PolicyCIDRMatchMode = []string{"pods"}
+
+	mockAlloc := &mockCIDRSelectorAllocator{
+		allocatedIPs: make(map[netip.Addr]struct{}),
+	}
+	s.IPIdentityCache.AddCIDRSelectorAllocator(mockAlloc)
+
+	subnetPrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.20.30.0/24"))
+
+	// 1. Add subnet CIDR Metadata
+	s.IPIdentityCache.metadata.upsertLocked(subnetPrefix, source.CustomResource, "r3",
+		labels.NewLabelsFromSortedList("cidr:10.20.30.0/24"),
+	)
+
+	// 2. Inject labels. This should trigger UpdateCIDRLabels for the subnet prefix.
+	_, err := s.IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{subnetPrefix})
+	require.NoError(t, err)
+
+	// 3. Verify that UpdateCIDRLabels was called with the subnet prefix
+	require.Len(t, mockAlloc.allocatedPrefixes, 1)
+	assert.Equal(t, subnetPrefix.AsPrefix(), mockAlloc.allocatedPrefixes[0])
+
+	// Clean up Metadata
+	s.IPIdentityCache.metadata.Lock()
+	s.IPIdentityCache.metadata.remove(subnetPrefix, "r3")
+	s.IPIdentityCache.metadata.Unlock()
 }
