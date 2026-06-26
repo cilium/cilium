@@ -173,9 +173,9 @@ func TestScript(t *testing.T) {
 						},
 						devices: map[types.DeviceManagerType][]types.Device{
 							types.DeviceManagerTypeDummy: {
-								&dummy.DummyDevice{Name: testDevice1},
-								&dummy.DummyDevice{Name: testDevice2},
-								&dummy.DummyDevice{Name: testDevice3},
+								noSetupDummyDevice{&dummy.DummyDevice{Name: testDevice1}},
+								noSetupDummyDevice{&dummy.DummyDevice{Name: testDevice2}},
+								noSetupDummyDevice{&dummy.DummyDevice{Name: testDevice3}},
 							},
 						},
 						allocations:            make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
@@ -423,6 +423,20 @@ func toNamespacedName(s string) (kubetypes.NamespacedName, error) {
 		return kubetypes.NamespacedName{}, fmt.Errorf("invalid claim name: %s", s)
 	}
 }
+
+// noSetupDummyDevice wraps a dummy.DummyDevice for the non-privileged script
+// test. It keeps the embedded device's marshaling, attributes and naming (which
+// the expected.yaml fixtures depend on) but stubs out Setup/Free, whose real
+// implementations call netlink.LinkAdd/LinkDel and require CAP_NET_ADMIN that
+// this unit test does not have.
+type noSetupDummyDevice struct {
+	*dummy.DummyDevice
+}
+
+func (noSetupDummyDevice) Setup(types.DeviceConfig) error { return nil }
+func (noSetupDummyDevice) Free(types.DeviceConfig) error  { return nil }
+
+var _ types.Device = noSetupDummyDevice{}
 
 type testLocalNodeSynchronizer struct{}
 
