@@ -77,6 +77,45 @@ func TestHTTPGatewayAPI(t *testing.T) {
 	}
 }
 
+func TestExtractRoutesSetsHTTPRouteRuleSource(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	pathType := gatewayv1.PathMatchExact
+	path := "/same-path"
+	hr := gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "route",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{
+				{
+					Matches: []gatewayv1.HTTPRouteMatch{
+						{Path: &gatewayv1.HTTPPathMatch{Type: &pathType, Value: &path}},
+					},
+				},
+				{
+					Matches: []gatewayv1.HTTPRouteMatch{
+						{Path: &gatewayv1.HTTPPathMatch{Type: &pathType, Value: &path}},
+					},
+				},
+			},
+		},
+	}
+
+	routes := extractRoutes(logger, 80, nil, hr, nil, nil, nil, nil)
+
+	require.Len(t, routes, 2)
+	require.NotNil(t, routes[0].SourceRule)
+	require.NotNil(t, routes[1].SourceRule)
+	assert.Equal(t, "route", routes[0].SourceRule.Source.Name)
+	assert.Equal(t, "default", routes[0].SourceRule.Source.Namespace)
+	assert.Equal(t, "HTTPRoute", routes[0].SourceRule.Source.Kind)
+	assert.Equal(t, 0, routes[0].SourceRule.RuleIndex)
+	assert.Equal(t, 0, routes[0].SourceRule.MatchIndex)
+	assert.Equal(t, 1, routes[1].SourceRule.RuleIndex)
+	assert.Equal(t, 0, routes[1].SourceRule.MatchIndex)
+}
+
 func TestHTTPGatewayAPIFiltersSelectorNamespacesPerListener(t *testing.T) {
 	selector := gatewayv1.NamespacesFromSelector
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))

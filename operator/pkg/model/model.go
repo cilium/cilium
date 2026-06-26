@@ -296,6 +296,27 @@ type FullyQualifiedResource struct {
 	UID       string `json:"uid,omitempty"`
 }
 
+// HTTPRouteRule identifies the Gateway API HTTPRoute rule and match that
+// produced a model HTTPRoute.
+type HTTPRouteRule struct {
+	Source     FullyQualifiedResource
+	RuleIndex  int
+	MatchIndex int
+}
+
+func (r HTTPRouteRule) key() string {
+	return "httproute-rule:" + strings.Join([]string{
+		r.Source.Group,
+		r.Source.Version,
+		r.Source.Kind,
+		r.Source.Namespace,
+		r.Source.Name,
+		r.Source.UID,
+		strconv.Itoa(r.RuleIndex),
+		strconv.Itoa(r.MatchIndex),
+	}, "/")
+}
+
 // TLSSecret holds a reference to a secret containing a TLS keypair.
 type TLSSecret struct {
 	Name      string `json:"name,omitempty"`
@@ -432,6 +453,9 @@ type HTTPCORSFilter struct {
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
+	// SourceRule identifies the Gateway API HTTPRoute rule and match that
+	// produced this route when rule identity must be preserved internally.
+	SourceRule *HTTPRouteRule `json:"-"`
 	// Hostnames that the route should match
 	Hostnames []string `json:"hostnames,omitempty"`
 	// PathMatch specifies that the HTTPRoute should match a path.
@@ -560,6 +584,17 @@ func (r *HTTPRoute) GetMatchKey() string {
 	}
 
 	return sb.String()
+}
+
+// GetBackendAggregationKey returns the key used to group backend actions into a
+// single Envoy route. Gateway API routes use rule identity so identical matches
+// from different rules remain separate and retain rule precedence. Legacy
+// callers without rule identity keep the existing match-key aggregation.
+func (r *HTTPRoute) GetBackendAggregationKey() string {
+	if r.SourceRule == nil {
+		return r.GetMatchKey()
+	}
+	return r.SourceRule.key()
 }
 
 // TLSPassthroughRoute holds all the details needed to route TLS traffic to a backend.

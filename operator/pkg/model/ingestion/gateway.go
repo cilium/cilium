@@ -319,7 +319,7 @@ func extractRoutes(logger *slog.Logger,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
 ) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
-	for _, rule := range hr.Spec.Rules {
+	for ruleIndex, rule := range hr.Spec.Rules {
 		var backendHTTPFilters []*model.BackendHTTPFilter
 		bes := make([]model.Backend, 0, len(rule.BackendRefs))
 		for _, be := range rule.BackendRefs {
@@ -442,6 +442,7 @@ func extractRoutes(logger *slog.Logger,
 
 		if len(rule.Matches) == 0 {
 			httpRoutes = append(httpRoutes, model.HTTPRoute{
+				SourceRule:             sourceHTTPRouteRule(hr, ruleIndex, 0),
 				Hostnames:              hostnames,
 				Backends:               bes,
 				BackendHTTPFilters:     backendHTTPFilters,
@@ -458,8 +459,9 @@ func extractRoutes(logger *slog.Logger,
 			})
 		}
 
-		for _, match := range rule.Matches {
+		for matchIndex, match := range rule.Matches {
 			httpRoutes = append(httpRoutes, model.HTTPRoute{
+				SourceRule:             sourceHTTPRouteRule(hr, ruleIndex, matchIndex),
 				Hostnames:              hostnames,
 				PathMatch:              toPathMatch(match),
 				HeadersMatch:           toHeaderMatch(match),
@@ -480,7 +482,52 @@ func extractRoutes(logger *slog.Logger,
 			})
 		}
 	}
+	retainDuplicateRuleSources(httpRoutes)
 	return httpRoutes
+}
+
+func sourceHTTPRouteRule(hr gatewayv1.HTTPRoute, ruleIndex, matchIndex int) *model.HTTPRouteRule {
+	return &model.HTTPRouteRule{
+		Source: model.FullyQualifiedResource{
+			Name:      hr.GetName(),
+			Namespace: hr.GetNamespace(),
+			Group:     gatewayv1.GroupVersion.Group,
+			Kind:      "HTTPRoute",
+			Version:   gatewayv1.GroupVersion.Version,
+			UID:       string(hr.GetUID()),
+		},
+		RuleIndex:  ruleIndex,
+		MatchIndex: matchIndex,
+	}
+}
+
+// retainDuplicateRuleSources keeps rule identity only when one HTTPRoute has
+// identical request matches in multiple rules. Other routes keep the existing
+// match-key backend aggregation behavior.
+func retainDuplicateRuleSources(routes []model.HTTPRoute) {
+	ruleIndexesByMatch := map[string]map[int]struct{}{}
+	// First, record which rule indexes produced each request match.
+	for i := range routes {
+		if routes[i].SourceRule == nil {
+			continue
+		}
+		key := routes[i].GetMatchKey()
+		if _, ok := ruleIndexesByMatch[key]; !ok {
+			ruleIndexesByMatch[key] = map[int]struct{}{}
+		}
+		ruleIndexesByMatch[key][routes[i].SourceRule.RuleIndex] = struct{}{}
+	}
+
+	// Then, clear rule identity unless the same match came from multiple rules.
+	for i := range routes {
+		if routes[i].SourceRule == nil {
+			continue
+		}
+		key := routes[i].GetMatchKey()
+		if len(ruleIndexesByMatch[key]) < 2 {
+			routes[i].SourceRule = nil
+		}
+	}
 }
 
 func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Service, btlspMap helpers.BackendTLSPolicyServiceMap) (model.Backend, bool) {
