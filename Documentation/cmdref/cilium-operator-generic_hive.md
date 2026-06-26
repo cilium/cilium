@@ -140,6 +140,7 @@ cilium-operator-generic hive [flags]
       --shell-sock-path string                                     Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --skip-crd-creation                                          When true, Kubernetes Custom Resource Definitions will not be created
       --synchronize-k8s-nodes                                      Perform GC of stale node entries from the KVStore (default true)
+      --synchronize-k8s-services                                   Synchronize Kubernetes services to kvstore (default true)
       --taint-sync-workers int                                     Number of workers used to synchronize node taints and conditions (default 10)
       --unmanaged-pod-watcher-interval duration                    Interval to check for unmanaged kube-dns pods (0 to disable) (default 15s)
       --validate-network-policy                                    Whether to enable or disable the informational network policy validator (default true)
