@@ -194,6 +194,42 @@ func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, requ
 	return
 }
 
+// FindSubnetByIDsSorted returns all subnets matching VPC ID, availability zone
+// and subnet IDs, sorted by AvailableAddresses descending
+func (m *InstancesManager) FindSubnetByIDsSorted(vpcID, availabilityZone string, subnetIDs []string) []*ipamTypes.Subnet {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	var result []*ipamTypes.Subnet
+	for _, s := range m.subnets {
+		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone {
+			if slices.Contains(subnetIDs, s.ID) {
+				result = append(result, s)
+			}
+		}
+	}
+	slices.SortFunc(result, func(a, b *ipamTypes.Subnet) int {
+		return b.AvailableAddresses - a.AvailableAddresses
+	})
+	return result
+}
+
+// FindSubnetByTagsSorted returns all subnets matching VPC ID, availability zone
+// and all required tags, sorted by AvailableAddresses descending.
+func (m *InstancesManager) FindSubnetByTagsSorted(vpcID, availabilityZone string, required ipamTypes.Tags) []*ipamTypes.Subnet {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	var result []*ipamTypes.Subnet
+	for _, s := range m.subnets {
+		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
+			result = append(result, s)
+		}
+	}
+	slices.SortFunc(result, func(a, b *ipamTypes.Subnet) int {
+		return b.AvailableAddresses - a.AvailableAddresses
+	})
+	return result
+}
+
 // FindSecurityGroupByTags returns the security groups matching VPC ID and all required tags
 //
 // The returned security groups slice is immutable so it can be safely accessed
