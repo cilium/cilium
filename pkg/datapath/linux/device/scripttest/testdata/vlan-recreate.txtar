@@ -1,0 +1,69 @@
+# Verify the reconciler's update path: a mutable change (MTU) modifies the device
+# in place via LinkModify, while a change to an immutable kernel attribute (the
+# VLAN ID) deletes and re-adds the device.
+
+netns/create otherns
+link/add eth0 veth --peername veth0 --peerns otherns
+link/set veth0 --netns otherns up
+link/set eth0 up
+
+hive/start
+
+# Create the VLAN device, wait for it to be reconciled and record its ifindex.
+add-device owner1 eth0.10.yaml
+db/cmp devices devices.1.table
+db/get devices --index=name eth0.10 --columns=Index -o index.create.txt
+
+# Re-apply with only the MTU changed (a mutable attribute). The reconciler must
+# call LinkModify. Wait for the MTU update to land (devices.2.table), then assert
+# the ifindex is unchanged -> the device was modified in place, not recreated.
+add-device owner1 eth0.10-mtu.yaml
+db/cmp devices devices.2.table
+db/get devices --index=name eth0.10 --columns=Index -o index.mtu.txt
+cmp index.mtu.txt index.create.txt
+
+# Re-apply with the VLAN ID changed (an immutable attribute). LinkModify cannot
+# change it, so the reconciler deletes and re-adds the device. We also bump the
+# MTU so the devices table has an observable change to wait on.
+# Then assert the ifindex changed -> recreated.
+add-device owner1 eth0.10-vlan.yaml
+db/cmp devices devices.3.table
+db/get devices --index=name eth0.10 --columns=Index -o index.vlan.txt
+! cmp index.vlan.txt index.mtu.txt
+
+hive/stop
+
+-- eth0.10.yaml --
+name: eth0.10
+parentName: eth0
+vlanID: 10
+
+-- eth0.10-mtu.yaml --
+name: eth0.10
+parentName: eth0
+vlanID: 10
+mtu: 1400
+
+-- eth0.10-vlan.yaml --
+name: eth0.10
+parentName: eth0
+vlanID: 20
+mtu: 1300
+
+-- devices.1.table --
+Name      Type     MTU     OperStatus
+lo        device   65536   down
+eth0      veth     1500    up
+eth0.10   vlan     1500    up
+
+-- devices.2.table --
+Name      Type     MTU     OperStatus
+lo        device   65536   down
+eth0      veth     1500    up
+eth0.10   vlan     1400    up
+
+-- devices.3.table --
+Name      Type     MTU     OperStatus
+lo        device   65536   down
+eth0      veth     1500    up
+eth0.10   vlan     1300    up

@@ -139,7 +139,7 @@ func (ops *ops) Stop(_ cell.HookContext) error {
 }
 
 func (ops *ops) Update(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, obj *DesiredDevice) error {
-	nl, linkExist, err := ops.checkAndGetLink(obj)
+	nl, oldNl, err := ops.resolveOwnedLink(obj)
 	if err != nil {
 		return err
 	}
@@ -153,13 +153,19 @@ func (ops *ops) Update(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision,
 		return fmt.Errorf("failed to write update event to WAL: %w", err)
 	}
 
-	if linkExist {
-		err = ops.handle.LinkModify(nl)
-	} else {
+	if oldNl == nil {
+		// Device does not exist yet — create it.
 		err = ops.handle.LinkAdd(nl)
+	} else if obj.DeviceSpec.NeedsRecreate(oldNl) {
+		err = ops.handle.LinkDel(oldNl)
+		if err == nil {
+			err = ops.handle.LinkAdd(nl)
+		}
+	} else {
+		err = ops.handle.LinkModify(nl)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to add or modify link: %w", err)
+		return fmt.Errorf("failed to upsert link: %w", err)
 	}
 
 	ops.persistedKeys.Insert(obj.GetKey())
@@ -168,16 +174,16 @@ func (ops *ops) Update(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision,
 }
 
 func (ops *ops) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, obj *DesiredDevice) error {
-	nl, linkExist, err := ops.checkAndGetLink(obj)
+	_, oldNl, err := ops.resolveOwnedLink(obj)
 	if err != nil {
 		return err
 	}
 
-	if !linkExist {
+	if oldNl == nil {
 		return nil
 	}
 
-	delErr := ops.handle.LinkDel(nl)
+	delErr := ops.handle.LinkDel(oldNl)
 	if delErr == nil {
 		ops.persistedKeys.Remove(obj.GetKey())
 	}
@@ -226,33 +232,43 @@ func (ops *ops) Prune(_ context.Context, txn statedb.ReadTxn, objects iter.Seq2[
 	})
 }
 
-// checkAndGetLink checks that the caller passing DesiredObject is not taking ownership of a device that is not owned by it.
-// Few cases to consider
-//  1. Device created by owner1. Owner2 tries to create device with same name. ( Not allowed )
-//  2. Device already exist in kernel but not managed by Cilium ( persisted key does not exist ). Cilium owner tries
-//     to create/delete a device with same name. ( Not allowed )
-//  3. Device created by owner1. Cilium restart - Owner1 recreates the device ( allowed ). This case works as we
-//     repopulate the persisted keys from the WAL.
-func (ops *ops) checkAndGetLink(obj *DesiredDevice) (netlink.Link, bool, error) {
-	nl, err := obj.DeviceSpec.ToNetlink()
+// resolveOwnedLink translates the desired device into its netlink form (nl) and
+// looks up the matching link already present in the kernel, returning it as
+// oldNl. A nil oldNl means the device does not exist yet and should be created;
+// a non-nil oldNl is the live link to modify or recreate. Any netlink error
+// other than "not found" is returned so the reconciler retries.
+//
+// When a device with that name already exists (non-nil oldNl) it must be owned by this owner,
+// guarding against:
+//  1. owner2 creating a device with a link already owned by owner1;
+//  2. taking over a device present in the kernel but not managed by Cilium
+//     (no persisted key for it).
+//
+// A link present in the kernel without a matching persisted key is therefore
+// rejected. After a restart the persisted keys are repopulated from the WAL, so
+// an owner re-creating its own device is allowed.
+func (ops *ops) resolveOwnedLink(obj *DesiredDevice) (nl netlink.Link, oldNl netlink.Link, err error) {
+	nl, err = obj.DeviceSpec.ToNetlink()
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to translate to netlink link: %w", err)
+		return nil, nil, fmt.Errorf("failed to translate to netlink link: %w", err)
 	}
 
-	var linkExist bool
-	_, err = safenetlink.WithRetryResult(func() (netlink.Link, error) {
+	oldNl, err = safenetlink.WithRetryResult(func() (netlink.Link, error) {
 		//nolint:forbidigo
 		return ops.handle.LinkByName(nl.Attrs().Name)
 	})
-	if err == nil || !errors.As(err, &netlink.LinkNotFoundError{}) {
-		linkExist = true
+	if err != nil {
+		if errors.As(err, &netlink.LinkNotFoundError{}) {
+			return nl, nil, nil
+		}
+		return nil, nil, fmt.Errorf("failed to look up link %s: %w", nl.Attrs().Name, err)
 	}
 
-	if linkExist && !ops.persistedKeys.Has(obj.GetKey()) {
-		return nil, false, fmt.Errorf("device %s exist in kernel but not with desired device owner %s", obj.Name, obj.Owner)
+	if !ops.persistedKeys.Has(obj.GetKey()) {
+		return nil, nil, fmt.Errorf("device %s exist in kernel but not with desired device owner %s", obj.Name, obj.Owner)
 	}
 
-	return nl, linkExist, nil
+	return nl, oldNl, nil
 }
 
 type reconcilerEvent struct {
