@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -42,6 +43,11 @@ var Cell = cell.Module(
 	defaultGroup,
 	cell.Invoke(
 		registerNamespaceUpdater,
+		func(ipc *ipcache.IPCache, epMgr EndpointManager, daemonConfig *option.DaemonConfig) {
+			if daemonConfig.PolicyCIDRMatchesPods() {
+				ipc.AddCIDRSelectorAllocator(epMgr)
+			}
+		},
 	),
 )
 
