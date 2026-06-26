@@ -2117,37 +2117,61 @@ func (m *manager) addNoTrackPodTrafficRules(prog runnable, podsCIDR string) erro
 }
 
 func (m *manager) addCiliumENIRules() error {
-	if !m.sharedCfg.EnableIPv4 {
-		return nil
-	}
-
-	iface, err := route.NodeDeviceWithDefaultRoute(m.logger, m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6)
-	if err != nil {
-		return fmt.Errorf("failed to find interface with default route: %w", err)
-	}
-
 	nfmask := fmt.Sprintf("%#08x", linux_defaults.MarkMultinodeNodeport)
 	ctmask := fmt.Sprintf("%#08x", linux_defaults.MaskMultinodeNodeport)
 
-	// Note: these rules need the xt_connmark module (iptables usually
-	// loads it when required, unless loading modules after boot has been
-	// disabled).
-	if err := m.ip4tables.runProg([]string{
-		"-t", "mangle",
-		"-A", ciliumPreMangleChain,
-		"-i", iface.Attrs().Name,
-		"-m", "comment", "--comment", "cilium: primary ENI",
-		"-m", "addrtype", "--dst-type", "LOCAL", "--limit-iface-in",
-		"-j", "CONNMARK", "--set-xmark", nfmask + "/" + ctmask}); err != nil {
-		return err
+	if m.sharedCfg.EnableIPv4 {
+		iface, err := route.NodeDeviceWithDefaultRoute(m.logger, true, false)
+		if err != nil {
+			return fmt.Errorf("failed to find interface with IPv4 default route: %w", err)
+		}
+		// Note: these rules need the xt_connmark module (iptables usually
+		// loads it when required, unless loading modules after boot has been
+		// disabled).
+		if err := m.ip4tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", iface.Attrs().Name,
+			"-m", "comment", "--comment", "cilium: primary ENI",
+			"-m", "addrtype", "--dst-type", "LOCAL", "--limit-iface-in",
+			"-j", "CONNMARK", "--set-xmark", nfmask + "/" + ctmask}); err != nil {
+			return err
+		}
+		if err := m.ip4tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", "lxc+",
+			"-m", "comment", "--comment", "cilium: primary ENI",
+			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
+			return err
+		}
 	}
 
-	return m.ip4tables.runProg([]string{
-		"-t", "mangle",
-		"-A", ciliumPreMangleChain,
-		"-i", "lxc+",
-		"-m", "comment", "--comment", "cilium: primary ENI",
-		"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask})
+	if m.sharedCfg.EnableIPv6 {
+		iface, err := route.NodeDeviceWithDefaultRoute(m.logger, false, true)
+		if err != nil {
+			return fmt.Errorf("failed to find interface with IPv6 default route: %w", err)
+		}
+		if err := m.ip6tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", iface.Attrs().Name,
+			"-m", "comment", "--comment", "cilium: primary ENI",
+			"-m", "addrtype", "--dst-type", "LOCAL", "--limit-iface-in",
+			"-j", "CONNMARK", "--set-xmark", nfmask + "/" + ctmask}); err != nil {
+			return err
+		}
+
+		if err := m.ip6tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", "lxc+",
+			"-m", "comment", "--comment", "cilium: primary ENI",
+			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func nodeIpsetNATCmds(allocRange string, ipset string, masqueradeInterfaces []string) [][]string {
