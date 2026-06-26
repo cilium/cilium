@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -252,6 +253,21 @@ func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) 
 			p.markCNPForService(key, svc.Name)
 		} else {
 			p.clearCNPForService(key, svc.Name)
+		}
+	}
+}
+
+// ResolveToServices translates all ToServices rules found in the provided
+// CNP to CIDR rules. Mutates the supplied CNP. Used by other policy consumers.
+func ResolveToServices(txn statedb.ReadTxn, services statedb.Table[*loadbalancer.Service], backends statedb.Table[*loadbalancer.Backend], cnp *v2.CiliumNetworkPolicy) {
+	for svc := range services.All(txn) {
+		svcEndpoints := newServiceEndpoints(svc, txn, backends)
+
+		// This extracts the selected service endpoints from the rule
+		// and translates it to a ToCIDRSet/ToEndpoints
+		svcEndpoints.processRule(cnp.Spec)
+		for _, spec := range cnp.Specs {
+			svcEndpoints.processRule(spec)
 		}
 	}
 }
