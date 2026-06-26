@@ -22,9 +22,6 @@ const (
 )
 
 const (
-	// SyncK8sServices synchronizes k8s services into the kvstore
-	SyncK8sServices = "synchronize-k8s-services"
-
 	// IPAM options
 
 	// IPAMInstanceTags are optional tags used to filter instances for ENI discovery.
@@ -71,9 +68,6 @@ const (
 
 // OperatorConfig is the configuration used by the operator.
 type OperatorConfig struct {
-	// SyncK8sServices synchronizes k8s services into the kvstore
-	SyncK8sServices bool
-
 	// IPAM options
 
 	// IPAMInstanceTags are optional tags used to filter instances for ENI discovery.
@@ -90,7 +84,6 @@ type OperatorConfig struct {
 
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
-	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 
 	// Gateways and Ingress

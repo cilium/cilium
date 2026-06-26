@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
@@ -140,6 +141,45 @@ var Synchronization = cell.Module(
 	),
 	cell.Invoke(registerSyncStateStop),
 )
+
+var OperatorSynchronization = cell.Module(
+	"clustermesh-operator-sync",
+	"Synchronize information from Kubernetes to KVStore in the operator",
+
+	cell.Config(defaultOperatorSynchronizationConfig),
+
+	// Provide the namespace manager.
+	cmnamespace.Cell,
+
+	// Synchronizes K8s services to KVStore.
+	cell.Provide(func(cfg operatorSynchronizationConfig, svcV2Cfg cmtypes.ServiceModeV2Config) ServiceSyncConfig {
+		return ServiceSyncConfig{
+			Enabled: cfg.SyncK8sServices && svcV2Cfg.ServiceModeV2.ShouldExportLegacyServices(),
+		}
+	}),
+	cell.Provide(func(cfg operatorSynchronizationConfig) EndpointSliceSyncConfig {
+		return EndpointSliceSyncConfig{
+			Enabled: cfg.SyncK8sServices,
+		}
+	}),
+	ServiceSyncCell,
+	EndpointSliceSyncCell,
+
+	// Synchronizes K8s ServiceExports to KVStore
+	ServiceExportSyncCell,
+)
+
+type operatorSynchronizationConfig struct {
+	SyncK8sServices bool `mapstructure:"synchronize-k8s-services"`
+}
+
+var defaultOperatorSynchronizationConfig = operatorSynchronizationConfig{
+	SyncK8sServices: true,
+}
+
+func (def operatorSynchronizationConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("synchronize-k8s-services", def.SyncK8sServices, "Synchronize Kubernetes services to kvstore")
+}
 
 func registerSyncStateStop(lc cell.Lifecycle, ss syncstate.SyncState) {
 	lc.Append(
