@@ -143,12 +143,9 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 	processBuffer := func(txn writer.WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[k8sTables.LocalPod]]) {
 		for _, change := range buf {
 			obj := change.Object.Pod
-			if obj.Spec.HostNetwork {
-				continue
-			}
 
 			podName := obj.Namespace + "/" + obj.Name
-			if change.Deleted {
+			if change.Deleted || obj.Spec.HostNetwork {
 				rh.update(podName, nil)
 				if err := deleteHostPort(p, txn, obj); err != nil {
 					p.Log.Error("BUG: Unexpected failure in deleteHostPort",
