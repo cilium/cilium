@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/spanstat"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -91,19 +90,11 @@ func newProxyUpdaterMock(t testing.TB, namedPort uint16) *test.ProxyUpdaterMock 
 	return &test.ProxyUpdaterMock{Id: 1000, Ipv4: "10.0.0.1", Ipv6: "f00d::1", NamedPort: namedPort}
 }
 
-type dummyPolicyStats struct {
-	waitingForPolicyRepository spanstat.SpanStat
-}
-
 type noopXDSMetrics struct{}
 
 func (noopXDSMetrics) IncreaseNACK(string)   {}
 func (noopXDSMetrics) IncreaseACK(string)    {}
 func (noopXDSMetrics) IncreaseCancel(string) {}
-
-func (s *dummyPolicyStats) WaitingForPolicyRepository() *spanstat.SpanStat {
-	return &s.waitingForPolicyRepository
-}
 
 var PortRuleHTTP1 = &api.PortRuleHTTP{
 	Path:    "/foo",
@@ -1466,6 +1457,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 		idMgr,
 		testpolicy.NewPolicyMetricsNoop(),
 	)
+	idMgr.Subscribe(testpolicy.SelectorCacheObserver{Cache: repo.GetSubjectSelectorCache()})
 	idMgr.Add(localIdentity)
 	t.Cleanup(func() {
 		idMgr.Remove(localIdentity)
@@ -1495,8 +1487,9 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 	require.NoError(t, cnpRule.Sanitize())
 	repo.MustAddList(api.Rules{cnpRule})
 
-	selPolicy, _, err := repo.GetSelectorPolicy(localIdentity, 0, &dummyPolicyStats{}, ep.GetID())
+	selPolicy, _, err := repo.ComputeSelectorPolicy(localIdentity)
 	require.NoError(t, err)
+	t.Cleanup(func() { selPolicy.Supersede() })
 
 	const listenerProxyPort = uint16(19001)
 	const qualifiedListener = "default/test-cec/listener1"
@@ -2597,6 +2590,7 @@ func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.
 		idMgr,
 		testpolicy.NewPolicyMetricsNoop(),
 	)
+	idMgr.Subscribe(testpolicy.SelectorCacheObserver{Cache: repo.GetSubjectSelectorCache()})
 	idMgr.Add(localIdentity)
 	t.Cleanup(func() {
 		idMgr.Remove(localIdentity)
@@ -2618,8 +2612,9 @@ func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.
 
 func distillEndpointPolicy(t *testing.T, repo *policy.Repository, localIdentity *identity.Identity, ep *listenerProxyUpdaterMock) *policy.EndpointPolicy {
 	logger := hivetest.Logger(t)
-	selPolicy, _, err := repo.GetSelectorPolicy(localIdentity, 0, &dummyPolicyStats{}, ep.GetID())
+	selPolicy, _, err := repo.ComputeSelectorPolicy(localIdentity)
 	require.NoError(t, err)
+	t.Cleanup(func() { selPolicy.Supersede() })
 
 	epp := selPolicy.DistillPolicy(logger, ep, nil)
 	t.Cleanup(func() {

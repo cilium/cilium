@@ -142,6 +142,7 @@ func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) (ide
 	idManager := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+	idManager.Subscribe(testpolicy.SelectorCacheObserver{Cache: repo.GetSubjectSelectorCache()})
 	return idManager, repo
 }
 

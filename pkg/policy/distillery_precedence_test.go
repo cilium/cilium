@@ -1034,7 +1034,6 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			expected := testMapState(t, tt.expected)
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			repo.policyCache.insert(identity)
 			epp, err := repo.distillEndpointPolicy(logger, DummyOwner{}, identity)
 			require.NoError(t, err)
 			epp.Ready()
