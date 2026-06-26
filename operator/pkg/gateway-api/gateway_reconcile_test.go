@@ -276,6 +276,8 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-matching", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-matching-across-routes", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-method-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-identical-rule-order", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-identical-rule-invalid-backend", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-observed-generation-bump", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-partially-invalid-via-invalid-reference-grant", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-path-match-order", gateway: []gwDetails{gatewaySameNamespace}},
