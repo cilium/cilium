@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -232,51 +231,6 @@ func (res *CmdRes) ExpectContains(data string, optionalDescription ...any) bool 
 		gomega.ContainSubstring(data), optionalDescription...)
 }
 
-// ExpectMatchesRegexp asserts that the stdout of the executed command
-// matches the regexp. It accepts an optional parameter that can be
-// used to annotate failure messages.
-func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...any) bool {
-	return gomega.ExpectWithOffset(1, res.Stdout()).To(
-		gomega.MatchRegexp(regexp), optionalDescription...)
-}
-
-// ExpectContainsFilterLine applies the provided JSONPath filter to each line
-// of stdout of the executed command and asserts that the expected string
-// matches at least one of the lines.
-// It accepts an optional parameter that can be used to annotate failure
-// messages.
-func (res *CmdRes) ExpectContainsFilterLine(filter, expected string, optionalDescription ...any) bool {
-	lines, err := res.FilterLines(filter)
-	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), optionalDescription...)
-	sLines := []string{}
-	for _, fLine := range lines {
-		sLines = append(sLines, fLine.ByLines()...)
-	}
-	return gomega.ExpectWithOffset(1, sLines).To(
-		gomega.ContainElement(expected), optionalDescription...)
-}
-
-// ExpectDoesNotContainFilterLine applies the provided JSONPath filter to each
-// line of stdout of the executed command and asserts that the expected string
-// does not matches any of the lines.
-// It accepts an optional parameter that can be used to annotate failure
-// messages.
-func (res *CmdRes) ExpectDoesNotContainFilterLine(filter, expected string, optionalDescription ...any) bool {
-	lines, err := res.FilterLines(filter)
-	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), optionalDescription...)
-	sLines := []string{}
-	for _, fLine := range lines {
-		sLines = append(sLines, fLine.ByLines()...)
-	}
-	return gomega.ExpectWithOffset(1, sLines).ToNot(
-		gomega.ContainElement(expected), optionalDescription...)
-}
-
-// CountLines return the number of lines in the stdout of res.
-func (res *CmdRes) CountLines() int {
-	return strings.Count(res.stdout.String(), "\n")
-}
-
 // CombineOutput returns the combined output of stdout and stderr for res.
 func (res *CmdRes) CombineOutput() *bytes.Buffer {
 	result := new(bytes.Buffer)
@@ -288,48 +242,6 @@ func (res *CmdRes) CombineOutput() *bytes.Buffer {
 // IntOutput returns the stdout of res as an integer
 func (res *CmdRes) IntOutput() (int, error) {
 	return strconv.Atoi(strings.TrimSpace(res.stdout.String()))
-}
-
-// FloatOutput returns the stdout of res as a float
-func (res *CmdRes) FloatOutput() (float64, error) {
-	return strconv.ParseFloat(strings.TrimSpace(res.stdout.String()), 64)
-}
-
-// InRange returns nil if res matches the expected value range or error otherwise
-func (res *CmdRes) InRange(min, max int) error {
-	raw, err := res.FloatOutput()
-	if err != nil {
-		return err
-	}
-	val := int(raw)
-	if val >= min && val <= max {
-		return nil
-	} else {
-		return fmt.Errorf(
-			"Expected result %d (%s) is not in the range of [%d, %d]",
-			val, strings.TrimSpace(res.stdout.String()), min, max)
-	}
-}
-
-// FindResults filters res's stdout using the provided JSONPath filter. It
-// returns an array of the values that match the filter, and an error if
-// the unmarshalling of the stdout of res fails.
-// TODO - what exactly is the need for this vs. Filter function below?
-func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
-	var data any
-	var result []reflect.Value
-
-	err := json.Unmarshal(res.stdout.Bytes(), &data)
-	if err != nil {
-		return nil, err
-	}
-	parser := jsonpath.New("").AllowMissingKeys(true)
-	parser.Parse(filter)
-	fullResults, _ := parser.FindResults(data)
-	for _, res := range fullResults {
-		result = append(result, res...)
-	}
-	return result, nil
 }
 
 // Filter returns the contents of res's stdout filtered using the provided

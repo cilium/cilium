@@ -4,7 +4,6 @@
 package k8sTest
 
 import (
-	"fmt"
 	"maps"
 	"time"
 
@@ -38,14 +37,6 @@ func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium operator was not able to get into ready state")
 }
 
-// ExpectHubbleCLIReady is a wrapper around helpers/WaitForPods. It asserts
-// that the error returned by that function is nil.
-func ExpectHubbleCLIReady(vm *helpers.Kubectl, ns string) {
-	By("Waiting for hubble-cli to be ready")
-	err := vm.WaitforPods(ns, "-l k8s-app=hubble-cli", longTimeout)
-	ExpectWithOffset(1, err).Should(BeNil(), "hubble-cli was not able to get into ready state")
-}
-
 // ExpectHubbleRelayReady is a wrapper around helpers/WaitForPods. It asserts
 // that the error returned by that function is nil.
 func ExpectHubbleRelayReady(vm *helpers.Kubectl, ns string) {
@@ -58,13 +49,6 @@ func ExpectHubbleRelayReady(vm *helpers.Kubectl, ns string) {
 // It asserts that the error returned by that function is nil.
 func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
 	err := vm.WaitTerminatingPods(helpers.HelperTimeout)
-	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
-}
-
-// ExpectAllPodsInNsTerminated is a wrapper around helpers/WaitTerminatingPods.
-// It asserts that the error returned by that function is nil.
-func ExpectAllPodsInNsTerminated(vm *helpers.Kubectl, ns string) {
-	err := vm.WaitTerminatingPodsInNs(ns, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
 }
 
@@ -175,14 +159,4 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 	err := vm.CiliumPreFlightCheck()
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 	ExpectCiliumOperatorReady(vm)
-}
-
-// SkipIfIntegration will skip a test if it's running with any of the specified
-// integration.
-func SkipIfIntegration(integration string) {
-	if helpers.IsIntegration(integration) {
-		Skip(fmt.Sprintf(
-			"This feature is not supported in Cilium %q mode. Skipping test.",
-			integration))
-	}
 }
