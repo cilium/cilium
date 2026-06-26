@@ -102,6 +102,38 @@ var mixedNamespaceGateway = &gatewayv1.Gateway{
 	},
 }
 
+// Gateway fixture mixing an unrestricted HTTP listener with an explicit-TCPRoute
+// TCP listener; used to test that the TCP restriction doesn't block HTTPRoute.
+var mixedKindGateway = &gatewayv1.Gateway{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "mixed-kind-gateway",
+		Namespace: "default",
+	},
+	Spec: gatewayv1.GatewaySpec{
+		GatewayClassName: "cilium",
+		Listeners: []gatewayv1.Listener{
+			{
+				Name:     "http",
+				Port:     80,
+				Protocol: gatewayv1.HTTPProtocolType,
+			},
+			{
+				Name:     "tcp",
+				Port:     8090,
+				Protocol: gatewayv1.TCPProtocolType,
+				AllowedRoutes: &gatewayv1.AllowedRoutes{
+					Kinds: []gatewayv1.RouteGroupKind{
+						{
+							Group: ptr.To[gatewayv1.Group](gatewayv1.GroupName),
+							Kind:  "TCPRoute",
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 // Gateway fixture with no kind restrictions on any listener.
 var noKindRestrictedGateway = &gatewayv1.Gateway{
 	ObjectMeta: metav1.ObjectMeta{
@@ -712,7 +744,7 @@ func TestCheckGatewayRouteKindAllowed(t *testing.T) {
 
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(kindRestrictedGateway, noKindRestrictedGateway).
+		WithObjects(kindRestrictedGateway, noKindRestrictedGateway, mixedKindGateway).
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
 
@@ -797,6 +829,63 @@ func TestCheckGatewayRouteKindAllowed(t *testing.T) {
 					Name:        "kind-restricted-gateway",
 					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
 					SectionName: ptr.To[gatewayv1.SectionName]("grpcs"),
+				},
+			},
+			want: false,
+		},
+		{
+			// Regression: TCP listener's explicit [TCPRoute] must not poison the unrestricted HTTP listener.
+			name: "HTTPRoute on mixed HTTP+TCP gateway without sectionName (allowed by unrestricted HTTP listener)",
+			args: args{
+				input: &HTTPRouteInput{
+					Client: c,
+					HTTPRoute: &gatewayv1.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+						},
+					},
+				},
+				parentRef: gatewayv1.ParentReference{
+					Name:      "mixed-kind-gateway",
+					Namespace: ptr.To[gatewayv1.Namespace]("default"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "HTTPRoute on mixed HTTP+TCP gateway targeting http section (allowed)",
+			args: args{
+				input: &HTTPRouteInput{
+					Client: c,
+					HTTPRoute: &gatewayv1.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+						},
+					},
+				},
+				parentRef: gatewayv1.ParentReference{
+					Name:        "mixed-kind-gateway",
+					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
+					SectionName: ptr.To[gatewayv1.SectionName]("http"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "HTTPRoute on mixed HTTP+TCP gateway targeting tcp section (rejected)",
+			args: args{
+				input: &HTTPRouteInput{
+					Client: c,
+					HTTPRoute: &gatewayv1.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+						},
+					},
+				},
+				parentRef: gatewayv1.ParentReference{
+					Name:        "mixed-kind-gateway",
+					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
+					SectionName: ptr.To[gatewayv1.SectionName]("tcp"),
 				},
 			},
 			want: false,
