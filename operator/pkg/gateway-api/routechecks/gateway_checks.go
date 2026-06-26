@@ -102,7 +102,8 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 		}
 
 		if listener.AllowedRoutes == nil || len(listener.AllowedRoutes.Kinds) == 0 {
-			continue
+			// No kind restriction → listener accepts this route; protocol is checked separately.
+			return true, nil
 		}
 
 		hasKindRestriction = true
