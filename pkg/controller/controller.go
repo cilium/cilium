@@ -305,6 +305,9 @@ func (c *controller) GetLastErrorTimestamp() time.Time {
 	return c.lastErrorStamp
 }
 
+// timeAfter allows overriding time.After in unit tests.
+var timeAfter = time.After
+
 func (c *controller) runController() {
 	params := c.Params()
 	errorRetries := 1
@@ -320,7 +323,7 @@ func (c *controller) runController() {
 		if params.Jitter > 0 {
 			jitter = time.Duration(rand.Int64N(int64(params.Jitter)))
 			select {
-			case <-time.After(jitter):
+			case <-timeAfter(jitter):
 				// jitter sleep finished
 			case <-params.Context.Done():
 				// context cancelled, exit early but ensure shutdown logic runs
@@ -328,6 +331,9 @@ func (c *controller) runController() {
 			case <-c.stop:
 				// controller stopped during jitter sleep
 				goto shutdown
+			case <-c.update:
+				// woken up early by update, loop again to reload params and re-evaluate jitter
+				continue
 			}
 		}
 		err = params.DoFunc(params.Context)
