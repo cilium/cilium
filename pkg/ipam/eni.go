@@ -723,6 +723,7 @@ func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Alloca
 
 	// Wait for local node to be updated to avoid propagating spurious updates.
 	waitForLocalNodeUpdate(p.Logger, mgr)
+	mgr.waitForStaticIP()
 	// Independently wait for the alloc-CIDR and native-routing-CIDR observers:
 	// they run in separate jobs from the multi-pool manager and are not
 	// synchronized with mgr.localNodeUpdated().

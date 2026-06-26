@@ -93,6 +93,7 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 
 	// wait for local node to be updated to avoid propagating spurious updates.
 	waitForLocalNodeUpdate(p.Logger, mgr)
+	mgr.waitForStaticIP()
 	// Independently wait for the alloc-CIDR observer: it runs in its own job
 	// and is not synchronized with mgr.localNodeUpdated().
 	waitForLocalNodeAllocCIDRs(p.Logger, allocCIDRsReady)

@@ -354,7 +354,6 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 	)
 
 	mgr.waitForAllPools()
-	mgr.waitForStaticIP()
 
 	return mgr
 }
