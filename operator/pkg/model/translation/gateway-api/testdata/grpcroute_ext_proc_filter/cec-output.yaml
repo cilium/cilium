@@ -51,6 +51,7 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
                       grpcService:
                         envoyGrpc:
+                          authority: ext-proc-service:4317
                           clusterName: default:ext-proc-service:4317
                       statPrefix: ceepf.default.my_ext_proc.
                   - name: envoy.filters.http.router
@@ -74,7 +75,7 @@ spec:
                 streamIdleTimeout: 300s
                 upgradeConfigs:
                   - upgradeType: websocket
-                useRemoteAddress: true
+                useRemoteAddress: false
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:

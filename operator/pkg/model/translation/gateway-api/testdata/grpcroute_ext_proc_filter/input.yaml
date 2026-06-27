@@ -1,0 +1,41 @@
+http:
+  - hostname: "*"
+    name: prod-grpc-gw
+    port: 80
+    routes:
+      - backends:
+          - TLS: null
+            name: grpc-service
+            namespace: default
+            port:
+              port: 9090
+        extension_ref_filters:
+          - backend:
+              TLS: null
+              name: ext-proc-service
+              namespace: default
+              port:
+                port: 4317
+            config: CjgKNgodZGVmYXVsdDpleHQtcHJvYy1zZXJ2aWNlOjQzMTcSFWV4dC1wcm9jLXNlcnZpY2U6NDMxN0IaY2VlcGYuZGVmYXVsdC5teV9leHRfcHJvYy4=
+            name: envoy.filters.http.ext_proc/default/my-ext-proc
+            type_url: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+        is_grpc: true
+        path_match:
+          exact: /service.Echo/Process
+        timeout: {}
+      - backends:
+          - TLS: null
+            name: health-service
+            namespace: default
+            port:
+              port: 9090
+        is_grpc: true
+        path_match:
+          exact: /grpc.health.v1.Health/Check
+        timeout: {}
+    sources:
+      - group: gateway.networking.k8s.io
+        kind: Gateway
+        name: my-gateway
+        namespace: default
+        version: v1
