@@ -1441,7 +1441,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 
 		hrList := &gatewayv1.HTTPRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
-		require.NoError(t, r.setHTTPRouteStatuses(r.logger, ctx, hrList, &gatewayv1.ReferenceGrantList{}))
+		require.NoError(t, r.setHTTPRouteStatuses(r.logger, ctx, hrList, &gatewayv1.ReferenceGrantList{}, nil))
 
 		var updatedValidRoute, updatedInvalidRoute gatewayv1.HTTPRoute
 		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))
@@ -1509,7 +1509,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 
 		hrList := &gatewayv1.GRPCRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
-		require.NoError(t, r.setGRPCRouteStatuses(r.logger, ctx, hrList, &gatewayv1.ReferenceGrantList{}))
+		require.NoError(t, r.setGRPCRouteStatuses(r.logger, ctx, hrList, &gatewayv1.ReferenceGrantList{}, nil))
 
 		var updatedValidRoute, updatedInvalidRoute gatewayv1.GRPCRoute
 		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))

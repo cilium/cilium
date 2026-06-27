@@ -503,6 +503,23 @@ type ExtensionRefFilter struct {
 	TypeURL string `json:"type_url"`
 	// Config is the serialized protobuf config for the filter.
 	Config []byte `json:"config,omitempty"`
+	// Backend is the filter's backend service.
+	Backend *Backend `json:"backend,omitempty"`
+
+	// The following fields carry per-route provenance used for listener-wide
+	// conflict resolution in getUniqueExtProcFilters. They are intentionally
+	// excluded from JSON/CEC output so that golden fixtures remain stable.
+
+	// SourceRouteNamespace is the namespace of the HTTPRoute/GRPCRoute that
+	// references this filter.
+	SourceRouteNamespace string `json:"-"`
+	// SourceRouteName is the name of the HTTPRoute/GRPCRoute.
+	SourceRouteName string `json:"-"`
+	// SourceRouteCreationTimestamp is the creationTimestamp of the source route.
+	SourceRouteCreationTimestamp time.Time `json:"-"`
+	// SourceRouteFilterIndex is the zero-based position of this filter within
+	// the route's resolved ExtensionRefFilters slice.
+	SourceRouteFilterIndex int `json:"-"`
 }
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
@@ -637,6 +654,20 @@ func (r *HTTPRoute) GetMatchKey() string {
 		if r.ExternalAuth.Backend.Port != nil {
 			sb.WriteString(":")
 			sb.WriteString(r.ExternalAuth.Backend.Port.GetPort())
+		}
+		sb.WriteString("|")
+	}
+
+	if len(r.ExtensionRefFilters) > 0 {
+		names := make([]string, len(r.ExtensionRefFilters))
+		for i, f := range r.ExtensionRefFilters {
+			names[i] = f.Name
+		}
+		sort.Strings(names)
+		sb.WriteString("extproc:")
+		for _, n := range names {
+			sb.WriteString(n)
+			sb.WriteString(",")
 		}
 		sb.WriteString("|")
 	}

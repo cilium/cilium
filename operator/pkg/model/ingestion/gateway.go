@@ -11,6 +11,10 @@ import (
 	"strings"
 	"time"
 
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	ext_procv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,7 +27,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -146,11 +150,16 @@ type Input struct {
 	ServiceImports      []mcsapiv1beta1.ServiceImport
 	BackendTLSPolicyMap helpers.BackendTLSPolicyServiceMap
 	MergedListeners     []ListenerWithContext
+
+	EnableExtensionRefFilters bool
+	CiliumEnvoyExtProcFilters []v2alpha1.CiliumEnvoyExtProcFilter
 }
 
 // GatewayAPI translates Gateway API resources into a model.
 func GatewayAPI(log *slog.Logger, input Input) *model.Model {
-	m := &model.Model{}
+	var resHTTP []model.HTTPListener
+	var resTLSPassthrough []model.TLSPassthroughListener
+	var resL4 []model.L4Listener
 
 	labels := make(map[string]string)
 	annotations := make(map[string]string)
@@ -228,9 +237,9 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 			// validate-and-record status phase of the reconcile pipeline.
 			namespacesPreFiltered := l.AllowedNamespaces != nil
 
-			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
-			httpRoutes = append(httpRoutes, toGRPCRoutes(l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
-			m.HTTP = append(m.HTTP, model.HTTPListener{
+			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap, input.EnableExtensionRefFilters, input.CiliumEnvoyExtProcFilters)...)
+			httpRoutes = append(httpRoutes, toGRPCRoutes(log, l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.EnableExtensionRefFilters, input.CiliumEnvoyExtProcFilters)...)
+			resHTTP = append(resHTTP, model.HTTPListener{
 				Name:                       string(l.Name),
 				Sources:                    []model.FullyQualifiedResource{l.Source},
 				Port:                       uint32(l.Port),
@@ -243,7 +252,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 			})
 
 			if l.Protocol == gatewayv1.TLSProtocolType {
-				m.TLSPassthrough = append(m.TLSPassthrough, model.TLSPassthroughListener{
+				resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
 					Name:           string(l.Name),
 					Sources:        []model.FullyQualifiedResource{l.Source},
 					Port:           uint32(l.Port),
@@ -256,7 +265,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 		case gatewayv1.TCPProtocolType:
 			namespacesPreFiltered := l.AllowedNamespaces != nil
-			m.L4 = append(m.L4, model.L4Listener{
+			resL4 = append(resL4, model.L4Listener{
 				Name:           string(l.Name),
 				Sources:        []model.FullyQualifiedResource{l.Source},
 				Port:           uint32(l.Port),
@@ -268,7 +277,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 		case gatewayv1.UDPProtocolType:
 			namespacesPreFiltered := l.AllowedNamespaces != nil
-			m.L4 = append(m.L4, model.L4Listener{
+			resL4 = append(resL4, model.L4Listener{
 				Name:           string(l.Name),
 				Sources:        []model.FullyQualifiedResource{l.Source},
 				Port:           uint32(l.Port),
@@ -278,6 +287,12 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Service:        toServiceModel(input.GatewayClassConfig),
 			})
 		}
+	}
+
+	m := &model.Model{
+		HTTP:           resHTTP,
+		TLSPassthrough: resTLSPassthrough,
+		L4:             resL4,
 	}
 
 	if gcc := input.GatewayClassConfig; gcc != nil {
@@ -340,6 +355,8 @@ func toHTTPRoutes(log *slog.Logger,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
+	enableExtensionRefFilters bool,
+	extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter,
 ) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
@@ -363,7 +380,7 @@ func toHTTPRoutes(log *slog.Logger,
 			computedHost = nil
 		}
 
-		httpRoutes = append(httpRoutes, extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap)...)
+		httpRoutes = append(httpRoutes, extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap, enableExtensionRefFilters, extProcFilters)...)
 
 	}
 	return httpRoutes
@@ -377,6 +394,8 @@ func extractRoutes(logger *slog.Logger,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
+	enableExtensionRefFilters bool,
+	extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter,
 ) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for ruleIndex, rule := range hr.Spec.Rules {
@@ -450,6 +469,7 @@ func extractRoutes(logger *slog.Logger,
 		var requestMirrors []*model.HTTPRequestMirror
 		var externalAuth *model.HTTPExternalAuthFilter
 		var requestCORS *model.HTTPCORSFilter
+		var extensionRefFilters []model.ExtensionRefFilter
 
 		for _, f := range rule.Filters {
 			switch f.Type {
@@ -522,7 +542,41 @@ func extractRoutes(logger *slog.Logger,
 					// Local tests can bypass this, ensuring we always get a default.
 					MaxAge: cmp.Or(f.CORS.MaxAge, int32(5)),
 				}
+			case gatewayv1.HTTPRouteFilterExtensionRef:
+				if f.ExtensionRef != nil {
+					extensionRefFilter, ok := resolveExtensionRef(
+						logger,
+						enableExtensionRefFilters,
+						hr.Namespace,
+						f.ExtensionRef,
+						extProcFilters,
+					)
+					if ok {
+						extensionRefFilter.SourceRouteNamespace = hr.Namespace
+						extensionRefFilter.SourceRouteName = hr.Name
+						extensionRefFilter.SourceRouteCreationTimestamp = hr.CreationTimestamp.Time
+						extensionRefFilter.SourceRouteFilterIndex = len(extensionRefFilters)
+						extensionRefFilters = append(extensionRefFilters, *extensionRefFilter)
+					} else {
+						logger.Debug(
+							"ExtensionRef resolution failed; route will return 500",
+							logfields.K8sNamespace, hr.Namespace,
+							logfields.Name, string(f.ExtensionRef.Name),
+							logfields.Group, string(f.ExtensionRef.Group),
+							logfields.Kind, string(f.ExtensionRef.Kind),
+						)
+						dr = &model.DirectResponse{StatusCode: 500}
+						// Fail-closed: route will return 500, cleanup happens after loop
+					}
+				}
 			}
+		}
+
+		// Fail-closed: if any filter failed, clear backends and extensionRefFilters
+		// to ensure the route carries no backends or ext_proc filters.
+		if dr != nil && dr.StatusCode == 500 {
+			bes = nil
+			extensionRefFilters = nil
 		}
 
 		if len(rule.Matches) == 0 {
@@ -538,6 +592,7 @@ func extractRoutes(logger *slog.Logger,
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
 				ExternalAuth:           externalAuth,
+				ExtensionRefFilters:    extensionRefFilters,
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
 				CORS:                   requestCORS,
@@ -561,6 +616,7 @@ func extractRoutes(logger *slog.Logger,
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
 				ExternalAuth:           externalAuth,
+				ExtensionRefFilters:    extensionRefFilters,
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
 				CORS:                   requestCORS,
@@ -756,7 +812,8 @@ func toHTTPRetry(retry *gatewayv1.HTTPRouteRetry) *model.HTTPRetry {
 	return res
 }
 
-func toGRPCRoutes(listener gatewayv1beta1.Listener,
+func toGRPCRoutes(log *slog.Logger,
+	listener gatewayv1beta1.Listener,
 	gatewayNamespace string,
 	namespaceLabels helpers.NamespaceLabelIndex,
 	namespacesPreFiltered bool,
@@ -765,6 +822,8 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
+	enableExtensionRefFilters bool,
+	extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter,
 ) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
@@ -787,12 +846,12 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 		if len(computedHost) == 1 && computedHost[0] == allHosts {
 			computedHost = nil
 		}
-		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(computedHost, r, services, serviceImports, grants)...)
+		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(log, computedHost, r, services, serviceImports, grants, enableExtensionRefFilters, extProcFilters)...)
 	}
 	return grpcRoutes
 }
 
-func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.HTTPRoute {
+func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant, enableExtensionRefFilters bool, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, rule := range grpcr.Spec.Rules {
 		bes := make([]model.Backend, 0, len(rule.BackendRefs))
@@ -832,6 +891,7 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 		var requestHeaderFilter *model.HTTPHeaderFilter
 		var responseHeaderFilter *model.HTTPHeaderFilter
 		var requestMirrors []*model.HTTPRequestMirror
+		var extensionRefFilters []model.ExtensionRefFilter
 
 		for _, f := range rule.Filters {
 			switch f.Type {
@@ -877,7 +937,41 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				if svc != nil {
 					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, mirror, grpcr.Namespace))
 				}
+			case gatewayv1.GRPCRouteFilterExtensionRef:
+				if f.ExtensionRef != nil {
+					extensionRefFilter, ok := resolveExtensionRef(
+						logger,
+						enableExtensionRefFilters,
+						grpcr.Namespace,
+						f.ExtensionRef,
+						extProcFilters,
+					)
+					if ok {
+						extensionRefFilter.SourceRouteNamespace = grpcr.Namespace
+						extensionRefFilter.SourceRouteName = grpcr.Name
+						extensionRefFilter.SourceRouteCreationTimestamp = grpcr.CreationTimestamp.Time
+						extensionRefFilter.SourceRouteFilterIndex = len(extensionRefFilters)
+						extensionRefFilters = append(extensionRefFilters, *extensionRefFilter)
+					} else {
+						logger.Debug(
+							"ExtensionRef resolution failed; route will return 500",
+							logfields.K8sNamespace, grpcr.Namespace,
+							logfields.Name, string(f.ExtensionRef.Name),
+							logfields.Group, string(f.ExtensionRef.Group),
+							logfields.Kind, string(f.ExtensionRef.Kind),
+						)
+						dr = &model.DirectResponse{StatusCode: 500}
+						// Fail-closed: route will return 500, cleanup happens after loop
+					}
+				}
 			}
+		}
+
+		// Fail-closed: if any filter failed, clear backends and extensionRefFilters
+		// to ensure the route carries no backends or ext_proc filters.
+		if dr != nil && dr.StatusCode == 500 {
+			bes = nil
+			extensionRefFilters = nil
 		}
 
 		if len(rule.Matches) == 0 {
@@ -888,6 +982,7 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				RequestHeaderFilter:    requestHeaderFilter,
 				ResponseHeaderModifier: responseHeaderFilter,
 				RequestMirrors:         requestMirrors,
+				ExtensionRefFilters:    extensionRefFilters,
 			})
 		}
 
@@ -901,6 +996,7 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				RequestHeaderFilter:    requestHeaderFilter,
 				ResponseHeaderModifier: responseHeaderFilter,
 				RequestMirrors:         requestMirrors,
+				ExtensionRefFilters:    extensionRefFilters,
 				IsGRPC:                 true,
 			})
 		}
@@ -1187,7 +1283,8 @@ func toHTTPExternalAuthFilter(log *slog.Logger, ea *gatewayv1.HTTPExternalAuthFi
 		return nil
 	}
 	if ea.BackendRef.Port == nil {
-		log.Warn("ExternalAuth filter has no port specified; filter will be ignored",
+		log.Warn(
+			"ExternalAuth filter has no port specified; filter will be ignored",
 			logfields.K8sNamespace, helpers.NamespaceDerefOr(ea.BackendRef.Namespace, defaultNamespace),
 			logfields.Name, string(ea.BackendRef.Name),
 		)
@@ -1249,6 +1346,177 @@ func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirror
 		Backend:     ptr.To(backendRefToModelBackend(svc, mirror.BackendRef, ns)),
 		Numerator:   n,
 		Denominator: d,
+	}
+}
+
+// resolveExtensionRef resolves a Gateway API ExtensionRef filter to a
+// ExtensionRefFilter. Returns nil, false when the filter cannot be resolved
+// (disabled, wrong group/kind, or CRD not found), which signals a fail-closed
+// 500 DirectResponse.
+func resolveExtensionRef(
+	log *slog.Logger,
+	enableExtensionRefFilters bool,
+	namespace string,
+	ref *gatewayv1.LocalObjectReference,
+	extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter,
+) (*model.ExtensionRefFilter, bool) {
+	if !enableExtensionRefFilters {
+		log.Debug(
+			"ExtensionRef filters not enabled; ignoring ExtensionRef filter",
+			logfields.K8sNamespace, namespace,
+			logfields.Name, string(ref.Name),
+		)
+		return nil, false
+	}
+
+	if ref.Group != "cilium.io" || ref.Kind != "CiliumEnvoyExtProcFilter" {
+		log.Debug(
+			"ExtensionRef group/kind not supported",
+			logfields.Group, string(ref.Group),
+			logfields.Kind, string(ref.Kind),
+		)
+		return nil, false
+	}
+
+	found := helpers.FindExtProcFilter(extProcFilters, namespace, string(ref.Name))
+	if found == nil {
+		log.Debug(
+			"ExtensionRef CRD not found",
+			logfields.K8sNamespace, namespace,
+			logfields.Name, string(ref.Name),
+		)
+		return nil, false
+	}
+
+	return crdToExtensionRefFilter(log, found)
+}
+
+// crdToExtensionRefFilter converts a CiliumEnvoyExtProcFilter CRD to a
+// model.ExtensionRefFilter by building an ExternalProcessor protobuf config.
+func crdToExtensionRefFilter(log *slog.Logger, crd *v2alpha1.CiliumEnvoyExtProcFilter) (*model.ExtensionRefFilter, bool) {
+	ns := helpers.NamespaceDerefOr(helpers.ExtProcBackendRefNamespace(crd.Spec.BackendRef), crd.Namespace)
+
+	backend := &model.Backend{
+		Name:      crd.Spec.BackendRef.Name,
+		Namespace: ns,
+		Port: &model.BackendPort{
+			Port: uint32(crd.Spec.BackendRef.Port),
+		},
+	}
+
+	// Use the same "namespace:name:port" format as getClusterName in the
+	// translation layer so this reference matches the cluster that will be created.
+	clusterName := backend.Namespace + ":" + backend.Name + ":" + backend.Port.GetPort()
+
+	extProc := &ext_procv3.ExternalProcessor{
+		GrpcService: &envoy_config_core_v3.GrpcService{
+			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+					ClusterName: clusterName,
+					// Authority overrides the :authority pseudo-header sent to the
+					// ext_proc server. Without this, Envoy uses the cluster name,
+					// which after CEC namespace-qualification contains slashes
+					// ("ns/cec/cluster") that are illegal in an HTTP/2 authority
+					// and cause strict gRPC clients to reset the connection.
+					Authority: fmt.Sprintf("%s:%d", crd.Spec.BackendRef.Name, crd.Spec.BackendRef.Port),
+				},
+			},
+		},
+		FailureModeAllow: crd.Spec.FailureModeAllow,
+	}
+
+	if crd.Spec.ProcessingMode != nil {
+		extProc.ProcessingMode = convertProcessingMode(crd.Spec.ProcessingMode)
+	}
+
+	if crd.Spec.MessageTimeout != nil {
+		extProc.MessageTimeout = durationpb.New(crd.Spec.MessageTimeout.Duration)
+	}
+
+	config, err := proto.Marshal(extProc)
+	if err != nil {
+		log.Warn(
+			"Failed to marshal ext_proc filter config",
+			logfields.Error, err,
+			logfields.ResourceName, crd.Name,
+			logfields.K8sNamespace, crd.Namespace,
+		)
+		return nil, false
+	}
+
+	return &model.ExtensionRefFilter{
+		Name:    extProcFilterName(crd.Namespace, crd.Name),
+		TypeURL: model.ExtProcExternalProcessorTypeURL,
+		Config:  config,
+		Backend: backend,
+	}, true
+}
+
+// extProcFilterName returns the Envoy filter instance name for a CiliumEnvoyExtProcFilter.
+// The name is used as both the HCM filter name and the TypedPerFilterConfig key on routes.
+func extProcFilterName(namespace, name string) string {
+	return fmt.Sprintf("%s/%s/%s", model.ExtProcFilterNamePrefix, namespace, name)
+}
+
+// extProcStatPrefix returns the Envoy stat prefix for a CiliumEnvoyExtProcFilter.
+func extProcStatPrefix(namespace, name string) string {
+	return fmt.Sprintf("ceepf.%s.%s.", sanitizeExtProcStatPart(namespace), sanitizeExtProcStatPart(name))
+}
+
+var extProcStatReplacer = strings.NewReplacer("-", "_", ".", "_")
+
+// sanitizeExtProcStatPart replaces characters that are illegal in Envoy stat
+// names with underscores.
+func sanitizeExtProcStatPart(s string) string {
+	return extProcStatReplacer.Replace(s)
+}
+
+func convertProcessingMode(pm *v2alpha1.ExtProcProcessingMode) *ext_procv3.ProcessingMode {
+	mode := &ext_procv3.ProcessingMode{}
+	if pm.RequestHeaderMode != nil {
+		mode.RequestHeaderMode = toHeaderSendMode(*pm.RequestHeaderMode)
+	}
+	if pm.ResponseHeaderMode != nil {
+		mode.ResponseHeaderMode = toHeaderSendMode(*pm.ResponseHeaderMode)
+	}
+	if pm.RequestBodyMode != nil {
+		mode.RequestBodyMode = toBodySendMode(*pm.RequestBodyMode)
+	}
+	if pm.ResponseBodyMode != nil {
+		mode.ResponseBodyMode = toBodySendMode(*pm.ResponseBodyMode)
+	}
+	if pm.RequestTrailerMode != nil {
+		mode.RequestTrailerMode = toHeaderSendMode(*pm.RequestTrailerMode)
+	}
+	if pm.ResponseTrailerMode != nil {
+		mode.ResponseTrailerMode = toHeaderSendMode(*pm.ResponseTrailerMode)
+	}
+	return mode
+}
+
+func toHeaderSendMode(s string) ext_procv3.ProcessingMode_HeaderSendMode {
+	switch s {
+	case "SEND":
+		return ext_procv3.ProcessingMode_SEND
+	case "SKIP":
+		return ext_procv3.ProcessingMode_SKIP
+	default:
+		return ext_procv3.ProcessingMode_DEFAULT
+	}
+}
+
+func toBodySendMode(s string) ext_procv3.ProcessingMode_BodySendMode {
+	switch s {
+	case "NONE":
+		return ext_procv3.ProcessingMode_NONE
+	case "STREAMED":
+		return ext_procv3.ProcessingMode_STREAMED
+	case "BUFFERED":
+		return ext_procv3.ProcessingMode_BUFFERED
+	case "BUFFERED_PARTIAL":
+		return ext_procv3.ProcessingMode_BUFFERED_PARTIAL
+	default:
+		return ext_procv3.ProcessingMode_NONE
 	}
 }
 

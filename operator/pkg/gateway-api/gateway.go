@@ -14,6 +14,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -23,6 +25,7 @@ import (
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -40,21 +43,23 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger             *slog.Logger
-	controllerName     string
-	hostNetworkEnabled bool
+	logger                    *slog.Logger
+	controllerName            string
+	hostNetworkEnabled        bool
+	enableExtensionRefFilters bool
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, enableExtensionRefFilters bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
-		Client:             mgr.GetClient(),
-		Scheme:             mgr.GetScheme(),
-		translator:         translator,
-		logger:             scopedLog,
-		controllerName:     controllerName,
-		hostNetworkEnabled: hostNetworkEnabled,
+		Client:                    mgr.GetClient(),
+		Scheme:                    mgr.GetScheme(),
+		translator:                translator,
+		logger:                    scopedLog,
+		controllerName:            controllerName,
+		hostNetworkEnabled:        hostNetworkEnabled,
+		enableExtensionRefFilters: enableExtensionRefFilters,
 	}
 }
 
@@ -234,5 +239,31 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.Client, *r.logger, r.controllerName))
 	}
 
+	if r.enableExtensionRefFilters {
+		gatewayBuilder = gatewayBuilder.Watches(
+			&v2alpha1.CiliumEnvoyExtProcFilter{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueAllGateways()),
+		)
+	}
+
 	return gatewayBuilder.Complete(r)
+}
+
+func (r *gatewayReconciler) enqueueAllGateways() handler.MapFunc {
+	// TODO: this re-reconciles every Gateway whenever any CiliumEnvoyExtProcFilter
+	// changes. Replace with a targeted index that maps each filter to only the
+	// Gateways whose routes reference it.
+	return func(ctx context.Context, obj client.Object) []reconcile.Request {
+		gwList := &gatewayv1.GatewayList{}
+		if err := r.Client.List(ctx, gwList); err != nil {
+			return nil
+		}
+		var requests []reconcile.Request
+		for _, gw := range gwList.Items {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: client.ObjectKeyFromObject(&gw),
+			})
+		}
+		return requests
+	}
 }

@@ -103,7 +103,7 @@ func TestExtractRoutesSetsHTTPRouteRuleSource(t *testing.T) {
 		},
 	}
 
-	routes := extractRoutes(logger, 80, nil, hr, nil, nil, nil, nil)
+	routes := extractRoutes(logger, 80, nil, hr, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 2)
 	require.NotNil(t, routes[0].SourceRule)
@@ -1005,7 +1005,7 @@ func TestHTTPRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Nil(t, routes[0].RequestMirrors)
@@ -1049,7 +1049,7 @@ func TestHTTPRequestMirrorSameNamespaceIsKept(t *testing.T) {
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("default", "mirror-backend", 8080),
-	}, nil, nil, nil)
+	}, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1096,7 +1096,7 @@ func TestHTTPRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testin
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("other-ns", "mirror-backend", 8080),
-	}, nil, nil, nil)
+	}, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Len(t, routes[0].Backends, 1)
@@ -1144,7 +1144,7 @@ func TestHTTPRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 		testService("other-ns", "mirror-backend", 8080),
 	}, nil, []gatewayv1.ReferenceGrant{
 		testReferenceGrant("other-ns", "default", "HTTPRoute"),
-	}, nil)
+	}, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1202,7 +1202,7 @@ func TestHTTPRequestMirrorServiceImportIsResolved(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil)
+	}, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1211,7 +1211,7 @@ func TestHTTPRequestMirrorServiceImportIsResolved(t *testing.T) {
 }
 
 func TestGRPCRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(nil, nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "nil-grpc-mirror",
 			Namespace: "default",
@@ -1227,14 +1227,14 @@ func TestGRPCRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Nil(t, routes[0].RequestMirrors)
 }
 
 func TestGRPCRequestMirrorSameNamespaceIsKept(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(nil, nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "same-namespace-grpc-mirror",
 			Namespace: "default",
@@ -1269,7 +1269,7 @@ func TestGRPCRequestMirrorSameNamespaceIsKept(t *testing.T) {
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("default", "mirror-backend", 8080),
-	}, nil, nil)
+	}, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1278,7 +1278,7 @@ func TestGRPCRequestMirrorSameNamespaceIsKept(t *testing.T) {
 }
 
 func TestGRPCRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(nil, nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cross-namespace-grpc-mirror",
 			Namespace: "default",
@@ -1314,7 +1314,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testin
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("other-ns", "mirror-backend", 8080),
-	}, nil, nil)
+	}, nil, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	assert.Len(t, routes[0].Backends, 1)
@@ -1322,7 +1322,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testin
 }
 
 func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(nil, nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cross-namespace-grpc-mirror",
 			Namespace: "default",
@@ -1360,7 +1360,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 		testService("other-ns", "mirror-backend", 8080),
 	}, nil, []gatewayv1.ReferenceGrant{
 		testReferenceGrant("other-ns", "default", "GRPCRoute"),
-	})
+	}, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1369,7 +1369,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 }
 
 func TestGRPCRequestMirrorServiceImportIsResolved(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(nil, nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "serviceimport-grpc-mirror",
 			Namespace: "default",
@@ -1416,7 +1416,7 @@ func TestGRPCRequestMirrorServiceImportIsResolved(t *testing.T) {
 				},
 			},
 		},
-	}, nil)
+	}, nil, false, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)

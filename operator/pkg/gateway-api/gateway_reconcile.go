@@ -295,6 +295,15 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	var extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter
+	if r.enableExtensionRefFilters {
+		extProcFilterList := &v2alpha1.CiliumEnvoyExtProcFilterList{}
+		if err := r.Client.List(ctx, extProcFilterList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list CiliumEnvoyExtProcFilters", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
+		extProcFilters = extProcFilterList.Items
+	}
 	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.Annotations[annotation.LBIPAMIPKeyAlias] != "" {
 		scopedLog.WarnContext(ctx, fmt.Sprintf("DEPRECATED: The Gateway <%s/%s> is setting an IP address using the infrastructure annotations <%s>."+
 			" These should be set using the spec.addresses field in Gateway objects instead."+
@@ -302,7 +311,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Run the HTTPRoute route checks here and update the status accordingly.
-	if err := r.setHTTPRouteStatuses(scopedLog, ctx, httpRouteList, grants); err != nil {
+	if err := r.setHTTPRouteStatuses(scopedLog, ctx, httpRouteList, grants, extProcFilters); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
@@ -332,7 +341,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Run the GRPCRoute route checks here and update the status accordingly.
-	if err := r.setGRPCRouteStatuses(scopedLog, ctx, grpcRouteList, grants); err != nil {
+	if err := r.setGRPCRouteStatuses(scopedLog, ctx, grpcRouteList, grants, extProcFilters); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
@@ -349,20 +358,22 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	m := ingestion.GatewayAPI(scopedLog, ingestion.Input{
-		GatewayClass:        *gwc,
-		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
-		Gateway:             *gw,
-		HTTPRoutes:          httpRoutes,
-		TLSRoutes:           tlsRoutes,
-		GRPCRoutes:          grpcRoutes,
-		TCPRoutes:           tcpRoutes,
-		UDPRoutes:           udpRoutes,
-		Namespaces:          namespaces,
-		Services:            servicesList.Items,
-		ServiceImports:      serviceImportsList.Items,
-		ReferenceGrants:     grants.Items,
-		BackendTLSPolicyMap: btlspMap,
-		MergedListeners:     mergedListeners,
+		GatewayClass:              *gwc,
+		GatewayClassConfig:        r.getGatewayClassConfig(ctx, gwc),
+		Gateway:                   *gw,
+		HTTPRoutes:                httpRoutes,
+		TLSRoutes:                 tlsRoutes,
+		GRPCRoutes:                grpcRoutes,
+		TCPRoutes:                 tcpRoutes,
+		UDPRoutes:                 udpRoutes,
+		Namespaces:                namespaces,
+		Services:                  servicesList.Items,
+		ServiceImports:            serviceImportsList.Items,
+		ReferenceGrants:           grants.Items,
+		BackendTLSPolicyMap:       btlspMap,
+		MergedListeners:           mergedListeners,
+		EnableExtensionRefFilters: r.enableExtensionRefFilters,
+		CiliumEnvoyExtProcFilters: extProcFilters,
 	})
 
 	listenersStatus, err := r.setListenerStatus(
@@ -595,7 +606,8 @@ func (r *gatewayReconciler) reconcileEndpointSlices(ctx context.Context, gw *gat
 	}
 
 	existing := &discoveryv1.EndpointSliceList{}
-	if err := r.Client.List(ctx, existing,
+	if err := r.Client.List(
+		ctx, existing,
 		client.InNamespace(gw.Namespace),
 		client.MatchingLabels{
 			gatewayApiTranslation.EndpointSliceServiceNameLabel: svc.Name,
@@ -1473,7 +1485,8 @@ func listenerPairConflict(first, second *gatewayv1.Listener) (gatewayv1.Listener
 	// port, so they conflict whenever their hostnames can match the same value.
 	if isHTTPSAndTLSPassthroughPair(first, second) {
 		if helpers.SNIHostnamesIntersect(
-			helpers.ListenerHostname(first), helpers.ListenerHostname(second)) {
+			helpers.ListenerHostname(first), helpers.ListenerHostname(second),
+		) {
 			return gatewayv1.ListenerReasonProtocolConflict, true
 		}
 		return "", false
@@ -1513,15 +1526,18 @@ func listenerConflictMessage(
 	case reason == gatewayv1.ListenerReasonHostnameConflict:
 		return fmt.Sprintf(
 			"Listener conflicts with listener %q: same port %d has overlapping hostnames.",
-			other.Name, self.Port)
+			other.Name, self.Port,
+		)
 	case isHTTPSAndTLSPassthroughPair(self, other):
 		return fmt.Sprintf(
 			"Listener conflicts with listener %q: same port %d has overlapping HTTPS and TLS passthrough hostnames.",
-			other.Name, self.Port)
+			other.Name, self.Port,
+		)
 	default:
 		return fmt.Sprintf(
 			"Listener conflicts with listener %q: same port %d has incompatible protocols.",
-			other.Name, self.Port)
+			other.Name, self.Port,
+		)
 	}
 }
 
@@ -1750,7 +1766,8 @@ func (r *gatewayReconciler) setListenerSetStatuses(
 			conflict, isConflicted := conflictedListeners[lsSource][l.Name]
 
 			if isConflicted {
-				conds = merge(conds,
+				conds = merge(
+					conds,
 					listenerAcceptedCondition(ls.GetGeneration(), false, conflict.reason, "Listener has a conflict"),
 					listenerProgrammedCondition(ls.GetGeneration(), false, conflict.reason, "Listener has a conflict"),
 					listenerConflictedCondition(ls.GetGeneration(), conflict.reason, "Listener has a conflict"),
@@ -1779,7 +1796,8 @@ func (r *gatewayReconciler) setListenerSetStatuses(
 				conds = merge(conds, res.conds...)
 
 				if !isValid {
-					conds = merge(conds,
+					conds = merge(
+						conds,
 						listenerAcceptedCondition(ls.GetGeneration(), false, res.invalidReason, "Listener not valid. "+strings.Join(res.invalidMessages, " ")),
 						listenerProgrammedCondition(ls.GetGeneration(), false, res.invalidReason, "Listener not valid"),
 					)
@@ -1797,7 +1815,8 @@ func (r *gatewayReconciler) setListenerSetStatuses(
 							LastTransitionTime: metav1.Now(),
 						})
 					}
-					conds = merge(conds,
+					conds = merge(
+						conds,
 						listenerAcceptedCondition(ls.GetGeneration(), true, gatewayv1.ListenerReasonAccepted, "Listener Accepted"),
 						listenerProgrammedCondition(ls.GetGeneration(), true, gatewayv1.ListenerConditionReason(gatewayv1.ListenerConditionProgrammed), "Listener Programmed"),
 					)
@@ -1993,7 +2012,7 @@ func (r *gatewayReconciler) parentIsMatchingGateway(ctx context.Context, parent 
 	return hasMatchingControllerFn(gw)
 }
 
-func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1.ReferenceGrantList) error {
+func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) error {
 	scopedLog.DebugContext(ctx, "Updating HTTPRoute statuses for Gateway", numRoutes, len(httpRoutes.Items))
 	for httpRouteIndex, original := range httpRoutes.Items {
 
@@ -2076,7 +2095,7 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 	return nil
 }
 
-func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx context.Context, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1.ReferenceGrantList) error {
+func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx context.Context, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1.ReferenceGrantList, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) error {
 	scopedLog.Debug("Updating GRPCRoute statuses for Gateway", numRoutes, len(grpcRoutes.Items))
 	for grpcRouteIndex, original := range grpcRoutes.Items {
 

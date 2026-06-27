@@ -18,6 +18,7 @@ import (
 	httpRouterv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -104,6 +105,22 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 			}),
 		},
 	})
+
+	// ext_proc must run before any auth filter. An ext_proc filter that sets
+	// clear_route_cache invalidates the route selected by earlier filters;
+	// auth filters that run after ext_proc therefore see the final,
+	// potentially-mutated headers and route.
+	for _, f := range i.getUniqueExtProcFilters(m) {
+		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+			Name: f.Name,
+			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+				TypedConfig: &anypb.Any{
+					TypeUrl: f.TypeURL,
+					Value:   f.Config,
+				},
+			},
+		})
+	}
 
 	for _, af := range i.getUniqueAuthFilters(m) {
 		hf = append(hf, buildExtAuthzHTTPFilter(af))
