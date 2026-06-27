@@ -52,6 +52,7 @@ var Cell = cell.Module(
 		EnableGatewayAPIProxyProtocol:          false,
 		EnableGatewayAPIAppProtocol:            false,
 		EnableGatewayAPIAlpn:                   false,
+		EnableGatewayAPIExtensionRefFilters:    false,
 		GatewayAPIServiceExternalTrafficPolicy: "Cluster",
 		GatewayAPISecretsNamespace:             "cilium-secrets",
 		GatewayAPIXffNumTrustedHops:            0,
@@ -191,6 +192,7 @@ type gatewayApiConfig struct {
 	EnableGatewayAPIProxyProtocol          bool
 	EnableGatewayAPIAppProtocol            bool
 	EnableGatewayAPIAlpn                   bool
+	EnableGatewayAPIExtensionRefFilters    bool
 	GatewayAPIServiceExternalTrafficPolicy string
 	GatewayAPISecretsNamespace             string
 	GatewayAPIXffNumTrustedHops            uint32
@@ -205,6 +207,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
 	flags.Bool("enable-gateway-api-app-protocol", r.EnableGatewayAPIAppProtocol, "Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol")
 	flags.Bool("enable-gateway-api-alpn", r.EnableGatewayAPIAlpn, "Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API")
+	flags.Bool("enable-gateway-api-extension-ref-filters", r.EnableGatewayAPIExtensionRefFilters, "Enable ExtensionRef support for ext_proc filters in Gateway API HTTPRoute and GRPCRoute resources")
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	flags.String("gateway-api-service-externaltrafficpolicy", r.GatewayAPIServiceExternalTrafficPolicy, "Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")

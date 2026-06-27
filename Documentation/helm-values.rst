@@ -1992,6 +1992,10 @@
      - Enable Backend Protocol selection support (GEP-1911) for Gateway API via appProtocol.
      - bool
      - ``false``
+   * - :spelling:ignore:`gatewayAPI.enableExtensionRefFilters`
+     - Enable ExtensionRef filter support for Gateway API HTTPRoute and GRPCRoute. This is an advanced feature that enables CiliumEnvoyExtProcFilter resources to be referenced from route ExtensionRef filters. Do not enable unless you need Envoy ext_proc integration with Gateway API routes.
+     - bool
+     - ``false``
    * - :spelling:ignore:`gatewayAPI.enableProxyProtocol`
      - Enable proxy protocol for all GatewayAPI listeners. Note that *only* Proxy protocol traffic will be accepted once this is enabled.
      - bool

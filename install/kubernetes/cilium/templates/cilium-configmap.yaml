@@ -305,6 +305,7 @@ data:
   enable-gateway-api-proxy-protocol: {{ .Values.gatewayAPI.enableProxyProtocol | quote }}
   enable-gateway-api-app-protocol: {{ or .Values.gatewayAPI.enableAppProtocol .Values.gatewayAPI.enableAlpn | quote }}
   enable-gateway-api-alpn: {{ .Values.gatewayAPI.enableAlpn | quote }}
+  enable-gateway-api-extension-ref-filters: {{ .Values.gatewayAPI.enableExtensionRefFilters | quote }}
   gateway-api-xff-num-trusted-hops: {{ .Values.gatewayAPI.xffNumTrustedHops | quote }}
   gateway-api-use-remote-address: {{ .Values.gatewayAPI.useRemoteAddress | quote }}
   gateway-api-service-externaltrafficpolicy: {{ .Values.gatewayAPI.externalTrafficPolicy | quote }}

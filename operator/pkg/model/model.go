@@ -429,6 +429,16 @@ type HTTPCORSFilter struct {
 	MaxAge int32 `json:"maxAge,omitempty"`
 }
 
+// ExtensionRefFilter holds a resolved Gateway API ExtensionRef filter.
+type ExtensionRefFilter struct {
+	// Name is the Envoy filter instance name.
+	Name string `json:"name"`
+	// TypeURL is the protobuf type URL for the filter config.
+	TypeURL string `json:"type_url"`
+	// Config is the serialized protobuf config for the filter.
+	Config []byte `json:"config,omitempty"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -469,6 +479,9 @@ type HTTPRoute struct {
 
 	// ExternalAuth configures external authorization for this route.
 	ExternalAuth *HTTPExternalAuthFilter `json:"external_auth,omitempty"`
+
+	// ExtensionRefFilters are filters resolved from Gateway API ExtensionRef filters.
+	ExtensionRefFilters []ExtensionRefFilter `json:"extension_ref_filters,omitempty"`
 
 	// IsGRPC is an indicator if this route is related to GRPC
 	IsGRPC bool `json:"is_grpc,omitempty"`

@@ -93,6 +93,11 @@ const (
 	CDPPPluralName     = "ciliumdatapathplugins"
 	CDPPKindDefinition = "CiliumDatapathPlugin"
 	CDPPName           = CDPPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumEnvoyExtProcFilter (CEEPF)
+	CEEPFPluralName     = "ciliumenvoyextprocfilters"
+	CEEPFKindDefinition = "CiliumEnvoyExtProcFilter"
+	CEEPFName           = CEEPFPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -161,6 +166,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumGatewayClassConfigList{},
 
 		&CiliumDatapathPlugin{},
+
+		&CiliumEnvoyExtProcFilter{},
+		&CiliumEnvoyExtProcFilterList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

@@ -89,6 +89,9 @@ const (
 
 	// CDPPCRDName is the full name of the CDPP CRD.
 	CDPPCRDName = k8sconstv2alpha1.CDPPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CEEPFCRDName is the full name of the CiliumEnvoyExtProcFilter CRD.
+	CEEPFCRDName = k8sconstv2alpha1.CEEPFKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 type CRDList struct {
@@ -187,6 +190,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     CDPPCRDName,
 			FullName: k8sconstv2alpha1.CDPPName,
 		},
+		synced.CRDResourceName(k8sconstv2alpha1.CEEPFName): {
+			Name:     CEEPFCRDName,
+			FullName: k8sconstv2alpha1.CEEPFName,
+		},
 	}
 }
 
@@ -274,6 +281,9 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumdatapathplugins.yaml
 	crdsv2Alpha1CiliumDatapathPlugins []byte
+
+	//go:embed crds/v2alpha1/ciliumenvoyextprocfilters.yaml
+	crdsv2Alpha1CiliumEnvoyExtProcFilters []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -331,6 +341,8 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv2Alpha1CiliumGatewayClassConfigs
 	case CDPPCRDName:
 		crdBytes = crdsv2Alpha1CiliumDatapathPlugins
+	case CEEPFCRDName:
+		crdBytes = crdsv2Alpha1CiliumEnvoyExtProcFilters
 	default:
 		logging.Fatal(logger, "Pregenerated CRD does not exist", logfields.CRDName, crdName)
 	}

@@ -2949,6 +2949,9 @@
         "enableAppProtocol": {
           "type": "boolean"
         },
+        "enableExtensionRefFilters": {
+          "type": "boolean"
+        },
         "enableProxyProtocol": {
           "type": "boolean"
         },
