@@ -10,6 +10,7 @@ debug: export NOOPT=1 ## Builds Cilium by disabling inlining, compiler optimizat
 debug: export NOSTRIP=1
 debug: all
 
+
 # using $(MAKE) in mac-os for commands wrapped in a
 # linux container propagate a non existing path.
 # if mac-os, fall back to simply using `make`
