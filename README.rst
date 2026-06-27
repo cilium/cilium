@@ -16,13 +16,13 @@ model that is decoupled from network addressing.
 Cilium implements distributed load balancing for traffic between pods and to
 external services, and is able to fully replace kube-proxy, using efficient
 hash tables in eBPF, allowing for almost unlimited scale. It also supports
-advanced functionality like integrated ingress and egress gateway, bandwidth
-management and service mesh, and provides deep network and security visibility and monitoring.
+advanced functionality like integrated ingress and egress gateways, bandwidth
+management, and service mesh, and provides deep network and security visibility and monitoring.
 
 A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
 supports dynamic insertion of eBPF bytecode into the Linux kernel at various
 integration points such as: network IO, application sockets, and tracepoints to
-implement security, networking and visibility logic. eBPF is highly efficient
+implement security, networking, and visibility logic. eBPF is highly efficient
 and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
 .. image:: Documentation/images/cilium-overview.png
@@ -110,13 +110,13 @@ CNI (Container Network Interface)
 fast, scalable, and secure networking layer for Kubernetes clusters. Built
 on eBPF, it offers several deployment options:
 
-* **Overlay networking:** encapsulation-based virtual network spanning all
+* **Overlay networking:** an encapsulation-based virtual network spanning all
   hosts with support for VXLAN and Geneve. It works on almost any network
   infrastructure as the only requirement is IP connectivity between hosts
   which is typically already given.
 
 * **Native routing mode:** Use of the regular routing table of the Linux
-  host. The network is required to be capable of routing the IP addresses
+  host. The network must be capable of routing the IP addresses
   of the application containers. It integrates with cloud routers, routing
   daemons, and IPv6-native infrastructure.
 
@@ -133,7 +133,7 @@ Load Balancing
 
 Cilium implements distributed load balancing for traffic between application
 containers and to/from external services. The load balancing is implemented
-in eBPF using efficient hashtables enabling high service density and low
+in eBPF using efficient hash tables, enabling high service density and low
 latency at scale.
 
 * **East-west load balancing** rewrites service connections at the socket
@@ -208,7 +208,7 @@ designs. Key features include:
 
 * **L7-aware policy enforcement** for security and compliance.
 
-* **Deep integration with the Kubernetes Gateway API :** Acts as a
+* **Deep integration with the Kubernetes Gateway API:** Acts as a
   `Gateway API <https://cilium.io/use-cases/gateway-api/>`_ compliant data
   plane, allowing you to declaratively manage ingress, traffic splitting, and
   routing behavior using Kubernetes-native CRDs.
@@ -256,12 +256,12 @@ Cilium, ask questions, and share your experiences.
 Special Interest Groups (SIG)
 -----------------------------
 
-See `Special Interest groups
+See `Special Interest Groups
 <https://github.com/cilium/community/blob/main/sigs.yaml>`_ for a list of all SIGs and their meeting times.
 
 Developer meetings
 ------------------
-The Cilium developer community hangs out on Zoom to chat. Everybody is welcome.
+The Cilium developer community hangs out on Zoom to chat. Everyone is welcome.
 
 * Weekly, Wednesday,
   5:00 pm `Europe/Zurich time <https://time.is/Canton_of_Zurich>`__ (CET/CEST),
@@ -334,7 +334,7 @@ and the `2-Clause BSD License <bsd-license_>`__
     :target: gpl-license_
 
 .. |slack| image:: https://img.shields.io/badge/slack-cilium-brightgreen.svg?logo=slack
-    :alt: Join the Cilium slack channel
+    :alt: Join the Cilium Slack channel
     :target: https://slack.cilium.io
 
 .. |cii| image:: https://bestpractices.coreinfrastructure.org/projects/1269/badge
