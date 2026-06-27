@@ -206,6 +206,8 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 				require.NotNil(t, extProc.GrpcService)
 				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
 				assert.Equal(t, "default:my-grpc-service:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "my-grpc-service:50051", extProc.GrpcService.GetEnvoyGrpc().Authority)
+				assert.Equal(t, "ceepf.default.basic_filter.", extProc.StatPrefix)
 			},
 		},
 		"with processing mode": {
@@ -307,6 +309,8 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 				require.NotNil(t, extProc.GrpcService)
 				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
 				assert.Equal(t, "other-namespace:ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().Authority)
+				assert.Equal(t, "ceepf.default.cross_ns_filter.", extProc.StatPrefix)
 			},
 		},
 		"stat prefix sanitizes resource identity": {

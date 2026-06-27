@@ -87,6 +87,12 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "server_header_append_if_absent"},
 		{name: "server_header_pass_through"},
 		{name: "server_header_overwrite"},
+
+		// ExtensionRef ext_proc filter tests
+		{name: "httproute_ext_proc_filter"},
+		{name: "grpcroute_ext_proc_filter"},
+		{name: "httproute_ext_proc_with_ext_authz"},
+		{name: "httproute_multi_ext_proc"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
