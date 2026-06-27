@@ -1108,6 +1108,11 @@ gatewayAPI:
   # -- Enable ALPN for all listeners configured with Gateway API. ALPN will attempt HTTP/2, then HTTP 1.1.
   # Note that this will also enable `appProtocol` support, and services that wish to use HTTP/2 will need to indicate that via their `appProtocol`.
   enableAlpn: false
+  # -- Enable ExtensionRef filter support for Gateway API HTTPRoute and GRPCRoute.
+  # This is an advanced feature that enables CiliumEnvoyExtProcFilter resources to
+  # be referenced from route ExtensionRef filters. Do not enable unless you need
+  # Envoy ext_proc integration with Gateway API routes.
+  enableExtensionRefFilters: false
   # -- The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
   xffNumTrustedHops: 0
   # -- Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "Cluster" and "Local".
