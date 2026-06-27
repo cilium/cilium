@@ -281,6 +281,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.ErrorContext(ctx, "Unable to list ReferenceGrants", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
+
+	var extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter
+	if r.enableExtensionRefFilters {
+		extProcFilterList := &v2alpha1.CiliumEnvoyExtProcFilterList{}
+		if err := r.Client.List(ctx, extProcFilterList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list CiliumEnvoyExtProcFilters", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
+		extProcFilters = extProcFilterList.Items
+	}
+
 	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.Annotations[annotation.LBIPAMIPKeyAlias] != "" {
 		scopedLog.WarnContext(ctx, fmt.Sprintf("DEPRECATED: The Gateway <%s/%s> is setting an IP address using the infrastructure annotations <%s>."+
 			" These should be set using the spec.addresses field in Gateway objects instead."+
@@ -335,20 +346,22 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	m := ingestion.GatewayAPI(scopedLog, ingestion.Input{
-		GatewayClass:        *gwc,
-		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
-		Gateway:             *gw,
-		HTTPRoutes:          httpRoutes,
-		TLSRoutes:           tlsRoutes,
-		GRPCRoutes:          grpcRoutes,
-		TCPRoutes:           tcpRoutes,
-		UDPRoutes:           udpRoutes,
-		Namespaces:          namespaces,
-		Services:            servicesList.Items,
-		ServiceImports:      serviceImportsList.Items,
-		ReferenceGrants:     grants.Items,
-		BackendTLSPolicyMap: btlspMap,
-		MergedListeners:     mergedListeners,
+		GatewayClass:              *gwc,
+		GatewayClassConfig:        r.getGatewayClassConfig(ctx, gwc),
+		Gateway:                   *gw,
+		HTTPRoutes:                httpRoutes,
+		TLSRoutes:                 tlsRoutes,
+		GRPCRoutes:                grpcRoutes,
+		TCPRoutes:                 tcpRoutes,
+		UDPRoutes:                 udpRoutes,
+		Namespaces:                namespaces,
+		Services:                  servicesList.Items,
+		ServiceImports:            serviceImportsList.Items,
+		ReferenceGrants:           grants.Items,
+		BackendTLSPolicyMap:       btlspMap,
+		MergedListeners:           mergedListeners,
+		EnableExtensionRefFilters: r.enableExtensionRefFilters,
+		CiliumEnvoyExtProcFilters: extProcFilters,
 	})
 
 	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, tcpRouteList, udpRouteList, namespaceLabels)

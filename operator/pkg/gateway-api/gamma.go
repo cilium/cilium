@@ -11,12 +11,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -26,11 +29,12 @@ type gammaReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger         *slog.Logger
-	controllerName string
+	logger                    *slog.Logger
+	controllerName            string
+	enableExtensionRefFilters bool
 }
 
-func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string) *gammaReconciler {
+func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, enableExtensionRefFilters bool) *gammaReconciler {
 	return &gammaReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
@@ -38,7 +42,8 @@ func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, log
 		logger: logger.With(
 			logfields.Controller, gamma,
 		),
-		controllerName: controllerName,
+		controllerName:            controllerName,
+		enableExtensionRefFilters: enableExtensionRefFilters,
 	}
 }
 
@@ -70,5 +75,28 @@ func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{})
 
+	if r.enableExtensionRefFilters {
+		gammaBuilder = gammaBuilder.Watches(
+			&v2alpha1.CiliumEnvoyExtProcFilter{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueAllGammaServices()),
+		)
+	}
+
 	return gammaBuilder.Complete(r)
+}
+
+func (r *gammaReconciler) enqueueAllGammaServices() handler.MapFunc {
+	return func(ctx context.Context, obj client.Object) []reconcile.Request {
+		svcList := &corev1.ServiceList{}
+		if err := r.Client.List(ctx, svcList); err != nil {
+			return nil
+		}
+		var requests []reconcile.Request
+		for _, svc := range svcList.Items {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: client.ObjectKeyFromObject(&svc),
+			})
+		}
+		return requests
+	}
 }

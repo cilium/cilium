@@ -294,6 +294,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		params.Logger,
 		defaultControllerName,
 		installedOptionalKinds,
+		params.GatewayApiConfig.EnableGatewayAPIExtensionRefFilters,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -433,13 +434,13 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 
 // registerReconcilers registers Gateway API reconcilers to the controller-runtime library manager.
 // optionalKinds are previously autodetected based on what CRDs are present in the cluster.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, installedOptionalCRDs []schema.GroupVersionKind) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, installedOptionalCRDs []schema.GroupVersionKind, enableExtensionRefFilters bool) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger, controllerName),
-		newGatewayReconciler(mgr, translator, logger, controllerName),
-		newGammaReconciler(mgr, translator, logger, controllerName),
+		newGatewayReconciler(mgr, translator, logger, controllerName, enableExtensionRefFilters),
+		newGammaReconciler(mgr, translator, logger, controllerName, enableExtensionRefFilters),
 		newGatewayClassConfigReconciler(mgr, logger),
 		newEndpointSliceReconciler(mgr, logger),
 	}

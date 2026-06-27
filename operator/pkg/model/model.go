@@ -437,6 +437,8 @@ type ExtensionRefFilter struct {
 	TypeURL string `json:"type_url"`
 	// Config is the serialized protobuf config for the filter.
 	Config []byte `json:"config,omitempty"`
+	// Backend is the filter's backend service (e.g. the ext_proc gRPC service).
+	Backend *Backend `json:"backend,omitempty"`
 }
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
@@ -566,6 +568,20 @@ func (r *HTTPRoute) GetMatchKey() string {
 		if r.ExternalAuth.Backend.Port != nil {
 			sb.WriteString(":")
 			sb.WriteString(r.ExternalAuth.Backend.Port.GetPort())
+		}
+		sb.WriteString("|")
+	}
+
+	if len(r.ExtensionRefFilters) > 0 {
+		names := make([]string, len(r.ExtensionRefFilters))
+		for i, f := range r.ExtensionRefFilters {
+			names[i] = f.Name
+		}
+		sort.Strings(names)
+		sb.WriteString("extproc:")
+		for _, n := range names {
+			sb.WriteString(n)
+			sb.WriteString(",")
 		}
 		sb.WriteString("|")
 	}

@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -111,6 +112,16 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Fail(err)
 	}
 
+	var extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter
+	if r.enableExtensionRefFilters {
+		extProcFilterList := &v2alpha1.CiliumEnvoyExtProcFilterList{}
+		if err := r.Client.List(ctx, extProcFilterList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list CiliumEnvoyExtProcFilters", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
+		extProcFilters = extProcFilterList.Items
+	}
+
 	// Run the HTTPRoute route checks here and update the status accordingly.
 	if err := r.setHTTPRouteStatuses(scopedLog, ctx, originalSvc, httpRouteList, grants); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
@@ -133,6 +144,9 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		Services:   servicesList.Items,
 
 		ReferenceGrants: grants.Items,
+
+		EnableExtensionRefFilters: r.enableExtensionRefFilters,
+		CiliumEnvoyExtProcFilters: extProcFilters,
 	})
 
 	setGammaServiceAccepted(svc, true, "Gamma Service has routes attached", CiliumGammaReasonAccepted)
