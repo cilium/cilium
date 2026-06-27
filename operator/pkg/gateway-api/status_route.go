@@ -37,13 +37,14 @@ func pruneRouteParentStatuses(parents []gatewayv1.RouteParentStatus, currentPare
 }
 
 type RouteStatusManager struct {
-	client                  client.Client
-	logger                  *slog.Logger
-	controllerName          string
-	includeTCPRoutes        bool
-	includeUDPRoutes        bool
-	tcpUDPRouteSupport      bool
-	tcpUDPUnsupportedReason string
+	client                     client.Client
+	logger                     *slog.Logger
+	controllerName             string
+	includeTCPRoutes           bool
+	includeUDPRoutes           bool
+	tcpUDPRouteSupport         bool
+	tcpUDPUnsupportedReason    string
+	extensionRefFiltersEnabled bool
 }
 
 type RouteStatusInputs struct {
@@ -56,21 +57,23 @@ type RouteStatusInputs struct {
 }
 
 type RouteStatusManagerConfig struct {
-	IncludeTCPRoutes        bool
-	IncludeUDPRoutes        bool
-	TCPUDPRouteSupport      bool
-	TCPUDPUnsupportedReason string
+	IncludeTCPRoutes           bool
+	IncludeUDPRoutes           bool
+	TCPUDPRouteSupport         bool
+	TCPUDPUnsupportedReason    string
+	ExtensionRefFiltersEnabled bool
 }
 
 func NewRouteStatusManager(client client.Client, logger *slog.Logger, controllerName string, cfg RouteStatusManagerConfig) *RouteStatusManager {
 	return &RouteStatusManager{
-		client:                  client,
-		logger:                  logger,
-		controllerName:          controllerName,
-		includeTCPRoutes:        cfg.IncludeTCPRoutes,
-		includeUDPRoutes:        cfg.IncludeUDPRoutes,
-		tcpUDPRouteSupport:      cfg.TCPUDPRouteSupport,
-		tcpUDPUnsupportedReason: cfg.TCPUDPUnsupportedReason,
+		client:                     client,
+		logger:                     logger,
+		controllerName:             controllerName,
+		includeTCPRoutes:           cfg.IncludeTCPRoutes,
+		includeUDPRoutes:           cfg.IncludeUDPRoutes,
+		tcpUDPRouteSupport:         cfg.TCPUDPRouteSupport,
+		tcpUDPUnsupportedReason:    cfg.TCPUDPUnsupportedReason,
+		extensionRefFiltersEnabled: cfg.ExtensionRefFiltersEnabled,
 	}
 }
 

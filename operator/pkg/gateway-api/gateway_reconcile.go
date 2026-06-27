@@ -28,6 +28,7 @@ import (
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/shortener"
 )
@@ -121,6 +122,16 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	var extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter
+	if r.enableExtensionRefFilters {
+		extProcFilterList := &v2alpha1.CiliumEnvoyExtProcFilterList{}
+		if err := r.Client.List(ctx, extProcFilterList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list CiliumEnvoyExtProcFilters", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
+		extProcFilters = extProcFilterList.Items
+	}
+
 	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.Annotations[annotation.LBIPAMIPKeyAlias] != "" {
 		scopedLog.WarnContext(ctx, fmt.Sprintf("DEPRECATED: The Gateway <%s/%s> is setting an IP address using the infrastructure annotations <%s>."+
 			" These should be set using the spec.addresses field in Gateway objects instead."+
@@ -189,19 +200,21 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Step 3: Ingest loaded and validated resources into internal model
 	m := ingestion.GatewayAPI(scopedLog, ingestion.Input{
-		GatewayClass:        *gwc,
-		GatewayClassConfig:  inputs.GatewayClassConfig,
-		Gateway:             *gw,
-		HTTPRoutes:          inputs.AttachedHTTPRoutes(gw),
-		TLSRoutes:           inputs.AttachedTLSRoutes(gw),
-		GRPCRoutes:          inputs.AttachedGRPCRoutes(gw),
-		TCPRoutes:           inputs.AttachedTCPRoutes(gw),
-		UDPRoutes:           inputs.AttachedUDPRoutes(gw),
-		Services:            inputs.Services,
-		ServiceImports:      inputs.ServiceImports,
-		ReferenceGrants:     inputs.ReferenceGrants,
-		BackendTLSPolicyMap: btlspStatusMap,
-		MergedListeners:     listenerStatusResult.MergedAndValidListeners,
+		GatewayClass:              *gwc,
+		GatewayClassConfig:        inputs.GatewayClassConfig,
+		Gateway:                   *gw,
+		HTTPRoutes:                inputs.AttachedHTTPRoutes(gw),
+		TLSRoutes:                 inputs.AttachedTLSRoutes(gw),
+		GRPCRoutes:                inputs.AttachedGRPCRoutes(gw),
+		TCPRoutes:                 inputs.AttachedTCPRoutes(gw),
+		UDPRoutes:                 inputs.AttachedUDPRoutes(gw),
+		Services:                  inputs.Services,
+		ServiceImports:            inputs.ServiceImports,
+		ReferenceGrants:           inputs.ReferenceGrants,
+		BackendTLSPolicyMap:       btlspStatusMap,
+		MergedListeners:           listenerStatusResult.MergedAndValidListeners,
+		EnableExtensionRefFilters: r.enableExtensionRefFilters,
+		CiliumEnvoyExtProcFilters: extProcFilters,
 	})
 
 	// Step 4: Translate the listeners into Cilium model
