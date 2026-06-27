@@ -598,6 +598,165 @@ func TestSharedClientPortReleasedGracePeriod(t *testing.T) {
 	}
 }
 
+// TestSharedClientConcurrentSameLocalAddr reproduces the EADDRINUSE race that
+// occurs under Cilium's transparent DNS proxy mode. In transparent mode the
+// dialer binds the upstream socket to the originating pod's srcIP:srcPort. If
+// two goroutines both try to dial the same srcIP:srcPort simultaneously — which
+// happens when the previous SharedClient for that key just closed and two new
+// requests arrive concurrently — the second bind always fails with EADDRINUSE.
+//
+// The race: goroutine A holds the shared client and calls closer() while
+// goroutine B simultaneously calls GetSharedClient for the same key. Without
+// the portReleased fix, B may find the map empty (A already deleted the entry)
+// and attempt to dial the same srcIP:srcPort before A's conn.Close() has
+// released the port at the OS level — or before A's close and B's dial
+// serialise properly. With the fix, B waits on portReleased before proceeding.
+func TestSharedClientConcurrentSameLocalAddr(t *testing.T) {
+	dns.HandleFunc("miek.nl.", HelloServer)
+	defer dns.HandleRemove("miek.nl.")
+
+	s, addrstr, err := runUDPServer(":0")
+	if err != nil {
+		t.Fatalf("unable to run test server: %v", err)
+	}
+	defer s.Shutdown()
+
+	// Pick a free local port to use as the fixed source address, simulating
+	// Cilium transparent mode where srcIP:srcPort is pinned to the pod's addr.
+	tmp, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("failed to get local addr: %v", err)
+	}
+	localAddr := tmp.LocalAddr().(*net.UDPAddr)
+	tmp.Close()
+
+	conf := &dns.Client{
+		Timeout: 2 * time.Second,
+		Dialer:  &net.Dialer{LocalAddr: localAddr},
+	}
+
+	sc := NewSharedClients()
+	const key = "transparent-mode-key"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	eg, _ := errgroup.WithContext(ctx)
+
+	// Two goroutines hammering the same key concurrently: one always holds a
+	// client and releases it, the other immediately tries to acquire a new one.
+	// This maximises the chance of closer() and GetSharedClient racing on the
+	// same srcIP:srcPort.
+	const iters = 500
+	eg.Go(func() error {
+		for i := range iters {
+			c, closer := sc.GetSharedClient(key, conf, addrstr)
+			m := new(dns.Msg)
+			m.SetQuestion("miek.nl.", dns.TypeSOA)
+			m.Id = uint16(i + 1)
+			if _, _, err := c.ExchangeSharedContext(ctx, m); err != nil {
+				closer()
+				return fmt.Errorf("goroutine 1 iter %d: %w", i, err)
+			}
+			closer()
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		for i := range iters {
+			c, closer := sc.GetSharedClient(key, conf, addrstr)
+			m := new(dns.Msg)
+			m.SetQuestion("miek.nl.", dns.TypeSOA)
+			m.Id = uint16(i + 1001)
+			if _, _, err := c.ExchangeSharedContext(ctx, m); err != nil {
+				closer()
+				return fmt.Errorf("goroutine 2 iter %d: %w", i, err)
+			}
+			closer()
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		t.Fatalf("concurrent exchange failed: %v", err)
+	}
+}
+
+// TestSharedClientBrokenClientEviction verifies that ExchangeContext evicts a
+// broken SharedClient (conn==nil after DialContext failure) from the map
+// eagerly — before all holders have released their references.
+//
+// Without the fix, the map entry lingers until the last closer runs (refcount→0).
+// Any new caller that arrives between the first and last closer finds the broken
+// client, increments its refcount, and also fails — cascading indefinitely.
+//
+// With the fix, ExchangeContext deletes the map entry immediately on dial
+// failure, regardless of refcount. New callers always get a fresh client.
+//
+// The test pre-acquires two references (refcount=2) so that the first
+// ExchangeContext call decrements to refcount=1 when it calls closer, not
+// to zero. Without the fix the map still has the broken client at that point.
+// With the fix the map is empty.
+func TestSharedClientBrokenClientEviction(t *testing.T) {
+	dns.HandleFunc("miek.nl.", HelloServer)
+	defer dns.HandleRemove("miek.nl.")
+
+	s, addrstr, err := runUDPServer(":0")
+	if err != nil {
+		t.Fatalf("unable to run test server: %v", err)
+	}
+	defer s.Shutdown()
+
+	// Bind a local port so DialContext with LocalAddr=localAddr fails with EADDRINUSE.
+	blocker, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("failed to grab local port: %v", err)
+	}
+	localAddr := blocker.LocalAddr().(*net.UDPAddr)
+	defer blocker.Close()
+
+	conf := &dns.Client{
+		Timeout: 2 * time.Second,
+		Dialer:  &net.Dialer{LocalAddr: localAddr},
+	}
+
+	sc := NewSharedClients()
+	const key = "broken-client-key"
+
+	m := new(dns.Msg)
+	m.SetQuestion("miek.nl.", dns.TypeSOA)
+
+	// Pre-acquire a second reference (refcount=2) so that after ExchangeContext
+	// calls its internal closer the refcount drops to 1, not 0. Without the fix,
+	// refcount=1 means normal teardown hasn't run yet and the map still has the
+	// broken client. With the fix, ExchangeContext evicts it regardless.
+	_, danglingCloser := sc.GetSharedClient(key, conf, addrstr)
+	defer danglingCloser() // release the extra ref after the test
+
+	_, _, closer, exchErr := sc.Exchange(key, conf, m, addrstr)
+	closer()
+	if exchErr == nil {
+		t.Fatal("expected dial to fail while port is held, got nil error")
+	}
+
+	// With the fix: ExchangeContext evicted the broken client — map must be empty.
+	// Without the fix: broken client still in map (refcount==1, teardown not run yet).
+	sc.lock.Lock()
+	entry := sc.clients[key]
+	sc.lock.Unlock()
+	if entry != nil {
+		t.Fatal("broken client (conn=nil) still in map after Exchange — not evicted eagerly")
+	}
+
+	// Release the blocker and confirm a subsequent Exchange succeeds.
+	blocker.Close()
+	_, _, closer2, exchErr2 := sc.Exchange(key, conf, m, addrstr)
+	closer2()
+	if exchErr2 != nil {
+		t.Fatalf("post-eviction Exchange failed: %v", exchErr2)
+	}
+}
+
 func HelloServer(w dns.ResponseWriter, q *dns.Msg) {
 	r := &dns.Msg{}
 	r.SetReply(q)
