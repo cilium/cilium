@@ -18,7 +18,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -217,7 +217,7 @@ func TestNewConfig(t *testing.T) {
 		// except the explicit kpr-disabled tests below. Use a pointer so
 		// the zero value (struct{KubeProxyReplacement:false}) is
 		// distinguishable from "not set".
-		kprConfig   *kpr.KPRConfig
+		kprConfig   *loadbalancer.Config
 		shouldError bool
 		shouldSkip  bool
 	}{
@@ -294,7 +294,7 @@ func TestNewConfig(t *testing.T) {
 			wgAgent:        fakewireguard.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigNetkit,
-			kprConfig:      &kpr.KPRConfig{KubeProxyReplacement: false},
+			kprConfig:      &loadbalancer.Config{UserConfig: loadbalancer.UserConfig{KubeProxyReplacement: false}},
 			shouldError:    true,
 			shouldSkip:     false,
 		},
@@ -349,7 +349,7 @@ func TestNewConfig(t *testing.T) {
 			wgAgent:        fakewireguard.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigNetkitL2,
-			kprConfig:      &kpr.KPRConfig{KubeProxyReplacement: false},
+			kprConfig:      &loadbalancer.Config{UserConfig: loadbalancer.UserConfig{KubeProxyReplacement: false}},
 			shouldError:    true,
 			shouldSkip:     false,
 		},
@@ -408,7 +408,7 @@ func TestNewConfig(t *testing.T) {
 			wgAgent:        fakewireguard.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigAuto_Veth,
-			kprConfig:      &kpr.KPRConfig{KubeProxyReplacement: false},
+			kprConfig:      &loadbalancer.Config{UserConfig: loadbalancer.UserConfig{KubeProxyReplacement: false}},
 			shouldError:    false,
 			shouldSkip:     hostSupportsNetkit(),
 		},
@@ -461,7 +461,7 @@ func TestNewConfig(t *testing.T) {
 			wgAgent:        fakewireguard.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigAuto_Veth,
-			kprConfig:      &kpr.KPRConfig{KubeProxyReplacement: false},
+			kprConfig:      &loadbalancer.Config{UserConfig: loadbalancer.UserConfig{KubeProxyReplacement: false}},
 			shouldError:    false,
 			shouldSkip:     !hostSupportsNetkit(),
 		},
@@ -491,7 +491,7 @@ func TestNewConfig(t *testing.T) {
 				t.Skip()
 			}
 
-			kprCfg := kpr.KPRConfig{KubeProxyReplacement: true}
+			kprCfg := loadbalancer.Config{UserConfig: loadbalancer.UserConfig{KubeProxyReplacement: true}}
 			if tt.kprConfig != nil {
 				kprCfg = *tt.kprConfig
 			}
@@ -501,7 +501,7 @@ func TestNewConfig(t *testing.T) {
 				DaemonConfig: tt.daemonConfig,
 				WgAgent:      tt.wgAgent,
 				TunnelConfig: tt.tunnelConfig,
-				KPRConfig:    kprCfg,
+				LBConfig:     kprCfg,
 			}
 			connector, err := newConfig(p)
 
@@ -559,7 +559,7 @@ func TestUseTunedBufferMargins(t *testing.T) {
 				Log:          logger,
 				Lifecycle:    &cell.DefaultLifecycle{},
 				DaemonConfig: tt.daemonConfig,
-				KPRConfig:    kpr.KPRConfig{KubeProxyReplacement: true},
+				LBConfig:     loadbalancer.Config{UserConfig: loadbalancer.UserConfig{KubeProxyReplacement: true}},
 			}
 			connector, err := newConfig(p)
 
@@ -823,7 +823,7 @@ func TestPrivilegedCalculateTunedBufferMargins(t *testing.T) {
 				DaemonConfig: tt.daemonConfig,
 				WgAgent:      tt.wgAgent,
 				TunnelConfig: tt.tunnelConfig,
-				KPRConfig:    kpr.KPRConfig{KubeProxyReplacement: true},
+				LBConfig:     loadbalancer.Config{UserConfig: loadbalancer.UserConfig{KubeProxyReplacement: true}},
 			}
 
 			connector, err := newConfig(p)

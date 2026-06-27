@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
@@ -134,6 +133,12 @@ const (
 // UserConfig is the configuration provided by the user that has not been processed.
 // +deepequal-gen=true
 type UserConfig struct {
+	// KubeProxyReplacement enables the kube-proxy replacement.
+	KubeProxyReplacement bool `mapstructure:"kube-proxy-replacement"`
+
+	// EnableSocketLB enables socket-based load-balancing for E/W traffic.
+	EnableSocketLB bool `mapstructure:"bpf-lb-sock"`
+
 	RetryBackoffMin time.Duration `mapstructure:"lb-retry-backoff-min"`
 	RetryBackoffMax time.Duration `mapstructure:"lb-retry-backoff-max"`
 
@@ -250,9 +255,9 @@ var ConfigCell = cell.Group(
 		NewConfig,
 
 		// Enable tunnel configuration when DSR Geneve is enabled.
-		func(kpr kpr.KPRConfig, lbcfg Config) tunnel.EnablerOut {
+		func(lbcfg Config) tunnel.EnablerOut {
 			return tunnel.NewEnabler(
-				kpr.KubeProxyReplacement &&
+				lbcfg.KubeProxyReplacement &&
 					lbcfg.LoadBalancerUsesDSR() &&
 					lbcfg.DSRDispatch == DSRDispatchGeneve,
 				// The datapath logic takes care of the MTU overhead. So no need to
@@ -283,6 +288,9 @@ func (c *Config) LoadBalancerUsesDSR() bool {
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("kube-proxy-replacement", def.KubeProxyReplacement, "Enable kube-proxy replacement")
+	flags.Bool("bpf-lb-sock", def.EnableSocketLB, "Enable socket-based LB for E/W traffic")
+
 	flags.Duration("lb-retry-backoff-min", def.RetryBackoffMin, "Minimum amount of time to wait before retrying LB operation")
 	flags.MarkHidden("lb-retry-backoff-min")
 
@@ -352,6 +360,11 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 // configuration for load-balancing.
 func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfig) (cfg Config, err error) {
 	cfg.UserConfig = userConfig
+
+	// Enabling the kube-proxy replacement implies socket-based load-balancing.
+	if cfg.KubeProxyReplacement {
+		cfg.EnableSocketLB = true
+	}
 
 	if cfg.LBMapEntries <= 0 {
 		return Config{}, fmt.Errorf("specified LBMap max entries %d must be a value greater than 0", cfg.LBMapEntries)
@@ -542,7 +555,7 @@ type externalConfigParams struct {
 	cell.In
 
 	DaemonConfig   *option.DaemonConfig
-	KprConfig      kpr.KPRConfig
+	LBConfig       Config
 	NodeIPAMConfig nodeipamconfig.NodeIPAMConfig
 	LBIPAMConfig   lbipamconfig.Config
 }
@@ -553,9 +566,9 @@ func NewExternalConfig(p externalConfigParams) ExternalConfig {
 		ZoneMapper:                             p.DaemonConfig,
 		EnableIPv4:                             p.DaemonConfig.EnableIPv4,
 		EnableIPv6:                             p.DaemonConfig.EnableIPv6,
-		KubeProxyReplacement:                   p.KprConfig.KubeProxyReplacement,
+		KubeProxyReplacement:                   p.LBConfig.KubeProxyReplacement,
 		BPFSocketLBHostnsOnly:                  p.DaemonConfig.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly,
-		EnableSocketLB:                         p.KprConfig.EnableSocketLB,
+		EnableSocketLB:                         p.LBConfig.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: p.DaemonConfig.UnsafeDaemonConfigOption.EnableSocketLBPodConnectionTermination,
 		DefaultLBServiceIPAM:                   p.LBIPAMConfig.GetDefaultLBServiceIPAM(),
 		EnableLBIPAM:                           p.LBIPAMConfig.IsEnabled(),

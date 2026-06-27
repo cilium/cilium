@@ -29,7 +29,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
@@ -58,14 +57,15 @@ func TestLBServiceResolver(t *testing.T) {
 		node.LocalNodeStoreTestCell,
 		source.Cell,
 		cell.Provide(
-			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+			func() loadbalancer.Config {
+				cfg := loadbalancer.DefaultConfig
+				cfg.KubeProxyReplacement = true
+				return cfg
+			},
 			func() loadbalancer.ExternalConfig {
 				return loadbalancer.ExternalConfig{EnableIPv4: true, EnableIPv6: true}
 			},
 			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
-			func() kpr.KPRConfig {
-				return kpr.KPRConfig{KubeProxyReplacement: true}
-			},
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },
@@ -234,7 +234,6 @@ func TestServiceBackendResolver(t *testing.T) {
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,
 			source.NewSources,
-			func() kpr.KPRConfig { return kpr.KPRConfig{} },
 		),
 
 		cell.Invoke(func(wr_ *writer.Writer, resolver_ *dial.ServiceBackendResolver) {

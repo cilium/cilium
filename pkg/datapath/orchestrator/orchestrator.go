@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -117,7 +116,6 @@ type orchestratorParams struct {
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
 	XDPConfig           xdp.Config
 	LBConfig            loadbalancer.Config
-	KPRConfig           kpr.KPRConfig
 	SvcRouteConfig      svcrouteconfig.RoutesConfig
 	MaglevConfig        maglev.Config
 	WgAgent             wgTypes.Agent
@@ -231,7 +229,6 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.Config.DeriveMasqIPAddrFromDevice,
 			o.params.XDPConfig,
 			o.params.LBConfig,
-			o.params.KPRConfig,
 			o.params.SvcRouteConfig,
 			o.params.MaglevConfig,
 			o.params.MTU,

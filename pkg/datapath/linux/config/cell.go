@@ -11,7 +11,6 @@ import (
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node"
@@ -27,7 +26,6 @@ type WriterParams struct {
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
 	Sysctl             sysctl.Sysctl
-	KPRConfig          kpr.KPRConfig
 	IPSecConfig        ipsec.Config
 }
 

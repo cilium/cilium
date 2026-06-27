@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
@@ -2012,14 +2011,14 @@ func (c *DaemonConfig) RequiresNativeRouting() bool {
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
-func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled, ipsecEnabled bool) bool {
-	return kprCfg.KubeProxyReplacement || c.EnableBPFMasquerade || c.EnableHostFirewall || wireguardEnabled ||
+func (c *DaemonConfig) AreDevicesRequired(kubeProxyReplacement, wireguardEnabled, ipsecEnabled bool) bool {
+	return kubeProxyReplacement || c.EnableBPFMasquerade || c.EnableHostFirewall || wireguardEnabled ||
 		c.EnableL2Announcements || c.ForceDeviceRequired || ipsecEnabled
 }
 
 // NeedEgressOnWireGuardDevice returns true if the agent needs to attach
 // cil_to_wireguard on the Egress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
+func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kubeProxyReplacement, wireguardEnabled bool) bool {
 	if !wireguardEnabled {
 		return false
 	}
@@ -2031,7 +2030,7 @@ func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig, wiregua
 
 	// Attaching cil_to_wireguard to cilium_wg0 egress is required for handling
 	// the rev-NAT xlations when encrypting KPR traffic.
-	if c.EnableL7Proxy && kprCfg.KubeProxyReplacement {
+	if c.EnableL7Proxy && kubeProxyReplacement {
 		return true
 	}
 
@@ -2164,17 +2163,17 @@ func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
 // the current configuration.
-func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
+func (c *DaemonConfig) DirectRoutingDeviceRequired(kubeProxyReplacement, wireguardEnabled bool) bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.UnsafeDaemonConfigOption.EnableHostLegacyRouting
 
 	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
-	if kprCfg.KubeProxyReplacement && c.NodePortAcceleration != NodePortAccelerationDisabled {
+	if kubeProxyReplacement && c.NodePortAcceleration != NodePortAccelerationDisabled {
 		return true
 	}
 
-	return kprCfg.KubeProxyReplacement || BPFHostRoutingEnabled || wireguardEnabled
+	return kubeProxyReplacement || BPFHostRoutingEnabled || wireguardEnabled
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {

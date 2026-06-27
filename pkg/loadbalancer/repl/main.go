@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -79,6 +78,10 @@ import (
 // These commands are also part of the "cilium-dbg shell" command in the cilium-agent
 // deployment.
 func main() {
+	// Enable the kube-proxy replacement by default for the REPL.
+	hive.AddConfigOverride(Hive, func(c *loadbalancer.UserConfig) {
+		c.KubeProxyReplacement = true
+	})
 	Hive.RegisterFlags(pflag.CommandLine)
 	pflag.Parse()
 	uhive.RunRepl(Hive, os.Stdin, os.Stdout, "load-balancer> ")
@@ -104,11 +107,6 @@ var Hive = hive.New(
 			return &option.DaemonConfig{
 				EnableIPv4: true,
 				EnableIPv6: true,
-			}
-		},
-		func() kpr.KPRConfig {
-			return kpr.KPRConfig{
-				KubeProxyReplacement: true,
 			}
 		},
 		func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig {

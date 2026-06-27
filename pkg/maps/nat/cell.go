@@ -9,7 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
@@ -23,12 +23,12 @@ var ErrMapDisabled = fmt.Errorf("nat map is disabled")
 var Cell = cell.Module(
 	"nat-maps",
 	"NAT Maps",
-	cell.Provide(func(lc cell.Lifecycle, registry *metrics.Registry, cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) (bpf.MapOut[NatMap4], bpf.MapOut[NatMap6]) {
+	cell.Provide(func(lc cell.Lifecycle, registry *metrics.Registry, cfg *option.DaemonConfig, lbConfig loadbalancer.Config) (bpf.MapOut[NatMap4], bpf.MapOut[NatMap6]) {
 		var out4 bpf.MapOut[NatMap4]
 		var out6 bpf.MapOut[NatMap6]
 		var ipv4Nat, ipv6Nat *Map
 
-		if !kprCfg.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
+		if !lbConfig.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
 			return out4, out6
 		}
 
@@ -95,8 +95,8 @@ type NatMap6 interface {
 // and initialized at startup.
 type NATRetriesMap any
 
-func provideNATRetriesMap(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig, kprConfig kpr.KPRConfig) bpf.MapOut[NATRetriesMap] {
-	if !kprConfig.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
+func provideNATRetriesMap(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig, lbConfig loadbalancer.Config) bpf.MapOut[NATRetriesMap] {
+	if !lbConfig.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
 		return bpf.NewMapOut(NATRetriesMap(nil))
 	}
 

@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -972,11 +971,11 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 }
 
 type featureMetrics interface {
-	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.Config, ipsecCfg ipsec.Config)
+	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, wgCfg wgTypes.Config, ipsecCfg ipsec.Config)
 	toGatherer() (prometheus.Gatherer, error)
 }
 
-func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.Config, ipsecCfg ipsec.Config) {
+func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, wgCfg wgTypes.Config, ipsecCfg ipsec.Config) {
 	networkMode := networkModeDirectRouting
 	if config.TunnelingEnabled() {
 		switch params.TunnelProtocol() {
@@ -1063,7 +1062,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, node2nodeEnabled, strictMode).Set(1)
 	}
 
-	if kprCfg.KubeProxyReplacement {
+	if lbConfig.KubeProxyReplacement {
 		m.ACLBKubeProxyReplacementEnabled.Set(1)
 	}
 

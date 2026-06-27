@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/kpr"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -261,7 +260,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 	a, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), a, fakeipsec.Config{}, lns)
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
 	if s.enableIPv4 {
@@ -305,7 +304,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), ipsecAgent, fakeipsec.Config{}, lns)
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net1, net2}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
@@ -384,7 +383,7 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), ipsecAgent, fakeipsec.Config{}, lns)
 
 	lnh.OverrideEnableEncapsulation(override)
 
@@ -549,7 +548,7 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodeMap, ipsecAgent, fakeipsec.Config{}, lns)
 
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
@@ -709,7 +708,7 @@ func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.
 
 	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), a, fakeipsec.Config{}, lns)
 
 	mustConfigureNode(t, s.ns, lnh, config)
 
@@ -805,7 +804,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), ipsecAgent, fakeipsec.Config{}, lns)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
@@ -1045,7 +1044,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), ipsecAgent, fakeipsec.Config{}, lns)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = false
@@ -1190,7 +1189,7 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), a, fakeipsec.Config{}, lns)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)

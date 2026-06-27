@@ -33,7 +33,6 @@ import (
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
@@ -152,11 +151,6 @@ func TestPrivilegedScript(t *testing.T) {
 					}
 					return option.Config
 				},
-				func() kpr.KPRConfig {
-					return kpr.KPRConfig{
-						KubeProxyReplacement: *kubeProxyReplacement,
-					}
-				},
 			),
 			cell.Invoke(func(m agent.BGPRouterManager) {
 				m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
@@ -170,6 +164,12 @@ func TestPrivilegedScript(t *testing.T) {
 			h,
 			func(cfg *svcrouteconfig.RoutesConfig) {
 				cfg.EnableNoServiceEndpointsRoutable = *noEndpointsRoutable
+			})
+
+		hive.AddConfigOverride(
+			h,
+			func(cfg *loadbalancer.UserConfig) {
+				cfg.KubeProxyReplacement = *kubeProxyReplacement
 			})
 
 		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelInfo))

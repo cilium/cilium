@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -120,7 +119,6 @@ func TestPrivilegedScripts(t *testing.T) {
 					func() loadbalancer.Config {
 						return loadbalancer.DefaultConfig
 					},
-					func() kpr.KPRConfig { return kpr.KPRConfig{} },
 				),
 
 				cell.Invoke(func(*Manager) {}),

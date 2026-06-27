@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -110,7 +109,6 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 				NewHeaderfileWriter,
 				func() ipsec.Config { return fakeipsec.Config{} },
 			),
-			kpr.Cell,
 			cell.Invoke(func(writer_ Writer) {
 				writer = writer_
 			}),

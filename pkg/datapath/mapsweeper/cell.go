@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -35,7 +34,6 @@ type mapSweeperParams struct {
 	EndpointManager         endpointmanager.EndpointManager
 	BandwidthManager        bandwidth.Manager
 	LBConfig                loadbalancer.Config
-	KPRConfig               kpr.KPRConfig
 }
 
 func registerMapSweeper(params mapSweeperParams) {
@@ -45,8 +43,7 @@ func registerMapSweeper(params mapSweeperParams) {
 			logger:          params.Logger,
 			EndpointManager: params.EndpointManager,
 		},
-		params.LBConfig,
-		params.KPRConfig)
+		params.LBConfig)
 
 	params.JobGroup.Add(job.OneShot("cleanup", func(ctx context.Context, health cell.Health) error {
 		restorer, err := params.EndpointRestorerPromise.Await(ctx)

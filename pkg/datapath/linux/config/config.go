@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -79,7 +78,6 @@ type HeaderfileWriter struct {
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 	sysctl             sysctl.Sysctl
-	kprCfg             kpr.KPRConfig
 }
 
 func NewHeaderfileWriter(p WriterParams) (Writer, error) {
@@ -96,7 +94,6 @@ func NewHeaderfileWriter(p WriterParams) (Writer, error) {
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
 		log:                p.Log,
 		sysctl:             p.Sysctl,
-		kprCfg:             p.KPRConfig,
 	}, nil
 }
 
@@ -267,7 +264,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		cDefinesMap["ENABLE_L7_LB"] = "1"
 	}
 
-	if h.kprCfg.EnableSocketLB {
+	if cfg.LBConfig.EnableSocketLB {
 		if option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
 		} else {
@@ -297,11 +294,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 	cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 
-	if h.kprCfg.KubeProxyReplacement {
+	if cfg.LBConfig.KubeProxyReplacement {
 		if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
-		if option.Config.EnableMKE && h.kprCfg.EnableSocketLB {
+		if option.Config.EnableMKE && cfg.LBConfig.EnableSocketLB {
 			cDefinesMap["ENABLE_MKE"] = "1"
 			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}

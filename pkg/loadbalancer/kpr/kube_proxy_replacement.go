@@ -3,7 +3,7 @@
 
 // This module contains the kube-proxy replacement initialization helpers.
 
-package initializer
+package kpr
 
 import (
 	"errors"
@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -38,8 +37,13 @@ type kprInitializer struct {
 	sysctl       sysctl.Sysctl
 	tunnelConfig tunnel.Config
 	lbConfig     loadbalancer.Config
-	kprCfg       kpr.KPRConfig
 	wgCfg        wgTypes.Config
+}
+
+// kprConfiguration is used purely for logging the relevant KPR configuration.
+type kprConfiguration struct {
+	KubeProxyReplacement bool
+	EnableSocketLB       bool
 }
 
 func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
@@ -50,7 +54,7 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// KPR=true is needed or we might rely on netfilter.
-		case !r.kprCfg.KubeProxyReplacement:
+		case !r.lbConfig.KubeProxyReplacement:
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
 		}
 		if msg != "" {
@@ -60,9 +64,12 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 	}
 
 	r.logger.Info("kube-proxy replacement starting with the following config",
-		logfields.KPRConfiguration, r.kprCfg)
+		logfields.KPRConfiguration, kprConfiguration{
+			KubeProxyReplacement: r.lbConfig.KubeProxyReplacement,
+			EnableSocketLB:       r.lbConfig.EnableSocketLB,
+		})
 
-	if r.kprCfg.KubeProxyReplacement {
+	if r.lbConfig.KubeProxyReplacement {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
@@ -166,7 +173,7 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 		// InstallNoConntrackIptRules can only be enabled when Cilium is
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
-		if !(r.kprCfg.KubeProxyReplacement && r.kprCfg.EnableSocketLB) {
+		if !(r.lbConfig.KubeProxyReplacement && r.lbConfig.EnableSocketLB) {
 			return fmt.Errorf("%s requires the agent to run with %s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement)
 		}
@@ -177,7 +184,7 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 		}
 	}
 
-	if !r.kprCfg.EnableSocketLB {
+	if !r.lbConfig.EnableSocketLB {
 		option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing = false
 		option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer = false
 	}
@@ -186,13 +193,13 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 		return nil
 	}
 
-	return probeKubeProxyReplacementOptions(r.logger, r.lbConfig, r.kprCfg, r.sysctl)
+	return probeKubeProxyReplacementOptions(r.logger, r.lbConfig, r.sysctl)
 }
 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
-func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, sysctl sysctl.Sysctl) error {
-	if kprCfg.KubeProxyReplacement {
+func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, sysctl sysctl.Sysctl) error {
+	if lbConfig.KubeProxyReplacement {
 		if err := checkNodePortAndEphemeralPortRanges(lbConfig, sysctl); err != nil {
 			return err
 		}
@@ -210,7 +217,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		}
 	}
 
-	if kprCfg.EnableSocketLB {
+	if lbConfig.EnableSocketLB {
 		if err := probes.HaveAttachCgroup(); err != nil {
 			return fmt.Errorf("socketlb enabled, but kernel does not support attaching bpf programs to cgroups: %w", err)
 		}
@@ -259,7 +266,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 func (r *kprInitializer) FinishKubeProxyReplacementInit(devices []*tables.Device, directRoutingDevice string) error {
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
-	if option.Config.EnableMKE && r.kprCfg.EnableSocketLB {
+	if option.Config.EnableMKE && r.lbConfig.EnableSocketLB {
 		markHostExtension(r.logger)
 	}
 

@@ -34,7 +34,6 @@ import (
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -123,11 +122,6 @@ func testScript(t *testing.T) {
 							EnableIPv6: true,
 						}
 					},
-					func() kpr.KPRConfig {
-						return kpr.KPRConfig{
-							KubeProxyReplacement: true,
-						}
-					},
 					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer, waitFn loadbalancer.InitWaitFunc) uhive.ScriptCmdsOut {
 						return uhive.NewScriptCmds(testCommands{w, lns, ops, waitFn}.cmds())
 					},
@@ -140,6 +134,7 @@ func testScript(t *testing.T) {
 			h.RegisterFlags(flags)
 
 			// Set some defaults
+			flags.Set("kube-proxy-replacement", "true")
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
 			flags.Set("bpf-lb-maglev-table-size", "1021")

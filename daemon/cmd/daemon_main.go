@@ -44,11 +44,11 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
-	"github.com/cilium/cilium/pkg/kpr"
-	kprinitializer "github.com/cilium/cilium/pkg/kpr/initializer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	kprinitializer "github.com/cilium/cilium/pkg/loadbalancer/kpr"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
@@ -1187,7 +1187,7 @@ type daemonConfigParams struct {
 	JobGroup  job.Group
 
 	K8sClientConfig k8sClient.Config
-	KPRConfig       kpr.KPRConfig
+	LBConfig        loadbalancer.Config
 	KPRInitializer  kprinitializer.KPRInitializer
 	IPSecConfig     ipsec.Config
 	WireguardConfig wgTypes.Config
@@ -1223,7 +1223,7 @@ type daemonParams struct {
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	IPAMInitializer     *ipamcell.IPAMInitializer
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	KPRConfig           kpr.KPRConfig
+	LBConfig            loadbalancer.Config
 	KPRInitializer      kprinitializer.KPRInitializer
 	InfraIPAllocator    infraendpoints.InfraIPAllocator
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -96,12 +95,6 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 					EnableIPv6: true,
 				}
 			},
-			func() kpr.KPRConfig {
-				return kpr.KPRConfig{
-					KubeProxyReplacement: true,
-					EnableSocketLB:       true,
-				}
-			},
 			func() netnsOps {
 				return netnsOps{
 					current: func() (*netns.NetNS, error) {
@@ -128,6 +121,11 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 
 		}),
 	)
+
+	hive.AddConfigOverride(h, func(c *loadbalancer.UserConfig) {
+		c.KubeProxyReplacement = true
+		c.EnableSocketLB = true
+	})
 
 	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	require.NoError(t, h.Start(log, t.Context()), "Start")

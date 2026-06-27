@@ -9,7 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
-	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -30,11 +30,11 @@ type cgroupManagerParams struct {
 	JobGroup job.Group
 
 	AgentConfig *option.DaemonConfig
-	KPRConfig   kpr.KPRConfig
+	LBConfig    loadbalancer.Config
 }
 
 func newCGroupManager(params cgroupManagerParams) CGroupManager {
-	if !params.KPRConfig.EnableSocketLB || !params.AgentConfig.UnsafeDaemonConfigOption.EnableSocketLBTracing {
+	if !params.LBConfig.EnableSocketLB || !params.AgentConfig.UnsafeDaemonConfigOption.EnableSocketLBTracing {
 		return &noopCGroupManager{}
 	}
 

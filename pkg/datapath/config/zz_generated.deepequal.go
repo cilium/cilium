@@ -261,10 +261,6 @@ func (in *Config) deepEqual(other *Config) bool {
 		return false
 	}
 
-	if in.KPRConfig != other.KPRConfig {
-		return false
-	}
-
 	if in.SvcRouteConfig != other.SvcRouteConfig {
 		return false
 	}

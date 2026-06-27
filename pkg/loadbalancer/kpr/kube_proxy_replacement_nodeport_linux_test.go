@@ -3,7 +3,7 @@
 
 //go:build linux
 
-package initializer
+package kpr
 
 import (
 	"fmt"

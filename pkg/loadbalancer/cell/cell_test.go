@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -40,7 +39,6 @@ func TestCell(t *testing.T) {
 		maglev.Cell,
 		node.LocalNodeStoreTestCell,
 		metrics.Cell,
-		kpr.Cell,
 		lbipamconfig.Cell,
 		nodeipamconfig.Cell,
 		Cell,

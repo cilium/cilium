@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package initializer
+package kpr
 
 import (
 	"log/slog"
@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -19,7 +18,6 @@ import (
 var Cell = cell.Module(
 	"kube-proxy-replacement-init",
 	"Provides KPR initialization logic",
-	kpr.Cell,
 	cell.Provide(newKPRInitializer),
 )
 
@@ -40,7 +38,6 @@ type kprInitializerParams struct {
 	Sysctl       sysctl.Sysctl
 	TunnelConfig tunnel.Config
 	LBConfig     loadbalancer.Config
-	KPRCfg       kpr.KPRConfig
 	WireguardCfg wgTypes.Config
 }
 
@@ -50,7 +47,6 @@ func newKPRInitializer(params kprInitializerParams) KPRInitializer {
 		sysctl:       params.Sysctl,
 		tunnelConfig: params.TunnelConfig,
 		lbConfig:     params.LBConfig,
-		kprCfg:       params.KPRCfg,
 		wgCfg:        params.WireguardCfg,
 	}
 }

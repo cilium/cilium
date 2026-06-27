@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -146,7 +145,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager(tt.paths)
-			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig)
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)
@@ -181,7 +180,7 @@ func TestRemoveDisabledMaps(t *testing.T) {
 			"cilium_policy_01234",
 		}
 
-		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig)
 
 		sweeper.RemoveDisabledMaps()
 		require.Equal(t, depricatedMaps, testEPManager.removedPaths)

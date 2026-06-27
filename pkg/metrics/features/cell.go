@@ -21,7 +21,6 @@ import (
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
@@ -92,7 +91,6 @@ type featuresParams struct {
 	Metrics       featureMetrics
 
 	LBConfig            loadbalancer.Config
-	KPRConfig           kpr.KPRConfig
 	TunnelConfig        tunnel.Config
 	CNIConfigManager    cni.CNIConfigManager
 	MutualAuth          auth.MeshAuthConfig

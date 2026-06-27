@@ -116,7 +116,7 @@ func Enable(logger *slog.Logger, reg *registry.MapRegistry,
 			enabled[GetPeerName4] = true
 		}
 
-		if lnc.KPRConfig.KubeProxyReplacement && option.Config.NodePortBindProtection {
+		if lnc.LBConfig.KubeProxyReplacement && option.Config.NodePortBindProtection {
 			enabled[PostBind4] = true
 		}
 
@@ -138,7 +138,7 @@ func Enable(logger *slog.Logger, reg *registry.MapRegistry,
 			enabled[GetPeerName6] = true
 		}
 
-		if lnc.KPRConfig.KubeProxyReplacement && option.Config.NodePortBindProtection {
+		if lnc.LBConfig.KubeProxyReplacement && option.Config.NodePortBindProtection {
 			enabled[PostBind6] = true
 		}
 

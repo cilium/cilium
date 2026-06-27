@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -50,17 +49,15 @@ type MapSweeper struct {
 	logger *slog.Logger
 	endpointManager
 	lbConfig loadbalancer.Config
-	kprCfg   kpr.KPRConfig
 }
 
 // newMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func newMapSweeper(logger *slog.Logger, g endpointManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
+func newMapSweeper(logger *slog.Logger, g endpointManager, lbConfig loadbalancer.Config) *MapSweeper {
 	return &MapSweeper{
 		logger:          logger,
 		endpointManager: g,
 		lbConfig:        lbConfig,
-		kprCfg:          kprCfg,
 	}
 }
 
@@ -183,7 +180,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
-	if !ms.kprCfg.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
+	if !ms.lbConfig.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
 		maps = append(maps, []string{
 			"cilium_snat_v4_external", "cilium_snat_v6_external",
 			"cilium_snat_v4_alloc_retries", "cilium_snat_v6_alloc_retries",
