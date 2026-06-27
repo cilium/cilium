@@ -865,6 +865,65 @@ func Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC(t *testing.T) {
 	})
 }
 
+func Test_gatewayReconciler_validateListener(t *testing.T) {
+	c := fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		Build()
+	r := &gatewayReconciler{
+		Client: c,
+		logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+	}
+
+	tests := map[string]struct {
+		listener           gatewayv1.Listener
+		wantValid          bool
+		wantReason         gatewayv1.ListenerConditionReason
+		wantSupportedKinds []gatewayv1.RouteGroupKind
+	}{
+		"valid HTTP listener": {
+			listener: gatewayv1.Listener{
+				Name:     "http",
+				Port:     80,
+				Protocol: gatewayv1.HTTPProtocolType,
+			},
+			wantValid: true,
+			wantSupportedKinds: []gatewayv1.RouteGroupKind{
+				{Group: GroupPtr(gatewayv1.GroupName), Kind: kindHTTPRoute},
+				{Group: GroupPtr(gatewayv1.GroupName), Kind: kindGRPCRoute},
+			},
+		},
+		"unsupported protocol listener": {
+			listener: gatewayv1.Listener{
+				Name:     "invalid",
+				Port:     1111,
+				Protocol: gatewayv1.ProtocolType("INVALID"),
+			},
+			wantValid:          false,
+			wantReason:         gatewayv1.ListenerReasonUnsupportedProtocol,
+			wantSupportedKinds: []gatewayv1.RouteGroupKind{},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			res := r.validateListener(t.Context(), tc.listener, listenerValidationParams{
+				ownerNamespace: "default",
+				ownerKind:      "Gateway",
+				generation:     1,
+			})
+			assert.Equal(t, tc.wantValid, res.isValid)
+			if !tc.wantValid {
+				assert.Equal(t, tc.wantReason, res.invalidReason)
+			}
+			// supportedKinds is serialized with omitzero, so a nil slice is
+			// dropped from the listener status entirely. It must always be an
+			// explicit list (empty for unsupported protocols).
+			assert.NotNil(t, res.supportedKinds)
+			assert.Equal(t, tc.wantSupportedKinds, res.supportedKinds)
+		})
+	}
+}
+
 func filterHTTPRoute(hrList *gatewayv1.HTTPRouteList, gatewayName string, namespace string) []gatewayv1.HTTPRoute {
 	var filterList []gatewayv1.HTTPRoute
 	for _, hr := range hrList.Items {
