@@ -295,6 +295,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		defaultControllerName,
 		installedOptionalKinds,
 		cfg.HostNetworkConfig.Enabled,
+		params.GatewayApiConfig.EnableGatewayAPIExtensionRefFilters,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -425,13 +426,14 @@ func registerReconcilers(
 	controllerName string,
 	installedOptionalCRDs []schema.GroupVersionKind,
 	hostNetworkEnabled bool,
+	enableExtensionRefFilters bool,
 ) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger, controllerName),
-		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled),
-		newGammaReconciler(mgr, translator, logger, controllerName),
+		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, enableExtensionRefFilters),
+		newGammaReconciler(mgr, translator, logger, controllerName, enableExtensionRefFilters),
 		newGatewayClassConfigReconciler(mgr, logger),
 		newEndpointSliceReconciler(mgr, logger),
 	}

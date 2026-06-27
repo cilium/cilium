@@ -10,7 +10,9 @@ import (
 
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	ext_procv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -192,6 +194,63 @@ func extAuthModel(protocol model.ExternalAuthProtocol, be model.Backend) *model.
 			},
 		},
 	}
+}
+
+func Test_desiredEnvoyCluster_extProcSharesPortWithHTTPBackend(t *testing.T) {
+	backend := model.Backend{
+		Namespace: "default",
+		Name:      "shared-service",
+		Port:      &model.BackendPort{Port: 8080},
+	}
+	extProcConfig, err := proto.Marshal(&ext_procv3.ExternalProcessor{
+		GrpcService: &envoy_config_core_v3.GrpcService{
+			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+					ClusterName: getExtProcClusterName(backend.Namespace, backend.Name, backend.Port.GetPort()),
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	m := &model.Model{HTTP: []model.HTTPListener{{Routes: []model.HTTPRoute{{
+		Backends: []model.Backend{backend},
+		ExtensionRefFilters: []model.ExtensionRefFilter{{
+			Backend: &backend,
+			Config:  extProcConfig,
+		}},
+	}}}}}
+
+	clusters, err := (&cecTranslator{}).desiredEnvoyCluster(m)
+	require.NoError(t, err)
+	require.Len(t, clusters, 2)
+
+	decoded := make(map[string]*envoy_config_cluster_v3.Cluster, len(clusters))
+	for _, resource := range clusters {
+		cluster := &envoy_config_cluster_v3.Cluster{}
+		require.NoError(t, proto.Unmarshal(resource.Value, cluster))
+		decoded[cluster.Name] = cluster
+	}
+
+	httpCluster := decoded[getClusterName(backend.Namespace, backend.Name, backend.Port.GetPort())]
+	require.NotNil(t, httpCluster)
+	httpOptions := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+	require.NoError(t, httpCluster.TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(httpOptions))
+	require.NotNil(t, httpOptions.GetUseDownstreamProtocolConfig(), "ordinary HTTP backend must retain downstream protocol selection")
+	require.Nil(t, httpOptions.GetExplicitHttpConfig())
+
+	extProcClusterName := getExtProcClusterName(backend.Namespace, backend.Name, backend.Port.GetPort())
+	extProcCluster := decoded[extProcClusterName]
+	require.NotNil(t, extProcCluster)
+	extProcOptions := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+	require.NoError(t, extProcCluster.TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(extProcOptions))
+	require.NotNil(t, extProcOptions.GetExplicitHttpConfig(), "ext_proc must use an explicit protocol")
+	require.NotNil(t, extProcOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions(), "ext_proc must use HTTP/2")
+	require.Nil(t, extProcOptions.GetUseDownstreamProtocolConfig())
+
+	filterConfig := &ext_procv3.ExternalProcessor{}
+	require.NoError(t, proto.Unmarshal(extProcConfig, filterConfig))
+	require.Equal(t, extProcClusterName, filterConfig.GetGrpcService().GetEnvoyGrpc().GetClusterName())
 }
 
 func Test_desiredEnvoyCluster_grpcExtAuthWithTLS(t *testing.T) {

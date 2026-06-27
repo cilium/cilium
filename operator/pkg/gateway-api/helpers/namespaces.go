@@ -8,6 +8,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 // NamespaceLabelIndex indexes namespace labels by namespace name.
@@ -26,6 +28,16 @@ func NewNamespaceLabelIndex(namespaces []corev1.Namespace) NamespaceLabelIndex {
 		index[namespace.GetName()] = namespace.GetLabels()
 	}
 	return index
+}
+
+// ExtProcBackendRefNamespace returns the namespace from an ExtProcBackendRef as
+// a *gatewayv1.Namespace, or nil when no namespace is set.
+func ExtProcBackendRefNamespace(ref v2alpha1.ExtProcBackendRef) *gatewayv1.Namespace {
+	if ref.Namespace == nil {
+		return nil
+	}
+	ns := gatewayv1.Namespace(*ref.Namespace)
+	return &ns
 }
 
 // IsListenerNamespaceAllowed checks whether a route in routeNamespace is
