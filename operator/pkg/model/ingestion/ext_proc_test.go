@@ -206,6 +206,7 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 				require.NotNil(t, extProc.GrpcService)
 				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
 				assert.Equal(t, "grpc:default:my-grpc-service:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "my-grpc-service:50051", extProc.GrpcService.GetEnvoyGrpc().Authority)
 				assert.Equal(t, "ceepf.default.basic_2dfilter.", extProc.StatPrefix)
 				assert.False(t, extProc.GetFailureModeAllow())
 			},
@@ -321,6 +322,7 @@ func Test_crdToExtensionRefFilter(t *testing.T) {
 				require.NotNil(t, extProc.GrpcService)
 				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
 				assert.Equal(t, "grpc:other-namespace:ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().Authority)
 				assert.Equal(t, "ceepf.default.cross_2dns_2dfilter.", extProc.StatPrefix)
 			},
 		},
