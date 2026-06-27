@@ -116,6 +116,12 @@ The following options have been introduced in this version of Cilium:
   in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
   but may change in future releases.
 
+* Gateway API installation now creates the ``CiliumEnvoyExtProcFilter`` CRD. The
+  ``gatewayAPI.enableExtensionRefFilters`` Helm value (default: ``false``) permits HTTPRoute
+  and GRPCRoute resources to reference it and inject ``ext_proc`` filters into the Envoy HTTP
+  filter chain. Cilium does not expose Envoy's fail-open option. No action is required for
+  existing clusters because Route references are disabled by default.
+
 Changed Options
 ###############
 
