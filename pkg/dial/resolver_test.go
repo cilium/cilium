@@ -283,7 +283,7 @@ func TestServiceBackendResolver(t *testing.T) {
 		},
 	), "Unexpected UpsertServiceAndFrontends error")
 
-	require.NoError(t, wr.UpsertBackends(txn, svc.Name, source.Kubernetes,
+	require.NoError(t, wr.UpsertBackends(txn, svc.Name, source.Kubernetes, writer.LocalClusterID,
 		slices.Values([]lb.Backend{
 			be(lb.TCP, "10.0.0.1", 9090, "alpha", lb.BackendStateActive),
 			be(lb.TCP, "10.0.0.2", 9090, "alpha", lb.BackendStateActive),
@@ -345,7 +345,7 @@ func TestServiceBackendResolver(t *testing.T) {
 
 	// Remove the previously used backend
 	txn = wr.WriteTxn()
-	wr.DeleteBackendsByAddress(txn, svc.Name, slices.Values([]lb.L3n4Addr{toAddr(lb.TCP, host, 9090)}))
+	wr.DeleteBackendsByAddress(txn, svc.Name, source.Kubernetes, writer.LocalClusterID, slices.Values([]lb.L3n4Addr{toAddr(lb.TCP, host, 9090)}))
 	txn.Commit()
 
 	// Should switch to one of the remaining backends

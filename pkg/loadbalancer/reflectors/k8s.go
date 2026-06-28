@@ -300,7 +300,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 							l4Addr.Port,
 							loadbalancer.ScopeExternal))
 					}
-					if err := p.Writer.DeleteBackendsByAddress(txn, ev.svcName, slices.Values(addrs)); err != nil {
+					if err := p.Writer.DeleteBackendsByAddress(txn, ev.svcName, source.Kubernetes, writer.LocalClusterID, slices.Values(addrs)); err != nil {
 						p.Log.Error("BUG: Unexpected failure to delete backends", logfields.Error, err)
 					}
 				}
@@ -317,7 +317,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				// Convert [k8s.Endpoints] to [loadbalancer.Backend]
 				backends := convertEndpoints(p.Log, p.ExtConfig, name, maps.All(eps.Backends))
 
-				err := p.Writer.UpsertBackends(txn, name, source.Kubernetes, backends)
+				err := p.Writer.UpsertBackends(txn, name, source.Kubernetes, writer.LocalClusterID, backends)
 				rh.update("eps:"+name.String(), err)
 				if err != nil {
 					continue
@@ -379,7 +379,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				}
 			}
 
-			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, backends, orphans)
+			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, writer.LocalClusterID, backends, orphans)
 			if err != nil {
 				rh.update("eps:"+name.String(), err)
 				return
