@@ -136,7 +136,10 @@ type BPFLBMaps struct {
 	revNat4Map, revNat6Map           *bpf.Map
 	affinityMatchMap                 *bpf.Map
 	affinity4Map, affinity6Map       *bpf.Map
+	// Reverse NAT sock maps (LRU fallback)
 	sockRevNat4Map, sockRevNat6Map   *bpf.Map
+	// Reverse NAT sock maps (SK_STORAGE)
+	sockRevNat4StMap, sockRevNat6StMap *bpf.Map
 	sourceRange4Map, sourceRange6Map *bpf.Map
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
 
@@ -293,6 +296,28 @@ func NewSockRevNat6Map(maxEntries int) *bpf.Map {
 	)
 }
 
+func NewSockRevNat4StMap(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		SockRevNat4StMapName,
+		ebpf.SkStorage,
+		&SockRevNatStKey{},
+		&SockRevNat4Value{},
+		0,
+		unix.BPF_F_NO_PREALLOC,
+	)
+}
+
+func NewSockRevNat6StMap(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		SockRevNat6StMapName,
+		ebpf.SkStorage,
+		&SockRevNatStKey{},
+		&SockRevNat6Value{},
+		0,
+		unix.BPF_F_NO_PREALLOC,
+	)
+}
+
 func NewMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bpf.Map {
 	return bpf.NewMapWithInnerSpec(
 		name,
@@ -324,6 +349,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.revNat4Map, NewRevNat4Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockRevNat4StMap, NewSockRevNat4StMap, 0},
 		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
 	}
 	v6Maps := []mapDesc{
@@ -332,6 +358,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.revNat6Map, NewRevNat6Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockRevNat6StMap, NewSockRevNat6StMap, 0},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
 	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}

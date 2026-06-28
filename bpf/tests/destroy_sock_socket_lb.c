@@ -135,7 +135,7 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	struct bpf_iter__tcp iter_ctx_tcp;
 	struct bpf_iter_meta meta;
 	struct seq_file seq;
-	int sk;
+	struct sock_common sk = {};
 
 	iter_ctx_udp.meta = &meta;
 	iter_ctx_udp.udp_sk = &sk;
