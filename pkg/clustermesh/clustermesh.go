@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -26,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/source"
@@ -325,34 +323,4 @@ func (cm *ClusterMesh) Status() (status *models.ClusterMeshStatus) {
 		func(a, b *models.RemoteCluster) int { return cmp.Compare(a.Name, b.Name) })
 
 	return
-}
-
-// registerLoadBalancerInitialized adds a job to wait for the ClusterMesh resources
-// backing the load balancer before marking the load-balancing tables as initialized.
-func registerLoadBalancerInitialized(jobs job.Group, cm *ClusterMesh, cfg cmtypes.ServiceModeV2Config, w *writer.Writer) {
-	if cm == nil {
-		return
-	}
-	markDone := w.RegisterInitializer("clustermesh")
-	jobs.Add(
-		job.OneShot(
-			"loadbalancer-initialized",
-			func(ctx context.Context, health cell.Health) error {
-				var err error
-				if cfg.ServiceModeV2.ShouldWatchLegacyServices() {
-					err = cm.ServicesSynced(ctx)
-				} else if cfg.ServiceModeV2.ShouldWatchEndpointSlices() {
-					err = cm.EndpointSlicesSynced(ctx)
-				}
-				if err != nil {
-					return err
-				}
-
-				txn := w.WriteTxn()
-				markDone(txn)
-				txn.Commit()
-				return nil
-			},
-		),
-	)
 }
