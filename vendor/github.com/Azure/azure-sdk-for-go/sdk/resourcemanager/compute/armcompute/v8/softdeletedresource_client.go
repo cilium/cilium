@@ -18,6 +18,8 @@ import (
 
 // SoftDeletedResourceClient contains the methods for the SoftDeletedResource group.
 // Don't use this type directly, use NewSoftDeletedResourceClient() instead.
+//
+// Generated from API version 2025-03-03
 type SoftDeletedResourceClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -41,8 +43,6 @@ func NewSoftDeletedResourceClient(subscriptionID string, credential azcore.Token
 
 // NewListByArtifactNamePager - List soft-deleted resources of an artifact in the gallery, such as soft-deleted gallery image
 // version of an image.
-//
-// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - artifactType - The type of the artifact to be listed, such as gallery image version.
@@ -101,8 +101,8 @@ func (client *SoftDeletedResourceClient) listByArtifactNameCreateRequest(ctx con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }

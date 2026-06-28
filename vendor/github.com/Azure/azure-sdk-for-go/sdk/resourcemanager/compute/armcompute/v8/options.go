@@ -788,6 +788,46 @@ type ImagesClientListOptions struct {
 	// placeholder for future optional parameters
 }
 
+// InterconnectBlocksClientBeginCreateOrUpdateOptions contains the optional parameters for the InterconnectBlocksClient.BeginCreateOrUpdate
+// method.
+type InterconnectBlocksClientBeginCreateOrUpdateOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// InterconnectBlocksClientBeginDeleteOptions contains the optional parameters for the InterconnectBlocksClient.BeginDelete
+// method.
+type InterconnectBlocksClientBeginDeleteOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// InterconnectBlocksClientBeginUpdateOptions contains the optional parameters for the InterconnectBlocksClient.BeginUpdate
+// method.
+type InterconnectBlocksClientBeginUpdateOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// InterconnectBlocksClientGetOptions contains the optional parameters for the InterconnectBlocksClient.Get method.
+type InterconnectBlocksClientGetOptions struct {
+	// The expand expression to apply on the operation. 'instanceView' retrieves a snapshot of the runtime properties of the Interconnect
+	// Block that is managed by the platform and can change outside of control plane operations.
+	Expand *InterconnectBlockExpandTypes
+}
+
+// InterconnectBlocksClientListByResourceGroupOptions contains the optional parameters for the InterconnectBlocksClient.NewListByResourceGroupPager
+// method.
+type InterconnectBlocksClientListByResourceGroupOptions struct {
+	// placeholder for future optional parameters
+}
+
+// InterconnectBlocksClientListBySubscriptionOptions contains the optional parameters for the InterconnectBlocksClient.NewListBySubscriptionPager
+// method.
+type InterconnectBlocksClientListBySubscriptionOptions struct {
+	// placeholder for future optional parameters
+}
+
 // LogAnalyticsClientBeginExportRequestRateByIntervalOptions contains the optional parameters for the LogAnalyticsClient.BeginExportRequestRateByInterval
 // method.
 type LogAnalyticsClientBeginExportRequestRateByIntervalOptions struct {

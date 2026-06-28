@@ -19,6 +19,8 @@ import (
 
 // VirtualMachineScaleSetsClient contains the methods for the VirtualMachineScaleSets group.
 // Don't use this type directly, use NewVirtualMachineScaleSetsClient() instead.
+//
+// Generated from API version 2026-03-01
 type VirtualMachineScaleSetsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -43,8 +45,6 @@ func NewVirtualMachineScaleSetsClient(subscriptionID string, credential azcore.T
 // BeginApproveRollingUpgrade - Approve upgrade on deferred rolling upgrades for OS disks in the virtual machines in a VM
 // scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginApproveRollingUpgradeOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginApproveRollingUpgrade
@@ -69,8 +69,6 @@ func (client *VirtualMachineScaleSetsClient) BeginApproveRollingUpgrade(ctx cont
 // ApproveRollingUpgrade - Approve upgrade on deferred rolling upgrades for OS disks in the virtual machines in a VM scale
 // set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) approveRollingUpgrade(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginApproveRollingUpgradeOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginApproveRollingUpgrade"
@@ -112,8 +110,8 @@ func (client *VirtualMachineScaleSetsClient) approveRollingUpgradeCreateRequest(
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMInstanceIDs != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMInstanceIDs); err != nil {
@@ -126,8 +124,6 @@ func (client *VirtualMachineScaleSetsClient) approveRollingUpgradeCreateRequest(
 
 // ConvertToSinglePlacementGroup - Converts SinglePlacementGroup property to false for a existing virtual machine scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - parameters - The input object for ConvertToSinglePlacementGroup API.
@@ -174,8 +170,8 @@ func (client *VirtualMachineScaleSetsClient) convertToSinglePlacementGroupCreate
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
 		return nil, err
@@ -185,8 +181,6 @@ func (client *VirtualMachineScaleSetsClient) convertToSinglePlacementGroupCreate
 
 // BeginCreateOrUpdate - Create or update a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - parameters - The scale set object.
@@ -211,8 +205,6 @@ func (client *VirtualMachineScaleSetsClient) BeginCreateOrUpdate(ctx context.Con
 
 // CreateOrUpdate - Create or update a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) createOrUpdate(ctx context.Context, resourceGroupName string, vmScaleSetName string, parameters VirtualMachineScaleSet, options *VirtualMachineScaleSetsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginCreateOrUpdate"
@@ -254,8 +246,8 @@ func (client *VirtualMachineScaleSetsClient) createOrUpdateCreateRequest(ctx con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if options != nil && options.IfMatch != nil {
 		req.Raw().Header["If-Match"] = []string{*options.IfMatch}
@@ -273,8 +265,6 @@ func (client *VirtualMachineScaleSetsClient) createOrUpdateCreateRequest(ctx con
 // BeginDeallocate - Deallocates specific virtual machines in a VM scale set. Shuts down the virtual machines and releases
 // the compute resources. You are not billed for the compute resources that this virtual machine scale set deallocates.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginDeallocateOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginDeallocate
@@ -299,8 +289,6 @@ func (client *VirtualMachineScaleSetsClient) BeginDeallocate(ctx context.Context
 // Deallocate - Deallocates specific virtual machines in a VM scale set. Shuts down the virtual machines and releases the
 // compute resources. You are not billed for the compute resources that this virtual machine scale set deallocates.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) deallocate(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginDeallocateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginDeallocate"
@@ -342,11 +330,11 @@ func (client *VirtualMachineScaleSetsClient) deallocateCreateRequest(ctx context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
+	reqQP.Set("api-version", version20260301)
 	if options != nil && options.Hibernate != nil {
 		reqQP.Set("hibernate", strconv.FormatBool(*options.Hibernate))
 	}
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMInstanceIDs != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMInstanceIDs); err != nil {
@@ -359,8 +347,6 @@ func (client *VirtualMachineScaleSetsClient) deallocateCreateRequest(ctx context
 
 // BeginDelete - Deletes a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginDeleteOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginDelete
@@ -384,8 +370,6 @@ func (client *VirtualMachineScaleSetsClient) BeginDelete(ctx context.Context, re
 
 // Delete - Deletes a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) deleteOperation(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginDelete"
@@ -427,18 +411,16 @@ func (client *VirtualMachineScaleSetsClient) deleteCreateRequest(ctx context.Con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
+	reqQP.Set("api-version", version20260301)
 	if options != nil && options.ForceDeletion != nil {
 		reqQP.Set("forceDeletion", strconv.FormatBool(*options.ForceDeletion))
 	}
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
 
 // BeginDeleteInstances - Deletes virtual machines in a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - vmInstanceIDs - A list of virtual machine instance IDs from the VM scale set.
@@ -463,8 +445,6 @@ func (client *VirtualMachineScaleSetsClient) BeginDeleteInstances(ctx context.Co
 
 // DeleteInstances - Deletes virtual machines in a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) deleteInstances(ctx context.Context, resourceGroupName string, vmScaleSetName string, vmInstanceIDs VirtualMachineScaleSetVMInstanceRequiredIDs, options *VirtualMachineScaleSetsClientBeginDeleteInstancesOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginDeleteInstances"
@@ -506,11 +486,11 @@ func (client *VirtualMachineScaleSetsClient) deleteInstancesCreateRequest(ctx co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
+	reqQP.Set("api-version", version20260301)
 	if options != nil && options.ForceDeletion != nil {
 		reqQP.Set("forceDeletion", strconv.FormatBool(*options.ForceDeletion))
 	}
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, vmInstanceIDs); err != nil {
 		return nil, err
@@ -521,8 +501,6 @@ func (client *VirtualMachineScaleSetsClient) deleteInstancesCreateRequest(ctx co
 // ForceRecoveryServiceFabricPlatformUpdateDomainWalk - Manual platform update domain walk to update virtual machines in a
 // service fabric virtual machine scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - platformUpdateDomain - The platform update domain for which a manual recovery walk is requested
@@ -570,7 +548,7 @@ func (client *VirtualMachineScaleSetsClient) forceRecoveryServiceFabricPlatformU
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
+	reqQP.Set("api-version", version20260301)
 	if options != nil && options.PlacementGroupID != nil {
 		reqQP.Set("placementGroupId", *options.PlacementGroupID)
 	}
@@ -578,7 +556,7 @@ func (client *VirtualMachineScaleSetsClient) forceRecoveryServiceFabricPlatformU
 	if options != nil && options.Zone != nil {
 		reqQP.Set("zone", *options.Zone)
 	}
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -594,8 +572,6 @@ func (client *VirtualMachineScaleSetsClient) forceRecoveryServiceFabricPlatformU
 
 // Get - Display information about a virtual machine scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientGetOptions contains the optional parameters for the VirtualMachineScaleSetsClient.Get
@@ -645,8 +621,8 @@ func (client *VirtualMachineScaleSetsClient) getCreateRequest(ctx context.Contex
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", string(*options.Expand))
 	}
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -662,8 +638,6 @@ func (client *VirtualMachineScaleSetsClient) getHandleResponse(resp *http.Respon
 
 // GetInstanceView - Gets the status of a VM scale set instance.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientGetInstanceViewOptions contains the optional parameters for the VirtualMachineScaleSetsClient.GetInstanceView
@@ -710,8 +684,8 @@ func (client *VirtualMachineScaleSetsClient) getInstanceViewCreateRequest(ctx co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -726,8 +700,6 @@ func (client *VirtualMachineScaleSetsClient) getInstanceViewHandleResponse(resp 
 }
 
 // NewGetOSUpgradeHistoryPager - Gets list of OS upgrades on a VM scale set instance.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientGetOSUpgradeHistoryOptions contains the optional parameters for the VirtualMachineScaleSetsClient.NewGetOSUpgradeHistoryPager
@@ -775,8 +747,8 @@ func (client *VirtualMachineScaleSetsClient) getOSUpgradeHistoryCreateRequest(ct
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -791,8 +763,6 @@ func (client *VirtualMachineScaleSetsClient) getOSUpgradeHistoryHandleResponse(r
 }
 
 // NewListPager - Gets a list of all VM scale sets under a resource group.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - options - VirtualMachineScaleSetsClientListOptions contains the optional parameters for the VirtualMachineScaleSetsClient.NewListPager
 //     method.
@@ -835,8 +805,8 @@ func (client *VirtualMachineScaleSetsClient) listCreateRequest(ctx context.Conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -853,8 +823,6 @@ func (client *VirtualMachineScaleSetsClient) listHandleResponse(resp *http.Respo
 // NewListAllPager - Gets a list of all VM Scale Sets in the subscription, regardless of the associated resource group. Use
 // nextLink property in the response to get the next page of VM Scale Sets. Do this till nextLink is null to fetch all the
 // VM Scale Sets.
-//
-// Generated from API version 2025-11-01
 //   - options - VirtualMachineScaleSetsClientListAllOptions contains the optional parameters for the VirtualMachineScaleSetsClient.NewListAllPager
 //     method.
 func (client *VirtualMachineScaleSetsClient) NewListAllPager(options *VirtualMachineScaleSetsClientListAllOptions) *runtime.Pager[VirtualMachineScaleSetsClientListAllResponse] {
@@ -892,8 +860,8 @@ func (client *VirtualMachineScaleSetsClient) listAllCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -908,8 +876,6 @@ func (client *VirtualMachineScaleSetsClient) listAllHandleResponse(resp *http.Re
 }
 
 // NewListByLocationPager - Gets all the VM scale sets under the specified subscription for the specified location.
-//
-// Generated from API version 2025-11-01
 //   - location - The location name.
 //   - options - VirtualMachineScaleSetsClientListByLocationOptions contains the optional parameters for the VirtualMachineScaleSetsClient.NewListByLocationPager
 //     method.
@@ -952,8 +918,8 @@ func (client *VirtualMachineScaleSetsClient) listByLocationCreateRequest(ctx con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -969,8 +935,6 @@ func (client *VirtualMachineScaleSetsClient) listByLocationHandleResponse(resp *
 
 // NewListSKUsPager - Gets a list of SKUs available for your VM scale set, including the minimum and maximum VM instances
 // allowed for each SKU.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientListSKUsOptions contains the optional parameters for the VirtualMachineScaleSetsClient.NewListSKUsPager
@@ -1018,8 +982,8 @@ func (client *VirtualMachineScaleSetsClient) listSKUsCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -1036,8 +1000,6 @@ func (client *VirtualMachineScaleSetsClient) listSKUsHandleResponse(resp *http.R
 // BeginPerformMaintenance - Perform maintenance on one or more virtual machines in a VM scale set. Operation on instances
 // which are not eligible for perform maintenance will be failed. Please refer to best practices for more details: https://docs.microsoft.com/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-maintenance-notifications
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginPerformMaintenanceOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginPerformMaintenance
@@ -1062,8 +1024,6 @@ func (client *VirtualMachineScaleSetsClient) BeginPerformMaintenance(ctx context
 // PerformMaintenance - Perform maintenance on one or more virtual machines in a VM scale set. Operation on instances which
 // are not eligible for perform maintenance will be failed. Please refer to best practices for more details: https://docs.microsoft.com/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-maintenance-notifications
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) performMaintenance(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginPerformMaintenanceOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginPerformMaintenance"
@@ -1105,8 +1065,8 @@ func (client *VirtualMachineScaleSetsClient) performMaintenanceCreateRequest(ctx
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMInstanceIDs != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMInstanceIDs); err != nil {
@@ -1120,8 +1080,6 @@ func (client *VirtualMachineScaleSetsClient) performMaintenanceCreateRequest(ctx
 // BeginPowerOff - Power off (stop) one or more virtual machines in a VM scale set. Note that resources are still attached
 // and you are getting charged for the resources. Instead, use deallocate to release resources and avoid charges.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginPowerOffOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginPowerOff
@@ -1146,8 +1104,6 @@ func (client *VirtualMachineScaleSetsClient) BeginPowerOff(ctx context.Context, 
 // PowerOff - Power off (stop) one or more virtual machines in a VM scale set. Note that resources are still attached and
 // you are getting charged for the resources. Instead, use deallocate to release resources and avoid charges.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) powerOff(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginPowerOffOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginPowerOff"
@@ -1189,11 +1145,11 @@ func (client *VirtualMachineScaleSetsClient) powerOffCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
+	reqQP.Set("api-version", version20260301)
 	if options != nil && options.SkipShutdown != nil {
 		reqQP.Set("skipShutdown", strconv.FormatBool(*options.SkipShutdown))
 	}
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMInstanceIDs != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMInstanceIDs); err != nil {
@@ -1206,8 +1162,6 @@ func (client *VirtualMachineScaleSetsClient) powerOffCreateRequest(ctx context.C
 
 // BeginReapply - Reapplies the Virtual Machine Scale Set Virtual Machine Profile to the Virtual Machine Instances
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginReapplyOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginReapply
@@ -1231,8 +1185,6 @@ func (client *VirtualMachineScaleSetsClient) BeginReapply(ctx context.Context, r
 
 // Reapply - Reapplies the Virtual Machine Scale Set Virtual Machine Profile to the Virtual Machine Instances
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) reapply(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginReapplyOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginReapply"
@@ -1274,16 +1226,14 @@ func (client *VirtualMachineScaleSetsClient) reapplyCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
 
 // BeginRedeploy - Shuts down all the virtual machines in the virtual machine scale set, moves them to a new node, and powers
 // them back on.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginRedeployOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginRedeploy
@@ -1308,8 +1258,6 @@ func (client *VirtualMachineScaleSetsClient) BeginRedeploy(ctx context.Context, 
 // Redeploy - Shuts down all the virtual machines in the virtual machine scale set, moves them to a new node, and powers them
 // back on.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) redeploy(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginRedeployOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginRedeploy"
@@ -1351,8 +1299,8 @@ func (client *VirtualMachineScaleSetsClient) redeployCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMInstanceIDs != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMInstanceIDs); err != nil {
@@ -1366,8 +1314,6 @@ func (client *VirtualMachineScaleSetsClient) redeployCreateRequest(ctx context.C
 // BeginReimage - Reimages (upgrade the operating system) one or more virtual machines in a VM scale set which don't have
 // a ephemeral OS disk, for virtual machines who have a ephemeral OS disk the virtual machine is reset to initial state.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginReimageOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginReimage
@@ -1392,8 +1338,6 @@ func (client *VirtualMachineScaleSetsClient) BeginReimage(ctx context.Context, r
 // Reimage - Reimages (upgrade the operating system) one or more virtual machines in a VM scale set which don't have a ephemeral
 // OS disk, for virtual machines who have a ephemeral OS disk the virtual machine is reset to initial state.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) reimage(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginReimageOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginReimage"
@@ -1435,8 +1379,8 @@ func (client *VirtualMachineScaleSetsClient) reimageCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMScaleSetReimageInput != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMScaleSetReimageInput); err != nil {
@@ -1450,8 +1394,6 @@ func (client *VirtualMachineScaleSetsClient) reimageCreateRequest(ctx context.Co
 // BeginReimageAll - Reimages all the disks ( including data disks ) in the virtual machines in a VM scale set. This operation
 // is only supported for managed disks.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginReimageAllOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginReimageAll
@@ -1476,8 +1418,6 @@ func (client *VirtualMachineScaleSetsClient) BeginReimageAll(ctx context.Context
 // ReimageAll - Reimages all the disks ( including data disks ) in the virtual machines in a VM scale set. This operation
 // is only supported for managed disks.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) reimageAll(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginReimageAllOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginReimageAll"
@@ -1519,8 +1459,8 @@ func (client *VirtualMachineScaleSetsClient) reimageAllCreateRequest(ctx context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMInstanceIDs != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMInstanceIDs); err != nil {
@@ -1533,8 +1473,6 @@ func (client *VirtualMachineScaleSetsClient) reimageAllCreateRequest(ctx context
 
 // BeginRestart - Restarts one or more virtual machines in a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginRestartOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginRestart
@@ -1558,8 +1496,6 @@ func (client *VirtualMachineScaleSetsClient) BeginRestart(ctx context.Context, r
 
 // Restart - Restarts one or more virtual machines in a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) restart(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginRestartOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginRestart"
@@ -1601,8 +1537,8 @@ func (client *VirtualMachineScaleSetsClient) restartCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMInstanceIDs != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMInstanceIDs); err != nil {
@@ -1615,8 +1551,6 @@ func (client *VirtualMachineScaleSetsClient) restartCreateRequest(ctx context.Co
 
 // BeginScaleOut - Scales out one or more virtual machines in a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - parameters - The input object for ScaleOut API.
@@ -1641,8 +1575,6 @@ func (client *VirtualMachineScaleSetsClient) BeginScaleOut(ctx context.Context, 
 
 // ScaleOut - Scales out one or more virtual machines in a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) scaleOut(ctx context.Context, resourceGroupName string, vmScaleSetName string, parameters VMScaleSetScaleOutInput, options *VirtualMachineScaleSetsClientBeginScaleOutOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginScaleOut"
@@ -1684,8 +1616,8 @@ func (client *VirtualMachineScaleSetsClient) scaleOutCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
 		return nil, err
@@ -1695,8 +1627,6 @@ func (client *VirtualMachineScaleSetsClient) scaleOutCreateRequest(ctx context.C
 
 // BeginSetOrchestrationServiceState - Changes ServiceState property for a given service
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - parameters - The input object for SetOrchestrationServiceState API.
@@ -1721,8 +1651,6 @@ func (client *VirtualMachineScaleSetsClient) BeginSetOrchestrationServiceState(c
 
 // SetOrchestrationServiceState - Changes ServiceState property for a given service
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) setOrchestrationServiceState(ctx context.Context, resourceGroupName string, vmScaleSetName string, parameters OrchestrationServiceStateInput, options *VirtualMachineScaleSetsClientBeginSetOrchestrationServiceStateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginSetOrchestrationServiceState"
@@ -1764,8 +1692,8 @@ func (client *VirtualMachineScaleSetsClient) setOrchestrationServiceStateCreateR
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
 		return nil, err
@@ -1775,8 +1703,6 @@ func (client *VirtualMachineScaleSetsClient) setOrchestrationServiceStateCreateR
 
 // BeginStart - Starts one or more virtual machines in a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - options - VirtualMachineScaleSetsClientBeginStartOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginStart
@@ -1800,8 +1726,6 @@ func (client *VirtualMachineScaleSetsClient) BeginStart(ctx context.Context, res
 
 // Start - Starts one or more virtual machines in a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) start(ctx context.Context, resourceGroupName string, vmScaleSetName string, options *VirtualMachineScaleSetsClientBeginStartOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginStart"
@@ -1843,8 +1767,8 @@ func (client *VirtualMachineScaleSetsClient) startCreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.VMInstanceIDs != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.VMInstanceIDs); err != nil {
@@ -1857,8 +1781,6 @@ func (client *VirtualMachineScaleSetsClient) startCreateRequest(ctx context.Cont
 
 // BeginUpdate - Update a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - parameters - The scale set object.
@@ -1883,8 +1805,6 @@ func (client *VirtualMachineScaleSetsClient) BeginUpdate(ctx context.Context, re
 
 // Update - Update a VM scale set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) update(ctx context.Context, resourceGroupName string, vmScaleSetName string, parameters VirtualMachineScaleSetUpdate, options *VirtualMachineScaleSetsClientBeginUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginUpdate"
@@ -1926,8 +1846,8 @@ func (client *VirtualMachineScaleSetsClient) updateCreateRequest(ctx context.Con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if options != nil && options.IfMatch != nil {
 		req.Raw().Header["If-Match"] = []string{*options.IfMatch}
@@ -1944,8 +1864,6 @@ func (client *VirtualMachineScaleSetsClient) updateCreateRequest(ctx context.Con
 
 // BeginUpdateInstances - Upgrades one or more virtual machines to the latest SKU set in the VM scale set model.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - vmInstanceIDs - A list of virtual machine instance IDs from the VM scale set.
@@ -1970,8 +1888,6 @@ func (client *VirtualMachineScaleSetsClient) BeginUpdateInstances(ctx context.Co
 
 // UpdateInstances - Upgrades one or more virtual machines to the latest SKU set in the VM scale set model.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineScaleSetsClient) updateInstances(ctx context.Context, resourceGroupName string, vmScaleSetName string, vmInstanceIDs VirtualMachineScaleSetVMInstanceRequiredIDs, options *VirtualMachineScaleSetsClientBeginUpdateInstancesOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetsClient.BeginUpdateInstances"
@@ -2013,8 +1929,8 @@ func (client *VirtualMachineScaleSetsClient) updateInstancesCreateRequest(ctx co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, vmInstanceIDs); err != nil {
 		return nil, err

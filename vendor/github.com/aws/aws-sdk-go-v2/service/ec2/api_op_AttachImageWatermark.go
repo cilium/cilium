@@ -12,14 +12,13 @@ import (
 
 // Attaches a watermark to a non-public AMI. The watermark is a structured
 // identifier that automatically propagates to all derivative images created
-// through [CreateImage], [CopyImage], and [CreateRestoreImageTask].
+// through [CreateImage], and [CopyImage].
 //
 // Only the AMI owner can attach watermarks. Watermarks cannot be added to public
 // AMIs.
 //
 // [CopyImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CopyImage.html
 // [CreateImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html
-// [CreateRestoreImageTask]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateRestoreImageTask.html
 func (c *Client) AttachImageWatermark(ctx context.Context, params *AttachImageWatermarkInput, optFns ...func(*Options)) (*AttachImageWatermarkOutput, error) {
 	if params == nil {
 		params = &AttachImageWatermarkInput{}

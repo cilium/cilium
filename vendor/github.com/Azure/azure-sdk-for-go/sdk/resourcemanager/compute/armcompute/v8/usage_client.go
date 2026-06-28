@@ -18,6 +18,8 @@ import (
 
 // UsageClient contains the methods for the Usage group.
 // Don't use this type directly, use NewUsageClient() instead.
+//
+// Generated from API version 2026-03-01
 type UsageClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -41,8 +43,6 @@ func NewUsageClient(subscriptionID string, credential azcore.TokenCredential, op
 
 // NewListPager - Gets, for the specified location, the current compute resource usage information as well as the limits for
 // compute resources under the subscription.
-//
-// Generated from API version 2025-11-01
 //   - location - The location name.
 //   - options - UsageClientListOptions contains the optional parameters for the UsageClient.NewListPager method.
 func (client *UsageClient) NewListPager(location string, options *UsageClientListOptions) *runtime.Pager[UsageClientListResponse] {
@@ -84,8 +84,8 @@ func (client *UsageClient) listCreateRequest(ctx context.Context, location strin
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }

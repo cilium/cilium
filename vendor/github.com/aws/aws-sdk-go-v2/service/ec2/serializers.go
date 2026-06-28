@@ -56955,6 +56955,13 @@ func awsEc2query_serializeDocumentImageCriterionRequest(v *types.ImageCriterionR
 		}
 	}
 
+	if v.ImageWatermarks != nil {
+		objectKey := object.FlatKey("ImageWatermark")
+		if err := awsEc2query_serializeDocumentImageWatermarkFilterRequestList(v.ImageWatermarks, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.MarketplaceProductCodes != nil {
 		objectKey := object.FlatKey("MarketplaceProductCode")
 		if err := awsEc2query_serializeDocumentMarketplaceProductCodeRequestList(v.MarketplaceProductCodes, objectKey); err != nil {
@@ -57187,6 +57194,48 @@ func awsEc2query_serializeDocumentImageUsageResourceTypeRequestList(v []types.Im
 	for i := range v {
 		av := array.Value()
 		if err := awsEc2query_serializeDocumentImageUsageResourceTypeRequest(&v[i], av); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentImageWatermarkFilterRequest(v *types.ImageWatermarkFilterRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.MaximumDaysSinceSourceImageCreated != nil {
+		objectKey := object.Key("MaximumDaysSinceSourceImageCreated")
+		objectKey.Integer(*v.MaximumDaysSinceSourceImageCreated)
+	}
+
+	if v.MaximumDaysSinceWatermarkCreated != nil {
+		objectKey := object.Key("MaximumDaysSinceWatermarkCreated")
+		objectKey.Integer(*v.MaximumDaysSinceWatermarkCreated)
+	}
+
+	if v.SourceImageRegion != nil {
+		objectKey := object.Key("SourceImageRegion")
+		objectKey.String(*v.SourceImageRegion)
+	}
+
+	if v.WatermarkKey != nil {
+		objectKey := object.Key("WatermarkKey")
+		objectKey.String(*v.WatermarkKey)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentImageWatermarkFilterRequestList(v []types.ImageWatermarkFilterRequest, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		if err := awsEc2query_serializeDocumentImageWatermarkFilterRequest(&v[i], av); err != nil {
 			return err
 		}
 	}

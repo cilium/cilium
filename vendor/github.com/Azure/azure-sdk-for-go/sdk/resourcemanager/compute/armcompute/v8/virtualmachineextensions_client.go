@@ -18,6 +18,8 @@ import (
 
 // VirtualMachineExtensionsClient contains the methods for the VirtualMachineExtensions group.
 // Don't use this type directly, use NewVirtualMachineExtensionsClient() instead.
+//
+// Generated from API version 2026-03-01
 type VirtualMachineExtensionsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -41,8 +43,6 @@ func NewVirtualMachineExtensionsClient(subscriptionID string, credential azcore.
 
 // BeginCreateOrUpdate - The operation to create or update the extension.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmName - The name of the virtual machine.
 //   - vmExtensionName - The name of the virtual machine extension.
@@ -68,8 +68,6 @@ func (client *VirtualMachineExtensionsClient) BeginCreateOrUpdate(ctx context.Co
 
 // CreateOrUpdate - The operation to create or update the extension.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineExtensionsClient) createOrUpdate(ctx context.Context, resourceGroupName string, vmName string, vmExtensionName string, extensionParameters VirtualMachineExtension, options *VirtualMachineExtensionsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineExtensionsClient.BeginCreateOrUpdate"
@@ -115,8 +113,8 @@ func (client *VirtualMachineExtensionsClient) createOrUpdateCreateRequest(ctx co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, extensionParameters); err != nil {
@@ -127,8 +125,6 @@ func (client *VirtualMachineExtensionsClient) createOrUpdateCreateRequest(ctx co
 
 // BeginDelete - The operation to delete the extension.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmName - The name of the virtual machine.
 //   - vmExtensionName - The name of the virtual machine extension.
@@ -153,8 +149,6 @@ func (client *VirtualMachineExtensionsClient) BeginDelete(ctx context.Context, r
 
 // Delete - The operation to delete the extension.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineExtensionsClient) deleteOperation(ctx context.Context, resourceGroupName string, vmName string, vmExtensionName string, options *VirtualMachineExtensionsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineExtensionsClient.BeginDelete"
@@ -200,15 +194,13 @@ func (client *VirtualMachineExtensionsClient) deleteCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
 
 // Get - The operation to get the extension.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmName - The name of the virtual machine.
 //   - vmExtensionName - The name of the virtual machine extension.
@@ -263,8 +255,8 @@ func (client *VirtualMachineExtensionsClient) getCreateRequest(ctx context.Conte
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", *options.Expand)
 	}
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -280,8 +272,6 @@ func (client *VirtualMachineExtensionsClient) getHandleResponse(resp *http.Respo
 
 // List - The operation to get all extensions of a Virtual Machine.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmName - The name of the virtual machine.
 //   - options - VirtualMachineExtensionsClientListOptions contains the optional parameters for the VirtualMachineExtensionsClient.List
@@ -331,8 +321,8 @@ func (client *VirtualMachineExtensionsClient) listCreateRequest(ctx context.Cont
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", *options.Expand)
 	}
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -348,8 +338,6 @@ func (client *VirtualMachineExtensionsClient) listHandleResponse(resp *http.Resp
 
 // BeginUpdate - The operation to update the extension.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmName - The name of the virtual machine.
 //   - vmExtensionName - The name of the virtual machine extension.
@@ -375,8 +363,6 @@ func (client *VirtualMachineExtensionsClient) BeginUpdate(ctx context.Context, r
 
 // Update - The operation to update the extension.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *VirtualMachineExtensionsClient) update(ctx context.Context, resourceGroupName string, vmName string, vmExtensionName string, extensionParameters VirtualMachineExtensionUpdate, options *VirtualMachineExtensionsClientBeginUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineExtensionsClient.BeginUpdate"
@@ -422,8 +408,8 @@ func (client *VirtualMachineExtensionsClient) updateCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, extensionParameters); err != nil {

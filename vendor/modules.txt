@@ -44,7 +44,7 @@ github.com/Azure/azure-sdk-for-go/sdk/internal/log
 github.com/Azure/azure-sdk-for-go/sdk/internal/poller
 github.com/Azure/azure-sdk-for-go/sdk/internal/temporal
 github.com/Azure/azure-sdk-for-go/sdk/internal/uuid
-# github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8 v8.0.0
+# github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8 v8.1.0
 ## explicit; go 1.25.0
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8
 # github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9 v9.0.0
@@ -208,7 +208,7 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 github.com/aws/aws-sdk-go-v2/internal/v4a
 github.com/aws/aws-sdk-go-v2/internal/v4a/internal/crypto
 github.com/aws/aws-sdk-go-v2/internal/v4a/internal/v4
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.307.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.308.0
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
@@ -841,7 +841,7 @@ github.com/go-openapi/jsonreference/internal
 # github.com/go-openapi/loads v0.24.0
 ## explicit; go 1.25.0
 github.com/go-openapi/loads
-# github.com/go-openapi/runtime v0.32.3
+# github.com/go-openapi/runtime v0.32.4
 ## explicit; go 1.25.0
 github.com/go-openapi/runtime
 github.com/go-openapi/runtime/client
@@ -1447,7 +1447,7 @@ github.com/spf13/viper/internal/encoding/json
 github.com/spf13/viper/internal/encoding/toml
 github.com/spf13/viper/internal/encoding/yaml
 github.com/spf13/viper/internal/features
-# github.com/spiffe/go-spiffe/v2 v2.8.0
+# github.com/spiffe/go-spiffe/v2 v2.8.1
 ## explicit; go 1.24.0
 github.com/spiffe/go-spiffe/v2/bundle/jwtbundle
 github.com/spiffe/go-spiffe/v2/bundle/spiffebundle
@@ -1532,7 +1532,7 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
-# github.com/vishvananda/netlink v1.3.2-0.20260610182031-c05a276ed0e0
+# github.com/vishvananda/netlink v1.3.2-0.20260624190457-bab08b3566fc
 ## explicit; go 1.23
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
@@ -1876,7 +1876,7 @@ gomodules.xyz/jsonpatch/v2
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20260511170946-3700d4141b60
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20260622175928-b703f567277d
 ## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.81.1
