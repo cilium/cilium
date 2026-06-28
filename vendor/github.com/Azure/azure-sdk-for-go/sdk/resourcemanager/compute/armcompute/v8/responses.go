@@ -752,6 +752,41 @@ type ImagesClientUpdateResponse struct {
 	Image
 }
 
+// InterconnectBlocksClientCreateOrUpdateResponse contains the response from method InterconnectBlocksClient.BeginCreateOrUpdate.
+type InterconnectBlocksClientCreateOrUpdateResponse struct {
+	// Specifies information about the Interconnect Block.
+	InterconnectBlock
+}
+
+// InterconnectBlocksClientDeleteResponse contains the response from method InterconnectBlocksClient.BeginDelete.
+type InterconnectBlocksClientDeleteResponse struct {
+	// placeholder for future response values
+}
+
+// InterconnectBlocksClientGetResponse contains the response from method InterconnectBlocksClient.Get.
+type InterconnectBlocksClientGetResponse struct {
+	// Specifies information about the Interconnect Block.
+	InterconnectBlock
+}
+
+// InterconnectBlocksClientListByResourceGroupResponse contains the response from method InterconnectBlocksClient.NewListByResourceGroupPager.
+type InterconnectBlocksClientListByResourceGroupResponse struct {
+	// The list Interconnect Block operation response.
+	InterconnectBlockListResult
+}
+
+// InterconnectBlocksClientListBySubscriptionResponse contains the response from method InterconnectBlocksClient.NewListBySubscriptionPager.
+type InterconnectBlocksClientListBySubscriptionResponse struct {
+	// The list Interconnect Block operation response.
+	InterconnectBlockListResult
+}
+
+// InterconnectBlocksClientUpdateResponse contains the response from method InterconnectBlocksClient.BeginUpdate.
+type InterconnectBlocksClientUpdateResponse struct {
+	// Specifies information about the Interconnect Block.
+	InterconnectBlock
+}
+
 // LogAnalyticsClientExportRequestRateByIntervalResponse contains the response from method LogAnalyticsClient.BeginExportRequestRateByInterval.
 type LogAnalyticsClientExportRequestRateByIntervalResponse struct {
 	// LogAnalytics operation status response

@@ -236,6 +236,14 @@ type AutomaticRepairsPolicy struct {
 	RepairAction *RepairAction
 }
 
+// AutomaticSKUMigrationPolicy - Specifies the configuration parameters used to control automatic SKU migration for the virtual
+// machine scale set. When enabled, the platform may migrate instances to a different VM size from the SKU profile depending
+// on platform demands.
+type AutomaticSKUMigrationPolicy struct {
+	// Specifies whether automatic SKU migration should be enabled on the virtual machine scale set. The default value is false.
+	Enabled *bool
+}
+
 // AutomaticZoneRebalancingPolicy - The configuration parameters used while performing automatic AZ balancing.
 type AutomaticZoneRebalancingPolicy struct {
 	// Specifies whether Automatic AZ Balancing should be enabled on the virtual machine scale set. The default value is false.
@@ -3415,6 +3423,118 @@ type InstanceViewStatus struct {
 	Time *time.Time
 }
 
+// InterconnectBlock - Specifies information about the Interconnect Block.
+type InterconnectBlock struct {
+	// REQUIRED; The geo-location where the resource lives
+	Location *string
+
+	// REQUIRED; SKU of the resource for which capacity needs to be pre-allocated. Both `sku.name` and `sku.capacity` are required
+	// at create. After create, only `sku.capacity` can be updated.
+	SKU *SKU
+
+	// Placement section specifies the user-defined constraints for Interconnect Block hardware placement. This property cannot
+	// be changed once Interconnect Block is provisioned.
+	Placement *Placement
+
+	// Properties of the Interconnect Block.
+	Properties *InterconnectBlockProperties
+
+	// Resource tags.
+	Tags map[string]*string
+
+	// The availability zones.
+	Zones []*string
+
+	// READ-ONLY; Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+	ID *string
+
+	// READ-ONLY; The name of the resource
+	Name *string
+
+	// READ-ONLY; Azure Resource Manager metadata containing createdBy and modifiedBy information.
+	SystemData *SystemData
+
+	// READ-ONLY; The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+	Type *string
+}
+
+// InterconnectBlockInstanceView - The instance view of an Interconnect Block.
+type InterconnectBlockInstanceView struct {
+	// READ-ONLY; The current capacity allocated for this Interconnect Block.
+	CurrentCapacity *int32
+
+	// READ-ONLY; The resource status information.
+	Statuses []*InstanceViewStatus
+}
+
+// InterconnectBlockListResult - The list Interconnect Block operation response.
+type InterconnectBlockListResult struct {
+	// REQUIRED; The list of Interconnect Blocks.
+	Value []*InterconnectBlock
+
+	// The URI to fetch the next page of Interconnect Blocks. Call ListNext() with this URI to fetch the next page of Interconnect
+	// Blocks.
+	NextLink *string
+}
+
+// InterconnectBlockProfile - The parameters of an Interconnect Block Profile.
+type InterconnectBlockProfile struct {
+	// Specifies the Interconnect Block resource ID that should be used for allocating the Virtual Machine or Scale Set VM instances
+	// provided enough capacity has been reserved.
+	InterconnectBlock *APIEntityReference
+}
+
+// InterconnectBlockProperties - Properties of the Interconnect Block.
+type InterconnectBlockProperties struct {
+	// REQUIRED; The Microsoft.Network/interconnectGroups resource that this Interconnect Block is associated with. Required at
+	// create and immutable thereafter.
+	InterconnectGroup *APIEntityReference
+
+	// READ-ONLY; The Interconnect Block instance view.
+	InstanceView *InterconnectBlockInstanceView
+
+	// READ-ONLY; A unique id (GUID) generated and assigned to the Interconnect Block by the platform which does not change throughout
+	// the lifetime of the resource.
+	InterconnectBlockID *string
+
+	// READ-ONLY; The provisioning state, which only appears in the response.
+	ProvisioningState *string
+
+	// READ-ONLY; The date time when the Interconnect Block was last updated.
+	ProvisioningTime *time.Time
+
+	// READ-ONLY; Specifies the time at which the Interconnect Block resource was created.
+	TimeCreated *time.Time
+
+	// READ-ONLY; A list of all virtual machine resource ids that are associated with the Interconnect Block.
+	VirtualMachinesAssociated []*SubResourceReadOnly
+}
+
+// InterconnectBlockUpdate - Specifies information about the Interconnect Block. Only tags and sku.capacity can be updated.
+type InterconnectBlockUpdate struct {
+	// SKU of the resource for which capacity needs to be pre-allocated. Only `sku.capacity` is mutable; `sku.name` is immutable.
+	SKU *SKU
+
+	// Resource tags
+	Tags map[string]*string
+}
+
+// InterconnectGroupProfile - Specifies the interconnect group profile for a virtual machine, used to associate the VM with
+// an interconnect group and subgroups.
+type InterconnectGroupProfile struct {
+	// Reference to the interconnect group resource.
+	InterconnectGroup *SubResource
+
+	// The list of subgroup references within the interconnect group.
+	Subgroups []*SubResource
+}
+
+// InterconnectInstanceView - The Interconnect Block instance view details for a Virtual Machine or Scale Set VM instance.
+type InterconnectInstanceView struct {
+	// READ-ONLY; The ID (GUID) of the Interconnect subgroup in which the Virtual Machine was placed.
+	InterconnectSubgroupID *string
+}
+
 // KeyForDiskEncryptionSet - Key Vault Key Url to be used for server side encryption of Managed Disks and Snapshots
 type KeyForDiskEncryptionSet struct {
 	// REQUIRED; Fully versioned Key Url pointing to a key in KeyVault. Version segment of the Url is required regardless of rotationToLatestKeyVersionEnabled
@@ -3697,6 +3817,9 @@ type NetworkInterfaceReferenceProperties struct {
 
 // NetworkProfile - Specifies the network interfaces or the networking configuration of the virtual machine.
 type NetworkProfile struct {
+	// Specifies the interconnect group profile to associate with the virtual machine. Minimum api-version: 2026-03-01.
+	InterconnectGroupProfile *InterconnectGroupProfile
+
 	// specifies the Microsoft.Network API version used when creating networking resources in the Network Interface Configurations
 	NetworkAPIVersion *NetworkAPIVersion
 
@@ -5074,6 +5197,10 @@ type SKU struct {
 type SKUProfile struct {
 	// Specifies the allocation strategy for the virtual machine scale set based on which the VMs will be allocated.
 	AllocationStrategy *AllocationStrategy
+
+	// Specifies the policy that controls whether the platform may automatically migrate scale set instances to a different VM
+	// size from the SKU profile depending on platform demands. When omitted, automatic SKU migration is disabled.
+	AutomaticSKUMigrationPolicy *AutomaticSKUMigrationPolicy
 
 	// Specifies the VM sizes for the virtual machine scale set.
 	VMSizes []*SKUProfileVMSize
@@ -6818,6 +6945,9 @@ type VirtualMachineInstanceView struct {
 	// 2020-06-01.
 	AssignedHost *string
 
+	// READ-ONLY; The Interconnect runtime view of the Virtual Machine. Minimum api-version: 2026-03-01.
+	InterconnectInstanceView *InterconnectInstanceView
+
 	// READ-ONLY; [Preview Feature] Specifies whether the VM is currently in or out of the Standby Pool.
 	IsVMInStandbyPool *bool
 
@@ -6983,6 +7113,9 @@ type VirtualMachineProperties struct {
 	// Specifies information about the dedicated host group that the virtual machine resides in. **Note:** User cannot specify
 	// both host and hostGroup properties. Minimum api-version: 2020-06-01.
 	HostGroup *SubResource
+
+	// Specifies information about the Interconnect Block that is used to allocate the Virtual Machine. Minimum api-version: 2026-03-01.
+	InterconnectBlockProfile *InterconnectBlockProfile
 
 	// Specifies that the image or disk that is being used was licensed on-premises. <br><br> Possible values for Windows Server
 	// operating system are: <br><br> Windows_Client <br><br> Windows_Server <br><br> Possible values for Linux Server operating
@@ -7689,6 +7822,9 @@ type VirtualMachineScaleSetNetworkProfile struct {
 	// reference will be in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/loadBalancers/{loadBalancerName}/probes/{probeName}'.
 	HealthProbe *APIEntityReference
 
+	// Specifies the interconnect group profile to associate with the scale set. Minimum api-version: 2026-03-01.
+	InterconnectGroupProfile *InterconnectGroupProfile
+
 	// specifies the Microsoft.Network API version used when creating networking resources in the Network Interface Configurations
 	// for Virtual Machine Scale Set with orchestration mode 'Flexible'
 	NetworkAPIVersion *NetworkAPIVersion
@@ -8122,6 +8258,9 @@ type VirtualMachineScaleSetUpdateNetworkProfile struct {
 	// reference will be in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/loadBalancers/{loadBalancerName}/probes/{probeName}'.
 	HealthProbe *APIEntityReference
 
+	// Specifies the interconnect group profile to associate with the scale set. Minimum api-version: 2026-03-01.
+	InterconnectGroupProfile *InterconnectGroupProfile
+
 	// specifies the Microsoft.Network API version used when creating networking resources in the Network Interface Configurations
 	// for Virtual Machine Scale Set with orchestration mode 'Flexible'
 	NetworkAPIVersion *NetworkAPIVersion
@@ -8295,6 +8434,9 @@ type VirtualMachineScaleSetUpdateVMProfile struct {
 
 	// Specifies the hardware profile related details of a scale set. Minimum api-version: 2021-11-01.
 	HardwareProfile *VirtualMachineScaleSetHardwareProfile
+
+	// Specifies the Interconnect Block related details of a scale set. Minimum api-version: 2026-03-01.
+	InterconnectBlockProfile *InterconnectBlockProfile
 
 	// The license type, which is for bring your own license scenario.
 	LicenseType *string
@@ -8484,6 +8626,9 @@ type VirtualMachineScaleSetVMInstanceView struct {
 	// 2020-06-01.
 	AssignedHost *string
 
+	// READ-ONLY; The Interconnect runtime view of the Scale Set VM instance. Minimum api-version: 2026-03-01.
+	InterconnectInstanceView *InterconnectInstanceView
+
 	// READ-ONLY; The health status for the VM.
 	VMHealth *VirtualMachineHealthStatus
 }
@@ -8500,6 +8645,9 @@ type VirtualMachineScaleSetVMListResult struct {
 
 // VirtualMachineScaleSetVMNetworkProfileConfiguration - Describes a virtual machine scale set VM network profile.
 type VirtualMachineScaleSetVMNetworkProfileConfiguration struct {
+	// Specifies the interconnect group profile to associate with the scale set vm instance. Minimum api-version: 2026-03-01.
+	InterconnectGroupProfile *InterconnectGroupProfile
+
 	// The list of network configurations.
 	NetworkInterfaceConfigurations []*VirtualMachineScaleSetNetworkConfiguration
 }
@@ -8528,6 +8676,9 @@ type VirtualMachineScaleSetVMProfile struct {
 
 	// Specifies the hardware profile related details of a scale set. Minimum api-version: 2021-11-01.
 	HardwareProfile *VirtualMachineScaleSetHardwareProfile
+
+	// Specifies the Interconnect Block related details of a Scale Set. Minimum api-version: 2026-03-01.
+	InterconnectBlockProfile *InterconnectBlockProfile
 
 	// Specifies that the image or disk that is being used was licensed on-premises. <br><br> Possible values for Windows Server
 	// operating system are: <br><br> Windows_Client <br><br> Windows_Server <br><br> Possible values for Linux Server operating
@@ -8590,6 +8741,9 @@ type VirtualMachineScaleSetVMProperties struct {
 
 	// Specifies the hardware settings for the virtual machine.
 	HardwareProfile *HardwareProfile
+
+	// Specifies the Interconnect Block related details of a Scale Set VM instance. Minimum api-version: 2026-03-01.
+	InterconnectBlockProfile *InterconnectBlockProfile
 
 	// Specifies that the image or disk that is being used was licensed on-premises. <br><br> Possible values for Windows Server
 	// operating system are: <br><br> Windows_Client <br><br> Windows_Server <br><br> Possible values for Linux Server operating

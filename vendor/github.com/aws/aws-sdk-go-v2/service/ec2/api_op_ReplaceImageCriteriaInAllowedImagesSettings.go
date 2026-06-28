@@ -13,6 +13,10 @@ import (
 
 // Sets or replaces the criteria for Allowed AMIs.
 //
+// The ImageCriteria can include up to:
+//
+//   - 10 ImageCriterion
+//
 // The Allowed AMIs feature does not restrict the AMIs owned by your account.
 // Regardless of the criteria you set, the AMIs created by your account will always
 // be discoverable and usable by users in your account.

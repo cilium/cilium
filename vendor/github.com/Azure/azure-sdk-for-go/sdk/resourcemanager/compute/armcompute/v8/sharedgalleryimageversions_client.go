@@ -18,6 +18,8 @@ import (
 
 // SharedGalleryImageVersionsClient contains the methods for the SharedGalleryImageVersions group.
 // Don't use this type directly, use NewSharedGalleryImageVersionsClient() instead.
+//
+// Generated from API version 2025-03-03
 type SharedGalleryImageVersionsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -41,8 +43,6 @@ func NewSharedGalleryImageVersionsClient(subscriptionID string, credential azcor
 
 // Get - Get a shared gallery image version by subscription id or tenant id.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 //   - location - The name of the Azure region.
 //   - galleryUniqueName - The unique name of the Shared Gallery.
 //   - galleryImageName - The name of the Shared Gallery Image Definition from which the Image Versions are to be listed.
@@ -100,8 +100,8 @@ func (client *SharedGalleryImageVersionsClient) getCreateRequest(ctx context.Con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -116,8 +116,6 @@ func (client *SharedGalleryImageVersionsClient) getHandleResponse(resp *http.Res
 }
 
 // NewListPager - List shared gallery image versions by subscription id or tenant id.
-//
-// Generated from API version 2025-03-03
 //   - location - The name of the Azure region.
 //   - galleryUniqueName - The unique name of the Shared Gallery.
 //   - galleryImageName - The name of the Shared Gallery Image Definition from which the Image Versions are to be listed.
@@ -170,11 +168,11 @@ func (client *SharedGalleryImageVersionsClient) listCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
+	reqQP.Set("api-version", version20250303)
 	if options != nil && options.SharedTo != nil {
 		reqQP.Set("sharedTo", string(*options.SharedTo))
 	}
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }

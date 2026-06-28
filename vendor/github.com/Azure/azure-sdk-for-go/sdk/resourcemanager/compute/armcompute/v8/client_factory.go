@@ -216,6 +216,14 @@ func (c *ClientFactory) NewImagesClient() *ImagesClient {
 	}
 }
 
+// NewInterconnectBlocksClient creates a new instance of InterconnectBlocksClient.
+func (c *ClientFactory) NewInterconnectBlocksClient() *InterconnectBlocksClient {
+	return &InterconnectBlocksClient{
+		subscriptionID: c.subscriptionID,
+		internal:       c.internal,
+	}
+}
+
 // NewLogAnalyticsClient creates a new instance of LogAnalyticsClient.
 func (c *ClientFactory) NewLogAnalyticsClient() *LogAnalyticsClient {
 	return &LogAnalyticsClient{
