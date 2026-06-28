@@ -1,5 +1,39 @@
 # Release History
 
+## 8.1.0 (2026-06-17)
+### Features Added
+
+- New enum type `InterconnectBlockExpandTypes` with values `InterconnectBlockExpandTypesInstanceView`
+- New function `*ClientFactory.NewInterconnectBlocksClient() *InterconnectBlocksClient`
+- New function `NewInterconnectBlocksClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*InterconnectBlocksClient, error)`
+- New function `*InterconnectBlocksClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, interconnectBlockName string, resource InterconnectBlock, options *InterconnectBlocksClientBeginCreateOrUpdateOptions) (*runtime.Poller[InterconnectBlocksClientCreateOrUpdateResponse], error)`
+- New function `*InterconnectBlocksClient.BeginDelete(ctx context.Context, resourceGroupName string, interconnectBlockName string, options *InterconnectBlocksClientBeginDeleteOptions) (*runtime.Poller[InterconnectBlocksClientDeleteResponse], error)`
+- New function `*InterconnectBlocksClient.Get(ctx context.Context, resourceGroupName string, interconnectBlockName string, options *InterconnectBlocksClientGetOptions) (InterconnectBlocksClientGetResponse, error)`
+- New function `*InterconnectBlocksClient.NewListByResourceGroupPager(resourceGroupName string, options *InterconnectBlocksClientListByResourceGroupOptions) *runtime.Pager[InterconnectBlocksClientListByResourceGroupResponse]`
+- New function `*InterconnectBlocksClient.NewListBySubscriptionPager(options *InterconnectBlocksClientListBySubscriptionOptions) *runtime.Pager[InterconnectBlocksClientListBySubscriptionResponse]`
+- New function `*InterconnectBlocksClient.BeginUpdate(ctx context.Context, resourceGroupName string, interconnectBlockName string, properties InterconnectBlockUpdate, options *InterconnectBlocksClientBeginUpdateOptions) (*runtime.Poller[InterconnectBlocksClientUpdateResponse], error)`
+- New struct `AutomaticSKUMigrationPolicy`
+- New struct `InterconnectBlock`
+- New struct `InterconnectBlockInstanceView`
+- New struct `InterconnectBlockListResult`
+- New struct `InterconnectBlockProfile`
+- New struct `InterconnectBlockProperties`
+- New struct `InterconnectBlockUpdate`
+- New struct `InterconnectGroupProfile`
+- New struct `InterconnectInstanceView`
+- New field `InterconnectGroupProfile` in struct `NetworkProfile`
+- New field `AutomaticSKUMigrationPolicy` in struct `SKUProfile`
+- New field `InterconnectInstanceView` in struct `VirtualMachineInstanceView`
+- New field `InterconnectBlockProfile` in struct `VirtualMachineProperties`
+- New field `InterconnectGroupProfile` in struct `VirtualMachineScaleSetNetworkProfile`
+- New field `InterconnectGroupProfile` in struct `VirtualMachineScaleSetUpdateNetworkProfile`
+- New field `InterconnectBlockProfile` in struct `VirtualMachineScaleSetUpdateVMProfile`
+- New field `InterconnectInstanceView` in struct `VirtualMachineScaleSetVMInstanceView`
+- New field `InterconnectGroupProfile` in struct `VirtualMachineScaleSetVMNetworkProfileConfiguration`
+- New field `InterconnectBlockProfile` in struct `VirtualMachineScaleSetVMProfile`
+- New field `InterconnectBlockProfile` in struct `VirtualMachineScaleSetVMProperties`
+
+
 ## 8.0.0 (2026-04-21)
 ### Breaking Changes
 

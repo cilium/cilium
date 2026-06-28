@@ -18,6 +18,8 @@ import (
 
 // AvailabilitySetsClient contains the methods for the AvailabilitySets group.
 // Don't use this type directly, use NewAvailabilitySetsClient() instead.
+//
+// Generated from API version 2026-03-01
 type AvailabilitySetsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -41,8 +43,6 @@ func NewAvailabilitySetsClient(subscriptionID string, credential azcore.TokenCre
 
 // CancelMigrationToVirtualMachineScaleSet - Cancel the migration operation on an Availability Set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - options - AvailabilitySetsClientCancelMigrationToVirtualMachineScaleSetOptions contains the optional parameters for the
@@ -88,16 +88,14 @@ func (client *AvailabilitySetsClient) cancelMigrationToVirtualMachineScaleSetCre
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
 
 // BeginConvertToVirtualMachineScaleSet - Create a new Flexible Virtual Machine Scale Set and migrate all the Virtual Machines
 // in the Availability Set. This does not trigger a downtime on the Virtual Machines.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - options - AvailabilitySetsClientBeginConvertToVirtualMachineScaleSetOptions contains the optional parameters for the AvailabilitySetsClient.BeginConvertToVirtualMachineScaleSet
@@ -122,8 +120,6 @@ func (client *AvailabilitySetsClient) BeginConvertToVirtualMachineScaleSet(ctx c
 // ConvertToVirtualMachineScaleSet - Create a new Flexible Virtual Machine Scale Set and migrate all the Virtual Machines
 // in the Availability Set. This does not trigger a downtime on the Virtual Machines.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 func (client *AvailabilitySetsClient) convertToVirtualMachineScaleSet(ctx context.Context, resourceGroupName string, availabilitySetName string, options *AvailabilitySetsClientBeginConvertToVirtualMachineScaleSetOptions) (*http.Response, error) {
 	var err error
 	const operationName = "AvailabilitySetsClient.BeginConvertToVirtualMachineScaleSet"
@@ -165,8 +161,8 @@ func (client *AvailabilitySetsClient) convertToVirtualMachineScaleSetCreateReque
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	if options != nil && options.Parameters != nil {
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
 		if err := runtime.MarshalAsJSON(req, *options.Parameters); err != nil {
@@ -179,8 +175,6 @@ func (client *AvailabilitySetsClient) convertToVirtualMachineScaleSetCreateReque
 
 // CreateOrUpdate - Create or update an availability set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - parameters - Parameters supplied to the Create Availability Set operation.
@@ -228,8 +222,8 @@ func (client *AvailabilitySetsClient) createOrUpdateCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -249,8 +243,6 @@ func (client *AvailabilitySetsClient) createOrUpdateHandleResponse(resp *http.Re
 
 // Delete - Delete an availability set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - options - AvailabilitySetsClientDeleteOptions contains the optional parameters for the AvailabilitySetsClient.Delete method.
@@ -295,15 +287,13 @@ func (client *AvailabilitySetsClient) deleteCreateRequest(ctx context.Context, r
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
 
 // Get - Retrieves information about an availability set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - options - AvailabilitySetsClientGetOptions contains the optional parameters for the AvailabilitySetsClient.Get method.
@@ -349,8 +339,8 @@ func (client *AvailabilitySetsClient) getCreateRequest(ctx context.Context, reso
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -365,8 +355,6 @@ func (client *AvailabilitySetsClient) getHandleResponse(resp *http.Response) (Av
 }
 
 // NewListPager - Lists all availability sets in a resource group.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - options - AvailabilitySetsClientListOptions contains the optional parameters for the AvailabilitySetsClient.NewListPager
 //     method.
@@ -409,8 +397,8 @@ func (client *AvailabilitySetsClient) listCreateRequest(ctx context.Context, res
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -426,8 +414,6 @@ func (client *AvailabilitySetsClient) listHandleResponse(resp *http.Response) (A
 
 // NewListAvailableSizesPager - Lists all available virtual machine sizes that can be used to create a new virtual machine
 // in an existing availability set.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - options - AvailabilitySetsClientListAvailableSizesOptions contains the optional parameters for the AvailabilitySetsClient.NewListAvailableSizesPager
@@ -475,8 +461,8 @@ func (client *AvailabilitySetsClient) listAvailableSizesCreateRequest(ctx contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -491,8 +477,6 @@ func (client *AvailabilitySetsClient) listAvailableSizesHandleResponse(resp *htt
 }
 
 // NewListBySubscriptionPager - Lists all availability sets in a subscription.
-//
-// Generated from API version 2025-11-01
 //   - options - AvailabilitySetsClientListBySubscriptionOptions contains the optional parameters for the AvailabilitySetsClient.NewListBySubscriptionPager
 //     method.
 func (client *AvailabilitySetsClient) NewListBySubscriptionPager(options *AvailabilitySetsClientListBySubscriptionOptions) *runtime.Pager[AvailabilitySetsClientListBySubscriptionResponse] {
@@ -533,8 +517,8 @@ func (client *AvailabilitySetsClient) listBySubscriptionCreateRequest(ctx contex
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", *options.Expand)
 	}
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -552,8 +536,6 @@ func (client *AvailabilitySetsClient) listBySubscriptionHandleResponse(resp *htt
 // to a Virtual Machine Scale Set. This should be followed by a migrate operation on each Virtual Machine that triggers a
 // downtime on the Virtual Machine.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - parameters - Parameters supplied to the migrate operation on the availability set.
@@ -600,8 +582,8 @@ func (client *AvailabilitySetsClient) startMigrationToVirtualMachineScaleSetCrea
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
 		return nil, err
@@ -611,8 +593,6 @@ func (client *AvailabilitySetsClient) startMigrationToVirtualMachineScaleSetCrea
 
 // Update - Update an availability set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - parameters - Parameters supplied to the Update Availability Set operation.
@@ -659,8 +639,8 @@ func (client *AvailabilitySetsClient) updateCreateRequest(ctx context.Context, r
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -681,8 +661,6 @@ func (client *AvailabilitySetsClient) updateHandleResponse(resp *http.Response) 
 // ValidateMigrationToVirtualMachineScaleSet - Validates that the Virtual Machines in the Availability Set can be migrated
 // to the provided Virtual Machine Scale Set.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-11-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - availabilitySetName - The name of the availability set.
 //   - parameters - Parameters supplied to the migrate operation on the availability set.
@@ -729,8 +707,8 @@ func (client *AvailabilitySetsClient) validateMigrationToVirtualMachineScaleSetC
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-11-01")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
 		return nil, err

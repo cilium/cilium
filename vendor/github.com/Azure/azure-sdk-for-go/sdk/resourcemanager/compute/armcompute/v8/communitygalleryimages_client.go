@@ -18,6 +18,8 @@ import (
 
 // CommunityGalleryImagesClient contains the methods for the CommunityGalleryImages group.
 // Don't use this type directly, use NewCommunityGalleryImagesClient() instead.
+//
+// Generated from API version 2025-03-03
 type CommunityGalleryImagesClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -41,8 +43,6 @@ func NewCommunityGalleryImagesClient(subscriptionID string, credential azcore.To
 
 // Get - Get a community gallery image.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 //   - location - The name of the Azure region.
 //   - publicGalleryName - The public name of the community gallery.
 //   - galleryImageName - The name of the community gallery image definition.
@@ -94,8 +94,8 @@ func (client *CommunityGalleryImagesClient) getCreateRequest(ctx context.Context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -110,8 +110,6 @@ func (client *CommunityGalleryImagesClient) getHandleResponse(resp *http.Respons
 }
 
 // NewListPager - List community gallery images inside a gallery.
-//
-// Generated from API version 2025-03-03
 //   - location - The name of the Azure region.
 //   - publicGalleryName - The public name of the community gallery.
 //   - options - CommunityGalleryImagesClientListOptions contains the optional parameters for the CommunityGalleryImagesClient.NewListPager
@@ -159,8 +157,8 @@ func (client *CommunityGalleryImagesClient) listCreateRequest(ctx context.Contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }

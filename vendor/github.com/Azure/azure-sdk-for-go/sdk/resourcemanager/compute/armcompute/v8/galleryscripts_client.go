@@ -18,6 +18,8 @@ import (
 
 // GalleryScriptsClient contains the methods for the GalleryScripts group.
 // Don't use this type directly, use NewGalleryScriptsClient() instead.
+//
+// Generated from API version 2025-03-03
 type GalleryScriptsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -42,8 +44,6 @@ func NewGalleryScriptsClient(subscriptionID string, credential azcore.TokenCrede
 // BeginCreateOrUpdate - Create or update a Gallery Script Definition. Gallery scripts allow the storage, sharing and reuse
 // of common scripts
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - galleryScriptName - The name of the gallery Script Definition to be retrieved.
@@ -70,8 +70,6 @@ func (client *GalleryScriptsClient) BeginCreateOrUpdate(ctx context.Context, res
 // CreateOrUpdate - Create or update a Gallery Script Definition. Gallery scripts allow the storage, sharing and reuse of
 // common scripts
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 func (client *GalleryScriptsClient) createOrUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScript GalleryScript, options *GalleryScriptsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "GalleryScriptsClient.BeginCreateOrUpdate"
@@ -117,8 +115,8 @@ func (client *GalleryScriptsClient) createOrUpdateCreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, galleryScript); err != nil {
@@ -129,8 +127,6 @@ func (client *GalleryScriptsClient) createOrUpdateCreateRequest(ctx context.Cont
 
 // BeginDelete - Delete a gallery Script Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - galleryScriptName - The name of the gallery Script Definition to be retrieved.
@@ -155,8 +151,6 @@ func (client *GalleryScriptsClient) BeginDelete(ctx context.Context, resourceGro
 
 // Delete - Delete a gallery Script Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 func (client *GalleryScriptsClient) deleteOperation(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, options *GalleryScriptsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "GalleryScriptsClient.BeginDelete"
@@ -202,15 +196,13 @@ func (client *GalleryScriptsClient) deleteCreateRequest(ctx context.Context, res
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
 
 // Get - Retrieves information about a gallery script definition.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - galleryScriptName - The name of the gallery Script Definition to be retrieved.
@@ -261,8 +253,8 @@ func (client *GalleryScriptsClient) getCreateRequest(ctx context.Context, resour
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -277,8 +269,6 @@ func (client *GalleryScriptsClient) getHandleResponse(resp *http.Response) (Gall
 }
 
 // NewListByGalleryPager - List gallery Script Definitions in a gallery.
-//
-// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - options - GalleryScriptsClientListByGalleryOptions contains the optional parameters for the GalleryScriptsClient.NewListByGalleryPager
@@ -326,8 +316,8 @@ func (client *GalleryScriptsClient) listByGalleryCreateRequest(ctx context.Conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
@@ -343,8 +333,6 @@ func (client *GalleryScriptsClient) listByGalleryHandleResponse(resp *http.Respo
 
 // BeginUpdate - Update a gallery Script Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - galleryScriptName - The name of the gallery Script Definition to be retrieved.
@@ -370,8 +358,6 @@ func (client *GalleryScriptsClient) BeginUpdate(ctx context.Context, resourceGro
 
 // Update - Update a gallery Script Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
-//
-// Generated from API version 2025-03-03
 func (client *GalleryScriptsClient) update(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScript GalleryScriptUpdate, options *GalleryScriptsClientBeginUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "GalleryScriptsClient.BeginUpdate"
@@ -417,8 +403,8 @@ func (client *GalleryScriptsClient) updateCreateRequest(ctx context.Context, res
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2025-03-03")
-	req.Raw().URL.RawQuery = reqQP.Encode()
+	reqQP.Set("api-version", version20250303)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, galleryScript); err != nil {
