@@ -23,6 +23,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	reflectorEndpoints "github.com/cilium/cilium/pkg/loadbalancer/reflectors/endpoints"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
@@ -227,7 +228,7 @@ func (s *fileReflector) synchronize(txn writer.WriteTxn, state *StateFile) (numS
 	}
 	for i := range state.Endpoints {
 		eps := k8s.ParseEndpointSliceV1(s.log, &state.Endpoints[i])
-		bes := convertEndpoints(s.log, s.extConfig, eps.ServiceName, maps.All(eps.Backends))
+		bes := reflectorEndpoints.Convert(s.log, s.extConfig, eps.ServiceName, maps.All(eps.Backends))
 		if err := s.w.UpsertBackends(txn, eps.ServiceName, source.LocalAPI, writer.LocalClusterID, bes); err != nil {
 			return 0, 0, 0, fmt.Errorf("failed to upsert backends: %w", err)
 		}

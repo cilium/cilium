@@ -20,6 +20,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	reflectorEndpoints "github.com/cilium/cilium/pkg/loadbalancer/reflectors/endpoints"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -69,7 +70,7 @@ func BenchmarkConvertEndpoints(b *testing.B) {
 	backends := maps.All(eps.Backends)
 
 	for b.Loop() {
-		convertEndpoints(logger, benchmarkExternalConfig, eps.ServiceName, backends)
+		reflectorEndpoints.Convert(logger, benchmarkExternalConfig, eps.ServiceName, backends)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "endpoints/sec")
 }
@@ -100,7 +101,7 @@ func TestConvertEndpointsRespectsEndpointSliceWeight(t *testing.T) {
 		},
 	})
 
-	backends := slices.Collect(convertEndpoints(logger, benchmarkExternalConfig, eps.ServiceName, maps.All(eps.Backends)))
+	backends := slices.Collect(reflectorEndpoints.Convert(logger, benchmarkExternalConfig, eps.ServiceName, maps.All(eps.Backends)))
 	require.Len(t, backends, 1)
 	require.Equal(t, uint16(42), backends[0].Weight)
 	require.Equal(t, loadbalancer.BackendStateActive, backends[0].State)
@@ -138,7 +139,7 @@ func TestConvertEndpointsWeightZeroForcesMaintenance(t *testing.T) {
 		},
 	})
 
-	backends := slices.Collect(convertEndpoints(logger, benchmarkExternalConfig, eps.ServiceName, maps.All(eps.Backends)))
+	backends := slices.Collect(reflectorEndpoints.Convert(logger, benchmarkExternalConfig, eps.ServiceName, maps.All(eps.Backends)))
 	require.Len(t, backends, 1)
 	require.Zero(t, backends[0].Weight)
 	require.Equal(t, loadbalancer.BackendStateMaintenance, backends[0].State)
