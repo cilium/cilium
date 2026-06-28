@@ -4,9 +4,11 @@
 package clustermesh
 
 import (
+	"context"
 	"slices"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -16,6 +18,29 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/source"
 )
+
+// registerServicesInitialized adds a job to wait for the ClusterMesh services to be synchronized
+// before marking the load-balancing tables as initialized.
+func registerServicesInitialized(jobs job.Group, cm *ClusterMesh, cfg cmtypes.ServiceModeV2Config, w *writer.Writer) {
+	if cm == nil || !cfg.ServiceModeV2.ShouldWatchLegacyServices() {
+		return
+	}
+	markDone := w.RegisterInitializer("clustermesh")
+	jobs.Add(
+		job.OneShot(
+			"services-initialized",
+			func(ctx context.Context, health cell.Health) error {
+				if err := cm.ServicesSynced(ctx); err != nil {
+					return err
+				}
+				txn := w.WriteTxn()
+				markDone(txn)
+				txn.Commit()
+				return nil
+			},
+		),
+	)
+}
 
 // ServiceMerger is the interface to be implemented by the owner of local
 // services. The functions have to merge service updates and deletions with
@@ -37,6 +62,7 @@ type serviceMergerParams struct {
 func newServiceMerger(p serviceMergerParams) ServiceMerger {
 	return &serviceMerger{clusterInfo: p.ClusterInfo, writer: p.Writer}
 }
+
 
 type serviceMerger struct {
 	clusterInfo cmtypes.ClusterInfo
