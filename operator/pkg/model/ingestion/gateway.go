@@ -233,14 +233,15 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
 			httpRoutes = append(httpRoutes, toGRPCRoutes(l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 			resHTTP = append(resHTTP, model.HTTPListener{
-				Name:           string(l.Name),
-				Sources:        []model.FullyQualifiedResource{l.Source},
-				Port:           uint32(l.Port),
-				Hostname:       toHostname(l.Hostname),
-				TLS:            toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
-				Routes:         httpRoutes,
-				Infrastructure: infra,
-				Service:        toServiceModel(input.GatewayClassConfig),
+				Name:                  string(l.Name),
+				Sources:               []model.FullyQualifiedResource{l.Source},
+				Port:                  uint32(l.Port),
+				Hostname:              toHostname(l.Hostname),
+				TLS:                   toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
+				FrontendTLSValidation: toFrontendTLSValidation(&input.Gateway, l.Port, input.ReferenceGrants),
+				Routes:                httpRoutes,
+				Infrastructure:        infra,
+				Service:               toServiceModel(input.GatewayClassConfig),
 			})
 
 			if l.Protocol == gatewayv1.TLSProtocolType {
@@ -1481,6 +1482,65 @@ func toTLS(tls *gatewayv1.ListenerTLSConfig, grants []gatewayv1.ReferenceGrant, 
 		})
 	}
 	return res
+}
+
+// toFrontendTLSValidation converts Gateway API FrontendTLSValidation to model.FrontendTLSValidation
+// for client certificate validation (mTLS).
+func toFrontendTLSValidation(
+	gw *gatewayv1.Gateway,
+	listenerPort gatewayv1.PortNumber,
+	grants []gatewayv1.ReferenceGrant,
+) *model.FrontendTLSValidation {
+	if gw.Spec.TLS == nil || gw.Spec.TLS.Frontend == nil {
+		return nil
+	}
+
+	frontend := gw.Spec.TLS.Frontend
+
+	// Check per-port override first
+	var validation *gatewayv1.FrontendTLSValidation
+	for _, perPort := range frontend.PerPort {
+		if perPort.Port == listenerPort && perPort.TLS.Validation != nil {
+			validation = perPort.TLS.Validation
+			break
+		}
+	}
+
+	// Fall back to default
+	if validation == nil && frontend.Default.Validation != nil {
+		validation = frontend.Default.Validation
+	}
+
+	if validation == nil || len(validation.CACertificateRefs) == 0 {
+		return nil
+	}
+
+	ref, ok := helpers.FirstFrontendTLSCACertificateRef(validation)
+	if !ok {
+		return nil
+	}
+	if !helpers.IsObjectRefConfigMap(ref) {
+		return nil
+	}
+
+	refNs := helpers.NamespaceDerefOr(ref.Namespace, gw.Namespace)
+	if refNs != gw.Namespace && !helpers.IsObjectRefAllowed(gw.Namespace, ref,
+		gatewayv1.SchemeGroupVersion.WithKind("Gateway"),
+		corev1.SchemeGroupVersion.WithKind("ConfigMap"), grants) {
+		return nil
+	}
+
+	caCertRef := model.FullyQualifiedResource{
+		Group:     string(ref.Group),
+		Kind:      string(ref.Kind),
+		Name:      string(ref.Name),
+		Namespace: refNs,
+	}
+
+	return &model.FrontendTLSValidation{
+		CACertRefs:               []model.FullyQualifiedResource{caCertRef},
+		RequireClientCertificate: validation.Mode != gatewayv1.AllowInsecureFallback,
+	}
 }
 
 func toHTTPHeaders(headers []gatewayv1.HTTPHeader) []model.Header {

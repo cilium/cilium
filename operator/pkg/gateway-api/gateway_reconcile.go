@@ -1161,6 +1161,69 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		conds = merge(conds, res.conds...)
 		supportedKinds := res.supportedKinds
 
+		// Validate Frontend TLS (mTLS) ConfigMap references
+		if isValid {
+			frontendValidation := getFrontendTLSValidation(gw, l.Port)
+			if frontendValidation != nil && len(frontendValidation.CACertificateRefs) > 1 {
+				conds = merge(conds, metav1.Condition{
+					Type:               string(gatewayv1.ListenerConditionResolvedRefs),
+					Status:             metav1.ConditionFalse,
+					Reason:             string(gatewayv1.ListenerReasonInvalidCACertificateRef),
+					Message:            "Having more than one Frontend TLS CA Certificate Ref is not supported; only the first reference is used.",
+					ObservedGeneration: gw.GetGeneration(),
+					LastTransitionTime: metav1.Now(),
+				})
+			}
+			if ref, ok := helpers.FirstFrontendTLSCACertificateRef(frontendValidation); ok {
+				if !helpers.IsObjectRefConfigMap(ref) {
+					conds = merge(conds, metav1.Condition{
+						Type:               string(gatewayv1.ListenerConditionResolvedRefs),
+						Status:             metav1.ConditionFalse,
+						Reason:             string(gatewayv1.ListenerReasonInvalidCACertificateKind),
+						Message:            "Invalid Frontend TLS CACertificateRef, must be a ConfigMap",
+						LastTransitionTime: metav1.Now(),
+					})
+					invalidMessages = append(invalidMessages, "Invalid Frontend TLS CACertificateRef, must be a ConfigMap.")
+					isValid = false
+				}
+
+				if isValid {
+					refNs := helpers.NamespaceDerefOr(ref.Namespace, gw.Namespace)
+					if refNs != gw.Namespace && !helpers.IsObjectRefAllowed(gw.Namespace, ref,
+						gatewayv1.SchemeGroupVersion.WithKind("Gateway"),
+						corev1.SchemeGroupVersion.WithKind("ConfigMap"), grants.Items) {
+						conds = merge(conds, metav1.Condition{
+							Type:               string(gatewayv1.ListenerConditionResolvedRefs),
+							Status:             metav1.ConditionFalse,
+							Reason:             string(gatewayv1.ListenerReasonRefNotPermitted),
+							Message:            "Frontend TLS CACertificateRef is not permitted",
+							LastTransitionTime: metav1.Now(),
+						})
+						invalidMessages = append(invalidMessages, "Invalid Frontend TLS CACertificateRef, not permitted.")
+						isValid = false
+					}
+				}
+
+				if isValid {
+					refNs := helpers.NamespaceDerefOr(ref.Namespace, gw.Namespace)
+					if err := validateFrontendTLSConfigMap(ctx, r.Client, refNs, string(ref.Name)); err != nil {
+						r.logger.InfoContext(ctx, "Found an invalid Frontend TLS ConfigMap",
+							logfields.Error, err.Error(),
+							logfields.Resource, client.ObjectKeyFromObject(gw).String())
+						conds = merge(conds, metav1.Condition{
+							Type:               string(gatewayv1.ListenerConditionResolvedRefs),
+							Status:             metav1.ConditionFalse,
+							Reason:             string(gatewayv1.ListenerReasonInvalidCACertificateRef),
+							Message:            "Invalid Frontend TLS CACertificateRef",
+							LastTransitionTime: metav1.Now(),
+						})
+						invalidMessages = append(invalidMessages, "Invalid Frontend TLS CACertificateRef, "+err.Error())
+						isValid = false
+					}
+				}
+			}
+		}
+
 		if !isValid {
 			conds = merge(conds,
 				listenerAcceptedCondition(gw.GetGeneration(), false, res.invalidReason, "Listener not valid. "+strings.Join(invalidMessages, " ")),
@@ -1353,6 +1416,47 @@ func validateTLSSecret(ctx context.Context, c client.Client, namespace, name str
 	return nil
 }
 
+// getFrontendTLSValidation returns the FrontendTLSValidation for a given listener port.
+// It checks per-port overrides first, then falls back to the default configuration.
+func getFrontendTLSValidation(gw *gatewayv1.Gateway, port gatewayv1.PortNumber) *gatewayv1.FrontendTLSValidation {
+	if gw.Spec.TLS == nil || gw.Spec.TLS.Frontend == nil {
+		return nil
+	}
+
+	frontend := gw.Spec.TLS.Frontend
+
+	// Check per-port override first
+	for _, perPort := range frontend.PerPort {
+		if perPort.Port == port && perPort.TLS.Validation != nil {
+			return perPort.TLS.Validation
+		}
+	}
+
+	// Fall back to default
+	return frontend.Default.Validation
+}
+
+// validateFrontendTLSConfigMap validates that a ConfigMap exists and has the required ca.crt key.
+func validateFrontendTLSConfigMap(ctx context.Context, c client.Client, namespace, name string) error {
+	cfgMap := &corev1.ConfigMap{}
+	if err := c.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, cfgMap); err != nil {
+		return err
+	}
+
+	caCert, ok := cfgMap.Data["ca.crt"]
+	if !ok {
+		return fmt.Errorf("ConfigMap %s/%s does not contain 'ca.crt' key", namespace, name)
+	}
+
+	if !helpers.IsValidPemFormat([]byte(caCert)) {
+		return fmt.Errorf("PEM format error in ca.crt")
+	}
+
+	return nil
+}
 func (r *gatewayReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.Gateway, modified *gatewayv1.Gateway) (ctrl.Result, error) {
 	if err := r.updateStatus(ctx, original, modified); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err))

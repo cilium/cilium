@@ -67,6 +67,7 @@ var Cell = cell.Module(
 
 	cell.Invoke(initGatewayAPIController),
 	cell.Provide(registerSecretSync),
+	cell.Provide(registerFrontendTLSConfigMapSync),
 )
 
 // gatewayAPIPreconditions holds the result of Gateway API precondition checks.
@@ -334,6 +335,29 @@ func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrati
 			RefObject:            &gatewayv1.BackendTLSPolicy{},
 			RefObjectEnqueueFunc: handler.EnqueueBackendTLSPolicyConfigMaps(),
 			RefObjectCheckFunc:   handler.ConfigMapIsReferencedInGateway,
+			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
+		},
+	}
+}
+
+// registerFrontendTLSConfigMapSync registers Gateway API for ConfigMap synchronization based on
+// CA certificates referenced in Gateway frontend TLS validation (mTLS).
+func registerFrontendTLSConfigMapSync(params secretSyncParams) secretsync.SecretSyncRegistrationOut {
+	if !params.Preconditions.Enabled {
+		return secretsync.SecretSyncRegistrationOut{}
+	}
+
+	if !params.GatewayApiConfig.EnableGatewayAPISecretsSync {
+		return secretsync.SecretSyncRegistrationOut{}
+	}
+
+	handler := NewSecretSyncHandler(params.CtrlRuntimeManager.GetClient(), params.Logger, defaultControllerName)
+
+	return secretsync.SecretSyncRegistrationOut{
+		ConfigMapSyncRegistration: &secretsync.ConfigMapSyncRegistration{
+			RefObject:            &gatewayv1.Gateway{},
+			RefObjectEnqueueFunc: handler.EnqueueFrontendTLSConfigMaps(),
+			RefObjectCheckFunc:   handler.FrontendTLSConfigMapIsReferenced,
 			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
 		},
 	}

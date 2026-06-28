@@ -1056,6 +1056,225 @@ func Test_sectionNameMatched(t *testing.T) {
 	}
 }
 
+func Test_setListenerStatus_FrontendTLSConfigMapValidation(t *testing.T) {
+	tests := []struct {
+		name               string
+		caRefs             []gatewayv1.ObjectReference
+		objects            []client.Object
+		wantValidListener  bool
+		wantResolvedStatus metav1.ConditionStatus
+		wantResolvedReason gatewayv1.ListenerConditionReason
+		wantResolvedMsg    string
+	}{
+		{
+			name: "invalid frontend CA ref kind",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "Secret",
+					Name:  "frontend-ca",
+				},
+			},
+			wantValidListener:  false,
+			wantResolvedStatus: metav1.ConditionFalse,
+			wantResolvedReason: gatewayv1.ListenerReasonInvalidCACertificateKind,
+		},
+		{
+			name: "frontend configmap does not exist",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "frontend-ca",
+				},
+			},
+			wantValidListener:  false,
+			wantResolvedStatus: metav1.ConditionFalse,
+			wantResolvedReason: gatewayv1.ListenerReasonInvalidCACertificateRef,
+		},
+		{
+			name: "frontend configmap missing ca.crt key",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "frontend-ca",
+				},
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "frontend-ca",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"other-key": "value",
+					},
+				},
+			},
+			wantValidListener:  false,
+			wantResolvedStatus: metav1.ConditionFalse,
+			wantResolvedReason: gatewayv1.ListenerReasonInvalidCACertificateRef,
+		},
+		{
+			name: "valid frontend configmap reference",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "frontend-ca",
+				},
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "frontend-ca",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"ca.crt": "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+					},
+				},
+			},
+			wantValidListener:  true,
+			wantResolvedStatus: metav1.ConditionTrue,
+			wantResolvedReason: gatewayv1.ListenerReasonResolvedRefs,
+		},
+		{
+			name: "valid first frontend configmap reference ignores invalid second reference",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "frontend-ca",
+				},
+				{
+					Group: "",
+					Kind:  "Secret",
+					Name:  "ignored-frontend-ca",
+				},
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "frontend-ca",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"ca.crt": "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+					},
+				},
+			},
+			wantValidListener:  true,
+			wantResolvedStatus: metav1.ConditionFalse,
+			wantResolvedReason: gatewayv1.ListenerReasonInvalidCACertificateRef,
+			wantResolvedMsg:    "Having more than one Frontend TLS CA Certificate Ref is not supported; only the first reference is used.",
+		},
+		{
+			name: "invalid first frontend configmap reference is not rescued by valid second reference",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "Secret",
+					Name:  "frontend-ca",
+				},
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "ignored-frontend-ca",
+				},
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ignored-frontend-ca",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"ca.crt": "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+					},
+				},
+			},
+			wantValidListener:  false,
+			wantResolvedStatus: metav1.ConditionFalse,
+			wantResolvedReason: gatewayv1.ListenerReasonInvalidCACertificateKind,
+			wantResolvedMsg:    "Invalid Frontend TLS CACertificateRef, must be a ConfigMap",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := fake.NewClientBuilder().
+				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+				WithObjects(tt.objects...).
+				Build()
+
+			r := &gatewayReconciler{
+				Client: c,
+				logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+			}
+
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gw",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GatewaySpec{
+					GatewayClassName: "cilium",
+					Listeners: []gatewayv1.Listener{
+						{
+							Name:     "https",
+							Port:     443,
+							Protocol: gatewayv1.HTTPSProtocolType,
+						},
+					},
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{
+									CACertificateRefs: tt.caRefs,
+									Mode:              gatewayv1.AllowValidOnly,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			validListener, err := r.setListenerStatus(
+				t.Context(),
+				gw,
+				&gatewayv1.HTTPRouteList{},
+				&gatewayv1.TLSRouteList{},
+				&gatewayv1.GRPCRouteList{},
+				&gatewayv1alpha2.TCPRouteList{},
+				&gatewayv1alpha2.UDPRouteList{},
+				helpers.NamespaceLabelIndex{},
+			)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantValidListener, validListener)
+			require.Len(t, gw.Status.Listeners, 1)
+
+			resolvedRefs := findListenerCondition(gw.Status.Listeners[0].Conditions, string(gatewayv1.ListenerConditionResolvedRefs))
+			require.NotNil(t, resolvedRefs, "missing ResolvedRefs condition")
+			assert.Equal(t, tt.wantResolvedStatus, resolvedRefs.Status)
+			assert.Equal(t, string(tt.wantResolvedReason), resolvedRefs.Reason)
+			if tt.wantResolvedMsg != "" {
+				assert.Equal(t, tt.wantResolvedMsg, resolvedRefs.Message)
+			}
+		})
+	}
+}
+
+func findListenerCondition(conditions []metav1.Condition, condType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == condType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}
+
 // fakeIndexHTTPRouteByBackendService is a client.IndexerFunc that takes a single HTTPRoute and
 // returns all referenced backend service full names (`namespace/name`) to add to the relevant index.
 //
