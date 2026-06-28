@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
@@ -919,21 +918,52 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (ips []string)
 	return ips
 }
 
-// LookupByHostRLocked returns the list of IPs returns the set of IPs
-// (endpoint or CIDR prefix) that have hostIPv4 or hostIPv6 associated as the
-// host of the entry. Requires the caller to hold the RLock.
+// LookupByHostRLocked returns the list of IPs (endpoint or CIDR prefix) that
+// have hostIPv4 or hostIPv6 associated as the host of the entry.
+// If an endpoint IP and an equivalent single-IP CIDR both
+// exist, the endpoint IP owns the returned prefix. Requires the caller to hold
+// the RLock.
 func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.IPNet) {
+	type hostEntry struct {
+		ipnet      net.IPNet
+		host       IPKeyPair
+		isEndpoint bool
+	}
+
+	entries := map[netip.Prefix]hostEntry{}
 	for ip, host := range ipc.ipToHostIPCache {
-		if hostIPv4 != nil && host.IP.Equal(hostIPv4) || hostIPv6 != nil && host.IP.Equal(hostIPv6) {
-			_, cidr, err := net.ParseCIDR(ip)
-			if err != nil {
-				endpointIP := net.ParseIP(ip)
-				cidr = iputil.IPToPrefix(endpointIP)
+		pfx, ipnet, isEndpoint, ok := hostEntryPrefix(ip)
+		if !ok {
+			continue
+		}
+		entry, found := entries[pfx]
+		if !found || isEndpoint && !entry.isEndpoint {
+			entries[pfx] = hostEntry{
+				ipnet:      ipnet,
+				host:       host,
+				isEndpoint: isEndpoint,
 			}
-			cidrs = append(cidrs, *cidr)
+		}
+	}
+
+	for _, entry := range entries {
+		if (hostIPv4 != nil && entry.host.IP.Equal(hostIPv4)) ||
+			(hostIPv6 != nil && entry.host.IP.Equal(hostIPv6)) {
+			cidrs = append(cidrs, entry.ipnet)
 		}
 	}
 	return cidrs
+}
+
+func hostEntryPrefix(ip string) (netip.Prefix, net.IPNet, bool, bool) {
+	if cidrCluster, err := cmtypes.ParsePrefixCluster(ip); err == nil {
+		return cidrCluster.AsPrefix(), cidrCluster.AsIPNet(), false, true
+	}
+	if addrCluster, err := cmtypes.ParseAddrCluster(ip); err == nil {
+		cidrCluster := addrCluster.AsPrefixCluster()
+		return cidrCluster.AsPrefix(), cidrCluster.AsIPNet(), true, true
+	}
+	return netip.Prefix{}, net.IPNet{}, false, false
 }
 
 // Equal returns true if two K8sMetadata pointers contain the same data or are

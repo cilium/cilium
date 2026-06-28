@@ -522,10 +522,6 @@ func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	// Initialize peer if this is the first time we are processing this node.
 	if peer == nil {
 		peer = &peerConfig{}
-
-		if a.needsIPCache() {
-			peer.queueAllowedIPsInsert(a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)...)
-		}
 	}
 
 	// Handle Node IP change
@@ -549,18 +545,27 @@ func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 			IP:   nodeIPv4,
 			Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
 		}
-		if !peer.hasAllowedIP(ipn) {
-			peer.queueAllowedIPsInsert(ipn)
-		}
+		peer.ensureAllowedIPDesired(ipn)
 	}
 	if a.config.EnableIPv6 && nodeIPv6 != nil {
 		ipn := net.IPNet{
 			IP:   nodeIPv6,
 			Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
 		}
-		if !peer.hasAllowedIP(ipn) {
-			peer.queueAllowedIPsInsert(ipn)
+		peer.ensureAllowedIPDesired(ipn)
+	}
+
+	if a.needsIPCache() {
+		ipCacheAllowedIPs := a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)
+		if peer.nodeIPv4 != nil && !peer.nodeIPv4.Equal(nodeIPv4) ||
+			peer.nodeIPv6 != nil && !peer.nodeIPv6.Equal(nodeIPv6) {
+			for _, ipn := range a.ipCache.LookupByHostRLocked(peer.nodeIPv4, peer.nodeIPv6) {
+				if peer.hasIPCacheAllowedIP(ipn) || peer.hasAllowedIP(ipn) {
+					ipCacheAllowedIPs = append(ipCacheAllowedIPs, ipn)
+				}
+			}
 		}
+		peer.syncIPCacheAllowedIPs(ipCacheAllowedIPs, nodeIPv4, nodeIPv6)
 	}
 
 	ep := ""
@@ -693,6 +698,8 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
 			return fmt.Errorf("while adding IPs to peer: %w", err)
 		}
+		p.finishAllowedIPSync(addedIPs)
+		a.forgetIPCacheAllowedIPsFromOtherPeers(p, addedIPs)
 	}
 
 	// WireGuard's netlink API does not support direct removal of allowed IPs
@@ -739,10 +746,27 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		}
 	}
 
-	p.finishAllowedIPSync(addedIPs)
 	p.finishAllowedIPSync(removedIPs)
 
 	return nil
+}
+
+func (a *Agent) forgetIPCacheAllowedIPsFromOtherPeers(updatedPeer *peerConfig, insertedIPs []net.IPNet) {
+	for _, insertedIP := range insertedIPs {
+		if !updatedPeer.hasIPCacheAllowedIP(insertedIP) {
+			continue
+		}
+
+		for _, peer := range a.peerByNodeName {
+			if peer == updatedPeer || !peer.hasIPCacheAllowedIP(insertedIP) {
+				continue
+			}
+			if isNodeIPPrefix(ipnetToPrefix(insertedIP), peer.nodeIPv4, peer.nodeIPv6) {
+				continue
+			}
+			peer.forgetIPCacheAllowedIP(insertedIP)
+		}
+	}
 }
 
 func loadOrGeneratePrivKey(filePath string) (key wgtypes.Key, err error) {
@@ -797,29 +821,44 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	// which for which we already know the public key. If a node opts out of
 	// encryption, it will not announce it's public key and thus will not be
 	// part of the nodeNameByNodeIP map.
-	var updatedPeer *peerConfig
-	switch {
-	case modType == ipcache.Delete && oldHostIP != nil:
-		if nodeName, ok := a.nodeNameByNodeIP[oldHostIP.String()]; ok {
-			if peer := a.peerByNodeName[nodeName]; peer != nil {
-				if peer.hasAllowedIP(ipnet) {
-					peer.queueAllowedIPsRemove(ipnet)
-					updatedPeer = peer
-				}
-			}
+	var updatedPeers []*peerConfig
+	seenPeers := map[*peerConfig]struct{}{}
+	addPeerByHostIP := func(hostIP net.IP) {
+		if hostIP == nil {
+			return
 		}
-	case modType == ipcache.Upsert && newHostIP != nil:
-		if nodeName, ok := a.nodeNameByNodeIP[newHostIP.String()]; ok {
-			if peer := a.peerByNodeName[nodeName]; peer != nil {
-				if !peer.hasAllowedIP(ipnet) {
-					peer.queueAllowedIPsInsert(ipnet)
-					updatedPeer = peer
-				}
-			}
+		nodeName, ok := a.nodeNameByNodeIP[hostIP.String()]
+		if !ok {
+			return
 		}
+		peer := a.peerByNodeName[nodeName]
+		if peer == nil {
+			return
+		}
+		if _, ok := seenPeers[peer]; ok {
+			return
+		}
+		seenPeers[peer] = struct{}{}
+		updatedPeers = append(updatedPeers, peer)
 	}
 
-	if updatedPeer != nil {
+	// Process the new host first so an IPCache-owned AllowedIP can transfer to
+	// the new peer by WireGuard's normal "steal" behavior. After a successful
+	// insert, updatePeerByConfig forgets matching IPCache-owned prefixes from
+	// other peers without using the dummy-peer removal path.
+	if modType == ipcache.Upsert {
+		addPeerByHostIP(newHostIP)
+	}
+	if oldHostIP != nil && (newHostIP == nil || !oldHostIP.Equal(newHostIP)) {
+		addPeerByHostIP(oldHostIP)
+	}
+
+	for _, updatedPeer := range updatedPeers {
+		updatedPeer.syncIPCacheAllowedIPs(
+			a.ipCache.LookupByHostRLocked(updatedPeer.nodeIPv4, updatedPeer.nodeIPv6),
+			updatedPeer.nodeIPv4,
+			updatedPeer.nodeIPv6,
+		)
 		if err := a.updatePeerByConfig(updatedPeer); err != nil {
 			a.logger.Error(
 				"Failed to update WireGuard peer after ipcache update",
@@ -830,6 +869,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 				logfields.NewNode, newHostIP,
 				logfields.PubKey, updatedPeer.pubKey,
 			)
+			return
 		}
 	}
 }
@@ -928,6 +968,7 @@ type peerConfig struct {
 	allowedIPs         map[netip.Prefix]net.IPNet
 	needsInsert        map[netip.Prefix]net.IPNet
 	needsRemove        map[netip.Prefix]net.IPNet
+	ipCacheAllowedIPs  map[netip.Prefix]net.IPNet
 }
 
 func (p *peerConfig) lazyInitMaps() {
@@ -970,6 +1011,106 @@ func (p *peerConfig) queueAllowedIPsRemove(ips ...net.IPNet) {
 		p.needsRemove[pfx] = ip
 		delete(p.needsInsert, pfx)
 	}
+}
+
+func (p *peerConfig) syncIPCacheAllowedIPs(desiredIPs []net.IPNet, nodeIPv4, nodeIPv6 net.IP) {
+	if p.ipCacheAllowedIPs == nil {
+		p.ipCacheAllowedIPs = map[netip.Prefix]net.IPNet{}
+	}
+
+	desired := map[netip.Prefix]net.IPNet{}
+	for _, ipn := range desiredIPs {
+		pfx := ipnetToPrefix(ipn)
+		desired[pfx] = ipn
+		p.ipCacheAllowedIPs[pfx] = ipn
+		p.ensureAllowedIPDesired(ipn)
+	}
+
+	for pfx, ipn := range p.ipCacheAllowedIPs {
+		if _, ok := desired[pfx]; ok {
+			continue
+		}
+
+		delete(p.ipCacheAllowedIPs, pfx)
+		delete(p.needsInsert, pfx)
+		if isNodeIPPrefix(pfx, nodeIPv4, nodeIPv6) {
+			continue
+		}
+		if p.hasAllowedIP(ipn) {
+			p.queueAllowedIPsRemove(ipn)
+		}
+	}
+
+	if len(p.ipCacheAllowedIPs) == 0 {
+		p.ipCacheAllowedIPs = nil
+	}
+}
+
+func (p *peerConfig) ensureAllowedIPDesired(ip net.IPNet) bool {
+	if p.hasAllowedIP(ip) && !p.hasAllowedIPQueuedForRemoval(ip) {
+		return false
+	}
+	p.queueAllowedIPsInsert(ip)
+	return true
+}
+
+func (p *peerConfig) hasAllowedIPQueuedForRemoval(ip net.IPNet) bool {
+	if p.needsRemove == nil {
+		return false
+	}
+	_, ok := p.needsRemove[ipnetToPrefix(ip)]
+	return ok
+}
+
+func (p *peerConfig) hasIPCacheAllowedIP(ip net.IPNet) bool {
+	if p.ipCacheAllowedIPs == nil {
+		return false
+	}
+	_, ok := p.ipCacheAllowedIPs[ipnetToPrefix(ip)]
+	return ok
+}
+
+func (p *peerConfig) forgetIPCacheAllowedIP(ip net.IPNet) {
+	pfx := ipnetToPrefix(ip)
+	delete(p.ipCacheAllowedIPs, pfx)
+	delete(p.allowedIPs, pfx)
+	delete(p.needsInsert, pfx)
+	delete(p.needsRemove, pfx)
+
+	if len(p.ipCacheAllowedIPs) == 0 {
+		p.ipCacheAllowedIPs = nil
+	}
+	if len(p.allowedIPs) == 0 {
+		p.allowedIPs = nil
+	}
+	if len(p.needsInsert) == 0 {
+		p.needsInsert = nil
+	}
+	if len(p.needsRemove) == 0 {
+		p.needsRemove = nil
+	}
+}
+
+func isNodeIPPrefix(pfx netip.Prefix, nodeIPv4, nodeIPv6 net.IP) bool {
+	if nodeIPv4 != nil {
+		ipn := net.IPNet{
+			IP:   nodeIPv4,
+			Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
+		}
+		if pfx == ipnetToPrefix(ipn) {
+			return true
+		}
+	}
+	if nodeIPv6 != nil {
+		ipn := net.IPNet{
+			IP:   nodeIPv6,
+			Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
+		}
+		if pfx == ipnetToPrefix(ipn) {
+			return true
+		}
+	}
+	return false
 }
 
 // queuedAllowedIPUpdates returns the set of allowed IP insertions and removals
