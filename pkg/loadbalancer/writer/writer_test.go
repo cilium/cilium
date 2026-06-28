@@ -237,6 +237,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 			wtxn,
 			name1,
 			source.Kubernetes,
+			LocalClusterID,
 			slices.Values([]loadbalancer.Backend{
 				{
 					Address: beAddr1,
@@ -253,6 +254,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 			wtxn,
 			name2,
 			source.Kubernetes,
+			LocalClusterID,
 			slices.Values([]loadbalancer.Backend{
 				{
 					Address: beAddr3,
@@ -297,7 +299,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 
 		// Release the [name1] reference to [beAddr1].
 		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
-		err := p.Writer.DeleteBackendsByAddress(wtxn, name1, slices.Values([]loadbalancer.L3n4Addr{beAddr1}))
+		err := p.Writer.DeleteBackendsByAddress(wtxn, name1, source.Kubernetes, LocalClusterID, slices.Values([]loadbalancer.L3n4Addr{beAddr1}))
 		require.NoError(t, err, "ReleaseBackend failed")
 
 		wtxn.Abort()
@@ -321,6 +323,7 @@ func TestWriter_UpdateBackendHealth_AllSources(t *testing.T) {
 			wtxn,
 			name,
 			src,
+			LocalClusterID,
 			slices.Values([]loadbalancer.Backend{{
 				Address: beAddr,
 				State:   loadbalancer.BackendStateActive,
@@ -720,9 +723,9 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 		{
 			desc: "add backends for two services",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.UpsertBackends(wtxn, name1, source.Kubernetes,
+				require.NoError(t, w.UpsertBackends(wtxn, name1, source.Kubernetes, LocalClusterID,
 					slices.Values([]loadbalancer.Backend{backend10})))
-				require.NoError(t, w.UpsertBackends(wtxn, name2, source.KubeAPIServer,
+				require.NoError(t, w.UpsertBackends(wtxn, name2, source.KubeAPIServer, LocalClusterID,
 					slices.Values([]loadbalancer.Backend{backend20})))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](10), name2: ptr.To[weight](20)},
@@ -730,7 +733,7 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 		{
 			desc: "update backend from higher priority source",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.UpsertBackends(wtxn, name1, source.KubeAPIServer,
+				require.NoError(t, w.UpsertBackends(wtxn, name1, source.KubeAPIServer, LocalClusterID,
 					slices.Values([]loadbalancer.Backend{backend11})))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)},
@@ -738,7 +741,7 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 		{
 			desc: "update backend from lower priority source",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.UpsertBackends(wtxn, name1, source.Kubernetes,
+				require.NoError(t, w.UpsertBackends(wtxn, name1, source.Kubernetes, LocalClusterID,
 					slices.Values([]loadbalancer.Backend{backend12})))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)}, // no change here
@@ -754,9 +757,9 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 		{
 			desc: "add deleted backends back",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.UpsertBackends(wtxn, name1, source.KubeAPIServer,
+				require.NoError(t, w.UpsertBackends(wtxn, name1, source.KubeAPIServer, LocalClusterID,
 					slices.Values([]loadbalancer.Backend{backend11})))
-				require.NoError(t, w.UpsertBackends(wtxn, name2, source.KubeAPIServer,
+				require.NoError(t, w.UpsertBackends(wtxn, name2, source.KubeAPIServer, LocalClusterID,
 					slices.Values([]loadbalancer.Backend{backend20})))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)},
