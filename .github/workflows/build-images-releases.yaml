@@ -52,7 +52,7 @@ jobs:
 
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -92,7 +92,7 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
@@ -214,7 +214,7 @@ jobs:
   call-post-release:
     if: github.repository_owner == 'cilium'
     name: Call Post-Release Tool
-    uses: cilium/cilium/.github/workflows/release.yaml@d9de113a74a63d72bbd6f8889eac76de38211d9b # main
+    uses: cilium/cilium/.github/workflows/release.yaml@2b56ecd80b6cce37a7a3a3606ead212328a27c3a # main
     needs: image-digests
     with:
       step: "4-post-release"
@@ -237,7 +237,7 @@ jobs:
       contents: read
       # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
       id-token: write
-    uses: cilium/cilium/.github/workflows/release.yaml@d9de113a74a63d72bbd6f8889eac76de38211d9b # main
+    uses: cilium/cilium/.github/workflows/release.yaml@2b56ecd80b6cce37a7a3a3606ead212328a27c3a # main
     needs: image-digests
     with:
       step: "5-publish-helm"
