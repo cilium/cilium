@@ -12,9 +12,6 @@
 #define ENABLE_NODEPORT_ACCELERATION	1
 #define ENABLE_DSR			1
 
-/* Skip ingress policy checks */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY	1
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #define CLIENT_PORT		__bpf_htons(111)
