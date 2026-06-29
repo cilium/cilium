@@ -146,7 +146,7 @@ func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
 	for _, podItem := range watchers.UnmanagedPodStore.List() {
 		pod, ok := podItem.(*slim_corev1.Pod)
 		if !ok {
-			c.logger.ErrorContext(ctx, fmt.Sprintf("unexpected type mapping: found %T, expected %T", pod, &slim_corev1.Pod{}))
+			c.logger.ErrorContext(ctx, fmt.Sprintf("unexpected type mapping: found %T, expected %T", podItem, &slim_corev1.Pod{}))
 			continue
 		}
 
@@ -168,7 +168,6 @@ func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
 		if exists {
 			c.logger.DebugContext(ctx,
 				"Found managed pod due to presence of a CEP",
-				logfields.Error, err,
 				logfields.K8sPodName, podID,
 				logfields.Identity, cep.Status.ID,
 			)
