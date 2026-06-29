@@ -22,6 +22,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 	b.addOptions(
 		Always(func(t *config.BPFLXC, _ bool) {
 			t.Node.EnableBPFHostRouting = true
+			t.Node.LBSelectionPerService = true
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.AllowICMPFragNeeded = true
@@ -46,6 +47,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 	b.addOptions(
 		Always(func(t *config.BPFHost, _ bool) {
 			t.Node.EnableBPFHostRouting = true
+			t.Node.LBSelectionPerService = true
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.AllowICMPFragNeeded = true
@@ -76,6 +78,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 	b.addOptions(
 		Always(func(t *config.BPFOverlay, _ bool) {
 			t.Node.EnableBPFHostRouting = true
+			t.Node.LBSelectionPerService = true
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.EnableConntrackAccounting = true
@@ -90,6 +93,7 @@ func baseSockPermutations() *loadPermutationBuilder {
 	b.addOptions(
 		Always(func(t *config.BPFSock, _ bool) {
 			t.Node.EnableBPFHostRouting = true
+			t.Node.LBSelectionPerService = true
 			t.Node.DebugLB = true
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
@@ -121,6 +125,7 @@ func baseXDPPermutations() *loadPermutationBuilder {
 	b.addOptions(
 		Always(func(t *config.BPFXDP, _ bool) {
 			t.Node.EnableBPFHostRouting = true
+			t.Node.LBSelectionPerService = true
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.EnableConntrackAccounting = true

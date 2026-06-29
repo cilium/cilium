@@ -41,10 +41,9 @@ static volatile const __u8 base_backend_mac[ETH_ALEN] = {
 
 #include "node_config.h"
 
-#undef LB_SELECTION
-#define LB_SELECTION LB_SELECTION_MAGLEV
 #undef LB_MAGLEV_LUT_SIZE
 #define LB_MAGLEV_LUT_SIZE 20
+#define LB_DEFAULT_ALG LB_SELECTION_MAGLEV
 
 /* Define a mock maglev map that would be used by the LB code */
 struct lb6_maglev_map_inner {

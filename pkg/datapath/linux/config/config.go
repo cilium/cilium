@@ -357,21 +357,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-	const (
-		selectionRandom = iota + 1
-		selectionMaglev
-	)
-	cDefinesMap["LB_SELECTION_RANDOM"] = fmt.Sprintf("%d", selectionRandom)
-	cDefinesMap["LB_SELECTION_MAGLEV"] = fmt.Sprintf("%d", selectionMaglev)
-	if cfg.LBConfig.AlgorithmAnnotation {
-		cDefinesMap["LB_SELECTION_PER_SERVICE"] = "1"
-	}
-	if cfg.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmRandom {
-		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
-	} else if cfg.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
-		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
-	}
-
 	// define maglev tables when loadbalancer algorith is maglev or config can
 	// be set by the Service annotation
 	cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", cfg.MaglevConfig.TableSize)
