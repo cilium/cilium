@@ -220,12 +220,8 @@ func (dq *DeletionQueue) processQueuedDeleteEntryLocked(file string) error {
 	var req models.EndpointBatchDeleteRequest
 	err = req.UnmarshalBinary(contents)
 	if err != nil {
-		// fall back on treating the file contents as an endpoint id (legacy behavior)
+		// fall back on treating the file contents as an endpoint id (not a batch deletion)
 		epID := string(contents)
-		dq.logger.Debug("Falling back on legacy deletion queue format",
-			logfields.EndpointID, epID,
-			logfields.Error, err,
-		)
 		_, _ = dq.endpointAPIManager.DeleteEndpoint(epID) // this will log errors elsewhere
 		return nil
 	}

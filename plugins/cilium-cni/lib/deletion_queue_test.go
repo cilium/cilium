@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/lock/lockfile"
 )
 
@@ -61,6 +62,10 @@ func (e *errorMock) call() error {
 
 type fakeCiliumClient struct {
 	errorMock
+}
+
+func (f *fakeCiliumClient) EndpointDelete(id string) error {
+	return f.call()
 }
 
 func (f *fakeCiliumClient) EndpointDeleteMany(_ *models.EndpointBatchDeleteRequest) error {
@@ -139,6 +144,7 @@ func TestDeletionFallbackClient(t *testing.T) {
 	tt := []struct {
 		newClientCreator    fakeCiliumClientCreator
 		shouldQueueDeletion bool
+		containerIfName     string
 	}{
 		{
 			newClientCreator: fakeCiliumClientCreator{
@@ -196,28 +202,42 @@ func TestDeletionFallbackClient(t *testing.T) {
 			},
 			shouldQueueDeletion: true,
 		},
+		{
+			newClientCreator: fakeCiliumClientCreator{
+				errorMock:       newClientErrorAlways,
+				clientErrorMock: deletionClientErrorNever,
+			},
+			shouldQueueDeletion: true,
+			containerIfName:     "eth0",
+		},
 	}
 
 	deleteReq := &models.EndpointBatchDeleteRequest{
 		ContainerID: "test-container-id",
 	}
 
-	contents, err := deleteReq.MarshalBinary()
-	require.NoError(t, err)
-
-	h := sha256.New()
-	h.Write(contents)
-	deleteQueueFilename := fmt.Sprintf("%x.delete", h.Sum(nil))
-
 	for _, tc := range tt {
 		testName := tc.newClientCreator.ToString()
+
+		var err error
+		var contents []byte
+		if tc.containerIfName == "" {
+			contents, err = deleteReq.MarshalBinary()
+			require.NoError(t, err)
+		} else {
+			testName = fmt.Sprintf("%s IfName: %s", testName, tc.containerIfName)
+			contents = []byte(id.NewCNIAttachmentID(deleteReq.ContainerID, tc.containerIfName))
+		}
+		h := sha256.New()
+		h.Write(contents)
+		deleteQueueFilename := fmt.Sprintf("%x.delete", h.Sum(nil))
 
 		t.Run(testName, func(t *testing.T) {
 			testDir := t.TempDir()
 
 			dc := newDeletionClient(tc.newClientCreator.newClient, testDir)
 
-			err = dc.EndpointDeleteMany(deleteReq)
+			err = dc.EndpointDelete(deleteReq.ContainerID, tc.containerIfName)
 			require.NoError(t, err)
 
 			deleteQueueFile := path.Join(testDir, deleteQueueFilename)
