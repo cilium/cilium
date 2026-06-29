@@ -101,6 +101,7 @@ const (
 	SVCLoadBalancingAlgorithmUndef  SVCLoadBalancingAlgorithm = 0
 	SVCLoadBalancingAlgorithmRandom SVCLoadBalancingAlgorithm = 1
 	SVCLoadBalancingAlgorithmMaglev SVCLoadBalancingAlgorithm = 2
+	SVCLoadBalancingAlgorithmCustom SVCLoadBalancingAlgorithm = 0x80
 )
 
 type SVCLoadBalancingAlgorithmSpec struct {
