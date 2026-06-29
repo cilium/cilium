@@ -4,23 +4,15 @@ allowed-teams:
 triggers:
   /default:
     workflows:
-    - cilium-cli.yaml
     - conformance-kind-proxy-embedded.yaml
-    - codeql.yaml
-    - lint-go.yaml
-    - tests-smoke.yaml
     - tests-smoke-conformance.yaml
     - tests-smoke-ipv6.yaml
     - tests-cifuzz.yaml
     - lint-ariane-config.yaml
     - conformance-kubespray.yaml
-    - lint-build-commits.yaml
-    - documentation.yaml
     - k8s-kind-network-e2e.yaml
     - lint-images-base.yaml
-    - lint-workflows.yaml
     - k8s-kind-network-policies-e2e.yaml
-    - lint-bpf-checks.yaml
   # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
   /test\s*:
     workflows:
