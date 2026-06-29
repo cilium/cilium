@@ -1,0 +1,47 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: delegated-listeners
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: route-hostname-independence
+  listeners:
+  - name: echo
+    hostname: echo.example.com
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+status:
+  conditions:
+  - type: Accepted
+    status: "True"
+    reason: Accepted
+    message: ListenerSet is accepted
+  - type: Programmed
+    status: "True"
+    reason: Programmed
+    message: ListenerSet is programmed
+  listeners:
+  - name: echo
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+    attachedRoutes: 1
+    conditions:
+    - type: ResolvedRefs
+      status: "True"
+      reason: ResolvedRefs
+      message: Resolved Refs
+    - type: Accepted
+      status: "True"
+      reason: Accepted
+      message: Listener Accepted
+    - type: Programmed
+      status: "True"
+      reason: Programmed
+      message: Listener Programmed
