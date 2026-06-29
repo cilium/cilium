@@ -255,6 +255,7 @@ const (
 	IdentityWorldIPv4ID         Identity = 9
 	IdentityWorldIPv6ID         Identity = 10
 	IdentityPolicyClusterID     Identity = 11
+	IdentityPolicyClusterMeshID Identity = 12
 )
 
 // IPCacheKey is generated from the BPF C type ipcache_key.

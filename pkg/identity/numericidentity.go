@@ -141,6 +141,10 @@ const (
 	// ReservedIdentityCluster is used for policy map aggregation for all in-cluster traffic.
 	// It is not applied to any endpoints or packets directly.
 	ReservedIdentityCluster = NumericIdentity(datapath.IdentityPolicyClusterID)
+
+	// ReservedIdentityClusterMesh is used for policy map aggregation for all cluster-mesh traffic.
+	// It is not applied to any endpoints or packets directly.
+	ReservedIdentityClusterMesh = NumericIdentity(datapath.IdentityPolicyClusterMeshID)
 )
 
 // Special identities for well-known cluster components
@@ -255,6 +259,14 @@ func InitStaticIdentities(ciliumNS string, cinfo cmtypes.ClusterInfo, enableWell
 		labels.FromSlice([]labels.Label{
 			labels.NewLabel(labels.IDNameCluster, "", labels.LabelSourceReserved),
 			labels.NewLabel(api.PolicyLabelCluster, cinfo.Name, labels.LabelSourceK8s),
+		}))
+
+	// The ClusterMesh identity has the cluster label name, but with a value of "".
+	// This is selected by the Has selector.
+	AddReservedIdentityWithLabels(ReservedIdentityClusterMesh,
+		labels.FromSlice([]labels.Label{
+			labels.NewLabel(labels.IDNameClusterMesh, "", labels.LabelSourceReserved),
+			labels.NewLabel(api.PolicyLabelCluster, "", labels.LabelSourceK8s),
 		}))
 
 	if !enableWellKnown {
