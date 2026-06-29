@@ -46,9 +46,6 @@ CHECK("tc", "nat4_remote_node_masquerade_enabled_test")
 int test_nat4_remote_node_masquerade_enabled(__maybe_unused struct __ctx_buff *ctx)
 {
     struct ipv4_ct_tuple tuple = {};
-    struct iphdr ip4 = {
-    .protocol = IPPROTO_TCP,
-    };
     fraginfo_t fraginfo = 0;
     int l4_off = 0;
     int ret;
@@ -81,7 +78,7 @@ int test_nat4_remote_node_masquerade_enabled(__maybe_unused struct __ctx_buff *c
      * Test: With enable_remote_node_masquerade configured as true via ASSIGN_CONFIG.
      * Expect NAT_NEEDED and target.addr to be set.
      */
-    ret = snat_v4_needs_masquerade(ctx, &tuple, &ip4, fraginfo, l4_off, &target);
+    ret = snat_v4_needs_masquerade(ctx, &tuple, fraginfo, l4_off, &target);
     assert(ret == NAT_NEEDED);
     assert(target.addr == IPV4_MASQUERADE); /* Masquerade address set */
 
