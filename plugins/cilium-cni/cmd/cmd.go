@@ -69,7 +69,6 @@ var (
 type Cmd struct {
 	logger  *slog.Logger
 	version string
-	cfg     EndpointConfigurator
 
 	onConfigReady          []OnConfigReady
 	onIPAMReady            []OnIPAMReady
@@ -87,16 +86,6 @@ func WithVersion(version string) Option {
 	}
 }
 
-// WithEPConfigurator is used to create a Cmd instance with a custom
-// endpoint configurator. The endpoint configurator can be used to customize
-// the creation of endpoints during the CNI ADD invocation.
-// This function is exported to be accessed outside the tree.
-func WithEPConfigurator(cfg EndpointConfigurator) Option {
-	return func(cmd *Cmd) {
-		cmd.cfg = cfg
-	}
-}
-
 // PluginMain is the main entry point for the Cilium CNI plugin.
 func PluginMain(opts ...Option) {
 	// slogloggercheck: the logger has been initialized with default settings
@@ -104,7 +93,6 @@ func PluginMain(opts ...Option) {
 	cmd := &Cmd{
 		logger:  logger,
 		version: "Cilium CNI plugin " + version.Version,
-		cfg:     &DefaultConfigurator{},
 	}
 	for _, opt := range opts {
 		opt(cmd)
@@ -169,10 +157,10 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 	return configResult.Status, nil
 }
 
-func allocateIPsWithCiliumAgent(logger *slog.Logger, client *client.Client, cniArgs *types.ArgsSpec, ipamPoolName string) (*models.IPAMResponse, func(context.Context), error) {
+func allocateIPsWithCiliumAgent(logger *slog.Logger, client *client.Client, cniArgs *types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
 
-	ipam, err := client.IPAMAllocate("", podName, ipamPoolName, true)
+	ipam, err := client.IPAMAllocate("", podName, "", true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
 	}
@@ -520,6 +508,35 @@ func configureCongestionControl(conf *models.DaemonConfigurationStatus, sysctl s
 	})
 }
 
+func ifindexFromMac(mac string) (int64, error) {
+	var link netlink.Link
+
+	links, err := safenetlink.LinkList()
+	if err != nil {
+		return -1, fmt.Errorf("unable to list interfaces: %w", err)
+	}
+
+	for _, l := range links {
+		// Linux slave devices have the same MAC address as their master
+		// device, but we want the master device.
+		if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
+			continue
+		}
+		if l.Attrs().HardwareAddr.String() == mac {
+			if link != nil {
+				return -1, fmt.Errorf("several interfaces found with MAC %s: %s and %s", mac, link.Attrs().Name, l.Attrs().Name)
+			}
+			link = l
+		}
+	}
+
+	if link == nil {
+		return -1, fmt.Errorf("no interface found with MAC %s", mac)
+	}
+
+	return int64(link.Attrs().Index), nil
+}
+
 func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
@@ -615,11 +632,6 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	}
 
 	res := &cniTypesV1.Result{}
-	configs, err := cmd.cfg.GetConfigurations(ConfigurationParams{scopedLogger, conf, args, cniArgs})
-	if err != nil {
-		return fmt.Errorf("failed to determine endpoint configuration: %w", err)
-	}
-
 	ns, err := netns.OpenPinned(args.Netns)
 	if err != nil {
 		return fmt.Errorf("opening netns pinned at %s: %w", args.Netns, err)
@@ -628,254 +640,277 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
-	for _, epConf := range configs {
-		if err = ns.Do(func() error {
-			return link.DeleteByName(epConf.IfName())
-		}); err != nil {
-			return fmt.Errorf("failed removing interface %q from namespace %q: %w",
-				epConf.IfName(), args.Netns, err)
-		}
+	if err = ns.Do(func() error {
+		return link.DeleteByName(args.IfName)
+	}); err != nil {
+		return fmt.Errorf("failed removing interface %q from namespace %q: %w",
+			args.IfName, args.Netns, err)
+	}
 
-		var ipam *models.IPAMResponse
-		var releaseIPsFunc func(context.Context)
-		if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
-			ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
+	var ipam *models.IPAMResponse
+	var releaseIPsFunc func(context.Context)
+	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
+		ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
+	} else {
+		ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(scopedLogger, c, cniArgs)
+	}
+
+	// release addresses on failure
+	defer func() {
+		if err != nil && releaseIPsFunc != nil {
+			releaseIPsFunc(context.TODO())
+		}
+	}()
+
+	if err != nil {
+		return err
+	}
+
+	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
+		return fmt.Errorf("IP allocation addressing is insufficient: %w", err)
+	}
+
+	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
+		return errors.New("IPAM did provide neither IPv4 nor IPv6 address")
+	}
+
+	for _, hook := range cmd.onIPAMReady {
+		if err := hook.OnIPAMReady(ipam); err != nil {
+			return err
+		}
+	}
+
+	ep := &models.EndpointChangeRequest{
+		ContainerID:            args.ContainerID,
+		Labels:                 models.Labels{},
+		State:                  models.EndpointStateWaitingDashForDashIdentity.Pointer(),
+		Addressing:             &models.AddressPair{},
+		K8sPodName:             string(cniArgs.K8S_POD_NAME),
+		K8sNamespace:           string(cniArgs.K8S_POD_NAMESPACE),
+		K8sUID:                 string(cniArgs.K8S_POD_UID),
+		ContainerInterfaceName: args.IfName,
+		DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
+		Properties:             make(map[string]any),
+	}
+
+	switch conf.IpamMode {
+	case ipamOption.IPAMDelegatedPlugin:
+		// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
+		ep.DatapathConfiguration.ExternalIpam = true
+	case ipamOption.IPAMENI:
+		ifindex, err := ifindexFromMac(ipam.IPv4.MasterMac)
+		if err == nil {
+			ep.ParentInterfaceIndex = ifindex
 		} else {
-			ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(scopedLogger, c, cniArgs, epConf.IPAMPool())
+			scopedLogger.Error("Unable to get interface index from MAC address", logfields.Error, err)
 		}
+	}
 
-		// release addresses on failure
-		defer func() {
-			if err != nil && releaseIPsFunc != nil {
-				releaseIPsFunc(context.TODO())
-			}
-		}()
+	state := &CmdState{
+		HostAddr: ipam.HostAddressing,
+	}
 
-		if err != nil {
+	cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
+	linkConfig := connector.LinkConfig{
+		EndpointID:     cniID,
+		PeerIfName:     args.IfName,
+		PeerNamespace:  ns,
+		GROIPv6MaxSize: int(conf.GROMaxSize),
+		GSOIPv6MaxSize: int(conf.GSOMaxSize),
+		GROIPv4MaxSize: int(conf.GROIPv4MaxSize),
+		GSOIPv4MaxSize: int(conf.GSOIPv4MaxSize),
+		DeviceMTU:      int(conf.DeviceMTU),
+		DeviceHeadroom: uint16(conf.DeviceHeadroom),
+		DeviceTailroom: uint16(conf.DeviceTailroom),
+	}
+
+	for _, hook := range cmd.onLinkConfigReady {
+		if err := hook.OnLinkConfigReady(&linkConfig); err != nil {
 			return err
 		}
+	}
 
-		if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
-			return fmt.Errorf("IP allocation addressing is insufficient: %w", err)
-		}
+	linkMode := connector.ModeByName(string(conf.DatapathMode))
+	linkPair, err := connector.NewLinkPair(scopedLogger, linkMode, linkConfig, sysctl)
+	if err != nil {
+		return fmt.Errorf("unable to set up link on host side: %w", err)
+	}
 
-		if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
-			return errors.New("IPAM did provide neither IPv4 nor IPv6 address")
-		}
-
-		for _, hook := range cmd.onIPAMReady {
-			if err := hook.OnIPAMReady(ipam); err != nil {
-				return err
-			}
-		}
-
-		state, ep, err := epConf.PrepareEndpoint(ipam)
-		if err != nil {
-			return fmt.Errorf("unable to prepare endpoint configuration: %w", err)
-		}
-
-		cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-		linkConfig := connector.LinkConfig{
-			EndpointID:     cniID,
-			PeerIfName:     epConf.IfName(),
-			PeerNamespace:  ns,
-			GROIPv6MaxSize: int(conf.GROMaxSize),
-			GSOIPv6MaxSize: int(conf.GSOMaxSize),
-			GROIPv4MaxSize: int(conf.GROIPv4MaxSize),
-			GSOIPv4MaxSize: int(conf.GSOIPv4MaxSize),
-			DeviceMTU:      int(conf.DeviceMTU),
-			DeviceHeadroom: uint16(conf.DeviceHeadroom),
-			DeviceTailroom: uint16(conf.DeviceTailroom),
-		}
-
-		for _, hook := range cmd.onLinkConfigReady {
-			if err := hook.OnLinkConfigReady(&linkConfig); err != nil {
-				return err
-			}
-		}
-
-		linkMode := connector.ModeByName(string(conf.DatapathMode))
-		linkPair, err := connector.NewLinkPair(scopedLogger, linkMode, linkConfig, sysctl)
-		if err != nil {
-			return fmt.Errorf("unable to set up link on host side: %w", err)
-		}
-
-		defer func() {
-			if err != nil && linkPair != nil {
-				if err2 := linkPair.Delete(); err2 != nil {
-					scopedLogger.Warn(
-						"Failed to cleanup device",
-						logfields.Error, err2,
-					)
-				}
-			}
-		}()
-
-		isLayer2 := linkPair.GetMode().IsLayer2()
-		hostLinkAttrs := linkPair.GetHostLink().Attrs()
-		peerLinkAttrs := linkPair.GetPeerLink().Attrs()
-
-		iface := &cniTypesV1.Interface{
-			Name: hostLinkAttrs.Name,
-		}
-		if isLayer2 {
-			iface.Mac = hostLinkAttrs.HardwareAddr.String()
-		}
-		res.Interfaces = append(res.Interfaces, iface)
-
-		if isLayer2 {
-			ep.Mac = peerLinkAttrs.HardwareAddr.String()
-			ep.HostMac = hostLinkAttrs.HardwareAddr.String()
-		}
-		ep.InterfaceIndex = int64(hostLinkAttrs.Index)
-		ep.InterfaceName = hostLinkAttrs.Name
-
-		var (
-			ipConfig   *cniTypesV1.IPConfig
-			ipv6Config *cniTypesV1.IPConfig
-			routes     []*cniTypes.Route
-		)
-		if ipv6IsEnabled(ipam) && conf.Addressing.IPv6 != nil {
-			ep.Addressing.IPv6 = ipam.Address.IPv6
-			ep.Addressing.IPv6PoolName = ipam.Address.IPv6PoolName
-			ep.Addressing.IPv6ExpirationUUID = ipam.IPv6.ExpirationUUID
-			if ipam.IPv6.SkipMasquerade {
-				ep.Properties[endpointtypes.PropertySkipMasqueradeV6] = true
-			}
-
-			ipv6Config, routes, err = prepareIP(ep.Addressing.IPv6, state, int(conf.RouteMTU))
-			if err != nil {
-				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPv6, err)
-			}
-			// set the addresses interface index to that of the container-side interface
-			ipv6Config.Interface = cniTypesV1.Int(len(res.Interfaces))
-			res.IPs = append(res.IPs, ipv6Config)
-			res.Routes = append(res.Routes, routes...)
-		}
-
-		if ipv4IsEnabled(ipam) && conf.Addressing.IPv4 != nil {
-			ep.Addressing.IPv4 = ipam.Address.IPv4
-			ep.Addressing.IPv4PoolName = ipam.Address.IPv4PoolName
-			ep.Addressing.IPv4ExpirationUUID = ipam.IPv4.ExpirationUUID
-			if ipam.IPv4.SkipMasquerade {
-				ep.Properties[endpointtypes.PropertySkipMasqueradeV4] = true
-			}
-
-			ipConfig, routes, err = prepareIP(ep.Addressing.IPv4, state, int(conf.RouteMTU))
-			if err != nil {
-				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPv4, err)
-			}
-			// set the addresses interface index to that of the container-side interface
-			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
-			res.IPs = append(res.IPs, ipConfig)
-			res.Routes = append(res.Routes, routes...)
-		}
-
-		if needsEndpointRoutingOnHost(conf) {
-			if ipam.IPv4 != nil && ipConfig != nil {
-				err = interfaceAdd(scopedLogger, ipConfig, ipam.IPv4, conf)
-				if err != nil {
-					return fmt.Errorf("unable to setup interface datapath: %w", err)
-				}
-			}
-
-			if ipam.IPv6 != nil && ipv6Config != nil {
-				err = interfaceAdd(scopedLogger, ipv6Config, ipam.IPv6, conf)
-				if err != nil {
-					return fmt.Errorf("unable to setup interface datapath: %w", err)
-				}
-			}
-		}
-
-		for _, hook := range cmd.onInterfaceConfigReady {
-			if err := hook.OnInterfaceConfigReady(state, ep, res); err != nil {
-				return err
-			}
-		}
-
-		var macAddrStr string
-
-		if err = ns.Do(func() error {
-			if err := reserveLocalIPPorts(conf, sysctl); err != nil {
+	defer func() {
+		if err != nil && linkPair != nil {
+			if err2 := linkPair.Delete(); err2 != nil {
 				scopedLogger.Warn(
-					"Unable to reserve local ip ports",
+					"Failed to cleanup device",
+					logfields.Error, err2,
+				)
+			}
+		}
+	}()
+
+	isLayer2 := linkPair.GetMode().IsLayer2()
+	hostLinkAttrs := linkPair.GetHostLink().Attrs()
+	peerLinkAttrs := linkPair.GetPeerLink().Attrs()
+
+	iface := &cniTypesV1.Interface{
+		Name: hostLinkAttrs.Name,
+	}
+	if isLayer2 {
+		iface.Mac = hostLinkAttrs.HardwareAddr.String()
+	}
+	res.Interfaces = append(res.Interfaces, iface)
+
+	if isLayer2 {
+		ep.Mac = peerLinkAttrs.HardwareAddr.String()
+		ep.HostMac = hostLinkAttrs.HardwareAddr.String()
+	}
+	ep.InterfaceIndex = int64(hostLinkAttrs.Index)
+	ep.InterfaceName = hostLinkAttrs.Name
+
+	var (
+		ipConfig   *cniTypesV1.IPConfig
+		ipv6Config *cniTypesV1.IPConfig
+		routes     []*cniTypes.Route
+	)
+	if ipv6IsEnabled(ipam) && conf.Addressing.IPv6 != nil {
+		ep.Addressing.IPv6 = ipam.Address.IPv6
+		ep.Addressing.IPv6PoolName = ipam.Address.IPv6PoolName
+		ep.Addressing.IPv6ExpirationUUID = ipam.IPv6.ExpirationUUID
+		if ipam.IPv6.SkipMasquerade {
+			ep.Properties[endpointtypes.PropertySkipMasqueradeV6] = true
+		}
+
+		ipv6Config, routes, err = prepareIP(ep.Addressing.IPv6, state, int(conf.RouteMTU))
+		if err != nil {
+			return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPv6, err)
+		}
+		// set the addresses interface index to that of the container-side interface
+		ipv6Config.Interface = cniTypesV1.Int(len(res.Interfaces))
+		res.IPs = append(res.IPs, ipv6Config)
+		res.Routes = append(res.Routes, routes...)
+	}
+
+	if ipv4IsEnabled(ipam) && conf.Addressing.IPv4 != nil {
+		ep.Addressing.IPv4 = ipam.Address.IPv4
+		ep.Addressing.IPv4PoolName = ipam.Address.IPv4PoolName
+		ep.Addressing.IPv4ExpirationUUID = ipam.IPv4.ExpirationUUID
+		if ipam.IPv4.SkipMasquerade {
+			ep.Properties[endpointtypes.PropertySkipMasqueradeV4] = true
+		}
+
+		ipConfig, routes, err = prepareIP(ep.Addressing.IPv4, state, int(conf.RouteMTU))
+		if err != nil {
+			return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPv4, err)
+		}
+		// set the addresses interface index to that of the container-side interface
+		ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
+		res.IPs = append(res.IPs, ipConfig)
+		res.Routes = append(res.Routes, routes...)
+	}
+
+	if needsEndpointRoutingOnHost(conf) {
+		if ipam.IPv4 != nil && ipConfig != nil {
+			err = interfaceAdd(scopedLogger, ipConfig, ipam.IPv4, conf)
+			if err != nil {
+				return fmt.Errorf("unable to setup interface datapath: %w", err)
+			}
+		}
+
+		if ipam.IPv6 != nil && ipv6Config != nil {
+			err = interfaceAdd(scopedLogger, ipv6Config, ipam.IPv6, conf)
+			if err != nil {
+				return fmt.Errorf("unable to setup interface datapath: %w", err)
+			}
+		}
+	}
+
+	for _, hook := range cmd.onInterfaceConfigReady {
+		if err := hook.OnInterfaceConfigReady(state, ep, res); err != nil {
+			return err
+		}
+	}
+
+	var macAddrStr string
+
+	if err = ns.Do(func() error {
+		if err := reserveLocalIPPorts(conf, sysctl); err != nil {
+			scopedLogger.Warn(
+				"Unable to reserve local ip ports",
+				logfields.Error, err,
+			)
+		}
+
+		if ipv6IsEnabled(ipam) {
+			if err := sysctl.Disable([]string{"net", "ipv6", "conf", "all", "disable_ipv6"}); err != nil {
+				scopedLogger.Warn(
+					"Unable to enable ipv6 on all interfaces",
 					logfields.Error, err,
 				)
 			}
+		}
+		macAddrStr, err = configureIface(scopedLogger, ipam, args.IfName, state)
+		return err
+	}); err != nil {
+		return fmt.Errorf("unable to configure interfaces in container namespace: %w", err)
+	}
 
-			if ipv6IsEnabled(ipam) {
-				if err := sysctl.Disable([]string{"net", "ipv6", "conf", "all", "disable_ipv6"}); err != nil {
-					scopedLogger.Warn(
-						"Unable to enable ipv6 on all interfaces",
-						logfields.Error, err,
-					)
-				}
-			}
-			macAddrStr, err = configureIface(scopedLogger, ipam, epConf.IfName(), state)
+	var cookie uint64
+	if getNetnsCookie {
+		if err = ns.Do(func() error {
+			cookie, err = netns.GetNetNSCookie()
 			return err
 		}); err != nil {
-			return fmt.Errorf("unable to configure interfaces in container namespace: %w", err)
-		}
-
-		var cookie uint64
-		if getNetnsCookie {
-			if err = ns.Do(func() error {
-				cookie, err = netns.GetNetNSCookie()
-				return err
-			}); err != nil {
-				if errors.Is(err, unix.ENOPROTOOPT) {
-					getNetnsCookie = false
-				}
-				scopedLogger.Info(
-					"Unable to get netns cookie",
-					logfields.Error, err,
-					logfields.ContainerID, args.ContainerID,
-				)
+			if errors.Is(err, unix.ENOPROTOOPT) {
+				getNetnsCookie = false
 			}
-		}
-		ep.NetnsCookie = strconv.FormatUint(cookie, 10)
-
-		// Specify that endpoint must be regenerated synchronously. See GH-4409.
-		ep.SyncBuildEndpoint = true
-		ep.ContainerNetnsPath = filepath.Join(defaults.NetNsPath, filepath.Base(args.Netns))
-		var newEp *models.Endpoint
-		if newEp, err = c.EndpointCreate(ep); err != nil {
-			scopedLogger.Warn(
-				"Unable to create endpoint",
+			scopedLogger.Info(
+				"Unable to get netns cookie",
 				logfields.Error, err,
-				logfields.ContainerID, ep.ContainerID,
+				logfields.ContainerID, args.ContainerID,
 			)
-			return fmt.Errorf("unable to create endpoint: %w", err)
 		}
-		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
-			// Set the MAC address on the interface in the container namespace
-			if isLayer2 {
-				err = ns.Do(func() error {
-					return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
-				})
-				if err != nil {
-					return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)
-				}
-			}
-			macAddrStr = newEp.Status.Networking.Mac
-		}
-		if err = ns.Do(func() error {
-			configurePacketizationLayerPMTUD(scopedLogger, conf, sysctl)
-			return configureCongestionControl(conf, sysctl)
-		}); err != nil {
-			return fmt.Errorf("unable to configure congestion control: %w", err)
-		}
-		res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
-			Name:    epConf.IfName(),
-			Mac:     macAddrStr,
-			Sandbox: args.Netns,
-		})
-		scopedLogger.Debug(
-			"Endpoint successfully created",
+	}
+	ep.NetnsCookie = strconv.FormatUint(cookie, 10)
+
+	// Specify that endpoint must be regenerated synchronously. See GH-4409.
+	ep.SyncBuildEndpoint = true
+	ep.ContainerNetnsPath = filepath.Join(defaults.NetNsPath, filepath.Base(args.Netns))
+	var newEp *models.Endpoint
+	if newEp, err = c.EndpointCreate(ep); err != nil {
+		scopedLogger.Warn(
+			"Unable to create endpoint",
 			logfields.Error, err,
 			logfields.ContainerID, ep.ContainerID,
 		)
+		return fmt.Errorf("unable to create endpoint: %w", err)
 	}
+	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
+		// Set the MAC address on the interface in the container namespace
+		if isLayer2 {
+			err = ns.Do(func() error {
+				return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
+			})
+			if err != nil {
+				return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)
+			}
+		}
+		macAddrStr = newEp.Status.Networking.Mac
+	}
+	if err = ns.Do(func() error {
+		configurePacketizationLayerPMTUD(scopedLogger, conf, sysctl)
+		return configureCongestionControl(conf, sysctl)
+	}); err != nil {
+		return fmt.Errorf("unable to configure congestion control: %w", err)
+	}
+	res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
+		Name:    args.IfName,
+		Mac:     macAddrStr,
+		Sandbox: args.Netns,
+	})
+	scopedLogger.Debug(
+		"Endpoint successfully created",
+		logfields.Error, err,
+		logfields.ContainerID, ep.ContainerID,
+	)
 
 	return cniTypes.PrintResult(res, n.CNIVersion)
 }
