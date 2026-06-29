@@ -42,7 +42,7 @@ var (
 // interface. However EKS, uses multiple interfaces, but fortunately for us
 // in EKS any interface would work so pick the [0] index here as well.
 func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
-	if option.Config.TunnelingEnabled() {
+	if n.nodeConfig.EnableEncapsulation {
 		return n.datapathConfig.TunnelDevice
 	}
 	devices := n.nodeConfig.Devices
