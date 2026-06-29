@@ -1,5 +1,6 @@
 AArch
 AKS
+ARP
 Alemayhu
 Alibaba
 Aquantia
@@ -139,6 +140,7 @@ Triaging
 Twilio
 Uncompress
 Uncordon
+VCN
 VM
 VMSS
 VMs
@@ -270,6 +272,7 @@ configMapKey
 configSources
 configmap
 configs
+conflist
 conntrack
 conntrackGCInterval
 containerd
