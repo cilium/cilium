@@ -6,6 +6,7 @@ package config
 import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -52,6 +53,12 @@ func NodeConfig(lnc *Config) Node {
 	node.EnableIPIPTermination = option.Config.EnableIPIPTermination
 
 	node.EnableNodeportSourceLookup = lnc.LBConfig.NodePortEnableDynamicSourceLookup
+
+	node.LBDefaultAlg = uint8(loadbalancer.SVCLoadBalancingAlgorithmRandom)
+	if lnc.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
+		node.LBDefaultAlg = uint8(loadbalancer.SVCLoadBalancingAlgorithmMaglev)
+	}
+	node.LBSelectionPerService = lnc.LBConfig.AlgorithmAnnotation
 
 	node.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
 

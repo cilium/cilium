@@ -56,6 +56,10 @@ type Node struct {
 	HashInit6Seed uint32 `config:"hash_init6_seed"`
 	// Number of timer ticks per second.
 	KernelHz uint32 `config:"kernel_hz"`
+	// Default load-balancer backend selection algorithm.
+	LBDefaultAlg uint8 `config:"lb_default_alg"`
+	// Enable per-service load-balancer backend selection algorithm.
+	LBSelectionPerService bool `config:"lb_selection_per_service"`
 	// NAT 46x64 prefix.
 	NAT46X64Prefix types.V4Addr `config:"nat_46x64_prefix"`
 	// Nodeport maximum port value.
@@ -88,7 +92,7 @@ func NewNode() *Node {
 		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x8, false, 0x0, false, false, false, false, false, false,
-		false, false, 0x0, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, false,
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),

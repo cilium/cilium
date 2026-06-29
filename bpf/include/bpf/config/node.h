@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <bpf/lb_selection.h>
 #include <lib/static_data.h>
 
 /* Legacy node config rendered at agent runtime. */
@@ -62,6 +63,20 @@ ASSIGN_CONFIG(__u32, cluster_id_bits, DEFAULT_CLUSTER_ID_BITS)
 NODE_CONFIG(bool, enable_conntrack_accounting, "Enable per flow (conntrack) statistics")
 
 NODE_CONFIG(bool, debug_lb, "Enable debugging trace statements for load balancer")
+
+NODE_CONFIG(__u8, lb_default_alg, "Default load-balancer backend selection algorithm")
+NODE_CONFIG(bool, lb_selection_per_service,
+	    "Enable per-service load-balancer backend selection algorithm")
+
+/*
+ * Init lb_default_alg to random to keep the old behaviour,
+ * but at the same time allow overriding this value in tests
+ */
+#ifndef LB_DEFAULT_ALG
+#define LB_DEFAULT_ALG LB_SELECTION_RANDOM
+#endif
+
+ASSIGN_CONFIG(__u8, lb_default_alg, LB_DEFAULT_ALG)
 
 NODE_CONFIG(__u16, nodeport_port_min, "Nodeport minimum port value.")
 NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
