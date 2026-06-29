@@ -55,15 +55,16 @@ func TestGCEnableDualStack(t *testing.T) {
 	localGCIntervalRounding := gcIntervalRounding
 	localMinGCInterval := minGCInterval
 
-	gc.enableWithConfig(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
-		if ipv4 {
-			ipv4Passes.Add(1)
-			if ipv6 {
-				dualPasses.Add(1)
+	gc.enableWithConfig(t.Context(),
+		func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+			if ipv4 {
+				ipv4Passes.Add(1)
+				if ipv6 {
+					dualPasses.Add(1)
+				}
 			}
-		}
-		return returnRatio, true
-	}, false, 0, localConntrackGCMaxInterval, localGCIntervalRounding, localMinGCInterval)
+			return returnRatio, true
+		}, false, 0, localConntrackGCMaxInterval, localGCIntervalRounding, localMinGCInterval)
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.Equal(c, 1, int(dualPasses.Load()))
@@ -183,32 +184,33 @@ func TestGCEnableRatchet(t *testing.T) {
 		initialPassDone := make(chan struct{})
 		var initialPassSignaled atomic.Bool
 
-		gc.enableWithConfig(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
-			// Check if test is done
-			select {
-			case <-testDone:
-				return 0, false
-			default:
-			}
-
-			if ipv4 {
-				passCount.Add(1)
-				now := time.Now()
-				if !lastPassTime.IsZero() {
-					duration := now.Sub(lastPassTime)
-					lastRealDuration.Store(int64(duration))
+		gc.enableWithConfig(t.Context(),
+			func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+				// Check if test is done
+				select {
+				case <-testDone:
+					return 0, false
+				default:
 				}
-				lastPassTime = now
-			}
 
-			// Signal initial pass completion once
-			if !initialPassSignaled.Swap(true) {
-				close(initialPassDone)
-			}
+				if ipv4 {
+					passCount.Add(1)
+					now := time.Now()
+					if !lastPassTime.IsZero() {
+						duration := now.Sub(lastPassTime)
+						lastRealDuration.Store(int64(duration))
+					}
+					lastPassTime = now
+				}
 
-			ratio := *currentDeleteRatio.Load()
-			return ratio, true
-		}, false, 0, localConntrackGCMaxInterval, localGCIntervalRounding, localMinGCInterval)
+				// Signal initial pass completion once
+				if !initialPassSignaled.Swap(true) {
+					close(initialPassDone)
+				}
+
+				ratio := *currentDeleteRatio.Load()
+				return ratio, true
+			}, false, 0, localConntrackGCMaxInterval, localGCIntervalRounding, localMinGCInterval)
 
 		// Wait for initial pass
 		<-initialPassDone
