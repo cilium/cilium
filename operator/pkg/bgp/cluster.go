@@ -356,6 +356,12 @@ func (b *BGPResourceManager) toNodeBGPInstance(clusterBGPInstances []v2.CiliumBG
 			LocalPort: clusterBGPInstance.LocalPort,
 		}
 
+		// BMP monitoring stations are node-agnostic, copy them as-is.
+		if len(clusterBGPInstance.BMPServers) > 0 {
+			nodeBGPInstance.BMPServers = make([]v2.CiliumBGPBMPServer, len(clusterBGPInstance.BMPServers))
+			copy(nodeBGPInstance.BMPServers, clusterBGPInstance.BMPServers)
+		}
+
 		var currentRouterIDKey string
 		var currentRouterID *netip.Addr
 		if b.bgpRouterIDIPPoolEnabled {

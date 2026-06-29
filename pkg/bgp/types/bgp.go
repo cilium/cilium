@@ -137,6 +137,61 @@ func (d SoftResetDirection) String() string {
 	}
 }
 
+// BMPMonitoringPolicy defines which RIB view a BMP station receives via Route
+// Monitoring messages. It is an implementation-agnostic analogue of GoBGP's
+// AddBmpRequest_MonitoringPolicy.
+type BMPMonitoringPolicy int
+
+const (
+	// BMPMonitoringPolicyPre monitors the pre-policy Adj-RIB-In (GoBGP default).
+	BMPMonitoringPolicyPre BMPMonitoringPolicy = iota
+	// BMPMonitoringPolicyPost monitors the post-policy Adj-RIB-In.
+	BMPMonitoringPolicyPost
+	// BMPMonitoringPolicyBoth monitors both pre- and post-policy Adj-RIB-In.
+	BMPMonitoringPolicyBoth
+	// BMPMonitoringPolicyLocal monitors the Local-RIB (RFC 9069).
+	BMPMonitoringPolicyLocal
+	// BMPMonitoringPolicyAll monitors all available RIB views.
+	BMPMonitoringPolicyAll
+)
+
+func (p BMPMonitoringPolicy) String() string {
+	switch p {
+	case BMPMonitoringPolicyPre:
+		return "pre"
+	case BMPMonitoringPolicyPost:
+		return "post"
+	case BMPMonitoringPolicyBoth:
+		return "both"
+	case BMPMonitoringPolicyLocal:
+		return "local"
+	case BMPMonitoringPolicyAll:
+		return "all"
+	default:
+		return "unknown"
+	}
+}
+
+// BMPServer is an object representing a single BMP monitoring station that the
+// BGP instance streams its monitoring data to. It is a minimal, implementation-
+// agnostic analogue of GoBGP's AddBmpRequest.
+type BMPServer struct {
+	// Address is the IP address of the BMP monitoring station.
+	Address string
+	// Port is the TCP port the BMP monitoring station listens on.
+	Port uint32
+	// MonitoringPolicy selects which RIB view is streamed to the station.
+	MonitoringPolicy BMPMonitoringPolicy
+	// StatisticsTimeout is the interval in seconds between BMP Statistics
+	// Reports. 0 disables statistics. Valid range (per RFC 7854 / GoBGP) is
+	// 15-65535 when non-zero.
+	StatisticsTimeout int32
+	// SysName is the BMP Initiation message sysName TLV (typically the node name).
+	SysName string
+	// SysDescr is the BMP Initiation message sysDescr TLV.
+	SysDescr string
+}
+
 // ResetNeighborRequest contains parameters used when resetting a BGP peer
 type ResetNeighborRequest struct {
 	PeerAddress        netip.Addr
@@ -676,4 +731,10 @@ type Router interface {
 
 	// GetBGP returns configured BGP global parameters
 	GetBGP(ctx context.Context) (GetBGPResponse, error)
+
+	// AddBMP configures a BMP monitoring station the router streams to
+	AddBMP(ctx context.Context, s *BMPServer) error
+
+	// RemoveBMP removes a previously configured BMP monitoring station
+	RemoveBMP(ctx context.Context, s *BMPServer) error
 }

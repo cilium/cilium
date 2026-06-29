@@ -111,6 +111,7 @@ PodCIDR
 PodCIDRList
 Polytechnique
 Portworx
+Promtail
 QCon
 QLogic
 RuleParser
