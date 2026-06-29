@@ -648,6 +648,10 @@
      - Additional clustermesh-apiserver environment variables.
      - list
      - ``[]``
+   * - :spelling:ignore:`clustermesh.apiserver.extraInitContainers`
+     - Additional init containers added to the clustermesh-apiserver Deployment.
+     - list
+     - ``[]``
    * - :spelling:ignore:`clustermesh.apiserver.extraVolumeMounts`
      - Additional clustermesh-apiserver volumeMounts.
      - list
@@ -2276,6 +2280,10 @@
      - Additional hubble-relay environment variables.
      - list
      - ``[]``
+   * - :spelling:ignore:`hubble.relay.extraInitContainers`
+     - Additional init containers added to the hubble-relay Deployment.
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.relay.extraVolumeMounts`
      - Additional hubble-relay volumeMounts.
      - list
@@ -2616,6 +2624,10 @@
      - Whether to enable the Hubble UI.
      - bool
      - ``false``
+   * - :spelling:ignore:`hubble.ui.extraInitContainers`
+     - Additional init containers added to the hubble-ui Deployment.
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.ui.frontend.extraEnv`
      - Additional hubble-ui frontend environment variables.
      - list
@@ -3394,6 +3406,10 @@
      - ``[]``
    * - :spelling:ignore:`operator.extraHostPathMounts`
      - Additional cilium-operator hostPath mounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`operator.extraInitContainers`
+     - Additional init containers added to the operator Deployment.
      - list
      - ``[]``
    * - :spelling:ignore:`operator.extraVolumeMounts`

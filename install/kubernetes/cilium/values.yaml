@@ -1841,6 +1841,8 @@ hubble:
     extraVolumes: []
     # -- Additional hubble-relay volumeMounts.
     extraVolumeMounts: []
+    # -- Additional init containers added to the hubble-relay Deployment.
+    extraInitContainers: []
     # -- hubble-relay pod security context
     podSecurityContext:
       fsGroup: 65532
@@ -2024,6 +2026,8 @@ hubble:
         #           path: hubble-relay-ca.crt
     # -- Roll out Hubble-ui pods automatically when configmap is updated.
     rollOutPods: false
+    # -- Additional init containers added to the hubble-ui Deployment.
+    extraInitContainers: []
     tls:
       client:
         # -- Name of the Secret containing the client certificate and key for Hubble UI
@@ -3305,6 +3309,8 @@ operator:
   extraVolumes: []
   # -- Additional cilium-operator volumeMounts.
   extraVolumeMounts: []
+  # -- Additional init containers added to the operator Deployment.
+  extraInitContainers: []
   # -- Annotations to be added to all top-level cilium-operator objects (resources under templates/cilium-operator)
   annotations: {}
   # -- HostNetwork setting
@@ -4012,6 +4018,8 @@ clustermesh:
     extraVolumes: []
     # -- Additional clustermesh-apiserver volumeMounts.
     extraVolumeMounts: []
+    # -- Additional init containers added to the clustermesh-apiserver Deployment.
+    extraInitContainers: []
     # -- Security context to be added to clustermesh-apiserver containers
     securityContext:
       allowPrivilegeEscalation: false
