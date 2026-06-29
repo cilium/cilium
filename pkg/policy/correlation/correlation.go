@@ -150,5 +150,6 @@ func toProto(info policyTypes.PolicyCorrelationInfo) (policies []*flowpb.Policy)
 	for model := range labels.ModelsFromLabelArrayListString(info.RuleLabels) {
 		policies = append(policies, utils.GetPolicyFromLabels(model, info.Revision))
 	}
+
 	return policies
 }
