@@ -164,7 +164,7 @@ func (pl *perfEventLink) Info() (*Info, error) {
 		return nil, fmt.Errorf("perf event link info: %s", err)
 	}
 
-	var extra2 interface{}
+	var extra2 any
 	switch info.PerfEventType {
 	case PerfEventKprobe, PerfEventKretprobe:
 		var kprobeInfo sys.KprobeLinkInfo

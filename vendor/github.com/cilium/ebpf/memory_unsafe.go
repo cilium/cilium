@@ -118,13 +118,10 @@ func allocate(size int) (unsafe.Pointer, error) {
 	// Allocate a new slice and store a pointer to its backing array.
 	alloc := unsafe.Pointer(unsafe.SliceData(make([]byte, size)))
 
-	// nolint:govet
-	//
 	// Align the pointer to a page boundary within the allocation. This may alias
-	// the initial pointer if it was already page-aligned. Ignore govet warnings
-	// since we're calling [runtime.KeepAlive] on the original Go memory.
-	aligned := unsafe.Pointer(internal.Align(uintptr(alloc), uintptr(os.Getpagesize())))
-	runtime.KeepAlive(alloc)
+	// the initial pointer if it was already page-aligned.
+	aligned := internal.Align(uintptr(alloc), uintptr(os.Getpagesize()))
+	alloc = unsafe.Add(alloc, aligned-uintptr(alloc))
 
 	// Return an aligned pointer into the backing array, losing the original
 	// reference. The runtime.SetFinalizer docs specify that its argument 'must be
@@ -142,7 +139,7 @@ func allocate(size int) (unsafe.Pointer, error) {
 	// pointer separately, which severely complicates finalizer setup and makes it
 	// prone to human error. For now, just bump the pointer and treat it as the
 	// new and only reference to the backing array.
-	return aligned, nil
+	return alloc, nil
 }
 
 // mapmap memory-maps the given file descriptor at the given address and sets a
@@ -246,7 +243,7 @@ func checkUnsafeMemory[T comparable](mm *Memory, off uint32) error {
 	}
 
 	vs, bs := uint32(size), uint32(len(mm.b))
-	if off+vs > bs {
+	if !mm.bounds(off, vs) {
 		return fmt.Errorf("%d-byte value at offset %d exceeds mmap size of %d bytes", vs, off, bs)
 	}
 
