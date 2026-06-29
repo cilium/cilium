@@ -25,7 +25,6 @@
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 #define ENABLE_HOST_ROUTING	1
-#define USE_BPF_PROG_FOR_INGRESS_POLICY	1
 
 #define ENCAP6_IFINDEX		42
 
@@ -164,6 +163,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 #include "lib/lb.h"
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 ASSIGN_CONFIG(bool, enable_ipip_termination, true)
 
