@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
@@ -70,6 +72,8 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 		metrics.Cell,
 		maglev.Cell,
 		lbmaps.Cell,
+		job.Cell,
+		registry.Cell,
 		lbipamconfig.Cell,
 		nodeipamconfig.Cell,
 		loadbalancer.ConfigCell,
@@ -276,6 +280,8 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 		metrics.Cell,
 		maglev.Cell,
 		lbmaps.Cell,
+		job.Cell,
+		registry.Cell,
 		cell.Config(loadbalancer.DefaultUserConfig),
 		cell.Provide(
 			loadbalancer.NewBackendsTable,

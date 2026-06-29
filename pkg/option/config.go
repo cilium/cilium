@@ -512,9 +512,9 @@ const (
 	NATMapEntriesGlobalDefault = int((CTMapEntriesGlobalTCPDefault + CTMapEntriesGlobalAnyDefault) * 2 / 3)
 
 	// SockRevNATMapEntriesDefault holds the default size of the SockRev NAT map
-	// and is the same size of CTMapEntriesGlobalAnyDefault as a heuristic given
-	// that sock rev NAT is mostly used for UDP and getpeername only.
-	SockRevNATMapEntriesDefault = CTMapEntriesGlobalAnyDefault
+	// and is half of CTMapEntriesGlobalAnyDefault as a heuristic, since connected
+	// UDP sockets are not tracked in the SockRevNAT table.
+	SockRevNATMapEntriesDefault = CTMapEntriesGlobalAnyDefault / 2
 
 	// MapEntriesGlobalDynamicSizeRatioName is the name of the option to
 	// set the ratio of total system memory to use for dynamic sizing of the

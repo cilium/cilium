@@ -941,10 +941,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 16 * GiB,
 			ratio:       0.0025,
 			want: sizes{
-				CTMapSizeTCP: 151765,
-				CTMapSizeAny: 75882,
-				NATMapSize:   151765,
-				NeighMapSize: 151765,
+				CTMapSizeTCP: 158485,
+				CTMapSizeAny: 79242,
+				NATMapSize:   158485,
+				NeighMapSize: 158485,
 			},
 		},
 		{
@@ -952,10 +952,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 30 * GiB,
 			ratio:       0.0025,
 			want: sizes{
-				CTMapSizeTCP: 284560,
-				CTMapSizeAny: 142280,
-				NATMapSize:   284560,
-				NeighMapSize: 284560,
+				CTMapSizeTCP: 297161,
+				CTMapSizeAny: 148580,
+				NATMapSize:   297161,
+				NeighMapSize: 297161,
 			},
 		},
 		{
@@ -963,10 +963,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 240 * GiB,
 			ratio:       0.0025,
 			want: sizes{
-				CTMapSizeTCP: 2276484,
-				CTMapSizeAny: 1138242,
-				NATMapSize:   2276484,
-				NeighMapSize: 2276484,
+				CTMapSizeTCP: 2377288,
+				CTMapSizeAny: 1188644,
+				NATMapSize:   2377288,
+				NeighMapSize: 2377288,
 			},
 		},
 		{
@@ -974,10 +974,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 360 * GiB,
 			ratio:       0.0025,
 			want: sizes{
-				CTMapSizeTCP: 3414726,
-				CTMapSizeAny: 1707363,
-				NATMapSize:   3414726,
-				NeighMapSize: 3414726,
+				CTMapSizeTCP: 3565932,
+				CTMapSizeAny: 1782966,
+				NATMapSize:   3565932,
+				NeighMapSize: 3565932,
 			},
 		},
 		{
@@ -1025,10 +1025,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 3 * GiB,
 			ratio:       0.051,
 			want: sizes{
-				CTMapSizeTCP: util.RoundUp(580503, cpus),
-				CTMapSizeAny: util.RoundUp(290251, cpus),
-				NATMapSize:   util.RoundUp(580503, cpus),
-				NeighMapSize: util.RoundUp(580503, cpus),
+				CTMapSizeTCP: util.RoundUp(606207, cpus),
+				CTMapSizeAny: util.RoundUp(303103, cpus),
+				NATMapSize:   util.RoundUp(606207, cpus),
+				NeighMapSize: util.RoundUp(606207, cpus),
 			},
 			preTestRun: func(vp *viper.Viper) {
 				vp.Set(BPFDistributedLRU, true)

@@ -564,7 +564,7 @@ func newCiliumLB4ReverseSkSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "ipv4_revnat_tuple"),
 		ValueSize:  8,
 		Value:      anyTypeByName(btf, "ipv4_revnat_entry"),
-		MaxEntries: 262144,
+		MaxEntries: 131072,
 		Flags:      0,
 		Pinning:    ebpf.PinByName,
 	}
@@ -703,7 +703,7 @@ func newCiliumLB6ReverseSkSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "ipv6_revnat_tuple"),
 		ValueSize:  20,
 		Value:      anyTypeByName(btf, "ipv6_revnat_entry"),
-		MaxEntries: 262144,
+		MaxEntries: 131072,
 		Flags:      0,
 		Pinning:    ebpf.PinByName,
 	}

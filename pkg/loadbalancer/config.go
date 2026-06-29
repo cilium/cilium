@@ -376,7 +376,10 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 	// Dynamically size the SockRevNat map if not set by the user.
 	if cfg.LBSockRevNatEntries == 0 {
 		getEntries := dcfg.GetDynamicSizeCalculator(log)
-		cfg.LBSockRevNatEntries = getEntries(option.SockRevNATMapEntriesDefault, option.LimitTableAutoSockRevNatMin, option.LimitTableMax)
+		cfg.LBSockRevNatEntries = min(
+			getEntries(option.SockRevNATMapEntriesDefault, option.LimitTableAutoSockRevNatMin, option.LimitTableMax),
+			option.SockRevNATMapEntriesDefault,
+		)
 		log.Info("Option set by dynamic sizing",
 			logfields.Option, LBSockRevNatEntriesName,
 			logfields.Value, cfg.LBSockRevNatEntries,

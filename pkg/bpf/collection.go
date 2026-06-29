@@ -252,16 +252,8 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	}
 
 	fixed := fixedResources(spec, opts.Keep)
-	if err := removeUnusedMaps(spec, fixed, reach, logger); err != nil {
+	if err := removeUnusedMaps(spec, fixed, reach, opts, logger); err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
-	}
-
-	// Clean up MapReplacements for maps that were pruned to prevent ebpf-go
-	// from failing with "replacement map not found in CollectionSpec".
-	for name := range opts.CollectionOptions.MapReplacements {
-		if _, ok := spec.Maps[name]; !ok {
-			delete(opts.CollectionOptions.MapReplacements, name)
-		}
 	}
 
 	if err := dumpConstants(spec, opts); err != nil {
