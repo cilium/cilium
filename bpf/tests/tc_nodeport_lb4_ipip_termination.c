@@ -32,7 +32,6 @@
 #define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
-#define ENABLE_HOST_ROUTING	1
 
 /* nodeport_lb4 references this for DSR_ENCAP_IPIP egress (TX side). We only
  * exercise the RX/decap side here, but the symbol needs to resolve.
@@ -202,6 +201,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 #include "lib/lb.h"
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 ASSIGN_CONFIG(bool, enable_ipip_termination, true)

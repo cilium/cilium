@@ -8,10 +8,8 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define ENABLE_DSR	     1
-#define REMOVE_DSR_IP_OPTION 1
-#define DSR_ENCAP_GENEVE     3
-#define ENABLE_HOST_ROUTING
+#define ENABLE_DSR	 1
+#define DSR_ENCAP_GENEVE 3
 
 #define CLIENT_IP	 v4_ext_one
 #define CLIENT_PORT	 __bpf_htons(111)
@@ -106,11 +104,12 @@ static __always_inline __maybe_unused int mock_ctx_redirect(
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
 /* Test that a remote node
  * - doesn't touch a DSR request,
- * - redirects it to the pod (as ENABLE_HOST_ROUTING is set)
+ * - redirects it to the pod (as BPF Host Routing is enabled)
  * - creates a matching CT entry, and SNAT entry from the DSR info
  */
 PKTGEN("tc", "tc_nodeport_dsr_backend")
@@ -246,7 +245,8 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	if (l4->check != bpf_htons(0x3771))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3771));
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check,
+			   bpf_htons(0x3771));
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
@@ -352,7 +352,8 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x6149))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x6149));
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check,
+			   bpf_htons(0x6149));
 
 	test_finish();
 }
@@ -436,8 +437,9 @@ int nodeport_dsr_backend_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_dsr_backend_redirect")
 int nodeport_dsr_backend_redirect_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
-			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	endpoint_v4_add_entry(
+		BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+		(__u8 *)backend_mac, (__u8 *)node_mac);
 
 	return netdev_receive_packet(ctx);
 }
@@ -511,7 +513,8 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	if (l4->check != bpf_htons(0x2c70))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check,
+			   bpf_htons(0x2c70));
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
@@ -624,7 +627,8 @@ int nodeport_dsr_backend_redirect_reply_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x2c70))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check,
+			   bpf_htons(0x2c70));
 
 	test_finish();
 }

@@ -144,7 +144,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	 * so this logic is needed to prevent the packets from being handled
 	 * by netfilter in an unintended way.
 	 */
-	if (!is_defined(ENABLE_HOST_ROUTING) && is_dsr) {
+	if (!CONFIG(enable_bpf_host_routing) && is_dsr) {
 		ctx_change_type(ctx, PACKET_HOST);
 		return CTX_ACT_OK;
 	}
@@ -386,7 +386,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	 * so this logic is needed to prevent the packets from being handled
 	 * by netfilter in an unintended way.
 	 */
-	if (!is_defined(ENABLE_HOST_ROUTING) && is_dsr) {
+	if (!CONFIG(enable_bpf_host_routing) && is_dsr) {
 		ctx_change_type(ctx, PACKET_HOST);
 		return CTX_ACT_OK;
 	}

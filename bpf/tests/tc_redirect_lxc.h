@@ -10,9 +10,6 @@
 #include "pktgen.h"
 #include "scapy.h"
 
-/* We always assume we have BPF Host Routing enabled */
-#define ENABLE_HOST_ROUTING 1
-
 /* Define an endpoint ID that we'll use as index into policy maps. */
 #define TEST_LXC_ID_LOCAL_V4 234
 #define TEST_LXC_ID_LOCAL_V6 235
@@ -125,6 +122,8 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 
 /* Load the appropriate BPF programs. */
 #include "lib/bpf_lxc.h"
+
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 
 /* Assign necessary load-time configs */
 #ifdef ENABLE_IPV4

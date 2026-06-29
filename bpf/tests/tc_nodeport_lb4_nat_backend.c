@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define ENABLE_HOST_ROUTING
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -58,9 +57,11 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
+
 /* Test that a remote LB
  * - doesn't touch a NATed request,
- * - redirects it to the pod (as ENABLE_HOST_ROUTING is set)
+ * - redirects it to the pod (as BPF Host Routing is enabled)
  */
 PKTGEN("tc", "tc_nodeport_nat_backend")
 int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)

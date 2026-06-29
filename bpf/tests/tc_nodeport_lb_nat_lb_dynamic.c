@@ -18,7 +18,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #define ENABLE_NODEPORT 1
-#define ENABLE_HOST_ROUTING 1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		{ .addr = v6_ext_node_one_addr }
@@ -93,6 +92,7 @@ long mock_fib_lookup(__maybe_unused struct __ctx_buff * volatile ctx,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, supports_fib_lookup_src, true)
 ASSIGN_CONFIG(bool, enable_nodeport_source_lookup, true)

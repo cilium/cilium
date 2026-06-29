@@ -6,9 +6,6 @@
 #include "pktgen.h"
 #include "scapy.h"
 
-/* We always assume we have BPF Host Routing enabled */
-#define ENABLE_HOST_ROUTING 1
-
 /* Define an endpoint ID that we'll use as index into policy maps. */
 #define TEST_LXC_ID_LOCAL 233
 
@@ -143,6 +140,8 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 	/* Failure path */
 	return CTX_ACT_DROP;
 }
+
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 
 /* Set our host interface index */
 ASSIGN_CONFIG(__u32, interface_ifindex, TEST_HOST_IFACE)

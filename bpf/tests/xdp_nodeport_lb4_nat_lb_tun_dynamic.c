@@ -13,7 +13,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT 1
-#define ENABLE_HOST_ROUTING 1
 #define TUNNEL_MODE 1
 #define ENABLE_NODEPORT_ACCELERATION 1
 
@@ -55,6 +54,7 @@ long mock_fib_lookup(__maybe_unused struct __ctx_buff * volatile ctx,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, supports_fib_lookup_src, true)
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)

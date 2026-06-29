@@ -87,5 +87,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableIdentityMark = option.Config.EnableIdentityMark
 
+	node.EnableBPFHostRouting = !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting
+
 	return node
 }
