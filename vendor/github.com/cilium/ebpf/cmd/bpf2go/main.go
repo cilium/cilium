@@ -211,7 +211,7 @@ func newB2G(stdout io.Writer, args []string) (*bpf2go, error) {
 	}
 
 	targetArches := make(map[gen.Target]gen.GoArches)
-	for _, tgt := range strings.Split(*flagTarget, ",") {
+	for tgt := range strings.SplitSeq(*flagTarget, ",") {
 		target, goarches, err := gen.FindTarget(tgt)
 		if err != nil {
 			if errors.Is(err, gen.ErrInvalidTarget) {
@@ -530,7 +530,7 @@ func collectCTypes(types *btf.Spec, names []string) ([]btf.Type, error) {
 	for _, cType := range names {
 		typ, err := types.AnyTypeByName(cType)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("looking up type %s: %w", cType, err)
 		}
 		result = append(result, typ)
 	}

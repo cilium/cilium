@@ -221,7 +221,7 @@ func sortTypes(typeNames map[btf.Type]string) ([]btf.Type, error) {
 		}
 
 		if names[i] == name {
-			return nil, fmt.Errorf("type name %q is used multiple times", name)
+			return nil, fmt.Errorf("type name %q is used multiple times (remove its --type flag?)", name)
 		}
 
 		types = append(types[:i], append([]btf.Type{typ}, types[i:]...)...)

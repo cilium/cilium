@@ -437,7 +437,7 @@ func parseFuncInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, r
 		return nil, fmt.Errorf("expected FuncInfo record size %d, but BTF blob contains %d", exp, got)
 	}
 
-	for i := uint32(0); i < recordNum; i++ {
+	for range recordNum {
 		if err := binary.Read(r, bo, &fi); err != nil {
 			return nil, fmt.Errorf("can't read function info: %v", err)
 		}
@@ -642,9 +642,15 @@ func parseLineInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, r
 		return nil, fmt.Errorf("expected LineInfo record size %d, but BTF blob contains %d", exp, got)
 	}
 
-	out := make([]bpfLineInfo, recordNum)
-	if err := binary.Read(r, bo, out); err != nil {
-		return nil, fmt.Errorf("can't read line info: %v", err)
+	out := make([]bpfLineInfo, 0)
+	chunk := make([]bpfLineInfo, min(1024, recordNum))
+	for remaining := recordNum; remaining > 0; {
+		n := min(uint32(1024), remaining)
+		if err := binary.Read(r, bo, chunk[:n]); err != nil {
+			return nil, fmt.Errorf("can't read line info: %v", err)
+		}
+		out = append(out, chunk[:n]...)
+		remaining -= n
 	}
 
 	if offsetInBytes {
@@ -794,7 +800,7 @@ func parseCOREReloRecords(r io.Reader, bo binary.ByteOrder, recordNum uint32) ([
 	var out []bpfCORERelo
 
 	var relo bpfCORERelo
-	for i := uint32(0); i < recordNum; i++ {
+	for range recordNum {
 		if err := binary.Read(r, bo, &relo); err != nil {
 			return nil, fmt.Errorf("can't read CO-RE relocation: %v", err)
 		}
