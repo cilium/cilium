@@ -6,7 +6,6 @@
 #include "pktgen.h"
 
 #define ETH_HLEN 0
-#define ENABLE_HOST_ROUTING 1
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
@@ -76,6 +75,8 @@ ASSIGN_CONFIG(union macaddr, interface_mac, router_mac)
 # include "bpf_host.c"
 # include "lib/endpoint.h"
 #endif
+
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 
 #include "lib/metrics.h"
 

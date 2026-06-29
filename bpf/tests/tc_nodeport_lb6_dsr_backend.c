@@ -10,7 +10,6 @@
 #define ENABLE_NODEPORT
 #define ENABLE_DSR		1
 #define DSR_ENCAP_GENEVE	3
-#define ENABLE_HOST_ROUTING
 
 #define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #define CLIENT_PORT	__bpf_htons(111)
@@ -70,6 +69,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
@@ -92,7 +92,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 /* Test that a remote node
  * - doesn't touch a DSR request,
- * - redirects it to the pod (as ENABLE_HOST_ROUTING is set)
+ * - redirects it to the pod (as BPF Host Routing is enabled)
  * - creates a matching CT entry, and SNAT entry from the DSR info
  */
 PKTGEN("tc", "tc_nodeport_dsr_backend")

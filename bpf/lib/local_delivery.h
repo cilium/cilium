@@ -82,7 +82,7 @@ should_redirect_peer(struct __ctx_buff *ctx, bool from_host)
 	 * Note: both redirect() and redirect_peer() only traverse the CPU
 	 * backlog queue once.
 	 */
-	return is_defined(ENABLE_HOST_ROUTING) &&
+	return CONFIG(enable_bpf_host_routing) &&
 	       !from_host &&
 	       (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0);
 }

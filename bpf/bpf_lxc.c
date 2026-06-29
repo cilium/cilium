@@ -78,8 +78,7 @@ lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
 }
 #endif
 
-#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-static __always_inline int
+static __always_inline __maybe_unused int
 lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		     __be16 proto, struct trace_ctx *trace)
 {
@@ -88,7 +87,6 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			  trace->reason, trace->monitor, proto);
 	return ctx_redirect(ctx, CONFIG(cilium_net_ifindex), BPF_F_INGRESS);
 }
-#endif
 
 /* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
  * Most services with L7 LB flag can not be redirected to their proxy port
@@ -726,7 +724,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (CONFIG(enable_identity_mark))
 		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow || CONFIG(enable_bpf_host_routing)) {
 		const struct endpoint_info *ep;
 		union v6addr daddr;
 
@@ -749,8 +747,8 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		 */
 		ep = __lookup_ip6_endpoint(&daddr);
 		if (ep) {
-#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
+			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
+			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING))) {
 				if (is_defined(ENABLE_ROUTING) &&
 				    is_defined(ENABLE_HOST_FIREWALL) &&
 				    dst_sec_identity == HOST_ID)
@@ -760,7 +758,6 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 				goto pass_to_stack;
 			}
-#endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
 
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV6,
@@ -785,7 +782,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 						      bpf_htons(ETH_P_IPV6));
 	}
 #endif
-	if (is_defined(ENABLE_HOST_ROUTING)) {
+	if (CONFIG(enable_bpf_host_routing)) {
 		int oif = 0;
 		__u32 tbid = CONFIG(rt_info);
 
@@ -1227,7 +1224,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * that endpoint.
 	 */
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
-	    is_defined(ENABLE_HOST_ROUTING)) {
+	    CONFIG(enable_bpf_host_routing)) {
 		__be32 daddr = ip4->daddr;
 		const struct endpoint_info *ep;
 
@@ -1250,8 +1247,8 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		 */
 		ep = __lookup_ip4_endpoint(daddr);
 		if (ep) {
-#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
+			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
+			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING))) {
 				if (is_defined(ENABLE_ROUTING) &&
 				    is_defined(ENABLE_HOST_FIREWALL) &&
 				    dst_sec_identity == HOST_ID)
@@ -1261,7 +1258,6 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 
 				goto pass_to_stack;
 			}
-#endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
 
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV4,
@@ -1351,7 +1347,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	}
 #endif /* TUNNEL_MODE */
 
-	if (is_defined(ENABLE_HOST_ROUTING)) {
+	if (CONFIG(enable_bpf_host_routing)) {
 		int oif = 0;
 		__u32 tbid = CONFIG(rt_info);
 

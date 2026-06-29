@@ -79,21 +79,21 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
-#ifdef ENABLE_HOST_ROUTING
-		int l3_off = ETH_HLEN;
-		bool l2_hdr_required = true;
+		if (CONFIG(enable_bpf_host_routing)) {
+			int l3_off = ETH_HLEN;
+			bool l2_hdr_required = true;
 
-		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
-		if (ret != 0)
-			return ret;
-		if (l2_hdr_required)
-			l3_off += __ETH_HLEN;
+			ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
+			if (ret != 0)
+				return ret;
+			if (l2_hdr_required)
+				l3_off += __ETH_HLEN;
 
-		return ipv6_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ep,
-					   METRIC_INGRESS, false, false);
-#else
-		return CTX_ACT_OK;
-#endif /* ENABLE_HOST_ROUTING */
+			return ipv6_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ep,
+						   METRIC_INGRESS, false, false);
+		} else {
+			return CTX_ACT_OK;
+		}
 	}
 
 	ret = add_l2_hdr(ctx);
@@ -190,27 +190,27 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 	 */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
-#ifdef ENABLE_HOST_ROUTING
-		int l3_off = ETH_HLEN;
-		bool l2_hdr_required = true;
+		if (CONFIG(enable_bpf_host_routing)) {
+			int l3_off = ETH_HLEN;
+			bool l2_hdr_required = true;
 
-		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
-		if (ret != 0)
-			return ret;
-		if (l2_hdr_required) {
-			/* l2 header is added */
-			l3_off += __ETH_HLEN;
-			if (!__revalidate_data_pull(ctx, &data, &data_end,
-						    (void **)&ip4, l3_off,
-						    sizeof(*ip4), false))
-				return DROP_INVALID;
+			ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
+			if (ret != 0)
+				return ret;
+			if (l2_hdr_required) {
+				/* l2 header is added */
+				l3_off += __ETH_HLEN;
+				if (!__revalidate_data_pull(ctx, &data, &data_end,
+							    (void **)&ip4, l3_off,
+							    sizeof(*ip4), false))
+					return DROP_INVALID;
+			}
+
+			return ipv4_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY,
+						   ip4, ep, METRIC_INGRESS, false, false, 0);
+		} else {
+			return CTX_ACT_OK;
 		}
-
-		return ipv4_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ip4, ep,
-					   METRIC_INGRESS, false, false, 0);
-#else
-		return CTX_ACT_OK;
-#endif /* ENABLE_HOST_ROUTING */
 	}
 
 	ret = add_l2_hdr(ctx);
