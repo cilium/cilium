@@ -268,8 +268,11 @@ cluster
     Cluster is the logical group of all network endpoints inside of the local
     cluster. This includes all Cilium-managed endpoints of the local cluster,
     unmanaged endpoints in the local cluster, as well as the host,
-    remote-node, and init identities. This also includes all remote nodes
-    in a clustermesh scenario.
+    remote-node, init, ingress, health, and kube-apiserver entities. This 
+    also includes all remote nodes in a clustermesh scenario.
+cluster-mesh
+    The cluster-mesh entity selects all endpoints in meshed clusters, as well as
+    everything selected by the cluster entity.
 init
     The init entity contains all endpoints in bootstrap phase for which the
     security identity has not been resolved yet. This is typically only

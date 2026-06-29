@@ -43,8 +43,12 @@ const (
 	IDNameWorldIPv6 = "world-ipv6"
 
 	// IDNameCluster is the label used to identify an unspecified endpoint
-	// inside the cluster
+	// inside the cluster.
 	IDNameCluster = "cluster"
+
+	// IDNameClusterMesh is the label used to identify an unspecified endpoint
+	// in the cluster mesh
+	IDNameClusterMesh = "cluster-mesh"
 
 	// IDNameHealth is the label used for the local cilium-health endpoint
 	IDNameHealth = "health"
