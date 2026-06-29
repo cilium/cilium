@@ -55,7 +55,7 @@ func TestGCEnableDualStack(t *testing.T) {
 	localGCIntervalRounding := gcIntervalRounding
 	localMinGCInterval := minGCInterval
 
-	gc.enableWithConfig(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+	gc.enableWithConfig(t.Context(), func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 		if ipv4 {
 			ipv4Passes.Add(1)
 			if ipv6 {
@@ -183,7 +183,7 @@ func TestGCEnableRatchet(t *testing.T) {
 		initialPassDone := make(chan struct{})
 		var initialPassSignaled atomic.Bool
 
-		gc.enableWithConfig(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+		gc.enableWithConfig(t.Context(), func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 			// Check if test is done
 			select {
 			case <-testDone:

@@ -1585,6 +1585,10 @@ const (
 
 	ActualPrevInterval = "actualPrevInterval"
 
+	ExpectedDuration = "expectedDuration"
+
+	ElapsedDuration = "elapsedDuration"
+
 	NewInterval = "newInterval"
 
 	DeleteRatio = "deleteRatio"
