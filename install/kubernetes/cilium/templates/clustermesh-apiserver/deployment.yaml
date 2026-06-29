@@ -116,6 +116,12 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
       {{- end }}
+      {{- if .Values.clustermesh.apiserver.extraInitContainers }}
+      {{- if ne .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
+      initContainers:
+      {{- end }}
+      {{- toYaml .Values.clustermesh.apiserver.extraInitContainers | nindent 6 }}
+      {{- end }}
       containers:
       {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
       - name: etcd
