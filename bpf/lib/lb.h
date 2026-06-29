@@ -1176,6 +1176,10 @@ static __always_inline __u32 lb6_algorithm(const struct lb6_service *svc)
 	return lb_default_algorithm();
 }
 
+#ifndef lb6_select_backend_id_custom
+#define lb6_select_backend_id_custom(...) 0
+#endif
+
 static __always_inline __u32
 lb6_select_backend_id(const struct __ctx_buff *ctx, struct lb6_key *key,
 		      const struct ipv6_ct_tuple *tuple,
@@ -1184,6 +1188,9 @@ lb6_select_backend_id(const struct __ctx_buff *ctx, struct lb6_key *key,
 	__u32 alg;
 
 	alg = lb6_algorithm(svc);
+	if (alg & LB_SELECTION_CUSTOM)
+		return lb6_select_backend_id_custom(alg, ctx, key, tuple, svc);
+
 	switch (alg) {
 	case LB_SELECTION_MAGLEV:
 	case LB_SELECTION_RANDOM:
@@ -1990,6 +1997,10 @@ static __always_inline __u32 lb4_algorithm(const struct lb4_service *svc)
 	return lb_default_algorithm();
 }
 
+#ifndef lb4_select_backend_id_custom
+#define lb4_select_backend_id_custom(...) 0
+#endif
+
 static __always_inline __u32
 lb4_select_backend_id(const struct __ctx_buff *ctx, struct lb4_key *key,
 		      const struct ipv4_ct_tuple *tuple,
@@ -1998,6 +2009,9 @@ lb4_select_backend_id(const struct __ctx_buff *ctx, struct lb4_key *key,
 	__u32 alg;
 
 	alg = lb4_algorithm(svc);
+	if (alg & LB_SELECTION_CUSTOM)
+		return lb4_select_backend_id_custom(alg, ctx, key, tuple, svc);
+
 	switch (alg) {
 	case LB_SELECTION_MAGLEV:
 	case LB_SELECTION_RANDOM:
