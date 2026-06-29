@@ -706,7 +706,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 				stats.IngressDeleted++
 			}
 		}
-		natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
+		_ = natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
 	}
 
 	return &stats

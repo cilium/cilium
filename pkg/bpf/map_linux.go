@@ -430,8 +430,9 @@ func (m *Map) WithPressureMetric(registry *metrics.Registry) *Map {
 	return m.WithPressureMetricThreshold(registry, 0.0)
 }
 
-// UpdatePressureMetricWithSize updates map pressure metric using the given map size.
-func (m *Map) UpdatePressureMetricWithSize(size int32) {
+// UpdatePressureMetricWithSize updates map pressure metric using the given map size
+// and returns the calculated pressure value.
+func (m *Map) UpdatePressureMetricWithSize(size int32) (pvalue float64) {
 	if m.pressureGauge == nil {
 		return
 	}
@@ -446,8 +447,9 @@ func (m *Map) UpdatePressureMetricWithSize(size int32) {
 		return
 	}
 
-	pvalue := float64(size) / float64(m.MaxEntries())
+	pvalue = float64(size) / float64(m.MaxEntries())
 	m.pressureGauge.Set(pvalue)
+	return
 }
 
 func (m *Map) updatePressureMetric() {
@@ -456,7 +458,7 @@ func (m *Map) updatePressureMetric() {
 	if m.spec != nil && m.spec.Type == ebpf.LRUHash {
 		return
 	}
-	m.UpdatePressureMetricWithSize(int32(len(m.cache)))
+	_ = m.UpdatePressureMetricWithSize(int32(len(m.cache)))
 }
 
 func (m *Map) FD() int {
