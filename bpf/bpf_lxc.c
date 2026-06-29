@@ -1036,6 +1036,12 @@ ct_recreate6:
 		ct_state_new.proxy_redirect = proxy_port > 0;
 		if (unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect))
 			goto ct_recreate6;
+		/* Recreate if the source security identity is stale so
+		 * that the proxy sees the current identity.
+		 */
+		if (unlikely(ct_state->src_sec_id &&
+			     ct_state->src_sec_id != SECLABEL_IPV6))
+			goto ct_recreate6;
 		break;
 
 	case CT_RELATED:
@@ -1625,6 +1631,12 @@ ct_recreate4:
 		ct_state_new.proxy_redirect = proxy_port > 0;
 		if (unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect))
 			goto ct_recreate4;
+		/* Recreate if the source security identity is stale so
+		 * that the proxy sees the current identity.
+		 */
+		if (unlikely(ct_state->src_sec_id &&
+			     ct_state->src_sec_id != SECLABEL_IPV4))
+			goto ct_recreate4;
 		break;
 
 	case CT_RELATED:
@@ -1993,6 +2005,15 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 				 &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
+	} else if (unlikely(ret == CT_ESTABLISHED && ct_state->src_sec_id &&
+		   ct_state->src_sec_id != src_label)) {
+		/* When the source security identity has changed update the CT entry
+		 * in-place so that the proxy sees the current identity.
+		 */
+		struct ct_entry *entry = map_lookup_elem(get_ct_map6(tuple), tuple);
+
+		if (entry)
+			entry->src_sec_id = src_label;
 	}
 
 	if (*proxy_port > 0)
@@ -2317,6 +2338,15 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 				 &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
+	} else if (unlikely(ret == CT_ESTABLISHED && ct_state->src_sec_id &&
+		   ct_state->src_sec_id != src_label)) {
+		/* When the source security identity has changed update the CT entry
+		 * in-place so that the proxy sees the current identity.
+		 */
+		struct ct_entry *entry = map_lookup_elem(get_ct_map4(tuple), tuple);
+
+		if (entry)
+			entry->src_sec_id = src_label;
 	}
 
 	if (*proxy_port > 0)
