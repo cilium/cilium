@@ -327,6 +327,22 @@ func (l Labels) RemoveFromSource(source string) {
 	})
 }
 
+// Contains returns true if all ls contains all the labels in needed. If
+// needed contains no labels, Contains() will always return true
+func (l Labels) Contains(needed Labels) bool {
+	for k, needlbl := range needed {
+		lbl, ok := l[k]
+		if !ok {
+			return false
+		}
+		if !lbl.Has(&needlbl) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // NewLabel returns a new label from the given key, value and source.
 //
 // * If source is empty, the default value will be LabelSourceUnspec.
@@ -578,12 +594,22 @@ func NewLabelsFromModel(base []string) Labels {
 }
 
 // FromSlice creates labels from a slice of labels.
-func FromSlice(labels []Label) Labels {
+func FromSlice(labels ...Label) Labels {
 	lbls := make(Labels, len(labels))
 	for _, lbl := range labels {
 		lbls[lbl.Key] = lbl
 	}
 	return lbls
+}
+
+// ParseLabels parses a list of labels and returns a Labels map
+func ParseLabels(labels ...string) Labels {
+	out := make(Labels, len(labels))
+	for _, str := range labels {
+		lbl := ParseLabel(str)
+		out[lbl.Key] = lbl
+	}
+	return out
 }
 
 // NewLabelsFromSortedList returns labels based on the output of SortedList()
@@ -592,9 +618,14 @@ func NewLabelsFromSortedList(list string) Labels {
 }
 
 // NewFrom creates a new Labels from the given labels by creating a copy.
-func NewFrom(l Labels) Labels {
-	nl := make(Labels, len(l))
-	nl.MergeLabels(l)
+func NewFrom(ll ...Labels) Labels {
+	if len(ll) == 0 {
+		return Labels{}
+	}
+	nl := make(Labels, len(ll[0]))
+	for _, l := range ll {
+		nl.MergeLabels(l)
+	}
 	return nl
 }
 
@@ -733,23 +764,69 @@ func (l Labels) IsGenerated() bool {
 	return l.HasSource(LabelSourceGenerated)
 }
 
-// Has returns true if l contains the given label.
-func (l Labels) Has(label Label) bool {
-	_, exists := l.LookupLabel(&label)
+// Has returns whether the provided key exists in the label array.
+// Implementation of the
+// github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels.Labels interface.
+//
+// The key can be of source "any", in which case the source is
+// ignored. The inverse, however, is not true.
+// ["k8s:foo=bar"].Has("any:foo") => true
+// ["any:foo=bar"].Has("k8s:foo") => false
+//
+// If the key is of source "cidr", this will also match
+// broader keys.
+// ["cidr:1.1.1.1/32"].Has("cidr:1.0.0.0/8") => true
+// ["cidr:1.0.0.0/8"].Has("cidr:1.1.1.1/32") => false
+func (l Labels) Has(key string) bool {
+	// The key is submitted in the form of `source:key=value`
+	keyLabel := ParseSelectLabel(key)
+	_, exists := l.LookupLabel(&keyLabel)
 	return exists
 }
 
-func (l Labels) LookupLabel(label *Label) (value string, exists bool) {
-	if label.Source != LabelSourceCIDR {
-		lbl, ok := l[label.Key]
-		if ok && lbl.Has(label) {
+// Get returns the value for the provided key.
+// Implementation of the
+// github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels.Labels interface.
+//
+// The key can be of source "any", in which case the source is
+// ignored. The inverse, however, is not true.
+// ["k8s:foo=bar"].Get("any:foo") => "bar"
+// ["any:foo=bar"].Get("k8s:foo") => ""
+//
+// Note that Get is not useful for labels that have no values,
+// as then Get will return an empty string whether or not key
+// matches any label in the array.
+func (l Labels) Get(key string) string {
+	keyLabel := ParseSelectLabel(key)
+	value, _ := l.LookupLabel(&keyLabel)
+	return value
+}
+
+// HasLabel returns true if l contains the given label, including value.
+//
+// label may contain the `any` source
+func (l Labels) HasLabel(label Label) bool {
+	val, exists := l.LookupLabel(&label)
+	return exists && val == label.Value
+}
+
+// LookupLabel looks up a value by label. The keyLabel's value is ignored,
+// only the key and source are considered.
+//
+// keyLabel may contain the `any` source.
+func (l Labels) LookupLabel(keyLabel *Label) (value string, exists bool) {
+	if keyLabel.Source != LabelSourceCIDR {
+		lbl, ok := l[keyLabel.Key]
+		if ok && lbl.HasKey(keyLabel) {
 			return lbl.Value, true
 		}
 		return "", false
 	}
 
+	// CIDR labels require iteration, as the keys
+	// can have logical "contains"
 	for _, lbl := range l {
-		if lbl.Has(label) {
+		if lbl.HasKey(keyLabel) {
 			return lbl.Value, true
 		}
 	}
@@ -854,6 +931,18 @@ func parseLabel(str string, delim labelSourceDelimiter) (lbl Label) {
 // LabelSourceAny
 func ParseSelectLabel(str string) Label {
 	return parseSelectLabel(str, sourceDelimiter)
+}
+
+// ParseSelectLabel returns a selecting label representation of the given
+// string. Unlike ParseLabel, if source is unspecified, the source defaults to
+// LabelSourceAny
+func ParseSelectLabels(strs ...string) Labels {
+	out := make(Labels, len(strs))
+	for _, str := range strs {
+		lbl := parseSelectLabel(str, sourceDelimiter)
+		out[lbl.Key] = lbl
+	}
+	return out
 }
 
 // parseSelectLabel returns a selecting label representation of the given

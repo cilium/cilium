@@ -147,7 +147,7 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 		maps.Copy(initial, im)
 	}
 	for id, lbls := range initial {
-		td.identityManager.Add(&identity.Identity{ID: id, Labels: lbls.Labels(), LabelArray: lbls})
+		td.identityManager.Add(&identity.Identity{ID: id, Labels: lbls, LabelArray: lbls.LabelArray()})
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(initial, nil, wg)
@@ -163,11 +163,11 @@ func (td *testData) addIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
 	td.subjectSc.UpdateIdentities(
 		identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}, nil, wg)
 	td.sc.UpdateIdentities(
 		identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}, nil, wg)
 	wg.Wait()
 	td.idSet.Insert(id.ID)
@@ -178,12 +178,12 @@ func (td *testData) removeIdentity(id *identity.Identity) {
 	td.subjectSc.UpdateIdentities(
 		nil,
 		identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}, wg)
 	td.sc.UpdateIdentities(
 		nil,
 		identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}, wg)
 	wg.Wait()
 	td.idSet.Remove(id.ID)
@@ -1405,7 +1405,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	option.Config.EnableHostFirewall = true
 
 	idHost := identity.NewIdentity(identity.ReservedIdentityHost, labels.NewFrom(labels.LabelHost))
-	td.withIDs(identity.IdentityMap{idHost.ID: idHost.LabelArray})
+	td.withIDs(identity.IdentityMap{idHost.ID: idHost.Labels})
 	td.repo.mustAdd(egressRule)
 	_, err := td.repo.resolvePolicyLocked(idHost)
 	require.ErrorContains(t, err, `Listener "test" in CCNP can not use Kind CiliumEnvoyConfig`)

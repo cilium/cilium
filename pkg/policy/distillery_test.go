@@ -162,14 +162,14 @@ func TestCachePopulation(t *testing.T) {
 var (
 	// Identity, labels, selectors for an endpoint named "foo"
 	identityFoo = identity.NumericIdentity(100)
-	labelsFoo   = labels.ParseSelectLabelArray("foo", "blue")
+	labelsFoo   = labels.ParseSelectLabels("foo", "blue")
 	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	allowFooL3_ = selectFoo_
 	denyFooL3__ = selectFoo_
 
 	// Identity, labels, selectors for an endpoint named "bar"
 	identityBar = identity.NumericIdentity(200)
-	labelsBar   = labels.ParseSelectLabelArray("bar", "blue")
+	labelsBar   = labels.ParseSelectLabels("bar", "blue")
 	selectBar_  = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 	allowBarL3_ = selectBar_
 
@@ -673,7 +673,7 @@ func Test_MergeL3(t *testing.T) {
 		},
 	}
 
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentity(identity.NumericIdentity(identityFoo), labelsFoo)
 	for _, tt := range tests {
 		for i, r := range tt.rules {
 			tt.rules[i] = r.WithEndpointSelector(selectFoo_)
@@ -1159,7 +1159,7 @@ func Test_MergeRules(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentity(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     int
@@ -1274,7 +1274,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentity(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     int
@@ -1354,7 +1354,7 @@ func Test_AllowAll(t *testing.T) {
 		identityBar: labelsBar,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentity(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     int
@@ -1653,19 +1653,19 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 
 	// labels.GetCIDRLabels() depends on option.Config.EnableIPv4/6, so must be done
 	// after setting the config
-	lblWorldIP := labels.GetCIDRLabelArray(netip.MustParsePrefix(string(worldIPCIDR)))
-	lblWorldSubnet := labels.GetCIDRLabelArray(netip.MustParsePrefix(string(worldSubnet)))
+	lblWorldIP := labels.GetCIDRLabels(netip.MustParsePrefix(string(worldIPCIDR)))
+	lblWorldSubnet := labels.GetCIDRLabels(netip.MustParsePrefix(string(worldSubnet)))
 
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
-		identity.ReservedIdentityWorldIPv4:    labels.LabelWorldIPv4.LabelArray(),
-		identity.ReservedIdentityWorldIPv6:    labels.LabelWorldIPv6.LabelArray(),
+		identity.ReservedIdentityWorld:        labels.LabelWorld,
+		identity.ReservedIdentityWorldIPv4:    labels.LabelWorldIPv4,
+		identity.ReservedIdentityWorldIPv6:    labels.LabelWorldIPv6,
 		worldIPIdentity:                       lblWorldIP,     // "192.0.2.3/32"
 		worldSubnetIdentity:                   lblWorldSubnet, // "192.0.2.0/24"
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentity(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     string
@@ -1755,7 +1755,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 
 var (
 	allIPv4        = api.CIDR("0.0.0.0/0")
-	lblAllIPv4     = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
+	lblAllIPv4     = labels.ParseSelectLabels(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
 	one3Z8CIDR     = api.CIDR("1.0.0.0/8")
 	one3Z8Identity = localIdentity(16331)
 	one3Z8Prefix   = netip.MustParsePrefix(string(one3Z8CIDR))
@@ -1802,12 +1802,12 @@ func Test_Allowception(t *testing.T) {
 	// after setting the config.
 	// GetCIDRLabelArray() returns the CIDR label and the appropriate world label,
 	// as needed for an identity (rather than for a selector that only needs one of them).
-	one3Z8Lbls := labels.GetCIDRLabelArray(one3Z8Prefix)
-	one0Z32Lbls := labels.GetCIDRLabelArray(one0Z32Prefix)
+	one3Z8Lbls := labels.GetCIDRLabels(one3Z8Prefix)
+	one0Z32Lbls := labels.GetCIDRLabels(one0Z32Prefix)
 
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityWorld:        append(labels.LabelWorld.LabelArray(), lblAllIPv4...),
+		identity.ReservedIdentityWorld:        labels.NewFrom(labels.LabelWorld, lblAllIPv4),
 		one3Z8Identity:                        one3Z8Lbls,  // 16331 (0x3fcb): ["1.0.0.0/8"]
 		one0Z32Identity:                       one0Z32Lbls, // 16332 (0x3fcc): ["1.1.1.1/32"]
 	}
@@ -1819,7 +1819,7 @@ func Test_Allowception(t *testing.T) {
 		// No entry for one0Z32Identity, as it is wildcarded by reserved:world
 	})
 
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentity(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	repo := newPolicyDistillery(t, selectorCache)
 	rules := api.Rules{ruleAllowIngressDenyCIDRSet}
@@ -1854,10 +1854,10 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	hostLabel.MergeLabels(lblHostIPv6CIDR)
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityHost:         hostLabel.LabelArray(),
+		identity.ReservedIdentityHost:         hostLabel,
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentity(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     string
@@ -1895,7 +1895,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 }
 
 func addCIDRIdentity(prefix string, c identity.IdentityMap) identity.NumericIdentity {
-	lbls := labels.GetCIDRLabelArray(netip.MustParsePrefix(prefix))
+	lbls := labels.GetCIDRLabels(netip.MustParsePrefix(prefix))
 
 	// return an existing id?
 	for id, ls := range c {
@@ -1920,11 +1920,9 @@ func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMap) (id ident
 	l := fqdnSel.IdentityLabel()
 	lbls[l.Key] = l
 
-	lblA := lbls.LabelArray()
-
 	// return an existing id?
 	for id, ls := range c {
-		if ls.Equals(lblA) {
+		if ls.Equals(lbls) {
 			return id, nil
 		}
 	}
@@ -1933,7 +1931,7 @@ func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMap) (id ident
 	id = identity.IdentityScopeLocal
 	for {
 		if _, exists := c[id]; !exists {
-			return id, identity.IdentityMap{id: lblA}
+			return id, identity.IdentityMap{id: lbls}
 		}
 		id++
 	}
@@ -1951,10 +1949,10 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 
 	// load in standard reserved identities
 	identityCache := identity.IdentityMap{
-		fooIdentity.ID: fooIdentity.LabelArray,
+		fooIdentity.ID: fooIdentity.Labels,
 	}
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		identityCache[ni] = id.Labels.LabelArray()
+		identityCache[ni] = id.Labels
 	})
 	id2 := addCIDRIdentity("192.0.2.0/24", identityCache)
 	id3 := addCIDRIdentity("192.0.3.0/24", identityCache)

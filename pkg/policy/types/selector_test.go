@@ -250,17 +250,17 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 			require.Equal(t, test.expected, result, test.name)
 
 			for _, l := range test.matchesLabels {
-				lblArr := labels.NewLabelArrayFromSortedList(l)
-				if !result.Matches(lblArr) {
+				lbls := labels.NewLabelArrayFromSortedList(l).Labels()
+				if !result.Matches(lbls) {
 					t.Fatalf("Expected %+v to match %+v, but did not",
-						result, lblArr)
+						result, lbls)
 				}
 			}
 			for _, l := range test.notMatchesLabels {
-				lblArr := labels.NewLabelArrayFromSortedList(l)
-				if result.Matches(lblArr) {
+				lbls := labels.NewLabelArrayFromSortedList(l).Labels()
+				if result.Matches(lbls) {
 					t.Fatalf("Expected %+v not to match %+v, but did",
-						result, lblArr)
+						result, lbls)
 				}
 			}
 		})

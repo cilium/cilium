@@ -1181,7 +1181,7 @@ func TestProxyID(t *testing.T) {
 func endpointCachedSelectorForIdentities(t testing.TB, selectorLabel string, identities ...identity.NumericIdentity) (policy.CachedSelector, policy.SelectorSnapshot) {
 	identityMap := make(identity.IdentityMap, len(identities))
 	for _, nid := range identities {
-		identityMap[nid] = labels.ParseLabelArray(selectorLabel)
+		identityMap[nid] = labels.ParseSelectLabels(selectorLabel)
 	}
 
 	selectorCache := policy.NewSelectorCache(hivetest.Logger(t), identityMap)

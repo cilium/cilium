@@ -196,7 +196,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 
 	ep.SetPropertyValue(endpointtypes.PropertyFakeEndpoint, false)
 
-	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
+	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar, true, identityBar)
 	require.NoError(t, err)
 	ep.SetIdentity(epIdentity)
 
@@ -221,14 +221,14 @@ func (s *RedirectSuite) TearDownTest(t *testing.T) {
 var (
 	// Identity, labels, selectors for an endpoint named "foo"
 	identityFoo = identity.NumericIdentity(100)
-	labelsFoo   = labels.ParseSelectLabelArray("foo", "red")
+	labelsFoo   = labels.ParseSelectLabels("foo", "red")
 	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	selectRed_  = api.NewESFromLabels(labels.ParseSelectLabel("red"))
 	denyFooL3__ = selectFoo_
 
 	identityBar = identity.NumericIdentity(200)
 
-	labelsBar  = labels.ParseSelectLabelArray("bar", "blue")
+	labelsBar  = labels.ParseSelectLabels("bar", "blue")
 	selectBar_ = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 
 	denyAllL4_ []api.PortDenyRule

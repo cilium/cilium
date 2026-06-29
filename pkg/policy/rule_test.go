@@ -1213,7 +1213,7 @@ func TestL3RuleLabels(t *testing.T) {
 
 						matches = false
 						for sel := range filter.PerSelectorPolicies {
-							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
+							cidrLabels := labels.ParseLabels("cidr:" + cidr)
 							t.Logf("Testing %+v", cidrLabels)
 							cidr, ok := sel.(*identitySelector).source.(*types.CIDRSelector)
 							if ok {
@@ -1487,9 +1487,9 @@ var (
 	flowAToWorld90 = types.Flow{From: idA, To: identity.LookupReservedIdentity(identity.ReservedIdentityWorld), Proto: u8proto.TCP, Dport: 90}
 
 	ruleTestIDs = identity.IdentityMap{
-		idA.ID: idA.LabelArray,
-		idB.ID: idB.LabelArray,
-		idC.ID: idC.LabelArray,
+		idA.ID: idA.Labels,
+		idB.ID: idB.Labels,
+		idC.ID: idC.Labels,
 	}
 
 	defaultDenyIngress = &types.PolicyEntry{

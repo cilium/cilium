@@ -756,8 +756,8 @@ func (sp *testSelectorPolicy) createSelectorCache() (policy.CachedSelector, *pol
 	// slogloggercheck: the default logger is enough for tests.
 	sc := policy.NewSelectorCache(logging.DefaultSlogLogger,
 		identity.IdentityMap{
-			dnsServerIdentity: labels.LabelArray{
-				labels.Label{
+			dnsServerIdentity: labels.Labels{
+				"app": labels.Label{
 					Key:   "app",
 					Value: "test",
 				},

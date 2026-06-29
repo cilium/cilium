@@ -78,21 +78,21 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 				Key:    "id",
 				Value:  "100",
 			},
-		},
+		}.Labels(),
 		101: labels.LabelArray{
 			{
 				Source: labels.LabelSourceK8s,
 				Key:    "id",
 				Value:  "101",
 			},
-		},
+		}.Labels(),
 		102: labels.LabelArray{
 			{
 				Source: labels.LabelSourceK8s,
 				Key:    "id",
 				Value:  "102",
 			},
-		},
+		}.Labels(),
 	}
 
 	logger := hivetest.Logger(t)
