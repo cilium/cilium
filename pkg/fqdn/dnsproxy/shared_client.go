@@ -44,15 +44,6 @@ func (s *SharedClients) Exchange(key string, conf *dns.Client, m *dns.Msg, serve
 func (s *SharedClients) ExchangeContext(ctx context.Context, key string, conf *dns.Client, m *dns.Msg, serverAddrStr string) (r *dns.Msg, rtt time.Duration, closer func(), err error) {
 	client, closer := s.GetSharedClient(key, conf, serverAddrStr)
 	r, rtt, err = client.ExchangeSharedContext(ctx, m)
-	if err != nil && client.dialFailed() {
-		// DialContext failed — evict the broken client immediately so no new
-		// goroutine can grab it from the map. Existing concurrent holders will
-		// also fail but won't cascade to fresh callers. Call closer first so
-		// refcount is decremented before evict signals portReleased.
-		closer()
-		s.evict(key, client)
-		closer = func() {}
-	}
 	return r, rtt, closer, err
 }
 
@@ -76,23 +67,6 @@ func (s *SharedClients) ShutdownTCPClient(key string) {
 	client.Lock()
 	defer client.Unlock()
 	client.close()
-}
-
-// evict removes client from the map if it is still the current entry for key,
-// and signals portReleased so any goroutine waiting in GetSharedClient can proceed.
-// Called after a dial failure to prevent broken clients from accumulating in the map.
-func (s *SharedClients) evict(key string, client *SharedClient) {
-	s.lock.Lock()
-	if s.clients[key] == client {
-		delete(s.clients, key)
-	}
-	s.lock.Unlock()
-	// Unblock any waiter — portReleased may already be closed if the closer ran first.
-	select {
-	case <-client.portReleased:
-	default:
-		close(client.portReleased)
-	}
 }
 
 // GetSharedClient gets or creates an instance of SharedClient keyed with 'key'.  if 'key' is an
@@ -145,6 +119,16 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 		client.Lock()
 		defer client.Unlock()
 		client.refcount--
+		if client.conn == nil {
+			// DialContext never succeeded — evict from map immediately so no new
+			// caller can grab this broken client. Any concurrent holder that already
+			// has a reference will also fail on dial and evict again (idempotent).
+			s.lock.Lock()
+			if s.clients[key] == client {
+				delete(s.clients, key)
+			}
+			s.lock.Unlock()
+		}
 		if client.refcount == 0 {
 			// connection close must be completed while holding the client's lock to
 			// avoid a race where a new client dials using the same 5-tuple and gets a
@@ -152,20 +136,16 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 			// The client remains findable so that new users with the same key may wait
 			// for this closing to be done with.
 			client.close()
-			// Make client unreachable
+			// Make client unreachable (no-op if already deleted above).
 			// Must take s.lock for this.
 			s.lock.Lock()
-			delete(s.clients, key)
+			if s.clients[key] == client {
+				delete(s.clients, key)
+			}
 			s.lock.Unlock()
 			// Signal that the OS has released the port. Any goroutine waiting in
 			// GetSharedClient on portReleased can now safely dial the same 5-tuple.
-			// Guard against double-close: evict() may have already closed portReleased
-			// when a dial failure was detected by a concurrent holder.
-			select {
-			case <-client.portReleased:
-			default:
-				close(client.portReleased)
-			}
+			close(client.portReleased)
 		}
 	}
 }
@@ -424,14 +404,6 @@ func (c *SharedClient) ExchangeSharedContext(ctx context.Context, m *dns.Msg) (r
 	case <-time.After(time.Minute):
 		return nil, 0, fmt.Errorf("timeout waiting for response")
 	}
-}
-
-// dialFailed reports whether DialContext never succeeded (conn==nil).
-// Checked under the client lock to avoid racing with a concurrent dial.
-func (c *SharedClient) dialFailed() bool {
-	c.Lock()
-	defer c.Unlock()
-	return c.conn == nil
 }
 
 // close closes and waits for the close to finish.
