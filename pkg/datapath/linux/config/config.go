@@ -370,9 +370,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
-		if !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
-			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
-		}
 	}
 
 	cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSourceRangeMapEntries)

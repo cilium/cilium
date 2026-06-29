@@ -81,3 +81,5 @@ NODE_CONFIG(__u32, events_map_burst_limit,
 NODE_CONFIG(bool, enable_endpoint_routes, "Enable per endpoint routes")
 
 NODE_CONFIG(bool, enable_identity_mark, "Enable setting identity mark for local traffic")
+
+NODE_CONFIG(bool, enable_bpf_host_routing, "Enable BPF Host Routing")

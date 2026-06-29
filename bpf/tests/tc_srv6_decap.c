@@ -12,7 +12,6 @@
 #ifdef TUNNEL_MODE
 #undef TUNNEL_MODE
 #endif
-#define ENABLE_HOST_ROUTING
 #define ENABLE_NODEPORT
 
 /* Test SRH encap. Reduced encap code path is a subset of SRH encap */
@@ -22,6 +21,8 @@
 #include "lib/ipcache.h"
 #include "lib/endpoint.h"
 #include "lib/lb.h"
+
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 
 #define POD_IPV4 v4_pod_one
 #define POD_IPV6 v6_pod_one

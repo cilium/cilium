@@ -4,7 +4,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4		1
 #define ENABLE_NODEPORT		1
-#define ENABLE_HOST_ROUTING	1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -86,11 +85,12 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
 /* Test that a SVC request (UDP) to a local backend
  * - gets DNATed (but not SNATed)
- * - gets redirected by TC (as ENABLE_HOST_ROUTING is set)
+ * - gets redirected by TC (as BPF Host Routing is enabled)
  */
 PKTGEN("tc", "tc_nodeport_lb_terminating_backend_0")
 int tc_nodeport_lb_terminating_backend_0_pktgen(struct __ctx_buff *ctx)
