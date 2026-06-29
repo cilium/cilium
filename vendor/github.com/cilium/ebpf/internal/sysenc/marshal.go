@@ -68,7 +68,7 @@ func Marshal(data any, size int) (Buffer, error) {
 //
 // Returns an error if buf can't be unmarshalled according to the behaviour
 // of [binary.Decode].
-func Unmarshal(data interface{}, buf []byte) error {
+func Unmarshal(data any, buf []byte) error {
 	switch value := data.(type) {
 	case encoding.BinaryUnmarshaler:
 		return value.UnmarshalBinary(buf)

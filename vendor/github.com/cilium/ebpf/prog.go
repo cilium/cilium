@@ -242,6 +242,8 @@ type Program struct {
 	name       string
 	pinnedPath string
 	typ        ProgramType
+
+	btf *btf.Handle
 }
 
 // NewProgram creates a new Program.
@@ -274,15 +276,15 @@ func NewProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 }
 
 var (
-	coreBadLoad = []byte(fmt.Sprintf("(18) r10 = 0x%x\n", btf.COREBadRelocationSentinel))
+	coreBadLoad = fmt.Appendf(nil, "(18) r10 = 0x%x\n", btf.COREBadRelocationSentinel)
 	// This log message was introduced by ebb676daa1a3 ("bpf: Print function name in
 	// addition to function id") which first appeared in v4.10 and has remained
 	// unchanged since.
-	coreBadCall  = []byte(fmt.Sprintf("invalid func unknown#%d\n", btf.COREBadRelocationSentinel))
-	kfuncBadCall = []byte(fmt.Sprintf("invalid func unknown#%d\n", kfuncCallPoisonBase))
+	coreBadCall  = fmt.Appendf(nil, "invalid func unknown#%d\n", btf.COREBadRelocationSentinel)
+	kfuncBadCall = fmt.Appendf(nil, "invalid func unknown#%d\n", kfuncCallPoisonBase)
 )
 
-func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache) (*Program, error) {
+func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache) (result *Program, _ error) {
 	if len(spec.Instructions) == 0 {
 		return nil, errors.New("instructions cannot be empty")
 	}
@@ -356,12 +358,18 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 		attr.LineInfo = sys.SlicePointer(lib)
 	}
 
+	var handle *btf.Handle
 	if !b.Empty() {
-		handle, err := btf.NewHandle(&b)
+		var err error
+		handle, err = btf.NewHandle(&b)
 		if err != nil {
 			return nil, fmt.Errorf("load BTF: %w", err)
 		}
-		defer handle.Close()
+		defer func() {
+			if result == nil || result.btf != handle {
+				handle.Close()
+			}
+		}()
 
 		attr.ProgBtfFd = uint32(handle.FD())
 	}
@@ -471,7 +479,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 		// Loading with logging disabled should never retry.
 		fd, err = sys.ProgLoad(attr)
 		if err == nil {
-			return &Program{"", fd, spec.Name, "", spec.Type}, nil
+			return &Program{"", fd, spec.Name, "", spec.Type, handle}, nil
 		}
 	} else {
 		// Only specify log size if log level is also specified. Setting size
@@ -491,7 +499,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 
 			fd, err = sys.ProgLoad(attr)
 			if err == nil {
-				return &Program{unix.ByteSliceToString(logBuf), fd, spec.Name, "", spec.Type}, nil
+				return &Program{unix.ByteSliceToString(logBuf), fd, spec.Name, "", spec.Type, handle}, nil
 			}
 
 			if !retryLogAttrs(attr, opts.LogSizeStart, err) {
@@ -503,6 +511,10 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 			}
 			attempts++
 		}
+	}
+
+	if errors.Is(err, sys.ErrTokenCapabilities) {
+		return nil, fmt.Errorf("load program: %w", err)
 	}
 
 	end := bytes.IndexByte(logBuf, 0)
@@ -632,7 +644,7 @@ func newProgramFromFD(fd *sys.FD) (*Program, error) {
 		return nil, fmt.Errorf("discover program type: %w", err)
 	}
 
-	return &Program{"", fd, info.Name, "", info.Type}, nil
+	return &Program{"", fd, info.Name, "", info.Type, nil}, nil
 }
 
 func (p *Program) String() string {
@@ -667,6 +679,10 @@ func (p *Program) Stats() (*ProgramStats, error) {
 // Returns ErrNotSupported if the kernel has no BTF support, or if there is no
 // BTF associated with the program.
 func (p *Program) Handle() (*btf.Handle, error) {
+	if p.btf != nil {
+		return p.btf.Clone()
+	}
+
 	info, err := p.Info()
 	if err != nil {
 		return nil, err
@@ -678,6 +694,48 @@ func (p *Program) Handle() (*btf.Handle, error) {
 	}
 
 	return btf.NewHandleFromID(id)
+}
+
+// SetHandle caches program's type information so that subsequent
+// Handle() call doesn't need to query it from the kernel (requires
+// CAP_SYS_ADMIN).
+//
+// The caller remains responsible for closing the btf.Handle; SetHandle
+// makes a private copy.
+//
+// Type info is auto-cached for Programs loaded by the library itself.
+// Use SetHandle() with program references obtained via NewProgramFromFD
+// and LoadPinnedProgram.
+func (p *Program) SetHandle(h *btf.Handle) error {
+	if h == nil {
+		return fmt.Errorf("nil BTF handle")
+	}
+
+	info, err := p.Info()
+	if err != nil {
+		return err
+	}
+
+	handleInfo, err := h.Info()
+	if err != nil {
+		return err
+	}
+
+	if id, ok := info.BTFID(); !ok || id != handleInfo.ID {
+		return fmt.Errorf("program/BTF mismatch")
+	}
+
+	if p.btf != nil {
+		return nil
+	}
+
+	dup, err := h.Clone()
+	if err != nil {
+		return err
+	}
+
+	p.btf = dup
+	return nil
 }
 
 // FD gets the file descriptor of the Program.
@@ -697,12 +755,18 @@ func (p *Program) Clone() (*Program, error) {
 		return nil, nil
 	}
 
-	dup, err := p.fd.Dup()
+	btfClone, err := p.btf.Clone()
 	if err != nil {
 		return nil, fmt.Errorf("can't clone program: %w", err)
 	}
 
-	return &Program{p.VerifierLog, dup, p.name, "", p.typ}, nil
+	dup, err := p.fd.Dup()
+	if err != nil {
+		btfClone.Close()
+		return nil, fmt.Errorf("can't clone program: %w", err)
+	}
+
+	return &Program{p.VerifierLog, dup, p.name, "", p.typ, btfClone}, nil
 }
 
 // Pin persists the Program on the BPF virtual file system past the lifetime of
@@ -747,6 +811,10 @@ func (p *Program) Close() error {
 		return nil
 	}
 
+	if err := p.btf.Close(); err != nil {
+		return err
+	}
+
 	return p.fd.Close()
 }
 
@@ -760,9 +828,9 @@ type RunOptions struct {
 	// Program's data after Program has run. Caller must allocate. Optional field.
 	DataOut []byte
 	// Program's context input. Optional field.
-	Context interface{}
+	Context any
 	// Program's context after Program has run. Must be a pointer or slice. Optional field.
-	ContextOut interface{}
+	ContextOut any
 	// Minimum number of times to run Program. Optional field. Defaults to 1.
 	//
 	// The program may be executed more often than this due to interruptions, e.g.
@@ -1174,12 +1242,12 @@ func findProgramTargetInKernel(name string, progType ProgramType, attachType Att
 // target will point at the found type after a successful call. Searches both
 // vmlinux and any loaded modules.
 //
-// Returns a non-nil handle if the type was found in a module, or btf.ErrNotFound
-// if the type wasn't found at all.
+// Returns a non-nil handle if the type was found in a module, [btf.ErrNotFound]
+// if the type wasn't found or if BTF is not enabled.
 func findTargetInKernel(typeName string, target *btf.Type, cache *btf.Cache) (*btf.Spec, *btf.Handle, error) {
 	kernelSpec, err := cache.Kernel()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("load kernel spec: %w (%w)", btf.ErrNotFound, err)
 	}
 
 	err = kernelSpec.TypeByName(typeName, target)

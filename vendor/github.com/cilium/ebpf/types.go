@@ -188,6 +188,16 @@ func (mt MapType) mustHaveNoPrealloc() bool {
 	return false
 }
 
+// mustHaveZeroMaxEntries returns true if the map type requires MaxEntries to be zero.
+func (mt MapType) mustHaveZeroMaxEntries() bool {
+	switch mt {
+	case CgroupStorage, CGroupStorage, PerCPUCGroupStorage, InodeStorage, TaskStorage, SkStorage:
+		return true
+	}
+
+	return false
+}
+
 // ProgramType of the eBPF program
 type ProgramType uint32
 

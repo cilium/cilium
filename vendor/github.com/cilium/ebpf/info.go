@@ -140,7 +140,7 @@ func newMapInfoFromFd(fd *sys.FD) (*MapInfo, error) {
 // /proc/self/fdinfo. It only writes data into fields that have a zero value.
 func readMapInfoFromProc(fd *sys.FD, mi *MapInfo) error {
 	var mapType uint32
-	err := scanFdInfo(fd, map[string]interface{}{
+	err := scanFdInfo(fd, map[string]any{
 		"map_type":    &mapType,
 		"map_id":      &mi.id,
 		"key_size":    &mi.KeySize,
@@ -539,7 +539,7 @@ func readNameFromFunc(pi *ProgramInfo) (string, error) {
 
 func readProgramInfoFromProc(fd *sys.FD, pi *ProgramInfo) error {
 	var progType uint32
-	err := scanFdInfo(fd, map[string]interface{}{
+	err := scanFdInfo(fd, map[string]any{
 		"prog_type": &progType,
 		"prog_tag":  &pi.Tag,
 		"memlock":   &pi.memlock,
@@ -882,7 +882,7 @@ func (pi *ProgramInfo) Memlock() (uint64, bool) {
 	return pi.memlock, pi.memlock > 0
 }
 
-func scanFdInfo(fd *sys.FD, fields map[string]interface{}) error {
+func scanFdInfo(fd *sys.FD, fields map[string]any) error {
 	if platform.IsWindows {
 		return fmt.Errorf("read fdinfo: %w", internal.ErrNotSupportedOnOS)
 	}
@@ -899,7 +899,7 @@ func scanFdInfo(fd *sys.FD, fields map[string]interface{}) error {
 	return nil
 }
 
-func scanFdInfoReader(r io.Reader, fields map[string]interface{}) error {
+func scanFdInfoReader(r io.Reader, fields map[string]any) error {
 	var (
 		scanner = bufio.NewScanner(r)
 		scanned int

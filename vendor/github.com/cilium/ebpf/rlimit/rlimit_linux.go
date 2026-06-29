@@ -76,6 +76,12 @@ func detectMemcgAccounting() error {
 		return nil
 	}
 
+	if errors.Is(mapErr, sys.ErrTokenCapabilities) {
+		// If BPF tokens are in use and array maps are not permitted, assume memcg
+		// accounting is supported since tokens are a newer feature.
+		return nil
+	}
+
 	// EPERM shows up when map creation would exceed the memory budget.
 	if errors.Is(mapErr, unix.EPERM) {
 		return unsupportedMemcgAccounting

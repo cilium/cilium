@@ -44,6 +44,8 @@ const (
 	JSLT JumpOp = 0xc0
 	// JSLE jumps by offset if signed r <= signed imm
 	JSLE JumpOp = 0xd0
+	// JCOND is a conditional pseudo jump to encode the may_goto instruction
+	JCOND JumpOp = 0xe0
 )
 
 // Return emits an exit instruction.

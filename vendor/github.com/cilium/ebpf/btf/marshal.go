@@ -129,6 +129,15 @@ func (b *Builder) Empty() bool {
 //
 // See [Type] for details on identity.
 func (b *Builder) Add(typ Type) (TypeID, error) {
+	if _, ok := typ.(*Void); ok {
+		// Equality is weird for void, since it is a zero sized type.
+		return 0, nil
+	}
+
+	if err := internal.IsNilPointer(typ); err != nil {
+		return 0, fmt.Errorf("invalid type: %w", err)
+	}
+
 	if b.stableIDs == nil {
 		b.stableIDs = make(map[Type]TypeID)
 	}
@@ -139,11 +148,6 @@ func (b *Builder) Add(typ Type) (TypeID, error) {
 		if err != nil {
 			return 0, err
 		}
-	}
-
-	if _, ok := typ.(*Void); ok {
-		// Equality is weird for void, since it is a zero sized type.
-		return 0, nil
 	}
 
 	if ds, ok := typ.(*Datasec); ok {
