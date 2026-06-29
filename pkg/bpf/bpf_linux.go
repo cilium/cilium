@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/ebpf"
 	"golang.org/x/sys/unix"
 
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -55,7 +56,7 @@ func OpenOrCreateMap(logger *slog.Logger, spec *ebpf.MapSpec, pinDir string) (*e
 			return nil, errors.New("cannot load unnamed map from pin")
 		}
 
-		if err := MkdirBPF(pinDir); err != nil {
+		if err := bpffs.MkdirBPF(pinDir); err != nil {
 			return nil, fmt.Errorf("creating map base pinning directory: %w", err)
 		}
 

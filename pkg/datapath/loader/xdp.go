@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
@@ -104,7 +105,7 @@ func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 //
 // bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
-func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode xdp.Mode, bpffsBase string) {
+func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode xdp.Mode, paths *config.BPFFS) {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		logger.Warn("Failed to list links for XDP unload",
@@ -134,7 +135,7 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode 
 			}
 		}
 		if !used {
-			if err := DetachXDP(link.Attrs().Name, bpffsBase, symbolFromHostNetdevXDP); err != nil {
+			if err := DetachXDP(link.Attrs().Name, paths, symbolFromHostNetdevXDP); err != nil {
 				logger.Warn("Failed to detach obsolete XDP program",
 					logfields.Error, err,
 				)
@@ -242,7 +243,7 @@ func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 			Constants:   xdpConfiguration(lnc, iface),
 			MapRenames:  xdpMapRenames(lnc, iface),
 			CollectionOptions: ebpf.CollectionOptions{
-				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+				Maps: ebpf.MapOptions{PinPath: lnc.BPFFS.TCGlobalsPath()},
 			},
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
 		})
@@ -252,7 +253,7 @@ func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 		defer obj.Close()
 
 		err = attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
-			bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode))
+			lnc.BPFFS.DeviceLinksDir(iface), xdpConfigModeToFlag(xdpMode))
 		if errors.Is(err, unix.EINVAL) {
 			// EINVAL during attachment can have multiple causes. There are two common
 			// cases we can handle:
@@ -336,7 +337,7 @@ func attachXDPProgram(logger *slog.Logger, iface netlink.Link, prog *ebpf.Progra
 		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
 	}
 
-	if err := bpf.MkdirBPF(bpffsDir); err != nil {
+	if err := bpffs.MkdirBPF(bpffsDir); err != nil {
 		return fmt.Errorf("creating bpffs link dir for xdp attachment to device %s: %w", iface.Attrs().Name, err)
 	}
 
@@ -405,13 +406,13 @@ func attachXDPProgram(logger *slog.Logger, iface netlink.Link, prog *ebpf.Progra
 //
 // bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
 // during tests.
-func DetachXDP(ifaceName string, bpffsBase, progName string) error {
+func DetachXDP(ifaceName string, paths *config.BPFFS, progName string) error {
 	iface, err := safenetlink.LinkByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("getting link '%s' by name: %w", ifaceName, err)
 	}
 
-	pin := filepath.Join(bpffsDeviceLinksDir(bpffsBase, iface), progName)
+	pin := filepath.Join(paths.DeviceLinksDir(iface), progName)
 	err = bpf.UnpinLink(pin)
 	if err == nil {
 		return nil

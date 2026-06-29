@@ -15,6 +15,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -22,6 +23,8 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
+	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -1668,4 +1671,22 @@ func (m *Map) exist() (bool, error) {
 	}
 
 	return false, nil
+}
+
+// MapPath returns a path for a BPF map with a given name.
+func MapPath(logger *slog.Logger, name string) string {
+	if components.IsCiliumAgent() {
+		return filepath.Join(bpffs.TCGlobalsPath(bpffs.Root()), name)
+	}
+	return bpffs.TCPathFromMountInfo(logger, name)
+}
+
+// LocalMapName returns the name for a BPF map that is local to the specified ID.
+func LocalMapName(name string, id uint16) string {
+	return fmt.Sprintf("%s%05d", name, id)
+}
+
+// LocalMapPath returns the path for a BPF map that is local to the specified ID.
+func LocalMapPath(logger *slog.Logger, name string, id uint16) string {
+	return MapPath(logger, LocalMapName(name, id))
 }

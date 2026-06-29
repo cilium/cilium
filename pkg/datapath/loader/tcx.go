@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -52,7 +53,7 @@ func upsertTCXProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Progr
 //
 // progName is typically the Program's key in CollectionSpec.Programs.
 func attachTCX(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType) error {
-	if err := bpf.MkdirBPF(bpffsDir); err != nil {
+	if err := bpffs.MkdirBPF(bpffsDir); err != nil {
 		return fmt.Errorf("creating bpffs link dir for tcx attachment to device %s: %w", device.Attrs().Name, err)
 	}
 

@@ -384,7 +384,7 @@ func (o *orchestrator) EndpointHash(cfg endpoint.Config) (string, error) {
 
 func (o *orchestrator) Unload(ep endpoint.Endpoint) {
 	<-o.dpInitialized
-	o.params.Loader.Unload(ep)
+	o.params.Loader.Unload(ep, o.latestLocalNodeConfig.Load())
 }
 
 func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error {

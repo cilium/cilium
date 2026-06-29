@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -20,7 +20,7 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	logger := hivetest.Logger(t)
-	bpf.CheckOrMountFS(logger, "")
+	bpffs.CheckOrMountFS(logger, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
 	t.Run("IPv4 policies", func(t *testing.T) {

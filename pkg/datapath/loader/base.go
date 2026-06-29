@@ -17,7 +17,7 @@ import (
 	"github.com/google/renameio/v2"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -166,9 +166,9 @@ func cleanIngressQdisc(logger *slog.Logger, devices []string) error {
 	return nil
 }
 
-// cleanCallsMaps is used to remove any pinned map matching mapNamePattern from bpf.TCGlobalsPath().
-func cleanCallsMaps(mapNamePattern string) error {
-	matches, err := filepath.Glob(filepath.Join(bpf.TCGlobalsPath(), mapNamePattern))
+// cleanCallsMaps is used to remove any pinned map matching mapNamePattern from tcGlobalsPath.
+func cleanCallsMaps(mapNamePattern string, tcGlobalsPath string) error {
+	matches, err := filepath.Glob(filepath.Join(tcGlobalsPath, mapNamePattern))
 	if err != nil {
 		return fmt.Errorf("failed to list maps with mapNamePattern %s: %w", mapNamePattern, err)
 	}
@@ -185,7 +185,7 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, reg *registry
 	// tunnelConfig.EncapProtocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.EncapProtocol() == tunnel.Disabled {
-		cleanCallsMaps("cilium_calls_overlay*")
+		cleanCallsMaps("cilium_calls_overlay*", lnc.BPFFS.TCGlobalsPath())
 
 		os.RemoveAll(bpfStateDeviceDir(defaults.VxlanDevice))
 		os.RemoveAll(bpfStateDeviceDir(defaults.GeneveDevice))
@@ -208,7 +208,7 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, reg *registry
 
 func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry, lnc *config.Config) (err error) {
 	if !lnc.EnableWireguard {
-		cleanCallsMaps("cilium_calls_wireguard*")
+		cleanCallsMaps("cilium_calls_wireguard*", lnc.BPFFS.TCGlobalsPath())
 
 		os.RemoveAll(bpfStateDeviceDir(wgTypes.IfaceName))
 
@@ -229,7 +229,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *regist
 func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	lnc *config.Config, devices []string) error {
 	xdpConfig := lnc.XDPConfig
-	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
+	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), &lnc.BPFFS)
 	if xdpConfig.Disabled() {
 		return nil
 	}
@@ -301,7 +301,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	}
 
 	// BPF file system setup.
-	if err := bpf.MkdirBPF(bpf.TCGlobalsPath()); err != nil {
+	if err := bpffs.MkdirBPF(lnc.BPFFS.TCGlobalsPath()); err != nil {
 		return fmt.Errorf("failed to create bpffs directory: %w", err)
 	}
 

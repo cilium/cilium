@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1008,7 +1008,7 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	assert.NotNil(t, lf)
 	assert.False(t, lf.IsIngress)
 	assert.True(t, lf.UseOriginalSourceAddress)
-	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
+	assert.Equal(t, bpffs.Root(), lf.BpfRoot)
 	assert.False(t, lf.IsL7Lb)
 
 	// TCP listener has no SO_LINGER config
@@ -1151,7 +1151,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.NotNil(t, lf)
 	assert.False(t, lf.IsIngress)
 	assert.False(t, lf.UseOriginalSourceAddress)
-	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
+	assert.Equal(t, bpffs.Root(), lf.BpfRoot)
 	assert.True(t, lf.IsL7Lb)
 
 	// HTTP listener has zero SO_LINGER config

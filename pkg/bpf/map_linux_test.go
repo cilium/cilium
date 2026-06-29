@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -57,7 +58,7 @@ func (k *TestValue) NewSlice() any  { return &TestValues{} }
 func setup(tb testing.TB) *Map {
 	testutils.PrivilegedTest(tb)
 
-	CheckOrMountFS(hivetest.Logger(tb), "")
+	bpffs.CheckOrMountFS(hivetest.Logger(tb), "")
 
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
@@ -83,7 +84,7 @@ func setup(tb testing.TB) *Map {
 func setupPerCPU(tb testing.TB) *Map {
 	testutils.PrivilegedTest(tb)
 
-	CheckOrMountFS(hivetest.Logger(tb), "")
+	bpffs.CheckOrMountFS(hivetest.Logger(tb), "")
 
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
@@ -891,7 +892,7 @@ func BenchmarkMapLookup(b *testing.B) {
 func TestPrivilegedErrorResolver(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
-	CheckOrMountFS(logger, "")
+	bpffs.CheckOrMountFS(logger, "")
 	require.NoError(t, rlimit.RemoveMemlock())
 
 	var (

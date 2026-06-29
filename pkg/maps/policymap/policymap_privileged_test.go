@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -33,7 +34,7 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) PolicyMap {
 	testutils.PrivilegedTest(tb)
 
 	logger := hivetest.Logger(tb)
-	bpf.CheckOrMountFS(logger, "")
+	bpffs.CheckOrMountFS(logger, "")
 
 	if err := rlimit.RemoveMemlock(); err != nil {
 		tb.Fatal(err)

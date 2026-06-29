@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -250,7 +251,7 @@ func loadAndRecordComplexity(
 			coll, _, err = bpf.LoadCollection(log, spec, &bpf.CollectionOptions{
 				Constants: constants,
 				CollectionOptions: ebpf.CollectionOptions{
-					Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+					Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.Root())},
 					Programs: ebpf.ProgramOptions{
 						LogLevel: logLevel,
 					},

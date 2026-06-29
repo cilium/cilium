@@ -16,7 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/identity"
@@ -54,7 +54,7 @@ func init() {
 }
 
 func listAllMaps(logger *slog.Logger) {
-	mapRootPrefixPath := bpf.TCGlobalsPath()
+	mapRootPrefixPath := bpffs.TCGlobalsPath(bpffs.Root())
 	mapMatchExpr := filepath.Join(mapRootPrefixPath, "cilium_policy_*")
 
 	matchFiles, err := filepath.Glob(mapMatchExpr)

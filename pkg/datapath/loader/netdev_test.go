@@ -13,11 +13,12 @@ import (
 )
 
 func TestBPFMasqAddrs(t *testing.T) {
-	masq4, masq6 := bpfMasqAddrs("test", &localNodeConfig, true, true)
+	lnc := localNodeConfig(nil)
+	masq4, masq6 := bpfMasqAddrs("test", lnc, true, true)
 	require.False(t, masq4.IsValid())
 	require.False(t, masq6.IsValid())
 
-	newConfig := localNodeConfig
+	newConfig := *lnc
 	newConfig.NodeAddresses = []tables.NodeAddress{
 		{
 			Addr:       netip.MustParseAddr("1.0.0.1"),

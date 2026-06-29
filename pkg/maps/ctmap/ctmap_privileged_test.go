@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -34,7 +35,7 @@ func setupCTMap(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 	logger := hivetest.Logger(tb)
 
-	bpf.CheckOrMountFS(logger, "")
+	bpffs.CheckOrMountFS(logger, "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }

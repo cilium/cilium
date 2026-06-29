@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -107,7 +108,7 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 // CollectStaleMapGarbage cleans up stale content in the BPF maps from the
 // datapath.
 func (ms *MapSweeper) CollectStaleMapGarbage() {
-	if err := filepath.Walk(bpf.TCGlobalsPath(), ms.walk); err != nil {
+	if err := filepath.Walk(bpffs.TCGlobalsPath(bpffs.Root()), ms.walk); err != nil {
 		ms.logger.Warn("Error while scanning for stale maps", logfields.Error, err)
 	}
 }
@@ -117,7 +118,7 @@ func (ms *MapSweeper) CollectStaleMapGarbage() {
 // to live until the BPF program using them is being replaced.
 func (ms *MapSweeper) RemoveDisabledMaps() {
 	var (
-		mapsDir = bpf.TCGlobalsPath()
+		mapsDir = bpffs.TCGlobalsPath(bpffs.Root())
 		maps    = []string{
 			// maps we unconditionally remove, because they no longer exist in modern versions of Cilium at all
 			"cilium_proxy4",

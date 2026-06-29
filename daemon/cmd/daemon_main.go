@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/daemon/infraendpoints"
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/common"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
@@ -1020,7 +1021,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	// the path to an already mounted filesystem instead. This is
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
-	bpf.CheckOrMountFS(logger, option.Config.BPFRoot)
+	bpffs.CheckOrMountFS(logger, option.Config.BPFRoot)
 	cgroups.CheckOrMountCgrpFS(logger, option.Config.CGroupRoot)
 
 	option.Config.Opts.SetBool(option.Debug, debugDatapath)

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -20,7 +21,7 @@ func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 	logger := hivetest.Logger(tb)
 
-	bpf.CheckOrMountFS(logger, "")
+	bpffs.CheckOrMountFS(logger, "")
 	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to set memlock rlimit")
 
 	// Override the map names to avoid clashing with the real ones.

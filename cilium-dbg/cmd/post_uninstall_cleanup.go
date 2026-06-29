@@ -14,8 +14,9 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -115,8 +116,8 @@ type bpfCleanup struct{}
 
 func (c bpfCleanup) whatWillBeRemoved() []string {
 	return []string{
-		fmt.Sprintf("all BPF maps in %s containing '%s'", bpf.TCGlobalsPath(), ciliumLinkPrefix),
-		fmt.Sprintf("mounted bpffs at %s", bpf.BPFFSRoot()),
+		fmt.Sprintf("all BPF maps in %s containing '%s'", bpffs.TCGlobalsPath(bpffs.Root()), ciliumLinkPrefix),
+		fmt.Sprintf("mounted bpffs at %s", bpffs.Root()),
 	}
 }
 
@@ -425,7 +426,7 @@ func removeDirs() error {
 }
 
 func removeAllMaps() error {
-	mapDir := bpf.TCGlobalsPath()
+	mapDir := bpffs.TCGlobalsPath(bpffs.Root())
 	maps, err := os.ReadDir(mapDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -550,7 +551,7 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 
 func removeXDPAttachments(links []netlink.Link) error {
 	for _, link := range links {
-		if err := loader.DetachXDP(link.Attrs().Name, bpf.CiliumPath(), "cil_xdp_entry"); err != nil {
+		if err := loader.DetachXDP(link.Attrs().Name, &config.BPFFS{Root: bpffs.Root()}, "cil_xdp_entry"); err != nil {
 			return err
 		}
 		fmt.Printf("removed cilium xdp of %s\n", link.Attrs().Name)
@@ -592,9 +593,9 @@ func isCiliumXDP(progId uint32) (bool, error) {
 }
 
 func removeCiliumBPFFS() error {
-	path := bpf.CiliumPath()
+	path := bpffs.CiliumPath(bpffs.Root())
 
-	if err := bpf.Remove(path); err != nil {
+	if err := bpffs.Remove(path); err != nil {
 		return err
 	}
 

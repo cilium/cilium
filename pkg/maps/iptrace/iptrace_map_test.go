@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -19,7 +20,7 @@ func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 	logger := hivetest.Logger(tb)
 
-	bpf.CheckOrMountFS(logger, "")
+	bpffs.CheckOrMountFS(logger, "")
 	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to set memlock rlimit")
 }
 

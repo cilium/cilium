@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -52,7 +53,7 @@ var (
 
 // TODO: Clean up bpffs root logic and make this a var.
 func cgroupLinkPath() string {
-	return filepath.Join(bpf.CiliumPath(), Subsystem, "links/cgroup")
+	return filepath.Join(bpffs.CiliumPath(bpffs.Root()), Subsystem, "links/cgroup")
 }
 
 // File to dump the socketlb BPF configuration to.
@@ -86,7 +87,7 @@ func Enable(logger *slog.Logger, reg *registry.MapRegistry,
 		MapRegistry: reg,
 		Constants:   cfg,
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps: ebpf.MapOptions{PinPath: lnc.BPFFS.TCGlobalsPath()},
 		},
 		ConfigDumpPath: configDumpPath,
 	})

@@ -50,6 +50,7 @@ type MapV2 interface {
 type nodeMapV2 struct {
 	logger *slog.Logger
 	conf   Config
+	name   string
 	bpfMap *ebpf.Map
 }
 
@@ -57,6 +58,7 @@ func newMapV2(logger *slog.Logger, mapName string, conf Config) *nodeMapV2 {
 	return &nodeMapV2{
 		logger: logger,
 		conf:   conf,
+		name:   mapName,
 		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
 			Name:       mapName,
 			Type:       ebpf.Hash,
@@ -175,7 +177,7 @@ func LoadNodeMapV2(logger *slog.Logger) (MapV2, error) {
 }
 
 func (m *nodeMapV2) init() error {
-	if existing, err := ebpf.LoadRegisterMap(m.logger, MapNameV2); err == nil {
+	if existing, err := ebpf.LoadRegisterMap(m.logger, m.name); err == nil {
 		m.bpfMap = existing
 		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {

@@ -12,7 +12,6 @@ import (
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 
-	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 )
 
@@ -73,9 +72,6 @@ func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.So
 	// We can't assign directly to a sock_termObjects, since some maps and
 	// programs may be missing.
 	coll, commit, err := bpf.LoadCollection(l, spec, &bpf.CollectionOptions{
-		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
-		},
 		MapReplacements: mapReplacements,
 	})
 

@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -418,7 +419,7 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)
 
-	bpf.CheckOrMountFS(log, "")
+	bpffs.CheckOrMountFS(log, "")
 
 	socketDestroyers := makeSocketDestroyers(t)
 	servers := map[string][]string{

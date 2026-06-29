@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/statedb"
 
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -206,6 +207,7 @@ func newLocalNodeConfig(
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		Plugins:                      plugins,
+		BPFFS:                        config.BPFFS{Root: bpffs.Root()},
 	}, common.MergeChannels(watchChans...), nil
 }
 

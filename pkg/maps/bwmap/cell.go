@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	bandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
 	"github.com/cilium/cilium/pkg/maps/registry"
 )
@@ -45,7 +46,7 @@ func provide(lc cell.Lifecycle, reg *registry.MapRegistry, log *slog.Logger,
 	out bpf.MaybeMapOut[*throttleMap], err error) {
 	if !cfg.EnableBandwidthManager {
 		// Remove map pin if the map is disabled.
-		bpf.Remove(bpf.MapPath(log, MapName))
+		bpffs.Remove(bpf.MapPath(log, MapName))
 
 		return bpf.NoneMap[*throttleMap](), nil
 	}

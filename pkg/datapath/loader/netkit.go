@@ -18,6 +18,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -61,7 +62,7 @@ func upsertNetkitProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Pr
 // attach is either ebpf.AttachNetkitPrimary or ebpf.AttachNetkitPeer and
 // will attach the program to the xmit of either the primary or peer device.
 func attachNetkit(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType) error {
-	if err := bpf.MkdirBPF(bpffsDir); err != nil {
+	if err := bpffs.MkdirBPF(bpffsDir); err != nil {
 		return fmt.Errorf("creating bpffs link dir for netkit attachment to device %s: %w", device.Attrs().Name, err)
 	}
 

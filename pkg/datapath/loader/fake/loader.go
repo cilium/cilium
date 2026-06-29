@@ -31,7 +31,7 @@ func (f *Loader) EndpointHash(cfg endpoint.Config, _ *config.Config) (string, er
 	panic("implement me")
 }
 
-func (f *Loader) Unload(ep endpoint.Endpoint) {
+func (f *Loader) Unload(ep endpoint.Endpoint, _ *config.Config) {
 }
 
 func (f *Loader) CallsMapPath(id uint16) string {

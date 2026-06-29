@@ -3,7 +3,7 @@
 
 //go:build linux
 
-package bpf
+package fs
 
 import (
 	"errors"
@@ -15,7 +15,6 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -44,21 +43,19 @@ func setBPFFSRoot(path string) {
 	bpffsRoot = path
 }
 
-func BPFFSRoot() string {
+func Root() string {
 	once.Do(lockDown)
 	return bpffsRoot
 }
 
 // TCGlobalsPath returns the absolute path to <bpffs>/tc/globals, used for
 // legacy map pin paths.
-func TCGlobalsPath() string {
-	once.Do(lockDown)
+func TCGlobalsPath(bpffsRoot string) string {
 	return filepath.Join(bpffsRoot, defaults.TCGlobalsPath)
 }
 
 // CiliumPath returns the bpffs path to be used for Cilium object pins.
-func CiliumPath() string {
-	once.Do(lockDown)
+func CiliumPath(bpffsRoot string) string {
 	return filepath.Join(bpffsRoot, "cilium")
 }
 
@@ -77,7 +74,7 @@ func Remove(path string) error {
 	return err
 }
 
-func tcPathFromMountInfo(logger *slog.Logger, name string) string {
+func TCPathFromMountInfo(logger *slog.Logger, name string) string {
 	readMountInfo.Do(func() {
 		mountInfos, err := mountinfo.GetMountInfo()
 		if err != nil {
@@ -95,25 +92,6 @@ func tcPathFromMountInfo(logger *slog.Logger, name string) string {
 	})
 
 	return filepath.Join(mountInfoPrefix, name)
-}
-
-// MapPath returns a path for a BPF map with a given name.
-func MapPath(logger *slog.Logger, name string) string {
-	if components.IsCiliumAgent() {
-		once.Do(lockDown)
-		return filepath.Join(TCGlobalsPath(), name)
-	}
-	return tcPathFromMountInfo(logger, name)
-}
-
-// LocalMapName returns the name for a BPF map that is local to the specified ID.
-func LocalMapName(name string, id uint16) string {
-	return fmt.Sprintf("%s%05d", name, id)
-}
-
-// LocalMapPath returns the path for a BPF map that is local to the specified ID.
-func LocalMapPath(logger *slog.Logger, name string, id uint16) string {
-	return MapPath(logger, LocalMapName(name, id))
 }
 
 var (

@@ -262,6 +262,9 @@ type Config struct {
 	SvcRouteConfig svcrouteconfig.RoutesConfig
 
 	Plugins plugin.Plugins
+
+	// Cilium BPFFS paths
+	BPFFS BPFFS
 }
 
 // DeepEqual compares two LocalNodeConfiguration structs for equality.

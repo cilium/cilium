@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -121,7 +122,7 @@ func (m *Map) OpenOrCreate() error {
 	}
 
 	opts := ciliumebpf.MapOptions{
-		PinPath: bpf.TCGlobalsPath(),
+		PinPath: bpffs.TCGlobalsPath(bpffs.Root()),
 	}
 
 	memoryFlags := bpf.GetMapMemoryFlags(m.spec.Type)

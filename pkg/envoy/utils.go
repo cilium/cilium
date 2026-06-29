@@ -10,7 +10,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 )
 
 const (
@@ -84,7 +84,7 @@ func listenerRequiresNPDS(listener *envoy_config_listener.Listener) bool {
 		var bpfMeta cilium.BpfMetadata
 		err := lf.GetTypedConfig().UnmarshalTo(&bpfMeta)
 
-		if err == nil && bpfMeta.GetBpfRoot() == bpf.BPFFSRoot() {
+		if err == nil && bpfMeta.GetBpfRoot() == bpffs.Root() {
 			return true
 		}
 	}
