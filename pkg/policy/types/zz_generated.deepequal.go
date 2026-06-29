@@ -101,6 +101,10 @@ func (in *LabelSelector) DeepEqual(other *LabelSelector) bool {
 		}
 	}
 
+	if !in.condition.DeepEqual(&other.condition) {
+		return false
+	}
+
 	if in.class != other.class {
 		return false
 	}
