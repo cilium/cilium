@@ -33,7 +33,33 @@ struct bpf_iter__tcp {
 	void *tcp_sk;
 };
 
-struct sock_common {};
+struct in6_addr_stub {
+	union {
+		__u8 u6_addr8[16];
+		__be32 u6_addr32[4];
+	} in6_u;
+};
+
+struct sock_common {
+	union {
+		struct {
+			__be32 skc_daddr;
+			__be32 skc_rcv_saddr;
+		};
+	};
+	union {
+		struct {
+			__be16 skc_dport;
+			__u16 skc_num;
+		};
+	};
+	union {
+		struct {
+			struct in6_addr_stub skc_v6_daddr;
+			struct in6_addr_stub skc_v6_rcv_saddr;
+		};
+	};
+} __attribute__((preserve_access_index));
 
 #ifndef BPF_TEST
 int bpf_sock_destroy(struct sock_common *sk) __section(".ksyms");
@@ -41,46 +67,41 @@ static int BPF_FUNC(seq_write, struct seq_file *m, const void *data,
 		    __u32 len);
 #endif
 
-static __always_inline
-bool matches_v4(__sock_cookie cookie)
+static __always_inline bool matches_v4(void *sk)
 {
-	struct ipv4_revnat_tuple key = { };
+	struct sock_common *skc = sk;
 
-	key.address = cilium_sock_term_filter.address.addr4;
-	key.port    = bpf_htons(cilium_sock_term_filter.port);
-	key.cookie  = cookie;
-
-	return map_lookup_elem(&cilium_lb4_reverse_sk, &key);
+	return skc &&
+	       skc->skc_daddr == cilium_sock_term_filter.address.addr4 &&
+	       skc->skc_dport == bpf_htons(cilium_sock_term_filter.port);
 }
 
-static __always_inline
-bool matches_v6(__sock_cookie cookie)
+static __always_inline bool matches_v6(void *sk)
 {
-	struct ipv6_revnat_tuple key = { };
+	struct sock_common *skc = sk;
 
-	key.address = cilium_sock_term_filter.address.addr6;
-	key.port    = bpf_htons(cilium_sock_term_filter.port);
-	key.cookie  = cookie;
-
-	return map_lookup_elem(&cilium_lb6_reverse_sk, &key);
+	return skc &&
+	       !memcmp(&skc->skc_v6_daddr,
+		       &cilium_sock_term_filter.address.addr6,
+		       sizeof(union v6addr)) &&
+	       skc->skc_dport == bpf_htons(cilium_sock_term_filter.port);
 }
 
 static __always_inline
 int sock_udp_destroy_v4(struct bpf_iter__udp *ctx)
 {
 	void *sk = ctx->udp_sk;
-	__sock_cookie cookie;
 
 	if (!sk)
 		return 0;
 
-	cookie = get_socket_cookie(sk);
-
-	if (!matches_v4(cookie))
+	if (!matches_v4(sk))
 		return 0;
 
-	if (!bpf_sock_destroy(sk))
+	if (!bpf_sock_destroy(sk)) {
+		__sock_cookie cookie = get_socket_cookie(sk);
 		seq_write(ctx->meta->seq, &cookie, sizeof(cookie));
+	}
 
 	return 0;
 }
@@ -89,18 +110,17 @@ static __always_inline
 int sock_tcp_destroy_v4(struct bpf_iter__tcp *ctx __maybe_unused)
 {
 	void *sk = ctx->tcp_sk;
-	__sock_cookie cookie;
 
 	if (!sk)
 		return 0;
 
-	cookie = get_socket_cookie(sk);
-
-	if (!matches_v4(cookie))
+	if (!matches_v4(sk))
 		return 0;
 
-	if (!bpf_sock_destroy(sk))
+	if (!bpf_sock_destroy(sk)) {
+		__sock_cookie cookie = get_socket_cookie(sk);
 		seq_write(ctx->meta->seq, &cookie, sizeof(cookie));
+	}
 
 	return 0;
 }
@@ -109,18 +129,17 @@ static __always_inline
 int sock_udp_destroy_v6(struct bpf_iter__udp *ctx)
 {
 	void *sk = ctx->udp_sk;
-	__sock_cookie cookie;
 
 	if (!sk)
 		return 0;
 
-	cookie = get_socket_cookie(sk);
-
-	if (!matches_v6(cookie))
+	if (!matches_v6(sk))
 		return 0;
 
-	if (!bpf_sock_destroy(sk))
+	if (!bpf_sock_destroy(sk)) {
+		__sock_cookie cookie = get_socket_cookie(sk);
 		seq_write(ctx->meta->seq, &cookie, sizeof(cookie));
+	}
 
 	return 0;
 }
@@ -129,18 +148,17 @@ static __always_inline
 int sock_tcp_destroy_v6(struct bpf_iter__tcp *ctx __maybe_unused)
 {
 	void *sk = ctx->tcp_sk;
-	__sock_cookie cookie;
 
 	if (!sk)
 		return 0;
 
-	cookie = get_socket_cookie(sk);
-
-	if (!matches_v6(cookie))
+	if (!matches_v6(sk))
 		return 0;
 
-	if (!bpf_sock_destroy(sk))
+	if (!bpf_sock_destroy(sk)) {
+		__sock_cookie cookie = get_socket_cookie(sk);
 		seq_write(ctx->meta->seq, &cookie, sizeof(cookie));
+	}
 
 	return 0;
 }

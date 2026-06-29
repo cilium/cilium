@@ -6,6 +6,7 @@ package sockets
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"syscall"
 	"testing"
@@ -21,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 
 	"github.com/cilium/ebpf"
+
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -531,6 +534,123 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPrivilegedSocketDestroyersReconnected(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
+
+	socketDestroyers := makeSocketDestroyers(t)
+
+	for dName, sockDestroyer := range socketDestroyers {
+		t.Run(dName, func(t *testing.T) {
+			t.Run("v4", func(t *testing.T) {
+				runReconnectedTest(t, log, sockDestroyer, "udp", "127.0.0.1:8888", "127.0.0.1:8890", unix.AF_INET)
+			})
+			t.Run("v6", func(t *testing.T) {
+				runReconnectedTest(t, log, sockDestroyer, "udp6", "[::1]:8888", "[::1]:8890", unix.AF_INET6)
+			})
+		})
+	}
+}
+
+func runReconnectedTest(t *testing.T, log *slog.Logger, sockDestroyer socketDestroyerTester, network, addr1, addr2 string, family uint8) {
+	ns := netns.NewNetNS(t)
+	defer ns.Close()
+	defer sockDestroyer.Reset()
+
+	require.NoError(t, ns.Do(func() error {
+		link, err := safenetlink.LinkByName("lo")
+		if err != nil {
+			return err
+		}
+		return netlink.LinkSetUp(link)
+	}))
+
+	require.NoError(t, ns.Do(func() error {
+		uaddr1, err := net.ResolveUDPAddr(network, addr1)
+		require.NoError(t, err)
+		uaddr2, err := net.ResolveUDPAddr(network, addr2)
+		require.NoError(t, err)
+
+		connectAddr1, err := startServer(t, network, addr1)
+		require.NoError(t, err)
+
+		_, err = startServer(t, network, addr2)
+		require.NoError(t, err)
+
+		// Connect to addr1
+		conn, err := net.Dial(network, addr1)
+		require.NoError(t, err)
+		defer conn.Close()
+
+		sysConn, ok := conn.(syscall.Conn)
+		require.True(t, ok)
+
+		rawConn, err := sysConn.SyscallConn()
+		require.NoError(t, err)
+
+		var cookie uint64
+		rawConn.Control(func(fd uintptr) {
+			cookie, err = unix.GetsockoptUint64(int(fd), unix.SOL_SOCKET, unix.SO_COOKIE)
+		})
+		require.NoError(t, err)
+
+		// Prepare the map
+		err = sockDestroyer.PrepareAddress(network, cookie, connectAddr1)
+		require.NoError(t, err)
+
+		// Disconnect (AF_UNSPEC)
+		var sysErr error
+		rawConn.Control(func(fd uintptr) {
+			var raw syscall.RawSockaddrAny
+			raw.Addr.Family = syscall.AF_UNSPEC
+			_, _, e := syscall.Syscall(syscall.SYS_CONNECT, fd, uintptr(unsafe.Pointer(&raw)), unsafe.Sizeof(raw.Addr))
+			if e != 0 {
+				sysErr = e
+			}
+		})
+		if sysErr != nil {
+			t.Logf("AF_UNSPEC connect err: %v", sysErr)
+			sysErr = nil
+		}
+
+		// Re-connect to addr2
+		rawConn.Control(func(fd uintptr) {
+			var addr unix.Sockaddr
+			if family == unix.AF_INET {
+				addr = &unix.SockaddrInet4{
+					Port: uaddr2.Port,
+					Addr: [4]byte(uaddr2.IP.To4()),
+				}
+			} else {
+				addr = &unix.SockaddrInet6{
+					Port: uaddr2.Port,
+					Addr: [16]byte(uaddr2.IP.To16()),
+				}
+			}
+			sysErr = unix.Connect(int(fd), addr)
+		})
+		require.NoError(t, sysErr, "Failed to connect to addr2!")
+
+		// Run destroyer for addr1
+		filter := SocketFilter{
+			DestIp:   uaddr1.IP,
+			DestPort: uint16(uaddr1.Port),
+			Family:   family,
+			Protocol: unix.IPPROTO_UDP,
+			States:   StateFilterUDP,
+		}
+		err = sockDestroyer.Destroy(log, filter)
+		require.NoError(t, err)
+
+		// Verify the socket was NOT destroyed
+		var b [8]byte
+		_, err = conn.Write(b[:])
+		require.NoError(t, err, "Socket connected to %s was WRONGFULLY destroyed by %s sweep!", addr2, addr1)
+
+		return nil
+	}))
 }
 
 func BenchmarkDestroyers(b *testing.B) {
