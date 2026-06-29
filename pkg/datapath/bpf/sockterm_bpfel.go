@@ -64,6 +64,19 @@ type SockTermSockTermFilter struct {
 	_             [1]byte
 }
 
+// Names of all BPF objects in the ELF.
+//
+// Used for safe lookups in a Collection or CollectionSpec.
+const (
+	SockTermMapCiliumLb4ReverseSk   = "cilium_lb4_reverse_sk"
+	SockTermMapCiliumLb6ReverseSk   = "cilium_lb6_reverse_sk"
+	SockTermProgCilSockTcpDestroyV4 = "cil_sock_tcp_destroy_v4"
+	SockTermProgCilSockTcpDestroyV6 = "cil_sock_tcp_destroy_v6"
+	SockTermProgCilSockUdpDestroyV4 = "cil_sock_udp_destroy_v4"
+	SockTermProgCilSockUdpDestroyV6 = "cil_sock_udp_destroy_v6"
+	SockTermVarCiliumSockTermFilter = "cilium_sock_term_filter"
+)
+
 // LoadSockTerm returns the embedded CollectionSpec for SockTerm.
 func LoadSockTerm() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_SockTermBytes)
@@ -84,7 +97,7 @@ func LoadSockTerm() (*ebpf.CollectionSpec, error) {
 //	*SockTermMaps
 //
 // See ebpf.CollectionSpec.LoadAndAssign documentation for details.
-func LoadSockTermObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
+func LoadSockTermObjects(obj any, opts *ebpf.CollectionOptions) error {
 	spec, err := LoadSockTerm()
 	if err != nil {
 		return err
