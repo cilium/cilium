@@ -122,20 +122,13 @@ jobs:
           MATRIX='{
             "include": [
               {
-                "crd-channel": "experimental",
                 "conformance-profile": false,
                 "default": true
               },
               {
-                "crd-channel": "standard",
-                "conformance-profile": false
-              },
-              {
-                "crd-channel": "experimental",
                 "conformance-profile": true
               },
               {
-                "crd-channel": "standard",
                 "conformance-profile": false,
                 "encryption": "ipsec"
               }
@@ -199,11 +192,6 @@ jobs:
         id: vars
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
-
-          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute"
-          if [ "${{ matrix.crd-channel }}" == "standard" ]; then
-            EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
-          fi
 
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
             SKIPPED_TESTS+="MeshConsumerRoute,HTTPRouteListenerPortMatching"
@@ -392,7 +380,7 @@ jobs:
       - name: Upload report artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: report-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}.yaml
+          name: report-${{ matrix.conformance-profile }}.yaml
           path: operator/pkg/gateway-api/report.yaml
           retention-days: 5
           if-no-files-found: ignore
