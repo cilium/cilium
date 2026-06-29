@@ -39,13 +39,6 @@
 #include "lib/policy.h"
 #include "lib/mcast.h"
 
-/* Override LB_SELECTION initially defined in node_config.h to force bpf_lxc to use the random backend selection
- * algorithm for in-cluster traffic. Otherwise, it will fail with the Maglev hash algorithm because Cilium doesn't provision
- * the Maglev table for ClusterIP unless bpf.lbExternalClusterIP is set to true.
- */
-#undef LB_SELECTION
-#define LB_SELECTION LB_SELECTION_RANDOM
-
 #include "lib/lb.h"
 #include "lib/drop.h"
 #include "lib/trace.h"
