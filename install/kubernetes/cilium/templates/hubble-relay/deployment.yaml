@@ -65,6 +65,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.hubble.relay.extraInitContainers }}
+      initContainers:
+      {{- toYaml .Values.hubble.relay.extraInitContainers | nindent 6 }}
+      {{- end }}
       containers:
         - name: hubble-relay
           {{- with .Values.hubble.relay.securityContext }}

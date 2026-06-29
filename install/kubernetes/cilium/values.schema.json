@@ -1029,6 +1029,10 @@
               "items": {},
               "type": "array"
             },
+            "extraInitContainers": {
+              "items": {},
+              "type": "array"
+            },
             "extraVolumeMounts": {
               "items": {},
               "type": "array"
@@ -3484,6 +3488,10 @@
               "items": {},
               "type": "array"
             },
+            "extraInitContainers": {
+              "items": {},
+              "type": "array"
+            },
             "extraVolumeMounts": {
               "items": {},
               "type": "array"
@@ -3990,6 +3998,10 @@
             },
             "enabled": {
               "type": "boolean"
+            },
+            "extraInitContainers": {
+              "items": {},
+              "type": "array"
             },
             "frontend": {
               "properties": {
@@ -5216,6 +5228,10 @@
           "type": "array"
         },
         "extraHostPathMounts": {
+          "items": {},
+          "type": "array"
+        },
+        "extraInitContainers": {
           "items": {},
           "type": "array"
         },

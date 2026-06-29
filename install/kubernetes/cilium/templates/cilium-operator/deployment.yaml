@@ -77,6 +77,10 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.operator.extraInitContainers }}
+      initContainers:
+      {{- toYaml .Values.operator.extraInitContainers | nindent 6 }}
+      {{- end }}
       containers:
       - name: cilium-operator
         image: {{ include "cilium.operator.image" . | quote }}
