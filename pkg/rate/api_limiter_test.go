@@ -67,6 +67,10 @@ func (m *mockMetrics) ProcessedRequest(name string, v MetricsValues) {
 	me.ReturnCode = v.ReturnCode
 }
 
+func (m *mockMetrics) DeRegister(name string) {
+	delete(m.metrics, name)
+}
+
 func TestNewAPILimiter(t *testing.T) {
 	a := NewAPILimiter(hivetest.Logger(t), "foo", APILimiterParameters{}, nil)
 
@@ -837,4 +841,21 @@ func TestSetRateBurst(t *testing.T) {
 
 	a.SetRateBurst(100)
 	require.Equal(t, 100, a.limiter.Burst())
+}
+
+func TestDeRegister(t *testing.T) {
+	m := newMockMetrics()
+	a := NewAPILimiter(hivetest.Logger(t), "foo", APILimiterParameters{}, m)
+	m.metrics["foo"] = &metrics{}
+
+	a.DeRegister()
+	require.Empty(t, m.metrics)
+
+	set, err := NewAPILimiterSet(hivetest.Logger(t), map[string]string{"bar": "rate-limit:5/s"}, nil, m)
+	require.NoError(t, err)
+	m.metrics["bar"] = &metrics{}
+
+	set.DeRegister("bar")
+	require.Empty(t, m.metrics)
+	require.Nil(t, set.Limiter("bar"))
 }

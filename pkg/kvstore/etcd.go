@@ -1578,6 +1578,10 @@ func (e *etcdClient) Close() {
 	// Wait until all child goroutines spawned by the lease managers have terminated.
 	e.leaseManager.Wait()
 	e.lockLeaseManager.Wait()
+
+	if e.limiter != nil {
+		e.limiter.DeRegister()
+	}
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd

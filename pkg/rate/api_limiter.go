@@ -557,6 +557,13 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error, code int) {
 	}
 }
 
+// DeRegister cleans up any metrics associated with this APILimiter.
+func (l *APILimiter) DeRegister() {
+	if l.metrics != nil {
+		l.metrics.DeRegister(l.name)
+	}
+}
+
 // calcMeanDuration returns the mean duration in seconds
 func calcMeanDuration(durations []time.Duration) float64 {
 	total := 0.0
@@ -846,6 +853,9 @@ type MetricsValues struct {
 type MetricsObserver interface {
 	// ProcessedRequest is invoked after invocation of an API call
 	ProcessedRequest(name string, values MetricsValues)
+
+	// DeRegister cleans up any metrics associated with the given name
+	DeRegister(name string)
 }
 
 // NewAPILimiterSet creates a new APILimiterSet based on a set of rate limiting
@@ -888,6 +898,14 @@ func NewAPILimiterSet(logger *slog.Logger, config map[string]string, defaults ma
 // Limiter returns the APILimiter with a given name
 func (s *APILimiterSet) Limiter(name string) *APILimiter {
 	return s.limiters[name]
+}
+
+// DeRegister cleans up any metrics associated with the APILimiter of the given name.
+func (s *APILimiterSet) DeRegister(name string) {
+	if l, ok := s.limiters[name]; ok {
+		l.DeRegister()
+		delete(s.limiters, name)
+	}
 }
 
 type dummyRequest struct{}
