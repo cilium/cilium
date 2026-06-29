@@ -974,14 +974,13 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 		return err
 	}
 
-	req := &models.EndpointBatchDeleteRequest{ContainerID: args.ContainerID}
-	if err := c.EndpointDeleteMany(req); err != nil {
+	if err := c.EndpointDelete(args.ContainerID, args.IfName); err != nil {
 		if errors.Is(err, lib.ErrClientFailure) {
 			scopedLogger.Error("Failed to delete endpoint", logfields.Error, err)
 			return err
 		}
 
-		// EndpointDeleteMany returns an error in the following scenarios:
+		// EndpointDelete returns an error in the following scenarios:
 		// DeleteEndpointInvalid: Invalid delete parameters, no need to retry
 		// DeleteEndpointNotFound: No need to retry
 		// DeleteEndpointErrors: Errors encountered while deleting,

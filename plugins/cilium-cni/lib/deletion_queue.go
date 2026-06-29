@@ -20,12 +20,14 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/lock/lockfile"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type ciliumClient interface {
 	EndpointDeleteMany(*models.EndpointBatchDeleteRequest) error
+	EndpointDelete(id string) error
 }
 
 type newCiliumClientFn func(time.Duration) (ciliumClient, error)
@@ -123,7 +125,7 @@ func (dc *DeletionFallbackClient) tryQueueLock() (*lockfile.Lockfile, error) {
 	return lf, nil
 }
 
-// EndpointDeleteMany deletes multiple endpoints based on the endpoint deletion request,
+// EndpointDelete deletes one or more endpoints based on the provided container ID and interface name,
 // either by directly accessing the API or dropping in a queued-deletion file.
 //
 // To prevent race conditions, the logic is:
@@ -135,16 +137,17 @@ func (dc *DeletionFallbackClient) tryQueueLock() (*lockfile.Lockfile, error) {
 // Endpoint Deletion handled by this method returns two types of errors:
 // 1. Delete request processing errors propagated from cilium-agent(eg. NotFound, Invalid)
 // 2. Client failure indicating a non-recoverable error(eg. when deletion queue locking during fallback fails)
-func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDeleteRequest) error {
-	fallback, err := dc.deleteEndpointsBatch(req)
+func (dc *DeletionFallbackClient) EndpointDelete(containerID, containerIfName string) error {
+	fallback, err := dc.deleteEndpoints(containerID, containerIfName)
 	if err == nil || !fallback {
 		return err
 	}
 
 	// If the Endpoint Deletion request to cilium-agent failed, fallback to
 	// queuing the deletion.
-	dc.logger.Debug("Failed to delete Endpoints batch",
-		logfields.Request, req,
+	dc.logger.Debug("Failed to delete endpoints",
+		logfields.ContainerID, containerID,
+		logfields.ContainerInterface, containerIfName,
 		logfields.Error, err,
 	)
 
@@ -155,12 +158,12 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 	defer lf.Unlock()
 
 	// We have the lock now, we can retry deleting the endpoints.
-	fallback, err = dc.deleteEndpointsBatch(req)
+	fallback, err = dc.deleteEndpoints(containerID, containerIfName)
 
 	// Only enqueue the Deletion request if the failure is API server related, so cilium-agent
 	// can process the request when DeletionQueue is replayed.
 	if fallback {
-		err = dc.enqueueDeletionRequestLocked(req)
+		err = dc.enqueueDeletionRequestLocked(containerID, containerIfName)
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrClientFailure, err)
 		}
@@ -169,10 +172,10 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 	return err
 }
 
-// deleteEndpointsBatch attempts to connect to cilium api and request endpoint deletion for the provided
+// deleteEndpoints attempts to connect to cilium api and request endpoint deletion for the provided
 // request. If either the connection fails or Endpoint API is not available, this method returns true
 // indicating the caller to attempt fallback logic.
-func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatchDeleteRequest) (bool, error) {
+func (dc *DeletionFallbackClient) deleteEndpoints(containerID, containerIfName string) (bool, error) {
 	if err := dc.tryConnect(); err != nil {
 		// Check if agent is starting up. If so, it is about to handle the
 		// deletion queue, thus we should avoid taking the lock in order to
@@ -205,7 +208,15 @@ func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatch
 		}
 	}
 
-	err := dc.cli.EndpointDeleteMany(req)
+	var err error
+	if containerIfName == "" {
+		// Batch deletion request
+		err = dc.cli.EndpointDeleteMany(&models.EndpointBatchDeleteRequest{ContainerID: containerID})
+	} else {
+		// Individual endpoint deletion
+		err = dc.cli.EndpointDelete(id.NewCNIAttachmentID(containerID, containerIfName))
+	}
+
 	if err != nil {
 		status, ok := err.(runtime.ClientResponseStatus)
 		if !ok || !status.IsCode(http.StatusServiceUnavailable) {
@@ -223,15 +234,23 @@ func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatch
 
 // enqueueDeletionRequestLocked enqueues the encoded endpoint deletion request into the
 // endpoint deletion queue. Requires the caller to hold the deletion queue lock.
-func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(req *models.EndpointBatchDeleteRequest) error {
+func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(containerID, containerIfName string) error {
 	dc.logger.Info(
 		"Queueing endpoint batch deletion request",
-		logfields.Request, req,
+		logfields.ContainerID, containerID,
+		logfields.ContainerInterface, containerIfName,
 	)
 
-	contents, err := req.MarshalBinary()
-	if err != nil {
-		return fmt.Errorf("failed to marshal endpoint delete request: %w", err)
+	var contents []byte
+	if containerIfName == "" {
+		var err error
+		req := &models.EndpointBatchDeleteRequest{ContainerID: containerID}
+		contents, err = req.MarshalBinary()
+		if err != nil {
+			return fmt.Errorf("failed to marshal endpoint delete request: %w", err)
+		}
+	} else {
+		contents = []byte(id.NewCNIAttachmentID(containerID, containerIfName))
 	}
 
 	// sanity check: if there are too many queued deletes, just return error
