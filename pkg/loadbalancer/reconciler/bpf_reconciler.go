@@ -1151,7 +1151,7 @@ func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
 
 	// Maglev algorithm annotation overrides rest of the checks.
 	case alg != loadbalancer.SVCLoadBalancingAlgorithmUndef:
-		return alg == loadbalancer.SVCLoadBalancingAlgorithmMaglev
+		return alg.UseMaglev()
 
 	case ops.cfg.LBAlgorithm != loadbalancer.LBAlgorithmMaglev:
 		return false
