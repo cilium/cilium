@@ -174,6 +174,24 @@ from one cluster to another:
   kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
     kubectl --context $CLUSTER2 create -f -
 
+.. _clustermesh_external_tls:
+
+Custom Per-Pod Certificates
+===========================
+
+You can inject custom certificates for Cluster Mesh components by
+configuring the following Helm settings:
+
+- Set ``disableDefaultVolumes=true``
+- Inject your own certificate agent via ``extraInitContainers``
+- Specify ``extraVolumes``/``extraVolumeMounts`` to share the certificate
+  mount with the init container
+
+This is useful when you want to provide certificates directly to each pod
+rather than through Kubernetes Secrets (e.g., per-pod certificates issued
+at runtime by HashiCorp Vault, the cert-manager CSI driver, or SPIFFE).
+See :ref:`hubble_enable_tls` for the general pattern.
+
 .. _enable_clustermesh:
 
 Enable Cluster Mesh

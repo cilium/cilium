@@ -170,6 +170,66 @@ restart Hubble server or Hubble Relay.
         - ``hubble.metrics.tls.server.existingSecret`` only needs to be provided when ``hubble.metrics.tls.enabled`` (default ``false``).
           For more details on configuring the Hubble metrics API with TLS, see :ref:`hubble_configure_metrics_tls`.
 
+    .. group-tab:: Custom Per-Pod Certificates
+
+        If you want to provide TLS certificates directly to each pod rather
+        than through Kubernetes Secrets (e.g., per-pod certificates issued at
+        runtime by HashiCorp Vault, the cert-manager CSI driver, or SPIFFE),
+        you can disable the default TLS certificate volumes by setting
+        ``disableDefaultVolumes=true`` and provide your own via
+        ``extraVolumes``/``extraVolumeMounts``, and inject a
+        certificate-fetching sidecar via ``extraInitContainers``.
+
+        **Certificate requirements:**
+
+        The external certificate agent is responsible for generating valid
+        certificates. The Common Name (CN) and Subject Alternative Name
+        (SAN) requirements are the same as for user-provided certificates:
+
+        - Hubble server: ``*.{cluster-name}.hubble-grpc.cilium.io`` where
+          ``{cluster-name}`` is the cluster name defined by ``cluster.name``
+          (defaults to ``default``)
+        - Hubble Relay: ``*.hubble-relay.cilium.io``
+        - Hubble UI: ``*.hubble-ui.cilium.io``
+
+        The certificate agent must write files matching the names expected
+        by each component:
+
+        - Hubble server: ``server.crt``, ``server.key``, ``client-ca.crt``
+        - Hubble Relay: ``client.crt``, ``client.key``,
+          ``hubble-server-ca.crt``, and if relay TLS server is enabled:
+          ``server.crt``, ``server.key``
+        - Hubble UI: ``client.crt``, ``client.key``, ``hubble-relay-ca.crt``
+
+        **Configuration:**
+
+        For each component, disable its default TLS volume, provide your own
+        via ``extraVolumes``/``extraVolumeMounts``, and configure the
+        certificate agent under ``extraInitContainers``. Hubble Relay and
+        Hubble UI are optional; only set the values for the components you
+        deploy.
+
+        ::
+
+            # Hubble server (on the cilium-agent DaemonSet)
+            --set hubble.tls.disableDefaultVolumes=true
+            # configure the certificate agent under the top-level extraInitContainers
+
+            # Hubble Relay
+            --set hubble.relay.tls.disableDefaultVolumes=true
+            # configure the certificate agent under hubble.relay.extraInitContainers
+
+            # Hubble UI
+            --set hubble.ui.tls.disableDefaultVolumes=true
+            # configure the certificate agent under hubble.ui.extraInitContainers
+
+        Each component can be configured independently.
+
+        You will need to determine the valid contents of the ``extraVolumes``,
+        ``extraVolumeMounts``, and ``extraInitContainers`` settings based on
+        your own approach to certificate management. The values of these
+        settings are out of scope for this guide.
+
 .. _hubble_enable_tls_troubleshooting:
 
 Troubleshooting
@@ -268,6 +328,45 @@ If you encounter issues after enabling TLS, you can use the following instructio
         of the certificate for Hubble server MUST be set to
         ``*.{cluster-name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is
         the cluster name defined by ``cluster.name`` (defaults to ``default``).
+
+    .. group-tab:: Custom Per-Pod Certificates
+
+        **Pod stuck in init / CrashLoopBackOff:**
+
+        The certificate agent init container must write all expected cert files
+        before the main container starts. Check its logs and the pod's events:
+
+        .. code-block:: shell-session
+
+            $ kubectl -n kube-system logs <pod> -c <cert-agent>
+            $ kubectl -n kube-system describe pod <pod>
+
+        Verify the file names match what each component expects (see the
+        "Custom Per-Pod Certificates" configuration tab for the full list).
+
+        **TLS handshake failures:**
+
+        If components start but fail to connect over TLS, check the
+        component logs for TLS errors:
+
+        .. code-block:: shell-session
+
+            $ kubectl -n kube-system logs <pod> -c <container>
+
+        Common causes:
+
+        - The certificate CN/SAN does not match the expected pattern
+          (e.g., ``*.{cluster-name}.hubble-grpc.cilium.io`` for Hubble server)
+        - The CA certificate used to sign the server cert does not match
+          the CA file provided to the client
+        - Certificates have expired
+
+        **Secrets still being generated:**
+
+        If the chart is still generating TLS Secrets, verify that
+        ``tls.auto.enabled`` is set to ``false``. The auto-generated
+        Secrets are controlled by this flag, not by
+        ``disableDefaultVolumes``.
 
 
 Validating the Installation
