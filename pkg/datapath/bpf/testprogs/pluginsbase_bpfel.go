@@ -12,6 +12,43 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+// Names of all BPF objects in the ELF.
+//
+// Used for safe lookups in a Collection or CollectionSpec.
+const (
+	PluginsBaseMapSeq                    = "seq"
+	PluginsBaseProgProgramBind4          = "program_bind4"
+	PluginsBaseProgProgramBind6          = "program_bind6"
+	PluginsBaseProgProgramConnect4       = "program_connect4"
+	PluginsBaseProgProgramConnect6       = "program_connect6"
+	PluginsBaseProgProgramGetpeername4   = "program_getpeername4"
+	PluginsBaseProgProgramGetpeername6   = "program_getpeername6"
+	PluginsBaseProgProgramPostBind4      = "program_post_bind4"
+	PluginsBaseProgProgramPostBind6      = "program_post_bind6"
+	PluginsBaseProgProgramRecvmsg4       = "program_recvmsg4"
+	PluginsBaseProgProgramRecvmsg6       = "program_recvmsg6"
+	PluginsBaseProgProgramSendmsg4       = "program_sendmsg4"
+	PluginsBaseProgProgramSendmsg6       = "program_sendmsg6"
+	PluginsBaseProgProgramSockRelease    = "program_sock_release"
+	PluginsBaseProgProgramTc             = "program_tc"
+	PluginsBaseProgProgramXdp            = "program_xdp"
+	PluginsBaseVarProgramBind4Seq        = "program_bind4_seq"
+	PluginsBaseVarProgramBind6Seq        = "program_bind6_seq"
+	PluginsBaseVarProgramConnect4Seq     = "program_connect4_seq"
+	PluginsBaseVarProgramConnect6Seq     = "program_connect6_seq"
+	PluginsBaseVarProgramGetpeername4Seq = "program_getpeername4_seq"
+	PluginsBaseVarProgramGetpeername6Seq = "program_getpeername6_seq"
+	PluginsBaseVarProgramPostBind4Seq    = "program_post_bind4_seq"
+	PluginsBaseVarProgramPostBind6Seq    = "program_post_bind6_seq"
+	PluginsBaseVarProgramRecvmsg4Seq     = "program_recvmsg4_seq"
+	PluginsBaseVarProgramRecvmsg6Seq     = "program_recvmsg6_seq"
+	PluginsBaseVarProgramSendmsg4Seq     = "program_sendmsg4_seq"
+	PluginsBaseVarProgramSendmsg6Seq     = "program_sendmsg6_seq"
+	PluginsBaseVarProgramSockReleaseSeq  = "program_sock_release_seq"
+	PluginsBaseVarProgramTcSeq           = "program_tc_seq"
+	PluginsBaseVarProgramXdpSeq          = "program_xdp_seq"
+)
+
 // LoadPluginsBase returns the embedded CollectionSpec for PluginsBase.
 func LoadPluginsBase() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_PluginsBaseBytes)
@@ -32,7 +69,7 @@ func LoadPluginsBase() (*ebpf.CollectionSpec, error) {
 //	*PluginsBaseMaps
 //
 // See ebpf.CollectionSpec.LoadAndAssign documentation for details.
-func LoadPluginsBaseObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
+func LoadPluginsBaseObjects(obj any, opts *ebpf.CollectionOptions) error {
 	spec, err := LoadPluginsBase()
 	if err != nil {
 		return err

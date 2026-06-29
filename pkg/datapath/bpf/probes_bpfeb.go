@@ -12,6 +12,15 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+// Names of all BPF objects in the ELF.
+//
+// Used for safe lookups in a Collection or CollectionSpec.
+const (
+	ProbesProgProbeFibLookupSkipNeigh = "probe_fib_lookup_skip_neigh"
+	ProbesProgProbeFibLookupSrc       = "probe_fib_lookup_src"
+	ProbesProgProbeFibLookupTbid      = "probe_fib_lookup_tbid"
+)
+
 // LoadProbes returns the embedded CollectionSpec for Probes.
 func LoadProbes() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_ProbesBytes)
@@ -32,7 +41,7 @@ func LoadProbes() (*ebpf.CollectionSpec, error) {
 //	*ProbesMaps
 //
 // See ebpf.CollectionSpec.LoadAndAssign documentation for details.
-func LoadProbesObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
+func LoadProbesObjects(obj any, opts *ebpf.CollectionOptions) error {
 	spec, err := LoadProbes()
 	if err != nil {
 		return err
