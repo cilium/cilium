@@ -713,6 +713,8 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.frontend.resources | object | `{}` | Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment. |
 | hubble.ui.frontend.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | Hubble-ui frontend security context. |
 | hubble.ui.frontend.server.ipv6 | object | `{"enabled":true}` | Controls server listener for ipv6 |
+| hubble.ui.httpRoute | object | `{"annotations":{},"enabled":false,"hostnames":["chart-example.local"],"labels":{},"parentRefs":[{"name":"cilium-gateway","namespace":"kube-system"}]}` | hubble-ui GatewayAPI HTTPRoute configuration. |
+| hubble.ui.httpRoute.parentRefs | list | `[{"name":"cilium-gateway","namespace":"kube-system"}]` | parentRefs define which Gateways this HTTPRoute attaches to. |
 | hubble.ui.ingress | object | `{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]}` | hubble-ui ingress configuration. |
 | hubble.ui.labels | object | `{}` | Additional labels to be added to 'hubble-ui' deployment object |
 | hubble.ui.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |

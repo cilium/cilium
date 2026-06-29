@@ -4058,6 +4058,47 @@
               },
               "type": "object"
             },
+            "httpRoute": {
+              "properties": {
+                "annotations": {
+                  "type": "object"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "hostnames": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                },
+                "labels": {
+                  "type": "object"
+                },
+                "parentRefs": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
             "ingress": {
               "properties": {
                 "annotations": {
