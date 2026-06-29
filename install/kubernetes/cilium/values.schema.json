@@ -1452,6 +1452,9 @@
                     }
                   },
                   "type": "object"
+                },
+                "disableDefaultVolumes": {
+                  "type": "boolean"
                 }
               },
               "type": "object"
@@ -3780,6 +3783,9 @@
                   },
                   "type": "object"
                 },
+                "disableDefaultVolumes": {
+                  "type": "boolean"
+                },
                 "server": {
                   "properties": {
                     "cert": {
@@ -3880,6 +3886,9 @@
                 }
               },
               "type": "object"
+            },
+            "disableDefaultVolumes": {
+              "type": "boolean"
             },
             "enabled": {
               "type": "boolean"
@@ -4236,6 +4245,9 @@
                     }
                   },
                   "type": "object"
+                },
+                "disableDefaultVolumes": {
+                  "type": "boolean"
                 }
               },
               "type": "object"

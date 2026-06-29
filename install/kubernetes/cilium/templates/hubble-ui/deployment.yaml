@@ -142,7 +142,7 @@ spec:
           {{- toYaml .  | trim | nindent 10 }}
         {{- end }}
         volumeMounts:
-        {{- if .Values.hubble.relay.tls.server.enabled }}
+        {{- if and .Values.hubble.relay.tls.server.enabled (not .Values.hubble.ui.tls.disableDefaultVolumes) }}
         - name: hubble-ui-client-certs
           mountPath: /var/lib/hubble-ui/certs
           readOnly: true
@@ -190,7 +190,7 @@ spec:
         emptyDir:
           sizeLimit: 256Mi
         {{- end }}
-      {{- if .Values.hubble.relay.tls.server.enabled }}
+      {{- if and .Values.hubble.relay.tls.server.enabled (not .Values.hubble.ui.tls.disableDefaultVolumes) }}
       - name: hubble-ui-client-certs
       {{- if .Values.hubble.ui.standalone.enabled }}
         {{- toYaml .Values.hubble.ui.standalone.tls.certsVolume | nindent 8 }}

@@ -362,9 +362,11 @@ spec:
           readOnly: true
         {{- end }}
         {{- end }}
+        {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
         - name: clustermesh-secrets
           mountPath: /var/lib/cilium/clustermesh
           readOnly: true
+        {{- end }}
         {{- if .Values.ipMasqAgent.enabled }}
         - name: ip-masq-agent
           mountPath: /etc/config
@@ -399,7 +401,7 @@ spec:
           mountPath: /var/lib/cilium/tls/hubble-metrics
           readOnly: true
         {{- end }}
-        {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
+        {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") (not .Values.hubble.tls.disableDefaultVolumes) }}
         - name: hubble-tls
           mountPath: /var/lib/cilium/tls/hubble
           readOnly: true
@@ -973,7 +975,8 @@ spec:
           optional: true
       {{- end }}
       {{- end }}
-        # To read the clustermesh configuration
+        # To read the clustermesh configuration and TLS certificates
+      {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
       - name: clustermesh-secrets
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
@@ -1028,6 +1031,7 @@ spec:
               - key: {{ .Values.tls.caBundle.key }}
                 path: local-etcd-client-ca.crt
           {{- end }}
+      {{- end }}
       {{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
       - name: ip-masq-agent
         configMap:
@@ -1062,7 +1066,7 @@ spec:
           path: /proc/sys/kernel
           type: Directory
       {{- end }}
-      {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
+      {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") (not .Values.hubble.tls.disableDefaultVolumes) }}
       - name: hubble-tls
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it

@@ -138,7 +138,7 @@ spec:
           - name: config
             mountPath: /etc/hubble-relay
             readOnly: true
-          {{- if .Values.hubble.tls.enabled }}
+          {{- if and .Values.hubble.tls.enabled (not .Values.hubble.relay.tls.disableDefaultVolumes) }}
           - name: tls
             mountPath: /var/lib/hubble-relay/tls
             readOnly: true
@@ -185,7 +185,7 @@ spec:
           items:
           - key: config.yaml
             path: config.yaml
-      {{- if .Values.hubble.tls.enabled }}
+      {{- if and .Values.hubble.tls.enabled (not .Values.hubble.relay.tls.disableDefaultVolumes) }}
       - name: tls
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
