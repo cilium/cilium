@@ -33,6 +33,21 @@ func (in *AWSGroup) DeepCopyInto(out *AWSGroup) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.ManagedPrefixListsIds != nil {
+		in, out := &in.ManagedPrefixListsIds, &out.ManagedPrefixListsIds
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.ManagedPrefixListsNames != nil {
+		in, out := &in.ManagedPrefixListsNames, &out.ManagedPrefixListsNames
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.ManagedPrefixListsOwnerIds != nil {
+		in, out := &in.ManagedPrefixListsOwnerIds, &out.ManagedPrefixListsOwnerIds
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
