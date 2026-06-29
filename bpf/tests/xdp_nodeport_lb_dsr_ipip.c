@@ -15,9 +15,6 @@
 #define DSR_ENCAP_IPIP			2
 #define DSR_ENCAP_MODE			DSR_ENCAP_IPIP
 
-/* Skip ingress policy checks */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY	1
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		{ .addr = { 0x1 } }
 #define CLIENT_PORT		__bpf_htons(111)
