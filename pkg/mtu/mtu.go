@@ -89,14 +89,14 @@ const (
 type Configuration struct {
 	authKeySize      int
 	encapEnabled     bool
-	encryptEnabled   bool
+	ipsecEnabled     bool
 	wireguardEnabled bool
 	tunnelOverhead   int
 }
 
 // NewConfiguration returns a new MTU configuration which is used to calculate
 // MTU values from a base MTU based on the config.
-func NewConfiguration(authKeySize int, encryptEnabled, encapEnabled, wireguardEnabled, tunnelOverIPv6 bool) Configuration {
+func NewConfiguration(authKeySize int, ipsecEnabled, encapEnabled, wireguardEnabled, tunnelOverIPv6 bool) Configuration {
 	tunnelOverhead := TunnelOverheadIPv4
 	if tunnelOverIPv6 {
 		tunnelOverhead = TunnelOverheadIPv6
@@ -104,7 +104,7 @@ func NewConfiguration(authKeySize int, encryptEnabled, encapEnabled, wireguardEn
 	return Configuration{
 		authKeySize:      authKeySize,
 		encapEnabled:     encapEnabled,
-		encryptEnabled:   encryptEnabled,
+		ipsecEnabled:     ipsecEnabled,
 		wireguardEnabled: wireguardEnabled,
 		tunnelOverhead:   tunnelOverhead,
 	}
@@ -132,19 +132,19 @@ func (c *Configuration) getRouteMTU(baseMTU int) int {
 		return c.getDeviceMTU(baseMTU) - WireguardOverhead
 	}
 
-	if !c.encapEnabled && !c.encryptEnabled {
+	if !c.encapEnabled && !c.ipsecEnabled {
 		return c.getDeviceMTU(baseMTU)
 	}
 
 	encryptOverhead := 0
 
-	if c.encryptEnabled {
+	if c.ipsecEnabled {
 		// Add the difference between the default and the actual key sizes here
 		// to account for users specifying non-default auth key lengths.
 		encryptOverhead = EncryptionIPsecOverhead + (c.authKeySize - EncryptionDefaultAuthKeyLength)
 	}
 
-	if c.encryptEnabled && !c.encapEnabled {
+	if c.ipsecEnabled && !c.encapEnabled {
 		preEncryptMTU := baseMTU - encryptOverhead
 		if preEncryptMTU == 0 {
 			return EthernetMTU - EncryptionIPsecOverhead
@@ -154,7 +154,7 @@ func (c *Configuration) getRouteMTU(baseMTU int) int {
 
 	tunnelMTU := baseMTU - (c.tunnelOverhead + encryptOverhead)
 	if tunnelMTU <= 0 {
-		if c.encryptEnabled {
+		if c.ipsecEnabled {
 			return EthernetMTU - (c.tunnelOverhead + EncryptionIPsecOverhead)
 		}
 		return EthernetMTU - c.tunnelOverhead
