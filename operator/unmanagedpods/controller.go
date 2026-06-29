@@ -128,10 +128,10 @@ type podRestartCandidate struct {
 	age time.Duration
 }
 
-// reconcile is the body of the restart-unmanaged-pods controller, registered as
-// the controller DoFunc. It iterates over the unmanaged pod store, counts the
-// unmanaged pods, and restarts at most one eligible pod per cycle to avoid
-// taking down all replicas at once.
+// reconcile counts every unmanaged pod, publishes the
+// cilium_operator_unmanaged_pods gauge with that full count, and then restarts
+// at most one eligible pod. Counting happens before any restart so the gauge
+// stays accurate even on cycles where a pod is restarted.
 func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
 	// Clean up old entries from lastPodRestart map
 	for podName, lastRestart := range lastPodRestart {
@@ -141,6 +141,8 @@ func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
 	}
 
 	countUnmanagedPods := 0
+	var candidates []*podRestartCandidate
+
 	for _, podItem := range watchers.UnmanagedPodStore.List() {
 		pod, ok := podItem.(*slim_corev1.Pod)
 		if !ok {
@@ -179,18 +181,23 @@ func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
 			logfields.K8sPodName, podID,
 		)
 
-		candidate := c.evaluateRestartCandidate(ctx, pod, podID)
-		if candidate == nil {
-			continue
-		}
-
-		if c.restartUnmanagedPod(ctx, candidate) {
-			// Delete a single pod per iteration to avoid killing all replicas at once.
-			return nil
+		if candidate := c.evaluateRestartCandidate(ctx, pod, podID); candidate != nil {
+			candidates = append(candidates, candidate)
 		}
 	}
 
+	// Publish the full count before any restart so the gauge is always accurate.
 	c.metrics.UnmanagedPods.Set(float64(countUnmanagedPods))
+
+	// Restart at most one pod per cycle to avoid taking down all replicas at
+	// once. On a failed delete, move on to the next candidate so a single
+	// failure does not stall progress for the whole cycle.
+	for _, candidate := range candidates {
+		if c.restartUnmanagedPod(ctx, candidate) {
+			break
+		}
+	}
+
 	return nil
 }
 
