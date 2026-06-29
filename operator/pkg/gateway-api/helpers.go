@@ -55,16 +55,6 @@ func groupDerefOr(group *gatewayv1.Group, defaultGroup string) string {
 	return defaultGroup
 }
 
-// isAllowed returns true if the provided Route is allowed to attach to given gateway
-func isAllowed(gw *gatewayv1.Gateway, route metav1.Object, namespaceLabels gatewayapihelpers.NamespaceLabelIndex) bool {
-	for _, listener := range gw.Spec.Listeners {
-		if listenerisAllowed(gw.GetNamespace(), &listener, route, namespaceLabels) {
-			return true
-		}
-	}
-	return false
-}
-
 // listenerisAllowed reports whether route may attach to listener.
 func listenerisAllowed(listenerNamespace string, listener *gatewayv1.Listener, route metav1.Object, namespaceLabels gatewayapihelpers.NamespaceLabelIndex) bool {
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
@@ -111,15 +101,6 @@ func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
 		}
 	}
 	return false
-}
-
-func computeHosts[T ~string](gw *gatewayv1.Gateway, hostnames []T, excludeHostNames []T) []string {
-	hosts := make([]string, 0, len(hostnames))
-	for _, listener := range gw.Spec.Listeners {
-		hosts = append(hosts, computeHostsForListener(&listener, hostnames, excludeHostNames)...)
-	}
-
-	return hosts
 }
 
 func computeHostsForListener[T ~string](listener *gatewayv1.Listener, hostnames []T, excludeHostNames []T) []string {
