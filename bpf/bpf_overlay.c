@@ -59,7 +59,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	bool is_dsr = false;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	if (!CONFIG(enable_ipv6_fragments)) {
@@ -262,7 +262,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	int ret __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	/* If IPv4 fragmentation is disabled AND an IPv4 fragmented packet is
