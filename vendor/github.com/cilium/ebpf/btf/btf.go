@@ -204,7 +204,7 @@ func loadRawSpec(btf []byte, base *Spec) (*Spec, error) {
 		baseStrings = base.strings
 	}
 
-	header, bo, err := parseBTFHeader(btf)
+	header, _, bo, err := parseBTFHeader(btf)
 	if err != nil {
 		return nil, fmt.Errorf("parsing .BTF header: %v", err)
 	}
@@ -214,7 +214,7 @@ func loadRawSpec(btf []byte, base *Spec) (*Spec, error) {
 	}
 	btf = btf[header.HdrLen:]
 
-	if int(header.StringOff+header.StringLen) > len(btf) {
+	if uint64(header.StringOff)+uint64(header.StringLen) > uint64(len(btf)) {
 		return nil, fmt.Errorf("string table is out of bounds")
 	}
 	stringsSection := btf[header.StringOff : header.StringOff+header.StringLen]
@@ -224,7 +224,7 @@ func loadRawSpec(btf []byte, base *Spec) (*Spec, error) {
 		return nil, fmt.Errorf("read string section: %w", err)
 	}
 
-	if int(header.TypeOff+header.TypeLen) > len(btf) {
+	if uint64(header.TypeOff)+uint64(header.TypeLen) > uint64(len(btf)) {
 		return nil, fmt.Errorf("types section is out of bounds")
 	}
 	typesSection := btf[header.TypeOff : header.TypeOff+header.TypeLen]
@@ -445,15 +445,18 @@ func (s *Spec) AnyTypeByName(name string) (Type, error) {
 //
 // Returns an error wrapping ErrNotFound if no matching Type exists in the Spec.
 // Returns an error wrapping ErrMultipleTypes if multiple candidates are found.
-func (s *Spec) TypeByName(name string, typ interface{}) error {
-	typeInterface := reflect.TypeOf((*Type)(nil)).Elem()
+func (s *Spec) TypeByName(name string, typ any) error {
+	if err := internal.IsNilPointer(typ); err != nil {
+		return fmt.Errorf("type argument: %w", err)
+	}
+
+	typeInterface := reflect.TypeFor[Type]()
 
 	// typ may be **T or *Type
 	typValue := reflect.ValueOf(typ)
-	if typValue.Kind() != reflect.Ptr {
+	if typValue.Kind() != reflect.Pointer {
 		return fmt.Errorf("%T is not a pointer", typ)
 	}
-
 	typPtr := typValue.Elem()
 	if !typPtr.CanSet() {
 		return fmt.Errorf("%T cannot be set", typ)
@@ -462,6 +465,9 @@ func (s *Spec) TypeByName(name string, typ interface{}) error {
 	wanted := typPtr.Type()
 	if wanted == typeInterface {
 		// This is *Type. Unwrap the value's type.
+		if typPtr.IsNil() {
+			return fmt.Errorf("%T points to a nil Type", typ)
+		}
 		wanted = typPtr.Elem().Type()
 	}
 

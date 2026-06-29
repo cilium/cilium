@@ -239,7 +239,7 @@ const (
 
 type PerfEventInfo struct {
 	Type  sys.PerfEventType
-	extra interface{}
+	extra any
 }
 
 func (r *PerfEventInfo) Kprobe() *KprobeInfo {
