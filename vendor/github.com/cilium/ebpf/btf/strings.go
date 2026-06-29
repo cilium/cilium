@@ -94,6 +94,9 @@ func (st *stringTable) lookupSlow(offset uint32) ([]byte, error) {
 	}
 
 	i := bytes.IndexByte(st.bytes[offset:], 0)
+	if i == -1 {
+		return nil, fmt.Errorf("string at offset %d is not null terminated", offset)
+	}
 	return st.bytes[offset : offset+uint32(i)], nil
 }
 

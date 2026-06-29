@@ -86,7 +86,7 @@ func parseDependencies(baseDir string, in io.Reader) ([]dependency, error) {
 		// NB: This doesn't handle filenames with spaces in them.
 		// It seems like make doesn't do that either, so oh well.
 		var prereqs []string
-		for _, prereq := range strings.Fields(parts[1]) {
+		for prereq := range strings.FieldsSeq(parts[1]) {
 			prereqs = append(prereqs, abs(prereq))
 		}
 

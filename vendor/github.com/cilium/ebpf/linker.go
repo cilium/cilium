@@ -305,7 +305,8 @@ fixups:
 			return nil, fmt.Errorf("kfuncMetaKey doesn't contain kfuncMeta")
 		}
 
-		// findTargetInKernel returns btf.ErrNotFound if the input btf.Spec is nil.
+		// findTargetInKernel returns [btf.ErrNotFound] if the target can't be found
+		// or if BTF is not enabled.
 		target := btf.Type((*btf.Func)(nil))
 		spec, module, err := findTargetInKernel(kfm.Func.Name, &target, cache)
 		if errors.Is(err, btf.ErrNotFound) {

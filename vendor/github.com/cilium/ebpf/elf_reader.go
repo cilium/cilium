@@ -382,6 +382,10 @@ func (ec *elfCode) loadProgramSections() (map[string]*ProgramSpec, error) {
 			return nil, fmt.Errorf("section %v: missing symbols", sec.Name)
 		}
 
+		if sec.ReaderAt == nil {
+			return nil, fmt.Errorf("compressed program section is not supported")
+		}
+
 		funcs, err := ec.loadFunctions(sec)
 		if err != nil {
 			return nil, fmt.Errorf("section %v: %w", sec.Name, err)
@@ -450,6 +454,13 @@ func (ec *elfCode) loadFunctions(sec *elfSection) (map[string]asm.Instructions, 
 	for _, sym := range sec.symbolsSorted() {
 		if progs[sym.Name] != nil {
 			return nil, fmt.Errorf("duplicate symbol %s in section %s", sym.Name, sec.Name)
+		}
+
+		if sym.Value > math.MaxUint32 || sym.Size > math.MaxUint32 {
+			return nil, fmt.Errorf("symbol %s: offset or size exceeds 32 bits in section %s", sym.Name, sec.Name)
+		}
+		if sym.Value+sym.Size > sec.Size {
+			return nil, fmt.Errorf("symbol %s: size goes out of bounds of section %s", sym.Name, sec.Name)
 		}
 
 		// Decode the symbol's instruction stream, limited to its size.
@@ -803,6 +814,10 @@ func (ec *elfCode) loadMaps() error {
 			return fmt.Errorf("section %v: no symbols", sec.Name)
 		}
 
+		if sec.ReaderAt == nil {
+			return fmt.Errorf("compressed map section is not supported")
+		}
+
 		vars, err := ec.sectionVars(ec.btf, sec.Name)
 		if err != nil {
 			return fmt.Errorf("section %v: loading map variable BTF: %w", sec.Name, err)
@@ -812,6 +827,13 @@ func (ec *elfCode) loadMaps() error {
 			name := sym.Name
 			if ec.maps[name] != nil {
 				return fmt.Errorf("duplicate symbol %s in section %s", name, sec.Name)
+			}
+
+			if sym.Value > math.MaxUint32 || sym.Size > math.MaxUint32 {
+				return fmt.Errorf("symbol %s: offset or size exceeds 32 bits in section %s", sym.Name, sec.Name)
+			}
+			if sym.Value+sym.Size > sec.Size {
+				return fmt.Errorf("symbol %s: size goes out of bounds of section %s", name, sec.Name)
 			}
 
 			sr := internal.NewBufferedSectionReader(sec, int64(sym.Value), int64(sym.Size))
@@ -889,6 +911,10 @@ func (ec *elfCode) loadBTFMaps() error {
 			return fmt.Errorf("missing BTF")
 		}
 
+		if sec.ReaderAt == nil {
+			return fmt.Errorf("compressed BTF map section is not supported")
+		}
+
 		vars, err := ec.sectionVars(ec.btf, sec.Name)
 		if err != nil {
 			return fmt.Errorf("section %v: loading map variable BTF: %w", sec.Name, err)
@@ -910,6 +936,13 @@ func (ec *elfCode) loadBTFMaps() error {
 			sym, ok := syms[name]
 			if !ok {
 				return fmt.Errorf("section %v: missing symbol for map %s", sec.Name, name)
+			}
+
+			if sym.Value > math.MaxUint32 || sym.Size > math.MaxUint32 {
+				return fmt.Errorf("symbol %s: offset or size exceeds 32 bits in section %s", sym.Name, sec.Name)
+			}
+			if sym.Value+sym.Size > sec.Size {
+				return fmt.Errorf("section %v: symbol %s: size goes out of bounds of section", sec.Name, name)
 			}
 
 			sr := internal.NewBufferedSectionReader(sec, int64(sym.Value), int64(sym.Size))
@@ -1245,6 +1278,10 @@ func resolveBTFValuesContents(es *elfSection, sym elf.Symbol, member btf.Member)
 		return nil, fmt.Errorf("member offset %d exceeds symbol size %d", member.Offset.Bytes(), sym.Size)
 	}
 
+	if es.Addralign == 0 {
+		return nil, fmt.Errorf("section has no address alignment, can't resolve .values contents")
+	}
+
 	for i, sym := range valuesRelocations(es, sym, member) {
 		// Emit a value stub based on the type of relocation to be replaced by a
 		// real fd later in the pipeline before populating the Map.
@@ -1352,6 +1389,10 @@ func (ec *elfCode) loadDataSections() error {
 
 			if off > math.MaxUint32 {
 				return fmt.Errorf("data section %s: variable %s offset %d exceeds maximum", sec.Name, sym.Name, off)
+			}
+
+			if sym.Size > math.MaxUint32 {
+				return fmt.Errorf("data section %s: variable %s size %d exceeds maximum", sec.Name, sym.Name, sym.Size)
 			}
 
 			ec.vars[sym.Name] = &VariableSpec{
@@ -1487,6 +1528,10 @@ func (ec *elfCode) associateStructOpsRelocs(progs map[string]*ProgramSpec) error
 			return fmt.Errorf("failed to read section data: %w", err)
 		}
 
+		if ec.btf == nil {
+			return fmt.Errorf("struct_ops section %s: missing BTF", sec.Name)
+		}
+
 		// Resolve the BTF datasec describing variables in this section.
 		var ds *btf.Datasec
 		if err := ec.btf.TypeByName(sec.Name, &ds); err != nil {
@@ -1530,7 +1575,7 @@ func (ec *elfCode) createStructOpsMap(vsi btf.VarSecinfo, userData []byte, flags
 
 	userSize := userSt.Size
 	baseOff := vsi.Offset
-	if baseOff+userSize > uint32(len(userData)) {
+	if uint64(baseOff)+uint64(userSize) > uint64(len(userData)) {
 		return nil, 0, fmt.Errorf("%s exceeds section", mapName)
 	}
 

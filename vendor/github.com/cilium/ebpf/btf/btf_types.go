@@ -84,14 +84,19 @@ type btfHeader struct {
 	StringLen uint32
 }
 
+type btfLayout struct {
+	Off uint32
+	Len uint32
+}
+
 // parseBTFHeader parses the header of the .BTF section.
-func parseBTFHeader(buf []byte) (*btfHeader, binary.ByteOrder, error) {
+func parseBTFHeader(buf []byte) (*btfHeader, *btfLayout, binary.ByteOrder, error) {
 	var header btfHeader
 	var bo binary.ByteOrder
 	for _, order := range []binary.ByteOrder{binary.LittleEndian, binary.BigEndian} {
 		n, err := binary.Decode(buf, order, &header)
 		if err != nil {
-			return nil, nil, fmt.Errorf("read header: %v", err)
+			return nil, nil, nil, fmt.Errorf("read header: %v", err)
 		}
 
 		if header.Magic != btfMagic {
@@ -104,29 +109,43 @@ func parseBTFHeader(buf []byte) (*btfHeader, binary.ByteOrder, error) {
 	}
 
 	if bo == nil {
-		return nil, nil, fmt.Errorf("no valid BTF header")
+		return nil, nil, nil, fmt.Errorf("no valid BTF header")
 	}
 
 	if header.Version != 1 {
-		return nil, nil, fmt.Errorf("unexpected version %v", header.Version)
+		return nil, nil, nil, fmt.Errorf("unexpected version %v", header.Version)
 	}
 
 	if header.Flags != 0 {
-		return nil, nil, fmt.Errorf("unsupported flags %v", header.Flags)
+		return nil, nil, nil, fmt.Errorf("unsupported flags %v", header.Flags)
 	}
 
 	remainder := int64(header.HdrLen) - int64(binary.Size(&header))
 	if remainder < 0 {
-		return nil, nil, errors.New("header length shorter than btfHeader size")
+		return nil, nil, nil, errors.New("header length shorter than minimum BTF header size")
+	}
+
+	if len(buf) < int(remainder) {
+		return nil, nil, nil, errors.New("header length exceeds available data")
+	}
+
+	var layout btfLayout
+	if remainder >= int64(binary.Size(&btfLayout{})) {
+		n, err := binary.Decode(buf, bo, &layout)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("read layout offset and length: %v", err)
+		}
+		buf = buf[n:]
+		remainder -= int64(n)
 	}
 
 	for _, b := range buf[:remainder] {
 		if b != 0 {
-			return nil, nil, errors.New("header contains non-zero trailer")
+			return nil, nil, nil, errors.New("header contains non-zero trailer")
 		}
 	}
 
-	return &header, bo, nil
+	return &header, &layout, bo, nil
 }
 
 // btfType is equivalent to struct btf_type in Documentation/bpf/btf.rst.
