@@ -2652,6 +2652,14 @@
      - Controls server listener for ipv6
      - object
      - ``{"enabled":true}``
+   * - :spelling:ignore:`hubble.ui.httpRoute`
+     - hubble-ui GatewayAPI HTTPRoute configuration.
+     - object
+     - ``{"annotations":{},"enabled":false,"hostnames":["chart-example.local"],"labels":{},"parentRefs":[{"name":"cilium-gateway","namespace":"kube-system"}]}``
+   * - :spelling:ignore:`hubble.ui.httpRoute.parentRefs`
+     - parentRefs define which Gateways this HTTPRoute attaches to.
+     - list
+     - ``[{"name":"cilium-gateway","namespace":"kube-system"}]``
    * - :spelling:ignore:`hubble.ui.ingress`
      - hubble-ui ingress configuration.
      - object
