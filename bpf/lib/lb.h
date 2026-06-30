@@ -399,7 +399,8 @@ enum {
 #define LB_ALGORITHM_SHIFT	24
 #define AFFINITY_TIMEOUT_MASK	((1 << LB_ALGORITHM_SHIFT) - 1)
 
-static __always_inline void cilium_dbg_lb(struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)
+static __always_inline void
+cilium_dbg_lb(const struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)
 {
 	if (CONFIG(debug_lb))
 		cilium_dbg(ctx, type, arg1, arg2);
@@ -822,7 +823,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 }
 
 static __always_inline const struct lb6_reverse_nat *
-lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
+lb6_lookup_rev_nat_entry(const struct __ctx_buff *ctx __maybe_unused, __u16 index)
 {
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT_LOOKUP, index, 0);
 
@@ -888,11 +889,11 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fraginfo,
+lb6_extract_tuple(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6, fraginfo_t fraginfo,
 		  int l4_off, struct ipv6_ct_tuple *tuple)
 {
-	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
-	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
+	ipv6_addr_copy(&tuple->daddr, (const union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple->saddr, (const union v6addr *)&ip6->saddr);
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
@@ -1065,7 +1066,7 @@ __lb6_lookup_backend(__u32 backend_id)
 }
 
 static __always_inline const struct lb6_backend *
-lb6_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
+lb6_lookup_backend(const struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
 {
 	const struct lb6_backend *backend;
 
@@ -1083,7 +1084,7 @@ __lb6_lookup_backend_slot(struct lb6_key *key)
 }
 
 static __always_inline const struct lb6_service *
-lb6_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unused,
+lb6_lookup_backend_slot(const struct __ctx_buff *ctx __maybe_unused,
 			struct lb6_key *key, __u16 slot)
 {
 	const struct lb6_service *svc;
@@ -1103,7 +1104,7 @@ lb6_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unused,
 
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM
 static __always_inline __u32
-lb6_select_backend_id_random(struct __ctx_buff *ctx,
+lb6_select_backend_id_random(const struct __ctx_buff *ctx,
 			     struct lb6_key *key,
 			     const struct ipv6_ct_tuple *tuple __maybe_unused,
 			     const struct lb6_service *svc)
@@ -1118,7 +1119,7 @@ lb6_select_backend_id_random(struct __ctx_buff *ctx,
 
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u32
-lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
+lb6_select_backend_id_maglev(const struct __ctx_buff *ctx __maybe_unused,
 			     struct lb6_key *key __maybe_unused,
 			     const struct ipv6_ct_tuple *tuple,
 			     const struct lb6_service *svc)
@@ -1150,7 +1151,7 @@ static __always_inline __u32 lb6_algorithm(const struct lb6_service *svc)
 }
 
 static __always_inline __u32
-lb6_select_backend_id(struct __ctx_buff *ctx, struct lb6_key *key,
+lb6_select_backend_id(const struct __ctx_buff *ctx, struct lb6_key *key,
 		      const struct ipv6_ct_tuple *tuple,
 		      const struct lb6_service *svc)
 {
@@ -1179,7 +1180,7 @@ select:
  * part is unreachable from agent code enablement.
  */
 static __always_inline __u32
-lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
+lb6_select_backend_id(const struct __ctx_buff *ctx __maybe_unused,
 		      struct lb6_key *key __maybe_unused,
 		      const struct ipv6_ct_tuple *tuple,
 		      const struct lb6_service *svc)
@@ -1615,7 +1616,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 }
 
 static __always_inline const struct lb4_reverse_nat *
-lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
+lb4_lookup_rev_nat_entry(const struct __ctx_buff *ctx __maybe_unused, __u16 index)
 {
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT_LOOKUP, index, 0);
 
@@ -1679,7 +1680,7 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo,
+lb4_extract_tuple(const struct __ctx_buff *ctx, const struct iphdr *ip4, fraginfo_t fraginfo,
 		  int l4_off, struct ipv4_ct_tuple *tuple)
 {
 	tuple->nexthdr = ip4->protocol;
@@ -1872,7 +1873,7 @@ __lb4_lookup_backend(__u32 backend_id)
 }
 
 static __always_inline const struct lb4_backend *
-lb4_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
+lb4_lookup_backend(const struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
 {
 	const struct lb4_backend *backend;
 
@@ -1890,7 +1891,7 @@ __lb4_lookup_backend_slot(struct lb4_key *key)
 }
 
 static __always_inline const struct lb4_service *
-lb4_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unused,
+lb4_lookup_backend_slot(const struct __ctx_buff *ctx __maybe_unused,
 			struct lb4_key *key, __u16 slot)
 {
 	const struct lb4_service *svc;
@@ -1910,7 +1911,7 @@ lb4_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unused,
 
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM
 static __always_inline __u32
-lb4_select_backend_id_random(struct __ctx_buff *ctx,
+lb4_select_backend_id_random(const struct __ctx_buff *ctx,
 			     struct lb4_key *key,
 			     const struct ipv4_ct_tuple *tuple __maybe_unused,
 			     const struct lb4_service *svc)
@@ -1925,7 +1926,7 @@ lb4_select_backend_id_random(struct __ctx_buff *ctx,
 
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u32
-lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
+lb4_select_backend_id_maglev(const struct __ctx_buff *ctx __maybe_unused,
 			     struct lb4_key *key __maybe_unused,
 			     const struct ipv4_ct_tuple *tuple,
 			     const struct lb4_service *svc)
@@ -1960,7 +1961,7 @@ static __always_inline __u32 lb4_algorithm(const struct lb4_service *svc)
 }
 
 static __always_inline __u32
-lb4_select_backend_id(struct __ctx_buff *ctx, struct lb4_key *key,
+lb4_select_backend_id(const struct __ctx_buff *ctx, struct lb4_key *key,
 		      const struct ipv4_ct_tuple *tuple,
 		      const struct lb4_service *svc)
 {
@@ -1989,7 +1990,7 @@ select:
  * part is unreachable from agent code enablement.
  */
 static __always_inline __u32
-lb4_select_backend_id(struct __ctx_buff *ctx,
+lb4_select_backend_id(const struct __ctx_buff *ctx,
 		      struct lb4_key *key,
 		      const struct ipv4_ct_tuple *tuple __maybe_unused,
 		      const struct lb4_service *svc)
