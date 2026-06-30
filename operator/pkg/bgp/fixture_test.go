@@ -140,6 +140,14 @@ func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, dc *
 			)
 		}),
 
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*v2.CiliumBGPAdvertisement] {
+			return resource.New[*v2.CiliumBGPAdvertisement](
+				lc, utils.ListerWatcherFromTyped[*v2.CiliumBGPAdvertisementList](
+					c.CiliumV2().CiliumBGPAdvertisements(),
+				), nil,
+			)
+		}),
+
 		cell.Provide(func() *option.DaemonConfig {
 			return dc
 		}),
