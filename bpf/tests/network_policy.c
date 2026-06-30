@@ -233,5 +233,31 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 		policy_delete_egress_all_entry();
 	});
 
+	/* tests that partial aggregates are correctly calculated */
+	TEST("aggregate-for-id", {
+		/* all aggregates must aggregate to themselves */
+		assert(aggregate_for_identity(0) == 0);
+		assert(aggregate_for_identity(2) == 2);
+		assert(aggregate_for_identity(6) == 6);
+		assert(aggregate_for_identity(11) == 11);
+		assert(aggregate_for_identity(12) == 12);
+
+		/* in-cluster identity */
+		assert(aggregate_for_identity(400) == POLICY_CLUSTER_ID);
+		/* cluster-mesh identity */
+		assert(aggregate_for_identity(0x0001aabb) == POLICY_CLUSTER_MESH_ID);
+
+		/* world identities */
+		assert(aggregate_for_identity(16777217) == WORLD_ID);
+		assert(aggregate_for_identity(WORLD_IPV4_ID) == WORLD_ID);
+		assert(aggregate_for_identity(WORLD_IPV6_ID) == WORLD_ID);
+		assert(aggregate_for_identity(WORLD_ID) == WORLD_ID);
+
+		/* remote node identities */
+		assert(aggregate_for_identity(REMOTE_NODE_ID) == REMOTE_NODE_ID);
+		assert(aggregate_for_identity(KUBE_APISERVER_NODE_ID) == REMOTE_NODE_ID);
+		assert(aggregate_for_identity(33554432) == REMOTE_NODE_ID);
+	});
+
 	test_finish();
 }

@@ -373,5 +373,17 @@ static __always_inline __u32 aggregate_for_identity(__u32 identity)
 	if (identity_is_world(identity))
 		return WORLD_ID;
 
-	return 0;
+	if (identity == POLICY_CLUSTER_ID || identity == POLICY_CLUSTER_MESH_ID || identity == 0)
+		return identity;
+	/* Identities 0-99 are special, we cannot easily aggregate them. */
+	if (identity < 100)
+		return 0;
+
+	/* identity is global scope and >= 100.
+	 * It must be an endpoint, either in cluster or cluster mesh.
+	 */
+	if (extract_cluster_id_from_identity(identity) == CONFIG(cluster_id))
+		return POLICY_CLUSTER_ID;
+
+	return POLICY_CLUSTER_MESH_ID;
 }
