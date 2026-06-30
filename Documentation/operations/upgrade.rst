@@ -380,6 +380,21 @@ differently than in prior releases:
 * Cluster Mesh certificates are now configured to be automatically regenerated every
   4 months, when the ``cronJob`` generation mode is selected.
 
+Deprecated API Fields
+#####################
+
+The following API fields have been deprecated in this version of Cilium and will
+be removed in Cilium 1.21:
+
+* The ``container-id`` and ``pod-name`` endpoint identifier prefixes, used when
+  addressing endpoints via the Cilium agent REST API (e.g.
+  ``GET /endpoint/container-id:<id>`` or ``GET /endpoint/pod-name:<ns/name>``)
+  are deprecated. The CNI plugin now sets ``disable-legacy-identifiers`` on all
+  newly created endpoints, meaning those endpoints can no longer be addressed by
+  container ID or pod name. Use ``cni-attachment-id:<containerID>:<ifName>``
+  or ``cep-name:<ns/name>`` instead. Endpoints created by older versions of the
+  CNI plugin keep their legacy identifiers until they are recreated.
+
 Deprecated Options
 ##################
 

@@ -184,6 +184,7 @@ type Endpoint struct {
 	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
 	// (container id, pod name) for this endpoint.
 	// Immutable after Endpoint creation.
+	// TODO: Remove with 1.21 - all endpoints will have this set to true.
 	disableLegacyIdentifiers bool
 
 	// labels is the endpoint's label configuration
