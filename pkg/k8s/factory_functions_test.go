@@ -995,11 +995,7 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 							ID:          0,
 							Controllers: nil,
 							ExternalIdentifiers: &models.EndpointIdentifiers{
-								ContainerID:   "3290f4bc32129cb3e2f81074557ad9690240ea8fcce84bcc51a9921034875878",
-								ContainerName: "foo",
-								K8sNamespace:  "foo",
-								K8sPodName:    "bar",
-								PodName:       "foo/bar",
+								CniAttachmentID: "3290f4bc32129cb3e2f81074557ad9690240ea8fcce84bcc51a9921034875878",
 							},
 							Health: &models.EndpointHealth{
 								Bpf:           "good",

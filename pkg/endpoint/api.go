@@ -159,19 +159,9 @@ func NewEndpointFromChangeModel(p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy
 }
 
 func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifiers {
-	identifiers := &models.EndpointIdentifiers{
+	return &models.EndpointIdentifiers{
 		CniAttachmentID: e.GetCNIAttachmentID(),
 	}
-
-	// Use legacy endpoint identifiers only if the endpoint has not opted out
-	if !e.disableLegacyIdentifiers {
-		identifiers.ContainerID = e.GetContainerID()
-		identifiers.PodName = e.GetK8sNamespaceAndPodName()
-		identifiers.K8sPodName = e.K8sPodName
-		identifiers.K8sNamespace = e.K8sNamespace
-	}
-
-	return identifiers
 }
 
 func (e *Endpoint) getModelNetworkingRLocked() *models.EndpointNetworking {
