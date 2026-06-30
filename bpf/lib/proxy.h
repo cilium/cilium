@@ -382,7 +382,7 @@ ctx_redirect_to_proxy_host_egress(struct __ctx_buff *ctx, __be16 proxy_port)
 /**
  * tc_index_from_ingress_proxy - returns true if packet originates from ingress proxy
  */
-static __always_inline bool tc_index_from_ingress_proxy(struct __ctx_buff *ctx)
+static __always_inline bool tc_index_from_ingress_proxy(const struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
 #ifdef DEBUG
@@ -396,7 +396,7 @@ static __always_inline bool tc_index_from_ingress_proxy(struct __ctx_buff *ctx)
 /**
  * tc_index_from_egress_proxy - returns true if packet originates from egress proxy
  */
-static __always_inline bool tc_index_from_egress_proxy(struct __ctx_buff *ctx)
+static __always_inline bool tc_index_from_egress_proxy(const struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
 #ifdef DEBUG
