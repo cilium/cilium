@@ -202,6 +202,7 @@ Instance: instance0
       route-refresh
       extended-nexthop:
         nlri: ipv4-unicast, nexthop: ipv6
+      extended-message
       4-octet-as
       fqdn:
         name: <redacted>
@@ -215,6 +216,7 @@ Instance: instance0
       route-refresh
       extended-nexthop:
         nlri: ipv4-unicast, nexthop: ipv6
+      extended-message
       graceful-restart
       4-octet-as
       add-path:
@@ -259,6 +261,7 @@ Instance: instance0
       route-refresh
       extended-nexthop:
         nlri: ipv4-unicast, nexthop: ipv6
+      extended-message
       4-octet-as
       fqdn:
         name: <redacted>
@@ -272,6 +275,7 @@ Instance: instance0
       route-refresh
       extended-nexthop:
         nlri: ipv4-unicast, nexthop: ipv6
+      extended-message
       graceful-restart
       4-octet-as
       add-path:
@@ -317,6 +321,7 @@ Instance: instance1
       route-refresh
       extended-nexthop:
         nlri: ipv4-unicast, nexthop: ipv6
+      extended-message
       4-octet-as
       fqdn:
         name: <redacted>
@@ -330,6 +335,7 @@ Instance: instance1
       route-refresh
       extended-nexthop:
         nlri: ipv4-unicast, nexthop: ipv6
+      extended-message
       graceful-restart
       4-octet-as
       add-path:
@@ -374,6 +380,7 @@ Instance: instance1
       route-refresh
       extended-nexthop:
         nlri: ipv4-unicast, nexthop: ipv6
+      extended-message
       4-octet-as
       fqdn:
         name: <redacted>
@@ -387,6 +394,7 @@ Instance: instance1
       route-refresh
       extended-nexthop:
         nlri: ipv4-unicast, nexthop: ipv6
+      extended-message
       graceful-restart
       4-octet-as
       add-path:
