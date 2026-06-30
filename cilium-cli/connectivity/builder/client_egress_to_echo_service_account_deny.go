@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
-	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 //go:embed manifests/client-egress-to-echo-service-account-deny.yaml
@@ -21,9 +20,7 @@ type clientEgressToEchoServiceAccountDeny struct{}
 
 func (t clientEgressToEchoServiceAccountDeny) build(ct *check.ConnectivityTest, _ map[string]string) {
 	clientEgressToEchoServiceAccountDenyTest(ct, false)
-	if ct.Features[features.PortRanges].Enabled {
-		clientEgressToEchoServiceAccountDenyTest(ct, true)
-	}
+	clientEgressToEchoServiceAccountDenyTest(ct, true)
 }
 
 func clientEgressToEchoServiceAccountDenyTest(ct *check.ConnectivityTest, portRanges bool) {

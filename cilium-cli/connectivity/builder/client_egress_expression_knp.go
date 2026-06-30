@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
-	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 //go:embed manifests/client-egress-to-echo-expression-knp.yaml
@@ -21,9 +20,7 @@ type clientEgressExpressionKnp struct{}
 
 func (t clientEgressExpressionKnp) build(ct *check.ConnectivityTest, _ map[string]string) {
 	clientEgressExpressionKnpTest(ct, false)
-	if ct.Features[features.PortRanges].Enabled {
-		clientEgressExpressionKnpTest(ct, true)
-	}
+	clientEgressExpressionKnpTest(ct, true)
 }
 
 func clientEgressExpressionKnpTest(ct *check.ConnectivityTest, portRanges bool) {

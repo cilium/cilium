@@ -21,9 +21,7 @@ type echoIngressMutualAuthSpiffe struct{}
 
 func (t echoIngressMutualAuthSpiffe) build(ct *check.ConnectivityTest, _ map[string]string) {
 	echoIngressMutualAuthSpiffeTest(ct, false)
-	if ct.Features[features.PortRanges].Enabled {
-		echoIngressMutualAuthSpiffeTest(ct, true)
-	}
+	echoIngressMutualAuthSpiffeTest(ct, true)
 }
 
 func echoIngressMutualAuthSpiffeTest(ct *check.ConnectivityTest, portRanges bool) {

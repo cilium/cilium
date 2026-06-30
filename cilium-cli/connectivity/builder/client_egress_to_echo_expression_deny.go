@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
-	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 //go:embed manifests/client-egress-to-echo-expression-deny.yaml
@@ -21,9 +20,7 @@ type clientEgressToEchoExpressionDeny struct{}
 
 func (t clientEgressToEchoExpressionDeny) build(ct *check.ConnectivityTest, _ map[string]string) {
 	clientEgressToEchoExpressionDenyTest(ct, false)
-	if ct.Features[features.PortRanges].Enabled {
-		clientEgressToEchoExpressionDenyTest(ct, true)
-	}
+	clientEgressToEchoExpressionDenyTest(ct, true)
 }
 
 func clientEgressToEchoExpressionDenyTest(ct *check.ConnectivityTest, portRanges bool) {
