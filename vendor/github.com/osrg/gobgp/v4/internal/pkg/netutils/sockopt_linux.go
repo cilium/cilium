@@ -23,10 +23,10 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"strconv"
 	"strings"
 	"syscall"
 
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -34,7 +34,7 @@ const (
 	ipv6MinHopCount = 73 // Generalized TTL Security Mechanism (RFC5082)
 )
 
-func buildTcpMD5Sig(address, key string) *unix.TCPMD5Sig {
+func buildTcpMD5Sig(bindInterface netlink.Link, address, key string) *unix.TCPMD5Sig {
 	t := unix.TCPMD5Sig{}
 
 	var addr netip.Addr
@@ -46,7 +46,7 @@ func buildTcpMD5Sig(address, key string) *unix.TCPMD5Sig {
 		}
 		addr = prefix.Addr()
 		t.Prefixlen = uint8(prefix.Bits())
-		t.Flags = unix.TCP_MD5SIG_FLAG_PREFIX
+		t.Flags |= unix.TCP_MD5SIG_FLAG_PREFIX
 	} else {
 		addr, err = netip.ParseAddr(address)
 		if err != nil {
@@ -62,14 +62,18 @@ func buildTcpMD5Sig(address, key string) *unix.TCPMD5Sig {
 		t.Addr.Family = unix.AF_INET6
 		bits := addr.As16()
 		copy(t.Addr.Data[6:], bits[:])
-		if addr.IsLinkLocalUnicast() {
-			t.Ifindex, err = zoneToID(addr.Zone())
-			if err != nil {
-				return nil
-			}
-		}
 	} else {
 		return nil
+	}
+
+	// Ifindex option is only valid for VRF device. It's still valid
+	// to set md5sig for the socket bound to non-VRF device, but in
+	// that case, Ifindex shouldn't be set.
+	//
+	// Ref: https://github.com/torvalds/linux/commit/6b102db50cdde3ba2f78631ed21222edf3a5fb51
+	if bindInterface != nil && bindInterface.Type() == "vrf" {
+		t.Ifindex = int32(bindInterface.Attrs().Index)
+		t.Flags |= unix.TCP_MD5SIG_FLAG_IFINDEX
 	}
 
 	t.Keylen = uint16(len(key))
@@ -78,41 +82,27 @@ func buildTcpMD5Sig(address, key string) *unix.TCPMD5Sig {
 	return &t
 }
 
-func zoneToID(zone string) (int32, error) {
-	if zone == "" {
-		return 0, nil
-	}
-
-	if id, err := strconv.ParseInt(zone, 10, 32); err == nil {
-		return int32(id), nil
-	}
-
-	iface, err := net.InterfaceByName(zone)
-	if err != nil {
-		return 0, fmt.Errorf("interface %q not found: %w", zone, err)
-	}
-	return int32(iface.Index), nil
-}
-
-func SetTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
+func SetTCPMD5SigSockopt(l *net.TCPListener, bindInterface string, address string, key string) error {
 	sc, err := l.SyscallConn()
 	if err != nil {
 		return err
 	}
 
+	var link netlink.Link
+	if bindInterface != "" {
+		link, err = netlink.LinkByName(bindInterface)
+		if err != nil {
+			return fmt.Errorf("failed to get link for interface %s: %w", bindInterface, err)
+		}
+	}
+
 	var sockerr error
-	t := buildTcpMD5Sig(address, key)
+	t := buildTcpMD5Sig(link, address, key)
 	if t == nil {
 		return fmt.Errorf("unable to generate TcpMD5Sig from %s", address)
 	}
 	if err := sc.Control(func(s uintptr) {
-		opt := unix.TCP_MD5SIG
-
-		if strings.Contains(address, "/") {
-			opt = unix.TCP_MD5SIG_EXT
-		}
-
-		sockerr = unix.SetsockoptTCPMD5Sig(int(s), unix.IPPROTO_TCP, opt, t)
+		sockerr = unix.SetsockoptTCPMD5Sig(int(s), unix.IPPROTO_TCP, unix.TCP_MD5SIG_EXT, t)
 	}); err != nil {
 		return err
 	}
@@ -199,10 +189,20 @@ func DialerControl(logger *slog.Logger, network, address string, c syscall.RawCo
 
 	var sockerr error
 	if password != "" {
+		var (
+			err  error
+			link netlink.Link
+		)
+		if bindInterface != "" {
+			link, err = netlink.LinkByName(bindInterface)
+			if err != nil {
+				return fmt.Errorf("failed to get link for interface %s: %w", bindInterface, err)
+			}
+		}
 		addr, _, _ := net.SplitHostPort(address)
-		t := buildTcpMD5Sig(addr, password)
+		t := buildTcpMD5Sig(link, addr, password)
 		if err := c.Control(func(fd uintptr) {
-			sockerr = os.NewSyscallError("setSockOpt", unix.SetsockoptTCPMD5Sig(int(fd), unix.IPPROTO_TCP, unix.TCP_MD5SIG, t))
+			sockerr = os.NewSyscallError("setSockOpt", unix.SetsockoptTCPMD5Sig(int(fd), unix.IPPROTO_TCP, unix.TCP_MD5SIG_EXT, t))
 		}); err != nil {
 			return err
 		}

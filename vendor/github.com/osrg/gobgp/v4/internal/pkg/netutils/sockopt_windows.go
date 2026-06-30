@@ -31,7 +31,7 @@ const (
 	TCP_MAXSEG      = 0x2  // pulled from https://pkg.go.dev/syscall?GOOS=linux#TCP_MAXSEG
 )
 
-func SetTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
+func SetTCPMD5SigSockopt(l *net.TCPListener, bindInterface string, address string, key string) error {
 	return fmt.Errorf("setting md5 is not supported")
 }
 

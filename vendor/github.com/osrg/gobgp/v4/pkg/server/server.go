@@ -369,6 +369,16 @@ func (s *BgpServer) passConnToPeer(conn net.Conn) {
 		}
 
 		s.neighborMap[addr] = peer
+		// register BFD for the dynamic neighbor too (explicit neighbors do this in addNeighbor): the
+		// BFD config is inherited from the peer group. Without this, BFD never runs for dynamic peers.
+		if s.bfdServer != nil && conf.Bfd.Config.Enabled {
+			if err := s.bfdServer.AddPeer(context.Background(), addr, conf.Bfd.Config); err != nil {
+				s.logger.Warn("failed to add BFD peer for dynamic neighbor",
+					slog.String("Topic", "Peer"),
+					slog.String("Key", addr.String()),
+					slog.String("Err", err.Error()))
+			}
+		}
 		s.startFsmHandler(peer)
 		peer.PassConn(conn)
 	} else {
@@ -739,7 +749,7 @@ func (s *BgpServer) setPathVrfIdMap(paths []*table.Path, m map[uint32]bool) {
 
 // Note: the destination would be the same for all the paths passed here
 // The wather (only zapi) needs a unique list of vrf IDs
-func (s *BgpServer) notifyBestWatcher(best []*table.Path, multipath [][]*table.Path) {
+func (s *BgpServer) notifyBestWatcher(best []*table.Path, multipath [][]*table.Path, multipathUpdate []*table.Path, multipathWithdraw []*table.Path) {
 	if table.SelectionOptions.DisableBestPathSelection {
 		// Note: If best path selection disabled, no best path to notify.
 		return
@@ -753,10 +763,18 @@ func (s *BgpServer) notifyBestWatcher(best []*table.Path, multipath [][]*table.P
 		}
 	}
 	clonedB := clonePathList(best)
+	clonedU := clonePathList(multipathUpdate)
+	clonedW := clonePathList(multipathWithdraw)
 	if !table.UseMultiplePaths.Enabled {
 		s.setPathVrfIdMap(clonedB, m)
 	}
-	w := &watchEventBestPath{PathList: clonedB, MultiPathList: clonedM, Timestamp: time.Now()}
+	w := &watchEventBestPath{
+		PathList:         clonedB,
+		MultiPathList:    clonedM,
+		UpdatePathList:   clonedU,
+		WithdrawPathList: clonedW,
+		Timestamp:        time.Now(),
+	}
 	if len(m) > 0 {
 		w.Vrf = m
 	}
@@ -1349,10 +1367,12 @@ func (s *BgpServer) rtcVPNCandidates(peer *peer, isWithdraw bool, rt bgp.Extende
 	fn(nil, s.globalRib.GetBestPathList(peer.TableID(), 0, fs))
 }
 
-func dstsToPaths(id string, as uint32, dsts []*table.Update) ([]*table.Path, []*table.Path, [][]*table.Path) {
+func dstsToPaths(id string, as uint32, dsts []*table.Update) ([]*table.Path, []*table.Path, [][]*table.Path, []*table.Path, []*table.Path) {
 	bestList := make([]*table.Path, 0, len(dsts))
 	oldList := make([]*table.Path, 0, len(dsts))
 	mpathList := make([][]*table.Path, 0, len(dsts))
+	multipathUpdate := make([]*table.Path, 0, len(dsts))
+	multipathWithdraw := make([]*table.Path, 0, len(dsts))
 
 	for _, dst := range dsts {
 		best, old, mpath := dst.GetChanges(id, as, false)
@@ -1361,8 +1381,13 @@ func dstsToPaths(id string, as uint32, dsts []*table.Update) ([]*table.Path, []*
 		if mpath != nil {
 			mpathList = append(mpathList, mpath)
 		}
+		if id == table.GLOBAL_RIB_NAME && table.UseMultiplePaths.Enabled {
+			u, w := dst.GetMultiBestPathDiff(id)
+			multipathUpdate = append(multipathUpdate, u...)
+			multipathWithdraw = append(multipathWithdraw, w...)
+		}
 	}
-	return bestList, oldList, mpathList
+	return bestList, oldList, mpathList, multipathUpdate, multipathWithdraw
 }
 
 func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *peer, newPath *table.Path, dsts []*table.Update, needOld bool) {
@@ -1371,9 +1396,10 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 	}
 	var gBestList, gOldList []*table.Path
 	var mpathList [][]*table.Path
+	var multipathUpdate, multipathWithdraw []*table.Path
 	if source == nil || !source.isRouteServerClient() {
-		gBestList, gOldList, mpathList = dstsToPaths(table.GLOBAL_RIB_NAME, 0, dsts)
-		s.notifyBestWatcher(gBestList, mpathList)
+		gBestList, gOldList, mpathList, multipathUpdate, multipathWithdraw = dstsToPaths(table.GLOBAL_RIB_NAME, 0, dsts)
+		s.notifyBestWatcher(gBestList, mpathList, multipathUpdate, multipathWithdraw)
 	}
 	family := newPath.GetFamily()
 	for _, targetPeer := range s.neighborMap {
@@ -1401,6 +1427,11 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 		func() {
 			targetPeer.routeRefreshInProgress.RLock()
 			defer targetPeer.routeRefreshInProgress.RUnlock()
+			// If the peer is not advertising, return early to avoid rebuilding RIB-out bookkeeping,
+			// as it might have been already cleared by resetAdvertisedRoutes.
+			if !needToAdvertise(targetPeer) {
+				return
+			}
 			var bestList, oldList []*table.Path
 			if targetPeer.isAddPathSendEnabled(f) {
 				// in case of multiple paths to the same destination, we need to
@@ -1495,7 +1526,7 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 						}
 						return
 					}
-					bestList, oldList, _ = dstsToPaths(targetPeer.TableID(), targetPeer.AS(), dsts)
+					bestList, oldList, _, _, _ = dstsToPaths(targetPeer.TableID(), targetPeer.AS(), dsts)
 				} else {
 					bestList = gBestList
 					oldList = gOldList
@@ -1519,6 +1550,16 @@ func (s *BgpServer) stopNeighbor(peer *peer, oldState bgp.FSMState, e *fsmMsg) {
 	key := netip.MustParseAddr(peer.ID())
 	if s.neighborMap[key] == peer {
 		delete(s.neighborMap, key)
+	}
+	// deregister BFD here for both static peers (deleted) and dynamic peers (stopped on session loss);
+	// DeletePeer is a no-op for a peer without BFD, so this only errors if the BFD server is stopped.
+	if s.bfdServer != nil {
+		if err := s.bfdServer.DeletePeer(context.Background(), key); err != nil {
+			s.logger.Warn("failed to delete BFD peer",
+				slog.String("Topic", "Peer"),
+				slog.String("Key", key.String()),
+				slog.String("Err", err.Error()))
+		}
 	}
 	peer.stopFSM()
 	s.broadcastPeerState(peer, bgp.BGP_FSM_IDLE, oldState, e)
@@ -1586,6 +1627,10 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 			peer.fsm.pConf.Update(&conf)
 			peer.prefixLimitWarned = make(map[bgp.Family]bool)
 			peer.fsm.lock.Unlock()
+
+			// Publish the down state before clearing advertised-route state.
+			// This avoids rebuilding RIB-out bookkeeping by propagation that starts after the reset.
+			peer.fsm.state.Store(nextState)
 			s.resetAdvertisedRoutes(peer)
 			s.propagateUpdate(peer, peer.DropAll(dropFamilies))
 
@@ -1758,6 +1803,16 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				// the Selection_Deferral_Timer referred to below has expired.
 				allEnd := func() bool {
 					for _, p := range s.neighborMap {
+						if p == peer {
+							// This peer is transitioning to ESTABLISHED inside
+							// this callback, so fsm.state.Store() has not been
+							// called yet. Apply the post-ESTABLISHED EOR check
+							// directly instead of going through receivedAllEOR().
+							if !p.allNegotiatedEORReceived() {
+								return false
+							}
+							continue
+						}
 						if !p.receivedAllEOR() {
 							return false
 						}
@@ -1790,7 +1845,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 					time.AfterFunc(time.Second*time.Duration(deferral), deferralExpiredFunc(bgp.Family(0), time.Second*time.Duration(deferral)))
 				}
 			}
-		} else {
+		} else if oldState == bgp.BGP_FSM_ESTABLISHED {
 			peer.fsm.lock.Lock()
 			conf := peer.fsm.pConf.ReadCopy()
 			conf.Timers.State.Downtime = time.Now().Unix()
@@ -1947,15 +2002,9 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 }
 
 func (s *BgpServer) resetAdvertisedRoutes(peer *peer) {
-	for i := range s.shared.propagateBuckets {
-		s.shared.propagateBuckets[i].Lock()
-	}
 	peer.routeRefreshInProgress.Lock()
+	defer peer.routeRefreshInProgress.Unlock()
 	peer.resetAdvertisedRoutes()
-	peer.routeRefreshInProgress.Unlock()
-	for i := len(s.shared.propagateBuckets) - 1; i >= 0; i-- {
-		s.shared.propagateBuckets[i].Unlock()
-	}
 }
 
 func (s *BgpServer) EnableZebra(ctx context.Context, r *api.EnableZebraRequest) error {
@@ -3403,7 +3452,7 @@ func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
 	if s.bgpConfig.Global.Config.Port > 0 {
 		for _, l := range s.listListeners(addr) {
 			if c.Config.AuthPassword != "" {
-				if err := netutils.SetTCPMD5SigSockopt(l, addr, c.Config.AuthPassword); err != nil {
+				if err := netutils.SetTCPMD5SigSockopt(l, c.Transport.Config.BindInterface, addr, c.Config.AuthPassword); err != nil {
 					s.logger.Warn("failed to set md5",
 						slog.String("Topic", "Peer"),
 						slog.String("Key", addr),
@@ -3533,7 +3582,7 @@ func (s *BgpServer) AddDynamicNeighbor(ctx context.Context, r *api.AddDynamicNei
 			prefix := r.DynamicNeighbor.Prefix
 			addr, _, _ := net.ParseCIDR(prefix)
 			for _, l := range s.listListeners(addr.String()) {
-				if err := netutils.SetTCPMD5SigSockopt(l, prefix, pConf.Config.AuthPassword); err != nil {
+				if err := netutils.SetTCPMD5SigSockopt(l, pConf.Transport.Config.BindInterface, prefix, pConf.Config.AuthPassword); err != nil {
 					s.logger.Warn("failed to set md5",
 						slog.String("Topic", "Peer"),
 						slog.String("Key", prefix),
@@ -3589,25 +3638,13 @@ func (s *BgpServer) deleteNeighbor(c *oc.Neighbor, code, subcode uint8, sendNoti
 	}
 	for _, l := range s.listListeners(addr) {
 		if c.Config.AuthPassword != "" {
-			if err := netutils.SetTCPMD5SigSockopt(l, addr, ""); err != nil {
+			if err := netutils.SetTCPMD5SigSockopt(l, c.Transport.Config.BindInterface, addr, ""); err != nil {
 				n.fsm.logger.Warn("failed to unset md5", slog.String("Err", err.Error()))
 			}
 		}
 	}
 	n.fsm.logger.Info("Delete a peer configuration")
 
-	if s.bfdServer != nil {
-		ipAddr, err := netip.ParseAddr(addr)
-		if err != nil {
-			return fmt.Errorf("failed to parse IP address: %v", err)
-		}
-		if err := s.bfdServer.DeletePeer(context.Background(), ipAddr); err != nil {
-			s.logger.Warn("failed to delete BFD peer",
-				slog.String("Topic", "Peer"),
-				slog.String("Key", addr),
-				slog.String("Err", err.Error()))
-		}
-	}
 	if sendNotification {
 		n.fsm.deconfiguredNotification <- bgp.NewBGPNotificationMessage(code, subcode, nil)
 	}
@@ -3660,7 +3697,7 @@ func (s *BgpServer) DeleteDynamicNeighbor(ctx context.Context, r *api.DeleteDyna
 				addr, _, perr := net.ParseCIDR(prefix)
 				if perr == nil {
 					for _, l := range s.listListeners(addr.String()) {
-						if err := netutils.SetTCPMD5SigSockopt(l, prefix, ""); err != nil {
+						if err := netutils.SetTCPMD5SigSockopt(l, pConf.Transport.Config.BindInterface, prefix, ""); err != nil {
 							s.logger.Warn("failed to clear md5",
 								slog.String("Topic", "Peer"),
 								slog.String("Key", prefix),
@@ -4596,24 +4633,7 @@ func (s *BgpServer) WatchEvent(ctx context.Context, callbacks WatchEventMessageC
 							}
 							callbacks.OnBestPath(p, msg.Timestamp)
 						}
-
-						if len(msg.MultiPathList) > 0 {
-							plen := 0
-							for _, pa := range msg.MultiPathList {
-								plen += len(pa)
-							}
-							paths := make([]*table.Path, plen)
-							i := 0
-							for _, pa := range msg.MultiPathList {
-								for _, path := range pa {
-									paths[i] = path
-									i++
-								}
-							}
-							callback(paths)
-						} else {
-							callback(msg.PathList)
-						}
+						callback(locRIBPathsForBMP(msg))
 					}
 
 				case *watchEventEor:
@@ -4767,10 +4787,35 @@ type watchEventPeer struct {
 }
 
 type watchEventBestPath struct {
-	PathList      []*table.Path
-	MultiPathList [][]*table.Path
-	Vrf           map[uint32]bool
-	Timestamp     time.Time
+	PathList         []*table.Path
+	MultiPathList    [][]*table.Path
+	UpdatePathList   []*table.Path
+	WithdrawPathList []*table.Path
+	Vrf              map[uint32]bool
+	Timestamp        time.Time
+}
+
+func locRIBPathsForBMP(msg *watchEventBestPath) []*table.Path {
+	// Prefer update/withdraw delta when present.
+	if len(msg.UpdatePathList) > 0 || len(msg.WithdrawPathList) > 0 {
+		paths := make([]*table.Path, 0, len(msg.WithdrawPathList)+len(msg.UpdatePathList))
+		paths = append(paths, msg.WithdrawPathList...)
+		paths = append(paths, msg.UpdatePathList...)
+		return paths
+	}
+	// Fallback for non-multipath and init snapshot behavior.
+	if len(msg.MultiPathList) > 0 {
+		plen := 0
+		for _, pa := range msg.MultiPathList {
+			plen += len(pa)
+		}
+		paths := make([]*table.Path, 0, plen)
+		for _, pa := range msg.MultiPathList {
+			paths = append(paths, pa...)
+		}
+		return paths
+	}
+	return msg.PathList
 }
 
 type watchEventMessage struct {

@@ -355,7 +355,7 @@ func SetSockOptTcpMD5Sig(sc syscall.RawConn, address string, key string) error {
 	return saDelete(address)
 }
 
-func SetTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
+func SetTCPMD5SigSockopt(l *net.TCPListener, bindInterface string, address string, key string) error {
 	sc, err := l.SyscallConn()
 	if err != nil {
 		return err

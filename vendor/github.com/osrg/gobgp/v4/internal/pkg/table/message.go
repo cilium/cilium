@@ -26,6 +26,18 @@ import (
 	"github.com/segmentio/fasthash/fnv1a"
 )
 
+// maxUpdateMessageLength returns the per-UPDATE serialisation budget
+// the packer should fill before emitting a message. When the caller
+// signalled the RFC 8654 Extended Message Capability via a
+// MarshallingOption, the cap rises from 4096 to 65535 octets - UPDATE
+// is one of the message types Section 6 of the RFC explicitly extends.
+func maxUpdateMessageLength(options []*bgp.MarshallingOption) int {
+	if bgp.IsExtendedMessageSerialization(options) {
+		return bgp.BGP_MAX_EXTENDED_MESSAGE_LENGTH
+	}
+	return bgp.BGP_MAX_MESSAGE_LENGTH
+}
+
 func UpdatePathAttrs2ByteAs(msg *bgp.BGPUpdate) {
 	ps := msg.PathAttributes
 	msg.PathAttributes = make([]bgp.PathAttributeInterface, len(ps))
@@ -397,7 +409,7 @@ func (p *packerMP) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 			return
 		}
 
-		budget := bgp.BGP_MAX_MESSAGE_LENGTH - baseLen
+		budget := maxUpdateMessageLength(options) - baseLen
 		if budget <= 0 {
 			for _, path := range paths {
 				cb([]bgp.PathNLRI{{NLRI: path.GetNlri(), ID: path.localID}})
@@ -501,7 +513,7 @@ func (p *packerMP) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 			if sampleReach, err := bgp.NewPathAttributeMpReachNLRI(paths[0].GetFamily(), []bgp.PathNLRI{sampleNLRI}, nexthops...); err == nil {
 				baseReachLen += sampleReach.Len() + 1 - paths[0].GetNlri().Len(options...) // +1 for extended-length attr header
 			} else {
-				baseReachLen = bgp.BGP_MAX_MESSAGE_LENGTH
+				baseReachLen = maxUpdateMessageLength(options)
 			}
 			split(baseReachLen, paths, func(nlris []bgp.PathNLRI) {
 				msgs = append(msgs, createMPReachMessage(paths[0], nlris))
@@ -595,7 +607,7 @@ func (p *packerV4) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 	// TotalPathAttributeLen + attributes + maxlen of NLRI).
 	// the max size of NLRI is 5bytes (plus 4bytes with addpath enabled)
 	maxNLRIs := func(attrsLen int) int {
-		return (bgp.BGP_MAX_MESSAGE_LENGTH - (19 + 2 + 2 + attrsLen)) / (5 + addpathNLRILen)
+		return (maxUpdateMessageLength(options) - (19 + 2 + 2 + attrsLen)) / (5 + addpathNLRILen)
 	}
 
 	loop := func(attrsLen int, paths []*Path, cb func([]bgp.PathNLRI)) {

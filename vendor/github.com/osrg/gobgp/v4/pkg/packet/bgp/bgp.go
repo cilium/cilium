@@ -37,8 +37,30 @@ type MarshallingOption struct {
 	AddPath    map[Family]BGPAddPathMode
 	MRT        bool
 	Use2ByteAS bool // true if peer does NOT support 4-byte AS capability
+	// ExtendedMessage signals that the BGP Extended Message Capability
+	// (RFC 8654) is negotiated on the session this serialisation is
+	// for. When true the per-message-type length cap rises from 4096
+	// to 65535 octets for UPDATE, NOTIFICATION and ROUTE-REFRESH;
+	// OPEN and KEEPALIVE keep the 4096-octet cap per RFC 8654 Section 6.
+	ExtendedMessage bool
 
 	attributes map[BGPAttrType]bool
+}
+
+// IsExtendedMessageSerialization reports whether any element of
+// options carries the RFC 8654 ExtendedMessage flag set. Used by
+// BGPMessage.Serialize to lift the length cap on the messages where
+// the RFC allows it.
+func IsExtendedMessageSerialization(options []*MarshallingOption) bool {
+	for _, opt := range options {
+		if opt == nil {
+			continue
+		}
+		if opt.ExtendedMessage {
+			return true
+		}
+	}
+	return false
 }
 
 func IsMRTSerialization(options []*MarshallingOption) bool {
@@ -373,6 +395,7 @@ const (
 	BGP_CAP_ROUTE_REFRESH               BGPCapabilityCode = 2
 	BGP_CAP_CARRYING_LABEL_INFO         BGPCapabilityCode = 4
 	BGP_CAP_EXTENDED_NEXTHOP            BGPCapabilityCode = 5
+	BGP_CAP_EXTENDED_MESSAGE            BGPCapabilityCode = 6
 	BGP_CAP_GRACEFUL_RESTART            BGPCapabilityCode = 64
 	BGP_CAP_FOUR_OCTET_AS_NUMBER        BGPCapabilityCode = 65
 	BGP_CAP_ADD_PATH                    BGPCapabilityCode = 69
@@ -389,6 +412,7 @@ var CapNameMap = map[BGPCapabilityCode]string{
 	BGP_CAP_CARRYING_LABEL_INFO:         "carrying-label-info",
 	BGP_CAP_GRACEFUL_RESTART:            "graceful-restart",
 	BGP_CAP_EXTENDED_NEXTHOP:            "extended-nexthop",
+	BGP_CAP_EXTENDED_MESSAGE:            "extended-message",
 	BGP_CAP_FOUR_OCTET_AS_NUMBER:        "4-octet-as",
 	BGP_CAP_ADD_PATH:                    "add-path",
 	BGP_CAP_ENHANCED_ROUTE_REFRESH:      "enhanced-route-refresh",
@@ -547,6 +571,24 @@ func NewCapRouteRefresh() *CapRouteRefresh {
 	return &CapRouteRefresh{
 		DefaultParameterCapability{
 			CapCode: BGP_CAP_ROUTE_REFRESH,
+		},
+	}
+}
+
+// CapExtendedMessage advertises the BGP Extended Message capability
+// from RFC 8654. The capability TLV is empty (Capability Code 6,
+// Capability Length 0). When both peers advertise it the maximum BGP
+// message size for UPDATE, NOTIFICATION and ROUTE-REFRESH grows from
+// 4096 to 65535 octets; OPEN and KEEPALIVE remain capped at 4096
+// (RFC 8654 Section 6).
+type CapExtendedMessage struct {
+	DefaultParameterCapability
+}
+
+func NewCapExtendedMessage() *CapExtendedMessage {
+	return &CapExtendedMessage{
+		DefaultParameterCapability{
+			CapCode: BGP_CAP_EXTENDED_MESSAGE,
 		},
 	}
 }
@@ -1175,6 +1217,8 @@ func DecodeCapability(data []byte) (ParameterCapabilityInterface, error) {
 		c = &CapCarryingLabelInfo{}
 	case BGP_CAP_EXTENDED_NEXTHOP:
 		c = &CapExtendedNexthop{}
+	case BGP_CAP_EXTENDED_MESSAGE:
+		c = &CapExtendedMessage{}
 	case BGP_CAP_GRACEFUL_RESTART:
 		c = &CapGracefulRestart{}
 	case BGP_CAP_FOUR_OCTET_AS_NUMBER:
@@ -5051,9 +5095,26 @@ func (l *LsLinkDescriptor) String() string {
 	default:
 		base = "UNKNOWN"
 	}
-	// MT-ID participates in the destination key (RFC 7752 §3.2.1.5).
-	// Two ISIS-MT advertisements of the same physical link must not
-	// collide in the RIB.
+
+	// The Link Local/Remote Identifier sub-TLV (Type 258, RFC 7752
+	// Table 5) coexists with the interface/neighbor address sub-TLVs
+	// in some NLRI shapes. RFC 9086 Section 5.2 mandates Type 258 on
+	// PeerAdj-SID Link NLRIs and lets the producer also include the
+	// IPv4 or IPv6 address sub-TLVs alongside. PeerNode-SID Link
+	// NLRIs for the same eBGP session may share the addresses but
+	// omit Type 258. The two NLRIs are distinct prefixes in
+	// adj-RIB-in because of Type 258's presence, so the String form
+	// must show the identifier whenever it is set or two distinct
+	// prefixes collide in any caller keyed on this output.
+	if l.LinkLocalID != nil && l.LinkRemoteID != nil &&
+		(l.InterfaceAddrIPv4 != nil || l.NeighborAddrIPv4 != nil ||
+			l.InterfaceAddrIPv6 != nil || l.NeighborAddrIPv6 != nil) {
+		base += fmt.Sprintf("(L:%d,R:%d)", *l.LinkLocalID, *l.LinkRemoteID)
+	}
+
+	// MT-ID participates in the destination key (RFC 7752 Section
+	// 3.2.1.5). Two ISIS-MT advertisements of the same physical link
+	// must not collide in the RIB.
 	return base + multiTopoIDsToString(l.MultiTopoIDs)
 }
 
@@ -5864,6 +5925,19 @@ const (
 	LS_TLV_SR_ALGORITHM    = 1035 // draft-ietf-idr-bgp-ls-segment-routing-ext
 	LS_TLV_SR_LOCAL_BLOCK  = 1036 // draft-ietf-idr-bgp-ls-segment-routing-ext
 	LS_TLV_SRMS_PREFERENCE = 1037 // draft-ietf-idr-bgp-ls-segment-routing-ext, TODO
+
+	// Flexible Algorithm Definition (RFC9351 Section 3, IS-IS source RFC9350).
+	// TLV 1039 is a Node Attribute TLV. 1040, 1041, 1042, 1043, 1045 and 1046
+	// are sub-TLVs nested inside TLV 1039. TLV 1044 (FAPM) is a top-level
+	// Prefix Attribute TLV; see LS_TLV_FAD_PREFIX_METRIC below.
+	LS_TLV_FLEX_ALGO_DEF            = 1039 // RFC9351 Section 3
+	LS_TLV_FAD_EXCLUDE_ANY_AFFINITY = 1040 // RFC9351 Section 3.1
+	LS_TLV_FAD_INCLUDE_ANY_AFFINITY = 1041 // RFC9351 Section 3.2
+	LS_TLV_FAD_INCLUDE_ALL_AFFINITY = 1042 // RFC9351 Section 3.3
+	LS_TLV_FAD_DEFINITION_FLAGS     = 1043 // RFC9351 Section 3.4
+	LS_TLV_FAD_PREFIX_METRIC        = 1044 // RFC9351 Section 4 (FAPM, Prefix-side)
+	LS_TLV_FAD_EXCLUDE_SRLG         = 1045 // RFC9351 Section 3.5
+	LS_TLV_FAD_UNSUPPORTED          = 1046 // RFC9351 Section 3.6
 
 	LS_TLV_ADMIN_GROUP              = 1088
 	LS_TLV_MAX_LINK_BANDWIDTH       = 1089
@@ -7240,7 +7314,10 @@ type LsTLVIPReachability struct {
 
 func (l *LsTLVIPReachability) toPrefix(ipv6 bool) netip.Prefix {
 	b := make([]byte, 16)
-	bytes := (int(l.PrefixLength)-1)/8 + 1
+	bytes := 0
+	if l.PrefixLength > 0 {
+		bytes = (int(l.PrefixLength)-1)/8 + 1
+	}
 	for i := range bytes {
 		if i >= len(l.Prefix) {
 			break
@@ -7273,16 +7350,20 @@ func (l *LsTLVIPReachability) DecodeFromBytes(data []byte) error {
 		return malformedAttrListErr("Unexpected TLV type")
 	}
 
-	if len(value) < 2 {
+	if len(value) < 1 {
 		return malformedAttrListErr("Incorrect IP reachability Info length")
 	}
 
 	// https://tools.ietf.org/html/rfc7752#section-3.2.3.2
-	if value[0] > 128 || value[0] == 0 {
+	// PrefixLength 0 is valid (default route 0.0.0.0/0 or ::/0).
+	if value[0] > 128 {
 		return malformedAttrListErr("Incorrect IP prefix length")
 	}
 
-	ll := (int(value[0])-1)/8 + 1
+	ll := 0
+	if value[0] > 0 {
+		ll = (int(value[0])-1)/8 + 1
+	}
 	if len(value[1:]) != ll {
 		return malformedAttrListErr("Malformed IP reachability TLV")
 	}
@@ -8417,6 +8498,340 @@ func (l *LsTLVSrLocalBlock) MarshalJSON() ([]byte, error) {
 }
 
 func (l *LsTLVSrLocalBlock) GetLsTLV() LsTLV {
+	return l.LsTLV
+}
+
+// LsTLVFlexAlgoDef wire format (RFC 9351 Section 3):
+//
+//	byte 0     Flex Algo ID (128..255 per RFC 9350 Section 4)
+//	byte 1     Metric-Type (0=IGP, 1=Min-Delay, 2=TE per RFC 9350
+//	           Section 5.1)
+//	byte 2     Calc-Type (0=SPF per RFC 9350 Section 5.2)
+//	byte 3     Priority (RFC 9350 Section 5.3)
+//	bytes 4+   zero or more nested sub-TLVs in BGP-LS sub-TLV format
+//	           (Type 2B + Length 2B + Value), codepoints 1040, 1041,
+//	           1042, 1043, 1045, 1046.
+//
+// Sub-TLVs are decoded into typed fields below; unknown sub-TLV types
+// are preserved in the Unknown slice so a future caller can inspect
+// them without re-parsing the value bytes. Multiple FADs MAY be
+// advertised for the same Node NLRI (one per algorithm), so the
+// containing PathAttributeLs Extract aggregates them into a slice.
+
+// LsTLVFlexAlgoSubTLVRaw preserves a sub-TLV whose type is not one of
+// the codepoints RFC 9351 currently defines. Keeping the raw bytes
+// lets callers inspect or re-serialise the FAD without losing data
+// and matches the forward-compatibility requirement in RFC 9351
+// Section 3.
+type LsTLVFlexAlgoSubTLVRaw struct {
+	Type  LsTLVType
+	Value []byte
+}
+
+type LsTLVFlexAlgoDef struct {
+	LsTLV
+	Algorithm   uint8
+	MetricType  uint8
+	CalcType    uint8
+	Priority    uint8
+	ExcludeAny  []uint32                 // RFC9351 Section 3.1 (sub-TLV 1040)
+	IncludeAny  []uint32                 // RFC9351 Section 3.2 (sub-TLV 1041)
+	IncludeAll  []uint32                 // RFC9351 Section 3.3 (sub-TLV 1042)
+	Flags       []byte                   // RFC9351 Section 3.4 (sub-TLV 1043; bit ordering per RFC9350 Section 6.4)
+	ExcludeSRLG []uint32                 // RFC9351 Section 3.5 (sub-TLV 1045)
+	Unsupported *LsTLVFADUnsupported     // RFC9351 Section 3.6 (sub-TLV 1046)
+	Unknown     []LsTLVFlexAlgoSubTLVRaw // forward-compat for sub-TLVs not defined by RFC 9351
+}
+
+// LsTLVFADUnsupported records the Flex-Algorithm Unsupported sub-TLV
+// (RFC 9351 Section 3.6): a Protocol-ID byte plus the list of sub-TLV
+// type codes the originating node could not honour.
+type LsTLVFADUnsupported struct {
+	ProtocolID  uint8
+	SubTLVTypes []uint16
+}
+
+func (l *LsTLVFlexAlgoDef) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+	if l.Type != LS_TLV_FLEX_ALGO_DEF {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+	if len(value) < 4 {
+		return malformedAttrListErr("FAD TLV too short")
+	}
+	l.Algorithm = value[0]
+	l.MetricType = value[1]
+	l.CalcType = value[2]
+	l.Priority = value[3]
+	if l.Algorithm < 128 {
+		return malformedAttrListErr("FAD Algorithm reserved (must be 128..255)")
+	}
+
+	rem := value[4:]
+	for len(rem) >= 4 {
+		stype := binary.BigEndian.Uint16(rem[:2])
+		slen := int(binary.BigEndian.Uint16(rem[2:4]))
+		if 4+slen > len(rem) {
+			return malformedAttrListErr("FAD sub-TLV truncated")
+		}
+		sv := rem[4 : 4+slen]
+		switch LsTLVType(stype) {
+		case LS_TLV_FAD_EXCLUDE_ANY_AFFINITY:
+			if slen == 0 || slen%4 != 0 {
+				return malformedAttrListErr("FAD Exclude-Any length must be non-zero multiple of 4")
+			}
+			for i := 0; i+4 <= slen; i += 4 {
+				l.ExcludeAny = append(l.ExcludeAny, binary.BigEndian.Uint32(sv[i:i+4]))
+			}
+		case LS_TLV_FAD_INCLUDE_ANY_AFFINITY:
+			if slen == 0 || slen%4 != 0 {
+				return malformedAttrListErr("FAD Include-Any length must be non-zero multiple of 4")
+			}
+			for i := 0; i+4 <= slen; i += 4 {
+				l.IncludeAny = append(l.IncludeAny, binary.BigEndian.Uint32(sv[i:i+4]))
+			}
+		case LS_TLV_FAD_INCLUDE_ALL_AFFINITY:
+			if slen == 0 || slen%4 != 0 {
+				return malformedAttrListErr("FAD Include-All length must be non-zero multiple of 4")
+			}
+			for i := 0; i+4 <= slen; i += 4 {
+				l.IncludeAll = append(l.IncludeAll, binary.BigEndian.Uint32(sv[i:i+4]))
+			}
+		case LS_TLV_FAD_DEFINITION_FLAGS:
+			if slen == 0 || slen%4 != 0 {
+				return malformedAttrListErr("FAD Flags length must be non-zero multiple of 4")
+			}
+			l.Flags = append(l.Flags[:0], sv...)
+		case LS_TLV_FAD_EXCLUDE_SRLG:
+			if slen == 0 || slen%4 != 0 {
+				return malformedAttrListErr("FAD Exclude SRLG length must be non-zero multiple of 4")
+			}
+			for i := 0; i+4 <= slen; i += 4 {
+				l.ExcludeSRLG = append(l.ExcludeSRLG, binary.BigEndian.Uint32(sv[i:i+4]))
+			}
+		case LS_TLV_FAD_UNSUPPORTED:
+			if slen < 1 {
+				return malformedAttrListErr("FAD Unsupported sub-TLV must be at least 1 byte")
+			}
+			u := &LsTLVFADUnsupported{ProtocolID: sv[0]}
+			body := sv[1:]
+			if len(body)%2 != 0 {
+				return malformedAttrListErr("FAD Unsupported sub-TLV type list must be a multiple of 2")
+			}
+			for i := 0; i+2 <= len(body); i += 2 {
+				u.SubTLVTypes = append(u.SubTLVTypes, binary.BigEndian.Uint16(body[i:i+2]))
+			}
+			l.Unsupported = u
+		default:
+			cp := make([]byte, slen)
+			copy(cp, sv)
+			l.Unknown = append(l.Unknown, LsTLVFlexAlgoSubTLVRaw{Type: LsTLVType(stype), Value: cp})
+		}
+		rem = rem[4+slen:]
+	}
+	return nil
+}
+
+func (l *LsTLVFlexAlgoDef) Serialize() ([]byte, error) {
+	body := make([]byte, 0, 4)
+	body = append(body, l.Algorithm, l.MetricType, l.CalcType, l.Priority)
+
+	appendSub := func(t LsTLVType, v []byte) {
+		var hdr [4]byte
+		binary.BigEndian.PutUint16(hdr[:2], uint16(t))
+		binary.BigEndian.PutUint16(hdr[2:4], uint16(len(v)))
+		body = append(body, hdr[:]...)
+		body = append(body, v...)
+	}
+	u32slice := func(in []uint32) []byte {
+		out := make([]byte, 4*len(in))
+		for i, v := range in {
+			binary.BigEndian.PutUint32(out[4*i:4*i+4], v)
+		}
+		return out
+	}
+	if len(l.ExcludeAny) > 0 {
+		appendSub(LS_TLV_FAD_EXCLUDE_ANY_AFFINITY, u32slice(l.ExcludeAny))
+	}
+	if len(l.IncludeAny) > 0 {
+		appendSub(LS_TLV_FAD_INCLUDE_ANY_AFFINITY, u32slice(l.IncludeAny))
+	}
+	if len(l.IncludeAll) > 0 {
+		appendSub(LS_TLV_FAD_INCLUDE_ALL_AFFINITY, u32slice(l.IncludeAll))
+	}
+	if len(l.Flags) > 0 {
+		appendSub(LS_TLV_FAD_DEFINITION_FLAGS, l.Flags)
+	}
+	if len(l.ExcludeSRLG) > 0 {
+		appendSub(LS_TLV_FAD_EXCLUDE_SRLG, u32slice(l.ExcludeSRLG))
+	}
+	if l.Unsupported != nil {
+		buf := make([]byte, 1+2*len(l.Unsupported.SubTLVTypes))
+		buf[0] = l.Unsupported.ProtocolID
+		for i, t := range l.Unsupported.SubTLVTypes {
+			binary.BigEndian.PutUint16(buf[1+2*i:1+2*i+2], t)
+		}
+		appendSub(LS_TLV_FAD_UNSUPPORTED, buf)
+	}
+	for _, raw := range l.Unknown {
+		appendSub(raw.Type, raw.Value)
+	}
+	l.Length = uint16(len(body))
+	return l.LsTLV.Serialize(body)
+}
+
+func (l *LsTLVFlexAlgoDef) String() string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "{Flex-Algo Def: %d metric:%d calc:%d prio:%d",
+		l.Algorithm, l.MetricType, l.CalcType, l.Priority)
+	if len(l.ExcludeAny) > 0 {
+		fmt.Fprintf(&buf, " exclude-any:%s", flexAlgoUint32SliceHex(l.ExcludeAny))
+	}
+	if len(l.IncludeAny) > 0 {
+		fmt.Fprintf(&buf, " include-any:%s", flexAlgoUint32SliceHex(l.IncludeAny))
+	}
+	if len(l.IncludeAll) > 0 {
+		fmt.Fprintf(&buf, " include-all:%s", flexAlgoUint32SliceHex(l.IncludeAll))
+	}
+	if len(l.Flags) > 0 {
+		fmt.Fprintf(&buf, " flags:%s", flexAlgoByteSliceHex(l.Flags))
+	}
+	if len(l.ExcludeSRLG) > 0 {
+		fmt.Fprintf(&buf, " exclude-srlg:%v", l.ExcludeSRLG)
+	}
+	if l.Unsupported != nil {
+		fmt.Fprintf(&buf, " unsupported:{proto:%d types:%v}",
+			l.Unsupported.ProtocolID, l.Unsupported.SubTLVTypes)
+	}
+	buf.WriteString("}")
+	return buf.String()
+}
+
+// flexAlgoUint32SliceHex formats a slice of 32-bit affinity bitmaps
+// as a comma-separated hex list, e.g. [0x0000000F 0x000000F0]. Used
+// by LsTLVFlexAlgoDef.String to keep the CLI render compact and easy
+// to compare against vendor "show isis flex-algorithm" output.
+func flexAlgoUint32SliceHex(in []uint32) string {
+	var buf bytes.Buffer
+	buf.WriteString("[")
+	for i, v := range in {
+		if i > 0 {
+			buf.WriteString(" ")
+		}
+		fmt.Fprintf(&buf, "0x%08x", v)
+	}
+	buf.WriteString("]")
+	return buf.String()
+}
+
+func flexAlgoByteSliceHex(in []byte) string {
+	var buf bytes.Buffer
+	buf.WriteString("[")
+	for i, v := range in {
+		if i > 0 {
+			buf.WriteString(" ")
+		}
+		fmt.Fprintf(&buf, "0x%02x", v)
+	}
+	buf.WriteString("]")
+	return buf.String()
+}
+
+func (l *LsTLVFlexAlgoDef) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type        LsTLVType `json:"type"`
+		Algorithm   uint8     `json:"algorithm"`
+		MetricType  uint8     `json:"metric_type"`
+		CalcType    uint8     `json:"calc_type"`
+		Priority    uint8     `json:"priority"`
+		ExcludeAny  []uint32  `json:"exclude_any_affinity,omitempty"`
+		IncludeAny  []uint32  `json:"include_any_affinity,omitempty"`
+		IncludeAll  []uint32  `json:"include_all_affinity,omitempty"`
+		Flags       []byte    `json:"definition_flags,omitempty"`
+		ExcludeSRLG []uint32  `json:"exclude_srlg,omitempty"`
+	}{
+		Type:        l.Type,
+		Algorithm:   l.Algorithm,
+		MetricType:  l.MetricType,
+		CalcType:    l.CalcType,
+		Priority:    l.Priority,
+		ExcludeAny:  l.ExcludeAny,
+		IncludeAny:  l.IncludeAny,
+		IncludeAll:  l.IncludeAll,
+		Flags:       l.Flags,
+		ExcludeSRLG: l.ExcludeSRLG,
+	})
+}
+
+func (l *LsTLVFlexAlgoDef) GetLsTLV() LsTLV {
+	return l.LsTLV
+}
+
+// LsTLVFADPrefixMetric carries the Flexible Algorithm Prefix Metric
+// (FAPM) Prefix Attribute TLV defined by RFC 9351 Section 4. The
+// codepoint sits in the same registry as the FAD sub-TLVs but the
+// TLV is a top-level Prefix Attribute, not nested inside TLV 1039.
+// Length is fixed at 8 octets.
+type LsTLVFADPrefixMetric struct {
+	LsTLV
+	Algorithm uint8
+	Flags     uint8 // OSPF-specific per RFC9351 Section 4; MUST be 0 for IS-IS
+	Metric    uint32
+}
+
+func (l *LsTLVFADPrefixMetric) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+	if l.Type != LS_TLV_FAD_PREFIX_METRIC {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+	if len(value) != 8 {
+		return malformedAttrListErr("FAPM Prefix Attribute TLV length must be 8")
+	}
+	l.Algorithm = value[0]
+	l.Flags = value[1]
+	// value[2:4] is Reserved per RFC9351 Section 4 and MUST be ignored.
+	l.Metric = binary.BigEndian.Uint32(value[4:8])
+	if l.Algorithm < 128 {
+		return malformedAttrListErr("FAPM Algorithm reserved (must be 128..255)")
+	}
+	return nil
+}
+
+func (l *LsTLVFADPrefixMetric) Serialize() ([]byte, error) {
+	buf := make([]byte, 8)
+	buf[0] = l.Algorithm
+	buf[1] = l.Flags
+	// bytes 2..3 are Reserved (RFC9351 Section 4) and stay zero.
+	binary.BigEndian.PutUint32(buf[4:8], l.Metric)
+	l.Length = 8
+	return l.LsTLV.Serialize(buf)
+}
+
+func (l *LsTLVFADPrefixMetric) String() string {
+	return fmt.Sprintf("{FAPM: algo %d metric %d}", l.Algorithm, l.Metric)
+}
+
+func (l *LsTLVFADPrefixMetric) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type      LsTLVType `json:"type"`
+		Algorithm uint8     `json:"algorithm"`
+		Flags     uint8     `json:"flags,omitempty"`
+		Metric    uint32    `json:"metric"`
+	}{
+		Type:      l.Type,
+		Algorithm: l.Algorithm,
+		Flags:     l.Flags,
+		Metric:    l.Metric,
+	})
+}
+
+func (l *LsTLVFADPrefixMetric) GetLsTLV() LsTLV {
 	return l.LsTLV
 }
 
@@ -10269,6 +10684,30 @@ type LsAttributeNode struct {
 	SrCapabilties *LsSrCapabilities `json:"sr_capabilities,omitempty"`
 	SrAlgorithms  *[]byte           `json:"sr_algorithms,omitempty"`
 	SrLocalBlock  *LsSrLocalBlock   `json:"sr_local_block,omitempty"`
+
+	// Flexible Algorithm (RFC9351 Section 3 / RFC9350 source).
+	// A node MAY advertise more than one FAD, one per algorithm in
+	// [128, 255]; the order is the order in which the TLVs appeared.
+	FlexAlgoDefs []LsAttributeFlexAlgoDef `json:"flex_algo_defs,omitempty"`
+}
+
+// LsAttributeFlexAlgoDef is the structured projection of a single
+// FAD TLV (TLV 1039, RFC 9351 Section 3) into the LsAttribute
+// surface. Per RFC 9350 Section 5.1 reserved Metric-Type values
+// (3..127) are kept verbatim with MetricTypeKnown=false so callers
+// can render them as "advertised but unknown" instead of guessing
+// semantics.
+type LsAttributeFlexAlgoDef struct {
+	Algorithm       uint8    `json:"algorithm"`
+	MetricType      uint8    `json:"metric_type"`
+	MetricTypeKnown bool     `json:"metric_type_known"`
+	CalcType        uint8    `json:"calc_type"`
+	Priority        uint8    `json:"priority"`
+	ExcludeAny      []uint32 `json:"exclude_any_affinity,omitempty"`
+	IncludeAny      []uint32 `json:"include_any_affinity,omitempty"`
+	IncludeAll      []uint32 `json:"include_all_affinity,omitempty"`
+	Flags           []byte   `json:"definition_flags,omitempty"`
+	ExcludeSRLG     []uint32 `json:"exclude_srlg,omitempty"`
 }
 
 type LsAttributeLink struct {
@@ -10301,7 +10740,37 @@ type LsAttributePrefix struct {
 	IGPFlags *LsIGPFlags `json:"igp_flags,omitempty"`
 	Opaque   *[]byte     `json:"opaque,omitempty"`
 
-	SrPrefixSID *uint32 `json:"sr_prefix_sid,omitempty"`
+	// SrPrefixSID holds the SR-MPLS Prefix-SID of the prefix when the
+	// originator advertised it with Algorithm = 0 (default SPF). RFC
+	// 9085 Section 2.1.1 permits several Prefix-SID TLVs on the same
+	// Prefix NLRI, one per algorithm, so SrPrefixSIDs below carries
+	// the full list (Algorithm + Flags + SID) without losing entries.
+	// SrPrefixSID stays for backward compatibility with the singular
+	// Algorithm-0 lookup callers already perform.
+	SrPrefixSID  *uint32                `json:"sr_prefix_sid,omitempty"`
+	SrPrefixSIDs []LsAttributePrefixSID `json:"sr_prefix_sids,omitempty"`
+
+	// FadPrefixMetrics carries any FAPM (Flexible Algorithm Prefix
+	// Metric) Prefix Attribute TLVs (TLV 1044, RFC 9351 Section 4)
+	// attached to the prefix. One entry per Flex-Algorithm announced.
+	FadPrefixMetrics []LsAttributeFADPrefixMetric `json:"fad_prefix_metrics,omitempty"`
+}
+
+// LsAttributePrefixSID projects one Prefix-SID TLV (RFC 9085
+// Section 2.1.1) into the LsAttribute surface so callers can read
+// Algorithm + Flags without re-parsing the wire bytes.
+type LsAttributePrefixSID struct {
+	Algorithm uint8  `json:"algorithm"`
+	Flags     uint8  `json:"flags"`
+	SID       uint32 `json:"sid"`
+}
+
+// LsAttributeFADPrefixMetric projects one FAPM TLV (RFC 9351
+// Section 4) into the LsAttribute surface.
+type LsAttributeFADPrefixMetric struct {
+	Algorithm uint8  `json:"algorithm"`
+	Flags     uint8  `json:"flags,omitempty"`
+	Metric    uint32 `json:"metric"`
 }
 
 type LsAttributeBgpPeerSegment struct {
@@ -10418,7 +10887,44 @@ func (p *PathAttributeLs) Extract() *LsAttribute {
 			l.Prefix.Opaque = &v.Attr
 
 		case *LsTLVPrefixSID:
-			l.Prefix.SrPrefixSID = &v.SID
+			// RFC 9085 Section 2.1.1 allows multiple Prefix-SID TLVs
+			// on the same Prefix NLRI (one per SR algorithm). Append
+			// every observation here so Algorithm 128..255 Flex-Algo
+			// SIDs survive; mirror the Algorithm-0 SID into
+			// SrPrefixSID for the singular legacy field.
+			l.Prefix.SrPrefixSIDs = append(l.Prefix.SrPrefixSIDs, LsAttributePrefixSID{
+				Algorithm: v.Algorithm,
+				Flags:     v.Flags,
+				SID:       v.SID,
+			})
+			if v.Algorithm == 0 && l.Prefix.SrPrefixSID == nil {
+				sid := v.SID
+				l.Prefix.SrPrefixSID = &sid
+			}
+
+		case *LsTLVFlexAlgoDef:
+			// RFC 9351 Section 3: one FAD per algorithm; aggregate
+			// every observation into the slice in the order they
+			// arrived on the wire.
+			l.Node.FlexAlgoDefs = append(l.Node.FlexAlgoDefs, LsAttributeFlexAlgoDef{
+				Algorithm:       v.Algorithm,
+				MetricType:      v.MetricType,
+				MetricTypeKnown: v.MetricType <= 2, // RFC 9350 Section 5.1 known set: 0=IGP, 1=MinDelay, 2=TE
+				CalcType:        v.CalcType,
+				Priority:        v.Priority,
+				ExcludeAny:      v.ExcludeAny,
+				IncludeAny:      v.IncludeAny,
+				IncludeAll:      v.IncludeAll,
+				Flags:           v.Flags,
+				ExcludeSRLG:     v.ExcludeSRLG,
+			})
+
+		case *LsTLVFADPrefixMetric:
+			l.Prefix.FadPrefixMetrics = append(l.Prefix.FadPrefixMetrics, LsAttributeFADPrefixMetric{
+				Algorithm: v.Algorithm,
+				Flags:     v.Flags,
+				Metric:    v.Metric,
+			})
 
 		case *LsTLVPeerNodeSID:
 			l.BgpPeerSegment.BgpPeerNodeSid = v.Extract()
@@ -10488,6 +10994,15 @@ func (p *PathAttributeLs) DecodeFromBytes(data []byte, options ...*MarshallingOp
 
 		case LS_TLV_SR_LOCAL_BLOCK:
 			tlv = &LsTLVSrLocalBlock{}
+
+		// Flex-Algorithm Definition (RFC 9351 Section 3).
+		case LS_TLV_FLEX_ALGO_DEF:
+			tlv = &LsTLVFlexAlgoDef{}
+
+		// Flex-Algorithm Prefix Metric (RFC 9351 Section 4).
+		// Top-level Prefix Attribute, not nested inside TLV 1039.
+		case LS_TLV_FAD_PREFIX_METRIC:
+			tlv = &LsTLVFADPrefixMetric{}
 
 		// Link NLRI-related TLVs (https://tools.ietf.org/html/rfc7752#section-3.3.2)
 		case LS_TLV_IPV4_REMOTE_ROUTER_ID:
@@ -16110,6 +16625,13 @@ type BGPBody interface {
 const (
 	BGP_HEADER_LENGTH      = 19
 	BGP_MAX_MESSAGE_LENGTH = 4096
+	// BGP_MAX_EXTENDED_MESSAGE_LENGTH is the largest BGP message a
+	// peer may exchange once both sides have advertised the RFC 8654
+	// Extended Message capability. RFC 8654 Section 2 fixes the cap
+	// at 65535 octets; Section 6 limits the relaxation to UPDATE,
+	// NOTIFICATION and ROUTE-REFRESH (OPEN and KEEPALIVE keep the
+	// 4096-octet ceiling).
+	BGP_MAX_EXTENDED_MESSAGE_LENGTH = 65535
 )
 
 type BGPHeader struct {
@@ -16201,7 +16723,21 @@ func (msg *BGPMessage) Serialize(options ...*MarshallingOption) ([]byte, error) 
 		return nil, err
 	}
 	if msg.Header.Len == 0 {
-		if BGP_HEADER_LENGTH+len(b) > BGP_MAX_MESSAGE_LENGTH {
+		// RFC 8654 Section 4 + Section 6: with the BGP Extended
+		// Message Capability negotiated the cap rises to 65535 for
+		// UPDATE, NOTIFICATION and ROUTE-REFRESH; OPEN and KEEPALIVE
+		// stay at 4096. The caller sets MarshallingOption.ExtendedMessage
+		// only when the session negotiated the capability, so an
+		// uncapped serialise on a peer that did not advertise the
+		// capability still hits the 4096-octet ceiling.
+		maxLen := BGP_MAX_MESSAGE_LENGTH
+		if IsExtendedMessageSerialization(options) {
+			switch msg.Header.Type {
+			case BGP_MSG_UPDATE, BGP_MSG_NOTIFICATION, BGP_MSG_ROUTE_REFRESH:
+				maxLen = BGP_MAX_EXTENDED_MESSAGE_LENGTH
+			}
+		}
+		if BGP_HEADER_LENGTH+len(b) > maxLen {
 			return nil, NewMessageError(0, 0, nil, fmt.Sprintf("too long message length %d", BGP_HEADER_LENGTH+len(b)))
 		}
 		msg.Header.Len = BGP_HEADER_LENGTH + uint16(len(b))

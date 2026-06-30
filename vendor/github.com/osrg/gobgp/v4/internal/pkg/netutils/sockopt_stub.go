@@ -23,7 +23,7 @@ import (
 	"syscall"
 )
 
-func SetTcpMD5SigSockopt(l *net.TCPListener, address string, key string) error {
+func SetTcpMD5SigSockopt(l *net.TCPListener, bindInterface string, address string, key string) error {
 	return fmt.Errorf("setting md5 is not supported")
 }
 
