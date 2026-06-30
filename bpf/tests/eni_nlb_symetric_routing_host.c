@@ -12,10 +12,10 @@
 #include "pktgen.h"
 
 /* Enable code paths under test*/
-#define ENABLE_IPV4
-#define ENABLE_NODEPORT
+#define ENABLE_IPV4		1
+#define ENABLE_NODEPORT		1
 #define ENABLE_MASQUERADE_IPV4	1
-#define ENABLE_ROUTING
+#define ENABLE_ROUTING		1
 
 #define PRIMARY_IFACE 1
 #define SECONDARY_IFACE 2
