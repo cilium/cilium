@@ -93,15 +93,21 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	/* Maybe overwrite the REMOTE_NODE_ID with
-	 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
-	 * identity_is_remote_node() should be removed.
+	/* In DSR scenarios, the first node the packet hits will determine the
+	 * target backend node then tunnel the traffic towards that node,
+	 * encoding the "source" security identity as "world", because there is
+	 * no cluster-wide allocation of security identities for sources
+	 * outside the cluster.
 	 *
-	 * A packet that has DSR info and comes from `world` may have specific identity when
-	 * a CNP that is using CIDR rules is applied.
+	 * When the same packet hits the backend node for decap here, we know
+	 * that in the DSR case the VNI-presented identity therefore is "world",
+	 * but the inner packet has the true original client IP address. Since
+	 * we have the original IP for this incoming packet, we can perform the
+	 * lookup in the ipcache to get the locally-allocated security identity
+	 * for the peer. By looking this up here, we can correctly enforce
+	 * network policy for the CIDR range of the peer outside the cluster.
 	 */
-	if (identity_is_remote_node(*identity) ||
-	    (is_dsr && identity_is_world_ipv6(*identity))) {
+	if (is_dsr && identity_is_world_ipv6(*identity)) {
 		const struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
@@ -342,9 +348,21 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	}
 #endif
 
-	/* See comment at equivalent code in handle_ipv6() */
-	if (identity_is_remote_node(*identity) ||
-	    (is_dsr && identity_is_world_ipv4(*identity))) {
+	/* In DSR scenarios, the first node the packet hits will determine the
+	 * target backend node then tunnel the traffic towards that node,
+	 * encoding the "source" security identity as "world", because there is
+	 * no cluster-wide allocation of security identities for sources
+	 * outside the cluster.
+	 *
+	 * When the same packet hits the backend node for decap here, we know
+	 * that in the DSR case the VNI-presented identity therefore is "world",
+	 * but the inner packet has the true original client IP address. Since
+	 * we have the original IP for this incoming packet, we can perform the
+	 * lookup in the ipcache to get the locally-allocated security identity
+	 * for the peer. By looking this up here, we can correctly enforce
+	 * network policy for the CIDR range of the peer outside the cluster.
+	 */
+	if (is_dsr && identity_is_world_ipv4(*identity)) {
 		const struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
