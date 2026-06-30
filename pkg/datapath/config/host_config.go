@@ -58,6 +58,8 @@ type BPFHost struct {
 	NATIPv6Masquerade types.V6Addr `config:"nat_ipv6_masquerade"`
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
 	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
+	// Number of times to retry SNAT.
+	SNATCollisionRetries uint16 `config:"snat_collision_retries"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// Port number used for the overlay network.
@@ -80,5 +82,5 @@ func NewBPFHost(node Node) *BPFHost {
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		false, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
+		false, 0x20, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
 }

@@ -34,6 +34,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 	cfg.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = uint16(lnc.SNATCollisionRetries)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort

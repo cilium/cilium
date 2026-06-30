@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -175,6 +176,7 @@ func newLocalNodeConfig(
 		NodeAddresses:                statedb.Collect(nodeAddrsIter),
 		DirectRoutingDevice:          directRoutingDevice,
 		DeriveMasqIPAddrFromDevice:   masqInterface,
+		SNATCollisionRetries:         nat.SnatCollisionRetries,
 		HostEndpointID:               hostEndpointID,
 		DeviceMTU:                    mtuRoute.DeviceMTU,
 		RouteMTU:                     mtuRoute.RouteMTU,

@@ -132,6 +132,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.DeriveMasqIPAddrFromDevice != other.DeriveMasqIPAddrFromDevice {
 		return false
 	}
+	if in.SNATCollisionRetries != other.SNATCollisionRetries {
+		return false
+	}
 	if in.HostEndpointID != other.HostEndpointID {
 		return false
 	}
