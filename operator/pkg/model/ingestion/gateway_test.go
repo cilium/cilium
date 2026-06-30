@@ -467,6 +467,201 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 	assert.Equal(t, "podinfo", m.TLSPassthrough[1].Routes[0].Backends[0].Name)
 }
 
+func TestTLSGatewayAPIFiltersRoutesByListenerParentRefPort(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	m := GatewayAPI(logger, Input{
+		Gateway: gatewayv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "platform",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.GatewaySpec{
+				Listeners: []gatewayv1.Listener{
+					{
+						Name:     "tls-443",
+						Hostname: ptr.To[gatewayv1.Hostname]("tls.example.test"),
+						Port:     443,
+						Protocol: gatewayv1.TLSProtocolType,
+						TLS: &gatewayv1.ListenerTLSConfig{
+							Mode: ptr.To(gatewayv1.TLSModePassthrough),
+						},
+					},
+					{
+						Name:     "tls-8443",
+						Hostname: ptr.To[gatewayv1.Hostname]("tls.example.test"),
+						Port:     8443,
+						Protocol: gatewayv1.TLSProtocolType,
+						TLS: &gatewayv1.ListenerTLSConfig{
+							Mode: ptr.To(gatewayv1.TLSModePassthrough),
+						},
+					},
+				},
+			},
+		},
+		TLSRoutes: []gatewayv1.TLSRoute{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tls",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.TLSRouteSpec{
+					Hostnames: []gatewayv1.Hostname{"tls.example.test"},
+					CommonRouteSpec: gatewayv1.CommonRouteSpec{
+						ParentRefs: []gatewayv1.ParentReference{
+							{
+								Name:      "platform",
+								Namespace: ptr.To[gatewayv1.Namespace]("default"),
+								Port:      ptr.To[gatewayv1.PortNumber](443),
+							},
+						},
+					},
+					Rules: []gatewayv1.TLSRouteRule{
+						{
+							BackendRefs: []gatewayv1.BackendRef{
+								{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Name: "backend",
+										Port: ptr.To[gatewayv1.PortNumber](9898),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Services: []corev1.Service{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "backend",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{{Port: 9898}},
+				},
+			},
+		},
+	})
+
+	require.Len(t, m.TLSPassthrough, 2)
+
+	require.Equal(t, "tls-443", m.TLSPassthrough[0].Name)
+	require.Len(t, m.TLSPassthrough[0].Routes, 1)
+	assert.Equal(t, []string{"tls.example.test"}, m.TLSPassthrough[0].Routes[0].Hostnames)
+	require.Len(t, m.TLSPassthrough[0].Routes[0].Backends, 1)
+	assert.Equal(t, "backend", m.TLSPassthrough[0].Routes[0].Backends[0].Name)
+
+	require.Equal(t, "tls-8443", m.TLSPassthrough[1].Name)
+	assert.Empty(t, m.TLSPassthrough[1].Routes)
+}
+
+func TestParentRefsMatchListener(t *testing.T) {
+	listener := gatewayv1.Listener{
+		Name: "http-listener",
+		Port: 80,
+	}
+
+	tests := []struct {
+		name       string
+		parentRefs []gatewayv1.ParentReference
+		want       bool
+	}{
+		{
+			name: "both fields nil matches listener",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: nil, Port: nil},
+			},
+			want: true,
+		},
+		{
+			name: "sectionName matches and port is nil",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: ptr.To[gatewayv1.SectionName]("http-listener"), Port: nil},
+			},
+			want: true,
+		},
+		{
+			name: "sectionName mismatches and port is nil",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: ptr.To[gatewayv1.SectionName]("wrong-listener"), Port: nil},
+			},
+			want: false,
+		},
+		{
+			name: "sectionName is nil and port matches",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: nil, Port: ptr.To[gatewayv1.PortNumber](80)},
+			},
+			want: true,
+		},
+		{
+			name: "sectionName is nil and port mismatches",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: nil, Port: ptr.To[gatewayv1.PortNumber](443)},
+			},
+			want: false,
+		},
+		{
+			name: "sectionName and port match",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: ptr.To[gatewayv1.SectionName]("http-listener"), Port: ptr.To[gatewayv1.PortNumber](80)},
+			},
+			want: true,
+		},
+		{
+			name: "sectionName matches and port mismatches",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: ptr.To[gatewayv1.SectionName]("http-listener"), Port: ptr.To[gatewayv1.PortNumber](443)},
+			},
+			want: false,
+		},
+		{
+			name: "sectionName mismatches and port matches",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: ptr.To[gatewayv1.SectionName]("wrong-listener"), Port: ptr.To[gatewayv1.PortNumber](80)},
+			},
+			want: false,
+		},
+		{
+			name: "multiple parentRefs and second one matches",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: ptr.To[gatewayv1.SectionName]("wrong-listener"), Port: ptr.To[gatewayv1.PortNumber](443)},
+				{SectionName: ptr.To[gatewayv1.SectionName]("http-listener"), Port: ptr.To[gatewayv1.PortNumber](80)},
+			},
+			want: true,
+		},
+		{
+			name: "multiple parentRefs and later port-only ref matches",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: ptr.To[gatewayv1.SectionName]("http-listener"), Port: ptr.To[gatewayv1.PortNumber](443)},
+				{SectionName: nil, Port: ptr.To[gatewayv1.PortNumber](80)},
+			},
+			want: true,
+		},
+		{
+			name: "multiple parentRefs and none match",
+			parentRefs: []gatewayv1.ParentReference{
+				{SectionName: ptr.To[gatewayv1.SectionName]("wrong-listener"), Port: ptr.To[gatewayv1.PortNumber](80)},
+				{SectionName: ptr.To[gatewayv1.SectionName]("http-listener"), Port: ptr.To[gatewayv1.PortNumber](443)},
+			},
+			want: false,
+		},
+		{
+			name:       "empty parentRefs list",
+			parentRefs: []gatewayv1.ParentReference{},
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parentRefsMatchListener(tt.parentRefs, listener)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestTLSGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
 		"basic tls http": {},
