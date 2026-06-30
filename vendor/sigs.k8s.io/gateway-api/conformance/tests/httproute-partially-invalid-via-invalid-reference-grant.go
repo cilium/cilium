@@ -43,8 +43,8 @@ var HTTPRoutePartiallyInvalidViaInvalidReferenceGrant = suite.ConformanceTest{
 	},
 	Manifests: []string{"tests/httproute-partially-invalid-via-invalid-reference-grant.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		routeNN := types.NamespacedName{Name: "invalid-reference-grant", Namespace: "gateway-conformance-infra"}
-		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+		routeNN := types.NamespacedName{Name: "invalid-reference-grant", Namespace: suite.InfrastructureNamespace}
+		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: suite.InfrastructureNamespace}
 
 		// Route and Gateway must be Attached.
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, s.Client, s.TimeoutConfig, s.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
@@ -77,7 +77,7 @@ var HTTPRoutePartiallyInvalidViaInvalidReferenceGrant = suite.ConformanceTest{
 				},
 				Response:  http.Response{StatusCode: 200},
 				Backend:   "app-backend-v1",
-				Namespace: "gateway-conformance-app-backend",
+				Namespace: suite.AppBackendNamespace,
 			})
 		})
 	},

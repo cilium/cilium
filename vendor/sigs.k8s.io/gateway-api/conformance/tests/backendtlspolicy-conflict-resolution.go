@@ -25,7 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	h "sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, BackendTLSPolicyConflictResolution)
 }
 
-var BackendTLSPolicyConflictResolution = suite.ConformanceTest{
+var BackendTLSPolicyConflictResolution = confsuite.ConformanceTest{
 	ShortName:   "BackendTLSPolicyConflictResolution",
 	Description: "Verifies that when multiple BackendTLSPolicies target the same Service, only one policy is accepted while conflicting policies are rejected, and traffic continues to route successfully.",
 	Features: []features.FeatureName{
@@ -42,8 +42,9 @@ var BackendTLSPolicyConflictResolution = suite.ConformanceTest{
 		features.SupportBackendTLSPolicy,
 	},
 	Manifests: []string{"tests/backendtlspolicy-conflict-resolution.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Parallel:  true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "backendtlspolicy-conflict-resolution", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 

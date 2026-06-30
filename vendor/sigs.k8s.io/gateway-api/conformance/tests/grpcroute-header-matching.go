@@ -26,7 +26,7 @@ import (
 	pb "sigs.k8s.io/gateway-api/conformance/echo-basic/grpcechoserver"
 	"sigs.k8s.io/gateway-api/conformance/utils/grpc"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -34,7 +34,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, GRPCRouteHeaderMatching)
 }
 
-var GRPCRouteHeaderMatching = suite.ConformanceTest{
+var GRPCRouteHeaderMatching = confsuite.ConformanceTest{
 	ShortName:   "GRPCRouteHeaderMatching",
 	Description: "A single GRPCRoute with header matching for different backends",
 	Manifests:   []string{"tests/grpcroute-header-matching.yaml"},
@@ -42,8 +42,8 @@ var GRPCRouteHeaderMatching = suite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportGRPCRoute,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "grpc-header-matching", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), &v1.GRPCRoute{}, true, routeNN)

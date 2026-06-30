@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -31,7 +31,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteRewriteHost)
 }
 
-var HTTPRouteRewriteHost = suite.ConformanceTest{
+var HTTPRouteRewriteHost = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteRewriteHost",
 	Description: "An HTTPRoute with hostname rewrite filter",
 	Manifests:   []string{"tests/httproute-rewrite-host.yaml"},
@@ -40,8 +40,8 @@ var HTTPRouteRewriteHost = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteHostRewrite,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "rewrite-host", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
@@ -59,7 +59,7 @@ var HTTPRouteRewriteHost = suite.ConformanceTest{
 						Host: "one.example.org",
 					},
 				},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			}, {
 				Request: http.Request{
@@ -72,7 +72,7 @@ var HTTPRouteRewriteHost = suite.ConformanceTest{
 						Host: "example.org",
 					},
 				},
-				Backend:   "infra-backend-v2",
+				Backend:   confsuite.InfraBackendServiceNameV2,
 				Namespace: ns,
 			}, {
 				Request: http.Request{
@@ -95,7 +95,7 @@ var HTTPRouteRewriteHost = suite.ConformanceTest{
 					},
 					AbsentHeaders: []string{"X-Header-Remove"},
 				},
-				Backend:   "infra-backend-v2",
+				Backend:   confsuite.InfraBackendServiceNameV2,
 				Namespace: ns,
 			},
 		}

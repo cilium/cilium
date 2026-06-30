@@ -26,7 +26,7 @@ import (
 	pb "sigs.k8s.io/gateway-api/conformance/echo-basic/grpcechoserver"
 	"sigs.k8s.io/gateway-api/conformance/utils/grpc"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -34,7 +34,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, GRPCRouteListenerHostnameMatching)
 }
 
-var GRPCRouteListenerHostnameMatching = suite.ConformanceTest{
+var GRPCRouteListenerHostnameMatching = confsuite.ConformanceTest{
 	ShortName:   "GRPCRouteListenerHostnameMatching",
 	Description: "Multiple GRPC listeners with the same port and different hostnames, each with a different GRPCRoute",
 	Manifests:   []string{"tests/grpcroute-listener-hostname-matching.yaml"},
@@ -42,8 +42,8 @@ var GRPCRouteListenerHostnameMatching = suite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportGRPCRoute,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 
 		// This test creates an additional Gateway in the gateway-conformance-infra
 		// namespace so we have to wait for it to be ready.

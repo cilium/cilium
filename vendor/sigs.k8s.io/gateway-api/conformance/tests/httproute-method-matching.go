@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -31,7 +31,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteMethodMatching)
 }
 
-var HTTPRouteMethodMatching = suite.ConformanceTest{
+var HTTPRouteMethodMatching = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteMethodMatching",
 	Description: "A single HTTPRoute with method matching for different backends",
 	Manifests:   []string{"tests/httproute-method-matching.yaml"},
@@ -40,8 +40,8 @@ var HTTPRouteMethodMatching = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteMethodMatching,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "method-matching", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
@@ -50,11 +50,11 @@ var HTTPRouteMethodMatching = suite.ConformanceTest{
 		testCases := []http.ExpectedResponse{
 			{
 				Request:   http.Request{Method: "POST", Path: "/"},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			}, {
 				Request:   http.Request{Method: "GET", Path: "/"},
-				Backend:   "infra-backend-v2",
+				Backend:   confsuite.InfraBackendServiceNameV2,
 				Namespace: ns,
 			}, {
 				Request:  http.Request{Method: "HEAD", Path: "/"},
@@ -66,17 +66,17 @@ var HTTPRouteMethodMatching = suite.ConformanceTest{
 		testCases = append(testCases, []http.ExpectedResponse{
 			{
 				Request:   http.Request{Path: "/path1", Method: "GET"},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 			{
 				Request:   http.Request{Headers: map[string]string{"version": "one"}, Path: "/", Method: "PUT"},
-				Backend:   "infra-backend-v2",
+				Backend:   confsuite.InfraBackendServiceNameV2,
 				Namespace: ns,
 			},
 			{
 				Request:   http.Request{Headers: map[string]string{"version": "two"}, Path: "/path2", Method: "POST"},
-				Backend:   "infra-backend-v3",
+				Backend:   confsuite.InfraBackendServiceNameV3,
 				Namespace: ns,
 			},
 		}...)
@@ -86,12 +86,12 @@ var HTTPRouteMethodMatching = suite.ConformanceTest{
 		testCases = append(testCases, []http.ExpectedResponse{
 			{
 				Request:   http.Request{Path: "/path3", Method: "PATCH"},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 			{
 				Request:   http.Request{Headers: map[string]string{"version": "three"}, Path: "/path4", Method: "DELETE"},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 		}...)
@@ -114,12 +114,12 @@ var HTTPRouteMethodMatching = suite.ConformanceTest{
 		testCases = append(testCases, []http.ExpectedResponse{
 			{
 				Request:   http.Request{Path: "/path5", Method: "PATCH"},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 			{
 				Request:   http.Request{Headers: map[string]string{"version": "four"}, Path: "/", Method: "PATCH"},
-				Backend:   "infra-backend-v2",
+				Backend:   confsuite.InfraBackendServiceNameV2,
 				Namespace: ns,
 			},
 		}...)

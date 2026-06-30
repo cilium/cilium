@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-invalid-xns-backend
+  namespace: gateway-conformance-web-backend
+  labels:
+    app: tcp-invalid-xns-backend
+spec:
+  selector:
+    app: tcp-invalid-xns-backend
+  ports:
+    - name: tcp
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcp-invalid-xns-backend
+  namespace: gateway-conformance-web-backend
+  labels:
+    app: tcp-invalid-xns-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-invalid-xns-backend
+  template:
+    metadata:
+      labels:
+        app: tcp-invalid-xns-backend
+    spec:
+      containers:
+        - name: tcp-echo
+          image: registry.k8s.io/gateway-api/echo-basic:v1.5.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TCP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: tcp-invalid-xns-backend
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: tcp-invalid-cross-namespace-backend-ref-gateway
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: tcp
+      protocol: TCP
+      port: 9321
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
+---
+# No ReferenceGrant: the cross-namespace backendRef must NOT be permitted.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-invalid-cross-namespace-backend-ref
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: tcp-invalid-cross-namespace-backend-ref-gateway
+      sectionName: tcp
+  rules:
+    - backendRefs:
+        - name: tcp-invalid-xns-backend
+          namespace: gateway-conformance-web-backend
+          port: 3000

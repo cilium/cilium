@@ -92,7 +92,7 @@ spec:
     spec:
       containers:
         - name: tls-backend-with-client-cert-validation
-          image: gcr.io/k8s-staging-gateway-api/echo-basic:v20260204-monthly-2026.01-60-g28382302
+          image: registry.k8s.io/gateway-api/echo-basic:v1.5.1
           volumeMounts:
             - name: secret-volume
               mountPath: /etc/secret-volume

@@ -240,7 +240,7 @@ func (m *MeshPod) request(args []string) (Response, error) {
 }
 
 func ConnectToApp(t *testing.T, s *suite.ConformanceTestSuite, app MeshApplication) MeshPod {
-	return ConnectToAppInNamespace(t, s, app, "gateway-conformance-mesh")
+	return ConnectToAppInNamespace(t, s, app, suite.MeshNamespace)
 }
 
 func ConnectToAppInNamespace(t *testing.T, s *suite.ConformanceTestSuite, app MeshApplication, ns string) MeshPod {

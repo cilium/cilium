@@ -195,7 +195,7 @@ func ParseResponse(output string) Response {
 		out.ResponseHeaders.Set(sl[0], sl[1])
 	}
 
-	for _, l := range strings.Split(output, "\n") {
+	for l := range strings.SplitSeq(output, "\n") {
 		prefixSplit := strings.Split(l, "body] ")
 		if len(prefixSplit) != 2 {
 			continue

@@ -3,6 +3,8 @@ kind: Gateway
 metadata:
   name: gateway-only-invalid-route-kind
   namespace: gateway-conformance-infra
+  annotations:
+    gateway-api/skip-this-for-readiness: "true"
 spec:
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:
@@ -20,6 +22,8 @@ kind: Gateway
 metadata:
   name: gateway-supported-and-invalid-route-kind
   namespace: gateway-conformance-infra
+  annotations:
+    gateway-api/skip-this-for-readiness: "true"
 spec:
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:

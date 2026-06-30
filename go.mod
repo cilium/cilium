@@ -137,8 +137,8 @@ require (
 	k8s.io/metrics v0.36.2
 	k8s.io/utils v0.0.0-20260617174310-a95e086a2553
 	sigs.k8s.io/controller-runtime v0.24.1
-	sigs.k8s.io/gateway-api v1.5.1
-	sigs.k8s.io/gateway-api/conformance v1.5.1
+	sigs.k8s.io/gateway-api v1.6.0
+	sigs.k8s.io/gateway-api/conformance v1.6.0
 	sigs.k8s.io/mcs-api v0.5.1-0.20260611073251-db147c3e167e
 	sigs.k8s.io/mcs-api/conformance v0.5.1-0.20260611073251-db147c3e167e
 	sigs.k8s.io/mcs-api/controllers v0.5.1-0.20260611073251-db147c3e167e
@@ -310,7 +310,7 @@ require (
 	k8s.io/apiserver v0.36.2 // indirect
 	k8s.io/code-generator v0.36.2 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
-	k8s.io/kube-openapi v0.0.0-20260427204847-8949caaa1199 // indirect
+	k8s.io/kube-openapi v0.0.0-20260501160325-927ab1f70cd6 // indirect
 	k8s.io/streaming v0.36.2 // indirect
 	oras.land/oras-go/v2 v2.6.1 // indirect
 	sigs.k8s.io/controller-tools v0.20.1 // indirect

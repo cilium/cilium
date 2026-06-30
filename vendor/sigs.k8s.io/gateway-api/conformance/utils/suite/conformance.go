@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -68,7 +70,7 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 
 	for _, manifestLocation := range test.Manifests {
 		tlog.Logf(t, "Applying %s", manifestLocation)
-		suite.Applier.MustApplyWithCleanup(t, suite.Client, suite.TimeoutConfig, manifestLocation, true)
+		suite.Applier.MustApplyWithCleanup(t, suite.Client, suite.TimeoutConfig, manifestLocation, suite.CleanupTestResources)
 	}
 
 	if featuresInfo != "" {
@@ -77,15 +79,27 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 	test.Test(t, suite)
 }
 
-// ParseSupportedFeatures parses flag arguments and converts the string to
-// sets.Set[features.FeatureName]
+// ParseSupportedFeatures parses a comma-separated string of feature names
+// into a FeaturesSet. Exists for backward compatibility with external
+// consumers of this package.
 func ParseSupportedFeatures(f string) FeaturesSet {
+	slice := ParseSupportedFeaturesSlice(f)
+	if slice == nil {
+		return nil
+	}
+	return sets.New(slice...)
+}
+
+// ParseSupportedFeaturesSlice parses a comma-separated string of feature
+// names into a slice. Used for populating ConfigurableOptions
+// fields.
+func ParseSupportedFeaturesSlice(f string) []features.FeatureName {
 	if f == "" {
 		return nil
 	}
-	res := FeaturesSet{}
-	for _, value := range strings.Split(f, ",") {
-		res.Insert(features.FeatureName(value))
+	res := make([]features.FeatureName, 0)
+	for value := range strings.SplitSeq(f, ",") {
+		res = append(res, features.FeatureName(value))
 	}
 	return res
 }
@@ -97,7 +111,7 @@ func ParseKeyValuePairs(f string) map[string]string {
 		return nil
 	}
 	res := map[string]string{}
-	for _, kv := range strings.Split(f, ",") {
+	for kv := range strings.SplitSeq(f, ",") {
 		parts := strings.Split(kv, "=")
 		if len(parts) == 2 {
 			res[parts[0]] = parts[1]

@@ -1,0 +1,80 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-section-name
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: gw-listener
+    port: 80
+    protocol: HTTP
+    hostname: "gw-section.com"
+    allowedRoutes:
+      namespaces:
+        from: Same
+  allowedListeners:
+    namespaces:
+      from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-section-name
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-section-name
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: ls-only-listener
+    port: 80
+    protocol: HTTP
+    hostname: "ls-section-name.com"
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+# This route attaches correctly to the ListenerSet directly
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-via-listenerset
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - kind: ListenerSet
+    group: gateway.networking.k8s.io
+    name: listenerset-section-name
+    namespace: gateway-conformance-infra
+    sectionName: ls-only-listener
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /goodsection
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+---
+# This route attempts to attach to a ListenerSet sectionName via a Gateway
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-via-gateway
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: gateway-section-name
+    namespace: gateway-conformance-infra
+    sectionName: ls-only-listener
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /badsection
+    backendRefs:
+    - name: infra-backend-v2
+      port: 8080

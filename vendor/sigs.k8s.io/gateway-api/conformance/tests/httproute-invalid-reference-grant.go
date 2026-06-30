@@ -25,7 +25,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidReferenceGrant)
 }
 
-var HTTPRouteInvalidReferenceGrant = suite.ConformanceTest{
+var HTTPRouteInvalidReferenceGrant = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidReferenceGrant",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace, with a backendRef in another namespace without valid ReferenceGrant, should have the ResolvedRefs condition set to False and not forward HTTP requests to any backend",
 	Features: []features.FeatureName{
@@ -42,9 +42,9 @@ var HTTPRouteInvalidReferenceGrant = suite.ConformanceTest{
 		features.SupportReferenceGrant,
 	},
 	Manifests: []string{"tests/httproute-invalid-reference-grant.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		routeNN := types.NamespacedName{Name: "reference-grant", Namespace: "gateway-conformance-infra"}
-		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		routeNN := types.NamespacedName{Name: "reference-grant", Namespace: confsuite.InfrastructureNamespace}
+		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: confsuite.InfrastructureNamespace}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 
 		t.Run("HTTPRoute with BackendRef in another namespace and no ReferenceGrant covering the Service has a ResolvedRefs Condition with status False and Reason RefNotPermitted", func(t *testing.T) {
@@ -65,7 +65,7 @@ var HTTPRouteInvalidReferenceGrant = suite.ConformanceTest{
 				},
 				Response:  http.Response{StatusCode: 500},
 				Backend:   "web-backend",
-				Namespace: "gateway-conformance-web-backend",
+				Namespace: confsuite.WebBackendNamespace,
 			})
 		})
 	},

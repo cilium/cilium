@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -31,11 +31,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteTimeoutBackendRequest)
 }
 
-// Note that here we are only making sure BackendRequest timeouts work individually.
-// TODO: once we add retry support to Gateway API (future GEP-1731), add conformance tests to show
-// Request and BackendRequest timeouts working together.
-
-var HTTPRouteTimeoutBackendRequest = suite.ConformanceTest{
+var HTTPRouteTimeoutBackendRequest = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteTimeoutBackendRequest",
 	Description: "An HTTPRoute with backend request timeout",
 	Manifests:   []string{"tests/httproute-timeout-backend-request.yaml"},
@@ -44,8 +40,8 @@ var HTTPRouteTimeoutBackendRequest = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteBackendTimeout,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "backend-request-timeout", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)

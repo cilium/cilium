@@ -23,7 +23,7 @@ spec:
     namespaces:
       from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: reference-grant-for-gateway
@@ -63,7 +63,7 @@ spec:
         name: certificate
         namespace: gateway-conformance-web-backend
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: reference-grant-for-listener-set

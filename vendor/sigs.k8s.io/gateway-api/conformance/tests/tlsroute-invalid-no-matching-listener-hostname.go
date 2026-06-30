@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, TLSRouteInvalidNoMatchingListenerHostname)
 }
 
-var TLSRouteInvalidNoMatchingListenerHostname = suite.ConformanceTest{
+var TLSRouteInvalidNoMatchingListenerHostname = confsuite.ConformanceTest{
 	ShortName:   "TLSRouteInvalidNoMatchingListenerHostname",
 	Description: "A TLSRoute with a hostname that does not match the Gateway listener hostname should set Accepted=False with Reason=NoMatchingListenerHostname",
 	Features: []features.FeatureName{
@@ -40,8 +40,8 @@ var TLSRouteInvalidNoMatchingListenerHostname = suite.ConformanceTest{
 		features.SupportTLSRoute,
 	},
 	Manifests: []string{"tests/tlsroute-invalid-no-matching-listener-hostname.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		route1NN := types.NamespacedName{Name: "tlsroute-hostname-mismatch-1", Namespace: ns}
 		route2NN := types.NamespacedName{Name: "tlsroute-hostname-mismatch-2", Namespace: ns}
 		exactGwNN := types.NamespacedName{Name: "gateway-tls-exact-hostname", Namespace: ns}

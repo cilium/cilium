@@ -41,7 +41,7 @@ var MeshHTTPRoute303Redirect = suite.ConformanceTest{
 	},
 	Manifests: []string{"tests/mesh/httproute-303-redirect.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-mesh"
+		ns := suite.MeshNamespace
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
 
 		testCases := []http.ExpectedResponse{

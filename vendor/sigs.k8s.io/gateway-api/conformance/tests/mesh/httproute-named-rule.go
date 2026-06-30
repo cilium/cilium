@@ -39,9 +39,9 @@ var MeshHTTPRouteNamedRule = suite.ConformanceTest{
 		features.SupportMeshHTTPRouteNamedRouteRule,
 	},
 	Provisional: true,
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-mesh"
-		client := echo.ConnectToApp(t, suite, echo.MeshAppEchoV1)
+	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
+		ns := suite.MeshNamespace
+		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
 
 		testCases := []http.ExpectedResponse{
 			{
@@ -61,7 +61,7 @@ var MeshHTTPRouteNamedRule = suite.ConformanceTest{
 			tc := testCases[i]
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				client.MakeRequestAndExpectEventuallyConsistentResponse(t, tc, suite.TimeoutConfig)
+				client.MakeRequestAndExpectEventuallyConsistentResponse(t, tc, s.TimeoutConfig)
 			})
 		}
 	},

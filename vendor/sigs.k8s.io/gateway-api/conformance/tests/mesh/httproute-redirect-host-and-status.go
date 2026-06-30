@@ -39,7 +39,7 @@ var MeshHTTPRouteRedirectHostAndStatus = suite.ConformanceTest{
 	},
 	Manifests: []string{"tests/mesh/httproute-redirect-host-and-status.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-mesh"
+		ns := suite.MeshNamespace
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
 
 		testCases := []http.ExpectedResponse{

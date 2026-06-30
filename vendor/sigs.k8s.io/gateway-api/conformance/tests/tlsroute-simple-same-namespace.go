@@ -17,17 +17,12 @@ limitations under the License.
 package tests
 
 import (
-	"context"
-	"fmt"
 	"testing"
-	"time"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tcp"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -36,7 +31,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, TLSRouteSimpleSameNamespace)
 }
 
-var TLSRouteSimpleSameNamespace = suite.ConformanceTest{
+var TLSRouteSimpleSameNamespace = confsuite.ConformanceTest{
 	ShortName:   "TLSRouteSimpleSameNamespace",
 	Description: "A single TLSRoute in the gateway-conformance-infra namespace attaches to a Gateway in the same namespace",
 	Features: []features.FeatureName{
@@ -44,11 +39,11 @@ var TLSRouteSimpleSameNamespace = suite.ConformanceTest{
 		features.SupportTLSRoute,
 	},
 	Manifests: []string{"tests/tlsroute-simple-same-namespace.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
-		routeNN := types.NamespacedName{Name: "gateway-conformance-infra-test", Namespace: ns}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
+		routeNN := types.NamespacedName{Name: confsuite.InfrastructureGatewayName, Namespace: ns}
 		gwNN := types.NamespacedName{Name: "gateway-tlsroute", Namespace: ns}
-		certNN := types.NamespacedName{Name: "tls-passthrough-checks-certificate", Namespace: ns}
+		caCertNN := types.NamespacedName{Name: "tls-checks-ca-certificate", Namespace: ns}
 
 		kubernetes.NamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, []string{ns})
 
@@ -58,36 +53,23 @@ var TLSRouteSimpleSameNamespace = suite.ConformanceTest{
 		}
 		serverStr := string(hostnames[0])
 
-		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
+		caConfigMap, err := kubernetes.GetConfigMapData(suite.Client, suite.TimeoutConfig, caCertNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
 		}
+		caString, ok := caConfigMap["ca.crt"]
+		if !ok {
+			t.Fatalf("ca.crt not found in configmap: %s/%s", caCertNN.Namespace, caCertNN.Name)
+		}
+
 		t.Run("Simple TLS request matching TLSRoute should reach infra-backend", func(t *testing.T) {
-			tcp.MakeTCPRequestAndExpectEventuallyValidResponse(t, suite.TimeoutConfig, gwAddr, serverCertPem, serverStr, true,
+			tcp.MakeTCPRequestAndExpectEventuallyValidResponse(t, suite.TimeoutConfig, gwAddr, []byte(caString), serverStr, true,
 				tcp.ExpectedResponse{
 					BackendIsTLS: true, // Passthrough expects a TLS Backend
 					Backend:      "tcp-backend",
-					Namespace:    "gateway-conformance-infra",
+					Namespace:    confsuite.InfrastructureNamespace,
 					Hostname:     serverStr,
 				})
 		})
 	},
-}
-
-// GetTLSSecret fetches the named Secret and converts both cert and key to []byte
-func GetTLSSecret(client client.Client, secretName types.NamespacedName) ([]byte, []byte, error) {
-	var cert, key []byte
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	secret := &v1.Secret{}
-	err := client.Get(ctx, secretName, secret)
-	if err != nil {
-		return cert, key, fmt.Errorf("error fetching TLS Secret: %w", err)
-	}
-	cert = secret.Data["tls.crt"]
-	key = secret.Data["tls.key"]
-
-	return cert, key, nil
 }

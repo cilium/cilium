@@ -25,7 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	h "sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -33,8 +33,8 @@ func init() {
 	ConformanceTests = append(ConformanceTests, GatewayTLSBackendClientCertificate)
 }
 
-var GatewayTLSBackendClientCertificate = suite.ConformanceTest{
-	ShortName:   "GatewayBackendClientCertificateFeature",
+var GatewayTLSBackendClientCertificate = confsuite.ConformanceTest{
+	ShortName:   "GatewayTLSBackendClientCertificate",
 	Description: "A Gateway with a client certificate configured should present the certificate when connecting to a backend using TLS.",
 	Features: []features.FeatureName{
 		features.SupportGateway,
@@ -43,8 +43,9 @@ var GatewayTLSBackendClientCertificate = suite.ConformanceTest{
 		features.SupportBackendTLSPolicy,
 	},
 	Manifests: []string{"tests/gateway-tls-backend-client-certificate.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Parallel:  true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 
 		routeNN := types.NamespacedName{Name: "gateway-tls-backend-client-certificate", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "gateway-tls-backend-client-certificate", Namespace: ns}
@@ -62,9 +63,12 @@ var GatewayTLSBackendClientCertificate = suite.ConformanceTest{
 		})
 
 		t.Run("HTTP request sent to Service using TLS should succeed and the configured client certificate should be presented.", func(t *testing.T) {
-			expectedClientCert, _, err := GetTLSSecret(suite.Client, types.NamespacedName{Name: "tls-checks-client-certificate", Namespace: ns})
+			expectedClientCert, _, err := kubernetes.GetTLSSecret(suite.Client, types.NamespacedName{Name: "tls-checks-client-certificate", Namespace: ns})
 			if err != nil {
 				t.Fatalf("unexpected error finding TLS client certifcate secret: %v", err)
+			}
+			if len(expectedClientCert) == 0 {
+				t.Fatal("missing required server certificate pem for the test")
 			}
 
 			h.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr,

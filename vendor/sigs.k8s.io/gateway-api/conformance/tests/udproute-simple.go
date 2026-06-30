@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -35,7 +35,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, UDPRouteTest)
 }
 
-var UDPRouteTest = suite.ConformanceTest{
+var UDPRouteTest = confsuite.ConformanceTest{
 	ShortName:   "UDPRoute",
 	Description: "Make sure UDPRoute is working",
 	Manifests:   []string{"tests/udproute-simple.yaml"},
@@ -44,9 +44,9 @@ var UDPRouteTest = suite.ConformanceTest{
 		features.SupportGateway,
 	},
 	Provisional: true,
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		t.Run("Simple UDP request matching UDPRoute should reach coredns backend", func(t *testing.T) {
-			namespace := "gateway-conformance-infra"
+			namespace := confsuite.InfrastructureNamespace
 			domain := "foo.bar.com."
 			routeNN := types.NamespacedName{Name: "udp-coredns", Namespace: namespace}
 			gwNN := types.NamespacedName{Name: "udp-gateway", Namespace: namespace}

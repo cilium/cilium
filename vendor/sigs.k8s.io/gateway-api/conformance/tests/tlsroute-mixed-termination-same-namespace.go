@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tcp"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, TLSRouteMixedTerminationSameNamespace)
 }
 
-var TLSRouteMixedTerminationSameNamespace = suite.ConformanceTest{
+var TLSRouteMixedTerminationSameNamespace = confsuite.ConformanceTest{
 	ShortName:   "TLSRouteMixedTerminationSameNamespace",
 	Description: "A Gateway with 2 TLS Listeners on different modes, on the same port must route the traffic correctly",
 	Features: []features.FeatureName{
@@ -44,13 +44,12 @@ var TLSRouteMixedTerminationSameNamespace = suite.ConformanceTest{
 	},
 	Provisional: true,
 	Manifests:   []string{"tests/tlsroute-mixed-termination-same-namespace.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeTerminateNN := types.NamespacedName{Name: "gateway-conformance-mixed-terminateroute", Namespace: ns}
 		routePassthroughNN := types.NamespacedName{Name: "gateway-conformance-mixed-passthroughroute", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "gateway-tlsroute-mixed-termination", Namespace: ns}
 		caCertNN := types.NamespacedName{Name: "tls-checks-ca-certificate", Namespace: ns}
-		certNN := types.NamespacedName{Name: "tls-passthrough-checks-certificate", Namespace: ns}
 
 		kubernetes.NamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, []string{ns})
 
@@ -109,11 +108,6 @@ var TLSRouteMixedTerminationSameNamespace = suite.ConformanceTest{
 			t.Fatalf("ca.crt not found in configmap: %s/%s", caCertNN.Namespace, caCertNN.Name)
 		}
 
-		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
-		if err != nil {
-			t.Fatalf("unexpected error finding TLS secret: %v", err)
-		}
-
 		t.Run("Simple TLS request matching terminated TLSRoute should reach tcp-backend unencrypted", func(t *testing.T) {
 			t.Parallel()
 
@@ -121,18 +115,18 @@ var TLSRouteMixedTerminationSameNamespace = suite.ConformanceTest{
 				tcp.ExpectedResponse{
 					BackendIsTLS: false, // It is terminated on the gateway
 					Backend:      "tcp-backend",
-					Namespace:    "gateway-conformance-infra",
+					Namespace:    confsuite.InfrastructureNamespace,
 					Hostname:     "", // Terminated tests do not contain a SNI attribute on the backend
 				})
 		})
 
 		t.Run("Simple TLS request matching TLSRoute Passthrough should reach infra-backend", func(t *testing.T) {
 			t.Parallel()
-			tcp.MakeTCPRequestAndExpectEventuallyValidResponse(t, suite.TimeoutConfig, gwAddr, serverCertPem, serverStrPassthrough, true,
+			tcp.MakeTCPRequestAndExpectEventuallyValidResponse(t, suite.TimeoutConfig, gwAddr, []byte(caString), serverStrPassthrough, true,
 				tcp.ExpectedResponse{
 					BackendIsTLS: true, // Passthrough expects a TLS Backend
 					Backend:      "tcp-backend",
-					Namespace:    "gateway-conformance-infra",
+					Namespace:    confsuite.InfrastructureNamespace,
 					Hostname:     serverStrPassthrough,
 				})
 		})

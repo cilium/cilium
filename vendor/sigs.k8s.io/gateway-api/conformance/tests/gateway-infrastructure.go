@@ -21,10 +21,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
@@ -47,6 +45,7 @@ var GatewayInfrastructure = suite.ConformanceTest{
 	Manifests: []string{
 		"tests/gateway-infrastructure.yaml",
 	},
+	Parallel: true,
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
 
@@ -87,14 +86,12 @@ var GatewayInfrastructure = suite.ConformanceTest{
 			labels[string(k)] = string(v)
 		}
 		var foundResource bool
-		saList := corev1.ServiceAccountList{}
-		podList := corev1.PodList{}
-		serviceList := corev1.ServiceList{}
-		err = s.Client.List(ctx, &saList, client.MatchingLabels{"gateway.networking.k8s.io/gateway-name": gwNN.Name}, client.InNamespace(ns))
+		listOptions := metav1.ListOptions{LabelSelector: v1.GatewayNameLabelKey + "=" + gwNN.Name}
+		saList, err := s.Clientset.CoreV1().ServiceAccounts(ns).List(ctx, listOptions)
 		require.NoError(t, err, "error listing ServiceAccounts")
-		err = s.Client.List(ctx, &podList, client.MatchingLabels{"gateway.networking.k8s.io/gateway-name": gwNN.Name}, client.InNamespace(ns))
+		podList, err := s.Clientset.CoreV1().Pods(ns).List(ctx, listOptions)
 		require.NoError(t, err, "error listing Pods")
-		err = s.Client.List(ctx, &serviceList, client.MatchingLabels{"gateway.networking.k8s.io/gateway-name": gwNN.Name}, client.InNamespace(ns))
+		serviceList, err := s.Clientset.CoreV1().Services(ns).List(ctx, listOptions)
 		require.NoError(t, err, "error listing Services")
 		if len(saList.Items) > 0 {
 			foundResource = true

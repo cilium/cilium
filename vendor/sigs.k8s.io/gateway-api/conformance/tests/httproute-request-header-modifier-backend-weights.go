@@ -24,7 +24,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -34,7 +34,7 @@ func init() {
 	)
 }
 
-var HTTPRouteRequestHeaderModifierBackendWeights = suite.ConformanceTest{
+var HTTPRouteRequestHeaderModifierBackendWeights = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteRequestHeaderModifierBackendWeights",
 	Description: "An HTTPRoute with backend request header modifier filter sends traffic to the correct backends",
 	Features: []features.FeatureName{
@@ -43,8 +43,8 @@ var HTTPRouteRequestHeaderModifierBackendWeights = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-request-header-modifier-backend-weights.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 
 		routeNN := types.NamespacedName{Name: "request-header-modifier-backend-weights", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
@@ -56,7 +56,7 @@ var HTTPRouteRequestHeaderModifierBackendWeights = suite.ConformanceTest{
 		expected := http.ExpectedResponse{
 			Request:   http.Request{Path: "/"},
 			Response:  http.Response{StatusCode: 200},
-			Namespace: "gateway-conformance-infra",
+			Namespace: confsuite.InfrastructureNamespace,
 		}
 
 		req := http.MakeRequest(t, &expected, gwAddr, "HTTP", "http")

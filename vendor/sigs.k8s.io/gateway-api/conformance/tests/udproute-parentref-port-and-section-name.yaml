@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-echo-by-port
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-echo-by-port
+spec:
+  selector:
+    app: udp-echo-by-port
+  ports:
+    - name: udp
+      protocol: UDP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-echo-by-port
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-echo-by-port
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: udp-echo-by-port
+  template:
+    metadata:
+      labels:
+        app: udp-echo-by-port
+    spec:
+      containers:
+        - name: udp-echo
+          image: registry.k8s.io/gateway-api/echo-basic:v1.6.0-dev.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UDP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: udp-echo-by-port
+          ports:
+            - containerPort: 8080
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-echo-by-section
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-echo-by-section
+spec:
+  selector:
+    app: udp-echo-by-section
+  ports:
+    - name: udp
+      protocol: UDP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-echo-by-section
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-echo-by-section
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: udp-echo-by-section
+  template:
+    metadata:
+      labels:
+        app: udp-echo-by-section
+    spec:
+      containers:
+        - name: udp-echo
+          image: registry.k8s.io/gateway-api/echo-basic:v1.6.0-dev.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UDP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: udp-echo-by-section
+          ports:
+            - containerPort: 8080
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-echo-by-section-and-port
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-echo-by-section-and-port
+spec:
+  selector:
+    app: udp-echo-by-section-and-port
+  ports:
+    - name: udp
+      protocol: UDP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-echo-by-section-and-port
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-echo-by-section-and-port
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: udp-echo-by-section-and-port
+  template:
+    metadata:
+      labels:
+        app: udp-echo-by-section-and-port
+    spec:
+      containers:
+        - name: udp-echo
+          image: registry.k8s.io/gateway-api/echo-basic:v1.6.0-dev.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UDP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: udp-echo-by-section-and-port
+          ports:
+            - containerPort: 8080
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: udp-multi-listener-gateway
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: by-port
+      protocol: UDP
+      port: 5300
+      allowedRoutes:
+        kinds:
+          - kind: UDPRoute
+    - name: by-section
+      protocol: UDP
+      port: 5301
+      allowedRoutes:
+        kinds:
+          - kind: UDPRoute
+    - name: by-section-and-port
+      protocol: UDP
+      port: 5302
+      allowedRoutes:
+        kinds:
+          - kind: UDPRoute
+---
+# Scenario 1: parentRef with `port` only -> attaches to the listener on port 5300.
+apiVersion: gateway.networking.k8s.io/v1
+kind: UDPRoute
+metadata:
+  name: udp-route-by-port
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: udp-multi-listener-gateway
+      port: 5300
+  rules:
+    - backendRefs:
+        - name: udp-echo-by-port
+          port: 8080
+---
+# Scenario 2: parentRef with `sectionName` only -> attaches to the by-section listener.
+apiVersion: gateway.networking.k8s.io/v1
+kind: UDPRoute
+metadata:
+  name: udp-route-by-section
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: udp-multi-listener-gateway
+      sectionName: by-section
+  rules:
+    - backendRefs:
+        - name: udp-echo-by-section
+          port: 8080
+---
+# Scenario 3: parentRef with both `sectionName` and `port` -> attaches to the by-section-and-port listener.
+apiVersion: gateway.networking.k8s.io/v1
+kind: UDPRoute
+metadata:
+  name: udp-route-by-section-and-port
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: udp-multi-listener-gateway
+      sectionName: by-section-and-port
+      port: 5302
+  rules:
+    - backendRefs:
+        - name: udp-echo-by-section-and-port
+          port: 8080

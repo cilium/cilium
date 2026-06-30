@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidCrossNamespaceParentRef)
 }
 
-var HTTPRouteInvalidCrossNamespaceParentRef = suite.ConformanceTest{
+var HTTPRouteInvalidCrossNamespaceParentRef = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidCrossNamespaceParentRef",
 	Description: "A single HTTPRoute in the gateway-conformance-web-backend namespace should fail to attach to a Gateway in another namespace that it is not allowed to",
 	Features: []features.FeatureName{
@@ -40,9 +40,9 @@ var HTTPRouteInvalidCrossNamespaceParentRef = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-invalid-cross-namespace-parent-ref.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
-		routeNN := types.NamespacedName{Name: "invalid-cross-namespace-parent-ref", Namespace: "gateway-conformance-web-backend"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: confsuite.InfrastructureNamespace}
+		routeNN := types.NamespacedName{Name: "invalid-cross-namespace-parent-ref", Namespace: confsuite.WebBackendNamespace}
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		// When running conformance tests, implementations are expected to have visibility across all namespaces, and

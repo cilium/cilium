@@ -41,6 +41,7 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 	},
 	Description: "A GatewayClass should update the observedGeneration in all of it's Status.Conditions after an update to the spec",
 	Manifests:   []string{"tests/gatewayclass-observed-generation-bump.yaml"},
+	Parallel:    true,
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		gwcNN := types.NamespacedName{Name: "gatewayclass-observed-generation-bump"}
 

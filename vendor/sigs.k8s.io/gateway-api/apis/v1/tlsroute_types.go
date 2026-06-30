@@ -101,7 +101,7 @@ type TLSRouteSpec struct {
 	// +required
 	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:MaxItems=1024
 	// +kubebuilder:validation:XValidation:message="Hostnames cannot contain an IP",rule="self.all(h, !isIP(h))"
 	// +kubebuilder:validation:XValidation:message="Hostnames must be valid based on RFC-1123",rule="self.all(h, !h.contains('*') ? h.matches('^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)$') : true)"
 	// +kubebuilder:validation:XValidation:message="Wildcards on hostnames must be the first label, and the rest of hostname must be valid based on RFC-1123",rule="self.all(h, h.contains('*') ? (h.startsWith('*.') && h.substring(2).matches('^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)$')) : true)"
@@ -137,6 +137,9 @@ type TLSRouteRule struct {
 	// weight; if an invalid backend is requested to have 80% of requests, then
 	// 80% of requests must be rejected instead.
 	//
+	// When a TLSRoute is attached to a listener in Terminate mode, a BackendTLSPolicy
+	// can be used to enable re-encryption of the traffic to the backends.
+	//
 	// Support: Core for Kubernetes Service
 	//
 	// Support: Extended for Kubernetes ServiceImport
@@ -144,6 +147,8 @@ type TLSRouteRule struct {
 	// Support: Implementation-specific for any other resource
 	//
 	// Support for weight: Extended
+	//
+	// Support for BackendTLSPolicy: Extended
 	//
 	// +required
 	// +listType=atomic

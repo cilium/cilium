@@ -42,6 +42,7 @@ var GatewayInvalidTLSBackendConfiguration = suite.ConformanceTest{
 		features.SupportBackendTLSPolicy,
 	},
 	Manifests: []string{"tests/gateway-invalid-tls-backend-configuration.yaml"},
+	Parallel:  true,
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		testCases := []struct {
 			name                  string
@@ -50,27 +51,27 @@ var GatewayInvalidTLSBackendConfiguration = suite.ConformanceTest{
 		}{
 			{
 				name:                  "Nonexistent secret referenced as ClientCertificateRef in Gateway backend TLS configuration",
-				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-nonexistent-secret", Namespace: "gateway-conformance-infra"},
+				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-nonexistent-secret", Namespace: suite.InfrastructureNamespace},
 				resolveRefsReason:     gatewayv1.GatewayReasonInvalidClientCertificateRef,
 			},
 			{
 				name:                  "Unsupported group resource referenced as ClientCertificateRef in Gateway backend TLS configuration",
-				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-unsupported-group", Namespace: "gateway-conformance-infra"},
+				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-unsupported-group", Namespace: suite.InfrastructureNamespace},
 				resolveRefsReason:     gatewayv1.GatewayReasonInvalidClientCertificateRef,
 			},
 			{
 				name:                  "Unsupported kind resource referenced as ClientCertificateRef inGateway backend TLS configuration",
-				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-unsupported-kind", Namespace: "gateway-conformance-infra"},
+				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-unsupported-kind", Namespace: suite.InfrastructureNamespace},
 				resolveRefsReason:     gatewayv1.GatewayReasonInvalidClientCertificateRef,
 			},
 			{
 				name:                  "Malformed secret referenced as ClientCertificateRef in Gateway backend TLS configuration",
-				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-malformed-secret", Namespace: "gateway-conformance-infra"},
+				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-malformed-secret", Namespace: suite.InfrastructureNamespace},
 				resolveRefsReason:     gatewayv1.GatewayReasonInvalidClientCertificateRef,
 			},
 			{
 				name:                  "Secret referenced from another namespace without any ReferenceGrant as ClientCertificateRef in Gateway backend TLS configuration",
-				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-missing-reference-grant", Namespace: "gateway-conformance-infra"},
+				gatewayNamespacedName: types.NamespacedName{Name: "gateway-client-certificate-missing-reference-grant", Namespace: suite.InfrastructureNamespace},
 				resolveRefsReason:     gatewayv1.GatewayReasonRefNotPermitted,
 			},
 		}

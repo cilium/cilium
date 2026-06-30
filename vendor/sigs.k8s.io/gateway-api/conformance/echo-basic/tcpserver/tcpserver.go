@@ -122,8 +122,8 @@ func runServer(ctx context.Context, errchan chan error) {
 	}
 
 	go func() {
-		slog.Info("Starting server (tcp)", "protocol", "tcp", "port", tcpPort)
-		err := server.startListener(ctx, false) //nolint:gosec
+		slog.Info("Starting server (tcp)", "protocol", "tcp", "port", tcpPort) // #nosec G706 -- structured logging, no log injection risk
+		err := server.startListener(ctx, false)                                //nolint:gosec
 		if err != nil {
 			errchan <- err
 		}
@@ -131,8 +131,8 @@ func runServer(ctx context.Context, errchan chan error) {
 
 	if tlsConfig != nil {
 		go func() {
-			slog.Info("Starting server (tcp)", "protocol", "tls", "port", tlsPort)
-			err := server.startListener(ctx, true) //nolint:gosec
+			slog.Info("Starting server (tcp)", "protocol", "tls", "port", tlsPort) // #nosec G706 -- structured logging, no log injection risk
+			err := server.startListener(ctx, true)                                 //nolint:gosec
 			if err != nil {
 				errchan <- err
 			}
@@ -174,11 +174,11 @@ func newTLSConfig(serverCertificate, serverPrivateKey string) (*tls.Config, erro
 		return nil, nil
 	}
 
-	certPEM, err := os.ReadFile(serverCertificate)
+	certPEM, err := os.ReadFile(serverCertificate) // #nosec G703 -- serverCertificate is a trusted test fixture path
 	if err != nil {
 		return nil, fmt.Errorf("failed to read certificate %s: %w", serverCertificate, err)
 	}
-	keyPEM, err := os.ReadFile(serverPrivateKey)
+	keyPEM, err := os.ReadFile(serverPrivateKey) // #nosec G703 -- serverPrivateKey is a trusted test fixture path
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key %s: %w", serverPrivateKey, err)
 	}

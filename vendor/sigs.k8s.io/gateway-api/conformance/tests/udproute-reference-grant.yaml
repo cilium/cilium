@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-echo-reference-grant
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: udp-echo-reference-grant
+spec:
+  selector:
+    app: udp-echo-reference-grant
+  ports:
+    - name: udp
+      protocol: UDP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-echo-reference-grant
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: udp-echo-reference-grant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: udp-echo-reference-grant
+  template:
+    metadata:
+      labels:
+        app: udp-echo-reference-grant
+    spec:
+      containers:
+        - name: udp-echo
+          image: registry.k8s.io/gateway-api/echo-basic:v1.6.0-dev.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UDP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: udp-echo-reference-grant
+          ports:
+            - containerPort: 8080
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ReferenceGrant
+metadata:
+  name: udp-reference-grant
+  namespace: gateway-conformance-app-backend
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: UDPRoute
+      namespace: gateway-conformance-infra
+  to:
+    - group: ""
+      kind: Service
+      name: udp-echo-reference-grant
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: udp-gateway-reference-grant
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: udp
+      protocol: UDP
+      port: 5300
+      allowedRoutes:
+        kinds:
+          - kind: UDPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: UDPRoute
+metadata:
+  name: udp-route-reference-grant
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: udp-gateway-reference-grant
+      sectionName: udp
+  rules:
+    - backendRefs:
+        - name: udp-echo-reference-grant
+          namespace: gateway-conformance-app-backend
+          port: 8080

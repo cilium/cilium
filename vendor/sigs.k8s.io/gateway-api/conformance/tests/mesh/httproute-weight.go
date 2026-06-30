@@ -47,7 +47,7 @@ var MeshHTTPRouteWeight = suite.ConformanceTest{
 			expected := http.ExpectedResponse{
 				Request:   http.Request{Path: "/", Host: host},
 				Response:  http.Response{StatusCode: 200},
-				Namespace: "gateway-conformance-mesh",
+				Namespace: suite.MeshNamespace,
 			}
 
 			// Assert request succeeds before doing our distribution check

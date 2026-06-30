@@ -26,7 +26,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -35,7 +35,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, GatewayFrontendClientCertificateValidationInsecureFallback)
 }
 
-var GatewayFrontendClientCertificateValidationInsecureFallback = suite.ConformanceTest{
+var GatewayFrontendClientCertificateValidationInsecureFallback = confsuite.ConformanceTest{
 	ShortName:   "GatewayFrontendClientCertificateValidationInsecureFallback",
 	Description: "Gateway's client certificate validation set to AllowInsecureFallback allows any HTTPS traffic.",
 	Features: []features.FeatureName{
@@ -45,7 +45,8 @@ var GatewayFrontendClientCertificateValidationInsecureFallback = suite.Conforman
 		features.SupportGatewayFrontendClientCertificateValidationInsecureFallback,
 	},
 	Manifests: []string{"tests/gateway-with-clientcertificate-validation-insecure-fallback.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
+	Parallel:  true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
 
 		routeNNs := []types.NamespacedName{
@@ -70,23 +71,32 @@ var GatewayFrontendClientCertificateValidationInsecureFallback = suite.Conforman
 
 		// Get Server certificate, this certificate is the same for both listeners
 		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
+		serverCertPem, _, err := kubernetes.GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
+		}
+		if len(serverCertPem) == 0 {
+			t.Fatal("missing required server certificate pem for the test")
 		}
 
 		// Get client certificate for default configuration
 		clientCertNN := types.NamespacedName{Name: "tls-validity-checks-client-certificate", Namespace: ns}
-		clientCertPem, clientCertKey, err := GetTLSSecret(suite.Client, clientCertNN)
+		clientCertPem, clientCertKey, err := kubernetes.GetTLSSecret(suite.Client, clientCertNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
+		}
+		if len(clientCertPem) == 0 || len(clientCertKey) == 0 {
+			t.Fatal("missing required client certificate and private keypem for the test")
 		}
 
 		// Get client certificate for per port configuration
 		clientCertPerPortNN := types.NamespacedName{Name: "tls-validity-checks-per-port-client-certificate", Namespace: ns}
-		clientCertPerPortPem, clientCertPerPortKey, err := GetTLSSecret(suite.Client, clientCertPerPortNN)
+		clientCertPerPortPem, clientCertPerPortKey, err := kubernetes.GetTLSSecret(suite.Client, clientCertPerPortNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
+		}
+		if len(clientCertPerPortPem) == 0 || len(clientCertPerPortKey) == 0 {
+			t.Fatal("missing required client certificate and private keypem for the test")
 		}
 
 		t.Run("Validate default TLS configuration", func(t *testing.T) {
@@ -95,7 +105,7 @@ var GatewayFrontendClientCertificateValidationInsecureFallback = suite.Conforman
 			expectedSuccess := http.ExpectedResponse{
 				Request:   http.Request{Host: "example.org", Path: "/"},
 				Response:  http.Response{StatusCode: 200},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: "gateway-conformance-infra",
 			}
 
@@ -116,7 +126,7 @@ var GatewayFrontendClientCertificateValidationInsecureFallback = suite.Conforman
 			expectedSucces := http.ExpectedResponse{
 				Request:   http.Request{Host: "second-example.org", Path: "/"},
 				Response:  http.Response{StatusCode: 200},
-				Backend:   "infra-backend-v2",
+				Backend:   confsuite.InfraBackendServiceNameV2,
 				Namespace: "gateway-conformance-infra",
 			}
 

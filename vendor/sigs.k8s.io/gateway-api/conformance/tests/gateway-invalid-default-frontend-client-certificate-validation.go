@@ -27,7 +27,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -36,7 +36,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, GatewayFrontendInvalidDefaultClientCertificateValidation)
 }
 
-var GatewayFrontendInvalidDefaultClientCertificateValidation = suite.ConformanceTest{
+var GatewayFrontendInvalidDefaultClientCertificateValidation = confsuite.ConformanceTest{
 	ShortName:   "GatewayFrontendInvalidDefaultClientCertificateValidation",
 	Description: "Invalid Gateway's default Client Certificate Validation Config should only affect HTTPS traffic",
 	Features: []features.FeatureName{
@@ -45,8 +45,9 @@ var GatewayFrontendInvalidDefaultClientCertificateValidation = suite.Conformance
 		features.SupportGatewayFrontendClientCertificateValidation,
 	},
 	Manifests: []string{"tests/gateway-invalid-default-frontend-client-certificate-validation.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Parallel:  true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 
 		gwNN := types.NamespacedName{Name: "invalid-default-client-validation-config", Namespace: ns}
 
@@ -60,9 +61,12 @@ var GatewayFrontendInvalidDefaultClientCertificateValidation = suite.Conformance
 
 		// Get Server certificate, this certificate is the same for both listeners
 		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
+		serverCertPem, _, err := kubernetes.GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
+		}
+		if len(serverCertPem) == 0 {
+			t.Fatal("missing required server certificate pem for the test")
 		}
 
 		t.Run("Validate tls configuration does not impact HTTP listener", func(t *testing.T) {
@@ -89,8 +93,8 @@ var GatewayFrontendInvalidDefaultClientCertificateValidation = suite.Conformance
 			expectedSuccess := http.ExpectedResponse{
 				Request:   http.Request{Host: "example.org", Path: "/"},
 				Response:  http.Response{StatusCode: 200},
-				Backend:   "infra-backend-v1",
-				Namespace: "gateway-conformance-infra",
+				Backend:   confsuite.InfraBackendServiceNameV1,
+				Namespace: confsuite.InfrastructureNamespace,
 			}
 			// send request to the first listener and validate that it is passing
 			http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, httpAddr, expectedSuccess)
@@ -119,7 +123,7 @@ var GatewayFrontendInvalidDefaultClientCertificateValidation = suite.Conformance
 			httpsAddr := net.JoinHostPort(gwAddr, "443")
 			expectedFailure := http.ExpectedResponse{
 				Request:   http.Request{Host: "example.org", Path: "/"},
-				Namespace: "gateway-conformance-infra",
+				Namespace: confsuite.InfrastructureNamespace,
 			}
 			// send request to the second listener and validate that it is failing
 			tls.MakeTLSRequestAndExpectFailureResponse(t, suite.RoundTripper, httpsAddr, serverCertPem, nil, nil, "example.org", expectedFailure)

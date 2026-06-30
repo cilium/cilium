@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteHTTPSListener)
 }
 
-var HTTPRouteHTTPSListener = suite.ConformanceTest{
+var HTTPRouteHTTPSListener = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteHTTPSListener",
 	Description: "HTTPRoute attaches to a Gateway's HTTPS listener in the same namespace",
 	Features: []features.FeatureName{
@@ -40,8 +40,8 @@ var HTTPRouteHTTPSListener = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-https-listener.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "httproute-https-test", Namespace: ns}
 		routeNoHostNN := types.NamespacedName{Name: "httproute-https-test-no-hostname", Namespace: ns}
 
@@ -51,9 +51,12 @@ var HTTPRouteHTTPSListener = suite.ConformanceTest{
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNoHostNN, gwNN)
 
 		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
+		serverCertPem, _, err := kubernetes.GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
+		}
+		if len(serverCertPem) == 0 {
+			t.Fatal("missing required server certificate pem for the test")
 		}
 
 		cases := []struct {
@@ -61,9 +64,9 @@ var HTTPRouteHTTPSListener = suite.ConformanceTest{
 			statusCode int
 			backend    string
 		}{
-			{host: "example.org", statusCode: 200, backend: "infra-backend-v1"},
+			{host: "example.org", statusCode: 200, backend: confsuite.InfraBackendServiceNameV1},
 			{host: "unknown-example.org", statusCode: 404},
-			{host: "second-example.org", statusCode: 200, backend: "infra-backend-v2"},
+			{host: "second-example.org", statusCode: 200, backend: confsuite.InfraBackendServiceNameV2},
 		}
 
 		for i, tc := range cases {
@@ -71,7 +74,7 @@ var HTTPRouteHTTPSListener = suite.ConformanceTest{
 				Request:   http.Request{Host: tc.host, Path: "/"},
 				Response:  http.Response{StatusCode: tc.statusCode},
 				Backend:   tc.backend,
-				Namespace: "gateway-conformance-infra",
+				Namespace: confsuite.InfrastructureNamespace,
 			}
 			t.Run(expected.GetTestCaseName(i), func(t *testing.T) {
 				tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, serverCertPem, nil, nil, tc.host, expected)

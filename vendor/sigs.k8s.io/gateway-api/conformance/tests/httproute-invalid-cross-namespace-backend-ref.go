@@ -25,7 +25,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidCrossNamespaceBackendRef)
 }
 
-var HTTPRouteInvalidCrossNamespaceBackendRef = suite.ConformanceTest{
+var HTTPRouteInvalidCrossNamespaceBackendRef = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidCrossNamespaceBackendRef",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set a ResolvedRefs status False with reason RefNotPermitted when attempting to bind to a Gateway in the same namespace if the route has a BackendRef Service in the gateway-conformance-web-backend namespace and a ReferenceGrant granting permission to route to that Service does not exist",
 	Features: []features.FeatureName{
@@ -42,9 +42,9 @@ var HTTPRouteInvalidCrossNamespaceBackendRef = suite.ConformanceTest{
 		features.SupportReferenceGrant,
 	},
 	Manifests: []string{"tests/httproute-invalid-cross-namespace-backend-ref.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		routeNN := types.NamespacedName{Name: "invalid-cross-namespace-backend-ref", Namespace: "gateway-conformance-infra"}
-		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		routeNN := types.NamespacedName{Name: "invalid-cross-namespace-backend-ref", Namespace: confsuite.InfrastructureNamespace}
+		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: confsuite.InfrastructureNamespace}
 
 		// The Route must be Attached.
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
