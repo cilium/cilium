@@ -1,0 +1,213 @@
+#! --cluster-id=1 --cluster-name=cluster1 --clustermesh-service-v2=prefer-endpointslice
+
+hive/start
+
+# Create a service to which to add the external backends.
+k8s/add service.yaml endpointslice.yaml
+db/cmp frontends frontends.table
+
+# Add the endpoint slices from "cluster2" and "cluster3"
+kvstore/update cilium/state/endpointslices/v1/cluster2/test/echo clusterendpointslice2.json
+kvstore/update cilium/state/endpointslices/v1/cluster3/test/echo clusterendpointslice3.json
+
+# The backends from other clusters should be included
+db/cmp backends backends-2+3.table
+db/cmp frontends frontends-with-clusterendpointslice-2+3.table
+
+# Update a backend
+kvstore/update cilium/state/endpointslices/v1/cluster2/test/echo clusterendpointslice2_v2.json
+db/cmp backends backends-2+3_v2.table
+
+# Changing "global" to false will drop remote backends
+sed 'service.cilium.io/global: "true"' 'service.cilium.io/global: "false"' service.yaml
+k8s/update service.yaml
+db/cmp frontends frontends.table
+
+# Switch back for next test
+sed 'service.cilium.io/global: "false"' 'service.cilium.io/global: "true"' service.yaml
+k8s/update service.yaml
+db/cmp backends backends-2+3_v2.table
+
+# Removing the cluster service removes one of the backends
+kvstore/delete cilium/state/endpointslices/v1/cluster2/test/echo
+db/cmp backends backends-3.table
+db/cmp frontends frontends-with-clusterendpointslice-3.table
+
+# Removing the last endpoint slice gets us back to starting point
+kvstore/delete cilium/state/endpointslices/v1/cluster3/test/echo
+db/cmp frontends frontends.table
+
+###
+
+-- backends-2+3.table --
+Address              PortNames  NodeName
+10.1.0.1:8080/TCP    tcp        nodeport-worker
+20.0.0.2:9090/TCP    tcp
+30.0.0.3:9090/TCP    tcp
+
+-- backends-2+3_v2.table --
+Address              PortNames  NodeName
+10.1.0.1:8080/TCP    tcp        nodeport-worker
+20.0.0.2:9090/TCP    tcp
+20.0.0.3:9090/TCP    tcp
+30.0.0.3:9090/TCP    tcp
+
+-- backends-3.table --
+Address              PortNames  NodeName
+10.1.0.1:8080/TCP    tcp        nodeport-worker
+30.0.0.3:9090/TCP    tcp
+
+-- frontends.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP
+
+-- frontends-with-clusterendpointslice-3.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP, 30.0.0.3:9090/TCP
+
+-- frontends-with-clusterendpointslice-2+3.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP, 20.0.0.2:9090/TCP, 30.0.0.3:9090/TCP
+
+
+
+-- clusterendpointslice2.json --
+{
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "namespace": "test",
+  "name": "echo",
+  "labels": {
+    "kubernetes.io/service-name": "echo"
+  },
+  "addressType": "IPv4",
+  "endpoints": [
+    {
+      "addresses": ["20.0.0.2"],
+      "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+      }
+    }
+  ],
+  "ports": [
+    {
+      "name": "tcp",
+      "port": 9090,
+      "protocol": "TCP"
+    }
+  ]
+}
+
+-- clusterendpointslice2_v2.json --
+{
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "namespace": "test",
+  "name": "echo",
+  "labels": {
+    "kubernetes.io/service-name": "echo"
+  },
+  "addressType": "IPv4",
+  "endpoints": [
+    {
+      "addresses": ["20.0.0.2"],
+      "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+      }
+    },
+    {
+      "addresses": ["20.0.0.3"],
+      "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+      }
+    }
+  ],
+  "ports": [
+    {
+      "name": "tcp",
+      "port": 9090,
+      "protocol": "TCP"
+    }
+  ]
+}
+
+-- clusterendpointslice3.json --
+{
+  "cluster": "cluster3",
+  "clusterID": 3,
+  "namespace": "test",
+  "name": "echo",
+  "labels": {
+    "kubernetes.io/service-name": "echo"
+  },
+  "addressType": "IPv4",
+  "endpoints": [
+    {
+      "addresses": ["30.0.0.3"],
+      "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+      }
+    }
+  ],
+  "ports": [
+    {
+      "name": "tcp",
+      "port": 9090,
+      "protocol": "TCP"
+    }
+  ]
+}
+
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.cilium.io/global: "true"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.0.0.1
+  clusterIPs:
+  - 10.0.0.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.1.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: tcp
+  port: 8080
+  protocol: TCP

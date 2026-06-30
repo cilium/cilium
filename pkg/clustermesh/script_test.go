@@ -163,7 +163,8 @@ func TestScript(t *testing.T) {
 					config := cmtypes.CiliumClusterConfig{
 						ID: uint32(i + 1),
 						Capabilities: cmtypes.CiliumClusterConfigCapabilities{
-							MaxConnectedClusters: 255,
+							MaxConnectedClusters:     255,
+							EndpointSlicesExportMode: cmtypes.EndpointSlicesExportModeServicesAndEndpointSlices,
 						},
 					}
 					err := clustercfg.Set(context.TODO(), name, config, client)

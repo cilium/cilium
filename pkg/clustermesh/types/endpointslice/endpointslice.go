@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/types/endpointslice/internal"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 )
@@ -53,6 +54,22 @@ func (eps *ClusterEndpointSlice) GetKeyName() string {
 	// WARNING - STABLE API: Changing the structure of the key may break
 	// backwards compatibility
 	return kvstore.JoinKey(eps.Cluster, eps.Namespace, eps.Name)
+}
+
+// ToShallowSlimEndpointSlice converts the ClusterEndpointSlice. The returned
+// EndpointSlice is a shallow copy and therefore not safe to mutate.
+func (eps *ClusterEndpointSlice) ToShallowSlimEndpointSlice() *slim_discovery_v1.EndpointSlice {
+	return &slim_discovery_v1.EndpointSlice{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:        eps.Name,
+			Namespace:   eps.Namespace,
+			Labels:      eps.Labels,
+			Annotations: eps.Annotations,
+		},
+		AddressType: eps.AddressType,
+		Endpoints:   eps.Endpoints,
+		Ports:       eps.Ports,
+	}
 }
 
 var (

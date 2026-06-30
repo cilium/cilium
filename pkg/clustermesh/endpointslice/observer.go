@@ -25,6 +25,11 @@ func newFactory(params params) observer.Factory {
 			onSync:        onSync,
 		}
 
+		observer := store.Observer(dummyObserver{})
+		if params.Observer != nil {
+			observer = params.Observer
+		}
+
 		obs.store = params.StoreFactory.NewWatchStore(
 			cluster,
 			endpointslicetypes.KeyCreator(
@@ -32,7 +37,7 @@ func newFactory(params params) observer.Factory {
 				endpointslicetypes.NamespacedNameValidator(),
 				endpointslicetypes.ClusterIDValidator(&obs.clusterID),
 			),
-			dummyObserver{},
+			observer,
 			store.RWSWithOnSyncCallback(func(context.Context) { onSync() }),
 			store.RWSWithEntriesMetric(params.Metrics.TotalEndpointSlices.WithLabelValues(cluster)),
 		)
