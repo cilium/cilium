@@ -56,42 +56,43 @@ Now that the Gateway is ready, you can make HTTP requests to the services.
 
     $ GATEWAY=$(kubectl get gateway cilium-gw -o jsonpath='{.status.addresses[0].value}')
     $ curl --fail -s http://$GATEWAY/echo
+    {
+     "path": "/echo",
+     "host": "172.18.255.200",
+     "method": "GET",
+     "proto": "HTTP/1.1",
+     "headers": {
+      "Accept": [
+       "*/*"
+      ],
+      "User-Agent": [
+       "curl/7.81.0"
+      ],
+      "X-Envoy-Internal": [
+       "true"
+      ],
+      "X-Forwarded-For": [
+       "172.18.0.1"
+      ],
+      "X-Forwarded-Proto": [
+       "http"
+      ],
+      "X-Request-Id": [
+       "ee152a07-2be2-4539-b74d-ebcebf912907"
+      ]
+     },
+     "httpPort": "3000",
+     "namespace": "default",
+     "ingress": "",
+     "service": "",
+     "pod": "echo-1-7d88f779b-m6r46"
+    }
 
-    Hostname: echo-1-7d88f779b-m6r46
-
-    Pod Information:
-        node name:      kind-worker2
-        pod name:       echo-1-7d88f779b-m6r46
-        pod namespace:  default
-        pod IP: 10.0.2.15
-
-    Server values:
-        server_version=nginx: 1.12.2 - lua: 10010
-
-    Request Information:
-        client_address=10.0.2.252
-        method=GET
-        real path=/echo
-        query=
-        request_version=1.1
-        request_scheme=http
-        request_uri=http://172.18.255.200:8080/echo
-
-    Request Headers:
-        accept=*/*  
-        host=172.18.255.200  
-        user-agent=curl/7.81.0  
-        x-forwarded-proto=http  
-        x-request-id=ee152a07-2be2-4539-b74d-ebcebf912907  
-
-    Request Body:
-        -no body in request-
-
-Notice that the reply includes the name of the Pod that received the query. For example:
+Notice that the reply includes the name of the Pod that received the query in the ``pod`` field. For example:
 
 .. code-block:: shell-session
 
-    Hostname: echo-2-5bfb6668b4-2rl4t
+     "pod": "echo-2-5bfb6668b4-2rl4t"
 
 Repeat the command several times.
 You should see the reply balanced evenly across both Pods and Nodes.
@@ -99,16 +100,16 @@ Verify that traffic is evenly split across multiple Pods by running a loop and c
 
 .. code-block:: shell-session
 
-    while true; do curl -s -k "http://$GATEWAY/echo" >> curlresponses.txt ;done
+    $ while true; do curl -s -k "http://$GATEWAY/echo" >> curlresponses.txt ;done
 
 Stop the loop with ``Ctrl+C``.
 Verify that the responses are more or less evenly distributed.
 
 .. code-block:: shell-session
 
-    $ cat curlresponses.txt| grep -c "Hostname: echo-1"
+    $ cat curlresponses.txt| grep -c '"pod": "echo-1'
     1221
-    $ cat curlresponses.txt| grep -c "Hostname: echo-2"
+    $ cat curlresponses.txt| grep -c '"pod": "echo-2'
     1162
 
 Uneven (99/1) traffic split
@@ -133,14 +134,14 @@ Verify that traffic is unevenly split across multiple Pods by running a loop and
 
 .. code-block:: shell-session
 
-    while true; do curl -s -k "http://$GATEWAY/echo" >> curlresponses991.txt ;done
+    $ while true; do curl -s -k "http://$GATEWAY/echo" >> curlresponses991.txt ;done
 
 Stop the loop with ``Ctrl+C``.
 Verify that responses are more or less evenly distributed.
 
 .. code-block:: shell-session
 
-    $ cat curlresponses991.txt| grep -c "Hostname: echo-1"
+    $ cat curlresponses991.txt| grep -c '"pod": "echo-1'
     24739
-    $ cat curlresponses991.txt| grep -c "Hostname: echo-2"
+    $ cat curlresponses991.txt| grep -c '"pod": "echo-2'
     239

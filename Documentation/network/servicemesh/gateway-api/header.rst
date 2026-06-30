@@ -54,14 +54,41 @@ Now that the Gateway is ready, you can make HTTP requests.
 
 .. code-block:: shell-session
 
-    $ curl -s http://$GATEWAY/add-a-request-header | grep -A 6 "Request Headers"
-    Request Headers:
-        accept=*/*  
-        host=172.18.255.200  
-        my-header-name=my-header-value  
-        user-agent=curl/7.81.0  
-        x-forwarded-proto=http
-        x-request-id=61a72702-3dfa-4bc3-a21c-7544ef36af7b
+    $ curl -s http://$GATEWAY/add-a-request-header
+    {
+     "path": "/add-a-request-header",
+     "host": "172.18.255.200",
+     "method": "GET",
+     "proto": "HTTP/1.1",
+     "headers": {
+      "Accept": [
+       "*/*"
+      ],
+      "My-Header-Name": [
+       "my-header-value"
+      ],
+      "User-Agent": [
+       "curl/7.81.0"
+      ],
+      "X-Envoy-Internal": [
+       "true"
+      ],
+      "X-Forwarded-For": [
+       "172.18.0.1"
+      ],
+      "X-Forwarded-Proto": [
+       "http"
+      ],
+      "X-Request-Id": [
+       "61a72702-3dfa-4bc3-a21c-7544ef36af7b"
+      ]
+     },
+     "httpPort": "3000",
+     "namespace": "default",
+     "ingress": "",
+     "service": "",
+     "pod": "echo-1-7d88f779b-m6r46"
+    }
 
 If the curl succeeds, you can see the HTTP Header from the incoming request in the body of the response sent back from the echo server. You can also see that the Gateway added the header.
 
@@ -78,12 +105,35 @@ Notice that the ``x-request-id`` header is removed when you add the ``remove-a-r
 
 .. code-block:: shell-session
 
-    $ curl --fail -s http://$GATEWAY/remove-a-request-header | grep -A 6 "Request Headers"
-    Request Headers:
-        accept=*/*  
-        host=172.18.255.200  
-        user-agent=curl/7.81.0  
-        x-forwarded-proto=http  
+    $ curl --fail -s http://$GATEWAY/remove-a-request-header
+    {
+     "path": "/remove-a-request-header",
+     "host": "172.18.255.200",
+     "method": "GET",
+     "proto": "HTTP/1.1",
+     "headers": {
+      "Accept": [
+       "*/*"
+      ],
+      "User-Agent": [
+       "curl/7.81.0"
+      ],
+      "X-Envoy-Internal": [
+       "true"
+      ],
+      "X-Forwarded-For": [
+       "172.18.0.1"
+      ],
+      "X-Forwarded-Proto": [
+       "http"
+      ]
+     },
+     "httpPort": "3000",
+     "namespace": "default",
+     "ingress": "",
+     "service": "",
+     "pod": "echo-1-7d88f779b-m6r46"
+    }
 
 To edit an existing header, use the ``set`` action to specify the value of the header to modify as well as the new header value to set.
 
@@ -100,10 +150,35 @@ Notice that the ``x-request-id`` header is changed when you add the ``edit-a-req
 
 .. code-block:: shell-session
 
-    $ curl -s http://$GATEWAY/edit-a-request-header | grep -A 6 "Request Headers"
-    Request Headers:
-        accept=*/*  
-        host=172.18.255.200  
-        user-agent=curl/7.81.0  
-        x-forwarded-proto=http  
-        x-request-id=set-cilium-header-value
+    $ curl -s http://$GATEWAY/edit-a-request-header
+    {
+     "path": "/edit-a-request-header",
+     "host": "172.18.255.200",
+     "method": "GET",
+     "proto": "HTTP/1.1",
+     "headers": {
+      "Accept": [
+       "*/*"
+      ],
+      "User-Agent": [
+       "curl/7.81.0"
+      ],
+      "X-Envoy-Internal": [
+       "true"
+      ],
+      "X-Forwarded-For": [
+       "172.18.0.1"
+      ],
+      "X-Forwarded-Proto": [
+       "http"
+      ],
+      "X-Request-Id": [
+       "set-cilium-header-value"
+      ]
+     },
+     "httpPort": "3000",
+     "namespace": "default",
+     "ingress": "",
+     "service": "",
+     "pod": "echo-1-7d88f779b-m6r46"
+    }

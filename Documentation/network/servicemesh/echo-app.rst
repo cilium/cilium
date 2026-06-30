@@ -3,12 +3,12 @@ Deploy the Echo App
 
 We will use a deployment made of echo servers.
 
-The application will reply to the client and, in the body of the reply, will include information about the Pod and Node receiving the original request. 
+The application will reply to the client and, in the body of the reply, will include information about the Pod receiving the original request.
 We will use this information to illustrate how the traffic is manipulated by the Gateway. 
 
 .. parsed-literal::
 
-    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/gateway/echo.yaml
+    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/gateway/echo-basic.yaml
 
 Verify the Pods are running as expected. 
 
