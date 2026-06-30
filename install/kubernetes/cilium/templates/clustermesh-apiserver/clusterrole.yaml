@@ -36,7 +36,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - endpoints
   - namespaces
   - services
   verbs:
