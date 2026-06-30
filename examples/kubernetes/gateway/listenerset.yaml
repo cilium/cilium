@@ -1,0 +1,58 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: listenerset-demo
+  labels:
+    gateway-access: "true"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: shared-gateway
+  namespace: default
+spec:
+  gatewayClassName: cilium
+  allowedListeners:
+    namespaces:
+      from: Selector
+      selector:
+        matchLabels:
+          gateway-access: "true"
+  listeners:
+  - name: base-http
+    protocol: HTTP
+    port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: delegated-listeners
+  namespace: listenerset-demo
+spec:
+  parentRef:
+    name: shared-gateway
+    namespace: default
+  listeners:
+  - name: echo
+    hostname: echo.example.com
+    protocol: HTTP
+    port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: echo
+  namespace: listenerset-demo
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: ListenerSet
+    name: delegated-listeners
+    sectionName: echo
+  hostnames:
+  - echo.example.com
+  rules:
+  - backendRefs:
+    - name: echo-1
+      port: 8080
