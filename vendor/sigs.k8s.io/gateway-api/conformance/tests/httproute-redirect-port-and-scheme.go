@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteRedirectPortAndScheme)
 }
 
-var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
+var HTTPRouteRedirectPortAndScheme = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteRedirectPortAndScheme",
 	Description: "An HTTPRoute with port and scheme redirect filter",
 	Manifests:   []string{"tests/httproute-redirect-port-and-scheme.yaml"},
@@ -43,8 +43,8 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 		features.SupportHTTPRoutePortRedirect,
 		features.SupportGatewayPort8080,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		routeNN := types.NamespacedName{Name: "http-route-for-listener-on-port-80", Namespace: ns}
@@ -62,9 +62,12 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
+		serverCertPem, _, err := kubernetes.GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
+		}
+		if len(serverCertPem) == 0 {
+			t.Fatal("missing required server certificate pem for the test")
 		}
 
 		// NOTE: In all the test cases, a missing value of expected Port within

@@ -25,7 +25,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteHostnameIntersection)
 }
 
-var HTTPRouteHostnameIntersection = suite.ConformanceTest{
+var HTTPRouteHostnameIntersection = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteHostnameIntersection",
 	Description: "HTTPRoutes should attach to listeners only if they have intersecting hostnames, and should accept requests only for the intersecting hostnames",
 	Features: []features.FeatureName{
@@ -41,8 +41,8 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-hostname-intersection.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		gwNN := types.NamespacedName{Name: "httproute-hostname-intersection", Namespace: ns}
 
 		// This test creates an additional Gateway in the gateway-conformance-infra
@@ -67,14 +67,14 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 			testCases = append(testCases,
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "very.specific.com", Path: "/s1"},
-					Backend:   "infra-backend-v1",
+					Backend:   confsuite.InfraBackendServiceNameV1,
 					Namespace: ns,
 				},
 				// Port value within the Host header MUST not be considered while
 				// performing match against hostname.
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "very.specific.com:1234", Path: "/s1"},
-					Backend:   "infra-backend-v1",
+					Backend:   confsuite.InfraBackendServiceNameV1,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
@@ -99,17 +99,17 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 			testCases = append(testCases,
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "foo.wildcard.io", Path: "/s2"},
-					Backend:   "infra-backend-v2",
+					Backend:   confsuite.InfraBackendServiceNameV2,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "bar.wildcard.io", Path: "/s2"},
-					Backend:   "infra-backend-v2",
+					Backend:   confsuite.InfraBackendServiceNameV2,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "foo.bar.wildcard.io", Path: "/s2"},
-					Backend:   "infra-backend-v2",
+					Backend:   confsuite.InfraBackendServiceNameV2,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
@@ -135,7 +135,7 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 			testCases = append(testCases,
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "very.specific.com", Path: "/s3"},
-					Backend:   "infra-backend-v3",
+					Backend:   confsuite.InfraBackendServiceNameV3,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
@@ -160,17 +160,17 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 			testCases = append(testCases,
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "foo.anotherwildcard.io", Path: "/s4"},
-					Backend:   "infra-backend-v1",
+					Backend:   confsuite.InfraBackendServiceNameV1,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "bar.anotherwildcard.io", Path: "/s4"},
-					Backend:   "infra-backend-v1",
+					Backend:   confsuite.InfraBackendServiceNameV1,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "foo.bar.anotherwildcard.io", Path: "/s4"},
-					Backend:   "infra-backend-v1",
+					Backend:   confsuite.InfraBackendServiceNameV1,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
@@ -325,22 +325,22 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 			testCases = append(testCases,
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "first.com", Path: "/"},
-					Backend:   "infra-backend-v2",
+					Backend:   confsuite.InfraBackendServiceNameV2,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "sub.first.com", Path: "/"},
-					Backend:   "infra-backend-v2",
+					Backend:   confsuite.InfraBackendServiceNameV2,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "second.com", Path: "/"},
-					Backend:   "infra-backend-v2",
+					Backend:   confsuite.InfraBackendServiceNameV2,
 					Namespace: ns,
 				},
 				http.ExpectedResponse{
 					Request:   http.Request{Host: "sub.second.com", Path: "/"},
-					Backend:   "infra-backend-v2",
+					Backend:   confsuite.InfraBackendServiceNameV2,
 					Namespace: ns,
 				},
 				// Following should fail since it is not specified on the HTTPRoute

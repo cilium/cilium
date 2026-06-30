@@ -25,7 +25,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidNonExistentBackendRef)
 }
 
-var HTTPRouteInvalidNonExistentBackendRef = suite.ConformanceTest{
+var HTTPRouteInvalidNonExistentBackendRef = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidNonExistentBackendRef",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set a ResolvedRefs status False with reason BackendNotFound and return 500 when binding to a Gateway in the same namespace if the route has a BackendRef Service that does not exist",
 	Features: []features.FeatureName{
@@ -41,9 +41,9 @@ var HTTPRouteInvalidNonExistentBackendRef = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-invalid-nonexistent-backendref.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		routeNN := types.NamespacedName{Name: "invalid-nonexistent-backend-ref", Namespace: "gateway-conformance-infra"}
-		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		routeNN := types.NamespacedName{Name: "invalid-nonexistent-backend-ref", Namespace: confsuite.InfrastructureNamespace}
+		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: confsuite.InfrastructureNamespace}
 
 		// Gateway and Route must be Accepted.
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)

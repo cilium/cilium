@@ -38,7 +38,7 @@ var MeshHTTPRouteSimpleSameNamespace = suite.ConformanceTest{
 	},
 	Manifests: []string{"tests/mesh/httproute-simple-same-namespace.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-mesh"
+		ns := suite.MeshNamespace
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
 		t.Run("Simple HTTP request should reach infra-backend", func(t *testing.T) {
 			client.MakeRequestAndExpectEventuallyConsistentResponse(t, http.ExpectedResponse{

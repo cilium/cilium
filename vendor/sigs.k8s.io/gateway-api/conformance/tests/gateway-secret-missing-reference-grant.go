@@ -40,8 +40,9 @@ var GatewaySecretMissingReferenceGrant = suite.ConformanceTest{
 		features.SupportReferenceGrant,
 	},
 	Manifests: []string{"tests/gateway-secret-missing-reference-grant.yaml"},
+	Parallel:  true,
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		gwNN := types.NamespacedName{Name: "gateway-secret-missing-reference-grant", Namespace: "gateway-conformance-infra"}
+		gwNN := types.NamespacedName{Name: "gateway-secret-missing-reference-grant", Namespace: suite.InfrastructureNamespace}
 
 		t.Run("Gateway listener should have a false ResolvedRefs condition with reason RefNotPermitted", func(t *testing.T) {
 			listeners := []v1.ListenerStatus{{

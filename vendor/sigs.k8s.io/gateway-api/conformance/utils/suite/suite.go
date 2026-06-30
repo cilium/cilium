@@ -38,15 +38,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	xmeshv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
-	"sigs.k8s.io/gateway-api/conformance/utils/flags"
 	"sigs.k8s.io/gateway-api/conformance/utils/grpc"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
+	"sigs.k8s.io/gateway-api/conformance/utils/websocket"
 	"sigs.k8s.io/gateway-api/pkg/consts"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -65,11 +64,13 @@ type ConformanceTestSuite struct {
 	RestConfig               *rest.Config
 	RoundTripper             roundtripper.RoundTripper
 	GRPCClient               grpc.Client
+	WebSocketDialer          websocket.Dialer
 	GatewayClassName         string
 	MeshName                 string
 	ControllerName           string
 	Debug                    bool
 	Cleanup                  bool
+	CleanupTestResources     bool
 	BaseManifests            string
 	MeshManifests            string
 	Applier                  kubernetes.Applier
@@ -80,8 +81,8 @@ type ConformanceTestSuite struct {
 	RunTest                  string
 	Hook                     func(t *testing.T, test ConformanceTest, suite *ConformanceTestSuite)
 	ManifestFS               []fs.FS
-	UsableNetworkAddresses   []v1beta1.GatewaySpecAddress
-	UnusableNetworkAddresses []v1beta1.GatewaySpecAddress
+	UsableNetworkAddresses   []gatewayv1.GatewaySpecAddress
+	UnusableNetworkAddresses []gatewayv1.GatewaySpecAddress
 
 	// If SupportedFeatures are automatically determined from GWC Status.
 	// This will be required to report in future iterations as the passing
@@ -133,57 +134,63 @@ type ConformanceTestSuite struct {
 	failFast bool
 }
 
-// ConformanceOptions can be used to initialize a ConformanceTestSuite.
-type ConformanceOptions struct {
-	Client               client.Client
-	ClientOptions        client.Options
-	Clientset            clientset.Interface
-	RestConfig           *rest.Config
-	GatewayClassName     string
-	MeshName             string
-	AddressType          string
-	Debug                bool
-	RoundTripper         roundtripper.RoundTripper
-	GRPCClient           grpc.Client
-	BaseManifests        string
-	MeshManifests        string
-	NamespaceLabels      map[string]string
-	NamespaceAnnotations map[string]string
-	ReportOutputPath     string
-
+// ConfigurableOptions defines conformance options that are configurable by the user via flags or yaml.
+type ConfigurableOptions struct {
+	GatewayClassName     string            `json:"gatewayClassName"`
+	MeshName             string            `json:"meshName"`
+	Debug                bool              `json:"debug"`
+	NamespaceLabels      map[string]string `json:"namespaceLabels"`
+	NamespaceAnnotations map[string]string `json:"namespaceAnnotations"`
+	ReportOutputPath     string            `json:"reportOutputPath"`
 	// CleanupBaseResources indicates whether or not the base test
 	// resources such as Gateways should be cleaned up after the run.
-	CleanupBaseResources       bool
-	SupportedFeatures          FeaturesSet
-	ExemptFeatures             FeaturesSet
-	EnableAllSupportedFeatures bool
-	TimeoutConfig              config.TimeoutConfig
+	CleanupBaseResources bool `json:"cleanupBaseResources"`
+	// CleanupTestResources indicates whether or not test-specific manifests
+	// should be cleaned up after each test.
+	CleanupTestResources       bool                   `json:"cleanupTestResources"`
+	SupportedFeatures          []features.FeatureName `json:"supportedFeatures"`
+	ExemptFeatures             []features.FeatureName `json:"exemptFeatures"`
+	EnableAllSupportedFeatures bool                   `json:"enableAllSupportedFeatures"`
+	TimeoutConfig              config.TimeoutConfig   `json:"timeoutConfig"`
 	// SkipTests contains all the tests not to be run and can be used to opt out
 	// of specific tests
-	SkipTests []string
+	SkipTests []string `json:"skipTests"`
 	// SkipProvisionalTests indicates whether or not to skip provisional tests.
-	SkipProvisionalTests bool
+	SkipProvisionalTests bool `json:"skipProvisionalTests"`
 	// RunTest is a single test to run, mostly for development/debugging convenience.
-	RunTest string
-	// Hook is an optional function that can be used to run custom logic after each test at suite level.
-	Hook       func(t *testing.T, test ConformanceTest, suite *ConformanceTestSuite)
-	ManifestFS []fs.FS
+	RunTest             string                   `json:"runTest"`
+	Mode                string                   `json:"mode"`
+	AllowCRDsMismatch   bool                     `json:"allowCrdsMismatch"`
+	Implementation      confv1.Implementation    `json:"implementation"`
+	ConformanceProfiles []ConformanceProfileName `json:"conformanceProfiles"`
+	FailFast            bool                     `json:"failFast"`
 
 	// UsableNetworkAddresses is an optional pool of usable addresses for
 	// Gateways for tests which need to test manual address assignments.
-	UsableNetworkAddresses []v1beta1.GatewaySpecAddress
+	UsableNetworkAddresses []gatewayv1.GatewaySpecAddress `json:"usableNetworkAddresses"`
 
 	// UnusableNetworkAddresses is an optional pool of unusable addresses for
 	// Gateways for tests which need to test failures with manual Gateway
 	// address assignment.
-	UnusableNetworkAddresses []v1beta1.GatewaySpecAddress
+	UnusableNetworkAddresses []gatewayv1.GatewaySpecAddress `json:"unusableNetworkAddresses"`
+}
 
-	Mode                string
-	AllowCRDsMismatch   bool
-	Implementation      confv1.Implementation
-	ConformanceProfiles sets.Set[ConformanceProfileName]
+// ConformanceOptions can be used to initialize a ConformanceTestSuite.
+type ConformanceOptions struct {
+	ConfigurableOptions
 
-	FailFast bool
+	Client          client.Client
+	ClientOptions   client.Options
+	Clientset       clientset.Interface
+	RestConfig      *rest.Config
+	RoundTripper    roundtripper.RoundTripper
+	GRPCClient      grpc.Client
+	WebSocketDialer websocket.Dialer
+	BaseManifests   string
+	MeshManifests   string
+	// Hook is an optional function that can be used to run custom logic after each test at suite level.
+	Hook       func(t *testing.T, test ConformanceTest, suite *ConformanceTestSuite)
+	ManifestFS []fs.FS
 }
 
 type FeaturesSet = sets.Set[features.FeatureName]
@@ -207,10 +214,15 @@ const (
 
 // NewConformanceTestSuite is a helper to use for creating a new ConformanceTestSuite.
 func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite, error) {
-	supportedFeatures := options.SupportedFeatures.Difference(options.ExemptFeatures)
+	if options.Mode == "" {
+		// Necessary for now, in case downstream consumers call
+		// NewConformanceTestSuite without setting Mode.
+		options.Mode = "default"
+	}
+	supportedFeatures := sets.New(options.SupportedFeatures...).Difference(sets.New(options.ExemptFeatures...))
 	source := supportedFeaturesSourceManual
 	if options.EnableAllSupportedFeatures {
-		supportedFeatures = features.SetsToNamesSet(features.AllFeatures).Difference(options.ExemptFeatures)
+		supportedFeatures = features.SetsToNamesSet(features.AllFeatures).Difference(sets.New(options.ExemptFeatures...))
 	} else if shouldInferSupportedFeatures(&options) {
 		var err error
 		if options.GatewayClassName != "" {
@@ -240,7 +252,7 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 	extendedSupportedFeatures := make(map[ConformanceProfileName]FeaturesSet, 0)
 	extendedUnsupportedFeatures := make(map[ConformanceProfileName]FeaturesSet, 0)
 
-	for _, conformanceProfileName := range options.ConformanceProfiles.UnsortedList() {
+	for _, conformanceProfileName := range options.ConformanceProfiles {
 		conformanceProfile, err := getConformanceProfileForName(conformanceProfileName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve conformance profile: %w", err)
@@ -262,6 +274,11 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 
 	grpcClient := options.GRPCClient
 
+	webSocketDialer := options.WebSocketDialer
+	if webSocketDialer == nil {
+		webSocketDialer = &websocket.DefaultDialer{}
+	}
+
 	installedCRDs := &apiextensionsv1.CustomResourceDefinitionList{}
 	err := options.Client.List(context.TODO(), installedCRDs)
 	if err != nil {
@@ -279,27 +296,23 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		apiChannel = undefinedKeyword
 	}
 
-	mode := flags.DefaultMode
-	if options.Mode != "" {
-		mode = options.Mode
-	}
-
 	suite := &ConformanceTestSuite{
-		Client:           options.Client,
-		ClientOptions:    options.ClientOptions,
-		Clientset:        options.Clientset,
-		RestConfig:       options.RestConfig,
-		RoundTripper:     roundTripper,
-		GRPCClient:       grpcClient,
-		GatewayClassName: options.GatewayClassName,
-		Debug:            options.Debug,
-		Cleanup:          options.CleanupBaseResources,
-		BaseManifests:    options.BaseManifests,
-		MeshManifests:    options.MeshManifests,
+		Client:               options.Client,
+		ClientOptions:        options.ClientOptions,
+		Clientset:            options.Clientset,
+		RestConfig:           options.RestConfig,
+		RoundTripper:         roundTripper,
+		GRPCClient:           grpcClient,
+		WebSocketDialer:      webSocketDialer,
+		GatewayClassName:     options.GatewayClassName,
+		Debug:                options.Debug,
+		Cleanup:              options.CleanupBaseResources,
+		CleanupTestResources: options.CleanupTestResources,
+		BaseManifests:        options.BaseManifests,
+		MeshManifests:        options.MeshManifests,
 		Applier: kubernetes.Applier{
 			NamespaceLabels:      options.NamespaceLabels,
 			NamespaceAnnotations: options.NamespaceAnnotations,
-			AddressType:          options.AddressType,
 		},
 		SupportedFeatures:           supportedFeatures,
 		TimeoutConfig:               options.TimeoutConfig,
@@ -312,9 +325,9 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		results:                     make(map[string]testResult),
 		extendedUnsupportedFeatures: extendedUnsupportedFeatures,
 		extendedSupportedFeatures:   extendedSupportedFeatures,
-		conformanceProfiles:         options.ConformanceProfiles,
+		conformanceProfiles:         sets.New(options.ConformanceProfiles...),
 		implementation:              options.Implementation,
-		mode:                        mode,
+		mode:                        options.Mode,
 		apiVersion:                  apiVersion,
 		apiChannel:                  apiChannel,
 		supportedFeaturesSource:     source,
@@ -376,47 +389,49 @@ func (suite *ConformanceTestSuite) Setup(t *testing.T, tests []ConformanceTest) 
 		suite.Applier.MustApplyWithCleanup(t, suite.Client, suite.TimeoutConfig, suite.BaseManifests, suite.Cleanup)
 
 		tlog.Logf(t, "Test Setup: Applying programmatic resources")
-		secret := kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-web-backend", "certificate", []string{"*"})
+		secret := kubernetes.MustCreateSelfSignedCertSecret(t, WebBackendNamespace, "certificate", []string{"*"})
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
-		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-validity-checks-certificate", []string{"*", "*.org", "*.wildcard.org"})
+		secret = kubernetes.MustCreateSelfSignedCertSecret(t, InfrastructureNamespace, "tls-validity-checks-certificate", []string{"*", "*.org", "*.wildcard.org"})
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
-		configMap, _, _ := kubernetes.MustCreateCACertConfigMap(t, "gateway-conformance-web-backend", "web-backend-cm")
+		configMap, _, _ := kubernetes.MustCreateCACertConfigMap(t, WebBackendNamespace, "web-backend-cm")
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{configMap}, suite.Cleanup)
 
 		// secrets for client certificates validation tests
-		caConfigMap, ca, caPrivKey := kubernetes.MustCreateCACertConfigMap(t, "gateway-conformance-infra", "tls-validity-checks-ca-certificate")
+		caConfigMap, ca, caPrivKey := kubernetes.MustCreateCACertConfigMap(t, InfrastructureNamespace, "tls-validity-checks-ca-certificate")
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{caConfigMap}, suite.Cleanup)
 		secret = kubernetes.MustCreateCASignedClientCertSecret(t, "gateway-conformance-infra", "tls-validity-checks-client-certificate", ca, caPrivKey)
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
-		caConfigMap, ca, caPrivKey = kubernetes.MustCreateCACertConfigMap(t, "gateway-conformance-infra", "tls-validity-checks-per-port-ca-certificate")
+		caConfigMap, ca, caPrivKey = kubernetes.MustCreateCACertConfigMap(t, InfrastructureNamespace, "tls-validity-checks-per-port-ca-certificate")
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{caConfigMap}, suite.Cleanup)
-		secret = kubernetes.MustCreateCASignedClientCertSecret(t, "gateway-conformance-infra", "tls-validity-checks-per-port-client-certificate", ca, caPrivKey)
+		secret = kubernetes.MustCreateCASignedClientCertSecret(t, InfrastructureNamespace, "tls-validity-checks-per-port-client-certificate", ca, caPrivKey)
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 
-		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-passthrough-checks-certificate", []string{"abc.example.com"})
-		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
-		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-app-backend", "tls-passthrough-checks-certificate", []string{"abc.example.com"})
-		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
-		caConfigMap, ca, caPrivKey = kubernetes.MustCreateCACertConfigMap(t, "gateway-conformance-infra", "tls-checks-ca-certificate")
+		caConfigMap, ca, caPrivKey = kubernetes.MustCreateCACertConfigMap(t, InfrastructureNamespace, "tls-checks-ca-certificate")
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{caConfigMap}, suite.Cleanup)
-		secret = kubernetes.MustCreateCASignedCertSecret(t, "gateway-conformance-infra", "tls-checks-certificate", []string{"abc.example.com", "spiffe://abc.example.com/test-identity", "other.example.com"}, ca, caPrivKey)
+		secret = kubernetes.MustCreateCASignedCertSecret(t, InfrastructureNamespace, "tls-checks-certificate", []string{"abc.example.com", "spiffe://abc.example.com/test-identity", "other.example.com"}, ca, caPrivKey)
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
-		secret = kubernetes.MustCreateCASignedClientCertSecret(t, "gateway-conformance-infra", "tls-checks-client-certificate", ca, caPrivKey)
+		secret = kubernetes.MustCreateCASignedClientCertSecret(t, InfrastructureNamespace, "tls-checks-client-certificate", ca, caPrivKey)
+		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
+
+		// Secret used for tcp-backend serving TLS
+		secret = kubernetes.MustCreateCASignedCertSecret(t, InfrastructureNamespace, "tls-passthrough-checks-certificate", []string{"abc.example.com"}, ca, caPrivKey)
+		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
+		secret = kubernetes.MustCreateCASignedCertSecret(t, AppBackendNamespace, "tls-passthrough-checks-certificate", []string{"abc.example.com"}, ca, caPrivKey)
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 
 		// The following secret is used for TLSRoute mode Terminate validation
-		secret = kubernetes.MustCreateCASignedCertSecret(t, "gateway-conformance-infra", "tls-terminate-checks-certificate", []string{"tls.example.com"}, ca, caPrivKey)
+		secret = kubernetes.MustCreateCASignedCertSecret(t, InfrastructureNamespace, "tls-terminate-checks-certificate", []string{"tls.example.com"}, ca, caPrivKey)
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 
 		// The following CA certificate is used for BackendTLSPolicy testing to intentionally force TLS validation to fail.
-		caConfigMap, _, _ = kubernetes.MustCreateCACertConfigMap(t, "gateway-conformance-infra", "mismatch-ca-certificate")
+		caConfigMap, _, _ = kubernetes.MustCreateCACertConfigMap(t, InfrastructureNamespace, "mismatch-ca-certificate")
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{caConfigMap}, suite.Cleanup)
 
 		tlog.Logf(t, "Test Setup: Ensuring Gateways and Pods from base manifests are ready")
 		namespaces := []string{
-			"gateway-conformance-infra",
-			"gateway-conformance-app-backend",
-			"gateway-conformance-web-backend",
+			InfrastructureNamespace,
+			AppBackendNamespace,
+			WebBackendNamespace,
 		}
 		kubernetes.NamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, namespaces)
 	}
@@ -426,10 +441,10 @@ func (suite *ConformanceTestSuite) Setup(t *testing.T, tests []ConformanceTest) 
 		suite.Applier.MustApplyWithCleanup(t, suite.Client, suite.TimeoutConfig, suite.MeshManifests, suite.Cleanup)
 		tlog.Logf(t, "Test Setup: Ensuring Gateways and Pods from mesh manifests are ready")
 		namespaces := []string{
-			"gateway-conformance-mesh",
-			"gateway-conformance-mesh-consumer",
-			"gateway-conformance-app-backend",
-			"gateway-conformance-web-backend",
+			MeshNamespace,
+			MeshConsumerNamespace,
+			AppBackendNamespace,
+			WebBackendNamespace,
 		}
 		kubernetes.MeshNamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, namespaces)
 	}
@@ -599,28 +614,26 @@ func (suite *ConformanceTestSuite) Report() (*confv1.ConformanceReport, error) {
 	}, nil
 }
 
-// ParseImplementation parses implementation-specific flag arguments and
-// creates a *confv1a1.Implementation.
-func ParseImplementation(org, project, url, version, contact string) confv1.Implementation {
-	return confv1.Implementation{
-		Organization: org,
-		Project:      project,
-		URL:          url,
-		Version:      version,
-		Contact:      strings.Split(contact, ","),
+// ParseConformanceProfiles parses a comma-separated string of conformance
+// profile names into a set. Used for backward compatibility with
+// external consumers of this package.
+func ParseConformanceProfiles(p string) sets.Set[ConformanceProfileName] {
+	slice := ParseConformanceProfilesSlice(p)
+	if slice == nil {
+		return nil
 	}
+	return sets.New(slice...)
 }
 
-// ParseConformanceProfiles parses flag arguments and converts the string to
-// sets.Set[ConformanceProfileName].
-func ParseConformanceProfiles(p string) sets.Set[ConformanceProfileName] {
-	res := sets.Set[ConformanceProfileName]{}
+// ParseConformanceProfilesSlice parses a comma-separated string of conformance
+// profile names into a slice. Used internally for populating ConfigurableOptions.
+func ParseConformanceProfilesSlice(p string) []ConformanceProfileName {
 	if p == "" {
-		return res
+		return nil
 	}
-
-	for _, value := range strings.Split(p, ",") {
-		res.Insert(ConformanceProfileName(value))
+	var res []ConformanceProfileName
+	for value := range strings.SplitSeq(p, ",") {
+		res = append(res, ConformanceProfileName(value))
 	}
 	return res
 }
@@ -686,8 +699,8 @@ func shouldInferSupportedFeatures(opts *ConformanceOptions) bool {
 		return false
 	}
 	return !opts.EnableAllSupportedFeatures &&
-		opts.SupportedFeatures.Len() == 0 &&
-		opts.ExemptFeatures.Len() == 0 &&
+		len(opts.SupportedFeatures) == 0 &&
+		len(opts.ExemptFeatures) == 0 &&
 		opts.RunTest == ""
 }
 

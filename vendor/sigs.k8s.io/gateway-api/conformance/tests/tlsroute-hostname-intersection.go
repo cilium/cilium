@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, TLSRouteHostnameIntersection)
 }
 
-var TLSRouteHostnameIntersection = suite.ConformanceTest{
+var TLSRouteHostnameIntersection = confsuite.ConformanceTest{
 	ShortName:   "TLSRouteHostnameIntersection",
 	Description: "TLSRoutes should attach to listeners only if they have intersecting hostnames, and should accept requests only for the intersecting hostnames",
 	Features: []features.FeatureName{
@@ -40,17 +40,20 @@ var TLSRouteHostnameIntersection = suite.ConformanceTest{
 		features.SupportTLSRoute,
 	},
 	Manifests: []string{"tests/tlsroute-hostname-intersection.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		certNN := types.NamespacedName{Name: "tls-checks-certificate", Namespace: ns}
 
 		// This test creates an additional Gateway in the gateway-conformance-infra
 		// namespace so we have to wait for it to be ready.
 		kubernetes.NamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, []string{ns})
 
-		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
+		serverCertPem, _, err := kubernetes.GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
+		}
+		if len(serverCertPem) == 0 {
+			t.Fatal("missing required server certificate pem for the test")
 		}
 
 		t.Run("TLSRoutes intersect with exact listener hostname", func(t *testing.T) {

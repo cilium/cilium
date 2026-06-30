@@ -2686,13 +2686,14 @@ k8s.io/klog/v2/internal/severity
 k8s.io/klog/v2/internal/sloghandler
 k8s.io/klog/v2/internal/verbosity
 k8s.io/klog/v2/textlogger
-# k8s.io/kube-openapi v0.0.0-20260427204847-8949caaa1199
+# k8s.io/kube-openapi v0.0.0-20260501160325-927ab1f70cd6
 ## explicit; go 1.23.0
 k8s.io/kube-openapi/cmd/openapi-gen
 k8s.io/kube-openapi/cmd/openapi-gen/args
 k8s.io/kube-openapi/pkg/cached
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/generators
+k8s.io/kube-openapi/pkg/generators/apidefinitions
 k8s.io/kube-openapi/pkg/generators/rules
 k8s.io/kube-openapi/pkg/handler3
 k8s.io/kube-openapi/pkg/internal
@@ -2846,8 +2847,8 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v1.5.1
-## explicit; go 1.25.0
+# sigs.k8s.io/gateway-api v1.6.0
+## explicit; go 1.26.0
 sigs.k8s.io/gateway-api/apis/v1
 sigs.k8s.io/gateway-api/apis/v1alpha2
 sigs.k8s.io/gateway-api/apis/v1alpha3
@@ -2855,12 +2856,13 @@ sigs.k8s.io/gateway-api/apis/v1beta1
 sigs.k8s.io/gateway-api/apisx/v1alpha1
 sigs.k8s.io/gateway-api/pkg/consts
 sigs.k8s.io/gateway-api/pkg/features
-# sigs.k8s.io/gateway-api/conformance v1.5.1
-## explicit; go 1.25.0
+# sigs.k8s.io/gateway-api/conformance v1.6.0
+## explicit; go 1.26.0
 sigs.k8s.io/gateway-api/conformance
 sigs.k8s.io/gateway-api/conformance/apis/v1
 sigs.k8s.io/gateway-api/conformance/echo-basic/grpcechoserver
 sigs.k8s.io/gateway-api/conformance/echo-basic/tcpserver
+sigs.k8s.io/gateway-api/conformance/echo-basic/udpechoserver
 sigs.k8s.io/gateway-api/conformance/tests
 sigs.k8s.io/gateway-api/conformance/tests/mesh
 sigs.k8s.io/gateway-api/conformance/utils/config
@@ -2874,6 +2876,8 @@ sigs.k8s.io/gateway-api/conformance/utils/suite
 sigs.k8s.io/gateway-api/conformance/utils/tcp
 sigs.k8s.io/gateway-api/conformance/utils/tlog
 sigs.k8s.io/gateway-api/conformance/utils/tls
+sigs.k8s.io/gateway-api/conformance/utils/udp
+sigs.k8s.io/gateway-api/conformance/utils/websocket
 sigs.k8s.io/gateway-api/conformance/utils/weight
 # sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730
 ## explicit; go 1.23

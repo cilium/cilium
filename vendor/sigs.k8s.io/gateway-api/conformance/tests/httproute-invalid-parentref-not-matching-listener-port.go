@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidParentRefNotMatchingListenerPort)
 }
 
-var HTTPRouteInvalidParentRefNotMatchingListenerPort = suite.ConformanceTest{
+var HTTPRouteInvalidParentRefNotMatchingListenerPort = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidParentRefNotMatchingListenerPort",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set the Accepted status to False with reason NoMatchingParent when attempting to bind to a Gateway that does not have a matching ListenerPort.",
 	Features: []features.FeatureName{
@@ -41,9 +41,9 @@ var HTTPRouteInvalidParentRefNotMatchingListenerPort = suite.ConformanceTest{
 		features.SupportHTTPRouteDestinationPortMatching,
 	},
 	Manifests: []string{"tests/httproute-invalid-parentref-not-matching-listener-port.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		routeNN := types.NamespacedName{Name: "httproute-listener-not-matching-route-port", Namespace: "gateway-conformance-infra"}
-		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		routeNN := types.NamespacedName{Name: "httproute-listener-not-matching-route-port", Namespace: confsuite.InfrastructureNamespace}
+		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: confsuite.InfrastructureNamespace}
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		// The Route must have an Accepted Condition with a NoMatchingParent Reason.

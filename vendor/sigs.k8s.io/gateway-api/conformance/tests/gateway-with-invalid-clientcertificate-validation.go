@@ -24,7 +24,7 @@ import (
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, GatewayInvalidFrontendClientCertificateValidation)
 }
 
-var GatewayInvalidFrontendClientCertificateValidation = suite.ConformanceTest{
+var GatewayInvalidFrontendClientCertificateValidation = confsuite.ConformanceTest{
 	ShortName:   "GatewayInvalidFrontendClientCertificateValidation",
 	Description: "Gateway's should reject invalid Client Certificate Validation Config",
 	Features: []features.FeatureName{
@@ -42,11 +42,12 @@ var GatewayInvalidFrontendClientCertificateValidation = suite.ConformanceTest{
 		features.SupportGatewayFrontendClientCertificateValidation,
 	},
 	Manifests: []string{"tests/gateway-with-invalid-clientcertificate-validation.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
+	Parallel:  true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		// Validate that invalid configuration for Default and PerPort client certificate validation
 		// impacts only status of affected Listener.
 		t.Run("Validate status for invalid client certificate configuration", func(t *testing.T) {
-			gwNN := types.NamespacedName{Name: "gateway-with-invalid-client-cert-validation", Namespace: "gateway-conformance-infra"}
+			gwNN := types.NamespacedName{Name: "gateway-with-invalid-client-cert-validation", Namespace: confsuite.InfrastructureNamespace}
 			cases := []struct {
 				name               string
 				lName              string

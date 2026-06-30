@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, TLSRouteInvalidBackendRefNonexistent)
 }
 
-var TLSRouteInvalidBackendRefNonexistent = suite.ConformanceTest{
+var TLSRouteInvalidBackendRefNonexistent = confsuite.ConformanceTest{
 	ShortName:   "TLSRouteInvalidBackendRefNonexistent",
 	Description: "A single TLSRoute in the gateway-conformance-infra namespace has a ResolvedRefs status False with reason BackendNotFound when binding to a Gateway in the same namespace, if the route has a BackendRef Service that does not exist",
 	Features: []features.FeatureName{
@@ -41,8 +41,8 @@ var TLSRouteInvalidBackendRefNonexistent = suite.ConformanceTest{
 		features.SupportTLSRoute,
 	},
 	Manifests: []string{"tests/tlsroute-invalid-backendref-nonexistent.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "invalid-backend-ref-nonexistent", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "gateway-tlsroute-invalid-backend-ref-nonexistent", Namespace: ns}
 

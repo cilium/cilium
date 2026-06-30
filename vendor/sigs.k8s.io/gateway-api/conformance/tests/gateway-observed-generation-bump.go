@@ -22,7 +22,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -42,11 +41,12 @@ var GatewayObservedGenerationBump = suite.ConformanceTest{
 		features.SupportGateway,
 	},
 	Manifests: []string{"tests/gateway-observed-generation-bump.yaml"},
+	Parallel:  true,
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		gwNN := types.NamespacedName{Name: "gateway-observed-generation-bump", Namespace: "gateway-conformance-infra"}
+		gwNN := types.NamespacedName{Name: "gateway-observed-generation-bump", Namespace: suite.InfrastructureNamespace}
 
 		t.Run("observedGeneration should increment", func(t *testing.T) {
-			namespaces := []string{"gateway-conformance-infra"}
+			namespaces := []string{suite.InfrastructureNamespace}
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
 
 			// Sanity check
@@ -65,7 +65,7 @@ var GatewayObservedGenerationBump = suite.ConformanceTest{
 			// mutate the Gateway Spec
 			mutate.Spec.Listeners = append(mutate.Spec.Listeners, v1.Listener{
 				Name:     "alternate",
-				Hostname: ptr.To[v1.Hostname]("foo.com"),
+				Hostname: new(v1.Hostname("foo.com")),
 				Port:     80,
 				Protocol: v1.HTTPProtocolType,
 				AllowedRoutes: &v1.AllowedRoutes{

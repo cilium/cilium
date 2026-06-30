@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, TLSRouteListenerPassthroughSupportedKinds)
 }
 
-var TLSRouteListenerPassthroughSupportedKinds = suite.ConformanceTest{
+var TLSRouteListenerPassthroughSupportedKinds = confsuite.ConformanceTest{
 	ShortName:   "TLSRouteListenerPassthroughSupportedKinds",
 	Description: "A Gateway Listener with TLS mode Passthrough MUST include TLSRoute in SupportedKinds",
 	Features: []features.FeatureName{
@@ -40,8 +40,8 @@ var TLSRouteListenerPassthroughSupportedKinds = suite.ConformanceTest{
 		features.SupportTLSRoute,
 	},
 	Manifests: []string{"tests/tlsroute-listener-passthrough-supported-kinds.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		gwNN := types.NamespacedName{Name: "gateway-tlsroute-passthrough-supported-kind", Namespace: "gateway-conformance-infra"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		gwNN := types.NamespacedName{Name: "gateway-tlsroute-passthrough-supported-kind", Namespace: confsuite.InfrastructureNamespace}
 
 		t.Run("TLS listener should have a false ResolvedRefs condition with reason InvalidRouteKinds for TCPRoute, and TLSRoute must be put in the supportedKinds", func(t *testing.T) {
 			listeners := []v1.ListenerStatus{{

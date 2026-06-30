@@ -19,27 +19,32 @@ package tests
 import (
 	"errors"
 	"fmt"
-	"regexp"
+	"math"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 const (
-	concurrentRequests    = 10
-	tolerancePercentage   = 15.0
+	concurrentRequests = 10
+	// toleranceStdDevs is the acceptance-band half-width expressed in binomial
+	// standard deviations; see testMirroredRequestsDistribution for the
+	// derivation. At 3 sigma the two-sided per-check false-failure probability
+	// is ~2.7e-3 for any mirror percentage, while still rejecting a genuinely
+	// wrong distribution.
+	toleranceStdDevs      = 3.0
 	totalRequests         = 500.0
 	numDistributionChecks = 5
 )
@@ -48,7 +53,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteRequestPercentageMirror)
 }
 
-var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
+var HTTPRouteRequestPercentageMirror = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteRequestPercentageMirror",
 	Description: "An HTTPRoute with percentage based request mirroring",
 	Manifests:   []string{"tests/httproute-request-percentage-mirror.yaml"},
@@ -58,9 +63,9 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 		features.SupportHTTPRouteRequestPercentageMirror,
 	},
 	Provisional: true,
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		var (
-			ns      = "gateway-conformance-infra"
+			ns      = confsuite.InfrastructureNamespace
 			routeNN = types.NamespacedName{Name: "request-percentage-mirror", Namespace: ns}
 			gwNN    = types.NamespacedName{Name: "same-namespace", Namespace: ns}
 			gwAddr  = kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
@@ -77,14 +82,14 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 						Path: "/percent-mirror",
 					},
 				},
-				Backend: "infra-backend-v1",
+				Backend: confsuite.InfraBackendServiceNameV1,
 				MirroredTo: []http.MirroredBackend{
 					{
 						BackendRef: http.BackendRef{
-							Name:      "infra-backend-v2",
+							Name:      confsuite.InfraBackendServiceNameV2,
 							Namespace: ns,
 						},
-						Percent: ptr.To(int32(20)),
+						Percent: new(int32(20)),
 					},
 				},
 			}, {
@@ -95,14 +100,14 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 						Path: "/percent-mirror-fraction",
 					},
 				},
-				Backend: "infra-backend-v1",
+				Backend: confsuite.InfraBackendServiceNameV1,
 				MirroredTo: []http.MirroredBackend{
 					{
 						BackendRef: http.BackendRef{
-							Name:      "infra-backend-v2",
+							Name:      confsuite.InfraBackendServiceNameV2,
 							Namespace: ns,
 						},
-						Percent: ptr.To(int32(50)),
+						Percent: new(int32(50)),
 					},
 				},
 			}, {
@@ -125,14 +130,14 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 					AbsentHeaders: []string{"X-Header-Remove"},
 				},
 				Namespace: ns,
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				MirroredTo: []http.MirroredBackend{
 					{
 						BackendRef: http.BackendRef{
-							Name:      "infra-backend-v2",
+							Name:      confsuite.InfraBackendServiceNameV2,
 							Namespace: ns,
 						},
-						Percent: ptr.To(int32(35)),
+						Percent: new(int32(35)),
 					},
 				},
 			},
@@ -151,9 +156,13 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 				semaphore := make(chan struct{}, concurrentRequests)
 				var wg sync.WaitGroup
 
-				for k := 0; k < numDistributionChecks; k++ {
+				for k := range numDistributionChecks {
+					err := expected.AddRequestIDQueryParam(uuid.NewString())
+					if err != nil {
+						t.Fatalf("Invalid query in path: %v", err)
+					}
 					timeNow := time.Now()
-					for j := 0; j < totalRequests; j++ {
+					for range int(totalRequests) {
 						wg.Add(1)
 						semaphore <- struct{}{}
 						go func(t *testing.T, r roundtripper.RoundTripper, timeoutConfig config.TimeoutConfig, gwAddr string, expected http.ExpectedResponse) {
@@ -176,7 +185,7 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 	},
 }
 
-func testMirroredRequestsDistribution(t *testing.T, suite *suite.ConformanceTestSuite, expected http.ExpectedResponse, timeVal time.Time) error {
+func testMirroredRequestsDistribution(t *testing.T, suite *confsuite.ConformanceTestSuite, expected http.ExpectedResponse, timeVal time.Time) error {
 	mirrorPods := expected.MirroredTo
 	for i, mirrorPod := range mirrorPods {
 		if mirrorPod.Name == "" {
@@ -189,7 +198,7 @@ func testMirroredRequestsDistribution(t *testing.T, suite *suite.ConformanceTest
 
 	for _, mirrorPod := range mirrorPods {
 		require.Eventually(t, func() bool {
-			mirrorLogRegexp := regexp.MustCompile(fmt.Sprintf("Echoing back request made to \\%s to client", expected.Request.Path))
+			mirrorLogRegexp := http.GetMirrorLogRegexp(expected.Request.Path)
 
 			tlog.Log(t, "Searching for the mirrored request log")
 			tlog.Logf(t, `Reading "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
@@ -216,9 +225,21 @@ func testMirroredRequestsDistribution(t *testing.T, suite *suite.ConformanceTest
 	var errs []error
 
 	for _, mirrorPod := range mirrorPods {
-		expected := float64(totalRequests) * float64(*mirrorPod.Percent) / 100.0
-		minExpected := expected * (1 - tolerancePercentage/100)
-		maxExpected := expected * (1 + tolerancePercentage/100)
+		// Each request is mirrored independently with probability p, so the
+		// observed mirrored count follows Binomial(totalRequests, p) with
+		// standard deviation sqrt(n*p*(1-p)). Deriving the acceptance band from
+		// that standard deviation keeps the per-check false-failure probability
+		// uniformly low across mirror percentages. A flat relative band does
+		// not: it scales linearly with p while the standard deviation scales
+		// with sqrt(p*(1-p)), so at low percentages the band collapses toward
+		// the sampling noise floor (e.g. p=0.2, n=500 gives stddev ~8.9, so a
+		// +/-15% band spanned only ~1.7 stddev and rejected ~9% of conforming
+		// runs by sampling variance alone).
+		p := float64(*mirrorPod.Percent) / 100.0
+		expected := totalRequests * p
+		margin := toleranceStdDevs * math.Sqrt(totalRequests*p*(1-p))
+		minExpected := expected - margin
+		maxExpected := expected + margin
 
 		actual := float64(mirroredCounts[mirrorPod.Name])
 		tlog.Logf(t, "Pod: %s, Expected: %f (min: %f, max: %f), Actual: %f", mirrorPod.Name, expected, minExpected, maxExpected, actual)
