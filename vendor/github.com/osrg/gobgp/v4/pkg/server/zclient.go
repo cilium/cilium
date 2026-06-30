@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"net"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -199,6 +200,17 @@ func newIPRouteBody(dst []*table.Path, vrfID uint32, z *zebraClient) (body *zebr
 	for _, p := range paths {
 		nexthop.Gate = p.GetNexthop()
 		nexthop.VrfID = nhVrfID
+		// link-local next-hop requires an interface index for kernel route installation
+		nexthop.Ifindex = 0
+		if nexthop.Gate.Is6() && nexthop.Gate.IsLinkLocalUnicast() {
+			if zone := p.GetSource().Address.Zone(); zone != "" {
+				if id, err := strconv.ParseUint(zone, 10, 32); err == nil {
+					nexthop.Ifindex = uint32(id)
+				} else if ifi, err := net.InterfaceByName(zone); err == nil {
+					nexthop.Ifindex = uint32(ifi.Index)
+				}
+			}
+		}
 		if nhVrfID != vrfID {
 			addLabelToNexthop(path, z, &msgFlags, &nexthop)
 		}

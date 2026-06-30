@@ -27,7 +27,7 @@ const (
 	ipv6MinHopCount = 73   // Generalized TTL Security Mechanism (RFC5082)
 )
 
-func SetTcpMD5SigSockopt(l *net.TCPListener, address string, key string) error {
+func SetTcpMD5SigSockopt(l *net.TCPListener, bindInterface string, address string, key string) error {
 	sc, err := l.SyscallConn()
 	if err != nil {
 		return err

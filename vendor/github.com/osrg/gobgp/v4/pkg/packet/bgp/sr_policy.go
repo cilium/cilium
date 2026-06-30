@@ -230,11 +230,16 @@ func (t *TunnelEncapSubTLVSRCandidatePathName) DecodeFromBytes(data []byte) erro
 	if err != nil {
 		return err
 	}
-	// Skip Reserved byte
-	if int(t.Length) < t.Len() {
+	// Body layout is one Reserved byte followed by the Candidate
+	// Path Name octet string (RFC 9012 Section 2.4.4 / IANA SR
+	// Policy Tunnel Encapsulation Sub-TLVs, type 129). value is
+	// the body slice with length t.Length; the previous code read
+	// value[1:t.Len()] which adds the 3-byte sub-TLV header onto
+	// the upper bound and over-reads into the next sub-TLV.
+	if t.Length < 1 {
 		return malformedAttrListErr("TunnelEncapSubTLVSRCandidatePathName length is too short")
 	}
-	t.CandidatePathName = string(value[1:t.Len()])
+	t.CandidatePathName = string(value[1:])
 	return nil
 }
 

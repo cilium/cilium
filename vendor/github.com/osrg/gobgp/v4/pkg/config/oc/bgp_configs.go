@@ -5090,6 +5090,9 @@ type GlobalState struct {
 	// original -> gobgp:local-address
 	// original type is list of inet:ip-address
 	LocalAddressList []netip.Addr `mapstructure:"local-address-list" json:"local-address-list,omitempty"`
+	// original -> gobgp:bind-to-device
+	// Device name for binding the BGP listener socket.
+	BindToDevice string `mapstructure:"bind-to-device" json:"bind-to-device,omitempty"`
 }
 
 // struct for container bgp:config.
@@ -5110,6 +5113,9 @@ type GlobalConfig struct {
 	// original -> gobgp:local-address
 	// original type is list of inet:ip-address
 	LocalAddressList []netip.Addr `mapstructure:"local-address-list" json:"local-address-list,omitempty"`
+	// original -> gobgp:bind-to-device
+	// Device name for binding the BGP listener socket.
+	BindToDevice string `mapstructure:"bind-to-device" json:"bind-to-device,omitempty"`
 }
 
 func (lhs *GlobalConfig) Equal(rhs *GlobalConfig) bool {
@@ -5132,6 +5138,9 @@ func (lhs *GlobalConfig) Equal(rhs *GlobalConfig) bool {
 		if l != rhs.LocalAddressList[idx] {
 			return false
 		}
+	}
+	if lhs.BindToDevice != rhs.BindToDevice {
+		return false
 	}
 	return true
 }
