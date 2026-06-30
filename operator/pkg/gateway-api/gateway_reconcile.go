@@ -351,7 +351,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		MergedListeners:     mergedListeners,
 	})
 
-	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, tcpRouteList, udpRouteList, namespaceLabels)
+	listenersStatus, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, tcpRouteList, udpRouteList, namespaceLabels)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to set listener status", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to set listener status", gatewayv1.GatewayReasonNoResources)
@@ -359,12 +359,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	if !validListener {
+	switch listenersStatus {
+	case ListenersStatusNoneValid:
 		err := fmt.Errorf("No Accepted Listeners for Gateway")
 		scopedLog.ErrorContext(ctx, "No Accepted Listeners for Gateway", logfields.Error, err)
 		setGatewayAccepted(gw, false, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	case ListenersStatusValidWithUnsupportedProtocol:
+		setGatewayAccepted(gw, true, "Gateway has unsupported listeners", gatewayv1.GatewayReasonListenersNotValid)
+	case ListenersStatusSomeInvalid, ListenersStatusAllValid:
+		setGatewayAccepted(gw, true, "Gateway successfully scheduled", gatewayv1.GatewayReasonAccepted)
 	}
 
 	// ListenerSet status is reported independently from the parent Gateway's
@@ -372,7 +377,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Gateway's local configuration, so valid ListenerSets do not make an
 	// otherwise invalid Gateway accepted or programmed.
 	r.setListenerSetStatuses(ctx, gw, attachedListenerSets, httpRouteList, tlsRouteList, grpcRouteList, tcpRouteList, udpRouteList, namespaceLabels)
-	setGatewayAccepted(gw, true, "Gateway successfully scheduled", gatewayv1.GatewayReasonAccepted)
 
 	// Step 3: Translate the listeners into Cilium model
 	cec, svc, eps, err := r.translator.Translate(m)
@@ -1127,16 +1131,26 @@ func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gate
 	return nil
 }
 
-func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1.TLSRouteList, grpcRoutes *gatewayv1.GRPCRouteList, tcpRoutes *gatewayv1alpha2.TCPRouteList, udpRoutes *gatewayv1alpha2.UDPRouteList, namespaceLabels helpers.NamespaceLabelIndex) (bool, error) {
+type ListenersStatus string
+
+const (
+	ListenersStatusNoneValid                    ListenersStatus = "NoneValid"
+	ListenersStatusValidWithUnsupportedProtocol ListenersStatus = "SomeValidWithUnsupported"
+	ListenersStatusSomeInvalid                  ListenersStatus = "SomeInvalid"
+	ListenersStatusAllValid                     ListenersStatus = "AllValid"
+)
+
+func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1.TLSRouteList, grpcRoutes *gatewayv1.GRPCRouteList, tcpRoutes *gatewayv1alpha2.TCPRouteList, udpRoutes *gatewayv1alpha2.UDPRouteList, namespaceLabels helpers.NamespaceLabelIndex) (ListenersStatus, error) {
 	grants := &gatewayv1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
-		return false, fmt.Errorf("failed to retrieve reference grants: %w", err)
+		return "", fmt.Errorf("failed to retrieve reference grants: %w", err)
 	}
 
 	conflictedListeners := conflictedGatewayListeners(gw)
 
-	// Keep track of if there is at least one Valid Listener; if not, the Gateway cannot be Accepted.
-	oneValidListener := false
+	validListeners := 0
+	unsupportedProtocolListeners := 0
+	invalidListeners := 0
 	for _, l := range gw.Spec.Listeners {
 		isValid := true
 		var invalidMessages []string
@@ -1156,20 +1170,23 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 			grants:         grants.Items,
 			ownerRef:       client.ObjectKeyFromObject(gw).String(),
 		})
+		if !res.isValid && res.invalidReason == gatewayv1.ListenerReasonUnsupportedProtocol {
+			unsupportedProtocolListeners++
+		}
 		isValid = isValid && res.isValid
 		invalidMessages = append(invalidMessages, res.invalidMessages...)
 		conds = merge(conds, res.conds...)
 		supportedKinds := res.supportedKinds
 
 		if !isValid {
+			invalidListeners++
 			conds = merge(conds,
 				listenerAcceptedCondition(gw.GetGeneration(), false, res.invalidReason, "Listener not valid. "+strings.Join(invalidMessages, " ")),
 				listenerProgrammedCondition(gw.GetGeneration(), false, gatewayv1.ListenerReasonPending, "Address not ready yet"))
 			// If the Listener is not valid, then no kinds are supported
 			// supportedKinds = []gatewayv1.RouteGroupKind{}
 		} else {
-			// There's at least one Accepted listener, so the Gateway can also be Accepted.
-			oneValidListener = true
+			validListeners++
 			// If ResolvedRefs is not already present, add a successful one.
 			if !helpers.IsConditionPresent(conds, string(gatewayv1.ListenerConditionResolvedRefs)) {
 				conds = merge(conds, metav1.Condition{
@@ -1224,7 +1241,17 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		}
 	}
 	gw.Status.Listeners = newListenersStatus
-	return oneValidListener, nil
+
+	switch {
+	case validListeners == 0:
+		return ListenersStatusNoneValid, nil
+	case unsupportedProtocolListeners > 0:
+		return ListenersStatusValidWithUnsupportedProtocol, nil
+	case invalidListeners > 0:
+		return ListenersStatusSomeInvalid, nil
+	default:
+		return ListenersStatusAllValid, nil
+	}
 }
 
 type listenerConflict struct {
@@ -1405,6 +1432,7 @@ func (r *gatewayReconciler) validateListener(ctx context.Context, l gatewayv1.Li
 	allSupported := getSupportedRouteKinds(l.Protocol)
 	if allSupported == nil {
 		res.invalidMessages = append(res.invalidMessages, "Unsupported Listener Protocol.")
+		res.invalidReason = gatewayv1.ListenerReasonUnsupportedProtocol
 		res.isValid = false
 	}
 
