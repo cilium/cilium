@@ -23,6 +23,11 @@ Prerequisites
     - `TCPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#tcproute>`__
     - `UDPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#udproute>`__
 
+  To use ListenerSet, install its Standard CRD before starting the Cilium operator.
+  If this CRD is not installed, Cilium disables ListenerSet support.
+
+    - `ListenerSet <https://gateway-api.sigs.k8s.io/guides/user-guides/listener-set/>`__
+
   You can install the required CRDs like this:
 
     .. code-block:: shell-session
@@ -34,6 +39,12 @@ Prerequisites
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_backendtlspolicies.yaml
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_tlsroutes.yaml
+
+  For ListenerSet, also add its Standard CRD:
+
+    .. code-block:: shell-session
+
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_listenersets.yaml
 
   For TCPRoute and UDPRoute, also add the related CRDs with the following snippet:
 
