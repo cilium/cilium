@@ -29,7 +29,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	h "sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -38,7 +38,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, BackendTLSPolicy)
 }
 
-var BackendTLSPolicy = suite.ConformanceTest{
+var BackendTLSPolicy = confsuite.ConformanceTest{
 	ShortName:   "BackendTLSPolicy",
 	Description: "BackendTLSPolicy must be used to configure TLS connection between gateway and backend",
 	Features: []features.FeatureName{
@@ -47,8 +47,9 @@ var BackendTLSPolicy = suite.ConformanceTest{
 		features.SupportBackendTLSPolicy,
 	},
 	Manifests: []string{"tests/backendtlspolicy.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Parallel:  true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 
 		acceptedCond := metav1.Condition{
 			Type:   string(gatewayv1.PolicyConditionAccepted),
@@ -75,9 +76,12 @@ var BackendTLSPolicy = suite.ConformanceTest{
 
 			// For the re-encrypt case, we need to use the cert for the frontend tls listener.
 			certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-			serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
+			serverCertPem, _, err := kubernetes.GetTLSSecret(suite.Client, certNN)
 			if err != nil {
 				t.Fatalf("unexpected error finding TLS secret: %v", err)
+			}
+			if len(serverCertPem) == 0 {
+				t.Fatal("missing required server certificate pem for the test")
 			}
 			// Verify that the request to a re-encrypted call to /backendTLS should succeed.
 			tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, serverCertPem, nil, nil, "https-listener.org",

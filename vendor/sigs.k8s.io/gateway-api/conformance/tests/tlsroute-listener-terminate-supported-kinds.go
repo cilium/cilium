@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, TLSRouteListenerTerminateSupportedKinds)
 }
 
-var TLSRouteListenerTerminateSupportedKinds = suite.ConformanceTest{
+var TLSRouteListenerTerminateSupportedKinds = confsuite.ConformanceTest{
 	ShortName:   "TLSRouteListenerTerminateSupportedKinds",
 	Description: "A Gateway Listener with TLS mode Terminate MUST include TLSRoute in SupportedKinds when termination is supported",
 	Features: []features.FeatureName{
@@ -41,8 +41,8 @@ var TLSRouteListenerTerminateSupportedKinds = suite.ConformanceTest{
 		features.SupportTLSRouteModeTerminate,
 	},
 	Manifests: []string{"tests/tlsroute-listener-terminate-supported-kinds.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		gwNN := types.NamespacedName{Name: "gateway-tlsroute-terminate-supported", Namespace: "gateway-conformance-infra"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		gwNN := types.NamespacedName{Name: "gateway-tlsroute-terminate-supported", Namespace: confsuite.InfrastructureNamespace}
 
 		t.Run("Listener with mode Terminate must have TLSRoute in SupportedKinds", func(t *testing.T) {
 			listeners := []v1.ListenerStatus{

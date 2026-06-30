@@ -25,7 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	h "sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, BackendTLSPolicySANValidation)
 }
 
-var BackendTLSPolicySANValidation = suite.ConformanceTest{
+var BackendTLSPolicySANValidation = confsuite.ConformanceTest{
 	ShortName:   "BackendTLSPolicySANValidation",
 	Description: "BackendTLSPolicySANValidation extend BackendTLSPolicy with SubjectAltNames validation",
 	Features: []features.FeatureName{
@@ -43,8 +43,9 @@ var BackendTLSPolicySANValidation = suite.ConformanceTest{
 		features.SupportBackendTLSPolicySANValidation,
 	},
 	Manifests: []string{"tests/backendtlspolicy-san.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Parallel:  true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "backendtlspolicy-san-test", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 

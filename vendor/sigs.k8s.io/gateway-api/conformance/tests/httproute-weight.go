@@ -24,7 +24,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/weight"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteWeight)
 }
 
-var HTTPRouteWeight = suite.ConformanceTest{
+var HTTPRouteWeight = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteWeight",
 	Description: "An HTTPRoute with weighted backends",
 	Manifests:   []string{"tests/httproute-weight.yaml"},
@@ -41,9 +41,9 @@ var HTTPRouteWeight = suite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		var (
-			ns      = "gateway-conformance-infra"
+			ns      = confsuite.InfrastructureNamespace
 			routeNN = types.NamespacedName{Name: "weighted-backends", Namespace: ns}
 			gwNN    = types.NamespacedName{Name: "same-namespace", Namespace: ns}
 			gwAddr  = kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
@@ -57,16 +57,16 @@ var HTTPRouteWeight = suite.ConformanceTest{
 				Response: http.Response{
 					StatusCodes: []int{200},
 				},
-				Namespace: "gateway-conformance-infra",
+				Namespace: confsuite.InfrastructureNamespace,
 			}
 
 			// Assert request succeeds before doing our distribution check
 			http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, expected)
 
 			expectedWeights := map[string]float64{
-				"infra-backend-v1": 0.7,
-				"infra-backend-v2": 0.3,
-				"infra-backend-v3": 0.0,
+				confsuite.InfraBackendServiceNameV1: 0.7,
+				confsuite.InfraBackendServiceNameV2: 0.3,
+				confsuite.InfraBackendServiceNameV3: 0.0,
 			}
 
 			sender := weight.NewFunctionBasedSender(func() (string, error) {
@@ -85,7 +85,7 @@ var HTTPRouteWeight = suite.ConformanceTest{
 				return cReq.Pod, nil
 			})
 
-			for i := 0; i < weight.MaxTestRetries; i++ {
+			for i := range weight.MaxTestRetries {
 				if err := weight.TestWeightedDistribution(sender, expectedWeights); err != nil {
 					t.Logf("Traffic distribution test failed (%d/%d): %s", i+1, weight.MaxTestRetries, err)
 				} else {

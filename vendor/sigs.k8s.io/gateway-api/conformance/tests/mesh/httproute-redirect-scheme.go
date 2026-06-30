@@ -40,7 +40,7 @@ var MeshHTTPRouteSchemeRedirect = suite.ConformanceTest{
 		features.SupportMeshHTTPRouteSchemeRedirect,
 	},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-mesh"
+		ns := suite.MeshNamespace
 		client := echo.ConnectToApp(t, s, echo.MeshAppEchoV1)
 
 		testCases := []http.ExpectedResponse{

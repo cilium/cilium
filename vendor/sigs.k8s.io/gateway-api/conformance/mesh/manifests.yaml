@@ -25,17 +25,17 @@ spec:
         version: v1
     spec:
       containers:
-      - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd
-        imagePullPolicy: IfNotPresent
-        args:
-        - --tcp=9090
-        - --port=8080
-        - --grpc=7070
-        - --port=8443
-        - --tls=8443
-        - --crt=/cert.crt
-        - --key=/cert.key
+        - name: echo
+          image: registry.k8s.io/gateway-api/echo-advanced:v1.5.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - --tcp=9090
+            - --port=8080
+            - --grpc=7070
+            - --port=8443
+            - --tls=8443
+            - --crt=/cert.crt
+            - --key=/cert.key
 ---
 apiVersion: v1
 kind: Service
@@ -47,21 +47,21 @@ spec:
     app: echo
     version: v1
   ports:
-  - name: http
-    port: 80
-    appProtocol: http
-    targetPort: 8080
-  - name: http-alt
-    port: 8080
-    appProtocol: http
-  - name: https
-    port: 443
-    targetPort: 8443
-  - name: tcp
-    port: 9090
-  - name: grpc
-    port: 7070
-    appProtocol: grpc
+    - name: http
+      port: 80
+      appProtocol: http
+      targetPort: 8080
+    - name: http-alt
+      port: 8080
+      appProtocol: http
+    - name: https
+      port: 443
+      targetPort: 8443
+    - name: tcp
+      port: 9090
+    - name: grpc
+      port: 7070
+      appProtocol: grpc
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -82,17 +82,17 @@ spec:
         version: v2
     spec:
       containers:
-      - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd
-        imagePullPolicy: IfNotPresent
-        args:
-        - --tcp=9090
-        - --port=8080
-        - --grpc=7070
-        - --port=8443
-        - --tls=8443
-        - --crt=/cert.crt
-        - --key=/cert.key
+        - name: echo
+          image: registry.k8s.io/gateway-api/echo-advanced:v1.5.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - --tcp=9090
+            - --port=8080
+            - --grpc=7070
+            - --port=8443
+            - --tls=8443
+            - --crt=/cert.crt
+            - --key=/cert.key
 ---
 apiVersion: v1
 kind: Service
@@ -104,21 +104,21 @@ spec:
     app: echo
     version: v2
   ports:
-  - name: http
-    port: 80
-    appProtocol: http
-    targetPort: 8080
-  - name: http-alt
-    port: 8080
-    appProtocol: http
-  - name: https
-    port: 443
-    targetPort: 8443
-  - name: tcp
-    port: 9090
-  - name: grpc
-    port: 7070
-    appProtocol: grpc
+    - name: http
+      port: 80
+      appProtocol: http
+      targetPort: 8080
+    - name: http-alt
+      port: 8080
+      appProtocol: http
+    - name: https
+      port: 443
+      targetPort: 8443
+    - name: tcp
+      port: 9090
+    - name: grpc
+      port: 7070
+      appProtocol: grpc
 ---
 apiVersion: v1
 kind: Service
@@ -129,21 +129,21 @@ spec:
   selector:
     app: echo
   ports:
-  - name: http
-    port: 80
-    appProtocol: http
-    targetPort: 8080
-  - name: http-alt
-    port: 8080
-    appProtocol: http
-  - name: https
-    port: 443
-    targetPort: 8443
-  - name: tcp
-    port: 9090
-  - name: grpc
-    port: 7070
-    appProtocol: grpc
+    - name: http
+      port: 80
+      appProtocol: http
+      targetPort: 8080
+    - name: http-alt
+      port: 8080
+      appProtocol: http
+    - name: https
+      port: 443
+      targetPort: 8443
+    - name: tcp
+      port: 9090
+    - name: grpc
+      port: 7070
+      appProtocol: grpc
 ---
 apiVersion: v1
 kind: Namespace
@@ -171,6 +171,6 @@ spec:
         version: v1
     spec:
       containers:
-      - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd
-        imagePullPolicy: IfNotPresent
+        - name: echo
+          image: registry.k8s.io/gateway-api/echo-advanced:v1.5.1
+          imagePullPolicy: IfNotPresent

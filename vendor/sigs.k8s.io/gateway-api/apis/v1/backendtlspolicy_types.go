@@ -93,12 +93,12 @@ type BackendTLSPolicySpec struct {
 	//
 	// Support Levels:
 	//
-	// * Extended: Kubernetes Service referenced by HTTPRoute backendRefs.
+	// * Extended: Kubernetes Service referenced by backendRefs used on a Route.
+	//   - HTTPRoute, GRPCRoute, TLSRoute with termination
+	//   - Filters that needs a backend of type Service, like Mirror and External Authorization
 	//
-	// * Implementation-Specific: Services not connected via HTTPRoute, and any
-	//   other kind of backend. Implementations MAY use BackendTLSPolicy for:
+	// * Implementation-Specific: Implementations MAY use BackendTLSPolicy for:
 	//   - Services not referenced by any Route (e.g., infrastructure services)
-	//   - Gateway feature backends (e.g., ExternalAuth, rate-limiting services)
 	//   - Service mesh workload-to-service communication
 	//   - Other resource types beyond Service
 	//
@@ -118,6 +118,11 @@ type BackendTLSPolicySpec struct {
 	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=16
+	// <gateway:util:excludeFromCRD>
+	// Mirrors the parentRefs consistency/uniqueness rules from CommonRouteSpec.ParentRefs.
+	// Requires distinct, non-empty sectionNames when the same target appears more than once.
+	// Namespace is not checked because targetRefs only supports same-namespace targets.
+	// </gateway:util:excludeFromCRD>
 	// +kubebuilder:validation:XValidation:message="sectionName must be specified when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.all(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name ? ((!has(p1.sectionName) || p1.sectionName == '') == (!has(p2.sectionName) || p2.sectionName == '')) : true))"
 	// +kubebuilder:validation:XValidation:message="sectionName must be unique when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName == p2.sectionName))))"
 	TargetRefs []LocalPolicyTargetReferenceWithSectionName `json:"targetRefs,omitempty"`

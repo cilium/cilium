@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -31,7 +31,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRoutePathMatchOrder)
 }
 
-var HTTPRoutePathMatchOrder = suite.ConformanceTest{
+var HTTPRoutePathMatchOrder = confsuite.ConformanceTest{
 	ShortName:   "HTTPRoutePathMatchOrder",
 	Description: "An HTTPRoute where there are multiple matches routing to any given backend follows match order precedence",
 	Features: []features.FeatureName{
@@ -39,8 +39,8 @@ var HTTPRoutePathMatchOrder = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-path-match-order.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Namespace: ns, Name: "path-matching-order"}
 		gwNN := types.NamespacedName{Namespace: ns, Name: "same-namespace"}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
@@ -49,27 +49,27 @@ var HTTPRoutePathMatchOrder = suite.ConformanceTest{
 		testCases := []http.ExpectedResponse{
 			{
 				Request:   http.Request{Path: "/match/exact/one"},
-				Backend:   "infra-backend-v3",
+				Backend:   confsuite.InfraBackendServiceNameV3,
 				Namespace: ns,
 			}, {
 				Request:   http.Request{Path: "/match/exact"},
-				Backend:   "infra-backend-v2",
+				Backend:   confsuite.InfraBackendServiceNameV2,
 				Namespace: ns,
 			}, {
 				Request:   http.Request{Path: "/match"},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			}, {
 				Request:   http.Request{Path: "/match/prefix/one/any"},
-				Backend:   "infra-backend-v2",
+				Backend:   confsuite.InfraBackendServiceNameV2,
 				Namespace: ns,
 			}, {
 				Request:   http.Request{Path: "/match/prefix/any"},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			}, {
 				Request:   http.Request{Path: "/match/any"},
-				Backend:   "infra-backend-v3",
+				Backend:   confsuite.InfraBackendServiceNameV3,
 				Namespace: ns,
 			},
 		}

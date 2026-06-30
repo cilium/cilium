@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -31,7 +31,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteRewritePath)
 }
 
-var HTTPRouteRewritePath = suite.ConformanceTest{
+var HTTPRouteRewritePath = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteRewritePath",
 	Description: "An HTTPRoute with path rewrite filter",
 	Manifests:   []string{"tests/httproute-rewrite-path.yaml"},
@@ -40,8 +40,8 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 		features.SupportHTTPRoutePathRewrite,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "rewrite-path", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
@@ -57,7 +57,7 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 						Path: "/one/two",
 					},
 				},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 			{
@@ -69,7 +69,7 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 						Path: "/three",
 					},
 				},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 			{
@@ -81,7 +81,7 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 						Path: "/",
 					},
 				},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 			{
@@ -93,7 +93,7 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 						Path: "/one",
 					},
 				},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 			{
@@ -116,7 +116,7 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 					},
 					AbsentHeaders: []string{"X-Header-Remove"},
 				},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 			{
@@ -139,7 +139,7 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 					},
 					AbsentHeaders: []string{"X-Header-Remove"},
 				},
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				Namespace: ns,
 			},
 		}

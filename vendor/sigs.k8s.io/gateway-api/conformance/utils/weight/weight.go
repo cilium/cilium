@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -75,7 +74,7 @@ func TestWeightedDistribution(sender RequestSender, expectedWeights map[string]f
 	)
 
 	g.SetLimit(concurrentRequests)
-	for i := 0; i < totalRequests; i++ {
+	for range totalRequests {
 		g.Go(func() error {
 			podName, err := sender.SendRequest()
 			if err != nil {
@@ -211,42 +210,21 @@ func TestWeightedDistributionBatch(sender BatchRequestSender, expectedWeights ma
 
 // Entropy utilities
 
-// addRandomDelay adds a random delay up to the specified limit in milliseconds
-func addRandomDelay(limit int) {
-	n, err := rand.Int(rand.Reader, big.NewInt(int64(limit)))
-	if err != nil {
-		// Fallback to no delay if crypto/rand fails
-		return
-	}
-	randomSleepDuration := n.Int64()
-	time.Sleep(time.Duration(randomSleepDuration) * time.Millisecond)
-}
-
-// AddRandomEntropy randomly chooses to add delay, random value, or both
+// AddRandomEntropy randomly chooses to add a random value.
 // The addRandomValue function should be provided by the caller to handle
 // protocol-specific ways of adding the random value (HTTP headers, gRPC metadata, etc.)
 func AddRandomEntropy(addRandomValue func(string) error) error {
-	n, err := rand.Int(rand.Reader, big.NewInt(3))
+	n, err := rand.Int(rand.Reader, big.NewInt(2))
 	if err != nil {
-		// Fallback to case 0 if crypto/rand fails
-		addRandomDelay(1000)
 		return err
 	}
 	random := n.Int64()
 
 	switch random {
 	case 0:
-		addRandomDelay(1000)
+		// Do nothing
 		return nil
 	case 1:
-		valueN, err := rand.Int(rand.Reader, big.NewInt(10000))
-		if err != nil {
-			return fmt.Errorf("failed to generate random value: %w", err)
-		}
-		randomValue := valueN.Int64()
-		return addRandomValue(strconv.FormatInt(randomValue, 10))
-	case 2:
-		addRandomDelay(1000)
 		valueN, err := rand.Int(rand.Reader, big.NewInt(10000))
 		if err != nil {
 			return fmt.Errorf("failed to generate random value: %w", err)

@@ -25,7 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	h "sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, BackendTLSPolicyInvalidKind)
 }
 
-var BackendTLSPolicyInvalidKind = suite.ConformanceTest{
+var BackendTLSPolicyInvalidKind = confsuite.ConformanceTest{
 	ShortName:   "BackendTLSPolicyInvalidKind",
 	Description: "A BackendTLSPolicy that specifies a single CACertificateRef with an invalid kind should have the Accepted and ResolvedRefs status condition set False with appropriate reasons, and HTTP requests to a backend targeted by this policy should fail with a 5xx response.",
 	Features: []features.FeatureName{
@@ -42,8 +42,9 @@ var BackendTLSPolicyInvalidKind = suite.ConformanceTest{
 		features.SupportBackendTLSPolicy,
 	},
 	Manifests: []string{"tests/backendtlspolicy-invalid-kind.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Parallel:  true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "backendtlspolicy-invalid-kind-test", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 

@@ -19,11 +19,12 @@ package tests
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -31,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteRequestMultipleMirrors)
 }
 
-var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
+var HTTPRouteRequestMultipleMirrors = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteRequestMultipleMirrors",
 	Description: "An HTTPRoute with multiple request mirror filters",
 	Manifests:   []string{"tests/httproute-request-multiple-mirrors.yaml"},
@@ -41,8 +42,8 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 		features.SupportHTTPRouteRequestMirror,
 		features.SupportHTTPRouteRequestMultipleMirrors,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "request-multiple-mirrors", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
@@ -57,17 +58,17 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 						Path: "/multi-mirror",
 					},
 				},
-				Backend: "infra-backend-v1",
+				Backend: confsuite.InfraBackendServiceNameV1,
 				MirroredTo: []http.MirroredBackend{
 					{
 						BackendRef: http.BackendRef{
-							Name:      "infra-backend-v2",
+							Name:      confsuite.InfraBackendServiceNameV2,
 							Namespace: ns,
 						},
 					},
 					{
 						BackendRef: http.BackendRef{
-							Name:      "infra-backend-v3",
+							Name:      confsuite.InfraBackendServiceNameV3,
 							Namespace: ns,
 						},
 					},
@@ -93,17 +94,17 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 					AbsentHeaders: []string{"X-Header-Remove"},
 				},
 				Namespace: ns,
-				Backend:   "infra-backend-v1",
+				Backend:   confsuite.InfraBackendServiceNameV1,
 				MirroredTo: []http.MirroredBackend{
 					{
 						BackendRef: http.BackendRef{
-							Name:      "infra-backend-v2",
+							Name:      confsuite.InfraBackendServiceNameV2,
 							Namespace: ns,
 						},
 					},
 					{
 						BackendRef: http.BackendRef{
-							Name:      "infra-backend-v3",
+							Name:      confsuite.InfraBackendServiceNameV3,
 							Namespace: ns,
 						},
 					},
@@ -116,8 +117,14 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 			tc := testCases[i]
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
+				err := tc.AddRequestIDQueryParam(uuid.NewString())
+				if err != nil {
+					t.Fatalf("Invalid query in path: %v", err)
+				}
+				// Start inspecting logs before sending the request
+				waitForMirroredRequests := http.ExpectMirroredRequest(t, suite.Client, suite.Clientset, tc.MirroredTo, tc.Request.Path, suite.TimeoutConfig)
+				defer waitForMirroredRequests() // clean-up in case we exit below
 				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
-				http.ExpectMirroredRequest(t, suite.Client, suite.Clientset, tc.MirroredTo, tc.Request.Path, suite.TimeoutConfig)
 			})
 		}
 	},

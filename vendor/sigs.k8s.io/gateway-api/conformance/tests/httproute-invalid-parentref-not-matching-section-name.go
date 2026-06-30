@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidParentRefNotMatchingSectionName)
 }
 
-var HTTPRouteInvalidParentRefNotMatchingSectionName = suite.ConformanceTest{
+var HTTPRouteInvalidParentRefNotMatchingSectionName = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidParentRefNotMatchingSectionName",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set the Accepted status to False with reason NoMatchingParent when attempting to bind to a Gateway that does not have a matching SectionName.",
 	Features: []features.FeatureName{
@@ -40,9 +40,9 @@ var HTTPRouteInvalidParentRefNotMatchingSectionName = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-invalid-parentref-not-matching-section-name.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		routeNN := types.NamespacedName{Name: "httproute-listener-not-matching-section-name", Namespace: "gateway-conformance-infra"}
-		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		routeNN := types.NamespacedName{Name: "httproute-listener-not-matching-section-name", Namespace: confsuite.InfrastructureNamespace}
+		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: confsuite.InfrastructureNamespace}
 
 		// The Route must have an Accepted Condition with a NoMatchingParent Reason.
 		t.Run("HTTPRoute with no matching sectionName in ParentRef has an Accepted Condition with status False and Reason NoMatchingParent", func(t *testing.T) {

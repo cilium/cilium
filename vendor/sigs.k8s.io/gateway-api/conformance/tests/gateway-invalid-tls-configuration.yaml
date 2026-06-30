@@ -3,6 +3,8 @@ kind: Gateway
 metadata:
   name: gateway-certificate-nonexistent-secret
   namespace: gateway-conformance-infra
+  annotations:
+    gateway-api/skip-this-for-readiness: "true"
 spec:
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:
@@ -23,6 +25,8 @@ kind: Gateway
 metadata:
   name: gateway-certificate-unsupported-group
   namespace: gateway-conformance-infra
+  annotations:
+    gateway-api/skip-this-for-readiness: "true"
 spec:
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:
@@ -43,6 +47,8 @@ kind: Gateway
 metadata:
   name: gateway-certificate-unsupported-kind
   namespace: gateway-conformance-infra
+  annotations:
+    gateway-api/skip-this-for-readiness: "true"
 spec:
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:
@@ -63,6 +69,8 @@ kind: Gateway
 metadata:
   name: gateway-certificate-malformed-secret
   namespace: gateway-conformance-infra
+  annotations:
+    gateway-api/skip-this-for-readiness: "true"
 spec:
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:

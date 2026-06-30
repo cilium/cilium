@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, TLSRouteListenerMixedTerminationNotSupported)
 }
 
-var TLSRouteListenerMixedTerminationNotSupported = suite.ConformanceTest{
+var TLSRouteListenerMixedTerminationNotSupported = confsuite.ConformanceTest{
 	ShortName:   "TLSRouteListenerMixedTerminationNotSupported",
 	Description: "When TLSRoute mixed termination/passthrough listener is NOT supported, a Gateway Listener with 2 distinct TLS modes on the same port MUST have Accepted=False with Reason=ProtocolConflict",
 	Features: []features.FeatureName{
@@ -41,12 +41,12 @@ var TLSRouteListenerMixedTerminationNotSupported = suite.ConformanceTest{
 		features.SupportTLSRouteModeTerminate,
 	},
 	Manifests: []string{"tests/tlsroute-listener-mixed-termination-not-supported.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		if suite.SupportedFeatures.Has(features.SupportTLSRouteModeMixed) {
 			t.Log("TLSRouteListenerMixedTerminationNotSupported is not executed when an implementation claims to support mixed termination")
 			return
 		}
-		gwNN := types.NamespacedName{Name: "gateway-tlsroute-mixed-termination-not-supported", Namespace: "gateway-conformance-infra"}
+		gwNN := types.NamespacedName{Name: "gateway-tlsroute-mixed-termination-not-supported", Namespace: confsuite.InfrastructureNamespace}
 
 		t.Run("Listener with unsupported mixed Terminate/Passthrough must have Accepted=False with Reason=ProtocolConflict", func(t *testing.T) {
 			listeners := []v1.ListenerStatus{

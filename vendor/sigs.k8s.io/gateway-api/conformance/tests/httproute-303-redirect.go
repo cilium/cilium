@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRoute303Redirect)
 }
 
-var HTTPRoute303Redirect = suite.ConformanceTest{
+var HTTPRoute303Redirect = confsuite.ConformanceTest{
 	ShortName:   "HTTPRoute303Redirect",
 	Description: "An HTTPRoute with a 303 redirect filter",
 	Manifests:   []string{"tests/httproute-303-redirect.yaml"},
@@ -42,8 +42,8 @@ var HTTPRoute303Redirect = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 		features.SupportHTTPRoute303RedirectStatusCode,
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "303-redirect", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)

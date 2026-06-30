@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tls"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -33,7 +33,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteHTTPSListenerDetectMisdirectedRequests)
 }
 
-var HTTPRouteHTTPSListenerDetectMisdirectedRequests = suite.ConformanceTest{
+var HTTPRouteHTTPSListenerDetectMisdirectedRequests = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteHTTPSListenerDetectMisdirectedRequests",
 	Description: "HTTPS listeners on the same port detect misdirected requests and return HTTP 421 when appropriate",
 	Features: []features.FeatureName{
@@ -42,8 +42,8 @@ var HTTPRouteHTTPSListenerDetectMisdirectedRequests = suite.ConformanceTest{
 		features.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/httproute-https-listener-detect-misdirected-requests.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 
 		routeNNs := []types.NamespacedName{
 			{Name: "https-listener-detect-misdirected-requests-test-1", Namespace: ns},
@@ -58,9 +58,12 @@ var HTTPRouteHTTPSListenerDetectMisdirectedRequests = suite.ConformanceTest{
 		}
 
 		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
+		serverCertPem, _, err := kubernetes.GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
+		}
+		if len(serverCertPem) == 0 {
+			t.Fatal("missing required server certificate pem for the test")
 		}
 
 		cases := []struct {
@@ -69,25 +72,25 @@ var HTTPRouteHTTPSListenerDetectMisdirectedRequests = suite.ConformanceTest{
 			backend    string
 			serverName string
 		}{
-			{serverName: "example.org", host: "example.org", statusCode: 200, backend: "infra-backend-v1"},
+			{serverName: "example.org", host: "example.org", statusCode: 200, backend: confsuite.InfraBackendServiceNameV1},
 			{serverName: "example.org", host: "second-example.org", statusCode: 421},
 			{serverName: "example.org", host: "unknown-example.org", statusCode: 404},
 
-			{serverName: "second-example.org", host: "second-example.org", statusCode: 200, backend: "infra-backend-v2"},
+			{serverName: "second-example.org", host: "second-example.org", statusCode: 200, backend: confsuite.InfraBackendServiceNameV2},
 			{serverName: "second-example.org", host: "example.org", statusCode: 421},
 			{serverName: "second-example.org", host: "unknown-example.org", statusCode: 421},
 
-			{serverName: "third-example.wildcard.org", host: "third-example.wildcard.org", statusCode: 200, backend: "infra-backend-v3"},
-			{serverName: "third-example.wildcard.org", host: "fith-example.wildcard.org", statusCode: 200, backend: "infra-backend-v3"},
+			{serverName: "third-example.wildcard.org", host: "third-example.wildcard.org", statusCode: 200, backend: confsuite.InfraBackendServiceNameV3},
+			{serverName: "third-example.wildcard.org", host: "fith-example.wildcard.org", statusCode: 200, backend: confsuite.InfraBackendServiceNameV3},
 			{serverName: "third-example.wildcard.org", host: "fourth-example.wildcard.org", statusCode: 421},
 			{serverName: "third-example.wildcard.org", host: "second-example.org", statusCode: 421},
 			{serverName: "third-example.wildcard.org", host: "unknown-example.org", statusCode: 421},
 
 			// Note: Since infra-backend-v4 does not exist, infra-backend-v1 is reused for the fourth HTTPRoute
-			{serverName: "fourth-example.wildcard.org", host: "fourth-example.wildcard.org", statusCode: 200, backend: "infra-backend-v1"},
+			{serverName: "fourth-example.wildcard.org", host: "fourth-example.wildcard.org", statusCode: 200, backend: confsuite.InfraBackendServiceNameV1},
 			{serverName: "fourth-example.wildcard.org", host: "fith-example.wildcard.org", statusCode: 421},
 
-			{serverName: "unknown-example.org", host: "example.org", statusCode: 200, backend: "infra-backend-v1"},
+			{serverName: "unknown-example.org", host: "example.org", statusCode: 200, backend: confsuite.InfraBackendServiceNameV1},
 			{serverName: "unknown-example.org", host: "unknown-example.org", statusCode: 404},
 		}
 
@@ -100,7 +103,7 @@ var HTTPRouteHTTPSListenerDetectMisdirectedRequests = suite.ConformanceTest{
 				},
 				Response:  http.Response{StatusCodes: []int{tc.statusCode}},
 				Backend:   tc.backend,
-				Namespace: "gateway-conformance-infra",
+				Namespace: confsuite.InfrastructureNamespace,
 			}
 			t.Run(expected.GetTestCaseName(i), func(t *testing.T) {
 				tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, serverCertPem, nil, nil, tc.serverName, expected)

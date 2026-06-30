@@ -24,7 +24,7 @@ import (
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, ListenerSetAllowedNamespaceSelector)
 }
 
-var ListenerSetAllowedNamespaceSelector = suite.ConformanceTest{
+var ListenerSetAllowedNamespaceSelector = confsuite.ConformanceTest{
 	ShortName:   "ListenerSetAllowedNamespaceSelector",
 	Description: "ListenerSets in the namespaces that match the labels are allowed when `allowedListeners` is set to `Selector`",
 	Features: []features.FeatureName{
@@ -42,8 +42,9 @@ var ListenerSetAllowedNamespaceSelector = suite.ConformanceTest{
 	Manifests: []string{
 		"tests/listenerset-allowed-namespace-selector.yaml",
 	},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := "gateway-conformance-infra"
+	Parallel: true,
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		ns := confsuite.InfrastructureNamespace
 		kubernetes.NamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, []string{ns})
 
 		// Verify the gateway is accepted

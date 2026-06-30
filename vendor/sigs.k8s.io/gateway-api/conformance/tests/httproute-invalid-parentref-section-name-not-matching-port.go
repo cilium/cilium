@@ -24,7 +24,7 @@ import (
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -32,7 +32,7 @@ func init() {
 	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidParentRefSectionNameNotMatchingPort)
 }
 
-var HTTPRouteInvalidParentRefSectionNameNotMatchingPort = suite.ConformanceTest{
+var HTTPRouteInvalidParentRefSectionNameNotMatchingPort = confsuite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidParentRefSectionNameNotMatchingPort",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set the Accepted status to False with reason NoMatchingParent when attempting to bind to a Gateway that SectionName does not match Port value.",
 	Features: []features.FeatureName{
@@ -41,9 +41,9 @@ var HTTPRouteInvalidParentRefSectionNameNotMatchingPort = suite.ConformanceTest{
 		features.SupportHTTPRouteParentRefPort,
 	},
 	Manifests: []string{"tests/httproute-invalid-parentref-section-name-not-matching-port.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		routeNN := types.NamespacedName{Name: "httproute-listener-section-name-not-matching-port", Namespace: "gateway-conformance-infra"}
-		gwNN := types.NamespacedName{Name: "gateway-with-one-not-matching-port-and-section-name-route", Namespace: "gateway-conformance-infra"}
+	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
+		routeNN := types.NamespacedName{Name: "httproute-listener-section-name-not-matching-port", Namespace: confsuite.InfrastructureNamespace}
+		gwNN := types.NamespacedName{Name: "gateway-with-one-not-matching-port-and-section-name-route", Namespace: confsuite.InfrastructureNamespace}
 
 		// The Route must have an Accepted Condition with a NoMatchingParent Reason.
 		t.Run("HTTPRoute with sectionName does not match Port in ParentRef has an Accepted Condition with status False and Reason NoMatchingParent", func(t *testing.T) {
