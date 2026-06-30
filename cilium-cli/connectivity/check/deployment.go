@@ -35,7 +35,6 @@ import (
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -1902,11 +1901,6 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 		}
 
 		if enabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.CNP)); enabled {
-			ipsec, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec"))
-			if ipsec && versioncheck.MustCompile("<1.16.0")(ct.CiliumVersion) {
-				// https://github.com/cilium/cilium/issues/36681
-				continue
-			}
 			for _, client := range ct.Clients() {
 				cnp := cnpFunc(ct.params.TestNamespace)
 				ct.Logf("✨ [%s] Deploying %s CiliumNetworkPolicy...", client.ClusterName(), cnp.Name)

@@ -13,7 +13,6 @@ type multicast struct{}
 
 func (t multicast) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("multicast", ct).
-		WithCiliumVersion(">=1.16.0").
 		WithUnsafeTests().
 		WithFeatureRequirements(
 			features.RequireEnabled(features.Multicast),

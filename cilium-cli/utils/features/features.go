@@ -275,15 +275,11 @@ func RequireModeIsNot(feature Feature, mode string) Requirement {
 
 // ExtractFromCiliumVersion extracts features based on Cilium version.
 func (fs Set) ExtractFromCiliumVersion(ciliumVersion semver.Version) {
-	fs[PortRanges] = ExtractPortRanges(ciliumVersion)
-	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
-}
-
-func ExtractPortRanges(ciliumVersion semver.Version) Status {
-	enabled := versioncheck.MustCompile(">=1.16.0")(ciliumVersion)
-	return Status{
-		Enabled: enabled,
+	fs[PortRanges] = Status{
+		Enabled: true,
 	}
+
+	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
 }
 
 func ExtractL7PortRanges(ciliumVersion semver.Version) Status {

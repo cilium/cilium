@@ -24,7 +24,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 	yamlFile := templates["clientEgressTLSSNIPolicyYAML"]
 	// Test TLS SNI enforcement using an egress policy on the clients.
 	newTest(testName, ct).
-		WithCiliumVersion("!1.15.9 !1.15.10 !1.16.2 !1.16.3").
+		WithCiliumVersion("!1.16.2 !1.16.3").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
@@ -48,7 +48,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 	yamlFile = templates["clientEgressTLSSNIOtherPolicyYAML"]
 	newTest(fmt.Sprintf("%s-denied", testName), ct).
 		WithCondition(differentExternalTargets).
-		WithCiliumVersion("!1.15.9 !1.15.10 !1.16.2 !1.16.3").
+		WithCiliumVersion("!1.16.2 !1.16.3").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
@@ -202,7 +202,7 @@ func clientEgressL7TlsSniTest(ct *check.ConnectivityTest, templates map[string]s
 	yamlFile := templates["clientEgressL7TLSSNIPolicyYAML"]
 	// Test TLS SNI enforcement using an egress policy on the clients.
 	newTest(testName, ct).
-		WithCiliumVersion("!1.15.9 !1.15.10 !1.16.2 !1.16.3").
+		WithCiliumVersion("!1.16.2 !1.16.3").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretsOnlyFromSecretsNamespace)).
 		WithCABundleSecret().
@@ -223,7 +223,7 @@ func clientEgressL7TlsSniTest(ct *check.ConnectivityTest, templates map[string]s
 	testName = "client-egress-l7-tls-headers-other-sni"
 	yamlFile = templates["clientEgressL7TLSOtherSNIPolicyYAML"]
 	newTest(testName, ct).
-		WithCiliumVersion("!1.15.9 !1.15.10 !1.16.2 !1.16.3").
+		WithCiliumVersion("!1.16.2 !1.16.3").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretsOnlyFromSecretsNamespace)).
 		WithCABundleSecret().

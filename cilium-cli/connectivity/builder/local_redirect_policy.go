@@ -28,7 +28,6 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 	lrpFrontendIPSkipRedirectV6 := "fd00::169:254:169:248"
 
 	lrpTest := newTest("local-redirect-policy", ct).
-		WithCiliumVersion(">=1.16.0").
 		WithCondition(func() bool {
 			return ct.IsSocketLBFull() || versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion)
 		}).
