@@ -167,11 +167,13 @@ type EndpointPolicyBandwidthEvent struct {
 	bandwidthEgress  string
 	bandwidthIngress string
 	priority         string
+	egressDSCP       string
 }
 
 // Handle handles the policy bandwidth update.
 func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 	var bps, ingressBps, prio uint64
+	var dscpMark uint32
 
 	if !ev.ep.bandwidthManager.Enabled() {
 		res <- &EndpointRegenerationResult{
@@ -240,14 +242,26 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 		bwmUpdateNeeded = true
 	}
 
+	dscpMark, dscpErr := bandwidth.ParseEgressDSCPMark(ev.egressDSCP, ev.ep.bandwidthManager.DSCPMarkingEnabled())
+	if dscpErr != nil {
+		e.getLogger().Warn(
+			"failed to parse DSCP mark annotation; ignoring",
+			logfields.Annotation, bandwidth.EgressDSCP,
+			logfields.Value, ev.egressDSCP,
+			logfields.Error, dscpErr,
+		)
+	} else if dscpMark != bandwidth.DSCPMarkUnset {
+		bwmUpdateNeeded = true
+	}
+
 	if bwmUpdateNeeded {
-		ev.ep.bandwidthManager.UpdateBandwidthLimit(e.ID, bps, uint32(prio))
+		ev.ep.bandwidthManager.UpdateBandwidthLimit(e.ID, bps, uint32(prio), dscpMark)
 	} else {
 		ev.ep.bandwidthManager.DeleteBandwidthLimit(e.ID)
 	}
-	if err != nil {
+	if err != nil || dscpErr != nil {
 		res <- &EndpointRegenerationResult{
-			err: err,
+			err: errors.Join(err, dscpErr),
 		}
 		return
 	}

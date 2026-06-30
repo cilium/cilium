@@ -43,12 +43,12 @@ type EdtInfo struct {
 	TimeLast                uint64    `align:"t_last"`
 	TimeHorizonDropOrTokens uint64    `align:"$union0"`
 	Prio                    uint32    `align:"prio"`
-	Pad32                   uint32    `align:"pad_32"`
+	DSCPMark                uint32    `align:"dscp_mark"`
 	Pad                     [3]uint64 `align:"pad"`
 }
 
 func (v *EdtInfo) String() string {
-	return fmt.Sprintf("%d, %d", int(v.Bps), int(v.Prio))
+	return fmt.Sprintf("%d, %d, %d", int(v.Bps), int(v.Prio), int(v.DSCPMark))
 }
 
 func (v *EdtInfo) New() bpf.MapValue { return &EdtInfo{} }

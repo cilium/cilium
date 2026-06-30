@@ -55,6 +55,11 @@
   {{- fail "Both k8sServiceHostRef and k8sServiceHost are set. Please set only one of them." }}
 {{- end }}
 
+{{/* validate bandwidth manager DSCP requirements */}}
+{{- if and (dig "dscp" "enabled" false .Values.bandwidthManager) (not .Values.bandwidthManager.enabled) }}
+  {{- fail "bandwidthManager.dscp.enabled requires bandwidthManager.enabled=true" }}
+{{- end }}
+
 {{/* validate hubble config */}}
 {{- if and .Values.hubble.ui.enabled (not .Values.hubble.ui.standalone.enabled) }}
   {{- if not .Values.hubble.relay.enabled }}

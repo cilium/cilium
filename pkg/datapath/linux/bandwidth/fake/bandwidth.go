@@ -12,7 +12,7 @@ type Manager struct{}
 func (fbm *Manager) DeleteBandwidthLimit(endpointID uint16) {
 }
 
-func (fbm *Manager) UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64, prio uint32) {
+func (fbm *Manager) UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64, prio, dscpMark uint32) {
 }
 
 func (fbm *Manager) UpdateIngressBandwidthLimit(endpointID uint16, bytesPerSecond uint64) {}
@@ -20,6 +20,9 @@ func (fbm *Manager) UpdateIngressBandwidthLimit(endpointID uint16, bytesPerSecon
 func (fbm *Manager) DeleteIngressBandwidthLimit(endpointID uint16) {}
 
 func (fbm *Manager) BBREnabled() bool {
+	return false
+}
+func (fbm *Manager) DSCPMarkingEnabled() bool {
 	return false
 }
 func (fbm *Manager) DeleteEndpointBandwidthLimit(epID uint16) error {

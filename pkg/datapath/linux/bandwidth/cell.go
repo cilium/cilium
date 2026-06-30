@@ -28,6 +28,7 @@ var defaultConfig = types.Config{
 	EnableBandwidthManager: false,
 	EnableBBR:              false,
 	EnableBBRHostnsOnly:    false,
+	EnableDSCPMarking:      false,
 }
 
 var Cell = cell.Module(

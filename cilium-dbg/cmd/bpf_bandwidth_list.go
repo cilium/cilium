@@ -66,13 +66,14 @@ func listBandwidth(bpfBandwidthList map[string][]string) {
 		labelsIDTitle   = "IDENTITY"
 		labelsBandwidth = "BANDWIDTH (BitsPerSec)"
 		labelsPrio      = "PRIO"
+		labelsDSCP      = "DSCP"
 		labelsDirection = "DIRECTION"
 	)
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", labelsIDTitle, labelsDirection, labelsPrio, labelsBandwidth)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", labelsIDTitle, labelsDirection, labelsPrio, labelsDSCP, labelsBandwidth)
 
-	const numColumns = 4
+	const numColumns = 5
 	rows := [][numColumns]string{}
 
 	for key, value := range bpfBandwidthList {
@@ -92,6 +93,7 @@ func listBandwidth(bpfBandwidthList map[string][]string) {
 
 		bps := 0
 		prio := ""
+		dscp := ""
 		info := strings.Split(value[0], ",")
 
 		if len(info) > 0 {
@@ -100,9 +102,12 @@ func listBandwidth(bpfBandwidthList map[string][]string) {
 		if len(info) > 1 {
 			prio = strings.TrimSpace(info[1])
 		}
+		if len(info) > 2 {
+			dscp = strings.TrimSpace(info[2])
+		}
 		bps *= 8
 		quantity := resource.NewQuantity(int64(bps), resource.DecimalSI)
-		rows = append(rows, [numColumns]string{id, dirStr, prio, quantity.String()})
+		rows = append(rows, [numColumns]string{id, dirStr, prio, dscp, quantity.String()})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -118,7 +123,7 @@ func listBandwidth(bpfBandwidthList map[string][]string) {
 	})
 
 	for _, r := range rows {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3])
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3], r[4])
 	}
 
 	w.Flush()

@@ -31,6 +31,8 @@ type Edt struct {
 
 	Prio uint32
 
+	DSCPMark uint32
+
 	// TimeHorizonDrop is the maximum allowed departure time nanoseconds
 	// delta in future.
 	TimeHorizonDrop uint64
@@ -71,7 +73,7 @@ var EdtIDIndex = statedb.Index[Edt, EdtIDKey]{
 	Unique: true,
 }
 
-func NewEdt(endpointID uint16, direction uint8, bytesPerSecond uint64, prio uint32) Edt {
+func NewEdt(endpointID uint16, direction uint8, bytesPerSecond uint64, prio, dscpMark uint32) Edt {
 	return Edt{
 		EdtIDKey: EdtIDKey{
 			EndpointID: endpointID,
@@ -79,6 +81,7 @@ func NewEdt(endpointID uint16, direction uint8, bytesPerSecond uint64, prio uint
 		},
 		BytesPerSecond:  bytesPerSecond,
 		Prio:            prio,
+		DSCPMark:        dscpMark,
 		TimeHorizonDrop: uint64(DefaultDropHorizon),
 		Status:          reconciler.StatusPending(),
 	}
@@ -106,6 +109,7 @@ func (e Edt) BinaryValue() encoding.BinaryMarshaler {
 		// egress
 		v.TimeHorizonDropOrTokens = e.TimeHorizonDrop
 		v.Prio = e.Prio
+		v.DSCPMark = e.DSCPMark
 	} else {
 		v.TimeHorizonDropOrTokens = 0
 	}
@@ -119,6 +123,7 @@ func (e Edt) TableHeader() []string {
 			"EndpointID",
 			"BitsPerSecond",
 			"Prio",
+			"DSCPMark",
 			"TimeHorizonDrop",
 			"Status",
 		}
@@ -140,6 +145,7 @@ func (e Edt) TableRow() []string {
 			strconv.FormatUint(uint64(e.EndpointID), 10),
 			quantity.String(),
 			strconv.FormatUint(uint64(e.Prio), 10),
+			strconv.FormatUint(uint64(e.DSCPMark), 10),
 			strconv.FormatUint(e.TimeHorizonDrop, 10),
 			e.Status.String(),
 		}

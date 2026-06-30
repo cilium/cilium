@@ -481,6 +481,14 @@
         "bbrHostNamespaceOnly": {
           "type": "boolean"
         },
+        "dscp": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "enabled": {
           "type": "boolean"
         }
