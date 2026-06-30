@@ -9,6 +9,21 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	// defaultNativeHistogramBucketFactor and defaultNativeHistogramMaxBucketNumber
+	// enable native histogram exposition for all Cilium histograms by default,
+	// mirroring the Kubernetes defaults (KEP-5808). A bucket factor of 1.1 keeps
+	// each bucket at most 10% wider than the previous one (8 buckets per power of
+	// two). The bucket number is capped to bound the per-histogram memory cost.
+	//
+	// Native histograms are exposed in addition to the classic buckets and are only
+	// ingested by scrapers that negotiate the Prometheus protobuf format and opt in
+	// (e.g. Prometheus with scrape_native_histograms enabled). Text/OpenMetrics
+	// scrapes are unaffected and keep seeing the classic _bucket/_count/_sum series.
+	defaultNativeHistogramBucketFactor    = 1.1
+	defaultNativeHistogramMaxBucketNumber = 160
+)
+
 func NewHistogram(opts HistogramOpts) Histogram {
 	return &histogram{
 		Histogram: prometheus.NewHistogram(opts.toPrometheus()),
@@ -265,6 +280,21 @@ func (ho HistogramOpts) opts() Opts {
 }
 
 func (ho HistogramOpts) toPrometheus() prometheus.HistogramOpts {
+	// Enable native histogram exposition by default for every histogram. Histograms
+	// that configure their own native histogram bucket factor are left untouched.
+	if ho.NativeHistogramBucketFactor == 0 {
+		ho.NativeHistogramBucketFactor = defaultNativeHistogramBucketFactor
+		ho.NativeHistogramMaxBucketNumber = defaultNativeHistogramMaxBucketNumber
+
+		// Setting a native histogram bucket factor flips the client_golang default
+		// for classic buckets from DefBuckets to "no buckets" (see the Buckets field
+		// doc above). Fall back to DefBuckets explicitly so histograms that don't
+		// define their own buckets keep emitting classic buckets for dual exposition.
+		if len(ho.Buckets) == 0 {
+			ho.Buckets = prometheus.DefBuckets
+		}
+	}
+
 	return prometheus.HistogramOpts{
 		Namespace:                       ho.Namespace,
 		Subsystem:                       ho.Subsystem,
