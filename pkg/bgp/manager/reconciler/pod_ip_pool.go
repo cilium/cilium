@@ -12,15 +12,18 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -40,19 +43,23 @@ type PodIPPoolReconcilerIn struct {
 	Logger     *slog.Logger
 	PeerAdvert *CiliumPeerAdvertisement
 	PoolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
+
+	DB                      *statedb.DB
+	DesiredRoutePolicyTable statedb.RWTable[*bgpTables.DesiredRoutePolicy]
 }
 
 type PodIPPoolReconciler struct {
-	logger     *slog.Logger
-	peerAdvert *CiliumPeerAdvertisement
-	poolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
-	metadata   map[string]PodIPPoolReconcilerMetadata
+	logger                  *slog.Logger
+	peerAdvert              *CiliumPeerAdvertisement
+	poolStore               store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
+	db                      *statedb.DB
+	desiredRoutePolicyTable statedb.RWTable[*bgpTables.DesiredRoutePolicy]
+	metadata                map[string]PodIPPoolReconcilerMetadata
 }
 
 // PodIPPoolReconcilerMetadata holds any announced pod ip pool CIDRs keyed by pool name of the backing CiliumPodIPPool.
 type PodIPPoolReconcilerMetadata struct {
-	PoolAFPaths       ResourceAFPathsMap
-	PoolRoutePolicies ResourceRoutePolicyMap
+	PoolAFPaths ResourceAFPathsMap
 }
 
 func NewPodIPPoolReconciler(in PodIPPoolReconcilerIn) PodIPPoolReconcilerOut {
@@ -62,10 +69,12 @@ func NewPodIPPoolReconciler(in PodIPPoolReconcilerIn) PodIPPoolReconcilerOut {
 
 	return PodIPPoolReconcilerOut{
 		Reconciler: &PodIPPoolReconciler{
-			logger:     in.Logger.With(types.ReconcilerLogField, "PodIPPool"),
-			peerAdvert: in.PeerAdvert,
-			poolStore:  in.PoolStore,
-			metadata:   make(map[string]PodIPPoolReconcilerMetadata),
+			logger:                  in.Logger.With(types.ReconcilerLogField, "PodIPPool"),
+			peerAdvert:              in.PeerAdvert,
+			poolStore:               in.PoolStore,
+			db:                      in.DB,
+			desiredRoutePolicyTable: in.DesiredRoutePolicyTable,
+			metadata:                make(map[string]PodIPPoolReconcilerMetadata),
 		},
 	}
 }
@@ -83,14 +92,20 @@ func (r *PodIPPoolReconciler) Init(i *instance.BGPInstance) error {
 		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
 	}
 	r.metadata[i.Name] = PodIPPoolReconcilerMetadata{
-		PoolAFPaths:       make(ResourceAFPathsMap),
-		PoolRoutePolicies: make(ResourceRoutePolicyMap),
+		PoolAFPaths: make(ResourceAFPathsMap),
 	}
 	return nil
 }
 
 func (r *PodIPPoolReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
+		if err := cleanupDesiredRoutePolicyStatements(r.db, r.desiredRoutePolicyTable, i.Name, r.Name()); err != nil {
+			r.logger.Warn("Failed to clean up desired route policies",
+				logfields.Error, err,
+				types.InstanceLogField, i.Name,
+				logfields.Owner, r.Name(),
+			)
+		}
 		delete(r.metadata, i.Name)
 	}
 }
@@ -180,58 +195,37 @@ func (r *PodIPPoolReconciler) getDesiredPoolAFPaths(p ReconcileParams, desiredFa
 	return desiredPoolAFPaths, nil
 }
 
-func (r *PodIPPoolReconciler) reconcileRoutePolicies(ctx context.Context, p ReconcileParams, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) error {
-	desiredPoolsRPs, err := r.getDesiredPodIPPoolRoutePolicies(p, desiredPeerAdverts, lp)
+func (r *PodIPPoolReconciler) reconcileRoutePolicies(_ context.Context, p ReconcileParams, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) error {
+	desiredPoolStatements, err := r.getDesiredPodIPPoolRoutePolicyStatements(p, desiredPeerAdverts, lp)
 	if err != nil {
 		return err
 	}
+	tx := r.db.WriteTxn(r.desiredRoutePolicyTable)
+	defer tx.Abort()
 
-	metadata := r.getMetadata(p.BGPInstance)
-	for poolKey, desiredRPs := range desiredPoolsRPs {
-		currentRPs, exists := metadata.PoolRoutePolicies[poolKey]
-		if !exists && len(desiredRPs) == 0 {
-			continue
-		}
-
-		updatedRPs, rErr := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
-			Logger: r.logger.With(
-				types.InstanceLogField, p.DesiredConfig.Name,
-				types.PodIPPoolLogField, poolKey,
-			),
-			Ctx:             ctx,
-			Router:          p.BGPInstance.Router,
-			DesiredPolicies: desiredRPs,
-			CurrentPolicies: currentRPs,
-		})
-
-		if rErr == nil && len(desiredRPs) == 0 {
-			delete(metadata.PoolRoutePolicies, poolKey)
-		} else {
-			metadata.PoolRoutePolicies[poolKey] = updatedRPs
-		}
-
-		err = errors.Join(err, rErr)
+	for poolKey, desiredStatements := range desiredPoolStatements {
+		err = errors.Join(err, reconcileDesiredRoutePolicyStatements(tx, r.desiredRoutePolicyTable, p.BGPInstance.Name, r.Name(), poolKey, desiredStatements))
 	}
-	r.setMetadata(p.BGPInstance, metadata)
-
-	return err
+	if err != nil {
+		return err
+	}
+	tx.Commit()
+	return nil
 }
 
-func (r *PodIPPoolReconciler) getDesiredPodIPPoolRoutePolicies(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (ResourceRoutePolicyMap, error) {
-	metadata := r.getMetadata(p.BGPInstance)
-
-	desiredPodIPPoolRoutePolicies := make(ResourceRoutePolicyMap)
+func (r *PodIPPoolReconciler) getDesiredPodIPPoolRoutePolicyStatements(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (ResourceDesiredRoutePolicyMap, error) {
+	desiredPodIPPoolRoutePolicyStatements := make(ResourceDesiredRoutePolicyMap)
 
 	// mark for deleting pool policies
-	for poolKey := range metadata.PoolRoutePolicies {
-		_, exists, err := r.poolStore.GetByKey(poolKey)
+	for existing := range r.desiredRoutePolicyTable.List(r.db.ReadTxn(), bgpTables.DesiredRoutePoliciesByInstanceOwner(p.BGPInstance.Name, r.Name())) {
+		_, exists, err := r.poolStore.GetByKey(existing.Resource)
 		if err != nil {
 			return nil, err
 		}
 
 		if !exists {
 			// pool is deleted, mark it for removal
-			desiredPodIPPoolRoutePolicies[poolKey] = nil
+			desiredPodIPPoolRoutePolicyStatements[existing.Resource] = nil
 		}
 	}
 
@@ -242,40 +236,37 @@ func (r *PodIPPoolReconciler) getDesiredPodIPPoolRoutePolicies(p ReconcileParams
 	}
 
 	for _, pool := range pools {
-		desiredPoolRoutePolicies, err := r.getPodIPPoolPolicies(p, pool, desiredPeerAdverts, lp)
-		if err != nil {
-			return nil, err
-		}
-
 		key := resource.Key{
 			Name:      pool.Name,
 			Namespace: pool.Namespace,
 		}
-		desiredPodIPPoolRoutePolicies[key] = desiredPoolRoutePolicies
+		desiredStatements, err := r.getPodIPPoolRoutePolicyStatements(p.BGPInstance.Name, key, pool, desiredPeerAdverts, lp)
+		if err != nil {
+			return nil, err
+		}
+		desiredPodIPPoolRoutePolicyStatements[key] = desiredStatements
 	}
 
-	return desiredPodIPPoolRoutePolicies, nil
+	return desiredPodIPPoolRoutePolicyStatements, nil
 }
 
-func (r *PodIPPoolReconciler) getPodIPPoolPolicies(p ReconcileParams, pool *v2alpha1.CiliumPodIPPool, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (RoutePolicyMap, error) {
-	desiredRoutePolicies := make(RoutePolicyMap)
+func (r *PodIPPoolReconciler) getPodIPPoolRoutePolicyStatements(instanceName string, resourceKey resource.Key, pool *v2alpha1.CiliumPodIPPool, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) ([]*bgpTables.DesiredRoutePolicy, error) {
+	desiredStatements := []*bgpTables.DesiredRoutePolicy{}
 
 	for peer, afAdverts := range desiredPeerAdverts {
 		for family, adverts := range afAdverts {
 			fam := types.ToAgentFamily(family)
 			for _, advert := range adverts {
-				policy, err := r.getPodIPPoolPolicy(peer, fam, pool, advert, lp)
+				statements, err := r.getPodIPPoolPolicyStatements(instanceName, resourceKey, peer, fam, pool, advert, lp)
 				if err != nil {
 					return nil, err
 				}
-				if policy != nil {
-					desiredRoutePolicies[policy.Name] = policy
-				}
+				desiredStatements = append(desiredStatements, statements...)
 			}
 		}
 	}
 
-	return desiredRoutePolicies, nil
+	return desiredStatements, nil
 }
 
 // populateLocalPools returns a map of allocated multi-pool IPAM CIDRs of the local CiliumNode,
@@ -359,7 +350,7 @@ func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, 
 	return desiredFamilyAdverts, nil
 }
 
-func (r *PodIPPoolReconciler) getPodIPPoolPolicy(peer PeerID, family types.Family, pool *v2alpha1.CiliumPodIPPool, advert v2.BGPAdvertisement, lp map[string][]netip.Prefix) (*types.RoutePolicy, error) {
+func (r *PodIPPoolReconciler) getPodIPPoolPolicyStatements(instanceName string, resourceKey resource.Key, peer PeerID, family types.Family, pool *v2alpha1.CiliumPodIPPool, advert v2.BGPAdvertisement, lp map[string][]netip.Prefix) ([]*bgpTables.DesiredRoutePolicy, error) {
 	if peer.Address == "" {
 		return nil, nil
 	}
@@ -412,8 +403,25 @@ func (r *PodIPPoolReconciler) getPodIPPoolPolicy(peer PeerID, family types.Famil
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer.Name, family.Afi.String(), advert.AdvertisementType, pool.Name)
-	return CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
+	name := PolicyStatementName(advert.AdvertisementType, pool.Name)
+	statements, err := CreatePolicyStatements(name, peerAddr, v4Prefixes, v6Prefixes, advert)
+	if err != nil {
+		return nil, err
+	}
+
+	desiredStatements := make([]*bgpTables.DesiredRoutePolicy, 0, len(statements))
+	for _, statement := range statements {
+		desiredStatements = append(desiredStatements, &bgpTables.DesiredRoutePolicy{
+			Instance:   instanceName,
+			Peer:       peer.Name,
+			PolicyType: types.RoutePolicyTypeExport,
+			Priority:   r.Priority(),
+			Owner:      r.Name(),
+			Resource:   resourceKey,
+			Statement:  statement,
+		})
+	}
+	return desiredStatements, nil
 }
 
 func podIPPoolLabelSet(pool *v2alpha1.CiliumPodIPPool) labels.Labels {

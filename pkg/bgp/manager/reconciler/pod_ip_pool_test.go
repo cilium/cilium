@@ -9,12 +9,14 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -53,71 +55,77 @@ var (
 			},
 		},
 	}
-	redPeer65001v4PodIPPoolRPName = PolicyName("red-peer-65001", "ipv4", v2.BGPCiliumPodIPPoolAdvert, redPoolName)
-	redPeer65001v4PodIPPoolRP     = &types.RoutePolicy{
-		Name: redPeer65001v4PodIPPoolRPName,
-		Type: types.RoutePolicyTypeExport,
-		Statements: []*types.RoutePolicyStatement{
-			{
-				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: &types.RoutePolicyNeighborMatch{
-						Type:      types.RoutePolicyMatchAny,
-						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-					},
-					MatchPrefixes: &types.RoutePolicyPrefixMatch{
-						Type: types.RoutePolicyMatchAny,
-						Prefixes: []types.RoutePolicyPrefix{
-							{
-								CIDR:         redPoolNodePrefix1v4.Prefix,
-								PrefixLenMin: 24,
-								PrefixLenMax: 24,
-							},
-							{
-								CIDR:         redPoolNodePrefix2v4.Prefix,
-								PrefixLenMin: 24,
-								PrefixLenMax: 24,
-							},
+	redPeer65001v4PodIPPoolRPName = PolicyStatementName(v2.BGPCiliumPodIPPoolAdvert, redPoolName)
+	redPeer65001v4PodIPPoolRP     = &bgpTables.DesiredRoutePolicy{
+		Instance:   "fake-instance",
+		Peer:       redPeer65001.Name,
+		PolicyType: types.RoutePolicyTypeExport,
+		Priority:   PodIPPoolReconcilerPriority,
+		Owner:      PodIPPoolReconcilerName,
+		Resource:   resource.Key{Name: redPoolName},
+		Statement: &types.RoutePolicyStatement{
+			Name: redPeer65001v4PodIPPoolRPName + "-ipv4",
+			Conditions: types.RoutePolicyConditions{
+				MatchNeighbors: &types.RoutePolicyNeighborMatch{
+					Type:      types.RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
+				},
+				MatchPrefixes: &types.RoutePolicyPrefixMatch{
+					Type: types.RoutePolicyMatchAny,
+					Prefixes: []types.RoutePolicyPrefix{
+						{
+							CIDR:         redPoolNodePrefix1v4.Prefix,
+							PrefixLenMin: 24,
+							PrefixLenMax: 24,
+						},
+						{
+							CIDR:         redPoolNodePrefix2v4.Prefix,
+							PrefixLenMin: 24,
+							PrefixLenMax: 24,
 						},
 					},
 				},
-				Actions: types.RoutePolicyActions{
-					RouteAction:    types.RoutePolicyActionAccept,
-					AddCommunities: []string{"65000:200"},
-				},
+			},
+			Actions: types.RoutePolicyActions{
+				RouteAction:    types.RoutePolicyActionAccept,
+				AddCommunities: []string{"65000:200"},
 			},
 		},
 	}
-	redPeer65001v6PodIPPoolRPName = PolicyName("red-peer-65001", "ipv6", v2.BGPCiliumPodIPPoolAdvert, redPoolName)
-	redPeer65001v6PodIPPoolRP     = &types.RoutePolicy{
-		Name: redPeer65001v6PodIPPoolRPName,
-		Type: types.RoutePolicyTypeExport,
-		Statements: []*types.RoutePolicyStatement{
-			{
-				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: &types.RoutePolicyNeighborMatch{
-						Type:      types.RoutePolicyMatchAny,
-						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-					},
-					MatchPrefixes: &types.RoutePolicyPrefixMatch{
-						Type: types.RoutePolicyMatchAny,
-						Prefixes: []types.RoutePolicyPrefix{
-							{
-								CIDR:         redPoolNodePrefix1v6.Prefix,
-								PrefixLenMin: 96,
-								PrefixLenMax: 96,
-							},
-							{
-								CIDR:         redPoolNodePrefix2v6.Prefix,
-								PrefixLenMin: 96,
-								PrefixLenMax: 96,
-							},
+	redPeer65001v6PodIPPoolRPName = PolicyStatementName(v2.BGPCiliumPodIPPoolAdvert, redPoolName)
+	redPeer65001v6PodIPPoolRP     = &bgpTables.DesiredRoutePolicy{
+		Instance:   "fake-instance",
+		Peer:       redPeer65001.Name,
+		PolicyType: types.RoutePolicyTypeExport,
+		Priority:   PodIPPoolReconcilerPriority,
+		Owner:      PodIPPoolReconcilerName,
+		Resource:   resource.Key{Name: redPoolName},
+		Statement: &types.RoutePolicyStatement{
+			Name: redPeer65001v6PodIPPoolRPName + "-ipv6",
+			Conditions: types.RoutePolicyConditions{
+				MatchNeighbors: &types.RoutePolicyNeighborMatch{
+					Type:      types.RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
+				},
+				MatchPrefixes: &types.RoutePolicyPrefixMatch{
+					Type: types.RoutePolicyMatchAny,
+					Prefixes: []types.RoutePolicyPrefix{
+						{
+							CIDR:         redPoolNodePrefix1v6.Prefix,
+							PrefixLenMin: 96,
+							PrefixLenMax: 96,
+						},
+						{
+							CIDR:         redPoolNodePrefix2v6.Prefix,
+							PrefixLenMin: 96,
+							PrefixLenMax: 96,
 						},
 					},
 				},
-				Actions: types.RoutePolicyActions{
-					RouteAction:    types.RoutePolicyActionAccept,
-					AddCommunities: []string{"65000:200"},
-				},
+			},
+			Actions: types.RoutePolicyActions{
+				RouteAction:    types.RoutePolicyActionAccept,
+				AddCommunities: []string{"65000:200"},
 			},
 		},
 	}
@@ -162,71 +170,77 @@ var (
 			},
 		},
 	}
-	bluePeer65001v4PodIPPoolRPName = PolicyName("blue-peer-65001", "ipv4", v2.BGPCiliumPodIPPoolAdvert, bluePoolName)
-	bluePeer65001v4PodIPPoolRP     = &types.RoutePolicy{
-		Name: bluePeer65001v4PodIPPoolRPName,
-		Type: types.RoutePolicyTypeExport,
-		Statements: []*types.RoutePolicyStatement{
-			{
-				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: &types.RoutePolicyNeighborMatch{
-						Type:      types.RoutePolicyMatchAny,
-						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
-					},
-					MatchPrefixes: &types.RoutePolicyPrefixMatch{
-						Type: types.RoutePolicyMatchAny,
-						Prefixes: []types.RoutePolicyPrefix{
-							{
-								CIDR:         bluePoolNodePrefix1v4.Prefix,
-								PrefixLenMin: 24,
-								PrefixLenMax: 24,
-							},
-							{
-								CIDR:         bluePoolNodePrefix2v4.Prefix,
-								PrefixLenMin: 24,
-								PrefixLenMax: 24,
-							},
+	bluePeer65001v4PodIPPoolRPName = PolicyStatementName(v2.BGPCiliumPodIPPoolAdvert, bluePoolName)
+	bluePeer65001v4PodIPPoolRP     = &bgpTables.DesiredRoutePolicy{
+		Instance:   "fake-instance",
+		Peer:       bluePeer65001.Name,
+		PolicyType: types.RoutePolicyTypeExport,
+		Priority:   PodIPPoolReconcilerPriority,
+		Owner:      PodIPPoolReconcilerName,
+		Resource:   resource.Key{Name: bluePoolName},
+		Statement: &types.RoutePolicyStatement{
+			Name: bluePeer65001v4PodIPPoolRPName + "-ipv4",
+			Conditions: types.RoutePolicyConditions{
+				MatchNeighbors: &types.RoutePolicyNeighborMatch{
+					Type:      types.RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
+				},
+				MatchPrefixes: &types.RoutePolicyPrefixMatch{
+					Type: types.RoutePolicyMatchAny,
+					Prefixes: []types.RoutePolicyPrefix{
+						{
+							CIDR:         bluePoolNodePrefix1v4.Prefix,
+							PrefixLenMin: 24,
+							PrefixLenMax: 24,
+						},
+						{
+							CIDR:         bluePoolNodePrefix2v4.Prefix,
+							PrefixLenMin: 24,
+							PrefixLenMax: 24,
 						},
 					},
 				},
-				Actions: types.RoutePolicyActions{
-					RouteAction:    types.RoutePolicyActionAccept,
-					AddCommunities: []string{"65355:200"},
-				},
+			},
+			Actions: types.RoutePolicyActions{
+				RouteAction:    types.RoutePolicyActionAccept,
+				AddCommunities: []string{"65355:200"},
 			},
 		},
 	}
-	bluePeer65001v6PodIPPoolRPName = PolicyName("blue-peer-65001", "ipv6", v2.BGPCiliumPodIPPoolAdvert, bluePoolName)
-	bluePeer65001v6PodIPPoolRP     = &types.RoutePolicy{
-		Name: bluePeer65001v6PodIPPoolRPName,
-		Type: types.RoutePolicyTypeExport,
-		Statements: []*types.RoutePolicyStatement{
-			{
-				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: &types.RoutePolicyNeighborMatch{
-						Type:      types.RoutePolicyMatchAny,
-						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
-					},
-					MatchPrefixes: &types.RoutePolicyPrefixMatch{
-						Type: types.RoutePolicyMatchAny,
-						Prefixes: []types.RoutePolicyPrefix{
-							{
-								CIDR:         bluePoolNodePrefix1v6.Prefix,
-								PrefixLenMin: 96,
-								PrefixLenMax: 96,
-							},
-							{
-								CIDR:         bluePoolNodePrefix2v6.Prefix,
-								PrefixLenMin: 96,
-								PrefixLenMax: 96,
-							},
+	bluePeer65001v6PodIPPoolRPName = PolicyStatementName(v2.BGPCiliumPodIPPoolAdvert, bluePoolName)
+	bluePeer65001v6PodIPPoolRP     = &bgpTables.DesiredRoutePolicy{
+		Instance:   "fake-instance",
+		Peer:       bluePeer65001.Name,
+		PolicyType: types.RoutePolicyTypeExport,
+		Priority:   PodIPPoolReconcilerPriority,
+		Owner:      PodIPPoolReconcilerName,
+		Resource:   resource.Key{Name: bluePoolName},
+		Statement: &types.RoutePolicyStatement{
+			Name: bluePeer65001v6PodIPPoolRPName + "-ipv6",
+			Conditions: types.RoutePolicyConditions{
+				MatchNeighbors: &types.RoutePolicyNeighborMatch{
+					Type:      types.RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
+				},
+				MatchPrefixes: &types.RoutePolicyPrefixMatch{
+					Type: types.RoutePolicyMatchAny,
+					Prefixes: []types.RoutePolicyPrefix{
+						{
+							CIDR:         bluePoolNodePrefix1v6.Prefix,
+							PrefixLenMin: 96,
+							PrefixLenMax: 96,
+						},
+						{
+							CIDR:         bluePoolNodePrefix2v6.Prefix,
+							PrefixLenMin: 96,
+							PrefixLenMax: 96,
 						},
 					},
 				},
-				Actions: types.RoutePolicyActions{
-					RouteAction:    types.RoutePolicyActionAccept,
-					AddCommunities: []string{"65355:200"},
-				},
+			},
+			Actions: types.RoutePolicyActions{
+				RouteAction:    types.RoutePolicyActionAccept,
+				AddCommunities: []string{"65355:200"},
 			},
 		},
 	}
@@ -239,11 +253,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 		advertisements           []*v2.CiliumBGPAdvertisement
 		pools                    []*v2alpha1.CiliumPodIPPool
 		preconfiguredPoolAFPaths map[resource.Key]map[types.Family]map[string]struct{}
-		preconfiguredRPs         ResourceRoutePolicyMap
+		preconfiguredRPs         []*bgpTables.DesiredRoutePolicy
 		testCiliumNode           *v2.CiliumNode
 		testBGPInstanceConfig    *v2.CiliumBGPNodeInstance
 		expectedPoolAFPaths      map[resource.Key]map[types.Family]map[string]struct{}
-		expectedRPs              ResourceRoutePolicyMap
+		expectedRPs              []*bgpTables.DesiredRoutePolicy
 	}{
 		{
 			name: "dual stack, advertisement selects pools (by label), pool present on the node",
@@ -260,7 +274,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				bluePool,
 			},
 			preconfiguredPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{},
-			preconfiguredRPs:         ResourceRoutePolicyMap{},
+			preconfiguredRPs:         nil,
 			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name: "Test Node",
@@ -320,15 +334,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: ResourceRoutePolicyMap{
-				resource.Key{Name: redPoolName}: RoutePolicyMap{
-					redPeer65001v4PodIPPoolRPName: redPeer65001v4PodIPPoolRP,
-					redPeer65001v6PodIPPoolRPName: redPeer65001v6PodIPPoolRP,
-				},
-				resource.Key{Name: bluePoolName}: RoutePolicyMap{
-					bluePeer65001v4PodIPPoolRPName: bluePeer65001v4PodIPPoolRP,
-					bluePeer65001v6PodIPPoolRPName: bluePeer65001v6PodIPPoolRP,
-				},
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				redPeer65001v4PodIPPoolRP,
+				redPeer65001v6PodIPPoolRP,
+				bluePeer65001v4PodIPPoolRP,
+				bluePeer65001v6PodIPPoolRP,
 			},
 		},
 		{
@@ -346,7 +356,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				bluePool,
 			},
 			preconfiguredPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{},
-			preconfiguredRPs:         ResourceRoutePolicyMap{},
+			preconfiguredRPs:         nil,
 			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name: "Test Node",
@@ -406,15 +416,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: ResourceRoutePolicyMap{
-				resource.Key{Name: redPoolName}: RoutePolicyMap{
-					redPeer65001v4PodIPPoolRPName: redPeer65001v4PodIPPoolRP,
-					redPeer65001v6PodIPPoolRPName: redPeer65001v6PodIPPoolRP,
-				},
-				resource.Key{Name: bluePoolName}: RoutePolicyMap{
-					bluePeer65001v4PodIPPoolRPName: bluePeer65001v4PodIPPoolRP,
-					bluePeer65001v6PodIPPoolRPName: bluePeer65001v6PodIPPoolRP,
-				},
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				redPeer65001v4PodIPPoolRP,
+				redPeer65001v6PodIPPoolRP,
+				bluePeer65001v4PodIPPoolRP,
+				bluePeer65001v6PodIPPoolRP,
 			},
 		},
 		{
@@ -540,15 +546,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: ResourceRoutePolicyMap{
-				resource.Key{Name: redPoolName}: RoutePolicyMap{
-					redPeer65001v4PodIPPoolRPName: redPeer65001v4PodIPPoolRP,
-					redPeer65001v6PodIPPoolRPName: redPeer65001v6PodIPPoolRP,
-				},
-				resource.Key{Name: bluePoolName}: RoutePolicyMap{
-					bluePeer65001v4PodIPPoolRPName: bluePeer65001v4PodIPPoolRP,
-					bluePeer65001v6PodIPPoolRPName: bluePeer65001v6PodIPPoolRP,
-				},
+			preconfiguredRPs: []*bgpTables.DesiredRoutePolicy{
+				redPeer65001v4PodIPPoolRP,
+				redPeer65001v6PodIPPoolRP,
+				bluePeer65001v4PodIPPoolRP,
+				bluePeer65001v6PodIPPoolRP,
 			},
 			testCiliumNode: &v2.CiliumNode{
 				ObjectMeta: metaV1.ObjectMeta{
@@ -590,11 +592,9 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: ResourceRoutePolicyMap{
-				resource.Key{Name: redPoolName}: RoutePolicyMap{
-					redPeer65001v4PodIPPoolRPName: redPeer65001v4PodIPPoolRP,
-					redPeer65001v6PodIPPoolRPName: redPeer65001v6PodIPPoolRP,
-				},
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				redPeer65001v4PodIPPoolRP,
+				redPeer65001v6PodIPPoolRP,
 			},
 		},
 	}
@@ -602,6 +602,9 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
+			db := statedb.New()
+			desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db)
+			req.NoError(err)
 
 			params := PodIPPoolReconcilerIn{
 				Logger: hivetest.Logger(t),
@@ -611,11 +614,18 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 						PeerConfigStore: store.InitMockStore[*v2.CiliumBGPPeerConfig](tt.peerConfig),
 						AdvertStore:     store.InitMockStore[*v2.CiliumBGPAdvertisement](tt.advertisements),
 					}),
-				PoolStore: store.InitMockStore[*v2alpha1.CiliumPodIPPool](tt.pools),
+				PoolStore:               store.InitMockStore[*v2alpha1.CiliumPodIPPool](tt.pools),
+				DB:                      db,
+				DesiredRoutePolicyTable: desiredRoutePolicyTable,
 			}
 			podIPPoolReconciler := NewPodIPPoolReconciler(params).Reconciler.(*PodIPPoolReconciler)
 
 			testBGPInstance := instance.NewFakeBGPInstance()
+			reconcileParams := ReconcileParams{
+				BGPInstance:   testBGPInstance,
+				DesiredConfig: tt.testBGPInstanceConfig,
+				CiliumNode:    tt.testCiliumNode,
+			}
 
 			// set the preconfigured advertisements
 			presetPoolAFPaths := make(ResourceAFPathsMap)
@@ -632,17 +642,21 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				}
 			}
 			podIPPoolReconciler.setMetadata(testBGPInstance, PodIPPoolReconcilerMetadata{
-				PoolAFPaths:       presetPoolAFPaths,
-				PoolRoutePolicies: tt.preconfiguredRPs,
+				PoolAFPaths: presetPoolAFPaths,
 			})
+
+			// set preconfigured policy entries
+			tx := db.WriteTxn(podIPPoolReconciler.desiredRoutePolicyTable)
+			defer tx.Abort()
+			for _, policy := range tt.preconfiguredRPs {
+				_, _, err := podIPPoolReconciler.desiredRoutePolicyTable.Insert(tx, policy)
+				require.NoError(t, err)
+			}
+			tx.Commit()
 
 			// run podIPPoolReconciler twice to ensure idempotency
 			for range 2 {
-				err := podIPPoolReconciler.Reconcile(context.Background(), ReconcileParams{
-					BGPInstance:   testBGPInstance,
-					DesiredConfig: tt.testBGPInstanceConfig,
-					CiliumNode:    tt.testCiliumNode,
-				})
+				err := podIPPoolReconciler.Reconcile(context.Background(), reconcileParams)
 				req.NoError(err)
 			}
 
@@ -660,7 +674,8 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 			}
 
 			req.Equal(tt.expectedPoolAFPaths, runningPoolAFPaths)
-			req.Equal(tt.expectedRPs, podIPPoolReconciler.getMetadata(testBGPInstance).PoolRoutePolicies)
+			requireDesiredRoutePolicies(t, podIPPoolReconciler.db, podIPPoolReconciler.desiredRoutePolicyTable,
+				testBGPInstance.Name, podIPPoolReconciler.Name(), tt.expectedRPs)
 		})
 	}
 }

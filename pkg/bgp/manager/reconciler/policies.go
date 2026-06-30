@@ -32,6 +32,9 @@ const (
 // ResourceRoutePolicyMap holds the route policies per resource.
 type ResourceRoutePolicyMap map[resource.Key]RoutePolicyMap
 
+// ResourceDesiredRoutePolicyMap holds the route policy statements per resource.
+type ResourceDesiredRoutePolicyMap map[resource.Key][]*bgpTables.DesiredRoutePolicy
+
 // RoutePolicyMap holds routing policies configured by the policy reconciler keyed by policy name.
 type RoutePolicyMap map[string]*types.RoutePolicy
 
