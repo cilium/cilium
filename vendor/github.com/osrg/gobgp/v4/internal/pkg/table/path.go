@@ -88,6 +88,7 @@ func NewBitmap(size int) *Bitmap {
 
 type originInfo struct {
 	nlri               bgp.NLRI
+	nlriString         string
 	source             *PeerInfo
 	timestamp          int64
 	noImplicitWithdraw bool
@@ -183,9 +184,14 @@ func NewPath(family bgp.Family, source *PeerInfo, pathnlri bgp.PathNLRI, isWithd
 	if !isWithdraw && pattrs == nil {
 		return nil
 	}
+	nlriString := ""
+	if pathnlri.NLRI != nil {
+		nlriString = pathnlri.NLRI.String()
+	}
 	return &Path{
 		info: &originInfo{
 			nlri:               pathnlri.NLRI,
+			nlriString:         nlriString,
 			source:             source,
 			timestamp:          timestamp.Unix(),
 			noImplicitWithdraw: noImplicitWithdraw,
@@ -623,7 +629,7 @@ func (path *Path) GetLocalKey() PathLocalKey {
 func (path *Path) GetDestLocalKey() PathDestLocalKey {
 	return PathDestLocalKey{
 		Family: path.GetFamily(),
-		Prefix: path.GetNlri().String(),
+		Prefix: path.OriginInfo().nlriString,
 	}
 }
 

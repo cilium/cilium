@@ -187,15 +187,23 @@ func (p *bfdPeer) stop() {
 	)
 }
 
+// remoteUDPAddr builds the BFD peer's UDP address. The zone is preserved so a link-local peer
+// (fe80::…%iface, as used by unnumbered single-hop BFD per RFC 5881) can be reached — dialing a
+// link-local address without its zone fails.
+func (p *bfdPeer) remoteUDPAddr() *net.UDPAddr {
+	return &net.UDPAddr{
+		IP:   p.peerAddress.AsSlice(),
+		Zone: p.peerAddress.Zone(),
+		Port: p.peerPort,
+	}
+}
+
 func (p *bfdPeer) startClient() {
 	localAddress := &net.UDPAddr{
 		Port: randRange(bfdSourcePortMin, bfdSourcePortMax),
 	}
 
-	remoteAddress := &net.UDPAddr{
-		IP:   p.peerAddress.AsSlice(),
-		Port: p.peerPort,
-	}
+	remoteAddress := p.remoteUDPAddr()
 
 	var err error
 	p.udpClient, err = net.DialUDP("udp", localAddress, remoteAddress)

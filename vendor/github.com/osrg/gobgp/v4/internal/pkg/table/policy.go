@@ -2298,14 +2298,14 @@ func (c *ExtCommunityCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 
 	// General path: loop over path ECs, try each matcher. Semantics preserved from original.
 	result := false
-	for _, x := range es {
+	for _, m := range c.set.matchers {
 		result = false
-		// match only with transitive community. see RFC7153
-		if !isTransitiveType(x) {
-			continue
-		}
-		var xStr string
-		for _, m := range c.set.matchers {
+		for _, x := range es {
+			// match only with transitive community. see RFC7153
+			if !isTransitiveType(x) {
+				continue
+			}
+			var xStr string
 			if m.matchesExtCommunity(x, &xStr) {
 				result = true
 				break
@@ -2314,7 +2314,7 @@ func (c *ExtCommunityCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
 		if c.option == MATCH_OPTION_ALL && !result {
 			break
 		}
-		if c.option == MATCH_OPTION_ANY && result {
+		if (c.option == MATCH_OPTION_ANY || c.option == MATCH_OPTION_INVERT) && result {
 			break
 		}
 	}
@@ -4857,16 +4857,12 @@ func toStatementApi(s *oc.Statement) *api.Statement {
 		cs.RpkiResult = api.ValidationState_VALIDATION_STATE_INVALID
 	}
 	community_action := func(action string) api.CommunityAction_Type {
-		fmt.Println("action0", action)
-		switch oc.BgpSetCommunityOptionType(action) {
+		switch oc.BgpSetCommunityOptionType(strings.ToLower(action)) {
 		case oc.BGP_SET_COMMUNITY_OPTION_TYPE_ADD:
-			fmt.Println("action1", action)
 			return api.CommunityAction_TYPE_ADD
 		case oc.BGP_SET_COMMUNITY_OPTION_TYPE_REMOVE:
-			fmt.Println("action2", action)
 			return api.CommunityAction_TYPE_REMOVE
 		case oc.BGP_SET_COMMUNITY_OPTION_TYPE_REPLACE:
-			fmt.Println("action3", action)
 			return api.CommunityAction_TYPE_REPLACE
 		}
 		return api.CommunityAction_TYPE_UNSPECIFIED
@@ -4882,11 +4878,12 @@ func toStatementApi(s *oc.Statement) *api.Statement {
 			return api.RouteAction_ROUTE_ACTION_UNSPECIFIED
 		}(),
 		Community: func() *api.CommunityAction {
-			if len(s.Actions.BgpActions.SetCommunity.SetCommunityMethod.CommunitiesList) == 0 {
+			t := community_action(s.Actions.BgpActions.SetCommunity.Options)
+			if t == api.CommunityAction_TYPE_UNSPECIFIED {
 				return nil
 			}
 			return &api.CommunityAction{
-				Type:        community_action(s.Actions.BgpActions.SetCommunity.Options),
+				Type:        t,
 				Communities: s.Actions.BgpActions.SetCommunity.SetCommunityMethod.CommunitiesList,
 			}
 		}(),

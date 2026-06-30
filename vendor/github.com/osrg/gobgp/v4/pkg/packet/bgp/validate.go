@@ -159,6 +159,9 @@ func ValidateAttribute(a PathAttributeInterface, rfs map[Family]BGPAddPathMode, 
 	case *PathAttributeAsPath:
 		if isEBGP {
 			if isConfed {
+				if len(p.Value) == 0 {
+					return false, NewMessageError(eCode, eSubCodeMalformedAspath, nil, "empty AS_PATH for confederation eBGP")
+				}
 				if segType := p.Value[0].GetType(); segType != BGP_ASPATH_ATTR_TYPE_CONFED_SEQ {
 					return false, NewMessageError(eCode, eSubCodeMalformedAspath, nil, fmt.Sprintf("segment type is not confederation seq (%d)", segType))
 				}

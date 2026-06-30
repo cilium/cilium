@@ -24,8 +24,8 @@ import (
 	"syscall"
 )
 
-func SetTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
-	return SetTcpMD5SigSockopt(l, address, key)
+func SetTCPMD5SigSockopt(l *net.TCPListener, bindInterface string, address string, key string) error {
+	return SetTcpMD5SigSockopt(l, bindInterface, address, key)
 }
 
 func SetTCPTTLSockopt(conn net.Conn, ttl int) error {

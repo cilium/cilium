@@ -91,7 +91,7 @@ func (x AddPathCapabilityTuple_Mode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AddPathCapabilityTuple_Mode.Descriptor instead.
 func (AddPathCapabilityTuple_Mode) EnumDescriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{9, 0}
+	return file_api_capability_proto_rawDescGZIP(), []int{10, 0}
 }
 
 type Capability struct {
@@ -111,6 +111,7 @@ type Capability struct {
 	//	*Capability_RouteRefreshCisco
 	//	*Capability_Fqdn
 	//	*Capability_SoftwareVersion
+	//	*Capability_ExtendedMessage
 	Cap           isCapability_Cap `protobuf_oneof:"cap"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -270,6 +271,15 @@ func (x *Capability) GetSoftwareVersion() *SoftwareVersionCapability {
 	return nil
 }
 
+func (x *Capability) GetExtendedMessage() *ExtendedMessageCapability {
+	if x != nil {
+		if x, ok := x.Cap.(*Capability_ExtendedMessage); ok {
+			return x.ExtendedMessage
+		}
+	}
+	return nil
+}
+
 type isCapability_Cap interface {
 	isCapability_Cap()
 }
@@ -326,6 +336,10 @@ type Capability_SoftwareVersion struct {
 	SoftwareVersion *SoftwareVersionCapability `protobuf:"bytes,13,opt,name=software_version,json=softwareVersion,proto3,oneof"`
 }
 
+type Capability_ExtendedMessage struct {
+	ExtendedMessage *ExtendedMessageCapability `protobuf:"bytes,14,opt,name=extended_message,json=extendedMessage,proto3,oneof"`
+}
+
 func (*Capability_Unknown) isCapability_Cap() {}
 
 func (*Capability_MultiProtocol) isCapability_Cap() {}
@@ -351,6 +365,8 @@ func (*Capability_RouteRefreshCisco) isCapability_Cap() {}
 func (*Capability_Fqdn) isCapability_Cap() {}
 
 func (*Capability_SoftwareVersion) isCapability_Cap() {}
+
+func (*Capability_ExtendedMessage) isCapability_Cap() {}
 
 type MultiProtocolCapability struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -432,6 +448,46 @@ func (*RouteRefreshCapability) Descriptor() ([]byte, []int) {
 	return file_api_capability_proto_rawDescGZIP(), []int{2}
 }
 
+// ExtendedMessageCapability mirrors the empty TLV for the BGP
+// Extended Message Capability (Capability Code 6, Capability Length 0)
+// defined by RFC 8654. The presence of this oneof on a Capability
+// signals that the peer advertised it; there is no payload.
+type ExtendedMessageCapability struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExtendedMessageCapability) Reset() {
+	*x = ExtendedMessageCapability{}
+	mi := &file_api_capability_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExtendedMessageCapability) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExtendedMessageCapability) ProtoMessage() {}
+
+func (x *ExtendedMessageCapability) ProtoReflect() protoreflect.Message {
+	mi := &file_api_capability_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExtendedMessageCapability.ProtoReflect.Descriptor instead.
+func (*ExtendedMessageCapability) Descriptor() ([]byte, []int) {
+	return file_api_capability_proto_rawDescGZIP(), []int{3}
+}
+
 type CarryingLabelInfoCapability struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -440,7 +496,7 @@ type CarryingLabelInfoCapability struct {
 
 func (x *CarryingLabelInfoCapability) Reset() {
 	*x = CarryingLabelInfoCapability{}
-	mi := &file_api_capability_proto_msgTypes[3]
+	mi := &file_api_capability_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -452,7 +508,7 @@ func (x *CarryingLabelInfoCapability) String() string {
 func (*CarryingLabelInfoCapability) ProtoMessage() {}
 
 func (x *CarryingLabelInfoCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[3]
+	mi := &file_api_capability_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -465,7 +521,7 @@ func (x *CarryingLabelInfoCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CarryingLabelInfoCapability.ProtoReflect.Descriptor instead.
 func (*CarryingLabelInfoCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{3}
+	return file_api_capability_proto_rawDescGZIP(), []int{4}
 }
 
 type ExtendedNexthopCapabilityTuple struct {
@@ -481,7 +537,7 @@ type ExtendedNexthopCapabilityTuple struct {
 
 func (x *ExtendedNexthopCapabilityTuple) Reset() {
 	*x = ExtendedNexthopCapabilityTuple{}
-	mi := &file_api_capability_proto_msgTypes[4]
+	mi := &file_api_capability_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -493,7 +549,7 @@ func (x *ExtendedNexthopCapabilityTuple) String() string {
 func (*ExtendedNexthopCapabilityTuple) ProtoMessage() {}
 
 func (x *ExtendedNexthopCapabilityTuple) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[4]
+	mi := &file_api_capability_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -506,7 +562,7 @@ func (x *ExtendedNexthopCapabilityTuple) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtendedNexthopCapabilityTuple.ProtoReflect.Descriptor instead.
 func (*ExtendedNexthopCapabilityTuple) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{4}
+	return file_api_capability_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ExtendedNexthopCapabilityTuple) GetNlriFamily() *Family {
@@ -532,7 +588,7 @@ type ExtendedNexthopCapability struct {
 
 func (x *ExtendedNexthopCapability) Reset() {
 	*x = ExtendedNexthopCapability{}
-	mi := &file_api_capability_proto_msgTypes[5]
+	mi := &file_api_capability_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +600,7 @@ func (x *ExtendedNexthopCapability) String() string {
 func (*ExtendedNexthopCapability) ProtoMessage() {}
 
 func (x *ExtendedNexthopCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[5]
+	mi := &file_api_capability_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +613,7 @@ func (x *ExtendedNexthopCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtendedNexthopCapability.ProtoReflect.Descriptor instead.
 func (*ExtendedNexthopCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{5}
+	return file_api_capability_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ExtendedNexthopCapability) GetTuples() []*ExtendedNexthopCapabilityTuple {
@@ -577,7 +633,7 @@ type GracefulRestartCapabilityTuple struct {
 
 func (x *GracefulRestartCapabilityTuple) Reset() {
 	*x = GracefulRestartCapabilityTuple{}
-	mi := &file_api_capability_proto_msgTypes[6]
+	mi := &file_api_capability_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -589,7 +645,7 @@ func (x *GracefulRestartCapabilityTuple) String() string {
 func (*GracefulRestartCapabilityTuple) ProtoMessage() {}
 
 func (x *GracefulRestartCapabilityTuple) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[6]
+	mi := &file_api_capability_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -602,7 +658,7 @@ func (x *GracefulRestartCapabilityTuple) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GracefulRestartCapabilityTuple.ProtoReflect.Descriptor instead.
 func (*GracefulRestartCapabilityTuple) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{6}
+	return file_api_capability_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GracefulRestartCapabilityTuple) GetFamily() *Family {
@@ -630,7 +686,7 @@ type GracefulRestartCapability struct {
 
 func (x *GracefulRestartCapability) Reset() {
 	*x = GracefulRestartCapability{}
-	mi := &file_api_capability_proto_msgTypes[7]
+	mi := &file_api_capability_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -642,7 +698,7 @@ func (x *GracefulRestartCapability) String() string {
 func (*GracefulRestartCapability) ProtoMessage() {}
 
 func (x *GracefulRestartCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[7]
+	mi := &file_api_capability_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -655,7 +711,7 @@ func (x *GracefulRestartCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GracefulRestartCapability.ProtoReflect.Descriptor instead.
 func (*GracefulRestartCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{7}
+	return file_api_capability_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GracefulRestartCapability) GetFlags() uint32 {
@@ -688,7 +744,7 @@ type FourOctetASNCapability struct {
 
 func (x *FourOctetASNCapability) Reset() {
 	*x = FourOctetASNCapability{}
-	mi := &file_api_capability_proto_msgTypes[8]
+	mi := &file_api_capability_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -700,7 +756,7 @@ func (x *FourOctetASNCapability) String() string {
 func (*FourOctetASNCapability) ProtoMessage() {}
 
 func (x *FourOctetASNCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[8]
+	mi := &file_api_capability_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -713,7 +769,7 @@ func (x *FourOctetASNCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FourOctetASNCapability.ProtoReflect.Descriptor instead.
 func (*FourOctetASNCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{8}
+	return file_api_capability_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FourOctetASNCapability) GetAsn() uint32 {
@@ -733,7 +789,7 @@ type AddPathCapabilityTuple struct {
 
 func (x *AddPathCapabilityTuple) Reset() {
 	*x = AddPathCapabilityTuple{}
-	mi := &file_api_capability_proto_msgTypes[9]
+	mi := &file_api_capability_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -745,7 +801,7 @@ func (x *AddPathCapabilityTuple) String() string {
 func (*AddPathCapabilityTuple) ProtoMessage() {}
 
 func (x *AddPathCapabilityTuple) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[9]
+	mi := &file_api_capability_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -758,7 +814,7 @@ func (x *AddPathCapabilityTuple) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddPathCapabilityTuple.ProtoReflect.Descriptor instead.
 func (*AddPathCapabilityTuple) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{9}
+	return file_api_capability_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AddPathCapabilityTuple) GetFamily() *Family {
@@ -784,7 +840,7 @@ type AddPathCapability struct {
 
 func (x *AddPathCapability) Reset() {
 	*x = AddPathCapability{}
-	mi := &file_api_capability_proto_msgTypes[10]
+	mi := &file_api_capability_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -796,7 +852,7 @@ func (x *AddPathCapability) String() string {
 func (*AddPathCapability) ProtoMessage() {}
 
 func (x *AddPathCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[10]
+	mi := &file_api_capability_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -809,7 +865,7 @@ func (x *AddPathCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddPathCapability.ProtoReflect.Descriptor instead.
 func (*AddPathCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{10}
+	return file_api_capability_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *AddPathCapability) GetTuples() []*AddPathCapabilityTuple {
@@ -827,7 +883,7 @@ type EnhancedRouteRefreshCapability struct {
 
 func (x *EnhancedRouteRefreshCapability) Reset() {
 	*x = EnhancedRouteRefreshCapability{}
-	mi := &file_api_capability_proto_msgTypes[11]
+	mi := &file_api_capability_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -839,7 +895,7 @@ func (x *EnhancedRouteRefreshCapability) String() string {
 func (*EnhancedRouteRefreshCapability) ProtoMessage() {}
 
 func (x *EnhancedRouteRefreshCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[11]
+	mi := &file_api_capability_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -852,7 +908,7 @@ func (x *EnhancedRouteRefreshCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnhancedRouteRefreshCapability.ProtoReflect.Descriptor instead.
 func (*EnhancedRouteRefreshCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{11}
+	return file_api_capability_proto_rawDescGZIP(), []int{12}
 }
 
 type LongLivedGracefulRestartCapabilityTuple struct {
@@ -866,7 +922,7 @@ type LongLivedGracefulRestartCapabilityTuple struct {
 
 func (x *LongLivedGracefulRestartCapabilityTuple) Reset() {
 	*x = LongLivedGracefulRestartCapabilityTuple{}
-	mi := &file_api_capability_proto_msgTypes[12]
+	mi := &file_api_capability_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -878,7 +934,7 @@ func (x *LongLivedGracefulRestartCapabilityTuple) String() string {
 func (*LongLivedGracefulRestartCapabilityTuple) ProtoMessage() {}
 
 func (x *LongLivedGracefulRestartCapabilityTuple) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[12]
+	mi := &file_api_capability_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -891,7 +947,7 @@ func (x *LongLivedGracefulRestartCapabilityTuple) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use LongLivedGracefulRestartCapabilityTuple.ProtoReflect.Descriptor instead.
 func (*LongLivedGracefulRestartCapabilityTuple) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{12}
+	return file_api_capability_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *LongLivedGracefulRestartCapabilityTuple) GetFamily() *Family {
@@ -924,7 +980,7 @@ type LongLivedGracefulRestartCapability struct {
 
 func (x *LongLivedGracefulRestartCapability) Reset() {
 	*x = LongLivedGracefulRestartCapability{}
-	mi := &file_api_capability_proto_msgTypes[13]
+	mi := &file_api_capability_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -936,7 +992,7 @@ func (x *LongLivedGracefulRestartCapability) String() string {
 func (*LongLivedGracefulRestartCapability) ProtoMessage() {}
 
 func (x *LongLivedGracefulRestartCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[13]
+	mi := &file_api_capability_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -949,7 +1005,7 @@ func (x *LongLivedGracefulRestartCapability) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use LongLivedGracefulRestartCapability.ProtoReflect.Descriptor instead.
 func (*LongLivedGracefulRestartCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{13}
+	return file_api_capability_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *LongLivedGracefulRestartCapability) GetTuples() []*LongLivedGracefulRestartCapabilityTuple {
@@ -967,7 +1023,7 @@ type RouteRefreshCiscoCapability struct {
 
 func (x *RouteRefreshCiscoCapability) Reset() {
 	*x = RouteRefreshCiscoCapability{}
-	mi := &file_api_capability_proto_msgTypes[14]
+	mi := &file_api_capability_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -979,7 +1035,7 @@ func (x *RouteRefreshCiscoCapability) String() string {
 func (*RouteRefreshCiscoCapability) ProtoMessage() {}
 
 func (x *RouteRefreshCiscoCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[14]
+	mi := &file_api_capability_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -992,7 +1048,7 @@ func (x *RouteRefreshCiscoCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteRefreshCiscoCapability.ProtoReflect.Descriptor instead.
 func (*RouteRefreshCiscoCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{14}
+	return file_api_capability_proto_rawDescGZIP(), []int{15}
 }
 
 type FqdnCapability struct {
@@ -1005,7 +1061,7 @@ type FqdnCapability struct {
 
 func (x *FqdnCapability) Reset() {
 	*x = FqdnCapability{}
-	mi := &file_api_capability_proto_msgTypes[15]
+	mi := &file_api_capability_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1017,7 +1073,7 @@ func (x *FqdnCapability) String() string {
 func (*FqdnCapability) ProtoMessage() {}
 
 func (x *FqdnCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[15]
+	mi := &file_api_capability_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1030,7 +1086,7 @@ func (x *FqdnCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FqdnCapability.ProtoReflect.Descriptor instead.
 func (*FqdnCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{15}
+	return file_api_capability_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *FqdnCapability) GetHostName() string {
@@ -1056,7 +1112,7 @@ type SoftwareVersionCapability struct {
 
 func (x *SoftwareVersionCapability) Reset() {
 	*x = SoftwareVersionCapability{}
-	mi := &file_api_capability_proto_msgTypes[16]
+	mi := &file_api_capability_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1068,7 +1124,7 @@ func (x *SoftwareVersionCapability) String() string {
 func (*SoftwareVersionCapability) ProtoMessage() {}
 
 func (x *SoftwareVersionCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[16]
+	mi := &file_api_capability_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1081,7 +1137,7 @@ func (x *SoftwareVersionCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SoftwareVersionCapability.ProtoReflect.Descriptor instead.
 func (*SoftwareVersionCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{16}
+	return file_api_capability_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SoftwareVersionCapability) GetSoftwareVersion() string {
@@ -1101,7 +1157,7 @@ type UnknownCapability struct {
 
 func (x *UnknownCapability) Reset() {
 	*x = UnknownCapability{}
-	mi := &file_api_capability_proto_msgTypes[17]
+	mi := &file_api_capability_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1113,7 +1169,7 @@ func (x *UnknownCapability) String() string {
 func (*UnknownCapability) ProtoMessage() {}
 
 func (x *UnknownCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_capability_proto_msgTypes[17]
+	mi := &file_api_capability_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1126,7 +1182,7 @@ func (x *UnknownCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnknownCapability.ProtoReflect.Descriptor instead.
 func (*UnknownCapability) Descriptor() ([]byte, []int) {
-	return file_api_capability_proto_rawDescGZIP(), []int{17}
+	return file_api_capability_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UnknownCapability) GetCode() uint32 {
@@ -1147,7 +1203,7 @@ var File_api_capability_proto protoreflect.FileDescriptor
 
 const file_api_capability_proto_rawDesc = "" +
 	"\n" +
-	"\x14api/capability.proto\x12\x03api\x1a\x10api/common.proto\"\xcd\a\n" +
+	"\x14api/capability.proto\x12\x03api\x1a\x10api/common.proto\"\x9a\b\n" +
 	"\n" +
 	"Capability\x122\n" +
 	"\aunknown\x18\x01 \x01(\v2\x16.api.UnknownCapabilityH\x00R\aunknown\x12E\n" +
@@ -1163,11 +1219,13 @@ const file_api_capability_proto_rawDesc = "" +
 	" \x01(\v2'.api.LongLivedGracefulRestartCapabilityH\x00R\x18longLivedGracefulRestart\x12R\n" +
 	"\x13route_refresh_cisco\x18\v \x01(\v2 .api.RouteRefreshCiscoCapabilityH\x00R\x11routeRefreshCisco\x12)\n" +
 	"\x04fqdn\x18\f \x01(\v2\x13.api.FqdnCapabilityH\x00R\x04fqdn\x12K\n" +
-	"\x10software_version\x18\r \x01(\v2\x1e.api.SoftwareVersionCapabilityH\x00R\x0fsoftwareVersionB\x05\n" +
+	"\x10software_version\x18\r \x01(\v2\x1e.api.SoftwareVersionCapabilityH\x00R\x0fsoftwareVersion\x12K\n" +
+	"\x10extended_message\x18\x0e \x01(\v2\x1e.api.ExtendedMessageCapabilityH\x00R\x0fextendedMessageB\x05\n" +
 	"\x03cap\">\n" +
 	"\x17MultiProtocolCapability\x12#\n" +
 	"\x06family\x18\x01 \x01(\v2\v.api.FamilyR\x06family\"\x18\n" +
-	"\x16RouteRefreshCapability\"\x1d\n" +
+	"\x16RouteRefreshCapability\"\x1b\n" +
+	"\x19ExtendedMessageCapability\"\x1d\n" +
 	"\x1bCarryingLabelInfoCapability\"\x82\x01\n" +
 	"\x1eExtendedNexthopCapabilityTuple\x12,\n" +
 	"\vnlri_family\x18\x01 \x01(\v2\v.api.FamilyR\n" +
@@ -1225,59 +1283,61 @@ func file_api_capability_proto_rawDescGZIP() []byte {
 }
 
 var file_api_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_api_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_api_capability_proto_goTypes = []any{
 	(AddPathCapabilityTuple_Mode)(0),                // 0: api.AddPathCapabilityTuple.Mode
 	(*Capability)(nil),                              // 1: api.Capability
 	(*MultiProtocolCapability)(nil),                 // 2: api.MultiProtocolCapability
 	(*RouteRefreshCapability)(nil),                  // 3: api.RouteRefreshCapability
-	(*CarryingLabelInfoCapability)(nil),             // 4: api.CarryingLabelInfoCapability
-	(*ExtendedNexthopCapabilityTuple)(nil),          // 5: api.ExtendedNexthopCapabilityTuple
-	(*ExtendedNexthopCapability)(nil),               // 6: api.ExtendedNexthopCapability
-	(*GracefulRestartCapabilityTuple)(nil),          // 7: api.GracefulRestartCapabilityTuple
-	(*GracefulRestartCapability)(nil),               // 8: api.GracefulRestartCapability
-	(*FourOctetASNCapability)(nil),                  // 9: api.FourOctetASNCapability
-	(*AddPathCapabilityTuple)(nil),                  // 10: api.AddPathCapabilityTuple
-	(*AddPathCapability)(nil),                       // 11: api.AddPathCapability
-	(*EnhancedRouteRefreshCapability)(nil),          // 12: api.EnhancedRouteRefreshCapability
-	(*LongLivedGracefulRestartCapabilityTuple)(nil), // 13: api.LongLivedGracefulRestartCapabilityTuple
-	(*LongLivedGracefulRestartCapability)(nil),      // 14: api.LongLivedGracefulRestartCapability
-	(*RouteRefreshCiscoCapability)(nil),             // 15: api.RouteRefreshCiscoCapability
-	(*FqdnCapability)(nil),                          // 16: api.FqdnCapability
-	(*SoftwareVersionCapability)(nil),               // 17: api.SoftwareVersionCapability
-	(*UnknownCapability)(nil),                       // 18: api.UnknownCapability
-	(*Family)(nil),                                  // 19: api.Family
+	(*ExtendedMessageCapability)(nil),               // 4: api.ExtendedMessageCapability
+	(*CarryingLabelInfoCapability)(nil),             // 5: api.CarryingLabelInfoCapability
+	(*ExtendedNexthopCapabilityTuple)(nil),          // 6: api.ExtendedNexthopCapabilityTuple
+	(*ExtendedNexthopCapability)(nil),               // 7: api.ExtendedNexthopCapability
+	(*GracefulRestartCapabilityTuple)(nil),          // 8: api.GracefulRestartCapabilityTuple
+	(*GracefulRestartCapability)(nil),               // 9: api.GracefulRestartCapability
+	(*FourOctetASNCapability)(nil),                  // 10: api.FourOctetASNCapability
+	(*AddPathCapabilityTuple)(nil),                  // 11: api.AddPathCapabilityTuple
+	(*AddPathCapability)(nil),                       // 12: api.AddPathCapability
+	(*EnhancedRouteRefreshCapability)(nil),          // 13: api.EnhancedRouteRefreshCapability
+	(*LongLivedGracefulRestartCapabilityTuple)(nil), // 14: api.LongLivedGracefulRestartCapabilityTuple
+	(*LongLivedGracefulRestartCapability)(nil),      // 15: api.LongLivedGracefulRestartCapability
+	(*RouteRefreshCiscoCapability)(nil),             // 16: api.RouteRefreshCiscoCapability
+	(*FqdnCapability)(nil),                          // 17: api.FqdnCapability
+	(*SoftwareVersionCapability)(nil),               // 18: api.SoftwareVersionCapability
+	(*UnknownCapability)(nil),                       // 19: api.UnknownCapability
+	(*Family)(nil),                                  // 20: api.Family
 }
 var file_api_capability_proto_depIdxs = []int32{
-	18, // 0: api.Capability.unknown:type_name -> api.UnknownCapability
+	19, // 0: api.Capability.unknown:type_name -> api.UnknownCapability
 	2,  // 1: api.Capability.multi_protocol:type_name -> api.MultiProtocolCapability
 	3,  // 2: api.Capability.route_refresh:type_name -> api.RouteRefreshCapability
-	4,  // 3: api.Capability.carrying_label_info:type_name -> api.CarryingLabelInfoCapability
-	6,  // 4: api.Capability.extended_nexthop:type_name -> api.ExtendedNexthopCapability
-	8,  // 5: api.Capability.graceful_restart:type_name -> api.GracefulRestartCapability
-	9,  // 6: api.Capability.four_octet_asn:type_name -> api.FourOctetASNCapability
-	11, // 7: api.Capability.add_path:type_name -> api.AddPathCapability
-	12, // 8: api.Capability.enhanced_route_refresh:type_name -> api.EnhancedRouteRefreshCapability
-	14, // 9: api.Capability.long_lived_graceful_restart:type_name -> api.LongLivedGracefulRestartCapability
-	15, // 10: api.Capability.route_refresh_cisco:type_name -> api.RouteRefreshCiscoCapability
-	16, // 11: api.Capability.fqdn:type_name -> api.FqdnCapability
-	17, // 12: api.Capability.software_version:type_name -> api.SoftwareVersionCapability
-	19, // 13: api.MultiProtocolCapability.family:type_name -> api.Family
-	19, // 14: api.ExtendedNexthopCapabilityTuple.nlri_family:type_name -> api.Family
-	19, // 15: api.ExtendedNexthopCapabilityTuple.nexthop_family:type_name -> api.Family
-	5,  // 16: api.ExtendedNexthopCapability.tuples:type_name -> api.ExtendedNexthopCapabilityTuple
-	19, // 17: api.GracefulRestartCapabilityTuple.family:type_name -> api.Family
-	7,  // 18: api.GracefulRestartCapability.tuples:type_name -> api.GracefulRestartCapabilityTuple
-	19, // 19: api.AddPathCapabilityTuple.family:type_name -> api.Family
-	0,  // 20: api.AddPathCapabilityTuple.mode:type_name -> api.AddPathCapabilityTuple.Mode
-	10, // 21: api.AddPathCapability.tuples:type_name -> api.AddPathCapabilityTuple
-	19, // 22: api.LongLivedGracefulRestartCapabilityTuple.family:type_name -> api.Family
-	13, // 23: api.LongLivedGracefulRestartCapability.tuples:type_name -> api.LongLivedGracefulRestartCapabilityTuple
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	5,  // 3: api.Capability.carrying_label_info:type_name -> api.CarryingLabelInfoCapability
+	7,  // 4: api.Capability.extended_nexthop:type_name -> api.ExtendedNexthopCapability
+	9,  // 5: api.Capability.graceful_restart:type_name -> api.GracefulRestartCapability
+	10, // 6: api.Capability.four_octet_asn:type_name -> api.FourOctetASNCapability
+	12, // 7: api.Capability.add_path:type_name -> api.AddPathCapability
+	13, // 8: api.Capability.enhanced_route_refresh:type_name -> api.EnhancedRouteRefreshCapability
+	15, // 9: api.Capability.long_lived_graceful_restart:type_name -> api.LongLivedGracefulRestartCapability
+	16, // 10: api.Capability.route_refresh_cisco:type_name -> api.RouteRefreshCiscoCapability
+	17, // 11: api.Capability.fqdn:type_name -> api.FqdnCapability
+	18, // 12: api.Capability.software_version:type_name -> api.SoftwareVersionCapability
+	4,  // 13: api.Capability.extended_message:type_name -> api.ExtendedMessageCapability
+	20, // 14: api.MultiProtocolCapability.family:type_name -> api.Family
+	20, // 15: api.ExtendedNexthopCapabilityTuple.nlri_family:type_name -> api.Family
+	20, // 16: api.ExtendedNexthopCapabilityTuple.nexthop_family:type_name -> api.Family
+	6,  // 17: api.ExtendedNexthopCapability.tuples:type_name -> api.ExtendedNexthopCapabilityTuple
+	20, // 18: api.GracefulRestartCapabilityTuple.family:type_name -> api.Family
+	8,  // 19: api.GracefulRestartCapability.tuples:type_name -> api.GracefulRestartCapabilityTuple
+	20, // 20: api.AddPathCapabilityTuple.family:type_name -> api.Family
+	0,  // 21: api.AddPathCapabilityTuple.mode:type_name -> api.AddPathCapabilityTuple.Mode
+	11, // 22: api.AddPathCapability.tuples:type_name -> api.AddPathCapabilityTuple
+	20, // 23: api.LongLivedGracefulRestartCapabilityTuple.family:type_name -> api.Family
+	14, // 24: api.LongLivedGracefulRestartCapability.tuples:type_name -> api.LongLivedGracefulRestartCapabilityTuple
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_api_capability_proto_init() }
@@ -1300,6 +1360,7 @@ func file_api_capability_proto_init() {
 		(*Capability_RouteRefreshCisco)(nil),
 		(*Capability_Fqdn)(nil),
 		(*Capability_SoftwareVersion)(nil),
+		(*Capability_ExtendedMessage)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1307,7 +1368,7 @@ func file_api_capability_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_capability_proto_rawDesc), len(file_api_capability_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   18,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

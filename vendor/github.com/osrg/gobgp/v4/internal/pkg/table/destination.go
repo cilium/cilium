@@ -530,6 +530,41 @@ type Update struct {
 	OldKnownPathList []*Path
 }
 
+// GetMultiBestPathDiff returns multipath delta as update and withdraw lists.
+// update includes both newly added and changed paths.
+func (u *Update) GetMultiBestPathDiff(id string) (update []*Path, withdraw []*Path) {
+	oldM := getMultiBestPath(id, u.OldKnownPathList)
+	newM := getMultiBestPath(id, u.KnownPathList)
+	if len(oldM) == 0 && len(newM) == 0 {
+		return nil, nil
+	}
+
+	matchedOld := make([]bool, len(oldM))
+	for _, n := range newM {
+		match := -1
+		for idx, o := range oldM {
+			if n.EqualBySourceAndPathID(o) {
+				match = idx
+				break
+			}
+		}
+		if match == -1 {
+			update = append(update, n)
+			continue
+		}
+		matchedOld[match] = true
+		if !n.Equal(oldM[match]) {
+			update = append(update, n)
+		}
+	}
+	for idx, o := range oldM {
+		if !matchedOld[idx] {
+			withdraw = append(withdraw, o.Clone(true))
+		}
+	}
+	return update, withdraw
+}
+
 func getMultiBestPath(id string, pathList []*Path) []*Path {
 	// The path list of destinations in the global RIB are sorted
 	// in descending order. One of the criteria for being a better
