@@ -226,6 +226,12 @@ type Config struct {
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
 
+	// EnableBandwidthManager is the effective (post-probe) state of the BPF
+	// bandwidth manager, i.e. bandwidth.Manager.Enabled(). It may be false even
+	// when --enable-bandwidth-manager is set (e.g. IPSec enabled, procfs
+	// unreadable), matching the condition under which the datapath enforces QoS.
+	EnableBandwidthManager bool
+
 	// EncryptNode enables encrypting NodeIP traffic
 	EncryptNode bool
 

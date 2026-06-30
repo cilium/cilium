@@ -14,6 +14,8 @@ import "github.com/cilium/cilium/pkg/datapath/types"
 type BPFLXC struct {
 	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
 	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
+	// Cilium is chained with a generic-veth CNI plugin (e.g. Kube-OVN).
+	CniChainingGenericVeth bool `config:"cni_chaining_generic_veth"`
 	// MTU of the device the bpf program is attached to.
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Respond to ARP requests from local containers to resolve the default
@@ -78,8 +80,8 @@ type BPFLXC struct {
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+	return &BPFLXC{false, false, 0x0, false, false, false, false, false, false,
+		false, false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

@@ -463,6 +463,11 @@ const (
 	// CNIChainingMode configures which CNI plugin Cilium is chained with.
 	CNIChainingMode = "cni-chaining-mode"
 
+	// EnableBandwidthManager is the name of the option to enable the BPF
+	// bandwidth manager. The flag itself is registered by the bandwidth
+	// manager cell; this const mirrors its name for datapath config use.
+	EnableBandwidthManager = "enable-bandwidth-manager"
+
 	// CNIChainingTarget is the name of a CNI network in to which we should
 	// insert our plugin configuration
 	CNIChainingTarget = "cni-chaining-target"
@@ -1211,17 +1216,21 @@ type DaemonConfig struct {
 	// after.
 	shaSum [32]byte
 
-	CreationTime       time.Time
-	BpfDir             string // BPF template files directory
-	LibDir             string // Cilium library files directory
-	RunDir             string // Cilium runtime directory
-	ExternalEnvoyProxy bool   // Whether Envoy is deployed as external DaemonSet or not
-	EnableXDPPrefilter bool   // Enable XDP-based prefiltering
-	EnableTCX          bool   // Enable attaching endpoint programs using tcx if the kernel supports it
-	EncryptNode        bool   // Set to true for encrypting node IP traffic
+	CreationTime           time.Time
+	BpfDir                 string // BPF template files directory
+	LibDir                 string // Cilium library files directory
+	RunDir                 string // Cilium runtime directory
+	ExternalEnvoyProxy     bool   // Whether Envoy is deployed as external DaemonSet or not
+	EnableXDPPrefilter     bool   // Enable XDP-based prefiltering
+	EnableTCX              bool   // Enable attaching endpoint programs using tcx if the kernel supports it
+	EnableBandwidthManager bool   // Enable BPF bandwidth manager (EDT pacing / ingress policing)
+	EncryptNode            bool   // Set to true for encrypting node IP traffic
 
 	DatapathMode string // Datapath mode
 	RoutingMode  string // Routing mode
+
+	// CNIChainingMode configures which CNI plugin Cilium is chained with.
+	CNIChainingMode string
 
 	DryMode bool // Do not create BPF maps, devices, ..
 
@@ -2012,9 +2021,9 @@ func (c *DaemonConfig) RequiresNativeRouting() bool {
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
-func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled, ipsecEnabled bool) bool {
+func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled, ipsecEnabled, bandwidthManagerEnabled bool) bool {
 	return kprCfg.KubeProxyReplacement || c.EnableBPFMasquerade || c.EnableHostFirewall || wireguardEnabled ||
-		c.EnableL2Announcements || c.ForceDeviceRequired || ipsecEnabled
+		c.EnableL2Announcements || c.ForceDeviceRequired || ipsecEnabled || bandwidthManagerEnabled
 }
 
 // NeedEgressOnWireGuardDevice returns true if the agent needs to attach
@@ -2434,6 +2443,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.CGroupRoot = vp.GetString(CGroupRoot)
 	c.ClusterID = vp.GetUint32(clustermeshTypes.OptClusterID)
 	c.ClusterName = vp.GetString(clustermeshTypes.OptClusterName)
+	c.CNIChainingMode = vp.GetString(CNIChainingMode)
 	c.MaxConnectedClusters = vp.GetUint32(clustermeshTypes.OptMaxConnectedClusters)
 	c.DatapathMode = vp.GetString(DatapathMode)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)
@@ -2452,6 +2462,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.L2AnnouncerRetryPeriod = vp.GetDuration(L2AnnouncerRetryPeriod)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
 	c.EnableTCX = vp.GetBool(EnableTCX)
+	c.EnableBandwidthManager = vp.GetBool(EnableBandwidthManager)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
 	c.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)

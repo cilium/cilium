@@ -2683,6 +2683,24 @@ int cil_to_container(struct __ctx_buff *ctx)
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
+#ifndef ENABLE_HOST_ROUTING
+	/* In generic-veth CNI chaining the packet is delivered to the pod
+	 * directly by the chained CNI and never traverses local_delivery(),
+	 * which is where ingress bandwidth QoS is normally enforced. Apply it
+	 * here instead, gated on the chaining mode so it runs exactly once per
+	 * packet: this site is mutually exclusive with the local_delivery() site,
+	 * which only runs when Cilium itself delivers the packet (non-chaining).
+	 * Metering at both sites would consume tokens twice and halve the
+	 * configured ingress rate. With BPF host routing the packet is delivered
+	 * via redirect_peer() and bypasses this hook entirely, hence the
+	 * !ENABLE_HOST_ROUTING guard.
+	 */
+	if (CONFIG(cni_chaining_generic_veth)) {
+		ret = accept(ctx, LXC_ID);
+		if (IS_ERR(ret))
+			return ret;
+	}
+#endif /* !ENABLE_HOST_ROUTING */
 
 	ret = pull_l3_hdr(ctx, proto);
 	if (ret < 0)

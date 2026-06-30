@@ -73,6 +73,7 @@ func newLocalNodeConfig(
 	ipsecCfg ipsec.Config,
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
+	bandwidthManagerEnabled bool,
 ) (config.Config, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -194,6 +195,7 @@ func newLocalNodeConfig(
 		EnablePolicyAccounting:       daemon.PolicyAccounting,
 		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  ipsecCfg.Enabled(),
+		EnableBandwidthManager:       bandwidthManagerEnabled,
 		EncryptNode:                  daemon.EncryptNode,
 		EnableConntrackAccounting:    daemon.BPFConntrackAccounting,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(daemon.IPv4PodSubnets),
