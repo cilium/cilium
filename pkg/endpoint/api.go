@@ -70,7 +70,7 @@ func NewEndpointFromChangeModel(p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy
 	ep.K8sPodName = model.K8sPodName
 	ep.K8sNamespace = model.K8sNamespace
 	ep.K8sUID = model.K8sUID
-	ep.disableLegacyIdentifiers = model.DisableLegacyIdentifiers
+	ep.isSecondaryInterface = model.IsSecondaryInterface
 
 	if model.Mac != "" {
 		m, err := mac.ParseMAC(model.Mac)

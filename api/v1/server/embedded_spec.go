@@ -2642,10 +2642,6 @@ func init() {
           "description": "ID of datapath tail call map",
           "type": "integer"
         },
-        "disable-legacy-identifiers": {
-          "description": "Disables lookup using legacy endpoint identifiers (container id, pod name) for this endpoint",
-          "type": "boolean"
-        },
         "host-mac": {
           "description": "MAC address",
           "type": "string"
@@ -2661,6 +2657,10 @@ func init() {
         "interface-name": {
           "description": "Name of network device in host netns",
           "type": "string"
+        },
+        "is-secondary-interface": {
+          "description": "Whether this is a secondary pod interface",
+          "type": "boolean"
         },
         "k8s-namespace": {
           "description": "Kubernetes namespace name",
@@ -8062,10 +8062,6 @@ func init() {
           "description": "ID of datapath tail call map",
           "type": "integer"
         },
-        "disable-legacy-identifiers": {
-          "description": "Disables lookup using legacy endpoint identifiers (container id, pod name) for this endpoint",
-          "type": "boolean"
-        },
         "host-mac": {
           "description": "MAC address",
           "type": "string"
@@ -8081,6 +8077,10 @@ func init() {
         "interface-name": {
           "description": "Name of network device in host netns",
           "type": "string"
+        },
+        "is-secondary-interface": {
+          "description": "Whether this is a secondary pod interface",
+          "type": "boolean"
         },
         "k8s-namespace": {
           "description": "Kubernetes namespace name",

@@ -1233,10 +1233,9 @@ definitions:
         description: |
           Whether to build an endpoint synchronously
         type: boolean
-      disable-legacy-identifiers:
+      is-secondary-interface:
         description: >-
-          Disables lookup using legacy endpoint identifiers (container id, pod
-          name) for this endpoint
+          Whether this is a secondary pod interface
         type: boolean
       netns-cookie:
         description: Network namespace cookie
