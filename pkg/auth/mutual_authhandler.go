@@ -278,12 +278,19 @@ func (m *mutualAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, 
 			Intermediates: x509.NewCertPool(),
 		}
 
-		var leaf *x509.Certificate
-		for _, cert := range chain {
+		if len(chain) == 0 {
+			return nil, fmt.Errorf("no certificate chains found")
+		}
+		leaf := chain[0]
+		if leaf.IsCA {
+			return nil, fmt.Errorf("leaf certificate cannot be a CA")
+		}
+		for i := 1; i < len(chain); i++ {
+			cert := chain[i]
 			if cert.IsCA {
 				opts.Intermediates.AddCert(cert)
 			} else {
-				leaf = cert
+				return nil, fmt.Errorf("found additional non-CA certificate in chain")
 			}
 		}
 		if leaf == nil {
