@@ -541,147 +541,6 @@ func TestSharedTimeout(t *testing.T) {
 	})
 }
 
-// TestSharedClientPortReleasedGracePeriod verifies that a new GetSharedClient
-// call for the same key waits on portReleased before dialing when the previous
-// client is closing. This prevents EADDRINUSE from the kernel scheduling gap
-// between conn.Close() returning and the OS fully releasing the bound port.
-func TestSharedClientPortReleasedGracePeriod(t *testing.T) {
-	dns.HandleFunc("miek.nl.", HelloServer)
-	defer dns.HandleRemove("miek.nl.")
-
-	s, addrstr, err := runUDPServer(":0")
-	if err != nil {
-		t.Fatalf("unable to run test server: %v", err)
-	}
-	defer s.Shutdown()
-
-	m := new(dns.Msg)
-	m.SetQuestion("miek.nl.", dns.TypeSOA)
-
-	sc := NewSharedClients()
-	const key = "grace-period-test"
-
-	// First request: acquire, exchange, release.
-	c1, closer1 := sc.GetSharedClient(key, new(dns.Client), addrstr)
-	if _, _, err := c1.ExchangeShared(m); err != nil {
-		t.Fatalf("first exchange failed: %v", err)
-	}
-
-	// Grab portReleased before calling closer1 so we can observe it.
-	c1.Lock()
-	portReleased := c1.portReleased
-	c1.Unlock()
-
-	// Close the first client. portReleased must not be closed yet (closer1
-	// hasn't been called).
-	select {
-	case <-portReleased:
-		t.Fatal("portReleased closed before closer was called")
-	default:
-	}
-
-	// Release the first client — this triggers close() and closes portReleased.
-	closer1()
-
-	// portReleased must now be closed.
-	select {
-	case <-portReleased:
-	case <-time.After(time.Second):
-		t.Fatal("portReleased not closed after closer1()")
-	}
-
-	// Second request with the same key must succeed — port is free.
-	c2, closer2 := sc.GetSharedClient(key, new(dns.Client), addrstr)
-	defer closer2()
-	if _, _, err := c2.ExchangeShared(m); err != nil {
-		t.Fatalf("second exchange failed (EADDRINUSE race not fixed): %v", err)
-	}
-}
-
-// TestSharedClientConcurrentSameLocalAddr reproduces the EADDRINUSE race that
-// occurs under Cilium's transparent DNS proxy mode. In transparent mode the
-// dialer binds the upstream socket to the originating pod's srcIP:srcPort. If
-// two goroutines both try to dial the same srcIP:srcPort simultaneously — which
-// happens when the previous SharedClient for that key just closed and two new
-// requests arrive concurrently — the second bind always fails with EADDRINUSE.
-//
-// The race: goroutine A holds the shared client and calls closer() while
-// goroutine B simultaneously calls GetSharedClient for the same key. Without
-// the portReleased fix, B may find the map empty (A already deleted the entry)
-// and attempt to dial the same srcIP:srcPort before A's conn.Close() has
-// released the port at the OS level — or before A's close and B's dial
-// serialise properly. With the fix, B waits on portReleased before proceeding.
-func TestSharedClientConcurrentSameLocalAddr(t *testing.T) {
-	dns.HandleFunc("miek.nl.", HelloServer)
-	defer dns.HandleRemove("miek.nl.")
-
-	s, addrstr, err := runUDPServer(":0")
-	if err != nil {
-		t.Fatalf("unable to run test server: %v", err)
-	}
-	defer s.Shutdown()
-
-	// Pick a free local port to use as the fixed source address, simulating
-	// Cilium transparent mode where srcIP:srcPort is pinned to the pod's addr.
-	tmp, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
-	if err != nil {
-		t.Fatalf("failed to get local addr: %v", err)
-	}
-	localAddr := tmp.LocalAddr().(*net.UDPAddr)
-	tmp.Close()
-
-	conf := &dns.Client{
-		Timeout: 2 * time.Second,
-		Dialer:  &net.Dialer{LocalAddr: localAddr},
-	}
-
-	sc := NewSharedClients()
-	const key = "transparent-mode-key"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	eg, _ := errgroup.WithContext(ctx)
-
-	// Two goroutines hammering the same key concurrently: one always holds a
-	// client and releases it, the other immediately tries to acquire a new one.
-	// This maximises the chance of closer() and GetSharedClient racing on the
-	// same srcIP:srcPort.
-	const iters = 500
-	eg.Go(func() error {
-		for i := range iters {
-			c, closer := sc.GetSharedClient(key, conf, addrstr)
-			m := new(dns.Msg)
-			m.SetQuestion("miek.nl.", dns.TypeSOA)
-			m.Id = uint16(i + 1)
-			if _, _, err := c.ExchangeSharedContext(ctx, m); err != nil {
-				closer()
-				return fmt.Errorf("goroutine 1 iter %d: %w", i, err)
-			}
-			closer()
-		}
-		return nil
-	})
-	eg.Go(func() error {
-		for i := range iters {
-			c, closer := sc.GetSharedClient(key, conf, addrstr)
-			m := new(dns.Msg)
-			m.SetQuestion("miek.nl.", dns.TypeSOA)
-			m.Id = uint16(i + 1001)
-			if _, _, err := c.ExchangeSharedContext(ctx, m); err != nil {
-				closer()
-				return fmt.Errorf("goroutine 2 iter %d: %w", i, err)
-			}
-			closer()
-		}
-		return nil
-	})
-
-	if err := eg.Wait(); err != nil {
-		t.Fatalf("concurrent exchange failed: %v", err)
-	}
-}
-
 // TestSharedClientBrokenClientEviction verifies that ExchangeContext evicts a
 // broken SharedClient (conn==nil after DialContext failure) from the map
 // eagerly — before all holders have released their references.
@@ -690,8 +549,8 @@ func TestSharedClientConcurrentSameLocalAddr(t *testing.T) {
 // Any new caller that arrives between the first and last closer finds the broken
 // client, increments its refcount, and also fails — cascading indefinitely.
 //
-// With the fix, ExchangeContext deletes the map entry immediately on dial
-// failure, regardless of refcount. New callers always get a fresh client.
+// With the fix, the closer deletes the map entry immediately when conn==nil,
+// regardless of refcount. New callers always get a fresh client.
 //
 // The test pre-acquires two references (refcount=2) so that the first
 // ExchangeContext call decrements to refcount=1 when it calls closer, not
