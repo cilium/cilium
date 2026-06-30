@@ -155,10 +155,12 @@ func kcnpParseFQDNSelectors(fqdns []policyv1alpha2.DomainName) (types.Selectors,
 
 // kcnpParseProtocols converts a slice of CNP Port specifications into a slice of api.PortRule.
 // Exactly one of PortNumber, PortRange or NamedPort in each slice value must be non-nil,
-// which is ensured through CRD validation. Returns an error if the protocol specification
-// can not be parsed.
-func kcnpParseProtocols(protocols []policyv1alpha2.ClusterNetworkPolicyProtocol) (api.PortRules, error) {
-	portRules := api.PortRules{}
+// which is ensured through CRD validation.
+func kcnpParseProtocols(protocols []policyv1alpha2.ClusterNetworkPolicyProtocol) api.PortRules {
+	if len(protocols) == 0 {
+		return nil
+	}
+	portRules := make(api.PortRules, 0, len(protocols))
 	for _, proto := range protocols {
 		var (
 			pp   api.PortProtocol
@@ -192,7 +194,7 @@ func kcnpParseProtocols(protocols []policyv1alpha2.ClusterNetworkPolicyProtocol)
 
 		portRules = append(portRules, api.PortRule{Ports: []api.PortProtocol{pp}})
 	}
-	return portRules, nil
+	return portRules
 }
 
 // GetKCNPPolicyLabels extracts the name of the k8s Cluster Network Policy.
@@ -247,15 +249,7 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 		fromRules := types.PolicyEntries{}
 		priority := basePriority + float64(i)/100
 		verdict := actionToVerdict(iRule.Action)
-
-		var l4 api.PortRules
-		if len(iRule.Protocols) > 0 {
-			var err error
-			l4, err = kcnpParseProtocols(iRule.Protocols)
-			if err != nil {
-				return nil, err
-			}
-		}
+		l4 := kcnpParseProtocols(iRule.Protocols)
 
 		if len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
@@ -300,15 +294,7 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 		toRules := types.PolicyEntries{}
 		priority := basePriority + float64(i)/100
 		verdict := actionToVerdict(eRule.Action)
-
-		var l4 api.PortRules
-		if len(eRule.Protocols) > 0 {
-			var err error
-			l4, err = kcnpParseProtocols(eRule.Protocols)
-			if err != nil {
-				return nil, err
-			}
-		}
+		l4 := kcnpParseProtocols(eRule.Protocols)
 
 		if len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
