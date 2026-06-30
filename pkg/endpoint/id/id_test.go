@@ -38,14 +38,6 @@ func TestSplitID(t *testing.T) {
 			},
 		},
 		{
-			name: "ID with PodNamePrefix prefix",
-			id:   string(PodNamePrefix) + ":default:foobar",
-			want: want{
-				prefixType: PodNamePrefix,
-				id:         "default:foobar",
-			},
-		},
-		{
 			name: "ID with CEPNamePrefix prefix",
 			id:   string(CEPNamePrefix) + ":default:baz-net1",
 			want: want{
@@ -85,7 +77,7 @@ func BenchmarkSplitID(b *testing.B) {
 	}{
 		{"123456", CiliumLocalIdPrefix, "123456"},
 		{string(CiliumLocalIdPrefix + ":123456"), CiliumLocalIdPrefix, "123456"},
-		{string(PodNamePrefix + ":default:foobar"), PodNamePrefix, "default:foobar"},
+		{string(CEPNamePrefix + ":default/foobar"), CEPNamePrefix, "default/foobar"},
 	}
 	count := 0
 
