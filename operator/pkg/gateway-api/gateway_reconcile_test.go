@@ -868,6 +868,184 @@ func Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC(t *testing.T) {
 	})
 }
 
+func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
+	tests := []struct {
+		name          string
+		listeners     []gatewayv1.Listener
+		wantStatus    ListenersStatus
+		wantListeners map[gatewayv1.SectionName]metav1.Condition
+	}{
+		{
+			name: "all listeners valid",
+			listeners: []gatewayv1.Listener{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: gatewayv1.HTTPProtocolType,
+				},
+				{
+					Name:     "https",
+					Port:     443,
+					Protocol: gatewayv1.HTTPSProtocolType,
+					TLS: &gatewayv1.ListenerTLSConfig{
+						Mode: ptr.To(gatewayv1.TLSModeTerminate),
+					},
+				},
+			},
+			wantStatus: ListenersStatusAllValid,
+			wantListeners: map[gatewayv1.SectionName]metav1.Condition{
+				"http": {
+					Type:   string(gatewayv1.ListenerConditionAccepted),
+					Status: metav1.ConditionTrue,
+					Reason: string(gatewayv1.ListenerReasonAccepted),
+				},
+				"https": {
+					Type:   string(gatewayv1.ListenerConditionAccepted),
+					Status: metav1.ConditionTrue,
+					Reason: string(gatewayv1.ListenerReasonAccepted),
+				},
+			},
+		},
+		{
+			name: "only unsupported protocol",
+			listeners: []gatewayv1.Listener{{
+				Name:     "invalid",
+				Port:     1111,
+				Protocol: gatewayv1.ProtocolType("INVALID"),
+			}},
+			wantStatus: ListenersStatusNoneValid,
+			wantListeners: map[gatewayv1.SectionName]metav1.Condition{
+				"invalid": {
+					Type:   string(gatewayv1.ListenerConditionAccepted),
+					Status: metav1.ConditionFalse,
+					Reason: string(gatewayv1.ListenerReasonUnsupportedProtocol),
+				},
+			},
+		},
+		{
+			name: "valid listener with unsupported protocol listener",
+			listeners: []gatewayv1.Listener{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: gatewayv1.HTTPProtocolType,
+				},
+				{
+					Name:     "invalid",
+					Port:     1111,
+					Protocol: gatewayv1.ProtocolType("INVALID"),
+				},
+			},
+			wantStatus: ListenersStatusValidWithUnsupportedProtocol,
+			wantListeners: map[gatewayv1.SectionName]metav1.Condition{
+				"http": {
+					Type:   string(gatewayv1.ListenerConditionAccepted),
+					Status: metav1.ConditionTrue,
+					Reason: string(gatewayv1.ListenerReasonAccepted),
+				},
+				"invalid": {
+					Type:   string(gatewayv1.ListenerConditionAccepted),
+					Status: metav1.ConditionFalse,
+					Reason: string(gatewayv1.ListenerReasonUnsupportedProtocol),
+				},
+			},
+		},
+		{
+			name: "valid listener with invalid route kind listener",
+			listeners: []gatewayv1.Listener{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: gatewayv1.HTTPProtocolType,
+				},
+				{
+					Name:     "invalid-route-kind",
+					Port:     81,
+					Protocol: gatewayv1.HTTPProtocolType,
+					AllowedRoutes: &gatewayv1.AllowedRoutes{
+						Kinds: []gatewayv1.RouteGroupKind{{
+							Kind: "InvalidRouteKind",
+						}},
+					},
+				},
+			},
+			wantStatus: ListenersStatusSomeInvalid,
+			wantListeners: map[gatewayv1.SectionName]metav1.Condition{
+				"http": {
+					Type:   string(gatewayv1.ListenerConditionAccepted),
+					Status: metav1.ConditionTrue,
+					Reason: string(gatewayv1.ListenerReasonAccepted),
+				},
+				"invalid-route-kind": {
+					Type:   string(gatewayv1.ListenerConditionAccepted),
+					Status: metav1.ConditionFalse,
+					Reason: string(gatewayv1.ListenerReasonInvalid),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "gateway",
+					Namespace:  "gateway-conformance-infra",
+					Generation: 1,
+				},
+				Spec: gatewayv1.GatewaySpec{
+					GatewayClassName: "cilium",
+					Listeners:        tt.listeners,
+				},
+			}
+
+			r := &gatewayReconciler{
+				Client: fake.NewClientBuilder().
+					WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+					Build(),
+			}
+
+			gotStatus, err := r.setListenerStatus(
+				t.Context(),
+				gw,
+				&gatewayv1.HTTPRouteList{},
+				&gatewayv1.TLSRouteList{},
+				&gatewayv1.GRPCRouteList{},
+				&gatewayv1alpha2.TCPRouteList{},
+				&gatewayv1alpha2.UDPRouteList{},
+				helpers.NewNamespaceLabelIndex(nil),
+			)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantStatus, gotStatus)
+
+			for name, wantCond := range tt.wantListeners {
+				gotCond := listenerStatusCondition(t, gw.Status.Listeners, name, string(gatewayv1.ListenerConditionAccepted))
+				require.Equal(t, wantCond.Status, gotCond.Status)
+				require.Equal(t, wantCond.Reason, gotCond.Reason)
+			}
+		})
+	}
+}
+
+func listenerStatusCondition(t *testing.T, listeners []gatewayv1.ListenerStatus, name gatewayv1.SectionName, conditionType string) metav1.Condition {
+	t.Helper()
+
+	for _, listener := range listeners {
+		if listener.Name != name {
+			continue
+		}
+		for _, cond := range listener.Conditions {
+			if cond.Type == conditionType {
+				return cond
+			}
+		}
+		require.Failf(t, "missing listener condition", "listener %q condition %q not found", name, conditionType)
+	}
+
+	require.Failf(t, "missing listener status", "listener %q not found", name)
+	return metav1.Condition{}
+}
+
 func filterHTTPRoute(hrList *gatewayv1.HTTPRouteList, gatewayName string, namespace string) []gatewayv1.HTTPRoute {
 	var filterList []gatewayv1.HTTPRoute
 	for _, hr := range hrList.Items {
