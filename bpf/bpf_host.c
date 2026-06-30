@@ -109,15 +109,15 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPV6
 static __always_inline __u32
-resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+resolve_srcid_ipv6(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
 	const struct remote_endpoint_info *info = NULL;
-	union v6addr *src;
+	const union v6addr *src;
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(real_sec_identity)) {
-		src = (union v6addr *) &ip6->saddr;
+		src = (const union v6addr *)&ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info) {
 			*ipcache_sec_identity = info->sec_identity;
@@ -134,7 +134,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				real_sec_identity = *ipcache_sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *)src)[3], real_sec_identity);
+			   ((const __u32 *)src)[3], real_sec_identity);
 	}
 
 	return real_sec_identity;
@@ -560,7 +560,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_sec_
 
 #ifdef ENABLE_IPV4
 static __always_inline __u32
-resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
+resolve_srcid_ipv4(const struct __ctx_buff *ctx, const struct iphdr *ip4,
 		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
 	const struct remote_endpoint_info *info = NULL;
