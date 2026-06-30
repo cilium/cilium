@@ -33,6 +33,7 @@ tests are passed.
 - `TLSRoute <https://gateway-api.sigs.k8s.io/reference/api-types/tlsroute/>`__
 - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/reference/api-types/policy/backendtlspolicy/>`__
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/reference/api-types/referencegrant/>`_
+- `ListenerSet <https://gateway-api.sigs.k8s.io/guides/user-guides/listener-set/>`__
 - `TCPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#tcproute>`__
 - `UDPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#udproute>`__
 
@@ -44,6 +45,7 @@ Additionally, Cilium provides ``CiliumGatewayClassConfig`` CRD, which can be ref
 
   If you'd like more insights on Cilium's Gateway API support, check out `eCHO episode 58: Cilium Service Mesh and Ingress <https://www.youtube.com/watch?v=60epwCxO8G4&index=80&t=2024s>`__.
 
+.. _gs_gateway_api_prerequisites:
 .. include:: installation.rst
 
 .. include:: ../ingress-reference.rst
@@ -73,6 +75,7 @@ Cilium's Gateway API features:
    default-tls-certificate
    backendtlspolicy
    access-logs
+   listenerset
 
 More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.3.0/examples/standard>`_.
 
