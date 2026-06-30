@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -365,11 +366,21 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			Tier:    types.Admin,
 			Ingress: false,
 			Subject: subjectAppSubjectSelector,
-			L3:      types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("k8s-app=kube-dns"))),
+			L3: types.ToSelectors(
+				api.NewESFromK8sLabelSelector(
+					labels.LabelSourceK8sKeyPrefix,
+					&slim_metav1.LabelSelector{
+						MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+							k8sConst.PodNamespaceLabel: slim_metav1.NamespaceSystem,
+							"k8s-app":                  "kube-dns",
+						},
+					},
+				),
+			),
 			L4: api.PortRules{{
 				Ports: []api.PortProtocol{
-					{Port: "dns"},
-					{Port: "dns-tcp"},
+					{Port: "53", Protocol: api.ProtoUDP},
+					{Port: "53", Protocol: api.ProtoTCP},
 				},
 				Rules: &api.L7Rules{
 					DNS: api.PortRulesDNS{
