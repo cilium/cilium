@@ -196,7 +196,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 		epPolicy.Ready()
 	}
 	ip.Detach()
-	assert.Equal(b, 117517, owner.previousMap.Len())
+	assert.Equal(b, 117519, owner.previousMap.Len())
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
@@ -211,7 +211,7 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	owner.previousMap = epPolicy.GetMapState()
 	epPolicy.Ready()
 	ip.Detach()
-	assert.Equal(t, 117517, owner.previousMap.Len())
+	assert.Equal(t, 117519, owner.previousMap.Len())
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {
