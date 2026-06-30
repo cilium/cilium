@@ -19,7 +19,6 @@ rules:
   - ""
   resources:
   - componentstatuses
-  - endpoints
   - namespaces
   - nodes
   - pods
