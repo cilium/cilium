@@ -249,20 +249,8 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 			return nil
 		}),
 	)
-	// Start the work pools processing CEP events only after syncing CES in local cache.
-	// c.wp = workerpool.New(4)
-	// c.wp.Submit("cilium-pods-updater", c.runCiliumPodsUpdater)
-	// c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
-	// c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
-	// c.wp.Submit("cilium-identities-updater", c.runCiliumIdentitiesUpdater)
 
 	c.logger.InfoContext(ctx, "Starting CES controller reconciler.")
-	// c.Job.Add(
-	// 	job.OneShot("proc-queues", func(ctx context.Context, health cell.Health) error {
-	// 		c.worker()
-	// 		return nil
-	// 	}),
-	// )
 
 	return nil
 }
@@ -445,16 +433,6 @@ func (c *SlimController) onPodUpdate(pod *slim_corev1.Pod) error {
 		return err
 	}
 
-	// pCid, err := c.reconciler.getPodIdentity(cidKey)
-	// if err != nil {
-	// 	// Pod CID couldn't be retrieved yet. We store known pod information
-	// 	// in the ces cache, so it can be associated with the CID once it is
-	// 	// created.
-	// 	c.manager.AddPodMapping(pod, node, cidKey)
-	// 	return nil // Reconciles on CID event
-	// }
-
-	// touchedCESs := c.manager.UpsertPodWithIdentity(pod, node, pCid)
 	touchedCESs := c.manager.AddPodMapping(pod, node, cidKey)
 	c.enqueueCESReconciliation(touchedCESs)
 	return nil
