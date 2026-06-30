@@ -493,6 +493,10 @@ spec:
         {{- if hasKey .Values.k8s "apiServerURLs" }}
         - "--k8s-api-server-urls={{ .Values.k8s.apiServerURLs }}"
         {{- end }}
+        {{- /* Gate the bypass on hostFirewall.enabled to match the agent (which
+               gates on its DaemonConfig); build-config has no DaemonConfig. Avoids
+               the egress-mark/IPVS upgrade hang in cilium/cilium#44464. */}}
+        - "--enable-k8s-host-firewall-bypass={{ .Values.hostFirewall.enabled }}"
         env:
         - name: K8S_NODE_NAME
           valueFrom:
