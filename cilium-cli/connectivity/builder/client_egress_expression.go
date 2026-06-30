@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
-	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 //go:embed manifests/client-egress-to-echo-expression.yaml
@@ -21,9 +20,7 @@ type clientEgressExpression struct{}
 
 func (t clientEgressExpression) build(ct *check.ConnectivityTest, _ map[string]string) {
 	clientEgressExpressionTest(ct, false)
-	if ct.Features[features.PortRanges].Enabled {
-		clientEgressExpressionTest(ct, true)
-	}
+	clientEgressExpressionTest(ct, true)
 }
 
 func clientEgressExpressionTest(ct *check.ConnectivityTest, portRanges bool) {

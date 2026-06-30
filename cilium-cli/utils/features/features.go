@@ -22,7 +22,6 @@ const (
 	L7Proxy            Feature = "l7-proxy"
 	HostFirewall       Feature = "host-firewall"
 	ICMPPolicy         Feature = "icmp-policy"
-	PortRanges         Feature = "port-ranges"
 	L7PortRanges       Feature = "l7-port-ranges"
 	Tunnel             Feature = "tunnel"
 	TunnelPort         Feature = "tunnel-port"
@@ -275,10 +274,6 @@ func RequireModeIsNot(feature Feature, mode string) Requirement {
 
 // ExtractFromCiliumVersion extracts features based on Cilium version.
 func (fs Set) ExtractFromCiliumVersion(ciliumVersion semver.Version) {
-	fs[PortRanges] = Status{
-		Enabled: true,
-	}
-
 	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
 }
 
