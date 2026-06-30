@@ -183,10 +183,10 @@ type Endpoint struct {
 	// with the source endpoints IP should egress when that traffic is not masqueraded.
 	parentIfIndex int
 
-	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
-	// (container id, pod name) for this endpoint.
+	// isSecondaryInterface reports whether this endpoint represents a seondary interface in
+	// case of more than once interface per pod.
 	// Immutable after Endpoint creation.
-	disableLegacyIdentifiers bool
+	isSecondaryInterface bool
 
 	// labels is the endpoint's label configuration
 	labels labels.OpLabels
@@ -1464,11 +1464,12 @@ func (e *Endpoint) SetMac(mac mac.MAC) {
 	e.mac = mac
 }
 
-// GetDisableLegacyIdentifiers returns the endpoint's disableLegacyIdentifiers.
-func (e *Endpoint) GetDisableLegacyIdentifiers() bool {
+// IsSecondaryInterface reports whether this endpoint represents a seondary interface in
+// case of more than once interface per pod.
+func (e *Endpoint) IsSecondaryInterface() bool {
 	e.unconditionalRLock()
 	defer e.runlock()
-	return e.disableLegacyIdentifiers
+	return e.isSecondaryInterface
 }
 
 func (e *Endpoint) setState(toState State, reason string) bool {

@@ -269,12 +269,12 @@ func TestLookup(t *testing.T) {
 			},
 		},
 		{
-			name: "endpoint by cep name with interface and disabled legacy identifers",
+			name: "endpoint by cep name with secondary interface",
 			cm: &apiv1.EndpointChangeRequest{
-				K8sNamespace:             "default",
-				K8sPodName:               "foo",
-				ContainerInterfaceName:   "net1",
-				DisableLegacyIdentifiers: true,
+				K8sNamespace:           "default",
+				K8sPodName:             "foo",
+				ContainerInterfaceName: "net1",
+				IsSecondaryInterface:   true,
 			},
 			setupArgs: func() args {
 				return args{
@@ -580,10 +580,10 @@ func TestLookupCEPName(t *testing.T) {
 		{
 			name: "existing pod name with container interface name",
 			cm: apiv1.EndpointChangeRequest{
-				K8sNamespace:             "default",
-				K8sPodName:               "bar",
-				ContainerInterfaceName:   "eth1",
-				DisableLegacyIdentifiers: true,
+				K8sNamespace:           "default",
+				K8sPodName:             "bar",
+				ContainerInterfaceName: "eth1",
+				IsSecondaryInterface:   true,
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
 				require.NoError(t, mgr.expose(ep))

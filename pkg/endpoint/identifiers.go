@@ -49,7 +49,7 @@ func (e *Endpoint) GetK8sCEPName() string {
 
 	// Endpoints which have not opted out of legacy identifiers will continue
 	// to use just the pod name as the cep name for backwards compatibility reasons.
-	if e.disableLegacyIdentifiers && e.K8sPodName != "" && e.containerIfName != "" {
+	if e.isSecondaryInterface && e.K8sPodName != "" && e.containerIfName != "" {
 		return e.K8sPodName + "-" + e.containerIfName
 	}
 	return e.K8sPodName
