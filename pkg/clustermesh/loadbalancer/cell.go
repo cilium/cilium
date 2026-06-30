@@ -15,4 +15,8 @@ var Cell = cell.Module(
 
 	cell.Provide(newServiceMerger),
 	cell.Invoke(registerServicesInitialized),
+
+	cell.Provide(newEndpointSliceObserver),
+	cell.Invoke(registerEndpointSliceReflector),
+	cell.Invoke((*endpointSliceObserver).registerEndpointSliceSynced),
 )

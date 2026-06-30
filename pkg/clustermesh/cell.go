@@ -60,6 +60,12 @@ var Cell = cell.Module(
 		}
 		return cm.ServicesSynced
 	}),
+	cell.Provide(func(cm *ClusterMesh) cmlb.EndpointSlicesSyncedFunc {
+		if cm == nil {
+			return nil
+		}
+		return cm.EndpointSlicesSynced
+	}),
 	cmlb.Cell,
 
 	cell.Config(types.DefaultQuirks),
