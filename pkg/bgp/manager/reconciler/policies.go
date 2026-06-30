@@ -24,14 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-const (
-	MaxPrefixLenIPv4 = 32
-	MaxPrefixLenIPv6 = 128
-)
-
-// ResourceRoutePolicyMap holds the route policies per resource.
-type ResourceRoutePolicyMap map[resource.Key]RoutePolicyMap
-
 // ResourceDesiredRoutePolicyMap holds the route policy statements per resource.
 type ResourceDesiredRoutePolicyMap map[resource.Key][]*bgpTables.DesiredRoutePolicy
 
@@ -241,15 +233,6 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 	return runningPolicies, nil
 }
 
-// PolicyName returns a unique route policy name for the provided peer, family and advertisement type.
-// If there a is a need for multiple route policies per advertisement type, unique resourceID can be provided.
-func PolicyName(peer, family string, advertType v2.BGPAdvertisementType, resourceID string) string {
-	if resourceID == "" {
-		return fmt.Sprintf("%s-%s-%s", peer, family, advertType)
-	}
-	return fmt.Sprintf("%s-%s-%s-%s", peer, family, advertType, resourceID)
-}
-
 // PolicyStatementName returns a route policy statement name for the provided advertisement type.
 // If there is a need for multiple route policies per advertisement type, unique resourceID can be provided.
 func PolicyStatementName(advertType v2.BGPAdvertisementType, resourceID string) string {
@@ -257,40 +240,6 @@ func PolicyStatementName(advertType v2.BGPAdvertisementType, resourceID string) 
 		return string(advertType)
 	}
 	return fmt.Sprintf("%s-%s", advertType, resourceID)
-}
-
-func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixList, advert v2.BGPAdvertisement) (*types.RoutePolicy, error) {
-	policy := &types.RoutePolicy{
-		Name: name,
-		Type: types.RoutePolicyTypeExport,
-	}
-
-	// sort prefixes to have consistent order for DeepEqual
-	sort.Slice(v4Prefixes, v4Prefixes.Less)
-	sort.Slice(v6Prefixes, v6Prefixes.Less)
-
-	// get communities
-	communities, largeCommunities, err := getCommunities(advert)
-	if err != nil {
-		return nil, err
-	}
-
-	// get local preference
-	var localPref *int64
-	if advert.Attributes != nil {
-		localPref = advert.Attributes.LocalPreference
-	}
-
-	// Due to a GoBGP limitation, we need to generate a separate statement for v4 and v6 prefixes, as families
-	// can not be mixed in a single statement. Nevertheless, they can be both part of the same Policy.
-	if len(v4Prefixes) > 0 {
-		policy.Statements = append(policy.Statements, policyStatement("", peerAddr, v4Prefixes, localPref, communities, largeCommunities))
-	}
-	if len(v6Prefixes) > 0 {
-		policy.Statements = append(policy.Statements, policyStatement("", peerAddr, v6Prefixes, localPref, communities, largeCommunities))
-	}
-
-	return policy, nil
 }
 
 func CreatePolicyStatements(namePrefix string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixList, advert v2.BGPAdvertisement) ([]*types.RoutePolicyStatement, error) {
