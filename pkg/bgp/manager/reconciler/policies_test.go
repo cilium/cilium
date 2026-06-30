@@ -4,9 +4,7 @@
 package reconciler
 
 import (
-	"cmp"
 	"net/netip"
-	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -18,8 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/types"
 )
 
-func Test_MergeRoutePolicies(t *testing.T) {
-
+func TestMergeRoutePolicyStatements(t *testing.T) {
 	localPrefDefault := int64(100)
 	localPrefLow := int64(50)
 	localPrefHigh := int64(200)
@@ -42,446 +39,132 @@ func Test_MergeRoutePolicies(t *testing.T) {
 		MatchFamilies: []types.Family{{Afi: types.AfiIPv6}},
 	}
 
+	testStatement := func(actions types.RoutePolicyActions) *types.RoutePolicyStatement {
+		return &types.RoutePolicyStatement{
+			Conditions: conditionsNeighborOne,
+			Actions:    actions,
+		}
+	}
+
+	namedStatement := func(name string, actions types.RoutePolicyActions) *types.RoutePolicyStatement {
+		return &types.RoutePolicyStatement{
+			Name:       name,
+			Conditions: conditionsNeighborOne,
+			Actions:    actions,
+		}
+	}
+
 	tests := []struct {
 		name          string
-		policyA       *types.RoutePolicy
-		policyB       *types.RoutePolicy
+		statementA    *types.RoutePolicyStatement
+		statementB    *types.RoutePolicyStatement
 		errorExpected bool
-		expected      *types.RoutePolicy
+		expected      *types.RoutePolicyStatement
 	}{
 		{
-			name:          "nil policy",
-			policyA:       nil,
-			policyB:       nil,
-			errorExpected: true,
-			expected:      nil,
-		},
-		{
-			name:    "nil policyA",
-			policyA: nil,
-			policyB: &types.RoutePolicy{
-				Name: "policy",
+			name: "statement names mismatched",
+			statementA: &types.RoutePolicyStatement{
+				Name:       "statement-a",
+				Conditions: conditionsNeighborOne,
+			},
+			statementB: &types.RoutePolicyStatement{
+				Name:       "statement-b",
+				Conditions: conditionsNeighborOne,
 			},
 			errorExpected: true,
-			expected:      nil,
 		},
 		{
-			name: "nil policyB",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
+			name: "statement conditions mismatched",
+			statementA: &types.RoutePolicyStatement{
+				Name:       "statement",
+				Conditions: conditionsNeighborOne,
 			},
-			policyB:       nil,
-			errorExpected: true,
-			expected:      nil,
-		},
-		{
-			name: "policy names mismatched",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-			},
-			policyB: &types.RoutePolicy{
-				Name: "notpolicy",
+			statementB: &types.RoutePolicyStatement{
+				Name:       "statement",
+				Conditions: conditionsNeighborThree,
 			},
 			errorExpected: true,
-			expected:      nil,
 		},
 		{
-			name: "policy types mismatched",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-				Type: types.RoutePolicyTypeExport,
-			},
-			policyB: &types.RoutePolicy{
-				Name: "policy",
-				Type: types.RoutePolicyTypeImport,
-			},
+			name:          "statement route actions mismatched",
+			statementA:    namedStatement("statement", types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept}),
+			statementB:    namedStatement("statement", types.RoutePolicyActions{RouteAction: types.RoutePolicyActionReject}),
 			errorExpected: true,
-			expected:      nil,
 		},
 		{
-			name: "empty statements",
-			policyA: &types.RoutePolicy{
-				Name:       "policy",
-				Statements: []*types.RoutePolicyStatement{},
-			},
-			policyB: &types.RoutePolicy{
-				Name:       "policy",
-				Statements: []*types.RoutePolicyStatement{},
-			},
-			errorExpected: false,
-			expected: &types.RoutePolicy{
-				Name:       "policy",
-				Statements: []*types.RoutePolicyStatement{},
-			},
+			name:       "nil statement.Action.SetLocalPref",
+			statementA: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: nil}),
+			statementB: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: nil}),
+			expected:   testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: nil}),
 		},
 		{
-			name: "nil statement.Action.SetLocalPref",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:        types.RoutePolicyActionAccept,
-							SetLocalPreference: nil,
-						},
-					},
-				},
-			},
-			policyB: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:        types.RoutePolicyActionAccept,
-							SetLocalPreference: nil,
-						},
-					},
-				},
-			},
-			errorExpected: false,
-			expected: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:        types.RoutePolicyActionAccept,
-							SetLocalPreference: nil,
-						},
-					},
-				},
-			},
+			name:       "nil dereferenced statement.Action.SetLocalPref",
+			statementA: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: nilPointerInt64}),   // can be nil or a nil pointer
+			statementB: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: &localPrefDefault}), // In policy B, local pref is set
+			// Ensures that nil is properly handled by selecting the non-nil value.
+			expected: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: &localPrefDefault}),
 		},
 		{
-			name: "nil dereferenced statement.Action.SetLocalPref",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:        types.RoutePolicyActionAccept,
-							SetLocalPreference: nilPointerInt64, // can be nil or a nil pointer
-						},
-					},
-				},
-			},
-			policyB: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:        types.RoutePolicyActionAccept,
-							SetLocalPreference: &localPrefDefault, // In policy B, local pref is set
-						},
-					},
-				},
-			},
-			errorExpected: false,
-			expected: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction: types.RoutePolicyActionAccept,
-							// Ensures that nil is properly handled by selecting the non-nil value
-							SetLocalPreference: &localPrefDefault,
-						},
-					},
-				},
-			},
+			name:       "both set standard communities",
+			statementA: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101"}}),
+			statementB: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"200:200", "202:202"}}),
+			expected:   testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101", "200:200", "202:202"}}),
 		},
 		{
-			name: "both set standard communities",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:    types.RoutePolicyActionAccept,
-							AddCommunities: []string{"100:100", "101:101"},
-						},
-					},
-				},
-			},
-			policyB: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:    types.RoutePolicyActionAccept,
-							AddCommunities: []string{"200:200", "202:202"},
-						},
-					},
-				},
-			},
-			errorExpected: false,
-			expected: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:    types.RoutePolicyActionAccept,
-							AddCommunities: []string{"100:100", "101:101", "200:200", "202:202"},
-						},
-					},
-				},
-			},
+			name:       "both set large communities",
+			statementA: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"}}),
+			statementB: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddLargeCommunities: []string{"2000:2000:2000", "2222:2222:2222"}}),
+			expected: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddLargeCommunities: []string{
+				"1000:1000:1000",
+				"1111:1111:1111",
+				"2000:2000:2000",
+				"2222:2222:2222",
+			}}),
 		},
 		{
-			name: "both set large communities",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"},
-						},
-					},
-				},
-			},
-			policyB: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"2000:2000:2000", "2222:2222:2222"},
-						},
-					},
-				},
-			},
-			errorExpected: false,
-			expected: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction: types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{
-								"1000:1000:1000",
-								"1111:1111:1111",
-								"2000:2000:2000",
-								"2222:2222:2222",
-							},
-						},
-					},
-				},
-			},
+			name:       "merges standard and large communities from different statements",
+			statementA: namedStatement("statement", types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101"}}),
+			statementB: namedStatement("statement", types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"}}),
+			expected:   namedStatement("statement", types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101"}, AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"}}),
 		},
 		{
-			name: "both set standard and large communities",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:    types.RoutePolicyActionAccept,
-							AddCommunities: []string{"100:100", "101:101"},
-						},
-					},
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"},
-						},
-					},
-				},
-			},
-			policyB: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:    types.RoutePolicyActionAccept,
-							AddCommunities: []string{"200:200", "202:202"},
-						},
-					},
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"2000:2000:2000", "2222:2222:2222"},
-						},
-					},
-					{
-						Conditions: conditionsNeighborThree,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"3333:3333:3333"},
-						},
-					},
-				},
-			},
-			errorExpected: false,
-			expected: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:    types.RoutePolicyActionAccept,
-							AddCommunities: []string{"100:100", "101:101", "200:200", "202:202"},
-							AddLargeCommunities: []string{
-								"1000:1000:1000",
-								"1111:1111:1111",
-								"2000:2000:2000",
-								"2222:2222:2222",
-							},
-						},
-					},
-					{
-						Conditions: conditionsNeighborThree,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"3333:3333:3333"},
-						},
-					},
-				},
-			},
+			name:       "both set standard and large communities",
+			statementA: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101"}, AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"}}),
+			statementB: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"200:200", "202:202"}, AddLargeCommunities: []string{"2000:2000:2000", "2222:2222:2222"}}),
+			expected: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101", "200:200", "202:202"}, AddLargeCommunities: []string{
+				"1000:1000:1000",
+				"1111:1111:1111",
+				"2000:2000:2000",
+				"2222:2222:2222",
+			}}),
 		},
 		{
-			name: "deduplicates standard and large communities",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddCommunities:      []string{"100:100", "101:101"},
-							AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"},
-						},
-					},
-				},
-			},
-			policyB: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddCommunities:      []string{"100:100", "101:101", "200:200"},
-							AddLargeCommunities: []string{"1000:1000:1000", "2000:2000:2000", "2222:2222:2222"},
-						},
-					},
-				},
-			},
-			errorExpected: false,
-			expected: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:    types.RoutePolicyActionAccept,
-							AddCommunities: []string{"100:100", "101:101", "200:200"},
-							AddLargeCommunities: []string{
-								"1000:1000:1000",
-								"1111:1111:1111",
-								"2000:2000:2000",
-								"2222:2222:2222",
-							},
-						},
-					},
-				},
-			},
+			name:       "deduplicates standard and large communities",
+			statementA: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101"}, AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"}}),
+			statementB: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101", "200:200"}, AddLargeCommunities: []string{"1000:1000:1000", "2000:2000:2000", "2222:2222:2222"}}),
+			expected: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101", "200:200"}, AddLargeCommunities: []string{
+				"1000:1000:1000",
+				"1111:1111:1111",
+				"2000:2000:2000",
+				"2222:2222:2222",
+			}}),
 		},
 		{
-			name: "both set standard and large communities with differing local preference",
-			policyA: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:        types.RoutePolicyActionAccept,
-							AddCommunities:     []string{"100:100", "101:101"},
-							SetLocalPreference: &localPrefLow,
-						},
-					},
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"},
-							SetLocalPreference:  &localPrefLow,
-						},
-					},
-				},
-			},
-			policyB: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:        types.RoutePolicyActionAccept,
-							AddCommunities:     []string{"200:200", "202:202"},
-							SetLocalPreference: &localPrefHigh,
-						},
-					},
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"2000:2000:2000", "2222:2222:2222"},
-							SetLocalPreference:  &localPrefHigh,
-						},
-					},
-					{
-						Conditions: conditionsNeighborThree,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"3333:3333:3333"},
-							SetLocalPreference:  &localPrefDefault,
-						},
-					},
-				},
-			},
-			errorExpected: false,
-			expected: &types.RoutePolicy{
-				Name: "policy",
-				Statements: []*types.RoutePolicyStatement{
-					{
-						Conditions: conditionsNeighborOne,
-						Actions: types.RoutePolicyActions{
-							RouteAction:    types.RoutePolicyActionAccept,
-							AddCommunities: []string{"100:100", "101:101", "200:200", "202:202"},
-							AddLargeCommunities: []string{
-								"1000:1000:1000",
-								"1111:1111:1111",
-								"2000:2000:2000",
-								"2222:2222:2222",
-							},
-							SetLocalPreference: &localPrefHigh,
-						},
-					},
-					{
-						Conditions: conditionsNeighborThree,
-						Actions: types.RoutePolicyActions{
-							RouteAction:         types.RoutePolicyActionAccept,
-							AddLargeCommunities: []string{"3333:3333:3333"},
-							SetLocalPreference:  &localPrefDefault,
-						},
-					},
-				},
-			},
+			name:       "both set standard and large communities with differing local preference",
+			statementA: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101"}, AddLargeCommunities: []string{"1000:1000:1000", "1111:1111:1111"}, SetLocalPreference: &localPrefLow}),
+			statementB: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"200:200", "202:202"}, AddLargeCommunities: []string{"2000:2000:2000", "2222:2222:2222"}, SetLocalPreference: &localPrefHigh}),
+			expected: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, AddCommunities: []string{"100:100", "101:101", "200:200", "202:202"}, AddLargeCommunities: []string{
+				"1000:1000:1000",
+				"1111:1111:1111",
+				"2000:2000:2000",
+				"2222:2222:2222",
+			}, SetLocalPreference: &localPrefHigh}),
+		},
+		{
+			name:       "keeps higher local preference from statement A",
+			statementA: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: &localPrefHigh}),
+			statementB: testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: &localPrefLow}),
+			expected:   testStatement(types.RoutePolicyActions{RouteAction: types.RoutePolicyActionAccept, SetLocalPreference: &localPrefHigh}),
 		},
 	}
 
@@ -489,28 +172,16 @@ func Test_MergeRoutePolicies(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 
-			result, err := MergeRoutePolicies(tt.policyA, tt.policyB)
-			if tt.errorExpected == true {
+			result, err := mergeRoutePolicyStatements(tt.statementA, tt.statementB)
+			if tt.errorExpected {
 				req.Error(err)
-			} else {
-				req.NoError(err)
+				return
 			}
 
-			if tt.expected != nil {
-				req.NotNil(result)
-				SortRouteStatementsByName(result.Statements)
-				SortRouteStatementsByName(tt.expected.Statements)
-			}
-
+			req.NoError(err)
 			req.Equal(tt.expected, result)
 		})
 	}
-}
-
-func SortRouteStatementsByName(statements []*types.RoutePolicyStatement) {
-	slices.SortFunc(statements, func(i, j *types.RoutePolicyStatement) int {
-		return cmp.Compare(i.Conditions.String(), j.Conditions.String())
-	})
 }
 
 func TestRoutePolicySoftReset(t *testing.T) {
