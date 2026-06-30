@@ -22,4 +22,4 @@ git --no-pager remote -v
 git --no-pager log -1
 
 mkdir -p "/out/usr/bin"
-CGO_ENABLED=0 go build -ldflags "-s -w" -o "/out/usr/bin/gops" github.com/google/gops
+GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags "-s -w" -o "/out/usr/bin/gops" github.com/google/gops
