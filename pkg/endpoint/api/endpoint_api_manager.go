@@ -252,7 +252,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 					logfields.Annotations, pod.Annotations,
 				)
 			}
-			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
+			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; ok {
 				mac, err := mac.ParseMAC(hwAddr)
 				if err != nil {
 					m.logger.Error("Unable to parse MAC address",

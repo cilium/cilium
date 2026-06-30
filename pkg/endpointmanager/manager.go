@@ -325,12 +325,6 @@ func (mgr *endpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 	case endpointid.CNIAttachmentIdPrefix:
 		return mgr.lookupCNIAttachmentID(eid), nil
 
-	case endpointid.ContainerIdPrefix:
-		return mgr.lookupContainerID(eid), nil
-
-	case endpointid.PodNamePrefix:
-		return mgr.lookupPodNameLocked(eid), nil
-
 	case endpointid.CEPNamePrefix:
 		return mgr.lookupCEPNameLocked(eid), nil
 
@@ -532,13 +526,6 @@ func (mgr *endpointManager) lookupCiliumID(id uint16) *endpoint.Endpoint {
 	return nil
 }
 
-func (mgr *endpointManager) lookupPodNameLocked(name string) *endpoint.Endpoint {
-	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.PodNamePrefix, name)]; ok {
-		return ep
-	}
-	return nil
-}
-
 func (mgr *endpointManager) lookupCEPNameLocked(name string) *endpoint.Endpoint {
 	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.CEPNamePrefix, name)]; ok {
 		return ep
@@ -555,13 +542,6 @@ func (mgr *endpointManager) lookupIPv4(ipv4 string) *endpoint.Endpoint {
 
 func (mgr *endpointManager) lookupIPv6(ipv6 string) *endpoint.Endpoint {
 	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.IPv6Prefix, ipv6)]; ok {
-		return ep
-	}
-	return nil
-}
-
-func (mgr *endpointManager) lookupContainerID(id string) *endpoint.Endpoint {
-	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, id)]; ok {
 		return ep
 	}
 	return nil

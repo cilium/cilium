@@ -39,9 +39,6 @@ type EndpointChangeRequest struct {
 	// ID of datapath tail call map
 	DatapathMapID int64 `json:"datapath-map-id,omitempty"`
 
-	// Disables lookup using legacy endpoint identifiers (container id, pod name) for this endpoint
-	DisableLegacyIdentifiers bool `json:"disable-legacy-identifiers,omitempty"`
-
 	// MAC address
 	HostMac string `json:"host-mac,omitempty"`
 

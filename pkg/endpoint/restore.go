@@ -384,34 +384,33 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 // restoring an Endpoint after cilium-agent restarts.
 func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 	return &serializableEndpoint{
-		ID:                       e.ID,
-		ContainerID:              e.GetContainerID(),
-		ContainerNetnsPath:       e.containerNetnsPath,
-		IfName:                   e.ifName,
-		IfIndex:                  e.ifIndex,
-		ParentIfIndex:            e.parentIfIndex,
-		ContainerIfName:          e.containerIfName,
-		DisableLegacyIdentifiers: e.disableLegacyIdentifiers,
-		Labels:                   e.labels,
-		LXCMAC:                   e.mac,
-		IPv6:                     e.IPv6,
-		IPv6IPAMPool:             e.IPv6IPAMPool,
-		IPv4:                     e.IPv4,
-		IPv4IPAMPool:             e.IPv4IPAMPool,
-		NodeMAC:                  e.nodeMAC,
-		SecurityIdentity:         e.SecurityIdentity,
-		Options:                  e.Options,
-		DNSRules:                 e.DNSRules,
-		DNSHistory:               e.DNSHistory,
-		DNSZombies:               e.DNSZombies,
-		K8sPodName:               e.K8sPodName,
-		K8sNamespace:             e.K8sNamespace,
-		K8sUID:                   e.K8sUID,
-		DatapathConfiguration:    e.DatapathConfiguration,
-		CiliumEndpointUID:        e.ciliumEndpointUID,
-		Properties:               e.properties,
-		NetnsCookie:              e.NetNsCookie,
-		RTInfo:                   e.rtInfo,
+		ID:                    e.ID,
+		ContainerID:           e.GetContainerID(),
+		ContainerNetnsPath:    e.containerNetnsPath,
+		IfName:                e.ifName,
+		IfIndex:               e.ifIndex,
+		ParentIfIndex:         e.parentIfIndex,
+		ContainerIfName:       e.containerIfName,
+		Labels:                e.labels,
+		LXCMAC:                e.mac,
+		IPv6:                  e.IPv6,
+		IPv6IPAMPool:          e.IPv6IPAMPool,
+		IPv4:                  e.IPv4,
+		IPv4IPAMPool:          e.IPv4IPAMPool,
+		NodeMAC:               e.nodeMAC,
+		SecurityIdentity:      e.SecurityIdentity,
+		Options:               e.Options,
+		DNSRules:              e.DNSRules,
+		DNSHistory:            e.DNSHistory,
+		DNSZombies:            e.DNSZombies,
+		K8sPodName:            e.K8sPodName,
+		K8sNamespace:          e.K8sNamespace,
+		K8sUID:                e.K8sUID,
+		DatapathConfiguration: e.DatapathConfiguration,
+		CiliumEndpointUID:     e.ciliumEndpointUID,
+		Properties:            e.properties,
+		NetnsCookie:           e.NetNsCookie,
+		RTInfo:                e.rtInfo,
 	}
 }
 
@@ -449,10 +448,6 @@ type serializableEndpoint struct {
 
 	// ContainerIfName is the name of the container facing interface (veth pair).
 	ContainerIfName string
-
-	// DisableLegacyIdentifiers disables lookup using legacy endpoint identifiers
-	// (container id, pod name) for this endpoint.
-	DisableLegacyIdentifiers bool
 
 	// Labels is the endpoint's label configuration
 	Labels labels.OpLabels `json:"OpLabels"`
@@ -567,7 +562,6 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ifIndex = r.IfIndex
 	ep.parentIfIndex = r.ParentIfIndex
 	ep.containerIfName = r.ContainerIfName
-	ep.disableLegacyIdentifiers = r.DisableLegacyIdentifiers
 	ep.labels = r.Labels
 	ep.mac = r.LXCMAC
 	ep.IPv6 = r.IPv6

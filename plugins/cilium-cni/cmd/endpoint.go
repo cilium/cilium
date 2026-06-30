@@ -78,17 +78,16 @@ func (c *defaultEndpointConfiguration) IPAMPool() string {
 
 func (c *defaultEndpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse) (cmd *CmdState, ep *models.EndpointChangeRequest, err error) {
 	ep = &models.EndpointChangeRequest{
-		ContainerID:              c.Args.ContainerID,
-		Labels:                   models.Labels{},
-		State:                    models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-		Addressing:               &models.AddressPair{},
-		K8sPodName:               string(c.CniArgs.K8S_POD_NAME),
-		K8sNamespace:             string(c.CniArgs.K8S_POD_NAMESPACE),
-		K8sUID:                   string(c.CniArgs.K8S_POD_UID),
-		ContainerInterfaceName:   c.Args.IfName,
-		DatapathConfiguration:    &models.EndpointDatapathConfiguration{},
-		Properties:               make(map[string]any),
-		DisableLegacyIdentifiers: true,
+		ContainerID:            c.Args.ContainerID,
+		Labels:                 models.Labels{},
+		State:                  models.EndpointStateWaitingDashForDashIdentity.Pointer(),
+		Addressing:             &models.AddressPair{},
+		K8sPodName:             string(c.CniArgs.K8S_POD_NAME),
+		K8sNamespace:           string(c.CniArgs.K8S_POD_NAMESPACE),
+		K8sUID:                 string(c.CniArgs.K8S_POD_UID),
+		ContainerInterfaceName: c.Args.IfName,
+		DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
+		Properties:             make(map[string]any),
 	}
 
 	if c.Conf.IpamMode == ipamOption.IPAMDelegatedPlugin {

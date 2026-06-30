@@ -181,12 +181,6 @@ type Endpoint struct {
 	// with the source endpoints IP should egress when that traffic is not masqueraded.
 	parentIfIndex int
 
-	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
-	// (container id, pod name) for this endpoint.
-	// Immutable after Endpoint creation.
-	// TODO: Remove with 1.21 - all endpoints will have this set to true.
-	disableLegacyIdentifiers bool
-
 	// labels is the endpoint's label configuration
 	labels labels.OpLabels
 
@@ -1446,13 +1440,6 @@ func (e *Endpoint) SetMac(mac mac.MAC) {
 	e.unconditionalLock()
 	defer e.unlock()
 	e.mac = mac
-}
-
-// GetDisableLegacyIdentifiers returns the endpoint's disableLegacyIdentifiers.
-func (e *Endpoint) GetDisableLegacyIdentifiers() bool {
-	e.unconditionalRLock()
-	defer e.runlock()
-	return e.disableLegacyIdentifiers
 }
 
 func (e *Endpoint) setState(toState State, reason string) bool {

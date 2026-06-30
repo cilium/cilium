@@ -47,9 +47,7 @@ func (e *Endpoint) GetK8sCEPName() string {
 	}
 	// all fields are const after creation
 
-	// Endpoints which have not opted out of legacy identifiers will continue
-	// to use just the pod name as the cep name for backwards compatibility reasons.
-	if e.disableLegacyIdentifiers && e.K8sPodName != "" && e.containerIfName != "" {
+	if e.K8sPodName != "" && e.containerIfName != "" {
 		return e.K8sPodName + "-" + e.containerIfName
 	}
 	return e.K8sPodName
@@ -99,13 +97,9 @@ func (e *Endpoint) GetShortContainerID() string {
 
 // Identifiers fetches the set of attributes that uniquely identify the endpoint.
 func (e *Endpoint) Identifiers() id.Identifiers {
-	refs := make(id.Identifiers, 7)
+	refs := make(id.Identifiers, 4)
 	if cniID := e.GetCNIAttachmentID(); cniID != "" {
 		refs[id.CNIAttachmentIdPrefix] = cniID
-	}
-
-	if !e.disableLegacyIdentifiers && e.GetContainerID() != "" {
-		refs[id.ContainerIdPrefix] = e.GetContainerID()
 	}
 
 	if e.IPv4.IsValid() {
@@ -114,10 +108,6 @@ func (e *Endpoint) Identifiers() id.Identifiers {
 
 	if e.IPv6.IsValid() {
 		refs[id.IPv6Prefix] = e.IPv6.String()
-	}
-
-	if podName := e.GetK8sNamespaceAndPodName(); !e.disableLegacyIdentifiers && podName != "" {
-		refs[id.PodNamePrefix] = podName
 	}
 
 	if cepName := e.GetK8sNamespaceAndCEPName(); cepName != "" {

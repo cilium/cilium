@@ -2642,10 +2642,6 @@ func init() {
           "description": "ID of datapath tail call map",
           "type": "integer"
         },
-        "disable-legacy-identifiers": {
-          "description": "Disables lookup using legacy endpoint identifiers (container id, pod name) for this endpoint",
-          "type": "boolean"
-        },
         "host-mac": {
           "description": "MAC address",
           "type": "string"
@@ -8061,10 +8057,6 @@ func init() {
         "datapath-map-id": {
           "description": "ID of datapath tail call map",
           "type": "integer"
-        },
-        "disable-legacy-identifiers": {
-          "description": "Disables lookup using legacy endpoint identifiers (container id, pod name) for this endpoint",
-          "type": "boolean"
         },
         "host-mac": {
           "description": "MAC address",
