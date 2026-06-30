@@ -17,6 +17,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	fakebigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/fake"
+	bigtcptypes "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -209,6 +210,26 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
 
+			return nil
+		})
+	})
+
+	t.Run("VxlanBigTCPClampsGSOToTSO", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+
+		ns.Do(func() error {
+			bc := &bigTCPStub{groV4: 196608, gsoV4: 196608, groV6: 196608, gsoV6: 196608}
+			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu, bc)
+			require.NoError(t, err)
+
+			link, err := safenetlink.LinkByName(defaults.VxlanDevice)
+			require.NoError(t, err)
+
+			if gso := int(link.Attrs().GSOMaxSize); gso != 0 {
+				require.LessOrEqual(t, gso, bigtcptypes.GROGSOLegacyMaxSize)
+			}
+
+			require.NoError(t, netlink.LinkDel(link))
 			return nil
 		})
 	})
@@ -504,4 +525,56 @@ func TestPrivilegedSetupIPIPDevices(t *testing.T) {
 
 		return nil
 	})
+}
+
+// bigTCPStub is a test stand-in for bigtcp.Config that returns arbitrary
+// GSO/GRO max sizes, used to exercise the tunnel GSO clamping logic.
+type bigTCPStub struct {
+	groV4, gsoV4, groV6, gsoV6 int
+}
+
+func (c *bigTCPStub) IsIPv4Enabled() bool    { return c.gsoV4 != 0 }
+func (c *bigTCPStub) IsIPv6Enabled() bool    { return c.gsoV6 != 0 }
+func (c *bigTCPStub) GetGROIPv4MaxSize() int { return c.groV4 }
+func (c *bigTCPStub) GetGSOIPv4MaxSize() int { return c.gsoV4 }
+func (c *bigTCPStub) GetGROIPv6MaxSize() int { return c.groV6 }
+func (c *bigTCPStub) GetGSOIPv6MaxSize() int { return c.gsoV6 }
+
+func TestTunnelGSOMaxSize(t *testing.T) {
+	tests := []struct {
+		name       string
+		requested  int
+		tsoMaxSize int
+		want       int
+	}{
+		{
+			name:       "high-tso NIC, legacy tunnel ceiling: clamp down",
+			requested:  196608,
+			tsoMaxSize: bigtcptypes.GROGSOLegacyMaxSize,
+			want:       bigtcptypes.GROGSOLegacyMaxSize,
+		},
+		{
+			name:       "tso not reported (old kernel): fall back to legacy limit",
+			requested:  196608,
+			tsoMaxSize: 0,
+			want:       bigtcptypes.GROGSOLegacyMaxSize,
+		},
+		{
+			name:       "tunnel supports BIG TCP: no clamp",
+			requested:  196608,
+			tsoMaxSize: 524280,
+			want:       196608,
+		},
+		{
+			name:       "requested already below tso: unchanged",
+			requested:  bigtcptypes.GROGSOLegacyMaxSize,
+			tsoMaxSize: 524280,
+			want:       bigtcptypes.GROGSOLegacyMaxSize,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, tunnelGSOMaxSize(tt.requested, tt.tsoMaxSize))
+		})
+	}
 }
