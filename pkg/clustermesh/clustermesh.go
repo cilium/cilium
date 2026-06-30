@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmendpointslice "github.com/cilium/cilium/pkg/clustermesh/endpointslice"
+	cmlb "github.com/cilium/cilium/pkg/clustermesh/loadbalancer"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -47,7 +48,7 @@ type Configuration struct {
 
 	// ServiceMerger is the interface responsible to merge service and
 	// endpoints into an existing cache
-	ServiceMerger ServiceMerger
+	ServiceMerger cmlb.ServiceMerger
 
 	// NodeObserver reacts to node events.
 	NodeObserver nodeStore.NodeManager

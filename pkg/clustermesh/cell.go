@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmendpointslice "github.com/cilium/cilium/pkg/clustermesh/endpointslice"
+	cmlb "github.com/cilium/cilium/pkg/clustermesh/loadbalancer"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
@@ -50,11 +51,16 @@ var Cell = cell.Module(
 
 	metrics.Metric(NewMetrics),
 	metrics.Metric(common.MetricsProvider(metrics.SubsystemClusterMesh)),
-	metrics.Metric(cmendpointslice.MetricsProvider(metrics.Namespace)),
-	cmendpointslice.Cell,
 
-	cell.ProvidePrivate(newServiceMerger),
-	cell.Invoke(registerServicesInitialized),
+	cmendpointslice.Cell,
+	metrics.Metric(cmendpointslice.MetricsProvider(metrics.Namespace)),
+	cell.Provide(func(cm *ClusterMesh) cmlb.ServicesSyncedFunc {
+		if cm == nil {
+			return nil
+		}
+		return cm.ServicesSynced
+	}),
+	cmlb.Cell,
 
 	cell.Config(types.DefaultQuirks),
 	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager, log *slog.Logger, quirks types.QuirksConfig) error {
@@ -67,5 +73,4 @@ var Cell = cell.Module(
 	}),
 	cell.Invoke(ipsetNotifier),
 	cell.Invoke(nodeManagerNotifier),
-	cell.Invoke(injectSelectBackends),
 )
