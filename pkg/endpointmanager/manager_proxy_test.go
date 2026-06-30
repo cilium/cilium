@@ -195,7 +195,13 @@ func (p *recordingEndpointProxy) IsSDPEnabled() bool {
 	return false
 }
 
-func newUpdatePolicyMapsTestRepo(t *testing.T) (*policy.Repository, identitymanager.IDManager, compute.PolicyRecomputer) {
+func (p *recordingEndpointProxy) updateCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.updatesSeen
+}
+
+func newUpdatePolicyMapsTestRepo(t *testing.T, withL7Rules bool) (*policy.Repository, identitymanager.IDManager, compute.PolicyRecomputer) {
 	t.Helper()
 
 	logger := hivetest.Logger(t)
@@ -216,21 +222,24 @@ func newUpdatePolicyMapsTestRepo(t *testing.T) (*policy.Repository, identitymana
 		policy.SetPolicyEnabled(oldPolicyMode)
 	})
 
+	portRule := api.PortRule{
+		Ports: []api.PortProtocol{{
+			Port:     "80",
+			Protocol: api.ProtoTCP,
+		}},
+	}
+	if withL7Rules {
+		portRule.Rules = &api.L7Rules{
+			HTTP: []api.PortRuleHTTP{{
+				Path:   "/",
+				Method: "GET",
+			}},
+		}
+	}
 	repo.MustAddList(api.Rules{{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
-			ToPorts: []api.PortRule{{
-				Ports: []api.PortProtocol{{
-					Port:     "80",
-					Protocol: api.ProtoTCP,
-				}},
-				Rules: &api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{
-						Path:   "/",
-						Method: "GET",
-					}},
-				},
-			}},
+			ToPorts: []api.PortRule{portRule},
 		}},
 	}})
 
@@ -280,7 +289,7 @@ func newUpdatePolicyMapsTestEndpoint(t *testing.T, mgr *endpointManager, repo po
 func TestUpdatePolicyMapsFinalizesDeferredNetworkPolicyCallbacksAfterSuccessfulWait(t *testing.T) {
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t)
+	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t, true)
 	proxy := newRecordingEndpointProxy()
 
 	ep1 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 101, netip.MustParseAddr("10.0.0.1"))
@@ -311,7 +320,7 @@ func TestUpdatePolicyMapsFinalizesDeferredNetworkPolicyCallbacksAfterSuccessfulW
 func TestUpdatePolicyMapsRevertsDeferredNetworkPolicyCallbacksAfterProxyWaitFailure(t *testing.T) {
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t)
+	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t, true)
 	proxy := newRecordingEndpointProxy()
 
 	ep1 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 201, netip.MustParseAddr("10.0.1.1"))
@@ -340,7 +349,7 @@ func TestUpdatePolicyMapsRevertsDeferredNetworkPolicyCallbacksAfterProxyWaitFail
 func TestUpdatePolicyMapsDoesNotDeferCallbacksForSynchronousApplyFailure(t *testing.T) {
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t)
+	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t, true)
 	proxy := newRecordingEndpointProxy()
 
 	ep1 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 301, netip.MustParseAddr("10.0.2.1"))
@@ -366,4 +375,54 @@ func TestUpdatePolicyMapsDoesNotDeferCallbacksForSynchronousApplyFailure(t *test
 	require.Equal(t, 0, proxy.finalizeCount(ep1.GetID()))
 	require.Equal(t, 0, proxy.revertCount(ep2.GetID()))
 	require.Equal(t, 1, proxy.finalizeCount(ep2.GetID()))
+}
+
+// TestIncrementalProxyPolicyUpdateNoL7Rule verifies that when an endpoint has no L7 rules,
+// incremental policy updates are sent to Envoy only when EnvoyConfig is enabled.
+func TestIncrementalProxyPolicyUpdateNoL7Rule(t *testing.T) {
+	logger := hivetest.Logger(t)
+	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t, false)
+
+	setEnvoyConfigOption := func(t *testing.T, value bool) {
+		oldValue := option.Config.EnableEnvoyConfig
+		option.Config.EnableEnvoyConfig = value
+		t.Cleanup(func() { option.Config.EnableEnvoyConfig = oldValue })
+	}
+
+	t.Run("EnvoyConfigDisabled", func(t *testing.T) {
+		setEnvoyConfigOption(t, false)
+		mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+		proxy := newRecordingEndpointProxy()
+
+		_ = newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 401, netip.MustParseAddr("10.0.3.1"))
+
+		// Enable tracking so we can detect if the proxy is unexpectedly called.
+		proxy.expectUpdates(1)
+		require.NoError(t, mgr.UpdatePolicyMaps(t.Context()))
+
+		// With EnvoyConfig disabled and no L7 rules, no update should be sent to the proxy.
+		require.Equal(t, 0, proxy.updateCount())
+	})
+
+	t.Run("EnvoyConfigEnabled", func(t *testing.T) {
+		setEnvoyConfigOption(t, true)
+		mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+		proxy := newRecordingEndpointProxy()
+
+		ep := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 402, netip.MustParseAddr("10.0.3.2"))
+		proxy.expectUpdates(1)
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- mgr.UpdatePolicyMaps(t.Context())
+		}()
+
+		// With EnvoyConfig enabled, the proxy must receive the incremental update even
+		// though there are no L7 rules.
+		proxy.waitForUpdates(t)
+		proxy.completeUpdate(t, ep.GetID(), nil)
+
+		require.NoError(t, <-errCh)
+		require.Equal(t, 1, proxy.updateCount())
+	})
 }
