@@ -33,8 +33,8 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 		WithCiliumVersion("<1.18.0").
 		WithCondition(func() bool {
 			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec")); ok {
-				// Introduced in v1.17.0, backported to v1.15.11 and v1.16.4.
-				if !versioncheck.MustCompile(">=1.15.11 <1.16.0 || >=1.16.4")(ct.CiliumVersion) {
+				// Introduced in v1.17.0, backported to v1.16.4.
+				if !versioncheck.MustCompile(">=1.16.4")(ct.CiliumVersion) {
 					return false
 				}
 			}
