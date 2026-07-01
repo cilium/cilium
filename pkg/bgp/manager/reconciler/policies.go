@@ -13,9 +13,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/statedb"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -245,6 +247,15 @@ func PolicyName(peer, family string, advertType v2.BGPAdvertisementType, resourc
 	return fmt.Sprintf("%s-%s-%s-%s", peer, family, advertType, resourceID)
 }
 
+// PolicyStatementName returns a route policy statement name for the provided advertisement type.
+// If there is a need for multiple route policies per advertisement type, unique resourceID can be provided.
+func PolicyStatementName(advertType v2.BGPAdvertisementType, resourceID string) string {
+	if resourceID == "" {
+		return string(advertType)
+	}
+	return fmt.Sprintf("%s-%s", advertType, resourceID)
+}
+
 func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixList, advert v2.BGPAdvertisement) (*types.RoutePolicy, error) {
 	policy := &types.RoutePolicy{
 		Name: name,
@@ -270,13 +281,43 @@ func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types
 	// Due to a GoBGP limitation, we need to generate a separate statement for v4 and v6 prefixes, as families
 	// can not be mixed in a single statement. Nevertheless, they can be both part of the same Policy.
 	if len(v4Prefixes) > 0 {
-		policy.Statements = append(policy.Statements, policyStatement(peerAddr, v4Prefixes, localPref, communities, largeCommunities))
+		policy.Statements = append(policy.Statements, policyStatement("", peerAddr, v4Prefixes, localPref, communities, largeCommunities))
 	}
 	if len(v6Prefixes) > 0 {
-		policy.Statements = append(policy.Statements, policyStatement(peerAddr, v6Prefixes, localPref, communities, largeCommunities))
+		policy.Statements = append(policy.Statements, policyStatement("", peerAddr, v6Prefixes, localPref, communities, largeCommunities))
 	}
 
 	return policy, nil
+}
+
+func CreatePolicyStatements(namePrefix string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixList, advert v2.BGPAdvertisement) ([]*types.RoutePolicyStatement, error) {
+	// sort prefixes to have consistent order for DeepEqual
+	sort.Slice(v4Prefixes, v4Prefixes.Less)
+	sort.Slice(v6Prefixes, v6Prefixes.Less)
+
+	// get communities
+	communities, largeCommunities, err := getCommunities(advert)
+	if err != nil {
+		return nil, err
+	}
+
+	// get local preference
+	var localPref *int64
+	if advert.Attributes != nil {
+		localPref = advert.Attributes.LocalPreference
+	}
+
+	statements := []*types.RoutePolicyStatement{}
+
+	// Due to a GoBGP limitation, we need to generate a separate statement for v4 and v6 prefixes, as families
+	// can not be mixed in a single statement. Nevertheless, they can be both part of the same Policy.
+	if len(v4Prefixes) > 0 {
+		statements = append(statements, policyStatement(namePrefix+"-ipv4", peerAddr, v4Prefixes, localPref, communities, largeCommunities))
+	}
+	if len(v6Prefixes) > 0 {
+		statements = append(statements, policyStatement(namePrefix+"-ipv6", peerAddr, v6Prefixes, localPref, communities, largeCommunities))
+	}
+	return statements, nil
 }
 
 // MergeRoutePolicies evaluates two instances of RoutePolicy{} and returns a single RoutePolicy{} representing
@@ -481,8 +522,9 @@ func dedupLargeCommunities(advert v2.BGPAdvertisement) []string {
 	return res
 }
 
-func policyStatement(neighborAddr netip.Addr, prefixes types.PolicyPrefixList, localPref *int64, communities, largeCommunities []string) *types.RoutePolicyStatement {
+func policyStatement(name string, neighborAddr netip.Addr, prefixes types.PolicyPrefixList, localPref *int64, communities, largeCommunities []string) *types.RoutePolicyStatement {
 	return &types.RoutePolicyStatement{
+		Name: name,
 		Conditions: types.RoutePolicyConditions{
 			MatchNeighbors: &types.RoutePolicyNeighborMatch{
 				Type:      types.RoutePolicyMatchAny,
@@ -519,4 +561,56 @@ func peerAddressesFromPolicy(p *types.RoutePolicy) ([]netip.Addr, bool) {
 		}
 	}
 	return addrs, allPeers
+}
+
+// reconcileDesiredRoutePolicyStatements ensures that the DesiredRoutePolicy table contains provided desiredStatements
+// for the given instance + owner + resource combination.
+func reconcileDesiredRoutePolicyStatements(tx statedb.WriteTxn, table statedb.RWTable[*bgpTables.DesiredRoutePolicy],
+	instance string, owner string, resource resource.Key, desiredStatements []*bgpTables.DesiredRoutePolicy) error {
+
+	desiredByKey := make(map[bgpTables.DesiredRoutePolicyKey]*bgpTables.DesiredRoutePolicy, len(desiredStatements))
+	for _, statement := range desiredStatements {
+		desiredByKey[statement.GetKey()] = statement
+	}
+
+	existingByKey := make(map[bgpTables.DesiredRoutePolicyKey]*bgpTables.DesiredRoutePolicy)
+	for existing := range table.List(tx, bgpTables.DesiredRoutePoliciesByInstanceOwnerResource(instance, owner, resource)) {
+		existingByKey[existing.GetKey()] = existing
+	}
+
+	// delete stale statements
+	for key, existing := range existingByKey {
+		if _, isDesired := desiredByKey[key]; !isDesired {
+			if _, _, err := table.Delete(tx, existing); err != nil {
+				return fmt.Errorf("error deleting desired route policy statement %s: %w", key.StatementName, err)
+			}
+		}
+	}
+
+	// insert new / update existing statements
+	for key, desired := range desiredByKey {
+		existing, exists := existingByKey[key]
+		if exists && existing.DeepEqual(desired) {
+			continue
+		}
+		if _, _, err := table.Insert(tx, desired); err != nil {
+			return fmt.Errorf("error inserting desired route policy statement %s: %w", key.StatementName, err)
+		}
+	}
+
+	return nil
+}
+
+// cleanupDesiredRoutePolicyStatements removes statements with the provided instance + owner combination from the DesiredRoutePolicy table.
+func cleanupDesiredRoutePolicyStatements(db *statedb.DB, table statedb.RWTable[*bgpTables.DesiredRoutePolicy], instanceName string, owner string) error {
+	tx := db.WriteTxn(table)
+	defer tx.Abort()
+
+	for existing := range table.List(tx, bgpTables.DesiredRoutePoliciesByInstanceOwner(instanceName, owner)) {
+		if _, _, err := table.Delete(tx, existing); err != nil {
+			return fmt.Errorf("error deleting desired route policy statement %s: %w", existing.StatementName(), err)
+		}
+	}
+	tx.Commit()
+	return nil
 }
