@@ -96,6 +96,12 @@ type Node struct {
 	// instanceStoppedRunning records when an instance was most recently set to not running
 	instanceStoppedRunning time.Time
 
+	// instanceSyncRetriggered is true when the per-instance sync has been
+	// re-triggered because the instance was missing from the instance
+	// cache. It is reset by the next successful recalculation, or by a
+	// transient failure of the re-triggered sync.
+	instanceSyncRetriggered bool
+
 	// ipv4Alloc represents IPv4-specific allocation attributes for this node
 	ipv4Alloc ipAllocAttrs
 
@@ -647,6 +653,9 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 
 	n.ops.UpdatedNode(resource)
 
+	// The error is not acted upon here: the caller (NodeManager.Upsert)
+	// holds the NodeManager mutex. Recovery of an instance missing from
+	// the cache is handled by the periodic resync, see resyncNode.
 	n.recalculate(context.Background())
 	allocationNeeded := n.allocationNeeded()
 	releaseNeeded := n.releaseNeeded()
@@ -665,6 +674,8 @@ func (n *Node) resourceAttached() (attached bool) {
 	return
 }
 
+// recalculate the number of needed and excess IPs of the node based on the
+// current state of the instance cache.
 func (n *Node) recalculate(ctx context.Context) {
 	// Skip any recalculation if the CiliumNode resource does not exist yet
 	if !n.resourceAttached() {
@@ -688,6 +699,9 @@ func (n *Node) recalculate(ctx context.Context) {
 		n.stats.IPv4.ExcessIPs = 0
 		return
 	}
+
+	// The instance is back in the cache, re-arm the recovery sync.
+	n.instanceSyncRetriggered = false
 
 	n.ipv4Alloc.available = a
 	if stats.AssignedStaticIP != "" {
@@ -933,6 +947,15 @@ type ReleaseAction struct {
 
 // ErrLimitsNotFound signals lack of limits for given instance type.
 var ErrLimitsNotFound = errors.New("Limits not found")
+
+// ErrInstanceNotFound signals that an external instances API authoritatively
+// reported that an instance no longer exists.
+var ErrInstanceNotFound = errors.New("instance not found")
+
+// instanceNotFoundSyncReason is the trigger reason used when the instance
+// sync is re-triggered to recover an instance missing from the cache. A
+// failed sync run carrying this reason re-arms the re-trigger.
+const instanceNotFoundSyncReason = "instance-not-found-recovery"
 
 // maintenanceAction represents the resources available for allocation for a
 // particular ciliumNode. If an existing interface has IP allocation capacity
@@ -1321,6 +1344,32 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 	return n.handleIPAllocation(ctx, a)
 }
 
+// retriggerInstanceSync re-triggers the node's per-instance sync to recover
+// an instance that was dropped from the instance cache by a full resync. To
+// avoid a retry loop for instances that are legitimately gone, the sync is
+// re-triggered at most once until re-armed, either by a recalculation that
+// sees the instance again or by a transient failure of the sync itself.
+// Callers must ensure the instances API is stable. Holding the NodeManager
+// mutex is fine since triggering only signals the sync.
+func (n *Node) retriggerInstanceSync() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	if n.instanceSyncRetriggered || n.instanceSync == nil {
+		return
+	}
+	n.instanceSyncRetriggered = true
+	n.instanceSync.TriggerWithReason(instanceNotFoundSyncReason)
+}
+
+// reArmInstanceSync re-arms the recovery sync after a transient failure of
+// the re-triggered instance sync, so a later recalculation may retry it.
+func (n *Node) reArmInstanceSync() {
+	n.mutex.Lock()
+	n.instanceSyncRetriggered = false
+	n.mutex.Unlock()
+}
+
 func (n *Node) isInstanceRunning() (isRunning bool) {
 	n.mutex.RLock()
 	isRunning = n.instanceRunning
@@ -1368,7 +1417,11 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 		n.requireResync()
 	}
 	n.poolMaintenanceComplete()
+
 	n.recalculate(ctx)
+	if n.manager.InstancesAPIIsReady() && !n.manager.instancesAPI.HasInstance(n.InstanceID()) {
+		n.retriggerInstanceSync()
+	}
 	if instanceMutated || err != nil {
 		n.instanceSync.Trigger()
 	}
