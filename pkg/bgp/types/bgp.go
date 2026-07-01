@@ -5,12 +5,14 @@ package types
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/netip"
 	"strings"
 	"time"
 
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
@@ -290,6 +292,20 @@ func (t RoutePolicyMatchType) MarshalYAML() (any, error) {
 	return t.String(), nil
 }
 
+func (t *RoutePolicyMatchType) UnmarshalYAML(value *yaml.Node) error {
+	switch strings.ToLower(value.Value) {
+	case "any":
+		*t = RoutePolicyMatchAny
+	case "all":
+		*t = RoutePolicyMatchAll
+	case "invert":
+		*t = RoutePolicyMatchInvert
+	default:
+		return fmt.Errorf("unknown route policy match type %q", value.Value)
+	}
+	return nil
+}
+
 // RoutePolicyNeighborMatch matches BGP neighbor IP address with the provided IPs using the provided match logic type.
 //
 // +deepequal-gen=true
@@ -435,6 +451,20 @@ func (a RoutePolicyAction) MarshalYAML() (any, error) {
 	return a.String(), nil
 }
 
+func (a *RoutePolicyAction) UnmarshalYAML(value *yaml.Node) error {
+	switch strings.ToLower(value.Value) {
+	case "none":
+		*a = RoutePolicyActionNone
+	case "accept":
+		*a = RoutePolicyActionAccept
+	case "reject":
+		*a = RoutePolicyActionReject
+	default:
+		return fmt.Errorf("unknown route policy action %q", value.Value)
+	}
+	return nil
+}
+
 // RoutePolicyActions define policy actions taken on route matched by a routing policy.
 //
 // +deepequal-gen=true
@@ -505,6 +535,18 @@ func (t RoutePolicyType) MarshalJSON() ([]byte, error) {
 
 func (t RoutePolicyType) MarshalYAML() (any, error) {
 	return t.String(), nil
+}
+
+func (t *RoutePolicyType) UnmarshalYAML(value *yaml.Node) error {
+	switch strings.ToLower(value.Value) {
+	case "export":
+		*t = RoutePolicyTypeExport
+	case "import":
+		*t = RoutePolicyTypeImport
+	default:
+		return fmt.Errorf("unknown route policy type %q", value.Value)
+	}
+	return nil
 }
 
 // RoutePolicy represents a BGP routing policy, also called "route map" in some BGP implementations.
