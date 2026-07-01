@@ -185,22 +185,22 @@ func validatePolicies(
 		}
 
 		for _, cnp := range cnps.Items {
-			cnpName := cnp.GetName()
+			npName := cnp.GetName()
 			if ns := cnp.GetNamespace(); ns != "" {
-				cnpName = ns + "/" + cnpName
+				npName = ns + "/" + npName
 			}
 
 			if err := validate(&cnp); err != nil {
 				log.Error("Unexpected validation error",
 					logfields.Error, err,
 					logfields.Type, shortName,
-					logfields.Name, cnpName,
+					logfields.Name, npName,
 				)
 				policyErr = fmt.Errorf("Found invalid %s", shortName)
 			} else {
 				log.Info("Validation OK!",
 					logfields.Type, shortName,
-					logfields.Name, cnpName,
+					logfields.Name, npName,
 				)
 			}
 
@@ -209,10 +209,10 @@ func validatePolicies(
 				log.Error("Unable to parse policy for identity-label check",
 					logfields.Error, err,
 					logfields.Type, shortName,
-					logfields.Name, cnpName,
+					logfields.Name, npName,
 				)
 				policyErr = fmt.Errorf("Found invalid %s", shortName)
-			} else if warnExcludedIdentityLabels(rules, shortName, cnpName) {
+			} else if warnExcludedIdentityLabels(rules, shortName, npName) {
 				excluded = true
 			}
 		}
@@ -244,7 +244,7 @@ func parseCCNPRules(rawCNP *unstructured.Unstructured) (api.Rules, error) {
 // warnExcludedIdentityLabels logs an advisory warning for every endpoint-selector
 // label key that the label filter would drop from the security identity. It
 // returns true if the policy referenced at least one such label.
-func warnExcludedIdentityLabels(rules api.Rules, shortName, cnpName string) bool {
+func warnExcludedIdentityLabels(rules api.Rules, shortName, npName string) bool {
 	excluded := false
 	for _, rule := range rules {
 		for _, sel := range endpointSelectors(rule) {
@@ -253,7 +253,7 @@ func warnExcludedIdentityLabels(rules api.Rules, shortName, cnpName string) bool
 					"Policy selector references a label excluded from the security identity; "+
 						"it will not match endpoints unless --label-prefix-file overrides",
 					logfields.Type, shortName,
-					logfields.Name, cnpName,
+					logfields.Name, npName,
 					logfields.Labels, key,
 				)
 				excluded = true
