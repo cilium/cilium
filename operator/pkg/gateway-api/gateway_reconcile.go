@@ -1406,6 +1406,7 @@ func (r *gatewayReconciler) validateListener(ctx context.Context, l gatewayv1.Li
 	if allSupported == nil {
 		res.invalidMessages = append(res.invalidMessages, "Unsupported Listener Protocol.")
 		res.isValid = false
+		res.invalidReason = gatewayv1.ListenerReasonUnsupportedProtocol
 	}
 
 	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
@@ -1490,6 +1491,12 @@ func (r *gatewayReconciler) validateListener(ctx context.Context, l gatewayv1.Li
 			// This is probably an upstream bug, but work around it for now.
 			res.supportedKinds = []gatewayv1.RouteGroupKind{}
 		}
+	}
+
+	// supportedKinds is serialized with omitzero: a nil slice is dropped from
+	// the listener status, so always emit an explicit (possibly empty) list.
+	if res.supportedKinds == nil {
+		res.supportedKinds = []gatewayv1.RouteGroupKind{}
 	}
 
 	return res
