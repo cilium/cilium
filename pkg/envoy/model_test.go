@@ -25,7 +25,6 @@ func TestGetListenerFilterADSMode(t *testing.T) {
 		require.NoError(t, err)
 		meta, ok := msg.(*cilium.BpfMetadata)
 		require.True(t, ok)
-		assert.False(t, meta.UseNphds)
 		assert.Nil(t, meta.CiliumConfigSource) // not set for the legacy SotW mode
 	})
 
@@ -39,7 +38,6 @@ func TestGetListenerFilterADSMode(t *testing.T) {
 		require.NoError(t, err)
 		meta, ok := msg.(*cilium.BpfMetadata)
 		require.True(t, ok)
-		assert.False(t, meta.UseNphds)
 		require.NotNil(t, meta.CiliumConfigSource)
 		assert.NotNil(t, meta.CiliumConfigSource.GetAds(), "CiliumConfigSource should use ADS aggregated source")
 		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.CiliumConfigSource.ResourceApiVersion)
