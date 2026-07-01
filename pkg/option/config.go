@@ -2610,6 +2610,10 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		}
 	}
 
+	if c.IPAMMode() == ipamOption.IPAMENI && c.EnableIPv6 {
+		logger.Warn("IPv6 support in the ENI IPAM mode (ipam.mode=eni, ipv6.enabled=true) is a beta feature. Please use it with caution and report any issues you encounter: https://github.com/cilium/cilium/issues/new?template=bug_report.yaml")
+	}
+
 	encryptionStrictModeEgressEnabled := vp.GetBool(EnableEncryptionStrictModeEgress)
 	if encryptionStrictModeEgressEnabled {
 		if c.EnableIPv6 {

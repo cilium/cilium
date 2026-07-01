@@ -21,4 +21,8 @@
   to secure access with HTTPS. For more information about the security implications
   and suggested controls, please see: https://docs.cilium.io/en/stable/security/threat-model/#hubble-data-attacker
 {{- end -}}
+{{- if and (eq .Values.ipam.mode "eni") .Values.ipv6.enabled -}}
+- WARNING: IPv6 support in the ENI IPAM mode (ipam.mode=eni, ipv6.enabled=true) is a beta feature.
+  Please use it with caution and report any issues you encounter: https://github.com/cilium/cilium/issues/new?template=bug_report.yaml
+{{- end -}}
 {{- end -}}
