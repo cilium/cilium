@@ -59,7 +59,7 @@ status:
   parents:
     - conditions:
         - lastTransitionTime: "2025-08-15T08:36:54Z"
-          message: Accepted HTTPRoute
+          message: Accepted GRPCRoute
           reason: Accepted
           status: "True"
           type: Accepted

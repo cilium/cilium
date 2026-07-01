@@ -4,7 +4,6 @@
 package model
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -513,9 +512,131 @@ func (m *Model) IsHTTPSListenerConfigured() bool {
 	return false
 }
 
+// IsHTTPSPortConfigured returns true if the model contains an HTTPS listener
+// on the given port number.
+func (m *Model) IsHTTPSPortConfigured(port uint32) bool {
+	for _, l := range m.HTTP {
+		if len(l.TLS) > 0 && l.Port == port {
+			return true
+		}
+	}
+	return false
+}
+
+// HTTPSPortsSorted returns sorted, unique ports for all HTTPS listeners.
+func (m *Model) HTTPSPortsSorted() []uint32 {
+	var ports []uint32
+	for _, l := range m.HTTP {
+		if len(l.TLS) > 0 {
+			ports = append(ports, l.Port)
+		}
+	}
+	return slices.SortedUnique(ports)
+}
+
+// NeedsPerPortHTTPSListeners returns true if the model has more than one distinct HTTPS port.
+func (m *Model) NeedsPerPortHTTPSListeners() bool {
+	return len(m.HTTPSPortsSorted()) > 1
+}
+
+// NeedsPerPortTLSPassthroughListeners returns true if the model has more than one distinct TLS passthrough port.
+func (m *Model) NeedsPerPortTLSPassthroughListeners() bool {
+	return len(m.TLSPassthroughPorts()) > 1
+}
+
+// NeedsPerPortListeners returns true if any protocol has enough distinct ports
+// to require per-port Envoy Listener resources, or if cross-protocol SNI overlap
+// would make a combined listener lose the Gateway listener port boundary.
+func (m *Model) NeedsPerPortListeners() bool {
+	return m.NeedsPerPortHTTPSListeners() || m.NeedsPerPortTLSPassthroughListeners() || m.NeedsCrossProtocolSplit()
+}
+
+// NeedsCrossProtocolSplit returns true when HTTPS and TLS passthrough filter
+// chains on different Gateway listener ports cannot safely share a combined
+// Envoy listener.
+//
+// Filter chains from different Gateway listener ports must not share any SNI
+// match because a combined Envoy listener would otherwise erase the original
+// Gateway listener port boundary and route traffic for one listener to another.
+// Same-port HTTPS and TLS passthrough conflicts cannot be fixed by per-port
+// listeners and need to be rejected before translation.
+func (m *Model) NeedsCrossProtocolSplit() bool {
+	for _, httpsMatch := range m.httpsFilterChainMatches() {
+		for _, tlsMatch := range m.tlsPassthroughFilterChainMatches() {
+			if httpsMatch.port == tlsMatch.port {
+				continue
+			}
+			if sniHostnamesIntersect(httpsMatch.hostname, tlsMatch.hostname) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+type filterChainMatch struct {
+	hostname string
+	port     uint32
+}
+
+// httpsFilterChainMatches returns the normalized hostnames and ports that HTTPS
+// filter chains will use for SNI matching. Each HTTPS filter chain's ServerNames
+// derive from the listener-level hostname.
+func (m *Model) httpsFilterChainMatches() []filterChainMatch {
+	var matches []filterChainMatch
+	seen := map[filterChainMatch]struct{}{}
+	for _, l := range m.HTTP {
+		if len(l.TLS) == 0 {
+			continue
+		}
+		match := filterChainMatch{hostname: normalizeHostname(l.Hostname), port: l.Port}
+		if _, ok := seen[match]; ok {
+			continue
+		}
+		seen[match] = struct{}{}
+		matches = append(matches, match)
+	}
+	return matches
+}
+
+// tlsPassthroughFilterChainMatches returns the normalized hostnames and ports
+// that TLS passthrough filter chains will use for SNI matching. These derive
+// from route hostnames because each TLS passthrough route generates its own
+// filter chain.
+func (m *Model) tlsPassthroughFilterChainMatches() []filterChainMatch {
+	var matches []filterChainMatch
+	seen := map[filterChainMatch]struct{}{}
+	for _, l := range m.TLSPassthrough {
+		for _, r := range l.Routes {
+			if len(r.Hostnames) == 0 {
+				match := filterChainMatch{hostname: allHosts, port: l.Port}
+				if _, ok := seen[match]; !ok {
+					seen[match] = struct{}{}
+					matches = append(matches, match)
+				}
+				continue
+			}
+			for _, h := range r.Hostnames {
+				match := filterChainMatch{hostname: normalizeHostname(h), port: l.Port}
+				if _, ok := seen[match]; ok {
+					continue
+				}
+				seen[match] = struct{}{}
+				matches = append(matches, match)
+			}
+		}
+	}
+	return matches
+}
+
 // IsTLSPassthroughListenerConfigured returns true if the model has any TLS Passthrough listeners.
 func (m *Model) IsTLSPassthroughListenerConfigured() bool {
-	return len(m.TLSPassthrough) > 0
+	for _, l := range m.TLSPassthrough {
+		if len(l.Routes) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // HTTPPorts returns a list of unique ports for all HTTP listeners.
@@ -531,7 +652,9 @@ func (m *Model) HTTPPorts() []uint32 {
 func (m *Model) TLSPassthroughPorts() []uint32 {
 	var ports []uint32
 	for _, l := range m.TLSPassthrough {
-		ports = append(ports, l.Port)
+		if len(l.Routes) > 0 {
+			ports = append(ports, l.Port)
+		}
 	}
 	return slices.SortedUnique(ports)
 }
@@ -544,37 +667,6 @@ func (m *Model) AllPorts() []uint32 {
 	return slices.SortedUnique(ports)
 }
 
-type TLSBackendDetails struct {
-	BackendKey string
-	Hostnames  []string
-}
-
-// TLSBackends returns a slice of TLSBackendDetails.
-// This is only used for TLS Passthrough listeners.
-//
-// The slice keeps the ordering of the model Listeners,
-// as the model Listeners are correctly sorted by hostname,
-// in decreasing order of specificity.
-//
-// This ensures that the rules that end up generated in the translation
-// process are in the correct most-specific to least-specific order.
-func (m *Model) TLSBackends() []TLSBackendDetails {
-	res := []TLSBackendDetails{}
-
-	for _, h := range m.TLSPassthrough {
-		for _, route := range h.Routes {
-			for _, backend := range route.Backends {
-				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
-				res = append(res, TLSBackendDetails{
-					BackendKey: key,
-					Hostnames:  route.Hostnames,
-				})
-			}
-		}
-	}
-	return res
-}
-
 // TLSSecretsToHostnames returns a map of TLS secrets to hostnames.
 // This is only for HTTP listeners.
 func (m *Model) TLSSecretsToHostnames() map[TLSSecret][]string {
@@ -582,6 +674,24 @@ func (m *Model) TLSSecretsToHostnames() map[TLSSecret][]string {
 	for _, h := range m.HTTP {
 		for _, s := range h.TLS {
 			res[s] = append(res[s], h.Hostname)
+		}
+	}
+	return res
+}
+
+// TLSListenerRef records a (hostname, port) pair for an HTTPS listener.
+type TLSListenerRef struct {
+	Hostname string
+	Port     uint32
+}
+
+// TLSSecretsToListeners returns, for each TLS secret, the set of
+// (hostname, port) pairs of all HTTPS listeners that reference it.
+func (m *Model) TLSSecretsToListeners() map[TLSSecret][]TLSListenerRef {
+	res := make(map[TLSSecret][]TLSListenerRef)
+	for _, l := range m.HTTP {
+		for _, s := range l.TLS {
+			res[s] = append(res[s], TLSListenerRef{Hostname: l.Hostname, Port: l.Port})
 		}
 	}
 	return res

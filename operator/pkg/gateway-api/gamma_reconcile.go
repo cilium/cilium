@@ -132,7 +132,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		ReferenceGrants: grants.Items,
 	})
 
-	setGammaServiceAccepted(svc, true, "Gamma Service has HTTPRoutes attached", CiliumGammaReasonAccepted)
+	setGammaServiceAccepted(svc, true, "Gamma Service has routes attached", CiliumGammaReasonAccepted)
 
 	cec, _, cep, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
 	if err != nil {
@@ -191,7 +191,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 				Type:    string(gatewayv1.RouteConditionAccepted),
 				Status:  metav1.ConditionTrue,
 				Reason:  string(gatewayv1.RouteReasonAccepted),
-				Message: "Accepted HTTPRoute",
+				Message: fmt.Sprintf("Accepted %s", i.GetGVK().Kind),
 			})
 
 			// set status to okay, this wil be overwritten in checks if needed
@@ -368,7 +368,7 @@ func (r *gammaReconciler) updateHTTPRouteStatus(ctx context.Context, original *g
 	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
 		return nil
 	}
-	r.logger.DebugContext(ctx, "Updating HTTRRoute status", httpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	r.logger.DebugContext(ctx, "Updating HTTPRoute status", httpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
 }
 

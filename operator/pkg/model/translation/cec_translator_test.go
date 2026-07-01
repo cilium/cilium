@@ -234,14 +234,94 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 					},
 				},
 			},
+			// port not included: TLS passthrough listener has no routes.
 			want: []*ciliumv2.ServiceListener{
 				{
 					Name:      "cilium-ingress",
 					Namespace: "kube-system",
 					Ports: []uint16{
 						80,
-						443,
 					},
+				},
+			},
+		},
+		{
+			name: "multi-port HTTPS (Gateway API)",
+			fields: fields{
+				name:      "cilium-ingress",
+				namespace: "default",
+			},
+			model: multiPortHTTPSModel,
+			want: []*ciliumv2.ServiceListener{
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{80},
+					Listener:  "listener",
+				},
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{443},
+					Listener:  "listener-443",
+				},
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{50051},
+					Listener:  "listener-50051",
+				},
+			},
+		},
+		{
+			name: "catch-all HTTPS with multi-port TLS passthrough",
+			fields: fields{
+				name:      "cilium-ingress",
+				namespace: "default",
+			},
+			model: &model.Model{
+				HTTP: []model.HTTPListener{
+					{
+						Port:     443,
+						Hostname: "*",
+						TLS: []model.TLSSecret{
+							{Name: "example-tls", Namespace: "default"},
+						},
+					},
+				},
+				TLSPassthrough: []model.TLSPassthroughListener{
+					{
+						Port: 50051,
+						Routes: []model.TLSPassthroughRoute{
+							{Hostnames: []string{"api.example.test"}},
+						},
+					},
+					{
+						Port: 9443,
+						Routes: []model.TLSPassthroughRoute{
+							{Hostnames: []string{"api.example.test"}},
+						},
+					},
+				},
+			},
+			want: []*ciliumv2.ServiceListener{
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{443},
+					Listener:  "listener-443",
+				},
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{9443},
+					Listener:  "listener-9443",
+				},
+				{
+					Name:      "cilium-ingress",
+					Namespace: "default",
+					Ports:     []uint16{50051},
+					Listener:  "listener-50051",
 				},
 			},
 		},
@@ -551,6 +631,13 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 				m: multipleRouteHostnamesModel,
 			},
 			expectedRouteConfigs: multipleRouteHostnamesExpectedConfig,
+		},
+		{
+			name: "multi-port HTTPS (Gateway API)",
+			args: args{
+				m: multiPortHTTPSModel,
+			},
+			expectedRouteConfigs: multiPortHTTPSExpectedRouteConfigs,
 		},
 	}
 
