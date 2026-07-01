@@ -82,3 +82,4 @@ if [ "${#IPTARGET[@]}" -ge 2 ] && [ "${#IPOTHERTARGET[@]}" -ge 2 ]; then
 fi
 echo "external_target_name=$TARGETNAME" >> $GITHUB_OUTPUT
 echo "other_external_target_name=$OTHERTARGETNAME" >> $GITHUB_OUTPUT
+
