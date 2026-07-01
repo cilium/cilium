@@ -34,6 +34,18 @@ Enable Cluster-pool IPAM mode
    * ``--set ipam.operator.clusterPoolIPv4MaskSize=<IPv4MaskSize>``
    * ``--set ipam.operator.clusterPoolIPv6MaskSize=<IPv6MaskSize>``
 
+   .. note::
+
+      For IPv6 cluster-pool IPAM, the difference between the cluster CIDR
+      prefix length and the per-node mask size must not be greater than 16.
+      For example, the default ``fd00::/104`` pool with
+      ``ipam.operator.clusterPoolIPv6MaskSize=120`` is valid because the
+      difference is 16. If you use a larger IPv6 pool such as ``/64``, set
+      ``ipam.operator.clusterPoolIPv6MaskSize`` to ``80`` or another value that
+      keeps the difference at 16 or less. Otherwise, the operator fails to
+      initialize the IPv6 allocator with
+      ``New CIDR set failed; the node CIDR size is too big``.
+
 #. Deploy Cilium and Cilium-Operator. Cilium will automatically wait until the
    ``podCIDR`` is allocated for its node by Cilium Operator.
 
