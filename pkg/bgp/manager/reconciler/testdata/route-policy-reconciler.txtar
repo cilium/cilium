@@ -1,0 +1,314 @@
+hive start
+reconciler/init instance-a
+reconciler/init instance-b
+
+# Populate initial desired route policy statements.
+db/insert bgp-desired-route-policies peer-a-export-a.yaml peer-a-export-b.yaml peer-a-export-c.yaml peer-a-import-a.yaml peer-b-export-a.yaml instance-b-peer-a-export-a.yaml
+
+# Reconcile instance A and validate router state.
+reconciler/reconcile instance-a
+bgp/route-policies -o added.actual
+cmp added.actual instance-a-only.expected
+
+# Reconcile instance B and validate router state of both instances.
+reconciler/reconcile instance-b
+bgp/route-policies -o instance-b-added.actual
+cmp instance-b-added.actual instance-b-added.expected
+
+# A second reconcile with the same desired state must produce the same router state.
+reconciler/reconcile instance-a
+bgp/route-policies -o noop.actual
+cmp noop.actual instance-b-added.expected
+
+# Updating the second instance changes only its rendered route policy.
+db/insert bgp-desired-route-policies instance-b-peer-a-export-a-updated-community.yaml
+reconciler/reconcile instance-b
+bgp/route-policies -o instance-b-updated.actual
+cmp instance-b-updated.actual instance-b-updated.expected
+
+# Updating a desired statement changes one statement in a rendered multi-statement route policy.
+db/insert bgp-desired-route-policies peer-a-export-b-updated-community.yaml
+reconciler/reconcile instance-a
+bgp/route-policies -o updated.actual
+cmp updated.actual instance-a-updated.expected
+
+# Deleting the updated desired statement keeps the remaining statements under the same rendered policy in priority order.
+db/delete bgp-desired-route-policies peer-a-export-b-updated-community.yaml
+reconciler/reconcile instance-a
+bgp/route-policies -o partial-delete.actual
+cmp partial-delete.actual partial-delete.expected
+
+# Deleting a single-statement policy removes the corresponding rendered policy.
+db/delete bgp-desired-route-policies peer-b-export-a.yaml
+reconciler/reconcile instance-a
+bgp/route-policies -o removed.actual
+cmp removed.actual removed.expected
+
+# Inserting a desired statement later restores it in the rendered multi-statement policy.
+db/insert bgp-desired-route-policies peer-a-export-b.yaml
+reconciler/reconcile instance-a
+bgp/route-policies -o reinserted.actual
+cmp reinserted.actual reinserted.expected
+
+reconciler/cleanup instance-a
+reconciler/cleanup instance-b
+
+-- peer-a-export-a.yaml --
+instance: instance-a
+peer: peer-a
+policytype: export
+priority: 30
+owner: source-a
+resource:
+  name: peer-a-export-a
+statement:
+  name: stmt-a
+  conditions:
+    matchneighbors:
+      type: any
+      neighbors:
+      - "192.0.2.1"
+    matchprefixes:
+      type: any
+      prefixes:
+      - cidr: "10.0.0.0/24"
+        prefixlenmin: 24
+        prefixlenmax: 24
+  actions:
+    routeaction: accept
+    addcommunities:
+    - "65000:30"
+
+-- peer-a-export-b.yaml --
+instance: instance-a
+peer: peer-a
+policytype: export
+priority: 20
+owner: source-a
+resource:
+  name: peer-a-export-b
+statement:
+  name: stmt-b
+  conditions:
+    matchneighbors:
+      type: any
+      neighbors:
+      - "192.0.2.1"
+    matchprefixes:
+      type: any
+      prefixes:
+      - cidr: "10.0.1.0/24"
+        prefixlenmin: 24
+        prefixlenmax: 24
+  actions:
+    routeaction: accept
+    addcommunities:
+    - "65000:20"
+
+-- peer-a-export-c.yaml --
+instance: instance-a
+peer: peer-a
+policytype: export
+priority: 10
+owner: source-a
+resource:
+  name: peer-a-export-c
+statement:
+  name: stmt-c
+  conditions:
+    matchneighbors:
+      type: any
+      neighbors:
+      - "192.0.2.1"
+    matchprefixes:
+      type: any
+      prefixes:
+      - cidr: "10.0.2.0/24"
+        prefixlenmin: 24
+        prefixlenmax: 24
+  actions:
+    routeaction: accept
+    addcommunities:
+    - "65000:10"
+
+-- peer-a-import-a.yaml --
+instance: instance-a
+peer: peer-a
+policytype: import
+priority: 10
+owner: source-a
+resource:
+  name: peer-a-import-a
+statement:
+  name: stmt-a
+  conditions:
+    matchneighbors:
+      type: any
+      neighbors:
+      - "192.0.2.1"
+    matchprefixes:
+      type: any
+      prefixes:
+      - cidr: "10.0.3.0/24"
+        prefixlenmin: 24
+        prefixlenmax: 24
+  actions:
+    routeaction: accept
+    addcommunities:
+    - "65000:40"
+
+-- peer-b-export-a.yaml --
+instance: instance-a
+peer: peer-b
+policytype: export
+priority: 10
+owner: source-a
+resource:
+  name: peer-b-export-a
+statement:
+  name: stmt-a
+  conditions:
+    matchneighbors:
+      type: any
+      neighbors:
+      - "192.0.2.1"
+    matchprefixes:
+      type: any
+      prefixes:
+      - cidr: "10.0.4.0/24"
+        prefixlenmin: 24
+        prefixlenmax: 24
+  actions:
+    routeaction: accept
+    addcommunities:
+    - "65000:50"
+
+-- peer-a-export-b-updated-community.yaml --
+instance: instance-a
+peer: peer-a
+policytype: export
+priority: 20
+owner: source-a
+resource:
+  name: peer-a-export-b
+statement:
+  name: stmt-b
+  conditions:
+    matchneighbors:
+      type: any
+      neighbors:
+      - "192.0.2.1"
+    matchprefixes:
+      type: any
+      prefixes:
+      - cidr: "10.0.1.0/24"
+        prefixlenmin: 24
+        prefixlenmax: 24
+  actions:
+    routeaction: accept
+    addcommunities:
+    - "65000:21"
+
+-- instance-b-peer-a-export-a.yaml --
+instance: instance-b
+peer: peer-a
+policytype: export
+priority: 10
+owner: source-a
+resource:
+  name: peer-a-export-a
+statement:
+  name: stmt-a
+  conditions:
+    matchneighbors:
+      type: any
+      neighbors:
+      - "192.0.2.1"
+    matchprefixes:
+      type: any
+      prefixes:
+      - cidr: "10.0.5.0/24"
+        prefixlenmin: 24
+        prefixlenmax: 24
+  actions:
+    routeaction: accept
+    addcommunities:
+    - "65000:60"
+
+-- instance-b-peer-a-export-a-updated-community.yaml --
+instance: instance-b
+peer: peer-a
+policytype: export
+priority: 10
+owner: source-a
+resource:
+  name: peer-a-export-a
+statement:
+  name: stmt-a
+  conditions:
+    matchneighbors:
+      type: any
+      neighbors:
+      - "192.0.2.1"
+    matchprefixes:
+      type: any
+      prefixes:
+      - cidr: "10.0.5.0/24"
+        prefixlenmin: 24
+        prefixlenmax: 24
+  actions:
+    routeaction: accept
+    addcommunities:
+    - "65000:61"
+
+-- instance-a-only.expected --
+Instance     Policy Name          Type     Statement Name   Match Peers   Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance-a   peer-peer-a-export   export   stmt-c           192.0.2.1                      10.0.2.0/24 (24..24)            accept       AddCommunities: [65000:10]
+                                           stmt-b           192.0.2.1                      10.0.1.0/24 (24..24)            accept       AddCommunities: [65000:20]
+                                           stmt-a           192.0.2.1                      10.0.0.0/24 (24..24)            accept       AddCommunities: [65000:30]
+             peer-peer-a-import   import   stmt-a           192.0.2.1                      10.0.3.0/24 (24..24)            accept       AddCommunities: [65000:40]
+             peer-peer-b-export   export   stmt-a           192.0.2.1                      10.0.4.0/24 (24..24)            accept       AddCommunities: [65000:50]
+-- instance-b-added.expected --
+Instance     Policy Name          Type     Statement Name   Match Peers   Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance-a   peer-peer-a-export   export   stmt-c           192.0.2.1                      10.0.2.0/24 (24..24)            accept       AddCommunities: [65000:10]
+                                           stmt-b           192.0.2.1                      10.0.1.0/24 (24..24)            accept       AddCommunities: [65000:20]
+                                           stmt-a           192.0.2.1                      10.0.0.0/24 (24..24)            accept       AddCommunities: [65000:30]
+             peer-peer-a-import   import   stmt-a           192.0.2.1                      10.0.3.0/24 (24..24)            accept       AddCommunities: [65000:40]
+             peer-peer-b-export   export   stmt-a           192.0.2.1                      10.0.4.0/24 (24..24)            accept       AddCommunities: [65000:50]
+instance-b   peer-peer-a-export   export   stmt-a           192.0.2.1                      10.0.5.0/24 (24..24)            accept       AddCommunities: [65000:60]
+-- instance-b-updated.expected --
+Instance     Policy Name          Type     Statement Name   Match Peers   Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance-a   peer-peer-a-export   export   stmt-c           192.0.2.1                      10.0.2.0/24 (24..24)            accept       AddCommunities: [65000:10]
+                                           stmt-b           192.0.2.1                      10.0.1.0/24 (24..24)            accept       AddCommunities: [65000:20]
+                                           stmt-a           192.0.2.1                      10.0.0.0/24 (24..24)            accept       AddCommunities: [65000:30]
+             peer-peer-a-import   import   stmt-a           192.0.2.1                      10.0.3.0/24 (24..24)            accept       AddCommunities: [65000:40]
+             peer-peer-b-export   export   stmt-a           192.0.2.1                      10.0.4.0/24 (24..24)            accept       AddCommunities: [65000:50]
+instance-b   peer-peer-a-export   export   stmt-a           192.0.2.1                      10.0.5.0/24 (24..24)            accept       AddCommunities: [65000:61]
+-- instance-a-updated.expected --
+Instance     Policy Name          Type     Statement Name   Match Peers   Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance-a   peer-peer-a-export   export   stmt-c           192.0.2.1                      10.0.2.0/24 (24..24)            accept       AddCommunities: [65000:10]
+                                           stmt-b           192.0.2.1                      10.0.1.0/24 (24..24)            accept       AddCommunities: [65000:21]
+                                           stmt-a           192.0.2.1                      10.0.0.0/24 (24..24)            accept       AddCommunities: [65000:30]
+             peer-peer-a-import   import   stmt-a           192.0.2.1                      10.0.3.0/24 (24..24)            accept       AddCommunities: [65000:40]
+             peer-peer-b-export   export   stmt-a           192.0.2.1                      10.0.4.0/24 (24..24)            accept       AddCommunities: [65000:50]
+instance-b   peer-peer-a-export   export   stmt-a           192.0.2.1                      10.0.5.0/24 (24..24)            accept       AddCommunities: [65000:61]
+-- partial-delete.expected --
+Instance     Policy Name          Type     Statement Name   Match Peers   Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance-a   peer-peer-a-export   export   stmt-c           192.0.2.1                      10.0.2.0/24 (24..24)            accept       AddCommunities: [65000:10]
+                                           stmt-a           192.0.2.1                      10.0.0.0/24 (24..24)            accept       AddCommunities: [65000:30]
+             peer-peer-a-import   import   stmt-a           192.0.2.1                      10.0.3.0/24 (24..24)            accept       AddCommunities: [65000:40]
+             peer-peer-b-export   export   stmt-a           192.0.2.1                      10.0.4.0/24 (24..24)            accept       AddCommunities: [65000:50]
+instance-b   peer-peer-a-export   export   stmt-a           192.0.2.1                      10.0.5.0/24 (24..24)            accept       AddCommunities: [65000:61]
+-- removed.expected --
+Instance     Policy Name          Type     Statement Name   Match Peers   Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance-a   peer-peer-a-export   export   stmt-c           192.0.2.1                      10.0.2.0/24 (24..24)            accept       AddCommunities: [65000:10]
+                                           stmt-a           192.0.2.1                      10.0.0.0/24 (24..24)            accept       AddCommunities: [65000:30]
+             peer-peer-a-import   import   stmt-a           192.0.2.1                      10.0.3.0/24 (24..24)            accept       AddCommunities: [65000:40]
+instance-b   peer-peer-a-export   export   stmt-a           192.0.2.1                      10.0.5.0/24 (24..24)            accept       AddCommunities: [65000:61]
+-- reinserted.expected --
+Instance     Policy Name          Type     Statement Name   Match Peers   Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance-a   peer-peer-a-export   export   stmt-c           192.0.2.1                      10.0.2.0/24 (24..24)            accept       AddCommunities: [65000:10]
+                                           stmt-b           192.0.2.1                      10.0.1.0/24 (24..24)            accept       AddCommunities: [65000:20]
+                                           stmt-a           192.0.2.1                      10.0.0.0/24 (24..24)            accept       AddCommunities: [65000:30]
+             peer-peer-a-import   import   stmt-a           192.0.2.1                      10.0.3.0/24 (24..24)            accept       AddCommunities: [65000:40]
+instance-b   peer-peer-a-export   export   stmt-a           192.0.2.1                      10.0.5.0/24 (24..24)            accept       AddCommunities: [65000:61]
