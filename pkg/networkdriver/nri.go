@@ -421,7 +421,7 @@ func (driver *Driver) configureSysctl(l netlink.Link, cfg types.DeviceConfig) er
 
 	// Direct (non-reconciling) Sysctl: we are inside the pod netns where
 	// /proc/sys is namespaced, while the operator's reconciler targets the host.
-	sc := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+	sc := sysctl.NewDirectSysctl(afero.NewOsFs(), driver.hostProcPath)
 	if err := sc.ApplySettings(settings); err != nil {
 		return fmt.Errorf("failed to apply sysctl settings on device %s: %w", l.Attrs().Name, err)
 	}

@@ -131,8 +131,9 @@ func TestPrivilegedRunStopPodSandbox(t *testing.T) {
 					},
 				},
 			},
-			podNetns:    make(map[kubetypes.UID]string),
-			ipv4Enabled: true,
+			hostProcPath: "/proc",
+			podNetns:     make(map[kubetypes.UID]string),
+			ipv4Enabled:  true,
 		}
 
 		return driver, rootNS, podNS, podNSPath
