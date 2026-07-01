@@ -13,8 +13,8 @@ jobs:
     permissions: {}
     if: ${{
          github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
-         (github.triggering_actor == 'cilium-renovate[bot]' ||
-          github.triggering_actor == 'auto-committer[bot]')
+         (github.actor == 'cilium-renovate[bot]' ||
+          github.actor == 'auto-committer[bot]')
         }}
     steps:
     - name: Debug
@@ -41,12 +41,12 @@ jobs:
     - name: Approve PR
       # Approve the PR if all the following conditions are true:
       # - the PR was created by renovate bot and
-      # - the PR review was requested by renovate bot or auto-committer[bot] and
-      # - the requested reviewer was the trusted 'ciliumbot'
+      # - the run was originally triggered by renovate bot or auto-committer[bot]
+      #   (github.actor, not github.triggering_actor, so manual re-runs match)
       if: ${{
            github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
-           (github.triggering_actor == 'cilium-renovate[bot]' ||
-            github.triggering_actor == 'auto-committer[bot]')
+           (github.actor == 'cilium-renovate[bot]' ||
+            github.actor == 'auto-committer[bot]')
           }}
       env:
         TOKEN: ${{ secrets.AUTO_APPROVE_TOKEN }}
