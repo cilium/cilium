@@ -7,6 +7,7 @@ package nodemanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -506,9 +507,18 @@ type ipResyncStats struct {
 	nodeCapacity        int
 }
 
-func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
+func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time, instancesAPIReady bool) {
 	node.updateLastResync(syncTime)
-	node.recalculate(ctx)
+	err := node.recalculate(ctx)
+	if errors.Is(err, errInstanceNotFound) && instancesAPIReady {
+		// The node's instance was dropped from the instance cache, e.g.
+		// by a full resync racing with the attachment of the node's
+		// interfaces. Re-trigger the per-instance sync to recover it
+		// without requiring an operator restart. The caller holds the
+		// NodeManager mutex, so the instances API readiness is passed in
+		// rather than queried here.
+		node.retriggerInstanceSync()
+	}
 	allocationNeeded := node.allocationNeeded()
 	releaseNeeded := node.releaseNeeded()
 	if allocationNeeded || releaseNeeded {
@@ -569,7 +579,13 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 			continue
 		}
 		go func(node *Node, stats *resyncStats) {
-			n.resyncNode(ctx, node, stats, syncTime)
+			// n.mutex is held for the whole duration of Resync, so
+			// n.stableInstancesAPI cannot change concurrently and can
+			// be passed to the workers. The workers themselves must
+			// not attempt to acquire the mutex, e.g. via
+			// InstancesAPIIsReady, as that would deadlock with the
+			// semaphore acquisition below.
+			n.resyncNode(ctx, node, stats, syncTime, n.stableInstancesAPI)
 			sem.Release(1)
 		}(node, &stats)
 	}

@@ -96,6 +96,14 @@ type Node struct {
 	// instanceStoppedRunning records when an instance was most recently set to not running
 	instanceStoppedRunning time.Time
 
+	// instanceSyncRetriggered is true when the per-instance sync has been
+	// re-triggered because the instance was missing from the instance
+	// cache. It is reset by the next successful recalculation. This limits
+	// the recovery sync to one attempt per missing-episode so that
+	// instances which were legitimately terminated, but whose CiliumNode
+	// resource still exists, do not cause a sync retry loop.
+	instanceSyncRetriggered bool
+
 	// ipv4Alloc represents IPv4-specific allocation attributes for this node
 	ipv4Alloc ipAllocAttrs
 
@@ -647,7 +655,12 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 
 	n.ops.UpdatedNode(resource)
 
-	n.recalculate(context.Background())
+	// The recalculation error is deliberately not acted upon here: the
+	// caller (NodeManager.Upsert) holds the NodeManager mutex, so the
+	// instances API readiness cannot be queried from this context. If the
+	// instance is missing from the instance cache, recovery is handled by
+	// the periodic resync path, see NodeManager.resyncNode.
+	_ = n.recalculate(context.Background())
 	allocationNeeded := n.allocationNeeded()
 	releaseNeeded := n.releaseNeeded()
 	if allocationNeeded || releaseNeeded {
@@ -665,10 +678,17 @@ func (n *Node) resourceAttached() (attached bool) {
 	return
 }
 
-func (n *Node) recalculate(ctx context.Context) {
+// recalculate the number of needed and excess IPs of the node based on the
+// current state of the instance cache. It returns an error wrapping
+// errInstanceNotFound if the node's instance is missing from the instance
+// cache, e.g. because it was dropped by a full resync before all its
+// interfaces were attached. Callers may react to that error by re-triggering
+// the node's per-instance sync where it is safe to do so, see
+// retriggerInstanceSync.
+func (n *Node) recalculate(ctx context.Context) error {
 	// Skip any recalculation if the CiliumNode resource does not exist yet
 	if !n.resourceAttached() {
-		return
+		return nil
 	}
 	scopedLog := n.logger.Load()
 
@@ -678,16 +698,21 @@ func (n *Node) recalculate(ctx context.Context) {
 	defer n.mutex.Unlock()
 
 	if err != nil {
-		if errors.Is(err, ErrLimitsNotFound) {
-			scopedLog.Warn("Instance limits not found.", logfields.Error, err)
-		} else {
-			scopedLog.Warn("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.", logfields.Error, err)
-		}
 		// Avoid any further action
 		n.stats.IPv4.NeededIPs = 0
 		n.stats.IPv4.ExcessIPs = 0
-		return
+
+		if errors.Is(err, ErrLimitsNotFound) {
+			scopedLog.Warn("Instance limits not found.", logfields.Error, err)
+			return nil
+		}
+		scopedLog.Warn("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.", logfields.Error, err)
+		return fmt.Errorf("%w: %w", errInstanceNotFound, err)
 	}
+
+	// The instance is known to the instance cache again, re-arm the
+	// one-shot recovery sync for a potential future cache drop.
+	n.instanceSyncRetriggered = false
 
 	n.ipv4Alloc.available = a
 	if stats.AssignedStaticIP != "" {
@@ -741,6 +766,8 @@ func (n *Node) recalculate(ctx context.Context) {
 		logfields.ResyncNeeded, n.resyncNeeded,
 		logfields.RemainingInterfaces, stats.RemainingAvailableInterfaceCount,
 	)
+
+	return nil
 }
 
 // allocationNeeded returns true if this node requires IPs to be allocated
@@ -933,6 +960,10 @@ type ReleaseAction struct {
 
 // ErrLimitsNotFound signals lack of limits for given instance type.
 var ErrLimitsNotFound = errors.New("Limits not found")
+
+// errInstanceNotFound signals that the node's instance is missing from the
+// instance cache and a per-instance sync may be needed to recover it.
+var errInstanceNotFound = errors.New("instance not found in cache")
 
 // maintenanceAction represents the resources available for allocation for a
 // particular ciliumNode. If an existing interface has IP allocation capacity
@@ -1321,6 +1352,28 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 	return n.handleIPAllocation(ctx, a)
 }
 
+// retriggerInstanceSync re-triggers the node's per-instance sync to recover
+// an instance that was dropped from the instance cache, e.g. by a full resync
+// racing with the attachment of the node's interfaces. The sync is
+// re-triggered at most once while the instance stays missing: the flag is
+// re-armed only once a recalculation sees the instance in the cache again.
+// This prevents a retry loop for instances which were legitimately terminated
+// but whose CiliumNode resource still exists.
+//
+// Callers must only invoke this while the instances API is stable. It is
+// safe to call with the NodeManager mutex held: triggering only signals the
+// instance sync, whose function runs on its own goroutine.
+func (n *Node) retriggerInstanceSync() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	if n.instanceSyncRetriggered || n.instanceSync == nil {
+		return
+	}
+	n.instanceSyncRetriggered = true
+	n.instanceSync.Trigger()
+}
+
 func (n *Node) isInstanceRunning() (isRunning bool) {
 	n.mutex.RLock()
 	isRunning = n.instanceRunning
@@ -1368,7 +1421,11 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 		n.requireResync()
 	}
 	n.poolMaintenanceComplete()
-	n.recalculate(ctx)
+	// No locks are held at this point, so it is safe to query the
+	// instances API readiness before re-triggering the instance sync.
+	if recalcErr := n.recalculate(ctx); errors.Is(recalcErr, errInstanceNotFound) && n.manager.InstancesAPIIsReady() {
+		n.retriggerInstanceSync()
+	}
 	if instanceMutated || err != nil {
 		n.instanceSync.Trigger()
 	}
