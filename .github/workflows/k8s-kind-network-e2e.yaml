@@ -60,33 +60,8 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
-  check_changes:
-    name: Deduce required tests from code changes
-    runs-on: ubuntu-24.04
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
-    steps:
-      - name: Checkout code
-        if: ${{ !github.event.workflow_dispatch }}
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Check code changes
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
-        id: tested-tree
-        with:
-          # For `push` events, compare against the `ref` base branch
-          # For `workflow_dispatch` events, this is ignored and will compare against the pull request base branch
-          base: ${{ github.ref }}
-          filters: |
-            src:
-              - '!(test|Documentation)/**'
-
   kubernetes-e2e:
     name: K8s Network E2E tests
-    needs: check_changes
-    if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     timeout-minutes: 90
     strategy:

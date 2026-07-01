@@ -1088,3 +1088,54 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, NilRuleOrigin.Value(), rm)
 }
+
+func TestEndpointPolicy_Lookup_PortRange(t *testing.T) {
+	log := hivetest.Logger(t)
+
+	rangeEntry := ingressKey(192, 6, 64, 10)
+	flowKey := ingressKey(192, 6, 80, 16)
+
+	lbls := labels.ParseLabelArray("k8s:io.cilium.k8s.policy.name=allow-egress-port-range")
+	lblss := labels.LabelArrayList{lbls}
+
+	p := &EndpointPolicy{
+		policyMapState: emptyMapState(log).withState(mapStateMap{
+			rangeEntry: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, "log"), 0, 0, types.Allow, NoAuthRequirement),
+		}),
+	}
+
+	_, rm, found := p.Lookup(flowKey)
+	require.True(t, found, "Lookup for a port inside a stored range should succeed")
+	require.Equal(t, lblss, rm.LabelArray(),
+		"rule meta should come from the covering port-range entry")
+
+	outOfRangeKey := ingressKey(192, 6, 200, 16)
+	_, _, found = p.Lookup(outOfRangeKey)
+	require.False(t, found, "Lookup for a port outside the stored range should miss")
+}
+
+// TestEndpointPolicy_Lookup_PortRange_L4Only covers the L4-only side of the
+// L3-vs-L4 precedence in mapState.lookup: when the stored entry has identity
+// zero and a port range, a flow keyed by a specific port inside that range
+// must still resolve to it.
+func TestEndpointPolicy_Lookup_PortRange_L4Only(t *testing.T) {
+	log := hivetest.Logger(t)
+
+	// L4-only range entry: identity == 0, port 64-127, TCP.
+	rangeEntry := ingressKey(0, 6, 64, 10)
+	flowKey := ingressKey(0, 6, 80, 16)
+
+	lbls := labels.ParseLabelArray("k8s:io.cilium.k8s.policy.name=allow-l4only-port-range")
+	lblss := labels.LabelArrayList{lbls}
+
+	p := &EndpointPolicy{
+		policyMapState: emptyMapState(log).withState(mapStateMap{
+			rangeEntry: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, "log"), 0, 0, types.Allow, NoAuthRequirement),
+		}),
+	}
+
+	_, rm, found := p.Lookup(flowKey)
+	require.True(t, found, "L4Only Lookup for a port inside a stored range should succeed")
+	require.Equal(t, lblss, rm.LabelArray(),
+		"rule meta should come from the covering port-range entry")
+}
