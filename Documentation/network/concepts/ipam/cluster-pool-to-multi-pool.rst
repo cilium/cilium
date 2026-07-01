@@ -13,7 +13,9 @@ This section describes how to migrate a running cluster from
 :ref:`ipam_crd_cluster_pool` IPAM mode to :ref:`ipam_crd_multi_pool` IPAM mode.
 The migration keeps the existing per-node PodCIDR allocations stable, so pods
 keep their IP addresses and connectivity is not disrupted while the cluster is
-being migrated.
+being migrated. This does not apply to connectivity that relies on PodCIDRs
+advertised by the BGP Control Plane; see the
+:ref:`BGP migration warning below <ipam_migration_bgp_warning>`.
 
 During the migration, the Cilium operator converts each ``CiliumNode`` from the
 cluster-pool representation in ``spec.ipam.podCIDRs`` to the multi-pool
@@ -61,7 +63,30 @@ Use this high-level workflow for the migration:
    only the Cilium operator.
 3. Wait until each ``CiliumNode`` has its existing PodCIDR listed under
    ``spec.ipam.pools.allocated``.
-4. Restart the Cilium agents, all at once or incrementally.
+4. If the BGP Control Plane advertises PodCIDRs, update the
+   ``CiliumBGPAdvertisement`` to advertise the migrated CIDRs from the default
+   ``CiliumPodIPPool``. For configuration details, see
+   :ref:`BGP MultiPool IPAM advertisements <bgp-adverts-multipool>`.
+5. Restart the Cilium agents, all at once or incrementally.
+
+.. _ipam_migration_bgp_warning:
+
+.. warning::
+
+   When the BGP Control Plane advertises PodCIDRs, expect a temporary disruption
+   to the advertised routes during the migration. The Cilium operator moves
+   each allocation from ``spec.ipam.podCIDRs`` to
+   ``spec.ipam.pools.allocated``, so agents that still run in cluster-pool mode
+   withdraw their ``PodCIDR`` advertisements. These agents cannot advertise the
+   migrated allocations with ``advertisementType: CiliumPodIPPool`` until they
+   restart in multi-pool mode.
+
+   To complete the migration, update the ``CiliumBGPAdvertisement`` from
+   ``advertisementType: PodCIDR`` to
+   ``advertisementType: CiliumPodIPPool`` and select the migrated default pool
+   before restarting the agents. To minimize the disruption, restart all Cilium
+   agents as soon as the Cilium operator has migrated every ``CiliumNode`` and
+   you have updated the BGP advertisement.
 
 Practical Example
 *****************
