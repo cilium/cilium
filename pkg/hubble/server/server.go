@@ -12,11 +12,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -52,7 +54,14 @@ func NewServer(log *slog.Logger, options ...serveroption.Option) (*Server, error
 }
 
 func (s *Server) newGRPCServer() *grpc.Server {
-	var opts []grpc.ServerOption
+	opts := []grpc.ServerOption{
+		grpc.MaxConcurrentStreams(1024),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    60 * time.Second,
+			Timeout: 15 * time.Second,
+		}),
+	}
+
 	if len(s.opts.GRPCUnaryInterceptors) > 0 {
 		opts = append(opts, grpc.ChainUnaryInterceptor(s.opts.GRPCUnaryInterceptors...))
 	}
