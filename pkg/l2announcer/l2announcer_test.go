@@ -25,9 +25,12 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -36,11 +39,13 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type fixture struct {
 	announcer          *L2Announcer
+	ipc                *recordingIPCache
 	proxyNeighborTable statedb.Table[*tables.L2AnnounceEntry]
 	stateDB            *statedb.DB
 	svcs               statedb.RWTable[*loadbalancer.Service]
@@ -85,8 +90,10 @@ func newFixture(t testing.TB) *fixture {
 
 	fakePolicyStore := &fakeStore[*v2alpha1.CiliumL2AnnouncementPolicy]{}
 
+	rec := &recordingIPCache{}
 	params := l2AnnouncerParams{
-		Logger: logger,
+		Logger:  logger,
+		IPCache: rec,
 		DaemonConfig: &option.DaemonConfig{
 			K8sNamespace:             "kube_system",
 			EnableL2Announcements:    true,
@@ -112,6 +119,7 @@ func newFixture(t testing.TB) *fixture {
 
 	return &fixture{
 		announcer:          announcer,
+		ipc:                rec,
 		proxyNeighborTable: tbl,
 		stateDB:            db,
 		svcs:               svcs,
@@ -1120,6 +1128,12 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 				EnableL2Announcements: true,
 			}
 		}),
+		cell.Provide(func() *ipcache.IPCache {
+			return ipcache.NewIPCache(&ipcache.Configuration{
+				Context: startCtx,
+				Logger:  hivetest.Logger(t),
+			})
+		}),
 		cell.Config(envoyCfg.SecretSyncConfig{}),
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
@@ -1137,4 +1151,189 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 		err = h.Stop(tlog, stopCtx)
 		assert.NoError(t, err)
 	}
+}
+
+// recordingIPCache is a recorder fake for the ipCacheUpdater interface used by
+// the l2announcer's HOST_ID metadata sync. It just appends each call to a
+// slice so tests can assert ordering/contents.
+type recordingIPCache struct {
+	upserts []ipcEvent
+	removes []ipcEvent
+}
+
+type ipcEvent struct {
+	prefix   cmtypes.PrefixCluster
+	src      source.Source
+	resource ipcachetypes.ResourceID
+	aux      []ipcache.IPMetadata
+}
+
+func (r *recordingIPCache) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, res ipcachetypes.ResourceID, aux ...ipcache.IPMetadata) {
+	r.upserts = append(r.upserts, ipcEvent{prefix: prefix, src: src, resource: res, aux: append([]ipcache.IPMetadata(nil), aux...)})
+}
+
+func (r *recordingIPCache) RemoveMetadata(prefix cmtypes.PrefixCluster, res ipcachetypes.ResourceID, aux ...ipcache.IPMetadata) {
+	r.removes = append(r.removes, ipcEvent{prefix: prefix, resource: res, aux: append([]ipcache.IPMetadata(nil), aux...)})
+}
+
+// upsertedPrefixes returns the prefix strings recorded as upserts in order.
+func (r *recordingIPCache) upsertedPrefixes() []string {
+	out := make([]string, 0, len(r.upserts))
+	for _, e := range r.upserts {
+		out = append(out, e.prefix.AsPrefix().String())
+	}
+	return out
+}
+
+// removedPrefixes returns the prefix strings recorded as removes in order.
+func (r *recordingIPCache) removedPrefixes() []string {
+	out := make([]string, 0, len(r.removes))
+	for _, e := range r.removes {
+		out = append(out, e.prefix.AsPrefix().String())
+	}
+	return out
+}
+
+// driveToSelectedService runs the standard happy-path setup (devices, local
+// node, blue policy, blue service) and returns the resulting selectedService
+// from the announcer for use in leader-event tests.
+func driveToSelectedService(t *testing.T, fix *fixture) *selectedService {
+	t.Helper()
+	fix.announcer.devices = []string{"eno01"}
+	require.NoError(t, fix.announcer.processDevicesChanged(context.Background()))
+
+	require.NoError(t, fix.announcer.upsertLocalNode(context.Background(), blueNode()))
+
+	policy := bluePolicy()
+	fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy)
+	require.NoError(t, fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
+		Kind:   resource.Upsert,
+		Key:    resource.NewKey(policy),
+		Object: policy,
+		Done:   func(err error) {},
+	}))
+
+	svc, fe := blueService()
+	fix.insertService(svc, fe)
+	require.NoError(t, fix.announcer.processSvcEvent(statedb.Change[*loadbalancer.Service]{
+		Deleted: false,
+		Object:  svc,
+	}))
+
+	ss, ok := fix.announcer.selectedServices[serviceKey(svc)]
+	require.True(t, ok, "blue-service should have been selected by the announcer")
+	return ss
+}
+
+// TestSyncIPCache_LeaderUpsertsHostID verifies that when the announcer wins
+// the L2 lease for a service, the announced ExternalIP is upserted into the
+// (fake) ipcache as HOST_ID with a per-service resource ID.
+func TestSyncIPCache_LeaderUpsertsHostID(t *testing.T) {
+	fix := newFixture(t)
+	rec := fix.ipc
+
+	ss := driveToSelectedService(t, fix)
+
+	require.NoError(t, fix.announcer.processLeaderEvent(leaderElectionEvent{
+		typ:             leaderElectionLeading,
+		selectedService: ss,
+	}))
+
+	require.Len(t, rec.upserts, 1, "leader acquire should upsert exactly one VIP")
+	assert.Empty(t, rec.removes)
+
+	upsert := rec.upserts[0]
+	assert.Equal(t, "192.168.2.1/32", upsert.prefix.AsPrefix().String())
+	assert.Equal(t, source.Local, upsert.src)
+	assert.Contains(t, string(upsert.resource), "l2-announcer/blue-service",
+		"resource ID should encode the service name so per-service tracking works")
+	assert.Contains(t, string(upsert.resource), "default",
+		"resource ID should encode the service namespace")
+	require.Len(t, upsert.aux, 1)
+	assert.Equal(t, labels.LabelHost, upsert.aux[0])
+}
+
+// TestSyncIPCache_LossOfLeadershipRemovesHostID verifies that losing the L2
+// lease removes the HOST_ID metadata that was upserted on acquire.
+func TestSyncIPCache_LossOfLeadershipRemovesHostID(t *testing.T) {
+	fix := newFixture(t)
+	rec := fix.ipc
+
+	ss := driveToSelectedService(t, fix)
+
+	require.NoError(t, fix.announcer.processLeaderEvent(leaderElectionEvent{
+		typ:             leaderElectionLeading,
+		selectedService: ss,
+	}))
+	require.Len(t, rec.upserts, 1)
+
+	require.NoError(t, fix.announcer.processLeaderEvent(leaderElectionEvent{
+		typ:             leaderElectionStoppedLeading,
+		selectedService: ss,
+	}))
+
+	require.Len(t, rec.removes, 1, "leader loss should remove exactly one VIP")
+	remove := rec.removes[0]
+	assert.Equal(t, "192.168.2.1/32", remove.prefix.AsPrefix().String())
+	assert.Contains(t, string(remove.resource), "l2-announcer/blue-service")
+}
+
+// TestSyncIPCache_NotLeaderNoUpserts verifies that when leadership is never
+// won (only a stoppedLeading transition with no prior entries), the announcer
+// neither upserts nor tries to remove anything.
+func TestSyncIPCache_NotLeaderNoUpserts(t *testing.T) {
+	fix := newFixture(t)
+	rec := fix.ipc
+
+	ss := driveToSelectedService(t, fix)
+
+	require.NoError(t, fix.announcer.processLeaderEvent(leaderElectionEvent{
+		typ:             leaderElectionStoppedLeading,
+		selectedService: ss,
+	}))
+
+	assert.Empty(t, rec.upserts)
+	assert.Empty(t, rec.removes)
+}
+
+// TestSyncIPCache_ResourceIDPerService verifies that two services with the
+// same announced IP get distinct ipcache resource IDs, so removal of one
+// does not race with the other's metadata.
+func TestSyncIPCache_ResourceIDPerService(t *testing.T) {
+	fix := newFixture(t)
+	rec := fix.ipc
+
+	// First service via the standard fixture.
+	ssBlue := driveToSelectedService(t, fix)
+	require.NoError(t, fix.announcer.processLeaderEvent(leaderElectionEvent{
+		typ:             leaderElectionLeading,
+		selectedService: ssBlue,
+	}))
+
+	require.Len(t, rec.upserts, 1)
+	blueResource := rec.upserts[0].resource
+
+	// Synthesise a second selected service in the same namespace announcing
+	// the same IP — different name. We can't easily use the policy machinery
+	// to add another service without conflicting, so call the sync helper
+	// directly with a hand-built selectedService.
+	rec.upserts = nil
+	otherSvc := &loadbalancer.Service{
+		Name: loadbalancer.NewServiceName("default", "green-service"),
+	}
+	otherSS := &selectedService{
+		svc:               otherSvc,
+		externalAddresses: []netip.Addr{netip.MustParseAddr("192.168.2.1")},
+		byPolicies:        ssBlue.byPolicies, // reuse the blue policy
+		currentlyLeader:   true,
+	}
+	fix.announcer.syncAnnouncedIPsInIPCache(otherSS, map[netip.Addr]bool{})
+
+	require.Len(t, rec.upserts, 1)
+	greenResource := rec.upserts[0].resource
+
+	assert.NotEqual(t, blueResource, greenResource,
+		"two services announcing the same VIP must use distinct ipcache resource IDs")
+	assert.Contains(t, string(greenResource), "green-service")
+	assert.Contains(t, string(blueResource), "blue-service")
 }

@@ -27,7 +27,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -36,10 +39,12 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	ciliumlabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/shortener"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -49,6 +54,7 @@ var Cell = cell.Module(
 
 	cell.Provide(NewL2Announcer),
 	cell.Provide(l2AnnouncementPolicyResource),
+	cell.Provide(func(ipc *ipcache.IPCache) ipCacheUpdater { return ipc }),
 	cell.Invoke(func(*L2Announcer) {}), // register and start L2 announcer
 )
 
@@ -61,6 +67,14 @@ func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset,
 		cs.CiliumV2alpha1().CiliumL2AnnouncementPolicies(),
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](lc, lw, mp, resource.WithMetric("CiliumL2AnnouncementPolicy")), nil
+}
+
+// ipCacheUpdater is the subset of *ipcache.IPCache that the l2announcer uses
+// to publish HOST_ID metadata for VIPs this node is currently L2-announcing.
+// Pulled out so tests can supply a recorder fake.
+type ipCacheUpdater interface {
+	UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcachetypes.ResourceID, aux ...ipcache.IPMetadata)
+	RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcachetypes.ResourceID, aux ...ipcache.IPMetadata)
 }
 
 type l2AnnouncerParams struct {
@@ -78,6 +92,7 @@ type l2AnnouncerParams struct {
 	Devices              statedb.Table[*tables.Device]
 	StateDB              *statedb.DB
 	JobGroup             job.Group
+	IPCache              ipCacheUpdater
 }
 
 // L2Announcer takes all L2 announcement policies and filters down to those that match the labels of the local node. It
@@ -114,7 +129,6 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 		leaderChannel:     make(chan leaderElectionEvent, leaderElectionBufferSize),
 		devicesUpdatedSig: make(chan struct{}, 1),
 	}
-
 	// Can't operate or GC if client set is disabled
 	if !params.Clientset.IsEnabled() {
 		return announcer
@@ -952,10 +966,16 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 
 	entriesIter := tbl.List(txn, tables.L2AnnounceOriginIndex.Query(svcKey))
 
+	// IPs announced for this service before any changes, collected while
+	// walking the existing entries below, so we can reconcile ipcache
+	// after the transaction commits.
+	prevIPs := make(map[netip.Addr]bool)
+
 	// If we are not the leader, we should not have any proxy entries for the service.
 	if !ss.currentlyLeader {
 		// Remove origin from entries, and delete if no origins left
 		for e := range entriesIter {
+			prevIPs[e.IP] = true
 			// Copy, since modifying objects directly is not allowed.
 			e = e.DeepCopy()
 
@@ -977,6 +997,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 			}
 		}
 		txn.Commit()
+		l2a.syncAnnouncedIPsInIPCache(ss, prevIPs)
 		return nil
 	}
 
@@ -988,6 +1009,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 
 	// Loop over existing entries, delete undesired entries
 	for e := range entriesIter {
+		prevIPs[e.IP] = true
 		key := fmt.Sprintf("%s/%s", e.IP, e.NetworkInterface)
 
 		_, desired := desiredEntries[key]
@@ -1054,7 +1076,44 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 	}
 	txn.Commit()
 
+	l2a.syncAnnouncedIPsInIPCache(ss, prevIPs)
 	return nil
+}
+
+// syncAnnouncedIPsInIPCache reconciles ipcache HOST_ID metadata for the IPs
+// this node announces on L2 for the given service. When the node holds the L2
+// leader lease, the announced ExternalIPs must resolve to HOST_ID in ipcache
+// so that sock{4,6}_skip_xlate() allows socket-LB translation for connections
+// targeting those VIPs from the host network namespace. prevIPs is the set of
+// IPs that were in the L2AnnounceTable for this service before the most recent
+// recalculation.
+func (l2a *L2Announcer) syncAnnouncedIPsInIPCache(ss *selectedService, prevIPs map[netip.Addr]bool) {
+	resourceID := ipcachetypes.NewResourceID(
+		ipcachetypes.ResourceKindDaemon,
+		ss.svc.Name.Namespace(),
+		"l2-announcer/"+ss.svc.Name.Name(),
+	)
+
+	nextIPs := make(map[netip.Addr]bool)
+	if ss.currentlyLeader {
+		for _, entry := range l2a.desiredEntries(ss) {
+			nextIPs[entry.IP] = true
+		}
+	}
+
+	for ip := range nextIPs {
+		if !prevIPs[ip] {
+			p := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(ip, ip.BitLen()))
+			l2a.params.IPCache.UpsertMetadata(p, source.Local, resourceID, ciliumlabels.LabelHost)
+		}
+	}
+
+	for ip := range prevIPs {
+		if !nextIPs[ip] {
+			p := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(ip, ip.BitLen()))
+			l2a.params.IPCache.RemoveMetadata(p, resourceID, ciliumlabels.LabelHost)
+		}
+	}
 }
 
 func (l2a *L2Announcer) desiredEntries(ss *selectedService) map[string]*tables.L2AnnounceEntry {
