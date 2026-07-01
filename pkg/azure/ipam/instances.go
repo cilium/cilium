@@ -5,11 +5,14 @@ package ipam
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/http"
 	"net/netip"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -109,6 +112,13 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 	// Fetch network interfaces once from Azure API
 	networkInterfaces, err := m.api.ListVMNetworkInterfaces(ctx, instanceID)
 	if err != nil {
+		// A 404 from the Azure API is treated as the instance no longer
+		// existing, so that callers can tell an instance that is gone
+		// apart from a transient synchronization failure.
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
+			return time.Time{}, fmt.Errorf("%w: synchronize Azure instance %s interface list: %w", nodemanager.ErrInstanceNotFound, instanceID, err)
+		}
 		return time.Time{}, fmt.Errorf("synchronize Azure instance %s interface list: %w", instanceID, err)
 	}
 

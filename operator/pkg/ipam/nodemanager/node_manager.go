@@ -7,9 +7,11 @@ package nodemanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"sort"
 
 	"golang.org/x/sync/semaphore"
@@ -140,7 +142,9 @@ type AllocationImplementation interface {
 	Resync(ctx context.Context) (time.Time, error)
 
 	// InstanceSync is called to sync the state of the specified instance with
-	// external APIs or systems.
+	// external APIs or systems. Implementations must return an error wrapping
+	// ErrInstanceNotFound if the external API authoritatively reports that the
+	// instance no longer exists.
 	InstanceSync(ctx context.Context, instanceID string) (time.Time, error)
 
 	// HasInstance returns whether the instance is in instances
@@ -395,6 +399,12 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 				syncTime, err := node.manager.instancesAPI.InstanceSync(ctx, resource.InstanceID())
 				if err != nil {
 					node.logger.Load().Warn("Unable to sync instance", logfields.Error, err)
+					// A transient recovery failure must re-arm the node's one-shot re-trigger.
+					// An authoritative instance-not-found error must not re-arm the node's
+					// one-shot re-trigger.
+					if slices.Contains(reasons, instanceNotFoundSyncReason) && !errors.Is(err, ErrInstanceNotFound) {
+						node.reArmInstanceSync()
+					}
 					return
 				}
 				node.manager.Resync(ctx, syncTime)
@@ -506,9 +516,15 @@ type ipResyncStats struct {
 	nodeCapacity        int
 }
 
-func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
+func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time, instancesAPIReady bool) {
 	node.updateLastResync(syncTime)
 	node.recalculate(ctx)
+	if instancesAPIReady && !n.instancesAPI.HasInstance(node.InstanceID()) {
+		// Recover a node dropped from the instance cache. The caller
+		// holds the NodeManager mutex, so the instances API readiness
+		// is passed in rather than queried here.
+		node.retriggerInstanceSync()
+	}
 	allocationNeeded := node.allocationNeeded()
 	releaseNeeded := node.releaseNeeded()
 	if allocationNeeded || releaseNeeded {
@@ -569,7 +585,11 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 			continue
 		}
 		go func(node *Node, stats *resyncStats) {
-			n.resyncNode(ctx, node, stats, syncTime)
+			// n.mutex is held for the whole duration of Resync, so
+			// n.stableInstancesAPI cannot change concurrently. The
+			// workers must not acquire the mutex themselves as that
+			// would deadlock with the semaphore acquisition below.
+			n.resyncNode(ctx, node, stats, syncTime, n.stableInstancesAPI)
 			sem.Release(1)
 		}(node, &stats)
 	}
