@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -36,6 +37,7 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 			Name:     "bgp-65001",
 			LocalASN: ptr.To[int64](65001),
 		}
+		testBGPInstance = instance.NewFakeBGPInstance()
 
 		redInterfaceName       = "loop-red"
 		redInterfaceIPv4Prefix = netip.MustParsePrefix("169.254.1.1/32")
@@ -82,112 +84,120 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 			},
 		}
 
-		redPeerInterfaceIPv4RoutePolicy = &types.RoutePolicy{
-			Name: "red-peer-65001-ipv4-Interface",
-			Type: types.RoutePolicyTypeExport,
-			Statements: []*types.RoutePolicyStatement{
-				{
-					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: &types.RoutePolicyNeighborMatch{
-							Type:      types.RoutePolicyMatchAny,
-							Neighbors: []netip.Addr{netip.MustParseAddr(*redPeer65001.PeerAddress)},
-						},
-						MatchPrefixes: &types.RoutePolicyPrefixMatch{
-							Type: types.RoutePolicyMatchAny,
-							Prefixes: []types.RoutePolicyPrefix{
-								{
-									CIDR:         redInterfaceIPv4Prefix,
-									PrefixLenMin: 32,
-									PrefixLenMax: 32,
-								},
+		redPeerInterfaceIPv4RoutePolicy = &bgpTables.DesiredRoutePolicy{
+			Instance:   testBGPInstance.Name,
+			Peer:       redPeer65001.Name,
+			PolicyType: types.RoutePolicyTypeExport,
+			Priority:   InterfaceReconcilerPriority,
+			Owner:      InterfaceReconcilerName,
+			Statement: &types.RoutePolicyStatement{
+				Name: PolicyStatementName(v2.BGPInterfaceAdvert, "") + "-ipv4",
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Type:      types.RoutePolicyMatchAny,
+						Neighbors: []netip.Addr{netip.MustParseAddr(*redPeer65001.PeerAddress)},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         redInterfaceIPv4Prefix,
+								PrefixLenMin: 32,
+								PrefixLenMax: 32,
 							},
 						},
 					},
-					Actions: types.RoutePolicyActions{
-						RouteAction: types.RoutePolicyActionAccept,
-					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction: types.RoutePolicyActionAccept,
 				},
 			},
 		}
-		redPeerInterfaceIPv6RoutePolicy = &types.RoutePolicy{
-			Name: "red-peer-65001-ipv6-Interface",
-			Type: types.RoutePolicyTypeExport,
-			Statements: []*types.RoutePolicyStatement{
-				{
-					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: &types.RoutePolicyNeighborMatch{
-							Type:      types.RoutePolicyMatchAny,
-							Neighbors: []netip.Addr{netip.MustParseAddr(*redPeer65001.PeerAddress)},
-						},
-						MatchPrefixes: &types.RoutePolicyPrefixMatch{
-							Type: types.RoutePolicyMatchAny,
-							Prefixes: []types.RoutePolicyPrefix{
-								{
-									CIDR:         redInterfaceIPv6Prefix,
-									PrefixLenMin: 128,
-									PrefixLenMax: 128,
-								},
+		redPeerInterfaceIPv6RoutePolicy = &bgpTables.DesiredRoutePolicy{
+			Instance:   testBGPInstance.Name,
+			Peer:       redPeer65001.Name,
+			PolicyType: types.RoutePolicyTypeExport,
+			Priority:   InterfaceReconcilerPriority,
+			Owner:      InterfaceReconcilerName,
+			Statement: &types.RoutePolicyStatement{
+				Name: PolicyStatementName(v2.BGPInterfaceAdvert, "") + "-ipv6",
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Type:      types.RoutePolicyMatchAny,
+						Neighbors: []netip.Addr{netip.MustParseAddr(*redPeer65001.PeerAddress)},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         redInterfaceIPv6Prefix,
+								PrefixLenMin: 128,
+								PrefixLenMax: 128,
 							},
 						},
 					},
-					Actions: types.RoutePolicyActions{
-						RouteAction: types.RoutePolicyActionAccept,
-					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction: types.RoutePolicyActionAccept,
 				},
 			},
 		}
 
-		bluePeerInterfaceIPv4RoutePolicy = &types.RoutePolicy{
-			Name: "blue-peer-65001-ipv4-Interface",
-			Type: types.RoutePolicyTypeExport,
-			Statements: []*types.RoutePolicyStatement{
-				{
-					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: &types.RoutePolicyNeighborMatch{
-							Type:      types.RoutePolicyMatchAny,
-							Neighbors: []netip.Addr{netip.MustParseAddr(*bluePeer65001.PeerAddress)},
-						},
-						MatchPrefixes: &types.RoutePolicyPrefixMatch{
-							Type: types.RoutePolicyMatchAny,
-							Prefixes: []types.RoutePolicyPrefix{
-								{
-									CIDR:         blueInterfaceIPv4Prefix,
-									PrefixLenMin: 32,
-									PrefixLenMax: 32,
-								},
+		bluePeerInterfaceIPv4RoutePolicy = &bgpTables.DesiredRoutePolicy{
+			Instance:   testBGPInstance.Name,
+			Peer:       bluePeer65001.Name,
+			PolicyType: types.RoutePolicyTypeExport,
+			Priority:   InterfaceReconcilerPriority,
+			Owner:      InterfaceReconcilerName,
+			Statement: &types.RoutePolicyStatement{
+				Name: PolicyStatementName(v2.BGPInterfaceAdvert, "") + "-ipv4",
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Type:      types.RoutePolicyMatchAny,
+						Neighbors: []netip.Addr{netip.MustParseAddr(*bluePeer65001.PeerAddress)},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         blueInterfaceIPv4Prefix,
+								PrefixLenMin: 32,
+								PrefixLenMax: 32,
 							},
 						},
 					},
-					Actions: types.RoutePolicyActions{
-						RouteAction: types.RoutePolicyActionAccept,
-					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction: types.RoutePolicyActionAccept,
 				},
 			},
 		}
-		bluePeerInterfaceIPv6RoutePolicy = &types.RoutePolicy{
-			Name: "blue-peer-65001-ipv6-Interface",
-			Type: types.RoutePolicyTypeExport,
-			Statements: []*types.RoutePolicyStatement{
-				{
-					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: &types.RoutePolicyNeighborMatch{
-							Type:      types.RoutePolicyMatchAny,
-							Neighbors: []netip.Addr{netip.MustParseAddr(*bluePeer65001.PeerAddress)},
-						},
-						MatchPrefixes: &types.RoutePolicyPrefixMatch{
-							Type: types.RoutePolicyMatchAny,
-							Prefixes: []types.RoutePolicyPrefix{
-								{
-									CIDR:         blueInterfaceIPv6Prefix,
-									PrefixLenMin: 128,
-									PrefixLenMax: 128,
-								},
+		bluePeerInterfaceIPv6RoutePolicy = &bgpTables.DesiredRoutePolicy{
+			Instance:   testBGPInstance.Name,
+			Peer:       bluePeer65001.Name,
+			PolicyType: types.RoutePolicyTypeExport,
+			Priority:   InterfaceReconcilerPriority,
+			Owner:      InterfaceReconcilerName,
+			Statement: &types.RoutePolicyStatement{
+				Name: PolicyStatementName(v2.BGPInterfaceAdvert, "") + "-ipv6",
+				Conditions: types.RoutePolicyConditions{
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Type:      types.RoutePolicyMatchAny,
+						Neighbors: []netip.Addr{netip.MustParseAddr(*bluePeer65001.PeerAddress)},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         blueInterfaceIPv6Prefix,
+								PrefixLenMin: 128,
+								PrefixLenMax: 128,
 							},
 						},
 					},
-					Actions: types.RoutePolicyActions{
-						RouteAction: types.RoutePolicyActionAccept,
-					},
+				},
+				Actions: types.RoutePolicyActions{
+					RouteAction: types.RoutePolicyActionAccept,
 				},
 			},
 		}
@@ -200,7 +210,7 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 		upsertAdvertisements []*v2.CiliumBGPAdvertisement
 		upsertDevices        []*tables.Device
 		expectedPaths        map[types.Family]map[string]struct{}
-		expectedRPs          RoutePolicyMap
+		expectedRPs          []*bgpTables.DesiredRoutePolicy
 	}{
 		{
 			name: "add red peer - no advertisement",
@@ -217,7 +227,7 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {},
 			},
-			expectedRPs: map[string]*types.RoutePolicy{},
+			expectedRPs: nil,
 		},
 		{
 			name: "add red device with IPv4 addr - advertise IPv4",
@@ -244,8 +254,8 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 				},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {},
 			},
-			expectedRPs: map[string]*types.RoutePolicy{
-				redPeerInterfaceIPv4RoutePolicy.Name: redPeerInterfaceIPv4RoutePolicy,
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				redPeerInterfaceIPv4RoutePolicy,
 			},
 		},
 		{
@@ -277,9 +287,9 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 					redInterfaceIPv6Prefix.String(): struct{}{},
 				},
 			},
-			expectedRPs: map[string]*types.RoutePolicy{
-				redPeerInterfaceIPv4RoutePolicy.Name: redPeerInterfaceIPv4RoutePolicy,
-				redPeerInterfaceIPv6RoutePolicy.Name: redPeerInterfaceIPv6RoutePolicy,
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				redPeerInterfaceIPv4RoutePolicy,
+				redPeerInterfaceIPv6RoutePolicy,
 			},
 		},
 		{
@@ -307,9 +317,9 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 					redInterfaceIPv6Prefix.String(): struct{}{},
 				},
 			},
-			expectedRPs: map[string]*types.RoutePolicy{
-				redPeerInterfaceIPv4RoutePolicy.Name: redPeerInterfaceIPv4RoutePolicy,
-				redPeerInterfaceIPv6RoutePolicy.Name: redPeerInterfaceIPv6RoutePolicy,
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				redPeerInterfaceIPv4RoutePolicy,
+				redPeerInterfaceIPv6RoutePolicy,
 			},
 		},
 		{
@@ -334,11 +344,11 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 					blueInterfaceIPv6Prefix.String(): struct{}{},
 				},
 			},
-			expectedRPs: map[string]*types.RoutePolicy{
-				redPeerInterfaceIPv4RoutePolicy.Name:  redPeerInterfaceIPv4RoutePolicy,
-				redPeerInterfaceIPv6RoutePolicy.Name:  redPeerInterfaceIPv6RoutePolicy,
-				bluePeerInterfaceIPv4RoutePolicy.Name: bluePeerInterfaceIPv4RoutePolicy,
-				bluePeerInterfaceIPv6RoutePolicy.Name: bluePeerInterfaceIPv6RoutePolicy,
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				redPeerInterfaceIPv4RoutePolicy,
+				redPeerInterfaceIPv6RoutePolicy,
+				bluePeerInterfaceIPv4RoutePolicy,
+				bluePeerInterfaceIPv6RoutePolicy,
 			},
 		},
 		{
@@ -354,9 +364,9 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 					blueInterfaceIPv6Prefix.String(): struct{}{},
 				},
 			},
-			expectedRPs: map[string]*types.RoutePolicy{
-				bluePeerInterfaceIPv4RoutePolicy.Name: bluePeerInterfaceIPv4RoutePolicy,
-				bluePeerInterfaceIPv6RoutePolicy.Name: bluePeerInterfaceIPv6RoutePolicy,
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				bluePeerInterfaceIPv4RoutePolicy,
+				bluePeerInterfaceIPv6RoutePolicy,
 			},
 		},
 		{
@@ -380,7 +390,7 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {},
 			},
-			expectedRPs: map[string]*types.RoutePolicy{},
+			expectedRPs: nil,
 		},
 		{
 			name: "set blue interface to admin down - no advertisements",
@@ -403,7 +413,7 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {},
 				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {},
 			},
-			expectedRPs: map[string]*types.RoutePolicy{},
+			expectedRPs: nil,
 		},
 	}
 
@@ -411,6 +421,8 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 	req := require.New(t)
 	db := statedb.New()
 	deviceTable, err := tables.NewDeviceTable(db)
+	req.NoError(err)
+	desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db)
 	req.NoError(err)
 
 	// initialize reconciler
@@ -425,12 +437,11 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 				AdvertStore:     advertStore,
 			},
 		),
-		DB:          db,
-		DeviceTable: deviceTable,
+		DB:                      db,
+		DeviceTable:             deviceTable,
+		DesiredRoutePolicyTable: desiredRoutePolicyTable,
 	}
 	interfaceReconciler := NewInterfaceReconciler(p).Reconciler.(*InterfaceReconciler)
-	testBGPInstance := instance.NewFakeBGPInstance()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// upsert PeerConfigs and advertisements
@@ -452,14 +463,15 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 
 			desiredConfig := testInstanceConfig.DeepCopy()
 			desiredConfig.Peers = tt.peers
+			reconcileParams := ReconcileParams{
+				BGPInstance:   testBGPInstance,
+				DesiredConfig: desiredConfig,
+				CiliumNode:    testCiliumNode,
+			}
 
 			// run reconciler twice to ensure idempotency
 			for range 2 {
-				err := interfaceReconciler.Reconcile(context.Background(), ReconcileParams{
-					BGPInstance:   testBGPInstance,
-					DesiredConfig: desiredConfig,
-					CiliumNode:    testCiliumNode,
-				})
+				err := interfaceReconciler.Reconcile(context.Background(), reconcileParams)
 				req.NoError(err)
 			}
 
@@ -473,10 +485,8 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 				runningFamilyPaths[family] = pathSet
 			}
 			req.Equal(tt.expectedPaths, runningFamilyPaths)
-
-			// check if the route policies are as expected
-			runningRPs := interfaceReconciler.getMetadata(testBGPInstance).RoutePolicies
-			req.Equal(tt.expectedRPs, runningRPs)
+			requireDesiredRoutePolicies(t, interfaceReconciler.db, interfaceReconciler.desiredRoutePolicyTable,
+				testBGPInstance.Name, interfaceReconciler.Name(), tt.expectedRPs)
 		})
 	}
 }
