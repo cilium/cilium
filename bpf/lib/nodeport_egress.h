@@ -376,7 +376,22 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv4(ctx, ip4, &args->target))
 		goto apply_snat;
 
+	ret = NAT_PUNT_TO_STACK;
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+# if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+	if (args->target.cluster_id != 0 &&
+	    args->target.cluster_id != CONFIG(cluster_id)) {
+		args->target.addr = IPV4_INTER_CLUSTER_SNAT;
+		args->target.from_local_endpoint = true;
+
+		ret = NAT_NEEDED;
+	}
+# endif
+#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
+
+#if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off);
+#endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
 	if (IS_ERR(ret))
 		goto out;
 
