@@ -145,11 +145,26 @@ bool sock_proto_enabled(__u8 proto)
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
 					       __be32 dst_ip, __be16 dst_port,
-					       __u16 rev_nat_id)
+					       __u16 rev_nat_id, bool is_connect)
 {
 	struct ipv4_revnat_entry val = {}, *tmp;
 	struct ipv4_revnat_tuple key = {};
 	int ret = 0;
+	val.address = dst_ip;
+	val.port = dst_port;
+	val.rev_nat_index = rev_nat_id;
+
+	if (ctx->sk && is_connect) {
+		struct ipv4_revnat_entry *sk_val =
+			sk_storage_get(&cilium_lb4_reverse_sk_st, ctx->sk, &val,
+				       BPF_SK_STORAGE_GET_F_CREATE);
+
+		if (sk_val && memcmp(sk_val, &val, sizeof(val))) {
+			sk_val->address = val.address;
+			sk_val->port = val.port;
+			sk_val->rev_nat_index = val.rev_nat_index;
+		}
+	}
 
 	/* Note that for the revnat map the protocol is not needed since the
 	 * cookie is already part of the key which is an unique identifier,
@@ -158,11 +173,6 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	key.cookie = sock_local_cookie(ctx);
 	key.address = backend->address;
 	key.port = backend->port;
-
-	val.address = dst_ip;
-	val.port = dst_port;
-	val.rev_nat_index = rev_nat_id;
-
 	tmp = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
 	if (!tmp || memcmp(tmp, &val, sizeof(val))) {
 		ret = map_update_elem(&cilium_lb4_reverse_sk, &key, &val, 0);
@@ -181,15 +191,15 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 static __always_inline int sock4_delete_revnat(const struct bpf_sock *ctx,
 					       struct bpf_sock *ctx_full)
 {
-    struct ipv4_revnat_tuple key = {};
-    int ret = 0;
+	struct ipv4_revnat_tuple key = {};
+	int ret = 0;
 
-    key.cookie = get_socket_cookie(ctx_full);
-    key.address = (__u32)ctx->dst_ip4;
-    key.port = (__u16)ctx->dst_port;
+	key.cookie = get_socket_cookie(ctx_full);
+	key.address = (__u32)ctx->dst_ip4;
+	key.port = (__u16)ctx->dst_port;
 
-    ret = map_delete_elem(&cilium_lb4_reverse_sk, &key);
-    return ret;
+	ret = map_delete_elem(&cilium_lb4_reverse_sk, &key);
+	return ret;
 }
 
 static __always_inline bool
@@ -452,7 +462,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 out:
 #endif
 	if (sock4_update_revnat(ctx_full, backend, dst_ip, dst_port,
-				svc->rev_nat_index) < 0) {
+				svc->rev_nat_index, is_connect) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
@@ -600,7 +610,13 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_REV, dst_ip,
 				bpf_ntohs(dst_port), false);
-	val = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
+
+	val = NULL;
+	if (ctx_full->sk)
+		val = sk_storage_get(&cilium_lb4_reverse_sk_st, ctx_full->sk, 0, 0);
+	if (!val)
+		val = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
+
 	if (val) {
 		const struct lb4_service *svc;
 		struct lb4_key svc_key = {
@@ -617,6 +633,8 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
 		    (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))) {
 			map_delete_elem(&cilium_lb4_reverse_sk, &key);
+			if (ctx_full->sk)
+				sk_storage_delete(&cilium_lb4_reverse_sk_st, ctx_full->sk);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}
@@ -670,20 +688,31 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
 					       const union v6addr *dst_ip,
 					       __be16 dst_port,
-					       __u16 rev_nat_index)
+					       __u16 rev_nat_index, bool is_connect)
 {
 	struct ipv6_revnat_entry val = {}, *tmp;
 	struct ipv6_revnat_tuple key = {};
 	int ret = 0;
 
-	key.cookie = sock_local_cookie(ctx);
-	key.address = backend->address;
-	key.port = backend->port;
-
 	val.address = *dst_ip;
 	val.port = dst_port;
 	val.rev_nat_index = rev_nat_index;
 
+	if (ctx->sk && is_connect) {
+		struct ipv6_revnat_entry *sk_val =
+			sk_storage_get(&cilium_lb6_reverse_sk_st, ctx->sk, &val,
+				       BPF_SK_STORAGE_GET_F_CREATE);
+
+		if (sk_val && memcmp(sk_val, &val, sizeof(val))) {
+			sk_val->address = val.address;
+			sk_val->port = val.port;
+			sk_val->rev_nat_index = val.rev_nat_index;
+		}
+	}
+
+	key.cookie = sock_local_cookie(ctx);
+	key.address = backend->address;
+	key.port = backend->port;
 	tmp = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
 	if (!tmp || memcmp(tmp, &val, sizeof(val))) {
 		ret = map_update_elem(&cilium_lb6_reverse_sk, &key, &val, 0);
@@ -695,7 +724,6 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 		if (ret == 0 && !tmp)
 			map_lookup_elem(&cilium_lb6_reverse_sk, &key);
 	}
-
 	return ret;
 }
 
@@ -714,15 +742,15 @@ static __always_inline void ctx_get_v6_dst_address(const struct bpf_sock *ctx,
 
 static __always_inline int sock6_delete_revnat(struct bpf_sock *ctx)
 {
-    struct ipv6_revnat_tuple key = {};
-    int ret = 0;
+	struct ipv6_revnat_tuple key = {};
+	int ret = 0;
 
-    key.cookie = get_socket_cookie(ctx);
-    ctx_get_v6_dst_address(ctx, &key.address);
-    key.port = (__u16)ctx->dst_port;
+	key.cookie = get_socket_cookie(ctx);
+	ctx_get_v6_dst_address(ctx, &key.address);
+	key.port = (__u16)ctx->dst_port;
 
-    ret = map_delete_elem(&cilium_lb6_reverse_sk, &key);
-    return ret;
+	ret = map_delete_elem(&cilium_lb6_reverse_sk, &key);
+	return ret;
 }
 #endif /* ENABLE_IPV6 */
 
@@ -1160,7 +1188,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 out:
 #endif
 	if (sock6_update_revnat(ctx, backend, &dst_ip, dst_port,
-				svc->rev_nat_index) < 0) {
+				svc->rev_nat_index, is_connect) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
@@ -1238,7 +1266,12 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_REV, &key.address,
 				bpf_ntohs(dst_port), false);
 
-	val = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
+	val = NULL;
+	if (ctx->sk)
+		val = sk_storage_get(&cilium_lb6_reverse_sk_st, ctx->sk, 0, 0);
+	if (!val)
+		val = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
+
 	if (val) {
 		const struct lb6_service *svc;
 		struct lb6_key svc_key = {
@@ -1255,6 +1288,8 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
 		    (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))) {
 			map_delete_elem(&cilium_lb6_reverse_sk, &key);
+			if (ctx->sk)
+				sk_storage_delete(&cilium_lb6_reverse_sk_st, ctx->sk);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}

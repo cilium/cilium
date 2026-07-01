@@ -116,8 +116,10 @@ type SockTermProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type SockTermMapSpecs struct {
-	CiliumLb4ReverseSk *ebpf.MapSpec `ebpf:"cilium_lb4_reverse_sk"`
-	CiliumLb6ReverseSk *ebpf.MapSpec `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb4ReverseSk   *ebpf.MapSpec `ebpf:"cilium_lb4_reverse_sk"`
+	CiliumLb4ReverseSkSt *ebpf.MapSpec `ebpf:"cilium_lb4_reverse_sk_st"`
+	CiliumLb6ReverseSk   *ebpf.MapSpec `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb6ReverseSkSt *ebpf.MapSpec `ebpf:"cilium_lb6_reverse_sk_st"`
 }
 
 // SockTermVariableSpecs contains global variables before they are loaded into the kernel.
@@ -147,14 +149,18 @@ func (o *SockTermObjects) Close() error {
 //
 // It can be passed to LoadSockTermObjects or ebpf.CollectionSpec.LoadAndAssign.
 type SockTermMaps struct {
-	CiliumLb4ReverseSk *ebpf.Map `ebpf:"cilium_lb4_reverse_sk"`
-	CiliumLb6ReverseSk *ebpf.Map `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb4ReverseSk   *ebpf.Map `ebpf:"cilium_lb4_reverse_sk"`
+	CiliumLb4ReverseSkSt *ebpf.Map `ebpf:"cilium_lb4_reverse_sk_st"`
+	CiliumLb6ReverseSk   *ebpf.Map `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb6ReverseSkSt *ebpf.Map `ebpf:"cilium_lb6_reverse_sk_st"`
 }
 
 func (m *SockTermMaps) Close() error {
 	return _SockTermClose(
 		m.CiliumLb4ReverseSk,
+		m.CiliumLb4ReverseSkSt,
 		m.CiliumLb6ReverseSk,
+		m.CiliumLb6ReverseSkSt,
 	)
 }
 

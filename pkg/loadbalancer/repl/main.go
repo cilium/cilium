@@ -8,6 +8,7 @@ import (
 
 	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
@@ -78,6 +80,7 @@ import (
 //
 // These commands are also part of the "cilium-dbg shell" command in the cilium-agent
 // deployment.
+
 func main() {
 	Hive.RegisterFlags(pflag.CommandLine)
 	pflag.Parse()
@@ -115,5 +118,7 @@ var Hive = hive.New(
 			return &cfg
 		},
 	),
+	job.Cell,
+	registry.Cell,
 	lbcell.Cell,
 )

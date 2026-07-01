@@ -70,6 +70,7 @@ const (
 	CiliumLB4MaglevInner                = "cilium_lb4_maglev_inner"
 	CiliumLB4ReverseNAT                 = "cilium_lb4_reverse_nat"
 	CiliumLB4ReverseSk                  = "cilium_lb4_reverse_sk"
+	CiliumLB4ReverseSkSt                = "cilium_lb4_reverse_sk_st"
 	CiliumLB4ServicesV2                 = "cilium_lb4_services_v2"
 	CiliumLB4SourceRange                = "cilium_lb4_source_range"
 	CiliumLB6Affinity                   = "cilium_lb6_affinity"
@@ -79,6 +80,7 @@ const (
 	CiliumLB6MaglevInner                = "cilium_lb6_maglev_inner"
 	CiliumLB6ReverseNAT                 = "cilium_lb6_reverse_nat"
 	CiliumLB6ReverseSk                  = "cilium_lb6_reverse_sk"
+	CiliumLB6ReverseSkSt                = "cilium_lb6_reverse_sk_st"
 	CiliumLB6ServicesV2                 = "cilium_lb6_services_v2"
 	CiliumLB6SourceRange                = "cilium_lb6_source_range"
 	CiliumLBACT                         = "cilium_lb_act"
@@ -562,8 +564,22 @@ func newCiliumLB4ReverseSkSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "ipv4_revnat_tuple"),
 		ValueSize:  8,
 		Value:      anyTypeByName(btf, "ipv4_revnat_entry"),
-		MaxEntries: 262144,
+		MaxEntries: 131072,
 		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumLB4ReverseSkStSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumLB4ReverseSkSt,
+		Type:       ebpf.SkStorage,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "int"),
+		ValueSize:  8,
+		Value:      anyTypeByName(btf, "ipv4_revnat_entry"),
+		MaxEntries: 0,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -687,8 +703,22 @@ func newCiliumLB6ReverseSkSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "ipv6_revnat_tuple"),
 		ValueSize:  20,
 		Value:      anyTypeByName(btf, "ipv6_revnat_entry"),
-		MaxEntries: 262144,
+		MaxEntries: 131072,
 		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumLB6ReverseSkStSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumLB6ReverseSkSt,
+		Type:       ebpf.SkStorage,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "int"),
+		ValueSize:  20,
+		Value:      anyTypeByName(btf, "ipv6_revnat_entry"),
+		MaxEntries: 0,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -1342,6 +1372,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumLB4MaglevSpec,
 	newCiliumLB4ReverseNATSpec,
 	newCiliumLB4ReverseSkSpec,
+	newCiliumLB4ReverseSkStSpec,
 	newCiliumLB4ServicesV2Spec,
 	newCiliumLB4SourceRangeSpec,
 	newCiliumLB6AffinitySpec,
@@ -1350,6 +1381,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumLB6MaglevSpec,
 	newCiliumLB6ReverseNATSpec,
 	newCiliumLB6ReverseSkSpec,
+	newCiliumLB6ReverseSkStSpec,
 	newCiliumLB6ServicesV2Spec,
 	newCiliumLB6SourceRangeSpec,
 	newCiliumLBACTSpec,

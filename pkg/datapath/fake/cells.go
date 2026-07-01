@@ -44,6 +44,7 @@ import (
 	fakeencrypt "github.com/cilium/cilium/pkg/maps/encrypt/fake"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -63,6 +64,7 @@ var Cell = cell.Module(
 	"fake-datapath",
 	"Fake Datapath",
 
+	registry.Cell,
 	cell.Provide(
 		func(lifecycle cell.Lifecycle, na node.Addressing, nodeManager manager.NodeManager) (node.IDHandler, node.Handler, *fakenode.Handler) {
 			fakeNodeHandler := fakenode.NewHandler()

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -35,6 +36,7 @@ type lbmapsParams struct {
 	MaglevConfig maglev.Config
 	Config       loadbalancer.Config
 	ExtConfig    loadbalancer.ExternalConfig
+	Registry     *registry.MapRegistry
 }
 
 func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
@@ -58,7 +60,7 @@ func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
 		}
 	}
 
-	r := &BPFLBMaps{Log: p.Log, Pinned: pinned, Cfg: p.Config, ExtCfg: p.ExtConfig, MaglevCfg: p.MaglevConfig}
+	r := &BPFLBMaps{Log: p.Log, Pinned: pinned, Cfg: p.Config, ExtCfg: p.ExtConfig, MaglevCfg: p.MaglevConfig, Registry: p.Registry}
 	p.Lifecycle.Append(r)
 	return bpf.NewMapOut(LBMaps(r))
 }
@@ -130,15 +132,19 @@ type BPFLBMaps struct {
 	Cfg       loadbalancer.Config
 	ExtCfg    loadbalancer.ExternalConfig
 	MaglevCfg maglev.Config
+	Registry  *registry.MapRegistry
 
-	service4Map, service6Map         *bpf.Map
-	backend4Map, backend6Map         *bpf.Map
-	revNat4Map, revNat6Map           *bpf.Map
-	affinityMatchMap                 *bpf.Map
-	affinity4Map, affinity6Map       *bpf.Map
-	sockRevNat4Map, sockRevNat6Map   *bpf.Map
-	sourceRange4Map, sourceRange6Map *bpf.Map
-	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
+	service4Map, service6Map   *bpf.Map
+	backend4Map, backend6Map   *bpf.Map
+	revNat4Map, revNat6Map     *bpf.Map
+	affinityMatchMap           *bpf.Map
+	affinity4Map, affinity6Map *bpf.Map
+	// Reverse NAT sock maps (LRU fallback)
+	sockRevNat4Map, sockRevNat6Map *bpf.Map
+	// Reverse NAT sock maps (SK_STORAGE)
+	sockRevNat4StMap, sockRevNat6StMap *bpf.Map
+	sourceRange4Map, sourceRange6Map   *bpf.Map
+	maglev4Map, maglev6Map             *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
 
 	maglevInnerMapSpec *ebpf.MapSpec
 
@@ -293,6 +299,22 @@ func NewSockRevNat6Map(maxEntries int) *bpf.Map {
 	)
 }
 
+func NewSockRevNat4StMap(reg *registry.MapRegistry) *bpf.Map {
+	m, err := bpf.NewMapFromRegistry(reg, SockRevNat4StMapName, &SockRevNatStKey{}, &SockRevNat4Value{})
+	if err != nil {
+		panic(fmt.Sprintf("failed to create %s from registry: %s", SockRevNat4StMapName, err))
+	}
+	return m
+}
+
+func NewSockRevNat6StMap(reg *registry.MapRegistry) *bpf.Map {
+	m, err := bpf.NewMapFromRegistry(reg, SockRevNat6StMapName, &SockRevNatStKey{}, &SockRevNat6Value{})
+	if err != nil {
+		panic(fmt.Sprintf("failed to create %s from registry: %s", SockRevNat6StMapName, err))
+	}
+	return m
+}
+
 func NewMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bpf.Map {
 	return bpf.NewMapWithInnerSpec(
 		name,
@@ -324,6 +346,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.revNat4Map, NewRevNat4Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockRevNat4StMap, func(_ int) *bpf.Map { return NewSockRevNat4StMap(r.Registry) }, 0},
 		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
 	}
 	v6Maps := []mapDesc{
@@ -332,6 +355,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.revNat6Map, NewRevNat6Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockRevNat6StMap, func(_ int) *bpf.Map { return NewSockRevNat6StMap(r.Registry) }, 0},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
 	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}
