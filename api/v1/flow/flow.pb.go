@@ -1567,6 +1567,17 @@ type Flow struct {
 	IpTraceId *IPTraceID `protobuf:"bytes,40,opt,name=ip_trace_id,json=ipTraceId,proto3" json:"ip_trace_id,omitempty"`
 	// only applicable to Verdict = DROPPED.
 	DropReasonDesc DropReason `protobuf:"varint,25,opt,name=drop_reason_desc,json=dropReasonDesc,proto3,enum=flow.DropReason" json:"drop_reason_desc,omitempty"`
+	// ext_error is the extended error code reported by the datapath alongside
+	// the primary drop reason (see DropNotify.ExtError in pkg/monitor). It
+	// provides additional context for the drop (for example, the BPF FIB
+	// lookup result for DROP_NO_FIB). Only applicable to Verdict = DROPPED.
+	ExtError int32 `protobuf:"varint,42,opt,name=ext_error,json=extError,proto3" json:"ext_error,omitempty"`
+	// ext_drop_reason_desc is the human-readable extended drop reason
+	// combining drop_reason_desc with ext_error (equivalent to the string
+	// produced by cilium monitor's DropReasonExt). Only set for drops
+	// reported via DropNotify; not populated for policy verdict denials,
+	// which carry their reason in drop_reason_desc.
+	ExtDropReasonDesc string `protobuf:"bytes,43,opt,name=ext_drop_reason_desc,json=extDropReasonDesc,proto3" json:"ext_drop_reason_desc,omitempty"`
 	// is_reply indicates that this was a packet (L4) or message (L7) in the
 	// reply direction. May be absent (in which case it is unknown whether it
 	// is a reply or not).
@@ -1852,6 +1863,20 @@ func (x *Flow) GetDropReasonDesc() DropReason {
 		return x.DropReasonDesc
 	}
 	return DropReason_DROP_REASON_UNKNOWN
+}
+
+func (x *Flow) GetExtError() int32 {
+	if x != nil {
+		return x.ExtError
+	}
+	return 0
+}
+
+func (x *Flow) GetExtDropReasonDesc() string {
+	if x != nil {
+		return x.ExtDropReasonDesc
+	}
+	return ""
 }
 
 func (x *Flow) GetIsReply() *wrapperspb.BoolValue {
@@ -5508,7 +5533,7 @@ var File_flow_flow_proto protoreflect.FileDescriptor
 
 const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbf\x10\n" +
+	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8d\x11\n" +
 	"\x04Flow\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x12\n" +
 	"\x04uuid\x18\" \x01(\tR\x04uuid\x12'\n" +
@@ -5542,7 +5567,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\ftrace_reason\x18$ \x01(\x0e2\x11.flow.TraceReasonR\vtraceReason\x12\"\n" +
 	"\x04file\x18& \x01(\v2\x0e.flow.FileInfoR\x04file\x12/\n" +
 	"\vip_trace_id\x18( \x01(\v2\x0f.flow.IPTraceIDR\tipTraceId\x12:\n" +
-	"\x10drop_reason_desc\x18\x19 \x01(\x0e2\x10.flow.DropReasonR\x0edropReasonDesc\x125\n" +
+	"\x10drop_reason_desc\x18\x19 \x01(\x0e2\x10.flow.DropReasonR\x0edropReasonDesc\x12\x1b\n" +
+	"\text_error\x18* \x01(\x05R\bextError\x12/\n" +
+	"\x14ext_drop_reason_desc\x18+ \x01(\tR\x11extDropReasonDesc\x125\n" +
 	"\bis_reply\x18\x1a \x01(\v2\x1a.google.protobuf.BoolValueR\aisReply\x12G\n" +
 	"\x13debug_capture_point\x18\x1b \x01(\x0e2\x17.flow.DebugCapturePointR\x11debugCapturePoint\x124\n" +
 	"\tinterface\x18\x1c \x01(\v2\x16.flow.NetworkInterfaceR\tinterface\x12\x1d\n" +
