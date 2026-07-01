@@ -141,7 +141,6 @@ const (
 	unableGetNode                     = "Unable to get node resource"                                           // cf. https://github.com/cilium/cilium/issues/29710
 	objectHasBeenModified             = "the object has been modified; please apply your changes"               // cf. https://github.com/cilium/cilium/issues/29712
 	etcdTimeout                       = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
-	endpointRestoreFailed             = "Unable to restore endpoint, ignoring"                                  // cf. https://github.com/cilium/cilium/issues/29716
 	cantFindIdentityInCache           = "unable to release identity: unable to find key in local cache"         // cf. https://github.com/cilium/cilium/issues/29732
 	keyAllocFailedFoundMaster         = "Found master key after proceeding with new allocation"                 // cf. https://github.com/cilium/cilium/issues/29738
 	cantRecreateMasterKey             = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
@@ -195,7 +194,7 @@ var badLogMessages = map[string][]string{
 		failedToListCRDs, retrieveResLock, failedToRelLockEmptyName, failedToUpdateLock,
 		failedToReleaseLock, errorCreatingInitialLeader, errorCreatingInitialLeaderGEK8s35},
 	logutils.WarningLogs: {cantEnableJIT, podCIDRUnavailable, unableGetNode,
-		objectHasBeenModified, etcdTimeout, endpointRestoreFailed,
+		objectHasBeenModified, etcdTimeout,
 		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
 		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs, mutationDetector},
 }

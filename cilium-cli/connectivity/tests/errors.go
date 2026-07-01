@@ -60,7 +60,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
 	warningLogExceptions := []logMatcher{cantEnableJIT, podCIDRUnavailable,
 		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
-		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
+		legacyBGPFeature, etcdTimeout, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
 		hubbleQueueFull, reflectPanic, svcNotFound, gobgpv3Warnings, gobgpNotification, gobgpNoMatchingWithdrawPath,
@@ -466,7 +466,6 @@ const (
 	noBackendResponse                stringMatcher = "The kernel does not support --service-no-backend-response=reject"      // cf. https://github.com/cilium/cilium/issues/29733
 	legacyBGPFeature                 stringMatcher = "You are using the legacy BGP feature"                                  // Expected when testing the legacy BGP feature.
 	etcdTimeout                      stringMatcher = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
-	endpointRestoreFailed            stringMatcher = "Unable to restore endpoint, ignoring"                                  // cf. https://github.com/cilium/cilium/issues/29716
 	unableRestoreRouterIP            stringMatcher = "Unable to restore router IP from filesystem"                           // cf. https://github.com/cilium/cilium/issues/29715
 	routerIPReallocated              stringMatcher = "Router IP could not be re-allocated"                                   // cf. https://github.com/cilium/cilium/issues/29715
 	cantFindIdentityInCache          stringMatcher = "unable to find key in local cache"                                     // cf. https://github.com/cilium/cilium/issues/29732
