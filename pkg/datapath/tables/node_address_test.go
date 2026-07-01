@@ -1029,11 +1029,13 @@ func TestNodeAddressFromRoute(t *testing.T) {
 
 	// Define our test scenarios.
 	testCases := []struct {
-		name               string
-		nodePortAddrs      []string
-		ipAlreadyOnDevice  bool // To test duplicate avoidance
-		customizeRoute     func(*Route)
-		expectNodePortFlag bool
+		name                string
+		nodePortAddrs       []string
+		ipAlreadyOnDevice   bool // To test duplicate avoidance
+		differentIPOnDevice bool // To test primary selection with existing device IP
+		customizeRoute      func(*Route)
+		expectNodePortFlag  bool
+		expectSecondary     bool // Expect Primary to be false
 	}{
 		{
 			name:               "no-nodeport-whitelist",
@@ -1073,6 +1075,21 @@ func TestNodeAddressFromRoute(t *testing.T) {
 			name:               "ipv6-route-no-nodeport-match",
 			nodePortAddrs:      []string{"2001:db9::/64"},
 			expectNodePortFlag: false,
+		},
+		{
+			name:                "device-has-different-primary-ip",
+			differentIPOnDevice: true,
+			expectSecondary:     true,
+		},
+		{
+			name:                "ipv6-route-device-has-different-primary-ip",
+			differentIPOnDevice: true,
+			expectSecondary:     true,
+		},
+		{
+			name:                "ipv6-route-cross-family-device-has-different-primary-ip",
+			differentIPOnDevice: true,
+			expectSecondary:     false,
 		},
 	}
 
@@ -1140,9 +1157,30 @@ func TestNodeAddressFromRoute(t *testing.T) {
 			txn := db.WriteTxn(devices, routes)
 			_, watch := nodeAddrs.AllWatch(txn)
 
+			var differentIP netip.Addr
+			if tc.differentIPOnDevice {
+				if strings.Contains(tc.name, "cross-family") {
+					if strings.Contains(tc.name, "ipv6") {
+						differentIP = netip.MustParseAddr("10.0.0.1")
+					} else {
+						differentIP = netip.MustParseAddr("2001:db8::99")
+					}
+				} else {
+					if strings.Contains(tc.name, "ipv6") {
+						differentIP = netip.MustParseAddr("2001:db8::99")
+					} else {
+						differentIP = netip.MustParseAddr("10.0.0.1")
+					}
+				}
+			}
+
 			if tc.ipAlreadyOnDevice {
 				testDeviceWithAddr := *testDevice // clone
 				testDeviceWithAddr.Addrs = []DeviceAddress{{Addr: routeBasedIP, Scope: RT_SCOPE_UNIVERSE}}
+				devices.Insert(txn, &testDeviceWithAddr)
+			} else if tc.differentIPOnDevice {
+				testDeviceWithAddr := *testDevice // clone
+				testDeviceWithAddr.Addrs = []DeviceAddress{{Addr: differentIP, Scope: RT_SCOPE_UNIVERSE}}
 				devices.Insert(txn, &testDeviceWithAddr)
 			} else {
 				devices.Insert(txn, testDevice)
@@ -1209,7 +1247,7 @@ func TestNodeAddressFromRoute(t *testing.T) {
 
 			require.NotNil(t, foundAddr, "Expected address %s to be discovered from route, but it was not", routeBasedIP)
 			assert.Equal(t, "eth0", foundAddr.DeviceName, "Address should be associated with correct device")
-			assert.True(t, foundAddr.Primary, "Address discovered from a route should be considered Primary")
+			assert.Equal(t, !tc.expectSecondary, foundAddr.Primary, "Address discovered from a route Primary flag was not as expected")
 			assert.Equal(t, tc.expectNodePortFlag, foundAddr.NodePort, "NodePort flag for address %s was not as expected", routeBasedIP)
 
 			// Test route deletion
