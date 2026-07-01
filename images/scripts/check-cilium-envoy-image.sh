@@ -12,9 +12,10 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-image="$(yq '.envoy.image.repository' ./install/kubernetes/cilium/values.yaml)"
-image_tag="$(yq '.envoy.image.tag' ./install/kubernetes/cilium/values.yaml)"
-image_sha256="$(yq '.envoy.image.digest' ./install/kubernetes/cilium/values.yaml)"
+MAKEFILEPATH=${MAKEFILEPATH:-"./install/kubernetes/Makefile.values"}
+image="$(sed -n -E 's/^export[[:space:]]+CILIUM_ENVOY_REPO[?]?=(.*)$/\1/p' "${MAKEFILEPATH}")"
+image_tag="$(sed -n -E 's/^export[[:space:]]+CILIUM_ENVOY_VERSION[?]?=(.*)$/\1/p' "${MAKEFILEPATH}")"
+image_sha256="$(sed -n -E 's/^export[[:space:]]+CILIUM_ENVOY_DIGEST[?]?=(.*)$/\1/p' "${MAKEFILEPATH}")"
 
 # pre-check for sed, in case that this script may fail to detect change when the `sed` command fails to replace the string and return code 0
 image_regular="(ARG CILIUM_ENVOY_IMAGE=${image}:)(.*)(@sha256:[0-9a-z]*)"
