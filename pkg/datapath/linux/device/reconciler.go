@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -30,11 +29,10 @@ func registerReconciler(
 	params reconciler.Params,
 	lc cell.Lifecycle,
 	tbl statedb.RWTable[*DesiredDevice],
-	linuxDevices statedb.Table[*tables.Device],
 	log *slog.Logger,
 	config *option.DaemonConfig,
 ) (reconciler.Reconciler[*DesiredDevice], error) {
-	ops := newOps(lc, params.DB, tbl, linuxDevices, log, config)
+	ops := newOps(lc, tbl, log, config)
 	rec, err := reconciler.Register(
 		params,
 		tbl,
@@ -49,11 +47,9 @@ func registerReconciler(
 }
 
 type ops struct {
-	db           *statedb.DB
-	tbl          statedb.Table[*DesiredDevice]
-	linuxDevices statedb.Table[*tables.Device]
-	log          *slog.Logger
-	conf         *option.DaemonConfig
+	tbl  statedb.Table[*DesiredDevice]
+	log  *slog.Logger
+	conf *option.DaemonConfig
 
 	handle        *netlink.Handle
 	wal           *wal.Writer[*reconcilerEvent]
@@ -62,18 +58,14 @@ type ops struct {
 
 func newOps(
 	lifecycle cell.Lifecycle,
-	db *statedb.DB,
 	tbl statedb.Table[*DesiredDevice],
-	linuxDevices statedb.Table[*tables.Device],
 	log *slog.Logger,
 	conf *option.DaemonConfig,
 ) *ops {
 	ops := &ops{
-		db:           db,
-		tbl:          tbl,
-		linuxDevices: linuxDevices,
-		log:          log,
-		conf:         conf,
+		tbl:  tbl,
+		log:  log,
+		conf: conf,
 
 		persistedKeys: set.NewSet[DesiredDeviceKey](),
 	}
