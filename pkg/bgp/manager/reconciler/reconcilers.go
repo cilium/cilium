@@ -23,13 +23,15 @@ const (
 	ServiceReconcilerName        = "Service"
 	PodCIDRReconcilerName        = "PodCIDR"
 	InterfaceReconcilerName      = "Interface"
+	RoutePolicyReconcilerName    = "RoutePolicy"
 )
 
 // Reconciler Priorities, lower number means higher priority. It is used to determine the
 // order in which reconcilers are called. Reconcilers are called from lowest to highest on
 // each Reconcile event.
 const (
-	NeighborReconcilerPriority       = 60
+	NeighborReconcilerPriority       = 110 // run last to populate RIB and policies before neighbors are added so that EOR mark is correct
+	RoutePolicyReconcilerPriority    = 100 // run after config reconcilers to populate policies desired by them
 	PodIPPoolReconcilerPriority      = 50
 	ServiceReconcilerPriority        = 40
 	PodCIDRReconcilerPriority        = 30
@@ -72,6 +74,7 @@ var ConfigReconcilers = cell.Provide(
 	NewPodIPPoolReconciler,
 	NewServiceReconciler,
 	NewInterfaceReconciler,
+	NewRoutePolicyReconciler,
 )
 
 // GetActiveReconcilers returns a list of reconcilers in order of priority that should be used to reconcile the BGP config.
