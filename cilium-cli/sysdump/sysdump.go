@@ -418,6 +418,13 @@ func (c *Collector) AbsoluteTempPath(f string) string {
 
 func (c *Collector) WithFileSink(filename string, fn func(io.Writer) error) error {
 	path := c.AbsoluteTempPath(filename)
+	// filename can be derived from data collected inside a target pod (for
+	// example the CNI config file names that SubmitCniConflistSubtask reads
+	// from `ls` output), so reject anything that resolves outside the sysdump
+	// directory before opening it.
+	if !strings.HasPrefix(filepath.Clean(path), filepath.Clean(c.sysdumpDir)+string(os.PathSeparator)) {
+		return fmt.Errorf("refusing to write %q outside of the sysdump directory", filename)
+	}
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileMode)
 	if err != nil {
 		return err
