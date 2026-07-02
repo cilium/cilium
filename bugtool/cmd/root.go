@@ -22,6 +22,9 @@ import (
 	"github.com/cilium/workerpool"
 	"github.com/spf13/cobra"
 
+	// Configure global netlink handle with default settings.
+	_ "github.com/cilium/cilium/pkg/datapath/inl"
+
 	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/cmdref"

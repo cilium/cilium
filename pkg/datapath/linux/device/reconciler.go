@@ -18,7 +18,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/container/set"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/inl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -85,7 +85,7 @@ func newOps(
 
 func (ops *ops) Start(_ cell.HookContext) error {
 	var err error
-	ops.handle, err = netlink.NewHandle()
+	ops.handle, err = inl.NewHandle()
 	if err != nil {
 		return err
 	}
@@ -203,10 +203,7 @@ func (ops *ops) Prune(_ context.Context, txn statedb.ReadTxn, objects iter.Seq2[
 	for key := range ops.persistedKeys.Members() {
 		_, _, found := ops.tbl.Get(txn, DesiredDeviceNameIndex.Query(key.Name))
 		if !found {
-			link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
-				//nolint:forbidigo
-				return ops.handle.LinkByName(key.Name)
-			})
+			link, err := ops.handle.LinkByName(key.Name)
 			// best effort cleanup of link which is present in WAL but missing in desired devices table.
 			if err == nil {
 				_ = ops.handle.LinkDel(link)
@@ -253,10 +250,7 @@ func (ops *ops) resolveOwnedLink(obj *DesiredDevice) (nl netlink.Link, oldNl net
 		return nil, nil, fmt.Errorf("failed to translate to netlink link: %w", err)
 	}
 
-	oldNl, err = safenetlink.WithRetryResult(func() (netlink.Link, error) {
-		//nolint:forbidigo
-		return ops.handle.LinkByName(nl.Attrs().Name)
-	})
+	oldNl, err = ops.handle.LinkByName(nl.Attrs().Name)
 	if err != nil {
 		if errors.As(err, &netlink.LinkNotFoundError{}) {
 			return nl, nil, nil

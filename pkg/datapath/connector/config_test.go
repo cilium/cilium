@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -585,7 +584,7 @@ func (m *ifBufferMargin) query(attr netlink.Link) error {
 
 	defer netlink.LinkDel(attr)
 
-	link, err := safenetlink.LinkByName(attr.Attrs().Name)
+	link, err := netlink.LinkByName(attr.Attrs().Name)
 	if err != nil {
 		return fmt.Errorf("query fake link: %w", err)
 	}

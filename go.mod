@@ -325,6 +325,8 @@ require (
 // as to why we are using a private fork.
 replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.21.0-1
 
+replace github.com/vishvananda/netlink => github.com/ti-mo/vnetlink v0.0.0-20260702083455-de084cb09f9a
+
 tool (
 	github.com/cilium/cilium/tools/dpgen
 	github.com/cilium/deepequal-gen

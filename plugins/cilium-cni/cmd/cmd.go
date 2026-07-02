@@ -27,13 +27,15 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
+	// Configure global netlink handle with default settings.
+	_ "github.com/cilium/cilium/pkg/datapath/inl"
+
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -238,7 +240,7 @@ func allocateIPsWithDelegatedPlugin(
 				masterMac = ifMac.String()
 			}
 		} else if iface.Name != "" {
-			if uplink, err := safenetlink.LinkByName(iface.Name); err != nil {
+			if uplink, err := netlink.LinkByName(iface.Name); err != nil {
 				return nil, releaseFunc, fmt.Errorf("failed to get uplink %q: %w", iface.Name, err)
 			} else {
 				masterMac = uplink.Attrs().HardwareAddr.String()
@@ -343,7 +345,7 @@ func addIPConfigToLink(logger *slog.Logger, ip netip.Addr, routes []route.Route,
 }
 
 func configureIface(logger *slog.Logger, ipam *models.IPAMResponse, ifName string, state *CmdState) (string, error) {
-	l, err := safenetlink.LinkByName(ifName)
+	l, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return "", fmt.Errorf("failed to lookup %q: %w", ifName, err)
 	}
@@ -511,7 +513,7 @@ func configureCongestionControl(conf *models.DaemonConfigurationStatus, sysctl s
 func ifindexFromMac(mac string) (int64, error) {
 	var link netlink.Link
 
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return -1, fmt.Errorf("unable to list interfaces: %w", err)
 	}
@@ -1282,12 +1284,12 @@ func verifyInterface(netnsPinPath, ifName string, expected *cniTypesV1.Result) e
 	}
 	defer ns.Close()
 	return ns.Do(func() error {
-		link, err := safenetlink.LinkByName(ifName)
+		link, err := netlink.LinkByName(ifName)
 		if err != nil {
 			return fmt.Errorf("cannot find container link %v", ifName)
 		}
 
-		addrList, err := safenetlink.AddrList(link, netlink.FAMILY_ALL)
+		addrList, err := netlink.AddrList(link, netlink.FAMILY_ALL)
 		if err != nil {
 			return fmt.Errorf("failed to list link addresses: %w", err)
 		}

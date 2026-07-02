@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
@@ -23,7 +22,7 @@ import (
 //
 // Returns nil if the interface does not exist.
 func DeleteByName(ifName string) error {
-	iface, err := safenetlink.LinkByName(ifName)
+	iface, err := netlink.LinkByName(ifName)
 	if errors.As(err, &netlink.LinkNotFoundError{}) {
 		return nil
 	}
@@ -41,7 +40,7 @@ func DeleteByName(ifName string) error {
 
 // Rename renames a network link
 func Rename(curName, newName string) error {
-	link, err := safenetlink.LinkByName(curName)
+	link, err := netlink.LinkByName(curName)
 	if err != nil {
 		return err
 	}
@@ -51,7 +50,7 @@ func Rename(curName, newName string) error {
 
 // SetAltNames sets the altnames for a link
 func AddAltName(linkName, altName string) error {
-	link, err := safenetlink.LinkByName(linkName)
+	link, err := netlink.LinkByName(linkName)
 	if err != nil {
 		return err
 	}
@@ -60,7 +59,7 @@ func AddAltName(linkName, altName string) error {
 }
 
 func GetHardwareAddr(ifName string) (mac.MAC, error) {
-	iface, err := safenetlink.LinkByName(ifName)
+	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +67,7 @@ func GetHardwareAddr(ifName string) (mac.MAC, error) {
 }
 
 func GetIfIndex(ifName string) (uint32, error) {
-	iface, err := safenetlink.LinkByName(ifName)
+	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return 0, err
 	}
@@ -76,7 +75,7 @@ func GetIfIndex(ifName string) (uint32, error) {
 }
 
 func GetIfBufferMargins(ifName string) (uint16, uint16, error) {
-	iface, err := safenetlink.LinkByName(ifName)
+	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -115,7 +114,7 @@ func newLinkCache(params linkCacheParams) *LinkCache {
 }
 
 func (c *LinkCache) SyncCache(_ context.Context) error {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return err
 	}

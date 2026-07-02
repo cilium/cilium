@@ -10,7 +10,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/netns"
 )
 
@@ -50,7 +49,7 @@ var HaveManagedNeighbors = sync.OnceValue(func() error {
 			return fmt.Errorf("failed to add neighbor: %w", err)
 		}
 
-		nl, err := safenetlink.NeighList(veth.Index, 0)
+		nl, err := netlink.NeighList(veth.Index, 0)
 		if err != nil {
 			return fmt.Errorf("failed to list neighbors: %w", err)
 		}

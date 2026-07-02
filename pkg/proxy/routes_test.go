@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -94,7 +93,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 					require.NoError(t, err, "stop hive")
 				}()
 
-				loLink, err := safenetlink.LinkByName(loDevice.Name)
+				loLink, err := netlink.LinkByName(loDevice.Name)
 				require.NoError(t, err, "get loopback link")
 				netlink.LinkSetUp(loLink)
 
@@ -109,7 +108,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.NotEmpty(t, rules)
 
 				// List the proxy routing table, expect a single entry.
-				rt, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 1)
@@ -143,7 +142,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.Empty(t, rules)
 
 				// List the proxy routing table, expect it to be empty.
-				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Empty(t, rt)
@@ -185,7 +184,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 
 				assert.NoError(t, netlink.LinkSetUp(dummy))
 
-				dummyLink, err := safenetlink.LinkByName(ifName)
+				dummyLink, err := netlink.LinkByName(ifName)
 				assert.NoError(t, err)
 				dummyDevice := &tables.Device{
 					Name:  dummyLink.Attrs().Name,
@@ -200,7 +199,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.NotEmpty(t, rules)
 
 				// List the from proxy (2005) routing table, expect a single entry.
-				rt, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
@@ -224,7 +223,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.NoError(t, installFromProxyRoutesIPv4(routeManager, owner, testIPv4, dummyDevice, true, true, withOverheadMTU))
 
 				// Re-list the from proxy (2005) routing table, expect a single entry.
-				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
@@ -259,7 +258,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.Empty(t, rules)
 
 				// List the proxy routing table, expect it to be empty.
-				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Empty(t, rt)
@@ -286,7 +285,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 					require.NoError(t, err, "stop hive")
 				}()
 
-				loLink, err := safenetlink.LinkByName(loDevice.Name)
+				loLink, err := netlink.LinkByName(loDevice.Name)
 				require.NoError(t, err, "get loopback link")
 				netlink.LinkSetUp(loLink)
 
@@ -301,7 +300,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.NotEmpty(t, rules)
 
 				// List the proxy routing table, expect a single entry.
-				rt, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 1)
@@ -335,7 +334,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.Empty(t, rules)
 
 				// List the proxy routing table, expect it to be empty.
-				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Empty(t, rt)
@@ -377,7 +376,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NoError(t, netlink.LinkSetUp(dummy))
 
-				dummyLink, err := safenetlink.LinkByName(ifName)
+				dummyLink, err := netlink.LinkByName(ifName)
 				assert.NoError(t, err)
 				dummyDevice := &tables.Device{
 					Name:  dummyLink.Attrs().Name,
@@ -392,7 +391,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.NotEmpty(t, rules)
 
 				// List the proxy routing table, expect a single entry.
-				rt, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
@@ -416,7 +415,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.NoError(t, installFromProxyRoutesIPv6(owner, routeManager, testIPv6, dummyDevice, true, true, withOverheadMTU))
 
 				// Re-list the from proxy (2005) routing table, expect a single entry.
-				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
@@ -451,7 +450,7 @@ func TestPrivilegedRoutes(t *testing.T) {
 				assert.Empty(t, rules)
 
 				// List the proxy routing table, expect it to be empty.
-				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Empty(t, rt)

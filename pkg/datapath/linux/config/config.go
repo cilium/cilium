@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -505,14 +504,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	if option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices {
 		if option.Config.IPv4Enabled() {
-			ipip4, err := safenetlink.LinkByName(defaults.IPIPv4Device)
+			ipip4, err := netlink.LinkByName(defaults.IPIPv4Device)
 			if err != nil {
 				return fmt.Errorf("looking up link %s: %w", defaults.IPIPv4Device, err)
 			}
 			cDefinesMap["ENCAP4_IFINDEX"] = fmt.Sprintf("%d", ipip4.Attrs().Index)
 		}
 		if option.Config.IPv6Enabled() {
-			ipip6, err := safenetlink.LinkByName(defaults.IPIPv6Device)
+			ipip6, err := netlink.LinkByName(defaults.IPIPv6Device)
 			if err != nil {
 				return fmt.Errorf("looking up link %s: %w", defaults.IPIPv6Device, err)
 			}
@@ -573,7 +572,7 @@ func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
 
 	vlansByIfIndex := make(map[int][]int)
 
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return "", fmt.Errorf("listing network interfaces: %w", err)
 	}
@@ -590,7 +589,7 @@ func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
 	vlansCount := 0
 	for _, v := range vlansByIfIndex {
 		vlansCount += len(v)
-		slices.Sort(v) // sort Vlanids in-place since safenetlink.LinkList() may return them in any order
+		slices.Sort(v) // sort Vlanids in-place since netlink.LinkList() may return them in any order
 	}
 
 	if vlansCount == 0 {

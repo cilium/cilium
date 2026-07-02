@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -31,7 +30,7 @@ func TestPrivilegedRemoveStaleEPIfaces(t *testing.T) {
 		err := netlink.LinkAdd(veth)
 		assert.NoError(t, err)
 
-		_, err = safenetlink.LinkByName(linkAttrs.Name)
+		_, err = netlink.LinkByName(linkAttrs.Name)
 		assert.NoError(t, err)
 
 		restorer := &endpointRestorer{logger: hivetest.Logger(t)}
@@ -39,7 +38,7 @@ func TestPrivilegedRemoveStaleEPIfaces(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check that stale iface is removed
-		_, err = safenetlink.LinkByName(linkAttrs.Name)
+		_, err = netlink.LinkByName(linkAttrs.Name)
 		assert.Error(t, err)
 
 		return nil
