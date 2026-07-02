@@ -87,6 +87,10 @@ spec:
       - key: "node.kubernetes.io/not-ready"
         operator: "Exists"
         effect: "NoSchedule"
+      - key: "cilium.io/no-schedule"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
       dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: nginx
