@@ -251,16 +251,21 @@ func (a *agent) StartBackgroundJobs(handler node.Handler, dpInitialized <-chan s
 				logfields.OldSPI, activeSPI,
 				logfields.SPI, currentSPI,
 			)
-			if err := a.publishCurrentSPI(handler, currentSPI); err != nil {
-				return err
-			}
-			if err := a.startKeyfileWatcher(handler); err != nil {
-				return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
-			}
-			return nil
+			return a.publishCurrentSPI(handler, currentSPI)
 		}))
+
+		// Register the keyfile watcher here, at hook time, rather than from
+		// inside the deferred-spi-update job above: adding a job from within a
+		// running job deadlocks against Hive shutdown, which holds the job
+		// registry lock while waiting for that same job to return. To preserve
+		// the rotation semantics, the watcher waits for dpInitialized before
+		// it starts reacting to keyfile changes, so it won't publish the new
+		// SPI ahead of the deferred update.
+		if err := a.startKeyfileWatcher(handler, dpInitialized); err != nil {
+			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
+		}
 	} else {
-		if err := a.startKeyfileWatcher(handler); err != nil {
+		if err := a.startKeyfileWatcher(handler, nil); err != nil {
 			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 		}
 	}
@@ -1310,6 +1315,7 @@ func (a *agent) deleteIPsecEncryptRoute() {
 }
 
 func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler node.Handler, health cell.Health) (err error) {
+	defer watcher.Close()
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1330,9 +1336,11 @@ func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				case <-time.After(jitter):
 					// Jitter complete, proceed with key loading
 				case <-ctx.Done():
-					health.Stopped("Context done during jitter")
-					watcher.Close()
-					return nil
+					// Returning the context error (rather than nil) lets the
+					// job framework recognize this as a cancellation and skip
+					// the terminal health.OK() it would otherwise report on a
+					// reporter we've effectively stopped.
+					return ctx.Err()
 				}
 			}
 
@@ -1360,14 +1368,12 @@ func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 			)
 
 		case <-ctx.Done():
-			health.Stopped("Context done")
-			watcher.Close()
-			return nil
+			return ctx.Err()
 		}
 	}
 }
 
-func (a *agent) startKeyfileWatcher(nodeHandler node.Handler) error {
+func (a *agent) startKeyfileWatcher(nodeHandler node.Handler, dpInitialized <-chan struct{}) error {
 	if !a.config.EnableIPsecKeyWatcher {
 		return nil
 	}
@@ -1379,6 +1385,19 @@ func (a *agent) startKeyfileWatcher(nodeHandler node.Handler) error {
 	}
 
 	a.jobs.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.Health) error {
+		// During an ongoing key rotation, defer reacting to keyfile changes
+		// until the datapath is initialized. This preserves the rotation
+		// ordering (the deferred-spi-update job publishes the new SPI first)
+		// while keeping job registration out of any running job, which would
+		// otherwise deadlock against Hive shutdown.
+		if dpInitialized != nil {
+			select {
+			case <-dpInitialized:
+			case <-ctx.Done():
+				watcher.Close()
+				return ctx.Err()
+			}
+		}
 		return a.keyfileWatcher(ctx, watcher, keyfilePath, nodeHandler, health)
 	}))
 
