@@ -8,11 +8,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8s_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/operator/pkg/lbipam"
@@ -47,6 +51,7 @@ type BGPParams struct {
 	NodeConfigOverrideResource resource.Resource[*v2.CiliumBGPNodeConfigOverride]
 	NodeConfigResource         resource.Resource[*v2.CiliumBGPNodeConfig]
 	PeerConfigResource         resource.Resource[*v2.CiliumBGPPeerConfig]
+	AdvertisementResource      resource.Resource[*v2.CiliumBGPAdvertisement]
 	NodeResource               resource.Resource[*v2.CiliumNode]
 }
 
@@ -64,16 +69,19 @@ type BGPResourceManager struct {
 	nodeConfig              resource.Resource[*v2.CiliumBGPNodeConfig]
 	ciliumNode              resource.Resource[*v2.CiliumNode]
 	peerConfig              resource.Resource[*v2.CiliumBGPPeerConfig]
+	advertisement           resource.Resource[*v2.CiliumBGPAdvertisement]
 	clusterConfigStore      resource.Store[*v2.CiliumBGPClusterConfig]
 	nodeConfigOverrideStore resource.Store[*v2.CiliumBGPNodeConfigOverride]
 	nodeConfigStore         resource.Store[*v2.CiliumBGPNodeConfig]
 	peerConfigStore         resource.Store[*v2.CiliumBGPPeerConfig]
+	advertisementStore      resource.Store[*v2.CiliumBGPAdvertisement]
 	ciliumNodeStore         resource.Store[*v2.CiliumNode]
 	nodeConfigClient        cilium_client_v2.CiliumBGPNodeConfigInterface
 
 	// internal state
-	reconcileCh      chan struct{}
-	bgpClusterSyncCh chan struct{}
+	reconcileCh       chan struct{}
+	bgpClusterSyncCh  chan struct{}
+	storesInitialized chan struct{}
 
 	// enable/disable status reporting
 	enableStatusReporting bool
@@ -82,6 +90,31 @@ type BGPResourceManager struct {
 	bgpRouterIDIPPoolEnabled bool
 	bgpRouterIDIPPool        *ipalloc.HashAllocator[string]
 	bgpRouterIDMap           map[string]*netip.Addr
+}
+
+// Interface to use during version migration
+type listPatcher interface {
+	List() []string
+	Patch(context.Context, string, k8s_types.PatchType, []byte, metav1.PatchOptions, ...string) (any, error)
+}
+
+// Wrapper around resource.Store and cilium_client_v2.CiliumBGP*Interface
+type resourceClient[T metav1.Object] struct {
+	lister  func() []T
+	patcher func(context.Context, string, k8s_types.PatchType, []byte, metav1.PatchOptions, ...string) (T, error)
+}
+
+func (r resourceClient[T]) List() []string {
+	names := []string{}
+	for _, item := range r.lister() {
+		names = append(names, item.GetName())
+	}
+
+	return names
+}
+
+func (r resourceClient[T]) Patch(ctx context.Context, name string, pt k8s_types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (any, error) {
+	return r.patcher(ctx, name, pt, data, opts, subresources...)
 }
 
 // registerBGPResourceManager creates a new BGPResourceManager operator instance.
@@ -100,11 +133,13 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 
 		reconcileCh:           make(chan struct{}, 1),
 		bgpClusterSyncCh:      make(chan struct{}, 1),
+		storesInitialized:     make(chan struct{}, 1),
 		bgpRouterIDMap:        make(map[string]*netip.Addr),
 		clusterConfig:         p.ClusterConfigResource,
 		nodeConfigOverride:    p.NodeConfigOverrideResource,
 		nodeConfig:            p.NodeConfigResource,
 		peerConfig:            p.PeerConfigResource,
+		advertisement:         p.AdvertisementResource,
 		ciliumNode:            p.NodeResource,
 		enableStatusReporting: p.DaemonConfig.EnableBGPControlPlaneStatusReport,
 	}
@@ -153,6 +188,8 @@ func (b *BGPResourceManager) initializeJobs() {
 			if err := b.restoreRouterIDs(); err != nil {
 				return err
 			}
+
+			b.storesInitialized <- struct{}{}
 
 			return b.Run(ctx)
 		}),
@@ -203,6 +240,53 @@ func (b *BGPResourceManager) initializeJobs() {
 			}
 			return nil
 		}),
+
+		// If the storedVersion contains v2alpha1 then etcd probably contains BGP resource as v2alpha1.
+		// This can prevent deleting the v2alpha1.
+		// The solution is to add an empty patch to the resource so etcd force to update and store it with the new version.
+		// After that we can delete the v2alpha1 from the storedVersion.
+		job.OneShot("bgp-operator-crd-storage-version-migrator", func(ctx context.Context, health cell.Health) error {
+			<-b.storesInitialized
+
+			crdClient := b.clientset.ApiextensionsV1().CustomResourceDefinitions()
+			resourceClients := map[string]listPatcher{
+				"ciliumbgpclusterconfigs.cilium.io": resourceClient[*v2.CiliumBGPClusterConfig]{
+					lister:  b.clusterConfigStore.List,
+					patcher: b.clientset.CiliumV2().CiliumBGPClusterConfigs().Patch,
+				},
+				"ciliumbgppeerconfigs.cilium.io": resourceClient[*v2.CiliumBGPPeerConfig]{
+					lister:  b.peerConfigStore.List,
+					patcher: b.clientset.CiliumV2().CiliumBGPPeerConfigs().Patch,
+				},
+				"ciliumbgpadvertisements.cilium.io": resourceClient[*v2.CiliumBGPAdvertisement]{
+					lister:  b.advertisementStore.List,
+					patcher: b.clientset.CiliumV2().CiliumBGPAdvertisements().Patch,
+				},
+				"ciliumbgpnodeconfigs.cilium.io": resourceClient[*v2.CiliumBGPNodeConfig]{
+					lister:  b.nodeConfigStore.List,
+					patcher: b.clientset.CiliumV2().CiliumBGPNodeConfigs().Patch,
+				},
+				"ciliumbgpnodeconfigoverrides.cilium.io": resourceClient[*v2.CiliumBGPNodeConfigOverride]{
+					lister:  b.nodeConfigOverrideStore.List,
+					patcher: b.clientset.CiliumV2().CiliumBGPNodeConfigOverrides().Patch,
+				},
+			}
+			versionFromMigrate := "v2alpha1"
+
+			for crdName, client := range resourceClients {
+				migrated, err := storageVersionMigrator(ctx, crdClient, crdName, client, versionFromMigrate)
+
+				if err != nil {
+					return err
+				}
+
+				if migrated {
+					b.logger.Debug("CRD migrated", logfields.ResourceName, crdName)
+				}
+			}
+
+			return nil
+		}, job.WithRetry(3, &job.ExponentialBackoff{Min: 500 * time.Millisecond, Max: 3 * time.Second})),
 	)
 }
 
@@ -227,12 +311,45 @@ func (b *BGPResourceManager) initializeStores(ctx context.Context) (err error) {
 		return
 	}
 
+	b.advertisementStore, err = b.advertisement.Store(ctx)
+	if err != nil {
+		return
+	}
+
 	b.ciliumNodeStore, err = b.ciliumNode.Store(ctx)
 	if err != nil {
 		return
 	}
 
 	return nil
+}
+
+func storageVersionMigrator(ctx context.Context, crdClient v1.CustomResourceDefinitionInterface, crdName string, client listPatcher, versionFromMigrate string) (bool, error) {
+	crdDef, err := crdClient.Get(ctx, crdName, metav1.GetOptions{})
+
+	if err != nil {
+		return false, err
+	}
+
+	if slices.Contains(crdDef.Status.StoredVersions, versionFromMigrate) {
+		for _, name := range client.List() {
+			if _, err := client.Patch(ctx, name, k8s_types.MergePatchType, []byte("{}"), metav1.PatchOptions{}); err != nil {
+				return false, err
+			}
+		}
+
+		storedVersions := slices.DeleteFunc(crdDef.Status.StoredVersions, func(s string) bool {
+			return s == versionFromMigrate
+		})
+		crdDef.Status.StoredVersions = storedVersions
+		if _, err := crdClient.UpdateStatus(ctx, crdDef, metav1.UpdateOptions{}); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // triggerReconcile initiates level triggered reconciliation.
