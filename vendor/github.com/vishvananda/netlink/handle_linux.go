@@ -11,19 +11,20 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Empty handle used by the netlink package methods
-var pkgHandle = &Handle{}
-
 var configMu sync.Mutex
 var configDone bool
 
-// ConfigureHandle configures the default, package-wide netlink handle used by
-// the netlink package's global functions like [LinkList] and [AddrList] with
-// the given opts. It does not affect any existing or future [Handle] returned
-// by the library.
+// pkgOptions holds the options configured via [ConfigureHandle] for use by
+// the package-level global functions.
+var pkgOptions HandleOptions
+
+// ConfigureHandle configures the options used by the netlink package's global
+// functions like [LinkList] and [AddrList]. It does not affect any existing or
+// future [Handle] returned by [NewHandle] and friends; those need to be
+// configured explicitly and don't inherit from this configuration.
 //
-// This function is not safe to call concurrently with any netlink operations
-// using the global package handle. Invoke it from init() functions only.
+// The global functions always open a fresh socket in the caller's current
+// network namespace on each call.
 //
 // Returns an error if called more than once per process.
 func ConfigureHandle(opts HandleOptions) error {
@@ -34,15 +35,17 @@ func ConfigureHandle(opts HandleOptions) error {
 		return fmt.Errorf("netlink package handle already configured")
 	}
 
-	h, err := NewHandleWithOptions(opts)
-	if err != nil {
-		return fmt.Errorf("creating handle: %w", err)
-	}
-
 	configDone = true
-	pkgHandle = h
+	pkgOptions = opts
 
 	return nil
+}
+
+// pkgHandle returns a socket-less Handle initialized with the package-level
+// options. It is used by global package functions; each call opens its own
+// sockets in the caller's current network namespace.
+func pkgHandle() *Handle {
+	return &Handle{options: pkgOptions}
 }
 
 // HandleOptions defines the options for creating a netlink Handle, allowing the
@@ -57,10 +60,6 @@ type HandleOptions struct {
 	// number of times if they fail with EINTR before finally returning
 	// [ErrDumpInterrupted].
 	RetryInterrupted bool
-
-	// NetNS specifies the network namespace to operate on. If not set, the
-	// current network namespace will be used.
-	NetNS *netns.NsHandle
 }
 
 // Handle is a handle for the netlink requests on a
@@ -111,7 +110,7 @@ func (h *Handle) SupportsNetlinkFamily(nlFamily int) bool {
 // supports will be automatically added.
 func NewHandle(nlFamilies ...int) (*Handle, error) {
 	none := netns.None()
-	return newHandle(none, HandleOptions{NetNS: &none}, nlFamilies...)
+	return newHandle(none, none, HandleOptions{}, nlFamilies...)
 }
 
 // SetSocketTimeout sets the send and receive timeout for each socket in the
@@ -189,21 +188,27 @@ func (h *Handle) SetStrictCheck(state bool) error {
 // specified by ns. If ns=netns.None(), current network namespace
 // will be assumed
 func NewHandleAt(ns netns.NsHandle, nlFamilies ...int) (*Handle, error) {
-	return newHandle(netns.None(), HandleOptions{NetNS: &ns}, nlFamilies...)
+	return newHandle(ns, netns.None(), HandleOptions{}, nlFamilies...)
 }
 
 // NewHandleAtFrom works as NewHandle but allows client to specify the
 // new and the origin netns Handle.
 func NewHandleAtFrom(newNs, curNs netns.NsHandle) (*Handle, error) {
-	return newHandle(curNs, HandleOptions{NetNS: &newNs})
+	return newHandle(newNs, curNs, HandleOptions{})
 }
 
 // NewHandleWithOptions returns a Handle created using the specified options.
 func NewHandleWithOptions(opts HandleOptions, nlFamilies ...int) (*Handle, error) {
-	return newHandle(netns.None(), opts, nlFamilies...)
+	return newHandle(netns.None(), netns.None(), opts, nlFamilies...)
 }
 
-func newHandle(curNs netns.NsHandle, opts HandleOptions, nlFamilies ...int) (*Handle, error) {
+// NewHandleAtWithOptions returns a Handle created using the specified options
+// in the specified network namespace.
+func NewHandleAtWithOptions(ns netns.NsHandle, opts HandleOptions, nlFamilies ...int) (*Handle, error) {
+	return newHandle(ns, netns.None(), opts, nlFamilies...)
+}
+
+func newHandle(newNs, curNs netns.NsHandle, opts HandleOptions, nlFamilies ...int) (*Handle, error) {
 	h := &Handle{
 		sockets: map[int]*nl.SocketHandle{},
 		options: opts,
@@ -211,11 +216,6 @@ func newHandle(curNs netns.NsHandle, opts HandleOptions, nlFamilies ...int) (*Ha
 	fams := nl.SupportedNlFamilies
 	if len(nlFamilies) != 0 {
 		fams = nlFamilies
-	}
-
-	newNs := netns.None()
-	if opts.NetNS != nil {
-		newNs = *opts.NetNS
 	}
 
 	for _, f := range fams {
@@ -251,7 +251,9 @@ func (h *Handle) Delete() {
 func (h *Handle) newNetlinkRequest(proto, flags int) *nl.NetlinkRequest {
 	// Do this so that package API still use nl package variable nextSeqNr
 	if h.sockets == nil {
-		return nl.NewNetlinkRequest(proto, flags)
+		req := nl.NewNetlinkRequest(proto, flags)
+		req.RetryInterrupted = h.options.RetryInterrupted
+		return req
 	}
 	return &nl.NetlinkRequest{
 		NlMsghdr: unix.NlMsghdr{

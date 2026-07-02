@@ -1548,7 +1548,7 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
-# github.com/vishvananda/netlink v1.3.2-0.20260624190457-bab08b3566fc
+# github.com/vishvananda/netlink v1.3.2-0.20260624190457-bab08b3566fc => github.com/ti-mo/vnetlink v0.0.0-20260702083455-de084cb09f9a
 ## explicit; go 1.23
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
@@ -3012,3 +3012,4 @@ sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v3
 sigs.k8s.io/yaml/kyaml
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.21.0-1
+# github.com/vishvananda/netlink => github.com/ti-mo/vnetlink v0.0.0-20260702083455-de084cb09f9a
