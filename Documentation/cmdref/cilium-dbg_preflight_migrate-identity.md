@@ -22,6 +22,12 @@ cilium-dbg preflight migrate-identity [flags]
 ### Options
 
 ```
+      --bgp-router-id-allocation-ip-pool string     IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
+      --bgp-router-id-allocation-mode string        BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
+      --bgp-secrets-namespace string                Kubernetes namespace to get BGP control plane secrets from
+      --enable-bgp-control-plane                    Enable the BGP control plane
+      --enable-bgp-control-plane-status-report      Enable the BGP control plane status reporting (default true)
+      --enable-bgp-legacy-origin-attribute          Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-k8s                                  Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                    Enable discovery of Kubernetes API groups and resources with the discovery API
   -h, --help                                        help for migrate-identity

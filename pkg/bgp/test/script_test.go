@@ -26,6 +26,7 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp"
 	"github.com/cilium/cilium/pkg/bgp/agent"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -143,14 +144,18 @@ func TestPrivilegedScript(t *testing.T) {
 			cell.Provide(
 				func() *option.DaemonConfig {
 					option.Config = &option.DaemonConfig{
-						EnableBGPControlPlane:     true,
-						BGPSecretsNamespace:       testSecretsNamespace,
-						BGPRouterIDAllocationMode: option.BGPRouterIDAllocationModeDefault,
-						IPAM:                      *ipam,
-						EnableIPv4:                true,
-						EnableIPv6:                true,
+						IPAM:       *ipam,
+						EnableIPv4: true,
+						EnableIPv6: true,
 					}
 					return option.Config
+				},
+				func() config.BGPConfig {
+					return config.BGPConfig{
+						Enable:                 true,
+						SecretsNamespace:       testSecretsNamespace,
+						RouterIDAllocationMode: config.BGPRouterIDAllocationModeDefault,
+					}
 				},
 				func() kpr.KPRConfig {
 					return kpr.KPRConfig{

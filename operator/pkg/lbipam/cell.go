@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -48,6 +49,7 @@ type lbipamCellParams struct {
 	SvcResource  resource.Resource[*slim_core_v1.Service]
 
 	DaemonConfig *option.DaemonConfig
+	BGPConfig    config.BGPConfig
 
 	Metrics *ipamMetrics
 
@@ -62,7 +64,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 	}
 
 	var lbClasses []string
-	if params.DaemonConfig.EnableBGPControlPlane {
+	if params.BGPConfig.Enable {
 		lbClasses = append(lbClasses, cilium_api_v2alpha1.BGPLoadBalancerClass)
 	}
 

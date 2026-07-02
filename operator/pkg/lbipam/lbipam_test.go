@@ -22,6 +22,7 @@ import (
 
 	operator_k8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 
@@ -869,7 +870,6 @@ func TestServiceDelete(t *testing.T) {
 	}
 	ipsUsed = getPoolStatusCount(fixture.GetPool("pool-a"), ciliumPoolIPsUsedCondition)
 	require.Equal(t, "0", ipsUsed)
-
 }
 
 // TestReallocOnInit tests the edge case where an existing service has an IP assigned for which there is no IP Pool.
@@ -2906,8 +2906,11 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 			// Dependencies
 			k8sFakeClient.FakeClientCell(),
 			cell.Provide(func() *option.DaemonConfig {
-				return &option.DaemonConfig{
-					EnableBGPControlPlane: true,
+				return &option.DaemonConfig{}
+			}),
+			cell.Provide(func() config.BGPConfig {
+				return config.BGPConfig{
+					Enable: true,
 				}
 			}),
 			cell.Provide(k8s.DefaultServiceWatchConfig),
@@ -3050,6 +3053,9 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{}
 		}),
+		cell.Provide(func() config.BGPConfig {
+			return config.BGPConfig{}
+		}),
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(
@@ -3148,6 +3154,9 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 		}),
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{}
+		}),
+		cell.Provide(func() config.BGPConfig {
+			return config.BGPConfig{}
 		}),
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(k8s.DefaultServiceWatchConfig),

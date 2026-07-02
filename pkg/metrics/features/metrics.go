@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
@@ -972,11 +973,11 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 }
 
 type featureMetrics interface {
-	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.Config, ipsecCfg ipsec.Config)
+	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.Config, ipsecCfg ipsec.Config, bgpCfg config.BGPConfig)
 	toGatherer() (prometheus.Gatherer, error)
 }
 
-func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.Config, ipsecCfg ipsec.Config) {
+func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.Config, ipsecCfg ipsec.Config, bgpCfg config.BGPConfig) {
 	networkMode := networkModeDirectRouting
 	if config.TunnelingEnabled() {
 		switch params.TunnelProtocol() {
@@ -1069,7 +1070,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 
 	m.ACLBNodePortConfig.WithLabelValues(lbConfig.LBMode, lbConfig.LBAlgorithm, config.NodePortAcceleration).Set(1)
 
-	if config.EnableBGPControlPlane {
+	if bgpCfg.Enable {
 		m.ACLBBGPEnabled.Set(1)
 	}
 

@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgp"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -169,8 +170,8 @@ var (
 		store.Cell,
 
 		// Provide CRD resource names for 'k8sSynced.CRDSyncCell' below.
-		cell.Provide(func() k8sSynced.CRDSyncResourceNamesOut {
-			return k8sSynced.NewCRDSyncResourceNamesOut(k8sSynced.AgentCRDResourceNames()...)
+		cell.Provide(func(bgpCfg config.BGPConfig) k8sSynced.CRDSyncResourceNamesOut {
+			return k8sSynced.NewCRDSyncResourceNamesOut(k8sSynced.AgentCRDResourceNames(bgpCfg)...)
 		}),
 
 		// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
@@ -342,7 +343,11 @@ var (
 		natStats.Cell,
 
 		// Provide resource groups to watch.
-		cell.Provide(func() watchers.ResourceGroupFunc { return allResourceGroups }),
+		cell.Provide(func(bgpCfg config.BGPConfig) watchers.ResourceGroupFunc {
+			return func(logger *slog.Logger, cfg watchers.WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
+				return allResourceGroups(logger, cfg, bgpCfg)
+			}
+		}),
 
 		// K8s Watcher provides the core k8s watchers
 		watchers.Cell,
@@ -439,7 +444,7 @@ var pprofConfig = pprof.Config{
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
-func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
+func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration, bgpCfg config.BGPConfig) (resourceGroups, waitForCachesOnly []string) {
 	k8sGroups := []string{
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
@@ -454,7 +459,7 @@ func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (
 		waitForCachesOnly = append(waitForCachesOnly, resources.K8sAPIGroupNetworkingV1Core)
 	}
 
-	ciliumGroups, waitOnlyList := watchers.GetGroupsForCiliumResources(logger, k8sSynced.AgentCRDResourceNames())
+	ciliumGroups, waitOnlyList := watchers.GetGroupsForCiliumResources(logger, k8sSynced.AgentCRDResourceNames(bgpCfg))
 	waitForCachesOnly = append(waitForCachesOnly, waitOnlyList...)
 
 	return append(k8sGroups, ciliumGroups...), waitForCachesOnly

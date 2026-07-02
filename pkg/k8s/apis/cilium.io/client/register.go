@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -192,10 +193,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 
 // CreateCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
-func CreateCustomResourceDefinitions(logger *slog.Logger, clientset apiextensionsclient.Interface) error {
+func CreateCustomResourceDefinitions(logger *slog.Logger, clientset apiextensionsclient.Interface, bgpCfg config.BGPConfig) error {
 	crds := CustomResourceDefinitionList()
 
-	for _, r := range synced.AllCiliumCRDResourceNames() {
+	for _, r := range synced.AllCiliumCRDResourceNames(bgpCfg) {
 		if crd, ok := crds[r]; ok {
 			if err := createCRD(logger, clientset, crd.Name, crd.FullName); err != nil {
 				return err
@@ -394,8 +395,8 @@ func constructV1CRD(
 }
 
 // RegisterCRDs registers all CRDs with the K8s apiserver.
-func RegisterCRDs(logger *slog.Logger, clientset client.Clientset) error {
-	if err := CreateCustomResourceDefinitions(logger, clientset); err != nil {
+func RegisterCRDs(logger *slog.Logger, clientset client.Clientset, bgpCfg config.BGPConfig) error {
+	if err := CreateCustomResourceDefinitions(logger, clientset, bgpCfg); err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %w", err)
 	}
 
