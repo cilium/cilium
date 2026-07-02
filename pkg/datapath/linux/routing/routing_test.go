@@ -214,30 +214,26 @@ func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
 }
 
 // verifyMasqueradeRules checks that rules are consistent with the masquerading configuration:
-// - If masquerading is enabled, rules need to have the 'to' field (example: 'from 10.194.0.56 to 10.0.0.0/8 lookup 3')
-// - If masquerading is disabled or if ri.CIDRs has 0.0.0.0/0, the 'to' field should not be there
+//   - An unconditional rule (from <IP> lookup <table>) must always be present for correct ENI routing.
+//   - No CIDR-specific rules (with 'to' field) should be present.
 func verifyMasqueradeRules(t *testing.T, rules []netlink.Rule, ri RoutingInfo, ip netip.Addr) {
 	t.Helper()
 
-	hasZeroCidr := false
-	for _, cidr := range ri.CIDRs {
-		if cidr.IP.IsUnspecified() {
-			hasZeroCidr = true
-			break
-		}
-	}
-
+	var hasUnconditionalRule bool
 	for _, rule := range rules {
 		if rule.Src != nil && rule.Src.IP.Equal(ip.AsSlice()) {
-			if ri.Masquerade && !hasZeroCidr && rule.Dst == nil {
-				require.Fail(t, "rule is missing the 'to' field with masquerading enabled")
-			} else if ri.Masquerade && hasZeroCidr && rule.Dst != nil {
-				require.Fail(t, "rule has the 'to' field with a 0.0.0.0/0 CIDR")
-			} else if !ri.Masquerade && rule.Dst != nil {
-				require.Fail(t, "rule has the 'to' field despite masquerading being disabled")
+			// Should not have CIDR-specific rules
+			if rule.Dst != nil {
+				require.Fail(t, "unexpected CIDR-specific rule found; only unconditional rule should be present")
+			}
+			if rule.Dst == nil {
+				hasUnconditionalRule = true
 			}
 		}
 	}
+
+	// The unconditional rule must always be present for correct ENI routing.
+	require.True(t, hasUnconditionalRule, "unconditional egress rule (from <IP> lookup <table>) must be present")
 }
 
 func runDelete(t *testing.T, ip netip.Addr) {
