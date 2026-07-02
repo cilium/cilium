@@ -211,7 +211,10 @@ func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service
 	log.Logf("⌛ [%s] Waiting for Service %s to be synchronized by Cilium pod %s",
 		agent.K8sClient.ClusterName(), service.Name(), agent.Name())
 
-	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
+	// Use the same timeout as WaitForService above: with concurrent tests it
+	// takes a little bit more time for all the services to be synchronized by
+	// every agent, and 30 seconds occasionally isn't enough.
+	ctx, cancel := context.WithTimeout(ctx, 2*ShortTimeout)
 	defer cancel()
 
 	if service.Service.Spec.ClusterIP == corev1.ClusterIPNone {
