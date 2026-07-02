@@ -21,9 +21,7 @@ type echoIngressAuthAlwaysFail struct{}
 
 func (t echoIngressAuthAlwaysFail) build(ct *check.ConnectivityTest, _ map[string]string) {
 	echoIngressAuthAlwaysFailTest(ct, false)
-	if ct.Features[features.PortRanges].Enabled {
-		echoIngressAuthAlwaysFailTest(ct, true)
-	}
+	echoIngressAuthAlwaysFailTest(ct, true)
 }
 
 func echoIngressAuthAlwaysFailTest(ct *check.ConnectivityTest, portRanges bool) {

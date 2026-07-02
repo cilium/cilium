@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
-	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 //go:embed manifests/client-with-service-account-egress-to-echo.yaml
@@ -21,9 +20,7 @@ type clientWithServiceAccountEgressToEcho struct{}
 
 func (t clientWithServiceAccountEgressToEcho) build(ct *check.ConnectivityTest, _ map[string]string) {
 	clientWithServiceAccountEgressToEchoTest(ct, false)
-	if ct.Features[features.PortRanges].Enabled {
-		clientWithServiceAccountEgressToEchoTest(ct, true)
-	}
+	clientWithServiceAccountEgressToEchoTest(ct, true)
 }
 
 func clientWithServiceAccountEgressToEchoTest(ct *check.ConnectivityTest, portRanges bool) {
