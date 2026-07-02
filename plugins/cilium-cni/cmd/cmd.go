@@ -908,7 +908,6 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	})
 	scopedLogger.Debug(
 		"Endpoint successfully created",
-		logfields.Error, err,
 		logfields.ContainerID, ep.ContainerID,
 	)
 
