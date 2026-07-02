@@ -290,10 +290,16 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.PerfParameters.KernelProfiles, "unsafe-capture-kernel-profiles", false,
 		"Capture kernel profiles during test execution. Warning: run on disposable nodes only, as it installs additional software and modifies their configuration")
 
-	cmd.Flags().Var(option.NewMapOptions(&params.PerfParameters.NodeSelectorServer),
-		"node-selector-server", "Node selector for the server pod (and client same-node)")
-	cmd.Flags().Var(option.NewMapOptions(&params.PerfParameters.NodeSelectorClient),
-		"node-selector-client", "Node selector for the other-node client pod")
+	// The default excludes non-Cilium nodes (labeled with CiliumNoScheduleLabel,
+	// e.g. via `cilium install --nodes-without-cilium`): perf pods pinned there
+	// never become ready, as the agent-not-ready NoExecute taint is only removed
+	// once a Cilium pod runs on the node. Callers that intentionally target such
+	// nodes (e.g. scale-egw) can override this with their own selector.
+	defaultPerfNodeSelector := defaults.CiliumNoScheduleLabel + "!=true"
+	cmd.Flags().StringVar(&params.PerfParameters.NodeSelectorServer, "node-selector-server", defaultPerfNodeSelector,
+		"Node selector (label query) for the server pod (and client same-node)")
+	cmd.Flags().StringVar(&params.PerfParameters.NodeSelectorClient, "node-selector-client", defaultPerfNodeSelector,
+		"Node selector (label query) for the other-node client pod")
 
 	cmd.Flags().StringVar(&params.PerfParameters.Image, "performance-image", defaults.ConnectivityCheckImagesPerf["ConnectivityPerformanceImage"], "Image path to use for performance")
 	cmd.Flags().StringVar(&params.PerfParameters.ReportDir, "report-dir", "", "Directory to save perf results in json format")

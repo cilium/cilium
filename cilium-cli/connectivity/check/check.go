@@ -44,8 +44,8 @@ type PerfParameters struct {
 	KernelProfiles  bool
 	Bandwidth       bool
 
-	NodeSelectorServer map[string]string
-	NodeSelectorClient map[string]string
+	NodeSelectorServer string
+	NodeSelectorClient string
 }
 
 type Parameters struct {
