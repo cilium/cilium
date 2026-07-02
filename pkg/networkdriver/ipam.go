@@ -4,7 +4,6 @@
 package networkdriver
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -13,7 +12,6 @@ import (
 
 	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	driverIPAM "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -58,7 +56,7 @@ var defaultIPAMConfig = IPAMConfig{}
 
 func (cfg IPAMConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringToString(ResourceIPAMMultiPoolPreAllocation, cfg.ResourceIPAMMultiPoolPreAllocation,
-		fmt.Sprintf("Defines the minimum number of IPs for DRA resources a node should pre-allocate from each pool (default %s=8)", defaults.IPAMDefaultIPPool))
+		"Defines the minimum number of IPs for DRA resources a node should pre-allocate from each pool")
 }
 
 func newMultiPoolManager(
