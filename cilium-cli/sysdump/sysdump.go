@@ -2462,6 +2462,9 @@ func untar(src string, dst string) error {
 			return err
 		}
 		filename := filepath.Join(dst, name)
+		if !strings.HasPrefix(filename, filepath.Clean(dst)+string(os.PathSeparator)) {
+			return fmt.Errorf("file path escapes destination directory: %s", filename)
+		}
 		directory := filepath.Dir(filename)
 		if err := os.MkdirAll(directory, 0755); err != nil {
 			return err
