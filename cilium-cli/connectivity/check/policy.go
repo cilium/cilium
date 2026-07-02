@@ -94,12 +94,58 @@ func getCiliumPolicyRevision(ctx context.Context, pod Pod) (int, error) {
 	return revision, nil
 }
 
-// waitCiliumPolicyRevision waits for a Cilium pod to reach atleast a given policy revision.
+// waitCiliumPolicyRevision waits until every endpoint managed by the given
+// Cilium pod has realized at least the given policy revision.
+//
+// This intentionally does not use "cilium policy wait", which additionally
+// requires every endpoint to be in the Ready state at the same instant. Under
+// concurrent tests (--test-concurrency>1) the shared node's endpoints are
+// continuously regenerated as sibling test namespaces apply their own policies,
+// so that node-wide "all endpoints ready at revision N" condition may never
+// hold within the timeout even though our policy has long been realized
+// everywhere. The realized revision is monotonic, so concurrent churn only
+// pushes it further ahead of our target, never out of reach.
 func waitCiliumPolicyRevision(ctx context.Context, pod Pod, rev int, timeout time.Duration) error {
-	timeoutStr := strconv.Itoa(int(timeout.Seconds()))
-	_, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
-		defaults.AgentContainerName, []string{"cilium", "policy", "wait", strconv.Itoa(rev), "--max-wait-time", timeoutStr})
-	return err
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	var lastErr error
+	for {
+		notReady, err := endpointsBelowPolicyRevision(ctx, pod, rev)
+		if err != nil {
+			lastErr = err
+		} else if notReady == 0 {
+			return nil
+		} else {
+			lastErr = fmt.Errorf("%d endpoints have not yet realized policy revision %d", notReady, rev)
+		}
+
+		select {
+		case <-time.After(defaults.WaitRetryInterval):
+		case <-ctx.Done():
+			return lastErr
+		}
+	}
+}
+
+// endpointsBelowPolicyRevision returns how many endpoints managed by the given
+// Cilium pod have not yet realized the given policy revision. Endpoints with an
+// unknown realized revision are counted as not ready.
+func endpointsBelowPolicyRevision(ctx context.Context, pod Pod, rev int) (int, error) {
+	eps, err := pod.K8sClient.CiliumDbgEndpoints(ctx, pod.Pod.Namespace, pod.Pod.Name)
+	if err != nil {
+		return 0, err
+	}
+
+	notReady := 0
+	for _, ep := range eps {
+		if ep.Status == nil || ep.Status.Policy == nil ||
+			ep.Status.Policy.Realized == nil ||
+			ep.Status.Policy.Realized.PolicyRevision < int64(rev) {
+			notReady++
+		}
+	}
+	return notReady, nil
 }
 
 type policy interface {
