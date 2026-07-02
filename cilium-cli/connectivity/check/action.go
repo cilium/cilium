@@ -342,6 +342,13 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
 			continue
+		} else if _, lost := lostCurlExitCode(output, errOutput); err == nil && lost {
+			// The exec stream reported success, but curl printed an error to
+			// its output: the command's real exit status was dropped by the
+			// apiserver<->kubelet exec transport. Retry to obtain a reliable
+			// status before interpreting the result.
+			a.Debugf("retrying command %s due to lost exit status", cmdStr)
+			continue
 		} else if err != nil {
 			exitCode, _ := a.extractExitCode(err)
 			if exitCode == ExitInvalidCode {
@@ -374,6 +381,18 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 				a.Failf("command %q failed with unexpected exit code: %s (expected %d, found %d)", cmdStr, err, expectedExitCode, exitCode)
 			}
 		}
+	} else if curlCode, lost := lostCurlExitCode(output, errOutput); lost {
+		// The exec transport reported success but curl itself printed an error:
+		// the real exit status was dropped somewhere between the apiserver and
+		// the kubelet (observed during agent rollouts on some clusters). Fall
+		// back to the exit code curl reported in its own output so that a
+		// genuinely failed command is not misread as an unexpected success.
+		if expectedExitCode == ExitAnyError || curlCode == expectedExitCode {
+			a.test.Debugf("command %q failed as expected (recovered from lost exit status): curl exit %d", cmdStr, curlCode)
+		} else {
+			a.Failf("command %q failed with unexpected exit code (recovered from lost exit status): expected %d, found %d", cmdStr, expectedExitCode, curlCode)
+			showOutput = true
+		}
 	} else {
 		if expectedExitCode != 0 {
 			// Command succeeded unexpectedly, display output.
@@ -391,6 +410,35 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 }
 
 var exitCodeRegex = regexp.MustCompile("exit code ([0-9]+)")
+
+// curlErrorRegex matches the error curl prints with --show-error, e.g.
+// "curl: (22) The requested URL returned error: 503". The captured number is
+// curl's own exit code.
+var curlErrorRegex = regexp.MustCompile(`curl: \(([0-9]+)\)`)
+
+// lostCurlExitCode detects the case where the pod-exec transport reported the
+// command as successful (err == nil) even though curl actually failed. This
+// happens when the terminating exit-status frame is dropped between the
+// apiserver and the kubelet (observed on some clusters during agent rollouts):
+// client-go then sees no error, but curl's --show-error message is still in the
+// captured output. It returns curl's reported exit code and true in that case,
+// so the caller can fall back to it instead of misreading the command as an
+// unexpected success. A command that genuinely succeeded prints no such marker,
+// so this returns false and the normal success handling applies.
+func lostCurlExitCode(stdout, stderr bytes.Buffer) (ExitCode, bool) {
+	for _, buf := range []string{stderr.String(), stdout.String()} {
+		m := curlErrorRegex.FindStringSubmatch(buf)
+		if len(m) != 2 {
+			continue
+		}
+		i, err := strconv.Atoi(m[1])
+		if err != nil || i < 1 || i > 255 {
+			continue
+		}
+		return ExitCode(i), true
+	}
+	return ExitInvalidCode, false
+}
 
 // extractExitCode extracts command exit code from ExecInPod() error output
 func (a *Action) extractExitCode(err error) (ExitCode, error) {
