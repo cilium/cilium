@@ -21,7 +21,7 @@ func (t echoIngressL7NamedPort) build(ct *check.ConnectivityTest, _ map[string]s
 	newTest("echo-ingress-l7-named-port", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(echoIngressL7HTTPNamedPortPolicyYAML). // L7 allow policy with HTTP introspection (named port)
-		WithScenarios(tests.PodToPodWithEndpoints()).
+		WithScenarios(tests.PodToPodWithEndpoints(tests.WithRetryCondition(tests.WithRetryAll()))).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
 				// Trying to access private endpoint without "secret" header set
