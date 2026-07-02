@@ -2282,6 +2282,24 @@ func (ct *ConnectivityTest) createProfilingPerfDeployment(ctx context.Context, n
 	return nil
 }
 
+// perfNodeSelector builds the label selector used to pick a perf server or
+// client node. By default it excludes non-Cilium nodes (CiliumNoScheduleLabel,
+// e.g. from `cilium install --nodes-without-cilium`), which perf pods must not
+// land on. The exclusion is skipped when the caller already constrains that
+// key, since that means they intentionally target such nodes (e.g. scale-egw
+// pins the server to cilium.io/no-schedule=true).
+func perfNodeSelector(set map[string]string) (string, error) {
+	selector := labels.SelectorFromSet(set)
+	if _, ok := set[defaults.CiliumNoScheduleLabel]; !ok {
+		noSchedule, err := labels.NewRequirement(defaults.CiliumNoScheduleLabel, selection.NotEquals, []string{"true"})
+		if err != nil {
+			return "", fmt.Errorf("unable to build node selector requirement: %w", err)
+		}
+		selector = selector.Add(*noSchedule)
+	}
+	return selector.String(), nil
+}
+
 func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 	if ct.params.ForceDeploy {
 		ct.forceDeploy(ctx)
@@ -2293,20 +2311,14 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		}
 	}
 
-	// Exclude nodes that don't run Cilium (labeled with CiliumNoScheduleLabel,
-	// e.g. via `cilium install --nodes-without-cilium`). The default node
-	// selectors are empty, so without this filter ListNodes can return such a
-	// node; perf pods pinned there either never become ready (the
-	// agent-not-ready NoExecute taint is only removed once a Cilium pod runs on
-	// the node) or would measure traffic on a node without Cilium's datapath,
-	// producing meaningless results. NotEquals also matches nodes that do not
-	// carry the label at all, i.e. the Cilium nodes.
-	noSchedule, err := labels.NewRequirement(defaults.CiliumNoScheduleLabel, selection.NotEquals, []string{"true"})
+	nodeSelectorServer, err := perfNodeSelector(ct.params.PerfParameters.NodeSelectorServer)
 	if err != nil {
-		return fmt.Errorf("unable to build node selector requirement: %w", err)
+		return err
 	}
-	nodeSelectorServer := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorServer).Add(*noSchedule).String()
-	nodeSelectorClient := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorClient).Add(*noSchedule).String()
+	nodeSelectorClient, err := perfNodeSelector(ct.params.PerfParameters.NodeSelectorClient)
+	if err != nil {
+		return err
+	}
 
 	serverNodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: nodeSelectorServer, Limit: 2})
 	if err != nil {
