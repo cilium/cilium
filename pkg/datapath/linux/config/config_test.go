@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -366,6 +367,109 @@ func TestPrivilegedWriteNodeConfigExtraDefines(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestPreferredIPv4Address(t *testing.T) {
+	testCases := []struct {
+		name    string
+		devices []tables.DeviceAddress
+		want    netip.Addr
+	}{
+		{
+			name: "single",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("10.0.0.1"),
+				},
+			},
+			want: netip.MustParseAddr("10.0.0.1"),
+		},
+		{
+			name: "primary_before_secondary",
+			devices: []tables.DeviceAddress{
+				{
+					Addr:      netip.MustParseAddr("10.0.0.2"),
+					Secondary: true,
+				},
+				{
+					Addr: netip.MustParseAddr("10.0.0.1"),
+				},
+			},
+			want: netip.MustParseAddr("10.0.0.1"),
+		},
+		{
+			name: "wider_scope_first",
+			devices: []tables.DeviceAddress{
+				{
+					Addr:  netip.MustParseAddr("10.0.0.2"),
+					Scope: tables.RT_SCOPE_LINK,
+				},
+				{
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: tables.RT_SCOPE_UNIVERSE,
+				},
+			},
+			want: netip.MustParseAddr("10.0.0.1"),
+		},
+		{
+			name: "skip_loopback",
+			devices: []tables.DeviceAddress{
+				{
+					Addr:  netip.MustParseAddr("127.0.0.1"),
+					Scope: tables.RT_SCOPE_HOST,
+				},
+				{
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: tables.RT_SCOPE_UNIVERSE,
+				},
+			},
+			want: netip.MustParseAddr("10.0.0.1"),
+		},
+		{
+			name: "public_before_private",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("192.168.1.1"),
+				},
+				{
+					Addr: netip.MustParseAddr("1.2.3.4"),
+				},
+			},
+			want: netip.MustParseAddr("1.2.3.4"),
+		},
+		{
+			name: "lowest_address_wins",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("192.168.1.2"),
+				},
+				{
+					Addr: netip.MustParseAddr("192.168.1.1"),
+				},
+			},
+			want: netip.MustParseAddr("192.168.1.1"),
+		},
+		{
+			name: "skip_ipv6",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+				{
+					Addr: netip.MustParseAddr("10.0.0.1"),
+				},
+			},
+			want: netip.MustParseAddr("10.0.0.1"),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			want := byteorder.NetIPAddrToHost32(tc.want)
+			if got := preferredIPv4Address(tc.devices); got != want {
+				t.Errorf("preferredIPv4Address() mismatch, got %d want %d (%s)", got, want, tc.want)
+			}
+		})
+	}
 }
 
 func TestPreferredIPv6Address(t *testing.T) {
