@@ -20,7 +20,10 @@
 
 package policy
 
-import "github.com/cilium/cilium/pkg/identity"
+import (
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/option"
+)
 
 // aggregateFor returns the numeric identity that aggregates the
 // given nid. If the supplied `nid` is already a wildcard,
@@ -33,6 +36,18 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 		return identity.ReservedIdentityRemoteNode
 	case identity.ReservedIdentityWorld, identity.ReservedIdentityWorldIPv4, identity.ReservedIdentityWorldIPv6:
 		return identity.ReservedIdentityWorld
+	case identity.ReservedIdentityCluster:
+		return identity.ReservedIdentityCluster
+	case identity.ReservedIdentityClusterMesh:
+		return identity.ReservedIdentityClusterMesh
+	case identity.IdentityUnknown:
+		return identity.IdentityUnknown
+	}
+
+	// All identities below 100 are special-cased.
+	// They cannot be aggregated.
+	if nid < 100 {
+		return identity.IdentityUnknown
 	}
 
 	switch nid.Scope() {
@@ -42,7 +57,13 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 		return identity.ReservedIdentityWorld
 	}
 
-	return identity.IdentityUnknown
+	// NID is global scope and > 100.
+	// Determine if nid is in-cluster.
+	cid := nid.ClusterID()
+	if cid == option.Config.ClusterID {
+		return identity.ReservedIdentityCluster
+	}
+	return identity.ReservedIdentityClusterMesh
 }
 
 // aggregates returns true if child is a child of the wildcard.
@@ -62,4 +83,6 @@ var AllAggregates = []identity.NumericIdentity{
 	identity.IdentityUnknown,
 	identity.ReservedIdentityRemoteNode,
 	identity.ReservedIdentityWorld,
+	identity.ReservedIdentityCluster,
+	identity.ReservedIdentityClusterMesh,
 }

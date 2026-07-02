@@ -33,7 +33,7 @@ import (
 // proto tcp port 8-15
 // proto tcp port 10
 func multiLevelMapState(t *testing.T) *mapState {
-	ids := []identity.NumericIdentity{0, 257, 258, 6, 7, identity.IdentityScopeRemoteNode}
+	ids := []identity.NumericIdentity{0, 97, 98, 6, 7, identity.IdentityScopeRemoteNode}
 	keys := []types.Key{
 		types.IngressKey(),
 		types.IngressKey().WithProto(u8proto.TCP),
@@ -60,15 +60,15 @@ func TestMapState_CoveringBroaderOrEqualKeys(t *testing.T) {
 
 	cases := []testcase{
 		{
-			startKey: "258:6:10:16", // port 10
+			startKey: "98:6:10:16", // port 10
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
-				"258:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},
@@ -84,13 +84,13 @@ func TestMapState_CoveringBroaderOrEqualKeys(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:11:16", // port 11 (not in mapstate directly)
+			startKey: "98:6:11:16", // port 11 (not in mapstate directly)
 			shouldSee: []string{
-				"258:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},
@@ -105,11 +105,11 @@ func TestMapState_CoveringBroaderOrEqualKeys(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:2:16",
+			startKey: "98:6:2:16",
 			shouldSee: []string{
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},
@@ -228,15 +228,15 @@ func TestMapState_BroaderOrEqualKeys(t *testing.T) {
 
 	cases := []testcase{
 		{
-			startKey: "258:6:10:16", // port 10
+			startKey: "98:6:10:16", // port 10
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
-				"258:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},
@@ -244,29 +244,29 @@ func TestMapState_BroaderOrEqualKeys(t *testing.T) {
 		{
 			startKey: "0:6:10:16", // port 10
 			shouldSee: []string{
-				"257:6:10:16",
-				"258:6:10:16",
+				"97:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
-				"257:6:8:13",
-				"258:6:8:13",
+				"97:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"257:6",
-				"258:6",
+				"97:6",
+				"98:6",
 				"0:6",
-				"257",
-				"258",
+				"97",
+				"98",
 				"0",
 			},
 		},
 
 		{
-			startKey: "258:6:11:16", // port 11 (not in mapstate directly)
+			startKey: "98:6:11:16", // port 11 (not in mapstate directly)
 			shouldSee: []string{
-				"258:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},
@@ -274,24 +274,24 @@ func TestMapState_BroaderOrEqualKeys(t *testing.T) {
 		{
 			startKey: "0:6:11:16", // port 11 (not in mapstate directly)
 			shouldSee: []string{
-				"257:6:8:13",
-				"258:6:8:13",
+				"97:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"257:6",
-				"258:6",
+				"97:6",
+				"98:6",
 				"0:6",
-				"257",
-				"258",
+				"97",
+				"98",
 				"0",
 			},
 		},
 
 		{
-			startKey: "258:6:2:16",
+			startKey: "98:6:2:16",
 			shouldSee: []string{
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},
@@ -299,11 +299,11 @@ func TestMapState_BroaderOrEqualKeys(t *testing.T) {
 		{
 			startKey: "0:6:2:16",
 			shouldSee: []string{
-				"257:6",
-				"258:6",
+				"97:6",
+				"98:6",
 				"0:6",
-				"257",
-				"258",
+				"97",
+				"98",
 				"0",
 			},
 		},
@@ -311,8 +311,8 @@ func TestMapState_BroaderOrEqualKeys(t *testing.T) {
 		{
 			startKey: "0",
 			shouldSee: []string{
-				"257",
-				"258",
+				"97",
+				"98",
 				"0",
 			},
 		},
@@ -436,23 +436,23 @@ func TestMapState_CoveredNarrowerOrEqualKeys(t *testing.T) {
 
 	cases := []testcase{
 		{
-			startKey: "258:6:10:16", // port 10
+			startKey: "98:6:10:16", // port 10
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 			},
 		},
 
 		{
 			startKey: "0:6:10:16", // port 10
 			shouldSee: []string{
-				"257:6:10:16",
-				"258:6:10:16",
+				"97:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
 			},
 		},
 
 		{
-			startKey:  "258:6:11:16", // port 11 (not in mapstate directly)
+			startKey:  "98:6:11:16", // port 11 (not in mapstate directly)
 			shouldSee: []string{},
 		},
 
@@ -462,65 +462,65 @@ func TestMapState_CoveredNarrowerOrEqualKeys(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:8:14",
+			startKey: "98:6:8:14",
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 			},
 		},
 
 		{
 			startKey: "0:6:8:14",
 			shouldSee: []string{
-				"257:6:10:16",
-				"258:6:10:16",
+				"97:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
 			},
 		},
 
 		{
-			startKey: "257:6:8:13",
+			startKey: "97:6:8:13",
 			shouldSee: []string{
-				"257:6:10:16",
-				"257:6:8:13",
+				"97:6:10:16",
+				"97:6:8:13",
 			},
 		},
 
 		{
 			startKey: "0:6:8:13",
 			shouldSee: []string{
-				"257:6:10:16",
-				"257:6:8:13",
-				"258:6:10:16",
-				"258:6:8:13",
+				"97:6:10:16",
+				"97:6:8:13",
+				"98:6:10:16",
+				"98:6:8:13",
 				"0:6:10:16",
 				"0:6:8:13",
 			},
 		},
 
 		{
-			startKey: "257",
+			startKey: "97",
 			shouldSee: []string{
-				"257:6:10:16",
-				"257:6:8:13",
-				"257:6",
-				"257",
+				"97:6:10:16",
+				"97:6:8:13",
+				"97:6",
+				"97",
 			},
 		},
 
 		{
 			startKey: "0",
 			shouldSee: []string{
-				"257:6:10:16",
-				"258:6:10:16",
+				"97:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
-				"257:6:8:13",
-				"258:6:8:13",
+				"97:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"257:6",
-				"258:6",
+				"97:6",
+				"98:6",
 				"0:6",
-				"257",
-				"258",
+				"97",
+				"98",
 				"0",
 			},
 		},
@@ -644,9 +644,9 @@ func TestMapState_NarrowerOrEqualKeys(t *testing.T) {
 
 	cases := []testcase{
 		{
-			startKey: "258:6:10:16", // port 10
+			startKey: "98:6:10:16", // port 10
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
 			},
 		},
@@ -654,14 +654,14 @@ func TestMapState_NarrowerOrEqualKeys(t *testing.T) {
 		{
 			startKey: "0:6:10:16", // port 10
 			shouldSee: []string{
-				"257:6:10:16",
-				"258:6:10:16",
+				"97:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
 			},
 		},
 
 		{
-			startKey:  "258:6:11:16", // port 11 (not in mapstate directly)
+			startKey:  "98:6:11:16", // port 11 (not in mapstate directly)
 			shouldSee: []string{},
 		},
 
@@ -671,9 +671,9 @@ func TestMapState_NarrowerOrEqualKeys(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:8:14",
+			startKey: "98:6:8:14",
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
 			},
 		},
@@ -681,18 +681,18 @@ func TestMapState_NarrowerOrEqualKeys(t *testing.T) {
 		{
 			startKey: "0:6:8:14",
 			shouldSee: []string{
-				"257:6:10:16",
-				"258:6:10:16",
+				"97:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
 			},
 		},
 
 		{
-			startKey: "257:6:8:13",
+			startKey: "97:6:8:13",
 			shouldSee: []string{
-				"257:6:10:16",
+				"97:6:10:16",
 				"0:6:10:16",
-				"257:6:8:13",
+				"97:6:8:13",
 				"0:6:8:13",
 			},
 		},
@@ -700,25 +700,25 @@ func TestMapState_NarrowerOrEqualKeys(t *testing.T) {
 		{
 			startKey: "0:6:8:13",
 			shouldSee: []string{
-				"257:6:10:16",
-				"257:6:8:13",
-				"258:6:10:16",
-				"258:6:8:13",
+				"97:6:10:16",
+				"97:6:8:13",
+				"98:6:10:16",
+				"98:6:8:13",
 				"0:6:10:16",
 				"0:6:8:13",
 			},
 		},
 
 		{
-			startKey: "257",
+			startKey: "97",
 			shouldSee: []string{
-				"257:6:10:16",
+				"97:6:10:16",
 				"0:6:10:16",
-				"257:6:8:13",
+				"97:6:8:13",
 				"0:6:8:13",
-				"257:6",
+				"97:6",
 				"0:6",
-				"257",
+				"97",
 				"0",
 			},
 		},
@@ -726,17 +726,17 @@ func TestMapState_NarrowerOrEqualKeys(t *testing.T) {
 		{
 			startKey: "0",
 			shouldSee: []string{
-				"257:6:10:16",
-				"258:6:10:16",
+				"97:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
-				"257:6:8:13",
-				"258:6:8:13",
+				"97:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"257:6",
-				"258:6",
+				"97:6",
+				"98:6",
 				"0:6",
-				"257",
-				"258",
+				"97",
+				"98",
 				"0",
 			},
 		},
@@ -868,12 +868,12 @@ func TestMapState_CoveringKeysWithSameID(t *testing.T) {
 
 	cases := []testcase{
 		{
-			startKey: "258:6:10:16", // port 10
+			startKey: "98:6:10:16", // port 10
 			shouldSee: []string{
-				"258:6:10:16",
-				"258:6:8:13",
-				"258:6",
-				"258",
+				"98:6:10:16",
+				"98:6:8:13",
+				"98:6",
+				"98",
 			},
 		},
 
@@ -888,11 +888,11 @@ func TestMapState_CoveringKeysWithSameID(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:11:16", // port 11 (not in mapstate directly)
+			startKey: "98:6:11:16", // port 11 (not in mapstate directly)
 			shouldSee: []string{
-				"258:6:8:13",
-				"258:6",
-				"258",
+				"98:6:8:13",
+				"98:6",
+				"98",
 			},
 		},
 
@@ -906,10 +906,10 @@ func TestMapState_CoveringKeysWithSameID(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:2:16",
+			startKey: "98:6:2:16",
 			shouldSee: []string{
-				"258:6",
-				"258",
+				"98:6",
+				"98",
 			},
 		},
 
@@ -1017,9 +1017,9 @@ func TestMapState_SubsetKeysWithSameID(t *testing.T) {
 
 	cases := []testcase{
 		{
-			startKey: "258:6:10:16", // port 10
+			startKey: "98:6:10:16", // port 10
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 			},
 		},
 
@@ -1031,7 +1031,7 @@ func TestMapState_SubsetKeysWithSameID(t *testing.T) {
 		},
 
 		{
-			startKey:  "258:6:11:16", // port 11 (not in mapstate directly)
+			startKey:  "98:6:11:16", // port 11 (not in mapstate directly)
 			shouldSee: []string{},
 		},
 
@@ -1041,9 +1041,9 @@ func TestMapState_SubsetKeysWithSameID(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:8:14",
+			startKey: "98:6:8:14",
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 			},
 		},
 
@@ -1055,10 +1055,10 @@ func TestMapState_SubsetKeysWithSameID(t *testing.T) {
 		},
 
 		{
-			startKey: "257:6:8:13",
+			startKey: "97:6:8:13",
 			shouldSee: []string{
-				"257:6:10:16",
-				"257:6:8:13",
+				"97:6:10:16",
+				"97:6:8:13",
 			},
 		},
 
@@ -1071,12 +1071,12 @@ func TestMapState_SubsetKeysWithSameID(t *testing.T) {
 		},
 
 		{
-			startKey: "257",
+			startKey: "97",
 			shouldSee: []string{
-				"257:6:10:16",
-				"257:6:8:13",
-				"257:6",
-				"257",
+				"97:6:10:16",
+				"97:6:8:13",
+				"97:6",
+				"97",
 			},
 		},
 
@@ -1194,15 +1194,15 @@ func TestMapState_LPMAncestors(t *testing.T) {
 
 	cases := []testcase{
 		{
-			startKey: "258:6:10:16", // port 10
+			startKey: "98:6:10:16", // port 10
 			shouldSee: []string{
-				"258:6:10:16",
+				"98:6:10:16",
 				"0:6:10:16",
-				"258:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},
@@ -1218,13 +1218,13 @@ func TestMapState_LPMAncestors(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:11:16", // port 11 (not in mapstate directly)
+			startKey: "98:6:11:16", // port 11 (not in mapstate directly)
 			shouldSee: []string{
-				"258:6:8:13",
+				"98:6:8:13",
 				"0:6:8:13",
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},
@@ -1239,11 +1239,11 @@ func TestMapState_LPMAncestors(t *testing.T) {
 		},
 
 		{
-			startKey: "258:6:2:16",
+			startKey: "98:6:2:16",
 			shouldSee: []string{
-				"258:6",
+				"98:6",
 				"0:6",
-				"258",
+				"98",
 				"0",
 			},
 		},

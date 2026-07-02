@@ -22,6 +22,8 @@ enum identity {
 	INGRESS_ID = 8,
 	WORLD_IPV4_ID = 9,
 	WORLD_IPV6_ID = 10,
+	POLICY_CLUSTER_ID = 11, /* This ID is not used by endpoints, only policy map */
+	POLICY_CLUSTER_MESH_ID = 12,
 };
 
 EXPORT_TYPE(enum identity);
@@ -371,5 +373,17 @@ static __always_inline __u32 aggregate_for_identity(__u32 identity)
 	if (identity_is_world(identity))
 		return WORLD_ID;
 
-	return 0;
+	if (identity == POLICY_CLUSTER_ID || identity == POLICY_CLUSTER_MESH_ID || identity == 0)
+		return identity;
+	/* Identities 0-99 are special, we cannot easily aggregate them. */
+	if (identity < 100)
+		return 0;
+
+	/* identity is global scope and >= 100.
+	 * It must be an endpoint, either in cluster or cluster mesh.
+	 */
+	if (extract_cluster_id_from_identity(identity) == CONFIG(cluster_id))
+		return POLICY_CLUSTER_ID;
+
+	return POLICY_CLUSTER_MESH_ID;
 }
