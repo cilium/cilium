@@ -698,11 +698,20 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
 		ep.DatapathConfiguration.ExternalIpam = true
 	case ipamOption.IPAMENI:
-		ifindex, err := ifindexFromMac(ipam.IPv4.MasterMac)
-		if err == nil {
-			ep.ParentInterfaceIndex = ifindex
-		} else {
-			scopedLogger.Error("Unable to get interface index from MAC address", logfields.Error, err)
+		if ipam.IPv4 != nil {
+			ifindex, err := ifindexFromMac(ipam.IPv4.MasterMac)
+			if err == nil {
+				ep.ParentInterfaceIndex = ifindex
+			} else {
+				scopedLogger.Error("Unable to get interface index from MAC address", logfields.Error, err)
+			}
+		} else if ipam.IPv6 != nil {
+			ifindex, err := ifindexFromMac(ipam.IPv6.MasterMac)
+			if err == nil {
+				ep.ParentInterfaceIndex = ifindex
+			} else {
+				scopedLogger.Error("Unable to get interface index from MAC address", logfields.Error, err)
+			}
 		}
 	}
 
