@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"errors"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -115,6 +116,10 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 }
 
 // Write writes collected JUnit results into a single report file.
+//
+// The report is written to a temporary file in the same directory and then
+// atomically renamed into place. This ensures readers (e.g. CI artifact upload)
+// never observe a truncated report if the process is interrupted mid-write.
 func (j *JUnitCollector) Write() error {
 	if j.testSuite.Tests == 0 {
 		return nil
@@ -127,18 +132,37 @@ func (j *JUnitCollector) Write() error {
 		Time:       j.testSuite.Time,
 		TestSuites: []*junit.TestSuite{j.testSuite},
 	}
-	f, err := os.Create(j.junitFile)
+
+	// Write to a temporary file in the same directory as the destination so the
+	// final rename is atomic (same filesystem).
+	f, err := os.CreateTemp(filepath.Dir(j.junitFile), filepath.Base(j.junitFile)+".tmp-*")
 	if err != nil {
+		return err
+	}
+	tmpName := f.Name()
+	// Remove the temporary file on any error path before the rename.
+	defer func() { _ = os.Remove(tmpName) }()
+
+	// os.CreateTemp creates the file with mode 0600, but the report must stay
+	// readable by other users, e.g. the CI artifact upload which runs outside
+	// the container that produced the file.
+	if err := f.Chmod(0o644); err != nil {
+		_ = f.Close()
 		return err
 	}
 
 	if err := suites.WriteReport(f); err != nil {
-		defer os.Remove(j.junitFile)
-		if e := f.Close(); e != nil {
-			return errors.Join(err, e)
-		}
+		_ = f.Close()
 		return err
 	}
 
-	return f.Close()
+	// Flush to stable storage and close before renaming into place.
+	if err := f.Sync(); err != nil {
+		return errors.Join(err, f.Close())
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpName, j.junitFile)
 }
