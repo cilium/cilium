@@ -8,6 +8,3 @@
  #pragma once
 
  #include <lib/static_data.h>
-
-/* Strict mode configuration */
-DECLARE_CONFIG(bool, encryption_strict_ingress, "Enable strict encryption for ingress traffic")
