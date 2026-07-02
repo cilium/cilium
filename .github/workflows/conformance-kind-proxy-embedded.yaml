@@ -248,7 +248,7 @@ jobs:
       - name: Install Cilium with secret sync disabled
         id: install-cilium-secret-sync-disabled
         run: |
-          helm upgrade cilium ./install/kubernetes/cilium \
+          helm upgrade cilium untrusted/install/kubernetes/cilium \
             --namespace kube-system \
             --reuse-values \
             --set=tls.readSecretsOnlyFromSecretsNamespace=false \
