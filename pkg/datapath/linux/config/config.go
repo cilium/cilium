@@ -506,13 +506,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if drd == nil {
 				return fmt.Errorf("IPv4 direct routing device not found")
 			}
-			var ipv4 uint32
-			for _, addr := range drd.Addrs {
-				if addr.Addr.Is4() {
-					ipv4 = byteorder.NetIPv4ToHost32(addr.AsIP())
-					break
-				}
-			}
+			ipv4 := preferredIPv4Address(drd.Addrs)
 			if ipv4 == 0 {
 				return fmt.Errorf("IPv4 direct routing device IP not found")
 			}
@@ -951,6 +945,17 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 	return h.writeTemplateConfig(fw, cfg.DeviceNames(), cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
+}
+
+func preferredIPv4Address(deviceAddresses []tables.DeviceAddress) uint32 {
+	var ip uint32
+	for _, addr := range tables.SortedAddresses(deviceAddresses) {
+		if addr.Addr.Is4() {
+			ip = byteorder.NetIPAddrToHost32(addr.Addr)
+			break
+		}
+	}
+	return ip
 }
 
 func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) netip.Addr {
