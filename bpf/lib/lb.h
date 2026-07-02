@@ -408,6 +408,7 @@ cilium_dbg_lb(const struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)
 }
 
 #include "act.h"
+#include "scale_to_zero.h"
 
 static __always_inline bool lb_is_svc_proto(__u8 proto)
 {
@@ -1510,6 +1511,14 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 no_service:
 	ret = DROP_NO_SERVICE;
+#ifdef ENABLE_SCALE_TO_ZERO
+	/* Distinct drop reason so callers skip the SERVICE_NO_BACKEND_RESPONSE
+	 * ICMP reply. The silent drop lets the client retransmit while the
+	 * service scales up from zero.
+	 */
+	if (scale_to_zero_signal(ctx, svc->rev_nat_index))
+		ret = DROP_SERVICE_SCALED_TO_ZERO;
+#endif
 drop_err:
 	tuple->flags = flags;
 	return ret;
@@ -2337,6 +2346,11 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 no_service:
 	ret = DROP_NO_SERVICE;
+#ifdef ENABLE_SCALE_TO_ZERO
+	/* See lb6_local: silent drop, client retransmits until scale-up. */
+	if (scale_to_zero_signal(ctx, svc->rev_nat_index))
+		ret = DROP_SERVICE_SCALED_TO_ZERO;
+#endif
 drop_err:
 	tuple->flags = flags;
 	return ret;

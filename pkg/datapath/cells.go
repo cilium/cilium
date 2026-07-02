@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/scaletozero"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
@@ -150,6 +151,9 @@ var Cell = cell.Module(
 	// opened (from BPF ACT map), closed (from BPF ACT map), and failed
 	// connections (from ctmap's GC).
 	act.Cell,
+
+	// Provides the per-service scale-to-zero demand metric.
+	scaletozero.Cell,
 
 	// Provides a cache of link names to ifindex mappings
 	link.Cell,

@@ -108,6 +108,7 @@ const (
 	CiliumRatelimit                     = "cilium_ratelimit"
 	CiliumRatelimitMetrics              = "cilium_ratelimit_metrics"
 	CiliumRuntimeConfig                 = "cilium_runtime_config"
+	CiliumScaleToZero                   = "cilium_scale_to_zero"
 	CiliumSignals                       = "cilium_signals"
 	CiliumSkipLB4                       = "cilium_skip_lb4"
 	CiliumSkipLB6                       = "cilium_skip_lb6"
@@ -1104,6 +1105,20 @@ func newCiliumRuntimeConfigSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
+func newCiliumScaleToZeroSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumScaleToZero,
+		Type:       ebpf.Hash,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "scale_to_zero_key"),
+		ValueSize:  8,
+		Value:      anyTypeByName(btf, "scale_to_zero_value"),
+		MaxEntries: 65536,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
 func newCiliumSignalsSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       CiliumSignals,
@@ -1372,6 +1387,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumRatelimitSpec,
 	newCiliumRatelimitMetricsSpec,
 	newCiliumRuntimeConfigSpec,
+	newCiliumScaleToZeroSpec,
 	newCiliumSignalsSpec,
 	newCiliumSkipLB4Spec,
 	newCiliumSkipLB6Spec,

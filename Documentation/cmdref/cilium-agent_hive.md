@@ -98,6 +98,7 @@ cilium-agent hive [flags]
       --enable-node-ipam                                          Enable Node IPAM
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
+      --enable-scale-to-zero                                      Track scale-to-zero annotated services and export a per-service demand metric so an external autoscaler can scale them from and to zero.
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-standalone-dns-proxy                               Enables standalone DNS proxy
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
