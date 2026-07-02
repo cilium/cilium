@@ -103,6 +103,20 @@ func IsConfigMap(certRef gatewayv1.LocalObjectReference) bool {
 	return certRef.Kind == kindConfigMap && certRef.Group == corev1.GroupName
 }
 
+// IsObjectRefConfigMap checks if an ObjectReference refers to a ConfigMap.
+func IsObjectRefConfigMap(ref gatewayv1.ObjectReference) bool {
+	return ref.Kind == kindConfigMap && (ref.Group == "" || ref.Group == corev1.GroupName)
+}
+
+// FirstFrontendTLSCACertificateRef returns the only frontend TLS CA reference
+// supported by Gateway API Core conformance.
+func FirstFrontendTLSCACertificateRef(validation *gatewayv1.FrontendTLSValidation) (gatewayv1.ObjectReference, bool) {
+	if validation == nil || len(validation.CACertificateRefs) == 0 {
+		return gatewayv1.ObjectReference{}, false
+	}
+	return validation.CACertificateRefs[0], true
+}
+
 func IsServiceTargetRef(tr gatewayv1.LocalPolicyTargetReferenceWithSectionName) bool {
 	return tr.Kind == kindService && tr.Group == corev1.GroupName
 }

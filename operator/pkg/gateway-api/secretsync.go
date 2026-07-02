@@ -135,3 +135,119 @@ func (h *SecretSyncHandler) ConfigMapIsReferencedInGateway(ctx context.Context, 
 	}
 	return false
 }
+
+// EnqueueFrontendTLSConfigMaps produces a handler.EventHandler that, when it is passed a
+// Gateway as the object.Object, returns any ConfigMaps referenced in the Frontend TLS validation.
+func (h *SecretSyncHandler) EnqueueFrontendTLSConfigMaps() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		scopedLog := h.logger.With(
+			logfields.Resource, obj.GetName(),
+		)
+
+		gw, ok := obj.(*gatewayv1.Gateway)
+		if !ok {
+			return nil
+		}
+
+		// Check whether Gateway is managed by Cilium
+		if !helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
+			return nil
+		}
+
+		var reqs []reconcile.Request
+
+		if gw.Spec.TLS == nil || gw.Spec.TLS.Frontend == nil {
+			return nil
+		}
+
+		frontend := gw.Spec.TLS.Frontend
+
+		if frontend.Default.Validation != nil {
+			if certRef, ok := helpers.FirstFrontendTLSCACertificateRef(frontend.Default.Validation); ok &&
+				helpers.IsObjectRefConfigMap(certRef) {
+				cm := types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(certRef.Namespace, gw.Namespace),
+					Name:      string(certRef.Name),
+				}
+				reqs = append(reqs, reconcile.Request{NamespacedName: cm})
+				scopedLog.DebugContext(ctx, "Enqueued configmap for gateway frontend TLS", logfields.ConfigMapName, cm)
+			}
+		}
+
+		for _, perPort := range frontend.PerPort {
+			if perPort.TLS.Validation == nil {
+				continue
+			}
+			if certRef, ok := helpers.FirstFrontendTLSCACertificateRef(perPort.TLS.Validation); ok &&
+				helpers.IsObjectRefConfigMap(certRef) {
+				cm := types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(certRef.Namespace, gw.Namespace),
+					Name:      string(certRef.Name),
+				}
+				reqs = append(reqs, reconcile.Request{NamespacedName: cm})
+				scopedLog.DebugContext(ctx, "Enqueued configmap for gateway frontend TLS per-port", logfields.ConfigMapName, cm)
+			}
+		}
+
+		return reqs
+	})
+}
+
+// FrontendTLSConfigMapIsReferenced checks if a ConfigMap is referenced by any Cilium Gateway's
+// frontend TLS validation configuration.
+func (h *SecretSyncHandler) FrontendTLSConfigMapIsReferenced(ctx context.Context, _ client.Client, _ *slog.Logger, cfgMap *corev1.ConfigMap) bool {
+	gateways := getGatewaysForFrontendTLSConfigMap(ctx, h.client, cfgMap, h.logger)
+	for _, gw := range gateways {
+		if helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
+			return true
+		}
+	}
+	return false
+}
+
+// getGatewaysForFrontendTLSConfigMap returns all Gateways that reference the given ConfigMap
+// in their frontend TLS validation configuration.
+func getGatewaysForFrontendTLSConfigMap(ctx context.Context, c client.Client, cfgMap *corev1.ConfigMap, logger *slog.Logger) []*gatewayv1.Gateway {
+	scopedLog := logger.With(
+		logfields.Resource, cfgMap.GetName(),
+	)
+
+	gwList := &gatewayv1.GatewayList{}
+	if err := c.List(ctx, gwList); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to list Gateways", logfields.Error, err)
+		return nil
+	}
+
+	var gateways []*gatewayv1.Gateway
+	for i := range gwList.Items {
+		gw := &gwList.Items[i]
+		if gw.Spec.TLS == nil || gw.Spec.TLS.Frontend == nil {
+			continue
+		}
+
+		frontend := gw.Spec.TLS.Frontend
+
+		if frontend.Default.Validation != nil {
+			if certRef, ok := helpers.FirstFrontendTLSCACertificateRef(frontend.Default.Validation); ok {
+				refNs := helpers.NamespaceDerefOr(certRef.Namespace, gw.Namespace)
+				if refNs == cfgMap.Namespace && string(certRef.Name) == cfgMap.Name {
+					gateways = append(gateways, gw)
+				}
+			}
+		}
+
+		for _, perPort := range frontend.PerPort {
+			if perPort.TLS.Validation == nil {
+				continue
+			}
+			if certRef, ok := helpers.FirstFrontendTLSCACertificateRef(perPort.TLS.Validation); ok {
+				refNs := helpers.NamespaceDerefOr(certRef.Namespace, gw.Namespace)
+				if refNs == cfgMap.Namespace && string(certRef.Name) == cfgMap.Name {
+					gateways = append(gateways, gw)
+				}
+			}
+		}
+	}
+
+	return gateways
+}

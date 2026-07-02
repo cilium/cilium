@@ -6,7 +6,6 @@ package translation
 import (
 	"cmp"
 	"fmt"
-	"maps"
 	goslices "slices"
 	"strings"
 	"syscall"
@@ -317,27 +316,21 @@ func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_conf
 
 // httpsFilterChains returns the HTTPS filter chains for the given model.
 func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
-	tlsToHostnames := m.TLSSecretsToHostnames()
-	if len(tlsToHostnames) == 0 {
+	tlsData := m.TLSSecretsToHostnamesWithValidation()
+	if len(tlsData) == 0 {
 		return nil, nil
 	}
 
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedSecrets := goslices.SortedStableFunc(maps.Keys(tlsToHostnames), func(a, b model.TLSSecret) int {
-		return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
-	})
-
-	for _, secret := range orderedSecrets {
-		hostNames := tlsToHostnames[secret]
-
+	for _, data := range tlsData {
 		secureHCMName := fmt.Sprintf("%s-%s", name, secureHost)
 		secureHCM, err := i.desiredHTTPConnectionManager(secureHCMName, secureHCMName, m)
 		if err != nil {
 			return nil, err
 		}
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: toFilterChainMatch(hostNames),
+			FilterChainMatch: toFilterChainMatch(data.Hostnames),
 			Filters: []*envoy_config_listener.Filter{
 				{
 					Name: httpConnectionManagerType,
@@ -346,7 +339,7 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 					},
 				},
 			},
-			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{secret}),
+			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation),
 		})
 	}
 
@@ -560,42 +553,19 @@ func (i *cecTranslator) httpFilterChain(name string, m *model.Model) (*envoy_con
 
 // httpsFilterChainsForPort returns the HTTPS filter chains for the given port.
 func (i *cecTranslator) httpsFilterChainsForPort(name string, port uint32, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
-	tlsToListeners := m.TLSSecretsToListeners()
-	if len(tlsToListeners) == 0 {
+	tlsData := m.TLSSecretsToListenerDataForPort(port)
+	if len(tlsData) == 0 {
 		return nil, nil
 	}
-
-	hostsBySecret := map[model.TLSSecret][]string{}
-	for secret, refs := range tlsToListeners {
-		for _, ref := range refs {
-			if ref.Port == port {
-				hostsBySecret[secret] = append(hostsBySecret[secret], ref.Hostname)
-			}
-		}
-	}
-
-	if len(hostsBySecret) == 0 {
-		return nil, nil
-	}
-
-	orderedSecrets := make([]model.TLSSecret, 0, len(hostsBySecret))
-	for secret := range hostsBySecret {
-		orderedSecrets = append(orderedSecrets, secret)
-	}
-	goslices.SortStableFunc(orderedSecrets, func(a, b model.TLSSecret) int {
-		return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
-	})
 
 	var filterChains []*envoy_config_listener.FilterChain
-	for _, secret := range orderedSecrets {
-		hostNames := hostsBySecret[secret]
-
+	for _, data := range tlsData {
 		hcm, err := i.desiredHTTPConnectionManager(name, name, m)
 		if err != nil {
 			return nil, err
 		}
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: toFilterChainMatch(hostNames),
+			FilterChainMatch: toFilterChainMatch(data.Hostnames),
 			Filters: []*envoy_config_listener.Filter{
 				{
 					Name: httpConnectionManagerType,
@@ -604,7 +574,7 @@ func (i *cecTranslator) httpsFilterChainsForPort(name string, port uint32, m *mo
 					},
 				},
 			},
-			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{secret}),
+			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation),
 		})
 	}
 
@@ -846,7 +816,7 @@ func tlsPassthroughBackendWeight(backend model.Backend) uint32 {
 	return uint32(*backend.Weight)
 }
 
-func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) *envoy_config_core_v3.TransportSocket {
+func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, frontendValidation *model.FrontendTLSValidation) *envoy_config_core_v3.TransportSocket {
 	var tlsSdsConfig []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig
 	tlsMap := map[string]struct{}{}
 	for _, t := range tls {
@@ -864,6 +834,22 @@ func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) *env
 			TlsCertificateSdsSecretConfigs: tlsSdsConfig,
 		},
 	}
+
+	// Configure client validation (mTLS) if frontend validation is specified
+	if frontendValidation != nil && len(frontendValidation.CACertRefs) > 0 {
+		caCertRef := frontendValidation.CACertRefs[0]
+		downStreamContext.RequireClientCertificate = &wrapperspb.BoolValue{
+			Value: frontendValidation.RequireClientCertificate,
+		}
+		downStreamContext.CommonTlsContext.ValidationContextType =
+			&envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
+				ValidationContextSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+					Name: fmt.Sprintf("%s/%s-cfgmap-%s",
+						ciliumSecretNamespace, caCertRef.Namespace, caCertRef.Name),
+				},
+			}
+	}
+
 	downstreamBytes, _ := proto.Marshal(&downStreamContext)
 
 	return &envoy_config_core_v3.TransportSocket{
