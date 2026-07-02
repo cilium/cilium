@@ -541,6 +541,81 @@ func TestSharedTimeout(t *testing.T) {
 	})
 }
 
+// TestSharedClientBrokenClientEviction verifies that ExchangeContext evicts a
+// broken SharedClient (conn==nil after DialContext failure) from the map
+// eagerly — before all holders have released their references.
+//
+// Without the fix, the map entry lingers until the last closer runs (refcount→0).
+// Any new caller that arrives between the first and last closer finds the broken
+// client, increments its refcount, and also fails — cascading indefinitely.
+//
+// With the fix, the closer deletes the map entry immediately when conn==nil,
+// regardless of refcount. New callers always get a fresh client.
+//
+// The test pre-acquires two references (refcount=2) so that the first
+// ExchangeContext call decrements to refcount=1 when it calls closer, not
+// to zero. Without the fix the map still has the broken client at that point.
+// With the fix the map is empty.
+func TestSharedClientBrokenClientEviction(t *testing.T) {
+	dns.HandleFunc("miek.nl.", HelloServer)
+	defer dns.HandleRemove("miek.nl.")
+
+	s, addrstr, err := runUDPServer(":0")
+	if err != nil {
+		t.Fatalf("unable to run test server: %v", err)
+	}
+	defer s.Shutdown()
+
+	// Bind a local port so DialContext with LocalAddr=localAddr fails with EADDRINUSE.
+	blocker, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("failed to grab local port: %v", err)
+	}
+	localAddr := blocker.LocalAddr().(*net.UDPAddr)
+	defer blocker.Close()
+
+	conf := &dns.Client{
+		Timeout: 2 * time.Second,
+		Dialer:  &net.Dialer{LocalAddr: localAddr},
+	}
+
+	sc := NewSharedClients()
+	const key = "broken-client-key"
+
+	m := new(dns.Msg)
+	m.SetQuestion("miek.nl.", dns.TypeSOA)
+
+	// Pre-acquire a second reference (refcount=2) so that after ExchangeContext
+	// calls its internal closer the refcount drops to 1, not 0. Without the fix,
+	// refcount=1 means normal teardown hasn't run yet and the map still has the
+	// broken client. With the fix, ExchangeContext evicts it regardless.
+	_, danglingCloser := sc.GetSharedClient(key, conf, addrstr)
+	defer danglingCloser() // release the extra ref after the test
+
+	_, _, closer, exchErr := sc.Exchange(key, conf, m, addrstr)
+	closer()
+	if exchErr == nil {
+		t.Fatal("expected dial to fail while port is held, got nil error")
+	}
+
+	// With the fix: ExchangeContext evicted the broken client — map must be empty.
+	// Without the fix: broken client still in map (refcount==1, teardown not run yet).
+	sc.lock.Lock()
+	entry := sc.clients[key]
+	sc.lock.Unlock()
+	if entry != nil {
+		t.Fatal("broken client (conn=nil) still in map after Exchange — not evicted eagerly")
+	}
+
+	// Release the blocker and confirm a subsequent Exchange succeeds.
+	blocker.Close()
+	_, _, closer2, exchErr2 := sc.Exchange(key, conf, m, addrstr)
+	closer2()
+	if exchErr2 != nil {
+		t.Fatalf("post-eviction Exchange failed: %v", exchErr2)
+	}
+}
+
 func HelloServer(w dns.ResponseWriter, q *dns.Msg) {
 	r := &dns.Msg{}
 	r.SetReply(q)
