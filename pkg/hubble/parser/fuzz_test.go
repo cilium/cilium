@@ -21,7 +21,7 @@ var (
 
 func FuzzParserDecode(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
-		p, err := New(slog.New(slog.DiscardHandler), nil, nil, nil, nil, nil, nil, nil)
+		p, err := New(slog.New(slog.DiscardHandler), nil, nil, nil, nil, nil, nil, nil, nil)
 		if err != nil {
 			return
 		}
