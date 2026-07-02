@@ -341,10 +341,18 @@ func (n *nodeAddressController) reconcile(health cell.Health) *statedb.WatchSet 
 			nodePort = dev.Name != defaults.HostDevice && ip.PrefixesContains(n.Config.NodePortAddresses, dst.Addr())
 
 		}
+		hasPrimary := false
+		for _, addr := range newAddrsByDevice[dev.Name] {
+			if addr.Primary && addr.Addr.Is4() == dst.Addr().Is4() {
+				hasPrimary = true
+				break
+			}
+		}
+
 		nodeAddr := NodeAddress{
 			Addr:       dst.Addr(),
 			NodePort:   nodePort,
-			Primary:    true, // Preferred source on a route is a strong candidate for a primary address.
+			Primary:    !hasPrimary,
 			DeviceName: dev.Name,
 		}
 		newAddrsByDevice[dev.Name] = append(newAddrsByDevice[dev.Name], nodeAddr)
