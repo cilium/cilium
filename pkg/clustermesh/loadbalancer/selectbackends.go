@@ -1,29 +1,42 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package clustermesh
+package loadbalancer
 
 import (
 	"iter"
 	"log/slog"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
 )
 
+type selectBackendsParams struct {
+	cell.In
+
+	Logger *slog.Logger
+	Writer *writer.Writer
+
+	CommonConfig common.Config
+	ClusterInfo  cmtypes.ClusterInfo
+}
+
 // injectSelectBackends overrides the load-balancing backend selection algorithm to implement
 // support for the ServiceAffinity and IncludeExternal annotations.
-func injectSelectBackends(cm *ClusterMesh, expCfg loadbalancer.Config, w *writer.Writer) {
-	if cm == nil {
+func injectSelectBackends(p selectBackendsParams) {
+	if p.ClusterInfo.ID == 0 || p.CommonConfig.ClusterMeshConfig == "" {
 		// ClusterMesh disabled, do not change the backend selection.
 		return
 	}
-	w.SetSelectBackendsFunc(NewClusterMeshSelectBackends(w, cm.conf.Logger).SelectBackends)
+	p.Writer.SetSelectBackendsFunc(NewClusterMeshSelectBackends(p.Writer, p.Logger).SelectBackends)
 }
 
 type ClusterMeshSelectBackends struct {

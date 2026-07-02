@@ -1,21 +1,47 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package clustermesh
+package loadbalancer
 
 import (
+	"context"
 	"slices"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/clustermesh/common"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/source"
 )
+
+type ServicesSyncedFunc func(context.Context) error
+
+// registerServicesInitialized adds a job to wait for the ClusterMesh services to be synchronized
+// before marking the load-balancing tables as initialized.
+func registerServicesInitialized(jobs job.Group, synced ServicesSyncedFunc, cfg cmtypes.ServiceModeV2Config, w *writer.Writer) {
+	if synced == nil || !cfg.ServiceModeV2.ShouldWatchLegacyServices() {
+		return
+	}
+	markDone := w.RegisterInitializer("clustermesh")
+	jobs.Add(
+		job.OneShot(
+			"services-initialized",
+			func(ctx context.Context, health cell.Health) error {
+				if err := synced(ctx); err != nil {
+					return err
+				}
+				txn := w.WriteTxn()
+				markDone(txn)
+				txn.Commit()
+				return nil
+			},
+		),
+	)
+}
 
 // ServiceMerger is the interface to be implemented by the owner of local
 // services. The functions have to merge service updates and deletions with
@@ -25,22 +51,12 @@ type ServiceMerger interface {
 	MergeExternalServiceDelete(service *serviceStore.ClusterService)
 }
 
-type serviceMergerParams struct {
-	cell.In
-
-	ClusterInfo cmtypes.ClusterInfo
-	CMConfig    common.Config
-	LBConfig    loadbalancer.Config
-	Writer      *writer.Writer
-}
-
-func newServiceMerger(p serviceMergerParams) ServiceMerger {
-	return &serviceMerger{clusterInfo: p.ClusterInfo, writer: p.Writer}
+func newServiceMerger(writer *writer.Writer) ServiceMerger {
+	return &serviceMerger{writer: writer}
 }
 
 type serviceMerger struct {
-	clusterInfo cmtypes.ClusterInfo
-	writer      *writer.Writer
+	writer *writer.Writer
 }
 
 func (sm *serviceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService) {

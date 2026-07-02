@@ -24,6 +24,8 @@ type params struct {
 	StoreFactory store.Factory
 	Metrics      Metrics
 	types.ServiceModeV2Config
+
+	Observer Observer `optional:"true"`
 }
 
 var Cell = cell.Module(
@@ -38,6 +40,8 @@ var Cell = cell.Module(
 type Metrics struct {
 	TotalEndpointSlices metric.Vec[metric.Gauge]
 }
+
+type Observer store.Observer
 
 func MetricsProvider(namespace string) func() Metrics {
 	return func() Metrics {

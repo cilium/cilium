@@ -132,6 +132,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 				wtxn,
 				name,
 				source.Kubernetes,
+				LocalClusterID,
 				slices.Values([]loadbalancer.Backend{
 					{
 						Address: beAddr,
@@ -174,6 +175,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		wtxn,
 		name,
 		source.Kubernetes,
+		LocalClusterID,
 		slices.Values([]loadbalancer.Backend{
 			{
 				Address: beAddr,
@@ -193,6 +195,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			wtxn,
 			name,
 			source.Kubernetes,
+			LocalClusterID,
 			params,
 		)
 	}
@@ -274,7 +277,7 @@ func Benchmark_UpsertBackends_SharedBackendManyServices(b *testing.B) {
 	for b.Loop() {
 		wtxn := p.Writer.WriteTxn()
 		for _, svc := range names {
-			if err := p.Writer.UpsertBackends(wtxn, svc, source.Kubernetes, slices.Values(bes)); err != nil {
+			if err := p.Writer.UpsertBackends(wtxn, svc, source.Kubernetes, LocalClusterID, slices.Values(bes)); err != nil {
 				wtxn.Abort()
 				b.Fatal(err)
 			}

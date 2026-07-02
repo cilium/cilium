@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	reflectorEndpoints "github.com/cilium/cilium/pkg/loadbalancer/reflectors/endpoints"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -278,7 +279,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		}
 	}
 
-	currentEndpoints := map[string]endpointsEvent{}
+	currentEndpoints := reflectorEndpoints.Cache{}
 	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, val bufferValue) {
 		switch val.kind {
 		case resource.Sync:
@@ -290,19 +291,9 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			}
 
 			// Delete all previous endpoints
-			for _, ev := range currentEndpoints {
-				for addr, prevBe := range ev.backends {
-					addrs := make([]loadbalancer.L3n4Addr, 0, len(prevBe.Ports))
-					for l4Addr := range prevBe.Ports {
-						addrs = append(addrs, loadbalancer.NewL3n4Addr(
-							l4Addr.Protocol,
-							addr,
-							l4Addr.Port,
-							loadbalancer.ScopeExternal))
-					}
-					if err := p.Writer.DeleteBackendsByAddress(txn, ev.svcName, slices.Values(addrs)); err != nil {
-						p.Log.Error("BUG: Unexpected failure to delete backends", logfields.Error, err)
-					}
+			for name, addrs := range currentEndpoints.All() {
+				if err := p.Writer.DeleteBackendsByAddress(txn, name, source.Kubernetes, writer.LocalClusterID, addrs); err != nil {
+					p.Log.Error("BUG: Unexpected failure to delete backends", logfields.Error, err)
 				}
 			}
 			clear(currentEndpoints)
@@ -315,19 +306,18 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				servicesToRefresh.Delete(name)
 
 				// Convert [k8s.Endpoints] to [loadbalancer.Backend]
-				backends := convertEndpoints(p.Log, p.ExtConfig, name, maps.All(eps.Backends))
+				backends := reflectorEndpoints.Convert(p.Log, p.ExtConfig, name, maps.All(eps.Backends))
 
-				err := p.Writer.UpsertBackends(txn, name, source.Kubernetes, backends)
+				err := p.Writer.UpsertBackends(txn, name, source.Kubernetes, writer.LocalClusterID, backends)
 				rh.update("eps:"+name.String(), err)
 				if err != nil {
 					continue
 				}
-
-				currentEndpoints[eps.EndpointSliceName] = endpointsEvent{
-					name:     eps.EndpointSliceName,
-					svcName:  name,
-					backends: eps.Backends,
-				}
+				currentEndpoints.Update(reflectorEndpoints.Endpoints{
+					Name:        eps.EndpointSliceName,
+					ServiceName: name,
+					Backends:    eps.Backends,
+				})
 			}
 
 			// Refresh the remaining frontends that now have no backends.
@@ -347,52 +337,15 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			var err error
 
 			// Convert [k8s.Endpoints] to [loadbalancer.Backend]
-			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
+			backends := reflectorEndpoints.Convert(p.Log, p.ExtConfig, name, allEps.Backends())
 
-			// Find orphaned backends. We are using iter.Seq to avoid unnecessary allocations.
-			var orphans iter.Seq[loadbalancer.L3n4Addr] = func(yield func(loadbalancer.L3n4Addr) bool) {
-				for ep := range allEps.All() {
-					previous, found := currentEndpoints[ep.name]
-					if !found {
-						continue
-					}
-					for addr, prevBe := range previous.backends {
-						be, foundBe := ep.backends[addr]
-						for l4Addr := range prevBe.Ports {
-							foundPort := false
-							if foundBe {
-								_, foundPort = be.Ports[l4Addr]
-							}
-							if !foundPort {
-								if !yield(
-									loadbalancer.NewL3n4Addr(
-										l4Addr.Protocol,
-										addr,
-										l4Addr.Port,
-										loadbalancer.ScopeExternal,
-									)) {
-									return
-								}
-							}
-						}
-					}
-				}
-			}
-
-			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, backends, orphans)
+			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, writer.LocalClusterID, backends, currentEndpoints.Orphans(allEps.All()))
 			if err != nil {
 				rh.update("eps:"+name.String(), err)
 				return
 			}
 
-			for ep := range allEps.All() {
-				if len(ep.backends) == 0 {
-					delete(currentEndpoints, ep.name)
-				} else {
-					ep.svcName = name
-					currentEndpoints[ep.name] = ep
-				}
-			}
+			currentEndpoints.UpdateMany(allEps.All())
 
 			rh.update("eps:"+name.String(), err)
 
@@ -456,72 +409,9 @@ type bufferKey struct {
 type bufferValue struct {
 	kind             resource.EventKind
 	svc              *slim_corev1.Service
-	allEndpoints     allEndpoints
+	allEndpoints     reflectorEndpoints.AllEndpoints
 	endpointsReplace []*k8s.Endpoints
 	servicesReplace  []*slim_corev1.Service
-}
-
-type endpointsEvent struct {
-	name     string
-	svcName  loadbalancer.ServiceName
-	backends map[cmtypes.AddrCluster]*k8s.Backend
-}
-
-// allEndpoints holds one or more [k8s.Endpoints] that target the same service within a single buffer.
-// This type is designed to avoid allocations for the usual case of single endpoint slice per service.
-type allEndpoints struct {
-	head endpointsEvent
-	tail []endpointsEvent
-}
-
-func (ae allEndpoints) insert(deleted bool, ep *k8s.Endpoints) allEndpoints {
-	ev := endpointsEvent{
-		name:    ep.EndpointSliceName,
-		svcName: ep.ServiceName,
-	}
-	if !deleted {
-		ev.backends = ep.Backends
-	}
-
-	if ae.head.name == "" || ae.head.name == ev.name {
-		ae.head = ev
-		return ae
-	}
-	for i, x := range ae.tail {
-		if ev.name == x.name {
-			ae.tail[i] = ev
-			return ae
-		}
-	}
-	ae.tail = append(ae.tail, ev)
-	return ae
-}
-
-func (ae *allEndpoints) All() iter.Seq[endpointsEvent] {
-	return func(yield func(endpointsEvent) bool) {
-		if ae.head.name != "" {
-			if !yield(ae.head) {
-				return
-			}
-		}
-		for _, ep := range ae.tail {
-			if !yield(ep) {
-				return
-			}
-		}
-	}
-}
-
-func (ae *allEndpoints) Backends() iter.Seq2[cmtypes.AddrCluster, *k8s.Backend] {
-	return func(yield func(cmtypes.AddrCluster, *k8s.Backend) bool) {
-		for ep := range ae.All() {
-			for addr, be := range ep.backends {
-				if !yield(addr, be) {
-					return
-				}
-			}
-		}
-	}
 }
 
 // buffer for holding a batch of service or endpoint events
@@ -548,11 +438,11 @@ func bufferInsert(buf buffer, ev event) buffer {
 			resource.Key{Name: ev.obj.ServiceName.Name(), Namespace: ev.obj.ServiceName.Namespace()},
 			false,
 		}
-		var allEps allEndpoints
+		var allEps reflectorEndpoints.AllEndpoints
 		if old, ok := buf.Get(key); ok {
 			allEps = old.allEndpoints
 		}
-		allEps = allEps.insert(false, ev.obj)
+		allEps = allEps.Insert(false, ev.obj)
 		buf.Insert(key, bufferValue{
 			kind:         resource.Upsert,
 			allEndpoints: allEps,
@@ -562,13 +452,13 @@ func bufferInsert(buf buffer, ev event) buffer {
 			resource.Key{Name: ev.obj.ServiceName.Name(), Namespace: ev.obj.ServiceName.Namespace()},
 			false,
 		}
-		var allEps allEndpoints
+		var allEps reflectorEndpoints.AllEndpoints
 		if old, ok := buf.Get(key); ok {
 			allEps = old.allEndpoints
 		}
-		allEps = allEps.insert(true, ev.obj)
+		allEps = allEps.Insert(true, ev.obj)
 		// Since we may merge a mixture of Upsert and Delete events together we handle
-		// deletion as an Upsert of [endpointsEvent] with nil backends.
+		// deletion as an Upsert of [endpoints.Endpoints] with nil backends.
 		buf.Insert(key, bufferValue{
 			kind:         resource.Upsert,
 			allEndpoints: allEps,

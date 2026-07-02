@@ -649,8 +649,8 @@ func (w *Writer) DeleteBackendsBySource(txn WriteTxn, source source.Source) erro
 }
 
 // UpsertBackends adds/updates backends for the given service.
-func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, bes iter.Seq[loadbalancer.Backend]) error {
-	changed, err := w.updateBackends(txn, serviceName, source, LocalClusterID, bes)
+func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, clusterID uint32, bes iter.Seq[loadbalancer.Backend]) error {
+	changed, err := w.updateBackends(txn, serviceName, source, clusterID, bes)
 	if err != nil {
 		return err
 	}
@@ -660,7 +660,7 @@ func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 	return w.RefreshFrontends(txn, serviceName)
 }
 
-func (w *Writer) UpsertAndReleaseBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, new iter.Seq[loadbalancer.Backend], orphans iter.Seq[loadbalancer.L3n4Addr]) error {
+func (w *Writer) UpsertAndReleaseBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, clusterID uint32, new iter.Seq[loadbalancer.Backend], orphans iter.Seq[loadbalancer.L3n4Addr]) error {
 	// Remove orphaned backends first since [new] might again add them back.
 	hadOrphan := false
 	srcPrio := w.sourcePriority(source)
@@ -678,7 +678,7 @@ func (w *Writer) UpsertAndReleaseBackends(txn WriteTxn, serviceName loadbalancer
 		hadOrphan = hadOrphan || found
 	}
 
-	changed, err := w.updateBackends(txn, serviceName, source, LocalClusterID, new)
+	changed, err := w.updateBackends(txn, serviceName, source, clusterID, new)
 	if err != nil {
 		return err
 	}
@@ -780,12 +780,12 @@ func (w *Writer) DeleteBackendsOfServiceFromCluster(txn WriteTxn, name loadbalan
 	return w.RefreshFrontends(txn, name)
 }
 
-func (w *Writer) DeleteBackendsByAddress(txn WriteTxn, name loadbalancer.ServiceName, addrs iter.Seq[loadbalancer.L3n4Addr]) error {
+func (w *Writer) DeleteBackendsByAddress(txn WriteTxn, name loadbalancer.ServiceName, src source.Source, clusterID uint32, addrs iter.Seq[loadbalancer.L3n4Addr]) error {
 	changed := false
 	for addr := range addrs {
 		bes := w.bes.List(txn, loadbalancer.BackendByAddress(addr))
 		for be := range bes {
-			if be.ServiceName == name {
+			if be.ServiceName == name && be.Source == src && be.ClusterID == clusterID {
 				if _, _, err := w.bes.Delete(txn, be); err != nil {
 					return err
 				}
