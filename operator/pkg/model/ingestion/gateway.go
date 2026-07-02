@@ -131,8 +131,9 @@ func (l *ListenerWithContext) FilterUDPRoutes(routes []gatewayv1alpha2.UDPRoute)
 
 // Input is the input for GatewayAPI.
 type Input struct {
-	GatewayClass       gatewayv1.GatewayClass
-	GatewayClassConfig *v2alpha1.CiliumGatewayClassConfig
+	GatewayClass               gatewayv1.GatewayClass
+	GatewayClassConfig         *v2alpha1.CiliumGatewayClassConfig
+	ServerHeaderTransformation model.ServerHeaderTransformation
 
 	Gateway             gatewayv1.Gateway
 	HTTPRoutes          []gatewayv1.HTTPRoute
@@ -233,14 +234,15 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
 			httpRoutes = append(httpRoutes, toGRPCRoutes(l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 			resHTTP = append(resHTTP, model.HTTPListener{
-				Name:           string(l.Name),
-				Sources:        []model.FullyQualifiedResource{l.Source},
-				Port:           uint32(l.Port),
-				Hostname:       toHostname(l.Hostname),
-				TLS:            toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
-				Routes:         httpRoutes,
-				Infrastructure: infra,
-				Service:        toServiceModel(input.GatewayClassConfig),
+				Name:                       string(l.Name),
+				Sources:                    []model.FullyQualifiedResource{l.Source},
+				Port:                       uint32(l.Port),
+				Hostname:                   toHostname(l.Hostname),
+				TLS:                        toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
+				Routes:                     httpRoutes,
+				Infrastructure:             infra,
+				Service:                    toServiceModel(input.GatewayClassConfig),
+				ServerHeaderTransformation: input.ServerHeaderTransformation,
 			})
 
 			if l.Protocol == gatewayv1.TLSProtocolType {
