@@ -340,7 +340,7 @@ jobs:
             2>&1 | tee cl2-setup.txt
 
       - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@995a08156171644e92e5688b0785b7baf86ce22a # main
+        uses: cilium/scale-tests-action/create-instance-group@0c531710e476571fca1643c4e09b964117fd7d77 # pr/jwi/main/ig-zone (scale-tests-action#48, not yet on main)
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
