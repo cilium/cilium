@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/fqdn/config"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
@@ -28,6 +29,11 @@ import (
 var Cell = cell.Module(
 	"namemanager",
 	"maintains DNS mappings to implement toFQDN policy",
+
+	cell.Config(config.DefaultFQDNPolicyDNSLookupConfig),
+	cell.Invoke(func(cfg config.FQDNPolicyDNSLookupConfig) {
+		config.GlobalFQDNPolicyDNSLookupConfig = cfg
+	}),
 
 	// Cannot just yet be a proper cell.Config, since there's places which
 	// access the MinTTL without access to a hive. In addition, the state dir is

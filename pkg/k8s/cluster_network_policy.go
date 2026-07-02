@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -155,10 +156,12 @@ func kcnpParseFQDNSelectors(fqdns []policyv1alpha2.DomainName) (types.Selectors,
 
 // kcnpParseProtocols converts a slice of CNP Port specifications into a slice of api.PortRule.
 // Exactly one of PortNumber, PortRange or NamedPort in each slice value must be non-nil,
-// which is ensured through CRD validation. Returns an error if the protocol specification
-// can not be parsed.
-func kcnpParseProtocols(protocols []policyv1alpha2.ClusterNetworkPolicyProtocol) (api.PortRules, error) {
-	portRules := api.PortRules{}
+// which is ensured through CRD validation.
+func kcnpParseProtocols(protocols []policyv1alpha2.ClusterNetworkPolicyProtocol) api.PortRules {
+	if len(protocols) == 0 {
+		return nil
+	}
+	portRules := make(api.PortRules, 0, len(protocols))
 	for _, proto := range protocols {
 		var (
 			pp   api.PortProtocol
@@ -192,7 +195,7 @@ func kcnpParseProtocols(protocols []policyv1alpha2.ClusterNetworkPolicyProtocol)
 
 		portRules = append(portRules, api.PortRule{Ports: []api.PortProtocol{pp}})
 	}
-	return portRules, nil
+	return portRules
 }
 
 // GetKCNPPolicyLabels extracts the name of the k8s Cluster Network Policy.
@@ -247,15 +250,7 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 		fromRules := types.PolicyEntries{}
 		priority := basePriority + float64(i)/100
 		verdict := actionToVerdict(iRule.Action)
-
-		var l4 api.PortRules
-		if len(iRule.Protocols) > 0 {
-			var err error
-			l4, err = kcnpParseProtocols(iRule.Protocols)
-			if err != nil {
-				return nil, err
-			}
-		}
+		l4 := kcnpParseProtocols(iRule.Protocols)
 
 		if len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
@@ -300,15 +295,7 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 		toRules := types.PolicyEntries{}
 		priority := basePriority + float64(i)/100
 		verdict := actionToVerdict(eRule.Action)
-
-		var l4 api.PortRules
-		if len(eRule.Protocols) > 0 {
-			var err error
-			l4, err = kcnpParseProtocols(eRule.Protocols)
-			if err != nil {
-				return nil, err
-			}
-		}
+		l4 := kcnpParseProtocols(eRule.Protocols)
 
 		if len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
@@ -341,22 +328,18 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 					egress.L3 = l3
 					// To allow FQDNs, we need to explicitly add an additional L3 and L4 selector
 					// that allows DNS requests for the specified FQDNs.
-					dnsEgress := &types.PolicyEntry{
-						Ingress: false,
-						Verdict: types.Allow,
-						// TODO: Make this configurable
-						L3: types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("k8s-app=kube-dns"))),
-						L4: api.PortRules{{
-							Ports: []api.PortProtocol{
-								{Port: "dns"},
-								{Port: "dns-tcp"},
-							},
-							Rules: &api.L7Rules{DNS: dnsL4},
-						}},
-						Priority: priority,
-						Tier:     tier,
+					dnsL3, dnsL4Rules := fqdnconfig.GetFQDNPolicyDNSSelectors(dnsL4)
+					if len(dnsL3) > 0 {
+						dnsEgress := &types.PolicyEntry{
+							Ingress:  false,
+							Verdict:  types.Allow,
+							L3:       dnsL3,
+							L4:       dnsL4Rules,
+							Priority: priority,
+							Tier:     tier,
+						}
+						toRules = append(toRules, dnsEgress)
 					}
-					toRules = append(toRules, dnsEgress)
 				default:
 					// If no destination endpoint can be identified, fail closed.
 					// For "Accept" rules, "fail closed" means: "treat the rule as matching no

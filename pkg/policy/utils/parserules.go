@@ -4,6 +4,8 @@
 package utils
 
 import (
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -109,6 +111,19 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Log:            rule.Log,
 			}
 			entries = append(entries, entry)
+
+			if len(eRule.ToFQDNs) > 0 {
+				if entry := createFQDNPolicyDNSEgressEntry(
+					subjectSelector,
+					node,
+					rule.Labels,
+					defaultDeny,
+					eRule.ToFQDNs,
+					rule.Log,
+				); entry != nil {
+					entries = append(entries, entry)
+				}
+			}
 		}
 
 		for _, eRule := range rule.EgressDeny {
@@ -192,4 +207,36 @@ func getSelector(rule *api.Rule) (api.EndpointSelector, bool) {
 		return es, true
 	}
 	return rule.EndpointSelector, false
+}
+
+// createFQDNPolicyDNSEgressEntry creates a DNS egress policy entry that allows DNS queries to the
+// configured DNS target, enabling dynamic IP mapping updates for the requested FQDN domains.
+func createFQDNPolicyDNSEgressEntry(
+	subjectSelector *types.LabelSelector,
+	node bool,
+	labels labels.LabelArray,
+	defaultDeny bool,
+	toFQDNs api.FQDNSelectorSlice,
+	log api.LogConfig,
+) *types.PolicyEntry {
+	dnsRules := make(api.PortRulesDNS, 0, len(toFQDNs))
+	for _, fqdn := range toFQDNs {
+		dnsRules = append(dnsRules, api.PortRuleDNS(fqdn))
+	}
+	l3, l4 := fqdnconfig.GetFQDNPolicyDNSSelectors(dnsRules)
+	if len(l3) == 0 {
+		return nil
+	}
+	return &types.PolicyEntry{
+		Tier:        types.Normal,
+		Subject:     subjectSelector,
+		Node:        node,
+		Labels:      labels,
+		DefaultDeny: defaultDeny,
+		Verdict:     types.Allow,
+		Ingress:     false,
+		L3:          l3,
+		L4:          l4,
+		Log:         log,
+	}
 }
