@@ -1,9 +1,5 @@
 {{/* validate deprecated options are not being used */}}
 
-{{- if not (or (eq .Values.envoy.xdsMode "") (eq .Values.envoy.xdsMode "split") (eq .Values.envoy.xdsMode "ads") (eq .Values.envoy.xdsMode "strict-ads")) }}
-  {{ fail ".Values.envoy.xdsMode must be one of: empty, split, ads, strict-ads. Empty value defaults to ads" }}
-{{- end }}
-
 {{/* Options removed in v1.18 */}}
 {{- if (dig "enableCiliumEndpointSlice" "" .Values.AsMap) }}
   {{ fail "enableCiliumEndpointSlice was deprecated in v1.16 and has been removed in v1.18. For details please refer to https://docs.cilium.io/en/v1.18/operations/upgrade/#helm-options" }}

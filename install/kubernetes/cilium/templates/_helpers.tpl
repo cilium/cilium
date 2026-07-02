@@ -184,6 +184,19 @@ Return user specify envoy.enabled or default value based on the upgradeCompatibi
 {{- end }}
 
 {{/*
+Return user specified envoy.xdsMode or default value based on the upgradeCompatibility.
+*/}}
+{{- define "envoyXdsMode" }}
+  {{- if ne .Values.envoy.xdsMode nil }}
+    {{- .Values.envoy.xdsMode }}
+  {{- else }}
+    {{- if semverCompare ">=1.20" (default "1.20" .Values.upgradeCompatibility) }}
+      {{- "ads" }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{/*
 Return user specify tls.readSecretsOnlyFromSecretsNamespace and take into account tls.secretsBackend
 */}}
 {{- define "readSecretsOnlyFromSecretsNamespace" }}

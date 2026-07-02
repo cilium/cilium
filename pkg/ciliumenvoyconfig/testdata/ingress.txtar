@@ -455,9 +455,18 @@ clusters:default/cilium-ingress-default-basic-ingress/default:details:9080:
   type:  EDS
   eds_cluster_config:  {
     eds_config:  {
-      ads:  {}
+      api_config_source:  {
+        api_type:  GRPC
+        transport_api_version:  V3
+        grpc_services:  {
+          envoy_grpc:  {
+            cluster_name:  "xds-grpc-cilium"
+          }
+        }
+        set_node_on_first_message_only:  true
+      }
       initial_fetch_timeout:  {
-        nanos:  1000000
+        seconds:  30
       }
       resource_api_version:  V3
     }
@@ -520,9 +529,18 @@ clusters:default/cilium-ingress-default-basic-ingress/default:productpage:9080:
   type:  EDS
   eds_cluster_config:  {
     eds_config:  {
-      ads:  {}
+      api_config_source:  {
+        api_type:  GRPC
+        transport_api_version:  V3
+        grpc_services:  {
+          envoy_grpc:  {
+            cluster_name:  "xds-grpc-cilium"
+          }
+        }
+        set_node_on_first_message_only:  true
+      }
       initial_fetch_timeout:  {
-        nanos:  1000000
+        seconds:  30
       }
       resource_api_version:  V3
     }
@@ -643,9 +661,18 @@ listener:default/cilium-ingress-default-basic-ingress/listener:
           stat_prefix:  "listener-insecure"
           rds:  {
             config_source:  {
-              ads:  {}
+              api_config_source:  {
+                api_type:  GRPC
+                transport_api_version:  V3
+                grpc_services:  {
+                  envoy_grpc:  {
+                    cluster_name:  "xds-grpc-cilium"
+                  }
+                }
+                set_node_on_first_message_only:  true
+              }
               initial_fetch_timeout:  {
-                nanos:  1000000
+                seconds:  30
               }
               resource_api_version:  V3
             }
@@ -736,13 +763,6 @@ listener:default/cilium-ingress-default-basic-ingress/listener:
         is_l7lb:  true
         proxy_id:  1000
         ipcache_name:  "cilium_ipcache_v2"
-        cilium_config_source:  {
-          ads:  {}
-          initial_fetch_timeout:  {
-            nanos:  1000000
-          }
-          resource_api_version:  V3
-        }
       }
     }
   }

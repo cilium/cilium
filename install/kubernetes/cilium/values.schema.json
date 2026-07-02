@@ -2856,11 +2856,17 @@
           "type": "boolean"
         },
         "xdsMode": {
-          "enum": [
-            "",
-            "split",
-            "ads",
-            "strict-ads"
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "split",
+                "ads",
+                "strict-ads"
+              ]
+            }
           ]
         },
         "xffNumTrustedHopsL7PolicyEgress": {
