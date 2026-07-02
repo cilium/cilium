@@ -338,7 +338,11 @@ jobs:
           job: "${{ env.job_name }}-${{ matrix.ipFamily }}"
 
       - name: Create Cilium JUnits Directory
-        if: ${{ steps.install-cilium.outcome != 'skipped' }}
+        # always() so the JUnit report produced by the sig-network run is moved
+        # into place (and uploaded by the common post steps) even when the tests
+        # fail, which is exactly when the report is needed to know which spec
+        # failed.
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.run-tests.outcome != 'skipped' }}
         run: |
           # Move the all artifacts to cilium-junits directory since that's the
           # directory used in the common post steps.
