@@ -42,6 +42,14 @@ type spec struct {
 	IPv4Routes   []route         `json:"ipv4Routes" yaml:"ipv4Routes"`
 	IPv6NetMask  int             `json:"ipv6NetMask" yaml:"ipv6NetMask"`
 	IPv6Routes   []route         `json:"ipv6Routes" yaml:"ipv6Routes"`
+
+	// Sysctl holds fully-qualified sysctl key/value pairs applied verbatim
+	// in the pod netns.
+	Sysctl map[string]string `json:"sysctl,omitempty" yaml:"sysctl,omitempty"`
+	// InterfaceSysctlIPv4/IPv6 hold leaf parameters scoped to the allocated
+	// interface, under net.<family>.conf.<interface>.
+	InterfaceSysctlIPv4 map[string]string `json:"interfaceSysctlIPv4,omitempty" yaml:"interfaceSysctlIPv4,omitempty"`
+	InterfaceSysctlIPv6 map[string]string `json:"interfaceSysctlIPv6,omitempty" yaml:"interfaceSysctlIPv6,omitempty"`
 }
 
 type route struct {
@@ -185,6 +193,12 @@ func toResourceNetworkConfig(_ statedb.ReadTxn, obj any) (resourceNetworkConfig,
 			NodeSelector: nodeSel,
 			IPPool:       sp.IPPool,
 			Vlan:         sp.VLAN,
+			Sysctl:       sp.Sysctl,
+		}
+
+		if sp.InterfaceSysctl != nil {
+			s.InterfaceSysctlIPv4 = sp.InterfaceSysctl.IPv4
+			s.InterfaceSysctlIPv6 = sp.InterfaceSysctl.IPv6
 		}
 
 		if sp.IPv4 != nil {

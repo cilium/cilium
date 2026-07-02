@@ -290,6 +290,10 @@ type netDevConfig struct {
 	ipv6   netip.Prefix
 	routes []route
 	vlan   uint16
+
+	sysctl              map[string]string
+	interfaceSysctlIPv4 map[string]string
+	interfaceSysctlIPv6 map[string]string
 }
 
 func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg types.DeviceConfig) (netDevConfig, error) {
@@ -336,6 +340,15 @@ func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg
 	if driver.ipv6Enabled {
 		devCfg.routes = append(devCfg.routes, targetCfg.IPv6Routes...)
 	}
+
+	// Validate sysctl here so a malformed config fails claim preparation and
+	// surfaces to the user, rather than failing later inside the pod netns.
+	if err := validateSysctl(targetCfg.Sysctl, targetCfg.InterfaceSysctlIPv4, targetCfg.InterfaceSysctlIPv6); err != nil {
+		return devCfg, fmt.Errorf("invalid sysctl settings in network config %s for device %s: %w", cfg.NetworkConfig, device, err)
+	}
+	devCfg.sysctl = targetCfg.Sysctl
+	devCfg.interfaceSysctlIPv4 = targetCfg.InterfaceSysctlIPv4
+	devCfg.interfaceSysctlIPv6 = targetCfg.InterfaceSysctlIPv6
 
 	// Overwrite VLAN only when it is not configured directly in the DeviceConfig
 	if devCfg.vlan == 0 {
@@ -597,6 +610,9 @@ func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string,
 	alloc.Config.IPv6Addr = devCfg.ipv6
 	alloc.Config.IPPool = devCfg.ipPool
 	alloc.Config.Vlan = devCfg.vlan
+	alloc.Config.Sysctl = devCfg.sysctl
+	alloc.Config.InterfaceSysctlIPv4 = devCfg.interfaceSysctlIPv4
+	alloc.Config.InterfaceSysctlIPv6 = devCfg.interfaceSysctlIPv6
 	alloc.Config.Routes = make([]types.Route, 0, len(devCfg.routes))
 	for _, r := range devCfg.routes {
 		alloc.Config.Routes = append(alloc.Config.Routes, types.Route{

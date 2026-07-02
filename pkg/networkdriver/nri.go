@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
+	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
@@ -24,6 +25,7 @@ import (
 
 	linuxRoute "github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
@@ -206,6 +208,9 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 						return err
 					}
 					if err := driver.configureRoutes(log, l, add, a.Config.Routes); err != nil {
+						return err
+					}
+					if err := driver.configureSysctl(l, a.Config); err != nil {
 						return err
 					}
 
@@ -402,6 +407,26 @@ func (driver *Driver) configureRoutes(logger *slog.Logger, l netlink.Link, act a
 	}
 
 	return errors.Join(errs...)
+}
+
+// configureSysctl applies the device config's sysctl settings in the current
+// (pod) netns. It must run inside podNs.Do after the interface is renamed and
+// up, so l.Attrs().Name is the final pod-facing name. Per-netns sysctls die with
+// the namespace, so StopPodSandbox has no corresponding revert.
+func (driver *Driver) configureSysctl(l netlink.Link, cfg types.DeviceConfig) error {
+	settings := buildSysctlSettings(cfg, l.Attrs().Name)
+	if len(settings) == 0 {
+		return nil
+	}
+
+	// Direct (non-reconciling) Sysctl: we are inside the pod netns where
+	// /proc/sys is namespaced, while the operator's reconciler targets the host.
+	sc := sysctl.NewDirectSysctl(afero.NewOsFs(), driver.hostProcPath)
+	if err := sc.ApplySettings(settings); err != nil {
+		return fmt.Errorf("failed to apply sysctl settings on device %s: %w", l.Attrs().Name, err)
+	}
+
+	return nil
 }
 
 // configureIfName renames an interface to newIfName if the current link name differs from the
