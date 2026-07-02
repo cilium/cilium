@@ -116,6 +116,7 @@ const (
 	timestampPlaceholderFileName             = "<ts>"
 	gatewayClassesFileName                   = "gatewayapi-gatewayclasses-<ts>.yaml"
 	gatewaysFileName                         = "gatewayapi-gateways-<ts>.yaml"
+	listenerSetsFileName                     = "gatewayapi-listenersets-<ts>.yaml"
 	httpRoutesFileName                       = "gatewayapi-httproutes-<ts>.yaml"
 	tlsRoutesFileName                        = "gatewayapi-tlsroutes-<ts>.yaml"
 	grpcRoutesFileName                       = "gatewayapi-grpcroutes-<ts>.yaml"
@@ -184,6 +185,12 @@ var (
 	gateway = schema.GroupVersionResource{
 		Group:    "gateway.networking.k8s.io",
 		Resource: "gateways",
+		Version:  "v1",
+	}
+
+	listenerSet = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "listenersets",
 		Version:  "v1",
 	}
 
