@@ -173,6 +173,20 @@ from one cluster to another:
   kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
     kubectl --context $CLUSTER2 create -f -
 
+.. _clustermesh_external_tls:
+
+Custom Per-Pod Certificates
+===========================
+
+The Helm chart supports disabling the default TLS certificate volumes
+for Cluster Mesh components via ``disableDefaultVolumes``, allowing you
+to provide your own via ``extraVolumes``/``extraVolumeMounts`` and inject
+certificate agents via ``extraInitContainers``. This is useful when you
+want to provide certificates directly to each pod rather than through
+Kubernetes Secrets (e.g., per-pod certificates issued at runtime by
+HashiCorp Vault, the cert-manager CSI driver, or SPIFFE). See
+:ref:`hubble_enable_tls` for the general pattern.
+
 .. _enable_clustermesh:
 
 Enable Cluster Mesh

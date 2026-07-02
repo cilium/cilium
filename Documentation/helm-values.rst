@@ -652,6 +652,10 @@
      - Additional clustermesh-apiserver environment variables.
      - list
      - ``[]``
+   * - :spelling:ignore:`clustermesh.apiserver.extraInitContainers`
+     - Additional init containers added to the clustermesh-apiserver Deployment.
+     - list
+     - ``[]``
    * - :spelling:ignore:`clustermesh.apiserver.extraVolumeMounts`
      - Additional clustermesh-apiserver volumeMounts.
      - list
@@ -944,6 +948,10 @@
      - X509Subject Full X509 name specification used when clustermesh.apiserver.tls.auto.method=certmanager. https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.X509Subject
      - object
      - ``{}``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.disableDefaultVolumes`
+     - Disable the default TLS certificate volumes and mounts for clustermesh-apiserver (including KVStoreMesh), cilium-agent and cilium-operator, allowing you to provide your own via extraVolumes/extraVolumeMounts. This also disables mounting the clustermesh configuration, which then needs to be provided separately (likely at a different location).
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.apiserver.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
@@ -2288,6 +2296,10 @@
      - Additional hubble-relay environment variables.
      - list
      - ``[]``
+   * - :spelling:ignore:`hubble.relay.extraInitContainers`
+     - Additional init containers added to the hubble-relay Deployment.
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.relay.extraVolumeMounts`
      - Additional hubble-relay volumeMounts.
      - list
@@ -2463,7 +2475,7 @@
    * - :spelling:ignore:`hubble.relay.tls`
      - TLS configuration for Hubble Relay
      - object
-     - ``{"client":{"cert":"","existingSecret":"","key":""},"server":{"cert":"","enabled":false,"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}}``
+     - ``{"client":{"cert":"","existingSecret":"","key":""},"disableDefaultVolumes":false,"server":{"cert":"","enabled":false,"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}}``
    * - :spelling:ignore:`hubble.relay.tls.client`
      - The hubble-relay client certificate and private key. This keypair is presented to Hubble server instances for mTLS authentication and is required when hubble.tls.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
      - object
@@ -2480,6 +2492,10 @@
      - base64 encoded PEM values for the Hubble relay client key (deprecated). Use existingSecret instead.
      - string
      - ``""``
+   * - :spelling:ignore:`hubble.relay.tls.disableDefaultVolumes`
+     - Disable the default TLS certificate volumes and mounts for Hubble Relay, allowing you to provide your own via extraVolumes/extraVolumeMounts.
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.relay.tls.server`
      - The hubble-relay server certificate and private key
      - object
@@ -2527,7 +2543,7 @@
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","privateKey":{},"schedule":"0 0 1 */4 *","subject":{}},"enabled":true,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":365,"enabled":true,"method":"helm","privateKey":{},"schedule":"0 0 1 */4 *","subject":{}},"disableDefaultVolumes":false,"enabled":true,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - :spelling:ignore:`hubble.tls.auto`
      - Configure automatic TLS certificates generation.
      - object
@@ -2560,6 +2576,10 @@
      - X509Subject Full X509 name specification used when hubble.tls.auto.method=certmanager. https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.X509Subject
      - object
      - ``{}``
+   * - :spelling:ignore:`hubble.tls.disableDefaultVolumes`
+     - Disable the default TLS certificate volumes and mounts for the Hubble server, allowing you to provide your own via extraVolumes/extraVolumeMounts.
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.tls.enabled`
      - Enable mutual TLS for listenAddress. Setting this value to false is highly discouraged as the Hubble API provides access to potentially sensitive network flow metadata and is exposed on the host network.
      - bool
@@ -2628,6 +2648,10 @@
      - Whether to enable the Hubble UI.
      - bool
      - ``false``
+   * - :spelling:ignore:`hubble.ui.extraInitContainers`
+     - Additional init containers added to the hubble-ui Deployment.
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.ui.frontend.extraEnv`
      - Additional hubble-ui frontend environment variables.
      - list
@@ -2748,6 +2772,10 @@
      - base64 encoded PEM values for the Hubble UI client key (deprecated). Use existingSecret instead.
      - string
      - ``""``
+   * - :spelling:ignore:`hubble.ui.tls.disableDefaultVolumes`
+     - Disable the default TLS certificate volumes and mounts for Hubble UI, allowing you to provide your own via extraVolumes/extraVolumeMounts.
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.ui.tmpVolume`
      - Configure temporary volume for hubble-ui
      - object
@@ -3406,6 +3434,10 @@
      - ``[]``
    * - :spelling:ignore:`operator.extraHostPathMounts`
      - Additional cilium-operator hostPath mounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`operator.extraInitContainers`
+     - Additional init containers added to the operator Deployment.
      - list
      - ``[]``
    * - :spelling:ignore:`operator.extraVolumeMounts`

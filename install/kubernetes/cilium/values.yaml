@@ -1689,6 +1689,9 @@ hubble:
     # highly discouraged as the Hubble API provides access to potentially
     # sensitive network flow metadata and is exposed on the host network.
     enabled: true
+    # -- Disable the default TLS certificate volumes and mounts for the Hubble
+    # server, allowing you to provide your own via extraVolumes/extraVolumeMounts.
+    disableDefaultVolumes: false
     # -- Configure automatic TLS certificates generation.
     auto:
       # -- Auto-generate certificates.
@@ -1841,6 +1844,8 @@ hubble:
     extraVolumes: []
     # -- Additional hubble-relay volumeMounts.
     extraVolumeMounts: []
+    # -- Additional init containers added to the hubble-relay Deployment.
+    extraInitContainers: []
     # -- hubble-relay pod security context
     podSecurityContext:
       fsGroup: 65532
@@ -1870,6 +1875,9 @@ hubble:
     listenPort: "4245"
     # -- TLS configuration for Hubble Relay
     tls:
+      # -- Disable the default TLS certificate volumes and mounts for Hubble Relay,
+      # allowing you to provide your own via extraVolumes/extraVolumeMounts.
+      disableDefaultVolumes: false
       # -- The hubble-relay client certificate and private key.
       # This keypair is presented to Hubble server instances for mTLS
       # authentication and is required when hubble.tls.enabled is true.
@@ -2024,7 +2032,12 @@ hubble:
         #           path: hubble-relay-ca.crt
     # -- Roll out Hubble-ui pods automatically when configmap is updated.
     rollOutPods: false
+    # -- Additional init containers added to the hubble-ui Deployment.
+    extraInitContainers: []
     tls:
+      # -- Disable the default TLS certificate volumes and mounts for Hubble UI,
+      # allowing you to provide your own via extraVolumes/extraVolumeMounts.
+      disableDefaultVolumes: false
       client:
         # -- Name of the Secret containing the client certificate and key for Hubble UI
         # If specified, cert and key are ignored.
@@ -3314,6 +3327,8 @@ operator:
   extraVolumes: []
   # -- Additional cilium-operator volumeMounts.
   extraVolumeMounts: []
+  # -- Additional init containers added to the operator Deployment.
+  extraInitContainers: []
   # -- Annotations to be added to all top-level cilium-operator objects (resources under templates/cilium-operator)
   annotations: {}
   # -- HostNetwork setting
@@ -4027,6 +4042,8 @@ clustermesh:
     extraVolumes: []
     # -- Additional clustermesh-apiserver volumeMounts.
     extraVolumeMounts: []
+    # -- Additional init containers added to the clustermesh-apiserver Deployment.
+    extraInitContainers: []
     # -- Security context to be added to clustermesh-apiserver containers
     securityContext:
       allowPrivilegeEscalation: false
@@ -4111,6 +4128,13 @@ clustermesh:
     # -- The priority class to use for clustermesh-apiserver
     priorityClassName: ""
     tls:
+      # -- Disable the default TLS certificate volumes and mounts for
+      # clustermesh-apiserver (including KVStoreMesh), cilium-agent and
+      # cilium-operator, allowing you to provide your own via
+      # extraVolumes/extraVolumeMounts. This also disables mounting the
+      # clustermesh configuration, which then needs to be provided
+      # separately (likely at a different location).
+      disableDefaultVolumes: false
       # -- Configure the clustermesh authentication mode.
       # Supported values:
       # - legacy:     All clusters access remote clustermesh instances with the same

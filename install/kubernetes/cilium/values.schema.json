@@ -1029,6 +1029,10 @@
               "items": {},
               "type": "array"
             },
+            "extraInitContainers": {
+              "items": {},
+              "type": "array"
+            },
             "extraVolumeMounts": {
               "items": {},
               "type": "array"
@@ -1448,6 +1452,9 @@
                     }
                   },
                   "type": "object"
+                },
+                "disableDefaultVolumes": {
+                  "type": "boolean"
                 }
               },
               "type": "object"
@@ -3477,6 +3484,10 @@
               "items": {},
               "type": "array"
             },
+            "extraInitContainers": {
+              "items": {},
+              "type": "array"
+            },
             "extraVolumeMounts": {
               "items": {},
               "type": "array"
@@ -3772,6 +3783,9 @@
                   },
                   "type": "object"
                 },
+                "disableDefaultVolumes": {
+                  "type": "boolean"
+                },
                 "server": {
                   "properties": {
                     "cert": {
@@ -3872,6 +3886,9 @@
                 }
               },
               "type": "object"
+            },
+            "disableDefaultVolumes": {
+              "type": "boolean"
             },
             "enabled": {
               "type": "boolean"
@@ -3983,6 +4000,10 @@
             },
             "enabled": {
               "type": "boolean"
+            },
+            "extraInitContainers": {
+              "items": {},
+              "type": "array"
             },
             "frontend": {
               "properties": {
@@ -4224,6 +4245,9 @@
                     }
                   },
                   "type": "object"
+                },
+                "disableDefaultVolumes": {
+                  "type": "boolean"
                 }
               },
               "type": "object"
@@ -5201,6 +5225,10 @@
           "type": "array"
         },
         "extraHostPathMounts": {
+          "items": {},
+          "type": "array"
+        },
+        "extraInitContainers": {
           "items": {},
           "type": "array"
         },

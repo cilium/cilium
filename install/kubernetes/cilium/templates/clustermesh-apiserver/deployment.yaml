@@ -116,6 +116,12 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
       {{- end }}
+      {{- if .Values.clustermesh.apiserver.extraInitContainers }}
+      {{- if ne .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
+      initContainers:
+      {{- end }}
+      {{- toYaml .Values.clustermesh.apiserver.extraInitContainers | nindent 6 }}
+      {{- end }}
       containers:
       {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
       - name: etcd
@@ -161,9 +167,11 @@ spec:
           protocol: TCP
         {{- end }}
         volumeMounts:
+        {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
         - name: etcd-server-secrets
           mountPath: /var/lib/etcd-secrets
           readOnly: true
+        {{- end }}
         - name: etcd-data-dir
           mountPath: /var/run/etcd
         {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
@@ -264,9 +272,11 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
         volumeMounts:
+        {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
+        {{- end }}
         {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
         - name: etcd-users-config
           mountPath: /var/lib/cilium/etcd-config
@@ -354,14 +364,16 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
         volumeMounts:
-        {{- if (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
+        {{- if and (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") (not .Values.clustermesh.apiserver.tls.disableDefaultVolumes) }}
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
         {{- end }}
+        {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
         - name: kvstoremesh-secrets
           mountPath: /var/lib/cilium/clustermesh
           readOnly: true
+        {{- end }}
         {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
         - name: etcd-config
           mountPath: /var/lib/cilium
@@ -382,6 +394,7 @@ spec:
       {{- end }}
       volumes:
       {{- if (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
+      {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
       - name: etcd-server-secrets
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
@@ -404,6 +417,7 @@ spec:
               - key: {{ .Values.tls.caBundle.key }}
                 path: ca.crt
           {{- end }}
+      {{- end }}
       - name: etcd-admin-client
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
@@ -438,6 +452,8 @@ spec:
           medium: {{ ternary "Memory" "" (eq .Values.clustermesh.apiserver.etcd.storageMedium "Memory") | quote }}
       {{- end }}
       {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+        # To read the kvstoremesh configuration and TLS certificates
+      {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
       - name: kvstoremesh-secrets
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
@@ -469,6 +485,7 @@ spec:
               - key: {{ .Values.tls.caBundle.key }}
                 path: common-etcd-client-ca.crt
           {{- end }}
+      {{- end }}
       {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
       - configMap:
           defaultMode: 0400
