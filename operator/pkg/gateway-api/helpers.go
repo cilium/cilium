@@ -10,6 +10,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -246,4 +247,25 @@ func mergeMap(left, right map[string]string) map[string]string {
 func setMergedLabelsAndAnnotations(temp, desired client.Object) {
 	temp.SetAnnotations(mergeMap(temp.GetAnnotations(), desired.GetAnnotations()))
 	temp.SetLabels(mergeMap(temp.GetLabels(), desired.GetLabels()))
+}
+
+func getAllCiliumGatewaysSet(ctx context.Context, c client.Client) (map[string]struct{}, error) {
+	// Fetch all the Cilium-relevant Gateways using the indexers.ImplementationGatewayIndex.
+	gwList := &gatewayv1.GatewayList{}
+	if err := c.List(ctx, gwList); err != nil {
+		return nil, err
+	}
+	// Build a set of all Cilium Gateway full names.
+	// This makes sure we only add a reconcile.Request once for each Gateway.
+	allCiliumGatewaysSet := make(map[string]struct{})
+
+	for _, gw := range gwList.Items {
+		gwFullName := types.NamespacedName{
+			Name:      gw.GetName(),
+			Namespace: gw.GetNamespace(),
+		}
+		allCiliumGatewaysSet[gwFullName.String()] = struct{}{}
+	}
+
+	return allCiliumGatewaysSet, nil
 }

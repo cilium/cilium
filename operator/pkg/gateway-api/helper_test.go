@@ -122,6 +122,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			obj := &mcsapiv1alpha1.ServiceImport{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
+		case "Node":
+			obj := &corev1.Node{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
 		}
 	}
 
