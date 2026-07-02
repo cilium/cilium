@@ -1,9 +1,9 @@
 # The development version of clang is distributed as the 'clang' binary,
 # while stable/released versions have a version number attached.
 # Pin the default clang to a stable version.
-CLANG ?= clang-20
-STRIP ?= llvm-strip-20
-OBJCOPY ?= llvm-objcopy-20
+CLANG ?= clang-22
+STRIP ?= llvm-strip-22
+OBJCOPY ?= llvm-objcopy-22
 CFLAGS := -O2 -g -Wall -Werror -mcpu=v2 $(CFLAGS)
 
 CI_KERNEL_URL ?= https://github.com/cilium/ci-kernels/raw/master/
@@ -78,19 +78,24 @@ TARGETS := \
 
 HEADERS := $(wildcard testdata/*.h)
 
-.PHONY: all clean container-all container-shell generate
+.PHONY: all clean godirs container-all container-shell generate format
 
-.DEFAULT_TARGET = container-all
+.DEFAULT_GOAL = container-all
+
+# Make sure Go-related dirs exist before starting containerized builds,
+# otherwise podman will fail to start.
+godirs:
+	mkdir -p $(shell go env GOCACHE) $(shell go env GOPATH) $(shell go env GOMODCACHE)
 
 # Build all ELF binaries using a containerized LLVM toolchain.
-container-all:
+container-all: godirs
 	+${CONTAINER_ENGINE} run --rm -ti ${CONTAINER_RUN_ARGS} \
 		"${IMAGE}:${VERSION}" \
 		$(MAKE) all
 
 # (debug) Drop the user into a shell inside the container as root.
 # Set BPF2GO_ envs to make 'make generate' just work.
-container-shell:
+container-shell: godirs
 	${CONTAINER_ENGINE} run --rm -ti ${CONTAINER_RUN_ARGS} \
 		"${IMAGE}:${VERSION}"
 
@@ -107,8 +112,8 @@ all: format testdata update-external-deps
 	$(MAKE) generate
 
 generate:
-	go generate -run "stringer" ./...
 	go generate -run "gentypes" ./...
+	go generate -run "stringer" ./...
 	go generate -skip "(gentypes|stringer)" ./...
 
 testdata: $(addsuffix -el.elf,$(TARGETS)) $(addsuffix -eb.elf,$(TARGETS)) $(addsuffix -el.elf,$(TARGETS_EL))

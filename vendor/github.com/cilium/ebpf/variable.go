@@ -125,7 +125,7 @@ type Variable struct {
 
 func newVariable(name string, offset, size uint32, t *btf.Var, mm *Memory) (*Variable, error) {
 	if mm != nil {
-		if offset+size > mm.Size() {
+		if !mm.bounds(offset, size) {
 			return nil, fmt.Errorf("offset %d(+%d) is out of bounds", offset, size)
 		}
 	}

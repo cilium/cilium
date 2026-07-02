@@ -244,7 +244,7 @@ type params struct {
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, dsrDispatch string, bigtcpTunnel bool) error {
+func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, tunnelConfig tunnel.Config, dsrDispatch string, bigtcpTunnel bool) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		// Check all configurations where Cilium creates tunnel devices
 		// that don't support BIG TCP.
@@ -252,7 +252,7 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 			return errors.New("bpf-lb-dsr-dispatch ipip creates IPIP tunnels that aren't compatible with BIG TCP")
 		}
 		if !bigtcpTunnel {
-			if daemonCfg.TunnelingEnabled() {
+			if tunnelConfig.EncapProtocol() != tunnel.Disabled {
 				return errors.New("BIG TCP in tunneling mode requires pending kernel support")
 			}
 			if dsrDispatch != loadbalancer.DSRDispatchOption {
@@ -276,7 +276,7 @@ func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
 		logfields.State, bigtcpTunnel,
 	)
 
-	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.LBConfig.DSRDispatch, bigtcpTunnel); err != nil {
+	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.TunnelConfig, p.LBConfig.DSRDispatch, bigtcpTunnel); err != nil {
 		return nil, err
 	}
 	cfg := newDefaultConfiguration(p.UserConfig)

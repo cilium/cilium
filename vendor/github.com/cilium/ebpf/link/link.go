@@ -114,7 +114,7 @@ type Info struct {
 	Type    Type
 	ID      ID
 	Program ebpf.ProgramID
-	extra   interface{}
+	extra   any
 }
 
 // RawLink is the low-level API to bpf_link.

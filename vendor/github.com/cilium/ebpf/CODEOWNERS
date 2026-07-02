@@ -1,14 +1,14 @@
 * @cilium/ebpf-lib-maintainers
 
 /features/ @rgo3
-/link/ @mmat11
+/link/ @mmat11 @rgo3
 
 /perf/ @florianl
 /ringbuf/ @florianl
 
 /btf/ @dylandreimerink
 
-/docs/ @ti-mo
+/docs/ @cilium/ebpf-go-reviewers @ti-mo
 
 # Windows specific code.
 /docs/**/windows*.md @cilium/ebpf-go-windows-reviewers

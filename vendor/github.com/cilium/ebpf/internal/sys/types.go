@@ -7,6 +7,8 @@ import (
 	"unsafe"
 )
 
+//go:generate go tool stringer -output types_string.go -type=Cmd,MapType,ProgType,AttachType
+
 const (
 	BPF_ADJ_ROOM_ENCAP_L2_MASK                 = 255
 	BPF_ADJ_ROOM_ENCAP_L2_SHIFT                = 56
@@ -44,9 +46,11 @@ const (
 	BPF_F_ADJ_ROOM_ENCAP_L4_UDP                = 16
 	BPF_F_ADJ_ROOM_FIXED_GSO                   = 1
 	BPF_F_ADJ_ROOM_NO_CSUM_RESET               = 32
+	BPF_F_ALL_CPUS                             = 16
 	BPF_F_BPRM_SECUREEXEC                      = 1
 	BPF_F_BROADCAST                            = 8
 	BPF_F_CLONE                                = 512
+	BPF_F_CPU                                  = 8
 	BPF_F_CTXLEN_MASK                          = 4503595332403200
 	BPF_F_CURRENT_CPU                          = 4294967295
 	BPF_F_CURRENT_NETNS                        = 18446744073709551615
@@ -77,6 +81,7 @@ const (
 	BPF_F_PEER                                 = 131072
 	BPF_F_PRESERVE_ELEMS                       = 2048
 	BPF_F_PSEUDO_HDR                           = 16
+	BPF_F_RB_OVERWRITE                         = 524288
 	BPF_F_RDONLY                               = 8
 	BPF_F_RDONLY_PROG                          = 128
 	BPF_F_RECOMPUTE_CSUM                       = 1
@@ -109,6 +114,7 @@ const (
 	BPF_RB_CONS_POS                            = 2
 	BPF_RB_FORCE_WAKEUP                        = 2
 	BPF_RB_NO_WAKEUP                           = 1
+	BPF_RB_OVERWRITE_POS                       = 4
 	BPF_RB_PROD_POS                            = 3
 	BPF_RB_RING_SIZE                           = 1
 	BPF_REG_0                                  = 0
@@ -253,7 +259,8 @@ const (
 	BPF_NETKIT_PEER                    AttachType = 55
 	BPF_TRACE_KPROBE_SESSION           AttachType = 56
 	BPF_TRACE_UPROBE_SESSION           AttachType = 57
-	__MAX_BPF_ATTACH_TYPE              AttachType = 58
+	BPF_TRACE_FSESSION                 AttachType = 58
+	__MAX_BPF_ATTACH_TYPE              AttachType = 59
 )
 
 type Cmd uint32
@@ -298,7 +305,8 @@ const (
 	BPF_PROG_BIND_MAP               Cmd = 35
 	BPF_TOKEN_CREATE                Cmd = 36
 	BPF_PROG_STREAM_READ_BY_FD      Cmd = 37
-	__MAX_BPF_CMD                   Cmd = 38
+	BPF_PROG_ASSOC_STRUCT_OPS       Cmd = 38
+	__MAX_BPF_CMD                   Cmd = 39
 )
 
 type FunctionId uint32
@@ -586,7 +594,8 @@ const (
 	BPF_MAP_TYPE_USER_RINGBUF                     MapType = 31
 	BPF_MAP_TYPE_CGRP_STORAGE                     MapType = 32
 	BPF_MAP_TYPE_ARENA                            MapType = 33
-	__MAX_BPF_MAP_TYPE                            MapType = 34
+	BPF_MAP_TYPE_INSN_ARRAY                       MapType = 34
+	__MAX_BPF_MAP_TYPE                            MapType = 35
 )
 
 type NetfilterInetHook uint32
@@ -837,6 +846,14 @@ type SkLookup struct {
 	LocalPort      uint32
 	IngressIfindex uint32
 	_              [4]byte
+}
+
+type TokenInfo struct {
+	_              structs.HostLayout
+	AllowedCmds    uint64
+	AllowedMaps    uint64
+	AllowedProgs   uint64
+	AllowedAttachs uint64
 }
 
 type XdpMd struct {
@@ -1560,6 +1577,20 @@ type RawTracepointOpenAttr struct {
 
 func RawTracepointOpen(attr *RawTracepointOpenAttr) (*FD, error) {
 	fd, err := BPF(BPF_RAW_TRACEPOINT_OPEN, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
+type TokenCreateAttr struct {
+	_       structs.HostLayout
+	Flags   uint32
+	BpffsFd uint32
+}
+
+func TokenCreate(attr *TokenCreateAttr) (*FD, error) {
+	fd, err := BPF(BPF_TOKEN_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
 	if err != nil {
 		return nil, err
 	}

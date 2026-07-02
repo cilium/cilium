@@ -3,6 +3,7 @@
 package sys
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,11 @@ func BPF(cmd Cmd, attr unsafe.Pointer, size uintptr) (uintptr, error) {
 		defer unmaskProfilerSignal()
 	}
 
+	tok, err := tokenAttr(cmd, attr)
+	if err != nil {
+		return 0, fmt.Errorf("apply token attributes: %w", err)
+	}
+
 	for {
 		r1, _, errNo := unix.Syscall(unix.SYS_BPF, uintptr(cmd), uintptr(attr), size)
 		runtime.KeepAlive(attr)
@@ -37,6 +43,24 @@ func BPF(cmd Cmd, attr unsafe.Pointer, size uintptr) (uintptr, error) {
 		var err error
 		if errNo != 0 {
 			err = wrappedErrno{errNo}
+		}
+
+		// Tokens are in use, attempt to enrich EPERM with capability information.
+		if tok != nil && errors.Is(err, unix.EPERM) {
+			// Kernels before 6.17 don't have token info, so we can't return accurate
+			// errors. Make the token error a hint by adding a question mark.
+			//
+			// Returning ErrTokenCapabilities here isn't ideal since it's not
+			// conclusive, but since this behaviour is limited to one LTS release
+			// (6.12), and only when tokens are enabled, it's better than having to
+			// account for it in all existing feature probes and tests.
+			if tok.info == nil {
+				return r1, fmt.Errorf("%w (%w?)", err, ErrTokenCapabilities)
+			}
+
+			if terr := tok.Capable(cmd, attr); terr != nil {
+				return r1, fmt.Errorf("%w: %w", terr, err)
+			}
 		}
 
 		return r1, err

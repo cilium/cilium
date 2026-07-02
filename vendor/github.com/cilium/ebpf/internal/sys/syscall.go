@@ -18,6 +18,7 @@ const ENOTSUPP = unix.Errno(524)
 //	ProgInfo
 //	LinkInfo
 //	BtfInfo
+//	TokenInfo
 type Info interface {
 	info() (unsafe.Pointer, uint32)
 }
@@ -106,9 +107,15 @@ func (i *PerfEventLinkInfo) info() (unsafe.Pointer, uint32) {
 	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
 }
 
+var _ Info = (*TokenInfo)(nil)
+
+func (i *TokenInfo) info() (unsafe.Pointer, uint32) {
+	return unsafe.Pointer(i), uint32(unsafe.Sizeof(*i))
+}
+
 // ObjInfo retrieves information about a BPF Fd.
 //
-// info may be one of MapInfo, ProgInfo, LinkInfo and BtfInfo.
+// info may be one of MapInfo, ProgInfo, LinkInfo, BtfInfo and TokenInfo.
 func ObjInfo(fd *FD, info Info) error {
 	ptr, len := info.info()
 	err := ObjGetInfoByFd(&ObjGetInfoByFdAttr{
