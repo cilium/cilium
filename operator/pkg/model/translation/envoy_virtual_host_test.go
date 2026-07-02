@@ -700,6 +700,26 @@ func Test_retryMutation(t *testing.T) {
 }
 
 func Test_envoyHTTPRoutes(t *testing.T) {
+	backend := func(name string, port uint32) model.Backend {
+		return model.Backend{
+			Name:      name,
+			Namespace: "default",
+			Port:      &model.BackendPort{Port: port},
+		}
+	}
+	sourceRule := func(ruleIndex int) *model.HTTPRouteRule {
+		return &model.HTTPRouteRule{
+			Source: model.FullyQualifiedResource{
+				Name:      "route",
+				Namespace: "default",
+				Group:     "gateway.networking.k8s.io",
+				Version:   "v1",
+				Kind:      "HTTPRoute",
+			},
+			RuleIndex: ruleIndex,
+		}
+	}
+
 	t.Run("redirect with x-forwarded-proto and backend", func(t *testing.T) {
 		httpRoutes := []model.HTTPRoute{
 			{
@@ -781,6 +801,80 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.NotNil(t, res[0].GetDirectResponse())
 		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
 		require.Equal(t, corsPolicy, res[0].GetTypedPerFilterConfig()["envoy.filters.http.cors"])
+	})
+	t.Run("legacy same-match routes aggregate backends", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Exact: "/same-path"},
+				Backends: []model.Backend{
+					backend("backend-v1", 8080),
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Exact: "/same-path"},
+				Backends: []model.Backend{
+					backend("backend-v2", 8080),
+				},
+			},
+		}
+
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
+
+		require.Len(t, res, 1)
+		weightedClusters := res[0].GetRoute().GetWeightedClusters()
+		require.NotNil(t, weightedClusters)
+		require.Len(t, weightedClusters.GetClusters(), 2)
+		require.Equal(t, "default:backend-v1:8080", weightedClusters.GetClusters()[0].GetName())
+		require.Equal(t, "default:backend-v2:8080", weightedClusters.GetClusters()[1].GetName())
+	})
+	t.Run("gateway same-match rules remain separate", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				SourceRule: sourceRule(0),
+				PathMatch:  model.StringMatch{Exact: "/same-path"},
+				Backends: []model.Backend{
+					backend("backend-v1", 8080),
+				},
+			},
+			{
+				SourceRule: sourceRule(1),
+				PathMatch:  model.StringMatch{Exact: "/same-path"},
+				Backends: []model.Backend{
+					backend("backend-v2", 8080),
+				},
+			},
+		}
+
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
+
+		require.Len(t, res, 2)
+		require.Equal(t, "default:backend-v1:8080", res[0].GetRoute().GetCluster())
+		require.Equal(t, "default:backend-v2:8080", res[1].GetRoute().GetCluster())
+	})
+	t.Run("gateway first same-match rule with missing backend returns direct response", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				SourceRule: sourceRule(0),
+				PathMatch:  model.StringMatch{Exact: "/same-path"},
+				DirectResponse: &model.DirectResponse{
+					StatusCode: 500,
+				},
+			},
+			{
+				SourceRule: sourceRule(1),
+				PathMatch:  model.StringMatch{Exact: "/same-path"},
+				Backends: []model.Backend{
+					backend("backend-v2", 8080),
+				},
+			},
+		}
+
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
+
+		require.Len(t, res, 2)
+		require.NotNil(t, res[0].GetDirectResponse())
+		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
+		require.Equal(t, "default:backend-v2:8080", res[1].GetRoute().GetCluster())
 	})
 }
 

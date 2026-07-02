@@ -256,12 +256,14 @@ func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFil
 func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
-		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
+		key := r.GetBackendAggregationKey()
+		matchBackendMap[key] = append(matchBackendMap[key], r)
 	}
 
 	routes := make([]*envoy_config_route_v3.Route, 0, len(matchBackendMap))
 	for _, r := range httpRoutes {
-		hRoutes, exists := matchBackendMap[r.GetMatchKey()]
+		key := r.GetBackendAggregationKey()
+		hRoutes, exists := matchBackendMap[key]
 		// if not exists, it means this route is already added to the routes
 		if !exists {
 			continue
@@ -284,7 +286,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 			TypedPerFilterConfig: getTypedPerFilterConfig(nil, allAuthFilters, r),
 		}
 		routes = append(routes, &route)
-		delete(matchBackendMap, r.GetMatchKey())
+		delete(matchBackendMap, key)
 	}
 	return routes
 }
@@ -292,12 +294,14 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32, allAuthFilters []*model.HTTPExternalAuthFilter) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
-		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
+		key := r.GetBackendAggregationKey()
+		matchBackendMap[key] = append(matchBackendMap[key], r)
 	}
 
 	routes := make([]*envoy_config_route_v3.Route, 0, len(matchBackendMap))
 	for _, r := range httpRoutes {
-		hRoutes, exists := matchBackendMap[r.GetMatchKey()]
+		key := r.GetBackendAggregationKey()
+		hRoutes, exists := matchBackendMap[key]
 		if !exists {
 			continue
 		}
@@ -309,6 +313,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		if len(backends) == 0 && hRoutes[0].RequestRedirect == nil {
 			noBackendRoute := envoyHTTPRouteNoBackend(hRoutes[0], hostnames, hostNameSuffixMatch, allAuthFilters)
 			routes = append(routes, noBackendRoute)
+			delete(matchBackendMap, key)
 			continue
 		}
 
@@ -344,7 +349,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 			}
 		}
 		routes = append(routes, &route)
-		delete(matchBackendMap, r.GetMatchKey())
+		delete(matchBackendMap, key)
 	}
 	return routes
 }
@@ -647,8 +652,8 @@ func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostName
 }
 
 func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model.StringMatch, headers []model.KeyValueMatch, query []model.KeyValueMatch, method *string) *envoy_config_route_v3.RouteMatch {
-	headerMatchers := getHeaderMatchers(hostnames, hostNameSuffixMatch, headers, method)
-	queryMatchers := getQueryMatchers(query)
+	headerMatchers := getHeaderMatchers(hostnames, hostNameSuffixMatch, sortedKeyValueMatches(headers), method)
+	queryMatchers := getQueryMatchers(sortedKeyValueMatches(query))
 
 	switch {
 	case pathMatch.Exact != "":
@@ -694,6 +699,14 @@ func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model
 			QueryParameters: queryMatchers,
 		}
 	}
+}
+
+func sortedKeyValueMatches(matches []model.KeyValueMatch) []model.KeyValueMatch {
+	sorted := append([]model.KeyValueMatch(nil), matches...)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].String() < sorted[j].String()
+	})
+	return sorted
 }
 
 func getQueryMatchers(query []model.KeyValueMatch) []*envoy_config_route_v3.QueryParameterMatcher {
