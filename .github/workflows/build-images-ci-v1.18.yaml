@@ -187,6 +187,7 @@ jobs:
           echo normal_tag=${normal_tag} >> $GITHUB_OUTPUT
           echo race_tag=${race_tag} >> $GITHUB_OUTPUT
           echo unstripped_tag=${unstripped_tag} >> $GITHUB_OUTPUT
+          echo parent_tag="$(cat VERSION)" >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -256,6 +257,18 @@ jobs:
              [[ -d "${{ matrix.require-dir }}" ]]; then
             echo build="true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Tag local module version
+        id: create-local-tag
+        env:
+          PARENT: ${{ steps.tag.outputs.parent_tag }}
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+          REV="$(git show -s --date=format:'%Y%m%d%H%M%S' --format='dev.0-%cd-%h')"
+          LOCAL_TAG="v${PARENT/-dev/}-$REV"
+          git tag -m "$LOCAL_TAG" --no-sign "$LOCAL_TAG" HEAD
+          git log -1 "$LOCAL_TAG"
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
