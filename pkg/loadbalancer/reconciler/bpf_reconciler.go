@@ -510,7 +510,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	delete(ops.prevSourceRanges, fe.Address)
 
 	// Cleanup any wildcard entries this fe might be associated with.
-	if loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(fe.Service) {
+	if ops.useWildcards() && loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(fe.Service) {
 		if err := ops.deleteWildcard(fe, feID); err != nil {
 			return fmt.Errorf("delete wildcard: %w", err)
 		}
@@ -1102,7 +1102,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 
 	// Upsert wildcard entries such that the data path will have a service entry for any
 	// traffic for an unknown protocol/port combination.
-	if loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(svc) {
+	if ops.useWildcards() && loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(svc) {
 		if isLocalAddr == nil || !isLocalAddr(fe.Address.Addr()) {
 			if err := ops.upsertWildcard(fe, feID); err != nil {
 				return fmt.Errorf("upsert wildcard: %w", err)
@@ -1176,6 +1176,10 @@ func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
 		}
 		return false
 	}
+}
+
+func (ops *BPFOps) useWildcards() bool {
+	return ops.cfg.EnableWildcardEntries
 }
 
 func (ops *BPFOps) isWildcardClass(svc *loadbalancer.Service) bool {

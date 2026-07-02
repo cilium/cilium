@@ -391,6 +391,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.ReflectorWaitTime != other.ReflectorWaitTime {
 		return false
 	}
+	if in.EnableWildcardEntries != other.EnableWildcardEntries {
+		return false
+	}
 
 	return true
 }

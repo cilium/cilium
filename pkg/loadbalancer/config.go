@@ -91,6 +91,10 @@ const (
 	// Enable dynamic source IP resolution for SNAT via linux's routing table.
 	// The kernel must support this feature.
 	NodePortEnableDynamicSourceLookup = "enable-dynamic-source-lookup-nodeport"
+
+	// EnableWildcardEntries controls whether the load balancer datapath should
+	// program wildcard service entries into the BPF datapath.
+	EnableWildcardEntries = "bpf-lb-enable-wildcard-entries"
 )
 
 // Configuration option defaults
@@ -236,6 +240,10 @@ type UserConfig struct {
 	// objects, e.g. a Service may have multiple associated EndpointSlices and
 	// preferably these would be processed together.
 	ReflectorWaitTime time.Duration `mapstructure:"lb-reflector-wait-time"`
+
+	// EnableWildcardEntries controls whether the load balancer datapath should
+	// program wildcard service entries into the BPF datapath.
+	EnableWildcardEntries bool `mapstructure:"bpf-lb-enable-wildcard-entries"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -346,6 +354,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(NodePortEnableDynamicSourceLookup, def.NodePortEnableDynamicSourceLookup, "Enable dynamic source IP resolution for SNAT via linux's routing table. The kernel must support this feature.")
 
+	flags.Bool(EnableWildcardEntries, def.EnableWildcardEntries, "Enable service load balancer wildcard entries.")
+	flags.MarkHidden(EnableWildcardEntries)
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -503,6 +513,9 @@ var DefaultUserConfig = UserConfig{
 
 	InitWaitTimeout:   1 * time.Minute,
 	ReflectorWaitTime: 500 * time.Millisecond,
+
+	// Enable service wildcard entries by default.
+	EnableWildcardEntries: true,
 }
 
 var DefaultConfig = Config{
