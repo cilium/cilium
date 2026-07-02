@@ -141,11 +141,10 @@ type rpFilterSetting struct {
 }
 
 type EgressGatewayTestSuite struct {
-	manager   *Manager
-	policies  fakeResource[*Policy]
-	nodes     fakeResource[*cilium_api_v2.CiliumNode]
-	endpoints fakeResource[*k8sTypes.CiliumEndpoint]
-	sysctl    sysctl.Sysctl
+	manager  *Manager
+	policies fakeResource[*Policy]
+	nodes    fakeResource[*cilium_api_v2.CiliumNode]
+	sysctl   sysctl.Sysctl
 }
 
 func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
@@ -162,7 +161,6 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	k := &EgressGatewayTestSuite{}
 	k.policies = make(fakeResource[*Policy])
 	k.nodes = make(fakeResource[*cilium_api_v2.CiliumNode])
-	k.endpoints = make(fakeResource[*k8sTypes.CiliumEndpoint])
 	k.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	lc := hivetest.Lifecycle(t)
@@ -195,20 +193,20 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	})
 
 	k.manager, err = newEgressGatewayManager(Params{
-		Logger:            logger,
-		Lifecycle:         lc,
-		Config:            Config{1 * time.Millisecond},
-		DaemonConfig:      &option.DaemonConfig{},
-		IdentityAllocator: identityAllocator,
-		PolicyMap4:        policyMap4,
-		PolicyMap4V2:      policyMap4V2,
-		PolicyMap6:        policyMap6,
-		Policies:          k.policies,
-		Nodes:             k.nodes,
-		Endpoints:         k.endpoints,
-		Sysctl:            k.sysctl,
-		DB:                db,
-		DeviceTable:       deviceTable,
+		Logger:       logger,
+		Lifecycle:    lc,
+		JobGroup:     nil, // pod endpoint events are delivered synchronously via handleEndpointEvent
+		Config:       Config{1 * time.Millisecond},
+		DaemonConfig: &option.DaemonConfig{},
+		PodEndpoints: nil, // tests drive events directly; no live subscription needed
+		PolicyMap4:   policyMap4,
+		PolicyMap4V2: policyMap4V2,
+		PolicyMap6:   policyMap6,
+		Policies:     k.policies,
+		Nodes:        k.nodes,
+		Sysctl:       k.sysctl,
+		DB:           db,
+		DeviceTable:  deviceTable,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, k.manager)
@@ -482,7 +480,7 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 
 	k.policies.sync(t)
 	k.nodes.sync(t)
-	k.endpoints.sync(t)
+	// endpoints are now received via IPCache callbacks (no sync needed)
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
 	addNodeAndReconcile(t, k, egressGatewayManager, &node1)
@@ -513,7 +511,7 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 
 	// Add a new endpoint & ID which matches policy-1
 	ep1, id1 := newEndpointAndIdentity("ep-1", ep1IP, ep1IPv6, ep1Labels)
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
@@ -524,14 +522,14 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 
 	// Update the endpoint labels in order for it to not be a match
 	id1 = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{})
 	assertEgressRules6(t, policyMap6, []egressRule{})
 
 	// Restore the old endpoint lables in order for it to be a match
 	id1 = updateEndpointAndIdentity(&ep1, id1, ep1Labels)
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
@@ -579,7 +577,7 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 
 	// Add a new endpoint and ID which matches policy-2
 	ep2, _ := newEndpointAndIdentity("ep-2", ep2IP, ep2IPv6, ep2Labels)
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep2)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
@@ -737,7 +735,7 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 
 	// Update the endpoint labels in order for it to not be a match
 	_ = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
 		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
@@ -764,7 +762,7 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 
 	k.policies.sync(t)
 	k.nodes.sync(t)
-	k.endpoints.sync(t)
+	// endpoints are now received via IPCache callbacks (no sync needed)
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
 	addNodeAndReconcile(t, k, egressGatewayManager, &node1)
@@ -793,7 +791,7 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 
 	// Add a new endpoint & ID which matches policy-1
 	ep1, _ := newEndpointAndIdentityWithNodeIP("ep-1", ep1IP, ep1IPv6, node1IP, ep1Labels)
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{}) // This ep1 should not match the policy-1
 	assertEgressRules6(t, policyMap6, []egressRule{})
@@ -803,8 +801,8 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 	ep2, _ := newEndpointAndIdentityWithNodeIP(ep1.Name, ep2IP, ep2IPv6, node2IP, ep1Labels)
 
 	// Test event order: add new -> delete old
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
-	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep2)
+	deleteEndpointAndReconcile(t, egressGatewayManager, nil, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{ // This ep2 should match the policy-1
 		{ep2IP, destCIDR, egressIP1, node1IP, ifIndex1},
@@ -817,8 +815,8 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 	ep3, _ := newEndpointAndIdentityWithNodeIP(ep1.Name, ep3IP, ep3IPv6, node1IP, ep1Labels)
 
 	// Test event order: delete old -> update new
-	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep3)
+	deleteEndpointAndReconcile(t, egressGatewayManager, nil, &ep2)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep3)
 
 	assertEgressRules4(t, policyMap4, []egressRule{}) // This ep3 should not match the policy-1
 	assertEgressRules6(t, policyMap6, []egressRule{})
@@ -841,7 +839,7 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 
 	k.policies.sync(t)
 	k.nodes.sync(t)
-	k.endpoints.sync(t)
+	// endpoints are now received via IPCache callbacks (no sync needed)
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
 	addNodeAndReconcile(t, k, egressGatewayManager, &node1)
@@ -866,7 +864,7 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 
 	// Add a new endpoint & ID which matches policy-1
 	ep1, _ := newEndpointAndIdentity("ep-1", ep1IP, ep1IPv6, ep1Labels)
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP, ifIndex1},
@@ -882,8 +880,8 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 	ep2, _ := newEndpointAndIdentity(ep1.Name, ep2IP, ep2IPv6, ep1Labels)
 
 	// Test event order: add new -> delete old
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
-	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep2)
+	deleteEndpointAndReconcile(t, egressGatewayManager, nil, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
 		{ep2IP, destCIDR, egressIP1, node1IP, ifIndex1},
@@ -896,8 +894,8 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 	ep3, _ := newEndpointAndIdentity(ep1.Name, ep3IP, ep3IPv6, ep1Labels)
 
 	// Test event order: delete old -> update new
-	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep3)
+	deleteEndpointAndReconcile(t, egressGatewayManager, nil, &ep2)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, &ep3)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
 		{ep3IP, destCIDR, egressIP1, node1IP, ifIndex1},
@@ -925,7 +923,7 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 
 	k.policies.sync(t)
 	k.nodes.sync(t)
-	k.endpoints.sync(t)
+	// endpoints are now received via IPCache callbacks (no sync needed)
 
 	_ = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
@@ -967,7 +965,7 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	}
 	for i, ep := range eps {
 		newEP, newID := newEndpointAndIdentity(ep.name, ep.ipv4, ep.ipv6, ep1Labels)
-		addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &newEP)
+		addEndpointAndReconcile(t, egressGatewayManager, nil, &newEP)
 		eps[i].ep = &newEP
 		eps[i].id = newID
 	}
@@ -978,7 +976,7 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 		var rules []egressRule
 
 		for _, endpoint := range endpoints {
-			h := computeEndpointHash(endpoint.ep.UID)
+			h := computeEndpointHash(endpointKey(endpoint.ep.Namespace + "/" + endpoint.ep.Name))
 			gw := gateways[h%uint32(len(gateways))]
 			ifindex := egressIfindex
 
@@ -1047,12 +1045,12 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	assertEgressRules6(t, policyMap6, ipV6ExpectedpolicyMap)
 
 	// Remove one endpoint and check that the remaining endpoints have not changed gateways.
-	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, eps[0].ep)
+	deleteEndpointAndReconcile(t, egressGatewayManager, nil, eps[0].ep)
 	assertEgressRules4(t, policyMap4, ipV4ExpectedpolicyMap[1:])
 	assertEgressRules6(t, policyMap6, ipV6ExpectedpolicyMap[1:])
 
 	// Add one endpoint and check the configuration went back to the previous state.
-	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, eps[0].ep)
+	addEndpointAndReconcile(t, egressGatewayManager, nil, eps[0].ep)
 	assertEgressRules4(t, policyMap4, ipV4ExpectedpolicyMap)
 	assertEgressRules6(t, policyMap6, ipV6ExpectedpolicyMap)
 
@@ -1178,6 +1176,11 @@ func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) cilium_api
 }
 
 // Mock the creation of endpoint and its corresponding identity, returns endpoint and ID.
+//
+// The CiliumEndpoint's Identity.Labels field is populated with the K8s-form
+// labels so that the test's podendpointsource emulation (see
+// podEndpointFromCiliumEndpoint in helpers_test.go) can resolve them without
+// querying the identity allocator.
 func newEndpointAndIdentity(name, ipv4, ipv6 string, epLabels map[string]string) (k8sTypes.CiliumEndpoint, *identity.Identity) {
 	id, _, _ := identityAllocator.AllocateIdentity(context.Background(), labels.Map2Labels(epLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
 
@@ -1187,7 +1190,8 @@ func newEndpointAndIdentity(name, ipv4, ipv6 string, epLabels map[string]string)
 			UID:  types.UID(uuid.New().String()),
 		},
 		Identity: &cilium_api_v2.EndpointIdentity{
-			ID: int64(id.ID),
+			ID:     int64(id.ID),
+			Labels: identityLabelsFor(epLabels),
 		},
 		Networking: &cilium_api_v2.EndpointNetworking{
 			Addressing: cilium_api_v2.AddressPairList{
@@ -1210,7 +1214,8 @@ func newEndpointAndIdentityWithNodeIP(name, ipv4, ipv6, nodeIP string, epLabels 
 			UID:  types.UID(uuid.New().String()),
 		},
 		Identity: &cilium_api_v2.EndpointIdentity{
-			ID: int64(id.ID),
+			ID:     int64(id.ID),
+			Labels: identityLabelsFor(epLabels),
 		},
 		Networking: &cilium_api_v2.EndpointNetworking{
 			Addressing: cilium_api_v2.AddressPairList{
@@ -1231,7 +1236,18 @@ func updateEndpointAndIdentity(endpoint *k8sTypes.CiliumEndpoint, oldID *identit
 	identityAllocator.Release(ctx, oldID, true)
 	newID, _, _ := identityAllocator.AllocateIdentity(ctx, labels.Map2Labels(newEpLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
 	endpoint.Identity.ID = int64(newID.ID)
+	endpoint.Identity.Labels = identityLabelsFor(newEpLabels)
 	return newID
+}
+
+// identityLabelsFor renders a k8s label map as the "<source>:<key>=<value>"
+// slice that CiliumEndpoint.Identity.Labels contains in the real world.
+func identityLabelsFor(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k, v := range m {
+		out = append(out, "k8s:"+k+"="+v)
+	}
+	return out
 }
 
 func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string, egressIfindex uint32) parsedEgressRule {
@@ -1349,6 +1365,11 @@ func tryAssertEgressRules6(policyMap egressmap.PolicyMap6, rules []egressRule) e
 
 	return nil
 }
+
+// Note: remote-cluster filtering is now tested at the podendpointsource
+// layer (see pkg/podendpointsource/source_test.go:TestRemoteClusterIgnored).
+// The egress gateway manager never observes non-local endpoints because the
+// source filters them out before emitting.
 
 func assertRPFilter(t *testing.T, sysctl sysctl.Sysctl, rpFilterSettings []rpFilterSetting) {
 	t.Helper()

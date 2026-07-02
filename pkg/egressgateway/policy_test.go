@@ -23,7 +23,7 @@ func getAsPolicyLabelSelectors(k8sLss []*slimv1.LabelSelector) (lss []*policyTyp
 	return lss
 }
 
-func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
+func TestPolicyConfig_updateMatchedEndpointKeys(t *testing.T) {
 	type fields struct {
 		id                types.NamespacedName
 		endpointSelectors []*slimv1.LabelSelector
@@ -31,22 +31,22 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 		dstCIDRs          []netip.Prefix
 		excludedCIDRs     []netip.Prefix
 		policyGwConfigs   []policyGatewayConfig
-		matchedEndpoints  map[endpointID]*endpointMetadata
+		matchedEndpoints  map[endpointKey]*endpointMetadata
 		gatewayConfigs    []gatewayConfig
 	}
 	type args struct {
-		epDataStore           map[endpointID]*endpointMetadata
+		epDataStore           map[endpointKey]*endpointMetadata
 		nodesAddresses2Labels map[string]map[string]string
 	}
 	tests := []struct {
-		name           string
-		fields         fields
-		args           args
-		want           int
-		wantEndpointID endpointID
+		name            string
+		fields          fields
+		args            args
+		want            int
+		wantEndpointKey endpointKey
 	}{
 		{
-			name: "Test updateMatchedEndpointIDs with endpoints and nodes",
+			name: "Test updateMatchedEndpointKeys with endpoints and nodes",
 			fields: fields{
 				id: types.NamespacedName{
 					Name: "test",
@@ -63,12 +63,12 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 				}},
 			},
 			args: args{
-				epDataStore: map[endpointID]*endpointMetadata{
+				epDataStore: map[endpointKey]*endpointMetadata{
 					"123456": {
-						id: "123456",
-						labels: map[string]string{
+						key: "123456",
+						labels: labels.Map2LabelArray(map[string]string{
 							"app": "test",
-						},
+						}, labels.LabelSourceK8s),
 						nodeIP: "192.168.1.10",
 					},
 				},
@@ -78,11 +78,11 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 					},
 				},
 			},
-			want:           1,
-			wantEndpointID: endpointID("123456"),
+			want:            1,
+			wantEndpointKey: endpointKey("123456"),
 		},
 		{
-			name: "Test updateMatchedEndpointIDs with namespaced endpoints and nodes",
+			name: "Test updateMatchedEndpointKeys with namespaced endpoints and nodes",
 			fields: fields{
 				id: types.NamespacedName{
 					Name: "test",
@@ -100,13 +100,13 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 				}},
 			},
 			args: args{
-				epDataStore: map[endpointID]*endpointMetadata{
+				epDataStore: map[endpointKey]*endpointMetadata{
 					"123456": {
-						id: "123456",
-						labels: map[string]string{
+						key: "123456",
+						labels: labels.Map2LabelArray(map[string]string{
 							"io.kubernetes.pod.namespace": "default",
 							"app":                         "test",
-						},
+						}, labels.LabelSourceK8s),
 						nodeIP: "192.168.1.10",
 					},
 				},
@@ -116,11 +116,11 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 					},
 				},
 			},
-			want:           1,
-			wantEndpointID: endpointID("123456"),
+			want:            1,
+			wantEndpointKey: endpointKey("123456"),
 		},
 		{
-			name: "Test updateMatchedEndpointIDs endpoints and nodes with no match",
+			name: "Test updateMatchedEndpointKeys endpoints and nodes with no match",
 			fields: fields{
 				id: types.NamespacedName{
 					Name: "test",
@@ -137,12 +137,12 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 				}},
 			},
 			args: args{
-				epDataStore: map[endpointID]*endpointMetadata{
+				epDataStore: map[endpointKey]*endpointMetadata{
 					"123456": {
-						id: "123456",
-						labels: map[string]string{
+						key: "123456",
+						labels: labels.Map2LabelArray(map[string]string{
 							"app": "test",
-						},
+						}, labels.LabelSourceK8s),
 						nodeIP: "192.168.1.10",
 					},
 				},
@@ -152,11 +152,11 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 					},
 				},
 			},
-			want:           0,
-			wantEndpointID: "",
+			want:            0,
+			wantEndpointKey: "",
 		},
 		{
-			name: "Test updateMatchedEndpointIDs endpoints and nodes with no match label",
+			name: "Test updateMatchedEndpointKeys endpoints and nodes with no match label",
 			fields: fields{
 				id: types.NamespacedName{
 					Name: "test",
@@ -173,12 +173,12 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 				}},
 			},
 			args: args{
-				epDataStore: map[endpointID]*endpointMetadata{
+				epDataStore: map[endpointKey]*endpointMetadata{
 					"123456": {
-						id: "123456",
-						labels: map[string]string{
+						key: "123456",
+						labels: labels.Map2LabelArray(map[string]string{
 							"app": "test",
-						},
+						}, labels.LabelSourceK8s),
 						nodeIP: "192.168.1.10",
 					},
 				},
@@ -188,8 +188,8 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 					},
 				},
 			},
-			want:           0,
-			wantEndpointID: "",
+			want:            0,
+			wantEndpointKey: "",
 		},
 	}
 	for _, tt := range tests {
@@ -204,10 +204,10 @@ func TestPolicyConfig_updateMatchedEndpointIDs(t *testing.T) {
 				matchedEndpoints:  tt.fields.matchedEndpoints,
 				gatewayConfigs:    tt.fields.gatewayConfigs,
 			}
-			config.updateMatchedEndpointIDs(tt.args.epDataStore, tt.args.nodesAddresses2Labels)
+			config.updateMatchedEndpointKeys(tt.args.epDataStore, tt.args.nodesAddresses2Labels)
 			assert.Len(t, config.matchedEndpoints, tt.want)
 			if tt.want > 0 {
-				assert.Contains(t, config.matchedEndpoints, endpointID(tt.wantEndpointID))
+				assert.Contains(t, config.matchedEndpoints, endpointKey(tt.wantEndpointKey))
 			}
 		})
 	}

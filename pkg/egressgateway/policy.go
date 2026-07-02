@@ -70,7 +70,7 @@ type PolicyConfig struct {
 	excludedCIDRs     []netip.Prefix
 	policyGwConfigs   []policyGatewayConfig
 	gatewayConfigs    []gatewayConfig
-	matchedEndpoints  map[endpointID]*endpointMetadata
+	matchedEndpoints  map[endpointKey]*endpointMetadata
 	v4Needed          bool
 	v6Needed          bool
 }
@@ -81,10 +81,8 @@ type policyID = types.NamespacedName
 // matchesEndpointLabels determines if the given endpoint is a match for the
 // policy config based on matching labels.
 func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata) bool {
-	labelsToMatch := labels.K8sSet(endpointInfo.labels)
-
 	for i := range config.endpointSelectors {
-		if policyTypes.Matches(config.endpointSelectors[i], labelsToMatch) {
+		if policyTypes.Matches(config.endpointSelectors[i], endpointInfo.labels) {
 			return true
 		}
 	}
@@ -106,12 +104,12 @@ func (config *PolicyConfig) matchesNodeLabels(nodeLabels map[string]string) bool
 	return false
 }
 
-// updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata, nodesAddresses2Labels map[string]map[string]string) {
-	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
+// updateMatchedEndpointKeys refreshes the endpoints selected by this policy.
+func (config *PolicyConfig) updateMatchedEndpointKeys(epDataStore map[endpointKey]*endpointMetadata, nodesAddresses2Labels map[string]map[string]string) {
+	config.matchedEndpoints = make(map[endpointKey]*endpointMetadata)
 	for _, endpoint := range epDataStore {
 		if config.matchesEndpointLabels(endpoint) && config.matchesNodeLabels(nodesAddresses2Labels[endpoint.nodeIP]) {
-			config.matchedEndpoints[endpoint.id] = endpoint
+			config.matchedEndpoints[endpoint.key] = endpoint
 		}
 	}
 }
@@ -358,9 +356,9 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 	return nil
 }
 
-func computeEndpointHash(endpointUID types.UID) uint32 {
+func computeEndpointHash(id endpointKey) uint32 {
 	h := fnv.New32a()
-	h.Write([]byte(endpointUID))
+	h.Write([]byte(id))
 	return h.Sum32()
 }
 
@@ -370,7 +368,7 @@ func computeEndpointHash(endpointUID types.UID) uint32 {
 // with a boolean value indicating if the CIDR belongs to the excluded ones and
 // the gatewayConfig of the receiver policy.
 // For multigateway policies the gateways are ordered by IP and paired with each
-// endpoint using the hash of the endpoint UID.
+// endpoint using the hash of the endpoint key.
 func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Prefix, bool, *gatewayConfig)) {
 	// Sort gateways to get consistent assignments across nodes.
 	slices.SortFunc(config.gatewayConfigs, func(a, b gatewayConfig) int {
@@ -380,7 +378,7 @@ func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Pref
 	for _, endpoint := range config.matchedEndpoints {
 		var gateway *gatewayConfig
 		if len(config.gatewayConfigs) > 1 {
-			index := computeEndpointHash(endpoint.id) % uint32(len(config.gatewayConfigs))
+			index := computeEndpointHash(endpoint.key) % uint32(len(config.gatewayConfigs))
 			gateway = &config.gatewayConfigs[index]
 		} else {
 			gateway = &config.gatewayConfigs[0]
@@ -538,7 +536,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		nodeSelectors:     nodeSelectorList,
 		dstCIDRs:          dstCidrList,
 		excludedCIDRs:     excludedCIDRs,
-		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
+		matchedEndpoints:  make(map[endpointKey]*endpointMetadata),
 		policyGwConfigs:   policyGwConfigs,
 		v4Needed:          v4Needed,
 		v6Needed:          v6Needed,
