@@ -33,7 +33,14 @@ func (ini *localNodeSynchronizer) retrieveNodeInformation(ctx context.Context) *
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMClusterPool ||
-		option.Config.IPAM == ipamOption.IPAMMultiPool {
+		option.Config.IPAM == ipamOption.IPAMMultiPool ||
+		option.Config.IPAM == ipamOption.IPAMDelegatedPlugin {
+		// For delegated-plugin mode (e.g. AKS with Azure CNS), the
+		// authoritative pod CIDRs are written to CiliumNode by the
+		// out-of-tree IPAM plugin, not to k8s Node.spec.podCIDR (which
+		// on AKS reflects kubelet's --pod-cidr and is unrelated to the
+		// pod subnet actually used). Read from CiliumNode like the
+		// in-tree pool modes do.
 		for event := range ini.K8sCiliumLocalNode.Events(ctx) {
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				ini.Logger.Error("Timeout while waiting for CiliumNode resource: API server connection issue", logfields.NodeName, nodeTypes.GetName())
