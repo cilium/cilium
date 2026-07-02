@@ -21,4 +21,11 @@ fi
 
 usermod -aG "$GROUP_NAME" ubuntu
 
-runuser -u ubuntu renovate
+# In ghcr.io/renovatebot/renovate, the ubuntu user has GID 0 in /etc/passwd
+# (ubuntu:x:12021:0::/home/ubuntu:/bin/bash). runuser -u ubuntu alone would
+# therefore inherit GID 0, triggering the root-permissions workaround in
+# builder.sh (which checks USERID -eq 0 || GROUPID -eq 0).
+# -g ubuntu overrides the primary GID at the call site.
+# -G "$GROUP_NAME" re-adds the docker socket group, which runuser drops
+# because it starts a new login session (usermod -aG above is not inherited).
+runuser -u ubuntu -g ubuntu -G "$GROUP_NAME" renovate
