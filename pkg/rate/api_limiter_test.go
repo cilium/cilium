@@ -291,11 +291,18 @@ func TestLimitWaitDurationExceeded(t *testing.T) {
 
 func TestMaxParallelRequests(t *testing.T) {
 	// Test blocking of max-parallel-requests by allowing two parallel
-	// requests and having a third request fail due to a very short
-	// MaxWaitDuration
+	// requests and having a third request fail because both slots are
+	// already taken and never free up within MaxWaitDuration.
+	//
+	// MaxWaitDuration is measured from the moment a request is scheduled,
+	// so it also covers the time spent acquiring the parallel-requests
+	// semaphore. Under a noisy CI environment that scheduling overhead
+	// alone can exceed a sub-millisecond budget and spuriously fail the
+	// first two (uncontended) requests. Keep the budget generous enough
+	// that only the genuinely contended third request fails.
 	a := NewAPILimiter(hivetest.Logger(t), "foo", APILimiterParameters{
 		ParallelRequests: 2,
-		MaxWaitDuration:  time.Millisecond,
+		MaxWaitDuration:  100 * time.Millisecond,
 		AutoAdjust:       true,
 	}, nil)
 
