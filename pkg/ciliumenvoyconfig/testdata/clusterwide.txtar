@@ -63,7 +63,7 @@ Name                  Selected  Services    Listeners
 
 -- envoy-resources.table --
 Name                       Listeners                                  Endpoints                                          References             Status   Error
-backendsync:test/echo2                                                test/echo2:*: 10.244.1.2, test/echo2: 10.244.1.2   /envoy-lb-listener-2   Done     
+backendsync:test/echo2                                                test/echo2: 10.244.1.2, test/echo2:*: 10.244.1.2   /envoy-lb-listener-2   Done
 cec:/envoy-lb-listener-2   /envoy-lb-listener-2/envoy-lb-listener-2                                                                             Done     
 
 -- envoy-resources-no-backends.table --

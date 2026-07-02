@@ -267,7 +267,7 @@ func (*EnvoyResource) TableHeader() []string {
 }
 
 func (r *EnvoyResource) showListeners() string {
-	return strings.Join(slices.Collect(maps.Keys(r.Resources.Listeners)), ", ")
+	return strings.Join(slices.Sorted(maps.Keys(r.Resources.Listeners)), ", ")
 }
 
 func (r *EnvoyResource) showEndpoints() string {
@@ -287,6 +287,8 @@ func (r *EnvoyResource) showEndpoints() string {
 		out = append(out,
 			la.ClusterName+": "+strings.Join(addrs, ", "))
 	}
+	// Endpoints is a map, so sort for a stable rendering.
+	slices.Sort(out)
 	return strings.Join(out, ", ")
 }
 
