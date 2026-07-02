@@ -64,6 +64,55 @@ func TestStandaloneDNSProxy(t *testing.T) {
 	connHandler.StopConnection()
 }
 
+func TestStandaloneDNSProxyNoopMode(t *testing.T) {
+	tests := []struct {
+		name                     string
+		enableL7Proxy            bool
+		enableStandaloneDNSProxy bool
+	}{
+		{
+			name:                     "both disabled",
+			enableL7Proxy:            false,
+			enableStandaloneDNSProxy: false,
+		},
+		{
+			name:                     "L7 enabled and standalone disabled",
+			enableL7Proxy:            true,
+			enableStandaloneDNSProxy: false,
+		},
+		{
+			name:                     "L7 disabled and standalone enabled",
+			enableL7Proxy:            false,
+			enableStandaloneDNSProxy: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sdp := &StandaloneDNSProxy{
+				logger:                   hivetest.Logger(t),
+				enableL7Proxy:            tt.enableL7Proxy,
+				enableStandaloneDNSProxy: tt.enableStandaloneDNSProxy,
+			}
+			lifecycle := cell.NewDefaultLifecycle(nil, 0, 0)
+
+			err := registerStandaloneDNSProxyHooks(hooksParams{
+				Lifecycle: lifecycle,
+				SDP:       sdp,
+			})
+			require.NoError(t, err)
+
+			err = lifecycle.Start(hivetest.Logger(t), t.Context())
+			require.NoError(t, err)
+			require.True(t, sdp.IsReady())
+
+			err = lifecycle.Stop(hivetest.Logger(t), context.Background())
+			require.NoError(t, err)
+			require.False(t, sdp.IsReady())
+		})
+	}
+}
+
 func setupTestEnv(t *testing.T) *StandaloneDNSProxy {
 	var sdp *StandaloneDNSProxy
 	h := hive.New(

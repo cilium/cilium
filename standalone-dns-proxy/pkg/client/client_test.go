@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
@@ -125,12 +126,20 @@ func setupClientAndServer(t *testing.T) (ConnectionHandler, *mockFqdnDataServer,
 		cell.Provide(func() dialClient {
 			return newMockDialConfig(lis)
 		},
+			func() *option.DaemonConfig {
+				return &option.DaemonConfig{
+					EnableL7Proxy: true,
+				}
+			},
 			newGRPCClient),
 		cell.Provide(metrics.NewMetrics),
 		cell.Invoke(func(_c ConnectionHandler) {
 			connHandler = _c
 		}),
 	)
+	hive.AddConfigOverride(h, func(cfg *service.FQDNConfig) {
+		cfg.EnableStandaloneDNSProxy = true
+	})
 	if err := h.Start(hivetest.Logger(t), t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
