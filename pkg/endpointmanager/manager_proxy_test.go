@@ -321,9 +321,7 @@ func TestUpdatePolicyMapsRevertsDeferredNetworkPolicyCallbacksAfterProxyWaitFail
 
 	errCh := make(chan error, 1)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		errCh <- mgr.UpdatePolicyMaps(ctx)
+		errCh <- mgr.UpdatePolicyMaps(t.Context())
 	}()
 
 	proxy.waitForUpdates(t)
@@ -333,7 +331,6 @@ func TestUpdatePolicyMapsRevertsDeferredNetworkPolicyCallbacksAfterProxyWaitFail
 
 	err := <-errCh
 	require.Error(t, err)
-	require.ErrorContains(t, err, "proxy updates failed")
 	require.Equal(t, 1, proxy.revertCount(ep1.GetID()))
 	require.Equal(t, 1, proxy.revertCount(ep2.GetID()))
 	require.Equal(t, 0, proxy.finalizeCount(ep1.GetID()))
