@@ -2813,6 +2813,9 @@
           },
           "type": "object"
         },
+        "staticRuntimeConfig": {
+          "type": "object"
+        },
         "streamIdleTimeoutDurationSeconds": {
           "type": "integer"
         },

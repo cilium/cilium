@@ -1888,6 +1888,10 @@
      - Timeout for the startup probe
      - int
      - ``5``
+   * - :spelling:ignore:`envoy.staticRuntimeConfig`
+     - Static runtime bootstrap config for envoy. ref: https://www.envoyproxy.io/docs/envoy/latest/configuration/operations/runtime#static-bootstrap
+     - object
+     - ``{}``
    * - :spelling:ignore:`envoy.streamIdleTimeoutDurationSeconds`
      - Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. default 5 minutes
      - int

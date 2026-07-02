@@ -7,6 +7,13 @@ clusterManager:
   # Keep this aligned with a statically defined cluster name in this bootstrap.
   localClusterName: "/cilium-locality-cluster"
 {{- end }}
+{{- with .Values.envoy.staticRuntimeConfig }}
+layeredRuntime:
+  layers:
+  - name: static_layer_0
+    staticLayer:
+      {{- toYaml . | nindent 6 }}
+{{- end }}
 staticResources:
   listeners:
   {{- if .Values.envoy.prometheus.enabled }}

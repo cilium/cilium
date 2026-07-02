@@ -2850,6 +2850,12 @@ envoy:
   policyRestoreTimeoutDuration: null
   # -- Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
   httpUpstreamLingerTimeout: null
+  # -- Static runtime bootstrap config for envoy.
+  # ref: https://www.envoyproxy.io/docs/envoy/latest/configuration/operations/runtime#static-bootstrap
+  staticRuntimeConfig: {}
+  #   re2.max_program_size.error_level: 256
+  #   re2.max_program_size.warn_level: 128
+
   # -- Envoy container image.
   image:
     # @schema
