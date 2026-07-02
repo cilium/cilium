@@ -14,6 +14,7 @@ import (
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -48,8 +49,10 @@ func ScriptCmds(epm EndpointManager, template *endpoint.Endpoint) map[string]scr
 				}
 
 				// The following order of steps simulate adding an Endpoint the
-				// way that the Agent does.
+				// way that the Agent does. Mark it fake so teardown skips the
+				// host datapath, which the script harness does not provide.
 				ep := template.CopyFromTemplate()
+				ep.SetPropertyValue(endpointtypes.PropertyFakeEndpoint, true)
 				err = epm.AddEndpoint(ep)
 				if err != nil {
 					return nil, err
@@ -67,7 +70,32 @@ func ScriptCmds(epm EndpointManager, template *endpoint.Endpoint) map[string]scr
 				}
 				<-ep.WaitForPolicyRevision(s.Context(), 1, nil)
 				return func(s *script.State) (stdout string, stderr string, err error) {
-					return "", "", err
+					return strconv.FormatUint(uint64(ep.ID), 10), "", nil
+				}, nil
+			},
+		),
+		"endpoint/delete": script.Command(
+			script.CmdUsage{
+				Summary: "Delete an Endpoint",
+				Args:    "id",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				if len(args) != 1 {
+					return nil, fmt.Errorf("expected one arg but got %v, see usage details", len(args))
+				}
+				id, err := strconv.ParseUint(args[0], 10, 16)
+				if err != nil {
+					return nil, fmt.Errorf("parse id: %w", err)
+				}
+				ep := epm.LookupCiliumID(uint16(id))
+				if ep == nil {
+					return nil, fmt.Errorf("endpoint %d not found", id)
+				}
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					if errs := epm.RemoveEndpoint(ep, endpoint.DeleteConfig{}); len(errs) > 0 {
+						return "", "", fmt.Errorf("delete endpoint %d: %v", id, errs)
+					}
+					return "", "", nil
 				}, nil
 			},
 		),

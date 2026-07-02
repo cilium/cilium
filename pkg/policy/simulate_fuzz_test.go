@@ -56,7 +56,9 @@ func FuzzDistillPolicy(f *testing.F) {
 			ID: uint64(idA.ID),
 		}
 
-		selPol, _, err := td.repo.GetSelectorPolicy(idA, 0, &dummyPolicyStats{}, 1)
+		td.repo.mutex.RLock()
+		selPol, err := td.repo.resolvePolicyLocked(idA)
+		td.repo.mutex.RUnlock()
 		if err != nil {
 			t.Fatal(err) // should never happen
 		}
@@ -64,6 +66,7 @@ func FuzzDistillPolicy(f *testing.F) {
 		epp := selPol.DistillPolicy(logger, srcEP, nil)
 		epp.Ready()
 		epp.Detach(logger)
+		selPol.Supersede()
 
 		if debug {
 			t.Log("Policy map:\n" + epp.policyMapState.String())
@@ -333,7 +336,9 @@ func FuzzDistillPolicyWithAggregates(f *testing.F) {
 			ID: uint64(idA.ID),
 		}
 
-		selPol, _, err := td.repo.GetSelectorPolicy(idA, 0, &dummyPolicyStats{}, 1)
+		td.repo.mutex.RLock()
+		selPol, err := td.repo.resolvePolicyLocked(idA)
+		td.repo.mutex.RUnlock()
 		if err != nil {
 			t.Fatal(err) // should never happen
 		}
@@ -341,6 +346,7 @@ func FuzzDistillPolicyWithAggregates(f *testing.F) {
 		epp := selPol.DistillPolicy(logger, srcEP, nil)
 		epp.Ready()
 		epp.Detach(logger)
+		selPol.Supersede()
 
 		if debug {
 			t.Log("Policy map:\n" + epp.policyMapState.String())

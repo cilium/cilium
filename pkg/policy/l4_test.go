@@ -785,14 +785,15 @@ func TestHoldPreventsDetach(t *testing.T) {
 	logger := hivetest.Logger(t)
 	repo := NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	repo.revision.Store(1)
-	cache := repo.policyCache
 
 	ep := testutils.NewTestEndpoint(t)
 	id := ep.GetSecurityIdentity()
-	cache.insert(id)
 
-	sp, _, _, err := cache.updateSelectorPolicy(id, ep.Id)
+	repo.mutex.RLock()
+	sp, err := repo.resolvePolicyLocked(id)
+	repo.mutex.RUnlock()
 	require.NoError(t, err)
+	require.NotNil(t, sp)
 	require.Equal(t, 0, sp.L4Policy.holdCount)
 
 	a := DummyOwner{logger: logger, previousMap: &mapState{}}
@@ -825,23 +826,20 @@ func TestAddHoldRejectsDetached(t *testing.T) {
 	logger := hivetest.Logger(t)
 	repo := NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	repo.revision.Store(1)
-	cache := repo.policyCache
 
 	ep := testutils.NewTestEndpoint(t)
 	id := ep.GetSecurityIdentity()
-	cache.insert(id)
 
 	repo.mutex.RLock()
-	old, _, _, err := cache.updateSelectorPolicy(id, 0)
+	old, err := repo.resolvePolicyLocked(id)
 	repo.mutex.RUnlock()
 	require.NoError(t, err)
 
 	repo.BumpRevision()
 	repo.mutex.RLock()
-	cur, prev, _, err := cache.updateSelectorPolicy(id, 0)
+	cur, err := repo.resolvePolicyLocked(id)
 	repo.mutex.RUnlock()
 	require.NoError(t, err)
-	require.Same(t, old, prev)
 	require.NotSame(t, old, cur)
 
 	old.Supersede()

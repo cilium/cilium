@@ -11,10 +11,10 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -138,6 +138,39 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 	})
 }
 
+// computeFor adds an identity and waits for its initial policy to be committed.
+func computeFor(t *testing.T, computer PolicyRecomputer, idmgr identitymanager.IDManager, nid identity.NumericIdentity) *identity.Identity {
+	t.Helper()
+	id := identity.NewIdentity(nid, labels.Labels{})
+	idmgr.Add(id)
+	done, err := computer.RecomputeIdentityPolicy(id, 1)
+	require.NoError(t, err)
+	<-done
+	return id
+}
+
+func TestGetAuthTypesAndSnapshot(t *testing.T) {
+	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
+
+	_, _, computer, idmgr := fixture(t)
+	id := computeFor(t, computer, idmgr, identity.NumericIdentity(42))
+
+	require.Nil(t, computer.GetAuthTypes(id.ID, identity.NumericIdentity(99)))
+	require.Contains(t, computer.GetPolicySnapshot(), id.ID)
+}
+
+func TestBulkRecompute(t *testing.T) {
+	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
+
+	_, _, computer, idmgr := fixture(t)
+	id := computeFor(t, computer, idmgr, identity.NumericIdentity(42))
+
+	computer.UpdatePolicy(set.NewSet(id.ID), 0, 2)
+	ws, err := computer.RecomputeIdentityPolicyForAllIdentities(3)
+	require.NoError(t, err)
+	require.NotNil(t, ws)
+}
+
 func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager) {
 	t.Helper()
 
@@ -162,9 +195,7 @@ func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomput
 				},
 			),
 
-			cell.ProvidePrivate(func() (policy.PolicyRepository, stream.Observable[policy.PolicyCacheChange]) {
-				return repo, repo.PolicyCacheObservable()
-			}),
+			cell.ProvidePrivate(func() policy.PolicyRepository { return repo }),
 			cell.ProvidePrivate(func() identitymanager.IDManager { return idmgr }),
 
 			cell.Provide(

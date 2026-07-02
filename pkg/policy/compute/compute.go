@@ -5,8 +5,6 @@ package compute
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/cilium/statedb"
@@ -16,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -25,13 +24,14 @@ type PolicyRecomputer interface {
 	UpdatePolicy(idsToRegen set.Set[identity.NumericIdentity], fromRev, toRev uint64)
 	GetIdentityPolicyByNumericIdentity(identity identity.NumericIdentity) (Result, statedb.Revision, <-chan struct{}, bool)
 	GetIdentityPolicyByIdentity(identity *identity.Identity) (Result, statedb.Revision, <-chan struct{}, bool)
+	GetAuthTypes(localID, remoteID identity.NumericIdentity) policyTypes.AuthTypes
+	GetPolicySnapshot() map[identity.NumericIdentity]policy.SelectorPolicy
 }
 
 type Result struct {
 	Identity             identity.NumericIdentity
 	NewPolicy, OldPolicy policy.SelectorPolicy
 	Revision             uint64
-	NeedsRelease         bool
 	Err                  error
 }
 
@@ -138,7 +138,8 @@ func (r *IdentityPolicyComputer) GetIdentityPolicyByIdentity(identity *identity.
 func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 	type pending struct {
 		computeRequest
-		rev statedb.Revision // statedb revision for CompareAndSwap
+		rev       statedb.Revision      // statedb revision for CompareAndSwap
+		oldPolicy policy.SelectorPolicy // the committed policy, superseded after the new one commits
 	}
 
 	for {
@@ -176,7 +177,9 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				close(req.done)
 				continue
 			}
-			work = append(work, pending{req, rev})
+			// The currently committed policy becomes the old one once this
+			// recomputation commits its replacement.
+			work = append(work, pending{computeRequest: req, rev: rev, oldPolicy: obj.NewPolicy})
 		}
 		if len(work) == 0 {
 			continue
@@ -193,7 +196,8 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				start := time.Now()
 				results[i].pending = w
 				results[i].res.Identity = w.identity.ID
-				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.OldPolicy, results[i].res.NeedsRelease, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity, w.toRev)
+				results[i].res.OldPolicy = w.oldPolicy
+				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity)
 				outcome := metrics.LabelValueOutcomeSuccess
 				if results[i].res.Err != nil {
 					outcome = metrics.LabelValueOutcomeFailure
@@ -210,14 +214,6 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		var retry []computeRequest
 		for i := range results {
 			if results[i].res.Err != nil {
-				// Cancel the retry because the identity no longer exists.
-				if errors.Is(results[i].res.Err, policy.ErrSelectorPolicyNotCached) {
-					r.logger.Debug("Skipping policy computation for removed identity",
-						logfields.Identity, results[i].res.Identity,
-					)
-					results[i].res = Result{}
-					continue
-				}
 				// This error will result in the relevant endpoints failing
 				// to regenerate.
 				r.logger.Error("Policy computation failed for identity",
@@ -240,19 +236,13 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				results[i].res = Result{}
 				continue
 			}
-			// CAS failure means a delete for this identity raced us. If
-			// the delete ran getPolicy() before our setPolicy() published
-			// NewPolicy, NewPolicy remains attached to the SelectorCache.
-			// Detach both NewPolicy and OldPolicy here, since the success
-			// path's OldPolicy detach loop below skips zeroed results.
+			// CAS failure means a delete for this identity raced us. The
+			// new policy was Attach()ed by resolvePolicyLocked, so supersede
+			// it here to release its SelectorCache references. The old policy
+			// is released by the delete path in LocalEndpointIdentityRemoved.
 			if _, _, err := r.tbl.CompareAndSwap(wtxn, results[i].rev, results[i].res); err != nil {
-				if results[i].res.NeedsRelease {
-					if results[i].res.NewPolicy != nil {
-						results[i].res.NewPolicy.Supersede()
-					}
-					if results[i].res.OldPolicy != nil {
-						results[i].res.OldPolicy.Supersede()
-					}
+				if results[i].res.NewPolicy != nil {
+					results[i].res.NewPolicy.Supersede()
 				}
 				results[i].res = Result{}
 			}
@@ -278,58 +268,68 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				logfields.Identity, cr.res.Identity,
 				logfields.PolicyRevision, cr.toRev,
 			)
-			if cr.res.OldPolicy != nil && cr.res.NeedsRelease {
+			if cr.res.OldPolicy != nil {
 				cr.res.OldPolicy.Supersede()
 			}
 		}
 	}
 }
 
-func (r *IdentityPolicyComputer) handlePolicyCacheEvent(ctx context.Context, event policy.PolicyCacheChange) error {
-	r.logger.Debug("Handle policy cache event", logfields.Identity, event.ID)
-
-	// The identity may already be gone from the manager by now, so clean up
-	// statedb on delete.
-	if event.Kind == policy.PolicyChangeDelete {
-		// Drop pending requests for this identity and close their done
-		// channels. No Result is committed. Endpoint regen retries on
-		// not-found.
-		r.reqsMu.Lock()
-		kept := r.reqs[:0]
-		for _, req := range r.reqs {
-			if req.identity.ID == event.ID {
-				close(req.done)
-				continue
-			}
-			kept = append(kept, req)
-		}
-		r.reqs = kept
-		r.reqsMu.Unlock()
-
-		wtxn := r.db.WriteTxn(r.tbl)
-		obj, _, found := r.tbl.Get(wtxn, PolicyComputationByIdentity(event.ID))
-		if !found {
-			wtxn.Abort()
-			return nil
-		}
-		_, _, err := r.tbl.Delete(wtxn, obj)
-		if err != nil {
-			wtxn.Abort()
-			return fmt.Errorf("failed to delete from statedb policy computation table: %w", err)
-		}
-		wtxn.Commit()
-		return nil
+// LocalEndpointIdentityAdded is part of the identitymanager.Observer
+// interface.
+//
+// The subject selectorcache must be updated with the identity before
+// recomputation, otherwise policy will not be computed properly.
+func (r *IdentityPolicyComputer) LocalEndpointIdentityAdded(id *identity.Identity) {
+	if id == nil {
+		return
 	}
+	r.repo.UpdateIdentities(identity.IdentityMap{id.ID: id.LabelArray}, nil)
+	_, _ = r.RecomputeIdentityPolicy(id, 0)
+}
 
-	if event.Identity == nil {
-		return nil
+// LocalEndpointIdentityRemoved is part of the identitymanager.Observer interface.
+func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Identity) {
+	if id == nil {
+		return
 	}
+	r.logger.Debug("Identity removed", logfields.Identity, id.ID)
 
-	if event.Kind == policy.PolicyChangeInsert {
-		_, err := r.RecomputeIdentityPolicy(event.Identity, 0)
-		if err != nil {
-			return err
+	// See comment on LocalEndpointIdentityAdded.
+	r.repo.UpdateIdentities(nil, identity.IdentityMap{id.ID: id.LabelArray})
+
+	// Drop any pending compute requests for this identity so we don't keep
+	// re-running a stale computation.
+	r.reqsMu.Lock()
+	kept := r.reqs[:0]
+	for _, req := range r.reqs {
+		if req.identity.ID == id.ID {
+			close(req.done)
+			continue
 		}
+		kept = append(kept, req)
 	}
-	return nil
+	r.reqs = kept
+	r.reqsMu.Unlock()
+
+	wtxn := r.db.WriteTxn(r.tbl)
+	obj, _, found := r.tbl.Get(wtxn, PolicyComputationByIdentity(id.ID))
+	if !found {
+		wtxn.Abort()
+		return
+	}
+	if _, _, err := r.tbl.Delete(wtxn, obj); err != nil {
+		wtxn.Abort()
+		r.logger.Error("Failed to delete from policy computation table",
+			logfields.Identity, id.ID,
+			logfields.Error, err)
+		return
+	}
+	wtxn.Commit()
+
+	// Release the policy's selectors. Supersede after Commit so the detach
+	// runs outside the write txn, matching processRequests.
+	if obj.NewPolicy != nil {
+		obj.NewPolicy.Supersede()
+	}
 }
