@@ -2214,6 +2214,18 @@ hubble:
       #  - secretName: chart-example-tls
       #    hosts:
       #      - chart-example.local
+    # -- hubble-ui GatewayAPI HTTPRoute configuration.
+    httpRoute:
+      enabled: false
+      annotations: {}
+      labels: {}
+      # -- parentRefs define which Gateways this HTTPRoute attaches to.
+      parentRefs:
+        - name: cilium-gateway
+          namespace: kube-system
+          # sectionName: http
+      hostnames:
+        - chart-example.local
 
     # -- Configure temporary volume for hubble-ui
     tmpVolume: {}
