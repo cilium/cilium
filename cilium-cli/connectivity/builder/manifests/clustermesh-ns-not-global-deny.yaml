@@ -1,0 +1,13 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-client-non-global
+  namespace: cilium-test-ns-not-global-denied
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            kind: client
