@@ -23,7 +23,7 @@ type mockStatusCollector struct {
 	statusResponse models.StatusResponse
 }
 
-func (m *mockStatusCollector) GetStatus(bool, bool) models.StatusResponse {
+func (m *mockStatusCollector) GetStatus(bool, bool, bool) models.StatusResponse {
 	return m.statusResponse
 }
 

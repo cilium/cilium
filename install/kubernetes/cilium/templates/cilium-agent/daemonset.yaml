@@ -188,6 +188,8 @@ spec:
             httpHeaders:
             - name: "brief"
               value: "true"
+            - name: "require-datapath-ready"
+              value: {{ .Values.readinessProbe.requireDatapathReady | quote }}
           {{- end }}
           periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           successThreshold: 1

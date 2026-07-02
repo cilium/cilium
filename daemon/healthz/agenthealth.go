@@ -144,6 +144,20 @@ func (h *agentHealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			requireK8sConnectivity = res
 		}
 	}
+
+	requireDatapathReady := false
+	if v := r.Header.Get("require-datapath-ready"); v != "" {
+		res, err := strconv.ParseBool(v)
+		if err != nil {
+			h.logger.Warn("require-datapath-ready should be bool",
+				logfields.Value, v,
+				logfields.Error, err,
+			)
+		} else {
+			requireDatapathReady = res
+		}
+	}
+
 	isUnhealthy := func(sr *models.StatusResponse) bool {
 		if sr.Cilium != nil {
 			state := sr.Cilium.State
@@ -152,7 +166,7 @@ func (h *agentHealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return false
 	}
 	statusCode := http.StatusOK
-	sr := h.statusCollector.GetStatus(true, requireK8sConnectivity)
+	sr := h.statusCollector.GetStatus(true, requireK8sConnectivity, requireDatapathReady)
 	if isUnhealthy(&sr) {
 		h.logger.Info("/healthz returning unhealthy",
 			logfields.State, sr.Cilium.State,

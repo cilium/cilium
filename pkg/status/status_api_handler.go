@@ -16,6 +16,6 @@ type GetHealthzHandler struct {
 func (h *GetHealthzHandler) Handle(params daemonapi.GetHealthzParams) middleware.Responder {
 	brief := params.Brief != nil && *params.Brief
 	requireK8sConnectivity := params.RequireK8sConnectivity != nil && *params.RequireK8sConnectivity
-	sr := h.collector.GetStatus(brief, requireK8sConnectivity)
+	sr := h.collector.GetStatus(brief, requireK8sConnectivity, false)
 	return daemonapi.NewGetHealthzOK().WithPayload(&sr)
 }

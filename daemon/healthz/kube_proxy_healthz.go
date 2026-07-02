@@ -147,7 +147,7 @@ func (h kubeproxyHealthzHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// We piggy back here on Cilium daemon health. If Cilium is healthy, we can
 	// reasonably assume that the node networking is ready.
 	// If node is in terminating state, we return ServiceUnavailable.
-	sr := h.statusCollector.GetStatus(true, false)
+	sr := h.statusCollector.GetStatus(true, false, false)
 	ln, _ := h.localNode.Get(r.Context())
 	if isUnhealthy(&sr) || ln.Local.IsBeingDeleted {
 		statusCode = http.StatusServiceUnavailable

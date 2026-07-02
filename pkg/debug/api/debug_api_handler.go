@@ -46,7 +46,7 @@ func (h *GetDebuginfoHandler) Handle(params restapi.GetDebuginfoParams) middlewa
 		dr.KernelVersion = kver.String()
 	}
 
-	status := h.statusCollector.GetStatus(false, true)
+	status := h.statusCollector.GetStatus(false, true, false)
 	dr.CiliumStatus = &status
 
 	dr.EndpointList = h.endpointManager.GetEndpointList(endpoint.GetEndpointParams{})
