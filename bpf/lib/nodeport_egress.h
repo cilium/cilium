@@ -199,6 +199,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 		       &nat_info.address);
 	ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_dst,
 		       &tuple.daddr);
+	fib_set_l4_from_tuple(&fib_params, tuple.nexthdr, tuple.dport, tuple.sport);
 
 	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
 	if (ret != CTX_ACT_OK)
@@ -499,6 +500,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 	fib_params.l.ifindex = ctx_get_ifindex(ctx);
 	fib_params.l.ipv4_src = nat_info.address;
 	fib_params.l.ipv4_dst = tuple.daddr;
+	fib_set_l4_from_tuple(&fib_params, tuple.nexthdr, tuple.dport, tuple.sport);
 
 	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
 	if (ret != CTX_ACT_OK)
