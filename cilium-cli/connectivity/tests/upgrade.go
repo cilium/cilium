@@ -4,15 +4,22 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	gojson "encoding/json"
+	"fmt"
 	"maps"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 // NoInterruptedConnections checks whether there are no interruptions in
@@ -49,6 +56,10 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	restartCount := make(map[string]string)
+	// podClients remembers which client a given pod was observed through, so
+	// that a restart-count mismatch can be explained by querying the very same
+	// pod for the reason its container restarted.
+	podClients := make(map[string]*k8s.Client)
 	for _, client := range ct.Clients() {
 		if ct.Params().IncludeConnDisruptTest {
 			pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisrupt})
@@ -61,6 +72,7 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 
 			for _, pod := range pods.Items {
 				restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+				podClients[pod.GetObjectMeta().GetName()] = client
 			}
 		}
 
@@ -75,6 +87,7 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 
 			for _, pod := range pods.Items {
 				restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+				podClients[pod.GetObjectMeta().GetName()] = client
 			}
 		} else {
 			ct.Info("Skipping conn-disrupt-test for NS traffic")
@@ -91,6 +104,7 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 
 			for _, pod := range pods.Items {
 				restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+				podClients[pod.GetObjectMeta().GetName()] = client
 			}
 		} else {
 			ct.Info("Skipping conn-disrupt-test for L7 traffic")
@@ -107,6 +121,7 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 
 			for _, pod := range pods.Items {
 				restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+				podClients[pod.GetObjectMeta().GetName()] = client
 			}
 		} else {
 			ct.Info("Skipping conn-disrupt-test for Egress Gateway")
@@ -149,8 +164,45 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 		if prevCount, found := prevRestartCount[pod]; !found {
 			t.Fatalf("Could not find Pod %s restart count", pod)
 		} else if prevCount != count {
-			t.Fatalf("Pod %s flow was interrupted (restart count does not match %s != %s)",
-				pod, prevCount, count)
+			t.Fatalf("Pod %s flow was interrupted (restart count does not match %s != %s)%s",
+				pod, prevCount, count, restartReason(ctx, ct, podClients[pod], pod))
 		}
 	}
+}
+
+// restartReason returns a human-readable, best-effort explanation of why the
+// container of the given conn-disrupt client/server pod restarted. It reports
+// the last termination state (exit code, signal, reason) and the tail of the
+// previous container's logs. It is only used to enrich the failure message so
+// that a benign environmental restart can be told apart from a genuine
+// connection disruption; it never changes the pass/fail outcome and swallows
+// its own errors, returning an empty string when nothing can be collected.
+func restartReason(ctx context.Context, ct *check.ConnectivityTest, client *k8s.Client, podName string) string {
+	if client == nil {
+		return ""
+	}
+
+	pod, err := client.GetPod(ctx, ct.Params().TestNamespace, podName, metav1.GetOptions{})
+	if err != nil || len(pod.Status.ContainerStatuses) == 0 {
+		return ""
+	}
+
+	cs := pod.Status.ContainerStatuses[0]
+	var sb strings.Builder
+	if term := cs.LastTerminationState.Terminated; term != nil {
+		fmt.Fprintf(&sb, "; last termination: exitCode=%d signal=%d reason=%q message=%q startedAt=%s finishedAt=%s",
+			term.ExitCode, term.Signal, term.Reason, term.Message,
+			term.StartedAt.Format(time.RFC3339), term.FinishedAt.Format(time.RFC3339))
+	}
+
+	var logs bytes.Buffer
+	err = client.GetLogs(ctx, pod.Namespace, podName, cs.Name,
+		corev1.PodLogOptions{Previous: true, TailLines: ptr.To[int64](20)}, &logs)
+	if err == nil {
+		if trimmed := strings.TrimSpace(logs.String()); trimmed != "" {
+			fmt.Fprintf(&sb, "; previous container logs (tail):\n%s", trimmed)
+		}
+	}
+
+	return sb.String()
 }
