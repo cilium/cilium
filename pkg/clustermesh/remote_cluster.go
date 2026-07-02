@@ -93,6 +93,8 @@ type remoteCluster struct {
 	// featureMetrics will track which features are enabled with in clustermesh.
 	featureMetrics ClusterMeshMetrics
 
+	metrics Metrics
+
 	// featureMetricMaxClusters contains the max clusters defined for this
 	// clustermesh config.
 	featureMetricMaxClusters string
@@ -192,7 +194,7 @@ func (rc *remoteCluster) RevokeCache(ctx context.Context) {
 	}
 }
 
-func (rc *remoteCluster) Remove(context.Context) {
+func (rc *remoteCluster) Remove(ctx context.Context) {
 	// Draining shall occur only when the configuration for the remote cluster
 	// is removed, and not in case the agent is shutting down, otherwise we
 	// would break existing connections on restart.
@@ -204,7 +206,11 @@ func (rc *remoteCluster) Remove(context.Context) {
 
 	for _, obs := range rc.observers {
 		obs.Drain()
+		obs.DeRegister()
 	}
+
+	rc.metrics.DeRegister(rc.name)
+	rc.storeFactory.DeRegister(rc.name)
 
 	rc.usedIDs.ReleaseClusterID(rc.clusterID)
 }

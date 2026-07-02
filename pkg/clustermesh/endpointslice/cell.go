@@ -6,6 +6,8 @@ package endpointslice
 import (
 	"log/slog"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
@@ -36,7 +38,7 @@ var Cell = cell.Module(
 )
 
 type Metrics struct {
-	TotalEndpointSlices metric.Vec[metric.Gauge]
+	TotalEndpointSlices metric.DeletableVec[metric.Gauge]
 }
 
 func MetricsProvider(namespace string) func() Metrics {
@@ -50,4 +52,8 @@ func MetricsProvider(namespace string) func() Metrics {
 			}, []string{metrics.LabelTargetCluster}),
 		}
 	}
+}
+
+func (m *Metrics) DeRegister(targetCluster string) {
+	m.TotalEndpointSlices.DeletePartialMatch(prometheus.Labels{metrics.LabelTargetCluster: targetCluster})
 }

@@ -4,6 +4,8 @@
 package common
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
@@ -12,13 +14,13 @@ type Metrics struct {
 	// TotalRemoteClusters tracks the total number of remote clusters.
 	TotalRemoteClusters metric.Gauge
 	// LastFailureTimestamp tracks the last failure timestamp.
-	LastFailureTimestamp metric.Vec[metric.Gauge]
+	LastFailureTimestamp metric.DeletableVec[metric.Gauge]
 	// ReadinessStatus tracks the readiness status of remote clusters.
-	ReadinessStatus metric.Vec[metric.Gauge]
+	ReadinessStatus metric.DeletableVec[metric.Gauge]
 	// TotalFailure tracks the number of failures when connecting to remote clusters.
-	TotalFailures metric.Vec[metric.Gauge]
+	TotalFailures metric.DeletableVec[metric.Gauge]
 	// TotalCacheRevocations tracks the number of cache revocations for a remote cluster.
-	TotalCacheRevocations metric.Vec[metric.Gauge]
+	TotalCacheRevocations metric.DeletableVec[metric.Gauge]
 }
 
 func MetricsProvider(subsystem string) func() Metrics {
@@ -60,4 +62,11 @@ func MetricsProvider(subsystem string) func() Metrics {
 			}, []string{metrics.LabelTargetCluster}),
 		}
 	}
+}
+
+func (m *Metrics) DeRegister(targetCluster string) {
+	m.LastFailureTimestamp.DeletePartialMatch(prometheus.Labels{metrics.LabelTargetCluster: targetCluster})
+	m.ReadinessStatus.DeletePartialMatch(prometheus.Labels{metrics.LabelTargetCluster: targetCluster})
+	m.TotalFailures.DeletePartialMatch(prometheus.Labels{metrics.LabelTargetCluster: targetCluster})
+	m.TotalCacheRevocations.DeletePartialMatch(prometheus.Labels{metrics.LabelTargetCluster: targetCluster})
 }

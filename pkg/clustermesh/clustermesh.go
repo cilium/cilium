@@ -180,6 +180,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		log:                      cm.conf.Logger.With(logfields.ClusterName, name),
 		featureMetrics:           cm.FeatureMetrics,
 		featureMetricMaxClusters: fmt.Sprintf("%d", cm.conf.ClusterInfo.MaxConnectedClusters),
+		metrics:                  cm.conf.Metrics,
 	}
 	rc.remoteNodes = cm.conf.StoreFactory.NewWatchStore(
 		name,

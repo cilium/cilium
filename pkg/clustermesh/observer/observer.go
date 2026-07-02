@@ -34,6 +34,9 @@ type Observer interface {
 	// Revoke possibly emits a deletion event for all previously observed entries,
 	// if connectivity to the target remote cluster is lost.
 	Revoke()
+
+	// DeRegister cleans up any metrics associated with the observer.
+	DeRegister()
 }
 
 // Status summarizes the status of an observer.

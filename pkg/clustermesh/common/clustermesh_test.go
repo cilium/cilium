@@ -99,6 +99,7 @@ func TestClusterMesh(t *testing.T) {
 	// by a thread at a time only.
 	var clusters []*fakeRemoteCluster
 
+	commonMetrics := MetricsProvider(metrics.SubsystemClusterMesh)()
 	cm := NewClusterMesh(Configuration{
 		Logger:              hivetest.Logger(t),
 		Config:              Config{ClusterMeshConfig: baseDir},
@@ -115,7 +116,7 @@ func TestClusterMesh(t *testing.T) {
 			clusters = append(clusters, rc)
 			return rc
 		},
-		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
+		Metrics: commonMetrics,
 	})
 
 	assertForEachRemoteCluster := func(t *testing.T, expected uint) {
@@ -200,6 +201,56 @@ func TestClusterMesh(t *testing.T) {
 	// ForEachRemoteCluster should correctly propagate errors
 	err := errors.New("error")
 	require.ErrorIs(t, cm.ForEachRemoteCluster(func(rc RemoteCluster) error { return err }), err)
+}
+
+func TestClusterMeshMetricsDeregistration(t *testing.T) {
+	client := kvstore.NewInMemoryClient(statedb.New(), "__all__")
+
+	baseDir := t.TempDir()
+	path := func(name string) string { return filepath.Join(baseDir, name) }
+	data := fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress())
+
+	capabilities := types.CiliumClusterConfigCapabilities{Cached: true, MaxConnectedClusters: 511}
+	cfg := types.CiliumClusterConfig{ID: uint32(1), Capabilities: capabilities}
+	require.NoError(t, clustercfg.Set(context.Background(), "cluster1", cfg, client))
+
+	var removed lock.Map[string, bool]
+	is := func(state *lock.Map[string, bool], name string) bool {
+		st, _ := state.Load(name)
+		return st
+	}
+
+	commonMetrics := MetricsProvider(metrics.SubsystemClusterMesh)()
+	cm := NewClusterMesh(Configuration{
+		Logger:              hivetest.Logger(t),
+		Config:              Config{ClusterMeshConfig: baseDir},
+		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
+		RemoteClientFactory: fakeRemoteClusterFactory(client),
+		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
+			return &fakeRemoteCluster{
+				onRemove: func(context.Context) { removed.Store(name, true) },
+			}
+		},
+		Metrics: commonMetrics,
+	})
+
+	writeFile(t, path("cluster1"), data)
+	hivetest.Lifecycle(t).Append(cm)
+
+	commonMetrics.ReadinessStatus.WithLabelValues("cluster1").Set(1)
+	commonMetrics.LastFailureTimestamp.WithLabelValues("cluster1").Set(1234)
+	commonMetrics.TotalFailures.WithLabelValues("cluster1").Set(1)
+	commonMetrics.TotalCacheRevocations.WithLabelValues("cluster1").Set(1)
+
+	require.NoError(t, os.Remove(path("cluster1")))
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.True(c, is(&removed, "cluster1")) }, timeout, tick, "Cluster1 has not been removed")
+
+	cm.(*clusterMesh).wg.Wait()
+
+	assert.False(t, commonMetrics.ReadinessStatus.DeleteLabelValues("cluster1"))
+	assert.False(t, commonMetrics.LastFailureTimestamp.DeleteLabelValues("cluster1"))
+	assert.False(t, commonMetrics.TotalFailures.DeleteLabelValues("cluster1"))
+	assert.False(t, commonMetrics.TotalCacheRevocations.DeleteLabelValues("cluster1"))
 }
 
 func TestClusterMeshMultipleAddRemove(t *testing.T) {
