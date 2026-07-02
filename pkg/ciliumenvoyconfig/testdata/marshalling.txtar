@@ -159,7 +159,7 @@ spec:
             "ConfigType": {
               "TypedConfig": {
                 "type_url": "type.googleapis.com/cilium.BpfMetadata",
-                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3YyggEKIgQQwIQ9MAIaAA=="
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3Yy"
               }
             }
           }
@@ -310,7 +310,7 @@ spec:
             "ConfigType": {
               "TypedConfig": {
                 "type_url": "type.googleapis.com/cilium.BpfMetadata",
-                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3YyggEKIgQQwIQ9MAIaAA=="
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3Yy"
               }
             }
           }
@@ -359,7 +359,7 @@ spec:
             "ConfigType": {
               "TypedConfig": {
                 "type_url": "type.googleapis.com/cilium.BpfMetadata",
-                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3YyggEKIgQQwIQ9MAIaAA=="
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3Yy"
               }
             }
           }

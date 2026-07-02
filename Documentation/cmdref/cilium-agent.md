@@ -223,7 +223,7 @@ cilium-agent [flags]
       --envoy-node-locality-enabled                               Enable Envoy node-locality support for zone-aware routing
       --envoy-policy-restore-timeout duration                     Maximum time to wait for endpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
-      --envoy-xds-mode string                                     xDS server implementation for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS server, "ads" for the ADS (Aggregated Discovery Service) xDS server, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks. Empty value defaults to "ads"
+      --envoy-xds-mode string                                     xDS server implementation for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS server, "ads" for the ADS (Aggregated Discovery Service) xDS server, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks (default "split")
       --exclude-local-address strings                             Exclude CIDR from being recognized as local address
       --exclude-node-label-patterns strings                       List of k8s node label regex patterns to be excluded from CiliumNode
       --external-envoy-proxy                                      whether the Envoy is deployed externally in form of a DaemonSet or not

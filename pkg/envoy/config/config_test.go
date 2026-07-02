@@ -16,9 +16,6 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "default mode",
-		},
-		{
 			name: "split mode",
 			mode: EnvoyXDSModeSplit,
 		},
@@ -50,10 +47,7 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 }
 
 func TestEnvoyXDSModeHelpers(t *testing.T) {
-	require.Equal(t, EnvoyXDSModeADS, NormalizeXDSMode(""))
-	require.Equal(t, EnvoyXDSModeSplit, NormalizeXDSMode(EnvoyXDSModeSplit))
-
-	require.True(t, ADSModeEnabled(""))
+	require.False(t, ADSModeEnabled(""))
 	require.False(t, StrictADSModeEnabled(""))
 	require.False(t, ADSModeEnabled(EnvoyXDSModeSplit))
 	require.False(t, StrictADSModeEnabled(EnvoyXDSModeSplit))
