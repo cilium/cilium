@@ -1,0 +1,382 @@
+# Verify that single-port serviceMatcher correctly maps frontends when
+# a pod spec is missing port information.
+
+hive start
+
+# Add pods, service and eps for both families
+k8s/add pod-without-ports.yaml
+k8s/add service.yaml eps-v4.yaml eps-v6.yaml
+
+# Verify statedb tables
+db/cmp localredirectpolicies lrp-initial.table
+db/cmp services services-initial.table
+db/cmp frontends frontends-initial.table
+db/cmp backends backends-initial.table
+
+# Verify service maps
+lb/maps-dump lbmaps-initial.actual
+* cmp lbmaps-initial.actual lbmaps-initial.expected
+
+# Add the serviceMatcher LRP with matching toPort[]
+k8s/add lrp-tcp.yaml
+
+# Verify the LRP mapped properly.
+db/cmp localredirectpolicies lrp-tcp.table
+db/cmp services services-lrp-tcp.table
+db/cmp frontends frontends-lrp-tcp.table
+db/cmp backends backends-lrp-tcp.table
+
+# Verify service maps
+lb/maps-dump lbmaps-lrp-tcp.actual
+* cmp lbmaps-lrp-tcp.actual lbmaps-lrp-tcp.expected
+
+# Verify the REST API model output
+lrp/list lrp-tcp.actual
+* cmp lrp-tcp.actual lrp-tcp.expected
+
+# Delete the serviceMatcher
+k8s/delete lrp-tcp.yaml
+
+# Verify we return back to the initial state
+db/cmp localredirectpolicies lrp-initial.table
+db/cmp services services-initial.table
+db/cmp frontends frontends-initial.table
+db/cmp backends backends-initial.table
+
+lb/maps-dump lbmaps-reverted1.actual
+* cmp lbmaps-reverted1.actual lbmaps-reverted1.expected
+
+lrp/list lrp-empty.actual
+* cmp lrp-empty.actual lrp-empty.expected
+
+# Now we add the serviceMatcher LRP where frontend toPort[0] is set
+# UDP, but the backend toPort[0] is still set TCP. This should fail
+# to parse and be rejected.
+k8s/add lrp-udp.yaml
+
+# The LRP should not be present
+db/cmp localredirectpolicies lrp-initial.table
+db/cmp services services-initial.table
+db/cmp frontends frontends-initial.table
+db/cmp backends backends-initial.table
+
+lb/maps-dump lbmaps-reverted1.actual
+* cmp lbmaps-reverted1.actual lbmaps-reverted1.expected
+
+lrp/list lrp-empty.actual
+* cmp lrp-empty.actual lrp-empty.expected
+
+-- lrp-initial.table --
+Name   Type   Service   FrontendType   Frontends   BackendSelector
+-- lrp-tcp.table --
+Name           Type      Service             FrontendType
+test/lrp-tcp   service   test/http-service   svc-single-port
+-- lrp-udp.table --
+Name                  Type      Service             FrontendType
+test/lrp-mismatched   service   test/http-service   svc-single-port
+
+-- services-initial.table --
+Name                Source   PortNames                      TrafficPolicy   Flags
+test/http-service   k8s      dtls=443, http=80, https=443   Cluster
+-- services-lrp-tcp.table --
+Name                          Source   PortNames                      TrafficPolicy   Flags
+test/http-service             k8s      dtls=443, http=80, https=443   Cluster
+test/lrp-tcp:local-redirect   k8s                                     Cluster
+
+-- frontends-initial.table --
+Address                 Type        ServiceName         PortName   Backends              RedirectTo   Status
+192.168.10.10:80/TCP    ClusterIP   test/http-service   http       10.244.2.1:8080/TCP                Done
+192.168.10.10:443/TCP   ClusterIP   test/http-service   https      10.244.2.1:8443/TCP                Done
+192.168.10.10:443/UDP   ClusterIP   test/http-service   dtls       10.244.2.1:8443/UDP                Done
+[1001::1]:80/TCP        ClusterIP   test/http-service   http       [2001::1]:8080/TCP                 Done
+[1001::1]:443/TCP       ClusterIP   test/http-service   https      [2001::1]:8443/TCP                 Done
+[1001::1]:443/UDP       ClusterIP   test/http-service   dtls       [2001::1]:8443/UDP                 Done
+-- frontends-lrp-tcp.table --
+Address                 Type        ServiceName         PortName   Backends              RedirectTo                    Status
+192.168.10.10:80/TCP    ClusterIP   test/http-service   http       10.244.2.1:8080/TCP                                 Done
+192.168.10.10:443/TCP   ClusterIP   test/http-service   https      10.244.2.1:8443/TCP   test/lrp-tcp:local-redirect   Done
+192.168.10.10:443/UDP   ClusterIP   test/http-service   dtls       10.244.2.1:8443/UDP                                 Done
+[1001::1]:80/TCP        ClusterIP   test/http-service   http       [2001::1]:8080/TCP                                  Done
+[1001::1]:443/TCP       ClusterIP   test/http-service   https      [2001::1]:8443/TCP    test/lrp-tcp:local-redirect   Done
+[1001::1]:443/UDP       ClusterIP   test/http-service   dtls       [2001::1]:8443/UDP                                  Done
+
+-- backends-initial.table --
+Service             Address               Source   Priority   State    PortNames   NodeName
+test/http-service   10.244.2.1:8080/TCP   k8s      4          active   http        testnode
+test/http-service   10.244.2.1:8443/TCP   k8s      4          active   https       testnode
+test/http-service   10.244.2.1:8443/UDP   k8s      4          active   dtls        testnode
+test/http-service   [2001::1]:8080/TCP    k8s      4          active   http        testnode
+test/http-service   [2001::1]:8443/TCP    k8s      4          active   https       testnode
+test/http-service   [2001::1]:8443/UDP    k8s      4          active   dtls        testnode
+-- backends-lrp-tcp.table --
+Service                       Address               Source   Priority   State    PortNames   NodeName
+test/http-service             10.244.2.1:8080/TCP   k8s      4          active   http        testnode
+test/http-service             10.244.2.1:8443/TCP   k8s      4          active   https       testnode
+test/http-service             10.244.2.1:8443/UDP   k8s      4          active   dtls        testnode
+test/http-service             [2001::1]:8080/TCP    k8s      4          active   http        testnode
+test/http-service             [2001::1]:8443/TCP    k8s      4          active   https       testnode
+test/http-service             [2001::1]:8443/UDP    k8s      4          active   dtls        testnode
+test/lrp-tcp:local-redirect   10.244.2.1:8443/TCP   k8s      4          active
+test/lrp-tcp:local-redirect   [2001::1]:8443/TCP    k8s      4          active
+
+-- lbmaps-initial.expected --
+BE: ID=1 ADDR=10.244.2.1:8080/TCP STATE=active
+BE: ID=2 ADDR=10.244.2.1:8443/TCP STATE=active
+BE: ID=3 ADDR=10.244.2.1:8443/UDP STATE=active
+BE: ID=4 ADDR=[2001::1]:8080/TCP STATE=active
+BE: ID=5 ADDR=[2001::1]:8443/TCP STATE=active
+BE: ID=6 ADDR=[2001::1]:8443/UDP STATE=active
+REV: ID=1 ADDR=192.168.10.10:80
+REV: ID=2 ADDR=192.168.10.10:443
+REV: ID=3 ADDR=192.168.10.10:443
+REV: ID=4 ADDR=[1001::1]:80
+REV: ID=5 ADDR=[1001::1]:443
+REV: ID=6 ADDR=[1001::1]:443
+SVC: ID=0 ADDR=192.168.10.10:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=[1001::1]:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=192.168.10.10:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=192.168.10.10:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=192.168.10.10:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=192.168.10.10:443/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=192.168.10.10:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=192.168.10.10:443/UDP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[1001::1]:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[1001::1]:80/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=[1001::1]:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=[1001::1]:443/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=[1001::1]:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=[1001::1]:443/UDP SLOT=1 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-lrp-tcp.expected --
+BE: ID=1 ADDR=10.244.2.1:8080/TCP STATE=active
+BE: ID=2 ADDR=10.244.2.1:8443/TCP STATE=active
+BE: ID=3 ADDR=10.244.2.1:8443/UDP STATE=active
+BE: ID=4 ADDR=[2001::1]:8080/TCP STATE=active
+BE: ID=5 ADDR=[2001::1]:8443/TCP STATE=active
+BE: ID=6 ADDR=[2001::1]:8443/UDP STATE=active
+REV: ID=1 ADDR=192.168.10.10:80
+REV: ID=2 ADDR=192.168.10.10:443
+REV: ID=3 ADDR=192.168.10.10:443
+REV: ID=4 ADDR=[1001::1]:80
+REV: ID=5 ADDR=[1001::1]:443
+REV: ID=6 ADDR=[1001::1]:443
+SVC: ID=0 ADDR=192.168.10.10:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=[1001::1]:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=192.168.10.10:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=192.168.10.10:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=192.168.10.10:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=192.168.10.10:443/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=192.168.10.10:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=192.168.10.10:443/UDP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[1001::1]:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[1001::1]:80/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=[1001::1]:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=5 ADDR=[1001::1]:443/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=6 ADDR=[1001::1]:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=[1001::1]:443/UDP SLOT=1 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-reverted1.expected --
+BE: ID=1 ADDR=10.244.2.1:8080/TCP STATE=active
+BE: ID=2 ADDR=10.244.2.1:8443/TCP STATE=active
+BE: ID=3 ADDR=10.244.2.1:8443/UDP STATE=active
+BE: ID=4 ADDR=[2001::1]:8080/TCP STATE=active
+BE: ID=5 ADDR=[2001::1]:8443/TCP STATE=active
+BE: ID=6 ADDR=[2001::1]:8443/UDP STATE=active
+REV: ID=1 ADDR=192.168.10.10:80
+REV: ID=2 ADDR=192.168.10.10:443
+REV: ID=3 ADDR=192.168.10.10:443
+REV: ID=4 ADDR=[1001::1]:80
+REV: ID=5 ADDR=[1001::1]:443
+REV: ID=6 ADDR=[1001::1]:443
+SVC: ID=0 ADDR=192.168.10.10:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=[1001::1]:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=192.168.10.10:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=192.168.10.10:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=192.168.10.10:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=192.168.10.10:443/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=192.168.10.10:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=192.168.10.10:443/UDP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[1001::1]:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[1001::1]:80/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=[1001::1]:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=[1001::1]:443/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=[1001::1]:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=[1001::1]:443/UDP SLOT=1 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lrp-tcp.expected --
+test/lrp-tcp type=svc frontend-type="clusterIP + port" service=test/http-service
+  192.168.10.10:443/TCP => 10.244.2.1:8443/TCP (test/http-backend1, active)
+  1001::1:443/TCP => 2001::1:8443/TCP (test/http-backend1, active)
+-- lrp-empty.expected --
+-- pod-without-ports.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: http-backend1
+  namespace: test
+  labels:
+    app: nginx
+spec:
+  containers:
+    - name: backend1
+      image: nginx
+      # ports intentionally missing
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.1
+  hostIPs:
+  - ip: 172.19.0.1
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  - ip: 2001::1
+  qosClass: BestEffort
+  conditions:
+  - lastProbeTime: null
+    status: "True"
+    type: Ready
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-service
+  namespace: test
+spec:
+  type: ClusterIP
+  selector:
+    app: nginx
+  clusterIP: 192.168.10.10
+  clusterIPs:
+  - 192.168.10.10
+  - 1001::1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+  - name: dtls
+    port: 443
+    protocol: UDP
+    targetPort: 8443
+  sessionAffinity: None
+
+-- eps-v4.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: http-service
+  name: http-service-v4
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+- name: https
+  port: 8443
+  protocol: TCP
+- name: dtls
+  port: 8443
+  protocol: UDP
+
+-- eps-v6.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: http-service
+  name: http-service-v6
+  namespace: test
+addressType: IPv6
+endpoints:
+- addresses:
+  - 2001::1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+- name: https
+  port: 8443
+  protocol: TCP
+- name: dtls
+  port: 8443
+  protocol: UDP
+
+-- lrp-tcp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: lrp-tcp
+  namespace: test
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: http-service
+      namespace: test
+      toPorts:
+      - name: "https"
+        port: "443"
+        protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: nginx
+    toPorts:
+      - name: "https"
+        port: "8443"
+        protocol: TCP
+      - name: "dtls"
+        port: "8443"
+        protocol: UDP
+
+
+-- lrp-udp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: lrp-udp
+  namespace: test
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: http-service
+      namespace: test
+      toPorts:
+      - name: "https"
+        port: "443"
+        protocol: UDP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: nginx
+    toPorts:
+      - name: "https"
+        port: "8443"
+        # first port is intentionally set TCP
+        protocol: TCP
+      - name: "dtls"
+        port: "8443"
+        protocol: UDP
