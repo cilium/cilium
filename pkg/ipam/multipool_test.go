@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -1476,6 +1477,38 @@ func TestMultiPoolManagerUpdatesFirstLastIPSettingsBeforeAllocation(t *testing.T
 	result, err := mgr.allocateIP(lastIP, "pod-a", "default", IPv4, false)
 	require.NoError(t, err)
 	require.Equal(t, lastIP, result.IP)
+}
+
+func TestMultiPoolManagerWaitForAllPools(t *testing.T) {
+	poolA, poolB := Pool("pool-a"), Pool("pool-b")
+
+	synctest.Test(t, func(t *testing.T) {
+		mgr := &multiPoolManager{
+			logger:                 hivetest.Logger(t),
+			ipv4Enabled:            true,
+			preallocatedIPsPerPool: preAllocatePerPool{poolA: 8, poolB: 0},
+			pools:                  map[Pool]*poolPair{},
+			poolsUpdated:           make(chan struct{}, 1),
+		}
+
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			mgr.waitForAllPools()
+		})
+
+		// wait until waitForAllPools is blocked on poolA
+		synctest.Wait()
+
+		// unblock waitForAllPools by adding poolA, but not poolB (which has zero preallocation)
+		mgr.poolsMutex.Lock()
+		mgr.upsertPoolLocked(poolA, []iputil.Prefix{
+			iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/30")),
+		}, false, false)
+		mgr.poolsMutex.Unlock()
+
+		// wait for waitForAllPools to unblock
+		wg.Wait()
+	})
 }
 
 func Test_multiPoolManager_staticIPStatus(t *testing.T) {
