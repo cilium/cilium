@@ -117,3 +117,46 @@ func TestDeployCCNPTestEnvCreatesNamespacesAndDeployments(t *testing.T) {
 		assert.Equal(t, kindCCNPName, deployment.Labels["kind"])
 	}
 }
+
+func TestPerfNodeSelector(t *testing.T) {
+	tests := []struct {
+		name string
+		set  map[string]string
+		want string
+	}{
+		{
+			// net-perf-gke passes no selector, so we must still exclude the
+			// nodes-without-cilium nodes, otherwise the perf pods get pinned to
+			// a node without a Cilium agent and never become ready.
+			name: "empty selector excludes no-schedule nodes",
+			set:  nil,
+			want: "cilium.io/no-schedule!=true",
+		},
+		{
+			name: "empty map excludes no-schedule nodes",
+			set:  map[string]string{},
+			want: "cilium.io/no-schedule!=true",
+		},
+		{
+			// The scale-egw perf test pins the server to the no-schedule node
+			// on purpose; adding no-schedule!=true would contradict it and match
+			// zero nodes.
+			name: "explicit no-schedule=true is not contradicted",
+			set:  map[string]string{"cilium.io/no-schedule": "true"},
+			want: "cilium.io/no-schedule=true",
+		},
+		{
+			name: "other key still excludes no-schedule nodes",
+			set:  map[string]string{"role.scaffolding/egw-client": "true"},
+			want: "cilium.io/no-schedule!=true,role.scaffolding/egw-client=true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := perfNodeSelector(tt.set)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
