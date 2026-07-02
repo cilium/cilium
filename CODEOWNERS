@@ -315,6 +315,14 @@ Makefile* @cilium/build
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
 /bpf/Makefile* @cilium/loader
 /bpf/node_config.h @cilium/loader
+/bpf/tests/lib/egressgw* @cilium/sig-datapath @cilium/egress-gateway
+/bpf/tests/lib/endpoint.h @cilium/sig-datapath @cilium/endpoint
+/bpf/tests/lib/ipcache.h @cilium/sig-datapath @cilium/ipcache
+/bpf/tests/lib/ipsec.h @cilium/sig-datapath @cilium/ipsec
+/bpf/tests/lib/lb.h @cilium/sig-datapath @cilium/sig-lb
+/bpf/tests/lib/metrics.h @cilium/sig-datapath @cilium/metrics
+/bpf/tests/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
+/bpf/tests/network_policy.c @cilium/sig-datapath @cilium/sig-policy
 /bugtool/ @cilium/cli
 /cilium-dbg/ @cilium/cli
 /cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli
