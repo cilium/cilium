@@ -359,7 +359,8 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 	return mgr
 }
 
-// waitForAllPools waits for all pools in preallocatedIPsPerPool to have IPs available.
+// waitForAllPools waits for all pools with a non-zero preallocation request
+// in preallocatedIPsPerPool to have IPs available.
 // This function blocks the IPAM constructor forever and periodically logs
 // that it is waiting for IPs to be assigned. This blocking behavior is
 // consistent with other IPAM modes.
@@ -367,7 +368,11 @@ func (m *multiPoolManager) waitForAllPools() {
 	allPoolsReady := false
 	for !allPoolsReady {
 		allPoolsReady = true
-		for pool := range m.preallocatedIPsPerPool {
+		for pool, request := range m.preallocatedIPsPerPool {
+			if request == 0 {
+				continue
+			}
+
 			ctx, cancel := context.WithTimeout(context.Background(), waitForPoolTimeout)
 			if m.ipv4Enabled {
 				allPoolsReady = m.waitForPool(ctx, IPv4, pool) && allPoolsReady
