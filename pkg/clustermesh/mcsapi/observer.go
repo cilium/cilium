@@ -12,6 +12,7 @@ import (
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -26,7 +27,7 @@ type paramsObserver struct {
 	Metrics      Metrics
 	CfgMCSAPI    mcsapitypes.MCSAPIConfig
 	Cache        *globalServiceExportCache
-	Source       *remoteClusterServiceExportSource
+	Source       *operator.RemoteObjectSource[*mcsapitypes.MCSAPIServiceSpec]
 }
 
 func newFactory(params paramsObserver) observer.Factory {
@@ -46,11 +47,11 @@ func newFactory(params paramsObserver) observer.Factory {
 			&store.FuncObserver[*mcsapitypes.ValidatingMCSAPIServiceSpec]{
 				OnUpdateFunc: func(obj *mcsapitypes.ValidatingMCSAPIServiceSpec) {
 					params.Cache.OnUpdate(&obj.MCSAPIServiceSpec)
-					params.Source.onClusterServiceExportEvent(&obj.MCSAPIServiceSpec)
+					params.Source.OnEvent(&obj.MCSAPIServiceSpec)
 				},
 				OnDeleteFunc: func(obj *mcsapitypes.ValidatingMCSAPIServiceSpec) {
 					params.Cache.OnDelete(&obj.MCSAPIServiceSpec)
-					params.Source.onClusterServiceExportEvent(&obj.MCSAPIServiceSpec)
+					params.Source.OnEvent(&obj.MCSAPIServiceSpec)
 				},
 			},
 			store.RWSWithOnSyncCallback(func(context.Context) { onSync() }),

@@ -17,12 +17,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -53,7 +53,7 @@ type mcsAPIServiceImportReconciler struct {
 
 	cluster                    string
 	globalServiceExports       *globalServiceExportCache
-	remoteClusterServiceSource *remoteClusterServiceExportSource
+	remoteClusterServiceSource source.Source
 
 	enableIPv4 bool
 	enableIPv6 bool
@@ -61,7 +61,7 @@ type mcsAPIServiceImportReconciler struct {
 	namespaceConfig cmnamespace.Config
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *globalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool, namespaceConfig cmnamespace.Config) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *globalServiceExportCache, remoteClusterServiceSource source.Source, enableIPv4, enableIPv6 bool, namespaceConfig cmnamespace.Config) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
@@ -809,48 +809,4 @@ func (r *mcsAPIServiceImportReconciler) SetupWithManager(mgr ctrl.Manager) error
 		// Watch changes to external services
 		WatchesRawSource(r.remoteClusterServiceSource).
 		Complete(r)
-}
-
-// remoteClusterServiceExportSource is a source to watch remote cluster service exports.
-// The actual type returned by the watch is a ServiceExport to match the interface
-// needed by a regular controller-runtime controller. This prevents us from
-// implementing a more complicated/hands-on pattern of controller.
-type remoteClusterServiceExportSource struct {
-	Logger *slog.Logger
-
-	ctx   context.Context
-	queue workqueue.TypedRateLimitingInterface[ctrl.Request]
-}
-
-func newRemoteClusterServiceExportSource(logger *slog.Logger) *remoteClusterServiceExportSource {
-	return &remoteClusterServiceExportSource{Logger: logger}
-}
-
-func (s *remoteClusterServiceExportSource) onClusterServiceExportEvent(svcExport *mcsapitypes.MCSAPIServiceSpec) {
-	if s.ctx == nil || s.queue == nil {
-		// At this point the controller is not started yet and the namespace
-		// watcher will enqueue any initial state from remote clusters
-		// on start.
-		return
-	}
-
-	s.Logger.
-		Debug(
-			"Queueing update from remote cluster",
-			logfields.K8sNamespace, svcExport.Namespace,
-			logfields.K8sExportName, svcExport.Name,
-		)
-	s.queue.Add(ctrl.Request{NamespacedName: types.NamespacedName{
-		Name:      svcExport.Name,
-		Namespace: svcExport.Namespace,
-	}})
-}
-
-func (s *remoteClusterServiceExportSource) Start(
-	ctx context.Context,
-	queue workqueue.TypedRateLimitingInterface[ctrl.Request],
-) error {
-	s.ctx = ctx
-	s.queue = queue
-	return nil
 }

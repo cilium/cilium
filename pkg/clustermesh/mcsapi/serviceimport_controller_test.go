@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 )
 
 const (
@@ -674,7 +675,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		WithScheme(testScheme()).
 		Build()
 	globalServiceExports := newGlobalServiceExportCache()
-	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: hivetest.Logger(t)}
+	remoteClusterServiceSource := operator.NewRemoteObjectSource(
+		operator.NewEnqueueRequestForNamespacedNameFunc[*mcsapitypes.MCSAPIServiceSpec](),
+	)
 	for _, svcExport := range remoteSvcImportTestFixtures {
 		globalServiceExports.OnUpdate(svcExport)
 	}

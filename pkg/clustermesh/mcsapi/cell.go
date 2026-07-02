@@ -36,7 +36,11 @@ var Cell = cell.Module(
 		return observer.NewFactoryOut(newFactory(params))
 	}),
 	cell.ProvidePrivate(newGlobalServiceExportCache),
-	cell.ProvidePrivate(newRemoteClusterServiceExportSource),
+	cell.ProvidePrivate(func() *operator.RemoteObjectSource[*mcsapitypes.MCSAPIServiceSpec] {
+		return operator.NewRemoteObjectSource(
+			operator.NewEnqueueRequestForNamespacedNameFunc[*mcsapitypes.MCSAPIServiceSpec](),
+		)
+	}),
 	metrics.Metric(NewMetrics),
 	cell.Invoke(registerMCSAPIController),
 
@@ -62,7 +66,7 @@ type mcsAPIParams struct {
 	JobGroup        job.Group
 	MetricsRegistry *metrics.Registry
 	Cache           *globalServiceExportCache
-	Source          *remoteClusterServiceExportSource
+	Source          *operator.RemoteObjectSource[*mcsapitypes.MCSAPIServiceSpec]
 
 	NamespaceConfig cmnamespace.Config
 }
