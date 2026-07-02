@@ -27,9 +27,11 @@ const (
 	// idleHoldTimeAfterResetSeconds defines time BGP session will stay idle after neighbor reset.
 	idleHoldTimeAfterResetSeconds = 5
 
-	// globalAllowLocalPolicyName is a special GoBGP policy assignment name that refers to a local route policy
-	// it is used with a global import policy that rejects all paths announced toward Cilium from external peers
+	// globalAllowLocalPolicyName is the GoBGP policy that permits local routes that overrides
+	// the default reject import policy which rejects paths announced toward Cilium from external peers.
 	globalAllowLocalPolicyName = "allow-local"
+	// globalAllowLocalPolicyStatementName is the name of the statement in the global allow-local policy
+	globalAllowLocalPolicyStatementName = "accept-local"
 	// globalPolicyAssignmentName is a special GoBGP policy assignment name that refers to the router-global policy
 	globalPolicyAssignmentName = "global"
 )
@@ -52,6 +54,7 @@ var (
 		Name: globalAllowLocalPolicyName,
 		Statements: []*gobgp.Statement{
 			{
+				Name: scopedPolicyStatementName(globalAllowLocalPolicyName, globalAllowLocalPolicyStatementName),
 				Conditions: &gobgp.Conditions{
 					RouteType: gobgp.Conditions_ROUTE_TYPE_LOCAL,
 				},
@@ -145,6 +148,18 @@ func NewGoBGPServer(ctx context.Context, log *slog.Logger, params types.ServerPa
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed configuring BGP server's global import policy: %w", err)
+	}
+
+	// Reject all paths announced by Cilium until an explicit export policy permits them.
+	err = gobgpSrv.server.SetPolicyAssignment(ctx, &gobgp.SetPolicyAssignmentRequest{
+		Assignment: &gobgp.PolicyAssignment{
+			Name:          globalPolicyAssignmentName,
+			Direction:     gobgp.PolicyDirection_POLICY_DIRECTION_EXPORT,
+			DefaultAction: gobgp.RouteAction_ROUTE_ACTION_REJECT,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed configuring BGP server's global export policy: %w", err)
 	}
 
 	// will log out any peer changes

@@ -75,6 +75,7 @@ var (
 				Type: RoutePolicyTypeExport,
 				Statements: []*RoutePolicyStatement{
 					{
+						Name: "testpolicy1-0",
 						Conditions: RoutePolicyConditions{
 							MatchNeighbors: &RoutePolicyNeighborMatch{
 								Type:      RoutePolicyMatchAny,
@@ -112,6 +113,7 @@ var (
 				Type: RoutePolicyTypeExport,
 				Statements: []*RoutePolicyStatement{
 					{
+						Name: "testpolicy1-0",
 						Conditions: RoutePolicyConditions{
 							MatchNeighbors: &RoutePolicyNeighborMatch{
 								Type:      RoutePolicyMatchInvert,
@@ -149,6 +151,7 @@ var (
 						},
 					},
 					{
+						Name: "testpolicy1-1",
 						Conditions: RoutePolicyConditions{
 							MatchNeighbors: &RoutePolicyNeighborMatch{
 								Type:      RoutePolicyMatchAny,
@@ -194,6 +197,7 @@ var (
 				Statements: []*RoutePolicyStatement{
 					// valid statement
 					{
+						Name: "testpolicy1-0",
 						Conditions: RoutePolicyConditions{
 							MatchNeighbors: &RoutePolicyNeighborMatch{
 								Type:      RoutePolicyMatchAny,
@@ -218,6 +222,7 @@ var (
 					},
 					// invalid statement - wrong neighbor address
 					{
+						Name: "testpolicy1-1",
 						Conditions: RoutePolicyConditions{
 							MatchNeighbors: &RoutePolicyNeighborMatch{
 								Type:      RoutePolicyMatchAny,

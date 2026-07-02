@@ -249,6 +249,9 @@ func (in *RoutePolicyStatement) DeepEqual(other *RoutePolicyStatement) bool {
 		return false
 	}
 
+	if in.Name != other.Name {
+		return false
+	}
 	if !in.Conditions.DeepEqual(&other.Conditions) {
 		return false
 	}
