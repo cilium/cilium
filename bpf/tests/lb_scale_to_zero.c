@@ -33,7 +33,8 @@ CHECK("tc", "scale_to_zero") int test_scale_to_zero(struct __ctx_buff *ctx)
 
 	TEST("untracked-service-is-noop", {
 		mock_time = 1000 * NSEC_PER_SEC;
-		scale_to_zero_signal(ctx, key.svc_id);
+		if (scale_to_zero_signal(ctx, key.svc_id))
+			test_fatal("untracked service must not report tracked");
 
 		value = map_lookup_elem(&cilium_scale_to_zero, &key);
 		if (value)
@@ -45,7 +46,8 @@ CHECK("tc", "scale_to_zero") int test_scale_to_zero(struct __ctx_buff *ctx)
 			test_fatal("failed to seed tracked service");
 
 		mock_time = 1000 * NSEC_PER_SEC;
-		scale_to_zero_signal(ctx, key.svc_id);
+		if (!scale_to_zero_signal(ctx, key.svc_id))
+			test_fatal("tracked service must report tracked");
 
 		value = map_lookup_elem(&cilium_scale_to_zero, &key);
 		if (!value)
@@ -61,7 +63,8 @@ CHECK("tc", "scale_to_zero") int test_scale_to_zero(struct __ctx_buff *ctx)
 		first = value->last_emit_ns;
 
 		mock_time = first + SCALE_TO_ZERO_INTERVAL_NS - 1;
-		scale_to_zero_signal(ctx, key.svc_id);
+		if (!scale_to_zero_signal(ctx, key.svc_id))
+			test_fatal("rate-limited service must still report tracked");
 
 		if (value->last_emit_ns != first)
 			test_fatal("emit time advanced inside the rate-limit window");
@@ -74,7 +77,8 @@ CHECK("tc", "scale_to_zero") int test_scale_to_zero(struct __ctx_buff *ctx)
 		first = value->last_emit_ns;
 
 		mock_time = first + SCALE_TO_ZERO_INTERVAL_NS + 1;
-		scale_to_zero_signal(ctx, key.svc_id);
+		if (!scale_to_zero_signal(ctx, key.svc_id))
+			test_fatal("tracked service must report tracked");
 
 		if (value->last_emit_ns != mock_time)
 			test_fatal("emit time did not advance after the rate-limit window");

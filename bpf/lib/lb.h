@@ -1484,10 +1484,15 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 
 no_service:
-#ifdef ENABLE_SCALE_TO_ZERO
-	scale_to_zero_signal(ctx, svc->rev_nat_index);
-#endif
 	ret = DROP_NO_SERVICE;
+#ifdef ENABLE_SCALE_TO_ZERO
+	/* Distinct drop reason so callers skip the SERVICE_NO_BACKEND_RESPONSE
+	 * ICMP reply. The silent drop lets the client retransmit while the
+	 * service scales up from zero.
+	 */
+	if (scale_to_zero_signal(ctx, svc->rev_nat_index))
+		ret = DROP_SERVICE_SCALED_TO_ZERO;
+#endif
 drop_err:
 	tuple->flags = flags;
 	return ret;
@@ -2303,10 +2308,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 
 no_service:
-#ifdef ENABLE_SCALE_TO_ZERO
-	scale_to_zero_signal(ctx, svc->rev_nat_index);
-#endif
 	ret = DROP_NO_SERVICE;
+#ifdef ENABLE_SCALE_TO_ZERO
+	/* See lb6_local: silent drop, client retransmits until scale-up. */
+	if (scale_to_zero_signal(ctx, svc->rev_nat_index))
+		ret = DROP_SERVICE_SCALED_TO_ZERO;
+#endif
 drop_err:
 	tuple->flags = flags;
 	return ret;

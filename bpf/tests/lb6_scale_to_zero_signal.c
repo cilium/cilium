@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-/* IPv6 counterpart of lb4_scale_to_zero_signal.c: test that lb6_local's
- * no_service path emits a scale-to-zero demand signal, asserted via the
- * last_emit_ns side effect as perf event output cannot be observed here.
- */
+/* IPv6 counterpart of lb4_scale_to_zero_signal.c. */
 
 #include <bpf/ctx/skb.h>
 #include "common.h"
@@ -12,7 +9,10 @@
 
 #define ENABLE_IPV6
 #define ENABLE_SCALE_TO_ZERO
-#undef ENABLE_PER_PACKET_LB
+/* With full socket-LB, scale-to-zero is the only thing enabling per-packet LB
+ * (bpf_lxc.c gate), so this from-container test actually guards it.
+ */
+#define ENABLE_SOCKET_LB_FULL
 #define SERVICE_NO_BACKEND_RESPONSE
 
 #define CLIENT_IP		v6_pod_one
@@ -20,6 +20,11 @@
 #define FRONTEND_PORT		tcp_svc_one
 #define BACKEND_IP		v6_node_two
 #define REVNAT_ID		1
+
+/* untracked control service */
+#define FRONTEND2_IP		v6_pod_three
+#define FRONTEND2_PORT		tcp_svc_two
+#define REVNAT2_ID		2
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *lb_mac = mac_host;
@@ -64,7 +69,7 @@ int lb6_no_backend_signal_setup(struct __ctx_buff *ctx)
 	union v6addr frontend_ip = {};
 	union v6addr backend_ip = {};
 
-	/* Service without backends, tracked for scale-to-zero. */
+	/* tracked, no backends */
 	memcpy(frontend_ip.addr, (void *)FRONTEND_IP, 16);
 	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, IPPROTO_TCP, 0, REVNAT_ID);
 	map_update_elem(&cilium_scale_to_zero, &sz_key, &sz_seed, BPF_ANY);
@@ -76,10 +81,12 @@ int lb6_no_backend_signal_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "lb6_no_backend_signal")
-int lb6_no_backend_signal_check(__maybe_unused const struct __ctx_buff *ctx)
+int lb6_no_backend_signal_check(const struct __ctx_buff *ctx)
 {
 	struct scale_to_zero_key sz_key = { .svc_id = REVNAT_ID };
 	struct scale_to_zero_value *sz_value;
+	void *data, *data_end;
+	__u32 *status_code;
 
 	test_init();
 
@@ -90,6 +97,80 @@ int lb6_no_backend_signal_check(__maybe_unused const struct __ctx_buff *ctx)
 
 		if (sz_value->last_emit_ns == 0)
 			test_fatal("lb6_local no_service did not emit a scale-to-zero signal");
+	})
+
+	TEST("lb6_tracked-service-drops-silently", {
+		data = (void *)(long)ctx_data(ctx);
+		data_end = (void *)(long)ctx->data_end;
+
+		if (data + sizeof(__u32) > data_end)
+			test_fatal("status code out of bounds");
+		status_code = data;
+
+		if (*status_code != CTX_ACT_DROP)
+			test_fatal("tracked no-backend service must drop silently, got %d",
+				   *status_code);
+	})
+
+	test_finish();
+}
+
+PKTGEN("tc", "lb6_untracked_no_backend")
+int lb6_untracked_no_backend_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  (__u8 *)CLIENT_IP, (__u8 *)FRONTEND2_IP,
+					  tcp_src_two, FRONTEND2_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "lb6_untracked_no_backend")
+int lb6_untracked_no_backend_setup(struct __ctx_buff *ctx)
+{
+	union v6addr frontend_ip = {};
+
+	/* untracked, no backends */
+	memcpy(frontend_ip.addr, (void *)FRONTEND2_IP, 16);
+	lb_v6_add_service(&frontend_ip, FRONTEND2_PORT, IPPROTO_TCP, 0, REVNAT2_ID);
+
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "lb6_untracked_no_backend")
+int lb6_untracked_no_backend_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	TEST("lb6_untracked-service-keeps-normal-reject", {
+		data = (void *)(long)ctx_data(ctx);
+		data_end = (void *)(long)ctx->data_end;
+
+		if (data + sizeof(__u32) > data_end)
+			test_fatal("status code out of bounds");
+		status_code = data;
+
+		if (*status_code != CTX_ACT_REDIRECT)
+			test_fatal("untracked no-backend service must send the ICMP reply, got %d",
+				   *status_code);
 	})
 
 	test_finish();

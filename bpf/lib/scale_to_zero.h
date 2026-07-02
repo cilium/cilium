@@ -40,7 +40,13 @@ struct {
 } cilium_scale_to_zero __section_maps_btf;
 
 #ifdef ENABLE_SCALE_TO_ZERO
-static __always_inline bool scale_to_zero_should_signal(__u16 svc_id)
+/* Rate-limited demand signal for a tracked service. Returns whether it's
+ * tracked, so callers can hold traffic (silent drop) instead of rejecting it.
+ * Socket LB signals on every translation (keeps demand warm under short
+ * traffic); lb{4,6}_local signals only at no_service, off the hot path.
+ * ctx is void *: socket LB and lb_local pass different types.
+ */
+static __always_inline bool scale_to_zero_signal(void *ctx, __u16 svc_id)
 {
 	struct scale_to_zero_key key = { .svc_id = svc_id };
 	struct scale_to_zero_value *value;
@@ -54,26 +60,11 @@ static __always_inline bool scale_to_zero_should_signal(__u16 svc_id)
 	 * packet after a scale-down always signals.
 	 */
 	now = ktime_get_ns();
-	if (value->last_emit_ns != 0 &&
-	    now - value->last_emit_ns < SCALE_TO_ZERO_INTERVAL_NS)
-		return false;
-
-	value->last_emit_ns = now;
-	return true;
-}
-
-/* Rate-limited demand signal for a tracked service.
- *
- * Socket LB signals on every forward translation, holding demand while
- * pod->ClusterIP traffic flows. lb{4,6}_local signals only at no_service, to
- * stay off the per-packet hot path, so NodePort/LB can scale back down under
- * short-lived north-south traffic once a backend exists.
- *
- * ctx is void *: socket LB and lb_local pass different ctx types.
- */
-static __always_inline void scale_to_zero_signal(void *ctx, __u16 svc_id)
-{
-	if (scale_to_zero_should_signal(svc_id))
+	if (value->last_emit_ns == 0 ||
+	    now - value->last_emit_ns >= SCALE_TO_ZERO_INTERVAL_NS) {
+		value->last_emit_ns = now;
 		SEND_SIGNAL(ctx, SIGNAL_SCALE_TO_ZERO, svc_id, svc_id);
+	}
+	return true;
 }
 #endif /* ENABLE_SCALE_TO_ZERO */

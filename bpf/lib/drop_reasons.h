@@ -86,3 +86,5 @@
 #define DROP_EP_NOT_READY	-203
 #define DROP_NO_EGRESS_IP	-204
 #define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
+/* 206 = ex-DROP_NO_DEVICE, reserved. */
+#define DROP_SERVICE_SCALED_TO_ZERO	-207
