@@ -15,7 +15,7 @@ import (
 )
 
 func TestGetListenerFilterADSMode(t *testing.T) {
-	t.Run("ADS disabled: UseNphds not set", func(t *testing.T) {
+	t.Run("split leaves NpdsConfig unset", func(t *testing.T) {
 		SetXDSMode(config.EnvoyXDSModeSplit)
 		defer SetXDSMode("")
 
@@ -25,11 +25,10 @@ func TestGetListenerFilterADSMode(t *testing.T) {
 		require.NoError(t, err)
 		meta, ok := msg.(*cilium.BpfMetadata)
 		require.True(t, ok)
-		assert.False(t, meta.UseNphds)
 		assert.Nil(t, meta.NpdsConfig)
 	})
 
-	t.Run("ADS enabled: NpdsConfig set to ADS without NPHDS", func(t *testing.T) {
+	t.Run("ADS sets NpdsConfig to ADS", func(t *testing.T) {
 		SetXDSMode(config.EnvoyXDSModeADS)
 		defer SetXDSMode("")
 
@@ -39,7 +38,6 @@ func TestGetListenerFilterADSMode(t *testing.T) {
 		require.NoError(t, err)
 		meta, ok := msg.(*cilium.BpfMetadata)
 		require.True(t, ok)
-		assert.False(t, meta.UseNphds)
 		require.NotNil(t, meta.NpdsConfig)
 		assert.NotNil(t, meta.NpdsConfig.GetAds(), "NpdsConfig should use ADS aggregated source")
 		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.NpdsConfig.ResourceApiVersion)
