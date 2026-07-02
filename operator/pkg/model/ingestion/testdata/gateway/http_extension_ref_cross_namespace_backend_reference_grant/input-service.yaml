@@ -1,0 +1,21 @@
+- metadata:
+    creationTimestamp: null
+    name: backend-service
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: ext-proc-service
+    namespace: ext-proc
+  spec: {}
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: private-ext-proc-service
+    namespace: private
+  spec: {}
+  status:
+    loadBalancer: {}

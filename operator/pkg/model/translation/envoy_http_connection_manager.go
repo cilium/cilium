@@ -18,6 +18,7 @@ import (
 	httpRouterv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -120,6 +121,18 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 		})
 	}
 
+	for _, f := range i.getUniqueExtProcFilters(m) {
+		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+			Name: f.Name,
+			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+				TypedConfig: &anypb.Any{
+					TypeUrl: f.TypeURL,
+					Value:   f.Config,
+				},
+			},
+		})
+	}
+
 	hf = append(hf, &httpConnectionManagerv3.HttpFilter{
 		Name: "envoy.filters.http.router",
 		ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
@@ -132,6 +145,10 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 
 // desiredHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
 func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string, m *model.Model) (ciliumv2.XDSResource, error) {
+	if m == nil {
+		m = &model.Model{}
+	}
+
 	connectionManager := &httpConnectionManagerv3.HttpConnectionManager{
 		StatPrefix: name,
 		RouteSpecifier: &httpConnectionManagerv3.HttpConnectionManager_Rds{

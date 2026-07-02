@@ -14,6 +14,7 @@ import (
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_extensions_filters_http_cors_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	ext_procv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -723,7 +724,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil)
 		require.Len(t, res, 2)
 		// Redirect Route
 		require.NotNil(t, res[0])
@@ -775,7 +776,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil)
 		require.Len(t, res, 1)
 		require.NotNil(t, res[0])
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -795,7 +796,7 @@ func Test_envoyHTTPSRoutes_disablesExtAuthzFilters(t *testing.T) {
 		{PathMatch: model.StringMatch{Prefix: "/"}},
 	}
 
-	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, authFilters)
+	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, authFilters, nil)
 	require.Len(t, result, 1)
 
 	// The redirect route must disable all auth filters so that redirect requests
@@ -840,7 +841,7 @@ func Test_envoyHTTPRoutes_differentAuthFilters(t *testing.T) {
 		},
 	}
 
-	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, allAuthFilters)
+	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, allAuthFilters, nil)
 	require.Len(t, res, 2, "routes with different auth filters must not be merged")
 
 	filterNameA := ExtAuthzFilterName(extAuthzFilterKey(authA))
@@ -869,7 +870,7 @@ func Test_envoyHTTPSRoutes_noAuthFilters(t *testing.T) {
 	routes := []model.HTTPRoute{
 		{PathMatch: model.StringMatch{Prefix: "/"}},
 	}
-	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, nil)
+	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, nil, nil)
 	require.Len(t, result, 1)
 	require.Nil(t, result[0].TypedPerFilterConfig, "redirect route must not set TypedPerFilterConfig when there are no auth filters")
 }
@@ -976,5 +977,101 @@ func Test_getCORS(t *testing.T) {
 		})
 		require.NotNil(t, res)
 		require.Equal(t, match, res)
+	})
+}
+
+func Test_envoyHTTPRoutes_extProcAndExternalAuth(t *testing.T) {
+	t.Run("route with active ExternalAuth and ext_proc filter", func(t *testing.T) {
+		auth := &model.HTTPExternalAuthFilter{
+			Backend:  model.Backend{Name: "authz", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
+			Protocol: model.ExternalAuthProtocolGRPC,
+		}
+		extProcFilter := model.ExtensionRefFilter{Name: "envoy.filters.http.ext_proc/default/my-filter"}
+
+		httpRoutes := []model.HTTPRoute{
+			{
+				PathMatch:           model.StringMatch{Prefix: "/"},
+				ExternalAuth:        auth,
+				ExtensionRefFilters: []model.ExtensionRefFilter{extProcFilter},
+				Backends:            []model.Backend{{Name: "svc", Namespace: "ns", Port: &model.BackendPort{Port: 80}}},
+			},
+		}
+
+		allExtProcFilters := []model.ExtensionRefFilter{extProcFilter}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, allExtProcFilters)
+		require.Len(t, res, 1)
+
+		tpfc := res[0].GetTypedPerFilterConfig()
+		// The route uses both the active auth filter and the ext_proc filter,
+		// so neither needs to be disabled. TypedPerFilterConfig should be nil.
+		require.Nil(t, tpfc, "TypedPerFilterConfig should be nil when all filters are active on the route")
+	})
+
+	t.Run("route with NO ExternalAuth but listener has one auth filter, plus ext_proc filter", func(t *testing.T) {
+		auth := &model.HTTPExternalAuthFilter{
+			Backend:  model.Backend{Name: "authz", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
+			Protocol: model.ExternalAuthProtocolGRPC,
+		}
+		extProcFilter := model.ExtensionRefFilter{Name: "envoy.filters.http.ext_proc/default/my-filter"}
+
+		httpRoutes := []model.HTTPRoute{
+			{
+				PathMatch:           model.StringMatch{Prefix: "/"},
+				ExternalAuth:        nil, // no auth on this route
+				ExtensionRefFilters: []model.ExtensionRefFilter{extProcFilter},
+				Backends:            []model.Backend{{Name: "svc", Namespace: "ns", Port: &model.BackendPort{Port: 80}}},
+			},
+		}
+
+		allExtProcFilters := []model.ExtensionRefFilter{extProcFilter}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, allExtProcFilters)
+		require.Len(t, res, 1)
+
+		tpfc := res[0].GetTypedPerFilterConfig()
+		require.NotNil(t, tpfc, "TypedPerFilterConfig should not be nil")
+		// Only the auth filter should be disabled (route has no active auth).
+		// The ext_proc filter is active on this route, so it is not disabled.
+		require.Len(t, tpfc, 1, "expected exactly 1 entry in TypedPerFilterConfig")
+
+		// Auth filter must be present and disabled (route has no active auth).
+		authKey := ExtAuthzFilterName(extAuthzFilterKey(auth))
+		authAny, ok := tpfc[authKey]
+		require.True(t, ok, "expected auth entry %q in TypedPerFilterConfig", authKey)
+		var extAuthzPerRoute extauthzv3.ExtAuthzPerRoute
+		require.NoError(t, proto.Unmarshal(authAny.Value, &extAuthzPerRoute))
+		assert.True(t, extAuthzPerRoute.GetDisabled(), "auth entry should be disabled")
+	})
+
+	t.Run("route with NO ext_proc but listener has one ext_proc filter, plus active auth", func(t *testing.T) {
+		auth := &model.HTTPExternalAuthFilter{
+			Backend:  model.Backend{Name: "authz", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
+			Protocol: model.ExternalAuthProtocolGRPC,
+		}
+		extProcFilter := model.ExtensionRefFilter{Name: "envoy.filters.http.ext_proc/default/my-filter"}
+
+		httpRoutes := []model.HTTPRoute{
+			{
+				PathMatch:    model.StringMatch{Prefix: "/"},
+				ExternalAuth: auth,
+				// No ExtensionRefFilters on this route
+				Backends: []model.Backend{{Name: "svc", Namespace: "ns", Port: &model.BackendPort{Port: 80}}},
+			},
+		}
+
+		allExtProcFilters := []model.ExtensionRefFilter{extProcFilter}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, allExtProcFilters)
+		require.Len(t, res, 1)
+
+		tpfc := res[0].GetTypedPerFilterConfig()
+		require.NotNil(t, tpfc, "TypedPerFilterConfig should not be nil")
+		// Only the ext_proc filter should be disabled (route doesn't reference it).
+		// The auth filter is active so it is not disabled.
+		require.Len(t, tpfc, 1, "expected exactly 1 entry in TypedPerFilterConfig")
+
+		extProcAny, ok := tpfc[extProcFilter.Name]
+		require.True(t, ok, "expected ext_proc entry %q in TypedPerFilterConfig", extProcFilter.Name)
+		var extProcPerRoute ext_procv3.ExtProcPerRoute
+		require.NoError(t, proto.Unmarshal(extProcAny.Value, &extProcPerRoute))
+		assert.True(t, extProcPerRoute.GetDisabled(), "ext_proc entry should be disabled")
 	})
 }

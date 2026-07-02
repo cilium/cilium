@@ -16,6 +16,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 type ListenerOwner interface {
@@ -81,8 +82,21 @@ func ResolveListenerOwner(
 	return &GatewayListenerOwner{Gateway: gw}, nil
 }
 
+// GenericRule exposes rule fields shared by all supported Gateway API route kinds.
 type GenericRule interface {
 	GetBackendRefs() []gatewayv1.BackendRef
+}
+
+// extensionRefRule is implemented by route rules that support Gateway API ExtensionRef filters.
+type extensionRefRule interface {
+	GetExtensionRefs() []gatewayv1.LocalObjectReference
+}
+
+// ExtensionRefInput is implemented by route inputs that support ExtensionRef filter resolution
+// (i.e. HTTP and gRPC routes). L4 routes (TLS/TCP/UDP) do not implement this interface.
+type ExtensionRefInput interface {
+	GetExtensionRefFilters() []v2alpha1.CiliumEnvoyExtProcFilter
+	GetExtensionRefFiltersEnabled() bool
 }
 
 type Input interface {

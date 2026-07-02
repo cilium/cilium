@@ -16,6 +16,7 @@ import (
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_extensions_filters_http_cors_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	ext_procv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoy_type_v3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -130,6 +131,10 @@ type VirtualHostParameter struct {
 	// AllAuthFilters is the deduplicated list of external auth filters active on this listener.
 	// It is used to build per-route TypedPerFilterConfig entries that enable/disable each filter.
 	AllAuthFilters []*model.HTTPExternalAuthFilter
+	// AllExtProcFilters is the deduplicated list of ext_proc filters active on this listener.
+	// It is used to build per-route TypedPerFilterConfig entries that disable each filter on
+	// routes that do not reference it.
+	AllExtProcFilters []model.ExtensionRefFilter
 }
 
 // desiredVirtualHost creates a new VirtualHost with the given HTTP routes, set of pre-defined params as well mutator
@@ -137,9 +142,9 @@ type VirtualHostParameter struct {
 func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) *envoy_config_route_v3.VirtualHost {
 	var routes SortableRoute
 	if param.HTTPSRedirect {
-		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters)
+		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters, param.AllExtProcFilters)
 	} else {
-		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters)
+		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters, param.AllExtProcFilters)
 	}
 
 	// This is to make sure that the Exact match is always having higher priority.
@@ -218,7 +223,7 @@ func getCORS(cors *model.HTTPCORSFilter) *anypb.Any {
 }
 
 // getTypedPerFilterConfig returns the TypedPerFilterConfig map for a route.
-func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFilters []*model.HTTPExternalAuthFilter, route model.HTTPRoute) map[string]*anypb.Any {
+func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFilters []*model.HTTPExternalAuthFilter, allExtProcFilters []model.ExtensionRefFilter, route model.HTTPRoute) map[string]*anypb.Any {
 	var activeKey string
 	if routeAuth != nil {
 		activeKey = extAuthzFilterKey(routeAuth)
@@ -242,6 +247,23 @@ func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFil
 		config[filterName] = disabled
 	}
 
+	// For each ext_proc filter active on the listener:
+	//   - If this route references the filter: no entry (enabled by default).
+	//   - Otherwise: disabled via ExtProcPerRoute{Disabled: true}.
+	if len(allExtProcFilters) > 0 {
+		activeExtProc := make(map[string]struct{}, len(route.ExtensionRefFilters))
+		for _, f := range route.ExtensionRefFilters {
+			activeExtProc[f.Name] = struct{}{}
+		}
+		for _, f := range allExtProcFilters {
+			if _, active := activeExtProc[f.Name]; !active {
+				config[f.Name] = toAny(&ext_procv3.ExtProcPerRoute{
+					Override: &ext_procv3.ExtProcPerRoute_Disabled{Disabled: true},
+				})
+			}
+		}
+	}
+
 	if route.CORS != nil {
 		config["envoy.filters.http.cors"] = getCORS(route.CORS)
 	}
@@ -253,7 +275,7 @@ func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFil
 	return config
 }
 
-func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter) []*envoy_config_route_v3.Route {
+func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter, allExtProcFilters []model.ExtensionRefFilter) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
@@ -281,7 +303,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 				hRoutes[0].HeadersMatch,
 				hRoutes[0].Method),
 			Action:               rRedirect,
-			TypedPerFilterConfig: getTypedPerFilterConfig(nil, allAuthFilters, r),
+			TypedPerFilterConfig: getTypedPerFilterConfig(nil, allAuthFilters, allExtProcFilters, r),
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, r.GetMatchKey())
@@ -289,7 +311,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 	return routes
 }
 
-func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32, allAuthFilters []*model.HTTPExternalAuthFilter) []*envoy_config_route_v3.Route {
+func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32, allAuthFilters []*model.HTTPExternalAuthFilter, allExtProcFilters []model.ExtensionRefFilter) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
@@ -307,7 +329,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		}
 
 		if len(backends) == 0 && hRoutes[0].RequestRedirect == nil {
-			noBackendRoute := envoyHTTPRouteNoBackend(hRoutes[0], hostnames, hostNameSuffixMatch, allAuthFilters)
+			noBackendRoute := envoyHTTPRouteNoBackend(hRoutes[0], hostnames, hostNameSuffixMatch, allAuthFilters, allExtProcFilters)
 			routes = append(routes, noBackendRoute)
 			continue
 		}
@@ -323,7 +345,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 			RequestHeadersToRemove:  getHeadersToRemove(hRoutes[0].RequestHeaderFilter),
 			ResponseHeadersToAdd:    getHeadersToAdd(hRoutes[0].ResponseHeaderModifier),
 			ResponseHeadersToRemove: getHeadersToRemove(hRoutes[0].ResponseHeaderModifier),
-			TypedPerFilterConfig:    getTypedPerFilterConfig(hRoutes[0].ExternalAuth, allAuthFilters, r),
+			TypedPerFilterConfig:    getTypedPerFilterConfig(hRoutes[0].ExternalAuth, allAuthFilters, allExtProcFilters, r),
 		}
 
 		if hRoutes[0].RequestRedirect != nil {
@@ -620,7 +642,7 @@ func getRouteRedirectMatch(match string) *envoy_config_route_v3.HeaderMatcher {
 	}
 }
 
-func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter) *envoy_config_route_v3.Route {
+func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter, allExtProcFilters []model.ExtensionRefFilter) *envoy_config_route_v3.Route {
 	if route.DirectResponse == nil {
 		return nil
 	}
@@ -642,7 +664,7 @@ func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostName
 				},
 			},
 		},
-		TypedPerFilterConfig: getTypedPerFilterConfig(route.ExternalAuth, allAuthFilters, route),
+		TypedPerFilterConfig: getTypedPerFilterConfig(route.ExternalAuth, allAuthFilters, allExtProcFilters, route),
 	}
 }
 

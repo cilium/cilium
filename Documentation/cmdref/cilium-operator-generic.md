@@ -44,6 +44,7 @@ cilium-operator-generic [flags]
       --enable-cluster-pool-to-multi-pool-migration                Enable the migration of all nodes from cluster-pool IPAM to multi-pool IPAM
       --enable-gateway-api-alpn                                    Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API
       --enable-gateway-api-app-protocol                            Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol
+      --enable-gateway-api-extension-ref-filters                   Enable ExtensionRef support for ext_proc filters in Gateway API HTTPRoute and GRPCRoute resources
       --enable-gateway-api-proxy-protocol                          Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-gateway-api-secrets-sync                            Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag) (default true)
       --enable-gops                                                Enable gops server (default true)

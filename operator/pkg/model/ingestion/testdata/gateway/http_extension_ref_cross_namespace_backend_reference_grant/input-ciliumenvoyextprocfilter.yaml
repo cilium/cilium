@@ -1,0 +1,20 @@
+- apiVersion: cilium.io/v2alpha1
+  kind: CiliumEnvoyExtProcFilter
+  metadata:
+    name: permitted-ext-proc
+    namespace: default
+  spec:
+    backendRef:
+      name: ext-proc-service
+      namespace: ext-proc
+      port: 4317
+- apiVersion: cilium.io/v2alpha1
+  kind: CiliumEnvoyExtProcFilter
+  metadata:
+    name: denied-ext-proc
+    namespace: default
+  spec:
+    backendRef:
+      name: private-ext-proc-service
+      namespace: private
+      port: 4317

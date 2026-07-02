@@ -59,6 +59,25 @@ func (i *cecTranslator) tcpClusterMutators(mutationFunc ...ClusterMutator) []Clu
 	)
 }
 
+// isExtProcFilterBackend returns true if the given backend is referenced by a
+// ExtensionRefFilter (e.g. ext_proc). Such backends are always gRPC services.
+func isExtProcFilterBackend(m *model.Model, ns string, name string, port string) bool {
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			for _, cf := range r.ExtensionRefFilters {
+				if cf.Backend != nil &&
+					cf.Backend.Name == name &&
+					cf.Backend.Namespace == ns &&
+					cf.Backend.Port != nil &&
+					cf.Backend.Port.GetPort() == port {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	envoyClusters := map[string]ciliumv2.XDSResource{}
 	var sortedClusterNames []string
@@ -70,7 +89,7 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 				clusterServiceName := getClusterServiceName(ns, name, port)
 				sortedClusterNames = append(sortedClusterNames, clusterName)
 				envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName,
-					isGRPCService(m, ns, name, port),
+					isGRPCService(m, ns, name, port) || isExtProcFilterBackend(m, ns, name, port),
 					getAppProtocol(m, ns, name, port),
 					getTLSOrigination(m, ns, name, port))
 			}
@@ -205,6 +224,12 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 					continue
 				}
 				mergeBackendsInNamespaceNamePortMap([]model.Backend{*rm.Backend}, namespaceNamePortMap)
+			}
+			// Include ExtensionRef filter backends (e.g. ext_proc services)
+			for _, cf := range r.ExtensionRefFilters {
+				if cf.Backend != nil {
+					mergeBackendsInNamespaceNamePortMap([]model.Backend{*cf.Backend}, namespaceNamePortMap)
+				}
 			}
 		}
 	}

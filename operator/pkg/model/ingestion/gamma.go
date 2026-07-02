@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -23,6 +24,9 @@ type GammaInput struct {
 	GRPCRoutes      []gatewayv1.GRPCRoute
 	ReferenceGrants []gatewayv1.ReferenceGrant
 	Services        []corev1.Service
+
+	EnableExtensionRefFilters bool
+	CiliumEnvoyExtProcFilters []v2alpha1.CiliumEnvoyExtProcFilter
 }
 
 // GammaHTTPRoutes takes a GammaInput and gives back the associated HTTP Listeners
@@ -48,8 +52,8 @@ func GammaHTTPRoutes(log *slog.Logger, input GammaInput) []model.HTTPListener {
 	// Set of services that will be parents for these HTTPRoutes
 	parentServices := make(map[types.NamespacedName]model.FullyQualifiedResource)
 
-	resHTTP = append(resHTTP, toGammaHTTPRoutes(log, parentServices, input.HTTPRoutes, input.Services, input.ReferenceGrants)...)
-	resHTTP = append(resHTTP, toGammaGRPCRoutes(log, parentServices, input.GRPCRoutes, input.Services, input.ReferenceGrants)...)
+	resHTTP = append(resHTTP, toGammaHTTPRoutes(log, parentServices, input.HTTPRoutes, input.Services, input.ReferenceGrants, input.EnableExtensionRefFilters, input.CiliumEnvoyExtProcFilters)...)
+	resHTTP = append(resHTTP, toGammaGRPCRoutes(log, parentServices, input.GRPCRoutes, input.Services, input.ReferenceGrants, input.EnableExtensionRefFilters, input.CiliumEnvoyExtProcFilters)...)
 	return resHTTP
 }
 
@@ -59,6 +63,8 @@ func toGammaHTTPRoutes(
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
 	grants []gatewayv1.ReferenceGrant,
+	enableExtensionRefFilters bool,
+	extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter,
 ) []model.HTTPListener {
 	var resHTTP []model.HTTPListener
 
@@ -175,7 +181,7 @@ func toGammaHTTPRoutes(
 				}
 				res.Gamma = true
 				emptyBackendTLSPolicyMap := make(helpers.BackendTLSPolicyServiceMap)
-				res.Routes = append(res.Routes, extractRoutes(log, int32(portVal), []string{res.Hostname}, hr, services, []mcsapiv1beta1.ServiceImport{}, grants, emptyBackendTLSPolicyMap)...)
+				res.Routes = append(res.Routes, extractRoutes(log, int32(portVal), []string{res.Hostname}, hr, services, []mcsapiv1beta1.ServiceImport{}, grants, emptyBackendTLSPolicyMap, enableExtensionRefFilters, extProcFilters)...)
 				resHTTP = append(resHTTP, res)
 			}
 
@@ -203,6 +209,8 @@ func toGammaGRPCRoutes(
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
 	grants []gatewayv1.ReferenceGrant,
+	enableExtensionRefFilters bool,
+	extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter,
 ) []model.HTTPListener {
 	var resGRPC []model.HTTPListener
 
@@ -318,7 +326,7 @@ func toGammaGRPCRoutes(
 					Type: string(corev1.ServiceTypeClusterIP),
 				}
 				res.Gamma = true
-				res.Routes = append(res.Routes, extractGRPCRoutes([]string{res.Hostname}, grpcr, services, []mcsapiv1beta1.ServiceImport{}, grants)...)
+				res.Routes = append(res.Routes, extractGRPCRoutes(log, []string{res.Hostname}, grpcr, services, []mcsapiv1beta1.ServiceImport{}, grants, enableExtensionRefFilters, extProcFilters)...)
 				resGRPC = append(resGRPC, res)
 			}
 

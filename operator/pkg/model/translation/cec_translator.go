@@ -405,6 +405,25 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 		}
 	}
 
+	// Also include ExtensionRef filter backends (e.g. ext_proc services)
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			for _, cf := range r.ExtensionRefFilters {
+				if cf.Backend != nil {
+					namePortMap, exist := namespaceNamePortMap[cf.Backend.Namespace]
+					if exist {
+						namePortMap[cf.Backend.Name] = slices.SortedUnique(append(namePortMap[cf.Backend.Name], cf.Backend.Port.GetPort()))
+					} else {
+						namePortMap = map[string][]string{
+							cf.Backend.Name: {cf.Backend.Port.GetPort()},
+						}
+						namespaceNamePortMap[cf.Backend.Namespace] = namePortMap
+					}
+				}
+			}
+		}
+	}
+
 	return namespaceNamePortMap
 }
 
@@ -424,6 +443,24 @@ func (i *cecTranslator) getUniqueAuthFilters(m *model.Model) []*model.HTTPExtern
 			if _, exists := seen[key]; !exists {
 				seen[key] = struct{}{}
 				result = append(result, r.ExternalAuth)
+			}
+		}
+	}
+	return result
+}
+
+// getUniqueExtProcFilters returns a deduplicated list of ExtensionRefFilter from all routes.
+// Two filters are considered identical when they share the same Envoy filter instance name.
+func (i *cecTranslator) getUniqueExtProcFilters(m *model.Model) []model.ExtensionRefFilter {
+	seen := make(map[string]struct{})
+	var result []model.ExtensionRefFilter
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			for _, f := range r.ExtensionRefFilters {
+				if _, exists := seen[f.Name]; !exists {
+					seen[f.Name] = struct{}{}
+					result = append(result, f)
+				}
 			}
 		}
 	}
