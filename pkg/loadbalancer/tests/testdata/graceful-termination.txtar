@@ -128,29 +128,29 @@ Address                 Type        ServiceName              Status  Backends
 10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
 
 -- backends.table --
-Address                 Instances                NodeName
-10.244.0.112:8081/TCP   test/graceful-term-svc   graceful-term-control-plane
-10.244.0.113:8081/TCP   test/graceful-term-svc   graceful-term-control-plane
+Service                 Address                NodeName
+test/graceful-term-svc  10.244.0.112:8081/TCP  graceful-term-control-plane
+test/graceful-term-svc  10.244.0.113:8081/TCP  graceful-term-control-plane
 
 -- backends-terminating1.table --
-Address                 Instances                              NodeName
-10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]   graceful-term-control-plane
-10.244.0.113:8081/TCP   test/graceful-term-svc                 graceful-term-control-plane
+Service                 Address                State        NodeName
+test/graceful-term-svc  10.244.0.112:8081/TCP  terminating  graceful-term-control-plane
+test/graceful-term-svc  10.244.0.113:8081/TCP  active       graceful-term-control-plane
 
 -- backends-terminating2.table --
-Address                 Instances                             NodeName
-10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]  graceful-term-control-plane
-10.244.0.113:8081/TCP   test/graceful-term-svc [terminating]  graceful-term-control-plane
+Service                 Address                State        NodeName
+test/graceful-term-svc  10.244.0.112:8081/TCP  terminating  graceful-term-control-plane
+test/graceful-term-svc  10.244.0.113:8081/TCP  terminating  graceful-term-control-plane
 
 -- backends-terminating3.table --
-Address                 Instances                                         NodeName
-10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]              graceful-term-control-plane
-10.244.0.113:8081/TCP   test/graceful-term-svc [terminating-not-serving]  graceful-term-control-plane
+Service                 Address                State                    NodeName
+test/graceful-term-svc  10.244.0.112:8081/TCP  terminating              graceful-term-control-plane
+test/graceful-term-svc  10.244.0.113:8081/TCP  terminating-not-serving  graceful-term-control-plane
 
 -- backends-terminating4.table --
-Address                 Instances                                         NodeName
-10.244.0.112:8081/TCP   test/graceful-term-svc [maintenance]              graceful-term-control-plane
-10.244.0.113:8081/TCP   test/graceful-term-svc                            graceful-term-control-plane
+Service                 Address                State        NodeName
+test/graceful-term-svc  10.244.0.112:8081/TCP  maintenance  graceful-term-control-plane
+test/graceful-term-svc  10.244.0.113:8081/TCP  active       graceful-term-control-plane
 
 -- service.yaml --
 apiVersion: v1

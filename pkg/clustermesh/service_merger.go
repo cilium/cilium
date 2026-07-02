@@ -90,7 +90,7 @@ func (sm *serviceMerger) MergeExternalServiceUpdate(service *serviceStore.Cluste
 	)
 }
 
-func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.BackendParams) {
+func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.Backend) {
 	for ipString, portConfig := range service.Backends {
 		addrCluster := cmtypes.MustParseAddrCluster(ipString)
 		currentIdx := len(beps)
@@ -100,12 +100,12 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 			// for the same target port with a single loadbalancer.Backend with multiple
 			// port names. The clustermesh service data on the other end contains all the
 			// ports as distinct entries so we need to de-duplicate those.
-			idx := slices.IndexFunc(currentBeps, func(b loadbalancer.BackendParams) bool {
+			idx := slices.IndexFunc(currentBeps, func(b loadbalancer.Backend) bool {
 				return b.Address.Protocol() == l4.Protocol && b.Address.Port() == l4.Port
 			})
 			// No existing backend for this L4 address, create a new one.
 			if idx == -1 {
-				beps = append(beps, loadbalancer.BackendParams{
+				beps = append(beps, loadbalancer.Backend{
 					Address: loadbalancer.NewL3n4Addr(
 						l4.Protocol,
 						addrCluster,
@@ -127,8 +127,8 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 
 	// Sort port names to ensure a stable order since map iteration is
 	// non-deterministic, which is required for DeepEqual comparisons.
-	for _, bep := range beps {
-		slices.Sort(bep.PortNames)
+	for i := range beps {
+		slices.Sort(beps[i].PortNames)
 	}
 
 	return

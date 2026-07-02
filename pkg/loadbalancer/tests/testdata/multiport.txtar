@@ -30,9 +30,9 @@ Address                Type        ServiceName   PortName   Backends            
 10.96.50.104:443/TCP   ClusterIP   test/echo     https      10.244.1.1:443/TCP   Done
 
 -- backends.table --
-Address              Instances           NodeName
-10.244.1.1:80/TCP    test/echo (http)    nodeport-worker
-10.244.1.1:443/TCP   test/echo (https)   nodeport-worker
+Service    Address             NodeName
+test/echo  10.244.1.1:80/TCP   nodeport-worker
+test/echo  10.244.1.1:443/TCP  nodeport-worker
 
 -- service.yaml --
 apiVersion: v1
