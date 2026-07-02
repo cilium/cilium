@@ -430,8 +430,8 @@ func (m *Map) WithPressureMetric(registry *metrics.Registry) *Map {
 	return m.WithPressureMetricThreshold(registry, 0.0)
 }
 
-// UpdatePressureMetricWithSize updates map pressure metric using the given map size.
-func (m *Map) UpdatePressureMetricWithSize(size int32) {
+// UpdatePressureMetric sets the map pressure gauge metric to provided value.
+func (m *Map) UpdatePressureMetric(pressure float64) {
 	if m.pressureGauge == nil {
 		return
 	}
@@ -446,8 +446,13 @@ func (m *Map) UpdatePressureMetricWithSize(size int32) {
 		return
 	}
 
-	pvalue := float64(size) / float64(m.MaxEntries())
-	m.pressureGauge.Set(pvalue)
+	m.pressureGauge.Set(pressure)
+}
+
+// UpdatePressureMetricWithSize updates map pressure metric using the given map size.
+func (m *Map) UpdatePressureMetricWithSize(size int32) {
+	pressure := float64(size) / float64(m.MaxEntries())
+	m.UpdatePressureMetric(pressure)
 }
 
 func (m *Map) updatePressureMetric() {
