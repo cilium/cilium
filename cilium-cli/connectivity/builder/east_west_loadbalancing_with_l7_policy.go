@@ -26,21 +26,13 @@ func eastWestLoadbalancingWithL7PolicyTest(ct *check.ConnectivityTest, portRange
 		policyYAML = echoIngressL7HTTPFromAnywherePolicyPortRangeYAML
 	}
 
-	// With per-endpoint routes (ENI, GKE, Azure, aws-cni chaining, ...) and
-	// kube-proxy still managing services, remote nodeport traffic bypasses
-	// cilium_host and kube-proxy's iptables rules run outside Cilium's BPF
-	// context. This makes CT state inconsistent for L7 proxy flows from
-	// remote nodes, causing drops. KPR avoids this by owning the full
-	// service path in BPF.
-	scenarios := []check.Scenario{tests.PodToLocalNodePort()}
-	if !ct.Features[features.EndpointRoutes].Enabled || ct.Features[features.KPR].Enabled {
-		scenarios = append(scenarios, tests.PodToRemoteNodePort())
-	}
-
 	newTest(testName, ct).
 		WithFeatureRequirements(
 			withKPRReqForMultiCluster(ct, features.RequireEnabled(features.L7Proxy))...,
 		).
 		WithCiliumPolicy(policyYAML).
-		WithScenarios(scenarios...)
+		WithScenarios(
+			tests.PodToLocalNodePort(),
+			tests.PodToRemoteNodePort(),
+		)
 }
