@@ -73,16 +73,20 @@ type Node struct {
 
 	// instanceID of the node
 	instanceID string
+	// prefixExhaustedSubnets tracks subnets where prefix (/28) allocation has
+	// failed due to fragmentation on this node. Protected by Node.mutex.
+	prefixExhaustedSubnets map[string]struct{}
 }
 
 // NewNode returns a new Node
 func NewNode(node *nodemanager.Node, k8sObj *v2.CiliumNode, manager *InstancesManager) *Node {
 	n := &Node{
-		rootLogger: manager.logger,
-		node:       node,
-		k8sObj:     k8sObj,
-		manager:    manager,
-		instanceID: node.InstanceID(),
+		rootLogger:             manager.logger,
+		node:                   node,
+		k8sObj:                 k8sObj,
+		manager:                manager,
+		instanceID:             node.InstanceID(),
+		prefixExhaustedSubnets: map[string]struct{}{},
 	}
 	n.updateLogger()
 	n.logger.Store(n.rootLogger.With())
@@ -771,14 +775,29 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	eniID, eni, err := n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated, allocateIPv6)
 	if err != nil {
 		if isPrefixDelegated && isSubnetAtPrefixCapacity(err) {
-			// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
-			// We should attempt to allocate /32 IPs.
-			scopedLog.Warn(
-				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
-				logfields.Node, n.k8sObj.Name,
-			)
-			eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false, allocateIPv6)
+			n.markSubnetPrefixExhausted(subnet.ID)
+			// Subnet might be out of available /28 prefixes. Before falling back to
+			// /32 IPs in the same subnet, try other eligible subnets in the same AZ
+			// that may have free /28 capacity.
+			if siblingSubnet := n.findSuitableSubnetExcludingPrefixExhausted(resource.Spec.ENI, limits); siblingSubnet != nil {
+				eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), siblingSubnet.ID, desc, securityGroupIDs, true, allocateIPv6)
+				if err == nil {
+					allocation.PoolID = ipamTypes.PoolID(siblingSubnet.ID)
+					subnet = siblingSubnet
+				}
+			}
+
+			if err != nil {
+				// No eligible sibling subnet found or sibling also failed.
+				// Fall back to /32 IPs in the original subnet.
+				scopedLog.Warn(
+					"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
+					logfields.Node, n.k8sObj.Name,
+				)
+				eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false, allocateIPv6)
+			}
 		}
+
 		if err != nil {
 			return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 		}
@@ -1154,6 +1173,45 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 	return bestSubnet
 }
 
+// findSubnetInSameRouteTableWithNodeSubnetExcluding is like
+// findSubnetInSameRouteTableWithNodeSubnet but skips subnets in the exclude set.
+func (n *Node) findSubnetInSameRouteTableWithNodeSubnetExcluding(exclude map[string]struct{}) *ipamTypes.Subnet {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	if n.k8sObj == nil {
+		return nil
+	}
+
+	n.manager.mutex.RLock()
+	defer n.manager.mutex.RUnlock()
+
+	nodeSubnetID := n.k8sObj.Spec.ENI.NodeSubnetID
+	var bestSubnet *ipamTypes.Subnet
+
+	for _, routeTable := range n.manager.routeTables {
+		if _, ok := routeTable.Subnets[nodeSubnetID]; ok && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
+			for subnetID := range routeTable.Subnets {
+				if subnetID == nodeSubnetID {
+					continue
+				}
+				if _, exhausted := exclude[subnetID]; exhausted {
+					continue
+				}
+				subnet := n.manager.subnets[subnetID]
+				if subnet == nil {
+					continue
+				}
+				if (bestSubnet == nil || subnet.AvailableAddresses > bestSubnet.AvailableAddresses) && subnet.AvailabilityZone == n.k8sObj.Spec.ENI.AvailabilityZone {
+					bestSubnet = subnet
+				}
+			}
+		}
+	}
+
+	return bestSubnet
+}
+
 // checkSubnetInSameRouteTableWithNodeSubnet checks if the given subnet is in the same route table as the node's subnet
 // to make sure the pod traffic leaving secondary interfaces is routed in the same way as the primary interface.
 func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subnet) bool {
@@ -1188,6 +1246,64 @@ func (n *Node) logSubnetRouteTableMismatch(subnet *ipamTypes.Subnet, matchType s
 		logfields.SubnetID, n.k8sObj.Spec.ENI.NodeSubnetID,
 		logfields.SubnetID, subnet.ID,
 	)
+}
+
+// markSubnetPrefixExhausted records that prefix (/28) allocation has failed for
+// the given subnet on this node due to fragmentation.
+func (n *Node) markSubnetPrefixExhausted(subnetID string) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if n.prefixExhaustedSubnets == nil {
+		n.prefixExhaustedSubnets = map[string]struct{}{}
+	}
+	n.prefixExhaustedSubnets[subnetID] = struct{}{}
+}
+
+// findSuitableSubnetExcludingPrefixExhausted is like findSuitableSubnet but
+// skips any subnet in prefixExhaustedSubnets. It is called during the
+// cross-subnet retry in CreateInterface to find a sibling subnet with free
+// /28 prefix capacity after the initially selected subnet failed with
+// InsufficientCidrBlocks.
+func (n *Node) findSuitableSubnetExcludingPrefixExhausted(spec types.ENISpec, limits ipamTypes.Limits) *ipamTypes.Subnet {
+	n.mutex.RLock()
+	exclude := n.prefixExhaustedSubnets
+	n.mutex.RUnlock()
+	if len(spec.SubnetIDs) > 0 {
+		if subnet := n.manager.FindSubnetByIDsExcluding(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs, exclude); subnet != nil {
+			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+				n.logSubnetRouteTableMismatch(subnet, "Specified")
+			}
+			return subnet
+		}
+	}
+
+	if len(spec.SubnetTags) > 0 {
+		if subnet := n.manager.FindSubnetByTagsExcluding(spec.VpcID, spec.AvailabilityZone, spec.SubnetTags, exclude); subnet != nil {
+			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+				n.logSubnetRouteTableMismatch(subnet, "Tagged")
+			}
+			return subnet
+		}
+	}
+
+	if subnet := n.manager.GetSubnet(spec.NodeSubnetID); subnet != nil && subnet.AvailableAddresses >= limits.IPv4 {
+		if _, exhausted := exclude[subnet.ID]; !exhausted {
+			return subnet
+		}
+	}
+
+	if subnet := n.findSubnetInSameRouteTableWithNodeSubnetExcluding(exclude); subnet != nil {
+		return subnet
+	}
+
+	if subnet := n.manager.FindSubnetByTagsExcluding(spec.VpcID, spec.AvailabilityZone, nil, exclude); subnet != nil {
+		if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+			n.logSubnetRouteTableMismatch(subnet, "")
+		}
+		return subnet
+	}
+
+	return nil
 }
 
 // findSuitableSubnet attempts to find a subnet to allocate an ENI in according to the following heuristic.

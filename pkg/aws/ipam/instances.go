@@ -175,6 +175,31 @@ func (m *InstancesManager) FindSubnetByIDs(vpcID, availabilityZone string, subne
 	return
 }
 
+// FindSubnetByIDsExcluding returns the subnet with the most addresses matching
+// VPC ID, availability zone and subnet IDs, skipping any subnet whose ID is
+// in the exclude set.
+func (m *InstancesManager) FindSubnetByIDsExcluding(vpcID, availabilityZone string, subnetIDs []string, exclude map[string]struct{}) (bestSubnet *ipamTypes.Subnet) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	for _, s := range m.subnets {
+		if _, excluded := exclude[s.ID]; excluded {
+			continue
+		}
+		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone {
+			for _, subnetID := range subnetIDs {
+				if s.ID == subnetID {
+					if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
+						bestSubnet = s
+					}
+					continue
+				}
+			}
+		}
+	}
+
+	return
+}
+
 // FindSubnetByTags returns the subnet with the most addresses matching VPC ID,
 // availability zone and all required tags
 //
@@ -184,6 +209,26 @@ func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, requ
 	defer m.mutex.RUnlock()
 
 	for _, s := range m.subnets {
+		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
+			if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
+				bestSubnet = s
+			}
+		}
+	}
+
+	return
+}
+
+// FindSubnetByTagsExcluding returns the subnet with the most addresses matching
+// VPC ID, availability zone and all required tags, skipping any subnet whose ID
+// is in the exclude set.
+func (m *InstancesManager) FindSubnetByTagsExcluding(vpcID, availabilityZone string, required ipamTypes.Tags, exclude map[string]struct{}) (bestSubnet *ipamTypes.Subnet) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	for _, s := range m.subnets {
+		if _, excluded := exclude[s.ID]; excluded {
+			continue
+		}
 		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
 			if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
 				bestSubnet = s
