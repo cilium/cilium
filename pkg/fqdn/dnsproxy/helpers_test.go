@@ -231,6 +231,6 @@ func (m MockCachedSelector) IsNone() bool {
 	return false
 }
 
-func (m MockCachedSelector) String() string {
+func (m MockCachedSelector) Key() string {
 	return m.key
 }

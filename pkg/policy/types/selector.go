@@ -262,6 +262,8 @@ type Selector interface {
 	GetCIDRPrefixes() []netip.Prefix
 
 	MetricsClass() string
+
+	MarshalJSON() ([]byte, error)
 }
 
 // +deepequal-gen=true
@@ -679,9 +681,9 @@ type CachedSelector interface {
 	// IsNone returns true if the selector never selects anything
 	IsNone() bool
 
-	// String returns the string representation of this selector.
+	// Key returns the string representation of this selector.
 	// Used as a map key.
-	String() string
+	Key() string
 }
 
 // CachedSelectorSlice is a slice of CachedSelectors that can be sorted.
@@ -691,7 +693,7 @@ type CachedSelectorSlice []CachedSelector
 func (s CachedSelectorSlice) MarshalJSON() ([]byte, error) {
 	buffer := bytes.NewBufferString("[")
 	for i, selector := range s {
-		buf, err := json.Marshal(selector.String())
+		buf, err := json.Marshal(selector.Key())
 		if err != nil {
 			return nil, err
 		}
@@ -709,7 +711,7 @@ func (s CachedSelectorSlice) Len() int      { return len(s) }
 func (s CachedSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 func (s CachedSelectorSlice) Less(i, j int) bool {
-	return strings.Compare(s[i].String(), s[j].String()) < 0
+	return strings.Compare(s[i].Key(), s[j].Key()) < 0
 }
 
 // SelectsAllEndpoints returns whether the CachedSelectorSlice selects all

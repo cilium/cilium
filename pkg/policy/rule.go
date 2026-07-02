@@ -254,7 +254,7 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 				}
 			} else if !newPolicy.TerminatingTLS.Equal(existingPolicy.TerminatingTLS) {
 				policyCtx.PolicyTrace("   Merge conflict: mismatching terminating TLS contexts %s/%s\n", newPolicy.TerminatingTLS, existingPolicy.TerminatingTLS)
-				return fmt.Errorf("cannot merge conflicting terminating TLS contexts for cached selector %s: (%s/%s)", cs.String(), newPolicy.TerminatingTLS, existingPolicy.TerminatingTLS)
+				return fmt.Errorf("cannot merge conflicting terminating TLS contexts for cached selector %s: (%s/%s)", cs.Key(), newPolicy.TerminatingTLS, existingPolicy.TerminatingTLS)
 			}
 			if existingPolicy.OriginatingTLS == nil || newPolicy.OriginatingTLS == nil {
 				if newPolicy.OriginatingTLS != nil {
@@ -262,7 +262,7 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 				}
 			} else if !newPolicy.OriginatingTLS.Equal(existingPolicy.OriginatingTLS) {
 				policyCtx.PolicyTrace("   Merge conflict: mismatching originating TLS contexts %s/%s\n", newPolicy.OriginatingTLS, existingPolicy.OriginatingTLS)
-				return fmt.Errorf("cannot merge conflicting originating TLS contexts for cached selector %s: (%s/%s)", cs.String(), newPolicy.OriginatingTLS, existingPolicy.OriginatingTLS)
+				return fmt.Errorf("cannot merge conflicting originating TLS contexts for cached selector %s: (%s/%s)", cs.Key(), newPolicy.OriginatingTLS, existingPolicy.OriginatingTLS)
 			}
 
 			// For now we simply merge the set of allowed SNIs from different rules
@@ -293,7 +293,7 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 			// terminated
 			if len(existingPolicy.ServerNames) > 0 && !existingPolicy.L7Rules.IsEmpty() && existingPolicy.TerminatingTLS == nil {
 				policyCtx.PolicyTrace("   Merge conflict: cannot use SNI filtering with L7 rules without TLS termination: %v\n", existingPolicy.ServerNames)
-				return fmt.Errorf("cannot merge L7 rules for cached selector %s with SNI filtering without TLS termination: %v", cs.String(), existingPolicy.ServerNames)
+				return fmt.Errorf("cannot merge L7 rules for cached selector %s with SNI filtering without TLS termination: %v", cs.Key(), existingPolicy.ServerNames)
 			}
 
 			// empty L7 rules effectively wildcard L7. When merging with a non-empty
