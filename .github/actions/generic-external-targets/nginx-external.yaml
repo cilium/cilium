@@ -93,6 +93,21 @@ spec:
         image: nginx:latest
         securityContext:
           allowPrivilegeEscalation: false
+        # Only report ready once nginx actually serves HTTPS on 443. Without
+        # this, numberReady=1 (and the rollout wait in action.sh) can succeed
+        # while nginx is still starting up, so the first L7 TLS-interception
+        # requests race the warm-up and get a connection refused or a transient
+        # 503 from nginx. An HTTPS GET probe exercises the same serving path the
+        # tests use (kubelet skips cert verification for scheme: HTTPS) and only
+        # passes on a 2xx/3xx response.
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 443
+            scheme: HTTPS
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 15
         volumeMounts:
         - name: config
           mountPath: /etc/nginx/nginx.conf
