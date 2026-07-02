@@ -256,6 +256,10 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 
 	maps.Copy(dep.Spec.Template.ObjectMeta.Labels, p.Labels)
 
+	if p.HostNetwork {
+		dep.Spec.Template.Spec.DNSPolicy = "ClusterFirstWithHostNet"
+	}
+
 	return dep
 }
 
@@ -371,6 +375,10 @@ func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
 
 	if p.NodeSelector != nil {
 		ds.Spec.Template.Spec.NodeSelector = p.NodeSelector
+	}
+
+	if p.HostNetwork {
+		ds.Spec.Template.Spec.DNSPolicy = "ClusterFirstWithHostNet"
 	}
 
 	return ds
