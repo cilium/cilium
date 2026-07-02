@@ -86,21 +86,12 @@ func TestScript(t *testing.T) {
 				testDriver  = "test.cilium.k8s.io"
 			)
 
-			var (
-				daemonCfg = &option.DaemonConfig{
-					EnableCiliumNetworkDriver: true,
-					EnableIPv4:                tc.ipv4,
-					EnableIPv6:                tc.ipv6,
-					IPAMCiliumNodeUpdateRate:  time.Nanosecond,
-				}
-
-				mgr            *ipam.MultiPoolManager
-				cs             *k8sClient.FakeClientset
-				pods           resource.Resource[*corev1.Pod]
-				db             *statedb.DB
-				netCfgs        statedb.Table[resourceNetworkConfig]
-				localNodeStore *node.LocalNodeStore
-			)
+			daemonCfg := &option.DaemonConfig{
+				EnableCiliumNetworkDriver: true,
+				EnableIPv4:                tc.ipv4,
+				EnableIPv6:                tc.ipv6,
+				IPAMCiliumNodeUpdateRate:  time.Nanosecond,
+			}
 
 			// The Kubernetes resources below capture nodeTypes.GetName while the
 			// hive is built, so seed the test node before constructing them.
@@ -111,6 +102,18 @@ func TestScript(t *testing.T) {
 			scripttest.Test(t,
 				t.Context(),
 				func(t testing.TB, args []string) *script.Engine {
+					// These must be local to newEngine. scripttest.Test runs each
+					// .txtar file in a t.Parallel() and may race with other tests
+					// if these are shared.
+					var (
+						mgr            *ipam.MultiPoolManager
+						cs             *k8sClient.FakeClientset
+						pods           resource.Resource[*corev1.Pod]
+						db             *statedb.DB
+						netCfgs        statedb.Table[resourceNetworkConfig]
+						localNodeStore *node.LocalNodeStore
+					)
+
 					h := hive.New(
 						k8sClient.FakeClientCell(),
 						k8s.ResourcesCell,
