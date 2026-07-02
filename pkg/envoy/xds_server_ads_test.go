@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
 	"github.com/cilium/cilium/pkg/policy"
@@ -680,7 +681,7 @@ func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testi
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
-		strictAdsMode:        true,
+		envoyXDSMode:         config.EnvoyXDSModeStrictADS,
 	}
 	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
