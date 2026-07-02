@@ -3,12 +3,17 @@
 
 #pragma once
 
+#include <linux/in.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+
 #include "common.h"
 #include "identity.h"
 #include "dbg.h"
 #include "eps.h"
 #include "l3.h"
 #include "proxy.h"
+#include "l4.h"
 #include "token_bucket.h"
 
 DECLARE_CONFIG(bool, enable_netkit, "Use netkit devices for pods")
@@ -28,6 +33,119 @@ tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 	tail_call_dynamic(ctx, &cilium_egresscall_policy, endpoint_id);
 	/* same issue as for the cilium_call_policy calls */
 	return DROP_EP_NOT_READY;
+}
+
+/* L7 LB upstream sockets can outlive the source endpoint whose ID is encoded in
+ * the mark. If that endpoint's egress policy program is already gone, allow only
+ * TCP close packets and payloadless ACKs; SYNs and ACKs with payload still fail.
+ */
+static __always_inline bool
+l7lb_tcp_allows_policy_miss(struct __ctx_buff *ctx, __be16 proto)
+{
+	/* TCP segment length: TCP header plus TCP data. */
+	int tcp_len;
+	int tcp_hdrlen;
+	union tcp_flags tcp_flags = { .value = 0 };
+	int l4_off;
+
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP): {
+		struct iphdr ip4;
+		fraginfo_t fraginfo;
+		int ip4_hdrlen;
+		int ip4_len;
+
+		if (ctx_load_bytes(ctx, ETH_HLEN, &ip4, sizeof(ip4)) < 0)
+			return false;
+
+		/* Reject non-TCP and fragmented packets before calculating TCP segment length. */
+		if (ip4.protocol != IPPROTO_TCP)
+			return false;
+
+		fraginfo = ipfrag_encode_ipv4(&ip4);
+		if (ipfrag_is_fragment(fraginfo))
+			return false;
+
+		ip4_hdrlen = ipv4_hdrlen(&ip4);
+		if (ip4_hdrlen < (int)sizeof(ip4))
+			return false;
+
+		l4_off = ETH_HLEN + ip4_hdrlen;
+		ip4_len = bpf_ntohs(ip4.tot_len);
+		tcp_len = ip4_len - ip4_hdrlen;
+		break;
+	}
+#endif
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6): {
+		struct ipv6hdr ip6;
+		fraginfo_t fraginfo = 0;
+		int ip6_hdrlen;
+		__u8 nexthdr;
+
+		if (ctx_load_bytes(ctx, ETH_HLEN, &ip6, sizeof(ip6)) < 0)
+			return false;
+
+		/* Reject non-TCP and fragmented packets before calculating TCP segment length. */
+		nexthdr = ip6.nexthdr;
+		ip6_hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &nexthdr, &fraginfo);
+		if (ip6_hdrlen < 0)
+			return false;
+
+		if (nexthdr != IPPROTO_TCP)
+			return false;
+
+		if (ipfrag_is_fragment(fraginfo))
+			return false;
+
+		l4_off = ETH_HLEN + ip6_hdrlen;
+		tcp_len = bpf_ntohs(ip6.payload_len) -
+			  (ip6_hdrlen - (int)sizeof(ip6));
+		break;
+	}
+#endif
+	default:
+		return false;
+	}
+
+	if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
+		return false;
+
+	tcp_hdrlen = tcp_hdrlen_from_flags(tcp_flags);
+	if (tcp_hdrlen < (int)sizeof(struct tcphdr))
+		return false;
+
+	/* Reject malformed or truncated TCP segments. */
+	if (tcp_len < tcp_hdrlen)
+		return false;
+
+	if (tcp_flags.value & TCP_FLAG_SYN)
+		return false;
+	/* Allow teardown segments with or without payload since FIN may carry final data. */
+	if (tcp_flags.value & (TCP_FLAG_FIN | TCP_FLAG_RST))
+		return true;
+
+	/* Allow ACKs only when they do not carry payload. */
+	return (tcp_flags.value & TCP_FLAG_ACK) && tcp_len == tcp_hdrlen;
+}
+
+/* L7 LB delivery path enforces the original source endpoint's egress policy
+ * after Envoy selects an upstream backend. Preserve the normal policy tail-call
+ * result, but allow stale proxy upstream connections to be closed when the source
+ * policy program has already disappeared.
+ */
+static __always_inline __must_check int
+l7lb_tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id,
+			     __be16 proto)
+{
+	int ret;
+
+	ret = tail_call_egress_policy(ctx, endpoint_id);
+	if (ret == DROP_EP_NOT_READY && l7lb_tcp_allows_policy_miss(ctx, proto))
+		return CTX_ACT_OK;
+
+	return ret;
 }
 
 /* Global map to jump into policy enforcement of receiving endpoint */

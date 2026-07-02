@@ -22,6 +22,7 @@
 #define BACKEND_PORT		tcp_svc_one
 
 #define CLIENT_EP_ID		127
+#define MISSING_CLIENT_EP_ID	128
 
 /* Mockup redirect, so that we track the ifindex used in ctx_redirect calls if needed. */
 static volatile __u32 redirect_ifindex;
@@ -198,6 +199,200 @@ int l7_lb_local_backend_v6_check(const struct __ctx_buff *ctx)
 
 	assert(redirect_ifindex == ctx_get_ifindex(ctx));
 #endif
+
+	test_finish();
+}
+
+PKTGEN("tc", "l7_lb_missing_policy_teardown_v4")
+int l7_lb_missing_policy_teardown_v4_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_host,
+					  CLIENT_IP, BACKEND_IP,
+					  CLIENT_PORT, BACKEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->syn = 0;
+	l4->ack = 1;
+	l4->psh = 1;
+	l4->fin = 1;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "l7_lb_missing_policy_teardown_v4")
+int l7_lb_missing_policy_teardown_v4_setup(struct __ctx_buff *ctx)
+{
+	return l7lb_tail_call_egress_policy(ctx, MISSING_CLIENT_EP_ID,
+					    bpf_htons(ETH_P_IP));
+}
+
+CHECK("tc", "l7_lb_missing_policy_teardown_v4")
+int l7_lb_missing_policy_teardown_v4_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	test_finish();
+}
+
+PKTGEN("tc", "l7_lb_missing_policy_syn_v4")
+int l7_lb_missing_policy_syn_v4_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_host,
+					  CLIENT_IP, BACKEND_IP,
+					  CLIENT_PORT, BACKEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "l7_lb_missing_policy_syn_v4")
+int l7_lb_missing_policy_syn_v4_setup(struct __ctx_buff *ctx)
+{
+	return l7lb_tail_call_egress_policy(ctx, MISSING_CLIENT_EP_ID,
+					    bpf_htons(ETH_P_IP));
+}
+
+CHECK("tc", "l7_lb_missing_policy_syn_v4")
+int l7_lb_missing_policy_syn_v4_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == (__u32)DROP_EP_NOT_READY);
+
+	test_finish();
+}
+
+PKTGEN("tc", "l7_lb_missing_policy_teardown_v6")
+int l7_lb_missing_policy_teardown_v6_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_host,
+					  (__u8 *)CLIENT_IP6, (__u8 *)BACKEND_IP6,
+					  CLIENT_PORT, BACKEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->syn = 0;
+	l4->ack = 1;
+	l4->psh = 1;
+	l4->fin = 1;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "l7_lb_missing_policy_teardown_v6")
+int l7_lb_missing_policy_teardown_v6_setup(struct __ctx_buff *ctx)
+{
+	return l7lb_tail_call_egress_policy(ctx, MISSING_CLIENT_EP_ID,
+					    bpf_htons(ETH_P_IPV6));
+}
+
+CHECK("tc", "l7_lb_missing_policy_teardown_v6")
+int l7_lb_missing_policy_teardown_v6_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	test_finish();
+}
+
+PKTGEN("tc", "l7_lb_missing_policy_syn_v6")
+int l7_lb_missing_policy_syn_v6_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_host,
+					  (__u8 *)CLIENT_IP6, (__u8 *)BACKEND_IP6,
+					  CLIENT_PORT, BACKEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "l7_lb_missing_policy_syn_v6")
+int l7_lb_missing_policy_syn_v6_setup(struct __ctx_buff *ctx)
+{
+	return l7lb_tail_call_egress_policy(ctx, MISSING_CLIENT_EP_ID,
+					    bpf_htons(ETH_P_IPV6));
+}
+
+CHECK("tc", "l7_lb_missing_policy_syn_v6")
+int l7_lb_missing_policy_syn_v6_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == (__u32)DROP_EP_NOT_READY);
 
 	test_finish();
 }

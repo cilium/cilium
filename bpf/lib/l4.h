@@ -28,6 +28,11 @@ static __always_inline __u8 tcp_flags_to_u8(__be32 value)
 	return ((union tcp_flags)value).lower_bits;
 }
 
+static __always_inline int tcp_hdrlen_from_flags(union tcp_flags flags)
+{
+	return (flags.upper_bits >> 4) * 4;
+}
+
 static __always_inline int
 l4_store_port(struct __ctx_buff *ctx, int l4_off, int port_off, __be16 port)
 {
