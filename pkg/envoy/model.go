@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -157,7 +158,7 @@ func GetLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core
 	}, additionalAddress
 }
 
-func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16, lingerConfig int) *envoy_config_listener.ListenerFilter {
+func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16, lingerConfig int, serverConfig *xdsServerConfig) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
@@ -165,13 +166,11 @@ func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 		IsL7Lb:                   false,
 		ProxyId:                  uint32(proxyPort),
 		IpcacheName:              ipcache.Name,
+		UseNphds:                 serverConfig.useNPHDS,
 	}
 
-	if ADSModeEnabled() {
-		// Keep NPHDS disabled in production. Envoy can resolve identities from
-		// ipcache/BPF maps, while standalone Envoy tests enable NPHDS explicitly
-		// for environments without datapath maps.
-		conf.NpdsConfig = NewCiliumXdsWithAdsConfigSource()
+	if serverConfig.envoyXDSMode != config.EnvoyXDSModeSplit {
+		conf.CiliumConfigSource = CiliumConfigSource(serverConfig.envoyXDSMode)
 	}
 
 	if lingerConfig >= 0 {

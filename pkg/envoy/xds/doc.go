@@ -35,8 +35,9 @@
 // access to resources of one or multiple resource types:
 //
 //	type ResourceSource interface {
-//	    GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
-//	        nodeIP string, resourceNames []string) (*VersionedResources, error)
+//	    GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources
+//	    GetDeltaResources(typeURL string, lastAckedVersion uint64, subscriptions set.Set[string],
+//	        ackedResourceNames set.Set[string], forceResponseNames set.Set[string], forceEmptyResponse bool) *VersionedResources
 //	}
 //
 // Resource sets should implement the ResourceSet interface to provide

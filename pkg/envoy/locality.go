@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 
+	config "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -32,7 +33,7 @@ func getLocalNodeZone(localNodeStore *node.LocalNodeStore) (string, error) {
 	return localNode.Labels[corev1.LabelTopologyZone], nil
 }
 
-func appendEmbeddedLocalityBootstrap(bs *envoy_config_bootstrap.Bootstrap, connectTimeout int64, zone string) {
+func appendEmbeddedLocalityBootstrap(bs *envoy_config_bootstrap.Bootstrap, xdsMode config.XDSMode, connectTimeout int64, zone string) {
 	if bs.GetNode() == nil {
 		bs.Node = &envoy_config_core.Node{}
 	}
@@ -43,7 +44,7 @@ func appendEmbeddedLocalityBootstrap(bs *envoy_config_bootstrap.Bootstrap, conne
 		bs.ClusterManager = &envoy_config_bootstrap.ClusterManager{}
 	}
 	bs.ClusterManager.LocalClusterName = LocalityClusterName
-	bs.StaticResources.Clusters = append(bs.StaticResources.Clusters, newLocalityCluster(connectTimeout))
+	bs.StaticResources.Clusters = append(bs.StaticResources.Clusters, newLocalityCluster(xdsMode, connectTimeout))
 
 	if zone != "" {
 		bs.Node.Locality = &envoy_config_core.Locality{Zone: zone}
@@ -51,7 +52,7 @@ func appendEmbeddedLocalityBootstrap(bs *envoy_config_bootstrap.Bootstrap, conne
 }
 
 // newLocalityCluster defines the internal EDS-backed local cluster Envoy uses for locality-aware routing.
-func newLocalityCluster(connectTimeout int64) *envoy_config_cluster.Cluster {
+func newLocalityCluster(xdsMode config.XDSMode, connectTimeout int64) *envoy_config_cluster.Cluster {
 	return &envoy_config_cluster.Cluster{
 		Name:                 LocalityClusterName,
 		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
@@ -61,7 +62,7 @@ func newLocalityCluster(connectTimeout int64) *envoy_config_cluster.Cluster {
 				ResourceApiVersion: envoy_config_core.ApiVersion_V3,
 				ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
 					ApiConfigSource: &envoy_config_core.ApiConfigSource{
-						ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
+						ApiType:                   xdsMode.EnvoyApiType(),
 						TransportApiVersion:       envoy_config_core.ApiVersion_V3,
 						SetNodeOnFirstMessageOnly: true,
 						GrpcServices: []*envoy_config_core.GrpcService{{

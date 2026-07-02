@@ -56,12 +56,6 @@ func NewMockPortAllocator() *MockPortAllocator {
 	}
 }
 
-func setXDSMode(t *testing.T, mode string) {
-	t.Helper()
-	envoy.SetXDSMode(mode)
-	t.Cleanup(func() { envoy.SetXDSMode("") })
-}
-
 func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -310,11 +304,10 @@ spec:
 `
 
 func TestCiliumEnvoyConfig(t *testing.T) {
-	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
-
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
+		xdsMode:       envoyconfig.EnvoyXDSModeSplit,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfig))
@@ -418,11 +411,10 @@ spec:
 `
 
 func TestCiliumEnvoyConfigValidation(t *testing.T) {
-	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
-
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
+		xdsMode:       envoyconfig.EnvoyXDSModeSplit,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigInvalid))
@@ -629,14 +621,13 @@ spec:
 `
 
 func TestCiliumEnvoyConfigMulti(t *testing.T) {
-	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
-
 	parser := CECResourceParser{
 		logger:                      hivetest.Logger(t),
 		portAllocator:               NewMockPortAllocator(),
 		defaultMaxConcurrentRetries: 128,
 		defaultMaxConnections:       2048,
 		defaultMaxRequests:          4096,
+		xdsMode:                     envoyconfig.EnvoyXDSModeSplit,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
@@ -1427,11 +1418,10 @@ spec:
 `
 
 func TestCiliumEnvoyConfigCombinedValidationContext(t *testing.T) {
-	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
-
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
+		xdsMode:       envoyconfig.EnvoyXDSModeSplit,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigCombinedValidationContext))
@@ -1516,11 +1506,10 @@ spec:
 `
 
 func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
-	setXDSMode(t, envoyconfig.EnvoyXDSModeSplit)
-
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
+		xdsMode:       envoyconfig.EnvoyXDSModeSplit,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTlsSessionTicketKeys))
@@ -2049,9 +2038,10 @@ func TestParseResourcesNormalizesExistingEDSConfigSourceInADSMode(t *testing.T) 
 		portAllocator: NewMockPortAllocator(),
 	}
 
-	parse := func(t *testing.T, mode string) *envoy_config_core.ConfigSource {
+	parse := func(t *testing.T, mode envoyconfig.XDSMode) *envoy_config_core.ConfigSource {
 		t.Helper()
-		setXDSMode(t, mode)
+
+		parser.xdsMode = mode
 
 		cluster := &envoy_config_cluster.Cluster{
 			Name: "backend",
@@ -2095,10 +2085,8 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 		httpLingerConfig: -1,
 	}
 
-	t.Run("ADS disabled: UseNphds not set", func(t *testing.T) {
-		envoy.SetXDSMode(envoyconfig.EnvoyXDSModeSplit)
-		defer envoy.SetXDSMode("")
-
+	t.Run("ADS disabled: CiliumConfigSource not set, no NPHDS", func(t *testing.T) {
+		parser.xdsMode = envoyconfig.EnvoyXDSModeSplit
 		lf := parser.getBPFMetadataListenerFilter(true, false, 1234, false)
 		require.NotNil(t, lf)
 		msg, err := lf.GetTypedConfig().UnmarshalNew()
@@ -2106,13 +2094,11 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 		meta, ok := msg.(*cilium.BpfMetadata)
 		require.True(t, ok)
 		assert.False(t, meta.UseNphds)
-		assert.Nil(t, meta.NpdsConfig)
+		assert.Nil(t, meta.CiliumConfigSource) // not set for the legacy SotW mode
 	})
 
-	t.Run("ADS enabled: NpdsConfig set to ADS without NPHDS", func(t *testing.T) {
-		envoy.SetXDSMode(envoyconfig.EnvoyXDSModeADS)
-		defer envoy.SetXDSMode("")
-
+	t.Run("ADS enabled: CiliumConfigSource set to ADS without NPHDS", func(t *testing.T) {
+		parser.xdsMode = envoyconfig.EnvoyXDSModeADS
 		lf := parser.getBPFMetadataListenerFilter(true, false, 1234, false)
 		require.NotNil(t, lf)
 		msg, err := lf.GetTypedConfig().UnmarshalNew()
@@ -2120,8 +2106,8 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 		meta, ok := msg.(*cilium.BpfMetadata)
 		require.True(t, ok)
 		assert.False(t, meta.UseNphds)
-		require.NotNil(t, meta.NpdsConfig)
-		assert.NotNil(t, meta.NpdsConfig.GetAds(), "NpdsConfig should use ADS aggregated source")
-		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.NpdsConfig.ResourceApiVersion)
+		require.NotNil(t, meta.CiliumConfigSource)
+		assert.NotNil(t, meta.CiliumConfigSource.GetAds(), "CiliumConfigSource should use ADS aggregated source")
+		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.CiliumConfigSource.ResourceApiVersion)
 	})
 }

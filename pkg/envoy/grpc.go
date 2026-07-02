@@ -118,7 +118,7 @@ type xdsGRPCServer struct {
 // }
 
 func (s *xdsGRPCServer) DeltaListeners(stream envoy_service_listener.ListenerDiscoveryService_DeltaListenersServer) error {
-	return ErrNotImplemented
+	return s.Server.HandleDeltaRequestStream(stream.Context(), stream, ListenerTypeURL, ClusterTypeURL)
 }
 
 func (s *xdsGRPCServer) StreamListeners(stream envoy_service_listener.ListenerDiscoveryService_StreamListenersServer) error {
@@ -133,7 +133,7 @@ func (s *xdsGRPCServer) FetchListeners(ctx context.Context, req *envoy_service_d
 }
 
 func (s *xdsGRPCServer) DeltaRoutes(stream envoy_service_route.RouteDiscoveryService_DeltaRoutesServer) error {
-	return ErrNotImplemented
+	return s.Server.HandleDeltaRequestStream(stream.Context(), stream, RouteTypeURL, "")
 }
 
 func (s *xdsGRPCServer) StreamRoutes(stream envoy_service_route.RouteDiscoveryService_StreamRoutesServer) error {
@@ -147,7 +147,7 @@ func (s *xdsGRPCServer) FetchRoutes(ctx context.Context, req *envoy_service_disc
 }
 
 func (s *xdsGRPCServer) DeltaClusters(stream envoy_service_cluster.ClusterDiscoveryService_DeltaClustersServer) error {
-	return ErrNotImplemented
+	return s.Server.HandleDeltaRequestStream(stream.Context(), stream, ClusterTypeURL, "")
 }
 
 func (s *xdsGRPCServer) StreamClusters(stream envoy_service_cluster.ClusterDiscoveryService_StreamClustersServer) error {
@@ -161,7 +161,7 @@ func (s *xdsGRPCServer) FetchClusters(ctx context.Context, req *envoy_service_di
 }
 
 func (s *xdsGRPCServer) DeltaEndpoints(stream envoy_service_endpoint.EndpointDiscoveryService_DeltaEndpointsServer) error {
-	return ErrNotImplemented
+	return s.Server.HandleDeltaRequestStream(stream.Context(), stream, EndpointTypeURL, "")
 }
 
 func (s *xdsGRPCServer) StreamEndpoints(stream envoy_service_endpoint.EndpointDiscoveryService_StreamEndpointsServer) error {
@@ -175,7 +175,7 @@ func (s *xdsGRPCServer) FetchEndpoints(ctx context.Context, req *envoy_service_d
 }
 
 func (s *xdsGRPCServer) DeltaSecrets(stream envoy_service_secret.SecretDiscoveryService_DeltaSecretsServer) error {
-	return ErrNotImplemented
+	return s.Server.HandleDeltaRequestStream(stream.Context(), stream, SecretTypeURL, "")
 }
 
 func (s *xdsGRPCServer) StreamSecrets(stream envoy_service_secret.SecretDiscoveryService_StreamSecretsServer) error {
@@ -188,22 +188,18 @@ func (s *xdsGRPCServer) FetchSecrets(ctx context.Context, req *envoy_service_dis
 	return nil, ErrNotImplemented
 }
 
+func (s *xdsGRPCServer) DeltaNetworkPolicies(stream grpc.BidiStreamingServer[envoy_service_discovery.DeltaDiscoveryRequest, envoy_service_discovery.DeltaDiscoveryResponse]) error {
+	return s.Server.HandleDeltaRequestStream(stream.Context(), stream, NetworkPolicyTypeURL, "")
+}
+
 func (s *xdsGRPCServer) StreamNetworkPolicies(stream cilium.NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error {
 	return s.Server.HandleRequestStream(stream.Context(), stream, NetworkPolicyTypeURL, "")
 }
 
-func (s *xdsGRPCServer) FetchNetworkPolicies(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
-	// The Fetch methods are only called via the REST API, which is not
-	// implemented in Cilium. Only the Stream methods are called over gRPC.
-	return nil, ErrNotImplemented
+func (s *xdsGRPCServer) DeltaNetworkPolicyHosts(stream grpc.BidiStreamingServer[envoy_service_discovery.DeltaDiscoveryRequest, envoy_service_discovery.DeltaDiscoveryResponse]) error {
+	return s.Server.HandleDeltaRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL, "")
 }
 
 func (s *xdsGRPCServer) StreamNetworkPolicyHosts(stream cilium.NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer) error {
 	return s.Server.HandleRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL, "")
-}
-
-func (s *xdsGRPCServer) FetchNetworkPolicyHosts(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
-	// The Fetch methods are only called via the REST API, which is not
-	// implemented in Cilium. Only the Stream methods are called over gRPC.
-	return nil, ErrNotImplemented
 }

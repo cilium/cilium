@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
+	config "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -38,6 +39,7 @@ type onDemandXdsStarter struct {
 	maxConnections                 uint32
 	maxRequests                    uint32
 	maxPendingRequests             uint32
+	xdsMode                        config.XDSMode
 	localNodeStore                 *node.LocalNodeStore
 
 	envoyOnce sync.Once
@@ -81,7 +83,6 @@ func (o *onDemandXdsStarter) startStandaloneEnvoy(ctx context.Context, wg *compl
 	o.envoyOnce.Do(func() {
 		// Start standalone Envoy on first invocation
 		_, startErr = o.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-			adsMode:                        o.adsMode,
 			runDir:                         o.runDir,
 			logPath:                        o.envoyLogPath,
 			defaultLogLevel:                o.envoyDefaultLogLevel,
@@ -97,6 +98,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoy(ctx context.Context, wg *compl
 			maxConnections:                 o.maxConnections,
 			maxRequests:                    o.maxRequests,
 			maxPendingRequests:             o.maxPendingRequests,
+			xdsMode:                        o.xdsMode,
 		})
 
 		// Add Prometheus listener if the port is (properly) configured

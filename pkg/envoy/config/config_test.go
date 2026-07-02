@@ -12,12 +12,9 @@ import (
 func TestValidateEnvoyXDSMode(t *testing.T) {
 	tests := []struct {
 		name    string
-		mode    string
+		mode    XDSMode
 		wantErr bool
 	}{
-		{
-			name: "default mode",
-		},
 		{
 			name: "split mode",
 			mode: EnvoyXDSModeSplit,
@@ -39,7 +36,8 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := (ProxyConfig{EnvoyXDSMode: tt.mode}).Validate()
+			config := ProxyConfig{EnvoyXDSMode: tt.mode}
+			err := config.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -50,17 +48,14 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 }
 
 func TestEnvoyXDSModeHelpers(t *testing.T) {
-	require.Equal(t, EnvoyXDSModeADS, NormalizeXDSMode(""))
-	require.Equal(t, EnvoyXDSModeSplit, NormalizeXDSMode(EnvoyXDSModeSplit))
+	require.False(t, XDSMode("").IsADS())
+	require.False(t, XDSMode("").IsStrictADS())
+	require.False(t, EnvoyXDSModeSplit.IsADS())
+	require.False(t, EnvoyXDSModeSplit.IsStrictADS())
 
-	require.True(t, ADSModeEnabled(""))
-	require.False(t, StrictADSModeEnabled(""))
-	require.False(t, ADSModeEnabled(EnvoyXDSModeSplit))
-	require.False(t, StrictADSModeEnabled(EnvoyXDSModeSplit))
+	require.True(t, EnvoyXDSModeADS.IsADS())
+	require.False(t, EnvoyXDSModeADS.IsStrictADS())
 
-	require.True(t, ADSModeEnabled(EnvoyXDSModeADS))
-	require.False(t, StrictADSModeEnabled(EnvoyXDSModeADS))
-
-	require.True(t, ADSModeEnabled(EnvoyXDSModeStrictADS))
-	require.True(t, StrictADSModeEnabled(EnvoyXDSModeStrictADS))
+	require.True(t, EnvoyXDSModeStrictADS.IsADS())
+	require.True(t, EnvoyXDSModeStrictADS.IsStrictADS())
 }
