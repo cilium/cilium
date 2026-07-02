@@ -31,7 +31,6 @@ import (
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -519,21 +518,6 @@ func setInvalidStatus(conditions *[]metav1.Condition, reason mcsapiv1beta1.Servi
 	return meta.RemoveStatusCondition(conditions, string(mcsapiv1beta1.ServiceExportConditionConflict)) || changed
 }
 
-// checkLocalSvcValidForExport checks if the local service is valid for export.
-// The logic here MUST be kept up to date with the logic in checkLocalSlimSvcValidForExport.
-func checkLocalSvcValidForExport(localSvc *corev1.Service) (bool, mcsapiv1beta1.ServiceExportConditionReason, string) {
-	if localSvc.Spec.Type == corev1.ServiceTypeExternalName {
-		return false, mcsapiv1beta1.ServiceExportReasonInvalidServiceType, "Service type ExternalName is not supported"
-	}
-	return true, "", ""
-}
-
-// checkLocalSvcValidForExport checks if the local service is valid for export.
-// The logic here MUST be kept up to date with the logic in checkLocalSvcValidForExport.
-func checkLocalSlimSvcValidForExport(localSvc *slim_corev1.Service) bool {
-	return localSvc.Spec.Type != slim_corev1.ServiceTypeExternalName
-}
-
 func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ns, err := r.getNamespace(ctx, req.Namespace)
 	if err != nil {
@@ -593,7 +577,7 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 			return controllerruntime.Success()
 		}
-		if validForExport, reason, msg := checkLocalSvcValidForExport(localSvc); !validForExport {
+		if validForExport, reason, msg := mcsapitypes.CheckLocalSvcValidForExport(localSvc); !validForExport {
 			if setInvalidStatus(
 				&svcExport.Status.Conditions,
 				reason,

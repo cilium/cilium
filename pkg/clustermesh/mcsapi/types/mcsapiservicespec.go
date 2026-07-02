@@ -28,6 +28,21 @@ var (
 	ServiceExportStorePrefix = kvstore.JoinKey(kvstore.BaseKeyPrefix, "state", "serviceexports", "v1")
 )
 
+// CheckLocalSvcValidForExport checks if the local service is valid for export.
+// The logic here MUST be kept up to date with the logic in CheckLocalSlimSvcValidForExport.
+func CheckLocalSvcValidForExport(localSvc *corev1.Service) (bool, mcsapiv1beta1.ServiceExportConditionReason, string) {
+	if localSvc.Spec.Type == corev1.ServiceTypeExternalName {
+		return false, mcsapiv1beta1.ServiceExportReasonInvalidServiceType, "Service type ExternalName is not supported"
+	}
+	return true, "", ""
+}
+
+// CheckLocalSlimSvcValidForExport checks if the local service is valid for export.
+// The logic here MUST be kept up to date with the logic in CheckLocalSvcValidForExport.
+func CheckLocalSlimSvcValidForExport(localSvc *slim_corev1.Service) bool {
+	return localSvc.Spec.Type != slim_corev1.ServiceTypeExternalName
+}
+
 type MCSAPIServiceSpec struct {
 	// Cluster is the cluster name the service is configured in
 	Cluster string `json:"cluster"`

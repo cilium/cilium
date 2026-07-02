@@ -150,9 +150,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
 	option.BindEnv(vp, option.K8sNamespaceName)
 
-	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
-	option.BindEnv(vp, operatorOption.SyncK8sServices)
-
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(vp, option.Version)
 

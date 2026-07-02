@@ -7,13 +7,12 @@ import (
 	"errors"
 
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
-	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
-	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -77,33 +76,33 @@ var Synchronization = cell.Module(
 
 	cell.Group(
 		cell.Provide(
-			func(syncState syncstate.SyncState, svcV2Cfg cmtypes.ServiceModeV2Config) operatorWatchers.ServiceSyncConfig {
+			func(syncState syncstate.SyncState, svcV2Cfg cmtypes.ServiceModeV2Config) ServiceSyncConfig {
 				if !svcV2Cfg.ServiceModeV2.ShouldExportLegacyServices() {
-					return operatorWatchers.ServiceSyncConfig{}
+					return ServiceSyncConfig{}
 				}
-				return operatorWatchers.ServiceSyncConfig{
+				return ServiceSyncConfig{
 					Enabled: true,
 					Synced:  syncState.WaitForResource(),
 				}
 			},
-			func(syncState syncstate.SyncState) operatorWatchers.EndpointSliceExportSyncConfig {
-				return operatorWatchers.EndpointSliceExportSyncConfig{
+			func(syncState syncstate.SyncState) EndpointSliceSyncConfig {
+				return EndpointSliceSyncConfig{
 					Enabled: true,
 					Synced:  syncState.WaitForResource(),
 				}
 			},
 		),
-		operatorWatchers.ServiceSyncCell,
-		operatorWatchers.EndpointSliceExportSyncCell,
+		ServiceSyncCell,
+		EndpointSliceSyncCell,
 	),
 
 	cell.Group(
 		cell.Provide(
-			func(syncState syncstate.SyncState) mcsapi.ServiceExportSyncCallback {
+			func(syncState syncstate.SyncState) ServiceExportSyncCallback {
 				return syncState.WaitForResource()
 			},
 		),
-		mcsapi.ServiceExportSyncCell,
+		ServiceExportSyncCell,
 	),
 
 	cell.Group(
@@ -142,6 +141,45 @@ var Synchronization = cell.Module(
 	),
 	cell.Invoke(registerSyncStateStop),
 )
+
+var OperatorSynchronization = cell.Module(
+	"clustermesh-operator-sync",
+	"Synchronize information from Kubernetes to KVStore in the operator",
+
+	cell.Config(defaultOperatorSynchronizationConfig),
+
+	// Provide the namespace manager.
+	cmnamespace.Cell,
+
+	// Synchronizes K8s services to KVStore.
+	cell.Provide(func(cfg operatorSynchronizationConfig, svcV2Cfg cmtypes.ServiceModeV2Config) ServiceSyncConfig {
+		return ServiceSyncConfig{
+			Enabled: cfg.SyncK8sServices && svcV2Cfg.ServiceModeV2.ShouldExportLegacyServices(),
+		}
+	}),
+	cell.Provide(func(cfg operatorSynchronizationConfig) EndpointSliceSyncConfig {
+		return EndpointSliceSyncConfig{
+			Enabled: cfg.SyncK8sServices,
+		}
+	}),
+	ServiceSyncCell,
+	EndpointSliceSyncCell,
+
+	// Synchronizes K8s ServiceExports to KVStore
+	ServiceExportSyncCell,
+)
+
+type operatorSynchronizationConfig struct {
+	SyncK8sServices bool `mapstructure:"synchronize-k8s-services"`
+}
+
+var defaultOperatorSynchronizationConfig = operatorSynchronizationConfig{
+	SyncK8sServices: true,
+}
+
+func (def operatorSynchronizationConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("synchronize-k8s-services", def.SyncK8sServices, "Synchronize Kubernetes services to kvstore")
+}
 
 func registerSyncStateStop(lc cell.Lifecycle, ss syncstate.SyncState) {
 	lc.Append(

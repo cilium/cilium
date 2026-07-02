@@ -27,6 +27,7 @@ import (
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
+	cmapisrv "github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/doublewrite"
@@ -58,7 +59,6 @@ import (
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
-	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/cmdref"
@@ -319,25 +319,8 @@ var (
 		// Resources might be K8s `Ingress` or Gateway API `Gateway`.
 		secretsync.Cell,
 
-		// Provide the namespace manager for service and serviceexport synchronizers.
-		cmnamespace.Cell,
-
-		// Synchronizes K8s services to KVStore.
-		cell.Provide(func(cfg *operatorOption.OperatorConfig, svcV2Cfg cmtypes.ServiceModeV2Config) operatorWatchers.ServiceSyncConfig {
-			return operatorWatchers.ServiceSyncConfig{
-				Enabled: cfg.SyncK8sServices && svcV2Cfg.ServiceModeV2.ShouldExportLegacyServices(),
-			}
-		}),
-		cell.Provide(func(cfg *operatorOption.OperatorConfig) operatorWatchers.EndpointSliceExportSyncConfig {
-			return operatorWatchers.EndpointSliceExportSyncConfig{
-				Enabled: cfg.SyncK8sServices,
-			}
-		}),
-		operatorWatchers.ServiceSyncCell,
-		operatorWatchers.EndpointSliceExportSyncCell,
-
-		// Synchronizes K8s ServiceExports to KVStore
-		mcsapi.ServiceExportSyncCell,
+		// Synchronize resources specific to Cluster Mesh when running in KVStore mode
+		cmapisrv.OperatorSynchronization,
 
 		// Cilium L7 LoadBalancing with Envoy.
 		ciliumenvoyconfig.Cell,

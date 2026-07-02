@@ -1,0 +1,240 @@
+#! --cluster-id=1 --cluster-name=cluster1 --clustermesh-enable-mcs-api
+
+# Create CRD to pass CRD existence validation
+k8s/add serviceexport-crd.yaml
+
+hive/start
+
+# Create namespace first (required for namespace manager)
+k8s/add namespace.yaml
+
+# 1. Add services and service exports
+k8s/add service-basic.yaml service-headless.yaml service-externalname.yaml
+k8s/add serviceexport-basic.yaml serviceexport-headless.yaml serviceexport-externalname.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/serviceexports serviceexports.actual
+* cmp serviceexports.actual serviceexports-1.expected
+
+# 2. Update service export annotations
+cp serviceexport-basic.yaml serviceexport-basic-v2.yaml
+replace 'foo' 'bar' serviceexport-basic-v2.yaml
+k8s/update serviceexport-basic-v2.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/serviceexports serviceexports.actual
+* cmp serviceexports.actual serviceexports-2.expected
+
+# 3. Remove one service and one service export
+k8s/delete service-basic.yaml serviceexport-headless.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/serviceexports serviceexports.actual
+* empty serviceexports.actual
+
+# 4. Add back service and service export
+k8s/add service-basic.yaml serviceexport-headless.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/serviceexports serviceexports.actual
+* cmp serviceexports.actual serviceexports-2.expected
+
+# ----
+
+-- namespace.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+
+-- serviceexport-crd.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: serviceexports.multicluster.x-k8s.io
+spec:
+  group: multicluster.x-k8s.io
+  names:
+    kind: ServiceExport
+    plural: serviceexports
+    singular: serviceexport
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+
+-- service-basic.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: basic
+  namespace: default
+spec:
+  ports:
+  - name: my-port-1
+    port: 80
+    protocol: TCP
+  selector:
+    name: basic
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 42
+  type: ClusterIP
+
+-- service-headless.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless
+  namespace: default
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  selector:
+    name: headless
+  type: ClusterIP
+
+-- service-externalname.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-name
+  namespace: default
+spec:
+  externalName: example.com
+  type: ExternalName
+
+-- serviceexport-basic.yaml --
+apiVersion: multicluster.x-k8s.io/v1beta1
+kind: ServiceExport
+metadata:
+  name: basic
+  namespace: default
+  creationTimestamp: "2026-01-01T00:00:00Z"
+spec:
+  exportedAnnotations:
+    my-annotation: foo
+  exportedLabels:
+    my-label: test
+
+-- serviceexport-headless.yaml --
+apiVersion: multicluster.x-k8s.io/v1beta1
+kind: ServiceExport
+metadata:
+  name: headless
+  namespace: default
+  creationTimestamp: "2026-01-01T00:00:00Z"
+
+-- serviceexport-externalname.yaml --
+apiVersion: multicluster.x-k8s.io/v1beta1
+kind: ServiceExport
+metadata:
+  name: external-name
+  namespace: default
+  creationTimestamp: "2026-01-01T00:00:00Z"
+
+-- serviceexports-1.expected --
+# cilium/state/serviceexports/v1/cluster1/default/basic
+{
+  "cluster": "cluster1",
+  "name": "basic",
+  "namespace": "default",
+  "annotations": {
+    "my-annotation": "foo"
+  },
+  "labels": {
+    "my-label": "test"
+  },
+  "Labels": {
+    "my-label": "test"
+  },
+  "Annotations": {
+    "my-annotation": "foo"
+  },
+  "exportCreationTimestamp": "2026-01-01T00:00:00Z",
+  "ports": [
+    {
+      "name": "my-port-1",
+      "protocol": "TCP",
+      "port": 80
+    }
+  ],
+  "type": "ClusterSetIP",
+  "sessionAffinity": "ClientIP",
+  "sessionAffinityConfig": {
+    "clientIP": {
+      "timeoutSeconds": 42
+    }
+  }
+}
+# cilium/state/serviceexports/v1/cluster1/default/headless
+{
+  "cluster": "cluster1",
+  "name": "headless",
+  "namespace": "default",
+  "exportCreationTimestamp": "2026-01-01T00:00:00Z",
+  "ports": [
+    {
+      "name": "http",
+      "protocol": "TCP",
+      "port": 80
+    }
+  ],
+  "type": "Headless",
+  "sessionAffinity": ""
+}
+-- serviceexports-2.expected --
+# cilium/state/serviceexports/v1/cluster1/default/basic
+{
+  "cluster": "cluster1",
+  "name": "basic",
+  "namespace": "default",
+  "annotations": {
+    "my-annotation": "bar"
+  },
+  "labels": {
+    "my-label": "test"
+  },
+  "Labels": {
+    "my-label": "test"
+  },
+  "Annotations": {
+    "my-annotation": "bar"
+  },
+  "exportCreationTimestamp": "2026-01-01T00:00:00Z",
+  "ports": [
+    {
+      "name": "my-port-1",
+      "protocol": "TCP",
+      "port": 80
+    }
+  ],
+  "type": "ClusterSetIP",
+  "sessionAffinity": "ClientIP",
+  "sessionAffinityConfig": {
+    "clientIP": {
+      "timeoutSeconds": 42
+    }
+  }
+}
+# cilium/state/serviceexports/v1/cluster1/default/headless
+{
+  "cluster": "cluster1",
+  "name": "headless",
+  "namespace": "default",
+  "exportCreationTimestamp": "2026-01-01T00:00:00Z",
+  "ports": [
+    {
+      "name": "http",
+      "protocol": "TCP",
+      "port": 80
+    }
+  ],
+  "type": "Headless",
+  "sessionAffinity": ""
+}
