@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -362,6 +363,16 @@ func TestPrivilegedWriteNodeConfigExtraDefines(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestPreferredIPv4Address(t *testing.T) {
+	// Verify that the v4 address is picked over the v6 one. Ordering is
+	// already covered by tables.TestSortedAddresses.
+	devices := []tables.DeviceAddress{
+		{Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::")},
+		{Addr: netip.MustParseAddr("10.0.0.1")},
+	}
+	require.Equal(t, byteorder.NetIPAddrToHost32(netip.MustParseAddr("10.0.0.1")), preferredIPv4Address(devices))
 }
 
 func TestPreferredIPv6Address(t *testing.T) {
