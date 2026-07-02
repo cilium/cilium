@@ -5,25 +5,87 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/time"
 )
 
+type XDSMode string
+
 const (
 	// EnvoyXDSModeSplit selects the existing per-resource-type xDS server.
-	EnvoyXDSModeSplit = "split"
+	EnvoyXDSModeSplit XDSMode = "split"
+
+	// EnvoyXDSModeSplitDelta selects the per-resource-type xDS server in Delta xDS mode.
+	EnvoyXDSModeDeltaSplit XDSMode = "delta-split"
 
 	// EnvoyXDSModeADS selects the ADS (Aggregated Discovery Service) xDS server.
-	EnvoyXDSModeADS = "ads"
+	EnvoyXDSModeADS XDSMode = "ads"
+
+	// EnvoyXDSModeDeltaADS selects the ADS (Aggregated Discovery Service) xDS server in Delta xDS mode.
+	EnvoyXDSModeDeltaADS XDSMode = "delta-ads"
 
 	// EnvoyXDSModeStrictADS selects the ADS xDS server with strict snapshot validation.
-	EnvoyXDSModeStrictADS = "strict-ads"
+	EnvoyXDSModeStrictADS XDSMode = "strict-ads"
+
+	// EnvoyXDSModeStrictDeltaADS selects the ADS xDS server with strict snapshot validation in Delta xDS mode.
+	EnvoyXDSModeStrictDeltaADS XDSMode = "strict-delta-ads"
 
 	// DefaultXDSMode is set to "split" for upgrade compatibility
 	DefaultXDSMode = EnvoyXDSModeSplit
 )
+
+func (v XDSMode) IsADS() bool {
+	return strings.HasSuffix(string(v), "ads")
+}
+
+func (v XDSMode) IsStrictADS() bool {
+	return strings.HasPrefix(string(v), "strict-")
+}
+
+// Validate validates and normalizes the XDSMode
+func (v XDSMode) Validate() error {
+	switch v {
+	case EnvoyXDSModeSplit, EnvoyXDSModeDeltaSplit, EnvoyXDSModeADS, EnvoyXDSModeStrictADS:
+		return nil
+	case EnvoyXDSModeDeltaADS, EnvoyXDSModeStrictDeltaADS:
+		return fmt.Errorf("unimplemented xDS mode %q", v)
+	default:
+		return fmt.Errorf("invalid xDS mode %q", v)
+	}
+}
+
+func (v XDSMode) EnvoyApiType() envoy_config_core.ApiConfigSource_ApiType {
+	switch v {
+	case EnvoyXDSModeDeltaSplit:
+		return envoy_config_core.ApiConfigSource_DELTA_GRPC
+	case EnvoyXDSModeADS, EnvoyXDSModeStrictADS:
+		return envoy_config_core.ApiConfigSource_AGGREGATED_GRPC
+	case EnvoyXDSModeDeltaADS, EnvoyXDSModeStrictDeltaADS:
+		return envoy_config_core.ApiConfigSource_AGGREGATED_DELTA_GRPC
+	}
+	return envoy_config_core.ApiConfigSource_GRPC
+}
+
+// implement the pflag.Value interface
+var _xdsMode_ XDSMode
+var _ pflag.Value = &_xdsMode_
+
+func (v XDSMode) String() string { return string(v) }
+
+func (v XDSMode) Type() string { return "string" }
+
+func (v *XDSMode) Set(value string) error {
+	mode := XDSMode(value)
+	if err := mode.Validate(); err != nil {
+		return err
+	}
+	*v = XDSMode(value)
+	return nil
+}
 
 type ProxyConfig struct {
 	DisableEnvoyVersionCheck            bool
@@ -59,33 +121,23 @@ type ProxyConfig struct {
 	EnvoyPolicyRestoreTimeout           time.Duration
 	EnvoyHTTPUpstreamLingerTimeout      int
 	EnvoyAccessLogEnabled               bool
-	EnvoyXDSMode                        string
-}
-
-func ADSModeEnabled(mode string) bool {
-	return mode == EnvoyXDSModeADS || mode == EnvoyXDSModeStrictADS
-}
-
-func StrictADSModeEnabled(mode string) bool {
-	return mode == EnvoyXDSModeStrictADS
+	EnvoyXDSMode                        XDSMode
 }
 
 func (r ProxyConfig) ADSModeEnabled() bool {
-	return ADSModeEnabled(r.EnvoyXDSMode)
+	return r.EnvoyXDSMode.IsADS()
 }
 
 func (r ProxyConfig) StrictADSModeEnabled() bool {
-	return StrictADSModeEnabled(r.EnvoyXDSMode)
+	return r.EnvoyXDSMode.IsStrictADS()
 }
 
-func (r ProxyConfig) Validate() error {
-	switch r.EnvoyXDSMode {
-	case EnvoyXDSModeSplit, EnvoyXDSModeADS, EnvoyXDSModeStrictADS:
-		return nil
-	default:
-		return fmt.Errorf("invalid Envoy xDS mode %q, valid modes = {%q, %q, %q}",
-			r.EnvoyXDSMode, EnvoyXDSModeSplit, EnvoyXDSModeADS, EnvoyXDSModeStrictADS)
+// Validate validates and normalizes the XDSMode
+func (r *ProxyConfig) Validate() error {
+	if r.EnvoyXDSMode == "" {
+		r.EnvoyXDSMode = DefaultXDSMode
 	}
+	return r.EnvoyXDSMode.Validate()
 }
 
 func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
@@ -94,7 +146,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
 	flags.Bool("envoy-access-log-enabled", true, "Enable access log forwarding for integration with Hubble.")
-	flags.String("envoy-xds-mode", DefaultXDSMode, `xDS server implementation for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS server, "ads" for the ADS (Aggregated Discovery Service) xDS server, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks`)
+	flags.Var(&r.EnvoyXDSMode, "envoy-xds-mode", `xDS server operating mode for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS, "delta-split" for incremental per-resource-type xDS, "ads" for Aggregated Discovery Service, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks (default "split")`)
 	flags.Uint("envoy-access-log-buffer-size", 4096, "Envoy access log buffer size in bytes")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String("envoy-default-log-level", "", "Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.")

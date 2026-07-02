@@ -227,6 +227,7 @@ func TestEnvoyAds(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -245,7 +246,6 @@ func TestEnvoyAds(t *testing.T) {
 	// launch debug variant of the Envoy proxy
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-		adsMode:                        true,
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         15,
@@ -256,6 +256,7 @@ func TestEnvoyAds(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeADS,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -357,6 +358,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -375,7 +377,6 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	// launch debug variant of the Envoy proxy
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-		adsMode:                        true,
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         15,
@@ -386,6 +387,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeADS,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -462,6 +464,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -480,7 +483,6 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	// launch debug variant of the Envoy proxy
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-		adsMode:                        true,
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         15,
@@ -491,6 +493,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeADS,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -632,6 +635,8 @@ func TestEnvoy(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			useNPHDS:          true,
+			envoyXDSMode:      config.EnvoyXDSModeSplit,
 		},
 		nil)
 	require.NotNil(t, xdsServer)
@@ -661,6 +666,7 @@ func TestEnvoy(t *testing.T) {
 		maxConnections:                 1024,
 		maxRequests:                    1024,
 		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeSplit,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -758,6 +764,7 @@ func TestEnvoyNACK(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeSplit,
 		}, nil)
 	require.NotNil(t, xdsServer)
 
@@ -786,6 +793,7 @@ func TestEnvoyNACK(t *testing.T) {
 		maxConnections:                 1024,
 		maxRequests:                    1024,
 		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeSplit,
 	})
 	require.NotNil(t, envoyProxy)
 	require.NoError(t, err)
@@ -846,6 +854,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -863,7 +872,6 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-		adsMode:                        true,
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         42,
@@ -874,6 +882,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeADS,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -967,6 +976,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -984,7 +994,6 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-		adsMode:                        true,
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         15,
@@ -995,6 +1004,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeADS,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -1064,6 +1074,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -1081,7 +1092,6 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-		adsMode:                        true,
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         42,
@@ -1092,6 +1102,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeADS,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -1150,9 +1161,6 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
 
-	SetXDSMode(config.EnvoyXDSModeADS)
-	t.Cleanup(func() { SetXDSMode("") })
-
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
 
@@ -1169,6 +1177,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -1196,7 +1205,6 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 		}),
 	}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
-		adsMode:                        true,
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         15,
@@ -1208,6 +1216,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
 		nodeLocalityEnabled:            true,
+		xdsMode:                        config.EnvoyXDSModeADS,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
