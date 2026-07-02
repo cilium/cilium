@@ -31,8 +31,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	config "github.com/cilium/cilium/pkg/envoy/config"
 	util "github.com/cilium/cilium/pkg/envoy/util"
-
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -104,7 +104,6 @@ type StandaloneEnvoy struct {
 }
 
 type standaloneEnvoyConfig struct {
-	adsMode                        bool
 	runDir                         string
 	logPath                        string
 	defaultLogLevel                string
@@ -120,6 +119,7 @@ type standaloneEnvoyConfig struct {
 	maxConnections                 uint32
 	maxRequests                    uint32
 	maxPendingRequests             uint32
+	xdsMode                        config.XDSMode
 }
 
 // startStandaloneEnvoyInternal starts an Envoy proxy instance.
@@ -141,7 +141,6 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 	bootstrapFilePath := filepath.Join(bootstrapDir, "bootstrap.pb")
 
 	err := o.writeBootstrapConfigFile(bootstrapConfig{
-		adsMode:                        config.adsMode,
 		filePath:                       bootstrapFilePath,
 		nodeId:                         "host~127.0.0.1~no-id~localdomain", // node id format inherited from Istio
 		cluster:                        ingressClusterName,
@@ -159,6 +158,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 		maxRequests:                    config.maxRequests,
 		maxPendingRequests:             config.maxPendingRequests,
 		nodeLocalityEnabled:            config.nodeLocalityEnabled,
+		xdsMode:                        config.xdsMode,
 	})
 	if err != nil {
 		return nil, err
@@ -193,7 +193,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 
 			// Create a piper that parses Envoy log messages and
 			// writes them to the Cilium agent log.
-			logWriter = o.newEnvoyLogPiper(config.adsMode)
+			logWriter = o.newEnvoyLogPiper(config.xdsMode.IsADS())
 		}
 		defer logWriter.Close()
 
@@ -381,7 +381,6 @@ func (e *StandaloneEnvoy) GetAdminClient() *EnvoyAdminClient {
 }
 
 type bootstrapConfig struct {
-	adsMode                        bool
 	filePath                       string
 	nodeId                         string
 	cluster                        string
@@ -399,6 +398,7 @@ type bootstrapConfig struct {
 	maxRequests                    uint32
 	maxPendingRequests             uint32
 	nodeLocalityEnabled            bool
+	xdsMode                        config.XDSMode
 }
 
 func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) error {
@@ -453,16 +453,12 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 	}
 
 	dynamicResources := &envoy_config_bootstrap.Bootstrap_DynamicResources{
-		LdsConfig: CiliumXDSConfigSource,
-		CdsConfig: CiliumXDSConfigSource,
+		LdsConfig: CiliumConfigSource(config.xdsMode),
+		CdsConfig: CiliumConfigSource(config.xdsMode),
 	}
 
-	if config.adsMode {
-		dynamicResources = &envoy_config_bootstrap.Bootstrap_DynamicResources{
-			AdsConfig: CiliumAdsConfigSource,
-			LdsConfig: NewCiliumXdsWithAdsConfigSource(),
-			CdsConfig: NewCiliumXdsWithAdsConfigSource(),
-		}
+	if config.xdsMode.IsADS() {
+		dynamicResources.AdsConfig = CiliumAdsConfigSource
 	}
 
 	bs := &envoy_config_bootstrap.Bootstrap{
@@ -603,7 +599,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 			o.logger.Error("Envoy: Embedded node locality requires zone label")
 			return fmt.Errorf("embedded Envoy node locality requires zone label")
 		}
-		appendEmbeddedLocalityBootstrap(bs, config.connectTimeout, zone)
+		appendEmbeddedLocalityBootstrap(bs, config.xdsMode, config.connectTimeout, zone)
 	}
 
 	o.logger.Debug("Envoy: Writing Bootstrap config",

@@ -77,6 +77,8 @@ type CECResourceParser struct {
 	// SO_REUSEPORT is disabled on (non-internal) listeners as it is not
 	// compatible with BPF TPROXY.
 	enableBPFTProxy bool
+
+	xdsMode envoyCfg.XDSMode
 }
 
 type parserParams struct {
@@ -104,6 +106,7 @@ func newCECResourceParser(params parserParams) *CECResourceParser {
 		defaultMaxPendingRequests:   params.EnvoyConfig.ProxyClusterMaxPendingRequests,
 		httpLingerConfig:            params.EnvoyConfig.EnvoyHTTPUpstreamLingerTimeout,
 		enableBPFTProxy:             params.DaemonConfig.EnableBPFTProxy,
+		xdsMode:                     params.EnvoyConfig.EnvoyXDSMode,
 	}
 	if params.EnvoyConfig.EnvoyAccessLogEnabled {
 		parser.accessLogPath = util.GetAccessLogSocketPath(util.GetSocketDir(option.Config.RunDir))
@@ -157,6 +160,10 @@ type PortAllocator interface {
 //   - `newResources` is passed as `true` when parsing resources that are being added or are the new version of the resources being updated,
 //     and as `false` if the resources are being removed or are the old version of the resources being updated. Only 'new' resources are validated.
 func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, injectCiliumEnvoyFilters bool, useOriginalSourceAddr bool, newResources bool) (xds.Resources, error) {
+	if r.xdsMode == "" {
+		r.xdsMode = envoyCfg.DefaultXDSMode
+	}
+
 	// only validate new resources - old ones are already applied
 	validate := newResources
 
@@ -208,7 +215,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
-				fillInTransportSocketXDS(cecNamespace, cecName, fc.TransportSocket)
+				fillInTransportSocketXDS(cecNamespace, cecName, fc.TransportSocket, r.xdsMode)
 				foundCiliumNetworkFilter := false
 				for i, filter := range fc.Filters {
 					if filter.Name == ciliumNetworkFilterName {
@@ -236,7 +243,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 								rds.RouteConfigName, updated = api.ResourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName, api.ForceNamespace)
 							}
 							if rds.ConfigSource == nil {
-								rds.ConfigSource = envoy.GetXDSConfigSource()
+								rds.ConfigSource = envoy.CiliumConfigSource(r.xdsMode)
 								updated = true
 							}
 						}
@@ -354,7 +361,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 				return xds.Resources{}, fmt.Errorf("unspecified Cluster name")
 			}
 
-			fillInTransportSocketXDS(cecNamespace, cecName, cluster.TransportSocket)
+			fillInTransportSocketXDS(cecNamespace, cecName, cluster.TransportSocket, r.xdsMode)
 
 			fillInCircuitBreakers(cluster, r.defaultMaxConcurrentRetries, r.defaultMaxConnections, r.defaultMaxRequests, r.defaultMaxPendingRequests)
 
@@ -363,12 +370,12 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 				if cluster.EdsClusterConfig == nil {
 					cluster.EdsClusterConfig = &envoy_config_cluster.Cluster_EdsClusterConfig{}
 				}
-				if cluster.EdsClusterConfig.EdsConfig == nil || envoy.ADSModeEnabled() {
+				if cluster.EdsClusterConfig.EdsConfig == nil || r.xdsMode.IsADS() {
 					// In ADS mode all inline xDS references must use the aggregated
 					// stream. Gateway-generated CEC clusters may already carry a split
 					// xDS source, so normalize only ADS mode and preserve the existing
 					// behavior for legacy split xDS mode.
-					cluster.EdsClusterConfig.EdsConfig = envoy.GetXDSConfigSource()
+					cluster.EdsClusterConfig.EdsConfig = envoy.CiliumConfigSource(r.xdsMode)
 				}
 			}
 
@@ -600,11 +607,8 @@ func (r *CECResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 		IpcacheName:              ipcache.Name,
 	}
 
-	if envoy.ADSModeEnabled() {
-		// Keep NPHDS disabled in production. Envoy can resolve identities from
-		// ipcache/BPF maps, while standalone Envoy tests enable NPHDS explicitly
-		// for environments without datapath maps.
-		conf.CiliumConfigSource = envoy.NewCiliumXdsWithAdsConfigSource()
+	if r.xdsMode != envoyCfg.EnvoyXDSModeSplit {
+		conf.CiliumConfigSource = envoy.CiliumConfigSource(r.xdsMode)
 	}
 
 	if isHTTPListener && r.httpLingerConfig >= 0 {
@@ -942,11 +946,11 @@ func injectCiliumUpstreamL7Filter(accessLogPath string, opts *envoy_config_upstr
 	return changed, nil
 }
 
-func qualifySdsSecretConfig(sc *envoy_config_tls.SdsSecretConfig, cecNamespace string, cecName string) bool {
+func qualifySdsSecretConfig(sc *envoy_config_tls.SdsSecretConfig, cecNamespace string, cecName string, xdsMode envoyCfg.XDSMode) bool {
 	updated := false
 
 	if sc.SdsConfig == nil {
-		sc.SdsConfig = envoy.GetXDSConfigSource()
+		sc.SdsConfig = envoy.CiliumConfigSource(xdsMode)
 		updated = true
 	}
 	var nameUpdated bool
@@ -958,19 +962,19 @@ func qualifySdsSecretConfig(sc *envoy_config_tls.SdsSecretConfig, cecNamespace s
 	return updated
 }
 
-func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_tls.CommonTlsContext) bool {
+func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_tls.CommonTlsContext, xdsMode envoyCfg.XDSMode) bool {
 	updated := false
 
 	if tls != nil {
 		for _, sc := range tls.TlsCertificateSdsSecretConfigs {
-			updated = qualifySdsSecretConfig(sc, cecNamespace, cecName) || updated
+			updated = qualifySdsSecretConfig(sc, cecNamespace, cecName, xdsMode) || updated
 		}
 		if sc := tls.GetValidationContextSdsSecretConfig(); sc != nil {
-			updated = qualifySdsSecretConfig(sc, cecNamespace, cecName) || updated
+			updated = qualifySdsSecretConfig(sc, cecNamespace, cecName, xdsMode) || updated
 		}
 		if cvc := tls.GetCombinedValidationContext(); cvc != nil {
 			if sc := cvc.GetValidationContextSdsSecretConfig(); sc != nil {
-				updated = qualifySdsSecretConfig(sc, cecNamespace, cecName) || updated
+				updated = qualifySdsSecretConfig(sc, cecNamespace, cecName, xdsMode) || updated
 			}
 		}
 	}
@@ -978,7 +982,7 @@ func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_
 	return updated
 }
 
-func fillInTransportSocketXDS(cecNamespace string, cecName string, ts *envoy_config_core.TransportSocket) {
+func fillInTransportSocketXDS(cecNamespace string, cecName string, ts *envoy_config_core.TransportSocket, xdsMode envoyCfg.XDSMode) {
 	if ts != nil {
 		if tc := ts.GetTypedConfig(); tc != nil {
 			any, err := tc.UnmarshalNew()
@@ -989,17 +993,17 @@ func fillInTransportSocketXDS(cecNamespace string, cecName string, ts *envoy_con
 			switch tls := any.(type) {
 			case *envoy_config_tls.DownstreamTlsContext:
 
-				wasUpdated := fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext)
+				wasUpdated := fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext, xdsMode)
 
 				if tls.GetSessionTicketKeysSdsSecretConfig() != nil {
-					wasUpdated = qualifySdsSecretConfig(tls.GetSessionTicketKeysSdsSecretConfig(), cecNamespace, cecName) || wasUpdated
+					wasUpdated = qualifySdsSecretConfig(tls.GetSessionTicketKeysSdsSecretConfig(), cecNamespace, cecName, xdsMode) || wasUpdated
 				}
 
 				if wasUpdated {
 					updated = toAny(tls)
 				}
 			case *envoy_config_tls.UpstreamTlsContext:
-				if fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext) {
+				if fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext, xdsMode) {
 					updated = toAny(tls)
 				}
 			}

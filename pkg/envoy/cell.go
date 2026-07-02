@@ -89,9 +89,13 @@ type runnableXDSServer interface {
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
+	// Validate also applies the default value if empty.
+	if err := params.EnvoyProxyConfig.EnvoyXDSMode.Validate(); err != nil {
+		return nil, err
+	}
+
 	// Override the default value before bootstrap is created for embedded envoy, or
 	// the xDS ConfigSource is used for CEC/CCEC.
-	SetXDSMode(params.EnvoyProxyConfig.EnvoyXDSMode)
 	SetXDSConfigSourceInitialFetchTimeout(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
 
 	xdsCfg := xdsServerConfig{
@@ -112,7 +116,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		metrics:                       params.Metrics,
 		httpLingerConfig:              params.EnvoyProxyConfig.EnvoyHTTPUpstreamLingerTimeout,
 		envoyAccessLogEnabled:         params.EnvoyProxyConfig.EnvoyAccessLogEnabled,
-		strictAdsMode:                 params.EnvoyProxyConfig.StrictADSModeEnabled(),
+		envoyXDSMode:                  params.EnvoyProxyConfig.EnvoyXDSMode,
 	}
 
 	var xdsServer runnableXDSServer
@@ -167,6 +171,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			maxConnections:                 params.EnvoyProxyConfig.ProxyClusterMaxConnections,
 			maxRequests:                    params.EnvoyProxyConfig.ProxyClusterMaxRequests,
 			maxPendingRequests:             params.EnvoyProxyConfig.ProxyClusterMaxPendingRequests,
+			xdsMode:                        params.EnvoyProxyConfig.EnvoyXDSMode,
 			localNodeStore:                 params.LocalNodeStore,
 		}, nil
 	}

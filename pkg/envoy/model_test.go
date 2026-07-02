@@ -16,10 +16,8 @@ import (
 
 func TestGetListenerFilterADSMode(t *testing.T) {
 	t.Run("ADS disabled: UseNphds not set", func(t *testing.T) {
-		SetXDSMode(config.EnvoyXDSModeSplit)
-		defer SetXDSMode("")
-
-		lf := GetListenerFilter(true, false, 1234, -1)
+		serverConfig := &xdsServerConfig{envoyXDSMode: config.EnvoyXDSModeSplit}
+		lf := GetListenerFilter(true, false, 1234, -1, serverConfig)
 		require.NotNil(t, lf)
 		msg, err := lf.GetTypedConfig().UnmarshalNew()
 		require.NoError(t, err)
@@ -30,10 +28,8 @@ func TestGetListenerFilterADSMode(t *testing.T) {
 	})
 
 	t.Run("ADS enabled: CiliumConfigSource set to ADS without NPHDS", func(t *testing.T) {
-		SetXDSMode(config.EnvoyXDSModeADS)
-		defer SetXDSMode("")
-
-		lf := GetListenerFilter(true, false, 1234, -1)
+		serverConfig := &xdsServerConfig{envoyXDSMode: config.EnvoyXDSModeADS}
+		lf := GetListenerFilter(true, false, 1234, -1, serverConfig)
 		require.NotNil(t, lf)
 		msg, err := lf.GetTypedConfig().UnmarshalNew()
 		require.NoError(t, err)

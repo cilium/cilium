@@ -15,7 +15,6 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -46,22 +45,6 @@ import (
 const (
 	localNodeID = LocalNodeID
 )
-
-var CiliumAdsConfigSource = &envoy_config_core.ApiConfigSource{
-	RequestTimeout:            &durationpb.Duration{Seconds: 30},
-	ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
-	TransportApiVersion:       envoy_config_core.ApiVersion_V3,
-	SetNodeOnFirstMessageOnly: true,
-	GrpcServices: []*envoy_config_core.GrpcService{
-		{
-			TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
-					ClusterName: CiliumXDSClusterName,
-				},
-			},
-		},
-	},
-}
 
 type adsServer struct {
 	logger *slog.Logger
@@ -131,7 +114,7 @@ func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCa
 
 // newADSServer creates a new ADS GRPC server.
 func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
-	return newADSServerWithCache(xdsnew.NewCache(logger, config.strictAdsMode), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
+	return newADSServerWithCache(xdsnew.NewCache(logger, config.envoyXDSMode.IsStrictADS()), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
 }
 
 func (s *adsServer) run(ctx context.Context) error {
@@ -421,7 +404,7 @@ func (s *adsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: ToAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			GetListenerFilter(isIngress, mayUseOriginalSourceAddr, port, lingerConfig),
+			GetListenerFilter(isIngress, mayUseOriginalSourceAddr, port, lingerConfig, &s.config),
 		},
 	}
 
@@ -1054,7 +1037,7 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 			logfields.Error, err)
 		return err
 	}
-	if s.config.strictAdsMode {
+	if s.config.envoyXDSMode.IsStrictADS() {
 		if err := xdsnew.CheckSnapshotConsistency(newSnapshot); err != nil {
 			err = fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
 			s.logger.Error("Generated ADS snapshot is inconsistent",

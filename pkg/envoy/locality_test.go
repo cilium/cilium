@@ -9,6 +9,8 @@ import (
 	envoy_config_bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/envoy/config"
 )
 
 func TestAppendEmbeddedLocalityBootstrap(t *testing.T) {
@@ -16,7 +18,7 @@ func TestAppendEmbeddedLocalityBootstrap(t *testing.T) {
 		StaticResources: &envoy_config_bootstrap.Bootstrap_StaticResources{},
 	}
 
-	appendEmbeddedLocalityBootstrap(bs, 7, "zone-a")
+	appendEmbeddedLocalityBootstrap(bs, config.EnvoyXDSModeSplit, 7, "zone-a")
 
 	require.Equal(t, LocalityClusterName, bs.GetClusterManager().GetLocalClusterName())
 	require.Equal(t, "zone-a", bs.GetNode().GetLocality().GetZone())
