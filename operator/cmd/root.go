@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	operatorvtep "github.com/cilium/cilium/operator/pkg/vtep"
 	"github.com/cilium/cilium/operator/pkg/ztunnel"
 	"github.com/cilium/cilium/operator/unmanagedpods"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
@@ -221,6 +222,7 @@ var (
 		clustercfgcell.Cell,
 
 		bgp.Cell,
+		operatorvtep.Cell,
 		lbipam.Cell,
 		nodeipam.Cell,
 		auth.Cell,

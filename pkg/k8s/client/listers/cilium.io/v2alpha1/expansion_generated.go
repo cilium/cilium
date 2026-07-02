@@ -56,3 +56,11 @@ type CiliumLoadBalancerIPPoolListerExpansion interface{}
 // CiliumPodIPPoolListerExpansion allows custom methods to be added to
 // CiliumPodIPPoolLister.
 type CiliumPodIPPoolListerExpansion interface{}
+
+// CiliumVTEPConfigListerExpansion allows custom methods to be added to
+// CiliumVTEPConfigLister.
+type CiliumVTEPConfigListerExpansion interface{}
+
+// CiliumVTEPNodeConfigListerExpansion allows custom methods to be added to
+// CiliumVTEPNodeConfigLister.
+type CiliumVTEPNodeConfigListerExpansion interface{}

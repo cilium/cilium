@@ -1287,8 +1287,8 @@ func newCiliumThrottleSpec(btf *btf.Spec) *ebpf.MapSpec {
 func newCiliumVTEPMapSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       CiliumVTEPMap,
-		Type:       ebpf.Hash,
-		KeySize:    4,
+		Type:       ebpf.LPMTrie,
+		KeySize:    8,
 		Key:        anyTypeByName(btf, "vtep_key"),
 		ValueSize:  16,
 		Value:      anyTypeByName(btf, "vtep_value"),

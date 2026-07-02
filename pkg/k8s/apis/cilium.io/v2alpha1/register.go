@@ -93,6 +93,16 @@ const (
 	CDPPPluralName     = "ciliumdatapathplugins"
 	CDPPKindDefinition = "CiliumDatapathPlugin"
 	CDPPName           = CDPPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumVTEPConfig (CVTEP)
+	CVTEPPluralName     = "ciliumvtepconfigs"
+	CVTEPKindDefinition = "CiliumVTEPConfig"
+	CVTEPName           = CVTEPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumVTEPNodeConfig (CVTEPNode)
+	CVTEPNodePluralName     = "ciliumvtepnodeconfigs"
+	CVTEPNodeKindDefinition = "CiliumVTEPNodeConfig"
+	CVTEPNodeName           = CVTEPNodePluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -161,6 +171,12 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumGatewayClassConfigList{},
 
 		&CiliumDatapathPlugin{},
+
+		// VTEP types
+		&CiliumVTEPConfig{},
+		&CiliumVTEPConfigList{},
+		&CiliumVTEPNodeConfig{},
+		&CiliumVTEPNodeConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

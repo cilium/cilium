@@ -4,10 +4,9 @@
 package cmd
 
 import (
-	"net/netip"
-
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
@@ -24,12 +23,12 @@ var bpfVtepDeleteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf vtep delete <vtep_cidr>")
 
-		vcidr, err := netip.ParsePrefix(args[0])
+		vcidr, err := cidr.ParseCIDR(args[0])
 		if err != nil {
 			Fatalf("error parsing cidr %s: %s", args[0], err)
 		}
 
-		if err := vtep.LoadVTEPMap(log).Delete(vcidr.Addr()); err != nil {
+		if err := vtep.LoadVTEPMap(log).Delete(vcidr); err != nil {
 			Fatalf("error deleting contents of map: %s\n", err)
 		}
 	},

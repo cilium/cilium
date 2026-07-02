@@ -20,3 +20,5 @@
 - CiliumNode
 - CiliumNodeConfig
 - CiliumPodIPPool
+- CiliumVTEPConfig
+- CiliumVTEPNodeConfig
