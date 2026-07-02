@@ -2133,6 +2133,21 @@ func (c *Collector) getGatewayAPITasks() []Task {
 			},
 		},
 		{
+			Description: "Collecting ListenerSet entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, listenerSet, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect ListenerSet entries: %w", err)
+				}
+				if err := c.WriteYAML(listenerSetsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect ListenerSet entries: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting ReferenceGrant entries",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
