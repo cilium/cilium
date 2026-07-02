@@ -16,9 +16,6 @@ static __u64 __now;
 #include <bpf/config/node.h>
 #include "lib/common.h"
 
-/* Is not part of these tests, and is causing issues in the CI */
-#undef CONNTRACK_ACCOUNTING
-
 #include "lib/conntrack.h"
 #include "lib/conntrack_map.h"
 

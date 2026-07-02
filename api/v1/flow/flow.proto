@@ -126,6 +126,14 @@ message Flow {
     // Only applicable to TraceSock notifications, zero for other types
     uint64 cgroup_id = 33;
 
+    // packets is the cumulative packet count from the CT entry for this
+    // connection. Only populated when CONNTRACK_ACCOUNTING is enabled.
+    uint64 packets = 42;
+
+    // bytes is the cumulative byte count from the CT entry for this
+    // connection. Only populated when CONNTRACK_ACCOUNTING is enabled.
+    uint64 bytes = 43;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.

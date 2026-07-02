@@ -2727,3 +2727,85 @@ func TestDecode_CustomPacketDecoder(t *testing.T) {
 		t.Errorf("Unexpected diff (-want +got):\n%s", diff)
 	}
 }
+
+func TestDecodeTraceNotifyCtFields(t *testing.T) {
+	parser, err := New(hivetest.Logger(t), defaultEndpointGetter, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+
+	tt := []struct {
+		name        string
+		version     uint8
+		ctPackets   uint64
+		ctBytes     uint64
+		wantPackets uint64
+		wantBytes   uint64
+	}{
+		{
+			name:        "v3 with CT counters",
+			version:     monitor.TraceNotifyVersion3,
+			ctPackets:   42,
+			ctBytes:     12345,
+			wantPackets: 42,
+			wantBytes:   12345,
+		},
+		{
+			name:        "v3 with zero CT counters",
+			version:     monitor.TraceNotifyVersion3,
+			ctPackets:   0,
+			ctBytes:     0,
+			wantPackets: 0,
+			wantBytes:   0,
+		},
+		{
+			name:        "v1 without CT counters",
+			version:     monitor.TraceNotifyVersion1,
+			ctPackets:   0,
+			ctBytes:     0,
+			wantPackets: 0,
+			wantBytes:   0,
+		},
+		{
+			// v2 events come from send_trace_notify (non-_acct sites).
+			// Even if the writer happens to set Packets/Bytes in the
+			// struct, the v2 decoder must not surface them.
+			name:        "v2 ignores acct fields on the wire",
+			version:     monitor.TraceNotifyVersion2,
+			ctPackets:   42,
+			ctBytes:     12345,
+			wantPackets: 0,
+			wantBytes:   0,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			tn := monitor.TraceNotify{
+				Type:     byte(monitorAPI.MessageTypeTrace),
+				ObsPoint: byte(monitorAPI.TraceToLxc),
+				Version:  tc.version,
+				Packets:  tc.ctPackets,
+				Bytes:    tc.ctBytes,
+			}
+			data, err := testutils.CreateL3L4Payload(tn,
+				&layers.Ethernet{
+					SrcMAC:       srcMAC,
+					DstMAC:       dstMAC,
+					EthernetType: layers.EthernetTypeIPv4,
+				},
+				&layers.IPv4{
+					SrcIP:    localIP.AsSlice(),
+					DstIP:    remoteIP.AsSlice(),
+					Protocol: layers.IPProtocolTCP,
+				},
+				&layers.TCP{SrcPort: 12345, DstPort: 80},
+			)
+			require.NoError(t, err)
+
+			f := &flowpb.Flow{}
+			err = parser.Decode(data, f)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantPackets, f.Packets)
+			assert.Equal(t, tc.wantBytes, f.Bytes)
+		})
+	}
+}
