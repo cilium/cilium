@@ -95,7 +95,7 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 
 	tmp = map_lookup_elem(&cilium_ipv4_frag_datagrams, frag_id);
 	if (!tmp)
-		return DROP_FRAG_NOT_FOUND;
+		return FRAG_PUNT_TO_STACK;
 
 	/* Do not make ports a pointer to map data, copy from map */
 	memcpy(ports, tmp, sizeof(*ports));
