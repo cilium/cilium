@@ -150,6 +150,18 @@ func NewGoBGPServer(ctx context.Context, log *slog.Logger, params types.ServerPa
 		return nil, fmt.Errorf("failed configuring BGP server's global import policy: %w", err)
 	}
 
+	// Reject all paths announced by Cilium until an explicit export policy permits them.
+	err = gobgpSrv.server.SetPolicyAssignment(ctx, &gobgp.SetPolicyAssignmentRequest{
+		Assignment: &gobgp.PolicyAssignment{
+			Name:          globalPolicyAssignmentName,
+			Direction:     gobgp.PolicyDirection_POLICY_DIRECTION_EXPORT,
+			DefaultAction: gobgp.RouteAction_ROUTE_ACTION_REJECT,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed configuring BGP server's global export policy: %w", err)
+	}
+
 	// will log out any peer changes
 	peerCallback := func(p *apiutil.WatchEventMessage_PeerEvent, _ time.Time) {
 		if p.Type == apiutil.PEER_EVENT_STATE {
