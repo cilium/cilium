@@ -12,9 +12,6 @@ import (
 )
 
 const (
-	// EnvoyXDSMode selects the xDS server implementation for Envoy proxy configuration.
-	EnvoyXDSMode = "envoy-xds-mode"
-
 	// EnvoyXDSModeSplit selects the existing per-resource-type xDS server.
 	EnvoyXDSModeSplit = "split"
 
@@ -23,6 +20,9 @@ const (
 
 	// EnvoyXDSModeStrictADS selects the ADS xDS server with strict snapshot validation.
 	EnvoyXDSModeStrictADS = "strict-ads"
+
+	// DefaultXDSMode is set to "split" for upgrade compatibility
+	DefaultXDSMode = EnvoyXDSModeSplit
 )
 
 type ProxyConfig struct {
@@ -62,20 +62,12 @@ type ProxyConfig struct {
 	EnvoyXDSMode                        string
 }
 
-func NormalizeXDSMode(mode string) string {
-	if mode == "" {
-		return EnvoyXDSModeADS
-	}
-	return mode
-}
-
 func ADSModeEnabled(mode string) bool {
-	mode = NormalizeXDSMode(mode)
 	return mode == EnvoyXDSModeADS || mode == EnvoyXDSModeStrictADS
 }
 
 func StrictADSModeEnabled(mode string) bool {
-	return NormalizeXDSMode(mode) == EnvoyXDSModeStrictADS
+	return mode == EnvoyXDSModeStrictADS
 }
 
 func (r ProxyConfig) ADSModeEnabled() bool {
@@ -88,11 +80,11 @@ func (r ProxyConfig) StrictADSModeEnabled() bool {
 
 func (r ProxyConfig) Validate() error {
 	switch r.EnvoyXDSMode {
-	case "", EnvoyXDSModeSplit, EnvoyXDSModeADS, EnvoyXDSModeStrictADS:
+	case EnvoyXDSModeSplit, EnvoyXDSModeADS, EnvoyXDSModeStrictADS:
 		return nil
 	default:
-		return fmt.Errorf("invalid Envoy xDS mode %q, valid modes = {%q, %q, %q}; empty value defaults to %q",
-			r.EnvoyXDSMode, EnvoyXDSModeSplit, EnvoyXDSModeADS, EnvoyXDSModeStrictADS, EnvoyXDSModeADS)
+		return fmt.Errorf("invalid Envoy xDS mode %q, valid modes = {%q, %q, %q}",
+			r.EnvoyXDSMode, EnvoyXDSModeSplit, EnvoyXDSModeADS, EnvoyXDSModeStrictADS)
 	}
 }
 
@@ -102,7 +94,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
 	flags.Bool("envoy-access-log-enabled", true, "Enable access log forwarding for integration with Hubble.")
-	flags.String(EnvoyXDSMode, "", `xDS server implementation for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS server, "ads" for the ADS (Aggregated Discovery Service) xDS server, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks. Empty value defaults to "ads"`)
+	flags.String("envoy-xds-mode", DefaultXDSMode, `xDS server implementation for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS server, "ads" for the ADS (Aggregated Discovery Service) xDS server, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks`)
 	flags.Uint("envoy-access-log-buffer-size", 4096, "Envoy access log buffer size in bytes")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String("envoy-default-log-level", "", "Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.")

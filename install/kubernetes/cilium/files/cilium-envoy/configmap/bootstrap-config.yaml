@@ -1,3 +1,4 @@
+{{- $envoyXdsMode := include "envoyXdsMode" . -}}
 node:
   id: "host~127.0.0.1~no-id~localdomain"
   cluster: "ingress-cluster"
@@ -299,7 +300,7 @@ staticResources:
               pipe:
                 path: "/var/run/cilium/envoy/sockets/admin.sock"
 dynamicResources:
-{{- if or (eq .Values.envoy.xdsMode "") (eq .Values.envoy.xdsMode "ads") (eq .Values.envoy.xdsMode "strict-ads") }}
+{{- if or (eq $envoyXdsMode "ads") (eq $envoyXdsMode "strict-ads") }}
   adsConfig:
     apiType: "GRPC"
     transportApiVersion: "V3"
