@@ -525,6 +525,9 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			if err := listener.Validate(); err != nil {
 				return xds.Resources{}, fmt.Errorf("failed to validate Listener %q (%w): %s", listener.Name, err, listener.String())
 			}
+			if listenerHasDuplicateFilterChainMatch(listener) {
+				return xds.Resources{}, fmt.Errorf("Listener %q contains filter chains with duplicate matching rules", listener.Name)
+			}
 		}
 	}
 
@@ -587,6 +590,23 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 	}
 
 	return resources, nil
+}
+
+// listenerHasDuplicateFilterChainMatch reports whether the listener contains
+// filter chains with identical matching rules. Rejection here is order
+// sensitive, so some configs pass here and Envoy will later reject them.
+func listenerHasDuplicateFilterChainMatch(listener *envoy_config_listener.Listener) bool {
+	seenMatches := make([]*envoy_config_listener.FilterChainMatch, 0, len(listener.GetFilterChains()))
+	for _, filterChain := range listener.GetFilterChains() {
+		match := filterChain.GetFilterChainMatch()
+		for _, seenMatch := range seenMatches {
+			if proto.Equal(match, seenMatch) {
+				return true
+			}
+		}
+		seenMatches = append(seenMatches, match)
+	}
+	return false
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
