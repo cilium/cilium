@@ -318,7 +318,7 @@ func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 	case DbgIcmp6Request:
 		return fmt.Sprintf("ICMPv6 echo request for router offset=%d", n.Arg1)
 	case DbgIcmp6Ns:
-		return fmt.Sprintf("ICMPv6 neighbour soliciation for address %x:%x", n.Arg1, n.Arg2)
+		return fmt.Sprintf("ICMPv6 neighbour solicitation for address %x:%x", n.Arg1, n.Arg2)
 	case DbgIcmp6TimeExceeded:
 		return "Sending ICMPv6 time exceeded"
 	case DbgDecap:
