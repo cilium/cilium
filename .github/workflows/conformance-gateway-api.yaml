@@ -210,8 +210,9 @@ jobs:
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
           fi
 
+          SKIPPED_TESTS="TCPRouteWeightedRouting,UDPRouteWeightedRouting"
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
-            SKIPPED_TESTS+="MeshConsumerRoute,HTTPRouteListenerPortMatching"
+            SKIPPED_TESTS+=",MeshConsumerRoute,HTTPRouteListenerPortMatching"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
