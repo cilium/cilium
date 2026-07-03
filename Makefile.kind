@@ -471,7 +471,7 @@ kind-kvstore-start: ## Start an etcd pod serving as Cilium's kvstore
 			--overrides='{ "apiVersion": "v1", "spec": { "hostNetwork": true, "nodeSelector": {"node-role.kubernetes.io/control-plane": ""},  "tolerations": [{ "operator": "Exists" }] }}' \
 			-- etcd --listen-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT) --advertise-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT)
 
-	kubectl --namespace kube-system wait --for=condition=Ready pod/$(KVSTORE_POD_NAME)
+	kubectl --namespace kube-system wait --for=condition=Ready pod/$(KVSTORE_POD_NAME) --timeout=300s
 
 .PHONY: kind-kvstore-stop
 kind-kvstore-stop: ## Stop the etcd pod serving as Cilium's kvstore
