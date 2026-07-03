@@ -625,9 +625,6 @@ Name                                         Labels                             
 ============================================ ================================================== ========== ========================================================
 ``identity``                                 ``type``                                           Enabled    Number of identities currently allocated
 ``identity_label_sources``                   ``source``                                         Enabled    Number of identities which contain at least one label from the given label source
-``identity_gc_entries``                      ``status``, ``identity_type``                      Enabled    Number of alive and deleted identities at the end of a garbage collector run
-``identity_gc_runs``                         ``outcome``, ``identity_type``                     Enabled    Number of times identity garbage collector has run
-``identity_gc_latency``                      ``outcome``, ``identity_type``                     Enabled    Duration of the last successful identity GC run
 ``ipcache_errors_total``                     ``type``, ``error``                                Enabled    Number of errors interacting with the ipcache
 ``ipcache_events_total``                     ``type``                                           Disabled   Number of events interacting with the ipcache
 ``identity_updater_timer_duration``          ``name``                                           Enabled    Seconds required to execute periodic policy processes. ``name="id-alloc-update-policy-maps"`` is the time taken to apply incremental updates to the BPF policy maps.
@@ -777,13 +774,13 @@ Jobs
 =================================================== ================================ ============ ========================================================
 Name                                                Labels                           Default      Description
 =================================================== ================================ ============ ========================================================
-``hive_jobs_runs_total``                            ``module``, ``job_name``         Enabled      Total number of jobs runs
-``hive_jobs_runs_failed``                           ``module``, ``job_name``         Enabled      Number of jobs runs that returned an error
-``hive_jobs_oneshot_last_run_duration_seconds``     ``module``, ``job_name``         Enabled      Duration of last one shot job run
-``hive_jobs_observer_last_run_duration_seconds``    ``module``, ``job_name``         Enabled      Duration of last observer job run
-``hive_jobs_observer_run_duration_seconds``         ``module``, ``job_name``         Enabled      Histogram of observer job run duration
-``hive_jobs_timer_last_run_duration_seconds``       ``module``, ``job_name``         Enabled      Duration of last timer job run
-``hive_jobs_timer_run_duration_seconds``            ``module``, ``job_name``         Enabled      Histogram of timer job run duration
+``hive_jobs_runs_total``                            ``module_id``, ``job_name``      Enabled      Total number of jobs runs
+``hive_jobs_runs_failed``                           ``module_id``, ``job_name``      Enabled      Number of jobs runs that returned an error
+``hive_jobs_oneshot_last_run_duration_seconds``     ``module_id``, ``job_name``      Enabled      Duration of last one shot job run
+``hive_jobs_observer_last_run_duration_seconds``    ``module_id``, ``job_name``      Enabled      Duration of last observer job run
+``hive_jobs_observer_run_duration_seconds``         ``module_id``, ``job_name``      Enabled      Histogram of observer job run duration
+``hive_jobs_timer_last_run_duration_seconds``       ``module_id``, ``job_name``      Enabled      Duration of last timer job run
+``hive_jobs_timer_run_duration_seconds``            ``module_id``, ``job_name``      Enabled      Histogram of timer job run duration
 =================================================== ================================ ============ ========================================================
 
 .. _metrics_api_rate_limiting:
@@ -808,15 +805,15 @@ Name                                           Labels                           
 BGP Control Plane
 ~~~~~~~~~~~~~~~~~
 
-=================================== ==================================================================================== ======== ===================================================================
-Name                                Labels                                                                               Default  Description
-=================================== ==================================================================================== ======== ===================================================================
-``session_state``                   ``instance_name``, ``local_asn``, ``neighbor``, ``neighbor_asn``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
-``advertised_routes``               ``instance_name``, ``local_asn``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
-``received_routes``                 ``instance_name``, ``local_asn``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
-``reconcile_errors_total``          ``instance_name``                                                                    Enabled  Number of reconciliation runs that returned an error
-``reconcile_run_duration_seconds``  ``instance_name``                                                                    Enabled  Histogram of reconciliation run duration
-=================================== ==================================================================================== ======== ===================================================================
+==================================================== ==================================================================================== ======== ===================================================================
+Name                                                 Labels                                                                               Default  Description
+==================================================== ==================================================================================== ======== ===================================================================
+``bgp_control_plane_session_state``                  ``instance_name``, ``local_asn``, ``neighbor``, ``neighbor_asn``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
+``bgp_control_plane_advertised_routes``              ``instance_name``, ``local_asn``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
+``bgp_control_plane_received_routes``                ``instance_name``, ``local_asn``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
+``bgp_control_plane_reconcile_errors_total``         ``instance_name``                                                                    Enabled  Number of reconciliation runs that returned an error
+``bgp_control_plane_reconcile_run_duration_seconds`` ``instance_name``                                                                    Enabled  Histogram of reconciliation run duration
+==================================================== ==================================================================================== ======== ===================================================================
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
@@ -863,19 +860,21 @@ is enabled.
 Exported Metrics
 ^^^^^^^^^^^^^^^^
 
-All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
+Most metrics are exported under the ``cilium_operator_`` Prometheus namespace.
+Some metrics are instead exported under the ``cilium_`` namespace (shared with
+the agent); these are called out in the relevant sections below.
 
 .. _metrics_bgp_control_plane_operator:
 
 BGP Control Plane Operator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-================================== ===================================== ======== ======================================================================
-Name                               Labels                                Default  Description
-================================== ===================================== ======== ======================================================================
-``reconcile_errors_total``         ``resource_kind``, ``resource_name``  Enabled  Number of errors returned per BGP resource reconciliation
-``reconcile_run_duration_seconds``                                       Enabled  Histogram of reconciliation run duration
-================================== ===================================== ======== ======================================================================
+==================================================== ===================================== ======== ======================================================================
+Name                                                 Labels                                Default  Description
+==================================================== ===================================== ======== ======================================================================
+``bgp_control_plane_reconcile_errors_total``         ``resource_kind``, ``resource_name``  Enabled  Number of errors returned per BGP resource reconciliation
+``bgp_control_plane_reconcile_run_duration_seconds``                                       Enabled  Histogram of reconciliation run duration
+==================================================== ===================================== ======== ======================================================================
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
@@ -891,13 +890,11 @@ IPAM
 ======================================== ================================================================= ========== ========================================================
 Name                                     Labels                                                            Default    Description
 ======================================== ================================================================= ========== ========================================================
-``ipam_ips``                             ``type``                                                          Enabled    Number of IPs allocated
 ``ipam_ip_allocation_ops``               ``subnet_id``                                                     Enabled    Number of IP allocation operations.
 ``ipam_ip_release_ops``                  ``subnet_id``                                                     Enabled    Number of IP release operations.
 ``ipam_interface_creation_ops``          ``subnet_id``                                                     Enabled    Number of interfaces creation operations.
 ``ipam_release_duration_seconds``        ``type``, ``status``, ``subnet_id``                               Enabled    Release ip or interface latency in seconds
 ``ipam_allocation_duration_seconds``     ``type``, ``status``, ``subnet_id``                               Enabled    Allocation ip or interface latency in seconds
-``ipam_available_interfaces``                                                                              Enabled    Number of interfaces with addresses available
 ``ipam_nodes``                           ``category``                                                      Enabled    Number of nodes by category { total | in-deficit | at-capacity }
 ``ipam_resync_total``                                                                                      Enabled    Number of synchronization operations with external IPAM API
 ``ipam_api_duration_seconds``            ``operation``, ``response_code``                                  Enabled    Duration of interactions with external IPAM API.
@@ -909,6 +906,11 @@ Name                                     Labels                                 
 
 LB-IPAM
 ~~~~~~~
+
+.. note::
+
+   These metrics are exported under the ``cilium_`` namespace (for example
+   ``cilium_lbipam_conflicting_pools``), not ``cilium_operator_``.
 
 ======================================== ================================================================= ========== ========================================================
 Name                                     Labels                                                            Default    Description
@@ -979,6 +981,20 @@ Name                                         Labels  Default    Description
 ``doublewrite_kvstore_only_identities``              Enabled    The number of identities in the KVStore not present as a CRD
 ============================================ ======= ========== ============================================================
 
+Identity Garbage Collection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Identity garbage collection runs in the operator. These metrics are only
+reported when using the CRD identity allocation mode.
+
+==================================== ================================== ========== ================================================================================
+Name                                 Labels                             Default    Description
+==================================== ================================== ========== ================================================================================
+``identity_gc_entries``              ``status``, ``identity_type``      Enabled    Number of alive and deleted identities at the end of a garbage collector run
+``identity_gc_runs``                 ``outcome``, ``identity_type``     Enabled    Number of times identity garbage collector has run
+``identity_gc_latency``              ``outcome``, ``identity_type``     Enabled    Duration of the last successful identity GC run
+==================================== ================================== ========== ================================================================================
+
 .. _identity_management_metrics:
 
 Identity Management Mode
@@ -1026,6 +1042,19 @@ Name                                      Labels                                
 
 Clustermesh
 ~~~~~~~~~~~
+
+.. note::
+
+   ``clustermesh_remote_clusters``, ``clustermesh_remote_cluster_failures``,
+   ``clustermesh_remote_cluster_last_failure_ts``,
+   ``clustermesh_remote_cluster_readiness_status`` and
+   ``clustermesh_remote_cluster_cache_revocations`` are exported under the
+   ``cilium_`` namespace (for example ``cilium_clustermesh_remote_clusters``),
+   not ``cilium_operator_``. The remaining metrics in this section
+   (``clustermesh_remote_cluster_services``,
+   ``clustermesh_remote_cluster_endpoint_slices`` and
+   ``clustermesh_remote_cluster_service_exports``) are exported under
+   ``cilium_operator_``.
 
 ================================================= ================== ========== ====================================================================
 Name                                              Labels             Default    Description
@@ -1224,11 +1253,11 @@ This metric supports :ref:`Context Options<hubble_context_options>`.
 ``flow``
 ~~~~~~~~
 
-================================ ======================================== ========== ===================================
-Name                             Labels                                   Default    Description
-================================ ======================================== ========== ===================================
-``flows_processed_total``        ``type``, ``subtype``, ``verdict``       Disabled   Total number of flows processed
-================================ ======================================== ========== ===================================
+================================ ================================================ ========== ===================================
+Name                             Labels                                           Default    Description
+================================ ================================================ ========== ===================================
+``flows_processed_total``        ``protocol``, ``type``, ``subtype``, ``verdict`` Disabled   Total number of flows processed
+================================ ================================================ ========== ===================================
 
 Options
 """""""
@@ -1268,13 +1297,13 @@ This metric supports :ref:`Context Options<hubble_context_options>`.
 Deprecated, use ``httpV2`` instead.
 These metrics can not be enabled at the same time as ``httpV2``.
 
-================================= ======================================= ========== ==============================================
-Name                              Labels                                  Default    Description
-================================= ======================================= ========== ==============================================
-``http_requests_total``           ``method``, ``protocol``, ``reporter``  Disabled   Count of HTTP requests
-``http_responses_total``          ``method``, ``status``, ``reporter``    Disabled   Count of HTTP responses
-``http_request_duration_seconds`` ``method``, ``reporter``                Disabled   Histogram of HTTP request duration in seconds
-================================= ======================================= ========== ==============================================
+================================= ================================================== ========== ==============================================
+Name                              Labels                                             Default    Description
+================================= ================================================== ========== ==============================================
+``http_requests_total``           ``method``, ``protocol``, ``reporter``             Disabled   Count of HTTP requests
+``http_responses_total``          ``method``, ``protocol``, ``status``, ``reporter`` Disabled   Count of HTTP responses
+``http_request_duration_seconds`` ``method``, ``reporter``                           Disabled   Histogram of HTTP request duration in seconds
+================================= ================================================== ========== ==============================================
 
 Labels
 """"""
