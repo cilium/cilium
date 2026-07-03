@@ -42,13 +42,6 @@ type RoutePolicyReconcilerMetadata struct {
 	RoutePolicies RoutePolicyMap
 }
 
-// routePolicyObjectKey is used to group policy statements with the same key value into a single route policy object.
-type routePolicyObjectKey struct {
-	Instance   string
-	Peer       string
-	PolicyType types.RoutePolicyType
-}
-
 func NewRoutePolicyReconciler(params RoutePolicyReconcilerIn) RoutePolicyReconcilerOut {
 	return RoutePolicyReconcilerOut{
 		Reconciler: &RoutePolicyReconciler{
@@ -121,9 +114,9 @@ func (r *RoutePolicyReconciler) desiredRoutePolicies(instance string) (RoutePoli
 	rx := r.db.ReadTxn()
 
 	// compile desired statements per routePolicyObjectKey
-	desiredStatements := make(map[routePolicyObjectKey][]*bgpTables.DesiredRoutePolicy)
+	desiredStatements := make(map[bgpTables.DesiredRoutePolicyObjectKey][]*bgpTables.DesiredRoutePolicy)
 	for statement := range r.desiredRoutePolicyTable.List(rx, bgpTables.DesiredRoutePoliciesByInstance(instance)) {
-		policyKey := getRoutePolicyObjectKey(statement)
+		policyKey := statement.GetPolicyObjectKey()
 		desiredStatements[policyKey] = append(desiredStatements[policyKey], statement)
 	}
 
@@ -141,7 +134,7 @@ func (r *RoutePolicyReconciler) desiredRoutePolicies(instance string) (RoutePoli
 	return desiredPolicies, nil
 }
 
-func desiredRoutePolicyFromStatements(policyKey routePolicyObjectKey, statements []*bgpTables.DesiredRoutePolicy) (*types.RoutePolicy, error) {
+func desiredRoutePolicyFromStatements(policyKey bgpTables.DesiredRoutePolicyObjectKey, statements []*bgpTables.DesiredRoutePolicy) (*types.RoutePolicy, error) {
 	if len(statements) == 0 {
 		return nil, nil
 	}
@@ -164,14 +157,6 @@ func desiredRoutePolicyFromStatements(policyKey routePolicyObjectKey, statements
 		}
 	}
 	return policy, nil
-}
-
-func getRoutePolicyObjectKey(policy *bgpTables.DesiredRoutePolicy) routePolicyObjectKey {
-	return routePolicyObjectKey{
-		Instance:   policy.Instance,
-		Peer:       policy.Peer,
-		PolicyType: policy.PolicyType,
-	}
 }
 
 func routePolicyName(peer string, policyType types.RoutePolicyType) string {

@@ -2939,9 +2939,9 @@ func advertisedPoliciesAttributesMatch(
 	response, err := bgpInstance.Router.GetRoutePolicies(context.Background())
 	req.NoError(err)
 
-	desiredStatementsByObject := make(map[routePolicyObjectKey][]*bgpTables.DesiredRoutePolicy)
+	desiredStatementsByObject := make(map[bgpTables.DesiredRoutePolicyObjectKey][]*bgpTables.DesiredRoutePolicy)
 	for _, statement := range expectedRoutePolicies {
-		policyKey := getRoutePolicyObjectKey(statement)
+		policyKey := statement.GetPolicyObjectKey()
 		desiredStatementsByObject[policyKey] = append(desiredStatementsByObject[policyKey], statement)
 	}
 
@@ -3041,7 +3041,7 @@ func TestServiceReconcilerMetadataPartialFailure(t *testing.T) {
 		oldPath := types.MustNewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)) // non-aggregated prefix
 
 		oldPolicy, err := desiredRoutePolicyFromStatements(
-			getRoutePolicyObjectKey(redPeer65001v4LBRP),
+			redPeer65001v4LBRP.GetPolicyObjectKey(),
 			[]*bgpTables.DesiredRoutePolicy{redPeer65001v4LBRP},
 		)
 		req.NoError(err)
