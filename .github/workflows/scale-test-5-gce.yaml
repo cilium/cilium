@@ -348,6 +348,16 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+          # On a 5 node cluster the agent load concentrates on few agents, so
+          # the median agent CPU sits higher than the shared 0.1 default (which
+          # is tuned for the 100 node test). Raise it for this environment.
+          CL2_MEDIAN_CPU_USAGE_THRESHOLD: "0.3"
+          # The LB-IPAM module defaults to 50k services created within a 3m
+          # window (~278/s). The CL2 client rate limiter caps creation far below
+          # that here, so only ~8k get created before the window closes and the
+          # rest time out. Right size the count to what a 5 node cluster can
+          # create within the window while still exercising the operator.
+          CL2_LBIPAM_NUM_SYNTHETIC_SERVICES: "5000"
         run: |
           ./clusterloader \
             -v=2 \
