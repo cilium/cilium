@@ -380,8 +380,11 @@ jobs:
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
-          capture_sysdump: "${{ steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}"
-          artifacts_suffix: "${{ env.job_name }}"
+          # The export step below uploads cilium-sysdump-final.zip to GCS on
+          # every run, so the sysdump has to be captured regardless of status
+          # and named "final" to match. Mirrors the node-throughput workflow.
+          always_capture_sysdump: true
+          artifacts_suffix: "final"
           job_status: "${{ job.status }}"
           capture_features_tested: ${{ steps.run-cl2.outcome != 'skipped' }}
 
