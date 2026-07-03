@@ -24,7 +24,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -79,7 +78,7 @@ type multiPoolParams struct {
 	JobGroup           job.Group
 	Clientset          k8sClient.Clientset
 	DaemonCfg          *option.DaemonConfig
-	CiliumPodIPPools   resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
+	CiliumPodIPPools   resource.Resource[*v2.CiliumPodIPPool]
 	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 	CiliumNodes        resource.Resource[*v2.CiliumNode]
 
@@ -204,11 +203,11 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 			return err
 		}
 
-		pool := &cilium_api_v2alpha1.CiliumPodIPPool{
+		pool := &v2.CiliumPodIPPool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: poolName,
 			},
-			Spec: cilium_api_v2alpha1.IPPoolSpec{
+			Spec: v2.IPPoolSpec{
 				IPv4:         poolSpec.IPv4,
 				IPv6:         poolSpec.IPv6,
 				AllowFirstIP: poolSpec.AllowFirstIP,
@@ -216,7 +215,7 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 			},
 		}
 
-		_, err = clientset.CiliumV2alpha1().CiliumPodIPPools().Create(ctx, pool, metav1.CreateOptions{})
+		_, err = clientset.CiliumV2().CiliumPodIPPools().Create(ctx, pool, metav1.CreateOptions{})
 		if err != nil {
 			if k8sErrors.IsAlreadyExists(err) {
 				// Nothing to do, we will not try to update an existing resource
@@ -377,7 +376,7 @@ func updateNodeWithRetries(
 func startIPPoolAllocator(
 	ctx context.Context,
 	allocator *PoolAllocator,
-	ipPools resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool],
+	ipPools resource.Resource[*v2.CiliumPodIPPool],
 	logger *slog.Logger,
 ) {
 	logger.InfoContext(ctx, "Starting CiliumPodIPPool allocator watcher")

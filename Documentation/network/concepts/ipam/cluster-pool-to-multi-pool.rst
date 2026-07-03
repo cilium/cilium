@@ -148,7 +148,7 @@ Wait for the operator to create the default pool:
 .. code-block:: shell-session
 
   $ kubectl get ciliumpodippool default -o yaml
-  apiVersion: cilium.io/v2alpha1
+  apiVersion: cilium.io/v2
   kind: CiliumPodIPPool
   metadata:
     name: default
@@ -297,7 +297,7 @@ Create a new pool:
 
 .. code-block:: yaml
 
-  apiVersion: cilium.io/v2alpha1
+  apiVersion: cilium.io/v2
   kind: CiliumPodIPPool
   metadata:
     name: test-pool

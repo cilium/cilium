@@ -1,4 +1,4 @@
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: blue-pool
@@ -14,7 +14,7 @@ spec:
       - fd00:100:1::/48
     maskSize: 64
 ---
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: red-pool

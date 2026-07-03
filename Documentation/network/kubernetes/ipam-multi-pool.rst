@@ -59,7 +59,7 @@ Validate installation
    .. code-block:: shell-session
 
        $ kubectl get ciliumpodippool default -o yaml
-       apiVersion: cilium.io/v2alpha1
+       apiVersion: cilium.io/v2
        kind: CiliumPodIPPool
        metadata:
          name: default
@@ -74,7 +74,7 @@ Validate installation
    .. code-block:: shell-session
 
        $ cat <<EOF | kubectl apply -f -
-       apiVersion: cilium.io/v2alpha1
+       apiVersion: cilium.io/v2
        kind: CiliumPodIPPool
        metadata:
          name: mars

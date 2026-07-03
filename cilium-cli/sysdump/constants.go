@@ -74,7 +74,6 @@ const (
 	ciliumNodesFileName                      = "ciliumnodes-<ts>.yaml"
 	ciliumNodeConfigsFileName                = "ciliumnodeconfigs-<ts>.yaml"
 	ciliumOperatorDeploymentFileName         = "cilium-operator-deployment-<ts>.yaml"
-	ciliumPodIPPoolsFileName                 = "ciliumpodippools-<ts>.yaml"
 	clustermeshApiserverDeploymentFileName   = "clustermesh-apiserver-deployment-<ts>.yaml"
 	clustermeshCertgenCronJobFileName        = "clustermesh-generate-certs-cronjob-<ts>.yaml"
 	clustermeshCertManagerCertsFileName      = "clustermesh-certificates-<ts>.yaml"

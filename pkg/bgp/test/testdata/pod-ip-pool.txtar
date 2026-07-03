@@ -211,7 +211,7 @@ spec:
         wellKnown: [ "no-export" ]
 
 -- pod-pool-red.yaml --
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: red-pool
@@ -229,7 +229,7 @@ spec:
     maskSize: 120
 
 -- pod-pool-green.yaml --
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: green-pool

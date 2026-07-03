@@ -87,7 +87,7 @@ spec:
         - fd00::/124
       requested: []
 -- default-pool.yaml --
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: default

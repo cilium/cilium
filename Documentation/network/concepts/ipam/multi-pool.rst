@@ -66,7 +66,7 @@ PodCIDRs are allocated:
 
 .. code-block:: yaml
 
-  apiVersion: cilium.io/v2alpha1
+  apiVersion: cilium.io/v2
   kind: CiliumPodIPPool
   metadata:
     name: green-pool
@@ -149,7 +149,7 @@ running nginx and a single ``CiliumPodIPPool`` resource that describes the ``def
 
 .. code-block:: yaml
 
-  apiVersion: cilium.io/v2alpha1
+  apiVersion: cilium.io/v2
   kind: CiliumPodIPPool
   metadata:
     name: default
@@ -176,7 +176,7 @@ In this example Node Group 1 is composed only of ``kind-worker``, while Node Gro
    .. code-block:: shell-session
    
      cat <<EOF | kubectl apply -f -
-     apiVersion: cilium.io/v2alpha1
+     apiVersion: cilium.io/v2
      kind: CiliumPodIPPool
      metadata:
        name: default
@@ -279,7 +279,7 @@ certain node labels.
 
 .. code-block:: yaml
 
-   apiVersion: cilium.io/v2alpha1
+   apiVersion: cilium.io/v2
    kind: CiliumPodIPPool
    metadata:
      name: dc1-pool
@@ -305,7 +305,7 @@ certain node labels.
 
 .. code-block:: yaml
 
-   apiVersion: cilium.io/v2alpha1
+   apiVersion: cilium.io/v2
    kind: CiliumPodIPPool
    metadata:
      name: dc2-pool
