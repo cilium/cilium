@@ -105,6 +105,25 @@ func (p *DesiredRoutePolicy) GetKey() DesiredRoutePolicyKey {
 	}
 }
 
+// DesiredRoutePolicyObjectKey groups policy statements with the same object key value into a single route policy object.
+type DesiredRoutePolicyObjectKey struct {
+	Instance   string
+	Peer       string
+	PolicyType types.RoutePolicyType
+}
+
+func (k DesiredRoutePolicyObjectKey) Key() index.Key {
+	return index.String(k.Instance + indexDelimiter + k.Peer + indexDelimiter + k.PolicyType.String())
+}
+
+func (p *DesiredRoutePolicy) GetPolicyObjectKey() DesiredRoutePolicyObjectKey {
+	return DesiredRoutePolicyObjectKey{
+		Instance:   p.Instance,
+		Peer:       p.Peer,
+		PolicyType: p.PolicyType,
+	}
+}
+
 type desiredRoutePolicyOwnerKey struct {
 	Instance string
 	Owner    string
@@ -150,6 +169,16 @@ var (
 		Unique:     true,
 	}
 
+	desiredRoutePoliciesObjectIndex = statedb.Index[*DesiredRoutePolicy, DesiredRoutePolicyObjectKey]{
+		Name: "object",
+		FromObject: func(obj *DesiredRoutePolicy) index.KeySet {
+			return index.NewKeySet(obj.GetPolicyObjectKey().Key())
+		},
+		FromKey:    DesiredRoutePolicyObjectKey.Key,
+		FromString: index.FromString,
+		Unique:     false,
+	}
+
 	desiredRoutePoliciesInstanceIndex = statedb.Index[*DesiredRoutePolicy, string]{
 		Name: "instance",
 		FromObject: func(obj *DesiredRoutePolicy) index.KeySet {
@@ -180,12 +209,10 @@ var (
 		Unique:     false,
 	}
 
-	DesiredRoutePoliciesByInstance = desiredRoutePoliciesInstanceIndex.Query
+	DesiredRoutePoliciesByKey          = desiredRoutePoliciesKeyIndex.Query
+	DesiredRoutePoliciesByPolicyObject = desiredRoutePoliciesObjectIndex.Query
+	DesiredRoutePoliciesByInstance     = desiredRoutePoliciesInstanceIndex.Query
 )
-
-func DesiredRoutePoliciesByKey(key DesiredRoutePolicyKey) statedb.Query[*DesiredRoutePolicy] {
-	return desiredRoutePoliciesKeyIndex.Query(key)
-}
 
 func DesiredRoutePoliciesByInstanceOwner(instance string, owner string) statedb.Query[*DesiredRoutePolicy] {
 	return desiredRoutePoliciesInstanceOwnerIndex.Query(desiredRoutePolicyOwnerKey{
@@ -207,6 +234,7 @@ func NewDesiredRoutePoliciesTable(db *statedb.DB) (statedb.RWTable[*DesiredRoute
 		db,
 		"bgp-desired-route-policies",
 		desiredRoutePoliciesKeyIndex,
+		desiredRoutePoliciesObjectIndex,
 		desiredRoutePoliciesInstanceIndex,
 		desiredRoutePoliciesInstanceOwnerIndex,
 		desiredRoutePoliciesInstanceOwnerResourceIndex,
