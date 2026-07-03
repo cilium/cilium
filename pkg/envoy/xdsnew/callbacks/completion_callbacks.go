@@ -4,23 +4,25 @@
 package xdsnew
 
 import (
-	"container/list"
 	"context"
 	"fmt"
 	"iter"
 	"log/slog"
-	"maps"
+	"slices"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sotw "github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
+	maxOrderedCompletionsExcessCapacity = 128
+
 	// NetworkPolicyTypeURL is the type URL of NetworkPolicy resources.
 	NetworkPolicyTypeURL      = "type.googleapis.com/cilium.NetworkPolicy"
 	NetworkPolicyHostsTypeURL = "type.googleapis.com/cilium.NetworkPolicyHosts"
@@ -29,63 +31,61 @@ const (
 // versionEntry holds all pending completions associated with a single version.
 type versionEntry struct {
 	version     string
-	completions map[*completion.Completion]struct{}
+	completions set.Set[*completion.Completion]
 }
 
-// orderedCompletions maintains insertion order of versions with O(1) lookup of
-// the latest occurrence of a version string. When a version is ACKed, all
-// versions up to and including its latest occurrence are completed.
-type orderedCompletions struct {
-	list     *list.List
-	elements map[string]*list.Element // latest entry with the key version
-}
+// orderedCompletions maintains the insertion order of snapshot versions. When
+// a version is ACKed, all versions up to and including its latest occurrence
+// are completed.
+type orderedCompletions []versionEntry
 
 func newOrderedCompletions() *orderedCompletions {
-	return &orderedCompletions{
-		list:     list.New(),
-		elements: make(map[string]*list.Element),
+	return new(orderedCompletions)
+}
+
+// lastIndex returns the index of the latest occurrence of version.
+func (vo *orderedCompletions) lastIndex(version string) int {
+	for i, entry := range slices.Backward(*vo) {
+		if entry.version == version {
+			return i
+		}
 	}
+	return -1
 }
 
 // add adds a completion to the latest occurrence of the given version. If the
-// version doesn't exist yet, a new entry is appended to the end of the list.
+// version doesn't exist yet, a new entry is appended to the end of the slice.
 func (vo *orderedCompletions) add(version string, c *completion.Completion) {
-	if elem, ok := vo.elements[version]; ok {
-		entry := elem.Value.(*versionEntry)
-		entry.completions[c] = struct{}{}
+	if i := vo.lastIndex(version); i >= 0 {
+		(*vo)[i].completions.Insert(c)
 		return
 	}
 	vo.append(version, c)
 }
 
-// append records a new occurrence of a version at the end of the list. A
-// version may occur more than once when snapshot contents change A -> B -> A;
-// elements always points to the last occurrence.
+// append records a new occurrence of a version at the end of the slice. A
+// version may occur more than once when snapshot contents change A -> B -> A.
 func (vo *orderedCompletions) append(version string, c *completion.Completion) {
-	entry := &versionEntry{
+	*vo = append(*vo, versionEntry{
 		version:     version,
-		completions: map[*completion.Completion]struct{}{c: {}},
-	}
-	elem := vo.list.PushBack(entry)
-	vo.elements[version] = elem
+		completions: set.NewSet(c),
+	})
 }
 
-// remove removes an entry and keeps elements pointing at the latest remaining
-// occurrence of its version.
-func (vo *orderedCompletions) remove(elem *list.Element) {
-	entry := elem.Value.(*versionEntry)
-	previous := elem.Prev()
-	vo.list.Remove(elem)
-	if vo.elements[entry.version] != elem {
-		return
+// removeRange removes entries in [start, end), preserving order and releasing
+// backing storage when it has excessive spare capacity.
+func (vo *orderedCompletions) removeRange(start, end int) {
+	entries := slices.Delete(*vo, start, end)
+	if cap(entries)-len(entries) > maxOrderedCompletionsExcessCapacity {
+		compacted := make(orderedCompletions, len(entries))
+		copy(compacted, entries)
+		entries = compacted
 	}
-	delete(vo.elements, entry.version)
-	for e := previous; e != nil; e = e.Prev() {
-		if e.Value.(*versionEntry).version == entry.version {
-			vo.elements[entry.version] = e
-			break
-		}
-	}
+	*vo = entries
+}
+
+func (vo *orderedCompletions) remove(index int) {
+	vo.removeRange(index, index+1)
 }
 
 // updateUpTo associates the completions for all versions before the latest
@@ -93,47 +93,35 @@ func (vo *orderedCompletions) remove(elem *list.Element) {
 // occurrence belong to newer snapshots and are left unchanged.
 // Returns the completions associated with the 'version' after the update.
 func (vo *orderedCompletions) updateUpTo(version string) iter.Seq[*completion.Completion] {
-	elem, ok := vo.elements[version]
-	if !ok {
-		return func(func(*completion.Completion) bool) {}
+	targetIndex := vo.lastIndex(version)
+	if targetIndex < 0 {
+		return (set.Set[*completion.Completion]{}).Members()
 	}
 
-	target := elem.Value.(*versionEntry)
-	for e := vo.list.Front(); e != elem; {
-		entry := e.Value.(*versionEntry)
-		next := e.Next()
-		// move completions to the target versionEntry
-		for c := range entry.completions {
-			target.completions[c] = struct{}{}
-		}
-		// remove the stale versionEntries and completion references so that they can only
-		// be reached via the target versionEntry.
-		vo.remove(e)
-		e = next
+	entries := *vo
+	for i := range targetIndex {
+		entries[targetIndex].completions.Merge(entries[i].completions)
 	}
-	return maps.Keys(target.completions)
+	if targetIndex > 0 {
+		vo.removeRange(0, targetIndex)
+	}
+	return (*vo)[0].completions.Members()
 }
 
 // completeUpTo returns all completions for the given version and all versions
-// that were inserted before it, removing them from the list.
+// that were inserted before it, removing them from the slice.
 func (vo *orderedCompletions) completeUpTo(version string) []*completion.Completion {
-	elem, ok := vo.elements[version]
-	if !ok {
+	targetIndex := vo.lastIndex(version)
+	if targetIndex < 0 {
 		return nil
 	}
 	var completed []*completion.Completion
-	for e := vo.list.Front(); e != nil; {
-		entry := e.Value.(*versionEntry)
-		next := e.Next()
-		for c := range entry.completions {
+	for i := 0; i <= targetIndex; i++ {
+		for c := range (*vo)[i].completions.Members() {
 			completed = append(completed, c)
 		}
-		vo.remove(e)
-		if e == elem {
-			break
-		}
-		e = next
 	}
+	vo.removeRange(0, targetIndex+1)
 	return completed
 }
 
@@ -231,14 +219,14 @@ func (cb *CompletionCallbacks) RemoveTypeVersionCompletion(c *completion.Complet
 // cb.mutex must be held.
 func (cb *CompletionCallbacks) removeFromOrderedCompletions(c *completion.Completion) {
 	for key, vo := range cb.completionsOrders {
-		for elem := vo.list.Front(); elem != nil; elem = elem.Next() {
-			entry := elem.Value.(*versionEntry)
-			if _, ok := entry.completions[c]; ok {
-				delete(entry.completions, c)
-				if len(entry.completions) == 0 {
-					vo.remove(elem)
+		for i := range *vo {
+			entry := &(*vo)[i]
+			if entry.completions.Has(c) {
+				entry.completions.Remove(c)
+				if entry.completions.Empty() {
+					vo.remove(i)
 				}
-				if vo.list.Len() == 0 {
+				if len(*vo) == 0 {
 					delete(cb.completionsOrders, key)
 				}
 				return
@@ -477,7 +465,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 				for _, ec := range completed {
 					delete(cb.pendingCompletions, ec)
 				}
-				if vo.list.Len() == 0 {
+				if len(*vo) == 0 {
 					delete(cb.completionsOrders, key)
 				}
 			} else {
@@ -516,7 +504,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 				logfields.XDSTypeURL, typeURL,
 				logfields.Version, req.GetVersionInfo())
 		}
-		if vo.list.Len() == 0 {
+		if len(*vo) == 0 {
 			delete(cb.completionsOrders, key)
 		}
 	}
@@ -571,7 +559,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 			for _, c := range completed {
 				delete(cb.pendingCompletions, c)
 			}
-			if vo.list.Len() == 0 {
+			if len(*vo) == 0 {
 				delete(cb.completionsOrders, key)
 			}
 		}

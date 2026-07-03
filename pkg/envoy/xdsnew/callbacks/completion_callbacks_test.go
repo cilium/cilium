@@ -6,6 +6,7 @@ package xdsnew
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"testing"
 	"time"
 
@@ -74,6 +75,109 @@ func requireCompletionPending(t *testing.T, comp *completion.Completion) {
 		require.Fail(t, "completion was completed unexpectedly")
 	default:
 	}
+}
+
+func TestOrderedCompletionsUpdateUpToLastVersion(t *testing.T) {
+	vo := newOrderedCompletions()
+	compA1 := completion.NewCompletion(nil, nil, nil)
+	compB := completion.NewCompletion(nil, nil, nil)
+	compA2 := completion.NewCompletion(nil, nil, nil)
+	compC := completion.NewCompletion(nil, nil, nil)
+
+	vo.append("version-a", compA1)
+	vo.append("version-b", compB)
+	vo.append("version-a", compA2)
+	vo.append("version-c", compC)
+
+	updated := slices.Collect(vo.updateUpTo("version-a"))
+	require.ElementsMatch(t, []*completion.Completion{compA1, compB, compA2}, updated)
+	require.Len(t, *vo, 2)
+	require.Equal(t, "version-a", (*vo)[0].version)
+	require.Equal(t, 3, (*vo)[0].completions.Len())
+	require.Equal(t, "version-c", (*vo)[1].version)
+	require.True(t, (*vo)[1].completions.Has(compC))
+}
+
+func TestOrderedCompletionsCompleteUpToLastVersion(t *testing.T) {
+	vo := newOrderedCompletions()
+	compA1 := completion.NewCompletion(nil, nil, nil)
+	compB := completion.NewCompletion(nil, nil, nil)
+	compA2 := completion.NewCompletion(nil, nil, nil)
+	compC := completion.NewCompletion(nil, nil, nil)
+
+	vo.append("version-a", compA1)
+	vo.append("version-b", compB)
+	vo.append("version-a", compA2)
+	vo.append("version-c", compC)
+
+	completed := vo.completeUpTo("version-a")
+	require.ElementsMatch(t, []*completion.Completion{compA1, compB, compA2}, completed)
+	require.Len(t, *vo, 1)
+	require.Equal(t, "version-c", (*vo)[0].version)
+	require.True(t, (*vo)[0].completions.Has(compC))
+}
+
+func TestRemoveFromOrderedCompletionsCompactsMiddleEntry(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	vo := newOrderedCompletions()
+	compA := completion.NewCompletion(nil, nil, nil)
+	compB1 := completion.NewCompletion(nil, nil, nil)
+	compB2 := completion.NewCompletion(nil, nil, nil)
+	compC := completion.NewCompletion(nil, nil, nil)
+
+	vo.append("version-a", compA)
+	vo.append("version-b", compB1)
+	vo.add("version-b", compB2)
+	vo.append("version-c", compC)
+	cb.completionsOrders[completionsOrderKey("node-1", listenerTypeURL)] = vo
+
+	cb.RemoveTypeVersionCompletion(compB1)
+	require.Len(t, *vo, 3)
+	require.Equal(t, "version-b", (*vo)[1].version)
+	require.Equal(t, 1, (*vo)[1].completions.Len())
+	require.True(t, (*vo)[1].completions.Has(compB2))
+
+	cb.RemoveTypeVersionCompletion(compB2)
+	require.Len(t, *vo, 2)
+	require.Equal(t, "version-a", (*vo)[0].version)
+	require.Equal(t, "version-c", (*vo)[1].version)
+}
+
+func TestOrderedCompletionsRemoveCapacity(t *testing.T) {
+	t.Run("ordinary capacity is retained", func(t *testing.T) {
+		entries := make(orderedCompletions, 3, 16)
+		entries[0].version = "version-a"
+		entries[1].version = "version-b"
+		entries[2].version = "version-c"
+
+		entries.remove(1)
+		require.Equal(t, 16, cap(entries))
+		require.Equal(t, []string{"version-a", "version-c"}, []string{entries[0].version, entries[1].version})
+	})
+
+	t.Run("exactly the excess limit is retained", func(t *testing.T) {
+		entries := make(orderedCompletions, 2, maxOrderedCompletionsExcessCapacity+1)
+		entries.remove(0)
+		require.Equal(t, maxOrderedCompletionsExcessCapacity+1, cap(entries))
+		require.Equal(t, maxOrderedCompletionsExcessCapacity, cap(entries)-len(entries))
+	})
+
+	t.Run("capacity above the excess limit is released", func(t *testing.T) {
+		entries := make(orderedCompletions, 2, maxOrderedCompletionsExcessCapacity+2)
+		entries.remove(0)
+		require.Equal(t, len(entries), cap(entries))
+	})
+
+	t.Run("large live slice shrinks only excessive capacity", func(t *testing.T) {
+		entries := make(orderedCompletions, 200, 400)
+		entries.remove(0)
+		require.Len(t, entries, 199)
+		require.Equal(t, 199, cap(entries))
+
+		entries.remove(0)
+		require.Len(t, entries, 198)
+		require.Equal(t, 199, cap(entries))
+	})
 }
 
 func TestAddTypeVersionCompletionCompletesAlreadyAckedVersion(t *testing.T) {
