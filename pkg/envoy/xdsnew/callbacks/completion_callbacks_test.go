@@ -16,6 +16,16 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 )
 
+const listenerTypeURL = "type.googleapis.com/envoy.config.listener.v3.Listener"
+
+var orderedCompletionTypeURLs = []struct {
+	name    string
+	typeURL string
+}{
+	{name: "network-policy", typeURL: NetworkPolicyTypeURL},
+	{name: "listener", typeURL: listenerTypeURL},
+}
+
 func newTestCompletionCallbacks() *CompletionCallbacks {
 	return NewCompletionCallbacks(slog.New(slog.DiscardHandler))
 }
@@ -26,6 +36,44 @@ func newTestCompletion(t *testing.T) (*completion.WaitGroup, *completion.Complet
 	wg := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg.Cancel)
 	return wg, wg.AddCompletionWithCallback(nil, nil)
+}
+
+func registerTypeVersionCompletion(t *testing.T, cb *CompletionCallbacks, comp *completion.Completion, typeURL, version string) {
+	t.Helper()
+	registered, err := cb.AddTypeVersionCompletion(comp, version, typeURL, "node-1", true, nil)
+	require.NoError(t, err)
+	require.True(t, registered)
+}
+
+func sendTypeVersionResponse(cb *CompletionCallbacks, typeURL, version string) {
+	cb.OnStreamResponse(context.Background(), 1,
+		&discovery.DiscoveryRequest{
+			Node:    &core.Node{Id: "node-1"},
+			TypeUrl: typeURL,
+		},
+		&discovery.DiscoveryResponse{
+			VersionInfo: version,
+			TypeUrl:     typeURL,
+		},
+	)
+}
+
+func ackTypeVersionResponse(t *testing.T, cb *CompletionCallbacks, typeURL, version string) {
+	t.Helper()
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        &core.Node{Id: "node-1"},
+		TypeUrl:     typeURL,
+		VersionInfo: version,
+	}))
+}
+
+func requireCompletionPending(t *testing.T, comp *completion.Completion) {
+	t.Helper()
+	select {
+	case <-comp.Completed():
+		require.Fail(t, "completion was completed unexpectedly")
+	default:
+	}
 }
 
 func TestAddTypeVersionCompletionCompletesAlreadyAckedVersion(t *testing.T) {
@@ -94,7 +142,6 @@ func TestOnStreamResponseCompletesPendingCompletionForAlreadyAckedVersion(t *tes
 func TestCompletionCallbacksUseStreamNodeIDWhenACKOmitsNode(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	wg, comp := newTestCompletion(t)
-	const listenerTypeURL = "type.googleapis.com/envoy.config.listener.v3.Listener"
 
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
 		Node: &core.Node{Id: "node-1"},
@@ -115,4 +162,78 @@ func TestCompletionCallbacksUseStreamNodeIDWhenACKOmitsNode(t *testing.T) {
 	}))
 	require.NoError(t, wg.Wait())
 	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestCompletionFollowsNewerResponseVersion(t *testing.T) {
+	for _, tt := range orderedCompletionTypeURLs {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := newTestCompletionCallbacks()
+			wg1, comp1 := newTestCompletion(t)
+			wg2, comp2 := newTestCompletion(t)
+
+			registerTypeVersionCompletion(t, cb, comp1, tt.typeURL, "version-1")
+			registerTypeVersionCompletion(t, cb, comp2, tt.typeURL, "version-2")
+
+			// The later response must move the earlier completion to version-2 rather
+			// than leave it stranded in version-1's ordered-list entry.
+			sendTypeVersionResponse(cb, tt.typeURL, "version-1")
+			sendTypeVersionResponse(cb, tt.typeURL, "version-2")
+			ackTypeVersionResponse(t, cb, tt.typeURL, "version-2")
+
+			require.Zero(t, cb.PendingCompletionCount())
+			require.NoError(t, wg1.Wait())
+			require.NoError(t, wg2.Wait())
+		})
+	}
+}
+
+func TestOlderResponseDoesNotClaimNewerCompletion(t *testing.T) {
+	for _, tt := range orderedCompletionTypeURLs {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := newTestCompletionCallbacks()
+			wg1, comp1 := newTestCompletion(t)
+			wg2, comp2 := newTestCompletion(t)
+
+			registerTypeVersionCompletion(t, cb, comp1, tt.typeURL, "version-1")
+			registerTypeVersionCompletion(t, cb, comp2, tt.typeURL, "version-2")
+
+			// An ACK for a response created before version-2 must not complete the
+			// version-2 update, even though the response callback runs afterwards.
+			sendTypeVersionResponse(cb, tt.typeURL, "version-1")
+			ackTypeVersionResponse(t, cb, tt.typeURL, "version-1")
+			require.Equal(t, 1, cb.PendingCompletionCount())
+			require.NoError(t, wg1.Wait())
+			requireCompletionPending(t, comp2)
+
+			sendTypeVersionResponse(cb, tt.typeURL, "version-2")
+			ackTypeVersionResponse(t, cb, tt.typeURL, "version-2")
+			require.Zero(t, cb.PendingCompletionCount())
+			require.NoError(t, wg2.Wait())
+		})
+	}
+}
+
+func TestResponseUsesLastMatchingVersion(t *testing.T) {
+	for _, tt := range orderedCompletionTypeURLs {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := newTestCompletionCallbacks()
+			wgA1, compA1 := newTestCompletion(t)
+			wgB, compB := newTestCompletion(t)
+			wgA2, compA2 := newTestCompletion(t)
+
+			registerTypeVersionCompletion(t, cb, compA1, tt.typeURL, "version-a")
+			registerTypeVersionCompletion(t, cb, compB, tt.typeURL, "version-b")
+			registerTypeVersionCompletion(t, cb, compA2, tt.typeURL, "version-a")
+
+			// For A -> B -> A, the response for A represents the last A and therefore
+			// covers both earlier entries as well as the final A entry.
+			sendTypeVersionResponse(cb, tt.typeURL, "version-a")
+			ackTypeVersionResponse(t, cb, tt.typeURL, "version-a")
+
+			require.Zero(t, cb.PendingCompletionCount())
+			require.NoError(t, wgA1.Wait())
+			require.NoError(t, wgB.Wait())
+			require.NoError(t, wgA2.Wait())
+		})
+	}
 }
