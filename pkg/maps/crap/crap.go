@@ -54,6 +54,15 @@ func (v *CrapVal) String() string {
 
 func (v *CrapVal) New() bpf.MapValue { return &CrapVal{} }
 
+type ICrapMap interface {
+	Delete(key *CrapKey) error
+	IterateWithCallback(cb CrapIterateCallback) error
+	Lookup(key *CrapKey) (*CrapVal, error)
+	RemoveCrapMapping(dstIP netip.Addr) error
+	Update(key CrapKey, value CrapVal) error
+	UpdateCrapMapping(dstIP netip.Addr, podIp netip.Addr) error
+}
+
 // Map represents an CRAP BPF map.
 type CrapMap struct {
 	m *bpf.Map

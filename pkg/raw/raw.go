@@ -10,9 +10,8 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
-	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -44,23 +43,34 @@ type CrapParams struct {
 	Services          resource.Resource[*slim_corev1.Service]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
 	Logger            *slog.Logger
-	IdentityAllocator identityCache.IdentityAllocator
-	EndpointManager   endpointmanager.EndpointManager
-	BpfMap            *crap.CrapMap
+	IdentityAllocator identityAllocatorSlim
+	EndpointManager   endpointManagerSlim
+	BpfMap            crap.ICrapMap
+}
+
+type endpointManagerSlim interface {
+	LookupIP(ip netip.Addr) (ep *endpoint.Endpoint)
+}
+
+type identityAllocatorSlim interface {
+	WaitForInitialGlobalIdentities(context.Context) error
+	LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity
 }
 
 type endpointMetadata struct {
-	labels  map[string]string
-	id      endpointID
-	ip      netip.Addr
-	nodeIP  string
-	ifindex int
+	labels    map[string]string
+	id        endpointID
+	ip        netip.Addr
+	nodeIP    string
+	ifindex   int
+	namespace string
 }
 
 type serviceMetadata struct {
-	labels map[string]string
-	id     serviceID
-	vip    []netip.Addr
+	labels    map[string]string
+	id        serviceID
+	vip       []netip.Addr
+	namespace string
 }
 
 type endpointID = types.UID
@@ -87,9 +97,13 @@ type CrapManager struct {
 	trigger           job.Trigger
 	logger            *slog.Logger
 	ch                chan *diff
-	identityAllocator identityCache.IdentityAllocator
-	bpfmap            *crap.CrapMap
-	endpointManager   endpointmanager.EndpointManager
+	identityAllocator identityAllocatorSlim
+	bpfmap            crap.ICrapMap
+	endpointManager   endpointManagerSlim
+
+	// for testing
+	svcProcessed chan int
+	epProcessed  chan int
 }
 
 func newCrapManager(params CrapParams) *CrapManager {
@@ -140,12 +154,14 @@ func (cm *CrapManager) getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, id
 		}
 	}
 
+	fmt.Printf("getEndpointMetadata labels %+v \n", identityLabels)
 	data := &endpointMetadata{
-		ip:      addr,
-		labels:  identityLabels.K8sStringMap(),
-		id:      endpoint.UID,
-		nodeIP:  endpoint.Networking.NodeIP,
-		ifindex: ifindex,
+		ip:        addr,
+		labels:    identityLabels.K8sStringMap(),
+		id:        endpoint.UID,
+		nodeIP:    endpoint.Networking.NodeIP,
+		ifindex:   ifindex,
+		namespace: endpoint.Namespace,
 	}
 
 	return data, nil
@@ -163,9 +179,10 @@ func getServiceMetadata(svc *slim_corev1.Service) (*serviceMetadata, error) {
 	}
 
 	data := &serviceMetadata{
-		vip:    addrs,
-		labels: svc.Spec.Selector,
-		id:     svc.UID,
+		vip:       addrs,
+		labels:    svc.Spec.Selector,
+		id:        svc.UID,
+		namespace: svc.Namespace,
 	}
 
 	return data, nil
@@ -332,6 +349,10 @@ func buildRules(eps map[endpointID]*endpointMetadata, svcs map[serviceID]*servic
 		var targetEp *endpointMetadata = nil
 
 		for _, ep := range eps {
+			if ep.namespace != svc.namespace {
+				continue
+			}
+
 			if svc.matchesPodLabels(ep.labels) {
 				targetEp = ep
 				break
@@ -447,6 +468,13 @@ func (cm *CrapManager) reconcile(ctx context.Context, health cell.Health) error 
 
 			desired := buildRules(epDataStore, svcDataStore)
 			cm.updateRawRules(desired)
+
+			if cm.svcProcessed != nil {
+				cm.svcProcessed <- len(svcDataStore)
+			}
+			if cm.epProcessed != nil {
+				cm.epProcessed <- len(epDataStore)
+			}
 
 		case <-ctx.Done():
 			return nil
