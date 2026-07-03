@@ -231,13 +231,11 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 		)
 	}
 
+	var excludedNodes []string
 	relevantNodes := []corev1.Node{}
 	for _, node := range nodes.Items {
 		if !shouldIncludeNode(&node) {
-			scopedLog.DebugContext(
-				ctx, "Skipping Node to be deleted or excluded from load balancers",
-				logfields.NodeName, node.Name,
-			)
+			excludedNodes = append(excludedNodes, node.Name)
 			continue
 		}
 		if endpointSliceNames != nil && !endpointSliceNames.Has(node.Name) {
@@ -249,6 +247,13 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 		}
 
 		relevantNodes = append(relevantNodes, node)
+	}
+
+	if len(excludedNodes) > 0 {
+		scopedLog.InfoContext(
+			ctx, "Skipping Nodes that are being deleted or are excluded from load balancers",
+			logfields.Nodes, excludedNodes,
+		)
 	}
 
 	if len(nodes.Items) > 0 && len(relevantNodes) == 0 {
