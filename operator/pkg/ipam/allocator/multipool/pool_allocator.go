@@ -13,6 +13,8 @@ import (
 	"slices"
 	"sort"
 
+	"go4.org/netipx"
+
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -47,6 +49,11 @@ func WithAllowLastIP() PoolOption {
 	return func(o *poolOptions) {
 		o.allowLastIP = true
 	}
+}
+
+type poolCIDRConfig struct {
+	cidr           netip.Prefix
+	reservedRanges []netipx.IPRange
 }
 
 type cidrSet map[netip.Prefix]struct{}
@@ -278,7 +285,35 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 	return cidrSets, errors.Join(errs...)
 }
 
-func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []netip.Prefix, ipv4MaskSize int, ipv6CIDRs []netip.Prefix, ipv6MaskSize int, opts ...PoolOption) error {
+func cidrPrefixes(cidrs []poolCIDRConfig) []netip.Prefix {
+	prefixes := make([]netip.Prefix, 0, len(cidrs))
+
+	for i := range cidrs {
+		cidrConfig := &cidrs[i]
+		prefixes = append(prefixes, cidrConfig.cidr)
+	}
+
+	return prefixes
+}
+
+func setReservedRanges(allocators []cidralloc.CIDRAllocator, cidrs []poolCIDRConfig) error {
+	reservedRanges := make(map[netip.Prefix][]netipx.IPRange, len(cidrs))
+	for i := range cidrs {
+		cidrConfig := &cidrs[i]
+		reservedRanges[cidrConfig.cidr] = cidrConfig.reservedRanges
+	}
+
+	for i := range allocators {
+		prefix := allocators[i].Prefix()
+		if err := allocators[i].SetReservedRanges(reservedRanges[prefix]); err != nil {
+			return fmt.Errorf("failed to set reserved ranges for CIDR %s: %w", prefix, err)
+		}
+	}
+
+	return nil
+}
+
+func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, ipv4MaskSize int, ipv6CIDRs []poolCIDRConfig, ipv6MaskSize int, opts ...PoolOption) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -301,11 +336,14 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []netip.Prefix, ip
 		return fmt.Errorf("cannot change allowLastIP in existing pool %q", poolName)
 	}
 
+	ipv4Prefixes := cidrPrefixes(ipv4CIDRs)
+	ipv6Prefixes := cidrPrefixes(ipv6CIDRs)
+
 	var v4Prev []cidralloc.CIDRAllocator
 	if exists {
 		v4Prev = pool.v4
 	}
-	v4, err := p.updateCIDRSets(false, v4Prev, ipv4CIDRs, ipv4MaskSize)
+	v4, err := p.updateCIDRSets(false, v4Prev, ipv4Prefixes, ipv4MaskSize)
 	if err != nil {
 		return err
 	}
@@ -314,8 +352,15 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []netip.Prefix, ip
 	if exists {
 		v6Prev = pool.v6
 	}
-	v6, err := p.updateCIDRSets(true, v6Prev, ipv6CIDRs, ipv6MaskSize)
+	v6, err := p.updateCIDRSets(true, v6Prev, ipv6Prefixes, ipv6MaskSize)
 	if err != nil {
+		return err
+	}
+
+	if err := setReservedRanges(v4, ipv4CIDRs); err != nil {
+		return err
+	}
+	if err := setReservedRanges(v6, ipv6CIDRs); err != nil {
 		return err
 	}
 

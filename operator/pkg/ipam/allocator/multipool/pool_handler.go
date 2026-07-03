@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"strings"
 
+	"go4.org/netipx"
+
 	iputil "github.com/cilium/cilium/pkg/ip"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -116,17 +117,24 @@ func ParsePoolSpec(poolString string) (*ParsedPoolSpec, error) {
 }
 
 func UpsertPool(allocator *PoolAllocator, name string, v4Spec *v2.IPv4PoolSpec, v6Spec *v2.IPv6PoolSpec, allowFirstIP, allowLastIP bool) error {
-	var ipv4CIDRs, ipv6CIDRs []netip.Prefix
+	var ipv4CIDRs, ipv6CIDRs []poolCIDRConfig
 	var ipv4MaskSize, ipv6MaskSize int
+	var err error
 
 	if v4Spec != nil {
 		ipv4MaskSize = int(v4Spec.MaskSize)
-		ipv4CIDRs = slices.Map(v4Spec.CIDRs, func(c iputil.Prefix) netip.Prefix { return c.Prefix })
+		ipv4CIDRs, err = buildPoolCIDRConfigs(v4Spec.CIDRs, v4Spec.Pool)
+		if err != nil {
+			return fmt.Errorf("invalid IPv4 CIDR config: %w", err)
+		}
 	}
 
 	if v6Spec != nil {
 		ipv6MaskSize = int(v6Spec.MaskSize)
-		ipv6CIDRs = slices.Map(v6Spec.CIDRs, func(c iputil.Prefix) netip.Prefix { return c.Prefix })
+		ipv6CIDRs, err = buildPoolCIDRConfigs(v6Spec.CIDRs, v6Spec.Pool)
+		if err != nil {
+			return fmt.Errorf("invalid IPv6 CIDR config: %w", err)
+		}
 	}
 
 	var opts []PoolOption
@@ -149,4 +157,56 @@ func UpsertPool(allocator *PoolAllocator, name string, v4Spec *v2.IPv4PoolSpec, 
 
 func DeletePool(allocator *PoolAllocator, name string) error {
 	return allocator.DeletePool(name)
+}
+
+func buildPoolCIDRConfigs(cidrs []iputil.Prefix, pool []v2.PoolCIDRConfig) ([]poolCIDRConfig, error) {
+	configByCIDR := make(map[iputil.Prefix]v2.PoolCIDRConfig, len(pool))
+	for _, cfg := range pool {
+		configByCIDR[cfg.CIDR] = cfg
+	}
+
+	configs := make([]poolCIDRConfig, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		prefix := cidr.Prefix.Masked()
+
+		reservedRanges, err := parseReservedRanges(prefix, configByCIDR[cidr].ReservedRanges)
+		if err != nil {
+			return nil, err
+		}
+
+		configs = append(configs, poolCIDRConfig{
+			cidr:           prefix,
+			reservedRanges: reservedRanges,
+		})
+	}
+
+	return configs, nil
+}
+
+func parseReservedRanges(poolCIDR netip.Prefix, ranges []v2.ReservedRange) ([]netipx.IPRange, error) {
+	reserved := make([]netipx.IPRange, 0, len(ranges))
+	for _, rr := range ranges {
+		start, err := netip.ParseAddr(rr.Start)
+		if err != nil {
+			return nil, fmt.Errorf("invalid reserved range start %q in pool CIDR %s: %w", rr.Start, poolCIDR, err)
+		}
+
+		end, err := netip.ParseAddr(rr.End)
+		if err != nil {
+			return nil, fmt.Errorf("invalid reserved range end %q in pool CIDR %s: %w", rr.End, poolCIDR, err)
+		}
+
+		r := netipx.IPRangeFrom(start, end)
+		if !r.IsValid() {
+			return nil, fmt.Errorf("invalid reserved range %s-%s in pool CIDR %s", start, end, poolCIDR)
+		}
+
+		if !poolCIDR.Contains(start) || !poolCIDR.Contains(end) {
+			return nil, fmt.Errorf("reserved range %s-%s is outside pool CIDR %s", start, end, poolCIDR)
+		}
+
+		reserved = append(reserved, r)
+	}
+
+	return reserved, nil
 }

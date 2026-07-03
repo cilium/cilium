@@ -33,9 +33,6 @@ func occupyCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) error {
 		if !alloc.InRange(cidr) {
 			continue
 		}
-		if alloc.IsFull() {
-			return errPoolEmpty
-		}
 		allocated, err := alloc.IsAllocated(cidr)
 		if err != nil {
 			return err
