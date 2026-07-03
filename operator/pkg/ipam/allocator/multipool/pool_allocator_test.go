@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"go4.org/netipx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -20,8 +21,14 @@ import (
 func TestPoolAllocator(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 	err := p.UpsertPool("default",
-		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16"), netip.MustParsePrefix("10.200.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80"), netip.MustParsePrefix("fc00:100::/80")}, 96,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.100.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.200.0.0/16")},
+		}, 24,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("fd00:100::/80")},
+			{cidr: netip.MustParsePrefix("fc00:100::/80")},
+		}, 96,
 	)
 	assert.NoError(t, err)
 	defaultPool, exists := p.pools["default"]
@@ -262,7 +269,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `cannot allocate from non-existing pool: no-exist`)
 
 	err = p.UpsertPool("ipv4-only",
-		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")}, 24,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/16")}}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -279,13 +286,13 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `pool empty`)
 
 	err = p.UpsertPool("ipv4-only-same-cidr",
-		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")}, 24,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/16")}}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
 	err = p.UpsertPool("ipv6-only",
 		nil, 0,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.NoError(t, err)
 	node.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
@@ -357,8 +364,14 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	_, exists := p.pools["jupiter"]
 	assert.False(t, exists)
 	err := p.UpsertPool("jupiter",
-		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16"), netip.MustParsePrefix("10.200.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80"), netip.MustParsePrefix("fc00:100::/80")}, 96,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.100.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.200.0.0/16")},
+		}, 24,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("fd00:100::/80")},
+			{cidr: netip.MustParsePrefix("fc00:100::/80")},
+		}, 96,
 	)
 	assert.NoError(t, err)
 	_, exists = p.pools["jupiter"]
@@ -377,8 +390,14 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	_, exists = p.pools["mars"]
 	assert.False(t, exists)
 	err = p.UpsertPool("mars",
-		[]netip.Prefix{netip.MustParsePrefix("10.10.0.0/16"), netip.MustParsePrefix("10.20.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fe00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 96,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.10.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.20.0.0/16")},
+		}, 24,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("fe00:100::/80")},
+			{cidr: netip.MustParsePrefix("fb00:200::/80")},
+		}, 96,
 	)
 	assert.NoError(t, err)
 	mars, exists := p.pools["mars"]
@@ -392,8 +411,14 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// IPv4 mask size cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]netip.Prefix{netip.MustParsePrefix("10.10.0.0/16"), netip.MustParsePrefix("10.30.0.0/16")}, 25,
-		[]netip.Prefix{netip.MustParsePrefix("fa00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 97,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.10.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.30.0.0/16")},
+		}, 25,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("fa00:100::/80")},
+			{cidr: netip.MustParsePrefix("fb00:200::/80")},
+		}, 97,
 	)
 	assert.ErrorContains(t, err, `cannot change IPv4 mask size in existing pool "mars"`)
 	mars, exists = p.pools["mars"]
@@ -407,8 +432,14 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// IPv6 mask size cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]netip.Prefix{netip.MustParsePrefix("10.1.0.0/16"), netip.MustParsePrefix("10.3.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fa00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 97,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.1.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.3.0.0/16")},
+		}, 24,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("fa00:100::/80")},
+			{cidr: netip.MustParsePrefix("fb00:200::/80")},
+		}, 97,
 	)
 	assert.ErrorContains(t, err, `cannot change IPv6 mask size in existing pool "mars"`)
 	mars, exists = p.pools["mars"]
@@ -422,8 +453,14 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// allowFirstIP cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]netip.Prefix{netip.MustParsePrefix("10.10.0.0/16"), netip.MustParsePrefix("10.20.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fe00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 96,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.10.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.20.0.0/16")},
+		}, 24,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("fe00:100::/80")},
+			{cidr: netip.MustParsePrefix("fb00:200::/80")},
+		}, 96,
 		WithAllowFirstIP(),
 	)
 	assert.ErrorContains(t, err, `cannot change allowFirstIP in existing pool "mars"`)
@@ -434,8 +471,14 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// allowLastIP cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]netip.Prefix{netip.MustParsePrefix("10.10.0.0/16"), netip.MustParsePrefix("10.20.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fe00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 96,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.10.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.20.0.0/16")},
+		}, 24,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("fe00:100::/80")},
+			{cidr: netip.MustParsePrefix("fb00:200::/80")},
+		}, 96,
 		WithAllowLastIP(),
 	)
 	assert.ErrorContains(t, err, `cannot change allowLastIP in existing pool "mars"`)
@@ -446,8 +489,16 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// Changes in pool CIDRs are reflected in internal bookkeeping after upsert
 	err = p.UpsertPool("mars",
-		[]netip.Prefix{netip.MustParsePrefix("10.1.0.0/16"), netip.MustParsePrefix("10.3.0.0/16"), netip.MustParsePrefix("10.10.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fa00:100::/80"), netip.MustParsePrefix("fc00:200::/80"), netip.MustParsePrefix("fe00:100::/80")}, 96,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.1.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.3.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.10.0.0/16")},
+		}, 24,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("fa00:100::/80")},
+			{cidr: netip.MustParsePrefix("fc00:200::/80")},
+			{cidr: netip.MustParsePrefix("fe00:100::/80")},
+		}, 96,
 	)
 	assert.NoError(t, err)
 	mars, exists = p.pools["mars"]
@@ -601,7 +652,7 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPoolAllocator(hivetest.Logger(t), true, false)
-			err := p.UpsertPool("test-pool", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/29")}, 30, nil, 0, tt.options...)
+			err := p.UpsertPool("test-pool", []poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/29")}}, 30, nil, 0, tt.options...)
 			assert.NoError(t, err)
 			p.RestoreFinished()
 
@@ -646,7 +697,10 @@ func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 
 	// Initial pool with two IPv4 CIDRs
 	err := p.UpsertPool("shrink-test",
-		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/16"), netip.MustParsePrefix("10.1.0.0/16")}, 24,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.0.0.0/16")},
+			{cidr: netip.MustParsePrefix("10.1.0.0/16")},
+		}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -697,8 +751,8 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 
 	// upsert new pool test-pool
 	err := p.UpsertPool("test-pool",
-		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.100.0.0/16")}}, 24,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.NoError(t, err)
 	testPool, exists := p.pools["test-pool"]
@@ -722,7 +776,7 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 	// remove v4 CIDRs from "test-pool"
 	err = p.UpsertPool("test-pool",
 		nil, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -817,8 +871,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// upsert new pool test-pool
 	err := p.UpsertPool("test-pool",
-		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.100.0.0/16")}}, 24,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.NoError(t, err)
 	testPool, exists := p.pools["test-pool"]
@@ -906,8 +960,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// insert again "test-pool"
 	err = p.UpsertPool("test-pool",
-		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.100.0.0/16")}}, 24,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -947,7 +1001,7 @@ func TestOrphanCIDRs(t *testing.T) {
 	// remove v4 CIDRs from "test-pool"
 	err = p.UpsertPool("test-pool",
 		nil, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -1009,8 +1063,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// update "test-pool" to restore v4 CIDRs
 	err = p.UpsertPool("test-pool",
-		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.100.0.0/16")}}, 24,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -1134,8 +1188,8 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	// upsert new pool "another-test-pool" that contains orphan CIDRs from "test-pool"
 	// this should fail, since we don't allow another pool to "steal" orphan CIDRs
 	err = p.UpsertPool("another-test-pool",
-		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.100.0.0/16")}}, 24,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.ErrorContains(t, err, `unable to mark orphaned CIDR 10.100.0.0/24 still used by node node1 as allocated`)
 	assert.ErrorContains(t, err, `cannot reuse from non-existing pool: test-pool`)
@@ -1143,8 +1197,8 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	// restore the original "test-pool"
 	// this should succeed, and it should unorphan the CIDRs
 	err = p.UpsertPool("test-pool",
-		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
-		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.100.0.0/16")}}, 24,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00:100::/80")}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -1170,7 +1224,12 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	err := p.UpsertPool("test-pool",
-		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28"), netip.MustParsePrefix("10.0.0.32/28"), netip.MustParsePrefix("10.0.0.48/28")}, 28,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.0.0.0/28")},
+			{cidr: netip.MustParsePrefix("10.0.0.16/28")},
+			{cidr: netip.MustParsePrefix("10.0.0.32/28")},
+			{cidr: netip.MustParsePrefix("10.0.0.48/28")},
+		}, 28,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -1209,7 +1268,10 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	}, p.AllocatedPools(node.Name))
 
 	err = p.UpsertPool("test-pool",
-		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28")}, 28,
+		[]poolCIDRConfig{
+			{cidr: netip.MustParsePrefix("10.0.0.0/28")},
+			{cidr: netip.MustParsePrefix("10.0.0.16/28")},
+		}, 28,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -1218,4 +1280,185 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	assert.True(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.16/28")))
 	assert.False(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.32/28")))
 	assert.False(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.48/28")))
+}
+
+func TestPoolAllocator_ReservedRangesExcludeCIDRs(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t), true, false)
+
+	err := p.UpsertPool("test-pool",
+		[]poolCIDRConfig{
+			{
+				cidr: netip.MustParsePrefix("10.0.0.0/16"),
+				reservedRanges: []netipx.IPRange{
+					netipx.IPRangeFrom(netip.MustParseAddr("10.0.0.10"), netip.MustParseAddr("10.0.0.20")),
+				},
+			},
+		},
+		24,
+		nil,
+		0,
+	)
+	assert.NoError(t, err)
+
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: "node"},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 1,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	p.RestoreFinished()
+
+	err = p.AllocateToNode(node.Name, node.Spec.IPAM.Pools)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.1.0/24")),
+			},
+		},
+	}, p.AllocatedPools(node.Name))
+}
+
+func TestPoolAllocator_ReservedRangesCanBeRemoved(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t), true, false)
+
+	err := p.UpsertPool("test-pool",
+		[]poolCIDRConfig{
+			{
+				cidr: netip.MustParsePrefix("10.0.0.0/30"),
+				reservedRanges: []netipx.IPRange{
+					netipx.IPRangeFrom(netip.MustParseAddr("10.0.0.0"), netip.MustParseAddr("10.0.0.1")),
+				},
+			},
+		},
+		31,
+		nil,
+		0,
+	)
+	assert.NoError(t, err)
+	p.RestoreFinished()
+
+	node1 := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 1,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = p.AllocateToNode(node1.Name, node1.Spec.IPAM.Pools)
+	assert.NoError(t, err)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/31")),
+			},
+		},
+	}, p.AllocatedPools(node1.Name))
+
+	err = p.UpsertPool("test-pool",
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/30")}},
+		31,
+		nil,
+		0,
+	)
+	assert.NoError(t, err)
+
+	node2 := node1.DeepCopy()
+	node2.Name = "node2"
+
+	err = p.AllocateToNode(node2.Name, node2.Spec.IPAM.Pools)
+	assert.NoError(t, err)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/31")),
+			},
+		},
+	}, p.AllocatedPools(node2.Name))
+}
+
+func TestPoolAllocator_ReleasedCIDRRemainsReserved(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t), true, false)
+
+	err := p.UpsertPool("test-pool",
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/30")}},
+		31,
+		nil,
+		0,
+	)
+	assert.NoError(t, err)
+	p.RestoreFinished()
+
+	request := ipamTypes.IPAMPoolSpec{
+		Requested: []ipamTypes.IPAMPoolRequest{
+			{
+				Pool: "test-pool",
+				Needed: ipamTypes.IPAMPoolDemand{
+					IPv4Addrs: 1,
+				},
+			},
+		},
+	}
+
+	err = p.AllocateToNode("node1", request)
+	assert.NoError(t, err)
+	assert.Equal(t,
+		cidrSet{netip.MustParsePrefix("10.0.0.0/31"): {}},
+		p.nodes["node1"]["test-pool"].v4,
+	)
+
+	err = p.UpsertPool("test-pool",
+		[]poolCIDRConfig{
+			{
+				cidr: netip.MustParsePrefix("10.0.0.0/30"),
+				reservedRanges: []netipx.IPRange{
+					netipx.IPRangeFrom(netip.MustParseAddr("10.0.0.0"), netip.MustParseAddr("10.0.0.1")),
+				},
+			},
+		},
+		31,
+		nil,
+		0,
+	)
+	assert.NoError(t, err)
+
+	err = p.ReleaseNode("node1")
+	assert.NoError(t, err)
+
+	err = p.AllocateToNode("node2", request)
+	assert.NoError(t, err)
+	assert.Equal(t,
+		cidrSet{netip.MustParsePrefix("10.0.0.2/31"): {}},
+		p.nodes["node2"]["test-pool"].v4,
+	)
+
+	err = p.AllocateToNode("node3", request)
+	assert.ErrorIs(t, err, errPoolEmpty)
 }
