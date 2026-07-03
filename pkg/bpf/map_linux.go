@@ -842,8 +842,8 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		prevKeyValid = false
 	)
 
-	stats.start()
-	defer stats.finish()
+	stats.Start()
+	defer stats.Finish()
 
 	if err := m.Open(); err != nil {
 		return err
