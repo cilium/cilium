@@ -264,6 +264,66 @@ In this example Node Group 1 is composed only of ``kind-worker``, while Node Gro
 
 7. (Optional) Reschedule pods to ensure workload is evenly distributed across nodes in cluster.
 
+.. _update_existing_ciliumpodippools_with_reservedranges:
+
+Migrating Pods to a new IPAM range using reservedRanges
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When migrating Pods to a new IPAM range, nodes may continue using PodCIDRs
+from the old range until the migration is complete. Removing the old CIDR
+before all nodes have migrated can orphan existing allocations and trigger
+``CIDR from pool still in use by node`` warnings.
+
+Keep the old CIDR in ``cidrs`` and reserve it with ``reservedRanges``. Cilium
+preserves existing allocations from the old CIDR but does not allocate new
+PodCIDRs from it.
+
+.. note::
+
+  ``reservedRanges`` is available only in ``cilium.io/v2``.
+
+#. Add the new CIDR and reserve the entire old CIDR, keeping both ranges in
+   ``cidrs``.
+
+   .. code-block:: yaml
+
+     apiVersion: cilium.io/v2
+     kind: CiliumPodIPPool
+     metadata:
+       name: default
+     spec:
+       ipv4:
+         cidrs:
+         - 10.10.0.0/16
+         - 10.20.0.0/16
+         maskSize: 24
+         pool:
+         - cidr: 10.10.0.0/16
+           reservedRanges:
+           - start: 10.10.0.0
+             end: 10.10.255.255
+
+   Cilium will now only allocate new PodCIDRs from ``10.20.0.0/16``.
+
+#. Follow steps 3 through 6 in :ref:`update_existing_ciliumpodippools` to
+   migrate each node group to the new range.
+
+#. Once no node uses the old CIDR, remove it from ``cidrs`` and remove
+   the matching ``pool`` entry.
+
+   .. code-block:: yaml
+
+     apiVersion: cilium.io/v2
+     kind: CiliumPodIPPool
+     metadata:
+       name: default
+     spec:
+       ipv4:
+         cidrs:
+         - 10.20.0.0/16
+         maskSize: 24
+         pool: []
+
 Per-Node Default Pool
 ---------------------
 
