@@ -229,6 +229,7 @@ func TestPrivilegedCtGcIcmp(t *testing.T) {
 	mcast.Observe(context.Background(), NatMapNext4, func(err error) {})
 	stats := ctMap.doGCForFamily(filter, next, nil, false)
 	complete(nil)
+	require.NotEqual(t, stats.Finished, stats.Started)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
 
@@ -343,6 +344,7 @@ func TestPrivilegedCtGcTcp(t *testing.T) {
 	mcast.Observe(context.Background(), NatMapNext4, func(err error) {})
 	stats := ctMap.doGCForFamily(filter, next, nil, false)
 	complete(nil)
+	require.NotEqual(t, stats.Finished, stats.Started)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
 

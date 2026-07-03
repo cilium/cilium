@@ -89,10 +89,12 @@ func statStartGc(m *Map) gcStats {
 	} else {
 		result.proto = gcProtocolAny
 	}
+	result.DumpStats.Start()
 	return result
 }
 
 func (s *gcStats) finish() {
+	s.DumpStats.Finish()
 	duration := s.Duration()
 	family := s.family.String()
 	switch s.family {

@@ -49,13 +49,13 @@ func NewDumpStats(m *Map) *DumpStats {
 	}
 }
 
-// start starts the dump.
-func (d *DumpStats) start() {
+// Start starts the dump.
+func (d *DumpStats) Start() {
 	d.Started = time.Now()
 }
 
-// finish finishes the dump.
-func (d *DumpStats) finish() {
+// Finish finishes the dump.
+func (d *DumpStats) Finish() {
 	d.Finished = time.Now()
 }
 
