@@ -12,7 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
@@ -38,7 +38,7 @@ type managerParams struct {
 	Namespaces   statedb.Table[k8sTables.Namespace]
 	Jobs         job.Group
 
-	PodIPPoolResource resource.Resource[*api_v2alpha1.CiliumPodIPPool]
+	PodIPPoolResource resource.Resource[*v2.CiliumPodIPPool]
 }
 
 func newIPAMMetadataManager(params managerParams) Manager {

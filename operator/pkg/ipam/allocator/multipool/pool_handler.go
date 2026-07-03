@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	iputil "github.com/cilium/cilium/pkg/ip"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -24,8 +24,8 @@ const (
 )
 
 type ParsedPoolSpec struct {
-	IPv4         *cilium_v2alpha1.IPv4PoolSpec
-	IPv6         *cilium_v2alpha1.IPv6PoolSpec
+	IPv4         *v2.IPv4PoolSpec
+	IPv6         *v2.IPv6PoolSpec
 	AllowFirstIP bool
 	AllowLastIP  bool
 }
@@ -91,17 +91,17 @@ func ParsePoolSpec(poolString string) (*ParsedPoolSpec, error) {
 	}
 
 	var (
-		v4PoolSpec *cilium_v2alpha1.IPv4PoolSpec
-		v6PoolSpec *cilium_v2alpha1.IPv6PoolSpec
+		v4PoolSpec *v2.IPv4PoolSpec
+		v6PoolSpec *v2.IPv6PoolSpec
 	)
 	if len(ipv4CIDRs) > 0 {
-		v4PoolSpec = &cilium_v2alpha1.IPv4PoolSpec{
+		v4PoolSpec = &v2.IPv4PoolSpec{
 			CIDRs:    ipv4CIDRs,
 			MaskSize: ipv4MaskSize,
 		}
 	}
 	if len(ipv6CIDRs) > 0 {
-		v6PoolSpec = &cilium_v2alpha1.IPv6PoolSpec{
+		v6PoolSpec = &v2.IPv6PoolSpec{
 			CIDRs:    ipv6CIDRs,
 			MaskSize: ipv6MaskSize,
 		}
@@ -115,7 +115,7 @@ func ParsePoolSpec(poolString string) (*ParsedPoolSpec, error) {
 	}, nil
 }
 
-func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.IPv4PoolSpec, v6Spec *cilium_v2alpha1.IPv6PoolSpec, allowFirstIP, allowLastIP bool) error {
+func UpsertPool(allocator *PoolAllocator, name string, v4Spec *v2.IPv4PoolSpec, v6Spec *v2.IPv6PoolSpec, allowFirstIP, allowLastIP bool) error {
 	var ipv4CIDRs, ipv6CIDRs []netip.Prefix
 	var ipv4MaskSize, ipv6MaskSize int
 
