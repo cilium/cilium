@@ -21,7 +21,6 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -39,17 +38,17 @@ var (
 	redNameNSSelector = slimv1.LabelSelector{MatchLabels: map[string]string{
 		podIPPoolNameLabel: redPoolName,
 	}}
-	redPool = &v2alpha1.CiliumPodIPPool{
+	redPool = &v2.CiliumPodIPPool{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:   redPoolName,
 			Labels: redLabelSelector.MatchLabels,
 		},
-		Spec: v2alpha1.IPPoolSpec{
-			IPv4: &v2alpha1.IPv4PoolSpec{
+		Spec: v2.IPPoolSpec{
+			IPv4: &v2.IPv4PoolSpec{
 				CIDRs:    []iputil.Prefix{redPoolCIDRv4},
 				MaskSize: 24,
 			},
-			IPv6: &v2alpha1.IPv6PoolSpec{
+			IPv6: &v2.IPv6PoolSpec{
 				CIDRs:    []iputil.Prefix{redPoolCIDRv6},
 				MaskSize: 96,
 			},
@@ -146,13 +145,13 @@ var (
 	blueNameNSSelector = slimv1.LabelSelector{MatchLabels: map[string]string{
 		podIPPoolNameLabel: bluePoolName,
 	}}
-	bluePool = &v2alpha1.CiliumPodIPPool{
+	bluePool = &v2.CiliumPodIPPool{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:   bluePoolName,
 			Labels: blueLabelSelector.MatchLabels,
 		},
-		Spec: v2alpha1.IPPoolSpec{
-			IPv4: &v2alpha1.IPv4PoolSpec{
+		Spec: v2.IPPoolSpec{
+			IPv4: &v2.IPv4PoolSpec{
 				CIDRs: []iputil.Prefix{
 					bluePoolCIDR1v4,
 					bluePoolCIDR2v4,
@@ -160,7 +159,7 @@ var (
 				},
 				MaskSize: 24,
 			},
-			IPv6: &v2alpha1.IPv6PoolSpec{
+			IPv6: &v2.IPv6PoolSpec{
 				CIDRs: []iputil.Prefix{
 					bluePoolCIDR1v6,
 					bluePoolCIDR2v6,
@@ -251,7 +250,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 		name                     string
 		peerConfig               []*v2.CiliumBGPPeerConfig
 		advertisements           []*v2.CiliumBGPAdvertisement
-		pools                    []*v2alpha1.CiliumPodIPPool
+		pools                    []*v2.CiliumPodIPPool
 		preconfiguredPoolAFPaths map[resource.Key]map[types.Family]map[string]struct{}
 		preconfiguredRPs         []*bgpTables.DesiredRoutePolicy
 		testCiliumNode           *v2.CiliumNode
@@ -269,7 +268,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redAdvertWithSelector(&redLabelSelector),
 				blueAdvertWithSelector(&blueLabelSelector),
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 				bluePool,
 			},
@@ -351,7 +350,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redAdvertWithSelector(&redNameNSSelector),
 				blueAdvertWithSelector(&blueNameNSSelector),
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 				bluePool,
 			},
@@ -433,7 +432,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redAdvert,  // no selector matching red pool
 				blueAdvert, // no selector matching blue pool
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 				bluePool,
 			},
@@ -487,7 +486,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redAdvertWithSelector(&redLabelSelector),
 				blueAdvertWithSelector(&blueLabelSelector),
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 				bluePool,
 			},
@@ -531,7 +530,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvertWithSelector(&redLabelSelector),
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 			},
 			preconfiguredPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
@@ -614,7 +613,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 						PeerConfigStore: store.InitMockStore[*v2.CiliumBGPPeerConfig](tt.peerConfig),
 						AdvertStore:     store.InitMockStore[*v2.CiliumBGPAdvertisement](tt.advertisements),
 					}),
-				PoolStore:               store.InitMockStore[*v2alpha1.CiliumPodIPPool](tt.pools),
+				PoolStore:               store.InitMockStore[*v2.CiliumPodIPPool](tt.pools),
 				DB:                      db,
 				DesiredRoutePolicyTable: desiredRoutePolicyTable,
 			}
