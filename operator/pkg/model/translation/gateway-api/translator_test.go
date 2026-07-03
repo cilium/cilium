@@ -64,6 +64,7 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "conformance/httproute_request_mirror"},
 		{name: "conformance/httproute_request_redirect_with_multi_httplisteners"},
 		{name: "conformance/httproute_backend_protocol_h_2_c_app_protocol"},
+		{name: "httproute_redirect_same_match_order"},
 
 		// TLSRoute related tests
 

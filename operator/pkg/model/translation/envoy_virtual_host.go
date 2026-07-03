@@ -76,10 +76,6 @@ func (s SortableRoute) Less(i, j int) bool {
 	// There are two types of prefix match, so get whichever one is bigger
 	prefixMatch1 := max(len(s[i].Match.GetPathSeparatedPrefix()), len(s[i].Match.GetPrefix()))
 	prefixMatch2 := max(len(s[j].Match.GetPathSeparatedPrefix()), len(s[j].Match.GetPrefix()))
-	headerMatch1 := len(s[i].Match.GetHeaders())
-	headerMatch2 := len(s[j].Match.GetHeaders())
-	queryMatch1 := len(s[i].Match.GetQueryParameters())
-	queryMatch2 := len(s[j].Match.GetQueryParameters())
 
 	// Next up, sort by prefix match length
 	if prefixMatch1 != prefixMatch2 {
@@ -101,12 +97,36 @@ func (s SortableRoute) Less(i, j int) bool {
 	}
 
 	// If that's the same, then sort by header length
+	headerMatch1 := countMatchingHeaders(s[i].Match.GetHeaders())
+	headerMatch2 := countMatchingHeaders(s[j].Match.GetHeaders())
 	if headerMatch1 != headerMatch2 {
 		return headerMatch1 > headerMatch2
 	}
 
 	// lastly, sort by query match length
+	queryMatch1 := len(s[i].Match.GetQueryParameters())
+	queryMatch2 := len(s[j].Match.GetQueryParameters())
 	return queryMatch1 > queryMatch2
+}
+
+// countMatchingHeaders returns the number of Gateway API header matches that
+// contribute to HTTPRoute precedence.
+func countMatchingHeaders(headers []*envoy_config_route_v3.HeaderMatcher) int {
+	count := 0
+	for _, header := range headers {
+		sm := header.GetStringMatch()
+		// Cilium adds an inverted X-Forwarded-Proto match to prevent redirect loops.
+		// Since this is an internal scheme redirect guard rather than a Gateway API
+		// header match, ignore it when counting headers for route precedence. Only
+		// Cilium-generated redirect guards set IgnoreCase here, which lets us
+		// distinguish them from user-defined X-Forwarded-Proto matches.
+		if header.Name == "X-Forwarded-Proto" && header.GetInvertMatch() && sm != nil && sm.IgnoreCase {
+			continue
+		}
+		count++
+	}
+
+	return count
 }
 
 func getMethod(headers []*envoy_config_route_v3.HeaderMatcher) *string {
