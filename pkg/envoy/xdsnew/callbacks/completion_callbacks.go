@@ -7,7 +7,9 @@ import (
 	"container/list"
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
+	"maps"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -30,11 +32,12 @@ type versionEntry struct {
 	completions map[*completion.Completion]struct{}
 }
 
-// orderedCompletions maintains insertion order of versions with O(1) lookup by version string.
-// When a version is ACKed, all versions up to and including it are completed.
+// orderedCompletions maintains insertion order of versions with O(1) lookup of
+// the latest occurrence of a version string. When a version is ACKed, all
+// versions up to and including its latest occurrence are completed.
 type orderedCompletions struct {
 	list     *list.List
-	elements map[string]*list.Element
+	elements map[string]*list.Element // latest entry with the key version
 }
 
 func newOrderedCompletions() *orderedCompletions {
@@ -44,20 +47,71 @@ func newOrderedCompletions() *orderedCompletions {
 	}
 }
 
-// add adds a completion to the given version entry. If the version doesn't exist
-// yet, a new entry is appended to the end of the list (newest).
+// add adds a completion to the latest occurrence of the given version. If the
+// version doesn't exist yet, a new entry is appended to the end of the list.
 func (vo *orderedCompletions) add(version string, c *completion.Completion) {
 	if elem, ok := vo.elements[version]; ok {
 		entry := elem.Value.(*versionEntry)
 		entry.completions[c] = struct{}{}
 		return
 	}
+	vo.append(version, c)
+}
+
+// append records a new occurrence of a version at the end of the list. A
+// version may occur more than once when snapshot contents change A -> B -> A;
+// elements always points to the last occurrence.
+func (vo *orderedCompletions) append(version string, c *completion.Completion) {
 	entry := &versionEntry{
 		version:     version,
 		completions: map[*completion.Completion]struct{}{c: {}},
 	}
 	elem := vo.list.PushBack(entry)
 	vo.elements[version] = elem
+}
+
+// remove removes an entry and keeps elements pointing at the latest remaining
+// occurrence of its version.
+func (vo *orderedCompletions) remove(elem *list.Element) {
+	entry := elem.Value.(*versionEntry)
+	previous := elem.Prev()
+	vo.list.Remove(elem)
+	if vo.elements[entry.version] != elem {
+		return
+	}
+	delete(vo.elements, entry.version)
+	for e := previous; e != nil; e = e.Prev() {
+		if e.Value.(*versionEntry).version == entry.version {
+			vo.elements[entry.version] = e
+			break
+		}
+	}
+}
+
+// updateUpTo associates the completions for all versions before the latest
+// occurrence of 'version' with that response version. Entries after that
+// occurrence belong to newer snapshots and are left unchanged.
+// Returns the completions associated with the 'version' after the update.
+func (vo *orderedCompletions) updateUpTo(version string) iter.Seq[*completion.Completion] {
+	elem, ok := vo.elements[version]
+	if !ok {
+		return func(func(*completion.Completion) bool) {}
+	}
+
+	target := elem.Value.(*versionEntry)
+	for e := vo.list.Front(); e != elem; {
+		entry := e.Value.(*versionEntry)
+		next := e.Next()
+		// move completions to the target versionEntry
+		for c := range entry.completions {
+			target.completions[c] = struct{}{}
+		}
+		// remove the stale versionEntries and completion references so that they can only
+		// be reached via the target versionEntry.
+		vo.remove(e)
+		e = next
+	}
+	return maps.Keys(target.completions)
 }
 
 // completeUpTo returns all completions for the given version and all versions
@@ -74,8 +128,7 @@ func (vo *orderedCompletions) completeUpTo(version string) []*completion.Complet
 		for c := range entry.completions {
 			completed = append(completed, c)
 		}
-		delete(vo.elements, entry.version)
-		vo.list.Remove(e)
+		vo.remove(e)
 		if e == elem {
 			break
 		}
@@ -108,7 +161,8 @@ type CompletionCallbacks struct {
 
 	// pendingCompletions is the list of updates that are pending completion.
 	pendingCompletions map[*completion.Completion]*pendingCompletion
-	// completionsOrders tracks the order in which versions were sent per (nodeID, typeURL).
+	// completionsOrders tracks the order in which snapshot versions were created
+	// per (nodeID, typeURL).
 	// When an ACK is received for a version, all completions for that version and
 	// all earlier versions are completed.
 	// A separate mutex is not needed here: completionsOrders is always updated
@@ -177,13 +231,12 @@ func (cb *CompletionCallbacks) RemoveTypeVersionCompletion(c *completion.Complet
 // cb.mutex must be held.
 func (cb *CompletionCallbacks) removeFromOrderedCompletions(c *completion.Completion) {
 	for key, vo := range cb.completionsOrders {
-		for _, elem := range vo.elements {
+		for elem := vo.list.Front(); elem != nil; elem = elem.Next() {
 			entry := elem.Value.(*versionEntry)
 			if _, ok := entry.completions[c]; ok {
 				delete(entry.completions, c)
 				if len(entry.completions) == 0 {
-					vo.list.Remove(elem)
-					delete(vo.elements, entry.version)
+					vo.remove(elem)
 				}
 				if vo.list.Len() == 0 {
 					delete(cb.completionsOrders, key)
@@ -246,16 +299,22 @@ func (cb *CompletionCallbacks) addPendingCompletion(c *completion.Completion, ve
 	return pc
 }
 
-// addToCompletionsOrder attaches a pending completion to an xDS response
-// version. cb.mutex must be held.
-func (cb *CompletionCallbacks) addToCompletionsOrder(c *completion.Completion, pc *pendingCompletion, version string) {
+// addToCompletionsOrder attaches a pending completion to a version. When
+// newVersion is true, the version is appended as a new snapshot occurrence;
+// otherwise the completion is attached to the latest existing occurrence.
+// cb.mutex must be held.
+func (cb *CompletionCallbacks) addToCompletionsOrder(c *completion.Completion, pc *pendingCompletion, version string, newVersion bool) {
 	key := completionsOrderKey(pc.nodeID, pc.typeURL)
 	vo, ok := cb.completionsOrders[key]
 	if !ok {
 		vo = newOrderedCompletions()
 		cb.completionsOrders[key] = vo
 	}
-	vo.add(version, c)
+	if newVersion {
+		vo.append(version, c)
+	} else {
+		vo.add(version, c)
+	}
 	pc.inCompletionsOrder = true
 	cb.Log.Debug("Added completion to version order",
 		logfields.XDSTypeURL, pc.typeURL,
@@ -263,20 +322,21 @@ func (cb *CompletionCallbacks) addToCompletionsOrder(c *completion.Completion, p
 		logfields.NodeID, pc.nodeID)
 }
 
-// CompleteUnsentPendingCompletions completes pending updates that were never
-// attached to any xDS response. Call this after the cache has successfully
-// landed on a version Envoy has already accepted; at that point there is no
-// future response that could complete the superseded updates.
+// CompleteUnsentPendingCompletions completes pending updates superseded when
+// the cache successfully lands on a version Envoy has already accepted. These
+// updates may be in the snapshot order, but no response was sent for them and
+// no future response can complete them.
 func (cb *CompletionCallbacks) CompleteUnsentPendingCompletions(nodeID, typeURL string, err error) {
 	var completed []*completion.Completion
 
 	cb.mutex.Lock()
 	for c, pc := range cb.pendingCompletions {
-		if pc.nodeID != nodeID || pc.typeURL != typeURL || pc.inCompletionsOrder {
+		if pc.nodeID != nodeID || pc.typeURL != typeURL {
 			continue
 		}
 		completed = append(completed, c)
 		delete(cb.pendingCompletions, c)
+		cb.removeFromOrderedCompletions(c)
 	}
 	cb.mutex.Unlock()
 
@@ -308,7 +368,7 @@ func (cb *CompletionCallbacks) AddTypeVersionCompletion(c *completion.Completion
 		// Add the completion directly to that response's order so the in-flight
 		// ACK can complete it.
 		pc := cb.addPendingCompletion(c, version, typeURL, nodeID, revertFunc)
-		cb.addToCompletionsOrder(c, pc, version)
+		cb.addToCompletionsOrder(c, pc, version, versionChanged)
 		return true, nil
 	}
 
@@ -322,7 +382,12 @@ func (cb *CompletionCallbacks) AddTypeVersionCompletion(c *completion.Completion
 		return false, state.rejectedErr
 	}
 
-	cb.addPendingCompletion(c, version, typeURL, nodeID, revertFunc)
+	pc := cb.addPendingCompletion(c, version, typeURL, nodeID, revertFunc)
+	if version != "" {
+		// Responses can race snapshot publication, so retain the snapshot order
+		// before a response chooses the prefix it represents.
+		cb.addToCompletionsOrder(c, pc, version, versionChanged)
+	}
 	return true, nil
 }
 
@@ -394,7 +459,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 
 		// NACK received: find a matching pending completion for the revert function.
 		for c, pc := range cb.pendingCompletions {
-			if pc.typeURL != typeURL || pc.nodeID != nodeID {
+			if pc.typeURL != typeURL || pc.nodeID != nodeID || pc.version != rejectedVersion {
 				continue
 			}
 			cb.Log.Warn(
@@ -408,7 +473,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 			// Complete this completion and all earlier ones in the version order,
 			// since the revert rolls back all changes up to this point.
 			if vo, ok := cb.completionsOrders[key]; ok {
-				completed = vo.completeUpTo(pc.version)
+				completed = vo.completeUpTo(rejectedVersion)
 				for _, ec := range completed {
 					delete(cb.pendingCompletions, ec)
 				}
@@ -472,17 +537,21 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 
 	cb.mutex.Lock()
 	nodeID := cb.nodeIDForRequest(streamID, req)
+	key := completionsOrderKey(nodeID, typeURL)
 
-	if typeURL == NetworkPolicyTypeURL || typeURL == NetworkPolicyHostsTypeURL {
-		// Check if any completion has been registered for this type URL and node ID, and if so, update resource version.
-		for _, pc := range cb.pendingCompletions {
-			if pc.typeURL == typeURL && pc.nodeID == nodeID {
-				cb.Log.Debug("Updating version completion for type URL and version",
-					logfields.XDSTypeURL, pc.typeURL,
-					logfields.Version, version,
-					logfields.NodeID, nodeID)
-				pc.version = version
+	// A response represents its snapshot and all snapshots before it, but must
+	// not claim completions registered for snapshots after it.
+	if vo, ok := cb.completionsOrders[key]; ok {
+		for c := range vo.updateUpTo(version) {
+			pc, ok := cb.pendingCompletions[c]
+			if !ok {
+				continue
 			}
+			cb.Log.Debug("Updating version completion for type URL and version",
+				logfields.XDSTypeURL, pc.typeURL,
+				logfields.Version, version,
+				logfields.NodeID, nodeID)
+			pc.version = version
 		}
 	}
 
@@ -491,7 +560,6 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 		return
 	}
 
-	key := completionsOrderKey(nodeID, typeURL)
 	state := cb.responseStates[key]
 	if state.pendingVersion == "" && state.acceptedVersion == version {
 		state.rejectedVersion = ""
@@ -531,7 +599,8 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	// Add matching pending completions to the version order.
 	for c, pc := range cb.pendingCompletions {
 		if pc.typeURL == typeURL && pc.nodeID == nodeID && !pc.inCompletionsOrder {
-			cb.addToCompletionsOrder(c, pc, version)
+			cb.addToCompletionsOrder(c, pc, version, false)
+			pc.version = version
 		}
 	}
 	cb.mutex.Unlock()
