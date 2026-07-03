@@ -1,0 +1,195 @@
+#! --test-peering-ips=fd00::99:4:221,fd00::99:4:222
+
+# Tests route policy priority for overlapping exact and aggregated service advertisements.
+# Exact service routes must use the exact advertisement's path attributes, while the shared
+# summary route must use the aggregated advertisement's path attributes.
+
+# Start the hive
+hive start
+
+# Add both services
+k8s/add service-exact-and-aggregate.yaml service-aggregate-only.yaml
+
+# Configure an iBGP server so local preference is advertised
+gobgp/add-server test --router-id=10.99.4.221 65001 fd00::99:4:221 1790
+gobgp/add-peer fd00::99:4:222 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state fd00::99:4:222 ESTABLISHED
+
+# Validate the desired policy statements and their exact/summary priorities
+db/cmp bgp-desired-route-policies desired-route-policies.table
+
+# Validate that the exact route policy statements have a higher priority than summary statements.
+# The exact-and-aggregate service is deliberately named after the aggregate-only service lexically,
+# so this order cannot be produced by sorting statement names alone.
+bgp/route-policies -o policies.actual
+* cmp route-policies.expected policies.actual
+
+# Validate that the exact route uses the exact advertisement's attributes, even though the aggregate
+# advertisement has a higher local preference. The summary route uses the aggregate attributes.
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: fd00::99:4:222
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    routerID: 10.99.4.222
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65001
+      peerAddress: fd00::99:4:221
+      localAddress: fd00::99:4:222
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: services
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+      - LoadBalancerIP
+      aggregationLengthIPv4: 24
+    selector:
+      matchLabels:
+        aggregate: advertise
+    attributes:
+      communities:
+        standard: [ "65000:200" ]
+      localPreference: 200
+  - advertisementType: Service
+    service:
+      addresses:
+      - LoadBalancerIP
+    selector:
+      matchLabels:
+        exact: advertise
+    attributes:
+      communities:
+        standard: [ "65000:100" ]
+      localPreference: 100
+
+-- service-exact-and-aggregate.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-exact-and-aggregate
+  namespace: default
+  labels:
+    aggregate: advertise
+    exact: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.101
+  clusterIPs:
+  - 10.96.50.101
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-aggregate-only.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-aggregate-only
+  namespace: default
+  labels:
+    aggregate: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.102
+  clusterIPs:
+  - 10.96.50.102
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.2
+
+-- desired-route-policies.table --
+Instance    Peer            PolicyType      Priority    Owner       Resource                            StatementName
+tor         gobgp-peer      export          41          Service     default/svc-aggregate-only          Service-svc-aggregate-only-default-LoadBalancerIP-ipv4-agg-24
+tor         gobgp-peer      export          40          Service     default/svc-exact-and-aggregate     Service-svc-exact-and-aggregate-default-LoadBalancerIP-ipv4
+tor         gobgp-peer      export          41          Service     default/svc-exact-and-aggregate     Service-svc-exact-and-aggregate-default-LoadBalancerIP-ipv4-agg-24
+-- route-policies.expected --
+Instance   Policy Name              Type     Statement Name                                                       Match Peers      Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+tor        allow-local              import   accept-local                                                                                                                           accept       
+           peer-gobgp-peer-export   export   Service-svc-exact-and-aggregate-default-LoadBalancerIP-ipv4          fd00::99:4:221                    172.16.1.1/32 (32..32)          accept       {SetLocalPreference: 100} {AddCommunities: [65000:100]}
+                                             Service-svc-aggregate-only-default-LoadBalancerIP-ipv4-agg-24        fd00::99:4:221                    172.16.1.0/24 (24..24)          accept       {SetLocalPreference: 200} {AddCommunities: [65000:200]}
+                                             Service-svc-exact-and-aggregate-default-LoadBalancerIP-ipv4-agg-24   fd00::99:4:221                    172.16.1.0/24 (24..24)          accept       {SetLocalPreference: 200} {AddCommunities: [65000:200]}
+-- gobgp-routes.expected --
+Prefix          NextHop          Attrs
+172.16.1.0/24   fd00::99:4:222   [{Origin: i} {AsPath: } {LocalPref: 200} {Communities: 65000:200} {MpReach(ipv4-unicast): {Nexthop: fd00::99:4:222, NLRIs: [172.16.1.0/24:0]}}]
+172.16.1.1/32   fd00::99:4:222   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: 65000:100} {MpReach(ipv4-unicast): {Nexthop: fd00::99:4:222, NLRIs: [172.16.1.1/32:0]}}]
