@@ -316,13 +316,12 @@ defined in the main repository:
   (these may be handled directly in the ReadTheDocs configuration in the
   future, see also :gh-issue:`29969`)
 
-Algolia search engine
----------------------
+RTD search add-on
+-----------------
 
-- :spelling:word:`Algolia` provides a search engine for the documentation website. See also the
-  repository for the `DocSearch scraper`_.
+- Read the Docs provides a `search engine`_ for the documentation website.
 
-.. _DocSearch scraper: https://github.com/cilium/docsearch-scraper-webhook
+.. _search engine: https://docs.readthedocs.com/platform/stable/server-side-search/index.html#search-features
 
 Build set up
 ============
