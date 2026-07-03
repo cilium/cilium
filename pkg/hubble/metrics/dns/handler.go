@@ -73,14 +73,14 @@ func (h *dnsHandler) Init(registry *prometheus.Registry, options *api.MetricConf
 	h.responses = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "dns_responses_total",
-		Help:      "Number of DNS queries observed",
+		Help:      "Number of DNS responses observed",
 	}, queryAndResponseLabels)
 	registry.MustRegister(h.responses)
 
 	h.responseTypes = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "dns_response_types_total",
-		Help:      "Number of DNS queries observed",
+		Help:      "Number of DNS response types observed",
 	}, responseTypeLabels)
 	registry.MustRegister(h.responseTypes)
 
