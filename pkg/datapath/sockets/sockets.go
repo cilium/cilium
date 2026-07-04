@@ -515,19 +515,33 @@ func iterateNetlinkSockets(proto uint8, family uint8, stateFilter uint32, fn fun
 		return fmt.Errorf("failed to send netlink list request: %w", err)
 	}
 
+	return receiveNetlinkSockets(s, fn)
+}
+
+type netlinkDumpReceiver interface {
+	Receive() ([]syscall.NetlinkMessage, *unix.SockaddrNetlink, error)
+}
+
+func receiveNetlinkSockets(s netlinkDumpReceiver, fn func(*Socket, error) error) error {
 loop:
 	for {
 		msgs, from, err := s.Receive()
 		if err != nil {
-			fn(nil, err)
+			if cbErr := fn(nil, err); cbErr != nil {
+				return cbErr
+			}
 			continue loop
 		}
 		if from.Pid != nl.PidKernel {
-			fn(nil, fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel))
+			if cbErr := fn(nil, fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel)); cbErr != nil {
+				return cbErr
+			}
 			continue loop
 		}
 		if len(msgs) == 0 {
-			fn(nil, errors.New("no message nor error from netlink"))
+			if cbErr := fn(nil, errors.New("no message nor error from netlink")); cbErr != nil {
+				return cbErr
+			}
 			continue loop
 		}
 
@@ -536,9 +550,11 @@ loop:
 			case unix.NLMSG_DONE:
 				break loop
 			case unix.NLMSG_ERROR:
-				error := int32(native.Uint32(m.Data[0:4]))
-				fn(nil, syscall.Errno(-error))
-				continue loop
+				errCode := int32(native.Uint32(m.Data[0:4]))
+				// The kernel terminates a failed dump with NLMSG_ERROR in
+				// place of NLMSG_DONE and sends no further messages, so stop
+				// iterating instead of blocking on the next receive.
+				return fn(nil, syscall.Errno(-errCode))
 			}
 			sockInfo := &Socket{}
 			err := sockInfo.Deserialize(m.Data)
