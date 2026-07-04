@@ -132,7 +132,13 @@ func probeForSockDestroy(ctx context.Context, logger *slog.Logger, tcp, udp bool
 		count := 0
 		lo := net.IP{127, 0, 0, 1}
 		if err := Iterate(uint8(probe.proto), unix.AF_INET, probe.filterMask, func(s *netlink.Socket, err error) error {
-			logger.Debug("found probe socket, attempting destroy",
+			if err != nil || s == nil {
+				// Stop iterating if an error was encountered (for example an
+				// NLMSG_ERROR returned mid-dump), or continue if the socket
+				// is empty.
+				return err
+			}
+			logger.Debug("checking socket from dump against probe",
 				logfields.Port, probe.port,
 				logfields.Protocol, probe.proto)
 			count++
