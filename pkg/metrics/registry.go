@@ -135,7 +135,7 @@ func (reg *Registry) AddServerRuntimeHooks(serverId string, tlsConfigPromise TLS
 				return err
 			}
 			return nil
-		}, job.WithShutdown()),
+		}),
 	)
 }
 
