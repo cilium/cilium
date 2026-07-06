@@ -392,6 +392,17 @@ type Endpoint struct {
 	// ep.mutex must be held.
 	realizedPolicy *policy.EndpointPolicy
 
+	// preservedRestoredPolicyEntries is set on the first regeneration after an
+	// agent restart when the pre-restart policy map entries were preserved
+	// (added to, but not deleted from) while the desired policy was still being
+	// resolved, to avoid dropping established L3/L4 connections. It records that
+	// the BPF policy map may legitimately still hold stale entries that are not
+	// part of realizedPolicy. The first full reconciliation
+	// (syncPolicyMapWithDump) that removes those leftovers is therefore expected
+	// rather than a symptom of a policy-map bug, and clears this flag.
+	// ep.mutex must be held.
+	preservedRestoredPolicyEntries bool
+
 	eventQueue *eventqueue.EventQueue
 
 	// skippedRegenerationLevel is the DatapathRegenerationLevel of the regeneration event that

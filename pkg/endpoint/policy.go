@@ -421,7 +421,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 					return fmt.Errorf("unable to dump PolicyMap when trying to revert failed endpoint regeneration: %w", err)
 				}
 
-				_, _, err = e.syncPolicyMapWith(currentMap, false)
+				_, _, err = e.syncPolicyMapWith(currentMap, false, false)
 				if err != nil {
 					e.getLogger().Error("failed to sync PolicyMap when reverting to last known good policy", logfields.Error, err)
 				}
