@@ -340,6 +340,8 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 			}
 
 			gwc.ifaceName = iface.Attrs().Name
+			gwc.egressIfindex = uint32(iface.Attrs().Index)
+
 			egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gwc.ifaceName)
 			if err != nil {
 				return fmt.Errorf("failed to retrieve IPv6 address for egress interface: %w", err)
