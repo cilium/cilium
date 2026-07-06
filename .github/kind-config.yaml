@@ -5,8 +5,17 @@ nodes:
     kubeadmConfigPatches:
       # To make sure that there is no taint for master node.
       # Otherwise additional worker node might be required for conformance testing.
+      # kind picks the kubeadm apiVersion based on the Kubernetes version: v1beta3
+      # up to k8s v1.35 and v1beta4 from k8s v1.36 (kind v0.32+). A patch whose
+      # apiVersion does not match the generated config is silently ignored, so we
+      # list both to keep the taint removed across kind and Kubernetes versions.
       - |
         apiVersion: kubeadm.k8s.io/v1beta3
+        kind: InitConfiguration
+        nodeRegistration:
+          taints: []
+      - |
+        apiVersion: kubeadm.k8s.io/v1beta4
         kind: InitConfiguration
         nodeRegistration:
           taints: []
