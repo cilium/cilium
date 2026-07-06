@@ -96,7 +96,7 @@ for debugging purposes:
     spec:
       containers:
       - name: aws-cli
-        image: mesosphere/aws-cli
+        image: amazon/aws-cli
         command: ['sh', '-c', 'sleep 3600']
         env:
           - name: AWS_ACCESS_KEY_ID
