@@ -698,11 +698,18 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
 		ep.DatapathConfiguration.ExternalIpam = true
 	case ipamOption.IPAMENI:
-		ifindex, err := ifindexFromMac(ipam.IPv4.MasterMac)
-		if err == nil {
-			ep.ParentInterfaceIndex = ifindex
-		} else {
-			scopedLogger.Error("Unable to get interface index from MAC address", logfields.Error, err)
+		// ParentInterfaceIndex is only consumed by the IPv4 masquerade
+		// datapath (to redirect reply traffic out the endpoint's ENI), so
+		// there is nothing to set when IPv4 is disabled.
+		//
+		// See nodeport_snat_fwd_ipv4 in bpf/lib/nodeport_egress.h
+		if ipv4IsEnabled(ipam) {
+			ifindex, err := ifindexFromMac(ipam.IPv4.MasterMac)
+			if err == nil {
+				ep.ParentInterfaceIndex = ifindex
+			} else {
+				scopedLogger.Error("Unable to get interface index from MAC address", logfields.Error, err)
+			}
 		}
 	}
 
