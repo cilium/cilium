@@ -16,6 +16,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -62,15 +63,13 @@ func (h *tcpHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.tcpFlags.MetricVec}
 }
 
-func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
-	if (flow.GetVerdict() != flowpb.Verdict_FORWARDED && flow.GetVerdict() != flowpb.Verdict_REDIRECTED) ||
-		flow.GetL4() == nil {
+func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
+	l4 := flow.L4
+	if (flow.Verdict != flowpb.Verdict_FORWARDED && flow.Verdict != flowpb.Verdict_REDIRECTED) || l4.IsEmpty() {
 		return nil
 	}
 
-	ip := flow.GetIP()
-	tcp := flow.GetL4().GetTCP()
-	if ip == nil || tcp == nil || tcp.Flags == nil {
+	if flow.IP.IsEmpty() || l4.TCP.IsEmpty() || l4.TCP.Flags.IsEmpty() {
 		return nil
 	}
 
@@ -82,15 +81,15 @@ func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if err != nil {
 		return err
 	}
-	labels := append([]string{"", ip.IpVersion.String()}, contextLabels...)
+	labels := append([]string{"", flow.IP.IPVersion.String()}, contextLabels...)
 
-	if tcp.Flags.FIN {
+	if l4.TCP.Flags.FIN {
 		labels[0] = "FIN"
 		h.tcpFlags.WithLabelValues(labels...).Inc()
 	}
 
-	if tcp.Flags.SYN {
-		if tcp.Flags.ACK {
+	if l4.TCP.Flags.SYN {
+		if l4.TCP.Flags.ACK {
 			labels[0] = "SYN-ACK"
 			h.tcpFlags.WithLabelValues(labels...).Inc()
 		} else {
@@ -99,7 +98,7 @@ func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 		}
 	}
 
-	if tcp.Flags.RST {
+	if l4.TCP.Flags.RST {
 		labels[0] = "RST"
 		h.tcpFlags.WithLabelValues(labels...).Inc()
 	}

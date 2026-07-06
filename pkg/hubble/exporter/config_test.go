@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -486,7 +487,7 @@ func TestFlowLogConfigEnd(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			exporter, err := exporterFactory.Create(tc.config)
 			assert.NoError(t, err)
-			err = exporter.Export(t.Context(), &v1.Event{Event: &flow.Flow{Uuid: "1234"}})
+			err = exporter.Export(t.Context(), &v1.Event{Event: &ir.Flow{UUID: "1234"}})
 			assert.NoError(t, err)
 			content, err := os.ReadFile(tc.config.FilePath)
 			assert.NoError(t, err)

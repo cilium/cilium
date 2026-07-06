@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -66,7 +67,7 @@ type Handler interface {
 
 	// ProcessFlow must processes a flow event and perform metrics
 	// accounting
-	ProcessFlow(ctx context.Context, flow *pb.Flow) error
+	ProcessFlow(ctx context.Context, flow *ir.Flow) error
 }
 
 func InitHandlers(log *slog.Logger, registry *prometheus.Registry, in *[]NamedHandler) (*[]NamedHandler, error) {

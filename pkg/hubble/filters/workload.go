@@ -9,14 +9,15 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
-func filterByWorkload(wf []*flowpb.Workload, getEndpoint func(*v1.Event) *flowpb.Endpoint) FilterFunc {
+func filterByWorkload(wf []*flowpb.Workload, getEndpoint func(*v1.Event) ir.Endpoint) FilterFunc {
 	return func(ev *v1.Event) bool {
-		for _, w := range getEndpoint(ev).GetWorkloads() {
+		for _, w := range getEndpoint(ev).Workloads {
 			if slices.ContainsFunc(wf, func(f *flowpb.Workload) bool {
-				return (f.GetName() == "" || f.GetName() == w.GetName()) &&
-					(f.GetKind() == "" || f.GetKind() == w.GetKind())
+				return (f.GetName() == "" || f.GetName() == w.Name) &&
+					(f.GetKind() == "" || f.GetKind() == w.Kind)
 			}) {
 				return true
 			}
