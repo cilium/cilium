@@ -377,6 +377,7 @@ fieldAggregate
 filesystem
 filesystems
 firewalling
+formatters
 fortio
 fqdn
 fromCIDR
