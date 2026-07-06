@@ -23,8 +23,8 @@ scheduled in the cluster.
 
 .. note::
 
-    ENI IPAM mode currently does not support IPv6. This is being tracked in
-    :gh-issue:`18405` and :gh-issue:`19251`.
+    ENI IPAM mode supports IPv6 in a **beta** capacity, see
+    :ref:`ipam_eni_ipv6`. This is being tracked in :gh-issue:`18405`.
 
 
 ************
@@ -58,14 +58,15 @@ The Cilium agent on each node consumes ``status.eni.enis`` and translates it int
 the multi-pool allocator's view of the world:
 
 * Each secondary IP becomes a host-prefix CIDR (``/32`` for IPv4) and each
-  delegated prefix is kept as its native CIDR (``/28`` for IPv4). These CIDRs are
-  published under the ``default`` pool in ``spec.ipam.pools.allocated``.
+  delegated prefix is kept as its native CIDR (``/28`` for IPv4, ``/80`` for
+  IPv6). These CIDRs are published under the ``default`` pool in
+  ``spec.ipam.pools.allocated``.
 * The agent allocates pod IPs locally out of those CIDRs. Unlike the CRD
   allocator, it does **not** write a per-IP entry to ``status.ipam.used`` for
   each allocation.
 * The agent reports its aggregate demand in ``spec.ipam.pools.requested`` under
-  the ``default`` pool, which the operator reads to decide how many IPs and ENIs
-  to provision.
+  the ``default`` pool, split into ``ipv4-addrs`` and ``ipv6-addrs``, which the
+  operator reads to decide how many IPs, prefixes, and ENIs to provision.
 
 Note that unlike the standard :ref:`multi-pool mode <ipam_crd_multi_pool>`,
 where the operator writes ``spec.ipam.pools.allocated`` from cluster-wide
@@ -100,9 +101,9 @@ Configuration
   ``--auto-create-cilium-node-resource`` or set
   ``auto-create-cilium-node-resource: "true"`` in the ConfigMap.
 
-* If IPs are limited, run the Operator with option
+* If IPv4s are limited, run the Operator with option
   ``--aws-release-excess-ips=true``. When enabled, the operator checks the number
-  of IPs regularly and attempts to release excess free IPs from the ENI.
+  of IPv4s regularly and attempts to release excess free IPv4s from the ENI.
 
 * It is generally a good idea to enable metrics in the Operator as well with
   the option ``--enable-metrics``. See the section :ref:`install_metrics` for
@@ -304,7 +305,7 @@ allocation:
   If unspecified, this option is disabled.
 
 ``spec.eni.disable-prefix-delegation``
-  Whether ENI prefix delegation should be disabled on this node.
+  Whether ENI prefix delegation should be disabled on this node (IPv4 only).
 
   If unspecified, this option is disabled.
 
@@ -313,6 +314,80 @@ allocation:
   Remove the ENI when the instance is terminated
 
   If unspecified, this option is enabled.
+
+.. _ipam_eni_ipv6:
+
+**********
+IPv6 usage
+**********
+
+.. note::
+
+   IPv6 support in ENI IPAM mode is currently a beta feature. Please provide
+   feedback and file a `GitHub issue
+   <https://github.com/cilium/cilium/issues/new/choose>`_ if you experience any
+   problems. Progress is tracked in :gh-issue:`18405`.
+
+ENI IPAM mode can allocate and use IPv6 addresses in addition to IPv4. Both
+dual stack (IPv4 and IPv6) and IPv6-only Cilium configurations are supported.
+Note that regardless of the Cilium configuration, each ENI is still created in
+a dual stack subnet (see `Subnet requirements`_ below). When IPv6 is enabled,
+the operator assigns a delegated IPv6 prefix (a ``/80``) to an ENI on demand,
+and the agent hands out IPv6 pod addresses out of that prefix. Because a single
+``/80`` prefix already provides a very large address space, the operator only
+assigns one IPv6 prefix per node and never releases it until the node is
+deleted.
+
+To enable IPv6, run Cilium with IPv6 enabled on top of the ENI IPAM
+configuration, for example via Helm:
+
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: ipam.mode=eni
+         eni.enabled=true
+         ipv6.enabled=true
+
+How IPv6 allocation differs from IPv4
+=====================================
+
+IPv6 allocation intentionally behaves differently from the IPv4 flow described
+in `Operational Details`_:
+
+* **Prefix-only, one per node.** The operator does not expand the IPv6 prefix
+  into individual addresses. When an agent reports IPv6 demand
+  (``ipv6-addrs`` in ``spec.ipam.pools.requested``) and no IPv6 prefix is yet
+  attached to any of the node's ENIs, the operator assigns exactly one ``/80``
+  prefix. The prefix is assigned either at ENI creation (via
+  ``Ipv6PrefixCount``) or to an existing ENI using the ``AssignIpv6Addresses``
+  EC2 API call. Because a single ``/80`` provides an enormous address space, no
+  further IPv6 prefixes are requested for the node.
+* **No watermarks.** The ``pre-allocate``, ``min-allocate``,
+  ``max-allocate`` and ``max-above-watermark`` settings, as well as the deficit
+  and excess calculations, apply to IPv4 only. IPv6 has a simple boolean demand:
+  request one prefix if the agent needs IPv6 and none is present.
+* **No release.** IPv6 prefixes are never released by
+  ``--aws-release-excess-ips``; a node's IPv6 prefix lives until the
+  ``CiliumNode`` (and thus the node) is deleted.
+
+The assigned prefix is recorded in the ``ipv6-prefixes`` field of the ENI in
+``status.eni.enis`` and, like IPv4 CIDRs, is published by the agent under the
+``default`` pool in ``spec.ipam.pools.allocated``.
+
+Subnet requirements
+===================
+
+Because IPv4 and IPv6 addresses for a node are pulled from the same ENI, and an
+ENI is created in a single subnet, that subnet must be **dual stack** (it must
+have both an IPv4 CIDR and an IPv6 CIDR associated with it). If the selected
+subnet does not have an IPv6 CIDR, IPv6 prefix allocation will not succeed.
+Ensure that any subnets selected via ``spec.eni.subnet-ids`` or
+``spec.eni.subnet-tags`` (see `ENI Allocation Parameters`_) are configured for
+dual stack.
+
+**IPv6-only subnets are not supported.** Even in an IPv6-only Cilium
+configuration, Cilium currently assumes that every ENI has at least a primary
+IPv4 address, so each ENI must still be created in a dual stack subnet from
+which that IPv4 address can be assigned.
 
 *******************
 Operational Details
@@ -362,7 +437,7 @@ occasions:
  * When a ``CiliumNode`` custom resource is updated
  * All nodes are scanned at a regular interval (once per minute)
 
-If ``--aws-release-excess-ips`` is enabled, the check to recognize IP excess
+If ``--aws-release-excess-ips`` is enabled, the check to recognize IPv4 excess
 is performed at the interval-based scan.
 
 When determining whether a node has a deficit in IP addresses, the following
@@ -378,7 +453,7 @@ calculation is performed:
       neededIPs = min(max(spec.ipam.max-allocate - availableIPs, 0), neededIPs)
      }
 
-For excess IP calculation:
+For excess IPv4 calculation:
 
 .. code-block:: go
 
@@ -397,7 +472,7 @@ Upon detection of a deficit, the node is added to the list of nodes which
 require IP address allocation. When a deficit is detected using the
 interval-based scan, the allocation order of nodes is determined based on the
 severity of the deficit, i.e. the node with the biggest deficit will be at the front of
-the allocation queue. Nodes that need to release IPs are behind nodes that need
+the allocation queue. Nodes that need to release IPv4s are behind nodes that need
 allocation.
 
 The allocation queue is handled on demand but at most once per second.
@@ -447,7 +522,7 @@ are available meeting the above criteria, a new ENI is created.
 IP Release
 ==========
 
-IP release is driven by the agent removing CIDRs from
+IP release (IPv4 only) is driven by the agent removing CIDRs from
 ``spec.ipam.pools.allocated``. When the multi-pool agent has fully freed a CIDR
 (all of its IPs are unused and the node has excess capacity), it removes that
 CIDR from ``spec.ipam.pools.allocated``. The operator tracks CIDRs that
@@ -565,6 +640,10 @@ If ENI GC is enabled (which is the default), and ``--cluster-name`` and ``--eni-
 If releasing excess IPs is enabled:
 
  * ``UnassignPrivateIpAddresses``
+
+If IPv6 is enabled (see :ref:`ipam_eni_ipv6`):
+
+ * ``AssignIpv6Addresses``
 
 If ``--instance-tags-filter`` is used:
 
