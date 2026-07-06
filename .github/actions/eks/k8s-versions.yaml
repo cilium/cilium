@@ -12,3 +12,12 @@ include:
     region: us-west-2
     default: true
     aws-eni-pd: true
+  # Dual-stack ENI IPAM (IPv4+IPv6). Schedule-only (no default) and quarantined
+  # while the ENI IPv6 datapath matures. Requires prefix delegation: IPv6 in ENI
+  # mode is /80-prefix-delegation only. The cluster VPC is made dual-stack by
+  # setup-eks-cluster; Cilium enables ipv6 via the conformance workflow.
+  - version: "1.35"
+    region: us-east-1
+    ipv6: true
+    aws-eni-pd: true
+    quarantine: true

@@ -178,6 +178,94 @@ runs:
 
         eksctl create cluster -f ./eks-config.yaml
 
+    # Make every cluster's VPC dual-stack-capable by associating an
+    # Amazon-provided IPv6 CIDR with the VPC and a /64 with each subnet. This
+    # only adds IPv6 CIDR blocks; it does NOT touch route tables, NAT, or
+    # auto-assign-on-launch, so IPv4-only tests are unaffected (the IPv6 CIDRs
+    # sit unused until a test enables ipv6.enabled). Cilium's ENI IPAM only
+    # needs the subnet to own an IPv6 CIDR with free space to assign IPv6
+    # prefixes to ENIs. We intentionally avoid eksctl's vpc.autoAllocateIPv6,
+    # which rewrites route tables and has known private-subnet route bugs that
+    # break managed-nodegroup creation.
+    - name: Enable dual-stack (IPv6) on the cluster VPC subnets
+      if: ${{ inputs.create-cluster == 'true' || steps.get-from-pool.outputs.found != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        CLUSTER_NAME="${{ inputs.cluster_name }}"
+        REGION="${{ inputs.region }}"
+
+        echo "Enabling IPv6 dual-stack on VPC subnets for cluster ${CLUSTER_NAME}"
+
+        # Resolve the cluster's VPC and subnets.
+        VPC_ID=$(aws eks describe-cluster --name "${CLUSTER_NAME}" --region "${REGION}" \
+          --query 'cluster.resourcesVpcConfig.vpcId' --output text)
+        mapfile -t SUBNET_IDS < <(aws eks describe-cluster --name "${CLUSTER_NAME}" --region "${REGION}" \
+          --query 'cluster.resourcesVpcConfig.subnetIds[]' --output text | tr '\t' '\n')
+
+        echo "VPC: ${VPC_ID}, subnets: ${SUBNET_IDS[*]}"
+
+        # Associate an Amazon-provided /56 IPv6 CIDR with the VPC (idempotent:
+        # reuse an existing association if one is already present).
+        VPC_IPV6_CIDR=$(aws ec2 describe-vpcs --vpc-ids "${VPC_ID}" --region "${REGION}" \
+          --query 'Vpcs[0].Ipv6CidrBlockAssociationSet[?Ipv6CidrBlockState.State==`associated`].Ipv6CidrBlock | [0]' \
+          --output text)
+
+        if [ "${VPC_IPV6_CIDR}" = "None" ] || [ -z "${VPC_IPV6_CIDR}" ]; then
+          echo "Associating Amazon-provided IPv6 CIDR with VPC ${VPC_ID}"
+          aws ec2 associate-vpc-cidr-block --vpc-id "${VPC_ID}" --region "${REGION}" \
+            --amazon-provided-ipv6-cidr-block
+
+          # Wait for the association to become 'associated'.
+          for _ in $(seq 1 30); do
+            VPC_IPV6_CIDR=$(aws ec2 describe-vpcs --vpc-ids "${VPC_ID}" --region "${REGION}" \
+              --query 'Vpcs[0].Ipv6CidrBlockAssociationSet[?Ipv6CidrBlockState.State==`associated`].Ipv6CidrBlock | [0]' \
+              --output text)
+            if [ "${VPC_IPV6_CIDR}" != "None" ] && [ -n "${VPC_IPV6_CIDR}" ]; then
+              break
+            fi
+            echo "Waiting for VPC IPv6 CIDR association..."
+            sleep 5
+          done
+        else
+          echo "VPC already has IPv6 CIDR ${VPC_IPV6_CIDR}, reusing it"
+        fi
+
+        if [ "${VPC_IPV6_CIDR}" = "None" ] || [ -z "${VPC_IPV6_CIDR}" ]; then
+          echo "Failed to obtain an IPv6 CIDR for VPC ${VPC_ID}"
+          exit 1
+        fi
+        echo "VPC IPv6 CIDR: ${VPC_IPV6_CIDR}"
+
+        # The VPC CIDR is a /56 (e.g. 2600:1f13:abc:de00::/56): the low byte of
+        # the 4th hextet (bits 56-63) is the per-subnet id space. Strip "::/56"
+        # and that low byte, leaving a base like "2600:1f13:abc:de" onto which
+        # we append a distinct byte per subnet to form each /64.
+        IPV6_BASE="${VPC_IPV6_CIDR%%::/56}"
+        IPV6_BASE="${IPV6_BASE%??}"
+
+        idx=0
+        for SUBNET_ID in "${SUBNET_IDS[@]}"; do
+          # Skip subnets that already have an IPv6 CIDR association.
+          EXISTING=$(aws ec2 describe-subnets --subnet-ids "${SUBNET_ID}" --region "${REGION}" \
+            --query 'Subnets[0].Ipv6CidrBlockAssociationSet[?Ipv6CidrBlockState.State==`associated`] | length(@)' \
+            --output text)
+          if [ "${EXISTING}" != "0" ]; then
+            echo "Subnet ${SUBNET_ID} already has an IPv6 CIDR, skipping"
+            idx=$((idx + 1))
+            continue
+          fi
+
+          SUBNET_CIDR=$(printf '%s%02x::/64' "${IPV6_BASE}" "${idx}")
+          echo "Associating ${SUBNET_CIDR} with subnet ${SUBNET_ID}"
+          aws ec2 associate-subnet-cidr-block --subnet-id "${SUBNET_ID}" --region "${REGION}" \
+            --ipv6-cidr-block "${SUBNET_CIDR}"
+          idx=$((idx + 1))
+        done
+
+        echo "Dual-stack IPv6 setup complete for cluster ${CLUSTER_NAME}"
+
     - name: Set cluster info output
       id: cluster-info
       shell: bash
