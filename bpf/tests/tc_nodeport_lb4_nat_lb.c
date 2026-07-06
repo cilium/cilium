@@ -4,6 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
+#include "scapy.h"
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
@@ -38,6 +39,14 @@ static volatile const __u8 *lb_mac = mac_host;
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
 static volatile const __u8 *remote_backend_mac = mac_five;
+
+static const __u8 nodeport_icmp4_err_before_buf[] = {
+	SCAPY_BUF_BYTES(nodeport_lb4_icmp_error_before)
+};
+
+static const __u8 nodeport_icmp4_err_after_buf[] = {
+	SCAPY_BUF_BYTES(nodeport_lb4_icmp_error_after)
+};
 
 __section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
@@ -151,6 +160,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+#include "lib/nat.h"
 
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
@@ -885,6 +895,122 @@ CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
+}
+
+/* Test that the LB RevDNATs an ICMP error reported by the remote backend.
+ * The test feeds the LB with an ICMP Frag Needed referencing the NATed
+ * request (LB_IP:NODEPORT_PORT_MIN_NAT -> backend). After RevDNAT the outer
+ * packet should target the original client and the embedded tuple should
+ * show client->service addresses/ports.
+ */
+PKTGEN("tc", "tc_nodeport_nat_fwd_icmp_error_revnat")
+int nodeport_nat_fwd_icmp_error_revnat_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder, nodeport_icmp4_err_before_buf,
+			sizeof(nodeport_icmp4_err_before_buf));
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_nat_fwd_icmp_error_revnat")
+int nodeport_nat_fwd_icmp_error_revnat_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 1;
+	__u32 key = 0;
+	struct mock_settings settings_value = {
+		.nat_source_port = __bpf_htons(NODEPORT_PORT_MIN_NAT),
+		.fail_fib = false,
+	};
+	struct ipv4_ct_tuple tuple = {
+		.saddr = BACKEND_IP_REMOTE,
+		.daddr = LB_IP,
+		.sport = BACKEND_PORT,
+		.dport = __bpf_htons(NODEPORT_PORT_MIN_NAT),
+		.nexthdr = IPPROTO_TCP,
+		.flags = NAT_DIR_INGRESS,
+	};
+	struct ipv4_nat_entry entry = {
+		.to_daddr = CLIENT_IP,
+		.to_dport = CLIENT_PORT,
+	};
+	/* Initialized in original-direction order; __ipv4_ct_tuple_reverse()
+	 * converts to reply-direction addrs / original-direction ports
+	 * (per ipv4_ct_tuple definition).
+	 */
+	struct ipv4_ct_tuple ct_tuple = {
+		.saddr = CLIENT_IP,
+		.daddr = BACKEND_IP_REMOTE,
+		.sport = BACKEND_PORT,
+		.dport = CLIENT_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags = TUPLE_F_OUT,
+	};
+	struct ct_state ct_state_entry = {
+		.node_port = 1,
+		.rev_nat_index = revnat_id,
+		.src_sec_id = WORLD_IPV4_ID,
+	};
+
+	/* LB service + backend for RevDNAT: maps rev_nat_index -> FRONTEND_IP_REMOTE:FRONTEND_PORT. */
+	lb_v4_add_service(FRONTEND_IP_REMOTE, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP_REMOTE, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, 0, 0);
+
+	/* Mock FIB settings and SNAT entry for RevSNAT: rewrites outer dst LB_IP -> CLIENT_IP
+	 * and inner src LB_IP:NODEPORT_PORT_MIN_NAT -> CLIENT_IP:CLIENT_PORT.
+	 */
+	map_update_elem(&settings_map, &key, &settings_value, BPF_ANY);
+	map_update_elem(&cilium_snat_v4_external, &tuple, &entry, BPF_ANY);
+
+	/* CT entry (TUPLE_F_OUT) for RevDNAT: after RevSNAT the CT lookup finds this entry,
+	 * reads rev_nat_index, and rewrites outer src BACKEND -> FRONTEND and inner dst.
+	 */
+	__ipv4_ct_tuple_reverse(&ct_tuple);
+	if (ct_create4(get_ct_map4(&ct_tuple), NULL, &ct_tuple, ctx,
+		       CT_EGRESS, &ct_state_entry, NULL) < 0)
+		return TEST_ERROR;
+
+	/* Related CT entry for the outer ICMP packet itself. */
+	ct_tuple.flags |= TUPLE_F_RELATED;
+	if (ct_create4(get_ct_map4(&ct_tuple), NULL, &ct_tuple, ctx,
+		       CT_EGRESS, &ct_state_entry, NULL) < 0)
+		return TEST_ERROR;
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_nat_fwd_icmp_error_revnat")
+int nodeport_nat_fwd_icmp_error_revnat_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) + sizeof(struct ethhdr) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	ASSERT_CTX_BUF_OFF("tc_nodeport_lb4_icmp_error_after",
+			   "Ether",
+			   ctx,
+			   sizeof(__u32),
+			   nodeport_icmp4_err_after_buf,
+			   sizeof(nodeport_icmp4_err_after_buf));
+
+	test_finish();
 }
 
 /* The following three tests are checking the scenario where a Rev NAT entry gets
