@@ -60,3 +60,43 @@ func TestAutodetectFlavorGKE(t *testing.T) {
 		assert.Equal(t, KindGKE, flavor.Kind, "Should detect GKE via node label")
 	})
 }
+
+func TestGetAPIServerHostAndPort(t *testing.T) {
+	t.Run("defaults HTTPS port", func(t *testing.T) {
+		c := &Client{
+			RawConfig: clientcmdapi.Config{
+				Contexts: map[string]*clientcmdapi.Context{
+					"test": {Cluster: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"test": {Server: "https://api.example.test"},
+				},
+				CurrentContext: "test",
+			},
+			contextName: "test",
+		}
+
+		host, port := c.GetAPIServerHostAndPort()
+		assert.Equal(t, "api.example.test", host)
+		assert.Equal(t, "443", port)
+	})
+
+	t.Run("preserves explicit port", func(t *testing.T) {
+		c := &Client{
+			RawConfig: clientcmdapi.Config{
+				Contexts: map[string]*clientcmdapi.Context{
+					"test": {Cluster: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"test": {Server: "https://127.0.0.1:6443"},
+				},
+				CurrentContext: "test",
+			},
+			contextName: "test",
+		}
+
+		host, port := c.GetAPIServerHostAndPort()
+		assert.Equal(t, "127.0.0.1", host)
+		assert.Equal(t, "6443", port)
+	})
+}
