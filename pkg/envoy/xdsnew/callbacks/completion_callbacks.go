@@ -32,6 +32,22 @@ const (
 type versionEntry struct {
 	version     string
 	completions set.Set[*completion.Completion]
+	rollback    func()
+}
+
+// aggregateRollback combines rollback functions in update order. The returned
+// function rolls back the newer update first, followed by the older updates.
+func aggregateRollback(older, newer func()) func() {
+	if older == nil {
+		return newer
+	}
+	if newer == nil {
+		return older
+	}
+	return func() {
+		newer()
+		older()
+	}
 }
 
 // orderedCompletions maintains the insertion order of snapshot versions. When
@@ -55,20 +71,22 @@ func (vo *orderedCompletions) lastIndex(version string) int {
 
 // add adds a completion to the latest occurrence of the given version. If the
 // version doesn't exist yet, a new entry is appended to the end of the slice.
-func (vo *orderedCompletions) add(version string, c *completion.Completion) {
+func (vo *orderedCompletions) add(version string, c *completion.Completion, rollback func()) {
 	if i := vo.lastIndex(version); i >= 0 {
 		(*vo)[i].completions.Insert(c)
+		(*vo)[i].rollback = aggregateRollback((*vo)[i].rollback, rollback)
 		return
 	}
-	vo.append(version, c)
+	vo.append(version, c, rollback)
 }
 
 // append records a new occurrence of a version at the end of the slice. A
 // version may occur more than once when snapshot contents change A -> B -> A.
-func (vo *orderedCompletions) append(version string, c *completion.Completion) {
+func (vo *orderedCompletions) append(version string, c *completion.Completion, rollback func()) {
 	*vo = append(*vo, versionEntry{
 		version:     version,
 		completions: set.NewSet(c),
+		rollback:    rollback,
 	})
 }
 
@@ -102,10 +120,24 @@ func (vo *orderedCompletions) updateUpTo(version string) iter.Seq[*completion.Co
 	for i := range targetIndex {
 		entries[targetIndex].completions.Merge(entries[i].completions)
 	}
+	rollback := entries[0].rollback
+	for i := 1; i <= targetIndex; i++ {
+		rollback = aggregateRollback(rollback, entries[i].rollback)
+	}
+	entries[targetIndex].rollback = rollback
 	if targetIndex > 0 {
 		vo.removeRange(0, targetIndex)
 	}
 	return (*vo)[0].completions.Members()
+}
+
+// rollbackFor returns the aggregate rollback associated with the latest
+// occurrence of version.
+func (vo *orderedCompletions) rollbackFor(version string) func() {
+	if i := vo.lastIndex(version); i >= 0 {
+		return (*vo)[i].rollback
+	}
+	return nil
 }
 
 // completeUpTo returns all completions for the given version and all versions
@@ -299,9 +331,9 @@ func (cb *CompletionCallbacks) addToCompletionsOrder(c *completion.Completion, p
 		cb.completionsOrders[key] = vo
 	}
 	if newVersion {
-		vo.append(version, c)
+		vo.append(version, c, pc.revertFunc)
 	} else {
-		vo.add(version, c)
+		vo.add(version, c, pc.revertFunc)
 	}
 	pc.inCompletionsOrder = true
 	cb.Log.Debug("Added completion to version order",
@@ -445,36 +477,28 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		state.rejectedErr = nackErr
 		cb.responseStates[key] = state
 
-		// NACK received: find a matching pending completion for the revert function.
-		for c, pc := range cb.pendingCompletions {
-			if pc.typeURL != typeURL || pc.nodeID != nodeID || pc.version != rejectedVersion {
-				continue
-			}
-			cb.Log.Warn(
-				"NACK received, reverting resource change",
-				logfields.XDSTypeURL, pc.typeURL,
-				logfields.Version, pc.version,
-				logfields.NodeID, pc.nodeID,
-				logfields.Error, req.GetErrorDetail().GetMessage(),
-			)
-			revertFunc = pc.revertFunc
-			// Complete this completion and all earlier ones in the version order,
-			// since the revert rolls back all changes up to this point.
-			if vo, ok := cb.completionsOrders[key]; ok {
-				completed = vo.completeUpTo(rejectedVersion)
-				for _, ec := range completed {
-					delete(cb.pendingCompletions, ec)
-				}
-				if len(*vo) == 0 {
-					delete(cb.completionsOrders, key)
-				}
-			} else {
-				// Completion wasn't in a version order yet; complete it directly.
-				completed = append(completed, c)
+		// A NACK rejects the entire response. Roll back every snapshot update
+		// coalesced into it, newest first, to restore the last ACKed state.
+		if vo, ok := cb.completionsOrders[key]; ok {
+			revertFunc = vo.rollbackFor(rejectedVersion)
+			completed = vo.completeUpTo(rejectedVersion)
+			for _, c := range completed {
 				delete(cb.pendingCompletions, c)
 			}
+			if len(*vo) == 0 {
+				delete(cb.completionsOrders, key)
+			}
+		}
+
+		if len(completed) > 0 {
+			cb.Log.Warn(
+				"NACK received, reverting resource changes",
+				logfields.XDSTypeURL, typeURL,
+				logfields.Version, rejectedVersion,
+				logfields.NodeID, nodeID,
+				logfields.Error, req.GetErrorDetail().GetMessage(),
+			)
 			completeErr = nackErr
-			break
 		}
 		cb.mutex.Unlock()
 		if revertFunc != nil {

@@ -13,6 +13,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"github.com/cilium/cilium/pkg/completion"
 )
@@ -84,10 +85,10 @@ func TestOrderedCompletionsUpdateUpToLastVersion(t *testing.T) {
 	compA2 := completion.NewCompletion(nil, nil, nil)
 	compC := completion.NewCompletion(nil, nil, nil)
 
-	vo.append("version-a", compA1)
-	vo.append("version-b", compB)
-	vo.append("version-a", compA2)
-	vo.append("version-c", compC)
+	vo.append("version-a", compA1, nil)
+	vo.append("version-b", compB, nil)
+	vo.append("version-a", compA2, nil)
+	vo.append("version-c", compC, nil)
 
 	updated := slices.Collect(vo.updateUpTo("version-a"))
 	require.ElementsMatch(t, []*completion.Completion{compA1, compB, compA2}, updated)
@@ -105,10 +106,10 @@ func TestOrderedCompletionsCompleteUpToLastVersion(t *testing.T) {
 	compA2 := completion.NewCompletion(nil, nil, nil)
 	compC := completion.NewCompletion(nil, nil, nil)
 
-	vo.append("version-a", compA1)
-	vo.append("version-b", compB)
-	vo.append("version-a", compA2)
-	vo.append("version-c", compC)
+	vo.append("version-a", compA1, nil)
+	vo.append("version-b", compB, nil)
+	vo.append("version-a", compA2, nil)
+	vo.append("version-c", compC, nil)
 
 	completed := vo.completeUpTo("version-a")
 	require.ElementsMatch(t, []*completion.Completion{compA1, compB, compA2}, completed)
@@ -125,10 +126,10 @@ func TestRemoveFromOrderedCompletionsCompactsMiddleEntry(t *testing.T) {
 	compB2 := completion.NewCompletion(nil, nil, nil)
 	compC := completion.NewCompletion(nil, nil, nil)
 
-	vo.append("version-a", compA)
-	vo.append("version-b", compB1)
-	vo.add("version-b", compB2)
-	vo.append("version-c", compC)
+	vo.append("version-a", compA, nil)
+	vo.append("version-b", compB1, nil)
+	vo.add("version-b", compB2, nil)
+	vo.append("version-c", compC, nil)
 	cb.completionsOrders[completionsOrderKey("node-1", listenerTypeURL)] = vo
 
 	cb.RemoveTypeVersionCompletion(compB1)
@@ -289,6 +290,166 @@ func TestCompletionFollowsNewerResponseVersion(t *testing.T) {
 			require.NoError(t, wg2.Wait())
 		})
 	}
+}
+
+func TestNACKRevertsAllCoalescedUpdates(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	reverted := make([]string, 0, 3)
+
+	for _, version := range []string{"version-1", "version-2", "version-3"} {
+		_, comp := newTestCompletion(t)
+		registered, err := cb.AddTypeVersionCompletion(
+			comp,
+			version,
+			listenerTypeURL,
+			"node-1",
+			true,
+			func() { reverted = append(reverted, version) },
+		)
+		require.NoError(t, err)
+		require.True(t, registered)
+	}
+
+	// The response for version-3 coalesces all three pending updates. A NACK
+	// rejects the entire response, so all of its updates must be reverted in
+	// reverse order to restore the snapshot that preceded the response.
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-3")
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        &core.Node{Id: "node-1"},
+		TypeUrl:     listenerTypeURL,
+		VersionInfo: "version-0",
+		ErrorDetail: &status.Status{Message: "rejected listener"},
+	}))
+
+	require.Equal(t, []string{"version-3", "version-2", "version-1"}, reverted)
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestNACKRollbackStopsAtLastACKedVersion(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	reverted := make([]string, 0, 2)
+
+	_, ackedComp := newTestCompletion(t)
+	registered, err := cb.AddTypeVersionCompletion(
+		ackedComp,
+		"version-1",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = append(reverted, "version-1") },
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-1")
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-1")
+
+	for _, version := range []string{"version-2", "version-3"} {
+		_, comp := newTestCompletion(t)
+		registered, err = cb.AddTypeVersionCompletion(
+			comp,
+			version,
+			listenerTypeURL,
+			"node-1",
+			true,
+			func() { reverted = append(reverted, version) },
+		)
+		require.NoError(t, err)
+		require.True(t, registered)
+	}
+
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-3")
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        &core.Node{Id: "node-1"},
+		TypeUrl:     listenerTypeURL,
+		VersionInfo: "version-1",
+		ErrorDetail: &status.Status{Message: "rejected listener"},
+	}))
+
+	require.Equal(t, []string{"version-3", "version-2"}, reverted)
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestNACKRollsBackCompletionRegisteredWithoutVersion(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	_, comp := newTestCompletion(t)
+	reverted := false
+
+	registered, err := cb.AddTypeVersionCompletion(
+		comp,
+		"",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = true },
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+
+	// The response callback runs before go-control-plane sends the response. It
+	// assigns the response version and attaches the completion to response order
+	// before Envoy can NACK it.
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-1")
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        &core.Node{Id: "node-1"},
+		TypeUrl:     listenerTypeURL,
+		VersionInfo: "version-0",
+		ErrorDetail: &status.Status{Message: "rejected listener"},
+	}))
+
+	require.True(t, reverted)
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestNACKDoesNotRollbackNewerUpdate(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	reverted := make([]string, 0, 2)
+
+	for _, version := range []string{"version-1", "version-2"} {
+		_, comp := newTestCompletion(t)
+		registered, err := cb.AddTypeVersionCompletion(
+			comp,
+			version,
+			listenerTypeURL,
+			"node-1",
+			true,
+			func() { reverted = append(reverted, version) },
+		)
+		require.NoError(t, err)
+		require.True(t, registered)
+	}
+
+	// version-2 is now in flight. Register version-3 after the response was sent
+	// but before Envoy NACKs it; version-3 was not part of that response.
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-2")
+	wg3, comp3 := newTestCompletion(t)
+	registered, err := cb.AddTypeVersionCompletion(
+		comp3,
+		"version-3",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = append(reverted, "version-3") },
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        &core.Node{Id: "node-1"},
+		TypeUrl:     listenerTypeURL,
+		VersionInfo: "version-0",
+		ErrorDetail: &status.Status{Message: "rejected listener"},
+	}))
+
+	require.Equal(t, []string{"version-2", "version-1"}, reverted)
+	require.Equal(t, 1, cb.PendingCompletionCount())
+	requireCompletionPending(t, comp3)
+
+	// The newer update remains in response order and completes normally when
+	// its own response is sent and ACKed.
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-3")
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-3")
+	require.NoError(t, wg3.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
 }
 
 func TestOlderResponseDoesNotClaimNewerCompletion(t *testing.T) {
