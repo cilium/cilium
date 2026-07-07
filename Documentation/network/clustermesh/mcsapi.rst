@@ -100,18 +100,22 @@ each pods would also be available available through the ``<hostname>.<clusternam
 
 .. _dedicated section in the MCS-API KEP: https://github.com/kubernetes/enhancements/blob/master/keps/sig-multicluster/1645-multi-cluster-services-api/README.md#not-allowing-cluster-specific-targeting-via-dns
 
-The ServiceImport has also a logic to merge different Service properties:
+For each set of exported Services with the same name and namespace, MCS-API
+provides one globally consistent multi-cluster Service definition. Cilium
+globally reconciles the following properties into the ServiceImport:
 
 - SessionAffinity
 - Ports (Union of the different ServiceExports)
 - Type (ClusterSetIP/Headless)
+- InternalTrafficPolicy
+- TrafficDistribution
 - Annotations & Labels (via the ServiceExport ``exportedLabels`` and ``exportedAnnotations`` fields)
 
-If any conflict arises on any of these properties, the oldest ServiceExport will
-have precedence to resolve the conflict. This means that you should get a
-consistent behavior globally for the same set of exported Services that has
-the same name and namespace. If any conflicts arises, you would be able to see
-details about it in the ServiceExport status Conditions.
+If any conflict arises on any of these properties, Cilium sets a conflict
+condition on the corresponding ServiceExport status and resolves the conflict
+based on ServiceExport creation time from oldest to newest. A conflict may
+resolve to properties that you did not intend to, so you should eventually
+resolve any conflicts between the exported Services.
 
 
 Deploying a Simple Example Service using MCS-API
