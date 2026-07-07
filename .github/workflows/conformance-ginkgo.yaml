@@ -336,6 +336,14 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Login to docker registry for CI image pull
+        if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ${{ vars.DOCKER_READ_HOST }}
+          username: ${{ vars.DOCKER_READ_USERNAME }}
+          password: ${{ secrets.DOCKER_READ_PASSWORD }}
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -411,6 +419,18 @@ jobs:
               ./contrib/scripts/kind.sh "" 1 "" "${{ matrix.kube-image }}" "iptables" "${{ matrix.ip-family }}"
             fi
             git config --add safe.directory /cilium
+
+      - name: Create imagePullSecret for ginkgo image pull
+        if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
+        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        with:
+          provision: 'false'
+          cmd: |
+            kubectl create secret docker-registry cilium-registry \
+              --namespace kube-system \
+              --docker-server=${{ vars.DOCKER_READ_HOST }} \
+              --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+              --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
@@ -492,6 +512,11 @@ jobs:
               export RACE=1
               export LOCKDEBUG=1
             fi
+            # Only pass the imagePullSecrets helm override when registry auth is required.
+            HELM_OVERRIDES=""
+            if [[ "${{ vars.DOCKER_AUTH_REQUIRED }}" == "true" ]]; then
+              HELM_OVERRIDES="-cilium.install-helm-overrides=imagePullSecrets[0].name=cilium-registry"
+            fi
             echo "/root/go/bin/ginkgo \
              --focus=\"${{ matrix.cliFocus }}\" \
              --skip=\"${{ matrix.cliSkip }}\" \
@@ -504,7 +529,8 @@ jobs:
              -cilium.hubble-relay-image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci \
              -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }} \
              -cilium.kubeconfig=/root/.kube/config \
-             -cilium.operator-suffix=-ci ${{ env.CILIUM_GINKGO_EXTRA_ARGS }}"
+             ${HELM_OVERRIDES} \
+             -cilium.operator-suffix=-ci"
 
               ./test.test \
                --ginkgo.focus="${{ matrix.cliFocus }}" \
@@ -518,7 +544,8 @@ jobs:
                -cilium.hubble-relay-image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci \
                -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }} \
                -cilium.kubeconfig=/root/.kube/config \
-               -cilium.operator-suffix=-ci ${{ env.CILIUM_GINKGO_EXTRA_ARGS }}
+               ${HELM_OVERRIDES} \
+               -cilium.operator-suffix=-ci
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
