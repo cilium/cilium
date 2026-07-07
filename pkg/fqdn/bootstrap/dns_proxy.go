@@ -48,15 +48,18 @@ func newDNSProxy(params dnsProxyParams) (proxy.DNSProxier, error) {
 	}
 
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
-		Logger:                 params.Logger,
-		Address:                "",
-		IPv4:                   option.Config.EnableIPv4,
-		IPv6:                   option.Config.EnableIPv6,
-		EnableDNSCompression:   params.FQDNConfig.ToFQDNsEnableDNSCompression,
-		MaxRestoreDNSIPs:       params.FQDNConfig.DNSMaxIPsPerRestoredRule,
-		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
-		ConcurrencyGracePeriod: params.FQDNConfig.DNSProxyConcurrencyProcessingGracePeriod,
-		RejectReply:            option.Config.FQDNRejectResponse,
+		Logger: params.Logger,
+		// Cilium's built-in handlers make level decisions independently of
+		// request attributes, so disabled Debug logs need no request scope.
+		SkipDisabledDebugLogScope: true,
+		Address:                   "",
+		IPv4:                      option.Config.EnableIPv4,
+		IPv6:                      option.Config.EnableIPv6,
+		EnableDNSCompression:      params.FQDNConfig.ToFQDNsEnableDNSCompression,
+		MaxRestoreDNSIPs:          params.FQDNConfig.DNSMaxIPsPerRestoredRule,
+		ConcurrencyLimit:          option.Config.DNSProxyConcurrencyLimit,
+		ConcurrencyGracePeriod:    params.FQDNConfig.DNSProxyConcurrencyProcessingGracePeriod,
+		RejectReply:               option.Config.FQDNRejectResponse,
 	}
 
 	proxy := dnsproxy.NewDNSProxy(
