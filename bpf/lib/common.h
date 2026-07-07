@@ -69,7 +69,7 @@ union v4addr {
 
 #define THIS_IS_L3_DEV		(ETH_HLEN == 0)
 
-static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
+static __always_inline bool validate_ethertype(const struct __ctx_buff *ctx,
 					       __be16 *proto)
 {
 	void *data_end = ctx_data_end(ctx);
