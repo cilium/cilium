@@ -456,6 +456,12 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 		}
 	}
 
+	for i := range e.ToServices {
+		if err := e.ToServices[i].Sanitize(); err != nil {
+			return errors.Join(err, retErr)
+		}
+	}
+
 	return retErr
 }
 

@@ -1422,3 +1422,86 @@ func TestSanitizeDefaultDeny(t *testing.T) {
 		assert.Equal(t, tc.wantIngress, *b.EnableDefaultDeny.Ingress, "Rule.EnableDefaultDeny.Ingress should match")
 	}
 }
+
+func TestSanitizeServiceSelector(t *testing.T) {
+	newServiceSelector := func(namespace string, labels map[string]string) Service {
+		return Service{
+			K8sServiceSelector: &K8sServiceSelectorNamespace{
+				Namespace: namespace,
+				Selector:  ServiceSelector(NewESFromMatchRequirements(labels, nil)),
+			},
+		}
+	}
+
+	for _, tc := range []struct {
+		name     string
+		svc      Service
+		expected Service
+		wantErr  bool
+	}{
+		{
+			name: "service selector with dot in name",
+			svc: Service{
+				K8sServiceSelector: &K8sServiceSelectorNamespace{
+					Selector: ServiceSelector{
+						LabelSelector: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+								"app.kubernetes.io/name": "test-app",
+							},
+						},
+					},
+				},
+			},
+			expected: newServiceSelector("", map[string]string{
+				"any.app.kubernetes.io/name": "test-app",
+			}),
+			wantErr: false,
+		},
+		{
+			name: "service selector with source prefix",
+			svc: Service{
+				K8sServiceSelector: &K8sServiceSelectorNamespace{
+					Selector: ServiceSelector{
+						LabelSelector: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+								"any:app.kubernetes.io/name": "test-app",
+								"k8s:app.environment":        "staging",
+							},
+						},
+					},
+				},
+			},
+			expected: newServiceSelector("", map[string]string{
+				"any.app.kubernetes.io/name": "test-app",
+				"k8s.app.environment":        "staging",
+			}),
+			wantErr: false,
+		},
+		{
+			name: "invalid label key",
+			svc: Service{
+				K8sServiceSelector: &K8sServiceSelectorNamespace{
+					Selector: ServiceSelector{
+						LabelSelector: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+								"any:app.kubernetes:io/name": "test-app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.svc.Sanitize()
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, tc.svc)
+		})
+	}
+}
