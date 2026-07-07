@@ -1267,12 +1267,11 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 */
 #if defined(ENABLE_VTEP)
 	{
-		struct vtep_key vkey = {
-			.vtep_ip = ip4->daddr & CONFIG(vtep_mask),
-		};
+		struct vtep_key *vkey = AUX(vtep_key);
 		const struct vtep_value *vtep;
 
-		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
+		vkey->vtep_ip = ip4->daddr & CONFIG(vtep_mask);
+		vtep = map_lookup_elem(&cilium_vtep_map, vkey);
 		if (vtep && vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
