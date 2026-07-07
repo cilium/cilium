@@ -442,7 +442,7 @@ jobs:
           image-tag: ${{ steps.downgrade-branch.outputs.sha }}
           chart-dir: ./untrusted/cilium-downgrade/install/kubernetes/cilium
           registry_host: ${{ vars.DOCKER_READ_HOST }}
-          registry_organization: ${{ vars.DOCKER_READ_ORG }}
+          registry_organization: ${{ env.ORGANIZATION_STAGING }}
           image-pull-secret: "cilium-registry"
 
       - name: Wait for images to be available (downgrade)
@@ -450,7 +450,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci clustermesh-apiserver-ci ; do
-            until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.downgrade-branch.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_STAGING }}/$image:${{ steps.downgrade-branch.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
 

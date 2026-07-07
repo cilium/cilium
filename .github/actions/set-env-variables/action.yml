@@ -13,6 +13,7 @@ runs:
         echo "BACKUP_REGISTRY=$BACKUP_REGISTRY" >> $GITHUB_ENV
         echo "ORGANIZATION=cilium" >> $GITHUB_ENV
         echo "ORGANIZATION_DEV=cilium" >> $GITHUB_ENV
+        echo "ORGANIZATION_STAGING=cilium" >> $GITHUB_ENV
         # no prod yet
         echo "CHARTS_ORGANIZATION_DEV=cilium-charts-dev" >> $GITHUB_ENV
         echo "EGRESS_GATEWAY_HELM_VALUES=--helm-set=egressGateway.enabled=true" >> $GITHUB_ENV
