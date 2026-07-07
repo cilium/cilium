@@ -2436,16 +2436,31 @@ func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgent
 	return nil
 }
 
-// removeTopDirectory removes the top directory from a relative file path
-// (e.g. "a/b/c" => "b/c"). Don't pass an absolute path. It doesn't do what
-// you think it does.
-func removeTopDirectory(path string) (string, error) {
-	// file separator hardcoded because sysdump always created on Linux OS
-	_, after, found := strings.Cut(path, "/")
-	if !found {
-		return "", fmt.Errorf("invalid path %q", path)
+// removeTopDirectory removes the top directory from a relative tar file path
+// (e.g. "a/b/c" => "b/c") and returns a local filesystem path.
+// It rejects absolute paths and any path that escapes the extraction root.
+func removeTopDirectory(tarPath string) (string, error) {
+	if tarPath == "" || filepath.IsAbs(tarPath) {
+		return "", fmt.Errorf("invalid path in tar entry %q", tarPath)
 	}
-	return after, nil
+
+	cleanPath := path.Clean(tarPath)
+	if cleanPath == "." || cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
+		return "", fmt.Errorf("invalid path in tar entry %q", tarPath)
+	}
+
+	_, after, found := strings.Cut(cleanPath, string(filepath.Separator))
+	if !found {
+		return "", fmt.Errorf("invalid path in tar entry %q", tarPath)
+	}
+	if after == "" || after == "." || after == ".." || strings.HasPrefix(after, "../") {
+		return "", fmt.Errorf("invalid path in tar entry %q", tarPath)
+	}
+	localPath, err := filepath.Localize(after)
+	if err != nil {
+		return "", fmt.Errorf("invalid path in tar entry %q: %w", tarPath, err)
+	}
+	return localPath, nil
 }
 
 func untar(src string, dst string) error {
@@ -2459,6 +2474,14 @@ func untar(src string, dst string) error {
 		return err
 	}
 	defer gz.Close()
+
+	// Resolve the extraction root to an absolute path so containment checks
+	// below are reliable even if dst is a relative path.
+	dstAbs, err := filepath.Abs(dst)
+	if err != nil {
+		return err
+	}
+
 	tr := tar.NewReader(gz)
 	for {
 		header, err := tr.Next()
@@ -2476,12 +2499,19 @@ func untar(src string, dst string) error {
 		if err != nil {
 			return err
 		}
-		filename := filepath.Join(dst, name)
+		filename := filepath.Join(dstAbs, name)
+		rel, err := filepath.Rel(dstAbs, filename)
+		if err != nil {
+			return err
+		}
+		if !filepath.IsLocal(rel) {
+			return fmt.Errorf("tar entry %q: path escapes extraction directory", header.Name)
+		}
 		directory := filepath.Dir(filename)
 		if err := os.MkdirAll(directory, 0755); err != nil {
 			return err
 		}
-		f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 		if err != nil {
 			return err
 		}

@@ -4,13 +4,18 @@
 package sysdump
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -686,13 +691,93 @@ func (c *fakeClient) GetNamespace(_ context.Context, ns string, _ metav1.GetOpti
 
 func Test_removeTopDirectory(t *testing.T) {
 	result, err := removeTopDirectory("/")
-	assert.NoError(t, err)
 	assert.Empty(t, result)
+	assert.Error(t, err)
 
 	result, err = removeTopDirectory("a/b/c")
 	assert.NoError(t, err)
-	assert.Equal(t, "b/c", result)
+	assert.Equal(t, filepath.Join("b", "c"), result)
 
 	_, err = removeTopDirectory("")
 	assert.Error(t, err)
+
+	_, err = removeTopDirectory("/a/b")
+	assert.Error(t, err)
+
+	_, err = removeTopDirectory("a/../../b")
+	assert.Error(t, err)
+}
+
+// makeTarGz creates a .tar.gz archive at archivePath containing members with
+// the given names and the provided content in each.
+func makeTarGz(t *testing.T, archivePath string, members map[string]string) {
+	t.Helper()
+
+	f, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	gz := gzip.NewWriter(f)
+	defer gz.Close()
+	tw := tar.NewWriter(gz)
+	defer tw.Close()
+	for _, name := range slices.Sorted(maps.Keys(members)) {
+		body := []byte(members[name])
+		if err := tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeReg,
+			Name:     name,
+			Mode:     0600,
+			Size:     int64(len(body)),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(body); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func Test_untar(t *testing.T) {
+	t.Run("normal member extracted", func(t *testing.T) {
+		dir := t.TempDir()
+		archivePath := filepath.Join(dir, "bugtool.tar.gz")
+		dst := filepath.Join(dir, "extract")
+		makeTarGz(t, archivePath, map[string]string{
+			"bugtool/sysdump/agent.log": "log data",
+		})
+		err := untar(archivePath, dst)
+		assert.NoError(t, err)
+		got, err := os.ReadFile(filepath.Join(dst, "sysdump", "agent.log"))
+		assert.NoError(t, err)
+		assert.Equal(t, "log data", string(got))
+	})
+
+	t.Run("path traversal is rejected", func(t *testing.T) {
+		dir := t.TempDir()
+		archivePath := filepath.Join(dir, "bugtool.tar.gz")
+		dst := filepath.Join(dir, "extract")
+		makeTarGz(t, archivePath, map[string]string{
+			"bugtool/../cilium-sysdump-untar-marker":       "should not be written",
+			"bugtool/../../cilium-sysdump-untar-marker":    "should also not be written",
+			"bugtool/../../../cilium-sysdump-untar-marker": "neither should this",
+		})
+		err := untar(archivePath, dst)
+		assert.ErrorContains(t, err, "invalid path in tar entry")
+		// Confirm the marker was not created outside the extraction directory.
+		markerPath := filepath.Join(filepath.Dir(dir), "cilium-sysdump-untar-marker")
+		_, statErr := os.Stat(markerPath)
+		assert.True(t, os.IsNotExist(statErr), "marker file must not exist outside dst")
+	})
+
+	t.Run("absolute path is rejected", func(t *testing.T) {
+		dir := t.TempDir()
+		archivePath := filepath.Join(dir, "bugtool.tar.gz")
+		dst := filepath.Join(dir, "extract")
+		makeTarGz(t, archivePath, map[string]string{
+			"/etc/passwd": "should not be written",
+		})
+		err := untar(archivePath, dst)
+		assert.ErrorContains(t, err, "invalid path in tar entry")
+	})
 }
