@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 var (
@@ -56,35 +57,6 @@ var errEmptyExecOutput = errors.New("exec returned empty output")
 // featureExecRetryBackoff is the delay between ExecInPod retries. It is a
 // variable rather than a constant so that tests can shorten it.
 var featureExecRetryBackoff = 2 * time.Second
-
-// transientExecErrorSubstrings are error message fragments that indicate a
-// transient failure of the Kubernetes API server -> kubelet exec proxy rather
-// than a genuine failure of the executed command, and are therefore worth
-// retrying. They are intentionally specific to the exec-proxy tunnel so that
-// benign command stderr (e.g. cilium-operator "level=debug" log lines, which
-// are tolerated by fetchCiliumOperatorFeatureMetricsFromPod) is not mistaken
-// for a transient error and needlessly retried.
-var transientExecErrorSubstrings = []string{
-	"error dialing backend",
-	"unable to upgrade connection",
-	"Bad Gateway",         // HTTP 502
-	"Service Unavailable", // HTTP 503
-	"Gateway Timeout",     // HTTP 504
-	"TLS handshake timeout",
-}
-
-// isTransientExecError reports whether err looks like a transient failure of
-// the API server exec proxy, as opposed to a genuine failure of the command
-// that was executed in the pod.
-func isTransientExecError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return slices.ContainsFunc(transientExecErrorSubstrings, func(substr string) bool {
-		return strings.Contains(msg, substr)
-	})
-}
 
 // detectClusterWideComponents detects cluster-wide components like kube-proxy and local-node-dns
 // and returns them as metrics with specific names
@@ -296,9 +268,9 @@ func (s *Feature) fetchStatusConcurrently(ctx context.Context, pods []corev1.Pod
 
 // execInPodWithRetry execs the given command in the pod, retrying up to
 // featureExecRetries times when the failure looks like a transient error of the
-// API server exec proxy (see isTransientExecError) or when exec reports success
-// but returns no output. Genuine command failures are returned immediately,
-// without retrying.
+// API server exec proxy (see k8s.IsTransientExecError) or when exec reports
+// success but returns no output. Genuine command failures are returned
+// immediately, without retrying.
 func (s *Feature) execInPodWithRetry(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
 	return retryTransientExec(ctx, func(ctx context.Context) (bytes.Buffer, error) {
 		return s.client.ExecInPod(ctx, namespace, pod, container, command)
@@ -307,7 +279,7 @@ func (s *Feature) execInPodWithRetry(ctx context.Context, namespace, pod, contai
 
 // retryTransientExec invokes exec, retrying up to featureExecRetries times with
 // featureExecRetryBackoff between attempts while the result looks transient:
-// either a transient exec-proxy error (see isTransientExecError) or a success
+// either a transient exec-proxy error (see k8s.IsTransientExecError) or a success
 // with empty output. The latter happens when the API server exec proxy
 // truncates the response stream and returns no data with a nil error; a healthy
 // features-status command always prints at least an empty JSON array, so an
@@ -322,7 +294,7 @@ func retryTransientExec(ctx context.Context, exec func(context.Context) (bytes.B
 	for attempt := range featureExecRetries {
 		output, err = exec(ctx)
 		if err != nil {
-			if !isTransientExecError(err) {
+			if !k8s.IsTransientExecError(err) {
 				return output, err
 			}
 		} else if output.Len() > 0 {

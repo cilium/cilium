@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -373,6 +374,39 @@ func (c *Client) ContainerLogs(ctx context.Context, namespace, pod, containerNam
 
 func (c *Client) ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error) {
 	return c.Clientset.CoreV1().Services(namespace).List(ctx, options)
+}
+
+// transientExecErrorSubstrings are error message fragments that indicate a
+// transient failure of the Kubernetes API server -> kubelet exec proxy rather
+// than a genuine failure of the executed command, and are therefore worth
+// retrying. On managed clusters (seen on AKS) the proxy is occasionally
+// unreachable for tens of seconds at a time. They are intentionally specific to
+// the exec-proxy tunnel so that benign command stderr (e.g. cilium-operator
+// "level=debug" log lines) is not mistaken for a transient error and needlessly
+// retried.
+var transientExecErrorSubstrings = []string{
+	"i/o timeout", // e.g. "dial tcp <apiserver>:443: i/o timeout"
+	"error dialing backend",
+	"unable to upgrade connection",
+	"Bad Gateway",         // HTTP 502
+	"Service Unavailable", // HTTP 503
+	"Gateway Timeout",     // HTTP 504
+	"TLS handshake timeout",
+}
+
+// IsTransientExecError reports whether err looks like a transient failure of
+// the Kubernetes API server exec proxy, as opposed to a genuine failure of the
+// command that was executed in the pod. Callers that exec through the proxy in
+// a loop (e.g. waiting for a NodePort or collecting features) use this to retry
+// proxy blips without treating them as a real result.
+func IsTransientExecError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return slices.ContainsFunc(transientExecErrorSubstrings, func(substr string) bool {
+		return strings.Contains(msg, substr)
+	})
 }
 
 func (c *Client) ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
