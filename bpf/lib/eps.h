@@ -5,6 +5,7 @@
 
 #include "common.h"
 
+#include "auxvars.h"
 #include <linux/ip.h>
 #include "ipv6.h"
 
@@ -23,6 +24,8 @@ struct endpoint_key {
 	__u8 key;
 	__u16 cluster_id;
 } __packed;
+
+DEFINE_AUX(struct endpoint_key, endpoint_key);
 
 #define ENDPOINT_F_HOST			1 /* Special endpoint representing local host */
 #define ENDPOINT_F_ATHOSTNS		2 /* Endpoint located at the host networking namespace */
@@ -58,12 +61,14 @@ struct {
 static __always_inline __maybe_unused const struct endpoint_info *
 __lookup_ip6_endpoint(const union v6addr *ip6)
 {
-	struct endpoint_key key __align_stack_8 = {};
+	struct endpoint_key *key = AUX(endpoint_key);
 
-	key.ip6 = *ip6;
-	key.family = ENDPOINT_KEY_IPV6;
+	memset(key, 0, sizeof(*key));
+	key->ip6.d1 = ip6->d1;
+	key->ip6.d2 = ip6->d2;
+	key->family = ENDPOINT_KEY_IPV6;
 
-	return map_lookup_elem(&cilium_lxc, &key);
+	return map_lookup_elem(&cilium_lxc, key);
 }
 
 static __always_inline __maybe_unused const struct endpoint_info *
@@ -75,12 +80,13 @@ lookup_ip6_endpoint(const struct ipv6hdr *ip6)
 static __always_inline __maybe_unused const struct endpoint_info *
 __lookup_ip4_endpoint(__u32 ip)
 {
-	struct endpoint_key key __align_stack_8 = {};
+	struct endpoint_key *key = AUX(endpoint_key);
 
-	key.ip4.be32 = ip;
-	key.family = ENDPOINT_KEY_IPV4;
+	memset(key, 0, sizeof(*key));
+	key->ip4.be32 = ip;
+	key->family = ENDPOINT_KEY_IPV4;
 
-	return map_lookup_elem(&cilium_lxc, &key);
+	return map_lookup_elem(&cilium_lxc, key);
 }
 
 static __always_inline __maybe_unused const struct endpoint_info *
