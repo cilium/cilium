@@ -93,6 +93,7 @@
   "pruneStaleBranches": true,
   "baseBranchPatterns": [
     "main",
+    "v1.20",
     "v1.19",
     "v1.18",
     "v1.17"
@@ -482,6 +483,7 @@
       ],
       "allowedVersions": "24.04",
       "matchBaseBranches": [
+        "v1.20",
         "v1.19",
         "v1.18",
         "v1.17",
@@ -495,6 +497,7 @@
       ],
       "allowedVersions": "<1.26",
       "matchBaseBranches": [
+        "v1.20",
         "v1.19",
         "v1.18",
         "v1.17"
@@ -506,6 +509,7 @@
       ],
       "allowedVersions": "<3.24",
       "matchBaseBranches": [
+        "v1.20",
         "v1.19"
       ]
     },
@@ -883,6 +887,7 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.36\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
+        "v1.20",
         "v1.19",
         "v1.18",
         "v1.17"

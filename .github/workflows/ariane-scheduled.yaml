@@ -23,11 +23,11 @@ jobs:
         include:
         # DON'T USE hourModulo=0 to avoid running ariane scheduled-workflows
         # at the same time as regular main scheduled workflows
-          - branch: 'v1.17'
-            hourModulo: 1
           - branch: 'v1.18'
-            hourModulo: 2
+            hourModulo: 1
           - branch: 'v1.19'
+            hourModulo: 2
+          - branch: 'v1.20'
             hourModulo: 3
     runs-on: ubuntu-24.04
     steps:
