@@ -147,5 +147,6 @@ func toProto(info policyTypes.PolicyCorrelationInfo) (policies []ir.Policy) {
 	for model := range labels.ModelsFromLabelArrayListString(info.RuleLabels) {
 		policies = append(policies, ir.ProtoToPolicy(utils.GetPolicyFromLabels(model, info.Revision)))
 	}
+
 	return policies
 }
