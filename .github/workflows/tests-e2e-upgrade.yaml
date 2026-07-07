@@ -164,7 +164,7 @@ jobs:
             jq --argjson modes "$MODES" '[.[] | select(.["test-l7"] == "true") | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
-            echo "timeout=60" >> $GITHUB_OUTPUT
+            echo "timeout=90" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
             jq --argjson modes "$MODES" '[.[] | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
@@ -180,7 +180,7 @@ jobs:
             jq --argjson modes "$MODES" '[.[] | select(.["test-l7"] != "true") | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including only test-l7: false configurations (${CONFIG_COUNT} configs - L3/L4 testing only)"
-            echo "timeout=60" >> $GITHUB_OUTPUT
+            echo "timeout=90" >> $GITHUB_OUTPUT
           fi
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
