@@ -87,6 +87,13 @@ spec:
       - key: "node.kubernetes.io/not-ready"
         operator: "Exists"
         effect: "NoSchedule"
+      # On AKS the no-schedule nodes are made Ready with a dummy CNI conf and
+      # then explicitly tainted cilium.io/no-schedule:NoSchedule to keep regular
+      # test pods off. Tolerate it so the external targets still schedule here.
+      # No-op on GKE, where these nodes are only labeled, never tainted.
+      - key: "cilium.io/no-schedule"
+        operator: "Exists"
+        effect: "NoSchedule"
       dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: nginx

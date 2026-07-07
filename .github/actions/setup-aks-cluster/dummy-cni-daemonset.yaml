@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dummy-cni
+  namespace: kube-system
+  labels:
+    app: dummy-cni
+spec:
+  selector:
+    matchLabels:
+      app: dummy-cni
+  template:
+    metadata:
+      labels:
+        app: dummy-cni
+    spec:
+      # hostNetwork so the pod needs no CNI ADD and runs even while the node is
+      # NotReady ("cni plugin not initialized"), exactly like the existing
+      # hostNetwork external-target pods on these nodes.
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      nodeSelector:
+        cilium.io/no-schedule: "true"
+      # The DaemonSet controller only auto-adds the not-ready NoExecute
+      # toleration, so a blanket Exists is required to land on the NotReady node
+      # and to tolerate the cilium.io/no-schedule:NoSchedule taint we add.
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: install-dummy-cni
+        image: docker.io/library/busybox:1.37.0
+        securityContext:
+          privileged: true
+        command: ["/bin/sh", "-c"]
+        # Write a bare CNI 0.3.1 conf referencing a plugin that need not exist in
+        # /opt/cni/bin. containerd's network-readiness Status() only requires a
+        # config to load (the binary is invoked only at pod-sandbox ADD, which
+        # hostNetwork/off-tainted pods never trigger), so this flips kubelet from
+        # NotReady to Ready and stops AKS node auto-repair reboots. Mirrors the
+        # proven EKS fix in .github/workflows/scale-test-egw.yaml. The guarded
+        # loop re-writes the conf if it is ever removed and survives reboots.
+        args:
+        - |
+          set -eu
+          CONF=/host/etc/cni/net.d/05-dummy.conf
+          while true; do
+            if [ ! -f "$CONF" ]; then
+              echo '{ "cniVersion": "0.3.1", "name": "dummy", "type": "dummy-cni" }' > "$CONF"
+              echo "wrote $CONF"
+            fi
+            sleep 30
+          done
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
+        volumeMounts:
+        - name: cni-net-dir
+          mountPath: /host/etc/cni/net.d
+      volumes:
+      - name: cni-net-dir
+        hostPath:
+          path: /etc/cni/net.d
+          type: DirectoryOrCreate
