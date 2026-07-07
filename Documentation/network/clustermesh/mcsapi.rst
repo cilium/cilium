@@ -117,6 +117,29 @@ based on ServiceExport creation time from oldest to newest. A conflict may
 resolve to properties that you did not intend to, so you should eventually
 resolve any conflicts between the exported Services.
 
+Exporting labels and annotations
+--------------------------------
+
+To configure labels or annotations on the generated ServiceImport and derived
+Service, specify them with the ServiceExport ``exportedLabels`` and
+``exportedAnnotations`` fields.
+
+For instance, this is useful for adding any of the supported Cilium service
+annotations, such as :ref:`Service affinity <gs_clustermesh_service_affinity>`
+or :ref:`EndpointSlice synchronization <endpointslicesync>`.
+
+   .. code-block:: yaml
+
+      apiVersion: multicluster.x-k8s.io/v1beta1
+      kind: ServiceExport
+      metadata:
+         name: rebel-base
+      spec:
+         exportedLabels:
+            app.kubernetes.io/name: rebel-base
+         exportedAnnotations:
+            service.cilium.io/affinity: local
+
 
 Deploying a Simple Example Service using MCS-API
 ------------------------------------------------
