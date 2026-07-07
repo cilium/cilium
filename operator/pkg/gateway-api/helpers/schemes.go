@@ -57,8 +57,18 @@ func RegisterGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []sch
 
 	addToSchema := make(map[fmt.Stringer]func(s *runtime.Scheme) error)
 
-	// We can safely install the GA resources
-	addToSchema[gatewayv1.GroupVersion] = gatewayv1.AddToScheme
+	// Install all required GVKs.
+	for _, gvk := range RequiredGVKs {
+		addToSchema[gvk] = func(s *runtime.Scheme) error {
+			s.AddKnownTypes(
+				gvk.GroupVersion(),
+				GetConcreteObject(gvk),
+				GetConcreteListObject(gvk),
+			)
+			metav1.AddToGroupVersion(s, gvk.GroupVersion())
+			return nil
+		}
+	}
 
 	for _, optionalKind := range optionalKinds {
 		// Note that we're using the full GVK as the map key here - this is fine
@@ -69,15 +79,11 @@ func RegisterGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []sch
 		// AddToScheme, but we can't use that here because we want to only
 		// enable things on a per-resource basis.
 		addToSchema[optionalKind] = func(s *runtime.Scheme) error {
-			s.AddKnownTypes(optionalKind.GroupVersion(), GetConcreteObject(optionalKind))
-			// We also need to add the List version to the Schema
-			listKind := optionalKind.Kind[:len(optionalKind.Kind)-1] + "lists"
-			optionalKindList := schema.GroupVersionKind{
-				Group:   optionalKind.Group,
-				Version: optionalKind.Version,
-				Kind:    listKind,
-			}
-			s.AddKnownTypes(optionalKind.GroupVersion(), GetConcreteObject(optionalKindList))
+			s.AddKnownTypes(
+				optionalKind.GroupVersion(),
+				GetConcreteObject(optionalKind),
+				GetConcreteListObject(optionalKind),
+			)
 			metav1.AddToGroupVersion(s, optionalKind.GroupVersion())
 			return nil
 		}
