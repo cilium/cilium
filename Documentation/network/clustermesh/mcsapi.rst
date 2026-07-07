@@ -79,6 +79,10 @@ In all the clusters and for each set of exported Services that have the same nam
 a ServiceImport resource will be automatically created. All the Endpoints from those exported Services
 with the same name and namespace will be merged and made globally available.
 
+ServiceImports in Cilium are implemented by creating derived Services named
+``derived-$hash``. These derived Services use the same Global Services mechanism
+that powers :ref:`Cilium Global Services <gs_clustermesh_services>`.
+
 An exported Service through MCS-API is available by default on the ``<svc>.<ns>.svc.clusterset.local`` domain.
 If you have defined any hostname (via a Statefulset for instance) on your pods
 each pods would also be available available through the ``<hostname>.<clustername>.<svc>.<ns>.svc.clusterset.local`` domain.
