@@ -89,6 +89,7 @@ jobs:
   wait-for-images:
     runs-on: ubuntu-24.04
     name: Wait for images
+    timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -96,25 +97,15 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
 
-      - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
-
-      - name: Set up job variables
-        id: vars
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SHA="${{ inputs.SHA }}"
-          else
-            SHA="${{ github.sha }}"
-          fi
-
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-
-      - name: Waiting for images
-        timeout-minutes: 20
-        shell: bash
-        run: |
-          until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
   setup-and-test:
     needs: wait-for-images
@@ -193,7 +184,6 @@ jobs:
           lvh-version: "v0.0.30"
           mem: 14G
 
-
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
         if: ${{ matrix.focus == 'privileged' }}
@@ -221,6 +211,20 @@ jobs:
           mv "${GOCACHE}/go-build-cache.tar.zst" ./go-build-cache.tar.zst || true
           mv "${GOMODCACHE}/go-mod-cache.tar.zst" ./go-mod-cache.tar.zst || true
 
+      - name: Login to docker registry for CI image pull
+        if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ${{ vars.DOCKER_READ_HOST }}
+          username: ${{ vars.DOCKER_READ_USERNAME }}
+          password: ${{ secrets.DOCKER_READ_PASSWORD }}
+
+      - name: Export Cilium toolchain image for the VM
+        shell: bash
+        run: |
+          docker pull ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+          docker save ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} -o ./cilium-toolchain-image.tar
+
       - name: Setup runtime
         timeout-minutes: 10
         uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
@@ -240,9 +244,7 @@ jobs:
             # These programs are not statically linked so they might break in
             # the case of GHA runners being upgraded.
             if ! command -v clang >/dev/null 2>&1; then
-              # Wait for systemd-resolved to be ready so that the image pull
-              # below can resolve the registry hostname.
-              for i in {1..5}; do curl "https://${{ env.REGISTRY_DEV }}" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
+              docker load -i /host/cilium-toolchain-image.tar
               docker create --name cilium-toolchain ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
               docker cp cilium-toolchain:/usr/local/bin/clang /usr/bin/
               docker cp cilium-toolchain:/usr/local/bin/llc /usr/bin/
