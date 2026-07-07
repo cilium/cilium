@@ -4,8 +4,10 @@
 package types
 
 import (
+	"fmt"
 	"iter"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -88,6 +90,60 @@ func LabelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) Requi
 		return nil
 	}
 	return RequirementsFromK8s(k8sReqs)
+}
+
+// UnsanitizedLabelSelectorToRequirements turns unsanitized kubernetes Selector into
+// a slice of requirements equivalent to the selector.
+//
+// This helper is a custom version of slim_metav1.LabelSelectorAsSelector
+// and is equivalent to below code(See TestUnsanitizedLabelSelectorToRequirements):
+// es := api.EndpointSelector{LabelSelector: ls}
+// es.Sanitize()
+// LabelSelectorToRequirements(ls)
+func UnsanitizedLabelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) (Requirements, error) {
+	if labelSelector == nil {
+		return nil, nil
+	}
+
+	reqsCount := len(labelSelector.MatchLabels) + len(labelSelector.MatchExpressions)
+	requirements := make([]k8sLbls.Requirement, 0, reqsCount)
+
+	for k, v := range labelSelector.MatchLabels {
+		r, err := k8sLbls.NewRequirement(labels.GetExtendedKeyFrom(k), selection.Equals, []string{v})
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	for _, expr := range labelSelector.MatchExpressions {
+		var op selection.Operator
+		switch expr.Operator {
+		case slim_metav1.LabelSelectorOpIn:
+			op = selection.In
+		case slim_metav1.LabelSelectorOpNotIn:
+			op = selection.NotIn
+		case slim_metav1.LabelSelectorOpExists:
+			op = selection.Exists
+		case slim_metav1.LabelSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		default:
+			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
+		}
+		r, err := k8sLbls.NewRequirement(labels.GetExtendedKeyFrom(expr.Key), op, slices.Clone(expr.Values))
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+
+	k8sSel := k8sLbls.NewSelector()
+	k8sSel = k8sSel.Add(requirements...)
+
+	k8sReqs, selectable := k8sSel.Requirements()
+	if !selectable {
+		return nil, nil
+	}
+	return RequirementsFromK8s(k8sReqs), nil
 }
 
 func NewExistRequirement(lbl labels.Label) Requirement {
