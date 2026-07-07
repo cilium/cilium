@@ -28,6 +28,7 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#include "svc_echo.h"
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
@@ -1604,6 +1605,27 @@ skip_service_lookup:
 #endif
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
+#if defined(ENABLE_SVC_ICMP_ECHO_RESPONDER) && !defined(IS_BPF_XDP)
+	/* Answer an ICMPv6 echo (ping) addressed to a service VIP; see the IPv4
+	 * path in nodeport_lb4 for the rationale. Detection is reads-only and the
+	 * reply runs in the CILIUM_CALL_IPV6_SVC_ICMP_ECHO tail-call. Re-validate
+	 * ip6 before dereferencing it here. */
+	if (!is_svc_proto && tuple.nexthdr == IPPROTO_ICMPV6) {
+		void *data, *data_end;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+		ret = svc_icmp_echo_is_target_v6(ctx, ip6, l4_off);
+		if (IS_ERR(ret))
+			return ret;
+		if (ret)
+			return tail_call_internal(ctx,
+					CILIUM_CALL_IPV6_SVC_ICMP_ECHO,
+					ext_err);
+	}
+#endif /* ENABLE_SVC_ICMP_ECHO_RESPONDER && !IS_BPF_XDP */
+
+
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
@@ -2970,6 +2992,35 @@ skip_service_lookup:
 	 * the reverse NAT.
 	 */
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+
+#if defined(ENABLE_SVC_ICMP_ECHO_RESPONDER) && !defined(IS_BPF_XDP)
+	/* Answer an ICMP echo (ping) addressed to a service VIP directly, so the
+	 * VIP is pingable like it is under kube-proxy/IPVS. Stateless: any node
+	 * that receives the echo can reply. Only echo-requests to a known VIP are
+	 * handled; everything else falls through unchanged.
+	 *
+	 * Detection is reads-only (svc_icmp_echo_is_target_v4 never writes the
+	 * packet) and the reply -- which does write the packet -- runs in the
+	 * CILIUM_CALL_IPV4_SVC_ICMP_ECHO tail-call, so no packet writes happen on
+	 * this shared path. Re-validate ip4 before dereferencing it here.
+	 * TC/host only: the echo arrives on the TC netdev and the tail program
+	 * lives in that object. */
+	if (!is_svc_proto) {
+		void *data, *data_end;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		if (ip4->protocol == IPPROTO_ICMP) {
+			ret = svc_icmp_echo_is_target_v4(ctx, ip4, l4_off);
+			if (IS_ERR(ret))
+				return ret;
+			if (ret)
+				return tail_call_internal(ctx,
+						CILIUM_CALL_IPV4_SVC_ICMP_ECHO,
+						ext_err);
+		}
+	}
+#endif /* ENABLE_SVC_ICMP_ECHO_RESPONDER && !IS_BPF_XDP */
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
