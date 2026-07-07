@@ -1988,7 +1988,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 	__s32 len_new = off + ipv4_hdrlen(ip4) + orig_dgram;
 	__s32 len_old = (__s32)ctx_full_len(ctx);
 	__u8 reason = (__u8)-code;
-	__u8 tmp[l3_max];
+	__u8 tmp[l3_max] __align_stack_8;
 	union macaddr smac, dmac;
 	struct icmphdr icmp __align_stack_8 = {
 		.type		= ICMP_DEST_UNREACH,
