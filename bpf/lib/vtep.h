@@ -12,6 +12,8 @@ struct vtep_key {
 	__u32 vtep_ip;
 };
 
+DEFINE_AUX(struct vtep_key, vtep_key);
+
 struct vtep_value {
 	__u64 vtep_mac;
 	__u32 tunnel_endpoint;
