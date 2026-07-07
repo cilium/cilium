@@ -186,6 +186,21 @@ func TestDefaultRangeExcludesFirstLastIPs(t *testing.T) {
 	require.NoError(t, r.Allocate(netip.MustParseAddr("10.0.0.14")))
 }
 
+func TestIPv6WideRangeRejectsAddressOutsideCappedWindow(t *testing.T) {
+	r := NewCIDRRange(netip.MustParsePrefix("2001:db8::/48"))
+
+	firstAllocatable := netip.MustParseAddr("2001:db8::1")
+	sameLowBitsOutsideWindow := netip.MustParseAddr("2001:db8:0:1::1")
+
+	require.NoError(t, r.Allocate(firstAllocatable))
+
+	var notInRange *ErrNotInRange
+	err := r.Allocate(sameLowBitsOutsideWindow)
+	require.ErrorAs(t, err, &notInRange)
+	require.True(t, r.Has(firstAllocatable))
+	require.False(t, r.Has(sameLowBitsOutsideWindow))
+}
+
 func TestRangeSize(t *testing.T) {
 	testCases := []struct {
 		name   string
@@ -286,57 +301,88 @@ func TestAddOffset(t *testing.T) {
 
 func TestAddrOffset(t *testing.T) {
 	testCases := []struct {
-		name string
-		base netip.Addr
-		addr netip.Addr
-		want int
+		name   string
+		base   netip.Addr
+		addr   netip.Addr
+		want   int
+		wantOK bool
 	}{
 		{
-			name: "IPv4 same address",
-			base: netip.MustParseAddr("10.0.0.1"),
-			addr: netip.MustParseAddr("10.0.0.1"),
-			want: 0,
+			name:   "IPv4 same address",
+			base:   netip.MustParseAddr("10.0.0.1"),
+			addr:   netip.MustParseAddr("10.0.0.1"),
+			want:   0,
+			wantOK: true,
 		},
 		{
-			name: "IPv4 +1",
-			base: netip.MustParseAddr("10.0.0.1"),
-			addr: netip.MustParseAddr("10.0.0.2"),
-			want: 1,
+			name:   "IPv4 +1",
+			base:   netip.MustParseAddr("10.0.0.1"),
+			addr:   netip.MustParseAddr("10.0.0.2"),
+			want:   1,
+			wantOK: true,
 		},
 		{
-			name: "IPv4 cross byte boundary",
-			base: netip.MustParseAddr("10.0.0.255"),
-			addr: netip.MustParseAddr("10.0.1.0"),
-			want: 1,
+			name:   "IPv4 cross byte boundary",
+			base:   netip.MustParseAddr("10.0.0.255"),
+			addr:   netip.MustParseAddr("10.0.1.0"),
+			want:   1,
+			wantOK: true,
 		},
 		{
-			name: "IPv4 large offset",
-			base: netip.MustParseAddr("10.0.0.0"),
-			addr: netip.MustParseAddr("10.0.1.0"),
-			want: 256,
+			name:   "IPv4 large offset",
+			base:   netip.MustParseAddr("10.0.0.0"),
+			addr:   netip.MustParseAddr("10.0.1.0"),
+			want:   256,
+			wantOK: true,
 		},
 		{
-			name: "IPv6 same address",
-			base: netip.MustParseAddr("2001:db8::1"),
-			addr: netip.MustParseAddr("2001:db8::1"),
-			want: 0,
+			name:   "IPv6 same address",
+			base:   netip.MustParseAddr("2001:db8::1"),
+			addr:   netip.MustParseAddr("2001:db8::1"),
+			want:   0,
+			wantOK: true,
 		},
 		{
-			name: "IPv6 +1",
-			base: netip.MustParseAddr("2001:db8::1"),
-			addr: netip.MustParseAddr("2001:db8::2"),
-			want: 1,
+			name:   "IPv6 +1",
+			base:   netip.MustParseAddr("2001:db8::1"),
+			addr:   netip.MustParseAddr("2001:db8::2"),
+			want:   1,
+			wantOK: true,
 		},
 		{
-			name: "IPv6 large offset",
-			base: netip.MustParseAddr("2001:db8::"),
-			addr: netip.MustParseAddr("2001:db8::ffff"),
-			want: 65535,
+			name:   "IPv6 low word carry",
+			base:   netip.MustParseAddr("2001:db8::ffff:ffff:ffff:ffff"),
+			addr:   netip.MustParseAddr("2001:db8::1:0:0:0:0"),
+			want:   1,
+			wantOK: true,
+		},
+		{
+			name:   "IPv6 large offset",
+			base:   netip.MustParseAddr("2001:db8::"),
+			addr:   netip.MustParseAddr("2001:db8::ffff"),
+			want:   65535,
+			wantOK: true,
+		},
+		{
+			name:   "IPv6 address before base",
+			base:   netip.MustParseAddr("2001:db8::1"),
+			addr:   netip.MustParseAddr("2001:db8::"),
+			wantOK: false,
+		},
+		{
+			name:   "IPv6 high word delta does not fit in offset",
+			base:   netip.MustParseAddr("2001:db8::"),
+			addr:   netip.MustParseAddr("2001:db8:0:1::"),
+			wantOK: false,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := addrOffset(tc.base, tc.addr)
+			got, ok := addrOffset(tc.base, tc.addr)
+			require.Equal(t, tc.wantOK, ok)
+			if !tc.wantOK {
+				return
+			}
 			require.Equal(t, tc.want, got)
 		})
 	}
@@ -354,7 +400,8 @@ func TestAddOffsetAddrOffsetRoundTrip(t *testing.T) {
 	for _, base := range bases {
 		for _, offset := range offsets {
 			addr := addOffset(base, offset)
-			got := addrOffset(base, addr)
+			got, ok := addrOffset(base, addr)
+			require.True(t, ok, "roundtrip failed for base=%s offset=%d", base, offset)
 			require.Equal(t, offset, got, "roundtrip failed for base=%s offset=%d", base, offset)
 		}
 	}
