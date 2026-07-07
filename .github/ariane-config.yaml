@@ -10,9 +10,7 @@ triggers:
     - tests-cifuzz.yaml
     - lint-ariane-config.yaml
     - conformance-kubespray.yaml
-    - k8s-kind-network-e2e.yaml
     - lint-images-base.yaml
-    - k8s-kind-network-policies-e2e.yaml
   # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
   /test\s*:
     workflows:
@@ -38,6 +36,8 @@ triggers:
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
     - hubble-cli-integration-test.yaml
+    - k8s-kind-network-e2e.yaml
+    - k8s-kind-network-policies-e2e.yaml
     depends-on:
     - /build-images-dependency
   /ci-aks:
