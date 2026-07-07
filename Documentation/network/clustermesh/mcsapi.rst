@@ -151,18 +151,18 @@ ServiceImport backend, for example:
    spec:
       parentRefs:
       - group: gateway.networking.k8s.io
-         kind: Gateway
-         name: my-gateway
-         namespace: default
+        kind: Gateway
+        name: my-gateway
+        namespace: default
       rules:
       - backendRefs:
-         - group: multicluster.x-k8s.io
-            kind: ServiceImport
-            name: rebel-base-mcsapi
-            port: 80
-         matches:
-         - method: GET
-            path:
+        - group: multicluster.x-k8s.io
+          kind: ServiceImport
+          name: rebel-base-mcsapi
+          port: 80
+        matches:
+        - method: GET
+          path:
             type: PathPrefix
             value: /
 
@@ -171,6 +171,8 @@ The Gateway API implementation of Cilium fully support its own MCS-API implement
 
 If you want to use another Gateway API implementation with the Cilium MCS-API implementation,
 the Gateway API implementation you are using should officially support MCS-API / `GEP1748`_.
+If the alternate Gateway-API implementation relies on EndpointSlice to operate,
+configure Cilium to enable :ref:`EndpointSlice synchronization <endpointslicesync>`.
 
 On the other hands, the Cilium Gateway API implementation only supports MCS-API
 implementations using an underlying Service associated with a ServiceImport, and with
