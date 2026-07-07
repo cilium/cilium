@@ -352,9 +352,16 @@ func serviceSelectorMatches(sel *api.K8sServiceSelectorNamespace, svc serviceDet
 	if !(sel.Namespace == svc.getNamespace() || sel.Namespace == "") {
 		return false
 	}
-	ls := policytypes.NewLabelSelector(api.EndpointSelector(sel.Selector))
-	r := policytypes.Matches(ls, labelsMatcher(svc.getLabels()))
-	return r
+
+	// NOTE: This is a v1.19 release specific fix for service selector parsing.
+	requirements, err := policytypes.UnsanitizedLabelSelectorToRequirements(sel.Selector.LabelSelector)
+	if err != nil {
+		// If there is a parsing error in label selector we can ignore it here.
+		// The error is bubbled up when the policy object(CNP) is parsed later.
+		return false
+	}
+
+	return policytypes.MatchesRequirements(requirements, labelsMatcher(svc.getLabels()))
 }
 
 type labelsMatcher labels.Labels

@@ -969,6 +969,168 @@ func Test_hasMatchingToServices(t *testing.T) {
 	}
 }
 
+func TestServiceSelectorMatches(t *testing.T) {
+	testSvc := func(lbls map[string]string, source string) serviceDetailer {
+		return serviceEvent{
+			name:   loadbalancer.NewServiceName("test-ns", "test-svc"),
+			labels: labels.Map2Labels(lbls, source),
+		}
+	}
+
+	tests := []struct {
+		name       string
+		sel        *api.K8sServiceSelectorNamespace
+		matches    []serviceDetailer
+		notMatches []serviceDetailer
+	}{
+		{
+			name: "matchLabels",
+			sel: &api.K8sServiceSelectorNamespace{
+				Selector: api.ServiceSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{"app": "bar"},
+					},
+				},
+			},
+			matches: []serviceDetailer{
+				testSvc(map[string]string{"app": "bar"}, "k8s"),
+				testSvc(map[string]string{"app": "bar"}, "other"),
+			},
+			notMatches: []serviceDetailer{
+				testSvc(map[string]string{"app": "baz"}, "k8s"),
+				testSvc(map[string]string{"any.app": "bar"}, "k8s"),
+			},
+		},
+		{
+			name: "matchLabels - dotted key",
+			sel: &api.K8sServiceSelectorNamespace{
+				Selector: api.ServiceSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{"app.kubernetes.io/name": "my-app"},
+					},
+				},
+			},
+			matches: []serviceDetailer{
+				testSvc(map[string]string{"app.kubernetes.io/name": "my-app"}, "k8s"),
+				testSvc(map[string]string{"app.kubernetes.io/name": "my-app"}, "any"),
+			},
+			notMatches: []serviceDetailer{
+				testSvc(map[string]string{"app.kubernetes.io/name": "not-my-app"}, "k8s"),
+			},
+		},
+		{
+			name: "matchExpression",
+			sel: &api.K8sServiceSelectorNamespace{
+				Selector: api.ServiceSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
+						MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+							{Key: "app.kubernetes.io/name", Operator: slim_metav1.LabelSelectorOpExists},
+						},
+					},
+				},
+			},
+			matches: []serviceDetailer{
+				testSvc(map[string]string{"app.kubernetes.io/name": "my-app"}, "k8s"),
+				testSvc(map[string]string{"app.kubernetes.io/name": "my-app"}, "any"),
+			},
+			notMatches: []serviceDetailer{
+				testSvc(map[string]string{"apps.kubernetes.io/name": "not-my-app"}, "k8s"),
+			},
+		},
+		{
+			name: "matchLabels - k8s source prefix",
+			sel: &api.K8sServiceSelectorNamespace{
+				Selector: api.ServiceSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{"k8s:app": "my-app"},
+					},
+				},
+			},
+			matches: []serviceDetailer{
+				testSvc(map[string]string{"app": "my-app"}, "k8s"),
+			},
+			notMatches: []serviceDetailer{
+				testSvc(map[string]string{"app": "my-app"}, "other"),
+				testSvc(map[string]string{"app": "not-my-app"}, "k8s"),
+			},
+		},
+		{
+			name: "matchLabels - any source prefix",
+			sel: &api.K8sServiceSelectorNamespace{
+				Selector: api.ServiceSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{"any:app": "my-app"},
+					},
+				},
+			},
+			matches: []serviceDetailer{
+				testSvc(map[string]string{"app": "my-app"}, "k8s"),
+				testSvc(map[string]string{"app": "my-app"}, "other"),
+			},
+			notMatches: []serviceDetailer{
+				testSvc(map[string]string{"app": "not-my-app"}, "k8s"),
+			},
+		},
+		{
+			name: "matchLabels and matchExpressions",
+			sel: &api.K8sServiceSelectorNamespace{
+				Selector: api.ServiceSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{"app": "bar"},
+						MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+							{Key: "app.kubernetes.io/name", Operator: slim_metav1.LabelSelectorOpIn, Values: []string{"my-app"}},
+							{Key: "k8s:env", Operator: slim_metav1.LabelSelectorOpExists},
+						},
+					},
+				},
+			},
+			matches: []serviceDetailer{
+				testSvc(map[string]string{
+					"app.kubernetes.io/name": "my-app",
+					"app":                    "bar",
+					"env":                    "prod",
+				}, "k8s"),
+			},
+			notMatches: []serviceDetailer{
+				testSvc(map[string]string{
+					"app.kubernetes.io/name": "my-app",
+					"env":                    "prod",
+				}, "k8s"),
+				testSvc(map[string]string{
+					"app.kubernetes.io/name": "my-app",
+					"app":                    "bar",
+					"env":                    "prod",
+				}, "other"),
+			},
+		},
+		{
+			name: "invalid label key",
+			sel: &api.K8sServiceSelectorNamespace{
+				Selector: api.ServiceSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{"any:key:bad": "bar"},
+					},
+				},
+			},
+			notMatches: []serviceDetailer{
+				testSvc(map[string]string{"key:bad": "bar"}, "k8s"),
+				testSvc(map[string]string{"any:key:bad": "bar"}, "k8s"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, svc := range tt.matches {
+				require.True(t, serviceSelectorMatches(tt.sel, svc))
+			}
+			for _, svc := range tt.notMatches {
+				require.False(t, serviceSelectorMatches(tt.sel, svc))
+			}
+		})
+	}
+}
+
 func TestServiceEventStream(t *testing.T) {
 	servicesFixture := newServicesFixture(t)
 	serviceEvents := stream.ToChannel(
