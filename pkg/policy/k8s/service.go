@@ -374,7 +374,10 @@ func (l labelsMatcher) HasLabel(label *labels.Label) (exists bool) {
 // Lookup implements labels.LabelMatcher
 func (l labelsMatcher) LookupLabel(label *labels.Label) (value string, exists bool) {
 	v, ok := l[label.Key]
-	return v.Value, ok
+	if ok && (label.IsAnySource() || v.Source == label.Source) {
+		return v.Value, true
+	}
+	return "", false
 }
 
 var _ labels.LabelMatcher = labelsMatcher{}
