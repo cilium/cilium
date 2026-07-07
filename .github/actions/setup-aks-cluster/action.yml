@@ -86,3 +86,22 @@ runs:
 
     - name: Patch nodes without Cilium
       uses: ./.github/actions/nodes-without-cilium
+
+    - name: Make nodes-without-cilium Ready and isolate them
+      shell: bash
+      run: |
+        # The nodes-without-cilium nodes run with --network-plugin none and no
+        # cilium-agent, so kubelet reports NotReady ("cni plugin not
+        # initialized"). A node that stays NotReady trips AKS node auto-repair,
+        # which reboots the VM and takes the external test targets down
+        # mid-test. Taint the nodes first so external-vs-in-cluster topology no
+        # longer depends on the transient node.kubernetes.io/not-ready taint,
+        # then drop a dummy CNI conf via a hostNetwork DaemonSet so kubelet turns
+        # Ready and auto-repair stops rebooting them. This runs before "cilium
+        # install" and the "cilium status --wait", so the nodes flip Ready well
+        # inside the auto-repair window instead of sitting NotReady across it.
+        kubectl taint nodes -l cilium.io/no-schedule=true \
+          cilium.io/no-schedule=true:NoSchedule --overwrite
+        kubectl apply -f "${{ github.action_path }}/dummy-cni-daemonset.yaml"
+        kubectl -n kube-system rollout status daemonset/dummy-cni --timeout=180s
+        kubectl wait --for=condition=Ready node -l cilium.io/no-schedule=true --timeout=180s
