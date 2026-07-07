@@ -31,7 +31,7 @@ spec:
         app: echo-1
     spec:
       containers:
-      - image: registry.k8s.io/gateway-api/echo-basic:v1.5.1
+      - image: registry.k8s.io/gateway-api/echo-basic:v1.6.0
         name: echo-1
         ports:
         - containerPort: 3000
@@ -77,7 +77,7 @@ spec:
         app: echo-2
     spec:
       containers:
-      - image: registry.k8s.io/gateway-api/echo-basic:v1.5.1
+      - image: registry.k8s.io/gateway-api/echo-basic:v1.6.0
         name: echo-2
         ports:
         - containerPort: 3000

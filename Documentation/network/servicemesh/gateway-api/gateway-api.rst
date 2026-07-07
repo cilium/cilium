@@ -23,21 +23,22 @@ See the `Gateway API site <https://gateway-api.sigs.k8s.io/>`__ for more details
 Cilium Gateway API Support
 ##########################
 
-Cilium supports Gateway API v1.5.1 for below resources, all the Core conformance
+Cilium supports Gateway API v1.6.0 for below resources, all the Core conformance
 tests are passed.
 
-- `GatewayClass <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/>`_
-- `Gateway <https://gateway-api.sigs.k8s.io/reference/api-types/gateway/>`_
-- `HTTPRoute <https://gateway-api.sigs.k8s.io/reference/api-types/httproute/>`_
+- `GatewayClass <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/>`__
+- `Gateway <https://gateway-api.sigs.k8s.io/reference/api-types/gateway/>`__
+- `HTTPRoute <https://gateway-api.sigs.k8s.io/reference/api-types/httproute/>`__
 - `GRPCRoute <https://gateway-api.sigs.k8s.io/reference/api-types/grpcroute/>`__
 - `TLSRoute <https://gateway-api.sigs.k8s.io/reference/api-types/tlsroute/>`__
 - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/reference/api-types/policy/backendtlspolicy/>`__
-- `ReferenceGrant <https://gateway-api.sigs.k8s.io/reference/api-types/referencegrant/>`_
-- `TCPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#tcproute>`__
-- `UDPRoute (experimental) <https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#udproute>`__
+- `ReferenceGrant <https://gateway-api.sigs.k8s.io/reference/api-types/referencegrant/>`__
+- `TCPRoute <https://gateway-api.sigs.k8s.io/reference/api-types/tcproute/>`__
+- `UDPRoute <https://gateway-api.sigs.k8s.io/reference/api-types/udproute/>`__
+- `ListenerSet <https://gateway-api.sigs.k8s.io/reference/api-types/listenerset/>`__
 
 Additionally, Cilium provides ``CiliumGatewayClassConfig`` CRD, which can be referenced in
-`GatewayClass.parametersRef <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/#gatewayclass-parameters>`_.
+`GatewayClass.parametersRef <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/#gatewayclass-parameters>`__.
 
 .. admonition:: Video
  :class: attention
@@ -73,7 +74,7 @@ Cilium's Gateway API features:
    default-tls-certificate
    backendtlspolicy
 
-More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.3.0/examples/standard>`_.
+More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.6.0/examples/standard>`__.
 
 Troubleshooting
 ###############
