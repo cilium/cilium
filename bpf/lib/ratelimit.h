@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "auxvars.h"
 #include "common.h"
 #include "bpf/helpers.h"
 
@@ -24,6 +25,8 @@ struct ratelimit_value {
 	__u64 tokens;
 };
 
+DEFINE_AUX(struct ratelimit_value, ratelimit_value);
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ratelimit_key);
@@ -37,9 +40,13 @@ struct ratelimit_metrics_key {
 	__u32 usage;
 };
 
+DEFINE_AUX(struct ratelimit_metrics_key, ratelimit_metrics_key);
+
 struct ratelimit_metrics_value {
 	__u64 dropped;
 };
+
+DEFINE_AUX(struct ratelimit_metrics_value, ratelimit_metrics_value);
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -63,10 +70,10 @@ static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 						     const struct ratelimit_settings *settings)
 {
 	struct ratelimit_value *value;
-	struct ratelimit_value new_value;
-	struct ratelimit_metrics_key metrics_key;
 	struct ratelimit_metrics_value *metrics_value;
-	struct ratelimit_metrics_value new_metrics_value;
+	struct ratelimit_value *new_value = AUX(ratelimit_value);
+	struct ratelimit_metrics_key *metrics_key = AUX(ratelimit_metrics_key);
+	struct ratelimit_metrics_value *new_metrics_value = AUX(ratelimit_metrics_value);
 	__u64 since_last_topup;
 	__u64 now;
 	__u64 interval;
@@ -77,12 +84,12 @@ static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 
 	if (!key)
 		return false;
-	metrics_key.usage = key->usage;
-	metrics_value = map_lookup_elem(&cilium_ratelimit_metrics, &metrics_key);
+	metrics_key->usage = key->usage;
+	metrics_value = map_lookup_elem(&cilium_ratelimit_metrics, metrics_key);
 	if (!metrics_value) {
-		new_metrics_value.dropped = 0;
-		metrics_value = &new_metrics_value;
-		ret = map_update_elem(&cilium_ratelimit_metrics, &metrics_key,
+		new_metrics_value->dropped = 0;
+		metrics_value = new_metrics_value;
+		ret = map_update_elem(&cilium_ratelimit_metrics, metrics_key,
 				      metrics_value, BPF_ANY);
 		/* Check metrics_value to keep verifier happy */
 		if (unlikely(ret < 0 || !metrics_value))
@@ -92,9 +99,9 @@ static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 	/* Create a new bucket if we do not yet have one for the key */
 	value = map_lookup_elem(&cilium_ratelimit, key);
 	if (!value) {
-		new_value.last_topup = now;
-		new_value.tokens = settings->tokens_per_topup - 1;
-		ret = map_update_elem(&cilium_ratelimit, key, &new_value, BPF_ANY);
+		new_value->last_topup = now;
+		new_value->tokens = settings->tokens_per_topup - 1;
+		ret = map_update_elem(&cilium_ratelimit, key, new_value, BPF_ANY);
 		if (unlikely(ret < 0)) {
 			/* This bucket update is racy and might cause a bit of
 			 * inaccuracy. We allow that since keeping atomicity
