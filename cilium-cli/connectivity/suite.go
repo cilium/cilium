@@ -19,7 +19,7 @@ type Hooks interface {
 	AddConnectivityTests(cts ...*check.ConnectivityTest) error
 }
 
-func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) error {
+func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) (err error) {
 	// If cleanup-only mode is enabled, perform cleanup and return
 	if len(connTests) > 0 && connTests[0].Params().CleanupOnly {
 		connTests[0].Infof("🧹 Cleanup mode enabled - removing all connectivity test artifacts")
@@ -32,7 +32,20 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 		return nil
 	}
 
-	if err := setupConnectivityTests(ctx, connTests, extra); err != nil {
+	// Create the JUnit collector up-front so that a failure aborting the suite
+	// before any test result is collected (e.g. during setup/validation) still
+	// produces a non-empty report. The deferred Write records a synthetic
+	// failure in that case and always flushes the report to disk, so CI has a
+	// cilium-junits artifact to upload regardless of where the run failed.
+	junitCollector := check.NewJUnitCollector(connTests[0].Params().JunitProperties, connTests[0].Params().JunitFile, connTests[0].CodeOwners)
+	defer func() {
+		junitCollector.CollectFailure("connectivity test setup", err)
+		if e := junitCollector.Write(); e != nil {
+			connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, e)
+		}
+	}()
+
+	if err = setupConnectivityTests(ctx, connTests, extra); err != nil {
 		return err
 	}
 
@@ -42,7 +55,6 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 	if err != nil {
 		return err
 	}
-	junitCollector := check.NewJUnitCollector(connTests[0].Params().JunitProperties, connTests[0].Params().JunitFile, connTests[0].CodeOwners)
 
 	for i := range suiteBuilders {
 		if e := suiteBuilders[i](connTests, extra.AddConnectivityTests); e != nil {
@@ -74,9 +86,6 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 		}
 	}
 
-	if err := junitCollector.Write(); err != nil {
-		connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, err)
-	}
 	return err
 }
 

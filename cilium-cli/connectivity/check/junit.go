@@ -115,6 +115,32 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 	}
 }
 
+// CollectFailure records a synthetic failed test case describing an error that
+// aborted the suite before any test produced a result (e.g. a failure during
+// the setup/validation phase). It is a no-op when no JUnit file is configured,
+// when err is nil, or when real test results have already been collected (so a
+// normal test-failure report is never polluted). This guarantees a non-empty
+// JUnit report is written even when the run fails early, so CI always has a
+// cilium-junits artifact to upload.
+func (j *JUnitCollector) CollectFailure(name string, err error) {
+	if j.junitFile == "" || err == nil || j.testSuite.Tests > 0 {
+		return
+	}
+
+	j.testSuite.TestCases = append(j.testSuite.TestCases, &junit.TestCase{
+		Name:      name,
+		Classname: "connectivity test",
+		Status:    "failed",
+		Failure: &junit.Failure{
+			Message: name + " failed",
+			Type:    "failure",
+			Value:   err.Error(),
+		},
+	})
+	j.testSuite.Tests++
+	j.testSuite.Failures++
+}
+
 // Write writes collected JUnit results into a single report file.
 //
 // The report is written to a temporary file in the same directory and then
