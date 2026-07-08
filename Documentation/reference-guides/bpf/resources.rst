@@ -143,7 +143,7 @@ legacy cBPF:
   between application workloads such as application containers or processes. Cilium
   operates at Layer 3/4 to provide traditional networking and security services
   as well as Layer 7 to protect and secure use of modern application protocols
-  such as HTTP, gRPC and Kafka. It is integrated into orchestration frameworks
+  such as HTTP and gRPC. It is integrated into orchestration frameworks
   such as Kubernetes. BPF is the foundational part of Cilium that operates in
   the kernel's networking data path.
 

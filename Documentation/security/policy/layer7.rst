@@ -24,11 +24,6 @@ enumeration of protocol specific fields.
                 // +optional
                 HTTP []PortRuleHTTP `json:"http,omitempty"`
 
-                // Kafka-specific rules.
-                //
-                // +optional
-                Kafka []PortRuleKafka `json:"kafka,omitempty"`
-
                 // DNS-specific rules.
                 //
                 // +optional

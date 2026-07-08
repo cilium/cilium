@@ -26,8 +26,6 @@ func FlowProtocol(flow *pb.Flow) string {
 				return "DNS"
 			case l7.GetHttp() != nil:
 				return "HTTP"
-			case l7.GetKafka() != nil:
-				return "Kafka"
 			}
 		}
 		return "Unknown L7"

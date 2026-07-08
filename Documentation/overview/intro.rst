@@ -49,8 +49,7 @@ Service dependencies & communication map
 
 * What services are communicating with each other? How frequently? What does
   the service dependency graph look like?
-* What HTTP calls are being made? What Kafka topics does a service consume from
-  or produce to?
+* What HTTP calls are being made?
 
 Network monitoring & alerting
 -----------------------------

@@ -82,8 +82,6 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 				subType = "DNS"
 			case l7.GetHttp() != nil:
 				subType = "HTTP"
-			case l7.GetKafka() != nil:
-				subType = "Kafka"
 			}
 		}
 	case monitorAPI.MessageTypeDrop:

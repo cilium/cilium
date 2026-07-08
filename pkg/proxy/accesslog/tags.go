@@ -25,13 +25,6 @@ const (
 	FieldMessage  = "message"
 )
 
-// fields used for structured logging of Kafka messages
-const (
-	FieldKafkaAPIKey        = "kafkaApiKey"
-	FieldKafkaAPIVersion    = "kafkaApiVersion"
-	FieldKafkaCorrelationID = "kafkaCorrelationID"
-)
-
 // LogTag attaches a tag to a log record
 type LogTag func(lr *LogRecord, endpointInfoRegistry EndpointInfoRegistry)
 

@@ -1127,10 +1127,6 @@ data:
 {{- end }}
 {{- end }}
 {{- end }}
-{{- if .Values.hubble.redact.kafka }}
-  # Enables redaction of the Kafka API key part in flows
-  hubble-redact-kafka-apikey: {{ .Values.hubble.redact.kafka.apiKey | quote }}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- if .Values.hubble.export }}

@@ -53,7 +53,7 @@ by operating at both the networking and the application protocol layer to provid
 connectivity, load-balancing, security, and observability. For all network
 processing including protocols such as IP, TCP, and UDP, Cilium uses eBPF as the
 highly efficient in-kernel datapath. Protocols at the application layer such as
-HTTP, Kafka, gRPC, and DNS are parsed using a proxy such as Envoy. 
+HTTP, gRPC, and DNS are parsed using a proxy such as Envoy.
 
 .. toctree::
    :maxdepth: 3
