@@ -304,7 +304,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 		}
 
 		if err = routingInfo.Configure(
-			net.IP(result.IP.AsSlice()).To16(),
+			result.IP,
 			r.mtuManager.GetDeviceMTU(),
 			true,
 		); err != nil {
@@ -476,7 +476,7 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 				r.logger.Warn("Unable to allocate ingress information for ENI", logfields.Error, err)
 			} else {
 				if err := ingressRouting.Configure(
-					net.IP(result.IP.AsSlice()).To16(),
+					result.IP,
 					r.mtuManager.GetDeviceMTU(),
 					false,
 				); err != nil {

@@ -43,8 +43,8 @@ func (info *RoutingInfo) useCompatEgressPriority() bool {
 // info: The interface routing info used to create rules and routes.
 // mtu: The interface MTU.
 // host: Whether the IP is a host IP and needs to be routed via the 'local' table
-func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
-	if ip == nil || (ip.To4() == nil && ip.To16() == nil) {
+func (info *RoutingInfo) Configure(ip netip.Addr, mtu int, host bool) error {
+	if !ip.IsValid() {
 		info.logger.Warn(
 			"Unable to configure rules and routes because IP is not a valid IP address",
 			logfields.IPAddr, ip,
@@ -57,21 +57,13 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 	}
 
-	var ipWithMask net.IPNet
-	var replaceRule func(route.Rule) error
+	ipWithMask := netipx.AddrIPNet(ip)
 
-	if ip.To4() != nil {
+	var replaceRule func(route.Rule) error
+	if ip.Is4() {
 		replaceRule = route.ReplaceRule
-		ipWithMask = net.IPNet{
-			IP:   ip,
-			Mask: net.CIDRMask(32, 32),
-		}
 	} else {
 		replaceRule = route.ReplaceRuleIPv6
-		ipWithMask = net.IPNet{
-			IP:   ip,
-			Mask: net.CIDRMask(128, 128),
-		}
 	}
 
 	// Ingress rule. This rule is not installed for the cilium_host IP, because
@@ -82,7 +74,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		// table. Egress rules are created in a per-ENI routing table.
 		if err := replaceRule(route.Rule{
 			Priority: linux_defaults.RulePriorityIngress,
-			To:       &ipWithMask,
+			To:       ipWithMask,
 			Table:    route.MainTable,
 			Protocol: linux_defaults.RTProto,
 		}); err != nil {
@@ -109,7 +101,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		for _, cidr := range info.CIDRs {
 			if err := replaceRule(route.Rule{
 				Priority: egressPriority,
-				From:     &ipWithMask,
+				From:     ipWithMask,
 				To:       normalizeRuleToCIDR(&cidr),
 				Table:    tableID,
 				Protocol: linux_defaults.RTProto,
@@ -121,7 +113,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		// Lookup a VPC specific table for all traffic from an endpoint.
 		if err := replaceRule(route.Rule{
 			Priority: egressPriority,
-			From:     &ipWithMask,
+			From:     ipWithMask,
 			Table:    tableID,
 			Protocol: linux_defaults.RTProto,
 		}); err != nil {
@@ -263,7 +255,7 @@ func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
 // the IP & priority. In order to avoid leaving stale rules behind, all the
 // matching rules are removed.
 func Delete(logger *slog.Logger, ip netip.Addr) error {
-	if !ip.Is4() && !ip.Is6() && !ip.IsValid() {
+	if !ip.IsValid() {
 		logger.Warn(
 			"Unable to delete rules because IP is not a valid IP address",
 			logfields.IPAddr, ip,

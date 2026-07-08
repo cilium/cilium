@@ -69,7 +69,7 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 	}
 
 	if err := routingInfo.Configure(
-		ipConfig.Address.IP,
+		ip.AddrFromIP(ipConfig.Address.IP),
 		int(conf.DeviceMTU),
 		false,
 	); err != nil {

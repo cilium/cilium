@@ -87,7 +87,7 @@ func TestPrivilegedConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, ri := getFakes(t, ipamOption.IPAMENI, true, false)
-	err := ri.Configure(nil, 1500, false)
+	err := ri.Configure(netip.Addr{}, 1500, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -209,7 +209,7 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 }
 
 func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
-	err := ri.Configure(ip.AsSlice(), mtu, false)
+	err := ri.Configure(ip, mtu, false)
 	require.NoError(t, err)
 }
 
