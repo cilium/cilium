@@ -38,6 +38,7 @@
 "network/external-toc.rst" "network/clustermesh/index.rst"
 "network/external-workloads.rst" "network/clustermesh/index.rst"
 "network/clustermesh/clustermesh.rst" "network/clustermesh/setup.rst"
+"network/clustermesh/services.rst" "network/clustermesh/load-balancing.rst"
 "cmdref/cilium-dbg_bpf_recorder.md" "operations/upgrade.rst"
 "cmdref/cilium-dbg_bpf_recorder_list.md" "operations/upgrade.rst"
 "cmdref/cilium-dbg_recorder.md" "operations/upgrade.rst"

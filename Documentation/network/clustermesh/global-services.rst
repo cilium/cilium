@@ -1,11 +1,11 @@
-.. _gs_clustermesh_services:
+.. _gs_clustermesh_global_services:
 
-**********************************
-Load-balancing & Service Discovery
-**********************************
+***************
+Global Services
+***************
 
-This tutorial will guide you to perform load-balancing and service
-discovery across multiple Kubernetes clusters when using Cilium.
+This tutorial will guide you to perform load-balancing and service discovery
+across multiple Kubernetes clusters using Cilium Global Services.
 
 Prerequisites
 #############

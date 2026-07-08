@@ -1,10 +1,8 @@
 .. _gs_clustermesh_mcsapi:
 
-*********************************
-Multi-Cluster Services API (Beta)
-*********************************
-
-.. include:: ../../beta.rst
+**************************
+Multi-Cluster Services API
+**************************
 
 This tutorial will guide you to through the support of `Multi-Cluster Services API (MCS-API)`_ in Cilium.
 
@@ -81,7 +79,7 @@ with the same name and namespace will be merged and made globally available.
 
 ServiceImports in Cilium are implemented by creating derived Services named
 ``derived-$hash``. These derived Services use the same Global Services mechanism
-that powers :ref:`Cilium Global Services <gs_clustermesh_services>`.
+that powers :ref:`Cilium Global Services <gs_clustermesh_global_services>`.
 
 An exported Service through MCS-API is available by default on the ``<svc>.<ns>.svc.clusterset.local`` domain.
 If you have defined any hostname (via a Statefulset for instance) on your pods

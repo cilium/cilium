@@ -4,22 +4,23 @@
 Service Affinity
 ****************
 
-This tutorial will guide you to enable service affinity across multiple
-Kubernetes clusters.
+This tutorial will guide you to enable service affinity for cross-cluster
+services.
 
 Prerequisites
 #############
 
-You need to have a functioning Cluster Mesh with a Global Service, please
-follow the guide :ref:`gs_clustermesh` and :ref:`gs_clustermesh_services`
-to set it up.
+You need to have a functioning Cluster Mesh, please follow the guides
+:ref:`gs_clustermesh` and :ref:`gs_clustermesh_load_balancing` to set it up.
 
 Enabling Global Service Affinity
 ################################
 
 Load-balancing across multiple clusters might not be ideal in some cases.
 The annotation ``service.cilium.io/affinity: "none|local|remote"`` can be used
-to specify the preferred endpoint destination.
+to specify the preferred endpoint destination. With :ref:`MCS-API
+<gs_clustermesh_mcsapi>`, specify this annotation through the ServiceExport
+``exportedAnnotations`` field.
 
 For example, if the value of annotation ``service.cilium.io/affinity`` is local,
 the Global Service will load-balance across healthy ``local`` backends, and only user

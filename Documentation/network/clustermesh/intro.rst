@@ -19,9 +19,7 @@ extending Cilium networking across multiple Kubernetes clusters and provides:
 
 * Pod-to-pod connectivity between clusters within a flat IP address space
 * Cluster-aware :ref:`network policy enforcement <gs_clustermesh_network_policy>`
-* Cross-cluster service discovery and load-balancing with
-  :ref:`Global Services <gs_clustermesh_services>` or
-  :ref:`MCS-API <gs_clustermesh_mcsapi>`
+* Cross-cluster :ref:`service discovery and load-balancing <gs_clustermesh_load_balancing>`
 * :ref:`Service affinity <gs_clustermesh_service_affinity>` controls to
   prefer local or remote backends
 
