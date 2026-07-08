@@ -113,9 +113,15 @@ var (
 			{
 				IngressCommonRule: api.IngressCommonRule{
 					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("role=frontend"),
-							labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"),
+						api.NewESFromMatchRequirements(
+							map[string]string{
+								"role":                              "frontend",
+								"k8s:" + k8sConst.PodNamespaceLabel: "default",
+							},
+							[]slim_metav1.LabelSelectorRequirement{{
+								Key:      "k8s:io.cilium.k8s.policy.cluster",
+								Operator: "Exists",
+							}},
 						),
 						api.NewESFromLabels(
 							labels.ParseSelectLabel("reserved:world"),

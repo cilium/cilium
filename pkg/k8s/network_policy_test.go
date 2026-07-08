@@ -33,6 +33,7 @@ import (
 var (
 	labelsA = labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelCluster, "cluster", labels.LabelSourceK8s),
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
 	}.Sort()
 	nidA = identity.NumericIdentity(1001)
@@ -46,6 +47,7 @@ var (
 
 	labelsB = labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelCluster, "cluster", labels.LabelSourceK8s),
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
 		labels.NewLabel("id2", "c", labels.LabelSourceK8s),
 	}.Sort()
@@ -59,6 +61,7 @@ var (
 
 	labelsC = labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelCluster, "cluster", labels.LabelSourceK8s),
 		labels.NewLabel("id", "c", labels.LabelSourceK8s),
 	}.Sort()
 	nidC = identity.NumericIdentity(1003)
@@ -73,6 +76,7 @@ var (
 	labelsOther = labels.LabelArray{
 		labels.NewLabel("io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name", "other", labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "other", labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelCluster, "cluster", labels.LabelSourceK8s),
 		labels.NewLabel("id", "other", labels.LabelSourceK8s),
 	}.Sort()
 	nidOther = identity.NumericIdentity(1004)
@@ -211,6 +215,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 					labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 					labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
 					labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+					labels.NewLabel(k8sConst.PolicyLabelCluster, "cluster", labels.LabelSourceK8s),
 				)),
 				L4: api.PortRules{{
 					Ports: []api.PortProtocol{{
@@ -290,6 +295,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 					labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
 					labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
 					labels.NewLabel("io.cilium.k8s.namespace.labels.nsfoo", "nsbar", labels.LabelSourceK8s),
+					labels.NewLabel(k8sConst.PolicyLabelCluster, "cluster", labels.LabelSourceK8s),
 				)),
 				L4: api.PortRules{{
 					Ports: []api.PortProtocol{{
@@ -342,6 +348,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 				Tier:        policytypes.Normal,
 				L3: policytypes.ToSelectors(api.NewESFromLabels(
 					labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
+					labels.NewLabel(k8sConst.PolicyLabelCluster, "cluster", labels.LabelSourceK8s),
 				)),
 			},
 		},
@@ -378,7 +385,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 				"k8s:io.cilium.k8s.policy.uid=test-uid",
 			)
 
-			rules, err := ParseNetworkPolicy(hivetest.Logger(t), cmtypes.PolicyAnyCluster, np)
+			rules, err := ParseNetworkPolicy(hivetest.Logger(t), "cluster", np)
 			require.NoError(t, err)
 			require.Len(t, rules, 1)
 			require.Equal(t, &tc.out, rules[0])
@@ -907,6 +914,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	makePod := func(namespace string, podLabels, nsLabels map[string]string) *identity.Identity {
 		lbls := labels.LabelArray{
 			labels.NewLabel(k8sConst.PodNamespaceLabel, namespace, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PolicyLabelCluster, "cluster", labels.LabelSourceK8s),
 		}
 		for k, v := range podLabels {
 			lbls = append(lbls, labels.NewLabel(k, v, labels.LabelSourceK8s))
@@ -1679,13 +1687,17 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
+							Key:      "k8s:foo",
+							Operator: slim_metav1.LabelSelectorOpIn,
+							Values:   []string{"bar", "baz"},
+						},
+						{
 							Key:      "k8s:io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: slim_metav1.LabelSelectorOpExists,
 						},
 						{
-							Key:      "k8s:foo",
-							Operator: slim_metav1.LabelSelectorOpIn,
-							Values:   []string{"bar", "baz"},
+							Key:      "k8s:" + k8sConst.PolicyLabelCluster,
+							Operator: slim_metav1.LabelSelectorOpExists,
 						},
 					},
 				),
@@ -1719,6 +1731,10 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 							Key:      "k8s:io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: slim_metav1.LabelSelectorOpExists,
 						},
+						{
+							Key:      "k8s:" + k8sConst.PolicyLabelCluster,
+							Operator: slim_metav1.LabelSelectorOpExists,
+						},
 					},
 				),
 			)},
@@ -1737,6 +1753,10 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 					[]slim_metav1.LabelSelectorRequirement{
 						{
 							Key:      fmt.Sprintf("%s:%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel),
+							Operator: slim_metav1.LabelSelectorOpExists,
+						},
+						{
+							Key:      "k8s:" + k8sConst.PolicyLabelCluster,
 							Operator: slim_metav1.LabelSelectorOpExists,
 						},
 					},

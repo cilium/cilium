@@ -22,6 +22,7 @@ import (
 
 const (
 	namespaceLabelPrefix = "io.cilium.k8s.namespace.labels."
+	clusterLabel         = "io.cilium.k8s.policy.cluster"
 )
 
 var (
@@ -52,12 +53,18 @@ var (
 	}))
 	l3EnvProdSelector = types.ToSelectors(
 		api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{
-			MatchLabels: map[string]string{namespaceLabelPrefix + "env": "prod"},
+			MatchLabels: map[string]string{
+				namespaceLabelPrefix + "env": "prod",
+				clusterLabel:                 "testCluster",
+			},
 		}),
 	)
 	l3EnvDevSelector = types.ToSelectors(
 		api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{
-			MatchLabels: map[string]string{namespaceLabelPrefix + "env": "dev"},
+			MatchLabels: map[string]string{
+				namespaceLabelPrefix + "env":   "dev",
+				"io.cilium.k8s.policy.cluster": "testCluster",
+			},
 		}),
 	)
 )
@@ -454,7 +461,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			})),
 			L3: types.ToSelectors(
 				api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{
-					MatchLabels: map[string]string{namespaceLabelPrefix + "role": "ingress-source"},
+					MatchLabels: map[string]string{namespaceLabelPrefix + "role": "ingress-source", clusterLabel: clusterName},
 				}),
 			),
 			L4:     portRule("80", api.ProtoTCP),
@@ -467,7 +474,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			})),
 			L3: types.ToSelectors(
 				api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{
-					MatchLabels: map[string]string{namespaceLabelPrefix + "role": "egress-dest"},
+					MatchLabels: map[string]string{namespaceLabelPrefix + "role": "egress-dest", clusterLabel: clusterName},
 				}),
 			),
 			L4:     portRule("53", api.ProtoUDP),

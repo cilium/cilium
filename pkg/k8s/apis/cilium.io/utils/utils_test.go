@@ -19,6 +19,12 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+var (
+	podAnyPrefixLbl             = labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceLabel
+	clusterPrefixLbl            = labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelCluster
+	podAnyNamespaceLabelsPrefix = labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceMetaLabelsPrefix
+)
+
 func Test_namespacesAreValid(t *testing.T) {
 	require.True(t, namespacesAreValid("default", []string{}))
 	require.True(t, namespacesAreValid("default", []string{"default"}))
@@ -193,8 +199,9 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			// current namespace
 			name: "parse-init-policy-namespaced",
 			args: args{
-				namespace: slim_metav1.NamespaceDefault,
-				uid:       uuid,
+				namespace:   slim_metav1.NamespaceDefault,
+				uid:         uuid,
+				clusterName: "cluster",
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						nil,
@@ -239,7 +246,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 									labels.LabelSourceK8sKeyPrefix,
 									&slim_metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											k8sConst.PodNamespaceLabel: "default",
+											k8sConst.PodNamespaceLabel:         "default",
+											"k8s:io.cilium.k8s.policy.cluster": "cluster",
 										},
 									}),
 							},
@@ -274,8 +282,9 @@ func Test_ParseToCiliumRule(t *testing.T) {
 		{
 			name: "set-any-source-for-namespace",
 			args: args{
-				namespace: slim_metav1.NamespaceDefault,
-				uid:       uuid,
+				namespace:   slim_metav1.NamespaceDefault,
+				uid:         uuid,
+				clusterName: "cluster",
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						map[string]string{
@@ -315,7 +324,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 									labels.LabelSourceAnyKeyPrefix,
 									&slim_metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											k8sConst.PodNamespaceLabel: "ns-2",
+											k8sConst.PodNamespaceLabel:         "ns-2",
+											"k8s:io.cilium.k8s.policy.cluster": "cluster",
 										},
 									}),
 							},
@@ -443,8 +453,9 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			// by the namespace where the rule was inserted.
 			name: "parse-in-namespace-with-ns-labels-selector",
 			args: args{
-				namespace: slim_metav1.NamespaceDefault,
-				uid:       uuid,
+				namespace:   slim_metav1.NamespaceDefault,
+				uid:         uuid,
+				clusterName: "cluster",
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						map[string]string{
@@ -485,6 +496,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 									&slim_metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											k8sConst.PodNamespaceMetaLabelsPrefix + "team": "team-a",
+											"k8s:io.cilium.k8s.policy.cluster":             "cluster",
 										},
 									}),
 							},
@@ -523,8 +535,9 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			name: "wildcard-to-from-endpoints-with-ccnp",
 			args: args{
 				// Empty namespace for Clusterwide policy
-				namespace: "",
-				uid:       uuid,
+				namespace:   "",
+				uid:         uuid,
+				clusterName: "cluster",
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						map[string]string{
@@ -560,11 +573,12 @@ func Test_ParseToCiliumRule(t *testing.T) {
 								api.NewESFromK8sLabelSelector(
 									labels.LabelSourceK8sKeyPrefix,
 									&slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{"k8s:io.cilium.k8s.policy.cluster": "cluster"},
 										MatchExpressions: []slim_metav1.LabelSelectorRequirement{
 											{
 												Key:      k8sConst.PodNamespaceLabel,
 												Operator: slim_metav1.LabelSelectorOpExists,
-												Values:   []string{},
+												Values:   nil,
 											},
 										},
 									}),

@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -430,6 +431,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Len(t, rules[0].L3, 1)
 
 	bazEndpointSelector := newEndpointSelectorForServiceSelector(bazSvcID.Namespace(), bazSvcSelector)
+	bazEndpointSelector.AddMatchExpression("k8s:"+k8sConst.PolicyLabelCluster, "Exists", nil)
 	assert.Equal(t, bazEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
 
 	// Check that policy has been marked
@@ -537,6 +539,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].L3, 1)
 
 	fooEndpointSelector := newEndpointSelectorForServiceSelector(fooSvcID.Namespace(), fooSvcSelector)
+	fooEndpointSelector.AddMatchExpression("k8s:"+k8sConst.PolicyLabelCluster, "Exists", nil)
 	assert.Equal(t, fooEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
 
 	// Check that policies have been marked
@@ -615,6 +618,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].L3, 1)
 
 	barEndpointSelector := newEndpointSelectorForServiceSelector(barSvcID.Namespace(), barSvcLabels)
+	barEndpointSelector.AddMatchExpression("k8s:"+k8sConst.PolicyLabelCluster, "Exists", nil)
 	assert.Equal(t, barEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
 
 	// Check that policies have been marked

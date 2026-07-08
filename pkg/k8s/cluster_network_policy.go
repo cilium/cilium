@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 )
 
 const (
@@ -56,24 +57,31 @@ func toSlimLabelSelector(ls *metav1.LabelSelector) *slim_metav1.LabelSelector {
 	return result
 }
 
-func kcnpProcessNamespaceSelector(namespaces *metav1.LabelSelector) *slim_metav1.LabelSelector {
-	return processNamespaceSelector(toSlimLabelSelector(namespaces))
+func kcnpProcessNamespaceSelector(clusterName string, namespaces *metav1.LabelSelector, isSubject bool) api.EndpointSelector {
+	ls := processNamespaceSelector(toSlimLabelSelector(namespaces))
+	es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, ls)
+	if !isSubject {
+		utils.EnsureClusterSelector(&es, clusterName)
+	}
+	utils.EnsureNamespaceSelector(&es, "")
+	return es
 }
 
 // kcnpParseNamespacedPod converts a NamespacedPod into an EndpointSelector,
 // which selects all the specified pods in the specified namespaces. If a
 // cluster name is provided and the pod selector does not already explicitly
 // target a cluster, a selector targeting the named cluster will be added.
-func kcnpParseNamespacedPod(clusterName string, peer policyv1alpha2.NamespacedPod) *types.LabelSelector {
+func kcnpParseNamespacedPod(clusterName string, peer policyv1alpha2.NamespacedPod, subject bool) *types.LabelSelector {
 	podSelector := toSlimLabelSelector(&peer.PodSelector)
 	es := api.NewESFromK8sLabelSelector(
 		labels.LabelSourceK8sKeyPrefix,
-		kcnpProcessNamespaceSelector(&peer.NamespaceSelector),
+		processNamespaceSelector(toSlimLabelSelector(&peer.NamespaceSelector)),
 		podSelector)
-
-	if clusterName != cmtypes.PolicyAnyCluster && !isPodSelectorSelectingCluster(podSelector) {
-		es.AddMatch(clusterPrefixLbl, clusterName)
+	if !subject {
+		utils.EnsureClusterSelector(&es, clusterName)
 	}
+	utils.EnsureNamespaceSelector(&es, "")
+
 	return types.NewLabelSelector(es)
 }
 
@@ -263,12 +271,9 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 				// Only one of Namespaces or Pods will be non-nil.
 				switch {
 				case rule.Pods != nil:
-					ingress.L3 = types.Selectors{
-						kcnpParseNamespacedPod(clusterName, *rule.Pods),
-					}
+					ingress.L3 = types.Selectors{kcnpParseNamespacedPod(clusterName, *rule.Pods, false)}
 				case rule.Namespaces != nil:
-					ingress.L3 = types.ToSelectors(
-						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, kcnpProcessNamespaceSelector(rule.Namespaces)))
+					ingress.L3 = types.ToSelectors(kcnpProcessNamespaceSelector(clusterName, rule.Namespaces, false))
 				default:
 					// If no destination endpoint can be identified, fail closed.
 					// For "Accept" rules, "fail closed" means: "treat the rule as matching no
@@ -316,10 +321,9 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 				// Only one of Namespaces, Pods, Nodes, Networks or DomainNames will be non-nil.
 				switch {
 				case rule.Pods != nil:
-					egress.L3 = types.Selectors{kcnpParseNamespacedPod(clusterName, *rule.Pods)}
+					egress.L3 = types.Selectors{kcnpParseNamespacedPod(clusterName, *rule.Pods, false)}
 				case rule.Namespaces != nil:
-					egress.L3 = types.ToSelectors(
-						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, kcnpProcessNamespaceSelector(rule.Namespaces)))
+					egress.L3 = types.ToSelectors(kcnpProcessNamespaceSelector(clusterName, rule.Namespaces, false))
 				case rule.Nodes != nil:
 					if !option.Config.EnableNodeSelectorLabels {
 						return nil, errors.New("egress.to.nodes is not supported since node selector labels are disabled")
@@ -387,9 +391,9 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 	var subject *types.LabelSelector
 	// Only one of Namespaces or Pods will be non-nil.
 	if ns := cnp.Spec.Subject.Namespaces; ns != nil {
-		subject = types.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, kcnpProcessNamespaceSelector(ns)))
+		subject = types.NewLabelSelector(kcnpProcessNamespaceSelector(clusterName, ns, true))
 	} else if ps := cnp.Spec.Subject.Pods; ps != nil {
-		subject = kcnpParseNamespacedPod("", *ps)
+		subject = kcnpParseNamespacedPod("", *ps, true)
 	}
 
 	rules := append(ingresses, egresses...)
