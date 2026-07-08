@@ -7,6 +7,7 @@
 
 #include "eth.h"
 #include "dbg.h"
+#include "drop_reasons.h"
 #include "ipv6_core.h"
 #include "l4.h"
 #include "metrics.h"

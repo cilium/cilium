@@ -18,6 +18,7 @@
 #include "conntrack.h"
 #include "conntrack_map.h"
 #include "csum.h"
+#include "drop_reasons.h"
 #include "egress_gateway.h"
 #include "eps.h"
 #include "icmp6.h"

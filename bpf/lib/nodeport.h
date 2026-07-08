@@ -14,6 +14,7 @@
 #include "lb.h"
 #include "common.h"
 #include "drop.h"
+#include "drop_reasons.h"
 #include "overloadable.h"
 #include "egress_gateway.h"
 #include "eps.h"

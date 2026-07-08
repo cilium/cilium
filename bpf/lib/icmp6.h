@@ -8,6 +8,7 @@
 #include "icmp_wsum.h"
 #include "eth.h"
 #include "drop.h"
+#include "drop_reasons.h"
 #include "eps.h"
 
 #define ICMP6_TYPE_OFFSET offsetof(struct icmp6hdr, icmp6_type)

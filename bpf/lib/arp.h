@@ -7,6 +7,7 @@
 #include <linux/if_ether.h>
 #include "eth.h"
 #include "dbg.h"
+#include "drop_reasons.h"
 
 struct arp_eth {
 	unsigned char		ar_sha[ETH_ALEN];

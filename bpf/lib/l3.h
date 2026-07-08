@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common.h"
+#include "drop_reasons.h"
 #include "ipv6.h"
 #include "ipv4.h"
 #include "eth.h"

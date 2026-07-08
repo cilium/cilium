@@ -9,6 +9,7 @@
 #include <bpf/config/node.h>
 
 #include "common.h"
+#include "drop_reasons.h"
 #include "utils.h"
 #include "ipv4.h"
 #include "ipv6.h"
