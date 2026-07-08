@@ -515,30 +515,40 @@ func iterateNetlinkSockets(proto uint8, family uint8, stateFilter uint32, fn fun
 		return fmt.Errorf("failed to send netlink list request: %w", err)
 	}
 
-loop:
+	// Preserve receive-side error notifications for existing callback users,
+	// but terminate the current dump because it cannot be guaranteed to resume correctly.
+	reportError := func(err error) error {
+		if callbackErr := fn(nil, err); callbackErr != nil {
+			return callbackErr
+		}
+		return err
+	}
+
 	for {
 		msgs, from, err := s.Receive()
 		if err != nil {
-			fn(nil, err)
-			continue loop
+			return reportError(err)
 		}
 		if from.Pid != nl.PidKernel {
-			fn(nil, fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel))
-			continue loop
+			return reportError(fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel))
 		}
 		if len(msgs) == 0 {
-			fn(nil, errors.New("no message nor error from netlink"))
-			continue loop
+			return reportError(errors.New("no message nor error from netlink"))
 		}
 
 		for _, m := range msgs {
 			switch m.Header.Type {
 			case unix.NLMSG_DONE:
-				break loop
+				return nil
 			case unix.NLMSG_ERROR:
-				error := int32(native.Uint32(m.Data[0:4]))
-				fn(nil, syscall.Errno(-error))
-				continue loop
+				if len(m.Data) < 4 {
+					return reportError(fmt.Errorf("short NLMSG_ERROR response: got %d bytes", len(m.Data)))
+				}
+				errno := int32(native.Uint32(m.Data[0:4]))
+				if errno == 0 {
+					return nil
+				}
+				return reportError(syscall.Errno(-errno))
 			}
 			sockInfo := &Socket{}
 			err := sockInfo.Deserialize(m.Data)
@@ -547,5 +557,4 @@ loop:
 			}
 		}
 	}
-	return nil
 }
