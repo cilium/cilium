@@ -100,7 +100,7 @@ var cniConfigs map[string]string = map[string]string{
 	// the default
 	"none": `
 {
-  "cniVersion": "0.3.1",
+  "cniVersion": "1.0.0",
   "name": "cilium",
   "plugins": [
     {
@@ -113,7 +113,7 @@ var cniConfigs map[string]string = map[string]string{
 
 	"flannel": `
 {
-  "cniVersion": "0.3.1",
+  "cniVersion": "1.0.0",
   "name": "flannel",
   "plugins": [
     {
@@ -140,7 +140,7 @@ var cniConfigs map[string]string = map[string]string{
 `,
 	"portmap": `
 {
-  "cniVersion": "0.3.1",
+  "cniVersion": "1.0.0",
   "name": "portmap",
   "plugins": [
     {
