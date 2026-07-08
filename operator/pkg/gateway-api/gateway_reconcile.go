@@ -1834,6 +1834,12 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 			return r.handleHTTPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, hr)
 		}
 
+		if cond, invalid := i.ValidateMatchRegexps(); invalid {
+			for _, parent := range hr.Status.Parents {
+				i.SetParentCondition(parent.ParentRef, cond)
+			}
+		}
+
 		// Checks finished, apply the status to the actual objects.
 		if err := r.updateHTTPRouteStatus(ctx, scopedLog, &original, hr); err != nil {
 			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
@@ -1904,7 +1910,11 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 			return r.handleGRPCRouteReconcileErrorWithStatus(ctx, scopedLog, err, grpcr, &original)
 		}
 
-		// Route-specific checks will go in here separately if required.
+		if cond, invalid := i.ValidateMatchRegexps(); invalid {
+			for _, parent := range grpcr.Status.Parents {
+				i.SetParentCondition(parent.ParentRef, cond)
+			}
+		}
 
 		// Checks finished, apply the status to the actual objects.
 		if err := r.updateGRPCRouteStatus(ctx, scopedLog, &original, grpcr); err != nil {

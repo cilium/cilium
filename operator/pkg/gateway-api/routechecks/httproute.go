@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"regexp"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -197,4 +198,44 @@ func (r *HTTPRouteInput) ValidateHeaderModifier() error {
 		}
 	}
 	return nil
+}
+
+func invalidRegexCondition(field string, err error) metav1.Condition {
+	return metav1.Condition{
+		Type:    string(gatewayv1.RouteConditionAccepted),
+		Status:  metav1.ConditionFalse,
+		Reason:  string(gatewayv1.RouteReasonUnsupportedValue),
+		Message: fmt.Sprintf("Invalid regular expression in %s match: %v", field, err),
+	}
+}
+
+func (h *HTTPRouteInput) ValidateMatchRegexps() (metav1.Condition, bool) {
+	for _, rule := range h.HTTPRoute.Spec.Rules {
+		for _, match := range rule.Matches {
+			if pathMatch := match.Path; pathMatch != nil && pathMatch.Type != nil &&
+				*pathMatch.Type == gatewayv1.PathMatchRegularExpression && pathMatch.Value != nil {
+				if _, err := regexp.Compile(*pathMatch.Value); err != nil {
+					return invalidRegexCondition("path", err), true
+				}
+			}
+
+			for _, headerMatch := range match.Headers {
+				if headerMatch.Type != nil && *headerMatch.Type == gatewayv1.HeaderMatchRegularExpression {
+					if _, err := regexp.Compile(headerMatch.Value); err != nil {
+						return invalidRegexCondition("header", err), true
+					}
+				}
+			}
+
+			for _, queryMatch := range match.QueryParams {
+				if queryMatch.Type != nil && *queryMatch.Type == gatewayv1.QueryParamMatchRegularExpression {
+					if _, err := regexp.Compile(queryMatch.Value); err != nil {
+						return invalidRegexCondition("queryParam", err), true
+					}
+				}
+			}
+		}
+	}
+
+	return metav1.Condition{}, false
 }

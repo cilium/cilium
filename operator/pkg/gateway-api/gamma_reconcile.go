@@ -187,6 +187,8 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 			ControllerName: r.controllerName,
 		}
 
+		badRegexCond, hasBadRegex := i.ValidateMatchRegexps()
+
 		// Route validators
 		for _, parent := range hr.Spec.ParentRefs {
 
@@ -236,6 +238,10 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 				if !continueCheck {
 					break
 				}
+			}
+
+			if hasBadRegex {
+				i.SetParentCondition(parent, badRegexCond)
 			}
 
 			// Update the cached copy with the same status changes to prevent re-fetching from client cache.
@@ -291,6 +297,8 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 			ControllerName: r.controllerName,
 		}
 
+		badRegexCond, hasBadRegex := i.ValidateMatchRegexps()
+
 		// Route validators
 		for _, parent := range grpc.Spec.ParentRefs {
 
@@ -340,6 +348,10 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 				if !continueCheck {
 					break
 				}
+			}
+
+			if hasBadRegex {
+				i.SetParentCondition(parent, badRegexCond)
 			}
 
 			// Update the cached copy with the same status changes to prevent re-fetching from client cache.
