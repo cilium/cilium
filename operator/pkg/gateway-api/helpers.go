@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	gatewayapihelpers "github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -92,10 +91,10 @@ func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
 		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
 			kind.Kind == kindGRPCRoute && routeKind == kindGRPCRoute {
 			return true
-		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1alpha2.GroupName) &&
+		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
 			kind.Kind == kindTCPRoute && routeKind == kindTCPRoute {
 			return true
-		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1alpha2.GroupName) &&
+		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
 			kind.Kind == kindUDPRoute && routeKind == kindUDPRoute {
 			return true
 		}
@@ -138,14 +137,14 @@ func getSupportedRouteKinds(protocol gatewayv1.ProtocolType) []gatewayv1.RouteGr
 	case gatewayv1.TCPProtocolType:
 		return []gatewayv1.RouteGroupKind{
 			{
-				Group: GroupPtr(gatewayv1alpha2.GroupName),
+				Group: GroupPtr(gatewayv1.GroupName),
 				Kind:  kindTCPRoute,
 			},
 		}
 	case gatewayv1.UDPProtocolType:
 		return []gatewayv1.RouteGroupKind{
 			{
-				Group: GroupPtr(gatewayv1alpha2.GroupName),
+				Group: GroupPtr(gatewayv1.GroupName),
 				Kind:  kindUDPRoute,
 			},
 		}
@@ -162,9 +161,9 @@ func getGatewayKindForObject(obj metav1.Object) gatewayv1.Kind {
 		return kindGRPCRoute
 	case *gatewayv1.TLSRoute:
 		return kindTLSRoute
-	case *gatewayv1alpha2.UDPRoute:
+	case *gatewayv1.UDPRoute:
 		return kindUDPRoute
-	case *gatewayv1alpha2.TCPRoute:
+	case *gatewayv1.TCPRoute:
 		return kindTCPRoute
 	default:
 		return "Unknown"
@@ -302,9 +301,9 @@ func deduplicateTLSRoutes(routes []gatewayv1.TLSRoute) []gatewayv1.TLSRoute {
 	return result
 }
 
-func deduplicateTCPRoutes(routes []gatewayv1alpha2.TCPRoute) []gatewayv1alpha2.TCPRoute {
+func deduplicateTCPRoutes(routes []gatewayv1.TCPRoute) []gatewayv1.TCPRoute {
 	seen := make(map[types.NamespacedName]struct{}, len(routes))
-	result := make([]gatewayv1alpha2.TCPRoute, 0, len(routes))
+	result := make([]gatewayv1.TCPRoute, 0, len(routes))
 	for _, r := range routes {
 		key := types.NamespacedName{Namespace: r.Namespace, Name: r.Name}
 		if _, ok := seen[key]; !ok {
@@ -315,9 +314,9 @@ func deduplicateTCPRoutes(routes []gatewayv1alpha2.TCPRoute) []gatewayv1alpha2.T
 	return result
 }
 
-func deduplicateUDPRoutes(routes []gatewayv1alpha2.UDPRoute) []gatewayv1alpha2.UDPRoute {
+func deduplicateUDPRoutes(routes []gatewayv1.UDPRoute) []gatewayv1.UDPRoute {
 	seen := make(map[types.NamespacedName]struct{}, len(routes))
-	result := make([]gatewayv1alpha2.UDPRoute, 0, len(routes))
+	result := make([]gatewayv1.UDPRoute, 0, len(routes))
 	for _, r := range routes {
 		key := types.NamespacedName{Namespace: r.Namespace, Name: r.Name}
 		if _, ok := seen[key]; !ok {

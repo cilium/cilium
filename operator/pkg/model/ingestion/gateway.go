@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -109,8 +108,8 @@ func (l *ListenerWithContext) FilterTLSRoutes(routes []gatewayv1.TLSRoute) []gat
 	return filtered
 }
 
-func (l *ListenerWithContext) FilterTCPRoutes(routes []gatewayv1alpha2.TCPRoute) []gatewayv1alpha2.TCPRoute {
-	var filtered []gatewayv1alpha2.TCPRoute
+func (l *ListenerWithContext) FilterTCPRoutes(routes []gatewayv1.TCPRoute) []gatewayv1.TCPRoute {
+	var filtered []gatewayv1.TCPRoute
 	for _, r := range routes {
 		if l.routeAllowedByParent(r.Spec.ParentRefs, r.GetNamespace()) {
 			filtered = append(filtered, r)
@@ -119,8 +118,8 @@ func (l *ListenerWithContext) FilterTCPRoutes(routes []gatewayv1alpha2.TCPRoute)
 	return filtered
 }
 
-func (l *ListenerWithContext) FilterUDPRoutes(routes []gatewayv1alpha2.UDPRoute) []gatewayv1alpha2.UDPRoute {
-	var filtered []gatewayv1alpha2.UDPRoute
+func (l *ListenerWithContext) FilterUDPRoutes(routes []gatewayv1.UDPRoute) []gatewayv1.UDPRoute {
+	var filtered []gatewayv1.UDPRoute
 	for _, r := range routes {
 		if l.routeAllowedByParent(r.Spec.ParentRefs, r.GetNamespace()) {
 			filtered = append(filtered, r)
@@ -138,8 +137,8 @@ type Input struct {
 	HTTPRoutes          []gatewayv1.HTTPRoute
 	TLSRoutes           []gatewayv1.TLSRoute
 	GRPCRoutes          []gatewayv1.GRPCRoute
-	TCPRoutes           []gatewayv1alpha2.TCPRoute
-	UDPRoutes           []gatewayv1alpha2.UDPRoute
+	TCPRoutes           []gatewayv1.TCPRoute
+	UDPRoutes           []gatewayv1.UDPRoute
 	ReferenceGrants     []gatewayv1.ReferenceGrant
 	Namespaces          []corev1.Namespace
 	Services            []corev1.Service
@@ -999,7 +998,7 @@ func toTCPRoutes(listener gatewayv1beta1.Listener,
 	gatewayNamespace string,
 	namespaceLabels helpers.NamespaceLabelIndex,
 	namespacesPreFiltered bool,
-	input []gatewayv1alpha2.TCPRoute,
+	input []gatewayv1.TCPRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
@@ -1010,7 +1009,7 @@ func toTCPRoutes(listener gatewayv1beta1.Listener,
 	// listener binds traffic to a single route: the oldest by creation
 	// timestamp, tie-broken by namespace/name. Newer routes still report
 	// Accepted=True (handled by the status reconciler) but route no traffic.
-	attached := make([]gatewayv1alpha2.TCPRoute, 0, len(input))
+	attached := make([]gatewayv1.TCPRoute, 0, len(input))
 	for _, r := range input {
 		if !namespacesPreFiltered && !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
 			continue
@@ -1022,7 +1021,7 @@ func toTCPRoutes(listener gatewayv1beta1.Listener,
 	if len(attached) == 0 {
 		return nil
 	}
-	sortL4RoutesByAge(attached, func(r gatewayv1alpha2.TCPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+	sortL4RoutesByAge(attached, func(r gatewayv1.TCPRoute) metav1.ObjectMeta { return r.ObjectMeta })
 
 	var l4Routes []model.L4Route
 	{
@@ -1030,7 +1029,7 @@ func toTCPRoutes(listener gatewayv1beta1.Listener,
 		for _, rule := range r.Spec.Rules {
 			bes := make([]model.Backend, 0, len(rule.BackendRefs))
 			for _, be := range rule.BackendRefs {
-				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1alpha2.SchemeGroupVersion.WithKind("TCPRoute"), grants) {
+				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1.SchemeGroupVersion.WithKind("TCPRoute"), grants) {
 					continue
 				}
 				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
@@ -1063,13 +1062,13 @@ func toUDPRoutes(listener gatewayv1beta1.Listener,
 	gatewayNamespace string,
 	namespaceLabels helpers.NamespaceLabelIndex,
 	namespacesPreFiltered bool,
-	input []gatewayv1alpha2.UDPRoute,
+	input []gatewayv1.UDPRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
 ) []model.L4Route {
 	// Keep only the oldest attaching UDPRoute. See toTCPRoutes for the rationale.
-	attached := make([]gatewayv1alpha2.UDPRoute, 0, len(input))
+	attached := make([]gatewayv1.UDPRoute, 0, len(input))
 	for _, r := range input {
 		if !namespacesPreFiltered && !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
 			continue
@@ -1081,7 +1080,7 @@ func toUDPRoutes(listener gatewayv1beta1.Listener,
 	if len(attached) == 0 {
 		return nil
 	}
-	sortL4RoutesByAge(attached, func(r gatewayv1alpha2.UDPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+	sortL4RoutesByAge(attached, func(r gatewayv1.UDPRoute) metav1.ObjectMeta { return r.ObjectMeta })
 
 	var l4Routes []model.L4Route
 	{
@@ -1089,7 +1088,7 @@ func toUDPRoutes(listener gatewayv1beta1.Listener,
 		for _, rule := range r.Spec.Rules {
 			bes := make([]model.Backend, 0, len(rule.BackendRefs))
 			for _, be := range rule.BackendRefs {
-				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1alpha2.SchemeGroupVersion.WithKind("UDPRoute"), grants) {
+				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1.SchemeGroupVersion.WithKind("UDPRoute"), grants) {
 					continue
 				}
 				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)

@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
@@ -26,7 +25,7 @@ type UDPRouteInput struct {
 	Logger         *slog.Logger
 	Client         client.Client
 	Grants         *gatewayv1.ReferenceGrantList
-	UDPRoute       *gatewayv1alpha2.UDPRoute
+	UDPRoute       *gatewayv1.UDPRoute
 	ControllerName string
 
 	gateways map[gatewayv1.ParentReference]ListenerOwner
@@ -53,7 +52,7 @@ func (u *UDPRouteInput) SetAllParentCondition(condition metav1.Condition) {
 	}
 }
 
-func (u *UDPRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentReference, updates []metav1.Condition) {
+func (u *UDPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range u.UDPRoute.Status.RouteStatus.Parents {
 		if reflect.DeepEqual(parent.ParentRef, parentRef) {
@@ -65,7 +64,7 @@ func (u *UDPRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentRe
 		u.UDPRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(u.UDPRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
 		return
 	}
-	u.UDPRoute.Status.RouteStatus.Parents = append(u.UDPRoute.Status.RouteStatus.Parents, gatewayv1alpha2.RouteParentStatus{
+	u.UDPRoute.Status.RouteStatus.Parents = append(u.UDPRoute.Status.RouteStatus.Parents, gatewayv1.RouteParentStatus{
 		ParentRef:      parentRef,
 		ControllerName: gatewayv1.GatewayController(u.ControllerName),
 		Conditions:     updates,
@@ -81,7 +80,7 @@ func (u *UDPRouteInput) GetNamespace() string {
 }
 
 func (u *UDPRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1alpha2.SchemeGroupVersion.WithKind("UDPRoute")
+	return gatewayv1.SchemeGroupVersion.WithKind("UDPRoute")
 }
 
 func (u *UDPRouteInput) GetRules() []GenericRule {
@@ -102,7 +101,7 @@ func (u *UDPRouteInput) GetContext() context.Context {
 
 // UDPRouteRule is used to implement the GenericRule interface for UDPRoute.
 type UDPRouteRule struct {
-	Rule gatewayv1alpha2.UDPRouteRule
+	Rule gatewayv1.UDPRouteRule
 }
 
 func (u *UDPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {

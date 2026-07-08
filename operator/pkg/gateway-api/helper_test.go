@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 	k8syaml "sigs.k8s.io/yaml"
 )
@@ -100,11 +99,11 @@ func readInput(t *testing.T, file string) []client.Object {
 			fromYaml(t, o, obj)
 			res = append(res, obj)
 		case "TCPRoute":
-			obj := &gatewayv1alpha2.TCPRoute{}
+			obj := &gatewayv1.TCPRoute{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
 		case "UDPRoute":
-			obj := &gatewayv1alpha2.UDPRoute{}
+			obj := &gatewayv1.UDPRoute{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
 		case "GRPCRoute":

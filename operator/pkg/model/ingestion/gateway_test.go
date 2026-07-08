@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -588,15 +587,15 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 				},
 			},
 		},
-		TCPRoutes: []gatewayv1alpha2.TCPRoute{
+		TCPRoutes: []gatewayv1.TCPRoute{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tcp-same",
 					Namespace: "app-ns",
 				},
-				Spec: gatewayv1alpha2.TCPRouteSpec{
-					CommonRouteSpec: gatewayv1alpha2.CommonRouteSpec{
-						ParentRefs: []gatewayv1alpha2.ParentReference{
+				Spec: gatewayv1.TCPRouteSpec{
+					CommonRouteSpec: gatewayv1.CommonRouteSpec{
+						ParentRefs: []gatewayv1.ParentReference{
 							{
 								Name:        "platform",
 								Namespace:   ptr.To[gatewayv1.Namespace]("gateway-ns"),
@@ -604,11 +603,11 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 							},
 						},
 					},
-					Rules: []gatewayv1alpha2.TCPRouteRule{
+					Rules: []gatewayv1.TCPRouteRule{
 						{
-							BackendRefs: []gatewayv1alpha2.BackendRef{
+							BackendRefs: []gatewayv1.BackendRef{
 								{
-									BackendObjectReference: gatewayv1alpha2.BackendObjectReference{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "tcp-backend",
 										Port: ptr.To[gatewayv1.PortNumber](9000),
 									},
@@ -623,9 +622,9 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 					Name:      "tcp-all",
 					Namespace: "app-ns",
 				},
-				Spec: gatewayv1alpha2.TCPRouteSpec{
-					CommonRouteSpec: gatewayv1alpha2.CommonRouteSpec{
-						ParentRefs: []gatewayv1alpha2.ParentReference{
+				Spec: gatewayv1.TCPRouteSpec{
+					CommonRouteSpec: gatewayv1.CommonRouteSpec{
+						ParentRefs: []gatewayv1.ParentReference{
 							{
 								Name:        "platform",
 								Namespace:   ptr.To[gatewayv1.Namespace]("gateway-ns"),
@@ -633,11 +632,11 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 							},
 						},
 					},
-					Rules: []gatewayv1alpha2.TCPRouteRule{
+					Rules: []gatewayv1.TCPRouteRule{
 						{
-							BackendRefs: []gatewayv1alpha2.BackendRef{
+							BackendRefs: []gatewayv1.BackendRef{
 								{
-									BackendObjectReference: gatewayv1alpha2.BackendObjectReference{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "tcp-backend",
 										Port: ptr.To[gatewayv1.PortNumber](9000),
 									},
@@ -648,15 +647,15 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 				},
 			},
 		},
-		UDPRoutes: []gatewayv1alpha2.UDPRoute{
+		UDPRoutes: []gatewayv1.UDPRoute{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "udp-same",
 					Namespace: "app-ns",
 				},
-				Spec: gatewayv1alpha2.UDPRouteSpec{
-					CommonRouteSpec: gatewayv1alpha2.CommonRouteSpec{
-						ParentRefs: []gatewayv1alpha2.ParentReference{
+				Spec: gatewayv1.UDPRouteSpec{
+					CommonRouteSpec: gatewayv1.CommonRouteSpec{
+						ParentRefs: []gatewayv1.ParentReference{
 							{
 								Name:        "platform",
 								Namespace:   ptr.To[gatewayv1.Namespace]("gateway-ns"),
@@ -664,11 +663,11 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 							},
 						},
 					},
-					Rules: []gatewayv1alpha2.UDPRouteRule{
+					Rules: []gatewayv1.UDPRouteRule{
 						{
-							BackendRefs: []gatewayv1alpha2.BackendRef{
+							BackendRefs: []gatewayv1.BackendRef{
 								{
-									BackendObjectReference: gatewayv1alpha2.BackendObjectReference{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "udp-backend",
 										Port: ptr.To[gatewayv1.PortNumber](9002),
 									},
@@ -683,9 +682,9 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 					Name:      "udp-all",
 					Namespace: "app-ns",
 				},
-				Spec: gatewayv1alpha2.UDPRouteSpec{
-					CommonRouteSpec: gatewayv1alpha2.CommonRouteSpec{
-						ParentRefs: []gatewayv1alpha2.ParentReference{
+				Spec: gatewayv1.UDPRouteSpec{
+					CommonRouteSpec: gatewayv1.CommonRouteSpec{
+						ParentRefs: []gatewayv1.ParentReference{
 							{
 								Name:        "platform",
 								Namespace:   ptr.To[gatewayv1.Namespace]("gateway-ns"),
@@ -693,11 +692,11 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 							},
 						},
 					},
-					Rules: []gatewayv1alpha2.UDPRouteRule{
+					Rules: []gatewayv1.UDPRouteRule{
 						{
-							BackendRefs: []gatewayv1alpha2.BackendRef{
+							BackendRefs: []gatewayv1.BackendRef{
 								{
-									BackendObjectReference: gatewayv1alpha2.BackendObjectReference{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "udp-backend",
 										Port: ptr.To[gatewayv1.PortNumber](9002),
 									},

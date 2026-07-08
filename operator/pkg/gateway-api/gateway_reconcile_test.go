@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
@@ -35,9 +34,8 @@ import (
 )
 
 var (
-	gatewayv1APIVersion       = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
-	gatewayv1alpha2APIVersion = gatewayv1alpha2.GroupVersion.Group + "/" + gatewayv1alpha2.GroupVersion.Version
-	gatewayTypeMeta           = metav1.TypeMeta{
+	gatewayv1APIVersion = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
+	gatewayTypeMeta     = metav1.TypeMeta{
 		Kind:       "Gateway",
 		APIVersion: gatewayv1APIVersion,
 	}
@@ -59,11 +57,11 @@ var (
 	}
 	tcpRouteTypeMeta = metav1.TypeMeta{
 		Kind:       "TCPRoute",
-		APIVersion: gatewayv1alpha2APIVersion,
+		APIVersion: gatewayv1APIVersion,
 	}
 	udpRouteTypeMeta = metav1.TypeMeta{
 		Kind:       "UDPRoute",
-		APIVersion: gatewayv1alpha2APIVersion,
+		APIVersion: gatewayv1APIVersion,
 	}
 	listenerSetTypeMeta = metav1.TypeMeta{
 		Kind:       "ListenerSet",
@@ -427,14 +425,14 @@ func Test_Conformance(t *testing.T) {
 			// TCPRoute/UDPRoute types are only registered in the scheme when their
 			// CRDs are installed, so only set their status subresource and index then.
 			if !tt.disableTCPRoute {
-				clientBuilder.WithStatusSubresource(&gatewayv1alpha2.TCPRoute{})
-				clientBuilder.WithIndex(&gatewayv1alpha2.TCPRoute{}, indexers.GatewayTCPRouteIndex, indexers.IndexTCPRouteByGateway)
-				clientBuilder.WithIndex(&gatewayv1alpha2.TCPRoute{}, indexers.TCPRouteListenerSetIndex, indexers.IndexTCPRouteByListenerSet)
+				clientBuilder.WithStatusSubresource(&gatewayv1.TCPRoute{})
+				clientBuilder.WithIndex(&gatewayv1.TCPRoute{}, indexers.GatewayTCPRouteIndex, indexers.IndexTCPRouteByGateway)
+				clientBuilder.WithIndex(&gatewayv1.TCPRoute{}, indexers.TCPRouteListenerSetIndex, indexers.IndexTCPRouteByListenerSet)
 			}
 			if !tt.disableUDPRoute {
-				clientBuilder.WithStatusSubresource(&gatewayv1alpha2.UDPRoute{})
-				clientBuilder.WithIndex(&gatewayv1alpha2.UDPRoute{}, indexers.GatewayUDPRouteIndex, indexers.IndexUDPRouteByGateway)
-				clientBuilder.WithIndex(&gatewayv1alpha2.UDPRoute{}, indexers.UDPRouteListenerSetIndex, indexers.IndexUDPRouteByListenerSet)
+				clientBuilder.WithStatusSubresource(&gatewayv1.UDPRoute{})
+				clientBuilder.WithIndex(&gatewayv1.UDPRoute{}, indexers.GatewayUDPRouteIndex, indexers.IndexUDPRouteByGateway)
+				clientBuilder.WithIndex(&gatewayv1.UDPRoute{}, indexers.UDPRouteListenerSetIndex, indexers.IndexUDPRouteByListenerSet)
 			}
 			clientBuilder.WithIndex(&gatewayv1.ListenerSet{}, indexers.ListenerSetGatewayIndex, indexers.IndexListenerSetByGateway)
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.HTTPRouteListenerSetIndex, indexers.IndexHTTPRouteByListenerSet)
@@ -483,14 +481,14 @@ func Test_Conformance(t *testing.T) {
 			require.NoError(t, err)
 
 			// Reconcile all TCPRoute objects
-			tcprList := &gatewayv1alpha2.TCPRouteList{}
+			tcprList := &gatewayv1.TCPRouteList{}
 			if !tt.disableTCPRoute {
 				err = c.List(t.Context(), tcprList)
 				require.NoError(t, err)
 			}
 
 			// Reconcile all UDPRoute objects
-			udprList := &gatewayv1alpha2.UDPRouteList{}
+			udprList := &gatewayv1.UDPRouteList{}
 			if !tt.disableUDPRoute {
 				err = c.List(t.Context(), udprList)
 				require.NoError(t, err)
@@ -587,21 +585,21 @@ func Test_Conformance(t *testing.T) {
 			}
 
 			for _, tcpr := range tcprList.Items {
-				actualTCPR := &gatewayv1alpha2.TCPRoute{}
+				actualTCPR := &gatewayv1.TCPRoute{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tcpr), actualTCPR)
 				actualTCPR.TypeMeta = tcpRouteTypeMeta
 				require.NoError(t, err, "error getting TCPRoute %s/%s: %v", tcpr.Namespace, tcpr.Name, err)
-				expectedTCPR := &gatewayv1alpha2.TCPRoute{}
+				expectedTCPR := &gatewayv1.TCPRoute{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tcproute-%s.yaml", tt.name, tcpr.Name), expectedTCPR)
 				require.Empty(t, cmp.Diff(expectedTCPR, actualTCPR, cmpIgnoreFields...))
 			}
 
 			for _, udpr := range udprList.Items {
-				actualUDPR := &gatewayv1alpha2.UDPRoute{}
+				actualUDPR := &gatewayv1.UDPRoute{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&udpr), actualUDPR)
 				actualUDPR.TypeMeta = udpRouteTypeMeta
 				require.NoError(t, err, "error getting UDPRoute %s/%s: %v", udpr.Namespace, udpr.Name, err)
-				expectedUDPR := &gatewayv1alpha2.UDPRoute{}
+				expectedUDPR := &gatewayv1.UDPRoute{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/udproute-%s.yaml", tt.name, udpr.Name), expectedUDPR)
 				require.Empty(t, cmp.Diff(expectedUDPR, actualUDPR, cmpIgnoreFields...))
 			}
@@ -1073,8 +1071,8 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 				&gatewayv1.HTTPRouteList{},
 				&gatewayv1.TLSRouteList{},
 				&gatewayv1.GRPCRouteList{},
-				&gatewayv1alpha2.TCPRouteList{},
-				&gatewayv1alpha2.UDPRouteList{},
+				&gatewayv1.TCPRouteList{},
+				&gatewayv1.UDPRouteList{},
 				helpers.NewNamespaceLabelIndex(nil),
 			)
 			require.NoError(t, err)
