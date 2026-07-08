@@ -12,9 +12,12 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string, dc chan uint64, clusterName string) error {
+	initialRecvTime := time.Now()
+
 	defer func() {
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
@@ -42,7 +45,8 @@ func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 			k8sNP.ObjectMeta.Namespace,
 			k8sNP.ObjectMeta.Name,
 		),
-		DoneChan: dc,
+		ProcessingStartTime: initialRecvTime,
+		DoneChan:            dc,
 	})
 
 	metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeSuccess).Inc()
@@ -55,6 +59,8 @@ func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 }
 
 func (p *policyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy, apiGroup string, dc chan uint64) error {
+	initialRecvTime := time.Now()
+
 	defer func() {
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
@@ -75,7 +81,8 @@ func (p *policyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.Networ
 			k8sNP.ObjectMeta.Namespace,
 			k8sNP.ObjectMeta.Name,
 		),
-		DoneChan: dc,
+		ProcessingStartTime: initialRecvTime,
+		DoneChan:            dc,
 	})
 
 	metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueDeleteOperation, metrics.LabelValueOutcomeSuccess).Inc()
