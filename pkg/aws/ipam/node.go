@@ -111,14 +111,14 @@ func (n *Node) updateLogger() {
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	k8sObj.Status.ENI.ENIs = map[string]types.ENI{}
 
-	n.manager.ForeachInstance(n.node.InstanceID(),
-		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-			e, ok := iface.(*types.ENI)
-			if ok {
-				k8sObj.Status.ENI.ENIs[interfaceID] = *e.DeepCopy()
-			}
-			return nil
-		})
+	n.mutex.RLock()
+	usePrimary := n.usePrimaryAddress()
+	n.mutex.RUnlock()
+
+	n.foreachENI(usePrimary, func(e *types.ENI) error {
+		k8sObj.Status.ENI.ENIs[e.ID] = *e.DeepCopy()
+		return nil
+	})
 }
 
 // getLimits returns the interface and IP limits of this node
@@ -139,6 +139,45 @@ func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
 		)
 	}
 	return limit, ok
+}
+
+// usePrimaryAddress reports whether this node's ENIs should expose their
+// primary IP as available for allocation, per the CiliumNode spec. It assumes
+// n.mutex is at least read locked, as it reads n.k8sObj.
+func (n *Node) usePrimaryAddress() bool {
+	return n.k8sObj.Spec.ENI.UsePrimaryAddress != nil && *n.k8sObj.Spec.ENI.UsePrimaryAddress
+}
+
+// foreachENI iterates over the ENIs attached to this node's instance, applying
+// the per-node primary-address policy before handing each ENI to fn.
+//
+// The EC2 inventory is shared across all nodes and always includes an ENI's
+// primary IP in its address list (see parseENI). Whether that primary IP is
+// available for allocation is a per-node decision driven by
+// Spec.ENI.UsePrimaryAddress, which is only known here. When usePrimary is
+// false, the primary IP is stripped from the ENI's Addresses so that no
+// downstream consumer treats it as allocatable.
+//
+// fn receives a shallow copy of the inventory ENI whose Addresses slice is
+// freshly allocated when filtering; the shared inventory is never mutated.
+// This method does not take n.mutex; callers pass usePrimary computed under
+// the appropriate lock.
+func (n *Node) foreachENI(usePrimary bool, fn func(e *types.ENI) error) {
+	n.manager.ForeachInstance(n.node.InstanceID(),
+		func(_, _ string, iface ipamTypes.Interface) error {
+			e, ok := iface.(*types.ENI)
+			if !ok {
+				return nil
+			}
+
+			eni := *e
+			if !usePrimary {
+				eni.Addresses = slices.DeleteFunc(slices.Clone(e.Addresses),
+					func(a iputil.Addr) bool { return a.Addr == e.IP.Addr })
+			}
+
+			return fn(&eni)
+		})
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
@@ -870,9 +909,6 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 		return nil, stats, nodemanager.ErrLimitsNotFound
 	}
 
-	// n.node does not need to be protected by n.mutex as it is only written to
-	// upon creation of `n`
-	instanceID := n.node.InstanceID()
 	available = ipamTypes.AllocationMap{}
 
 	n.mutex.Lock()
@@ -891,13 +927,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	// * Any excluded interfaces will be subtracted from this total.
 	stats.NodeCapacity *= limits.Adapters
 
-	n.manager.ForeachInstance(instanceID,
-		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
-			e, ok := iface.(*types.ENI)
-			if !ok {
-				return nil
-			}
-
+	n.foreachENI(n.usePrimaryAddress(),
+		func(e *types.ENI) error {
 			n.enis[e.ID] = *e
 
 			// Check for public IP on primary ENI before exclusion logic
@@ -1103,7 +1134,7 @@ func (n *Node) getEffectiveIPLimits(eni *types.ENI, limits int) (leftoverPrefixC
 	effectiveLimits = limits - 1
 
 	// Include the primary IP when UsePrimaryAddress is set to true on ENI spec.
-	if n.k8sObj.Spec.ENI.UsePrimaryAddress != nil && *n.k8sObj.Spec.ENI.UsePrimaryAddress {
+	if n.usePrimaryAddress() {
 		effectiveLimits++
 	}
 

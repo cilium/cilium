@@ -77,7 +77,6 @@ type Client struct {
 	routeTableFilters   []ec2_types.Filter
 	instancesFilters    []ec2_types.Filter
 	eniTagSpecification ec2_types.TagSpecification
-	usePrimary          bool
 	maxResultsPerCall   int32 // Maximum results per API call; 0 means let AWS decide
 }
 
@@ -88,7 +87,7 @@ type MetricsAPI interface {
 }
 
 // NewClient returns a new EC2 client
-func NewClient(logger *slog.Logger, ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, usePrimary bool, maxResultsPerCall int32) *Client {
+func NewClient(logger *slog.Logger, ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, maxResultsPerCall int32) *Client {
 	eniTagSpecification := ec2_types.TagSpecification{
 		ResourceType: ec2_types.ResourceTypeNetworkInterface,
 		Tags:         createAWSTagSlice(eniTags),
@@ -102,7 +101,6 @@ func NewClient(logger *slog.Logger, ec2Client *ec2.Client, metrics MetricsAPI, r
 		subnetsFilters:      subnetsFilters,
 		instancesFilters:    instancesFilters,
 		eniTagSpecification: eniTagSpecification,
-		usePrimary:          usePrimary,
 		maxResultsPerCall:   maxResultsPerCall,
 	}
 }
@@ -460,7 +458,7 @@ retry:
 // Returns an error on any malformed IP/CIDR string. AWS uses string pointers
 // for these fields, so unset values are nil and any non-nil string is expected
 // to be a valid IP or CIDR.
-func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, eni *types.ENI, err error) {
+func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (instanceID string, eni *types.ENI, err error) {
 	if iface.PrivateIpAddress == nil {
 		return "", nil, fmt.Errorf("ENI has no IP address")
 	}
@@ -521,9 +519,11 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	for _, ip := range iface.PrivateIpAddresses {
-		if !usePrimary && ip.Primary != nil && aws.ToBool(ip.Primary) {
-			continue
-		}
+		// The primary address is always included here. Whether it is
+		// available for allocation is decided per-node by the IPAM node
+		// layer based on CiliumNode Spec.ENI.UsePrimaryAddress, since the
+		// EC2 inventory is shared across all nodes and has no per-node
+		// context.
 		if ip.PrivateIpAddress != nil {
 			a, err := netip.ParseAddr(aws.ToString(ip.PrivateIpAddress))
 			if err != nil {
@@ -603,7 +603,7 @@ func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkM
 
 	for _, iface := range networkInterfaces {
 		ifId := *iface.NetworkInterfaceId
-		_, eni, err := parseENI(&iface, vpcs, subnets, c.usePrimary)
+		_, eni, err := parseENI(&iface, vpcs, subnets)
 		if err != nil {
 			return nil, err
 		}
@@ -631,7 +631,7 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 	}
 
 	for _, iface := range networkInterfaces {
-		id, eni, err := parseENI(&iface, vpcs, subnets, c.usePrimary)
+		id, eni, err := parseENI(&iface, vpcs, subnets)
 		if err != nil {
 			return nil, err
 		}
@@ -856,7 +856,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		return "", nil, err
 	}
 
-	_, eni, err := parseENI(output.NetworkInterface, nil, nil, c.usePrimary)
+	_, eni, err := parseENI(output.NetworkInterface, nil, nil)
 	if err != nil {
 		// The error is ignored on purpose. The allocation itself has
 		// succeeded. The ability to parse and return the ENI
