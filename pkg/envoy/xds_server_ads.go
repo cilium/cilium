@@ -314,7 +314,7 @@ func (s *adsServer) addListener(ctx context.Context, name string, listenerConf f
 	resources := s.cache.GetAllResources(localNodeID)
 
 	if resources == nil {
-		s.logger.Warn(fmt.Sprintf("Failed to get existing resources for node %s, creating new one", localNodeID))
+		s.logger.Info(fmt.Sprintf("Failed to get existing resources for node %s, creating new one", localNodeID))
 		resources = &xds.Resources{
 			Listeners: make(map[string]*envoy_config_listener.Listener),
 		}
