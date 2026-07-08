@@ -369,6 +369,32 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 GW_VERSION ?= $(shell grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
 # Set this to "standard" to use the standard CRDs instead
 GW_CHANNEL ?= experimental
+
+# The upstream Gateway API CRDs that the servicemesh targets install, in the
+# order they must be applied.
+GW_CRDS := gatewayclasses gateways httproutes referencegrants grpcroutes \
+	backendtlspolicies tlsroutes listenersets tcproutes udproutes
+
+# Apply the upstream Gateway API CRDs, retrying each one with a backoff.
+# raw.githubusercontent.com intermittently rate-limits (HTTP 429), and a single
+# transient failure here would abort the whole job before Cilium is even
+# installed. Retrying only re-fetches static upstream YAML, so it cannot mask a
+# Cilium regression; a genuinely persistent error still fails the target once
+# the attempts are exhausted.
+define apply-gateway-api-crds
+	for crd in $(GW_CRDS); do \
+		n=0; \
+		until kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_$$crd.yaml; do \
+			n=$$((n+1)); \
+			if [ $$n -ge 5 ]; then \
+				echo "Failed to apply gateway.networking.k8s.io_$$crd CRD after 5 attempts" >&2; \
+				exit 1; \
+			fi; \
+			echo "Retrying gateway.networking.k8s.io_$$crd CRD apply ($$n/5) in $$((n * 5))s..."; \
+			sleep $$((n * 5)); \
+		done; \
+	done
+endef
 KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
 LB_CIDR ?= $(shell echo $(KIND_NET_CIDR) | sed "s@0.0/16@255.200\/28@" | sed -e 's/[\/&]/\\&/g')
 
@@ -379,16 +405,7 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_backendtlspolicies.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_tlsroutes.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_listenersets.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_tcproutes.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_udproutes.yaml
+	@$(apply-gateway-api-crds)
 
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
@@ -410,16 +427,7 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 .PHONY: kind-servicemesh-prereqs
 kind-servicemesh-prereqs: check_deps kind-ready
 	@echo "  SETUP Servicemesh"
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_backendtlspolicies.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_tlsroutes.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_listenersets.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_tcproutes.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_udproutes.yaml
+	@$(apply-gateway-api-crds)
 
 	$(eval KIND_VALUES_FAST_FILES += --helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml)
 
