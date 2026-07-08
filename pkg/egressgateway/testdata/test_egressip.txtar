@@ -13,6 +13,9 @@ db/insert devices device-eth0.yaml device-eth1.yaml
  egress/policy-maps-dump policymap.actual
  * cmp policymap.actual policymap.expected.1
 
+db/show sysctl --columns Name,Value
+db/cmp --timeout=10s sysctl sysctl.expected.1
+
 # Update the `egressIP` field in the CEGP, and validate that this is reflected in the agent state.
  cp policy1.yaml policy1_2.yaml
  sed '    egressIP: 10.10.0.1' '    egressIP: fd00::10:10:0:2' policy1_2.yaml
@@ -22,12 +25,22 @@ db/insert devices device-eth0.yaml device-eth1.yaml
  egress/policy-maps-dump policymap.actual
  * cmp policymap.actual policymap.expected.2
 
+db/show sysctl --columns Name,Value
+db/cmp --timeout=10s sysctl sysctl.expected.2
+
 -- policymap.expected.1 --
 source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=10.10.0.1 egress_ifindex=0 gateway_ip=172.18.0.3
 source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=fd00::10:10:0:1 egress_ifindex=0 gateway_ip=172.18.0.3
+-- sysctl.expected.1 --
+Name                               Value
+net.ipv4.conf.eth0.rp_filter       2
 -- policymap.expected.2 --
 source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=10.10.0.2 egress_ifindex=0 gateway_ip=172.18.0.3
 source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=fd00::10:10:0:2 egress_ifindex=0 gateway_ip=172.18.0.3
+-- sysctl.expected.2 --
+Name                               Value
+net.ipv4.conf.eth0.rp_filter       2
+net.ipv4.conf.eth1.rp_filter       2
 -- node1.yaml --
 apiVersion: v1
 kind: Node
