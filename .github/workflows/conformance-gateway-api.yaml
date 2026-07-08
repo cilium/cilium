@@ -204,6 +204,19 @@ jobs:
             SKIPPED_TESTS+=",MeshConsumerRoute,HTTPRouteListenerPortMatching"
           fi
 
+          # The conformance-profile jobs consume SKIPPED_TESTS through the
+          # framework's --skip-tests flag, which splits on comma and matches the
+          # test ShortName exactly. The non-profile jobs instead pass the value
+          # to go test's -test.skip, which is a regexp matched per test-name
+          # segment: a comma-separated list never matches the nested
+          # TestConformance/<name>/... subtests, so the skip silently does
+          # nothing. Build a prefixed alternation for that path so the skip
+          # actually takes effect. No trailing anchor is used because the value
+          # flows through make's $(GATEWAY_TEST_FLAGS), where a trailing '$'
+          # breaks shell quoting; none of the skipped names is a prefix of
+          # another conformance test, so the alternation cannot over-match.
+          SKIPPED_TESTS_REGEX="TestConformance/(${SKIPPED_TESTS//,/|})"
+
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=gatewayAPI.enabled=true \
@@ -215,6 +228,7 @@ jobs:
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
+          echo skipped_tests_regex=${SKIPPED_TESTS_REGEX} >> $GITHUB_OUTPUT
           echo exempt-features=${EXEMPT_FEATURES} >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
@@ -366,7 +380,7 @@ jobs:
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
             GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --skip-tests \"${{ steps.vars.outputs.skipped_tests }}\" --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,GATEWAY-TCP,GATEWAY-UDP,MESH-HTTP,MESH-GRPC --organization cilium --project cilium --url github.com/cilium/cilium --version main --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md --report-output report.yaml"
           else
-            GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --exempt-features \"${{ steps.vars.outputs.exempt-features }}\" -test.skip \"${{ steps.vars.outputs.skipped_tests }}\""
+            GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --exempt-features \"${{ steps.vars.outputs.exempt-features }}\" -test.skip \"${{ steps.vars.outputs.skipped_tests_regex }}\""
           fi
           # Create JUnit output directory and enable owner attribution
           mkdir -p cilium-junits
