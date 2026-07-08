@@ -26,8 +26,8 @@ on:
         default: '{}'
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.20
+      - ft/v1.20/**
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.

@@ -22,7 +22,7 @@ on:
         default: '{}'
   push:
     branches:
-      - main
+      - v1.20
   schedule:
     - cron: '0 0 * * 0'
 

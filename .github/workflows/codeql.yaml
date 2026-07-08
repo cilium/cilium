@@ -3,7 +3,7 @@ name: CodeQL
 on:
   push:
     branches:
-      - main
+      - v1.20
   pull_request:
     types:
       - opened

@@ -27,8 +27,8 @@ on:
 
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.20
+      - ft/v1.20/**
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'

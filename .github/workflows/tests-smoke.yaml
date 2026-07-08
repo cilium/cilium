@@ -5,8 +5,8 @@ on:
   pull_request: {}
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.20
+      - ft/v1.20/**
   merge_group:
     types: [checks_requested]
 

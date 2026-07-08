@@ -100,9 +100,6 @@ jobs:
           - kernel: '6.18'
             kernel-name: 'v6.18'
             ci-kernel: '61'
-          - kernel: 'bpf-next'
-            kernel-name: 'bpf-next'
-            ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
       - name: Set commit status to pending
@@ -151,8 +148,6 @@ jobs:
             "6.12") FULL_KERNEL="6.12-20260706.013554" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "6.18") FULL_KERNEL="6.18-20260706.013554" ;;
-            # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "bpf-next") FULL_KERNEL="bpf-next-20260706.013554" ;;
             *) FULL_KERNEL="$KERNEL" ;;
           esac
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
