@@ -57,23 +57,7 @@ func newLocalityCluster(connectTimeout int64) *envoy_config_cluster.Cluster {
 		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
 		ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout},
 		EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{
-			EdsConfig: &envoy_config_core.ConfigSource{
-				ResourceApiVersion: envoy_config_core.ApiVersion_V3,
-				ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
-					ApiConfigSource: &envoy_config_core.ApiConfigSource{
-						ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
-						TransportApiVersion:       envoy_config_core.ApiVersion_V3,
-						SetNodeOnFirstMessageOnly: true,
-						GrpcServices: []*envoy_config_core.GrpcService{{
-							TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
-									ClusterName: CiliumXDSClusterName,
-								},
-							},
-						}},
-					},
-				},
-			},
+			EdsConfig:   GetXDSConfigSource(),
 			ServiceName: LocalityClusterName,
 		},
 		LbPolicy: envoy_config_cluster.Cluster_ROUND_ROBIN,
