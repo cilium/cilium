@@ -27,7 +27,7 @@ Weekly Community Meeting
 This is a weekly meeting for all contributors.
 
 - Date: Every Wednesday at 8:00 AM US/Pacific (Los Angeles)
-- Meeting notes: `Google Doc <https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#>`__
+- Meeting notes: `Google Doc <https://docs.google.com/document/d/1IqLRvTvnK5SQ1SMM8g8R_k2TeeRUwWmOYqjYWZs6MiM/edit#>`__
 
 Monthly APAC Community Meeting
 ------------------------------
@@ -36,6 +36,12 @@ This is a monthly community meeting held at APAC friendly time.
 
 - Date: Every third Wednesday at 4:30 UTC
 - Meeting notes: `Google Doc <https://docs.google.com/document/d/1egv4qLydr0geP-GjQexYKm4tz3_tHy-LCBjVQcXcT5M/edit#>`__
+
+Cilium Community Calendar
+-------------------------
+
+See the `full calendar <https://zoom-lfx.platform.linuxfoundation.org/meetings/cilium?view=week>`__
+for all Cilium community meetings.
 
 Slack
 =====
