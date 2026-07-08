@@ -10,7 +10,6 @@ cmdref_dir="${script_dir}/cmdref"
 
 generators=(
     "bugtool/cilium-bugtool cmdref"
-    "cilium-cli/cilium cmdref"
     "cilium-dbg/cilium-dbg cmdref"
     "cilium-health/cilium-health cmdref"
     "clustermesh-apiserver/clustermesh-apiserver cmdref"

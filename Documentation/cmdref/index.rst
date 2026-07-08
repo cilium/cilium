@@ -13,7 +13,6 @@ Command Reference
       :maxdepth: 0
       :titlesonly:
 
-      index_cilium_cli
       index_cilium-agent
       index_cilium-bugtool
       index_cilium-dbg
