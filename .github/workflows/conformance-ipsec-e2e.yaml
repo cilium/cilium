@@ -232,6 +232,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Create imagePullSecret
+        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
         run: |
           kubectl create secret docker-registry cilium-registry \
             --namespace kube-system \
