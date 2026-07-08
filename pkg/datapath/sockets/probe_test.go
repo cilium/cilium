@@ -4,6 +4,7 @@
 package sockets
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/testutils"
@@ -12,6 +13,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestSockDestroyProbeHandleSocketError(t *testing.T) {
+	wantErr := errors.New("netlink receive error")
+	probe := sockDestroyProbe{logger: hivetest.Logger(t)}
+
+	// Netlink receive errors do not include a socket. The callback must return
+	// the error before dereferencing it.
+	gotErr := probe.handleSocket(nil, wantErr)
+	assert.ErrorIs(t, gotErr, wantErr)
+}
 
 func TestPrivilegedProbetInetDiagDestroyEnabled(t *testing.T) {
 	testutils.PrivilegedTest(t)
