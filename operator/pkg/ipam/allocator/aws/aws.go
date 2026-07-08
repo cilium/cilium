@@ -33,7 +33,6 @@ type AllocatorAWS struct {
 	ENITags                      map[string]string
 	ENIGarbageCollectionTags     map[string]string
 	ENIGarbageCollectionInterval time.Duration
-	AWSUsePrimaryAddress         bool
 	EC2APIEndpoint               string
 	AWSMaxResultsPerCall         int32
 	SubnetsIDs                   []string
@@ -117,8 +116,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
 	}
 
 	a.client = api.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), a.AWSMetrics, a.LimitIPAMAPIQPS,
-		a.LimitIPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
-		a.AWSUsePrimaryAddress, a.AWSMaxResultsPerCall)
+		a.LimitIPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags, a.AWSMaxResultsPerCall)
 
 	return nil
 }

@@ -184,7 +184,7 @@ func TestParseENIPublicIP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, eni, err := parseENI(newIface(tt.assoc), nil, nil, false)
+			_, eni, err := parseENI(newIface(tt.assoc), nil, nil)
 			require.NoError(t, err)
 			require.NotNil(t, eni)
 			assert.Equal(t, tt.wantValidPubIP, eni.PublicIP.IsValid())

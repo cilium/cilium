@@ -52,7 +52,17 @@ Removed Options
 The following options were previously deprecated, and they are now removed
 from Cilium.
 
-* TODO
+* The ``--aws-use-primary-address`` operator flag has been removed. Whether an
+  ENI's primary IP is available for pod allocation is now determined per node by
+  the ``spec.eni.use-primary-address`` field of the ``CiliumNode`` resource,
+  which is populated from the ``--eni-use-primary-address`` agent flag (Helm
+  value ``eni.nodeSpec.usePrimaryAddress``). This makes the CiliumNode spec the
+  single source of truth and removes the possibility of the operator-wide flag
+  disagreeing with the per-node value. Deployments configured through the Helm
+  chart are unaffected, as the chart only ever wired the agent-side value. If
+  you passed ``--aws-use-primary-address`` directly on the operator, set
+  ``eni.nodeSpec.usePrimaryAddress=true`` (equivalently, the
+  ``--eni-use-primary-address`` agent flag) instead to retain the same behavior.
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
