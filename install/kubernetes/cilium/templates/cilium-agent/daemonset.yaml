@@ -414,6 +414,18 @@ spec:
           mountPath: /tmp/cilium/config-map
           readOnly: true
         {{- end }}
+        {{- if .Values.networkDriver.enabled }}
+        - name: device-plugin
+          mountPath: /var/lib/kubelet/plugins
+        - name: plugin-registry
+          mountPath: /var/lib/kubelet/plugins_registry
+        - name: nri-plugin
+          mountPath: /var/run/nri
+        - name: host-sys-bus-pci-devices
+          mountPath: /host/sys/bus/pci/devices
+        - name: host-sys-devices
+          mountPath: /host/sys/devices
+        {{- end }}
         {{- range .Values.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -1064,6 +1076,28 @@ spec:
       - name: host-proc-sys-kernel
         hostPath:
           path: /proc/sys/kernel
+          type: Directory
+      {{- end }}
+      {{- if .Values.networkDriver.enabled }}
+      - name: host-sys-bus-pci-devices
+        hostPath:
+          path: /sys/bus/pci/devices
+          type: Directory
+      - name: host-sys-devices
+        hostPath:
+          path: /sys/devices
+          type: Directory
+      - name: device-plugin
+        hostPath:
+          path: /var/lib/kubelet/plugins
+          type: Directory
+      - name: plugin-registry
+        hostPath:
+          path: /var/lib/kubelet/plugins_registry
+          type: Directory
+      - name: nri-plugin
+        hostPath:
+          path: /var/run/nri
           type: Directory
       {{- end }}
       {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") (not .Values.hubble.tls.disableDefaultVolumes) }}
