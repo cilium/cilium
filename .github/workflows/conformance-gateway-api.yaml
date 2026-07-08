@@ -420,7 +420,14 @@ jobs:
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
-          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
+          # Cilium runs on the runner host against a live kind cluster, so its
+          # feature status can be captured whenever Cilium installed
+          # successfully. Do not gate feature capture on the basic CLI test
+          # outcome: when the Gateway API conformance test fails or times out
+          # the basic CLI test is skipped, but the cluster is still healthy and
+          # its features must still be collected so features-tested-*.json
+          # exists on every leg.
+          capture_features_tested: ${{ steps.install-cilium.outcome == 'success' }}
 
   merge-upload-and-status:
     name: Merge Upload and Status
