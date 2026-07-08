@@ -277,6 +277,10 @@ staticResources:
     connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
     edsClusterConfig:
       edsConfig:
+        {{- if or (eq $envoyXdsMode "ads") (eq $envoyXdsMode "strict-ads") }}
+        ads: {}
+        resourceApiVersion: "V3"
+        {{- else }}
         apiConfigSource:
           apiType: "GRPC"
           transportApiVersion: "V3"
@@ -285,6 +289,7 @@ staticResources:
               clusterName: "xds-grpc-cilium"
           setNodeOnFirstMessageOnly: true
         resourceApiVersion: "V3"
+        {{- end }}
       serviceName: "/cilium-locality-cluster"
     lbPolicy: "ROUND_ROBIN"
   {{- end }}
