@@ -513,7 +513,7 @@ jobs:
         with:
           artifacts_suffix: "final-${{ matrix.test_type }}"
           job_status: "${{ job.status }}"
-          junits-directory: 'report'
+          junits-directory: 'perf-tests/clusterloader2/report'
           capture_sysdump: 'false'
           capture_features_tested: 'false'
 
