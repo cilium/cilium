@@ -4,6 +4,7 @@
 package sockets
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 
@@ -640,33 +642,69 @@ func BenchmarkDestroyers(b *testing.B) {
 	}
 }
 
-func TestFilterAndDestroySockets_NilSocket(t *testing.T) {
-	// Verify that the callback adapter in filterAndDestroySockets correctly
-	// handles a nil *Socket from iterateNetlinkSockets (error path) without
-	// panicking on a nil pointer dereference.
-	//
-	// iterateNetlinkSockets passes (nil, err) to the callback on netlink
-	// errors. The adapter must forward the error with a zero-value SocketID
-	// instead of dereferencing sockInfo.ID.
+// TestPrivilegedIterateCallbackError verifies that an error returned while
+// visiting a real socket stops iteration and is returned to the caller.
+func TestPrivilegedIterateCallbackError(t *testing.T) {
+	testutils.PrivilegedTest(t)
 
-	adapter := func(sockInfo *Socket, err error) error {
-		var id netlink.SocketID
+	sock, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	require.NoError(t, err)
+	defer sock.Close()
+	port := uint16(sock.LocalAddr().(*net.UDPAddr).Port)
+
+	stopErr := errors.New("stop socket iteration")
+	found := false
+	err = Iterate(unix.IPPROTO_UDP, unix.AF_INET, StateFilterUDP, func(sock *netlink.Socket, err error) error {
 		if err != nil {
-			id = netlink.SocketID{}
-		} else {
-			id = sockInfo.ID
+			return err
 		}
-		_ = id
+		if sock.ID.SourcePort == port && sock.ID.Source.Equal(net.IPv4(127, 0, 0, 1)) {
+			found = true
+			return stopErr
+		}
 		return nil
+	})
+
+	require.True(t, found, "failed to find the test UDP socket")
+	require.ErrorIs(t, err, stopErr)
+}
+
+// TestPrivilegedFilterAndDestroySocketsNetlinkError verifies that a real
+// NLMSG_ERROR is forwarded once and returned without blocking iteration.
+func TestPrivilegedFilterAndDestroySocketsNetlinkError(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	// invalidFamily is an address family the kernel does not recognize
+	// (well above AF_MAX). sock_diag rejects a dump request for it with
+	// EINVAL before the dump starts, so the kernel deterministically
+	// replies with a non-zero NLMSG_ERROR and never sends NLMSG_DONE.
+	const invalidFamily = 0xff
+
+	type result struct {
+		err           error
+		callbackErr   error
+		socket        netlink.SocketID
+		callbackCalls int
 	}
 
-	// Should not panic with nil sockInfo
-	assert.NotPanics(t, func() {
-		adapter(nil, fmt.Errorf("NLMSG_ERROR"))
-	})
+	done := make(chan result, 1)
+	go func() {
+		res := result{}
+		res.err = filterAndDestroySockets(invalidFamily, unix.IPPROTO_UDP, StateFilterUDP, func(socket netlink.SocketID, err error) {
+			res.callbackCalls++
+			res.socket = socket
+			res.callbackErr = err
+		})
+		done <- res
+	}()
 
-	// Should work normally with valid sockInfo
-	assert.NotPanics(t, func() {
-		adapter(&Socket{ID: netlink.SocketID{SourcePort: 80}}, nil)
-	})
+	select {
+	case res := <-done:
+		require.ErrorIs(t, res.err, unix.EINVAL)
+		require.ErrorIs(t, res.callbackErr, unix.EINVAL)
+		require.Equal(t, netlink.SocketID{}, res.socket)
+		require.Equal(t, 1, res.callbackCalls)
+	case <-time.After(5 * time.Second):
+		t.Fatal("socket iteration blocked after receiving NLMSG_ERROR")
+	}
 }
