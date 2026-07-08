@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "dbg.h"
+#include "drop_reasons.h"
 #include "identity.h"
 
 DECLARE_CONFIG(bool, allow_icmp_frag_needed,

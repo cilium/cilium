@@ -7,6 +7,7 @@
 #include "bpf/lb_selection.h"
 #include "csum.h"
 #include "conntrack.h"
+#include "drop_reasons.h"
 #include "ipv4.h"
 #include "hash.h"
 #include "eps.h"
