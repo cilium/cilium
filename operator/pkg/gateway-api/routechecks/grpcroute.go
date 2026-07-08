@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"regexp"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -184,4 +185,34 @@ func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferen
 		ControllerName: gatewayv1.GatewayController(g.ControllerName),
 		Conditions:     updates,
 	})
+}
+
+func (g *GRPCRouteInput) ValidateMatchRegexps() (metav1.Condition, bool) {
+	for _, rule := range g.GRPCRoute.Spec.Rules {
+		for _, match := range rule.Matches {
+			if methodMatch := match.Method; methodMatch != nil && methodMatch.Type != nil &&
+				*methodMatch.Type == gatewayv1.GRPCMethodMatchRegularExpression {
+				if methodMatch.Service != nil {
+					if _, err := regexp.Compile(*methodMatch.Service); err != nil {
+						return invalidRegexCondition("method.service", err), true
+					}
+				}
+
+				if methodMatch.Method != nil {
+					if _, err := regexp.Compile(*methodMatch.Method); err != nil {
+						return invalidRegexCondition("method.method", err), true
+					}
+				}
+			}
+
+			for _, headerMatch := range match.Headers {
+				if headerMatch.Type != nil && *headerMatch.Type == gatewayv1.GRPCHeaderMatchRegularExpression {
+					if _, err := regexp.Compile(headerMatch.Value); err != nil {
+						return invalidRegexCondition("header", err), true
+					}
+				}
+			}
+		}
+	}
+	return metav1.Condition{}, false
 }
