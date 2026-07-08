@@ -89,12 +89,56 @@ type inetProbe struct {
 	port       uint16
 }
 
+type sockDestroyProbe struct {
+	inetProbe
+	logger *slog.Logger
+	found  bool
+	count  int
+}
+
+func (p *sockDestroyProbe) handleSocket(s *netlink.Socket, err error) error {
+	if err != nil {
+		if s == nil {
+			return err
+		}
+		p.logger.Debug("encountered an error while processing a socket during probe, skipping",
+			logfields.Error, err)
+		return nil
+	}
+
+	p.logger.Debug("processing socket during SOCK_DESTROY probe",
+		logfields.Port, p.port,
+		logfields.Protocol, p.proto)
+	p.count++
+	lo := net.IP{127, 0, 0, 1}
+	if s.ID.SourcePort == p.port && s.ID.Source.Equal(lo) {
+		p.logger.Debug("found probe socket, attempting destroy",
+			logfields.Port, p.port,
+			logfields.Protocol, p.proto)
+		destroyErr := DestroySocket(slog.Default(), *s, netlink.Proto(p.proto), 0xff)
+		if errors.Is(destroyErr, unix.ENOTSUP) {
+			// Note: Returning error stops iteration and passes err through to
+			// return value of Iterate.
+			return fmt.Errorf("%w: operation to destroy probe socket is unsupported. "+
+				"This likely means that kernel CONFIG_INET_DIAG_DESTROY must be set in order for this functionality to work",
+				probes.ErrNotSupported)
+		}
+		if destroyErr != nil {
+			return destroyErr
+		}
+		p.found = true
+	}
+	return nil
+}
+
 // probeForSockDestroy probes supported socket termination protocols.
 // To do this reliably and portably, this creates sockets for udp/tcp
 // and attempts to both list and destroy sockets to probe for the full
 // suite of inet diag features; ensuring that the sockets.Destroy will
 // successfully find and terminate sockets.
-// This is sufficient for both ip4 and ip6.
+// The current approach uses IPv4 loopback sockets, so it does not work in
+// IPv6-only clusters where IPv4 is disabled in the node's kernel. Supporting
+// such environments requires a family-aware probe and is left for future work.
 func probeForSockDestroy(ctx context.Context, logger *slog.Logger, tcp, udp bool) error {
 	protoProbes := []inetProbe{}
 
@@ -127,43 +171,21 @@ func probeForSockDestroy(ctx context.Context, logger *slog.Logger, tcp, udp bool
 	}
 
 	var errs error
-	for _, probe := range protoProbes {
-		ok := false
-		count := 0
-		lo := net.IP{127, 0, 0, 1}
-		if err := Iterate(uint8(probe.proto), unix.AF_INET, probe.filterMask, func(s *netlink.Socket, err error) error {
-			logger.Debug("found probe socket, attempting destroy",
-				logfields.Port, probe.port,
-				logfields.Protocol, probe.proto)
-			count++
-			if s.ID.SourcePort == uint16(probe.port) && s.ID.Source.Equal(lo) {
-				logger.Debug("found probe socket, attempting destroy",
-					logfields.Port, probe.port,
-					logfields.Protocol, probe.proto)
-				destroyErr := DestroySocket(slog.Default(), *s, netlink.Proto(probe.proto), 0xff)
-				if errors.Is(destroyErr, unix.ENOTSUP) {
-					// Note: Returning error stops iteration and passes err through to
-					// return value of Iterate.
-					return fmt.Errorf("%w: operation to destroy probe socket is unsupported. "+
-						"This likely means that kernel CONFIG_INET_DIAG_DESTROY must be set in order for this functionality to work",
-						probes.ErrNotSupported)
-				}
-				if destroyErr != nil {
-					return destroyErr
-				}
-				ok = true
-			}
-			return nil
-		}); err != nil {
+	for _, probeConfig := range protoProbes {
+		probe := sockDestroyProbe{
+			inetProbe: probeConfig,
+			logger:    logger,
+		}
+		if err := Iterate(uint8(probe.proto), unix.AF_INET, probe.filterMask, probe.handleSocket); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed while iterating sockets: %w", err))
 			continue
 		}
-		if !ok {
+		if !probe.found {
 			// Unexpected: if we saw other sockets (which is very likely on host ns) then we should
 			// have found our test sockets.
 			// By not wrapping in the ErrNotSupported error, we indicate that this is an unexpected error
 			// not a legitimate probing error.
-			if count > 0 {
+			if probe.count > 0 {
 				return fmt.Errorf("failed to find listener socket for inet diag destroy probe")
 			} else {
 				proto := "tcp"
