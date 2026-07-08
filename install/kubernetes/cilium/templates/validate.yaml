@@ -256,3 +256,8 @@
 {{- if and (eq .Values.ipam.mode "eni") (not .Values.eni.enabled) }}
   {{ fail "ipam.mode=eni requires eni.enabled=true" }}
 {{- end }}
+
+{{/* validate networkDriver.enabled flag requires kubernetes >= v1.34 */}}
+{{- if and (.Values.networkDriver.enabled) (semverCompare "<1.34.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor)) }}
+  {{ fail ".Values.networkDriver.enabled requires kubernetes version 1.34 or greater" }}
+{{- end }}
