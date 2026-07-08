@@ -283,6 +283,11 @@ rules:
   - serviceexports.multicluster.x-k8s.io
 {{- end }}
   - ciliumdatapathplugins.cilium.io
+{{- if .Values.networkDriver.enabled }}
+  - ciliumnetworkdrivernodeconfigs.cilium.io
+  - ciliumnetworkdriverclusterconfigs.cilium.io
+  - ciliumresourceippools.cilium.io
+{{- end }}
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -481,4 +486,32 @@ rules:
   - ciliumendpointslices
   verbs:
   - deletecollection
+{{- if .Values.networkDriver.enabled }}
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdriverclusterconfigs
+  - ciliumresourceippools
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdriverclusterconfigs/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdrivernodeconfigs
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+{{- end }}
 {{- end }}
