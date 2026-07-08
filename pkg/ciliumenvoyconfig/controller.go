@@ -19,6 +19,7 @@ import (
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -489,7 +490,11 @@ func computeLoadAssignments(
 	for _, port := range slices.Sorted(maps.Keys(backendMap)) {
 		bes := backendMap[port]
 
-		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
+		// Group endpoints by zone only when topology hints (ForZones) are set, which
+		// happens when the service has trafficDistribution: PreferSameZone. Without
+		// hints every endpoint falls into the "" bucket producing a single flat
+		// LocalityLbEndpoints with no Locality, preserving prior behaviour.
+		zoneMap := map[string][]*envoy_config_endpoint.LbEndpoint{}
 		for _, addr := range slices.Sorted(maps.Keys(bes)) {
 			be := bes[addr]
 			if numActive != 0 && be.State == loadbalancer.BackendStateTerminating {
@@ -504,7 +509,7 @@ func computeLoadAssignments(
 				continue
 			}
 
-			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
+			ep := &envoy_config_endpoint.LbEndpoint{
 				HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
 					Endpoint: &envoy_config_endpoint.Endpoint{
 						Address: &envoy_config_core.Address{
@@ -519,10 +524,29 @@ func computeLoadAssignments(
 						},
 					},
 				},
-			})
+			}
+			zone := ""
+			if be.Zone != nil && len(be.Zone.ForZones) > 0 {
+				zone = be.Zone.Zone
+			}
+			zoneMap[zone] = append(zoneMap[zone], ep)
 		}
 
-		endpoints := []*envoy_config_endpoint.LocalityLbEndpoints{{LbEndpoints: lbEndpoints}}
+		var endpoints []*envoy_config_endpoint.LocalityLbEndpoints
+		for _, zone := range slices.Sorted(maps.Keys(zoneMap)) {
+			eps := zoneMap[zone]
+			lle := &envoy_config_endpoint.LocalityLbEndpoints{
+				LbEndpoints: eps,
+				// Weight proportional to endpoint count so locality-weighted LB
+				// distributes traffic correctly. A nil weight means "no load" per
+				// the Envoy proto docs, which would cause panic-mode fallback.
+				LoadBalancingWeight: wrapperspb.UInt32(uint32(len(eps))),
+			}
+			if zone != "" {
+				lle.Locality = &envoy_config_core.Locality{Zone: zone}
+			}
+			endpoints = append(endpoints, lle)
+		}
 		assignments = append(assignments,
 			&envoy_config_endpoint.ClusterLoadAssignment{
 				ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
