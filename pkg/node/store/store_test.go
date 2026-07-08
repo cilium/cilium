@@ -4,11 +4,13 @@
 package store
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -23,6 +25,16 @@ func TestValidatingNode(t *testing.T) {
 		{
 			name:      "valid cluster name",
 			node:      types.Node{Cluster: "foo", Name: "qux"},
+			validator: ClusterNameValidator("foo"),
+		},
+		{
+			name: "health IPs round-trip",
+			node: types.Node{
+				Cluster:      "foo",
+				Name:         "qux",
+				IPv4HealthIP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.5")),
+				IPv6HealthIP: iputil.AddrFrom(netip.MustParseAddr("f00d::5")),
+			},
 			validator: ClusterNameValidator("foo"),
 		},
 		{

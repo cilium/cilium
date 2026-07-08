@@ -9,12 +9,14 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -237,11 +239,13 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 
 		if ini.Config.EnableHealthChecking && ini.Config.EnableEndpointHealthChecking {
 			if ini.Config.EnableIPv4 {
-				node.IPv4HealthIP = net.ParseIP(k8sCiliumNode.Spec.HealthAddressing.IPv4)
+				addr, _ := netip.ParseAddr(k8sCiliumNode.Spec.HealthAddressing.IPv4)
+				node.IPv4HealthIP = iputil.AddrFrom(addr)
 			}
 
 			if ini.Config.EnableIPv6 {
-				node.IPv6HealthIP = net.ParseIP(k8sCiliumNode.Spec.HealthAddressing.IPv6)
+				addr, _ := netip.ParseAddr(k8sCiliumNode.Spec.HealthAddressing.IPv6)
+				node.IPv6HealthIP = iputil.AddrFrom(addr)
 			}
 		}
 	} else {

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -61,13 +62,13 @@ type Node struct {
 	// node allocates IPs for its local endpoints from
 	IPv6SecondaryAllocCIDRs []*cidr.CIDR
 
-	// IPv4HealthIP if not nil, this is the IPv4 address of the
+	// IPv4HealthIP if set, this is the IPv4 address of the
 	// cilium-health endpoint located on the node.
-	IPv4HealthIP net.IP
+	IPv4HealthIP iputil.Addr
 
-	// IPv6HealthIP if not nil, this is the IPv6 address of the
+	// IPv6HealthIP if set, this is the IPv6 address of the
 	// cilium-health endpoint located on the node.
-	IPv6HealthIP net.IP
+	IPv6HealthIP iputil.Addr
 
 	// IPv4IngressIP if not nil, this is the IPv4 address of the
 	// Ingress listener on the node.
@@ -359,15 +360,15 @@ func (n *Node) getSecondaryAddresses() []*models.NodeAddressingElement {
 }
 
 func (n *Node) getHealthAddresses() *models.NodeAddressing {
-	if n.IPv4HealthIP == nil && n.IPv6HealthIP == nil {
+	if !n.IPv4HealthIP.IsValid() && !n.IPv6HealthIP.IsValid() {
 		return nil
 	}
 
 	var v4Str, v6Str string
-	if n.IPv4HealthIP != nil {
+	if n.IPv4HealthIP.IsValid() {
 		v4Str = n.IPv4HealthIP.String()
 	}
-	if n.IPv6HealthIP != nil {
+	if n.IPv6HealthIP.IsValid() {
 		v6Str = n.IPv6HealthIP.String()
 	}
 

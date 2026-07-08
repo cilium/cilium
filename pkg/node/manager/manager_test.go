@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/identity"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -794,8 +795,8 @@ func TestIpcacheHealthIP(t *testing.T) {
 		IPAddresses: []nodeTypes.Address{
 			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1").To4()},
 		},
-		IPv4HealthIP: net.ParseIP("10.0.0.4"),
-		IPv6HealthIP: net.ParseIP("f00d::4"),
+		IPv4HealthIP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.4")),
+		IPv6HealthIP: iputil.AddrFrom(netip.MustParseAddr("f00d::4")),
 	}
 	mngr.NodeUpdated(n1)
 
@@ -972,8 +973,8 @@ func TestNode(t *testing.T) {
 				IP:   net.ParseIP("2001:DB8::1"),
 			},
 		},
-		IPv4HealthIP: net.ParseIP("192.0.2.2"),
-		IPv6HealthIP: net.ParseIP("2001:DB8::2"),
+		IPv4HealthIP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.2")),
+		IPv6HealthIP: iputil.AddrFrom(netip.MustParseAddr("2001:DB8::2")),
 		Source:       source.KVStore,
 	}
 	mngr.NodeUpdated(n1)
@@ -1006,8 +1007,8 @@ func TestNode(t *testing.T) {
 			IP:   net.ParseIP("2001:DB8::1"),
 		},
 	}
-	n1V2.IPv4HealthIP = net.ParseIP("192.0.2.20")
-	n1V2.IPv6HealthIP = net.ParseIP("2001:DB8::20")
+	n1V2.IPv4HealthIP = iputil.AddrFrom(netip.MustParseAddr("192.0.2.20"))
+	n1V2.IPv6HealthIP = iputil.AddrFrom(netip.MustParseAddr("2001:DB8::20"))
 	mngr.NodeUpdated(*n1V2)
 
 	select {
@@ -1343,8 +1344,8 @@ func TestNodeIpset(t *testing.T) {
 				IP:   net.ParseIP("2001:ABCD::1"),
 			},
 		},
-		IPv4HealthIP: net.ParseIP("192.0.2.2"),
-		IPv6HealthIP: net.ParseIP("2001:DB8::2"),
+		IPv4HealthIP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.2")),
+		IPv6HealthIP: iputil.AddrFrom(netip.MustParseAddr("2001:DB8::2")),
 		Source:       source.KVStore,
 	}
 	mngr.NodeUpdated(n1)
@@ -1398,7 +1399,7 @@ func TestNodeIpset(t *testing.T) {
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.1.0.1", false)
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCE::1", false)
 
-	n1.IPv4HealthIP = net.ParseIP("192.0.2.20")
+	n1.IPv4HealthIP = iputil.AddrFrom(netip.MustParseAddr("192.0.2.20"))
 	mngr.NodeUpdated(n1)
 
 	select {

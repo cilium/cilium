@@ -73,16 +73,8 @@ func (in *Node) DeepCopyInto(out *Node) {
 			}
 		}
 	}
-	if in.IPv4HealthIP != nil {
-		in, out := &in.IPv4HealthIP, &out.IPv4HealthIP
-		*out = make(net.IP, len(*in))
-		copy(*out, *in)
-	}
-	if in.IPv6HealthIP != nil {
-		in, out := &in.IPv6HealthIP, &out.IPv6HealthIP
-		*out = make(net.IP, len(*in))
-		copy(*out, *in)
-	}
+	in.IPv4HealthIP.DeepCopyInto(&out.IPv4HealthIP)
+	in.IPv6HealthIP.DeepCopyInto(&out.IPv6HealthIP)
 	if in.IPv4IngressIP != nil {
 		in, out := &in.IPv4IngressIP, &out.IPv4IngressIP
 		*out = make(net.IP, len(*in))

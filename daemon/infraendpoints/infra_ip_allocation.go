@@ -346,32 +346,32 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 	return net.IP(result.IP.AsSlice()).To16(), nil
 }
 
-func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP net.IP) error {
+func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP netip.Addr, oldV6HealthIP netip.Addr) error {
 	if !r.daemonConfig.EnableHealthChecking || !r.daemonConfig.EnableEndpointHealthChecking {
 		return nil
 	}
-	var healthIPv4, healthIPv6 net.IP
+	var healthIPv4, healthIPv6 netip.Addr
 	if r.daemonConfig.EnableIPv4 {
 		var result *ipam.AllocationResult
 		var err error
 		healthIPv4 = oldV4HealthIP
-		if healthIPv4 != nil {
-			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(healthIPv4), "health", ipam.PoolDefault())
+		if healthIPv4.IsValid() {
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(healthIPv4, "health", ipam.PoolDefault())
 			if err != nil {
 				r.logger.Warn(
 					"unable to re-allocate health IPv4, a new health IPv4 will be allocated",
 					logfields.Error, err,
 					logfields.IPv4, healthIPv4,
 				)
-				healthIPv4 = nil
+				healthIPv4 = netip.Addr{}
 			}
 		}
-		if healthIPv4 == nil {
+		if !healthIPv4.IsValid() {
 			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health", ipam.PoolDefault())
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPv4: %w, see https://cilium.link/ipam-range-full", err)
 			}
-			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = net.IP(result.IP.AsSlice()).To16() })
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = iputil.AddrFrom(result.IP) })
 		}
 
 		// Coalescing multiple CIDRs. GH #18868
@@ -398,27 +398,27 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP
 		var result *ipam.AllocationResult
 		var err error
 		healthIPv6 = oldV6HealthIP
-		if healthIPv6 != nil {
-			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(healthIPv6), "health", ipam.PoolDefault())
+		if healthIPv6.IsValid() {
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(healthIPv6, "health", ipam.PoolDefault())
 			if err != nil {
 				r.logger.Warn(
 					"unable to re-allocate health IPv6, a new health IPv6 will be allocated",
 					logfields.Error, err,
 					logfields.IPv6, healthIPv6,
 				)
-				healthIPv6 = nil
+				healthIPv6 = netip.Addr{}
 			}
 		}
-		if healthIPv6 == nil {
+		if !healthIPv6.IsValid() {
 			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault())
 			if err != nil {
-				if healthIPv4 != nil {
-					r.ipAllocator.ReleaseIP(iputil.AddrFromIP(healthIPv4), ipam.PoolDefault())
-					r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = nil })
+				if healthIPv4.IsValid() {
+					r.ipAllocator.ReleaseIP(healthIPv4, ipam.PoolDefault())
+					r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = iputil.Addr{} })
 				}
 				return fmt.Errorf("unable to allocate health IPv6: %w, see https://cilium.link/ipam-range-full", err)
 			}
-			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6HealthIP = net.IP(result.IP.AsSlice()).To16() })
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6HealthIP = iputil.AddrFrom(result.IP) })
 		}
 		r.logger.Debug("Allocated IPv6 health endpoint address", logfields.IPAddr, result.IP)
 	}
@@ -557,7 +557,7 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context) error {
 		return fmt.Errorf("failed to allocate ingress IPs: %w", err)
 	}
 
-	if err := r.allocateHealthIPs(localNode.IPv4HealthIP, localNode.IPv6HealthIP); err != nil {
+	if err := r.allocateHealthIPs(localNode.IPv4HealthIP.Addr, localNode.IPv6HealthIP.Addr); err != nil {
 		return fmt.Errorf("failed to allocate health IPs: %w", err)
 	}
 

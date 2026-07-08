@@ -441,8 +441,8 @@ func TestParseCiliumNode(t *testing.T) {
 		IPv6AllocCIDR:           cidr.MustParseCIDR("c0de::/96"),
 		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("10.20.0.0/16")},
 		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("c0fe::/96")},
-		IPv4HealthIP:            net.ParseIP("1.1.1.1"),
-		IPv6HealthIP:            net.ParseIP("c0de::1"),
+		IPv4HealthIP:            iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
+		IPv6HealthIP:            iputil.AddrFrom(netip.MustParseAddr("c0de::1")),
 		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
 		IPv6IngressIP:           net.ParseIP("c0de::2"),
 	}, n)

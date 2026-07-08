@@ -246,10 +246,10 @@ func (h *ciliumHealthManager) cleanupHealthEndpoint(ctx context.Context) error {
 	// Clean up agent resources
 	healthIPv4 := ln.IPv4HealthIP
 	healthIPv6 := ln.IPv6HealthIP
-	if healthIPv4 != nil {
+	if healthIPv4.IsValid() {
 		ep = h.endpointManager.LookupIPv4(healthIPv4.String())
 	}
-	if ep == nil && healthIPv6 != nil {
+	if ep == nil && healthIPv6.IsValid() {
 		ep = h.endpointManager.LookupIPv6(healthIPv6.String())
 	}
 	if ep == nil {

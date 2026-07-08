@@ -88,38 +88,12 @@ func (in *Node) DeepEqual(other *Node) bool {
 		}
 	}
 
-	if ((in.IPv4HealthIP != nil) && (other.IPv4HealthIP != nil)) || ((in.IPv4HealthIP == nil) != (other.IPv4HealthIP == nil)) {
-		in, other := &in.IPv4HealthIP, &other.IPv4HealthIP
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
-		}
+	if !in.IPv4HealthIP.DeepEqual(&other.IPv4HealthIP) {
+		return false
 	}
 
-	if ((in.IPv6HealthIP != nil) && (other.IPv6HealthIP != nil)) || ((in.IPv6HealthIP == nil) != (other.IPv6HealthIP == nil)) {
-		in, other := &in.IPv6HealthIP, &other.IPv6HealthIP
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
-		}
+	if !in.IPv6HealthIP.DeepEqual(&other.IPv6HealthIP) {
+		return false
 	}
 
 	if ((in.IPv4IngressIP != nil) && (other.IPv4IngressIP != nil)) || ((in.IPv4IngressIP == nil) != (other.IPv4IngressIP == nil)) {

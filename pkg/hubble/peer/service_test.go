@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
@@ -771,7 +770,7 @@ func TestService_Notify(t *testing.T) {
 				// - name change: 2 notifications
 				// - other change: 1 notification
 				switch {
-				case cmp.Diff(o, n) == "":
+				case o.DeepEqual(&n):
 					// no-op
 				case o.Name != n.Name:
 					wg.Add(2)

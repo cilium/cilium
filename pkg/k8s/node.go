@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strconv"
 
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -245,33 +247,35 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 		}
 	}
 
-	if newNode.IPv4HealthIP == nil {
+	if !newNode.IPv4HealthIP.IsValid() {
 		if healthIP, ok := annotation.Get(k8sNode, annotation.V4HealthName, annotation.V4HealthNameAlias); !ok || healthIP == "" {
 			scopedLog.Debug(
 				"Empty IPv4 health endpoint annotation in node",
 			)
-		} else if ip := net.ParseIP(healthIP); ip == nil {
+		} else if addr, err := netip.ParseAddr(healthIP); err != nil {
 			scopedLog.Error(
 				"BUG, invalid IPv4 health endpoint annotation in node",
 				logfields.V4HealthIP, healthIP,
+				logfields.Error, err,
 			)
 		} else {
-			newNode.IPv4HealthIP = ip
+			newNode.IPv4HealthIP = iputil.AddrFrom(addr)
 		}
 	}
 
-	if newNode.IPv6HealthIP == nil {
+	if !newNode.IPv6HealthIP.IsValid() {
 		if healthIP, ok := annotation.Get(k8sNode, annotation.V6HealthName, annotation.V6HealthNameAlias); !ok || healthIP == "" {
 			scopedLog.Debug(
 				"Empty IPv6 health endpoint annotation in node",
 			)
-		} else if ip := net.ParseIP(healthIP); ip == nil {
+		} else if addr, err := netip.ParseAddr(healthIP); err != nil {
 			scopedLog.Error(
 				"BUG, invalid IPv6 health endpoint annotation in node",
 				logfields.V6HealthIP, healthIP,
+				logfields.Error, err,
 			)
 		} else {
-			newNode.IPv6HealthIP = ip
+			newNode.IPv6HealthIP = iputil.AddrFrom(addr)
 		}
 	}
 
@@ -356,8 +360,10 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
 		}
 	}
 
-	node.IPv4HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv4)
-	node.IPv6HealthIP = net.ParseIP(n.Spec.HealthAddressing.IPv6)
+	v4HealthIP, _ := netip.ParseAddr(n.Spec.HealthAddressing.IPv4)
+	v6HealthIP, _ := netip.ParseAddr(n.Spec.HealthAddressing.IPv6)
+	node.IPv4HealthIP = iputil.AddrFrom(v4HealthIP)
+	node.IPv6HealthIP = iputil.AddrFrom(v6HealthIP)
 
 	node.IPv4IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV4)
 	node.IPv6IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV6)

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -248,7 +249,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 			State:      models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 			Addressing: &models.AddressPair{},
 		}
-		healthIP               net.IP
+		healthIP               netip.Addr
 		ip4Address, ip6Address *net.IPNet
 	)
 
@@ -257,18 +258,18 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		return nil, fmt.Errorf("failed to get local node: %w", err)
 	}
 
-	if healthIPv6 := ln.IPv6HealthIP; healthIPv6 != nil {
+	if healthIPv6 := ln.IPv6HealthIP; healthIPv6.IsValid() {
 		info.Addressing.IPv6 = healthIPv6.String()
 		info.Addressing.IPv6PoolName = ipam.PoolDefault().String()
-		ip6Address = &net.IPNet{IP: healthIPv6, Mask: defaults.ContainerIPv6Mask}
-		healthIP = healthIPv6
+		ip6Address = &net.IPNet{IP: healthIPv6.AsSlice(), Mask: defaults.ContainerIPv6Mask}
+		healthIP = healthIPv6.Addr
 	}
-	if healthIPv4 := ln.IPv4HealthIP; healthIPv4 != nil {
+	if healthIPv4 := ln.IPv4HealthIP; healthIPv4.IsValid() {
 		info.Addressing.IPv4 = healthIPv4.String()
 		info.Addressing.IPv4PoolName = ipam.PoolDefault().String()
-		ip4Address = &net.IPNet{IP: healthIPv4, Mask: defaults.ContainerIPv4Mask}
+		ip4Address = &net.IPNet{IP: healthIPv4.AsSlice(), Mask: defaults.ContainerIPv4Mask}
 		if !option.Config.PreferIpv6 {
-			healthIP = healthIPv4
+			healthIP = healthIPv4.Addr
 		}
 	}
 
@@ -383,7 +384,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		}
 		// ENI mode does not support IPv6.
 		if err := ri.Configure(
-			healthIP,
+			healthIP.AsSlice(),
 			mtuConfig.GetDeviceMTU(),
 			false,
 		); err != nil {
@@ -401,7 +402,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	ep.UpdateLabels(ctx, labels.LabelSourceAny, labels.LabelHealth, nil, true)
 
 	// Initialize the health client to talk to this instance.
-	client := &Client{host: "http://" + net.JoinHostPort(healthIP.String(), strconv.Itoa(option.Config.ClusterHealthPort))}
+	client := &Client{host: "http://" + netip.AddrPortFrom(healthIP, uint16(option.Config.ClusterHealthPort)).String()}
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil

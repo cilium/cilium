@@ -792,8 +792,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.ipcache.UpsertMetadataBatch(mu...)
 	}
 
-	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
-		prefix := ip.IPToNetPrefix(address)
+	for _, address := range []netip.Addr{n.IPv4HealthIP.Addr, n.IPv6HealthIP.Addr} {
+		prefix := netip.PrefixFrom(address, address.BitLen())
 		if !prefix.IsValid() {
 			continue
 		}
@@ -1040,8 +1040,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	}
 
 	// Delete the old health IP addresses if they have changed in this node.
-	for _, address := range []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP} {
-		prefix := ip.IPToNetPrefix(address)
+	for _, address := range []netip.Addr{oldNode.IPv4HealthIP.Addr, oldNode.IPv6HealthIP.Addr} {
+		prefix := netip.PrefixFrom(address, address.BitLen())
 		if !prefix.IsValid() || slices.Contains(healthIPsAdded, prefix) {
 			continue
 		}

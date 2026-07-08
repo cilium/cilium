@@ -363,12 +363,12 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 	nodeResource.Spec.Encryption.Key = int(ln.EncryptionKey)
 
 	nodeResource.Spec.HealthAddressing.IPv4 = ""
-	if ip := ln.IPv4HealthIP; ip != nil {
+	if ip := ln.IPv4HealthIP; ip.IsValid() {
 		nodeResource.Spec.HealthAddressing.IPv4 = ip.String()
 	}
 
 	nodeResource.Spec.HealthAddressing.IPv6 = ""
-	if ip := ln.IPv6HealthIP; ip != nil {
+	if ip := ln.IPv6HealthIP; ip.IsValid() {
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
 	}
 
