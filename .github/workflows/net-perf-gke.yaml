@@ -67,6 +67,10 @@ env:
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
+  # Additional zones to fall back to if the primary zone is out of capacity
+  # (GCE STOCKOUT). All within the same region as gcp_zone to keep perf results
+  # comparable.
+  gcp_fallback_zones: us-east5-b us-east5-c
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 574.0.0
 
@@ -111,7 +115,12 @@ jobs:
     name: Installation and Perf Test
     needs: wait-for-images
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # Allow headroom for a zone fallback: a STOCKOUT can burn ~35m of
+    # provisioning wait per zone before we retry in the next one (partial
+    # clusters are torn down asynchronously, so a failed attempt adds little
+    # beyond that wait). This comfortably covers one fallback on top of the
+    # normal create + install + perf budget.
+    timeout-minutes: 120
     env:
       job_name: "Installation and Perf Test"
     strategy:
@@ -250,6 +259,7 @@ jobs:
         with:
           cluster-name: ${{ env.clusterName }}-${{ matrix.index }}
           zone: ${{ env.gcp_zone }}
+          fallback-zones: ${{ env.gcp_fallback_zones }}
           node-taints: ${{ steps.vars.outputs.node_taints }}
           labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
@@ -258,11 +268,11 @@ jobs:
         uses: ./.github/actions/gke-create-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.index }}
-          cluster_zone: ${{ env.gcp_zone }}
+          cluster_zone: ${{ steps.create-cluster.outputs.zone }}
 
       - name: Get cluster credentials
         run: |
-          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ steps.create-cluster.outputs.zone }}
 
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
@@ -329,15 +339,17 @@ jobs:
         uses: ./.github/actions/gke-clean-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.index }}
-          cluster_zone: ${{ env.gcp_zone }}
+          cluster_zone: ${{ steps.create-cluster.outputs.zone || env.gcp_zone }}
 
       - name: Clean up GKE
         if: ${{ always() }}
+        env:
+          cluster_zone: ${{ steps.create-cluster.outputs.zone || env.gcp_zone }}
         run: |
-          while [ "$(gcloud container operations list --zone ${{ env.gcp_zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.index }}" --format="value(name)")" ];do
+          while [ "$(gcloud container operations list --zone ${cluster_zone} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.index }}" --format="value(name)")" ];do
             echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
           done
-          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --quiet --async
+          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.index }} --zone ${cluster_zone} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       # We needed to configure a unique suffix to ensure that the artifacts can
