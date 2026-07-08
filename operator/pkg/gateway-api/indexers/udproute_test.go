@@ -11,7 +11,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func TestIndexUDPRouteByGateway(t *testing.T) {
@@ -22,12 +21,12 @@ func TestIndexUDPRouteByGateway(t *testing.T) {
 	}{
 		{
 			name: "parentRef is Gateway",
-			obj: &gatewayv1alpha2.UDPRoute{
+			obj: &gatewayv1.UDPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "valid-gateway",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.UDPRouteSpec{
+				Spec: gatewayv1.UDPRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{
@@ -44,12 +43,12 @@ func TestIndexUDPRouteByGateway(t *testing.T) {
 		},
 		{
 			name: "parentRef is a Gateway, nil namespace",
-			obj: &gatewayv1alpha2.UDPRoute{
+			obj: &gatewayv1.UDPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "valid-gateway",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.UDPRouteSpec{
+				Spec: gatewayv1.UDPRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{
@@ -65,12 +64,12 @@ func TestIndexUDPRouteByGateway(t *testing.T) {
 		},
 		{
 			name: "parentRef is not a Gateway",
-			obj: &gatewayv1alpha2.UDPRoute{
+			obj: &gatewayv1.UDPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "invalid-parent",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.UDPRouteSpec{
+				Spec: gatewayv1.UDPRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{
@@ -87,12 +86,12 @@ func TestIndexUDPRouteByGateway(t *testing.T) {
 		},
 		{
 			name: "parentRef has explicit Gateway kind/group",
-			obj: &gatewayv1alpha2.UDPRoute{
+			obj: &gatewayv1.UDPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "explicit-gateway",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.UDPRouteSpec{
+				Spec: gatewayv1.UDPRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{
@@ -109,12 +108,12 @@ func TestIndexUDPRouteByGateway(t *testing.T) {
 		},
 		{
 			name: "parentRef has Gateway kind but wrong group",
-			obj: &gatewayv1alpha2.UDPRoute{
+			obj: &gatewayv1.UDPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gateway-wrong-group",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.UDPRouteSpec{
+				Spec: gatewayv1.UDPRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{

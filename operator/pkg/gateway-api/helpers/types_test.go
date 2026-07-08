@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
@@ -337,20 +336,20 @@ func TestGetConcreteObject(t *testing.T) {
 		{
 			name: "TCPRoute",
 			gvk: schema.GroupVersionKind{
-				Group:   gatewayv1alpha2.GroupVersion.Group,
-				Version: gatewayv1alpha2.GroupVersion.Version,
+				Group:   gatewayv1.GroupVersion.Group,
+				Version: gatewayv1.GroupVersion.Version,
 				Kind:    TCPRouteKind,
 			},
-			want: &gatewayv1alpha2.TCPRoute{},
+			want: &gatewayv1.TCPRoute{},
 		},
 		{
 			name: "UDPRoute",
 			gvk: schema.GroupVersionKind{
-				Group:   gatewayv1alpha2.GroupVersion.Group,
-				Version: gatewayv1alpha2.GroupVersion.Version,
+				Group:   gatewayv1.GroupVersion.Group,
+				Version: gatewayv1.GroupVersion.Version,
 				Kind:    UDPRouteKind,
 			},
-			want: &gatewayv1alpha2.UDPRoute{},
+			want: &gatewayv1.UDPRoute{},
 		},
 		{
 			name: "ListenerSet",
@@ -453,20 +452,20 @@ func TestGetConcreteListObject(t *testing.T) {
 		{
 			name: "TCPRouteList",
 			gvk: schema.GroupVersionKind{
-				Group:   gatewayv1alpha2.GroupVersion.Group,
-				Version: gatewayv1alpha2.GroupVersion.Version,
+				Group:   gatewayv1.GroupVersion.Group,
+				Version: gatewayv1.GroupVersion.Version,
 				Kind:    TCPRouteKind,
 			},
-			want: &gatewayv1alpha2.TCPRouteList{},
+			want: &gatewayv1.TCPRouteList{},
 		},
 		{
 			name: "UDPRouteList",
 			gvk: schema.GroupVersionKind{
-				Group:   gatewayv1alpha2.GroupVersion.Group,
-				Version: gatewayv1alpha2.GroupVersion.Version,
+				Group:   gatewayv1.GroupVersion.Group,
+				Version: gatewayv1.GroupVersion.Version,
 				Kind:    UDPRouteKind,
 			},
-			want: &gatewayv1alpha2.UDPRouteList{},
+			want: &gatewayv1.UDPRouteList{},
 		},
 		{
 			name: "ListenerSetList",

@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
@@ -123,9 +122,9 @@ func GetConcreteObject(schemaType schema.GroupVersionKind) runtime.Object {
 	case BackendTLSPolicyKind:
 		return &gatewayv1.BackendTLSPolicy{}
 	case TCPRouteKind:
-		return &gatewayv1alpha2.TCPRoute{}
+		return &gatewayv1.TCPRoute{}
 	case UDPRouteKind:
-		return &gatewayv1alpha2.UDPRoute{}
+		return &gatewayv1.UDPRoute{}
 	case ListenerSetKind:
 		return &gatewayv1.ListenerSet{}
 	case ServiceImportKind:
@@ -157,9 +156,9 @@ func GetConcreteListObject(schemaType schema.GroupVersionKind) runtime.Object {
 	case BackendTLSPolicyKind:
 		return &gatewayv1.BackendTLSPolicyList{}
 	case TCPRouteKind:
-		return &gatewayv1alpha2.TCPRouteList{}
+		return &gatewayv1.TCPRouteList{}
 	case UDPRouteKind:
-		return &gatewayv1alpha2.UDPRouteList{}
+		return &gatewayv1.UDPRouteList{}
 	case ListenerSetKind:
 		return &gatewayv1.ListenerSetList{}
 	case ServiceImportKind:

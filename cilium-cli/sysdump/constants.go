@@ -221,13 +221,13 @@ var (
 	tcpRoute = schema.GroupVersionResource{
 		Group:    "gateway.networking.k8s.io",
 		Resource: "tcproutes",
-		Version:  "v1alpha2",
+		Version:  "v1",
 	}
 
 	udpRoute = schema.GroupVersionResource{
 		Group:    "gateway.networking.k8s.io",
 		Resource: "udproutes",
-		Version:  "v1alpha2",
+		Version:  "v1",
 	}
 
 	grpcRoute = schema.GroupVersionResource{

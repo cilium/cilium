@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
@@ -26,7 +25,7 @@ type TCPRouteInput struct {
 	Logger         *slog.Logger
 	Client         client.Client
 	Grants         *gatewayv1.ReferenceGrantList
-	TCPRoute       *gatewayv1alpha2.TCPRoute
+	TCPRoute       *gatewayv1.TCPRoute
 	ControllerName string
 
 	gateways map[gatewayv1.ParentReference]ListenerOwner
@@ -53,7 +52,7 @@ func (t *TCPRouteInput) SetAllParentCondition(condition metav1.Condition) {
 	}
 }
 
-func (t *TCPRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentReference, updates []metav1.Condition) {
+func (t *TCPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range t.TCPRoute.Status.RouteStatus.Parents {
 		if reflect.DeepEqual(parent.ParentRef, parentRef) {
@@ -65,7 +64,7 @@ func (t *TCPRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentRe
 		t.TCPRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(t.TCPRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
 		return
 	}
-	t.TCPRoute.Status.RouteStatus.Parents = append(t.TCPRoute.Status.RouteStatus.Parents, gatewayv1alpha2.RouteParentStatus{
+	t.TCPRoute.Status.RouteStatus.Parents = append(t.TCPRoute.Status.RouteStatus.Parents, gatewayv1.RouteParentStatus{
 		ParentRef:      parentRef,
 		ControllerName: gatewayv1.GatewayController(t.ControllerName),
 		Conditions:     updates,
@@ -81,7 +80,7 @@ func (t *TCPRouteInput) GetNamespace() string {
 }
 
 func (t *TCPRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1alpha2.SchemeGroupVersion.WithKind("TCPRoute")
+	return gatewayv1.SchemeGroupVersion.WithKind("TCPRoute")
 }
 
 func (t *TCPRouteInput) GetRules() []GenericRule {
@@ -102,7 +101,7 @@ func (t *TCPRouteInput) GetContext() context.Context {
 
 // TCPRouteRule is used to implement the GenericRule interface for TCPRoute.
 type TCPRouteRule struct {
-	Rule gatewayv1alpha2.TCPRouteRule
+	Rule gatewayv1.TCPRouteRule
 }
 
 func (t *TCPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
