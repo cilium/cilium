@@ -497,8 +497,17 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		// State will remain as waiting-to-regenerate if further
 		// changes are needed. There should be an another regenerate
 		// queued for taking care of it.
-		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
+		ready := e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
+
+		// Reap the restart-preserved leftovers now that the endpoint is ready,
+		// instead of waiting up to 15m for the next periodic reconciliation
+		// (GH-47012).
+		reapPreserved := ready && e.preservedRestoredPolicyEntries
 		e.unlock()
+
+		if reapPreserved {
+			e.controllers.TriggerController(e.syncPolicyMapControllerName())
+		}
 	}()
 
 	revision, err = e.regenerateBPF(ctx)
