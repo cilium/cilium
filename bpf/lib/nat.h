@@ -46,6 +46,10 @@ enum  nat_dir {
 
 struct nat_entry {
 	__u64 created;
+	/* needs_ct is set whenever we want to NAT a connection that may not be
+	 * tracked, for example in the egress gateway case with a non-local pod
+	 * or in the case of host-local connections.
+	 */
 	__u64 needs_ct;		/* Only single bit used. */
 	__u64 pad1;		/* Future use. */
 	__u64 pad2;		/* Future use. */
