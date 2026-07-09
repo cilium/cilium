@@ -4,10 +4,10 @@
 package template
 
 import (
-	"strings"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/cilium/cilium/hubble/cmd/common/config"
 )
@@ -18,7 +18,11 @@ var (
 )
 
 func init() {
-	cobra.AddTemplateFunc("title", strings.Title)
+	// cases.Caser is stateful and not safe for concurrent use, hence the
+	// wrapper function creating a new one on every call.
+	cobra.AddTemplateFunc("title", func(s string) string {
+		return cases.Title(language.Und, cases.NoLower).String(s)
+	})
 	cobra.AddTemplateFunc("getFlagSets", getFlagSets)
 }
 

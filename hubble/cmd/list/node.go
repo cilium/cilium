@@ -8,12 +8,13 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"google.golang.org/grpc"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
@@ -95,6 +96,7 @@ func nodeTableOutput(buf io.Writer, nodes []*observerpb.Node) error {
 	}
 	fmt.Fprintln(tw)
 
+	titleCaser := cases.Title(language.Und, cases.NoLower)
 	for _, n := range nodes {
 		age := notAvailable
 		flowsPerSec := notAvailable
@@ -110,7 +112,7 @@ func nodeTableOutput(buf io.Writer, nodes []*observerpb.Node) error {
 		if v := n.GetVersion(); v != "" {
 			version = v
 		}
-		fmt.Fprint(tw, n.GetName(), "\t", strings.Title(nodeStateToString(n.GetState())), "\t", age, "\t", flowsPerSec, "\t", flowsRatio)
+		fmt.Fprint(tw, n.GetName(), "\t", titleCaser.String(nodeStateToString(n.GetState())), "\t", age, "\t", flowsPerSec, "\t", flowsRatio)
 		if listOpts.output == "wide" {
 			tls := notAvailable
 			if t := n.GetTls(); t != nil {
