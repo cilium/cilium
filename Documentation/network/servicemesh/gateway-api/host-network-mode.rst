@@ -96,9 +96,14 @@ network mode:
 Deploy Gateway API listeners on subset of nodes
 ===============================================
 
-The Cilium Gateway API Envoy listener can be exposed on a specific subset of
-nodes. This only works in combination with the host network mode and can be
-configured via a node label selector in the Helm values:
+Cilium proxies ``HTTPRoute``, ``GRPCRoute``, and ``TLSRoute`` traffic through
+Envoy. Cilium's eBPF service load balancer programs ``TCPRoute`` and
+``UDPRoute`` directly, bypassing Envoy. The route type therefore determines
+which mechanism controls node exposure for the listeners of a ``Gateway``.
+
+For ``HTTPRoute``, ``GRPCRoute``, and ``TLSRoute``, restrict node exposure by
+configuring a node label selector in the Helm values. This only works in
+combination with the host network mode:
 
 .. code-block:: yaml
 
@@ -114,3 +119,14 @@ configured via a node label selector in the Helm values:
 This will deploy the Gateway API Envoy listener only on the Cilium Nodes
 matching the configured labels. An empty selector selects all nodes and
 continues to expose the functionality on all Cilium nodes.
+
+For ``TCPRoute`` and ``UDPRoute``, this selector has no effect. Their Service
+remains installed on every Cilium node regardless of the selector. To
+restrict node exposure for these route types, use the
+:ref:`Selective Service Node Exposure` annotation
+``service.cilium.io/node-selector`` within
+``spec.infrastructure.annotations`` on the ``Gateway`` instead.
+
+If a ``Gateway`` combines both categories of route types, configure both
+mechanisms with the same label selector to keep node exposure consistent
+across all routes.

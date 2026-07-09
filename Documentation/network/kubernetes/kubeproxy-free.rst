@@ -430,6 +430,8 @@ Non-presence of the ``service.cilium.io/proxy-delegation`` annotation leaves
 all forwarding to BPF natively which is also the default for the kube-proxy
 replacement case.
 
+.. _Selective Service Node Exposure:
+
 Selective Service Node Exposure
 *******************************
 
