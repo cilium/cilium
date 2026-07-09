@@ -935,10 +935,17 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 	return ErrMaxLookup
 }
 
+// IterableMap is a map that can be iterated through [BatchIterator].
+type IterableMap interface {
+	BatchLookup(cursor *ebpf.MapBatchCursor, keysOut, valuesOut any, opts *ebpf.BatchOptions) (int, error)
+	MaxEntries() uint32
+	Type() ebpf.MapType
+}
+
 // BatchIterator provides a typed wrapper *Map that allows for batched iteration
 // of bpf maps.
 type BatchIterator[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]] struct {
-	m    *Map
+	m    IterableMap
 	err  error
 	keys []KT
 	vals []VT
@@ -976,7 +983,7 @@ type BatchIterator[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]] struct {
 //	for k, v := range iter.IterateAll(context.TODO()) {
 //		// ...
 //	}
-func NewBatchIterator[KT any, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](m *Map) *BatchIterator[KT, VT, KP, VP] {
+func NewBatchIterator[KT any, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](m IterableMap) *BatchIterator[KT, VT, KP, VP] {
 	return &BatchIterator[KT, VT, KP, VP]{
 		m: m,
 	}
