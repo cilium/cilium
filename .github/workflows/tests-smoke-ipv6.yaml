@@ -126,6 +126,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Create imagePullSecret
+        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' }}
         run: |
           kubectl create secret docker-registry cilium-registry \
             --namespace kube-system \
@@ -134,6 +135,7 @@ jobs:
             --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
 
       - name: Login to docker registry for image wait
+        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' }}
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ${{ vars.DOCKER_READ_HOST}}
