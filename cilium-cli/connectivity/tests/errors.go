@@ -53,7 +53,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	// error cannot be fixed in Cilium or in the test.
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
-		failedToUpdateLock, failedToReleaseLock,
+		failedToUpdateLock, failedToReleaseLock, failedToRetrieveLock, leaderElectionReadTimeout,
 		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService, gobgpFailedCloseTCP,
 		vendoredLeaderElectionLeaseLockError}
 
@@ -454,6 +454,7 @@ const (
 	failedToListCRDs     stringMatcher = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
 	failedToUpdateLock   stringMatcher = "Failed to update lock:"
 	failedToReleaseLock  stringMatcher = "Failed to release lock:"
+	failedToRetrieveLock stringMatcher = "Error retrieving lease lock"                          // cf. https://github.com/cilium/cilium/issues/45426
 	nilDetailsForService stringMatcher = "retrieved nil details for Service"                    // from: https://github.com/cilium/cilium/issues/35595
 	removeInexistentID   stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
 	gobgpFailedCloseTCP  stringMatcher = "failed to close existing tcp connection"              // Benign error during BGP peer teardown in ACTIVE state
@@ -530,4 +531,6 @@ var (
 	gobgpFailedToSend = regexMatcher{regexp.MustCompile(`osrg/gobgp/v4/pkg/server.*msg="failed to send".*(use of closed network connection|broken pipe)`)}
 	// For https://github.com/cilium/cilium/issues/39370: Fixed only in cilium version >= 1.18
 	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
+	// Client-go counterpart of failedToRetrieveLock, scoped to the cancelled read. cf. https://github.com/cilium/cilium/issues/45426
+	leaderElectionReadTimeout = regexMatcher{regexp.MustCompile(`Unexpected error when reading response body.*request canceled \(Client\.Timeout or context cancellation while reading body\)`)}
 )
