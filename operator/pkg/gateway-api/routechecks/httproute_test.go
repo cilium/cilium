@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -20,22 +21,22 @@ func TestHTTPRouteValidateMatchRegexps(t *testing.T) {
 		{
 			name: "valid path regex",
 			match: gatewayv1.HTTPRouteMatch{Path: &gatewayv1.HTTPPathMatch{
-				Type:  new(gatewayv1.PathMatchRegularExpression),
-				Value: new("/api/v[0-9]/.+"),
+				Type:  ptr.To(gatewayv1.PathMatchRegularExpression),
+				Value: ptr.To("/api/v[0-9]/.+"),
 			}},
 		},
 		{
 			name: "invalid path regex",
 			match: gatewayv1.HTTPRouteMatch{Path: &gatewayv1.HTTPPathMatch{
-				Type:  new(gatewayv1.PathMatchRegularExpression),
-				Value: new("[unterminated"),
+				Type:  ptr.To(gatewayv1.PathMatchRegularExpression),
+				Value: ptr.To("[unterminated"),
 			}},
 			invalid: true,
 		},
 		{
 			name: "valid header regex",
 			match: gatewayv1.HTTPRouteMatch{Headers: []gatewayv1.HTTPHeaderMatch{{
-				Type:  new(gatewayv1.HeaderMatchRegularExpression),
+				Type:  ptr.To(gatewayv1.HeaderMatchRegularExpression),
 				Name:  "X-Consumer-Key",
 				Value: "^[A-Za-z0-9]{16,32}$",
 			}}},
@@ -43,7 +44,7 @@ func TestHTTPRouteValidateMatchRegexps(t *testing.T) {
 		{
 			name: "invalid header regex",
 			match: gatewayv1.HTTPRouteMatch{Headers: []gatewayv1.HTTPHeaderMatch{{
-				Type:  new(gatewayv1.HeaderMatchRegularExpression),
+				Type:  ptr.To(gatewayv1.HeaderMatchRegularExpression),
 				Name:  "X-Consumer-Key",
 				Value: "(unclosed",
 			}}},
@@ -52,7 +53,7 @@ func TestHTTPRouteValidateMatchRegexps(t *testing.T) {
 		{
 			name: "valid queryParam regex",
 			match: gatewayv1.HTTPRouteMatch{QueryParams: []gatewayv1.HTTPQueryParamMatch{{
-				Type:  new(gatewayv1.QueryParamMatchRegularExpression),
+				Type:  ptr.To(gatewayv1.QueryParamMatchRegularExpression),
 				Name:  "ref",
 				Value: "^[a-z_]{8,16}[0-9]{1,5}$",
 			}}},
@@ -60,7 +61,7 @@ func TestHTTPRouteValidateMatchRegexps(t *testing.T) {
 		{
 			name: "invalid queryParam regex",
 			match: gatewayv1.HTTPRouteMatch{QueryParams: []gatewayv1.HTTPQueryParamMatch{{
-				Type:  new(gatewayv1.QueryParamMatchRegularExpression),
+				Type:  ptr.To(gatewayv1.QueryParamMatchRegularExpression),
 				Name:  "ref",
 				Value: "(?invalidflag)",
 			}}},
@@ -71,7 +72,6 @@ func TestHTTPRouteValidateMatchRegexps(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := &HTTPRouteInput{
-				ControllerName: "io.cilium/gateway-controller",
 				HTTPRoute: &gatewayv1.HTTPRoute{
 					Spec: gatewayv1.HTTPRouteSpec{
 						CommonRouteSpec: gatewayv1.CommonRouteSpec{
