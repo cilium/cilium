@@ -19,10 +19,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -101,10 +103,12 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	var errs error
 	if newPol.Spec != nil {
 		errs = errors.Join(errs, newPol.Spec.Sanitize())
+		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, newPol.Spec))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, r))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 
@@ -197,6 +201,31 @@ func (pv *policyValidator) checkMutalAuthUsage(spec *api.Rule) error {
 		if r.Authentication != nil && !pv.params.Cfg.MeshAuthEnabled {
 			return errors.New("mutual auth feature is disabled but an egress auth rule is defined in policy")
 		}
+	}
+	return nil
+}
+
+// validateCNPEndpointSelectorNamespace checks that the endpointSelector of a
+// CiliumNetworkPolicy does not select a namespace other than the one the
+// policy is defined in. The endpointSelector always applies in the namespace
+// of the policy resource, so a selector on a different namespace can never
+// select any endpoints.
+func validateCNPEndpointSelectorNamespace(namespace string, spec *api.Rule) error {
+	if spec == nil || spec.EndpointSelector.LabelSelector == nil {
+		return nil
+	}
+	for _, key := range []string{
+		labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel,
+		labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceLabel,
+	} {
+		selectedNamespaces, present := spec.EndpointSelector.GetMatch(key)
+		if !present {
+			continue
+		}
+		if len(selectedNamespaces) == 1 && selectedNamespaces[0] == namespace {
+			continue
+		}
+		return fmt.Errorf("CiliumNetworkPolicy endpointSelector matches namespace(s) %v, but the endpointSelector can only select endpoints in the policy's own namespace %q", selectedNamespaces, namespace)
 	}
 	return nil
 }
