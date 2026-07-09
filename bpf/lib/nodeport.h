@@ -28,6 +28,7 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#include "pmtu.h"
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
@@ -1604,6 +1605,22 @@ skip_service_lookup:
 #endif
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
+#ifdef ENABLE_SVC_ICMP_PMTU_RELAY
+	/* Relay an ICMPv6 packet-too-big addressed to a service VIP to the DSR
+	 * backend that owns the connection. See handle_icmp_svc_pmtu_v6 and the
+	 * IPv4 path for details. */
+	if (!is_svc_proto && tuple.nexthdr == IPPROTO_ICMPV6) {
+		ret = handle_icmp_svc_pmtu_v6(ctx, ip6, l4_off, ext_err);
+		if (ret == CTX_ACT_REDIRECT) {
+			ctx_skip_nodeport_set(ctx);
+			return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
+						  ext_err);
+		}
+		if (IS_ERR(ret))
+			return ret;
+	}
+#endif /* ENABLE_SVC_ICMP_PMTU_RELAY */
+
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
@@ -2970,6 +2987,34 @@ skip_service_lookup:
 	 * the reverse NAT.
 	 */
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+
+#ifdef ENABLE_SVC_ICMP_PMTU_RELAY
+	/* Relay an ICMP frag-needed addressed to a service VIP to the DSR
+	 * backend that owns the connection.
+	 *
+	 * In DSR mode with masquerading and the host firewall disabled, an
+	 * inbound ICMP error to a VIP is classified here as a non-service
+	 * protocol (lb4_extract_tuple -> DROP_UNSUPP_SERVICE_PROTO) and would
+	 * otherwise fall through to the local stack, where it is useless (the
+	 * VIP is not a local socket, and BGP/ECMP frequently lands the error on
+	 * a node that is not the one holding the flow). This is the forward
+	 * path the error actually traverses, unlike nodeport_rev_dnat_ipv4().
+	 *
+	 * On success the helper has rewritten the outer destination to the
+	 * backend address; recircle through from-netdev so normal pod routing
+	 * delivers it to the backend (local endpoint or remote node).
+	 */
+	if (!is_svc_proto && ip4->protocol == IPPROTO_ICMP) {
+		ret = handle_icmp_svc_pmtu_v4(ctx, ip4, l4_off, ext_err);
+		if (ret == CTX_ACT_REDIRECT) {
+			ctx_skip_nodeport_set(ctx);
+			return tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV,
+						  ext_err);
+		}
+		if (IS_ERR(ret))
+			return ret;
+	}
+#endif /* ENABLE_SVC_ICMP_PMTU_RELAY */
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
