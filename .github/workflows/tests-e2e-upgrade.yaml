@@ -583,6 +583,44 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
+      - name: Run upgrade preflight checks
+        if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          cilium install --helm-release-name cilium-preflight \
+            ${{ steps.cilium-newest-config.outputs.config }} \
+            --set preflight.enabled=true \
+            --set agent=false --set operator.enabled=false \
+            --set=ingressController.enabled=false \
+            --wait=false
+
+          if kubectl wait pods -n kube-system -l k8s-app=cilium-pre-flight-check \
+                     --timeout=2m --for=condition=Ready; then
+            cilium uninstall --helm-release-name cilium-preflight
+            return
+          fi
+
+          echo "===== Preflight status check ====="
+          kubectl -n kube-system get pods -l k8s-app=cilium-pre-flight-check -o wide
+          echo
+
+          kubectl get pods -n kube-system -l k8s-app=cilium-pre-flight-check \
+                      -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+          | while read -r pod; do
+            kubectl get pods -n kube-system "$pod" \
+                    -o jsonpath='{range .spec.containers[*]}{.name}{"\n"}{end}' \
+            | while read -r container; do
+              echo "===== Logs for pod: $pod / container: $container ====="
+              kubectl logs -n "kube-system" "$pod" -c "$container"
+              echo
+            done
+          done
+
+          cilium uninstall --helm-release-name cilium-preflight
+          echo "::error::Preflight checks failed prior to upgrade"
+          exit 1
+
       - name: Upgrade Cilium
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         shell: bash
