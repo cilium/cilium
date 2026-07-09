@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -20,31 +21,31 @@ func TestGRPCRouteValidateMatchRegexps(t *testing.T) {
 		{
 			name: "valid method regex",
 			match: gatewayv1.GRPCRouteMatch{Method: &gatewayv1.GRPCMethodMatch{
-				Type:    new(gatewayv1.GRPCMethodMatchRegularExpression),
-				Service: new("^presence$"),
-				Method:  new("^(Hello|Goodbye)$"),
+				Type:    ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+				Service: ptr.To("^presence$"),
+				Method:  ptr.To("^(Hello|Goodbye)$"),
 			}},
 		},
 		{
 			name: "invalid method.service regex",
 			match: gatewayv1.GRPCRouteMatch{Method: &gatewayv1.GRPCMethodMatch{
-				Type:    new(gatewayv1.GRPCMethodMatchRegularExpression),
-				Service: new("^ordersV[12$"),
+				Type:    ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+				Service: ptr.To("^ordersV[12$"),
 			}},
 			invalid: true,
 		},
 		{
 			name: "invalid method.method regex",
 			match: gatewayv1.GRPCRouteMatch{Method: &gatewayv1.GRPCMethodMatch{
-				Type:   new(gatewayv1.GRPCMethodMatchRegularExpression),
-				Method: new(".(unclosed"),
+				Type:   ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+				Method: ptr.To(".(unclosed"),
 			}},
 			invalid: true,
 		},
 		{
 			name: "valid header regex",
 			match: gatewayv1.GRPCRouteMatch{Headers: []gatewayv1.GRPCHeaderMatch{{
-				Type:  new(gatewayv1.GRPCHeaderMatchRegularExpression),
+				Type:  ptr.To(gatewayv1.GRPCHeaderMatchRegularExpression),
 				Name:  "X-Device-Id",
 				Value: "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
 			}}},
@@ -52,7 +53,7 @@ func TestGRPCRouteValidateMatchRegexps(t *testing.T) {
 		{
 			name: "invalid header regex",
 			match: gatewayv1.GRPCRouteMatch{Headers: []gatewayv1.GRPCHeaderMatch{{
-				Type:  new(gatewayv1.GRPCHeaderMatchRegularExpression),
+				Type:  ptr.To(gatewayv1.GRPCHeaderMatchRegularExpression),
 				Name:  "X-Device-Id",
 				Value: "****invalid",
 			}}},
@@ -63,7 +64,6 @@ func TestGRPCRouteValidateMatchRegexps(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := &GRPCRouteInput{
-				ControllerName: "io.cilium/gateway-controller",
 				GRPCRoute: &gatewayv1.GRPCRoute{
 					Spec: gatewayv1.GRPCRouteSpec{
 						CommonRouteSpec: gatewayv1.CommonRouteSpec{

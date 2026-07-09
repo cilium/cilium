@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -767,4 +768,199 @@ func Test_sectionNameMatched(t *testing.T) {
 			assert.Equalf(t, tt.want, parentRefMatched(gw, tt.args.listener, "default", tt.args.refs), "parentRefMatched(%v, %v, %v, %v)", gw, tt.args.listener, tt.args.routeNamespace, tt.args.refs)
 		})
 	}
+}
+
+func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, client.WithWatch) {
+	t.Helper()
+
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(testScheme()).
+		WithObjects(obj...).
+		WithStatusSubresource(&gatewayv1.HTTPRoute{}, &gatewayv1.GRPCRoute{}).
+		Build()
+
+	reconciler := &gatewayReconciler{
+		Client: fakeClient,
+		logger: logger,
+	}
+
+	return reconciler, fakeClient
+}
+
+func findRouteAcceptedCondition(conds []metav1.Condition) *metav1.Condition {
+	for _, cond := range conds {
+		if cond.Type == string(gatewayv1.RouteConditionAccepted) {
+			return &cond
+		}
+	}
+	return nil
+}
+
+func TestGatewayReconciler_statuses(t *testing.T) {
+	controllerName := "io.cilium/gateway-controller"
+
+	ciliumGWClass := &gatewayv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "cilium"},
+		Spec:       gatewayv1.GatewayClassSpec{ControllerName: gatewayv1.GatewayController(controllerName)},
+	}
+	otherGWClass := &gatewayv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "other"},
+		Spec:       gatewayv1.GatewayClassSpec{ControllerName: "example.com/other-controller"},
+	}
+
+	listener := gatewayv1.Listener{
+		Name:     "http",
+		Port:     80,
+		Protocol: gatewayv1.HTTPProtocolType,
+		AllowedRoutes: &gatewayv1.AllowedRoutes{
+			Namespaces: &gatewayv1.RouteNamespaces{From: ptr.To(gatewayv1.NamespacesFromAll)},
+		},
+	}
+
+	ciliumGW := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "cilium-gw", Namespace: "default"},
+		Spec:       gatewayv1.GatewaySpec{GatewayClassName: "cilium", Listeners: []gatewayv1.Listener{listener}},
+	}
+	otherGW := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "other-gw", Namespace: "default"},
+		Spec:       gatewayv1.GatewaySpec{GatewayClassName: "other", Listeners: []gatewayv1.Listener{listener}},
+	}
+
+	t.Run("setHTTPRouteStatuses sets related parent statuses", func(t *testing.T) {
+		ctx := t.Context()
+
+		validRoute := &gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "default"},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{Name: gatewayv1.ObjectName(ciliumGW.Name)},
+						{Name: gatewayv1.ObjectName(otherGW.Name)},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{{
+					Matches: []gatewayv1.HTTPRouteMatch{{
+						Path: &gatewayv1.HTTPPathMatch{
+							Type:  ptr.To(gatewayv1.PathMatchRegularExpression),
+							Value: ptr.To("^/api/v1$"),
+						},
+					}},
+				}},
+			},
+		}
+
+		invalidRoute := &gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "invalid-route", Namespace: "default"},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{Name: gatewayv1.ObjectName(ciliumGW.Name)},
+						{Name: gatewayv1.ObjectName(otherGW.Name)},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{{
+					Matches: []gatewayv1.HTTPRouteMatch{{
+						Path: &gatewayv1.HTTPPathMatch{
+							Type:  ptr.To(gatewayv1.PathMatchRegularExpression),
+							Value: ptr.To("[invalid"),
+						},
+					}},
+				}},
+			},
+		}
+
+		r, c := testReconciler(t, ciliumGWClass, ciliumGW, otherGWClass, otherGW, validRoute, invalidRoute)
+
+		hrList := &gatewayv1.HTTPRouteList{}
+		require.NoError(t, c.List(ctx, hrList))
+		require.NoError(t, r.setHTTPRouteStatuses(r.logger, ctx, hrList, &gatewayv1beta1.ReferenceGrantList{}))
+
+		var updatedValidRoute, updatedInvalidRoute gatewayv1.HTTPRoute
+		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))
+		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: invalidRoute.Name, Namespace: invalidRoute.Namespace}, &updatedInvalidRoute))
+
+		require.Len(t, updatedValidRoute.Status.Parents, 1, "Should not set status of unrelated parent")
+		assert.EqualValues(t, controllerName, updatedValidRoute.Status.Parents[0].ControllerName)
+
+		validAcceptedCond := findRouteAcceptedCondition(updatedValidRoute.Status.Parents[0].Conditions)
+		assert.NotNil(t, validAcceptedCond)
+		assert.Equal(t, metav1.ConditionTrue, validAcceptedCond.Status)
+
+		require.Len(t, updatedInvalidRoute.Status.Parents, 1, "Should not set status of unrelated parent")
+		assert.EqualValues(t, controllerName, updatedInvalidRoute.Status.Parents[0].ControllerName)
+
+		invalidAcceptedCond := findRouteAcceptedCondition(updatedInvalidRoute.Status.Parents[0].Conditions)
+		assert.NotNil(t, invalidAcceptedCond)
+		assert.Equal(t, metav1.ConditionFalse, invalidAcceptedCond.Status)
+	})
+
+	t.Run("setGRPCRouteStatuses sets related parent statuses", func(t *testing.T) {
+		ctx := t.Context()
+
+		validRoute := &gatewayv1.GRPCRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "default"},
+			Spec: gatewayv1.GRPCRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{Name: gatewayv1.ObjectName(ciliumGW.Name)},
+						{Name: gatewayv1.ObjectName(otherGW.Name)},
+					},
+				},
+				Rules: []gatewayv1.GRPCRouteRule{{
+					Matches: []gatewayv1.GRPCRouteMatch{{
+						Method: &gatewayv1.GRPCMethodMatch{
+							Type:    ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+							Service: ptr.To("^ordersV[12]$"),
+						},
+					}},
+				}},
+			},
+		}
+
+		invalidRoute := &gatewayv1.GRPCRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "invalid-route", Namespace: "default"},
+			Spec: gatewayv1.GRPCRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{Name: gatewayv1.ObjectName(ciliumGW.Name)},
+						{Name: gatewayv1.ObjectName(otherGW.Name)},
+					},
+				},
+				Rules: []gatewayv1.GRPCRouteRule{{
+					Matches: []gatewayv1.GRPCRouteMatch{{
+						Method: &gatewayv1.GRPCMethodMatch{
+							Type:    ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+							Service: ptr.To("(unclosed"),
+						},
+					}},
+				}},
+			},
+		}
+
+		r, c := testReconciler(t, ciliumGWClass, ciliumGW, otherGWClass, otherGW, validRoute, invalidRoute)
+
+		hrList := &gatewayv1.GRPCRouteList{}
+		require.NoError(t, c.List(ctx, hrList))
+		require.NoError(t, r.setGRPCRouteStatuses(r.logger, ctx, hrList, &gatewayv1beta1.ReferenceGrantList{}))
+
+		var updatedValidRoute, updatedInvalidRoute gatewayv1.GRPCRoute
+		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))
+		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: invalidRoute.Name, Namespace: invalidRoute.Namespace}, &updatedInvalidRoute))
+
+		require.Len(t, updatedValidRoute.Status.Parents, 1, "Should not set status of unrelated parent")
+		assert.EqualValues(t, controllerName, updatedValidRoute.Status.Parents[0].ControllerName)
+
+		validAcceptedCond := findRouteAcceptedCondition(updatedValidRoute.Status.Parents[0].Conditions)
+		assert.NotNil(t, validAcceptedCond)
+		assert.Equal(t, metav1.ConditionTrue, validAcceptedCond.Status)
+
+		require.Len(t, updatedInvalidRoute.Status.Parents, 1, "Should not set status of unrelated parent")
+		assert.EqualValues(t, controllerName, updatedInvalidRoute.Status.Parents[0].ControllerName)
+
+		invalidAcceptedCond := findRouteAcceptedCondition(updatedInvalidRoute.Status.Parents[0].Conditions)
+		assert.NotNil(t, invalidAcceptedCond)
+		assert.Equal(t, metav1.ConditionFalse, invalidAcceptedCond.Status)
+	})
 }
