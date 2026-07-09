@@ -1407,8 +1407,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.4.1"
-    digest: "sha256:f0c656830e856d26b24b0e144df1f8b327d3b46748d76a630514111fc365b697"
+    tag: "v0.4.6"
+    digest: "sha256:511cedee817713fdf72db7e32fffb4b90da7747661b95180064f18198877626c"
     useDigest: true
     pullPolicy: "Always"
   # @schema
@@ -2043,8 +2043,8 @@ hubble:
         # @schema
         override: ~
         repository: "quay.io/cilium/hubble-ui-backend"
-        tag: "v0.13.3"
-        digest: "sha256:db1454e45dc39ca41fbf7cad31eec95d99e5b9949c39daaad0fa81ef29d56953"
+        tag: "v0.13.5"
+        digest: "sha256:fac0c300ae119274edca11fd89b1ad23c788792d8bc4ea2ba631c709e8d3c688"
         useDigest: true
         pullPolicy: "Always"
       # -- Hubble-ui backend security context.
@@ -2076,8 +2076,8 @@ hubble:
         # @schema
         override: ~
         repository: "quay.io/cilium/hubble-ui"
-        tag: "v0.13.3"
-        digest: "sha256:661d5de7050182d495c6497ff0b007a7a1e379648e60830dd68c4d78ae21761d"
+        tag: "v0.13.5"
+        digest: "sha256:f7d514fc54d784ed6df9d58cf0e97648b143f92b766dd1780ed3fc845bd4c516"
         useDigest: true
         pullPolicy: "Always"
       # -- Hubble-ui frontend security context.
@@ -3483,8 +3483,8 @@ nodeinit:
     # @schema
     override: ~
     repository: "quay.io/cilium/startup-script"
-    tag: "1773335249-e45b074"
-    digest: "sha256:bf1944bbdfd073bbb2b8d9c5baa315267a552aec6942102f930d2a7aa7ddc0e1"
+    tag: "1782916218-36ae25f"
+    digest: "sha256:f99e2beda7324e93ba04d6240d9626a6b9ab023d7d56e3b029d3d9c823ce63ef"
     useDigest: true
     pullPolicy: "Always"
   # -- The priority class to use for the nodeinit pod.
@@ -4401,8 +4401,8 @@ authentication:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-agent"
-            tag: "1.14.4"
-            digest: "sha256:f93996a9396ec4042a48042085c2abf1a0f8f0f3b339571e06ebfebbf94bb830"
+            tag: "1.15.1"
+            digest: "sha256:501ea7072748adb74d1f9ac3320ddceedcf3b8c4a1cc9d2b4bedd427d277475b"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE agent service account
@@ -4456,8 +4456,8 @@ authentication:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-server"
-            tag: "1.14.4"
-            digest: "sha256:27c7d356768b8641c569745e1121328affeb4aaabe0c974d33ff92dddecf30ef"
+            tag: "1.15.1"
+            digest: "sha256:abfb368f538557646d5eb138ab0854361b79fa5ae36243ca5efe378dcbe85d61"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE server service account
