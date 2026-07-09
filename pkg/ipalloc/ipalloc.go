@@ -638,9 +638,15 @@ func (u uint128) less(other uint128) bool {
 }
 
 func (u uint128) sub(other uint128) uint128 {
+	hi := u.hi - other.hi
+	lo := u.lo - other.lo
+	if u.lo < other.lo {
+		hi--
+	}
+
 	return uint128{
-		hi: u.hi - other.hi,
-		lo: u.lo - other.lo,
+		hi: hi,
+		lo: lo,
 	}
 }
 

@@ -279,6 +279,22 @@ func TestHashAlloc_AllocAny(t *testing.T) {
 	require.Equal(t, netip.MustParseAddr("10.0.0.0"), ip)
 }
 
+func TestHashAlloc_AllocAnyPrefersSmallestIPv6BlockAcrossLowWordBoundary(t *testing.T) {
+	alloc, err := NewHashAllocator[bool](
+		netip.MustParseAddr("2001:db8::ffff:ffff:ffff:fff0"),
+		netip.MustParseAddr("2001:db8:0:1::30"),
+		10,
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, alloc.Alloc(netip.MustParseAddr("2001:db8::ffff:ffff:ffff:fffb"), true))
+	require.NoError(t, alloc.Alloc(netip.MustParseAddr("2001:db8:0:1::3"), true))
+
+	ip, err := alloc.AllocAny(true)
+	require.NoError(t, err)
+	require.Equal(t, netip.MustParseAddr("2001:db8::ffff:ffff:ffff:fffc"), ip)
+}
+
 func TestHashAlloc_AllocAnyFull(t *testing.T) {
 	alloc, err := NewHashAllocator[bool](
 		netip.MustParseAddr("10.0.0.0"),
