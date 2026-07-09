@@ -126,6 +126,15 @@
       "minimumReleaseAge": "5 days"
     },
     {
+      // Docker Hub is the only Docker registry that currently supports release
+      // timestamps, causing updates to be never proposed by Renovate for all
+      // other registries. Hence, let's enable the "timestamp-optional" option,
+      // which unfortunately effectively disables the cooldown period for them.
+      // https://docs.renovatebot.com/key-concepts/minimum-release-age/#which-registries-support-release-timestamps
+      "matchDatasources": ["docker"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional",
+    },
+    {
       // Do not pin or update digests for self-referenced cilium/cilium GitHub
       // Actions and reusable workflows (e.g.,
       // cilium/cilium/.github/actions/set-commit-status@<sha> # main or
