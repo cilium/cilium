@@ -235,5 +235,10 @@ func (p defaultPoll) Poll(
 	interval, duration time.Duration,
 	conditionFn func() (bool, error),
 ) error {
-	return wait.Poll(interval, duration, conditionFn)
+	// immediate is false to match the behavior of the deprecated wait.Poll,
+	// which waited one interval before the first condition check.
+	return wait.PollUntilContextTimeout(context.Background(), interval, duration, false,
+		func(context.Context) (bool, error) {
+			return conditionFn()
+		})
 }
