@@ -23,6 +23,14 @@
 #include "stubs.h"
 #include "trace.h"
 
+/* We only need to SNAT ICMPv4 traffic if BPF masquerading or inter-cluster
+ * SNAT are enabled. If they are disabled, we only SNAT replies from service
+ * backends and we do not currently support ICMP replies from service backends.
+ */
+#if defined(ENABLE_MASQUERADE_IPV4) || defined(ENABLE_INTER_CLUSTER_SNAT)
+# define ENABLE_SNAT_ICMPV4 1
+#endif
+
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
 	NAT_DIR_INGRESS = TUPLE_F_IN,
@@ -702,6 +710,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	return NAT_PUNT_TO_STACK;
 }
 
+#ifdef ENABLE_SNAT_ICMPV4
 static __always_inline __maybe_unused int
 snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_header)
 {
@@ -733,9 +742,9 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
+# ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
-#endif /* ENABLE_SCTP */
+# endif /* ENABLE_SCTP */
 		/* No reasons to handle IP fragmentation for this case as it is
 		 * expected that DF isn't set for this particular context.
 		 */
@@ -783,6 +792,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 				       tuple.saddr, state->to_saddr, IPV4_SADDR_OFF,
 				       0, 0, 0);
 }
+#endif /* ENABLE_SNAT_ICMPV4 */
 
 static __always_inline int
 __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
@@ -816,7 +826,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	    const struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct icmphdr icmphdr __align_stack_8;
+	struct icmphdr icmphdr __align_stack_8 __maybe_unused;
 	__u16 port_off;
 	int ret;
 
@@ -836,6 +846,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		ipv4_ct_tuple_swap_ports(tuple);
 		port_off = TCP_SPORT_OFF;
 		break;
+#ifdef ENABLE_SNAT_ICMPV4
 	case IPPROTO_ICMP:
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
@@ -868,6 +879,7 @@ nat_icmp_v4:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
 		break;
+#endif /* ENABLE_SNAT_ICMPV4 */
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
@@ -879,6 +891,7 @@ nat_icmp_v4:
 			     port_off, trace, ext_err);
 }
 
+#ifdef ENABLE_SNAT_ICMPV4
 static __always_inline __maybe_unused int
 snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 				  __u64 inner_l3_off,
@@ -953,18 +966,19 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 				       tuple.daddr, (*state)->to_daddr, IPV4_SADDR_OFF,
 				       tuple.dport, (*state)->to_dport, port_off);
 }
+#endif /* ENABLE_SNAT_ICMPV4 */
 
 static __always_inline __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
-	struct icmphdr icmphdr __align_stack_8;
+	struct icmphdr icmphdr __align_stack_8 __maybe_unused;
+	__u64 off, inner_l3_off __maybe_unused;
 	struct ipv4_nat_entry *state = NULL;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
 	bool has_l4_header = true;
-	__u64 off, inner_l3_off;
 	__be16 to_dport = 0;
 	__u16 port_off = 0;
 	int ret;
@@ -991,6 +1005,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		ipv4_ct_tuple_swap_ports(&tuple);
 		port_off = TCP_DPORT_OFF;
 		break;
+#ifdef ENABLE_SNAT_ICMPV4
 	case IPPROTO_ICMP:
 		if (ctx_load_bytes(ctx, (__u32)off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
@@ -1027,6 +1042,7 @@ rev_nat_icmp_v4:
 			return NAT_PUNT_TO_STACK;
 		}
 		break;
+#endif /* ENABLE_SNAT_ICMPV4 */
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
@@ -1041,7 +1057,7 @@ rev_nat_icmp_v4:
 	/* Skip port rewrite for ICMP_DEST_UNREACH by passing old_port == new_port == 0. */
 	to_dport = state->to_dport;
 
-rewrite:
+rewrite: __maybe_unused
 	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN, has_l4_header, (int)off,
 				       tuple.daddr, state->to_daddr, IPV4_DADDR_OFF,
 				       tuple.dport, to_dport, port_off);
