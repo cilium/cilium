@@ -11,6 +11,7 @@
 #include <linux/in.h>
 #include <linux/socket.h>
 
+#include "auxvars.h"
 #include "endian.h"
 #include "eth.h"
 #include "ipv6_core.h"
@@ -377,6 +378,8 @@ struct ipv6_ct_tuple {
 	__u8		flags;
 } __packed;
 
+DEFINE_AUX(struct ipv6_ct_tuple, ipv6_ct_tuple);
+
 struct ipv4_ct_tuple {
 	/* Address fields are reversed, i.e.,
 	 * these field names are correct for reply direction traffic.
@@ -391,6 +394,8 @@ struct ipv4_ct_tuple {
 	__u8		nexthdr;
 	__u8		flags;
 } __packed;
+
+DEFINE_AUX(struct ipv4_ct_tuple, ipv4_ct_tuple);
 
 struct lb6_reverse_nat {
 	union v6addr address;
