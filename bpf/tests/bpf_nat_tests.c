@@ -9,6 +9,7 @@
 #define ENABLE_SCTP
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
+#define ENABLE_MASQUERADE_IPV4
 #include <bpf/config/node.h>
 
 #define DEBUG
