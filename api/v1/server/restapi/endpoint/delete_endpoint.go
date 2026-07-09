@@ -29,13 +29,11 @@ func NewDeleteEndpoint(ctx *middleware.Context, handler DeleteEndpointHandler) *
 	return &DeleteEndpoint{Context: ctx, Handler: handler}
 }
 
-/*
-	DeleteEndpoint swagger:route DELETE /endpoint endpoint deleteEndpoint
-
-# Deletes a list of endpoints
-
-Deletes a list of endpoints that have endpoints matching the provided properties
-*/
+// DeleteEndpoint swagger:route DELETE /endpoint endpoint deleteEndpoint
+//
+// # Deletes a list of endpoints
+//
+// Deletes a list of endpoints that have endpoints matching the provided properties
 type DeleteEndpoint struct {
 	Context *middleware.Context
 	Handler DeleteEndpointHandler

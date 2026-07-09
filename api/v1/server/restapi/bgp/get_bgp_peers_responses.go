@@ -15,16 +15,12 @@ import (
 // GetBgpPeersOKCode is the HTTP code returned for type GetBgpPeersOK
 const GetBgpPeersOKCode int = 200
 
-/*
-GetBgpPeersOK Success
-
-swagger:response getBgpPeersOK
-*/
+// GetBgpPeersOK Success
+//
+// swagger:response getBgpPeersOK
 type GetBgpPeersOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.BgpPeer `json:"body,omitempty"`
 }
 
@@ -63,16 +59,12 @@ func (o *GetBgpPeersOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 // GetBgpPeersInternalServerErrorCode is the HTTP code returned for type GetBgpPeersInternalServerError
 const GetBgpPeersInternalServerErrorCode int = 500
 
-/*
-GetBgpPeersInternalServerError Internal Server Error
-
-swagger:response getBgpPeersInternalServerError
-*/
+// GetBgpPeersInternalServerError Internal Server Error
+//
+// swagger:response getBgpPeersInternalServerError
 type GetBgpPeersInternalServerError struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -106,16 +98,12 @@ func (o *GetBgpPeersInternalServerError) WriteResponse(rw http.ResponseWriter, p
 // GetBgpPeersDisabledCode is the HTTP code returned for type GetBgpPeersDisabled
 const GetBgpPeersDisabledCode int = 501
 
-/*
-GetBgpPeersDisabled BGP Control Plane disabled
-
-swagger:response getBgpPeersDisabled
-*/
+// GetBgpPeersDisabled BGP Control Plane disabled
+//
+// swagger:response getBgpPeersDisabled
 type GetBgpPeersDisabled struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

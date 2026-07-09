@@ -40,11 +40,9 @@ func NewGetClusterNodesOK() *GetClusterNodesOK {
 	return &GetClusterNodesOK{}
 }
 
-/*
-GetClusterNodesOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetClusterNodesOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetClusterNodesOK struct {
 	Payload *models.ClusterNodeStatus
 }

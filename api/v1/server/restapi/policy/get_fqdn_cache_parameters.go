@@ -29,20 +29,14 @@ func NewGetFqdnCacheParams() GetFqdnCacheParams {
 type GetFqdnCacheParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*A CIDR range of IPs
-	  In: query
-	*/
+	// A CIDR range of IPs
+	// In: query
 	Cidr *string
-
-	/*A toFQDNs compatible matchPattern expression
-	  In: query
-	*/
+	// A toFQDNs compatible matchPattern expression
+	// In: query
 	Matchpattern *string
-
-	/*Source from which FQDN entries come from
-	  In: query
-	*/
+	// Source from which FQDN entries come from
+	// In: query
 	Source *string
 }
 

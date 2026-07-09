@@ -52,11 +52,9 @@ func NewGetEndpointIDConfigOK() *GetEndpointIDConfigOK {
 	return &GetEndpointIDConfigOK{}
 }
 
-/*
-GetEndpointIDConfigOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetEndpointIDConfigOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetEndpointIDConfigOK struct {
 	Payload *models.EndpointConfigurationStatus
 }
@@ -122,11 +120,9 @@ func NewGetEndpointIDConfigNotFound() *GetEndpointIDConfigNotFound {
 	return &GetEndpointIDConfigNotFound{}
 }
 
-/*
-GetEndpointIDConfigNotFound describes a response with status code 404, with default header values.
-
-Endpoint not found
-*/
+// GetEndpointIDConfigNotFound describes a response with status code 404, with default header values.
+//
+// Endpoint not found
 type GetEndpointIDConfigNotFound struct {
 }
 
@@ -178,11 +174,9 @@ func NewGetEndpointIDConfigTooManyRequests() *GetEndpointIDConfigTooManyRequests
 	return &GetEndpointIDConfigTooManyRequests{}
 }
 
-/*
-GetEndpointIDConfigTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// GetEndpointIDConfigTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type GetEndpointIDConfigTooManyRequests struct {
 }
 

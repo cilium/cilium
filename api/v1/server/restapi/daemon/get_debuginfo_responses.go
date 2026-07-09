@@ -15,16 +15,12 @@ import (
 // GetDebuginfoOKCode is the HTTP code returned for type GetDebuginfoOK
 const GetDebuginfoOKCode int = 200
 
-/*
-GetDebuginfoOK Success
-
-swagger:response getDebuginfoOK
-*/
+// GetDebuginfoOK Success
+//
+// swagger:response getDebuginfoOK
 type GetDebuginfoOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.DebugInfo `json:"body,omitempty"`
 }
 
@@ -60,16 +56,12 @@ func (o *GetDebuginfoOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // GetDebuginfoFailureCode is the HTTP code returned for type GetDebuginfoFailure
 const GetDebuginfoFailureCode int = 500
 
-/*
-GetDebuginfoFailure DebugInfo get failed
-
-swagger:response getDebuginfoFailure
-*/
+// GetDebuginfoFailure DebugInfo get failed
+//
+// swagger:response getDebuginfoFailure
 type GetDebuginfoFailure struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

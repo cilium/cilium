@@ -66,16 +66,14 @@ GetMapNameEventsParams contains all the parameters to send to the API endpoint
 */
 type GetMapNameEventsParams struct {
 
-	/* Follow.
-
-	   Whether to follow streamed requests
-	*/
+	// Follow.
+	//
+	// Whether to follow streamed requests
 	Follow *bool
 
-	/* Name.
-
-	   Name of map
-	*/
+	// Name.
+	//
+	// Name of map
 	Name string
 
 	HTTPClient *http.Client

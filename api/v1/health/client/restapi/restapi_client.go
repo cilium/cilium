@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for restapi API.
-*/
+// Client for restapi API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -70,20 +68,17 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-	GetHealthzgets health of cilium node.
-
-	Returns health and status information of the local node including
-
-load and uptime, as well as the status of related components including
-the Cilium daemon.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetHealthzContext] instead.
-*/
+// GetHealthz gets health of cilium node.
+//
+// Returns health and status information of the local node including
+// load and uptime, as well as the status of related components including
+// the Cilium daemon.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetHealthzContext] instead.
 func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -95,17 +90,14 @@ func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*Ge
 	return a.GetHealthzContext(ctx, params, opts...)
 }
 
-/*
-	GetHealthzContextgets health of cilium node.
-
-	Returns health and status information of the local node including
-
-load and uptime, as well as the status of related components including
-the Cilium daemon.
-.
-
-	Do not use the deprecated [GetHealthzParams.Context] with this method: it would be ignored.
-*/
+// GetHealthzContext gets health of cilium node.
+//
+// Returns health and status information of the local node including
+// load and uptime, as well as the status of related components including
+// the Cilium daemon.
+// .
+//
+// Do not use the deprecated [GetHealthzParams.Context] with this method: it would be ignored.
 func (a *Client) GetHealthzContext(ctx context.Context, params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

@@ -66,11 +66,10 @@ GetEndpointParams contains all the parameters to send to the API endpoint
 */
 type GetEndpointParams struct {
 
-	/* Labels.
-
-	   List of labels
-
-	*/
+	// Labels.
+	//
+	// List of labels
+	//
 	Labels models.Labels
 
 	HTTPClient *http.Client

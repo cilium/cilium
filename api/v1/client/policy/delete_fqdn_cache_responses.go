@@ -52,11 +52,9 @@ func NewDeleteFqdnCacheOK() *DeleteFqdnCacheOK {
 	return &DeleteFqdnCacheOK{}
 }
 
-/*
-DeleteFqdnCacheOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// DeleteFqdnCacheOK describes a response with status code 200, with default header values.
+//
+// Success
 type DeleteFqdnCacheOK struct {
 }
 
@@ -108,11 +106,9 @@ func NewDeleteFqdnCacheBadRequest() *DeleteFqdnCacheBadRequest {
 	return &DeleteFqdnCacheBadRequest{}
 }
 
-/*
-DeleteFqdnCacheBadRequest describes a response with status code 400, with default header values.
-
-Invalid request (error parsing parameters)
-*/
+// DeleteFqdnCacheBadRequest describes a response with status code 400, with default header values.
+//
+// Invalid request (error parsing parameters)
 type DeleteFqdnCacheBadRequest struct {
 	Payload models.Error
 }
@@ -176,11 +172,9 @@ func NewDeleteFqdnCacheForbidden() *DeleteFqdnCacheForbidden {
 	return &DeleteFqdnCacheForbidden{}
 }
 
-/*
-DeleteFqdnCacheForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// DeleteFqdnCacheForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type DeleteFqdnCacheForbidden struct {
 }
 

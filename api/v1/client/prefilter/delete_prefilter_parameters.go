@@ -66,10 +66,9 @@ DeletePrefilterParams contains all the parameters to send to the API endpoint
 */
 type DeletePrefilterParams struct {
 
-	/* PrefilterSpec.
-
-	   List of CIDR ranges for filter table
-	*/
+	// PrefilterSpec.
+	//
+	// List of CIDR ranges for filter table
 	PrefilterSpec *models.PrefilterSpec
 
 	HTTPClient *http.Client

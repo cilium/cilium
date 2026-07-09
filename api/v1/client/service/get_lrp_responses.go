@@ -40,11 +40,9 @@ func NewGetLrpOK() *GetLrpOK {
 	return &GetLrpOK{}
 }
 
-/*
-GetLrpOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetLrpOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetLrpOK struct {
 	Payload []*models.LRPSpec
 }

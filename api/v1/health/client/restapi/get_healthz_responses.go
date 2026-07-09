@@ -46,11 +46,9 @@ func NewGetHealthzOK() *GetHealthzOK {
 	return &GetHealthzOK{}
 }
 
-/*
-GetHealthzOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetHealthzOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetHealthzOK struct {
 	Payload *models.HealthResponse
 }
@@ -116,11 +114,9 @@ func NewGetHealthzFailed() *GetHealthzFailed {
 	return &GetHealthzFailed{}
 }
 
-/*
-GetHealthzFailed describes a response with status code 500, with default header values.
-
-Failed to contact local Cilium daemon
-*/
+// GetHealthzFailed describes a response with status code 500, with default header values.
+//
+// Failed to contact local Cilium daemon
 type GetHealthzFailed struct {
 	Payload models.Error
 }

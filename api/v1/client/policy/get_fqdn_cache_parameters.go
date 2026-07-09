@@ -65,22 +65,19 @@ GetFqdnCacheParams contains all the parameters to send to the API endpoint
 */
 type GetFqdnCacheParams struct {
 
-	/* Cidr.
-
-	   A CIDR range of IPs
-	*/
+	// Cidr.
+	//
+	// A CIDR range of IPs
 	Cidr *string
 
-	/* Matchpattern.
-
-	   A toFQDNs compatible matchPattern expression
-	*/
+	// Matchpattern.
+	//
+	// A toFQDNs compatible matchPattern expression
 	Matchpattern *string
 
-	/* Source.
-
-	   Source from which FQDN entries come from
-	*/
+	// Source.
+	//
+	// Source from which FQDN entries come from
 	Source *string
 
 	HTTPClient *http.Client

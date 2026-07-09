@@ -29,14 +29,12 @@ func NewGetFqdnNames(ctx *middleware.Context, handler GetFqdnNamesHandler) *GetF
 	return &GetFqdnNames{Context: ctx, Handler: handler}
 }
 
-/*
-	GetFqdnNames swagger:route GET /fqdn/names policy getFqdnNames
-
-# List internal DNS selector representations
-
-Retrieves the list of DNS-related fields (names to poll, selectors and
-their corresponding regexes).
-*/
+// GetFqdnNames swagger:route GET /fqdn/names policy getFqdnNames
+//
+// # List internal DNS selector representations
+//
+// Retrieves the list of DNS-related fields (names to poll, selectors and
+// their corresponding regexes).
 type GetFqdnNames struct {
 	Context *middleware.Context
 	Handler GetFqdnNamesHandler

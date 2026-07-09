@@ -29,11 +29,9 @@ func NewGetIdentityEndpoints(ctx *middleware.Context, handler GetIdentityEndpoin
 	return &GetIdentityEndpoints{Context: ctx, Handler: handler}
 }
 
-/*
-	GetIdentityEndpoints swagger:route GET /identity/endpoints policy getIdentityEndpoints
-
-Retrieve identities which are being used by local endpoints
-*/
+// GetIdentityEndpoints swagger:route GET /identity/endpoints policy getIdentityEndpoints
+//
+// Retrieve identities which are being used by local endpoints
 type GetIdentityEndpoints struct {
 	Context *middleware.Context
 	Handler GetIdentityEndpointsHandler

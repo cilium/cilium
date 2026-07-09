@@ -29,13 +29,11 @@ func NewGetHealthz(ctx *middleware.Context, handler GetHealthzHandler) *GetHealt
 	return &GetHealthz{Context: ctx, Handler: handler}
 }
 
-/*
-	GetHealthz swagger:route GET /healthz operator getHealthz
-
-# Get health of Cilium operator
-
-Returns the status of cilium operator instance.
-*/
+// GetHealthz swagger:route GET /healthz operator getHealthz
+//
+// # Get health of Cilium operator
+//
+// Returns the status of cilium operator instance.
 type GetHealthz struct {
 	Context *middleware.Context
 	Handler GetHealthzHandler

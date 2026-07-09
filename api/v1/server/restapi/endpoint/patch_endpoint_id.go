@@ -29,13 +29,11 @@ func NewPatchEndpointID(ctx *middleware.Context, handler PatchEndpointIDHandler)
 	return &PatchEndpointID{Context: ctx, Handler: handler}
 }
 
-/*
-	PatchEndpointID swagger:route PATCH /endpoint/{id} endpoint patchEndpointId
-
-# Modify existing endpoint
-
-Applies the endpoint change request to an existing endpoint
-*/
+// PatchEndpointID swagger:route PATCH /endpoint/{id} endpoint patchEndpointId
+//
+// # Modify existing endpoint
+//
+// Applies the endpoint change request to an existing endpoint
 type PatchEndpointID struct {
 	Context *middleware.Context
 	Handler PatchEndpointIDHandler

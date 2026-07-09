@@ -51,11 +51,9 @@ func NewGetHealthzOK() *GetHealthzOK {
 	return &GetHealthzOK{}
 }
 
-/*
-GetHealthzOK describes a response with status code 200, with default header values.
-
-Cilium operator is healthy
-*/
+// GetHealthzOK describes a response with status code 200, with default header values.
+//
+// Cilium operator is healthy
 type GetHealthzOK struct {
 	Payload string
 }
@@ -119,11 +117,9 @@ func NewGetHealthzInternalServerError() *GetHealthzInternalServerError {
 	return &GetHealthzInternalServerError{}
 }
 
-/*
-GetHealthzInternalServerError describes a response with status code 500, with default header values.
-
-Cilium operator is not healthy
-*/
+// GetHealthzInternalServerError describes a response with status code 500, with default header values.
+//
+// Cilium operator is not healthy
 type GetHealthzInternalServerError struct {
 	Payload string
 }
@@ -187,11 +183,9 @@ func NewGetHealthzNotImplemented() *GetHealthzNotImplemented {
 	return &GetHealthzNotImplemented{}
 }
 
-/*
-GetHealthzNotImplemented describes a response with status code 501, with default header values.
-
-Cilium operator health status not available
-*/
+// GetHealthzNotImplemented describes a response with status code 501, with default header values.
+//
+// Cilium operator health status not available
 type GetHealthzNotImplemented struct {
 	Payload string
 }

@@ -46,11 +46,9 @@ func NewGetMetricsOK() *GetMetricsOK {
 	return &GetMetricsOK{}
 }
 
-/*
-GetMetricsOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetMetricsOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetMetricsOK struct {
 	Payload []*models.Metric
 }
@@ -114,11 +112,9 @@ func NewGetMetricsFailed() *GetMetricsFailed {
 	return &GetMetricsFailed{}
 }
 
-/*
-GetMetricsFailed describes a response with status code 500, with default header values.
-
-Metrics cannot be retrieved
-*/
+// GetMetricsFailed describes a response with status code 500, with default header values.
+//
+// Metrics cannot be retrieved
 type GetMetricsFailed struct {
 }
 

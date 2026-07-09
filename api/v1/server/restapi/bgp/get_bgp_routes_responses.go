@@ -15,16 +15,12 @@ import (
 // GetBgpRoutesOKCode is the HTTP code returned for type GetBgpRoutesOK
 const GetBgpRoutesOKCode int = 200
 
-/*
-GetBgpRoutesOK Success
-
-swagger:response getBgpRoutesOK
-*/
+// GetBgpRoutesOK Success
+//
+// swagger:response getBgpRoutesOK
 type GetBgpRoutesOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.BgpRoute `json:"body,omitempty"`
 }
 
@@ -63,16 +59,12 @@ func (o *GetBgpRoutesOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // GetBgpRoutesInternalServerErrorCode is the HTTP code returned for type GetBgpRoutesInternalServerError
 const GetBgpRoutesInternalServerErrorCode int = 500
 
-/*
-GetBgpRoutesInternalServerError Internal Server Error
-
-swagger:response getBgpRoutesInternalServerError
-*/
+// GetBgpRoutesInternalServerError Internal Server Error
+//
+// swagger:response getBgpRoutesInternalServerError
 type GetBgpRoutesInternalServerError struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -106,16 +98,12 @@ func (o *GetBgpRoutesInternalServerError) WriteResponse(rw http.ResponseWriter, 
 // GetBgpRoutesDisabledCode is the HTTP code returned for type GetBgpRoutesDisabled
 const GetBgpRoutesDisabledCode int = 501
 
-/*
-GetBgpRoutesDisabled BGP Control Plane disabled
-
-swagger:response getBgpRoutesDisabled
-*/
+// GetBgpRoutesDisabled BGP Control Plane disabled
+//
+// swagger:response getBgpRoutesDisabled
 type GetBgpRoutesDisabled struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

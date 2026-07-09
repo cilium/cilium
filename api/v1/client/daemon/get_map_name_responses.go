@@ -46,11 +46,9 @@ func NewGetMapNameOK() *GetMapNameOK {
 	return &GetMapNameOK{}
 }
 
-/*
-GetMapNameOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetMapNameOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetMapNameOK struct {
 	Payload *models.BPFMap
 }
@@ -116,11 +114,9 @@ func NewGetMapNameNotFound() *GetMapNameNotFound {
 	return &GetMapNameNotFound{}
 }
 
-/*
-GetMapNameNotFound describes a response with status code 404, with default header values.
-
-Map not found
-*/
+// GetMapNameNotFound describes a response with status code 404, with default header values.
+//
+// Map not found
 type GetMapNameNotFound struct {
 }
 

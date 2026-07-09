@@ -52,11 +52,9 @@ func NewGetEndpointIDLabelsOK() *GetEndpointIDLabelsOK {
 	return &GetEndpointIDLabelsOK{}
 }
 
-/*
-GetEndpointIDLabelsOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetEndpointIDLabelsOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetEndpointIDLabelsOK struct {
 	Payload *models.LabelConfiguration
 }
@@ -122,11 +120,9 @@ func NewGetEndpointIDLabelsNotFound() *GetEndpointIDLabelsNotFound {
 	return &GetEndpointIDLabelsNotFound{}
 }
 
-/*
-GetEndpointIDLabelsNotFound describes a response with status code 404, with default header values.
-
-Endpoint not found
-*/
+// GetEndpointIDLabelsNotFound describes a response with status code 404, with default header values.
+//
+// Endpoint not found
 type GetEndpointIDLabelsNotFound struct {
 }
 
@@ -178,11 +174,9 @@ func NewGetEndpointIDLabelsTooManyRequests() *GetEndpointIDLabelsTooManyRequests
 	return &GetEndpointIDLabelsTooManyRequests{}
 }
 
-/*
-GetEndpointIDLabelsTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// GetEndpointIDLabelsTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type GetEndpointIDLabelsTooManyRequests struct {
 }
 

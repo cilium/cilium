@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for service API.
-*/
+// Client for service API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -76,14 +74,12 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-GetLrpretrieves list of all local redirect policies.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetLrpContext] instead.
-*/
+// GetLrp retrieves list of all local redirect policies.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetLrpContext] instead.
 func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -95,11 +91,9 @@ func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, 
 	return a.GetLrpContext(ctx, params, opts...)
 }
 
-/*
-GetLrpContextretrieves list of all local redirect policies.
-
-Do not use the deprecated [GetLrpParams.Context] with this method: it would be ignored.
-*/
+// GetLrpContext retrieves list of all local redirect policies.
+//
+// Do not use the deprecated [GetLrpParams.Context] with this method: it would be ignored.
 func (a *Client) GetLrpContext(ctx context.Context, params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -142,14 +136,12 @@ func (a *Client) GetLrpContext(ctx context.Context, params *GetLrpParams, opts .
 	panic(msg)
 }
 
-/*
-GetServiceretrieves list of all services.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetServiceContext] instead.
-*/
+// GetService retrieves list of all services.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetServiceContext] instead.
 func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -161,11 +153,9 @@ func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*Ge
 	return a.GetServiceContext(ctx, params, opts...)
 }
 
-/*
-GetServiceContextretrieves list of all services.
-
-Do not use the deprecated [GetServiceParams.Context] with this method: it would be ignored.
-*/
+// GetServiceContext retrieves list of all services.
+//
+// Do not use the deprecated [GetServiceParams.Context] with this method: it would be ignored.
 func (a *Client) GetServiceContext(ctx context.Context, params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

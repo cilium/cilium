@@ -66,7 +66,7 @@ func NewCiliumOperatorAPI(spec *loads.Document) *CiliumOperatorAPI {
 	}
 }
 
-/*CiliumOperatorAPI Cilium */
+// CiliumOperatorAPI Cilium
 type CiliumOperatorAPI struct {
 	spec            *loads.Document
 	context         *middleware.Context

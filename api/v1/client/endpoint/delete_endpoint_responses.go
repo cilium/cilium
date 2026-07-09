@@ -69,11 +69,9 @@ func NewDeleteEndpointOK() *DeleteEndpointOK {
 	return &DeleteEndpointOK{}
 }
 
-/*
-DeleteEndpointOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// DeleteEndpointOK describes a response with status code 200, with default header values.
+//
+// Success
 type DeleteEndpointOK struct {
 }
 
@@ -125,11 +123,9 @@ func NewDeleteEndpointErrors() *DeleteEndpointErrors {
 	return &DeleteEndpointErrors{}
 }
 
-/*
-DeleteEndpointErrors describes a response with status code 206, with default header values.
-
-Deleted with a number of errors encountered
-*/
+// DeleteEndpointErrors describes a response with status code 206, with default header values.
+//
+// Deleted with a number of errors encountered
 type DeleteEndpointErrors struct {
 	Payload int64
 }
@@ -193,11 +189,9 @@ func NewDeleteEndpointInvalid() *DeleteEndpointInvalid {
 	return &DeleteEndpointInvalid{}
 }
 
-/*
-DeleteEndpointInvalid describes a response with status code 400, with default header values.
-
-Invalid endpoint delete request
-*/
+// DeleteEndpointInvalid describes a response with status code 400, with default header values.
+//
+// Invalid endpoint delete request
 type DeleteEndpointInvalid struct {
 }
 
@@ -249,11 +243,9 @@ func NewDeleteEndpointNotFound() *DeleteEndpointNotFound {
 	return &DeleteEndpointNotFound{}
 }
 
-/*
-DeleteEndpointNotFound describes a response with status code 404, with default header values.
-
-No endpoints with provided parameters found
-*/
+// DeleteEndpointNotFound describes a response with status code 404, with default header values.
+//
+// No endpoints with provided parameters found
 type DeleteEndpointNotFound struct {
 }
 
@@ -305,11 +297,9 @@ func NewDeleteEndpointTooManyRequests() *DeleteEndpointTooManyRequests {
 	return &DeleteEndpointTooManyRequests{}
 }
 
-/*
-DeleteEndpointTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// DeleteEndpointTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type DeleteEndpointTooManyRequests struct {
 }
 
@@ -361,11 +351,9 @@ func NewDeleteEndpointServiceUnavailable() *DeleteEndpointServiceUnavailable {
 	return &DeleteEndpointServiceUnavailable{}
 }
 
-/*
-DeleteEndpointServiceUnavailable describes a response with status code 503, with default header values.
-
-Service Unavailable
-*/
+// DeleteEndpointServiceUnavailable describes a response with status code 503, with default header values.
+//
+// Service Unavailable
 type DeleteEndpointServiceUnavailable struct {
 }
 

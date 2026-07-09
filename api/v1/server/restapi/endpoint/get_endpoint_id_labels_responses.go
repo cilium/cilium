@@ -15,16 +15,12 @@ import (
 // GetEndpointIDLabelsOKCode is the HTTP code returned for type GetEndpointIDLabelsOK
 const GetEndpointIDLabelsOKCode int = 200
 
-/*
-GetEndpointIDLabelsOK Success
-
-swagger:response getEndpointIdLabelsOK
-*/
+// GetEndpointIDLabelsOK Success
+//
+// swagger:response getEndpointIdLabelsOK
 type GetEndpointIDLabelsOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.LabelConfiguration `json:"body,omitempty"`
 }
 
@@ -60,11 +56,9 @@ func (o *GetEndpointIDLabelsOK) WriteResponse(rw http.ResponseWriter, producer r
 // GetEndpointIDLabelsNotFoundCode is the HTTP code returned for type GetEndpointIDLabelsNotFound
 const GetEndpointIDLabelsNotFoundCode int = 404
 
-/*
-GetEndpointIDLabelsNotFound Endpoint not found
-
-swagger:response getEndpointIdLabelsNotFound
-*/
+// GetEndpointIDLabelsNotFound Endpoint not found
+//
+// swagger:response getEndpointIdLabelsNotFound
 type GetEndpointIDLabelsNotFound struct {
 }
 
@@ -85,11 +79,9 @@ func (o *GetEndpointIDLabelsNotFound) WriteResponse(rw http.ResponseWriter, prod
 // GetEndpointIDLabelsTooManyRequestsCode is the HTTP code returned for type GetEndpointIDLabelsTooManyRequests
 const GetEndpointIDLabelsTooManyRequestsCode int = 429
 
-/*
-GetEndpointIDLabelsTooManyRequests Rate-limiting too many requests in the given time frame
-
-swagger:response getEndpointIdLabelsTooManyRequests
-*/
+// GetEndpointIDLabelsTooManyRequests Rate-limiting too many requests in the given time frame
+//
+// swagger:response getEndpointIdLabelsTooManyRequests
 type GetEndpointIDLabelsTooManyRequests struct {
 }
 

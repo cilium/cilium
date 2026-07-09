@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for connectivity API.
-*/
+// Client for connectivity API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -76,19 +74,16 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-	GetStatusgets connectivity status of the cilium cluster.
-
-	Returns the connectivity status to all other cilium-health instances
-
-using interval-based probing.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetStatusContext] instead.
-*/
+// GetStatus gets connectivity status of the cilium cluster.
+//
+// Returns the connectivity status to all other cilium-health instances
+// using interval-based probing.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetStatusContext] instead.
 func (a *Client) GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -100,16 +95,13 @@ func (a *Client) GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetS
 	return a.GetStatusContext(ctx, params, opts...)
 }
 
-/*
-	GetStatusContextgets connectivity status of the cilium cluster.
-
-	Returns the connectivity status to all other cilium-health instances
-
-using interval-based probing.
-.
-
-	Do not use the deprecated [GetStatusParams.Context] with this method: it would be ignored.
-*/
+// GetStatusContext gets connectivity status of the cilium cluster.
+//
+// Returns the connectivity status to all other cilium-health instances
+// using interval-based probing.
+// .
+//
+// Do not use the deprecated [GetStatusParams.Context] with this method: it would be ignored.
 func (a *Client) GetStatusContext(ctx context.Context, params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -152,19 +144,16 @@ func (a *Client) GetStatusContext(ctx context.Context, params *GetStatusParams, 
 	panic(msg)
 }
 
-/*
-	PutStatusProberuns synchronous connectivity probe to determine status of the cilium cluster.
-
-	Runs a synchronous probe to all other cilium-health instances and
-
-returns the connectivity status.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.PutStatusProbeContext] instead.
-*/
+// PutStatusProbe runs synchronous connectivity probe to determine status of the cilium cluster.
+//
+// Runs a synchronous probe to all other cilium-health instances and
+// returns the connectivity status.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.PutStatusProbeContext] instead.
 func (a *Client) PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -176,16 +165,13 @@ func (a *Client) PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOpti
 	return a.PutStatusProbeContext(ctx, params, opts...)
 }
 
-/*
-	PutStatusProbeContextruns synchronous connectivity probe to determine status of the cilium cluster.
-
-	Runs a synchronous probe to all other cilium-health instances and
-
-returns the connectivity status.
-.
-
-	Do not use the deprecated [PutStatusProbeParams.Context] with this method: it would be ignored.
-*/
+// PutStatusProbeContext runs synchronous connectivity probe to determine status of the cilium cluster.
+//
+// Runs a synchronous probe to all other cilium-health instances and
+// returns the connectivity status.
+// .
+//
+// Do not use the deprecated [PutStatusProbeParams.Context] with this method: it would be ignored.
 func (a *Client) PutStatusProbeContext(ctx context.Context, params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

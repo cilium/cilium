@@ -29,11 +29,9 @@ func NewDeleteIpamIP(ctx *middleware.Context, handler DeleteIpamIPHandler) *Dele
 	return &DeleteIpamIP{Context: ctx, Handler: handler}
 }
 
-/*
-	DeleteIpamIP swagger:route DELETE /ipam/{ip} ipam deleteIpamIp
-
-Release an allocated IP address
-*/
+// DeleteIpamIP swagger:route DELETE /ipam/{ip} ipam deleteIpamIp
+//
+// Release an allocated IP address
 type DeleteIpamIP struct {
 	Context *middleware.Context
 	Handler DeleteIpamIPHandler

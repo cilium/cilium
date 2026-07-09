@@ -29,10 +29,8 @@ func NewDeleteFqdnCacheParams() DeleteFqdnCacheParams {
 type DeleteFqdnCacheParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*A toFQDNs compatible matchPattern expression
-	  In: query
-	*/
+	// A toFQDNs compatible matchPattern expression
+	// In: query
 	Matchpattern *string
 }
 

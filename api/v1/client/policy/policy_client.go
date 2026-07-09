@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for policy API.
-*/
+// Client for policy API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -130,20 +128,17 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-	DeleteFqdnCachedeletes matching DNS lookups from the policy generation cache.
-
-	Deletes matching DNS lookups from the cache, optionally restricted by
-
-DNS name. The removed IP data will no longer be used in generated
-policies.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.DeleteFqdnCacheContext] instead.
-*/
+// DeleteFqdnCache deletes matching DNS lookups from the policy generation cache.
+//
+// Deletes matching DNS lookups from the cache, optionally restricted by
+// DNS name. The removed IP data will no longer be used in generated
+// policies.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.DeleteFqdnCacheContext] instead.
 func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -155,17 +150,14 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOp
 	return a.DeleteFqdnCacheContext(ctx, params, opts...)
 }
 
-/*
-	DeleteFqdnCacheContextdeletes matching DNS lookups from the policy generation cache.
-
-	Deletes matching DNS lookups from the cache, optionally restricted by
-
-DNS name. The removed IP data will no longer be used in generated
-policies.
-.
-
-	Do not use the deprecated [DeleteFqdnCacheParams.Context] with this method: it would be ignored.
-*/
+// DeleteFqdnCacheContext deletes matching DNS lookups from the policy generation cache.
+//
+// Deletes matching DNS lookups from the cache, optionally restricted by
+// DNS name. The removed IP data will no longer be used in generated
+// policies.
+// .
+//
+// Do not use the deprecated [DeleteFqdnCacheParams.Context] with this method: it would be ignored.
 func (a *Client) DeleteFqdnCacheContext(ctx context.Context, params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -208,19 +200,16 @@ func (a *Client) DeleteFqdnCacheContext(ctx context.Context, params *DeleteFqdnC
 	panic(msg)
 }
 
-/*
-	GetFqdnCacheretrieves the list of DNS lookups intercepted from all endpoints.
-
-	Retrieves the list of DNS lookups intercepted from endpoints,
-
-optionally filtered by DNS name, CIDR IP range or source.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetFqdnCacheContext] instead.
-*/
+// GetFqdnCache retrieves the list of DNS lookups intercepted from all endpoints.
+//
+// Retrieves the list of DNS lookups intercepted from endpoints,
+// optionally filtered by DNS name, CIDR IP range or source.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetFqdnCacheContext] instead.
 func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -232,16 +221,13 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) 
 	return a.GetFqdnCacheContext(ctx, params, opts...)
 }
 
-/*
-	GetFqdnCacheContextretrieves the list of DNS lookups intercepted from all endpoints.
-
-	Retrieves the list of DNS lookups intercepted from endpoints,
-
-optionally filtered by DNS name, CIDR IP range or source.
-.
-
-	Do not use the deprecated [GetFqdnCacheParams.Context] with this method: it would be ignored.
-*/
+// GetFqdnCacheContext retrieves the list of DNS lookups intercepted from all endpoints.
+//
+// Retrieves the list of DNS lookups intercepted from endpoints,
+// optionally filtered by DNS name, CIDR IP range or source.
+// .
+//
+// Do not use the deprecated [GetFqdnCacheParams.Context] with this method: it would be ignored.
 func (a *Client) GetFqdnCacheContext(ctx context.Context, params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -284,19 +270,16 @@ func (a *Client) GetFqdnCacheContext(ctx context.Context, params *GetFqdnCachePa
 	panic(msg)
 }
 
-/*
-	GetFqdnCacheIDretrieves the list of DNS lookups intercepted from an endpoint.
-
-	Retrieves the list of DNS lookups intercepted from the specific endpoint,
-
-optionally filtered by endpoint id, DNS name, CIDR IP range or source.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetFqdnCacheIDContext] instead.
-*/
+// GetFqdnCacheID retrieves the list of DNS lookups intercepted from an endpoint.
+//
+// Retrieves the list of DNS lookups intercepted from the specific endpoint,
+// optionally filtered by endpoint id, DNS name, CIDR IP range or source.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetFqdnCacheIDContext] instead.
 func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -308,16 +291,13 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOpti
 	return a.GetFqdnCacheIDContext(ctx, params, opts...)
 }
 
-/*
-	GetFqdnCacheIDContextretrieves the list of DNS lookups intercepted from an endpoint.
-
-	Retrieves the list of DNS lookups intercepted from the specific endpoint,
-
-optionally filtered by endpoint id, DNS name, CIDR IP range or source.
-.
-
-	Do not use the deprecated [GetFqdnCacheIDParams.Context] with this method: it would be ignored.
-*/
+// GetFqdnCacheIDContext retrieves the list of DNS lookups intercepted from an endpoint.
+//
+// Retrieves the list of DNS lookups intercepted from the specific endpoint,
+// optionally filtered by endpoint id, DNS name, CIDR IP range or source.
+// .
+//
+// Do not use the deprecated [GetFqdnCacheIDParams.Context] with this method: it would be ignored.
 func (a *Client) GetFqdnCacheIDContext(ctx context.Context, params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -360,19 +340,16 @@ func (a *Client) GetFqdnCacheIDContext(ctx context.Context, params *GetFqdnCache
 	panic(msg)
 }
 
-/*
-	GetFqdnNameslists internal DNS selector representations.
-
-	Retrieves the list of DNS-related fields (names to poll, selectors and
-
-their corresponding regexes).
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetFqdnNamesContext] instead.
-*/
+// GetFqdnNames lists internal DNS selector representations.
+//
+// Retrieves the list of DNS-related fields (names to poll, selectors and
+// their corresponding regexes).
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetFqdnNamesContext] instead.
 func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -384,16 +361,13 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) 
 	return a.GetFqdnNamesContext(ctx, params, opts...)
 }
 
-/*
-	GetFqdnNamesContextlists internal DNS selector representations.
-
-	Retrieves the list of DNS-related fields (names to poll, selectors and
-
-their corresponding regexes).
-.
-
-	Do not use the deprecated [GetFqdnNamesParams.Context] with this method: it would be ignored.
-*/
+// GetFqdnNamesContext lists internal DNS selector representations.
+//
+// Retrieves the list of DNS-related fields (names to poll, selectors and
+// their corresponding regexes).
+// .
+//
+// Do not use the deprecated [GetFqdnNamesParams.Context] with this method: it would be ignored.
 func (a *Client) GetFqdnNamesContext(ctx context.Context, params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -436,20 +410,17 @@ func (a *Client) GetFqdnNamesContext(ctx context.Context, params *GetFqdnNamesPa
 	panic(msg)
 }
 
-/*
-	GetIPlists information about known IP addresses.
-
-	Retrieves a list of IPs with known associated information such as
-
-their identities, host addresses, Kubernetes pod names, etc.
-The list can optionally filtered by a CIDR IP range.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetIPContext] instead.
-*/
+// GetIP lists information about known IP addresses.
+//
+// Retrieves a list of IPs with known associated information such as
+// their identities, host addresses, Kubernetes pod names, etc.
+// The list can optionally filtered by a CIDR IP range.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetIPContext] instead.
 func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -461,17 +432,14 @@ func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, err
 	return a.GetIPContext(ctx, params, opts...)
 }
 
-/*
-	GetIPContextlists information about known IP addresses.
-
-	Retrieves a list of IPs with known associated information such as
-
-their identities, host addresses, Kubernetes pod names, etc.
-The list can optionally filtered by a CIDR IP range.
-.
-
-	Do not use the deprecated [GetIPParams.Context] with this method: it would be ignored.
-*/
+// GetIPContext lists information about known IP addresses.
+//
+// Retrieves a list of IPs with known associated information such as
+// their identities, host addresses, Kubernetes pod names, etc.
+// The list can optionally filtered by a CIDR IP range.
+// .
+//
+// Do not use the deprecated [GetIPParams.Context] with this method: it would be ignored.
 func (a *Client) GetIPContext(ctx context.Context, params *GetIPParams, opts ...ClientOption) (*GetIPOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -514,18 +482,15 @@ func (a *Client) GetIPContext(ctx context.Context, params *GetIPParams, opts ...
 	panic(msg)
 }
 
-/*
-	GetIdentityretrieves a list of identities that have metadata matching the provided parameters.
-
-	Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
-
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetIdentityContext] instead.
-*/
+// GetIdentity retrieves a list of identities that have metadata matching the provided parameters.
+//
+// Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetIdentityContext] instead.
 func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -537,15 +502,12 @@ func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*
 	return a.GetIdentityContext(ctx, params, opts...)
 }
 
-/*
-	GetIdentityContextretrieves a list of identities that have metadata matching the provided parameters.
-
-	Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
-
-.
-
-	Do not use the deprecated [GetIdentityParams.Context] with this method: it would be ignored.
-*/
+// GetIdentityContext retrieves a list of identities that have metadata matching the provided parameters.
+//
+// Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
+// .
+//
+// Do not use the deprecated [GetIdentityParams.Context] with this method: it would be ignored.
 func (a *Client) GetIdentityContext(ctx context.Context, params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -588,14 +550,12 @@ func (a *Client) GetIdentityContext(ctx context.Context, params *GetIdentityPara
 	panic(msg)
 }
 
-/*
-GetIdentityEndpointsretrieves identities which are being used by local endpoints.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetIdentityEndpointsContext] instead.
-*/
+// GetIdentityEndpoints retrieves identities which are being used by local endpoints.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetIdentityEndpointsContext] instead.
 func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -607,11 +567,9 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts .
 	return a.GetIdentityEndpointsContext(ctx, params, opts...)
 }
 
-/*
-GetIdentityEndpointsContextretrieves identities which are being used by local endpoints.
-
-Do not use the deprecated [GetIdentityEndpointsParams.Context] with this method: it would be ignored.
-*/
+// GetIdentityEndpointsContext retrieves identities which are being used by local endpoints.
+//
+// Do not use the deprecated [GetIdentityEndpointsParams.Context] with this method: it would be ignored.
 func (a *Client) GetIdentityEndpointsContext(ctx context.Context, params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -654,14 +612,12 @@ func (a *Client) GetIdentityEndpointsContext(ctx context.Context, params *GetIde
 	panic(msg)
 }
 
-/*
-GetIdentityIDretrieves identity.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetIdentityIDContext] instead.
-*/
+// GetIdentityID retrieves identity.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetIdentityIDContext] instead.
 func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -673,11 +629,9 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption
 	return a.GetIdentityIDContext(ctx, params, opts...)
 }
 
-/*
-GetIdentityIDContextretrieves identity.
-
-Do not use the deprecated [GetIdentityIDParams.Context] with this method: it would be ignored.
-*/
+// GetIdentityIDContext retrieves identity.
+//
+// Do not use the deprecated [GetIdentityIDParams.Context] with this method: it would be ignored.
 func (a *Client) GetIdentityIDContext(ctx context.Context, params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -720,19 +674,17 @@ func (a *Client) GetIdentityIDContext(ctx context.Context, params *GetIdentityID
 	panic(msg)
 }
 
-/*
-	GetPolicyretrieves entire policy tree.
-
-	Returns the entire policy tree with all children.
-
-Deprecated: will be removed in v1.19
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetPolicyContext] instead.
-*/
+// GetPolicy retrieves entire policy tree.
+//
+// Returns the entire policy tree with all children.
+//
+// Deprecated: will be removed in v1.19
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetPolicyContext] instead.
 func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -744,16 +696,14 @@ func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetP
 	return a.GetPolicyContext(ctx, params, opts...)
 }
 
-/*
-	GetPolicyContextretrieves entire policy tree.
-
-	Returns the entire policy tree with all children.
-
-Deprecated: will be removed in v1.19
-.
-
-	Do not use the deprecated [GetPolicyParams.Context] with this method: it would be ignored.
-*/
+// GetPolicyContext retrieves entire policy tree.
+//
+// Returns the entire policy tree with all children.
+//
+// Deprecated: will be removed in v1.19
+// .
+//
+// Do not use the deprecated [GetPolicyParams.Context] with this method: it would be ignored.
 func (a *Client) GetPolicyContext(ctx context.Context, params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -796,14 +746,12 @@ func (a *Client) GetPolicyContext(ctx context.Context, params *GetPolicyParams, 
 	panic(msg)
 }
 
-/*
-GetPolicySelectorssees what selectors match which identities.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetPolicySelectorsContext] instead.
-*/
+// GetPolicySelectors sees what selectors match which identities.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetPolicySelectorsContext] instead.
 func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -815,11 +763,9 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...Cl
 	return a.GetPolicySelectorsContext(ctx, params, opts...)
 }
 
-/*
-GetPolicySelectorsContextsees what selectors match which identities.
-
-Do not use the deprecated [GetPolicySelectorsParams.Context] with this method: it would be ignored.
-*/
+// GetPolicySelectorsContext sees what selectors match which identities.
+//
+// Do not use the deprecated [GetPolicySelectorsParams.Context] with this method: it would be ignored.
 func (a *Client) GetPolicySelectorsContext(ctx context.Context, params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -862,14 +808,12 @@ func (a *Client) GetPolicySelectorsContext(ctx context.Context, params *GetPolic
 	panic(msg)
 }
 
-/*
-GetPolicySubjectSelectorssees what subject selectors match which identities on the local node.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetPolicySubjectSelectorsContext] instead.
-*/
+// GetPolicySubjectSelectors sees what subject selectors match which identities on the local node.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetPolicySubjectSelectorsContext] instead.
 func (a *Client) GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -881,11 +825,9 @@ func (a *Client) GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsPara
 	return a.GetPolicySubjectSelectorsContext(ctx, params, opts...)
 }
 
-/*
-GetPolicySubjectSelectorsContextsees what subject selectors match which identities on the local node.
-
-Do not use the deprecated [GetPolicySubjectSelectorsParams.Context] with this method: it would be ignored.
-*/
+// GetPolicySubjectSelectorsContext sees what subject selectors match which identities on the local node.
+//
+// Do not use the deprecated [GetPolicySubjectSelectorsParams.Context] with this method: it would be ignored.
 func (a *Client) GetPolicySubjectSelectorsContext(ctx context.Context, params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

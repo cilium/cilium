@@ -15,16 +15,12 @@ import (
 // GetIdentityIDOKCode is the HTTP code returned for type GetIdentityIDOK
 const GetIdentityIDOKCode int = 200
 
-/*
-GetIdentityIDOK Success
-
-swagger:response getIdentityIdOK
-*/
+// GetIdentityIDOK Success
+//
+// swagger:response getIdentityIdOK
 type GetIdentityIDOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.Identity `json:"body,omitempty"`
 }
 
@@ -60,11 +56,9 @@ func (o *GetIdentityIDOK) WriteResponse(rw http.ResponseWriter, producer runtime
 // GetIdentityIDBadRequestCode is the HTTP code returned for type GetIdentityIDBadRequest
 const GetIdentityIDBadRequestCode int = 400
 
-/*
-GetIdentityIDBadRequest Invalid identity provided
-
-swagger:response getIdentityIdBadRequest
-*/
+// GetIdentityIDBadRequest Invalid identity provided
+//
+// swagger:response getIdentityIdBadRequest
 type GetIdentityIDBadRequest struct {
 }
 
@@ -85,11 +79,9 @@ func (o *GetIdentityIDBadRequest) WriteResponse(rw http.ResponseWriter, producer
 // GetIdentityIDNotFoundCode is the HTTP code returned for type GetIdentityIDNotFound
 const GetIdentityIDNotFoundCode int = 404
 
-/*
-GetIdentityIDNotFound Identity not found
-
-swagger:response getIdentityIdNotFound
-*/
+// GetIdentityIDNotFound Identity not found
+//
+// swagger:response getIdentityIdNotFound
 type GetIdentityIDNotFound struct {
 }
 
@@ -110,16 +102,12 @@ func (o *GetIdentityIDNotFound) WriteResponse(rw http.ResponseWriter, producer r
 // GetIdentityIDUnreachableCode is the HTTP code returned for type GetIdentityIDUnreachable
 const GetIdentityIDUnreachableCode int = 520
 
-/*
-GetIdentityIDUnreachable Identity storage unreachable. Likely a network problem.
-
-swagger:response getIdentityIdUnreachable
-*/
+// GetIdentityIDUnreachable Identity storage unreachable. Likely a network problem.
+//
+// swagger:response getIdentityIdUnreachable
 type GetIdentityIDUnreachable struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -153,16 +141,12 @@ func (o *GetIdentityIDUnreachable) WriteResponse(rw http.ResponseWriter, produce
 // GetIdentityIDInvalidStorageFormatCode is the HTTP code returned for type GetIdentityIDInvalidStorageFormat
 const GetIdentityIDInvalidStorageFormatCode int = 521
 
-/*
-GetIdentityIDInvalidStorageFormat Invalid identity format in storage
-
-swagger:response getIdentityIdInvalidStorageFormat
-*/
+// GetIdentityIDInvalidStorageFormat Invalid identity format in storage
+//
+// swagger:response getIdentityIdInvalidStorageFormat
 type GetIdentityIDInvalidStorageFormat struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

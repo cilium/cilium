@@ -29,14 +29,12 @@ func NewGetNodeIds(ctx *middleware.Context, handler GetNodeIdsHandler) *GetNodeI
 	return &GetNodeIds{Context: ctx, Handler: handler}
 }
 
-/*
-	GetNodeIds swagger:route GET /node/ids daemon getNodeIds
-
-# List information about known node IDs
-
-Retrieves a list of node IDs allocated by the agent and their
-associated node IP addresses.
-*/
+// GetNodeIds swagger:route GET /node/ids daemon getNodeIds
+//
+// # List information about known node IDs
+//
+// Retrieves a list of node IDs allocated by the agent and their
+// associated node IP addresses.
 type GetNodeIds struct {
 	Context *middleware.Context
 	Handler GetNodeIdsHandler

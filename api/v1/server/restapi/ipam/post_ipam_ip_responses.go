@@ -15,11 +15,9 @@ import (
 // PostIpamIPOKCode is the HTTP code returned for type PostIpamIPOK
 const PostIpamIPOKCode int = 200
 
-/*
-PostIpamIPOK Success
-
-swagger:response postIpamIpOK
-*/
+// PostIpamIPOK Success
+//
+// swagger:response postIpamIpOK
 type PostIpamIPOK struct {
 }
 
@@ -40,11 +38,9 @@ func (o *PostIpamIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 // PostIpamIPInvalidCode is the HTTP code returned for type PostIpamIPInvalid
 const PostIpamIPInvalidCode int = 400
 
-/*
-PostIpamIPInvalid Invalid IP address
-
-swagger:response postIpamIpInvalid
-*/
+// PostIpamIPInvalid Invalid IP address
+//
+// swagger:response postIpamIpInvalid
 type PostIpamIPInvalid struct {
 }
 
@@ -65,11 +61,9 @@ func (o *PostIpamIPInvalid) WriteResponse(rw http.ResponseWriter, producer runti
 // PostIpamIPForbiddenCode is the HTTP code returned for type PostIpamIPForbidden
 const PostIpamIPForbiddenCode int = 403
 
-/*
-PostIpamIPForbidden Forbidden
-
-swagger:response postIpamIpForbidden
-*/
+// PostIpamIPForbidden Forbidden
+//
+// swagger:response postIpamIpForbidden
 type PostIpamIPForbidden struct {
 }
 
@@ -90,11 +84,9 @@ func (o *PostIpamIPForbidden) WriteResponse(rw http.ResponseWriter, producer run
 // PostIpamIPExistsCode is the HTTP code returned for type PostIpamIPExists
 const PostIpamIPExistsCode int = 409
 
-/*
-PostIpamIPExists IP already allocated
-
-swagger:response postIpamIpExists
-*/
+// PostIpamIPExists IP already allocated
+//
+// swagger:response postIpamIpExists
 type PostIpamIPExists struct {
 }
 
@@ -115,16 +107,12 @@ func (o *PostIpamIPExists) WriteResponse(rw http.ResponseWriter, producer runtim
 // PostIpamIPFailureCode is the HTTP code returned for type PostIpamIPFailure
 const PostIpamIPFailureCode int = 500
 
-/*
-PostIpamIPFailure IP allocation failure. Details in message.
-
-swagger:response postIpamIpFailure
-*/
+// PostIpamIPFailure IP allocation failure. Details in message.
+//
+// swagger:response postIpamIpFailure
 type PostIpamIPFailure struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -158,11 +146,9 @@ func (o *PostIpamIPFailure) WriteResponse(rw http.ResponseWriter, producer runti
 // PostIpamIPDisabledCode is the HTTP code returned for type PostIpamIPDisabled
 const PostIpamIPDisabledCode int = 501
 
-/*
-PostIpamIPDisabled Allocation for address family disabled
-
-swagger:response postIpamIpDisabled
-*/
+// PostIpamIPDisabled Allocation for address family disabled
+//
+// swagger:response postIpamIpDisabled
 type PostIpamIPDisabled struct {
 }
 

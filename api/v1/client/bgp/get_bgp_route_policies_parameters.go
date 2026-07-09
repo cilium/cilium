@@ -66,12 +66,11 @@ GetBgpRoutePoliciesParams contains all the parameters to send to the API endpoin
 */
 type GetBgpRoutePoliciesParams struct {
 
-	/* RouterAsn.
-
-	     Autonomous System Number (ASN) identifying a BGP virtual router instance.
-	If not specified, all virtual router instances are selected.
-
-	*/
+	// RouterAsn.
+	//
+	// Autonomous System Number (ASN) identifying a BGP virtual router instance.
+	// If not specified, all virtual router instances are selected.
+	//
 	RouterAsn *int64
 
 	HTTPClient *http.Client

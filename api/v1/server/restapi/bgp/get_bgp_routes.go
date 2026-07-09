@@ -29,14 +29,12 @@ func NewGetBgpRoutes(ctx *middleware.Context, handler GetBgpRoutesHandler) *GetB
 	return &GetBgpRoutes{Context: ctx, Handler: handler}
 }
 
-/*
-	GetBgpRoutes swagger:route GET /bgp/routes bgp getBgpRoutes
-
-Lists BGP routes from BGP Control Plane RIB.
-
-Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
-Deprecated: This will be removed in the future.
-*/
+// GetBgpRoutes swagger:route GET /bgp/routes bgp getBgpRoutes
+//
+// Lists BGP routes from BGP Control Plane RIB.
+//
+// Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
+// Deprecated: This will be removed in the future.
 type GetBgpRoutes struct {
 	Context *middleware.Context
 	Handler GetBgpRoutesHandler

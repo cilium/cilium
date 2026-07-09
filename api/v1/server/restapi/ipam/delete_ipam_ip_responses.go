@@ -15,11 +15,9 @@ import (
 // DeleteIpamIPOKCode is the HTTP code returned for type DeleteIpamIPOK
 const DeleteIpamIPOKCode int = 200
 
-/*
-DeleteIpamIPOK Success
-
-swagger:response deleteIpamIpOK
-*/
+// DeleteIpamIPOK Success
+//
+// swagger:response deleteIpamIpOK
 type DeleteIpamIPOK struct {
 }
 
@@ -40,11 +38,9 @@ func (o *DeleteIpamIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // DeleteIpamIPInvalidCode is the HTTP code returned for type DeleteIpamIPInvalid
 const DeleteIpamIPInvalidCode int = 400
 
-/*
-DeleteIpamIPInvalid Invalid IP address
-
-swagger:response deleteIpamIpInvalid
-*/
+// DeleteIpamIPInvalid Invalid IP address
+//
+// swagger:response deleteIpamIpInvalid
 type DeleteIpamIPInvalid struct {
 }
 
@@ -65,11 +61,9 @@ func (o *DeleteIpamIPInvalid) WriteResponse(rw http.ResponseWriter, producer run
 // DeleteIpamIPForbiddenCode is the HTTP code returned for type DeleteIpamIPForbidden
 const DeleteIpamIPForbiddenCode int = 403
 
-/*
-DeleteIpamIPForbidden Forbidden
-
-swagger:response deleteIpamIpForbidden
-*/
+// DeleteIpamIPForbidden Forbidden
+//
+// swagger:response deleteIpamIpForbidden
 type DeleteIpamIPForbidden struct {
 }
 
@@ -90,11 +84,9 @@ func (o *DeleteIpamIPForbidden) WriteResponse(rw http.ResponseWriter, producer r
 // DeleteIpamIPNotFoundCode is the HTTP code returned for type DeleteIpamIPNotFound
 const DeleteIpamIPNotFoundCode int = 404
 
-/*
-DeleteIpamIPNotFound IP address not found
-
-swagger:response deleteIpamIpNotFound
-*/
+// DeleteIpamIPNotFound IP address not found
+//
+// swagger:response deleteIpamIpNotFound
 type DeleteIpamIPNotFound struct {
 }
 
@@ -115,16 +107,12 @@ func (o *DeleteIpamIPNotFound) WriteResponse(rw http.ResponseWriter, producer ru
 // DeleteIpamIPFailureCode is the HTTP code returned for type DeleteIpamIPFailure
 const DeleteIpamIPFailureCode int = 500
 
-/*
-DeleteIpamIPFailure Address release failure
-
-swagger:response deleteIpamIpFailure
-*/
+// DeleteIpamIPFailure Address release failure
+//
+// swagger:response deleteIpamIpFailure
 type DeleteIpamIPFailure struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -158,11 +146,9 @@ func (o *DeleteIpamIPFailure) WriteResponse(rw http.ResponseWriter, producer run
 // DeleteIpamIPDisabledCode is the HTTP code returned for type DeleteIpamIPDisabled
 const DeleteIpamIPDisabledCode int = 501
 
-/*
-DeleteIpamIPDisabled Allocation for address family disabled
-
-swagger:response deleteIpamIpDisabled
-*/
+// DeleteIpamIPDisabled Allocation for address family disabled
+//
+// swagger:response deleteIpamIpDisabled
 type DeleteIpamIPDisabled struct {
 }
 

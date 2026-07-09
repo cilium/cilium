@@ -15,11 +15,9 @@ import (
 // PatchEndpointIDLabelsOKCode is the HTTP code returned for type PatchEndpointIDLabelsOK
 const PatchEndpointIDLabelsOKCode int = 200
 
-/*
-PatchEndpointIDLabelsOK Success
-
-swagger:response patchEndpointIdLabelsOK
-*/
+// PatchEndpointIDLabelsOK Success
+//
+// swagger:response patchEndpointIdLabelsOK
 type PatchEndpointIDLabelsOK struct {
 }
 
@@ -40,11 +38,9 @@ func (o *PatchEndpointIDLabelsOK) WriteResponse(rw http.ResponseWriter, producer
 // PatchEndpointIDLabelsForbiddenCode is the HTTP code returned for type PatchEndpointIDLabelsForbidden
 const PatchEndpointIDLabelsForbiddenCode int = 403
 
-/*
-PatchEndpointIDLabelsForbidden Forbidden
-
-swagger:response patchEndpointIdLabelsForbidden
-*/
+// PatchEndpointIDLabelsForbidden Forbidden
+//
+// swagger:response patchEndpointIdLabelsForbidden
 type PatchEndpointIDLabelsForbidden struct {
 }
 
@@ -65,11 +61,9 @@ func (o *PatchEndpointIDLabelsForbidden) WriteResponse(rw http.ResponseWriter, p
 // PatchEndpointIDLabelsNotFoundCode is the HTTP code returned for type PatchEndpointIDLabelsNotFound
 const PatchEndpointIDLabelsNotFoundCode int = 404
 
-/*
-PatchEndpointIDLabelsNotFound Endpoint not found
-
-swagger:response patchEndpointIdLabelsNotFound
-*/
+// PatchEndpointIDLabelsNotFound Endpoint not found
+//
+// swagger:response patchEndpointIdLabelsNotFound
 type PatchEndpointIDLabelsNotFound struct {
 }
 
@@ -90,11 +84,9 @@ func (o *PatchEndpointIDLabelsNotFound) WriteResponse(rw http.ResponseWriter, pr
 // PatchEndpointIDLabelsTooManyRequestsCode is the HTTP code returned for type PatchEndpointIDLabelsTooManyRequests
 const PatchEndpointIDLabelsTooManyRequestsCode int = 429
 
-/*
-PatchEndpointIDLabelsTooManyRequests Rate-limiting too many requests in the given time frame
-
-swagger:response patchEndpointIdLabelsTooManyRequests
-*/
+// PatchEndpointIDLabelsTooManyRequests Rate-limiting too many requests in the given time frame
+//
+// swagger:response patchEndpointIdLabelsTooManyRequests
 type PatchEndpointIDLabelsTooManyRequests struct {
 }
 
@@ -115,16 +107,12 @@ func (o *PatchEndpointIDLabelsTooManyRequests) WriteResponse(rw http.ResponseWri
 // PatchEndpointIDLabelsUpdateFailedCode is the HTTP code returned for type PatchEndpointIDLabelsUpdateFailed
 const PatchEndpointIDLabelsUpdateFailedCode int = 500
 
-/*
-PatchEndpointIDLabelsUpdateFailed Error while updating labels
-
-swagger:response patchEndpointIdLabelsUpdateFailed
-*/
+// PatchEndpointIDLabelsUpdateFailed Error while updating labels
+//
+// swagger:response patchEndpointIdLabelsUpdateFailed
 type PatchEndpointIDLabelsUpdateFailed struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -158,11 +146,9 @@ func (o *PatchEndpointIDLabelsUpdateFailed) WriteResponse(rw http.ResponseWriter
 // PatchEndpointIDLabelsServiceUnavailableCode is the HTTP code returned for type PatchEndpointIDLabelsServiceUnavailable
 const PatchEndpointIDLabelsServiceUnavailableCode int = 503
 
-/*
-PatchEndpointIDLabelsServiceUnavailable Service Unavailable
-
-swagger:response patchEndpointIdLabelsServiceUnavailable
-*/
+// PatchEndpointIDLabelsServiceUnavailable Service Unavailable
+//
+// swagger:response patchEndpointIdLabelsServiceUnavailable
 type PatchEndpointIDLabelsServiceUnavailable struct {
 }
 

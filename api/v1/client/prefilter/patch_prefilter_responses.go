@@ -58,11 +58,9 @@ func NewPatchPrefilterOK() *PatchPrefilterOK {
 	return &PatchPrefilterOK{}
 }
 
-/*
-PatchPrefilterOK describes a response with status code 200, with default header values.
-
-Updated
-*/
+// PatchPrefilterOK describes a response with status code 200, with default header values.
+//
+// Updated
 type PatchPrefilterOK struct {
 	Payload *models.Prefilter
 }
@@ -128,11 +126,9 @@ func NewPatchPrefilterForbidden() *PatchPrefilterForbidden {
 	return &PatchPrefilterForbidden{}
 }
 
-/*
-PatchPrefilterForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PatchPrefilterForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PatchPrefilterForbidden struct {
 }
 
@@ -184,11 +180,9 @@ func NewPatchPrefilterInvalidCIDR() *PatchPrefilterInvalidCIDR {
 	return &PatchPrefilterInvalidCIDR{}
 }
 
-/*
-PatchPrefilterInvalidCIDR describes a response with status code 461, with default header values.
-
-Invalid CIDR prefix
-*/
+// PatchPrefilterInvalidCIDR describes a response with status code 461, with default header values.
+//
+// Invalid CIDR prefix
 type PatchPrefilterInvalidCIDR struct {
 	Payload models.Error
 }
@@ -252,11 +246,9 @@ func NewPatchPrefilterFailure() *PatchPrefilterFailure {
 	return &PatchPrefilterFailure{}
 }
 
-/*
-PatchPrefilterFailure describes a response with status code 500, with default header values.
-
-Prefilter update failed
-*/
+// PatchPrefilterFailure describes a response with status code 500, with default header values.
+//
+// Prefilter update failed
 type PatchPrefilterFailure struct {
 	Payload models.Error
 }

@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for prefilter API.
-*/
+// Client for prefilter API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -82,14 +80,12 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-DeletePrefilterdeletes list of c ID rs.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.DeletePrefilterContext] instead.
-*/
+// DeletePrefilter deletes list of c ID rs.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.DeletePrefilterContext] instead.
 func (a *Client) DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -101,11 +97,9 @@ func (a *Client) DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOp
 	return a.DeletePrefilterContext(ctx, params, opts...)
 }
 
-/*
-DeletePrefilterContextdeletes list of c ID rs.
-
-Do not use the deprecated [DeletePrefilterParams.Context] with this method: it would be ignored.
-*/
+// DeletePrefilterContext deletes list of c ID rs.
+//
+// Do not use the deprecated [DeletePrefilterParams.Context] with this method: it would be ignored.
 func (a *Client) DeletePrefilterContext(ctx context.Context, params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -148,14 +142,12 @@ func (a *Client) DeletePrefilterContext(ctx context.Context, params *DeletePrefi
 	panic(msg)
 }
 
-/*
-GetPrefilterretrieves list of c ID rs.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetPrefilterContext] instead.
-*/
+// GetPrefilter retrieves list of c ID rs.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetPrefilterContext] instead.
 func (a *Client) GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -167,11 +159,9 @@ func (a *Client) GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) 
 	return a.GetPrefilterContext(ctx, params, opts...)
 }
 
-/*
-GetPrefilterContextretrieves list of c ID rs.
-
-Do not use the deprecated [GetPrefilterParams.Context] with this method: it would be ignored.
-*/
+// GetPrefilterContext retrieves list of c ID rs.
+//
+// Do not use the deprecated [GetPrefilterParams.Context] with this method: it would be ignored.
 func (a *Client) GetPrefilterContext(ctx context.Context, params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -214,14 +204,12 @@ func (a *Client) GetPrefilterContext(ctx context.Context, params *GetPrefilterPa
 	panic(msg)
 }
 
-/*
-PatchPrefilterupdates list of c ID rs.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.PatchPrefilterContext] instead.
-*/
+// PatchPrefilter updates list of c ID rs.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.PatchPrefilterContext] instead.
 func (a *Client) PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -233,11 +221,9 @@ func (a *Client) PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOpti
 	return a.PatchPrefilterContext(ctx, params, opts...)
 }
 
-/*
-PatchPrefilterContextupdates list of c ID rs.
-
-Do not use the deprecated [PatchPrefilterParams.Context] with this method: it would be ignored.
-*/
+// PatchPrefilterContext updates list of c ID rs.
+//
+// Do not use the deprecated [PatchPrefilterParams.Context] with this method: it would be ignored.
 func (a *Client) PatchPrefilterContext(ctx context.Context, params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

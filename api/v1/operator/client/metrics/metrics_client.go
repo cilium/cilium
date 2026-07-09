@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for metrics API.
-*/
+// Client for metrics API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -70,16 +68,14 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-GetMetricsretrieves cilium operator metrics.
-
-Returns the metrics exposed by the Cilium operator..
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetMetricsContext] instead.
-*/
+// GetMetrics retrieves cilium operator metrics.
+//
+// Returns the metrics exposed by the Cilium operator..
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetMetricsContext] instead.
 func (a *Client) GetMetrics(params *GetMetricsParams, opts ...ClientOption) (*GetMetricsOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -91,13 +87,11 @@ func (a *Client) GetMetrics(params *GetMetricsParams, opts ...ClientOption) (*Ge
 	return a.GetMetricsContext(ctx, params, opts...)
 }
 
-/*
-GetMetricsContextretrieves cilium operator metrics.
-
-Returns the metrics exposed by the Cilium operator..
-
-Do not use the deprecated [GetMetricsParams.Context] with this method: it would be ignored.
-*/
+// GetMetricsContext retrieves cilium operator metrics.
+//
+// Returns the metrics exposed by the Cilium operator..
+//
+// Do not use the deprecated [GetMetricsParams.Context] with this method: it would be ignored.
 func (a *Client) GetMetricsContext(ctx context.Context, params *GetMetricsParams, opts ...ClientOption) (*GetMetricsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

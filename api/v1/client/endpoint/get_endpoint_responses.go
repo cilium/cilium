@@ -52,11 +52,9 @@ func NewGetEndpointOK() *GetEndpointOK {
 	return &GetEndpointOK{}
 }
 
-/*
-GetEndpointOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetEndpointOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetEndpointOK struct {
 	Payload []*models.Endpoint
 }
@@ -120,11 +118,9 @@ func NewGetEndpointNotFound() *GetEndpointNotFound {
 	return &GetEndpointNotFound{}
 }
 
-/*
-GetEndpointNotFound describes a response with status code 404, with default header values.
-
-Endpoints with provided parameters not found
-*/
+// GetEndpointNotFound describes a response with status code 404, with default header values.
+//
+// Endpoints with provided parameters not found
 type GetEndpointNotFound struct {
 }
 
@@ -176,11 +172,9 @@ func NewGetEndpointTooManyRequests() *GetEndpointTooManyRequests {
 	return &GetEndpointTooManyRequests{}
 }
 
-/*
-GetEndpointTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// GetEndpointTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type GetEndpointTooManyRequests struct {
 }
 

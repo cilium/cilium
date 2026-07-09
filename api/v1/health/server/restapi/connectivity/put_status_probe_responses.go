@@ -15,16 +15,12 @@ import (
 // PutStatusProbeOKCode is the HTTP code returned for type PutStatusProbeOK
 const PutStatusProbeOKCode int = 200
 
-/*
-PutStatusProbeOK Success
-
-swagger:response putStatusProbeOK
-*/
+// PutStatusProbeOK Success
+//
+// swagger:response putStatusProbeOK
 type PutStatusProbeOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.HealthStatusResponse `json:"body,omitempty"`
 }
 
@@ -60,11 +56,9 @@ func (o *PutStatusProbeOK) WriteResponse(rw http.ResponseWriter, producer runtim
 // PutStatusProbeForbiddenCode is the HTTP code returned for type PutStatusProbeForbidden
 const PutStatusProbeForbiddenCode int = 403
 
-/*
-PutStatusProbeForbidden Forbidden
-
-swagger:response putStatusProbeForbidden
-*/
+// PutStatusProbeForbidden Forbidden
+//
+// swagger:response putStatusProbeForbidden
 type PutStatusProbeForbidden struct {
 }
 
@@ -85,16 +79,12 @@ func (o *PutStatusProbeForbidden) WriteResponse(rw http.ResponseWriter, producer
 // PutStatusProbeFailedCode is the HTTP code returned for type PutStatusProbeFailed
 const PutStatusProbeFailedCode int = 500
 
-/*
-PutStatusProbeFailed Internal error occurred while conducting connectivity probe
-
-swagger:response putStatusProbeFailed
-*/
+// PutStatusProbeFailed Internal error occurred while conducting connectivity probe
+//
+// swagger:response putStatusProbeFailed
 type PutStatusProbeFailed struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

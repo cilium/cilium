@@ -15,16 +15,12 @@ import (
 // GetLrpOKCode is the HTTP code returned for type GetLrpOK
 const GetLrpOKCode int = 200
 
-/*
-GetLrpOK Success
-
-swagger:response getLrpOK
-*/
+// GetLrpOK Success
+//
+// swagger:response getLrpOK
 type GetLrpOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.LRPSpec `json:"body,omitempty"`
 }
 

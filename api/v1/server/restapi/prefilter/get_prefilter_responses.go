@@ -15,16 +15,12 @@ import (
 // GetPrefilterOKCode is the HTTP code returned for type GetPrefilterOK
 const GetPrefilterOKCode int = 200
 
-/*
-GetPrefilterOK Success
-
-swagger:response getPrefilterOK
-*/
+// GetPrefilterOK Success
+//
+// swagger:response getPrefilterOK
 type GetPrefilterOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.Prefilter `json:"body,omitempty"`
 }
 
@@ -60,16 +56,12 @@ func (o *GetPrefilterOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // GetPrefilterFailureCode is the HTTP code returned for type GetPrefilterFailure
 const GetPrefilterFailureCode int = 500
 
-/*
-GetPrefilterFailure Prefilter get failed
-
-swagger:response getPrefilterFailure
-*/
+// GetPrefilterFailure Prefilter get failed
+//
+// swagger:response getPrefilterFailure
 type GetPrefilterFailure struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

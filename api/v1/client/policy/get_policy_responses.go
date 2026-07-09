@@ -46,11 +46,9 @@ func NewGetPolicyOK() *GetPolicyOK {
 	return &GetPolicyOK{}
 }
 
-/*
-GetPolicyOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetPolicyOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetPolicyOK struct {
 	Payload *models.Policy
 }
@@ -116,11 +114,9 @@ func NewGetPolicyNotFound() *GetPolicyNotFound {
 	return &GetPolicyNotFound{}
 }
 
-/*
-GetPolicyNotFound describes a response with status code 404, with default header values.
-
-No policy rules found
-*/
+// GetPolicyNotFound describes a response with status code 404, with default header values.
+//
+// No policy rules found
 type GetPolicyNotFound struct {
 }
 

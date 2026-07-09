@@ -66,17 +66,15 @@ GetIPParams contains all the parameters to send to the API endpoint
 */
 type GetIPParams struct {
 
-	/* Cidr.
-
-	   A CIDR range of IPs
-	*/
+	// Cidr.
+	//
+	// A CIDR range of IPs
 	Cidr *string
 
-	/* Labels.
-
-	   List of labels
-
-	*/
+	// Labels.
+	//
+	// List of labels
+	//
 	Labels models.Labels
 
 	HTTPClient *http.Client

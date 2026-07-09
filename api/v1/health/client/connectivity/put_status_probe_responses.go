@@ -52,11 +52,9 @@ func NewPutStatusProbeOK() *PutStatusProbeOK {
 	return &PutStatusProbeOK{}
 }
 
-/*
-PutStatusProbeOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// PutStatusProbeOK describes a response with status code 200, with default header values.
+//
+// Success
 type PutStatusProbeOK struct {
 	Payload *models.HealthStatusResponse
 }
@@ -122,11 +120,9 @@ func NewPutStatusProbeForbidden() *PutStatusProbeForbidden {
 	return &PutStatusProbeForbidden{}
 }
 
-/*
-PutStatusProbeForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PutStatusProbeForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PutStatusProbeForbidden struct {
 }
 
@@ -178,11 +174,9 @@ func NewPutStatusProbeFailed() *PutStatusProbeFailed {
 	return &PutStatusProbeFailed{}
 }
 
-/*
-PutStatusProbeFailed describes a response with status code 500, with default header values.
-
-Internal error occurred while conducting connectivity probe
-*/
+// PutStatusProbeFailed describes a response with status code 500, with default header values.
+//
+// Internal error occurred while conducting connectivity probe
 type PutStatusProbeFailed struct {
 	Payload models.Error
 }

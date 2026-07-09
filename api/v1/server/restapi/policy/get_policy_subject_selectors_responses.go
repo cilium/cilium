@@ -15,16 +15,12 @@ import (
 // GetPolicySubjectSelectorsOKCode is the HTTP code returned for type GetPolicySubjectSelectorsOK
 const GetPolicySubjectSelectorsOKCode int = 200
 
-/*
-GetPolicySubjectSelectorsOK Success
-
-swagger:response getPolicySubjectSelectorsOK
-*/
+// GetPolicySubjectSelectorsOK Success
+//
+// swagger:response getPolicySubjectSelectorsOK
 type GetPolicySubjectSelectorsOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.SelectorCache `json:"body,omitempty"`
 }
 

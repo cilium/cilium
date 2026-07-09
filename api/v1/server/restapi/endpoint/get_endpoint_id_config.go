@@ -29,13 +29,11 @@ func NewGetEndpointIDConfig(ctx *middleware.Context, handler GetEndpointIDConfig
 	return &GetEndpointIDConfig{Context: ctx, Handler: handler}
 }
 
-/*
-	GetEndpointIDConfig swagger:route GET /endpoint/{id}/config endpoint getEndpointIdConfig
-
-# Retrieve endpoint configuration
-
-Retrieves the configuration of the specified endpoint.
-*/
+// GetEndpointIDConfig swagger:route GET /endpoint/{id}/config endpoint getEndpointIdConfig
+//
+// # Retrieve endpoint configuration
+//
+// Retrieves the configuration of the specified endpoint.
 type GetEndpointIDConfig struct {
 	Context *middleware.Context
 	Handler GetEndpointIDConfigHandler

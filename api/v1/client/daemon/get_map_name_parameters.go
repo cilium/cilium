@@ -65,10 +65,9 @@ GetMapNameParams contains all the parameters to send to the API endpoint
 */
 type GetMapNameParams struct {
 
-	/* Name.
-
-	   Name of map
-	*/
+	// Name.
+	//
+	// Name of map
 	Name string
 
 	HTTPClient *http.Client

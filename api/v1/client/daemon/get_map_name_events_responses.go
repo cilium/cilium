@@ -48,11 +48,9 @@ func NewGetMapNameEventsOK(writer io.Writer) *GetMapNameEventsOK {
 	}
 }
 
-/*
-GetMapNameEventsOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetMapNameEventsOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetMapNameEventsOK struct {
 	Payload io.Writer
 }
@@ -114,11 +112,9 @@ func NewGetMapNameEventsNotFound() *GetMapNameEventsNotFound {
 	return &GetMapNameEventsNotFound{}
 }
 
-/*
-GetMapNameEventsNotFound describes a response with status code 404, with default header values.
-
-Map not found
-*/
+// GetMapNameEventsNotFound describes a response with status code 404, with default header values.
+//
+// Map not found
 type GetMapNameEventsNotFound struct {
 }
 

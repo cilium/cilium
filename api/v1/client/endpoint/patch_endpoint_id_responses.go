@@ -76,11 +76,9 @@ func NewPatchEndpointIDOK() *PatchEndpointIDOK {
 	return &PatchEndpointIDOK{}
 }
 
-/*
-PatchEndpointIDOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// PatchEndpointIDOK describes a response with status code 200, with default header values.
+//
+// Success
 type PatchEndpointIDOK struct {
 }
 
@@ -132,11 +130,9 @@ func NewPatchEndpointIDInvalid() *PatchEndpointIDInvalid {
 	return &PatchEndpointIDInvalid{}
 }
 
-/*
-PatchEndpointIDInvalid describes a response with status code 400, with default header values.
-
-Invalid modify endpoint request
-*/
+// PatchEndpointIDInvalid describes a response with status code 400, with default header values.
+//
+// Invalid modify endpoint request
 type PatchEndpointIDInvalid struct {
 	Payload models.Error
 }
@@ -200,11 +196,9 @@ func NewPatchEndpointIDForbidden() *PatchEndpointIDForbidden {
 	return &PatchEndpointIDForbidden{}
 }
 
-/*
-PatchEndpointIDForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PatchEndpointIDForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PatchEndpointIDForbidden struct {
 }
 
@@ -256,11 +250,9 @@ func NewPatchEndpointIDNotFound() *PatchEndpointIDNotFound {
 	return &PatchEndpointIDNotFound{}
 }
 
-/*
-PatchEndpointIDNotFound describes a response with status code 404, with default header values.
-
-Endpoint does not exist
-*/
+// PatchEndpointIDNotFound describes a response with status code 404, with default header values.
+//
+// Endpoint does not exist
 type PatchEndpointIDNotFound struct {
 }
 
@@ -312,11 +304,9 @@ func NewPatchEndpointIDTooManyRequests() *PatchEndpointIDTooManyRequests {
 	return &PatchEndpointIDTooManyRequests{}
 }
 
-/*
-PatchEndpointIDTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// PatchEndpointIDTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type PatchEndpointIDTooManyRequests struct {
 }
 
@@ -368,11 +358,9 @@ func NewPatchEndpointIDFailed() *PatchEndpointIDFailed {
 	return &PatchEndpointIDFailed{}
 }
 
-/*
-PatchEndpointIDFailed describes a response with status code 500, with default header values.
-
-Endpoint update failed
-*/
+// PatchEndpointIDFailed describes a response with status code 500, with default header values.
+//
+// Endpoint update failed
 type PatchEndpointIDFailed struct {
 	Payload models.Error
 }
@@ -436,11 +424,9 @@ func NewPatchEndpointIDServiceUnavailable() *PatchEndpointIDServiceUnavailable {
 	return &PatchEndpointIDServiceUnavailable{}
 }
 
-/*
-PatchEndpointIDServiceUnavailable describes a response with status code 503, with default header values.
-
-Service Unavailable
-*/
+// PatchEndpointIDServiceUnavailable describes a response with status code 503, with default header values.
+//
+// Service Unavailable
 type PatchEndpointIDServiceUnavailable struct {
 }
 

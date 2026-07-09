@@ -66,38 +66,33 @@ GetBgpRoutesParams contains all the parameters to send to the API endpoint
 */
 type GetBgpRoutesParams struct {
 
-	/* Afi.
-
-	   Address Family Indicator (AFI) of a BGP route
-	*/
+	// Afi.
+	//
+	// Address Family Indicator (AFI) of a BGP route
 	Afi string
 
-	/* Neighbor.
-
-	     IP address specifying a BGP neighbor.
-	Has to be specified only when table type is adj-rib-in or adj-rib-out.
-
-	*/
+	// Neighbor.
+	//
+	// IP address specifying a BGP neighbor.
+	// Has to be specified only when table type is adj-rib-in or adj-rib-out.
+	//
 	Neighbor *string
 
-	/* RouterAsn.
-
-	     Autonomous System Number (ASN) identifying a BGP virtual router instance.
-	If not specified, all virtual router instances are selected.
-
-	*/
+	// RouterAsn.
+	//
+	// Autonomous System Number (ASN) identifying a BGP virtual router instance.
+	// If not specified, all virtual router instances are selected.
+	//
 	RouterAsn *int64
 
-	/* Safi.
-
-	   Subsequent Address Family Indicator (SAFI) of a BGP route
-	*/
+	// Safi.
+	//
+	// Subsequent Address Family Indicator (SAFI) of a BGP route
 	Safi string
 
-	/* TableType.
-
-	   BGP Routing Information Base (RIB) table type
-	*/
+	// TableType.
+	//
+	// BGP Routing Information Base (RIB) table type
 	TableType string
 
 	HTTPClient *http.Client

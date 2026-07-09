@@ -70,11 +70,9 @@ func NewPostIpamIPOK() *PostIpamIPOK {
 	return &PostIpamIPOK{}
 }
 
-/*
-PostIpamIPOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// PostIpamIPOK describes a response with status code 200, with default header values.
+//
+// Success
 type PostIpamIPOK struct {
 }
 
@@ -126,11 +124,9 @@ func NewPostIpamIPInvalid() *PostIpamIPInvalid {
 	return &PostIpamIPInvalid{}
 }
 
-/*
-PostIpamIPInvalid describes a response with status code 400, with default header values.
-
-Invalid IP address
-*/
+// PostIpamIPInvalid describes a response with status code 400, with default header values.
+//
+// Invalid IP address
 type PostIpamIPInvalid struct {
 }
 
@@ -182,11 +178,9 @@ func NewPostIpamIPForbidden() *PostIpamIPForbidden {
 	return &PostIpamIPForbidden{}
 }
 
-/*
-PostIpamIPForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PostIpamIPForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PostIpamIPForbidden struct {
 }
 
@@ -238,11 +232,9 @@ func NewPostIpamIPExists() *PostIpamIPExists {
 	return &PostIpamIPExists{}
 }
 
-/*
-PostIpamIPExists describes a response with status code 409, with default header values.
-
-IP already allocated
-*/
+// PostIpamIPExists describes a response with status code 409, with default header values.
+//
+// IP already allocated
 type PostIpamIPExists struct {
 }
 
@@ -294,11 +286,9 @@ func NewPostIpamIPFailure() *PostIpamIPFailure {
 	return &PostIpamIPFailure{}
 }
 
-/*
-PostIpamIPFailure describes a response with status code 500, with default header values.
-
-IP allocation failure. Details in message.
-*/
+// PostIpamIPFailure describes a response with status code 500, with default header values.
+//
+// IP allocation failure. Details in message.
 type PostIpamIPFailure struct {
 	Payload models.Error
 }
@@ -362,11 +352,9 @@ func NewPostIpamIPDisabled() *PostIpamIPDisabled {
 	return &PostIpamIPDisabled{}
 }
 
-/*
-PostIpamIPDisabled describes a response with status code 501, with default header values.
-
-Allocation for address family disabled
-*/
+// PostIpamIPDisabled describes a response with status code 501, with default header values.
+//
+// Allocation for address family disabled
 type PostIpamIPDisabled struct {
 }
 

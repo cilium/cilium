@@ -36,18 +36,14 @@ func NewGetHealthzParams() GetHealthzParams {
 type GetHealthzParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*Brief will return a brief representation of the Cilium status.
-
-	  In: header
-	*/
+	// Brief will return a brief representation of the Cilium status.
+	//
+	// In: header
 	Brief *bool
-
-	/*If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
-
-	  In: header
-	  Default: true
-	*/
+	// If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
+	//
+	// In: header
+	// Default: true
 	RequireK8sConnectivity *bool
 }
 

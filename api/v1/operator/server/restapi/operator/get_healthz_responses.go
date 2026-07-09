@@ -14,16 +14,12 @@ import (
 // GetHealthzOKCode is the HTTP code returned for type GetHealthzOK
 const GetHealthzOKCode int = 200
 
-/*
-GetHealthzOK Cilium operator is healthy
-
-swagger:response getHealthzOK
-*/
+// GetHealthzOK Cilium operator is healthy
+//
+// swagger:response getHealthzOK
 type GetHealthzOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload string `json:"body,omitempty"`
 }
 
@@ -57,16 +53,12 @@ func (o *GetHealthzOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 // GetHealthzInternalServerErrorCode is the HTTP code returned for type GetHealthzInternalServerError
 const GetHealthzInternalServerErrorCode int = 500
 
-/*
-GetHealthzInternalServerError Cilium operator is not healthy
-
-swagger:response getHealthzInternalServerError
-*/
+// GetHealthzInternalServerError Cilium operator is not healthy
+//
+// swagger:response getHealthzInternalServerError
 type GetHealthzInternalServerError struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload string `json:"body,omitempty"`
 }
 
@@ -100,16 +92,12 @@ func (o *GetHealthzInternalServerError) WriteResponse(rw http.ResponseWriter, pr
 // GetHealthzNotImplementedCode is the HTTP code returned for type GetHealthzNotImplemented
 const GetHealthzNotImplementedCode int = 501
 
-/*
-GetHealthzNotImplemented Cilium operator health status not available
-
-swagger:response getHealthzNotImplemented
-*/
+// GetHealthzNotImplemented Cilium operator health status not available
+//
+// swagger:response getHealthzNotImplemented
 type GetHealthzNotImplemented struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload string `json:"body,omitempty"`
 }
 

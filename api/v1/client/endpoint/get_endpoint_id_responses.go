@@ -58,11 +58,9 @@ func NewGetEndpointIDOK() *GetEndpointIDOK {
 	return &GetEndpointIDOK{}
 }
 
-/*
-GetEndpointIDOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetEndpointIDOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetEndpointIDOK struct {
 	Payload *models.Endpoint
 }
@@ -128,11 +126,9 @@ func NewGetEndpointIDInvalid() *GetEndpointIDInvalid {
 	return &GetEndpointIDInvalid{}
 }
 
-/*
-GetEndpointIDInvalid describes a response with status code 400, with default header values.
-
-Invalid endpoint ID format for specified type
-*/
+// GetEndpointIDInvalid describes a response with status code 400, with default header values.
+//
+// Invalid endpoint ID format for specified type
 type GetEndpointIDInvalid struct {
 	Payload models.Error
 }
@@ -196,11 +192,9 @@ func NewGetEndpointIDNotFound() *GetEndpointIDNotFound {
 	return &GetEndpointIDNotFound{}
 }
 
-/*
-GetEndpointIDNotFound describes a response with status code 404, with default header values.
-
-Endpoint not found
-*/
+// GetEndpointIDNotFound describes a response with status code 404, with default header values.
+//
+// Endpoint not found
 type GetEndpointIDNotFound struct {
 }
 
@@ -252,11 +246,9 @@ func NewGetEndpointIDTooManyRequests() *GetEndpointIDTooManyRequests {
 	return &GetEndpointIDTooManyRequests{}
 }
 
-/*
-GetEndpointIDTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// GetEndpointIDTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type GetEndpointIDTooManyRequests struct {
 }
 

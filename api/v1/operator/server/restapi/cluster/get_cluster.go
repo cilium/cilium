@@ -29,13 +29,11 @@ func NewGetCluster(ctx *middleware.Context, handler GetClusterHandler) *GetClust
 	return &GetCluster{Context: ctx, Handler: handler}
 }
 
-/*
-	GetCluster swagger:route GET /cluster cluster getCluster
-
-# Get remote clusters connection status
-
-Returns the list of remote clusters and their status.
-*/
+// GetCluster swagger:route GET /cluster cluster getCluster
+//
+// # Get remote clusters connection status
+//
+// Returns the list of remote clusters and their status.
 type GetCluster struct {
 	Context *middleware.Context
 	Handler GetClusterHandler

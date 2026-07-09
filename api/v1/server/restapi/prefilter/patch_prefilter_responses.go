@@ -15,16 +15,12 @@ import (
 // PatchPrefilterOKCode is the HTTP code returned for type PatchPrefilterOK
 const PatchPrefilterOKCode int = 200
 
-/*
-PatchPrefilterOK Updated
-
-swagger:response patchPrefilterOK
-*/
+// PatchPrefilterOK Updated
+//
+// swagger:response patchPrefilterOK
 type PatchPrefilterOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.Prefilter `json:"body,omitempty"`
 }
 
@@ -60,11 +56,9 @@ func (o *PatchPrefilterOK) WriteResponse(rw http.ResponseWriter, producer runtim
 // PatchPrefilterForbiddenCode is the HTTP code returned for type PatchPrefilterForbidden
 const PatchPrefilterForbiddenCode int = 403
 
-/*
-PatchPrefilterForbidden Forbidden
-
-swagger:response patchPrefilterForbidden
-*/
+// PatchPrefilterForbidden Forbidden
+//
+// swagger:response patchPrefilterForbidden
 type PatchPrefilterForbidden struct {
 }
 
@@ -85,16 +79,12 @@ func (o *PatchPrefilterForbidden) WriteResponse(rw http.ResponseWriter, producer
 // PatchPrefilterInvalidCIDRCode is the HTTP code returned for type PatchPrefilterInvalidCIDR
 const PatchPrefilterInvalidCIDRCode int = 461
 
-/*
-PatchPrefilterInvalidCIDR Invalid CIDR prefix
-
-swagger:response patchPrefilterInvalidCIdR
-*/
+// PatchPrefilterInvalidCIDR Invalid CIDR prefix
+//
+// swagger:response patchPrefilterInvalidCIdR
 type PatchPrefilterInvalidCIDR struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -128,16 +118,12 @@ func (o *PatchPrefilterInvalidCIDR) WriteResponse(rw http.ResponseWriter, produc
 // PatchPrefilterFailureCode is the HTTP code returned for type PatchPrefilterFailure
 const PatchPrefilterFailureCode int = 500
 
-/*
-PatchPrefilterFailure Prefilter update failed
-
-swagger:response patchPrefilterFailure
-*/
+// PatchPrefilterFailure Prefilter update failed
+//
+// swagger:response patchPrefilterFailure
 type PatchPrefilterFailure struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

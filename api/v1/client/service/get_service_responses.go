@@ -40,11 +40,9 @@ func NewGetServiceOK() *GetServiceOK {
 	return &GetServiceOK{}
 }
 
-/*
-GetServiceOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetServiceOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetServiceOK struct {
 	Payload []*models.Service
 }

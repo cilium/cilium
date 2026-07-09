@@ -15,16 +15,12 @@ import (
 // GetIdentityEndpointsOKCode is the HTTP code returned for type GetIdentityEndpointsOK
 const GetIdentityEndpointsOKCode int = 200
 
-/*
-GetIdentityEndpointsOK Success
-
-swagger:response getIdentityEndpointsOK
-*/
+// GetIdentityEndpointsOK Success
+//
+// swagger:response getIdentityEndpointsOK
 type GetIdentityEndpointsOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.IdentityEndpoints `json:"body,omitempty"`
 }
 
@@ -63,11 +59,9 @@ func (o *GetIdentityEndpointsOK) WriteResponse(rw http.ResponseWriter, producer 
 // GetIdentityEndpointsNotFoundCode is the HTTP code returned for type GetIdentityEndpointsNotFound
 const GetIdentityEndpointsNotFoundCode int = 404
 
-/*
-GetIdentityEndpointsNotFound Set of identities which are being used by local endpoints could not be found.
-
-swagger:response getIdentityEndpointsNotFound
-*/
+// GetIdentityEndpointsNotFound Set of identities which are being used by local endpoints could not be found.
+//
+// swagger:response getIdentityEndpointsNotFound
 type GetIdentityEndpointsNotFound struct {
 }
 

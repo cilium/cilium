@@ -29,11 +29,9 @@ func NewPostIpamIP(ctx *middleware.Context, handler PostIpamIPHandler) *PostIpam
 	return &PostIpamIP{Context: ctx, Handler: handler}
 }
 
-/*
-	PostIpamIP swagger:route POST /ipam/{ip} ipam postIpamIp
-
-Allocate an IP address
-*/
+// PostIpamIP swagger:route POST /ipam/{ip} ipam postIpamIp
+//
+// Allocate an IP address
 type PostIpamIP struct {
 	Context *middleware.Context
 	Handler PostIpamIPHandler

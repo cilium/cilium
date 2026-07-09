@@ -29,21 +29,19 @@ func NewDeleteEndpointID(ctx *middleware.Context, handler DeleteEndpointIDHandle
 	return &DeleteEndpointID{Context: ctx, Handler: handler}
 }
 
-/*
-	DeleteEndpointID swagger:route DELETE /endpoint/{id} endpoint deleteEndpointId
-
-# Delete endpoint
-
-Deletes the endpoint specified by the ID. Deletion is imminent and
-atomic, if the deletion request is valid and the endpoint exists,
-deletion will occur even if errors are encountered in the process. If
-errors have been encountered, the code 202 will be returned, otherwise
-200 on success.
-
-All resources associated with the endpoint will be freed and the
-workload represented by the endpoint will be disconnected.It will no
-longer be able to initiate or receive communications of any sort.
-*/
+// DeleteEndpointID swagger:route DELETE /endpoint/{id} endpoint deleteEndpointId
+//
+// # Delete endpoint
+//
+// Deletes the endpoint specified by the ID. Deletion is imminent and
+// atomic, if the deletion request is valid and the endpoint exists,
+// deletion will occur even if errors are encountered in the process. If
+// errors have been encountered, the code 202 will be returned, otherwise
+// 200 on success.
+//
+// All resources associated with the endpoint will be freed and the
+// workload represented by the endpoint will be disconnected.It will no
+// longer be able to initiate or receive communications of any sort.
 type DeleteEndpointID struct {
 	Context *middleware.Context
 	Handler DeleteEndpointIDHandler

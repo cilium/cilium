@@ -15,16 +15,12 @@ import (
 // GetEndpointOKCode is the HTTP code returned for type GetEndpointOK
 const GetEndpointOKCode int = 200
 
-/*
-GetEndpointOK Success
-
-swagger:response getEndpointOK
-*/
+// GetEndpointOK Success
+//
+// swagger:response getEndpointOK
 type GetEndpointOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.Endpoint `json:"body,omitempty"`
 }
 
@@ -63,11 +59,9 @@ func (o *GetEndpointOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 // GetEndpointNotFoundCode is the HTTP code returned for type GetEndpointNotFound
 const GetEndpointNotFoundCode int = 404
 
-/*
-GetEndpointNotFound Endpoints with provided parameters not found
-
-swagger:response getEndpointNotFound
-*/
+// GetEndpointNotFound Endpoints with provided parameters not found
+//
+// swagger:response getEndpointNotFound
 type GetEndpointNotFound struct {
 }
 
@@ -88,11 +82,9 @@ func (o *GetEndpointNotFound) WriteResponse(rw http.ResponseWriter, producer run
 // GetEndpointTooManyRequestsCode is the HTTP code returned for type GetEndpointTooManyRequests
 const GetEndpointTooManyRequestsCode int = 429
 
-/*
-GetEndpointTooManyRequests Rate-limiting too many requests in the given time frame
-
-swagger:response getEndpointTooManyRequests
-*/
+// GetEndpointTooManyRequests Rate-limiting too many requests in the given time frame
+//
+// swagger:response getEndpointTooManyRequests
 type GetEndpointTooManyRequests struct {
 }
 

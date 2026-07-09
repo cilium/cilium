@@ -32,11 +32,9 @@ func NewPatchPrefilterParams() PatchPrefilterParams {
 type PatchPrefilterParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*List of CIDR ranges for filter table
-	  Required: true
-	  In: body
-	*/
+	// List of CIDR ranges for filter table
+	// Required: true
+	// In: body
 	PrefilterSpec *models.PrefilterSpec
 }
 

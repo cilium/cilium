@@ -66,11 +66,10 @@ GetIdentityParams contains all the parameters to send to the API endpoint
 */
 type GetIdentityParams struct {
 
-	/* Labels.
-
-	   List of labels
-
-	*/
+	// Labels.
+	//
+	// List of labels
+	//
 	Labels models.Labels
 
 	HTTPClient *http.Client

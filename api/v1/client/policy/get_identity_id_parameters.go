@@ -65,11 +65,10 @@ GetIdentityIDParams contains all the parameters to send to the API endpoint
 */
 type GetIdentityIDParams struct {
 
-	/* ID.
-
-	   Cluster wide unique identifier of a security identity.
-
-	*/
+	// ID.
+	//
+	// Cluster wide unique identifier of a security identity.
+	//
 	ID string
 
 	HTTPClient *http.Client

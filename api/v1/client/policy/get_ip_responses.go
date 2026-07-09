@@ -52,11 +52,9 @@ func NewGetIPOK() *GetIPOK {
 	return &GetIPOK{}
 }
 
-/*
-GetIPOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetIPOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetIPOK struct {
 	Payload []*models.IPListEntry
 }
@@ -120,11 +118,9 @@ func NewGetIPBadRequest() *GetIPBadRequest {
 	return &GetIPBadRequest{}
 }
 
-/*
-GetIPBadRequest describes a response with status code 400, with default header values.
-
-Invalid request (error parsing parameters)
-*/
+// GetIPBadRequest describes a response with status code 400, with default header values.
+//
+// Invalid request (error parsing parameters)
 type GetIPBadRequest struct {
 	Payload models.Error
 }
@@ -188,11 +184,9 @@ func NewGetIPNotFound() *GetIPNotFound {
 	return &GetIPNotFound{}
 }
 
-/*
-GetIPNotFound describes a response with status code 404, with default header values.
-
-No IP cache entries with provided parameters found
-*/
+// GetIPNotFound describes a response with status code 404, with default header values.
+//
+// No IP cache entries with provided parameters found
 type GetIPNotFound struct {
 }
 

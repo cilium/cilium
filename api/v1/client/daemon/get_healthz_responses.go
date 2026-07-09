@@ -40,11 +40,9 @@ func NewGetHealthzOK() *GetHealthzOK {
 	return &GetHealthzOK{}
 }
 
-/*
-GetHealthzOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetHealthzOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetHealthzOK struct {
 	Payload *models.StatusResponse
 }

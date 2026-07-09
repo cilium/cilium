@@ -58,11 +58,9 @@ func NewGetIdentityOK() *GetIdentityOK {
 	return &GetIdentityOK{}
 }
 
-/*
-GetIdentityOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetIdentityOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetIdentityOK struct {
 	Payload []*models.Identity
 }
@@ -126,11 +124,9 @@ func NewGetIdentityNotFound() *GetIdentityNotFound {
 	return &GetIdentityNotFound{}
 }
 
-/*
-GetIdentityNotFound describes a response with status code 404, with default header values.
-
-Identities with provided parameters not found
-*/
+// GetIdentityNotFound describes a response with status code 404, with default header values.
+//
+// Identities with provided parameters not found
 type GetIdentityNotFound struct {
 }
 
@@ -182,11 +178,9 @@ func NewGetIdentityUnreachable() *GetIdentityUnreachable {
 	return &GetIdentityUnreachable{}
 }
 
-/*
-GetIdentityUnreachable describes a response with status code 520, with default header values.
-
-Identity storage unreachable. Likely a network problem.
-*/
+// GetIdentityUnreachable describes a response with status code 520, with default header values.
+//
+// Identity storage unreachable. Likely a network problem.
 type GetIdentityUnreachable struct {
 	Payload models.Error
 }
@@ -250,11 +244,9 @@ func NewGetIdentityInvalidStorageFormat() *GetIdentityInvalidStorageFormat {
 	return &GetIdentityInvalidStorageFormat{}
 }
 
-/*
-GetIdentityInvalidStorageFormat describes a response with status code 521, with default header values.
-
-Invalid identity format in storage
-*/
+// GetIdentityInvalidStorageFormat describes a response with status code 521, with default header values.
+//
+// Invalid identity format in storage
 type GetIdentityInvalidStorageFormat struct {
 	Payload models.Error
 }

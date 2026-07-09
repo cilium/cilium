@@ -66,10 +66,9 @@ PatchPrefilterParams contains all the parameters to send to the API endpoint
 */
 type PatchPrefilterParams struct {
 
-	/* PrefilterSpec.
-
-	   List of CIDR ranges for filter table
-	*/
+	// PrefilterSpec.
+	//
+	// List of CIDR ranges for filter table
 	PrefilterSpec *models.PrefilterSpec
 
 	HTTPClient *http.Client

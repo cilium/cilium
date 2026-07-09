@@ -66,13 +66,12 @@ GetClusterNodesParams contains all the parameters to send to the API endpoint
 */
 type GetClusterNodesParams struct {
 
-	/* ClientID.
-
-	     Client UUID should be used when the client wants to request
-	a diff of nodes added and / or removed since the last time
-	that client has made a request.
-
-	*/
+	// ClientID.
+	//
+	// Client UUID should be used when the client wants to request
+	// a diff of nodes added and / or removed since the last time
+	// that client has made a request.
+	//
 	ClientID *int64
 
 	HTTPClient *http.Client

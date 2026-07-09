@@ -58,11 +58,9 @@ func NewDeletePrefilterOK() *DeletePrefilterOK {
 	return &DeletePrefilterOK{}
 }
 
-/*
-DeletePrefilterOK describes a response with status code 200, with default header values.
-
-Deleted
-*/
+// DeletePrefilterOK describes a response with status code 200, with default header values.
+//
+// Deleted
 type DeletePrefilterOK struct {
 	Payload *models.Prefilter
 }
@@ -128,11 +126,9 @@ func NewDeletePrefilterForbidden() *DeletePrefilterForbidden {
 	return &DeletePrefilterForbidden{}
 }
 
-/*
-DeletePrefilterForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// DeletePrefilterForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type DeletePrefilterForbidden struct {
 }
 
@@ -184,11 +180,9 @@ func NewDeletePrefilterInvalidCIDR() *DeletePrefilterInvalidCIDR {
 	return &DeletePrefilterInvalidCIDR{}
 }
 
-/*
-DeletePrefilterInvalidCIDR describes a response with status code 461, with default header values.
-
-Invalid CIDR prefix
-*/
+// DeletePrefilterInvalidCIDR describes a response with status code 461, with default header values.
+//
+// Invalid CIDR prefix
 type DeletePrefilterInvalidCIDR struct {
 	Payload models.Error
 }
@@ -252,11 +246,9 @@ func NewDeletePrefilterFailure() *DeletePrefilterFailure {
 	return &DeletePrefilterFailure{}
 }
 
-/*
-DeletePrefilterFailure describes a response with status code 500, with default header values.
-
-Prefilter delete failed
-*/
+// DeletePrefilterFailure describes a response with status code 500, with default header values.
+//
+// Prefilter delete failed
 type DeletePrefilterFailure struct {
 	Payload models.Error
 }

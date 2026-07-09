@@ -15,11 +15,9 @@ import (
 // PatchEndpointIDConfigOKCode is the HTTP code returned for type PatchEndpointIDConfigOK
 const PatchEndpointIDConfigOKCode int = 200
 
-/*
-PatchEndpointIDConfigOK Success
-
-swagger:response patchEndpointIdConfigOK
-*/
+// PatchEndpointIDConfigOK Success
+//
+// swagger:response patchEndpointIdConfigOK
 type PatchEndpointIDConfigOK struct {
 }
 
@@ -40,11 +38,9 @@ func (o *PatchEndpointIDConfigOK) WriteResponse(rw http.ResponseWriter, producer
 // PatchEndpointIDConfigInvalidCode is the HTTP code returned for type PatchEndpointIDConfigInvalid
 const PatchEndpointIDConfigInvalidCode int = 400
 
-/*
-PatchEndpointIDConfigInvalid Invalid configuration request
-
-swagger:response patchEndpointIdConfigInvalid
-*/
+// PatchEndpointIDConfigInvalid Invalid configuration request
+//
+// swagger:response patchEndpointIdConfigInvalid
 type PatchEndpointIDConfigInvalid struct {
 }
 
@@ -65,11 +61,9 @@ func (o *PatchEndpointIDConfigInvalid) WriteResponse(rw http.ResponseWriter, pro
 // PatchEndpointIDConfigForbiddenCode is the HTTP code returned for type PatchEndpointIDConfigForbidden
 const PatchEndpointIDConfigForbiddenCode int = 403
 
-/*
-PatchEndpointIDConfigForbidden Forbidden
-
-swagger:response patchEndpointIdConfigForbidden
-*/
+// PatchEndpointIDConfigForbidden Forbidden
+//
+// swagger:response patchEndpointIdConfigForbidden
 type PatchEndpointIDConfigForbidden struct {
 }
 
@@ -90,11 +84,9 @@ func (o *PatchEndpointIDConfigForbidden) WriteResponse(rw http.ResponseWriter, p
 // PatchEndpointIDConfigNotFoundCode is the HTTP code returned for type PatchEndpointIDConfigNotFound
 const PatchEndpointIDConfigNotFoundCode int = 404
 
-/*
-PatchEndpointIDConfigNotFound Endpoint not found
-
-swagger:response patchEndpointIdConfigNotFound
-*/
+// PatchEndpointIDConfigNotFound Endpoint not found
+//
+// swagger:response patchEndpointIdConfigNotFound
 type PatchEndpointIDConfigNotFound struct {
 }
 
@@ -115,11 +107,9 @@ func (o *PatchEndpointIDConfigNotFound) WriteResponse(rw http.ResponseWriter, pr
 // PatchEndpointIDConfigTooManyRequestsCode is the HTTP code returned for type PatchEndpointIDConfigTooManyRequests
 const PatchEndpointIDConfigTooManyRequestsCode int = 429
 
-/*
-PatchEndpointIDConfigTooManyRequests Rate-limiting too many requests in the given time frame
-
-swagger:response patchEndpointIdConfigTooManyRequests
-*/
+// PatchEndpointIDConfigTooManyRequests Rate-limiting too many requests in the given time frame
+//
+// swagger:response patchEndpointIdConfigTooManyRequests
 type PatchEndpointIDConfigTooManyRequests struct {
 }
 
@@ -140,16 +130,12 @@ func (o *PatchEndpointIDConfigTooManyRequests) WriteResponse(rw http.ResponseWri
 // PatchEndpointIDConfigFailedCode is the HTTP code returned for type PatchEndpointIDConfigFailed
 const PatchEndpointIDConfigFailedCode int = 500
 
-/*
-PatchEndpointIDConfigFailed Update failed. Details in message.
-
-swagger:response patchEndpointIdConfigFailed
-*/
+// PatchEndpointIDConfigFailed Update failed. Details in message.
+//
+// swagger:response patchEndpointIdConfigFailed
 type PatchEndpointIDConfigFailed struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -183,11 +169,9 @@ func (o *PatchEndpointIDConfigFailed) WriteResponse(rw http.ResponseWriter, prod
 // PatchEndpointIDConfigServiceUnavailableCode is the HTTP code returned for type PatchEndpointIDConfigServiceUnavailable
 const PatchEndpointIDConfigServiceUnavailableCode int = 503
 
-/*
-PatchEndpointIDConfigServiceUnavailable Service Unavailable
-
-swagger:response patchEndpointIdConfigServiceUnavailable
-*/
+// PatchEndpointIDConfigServiceUnavailable Service Unavailable
+//
+// swagger:response patchEndpointIdConfigServiceUnavailable
 type PatchEndpointIDConfigServiceUnavailable struct {
 }
 

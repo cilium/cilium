@@ -15,16 +15,12 @@ import (
 // GetPolicyOKCode is the HTTP code returned for type GetPolicyOK
 const GetPolicyOKCode int = 200
 
-/*
-GetPolicyOK Success
-
-swagger:response getPolicyOK
-*/
+// GetPolicyOK Success
+//
+// swagger:response getPolicyOK
 type GetPolicyOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.Policy `json:"body,omitempty"`
 }
 
@@ -60,11 +56,9 @@ func (o *GetPolicyOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pro
 // GetPolicyNotFoundCode is the HTTP code returned for type GetPolicyNotFound
 const GetPolicyNotFoundCode int = 404
 
-/*
-GetPolicyNotFound No policy rules found
-
-swagger:response getPolicyNotFound
-*/
+// GetPolicyNotFound No policy rules found
+//
+// swagger:response getPolicyNotFound
 type GetPolicyNotFound struct {
 }
 

@@ -70,11 +70,9 @@ func NewDeleteIpamIPOK() *DeleteIpamIPOK {
 	return &DeleteIpamIPOK{}
 }
 
-/*
-DeleteIpamIPOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// DeleteIpamIPOK describes a response with status code 200, with default header values.
+//
+// Success
 type DeleteIpamIPOK struct {
 }
 
@@ -126,11 +124,9 @@ func NewDeleteIpamIPInvalid() *DeleteIpamIPInvalid {
 	return &DeleteIpamIPInvalid{}
 }
 
-/*
-DeleteIpamIPInvalid describes a response with status code 400, with default header values.
-
-Invalid IP address
-*/
+// DeleteIpamIPInvalid describes a response with status code 400, with default header values.
+//
+// Invalid IP address
 type DeleteIpamIPInvalid struct {
 }
 
@@ -182,11 +178,9 @@ func NewDeleteIpamIPForbidden() *DeleteIpamIPForbidden {
 	return &DeleteIpamIPForbidden{}
 }
 
-/*
-DeleteIpamIPForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// DeleteIpamIPForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type DeleteIpamIPForbidden struct {
 }
 
@@ -238,11 +232,9 @@ func NewDeleteIpamIPNotFound() *DeleteIpamIPNotFound {
 	return &DeleteIpamIPNotFound{}
 }
 
-/*
-DeleteIpamIPNotFound describes a response with status code 404, with default header values.
-
-IP address not found
-*/
+// DeleteIpamIPNotFound describes a response with status code 404, with default header values.
+//
+// IP address not found
 type DeleteIpamIPNotFound struct {
 }
 
@@ -294,11 +286,9 @@ func NewDeleteIpamIPFailure() *DeleteIpamIPFailure {
 	return &DeleteIpamIPFailure{}
 }
 
-/*
-DeleteIpamIPFailure describes a response with status code 500, with default header values.
-
-Address release failure
-*/
+// DeleteIpamIPFailure describes a response with status code 500, with default header values.
+//
+// Address release failure
 type DeleteIpamIPFailure struct {
 	Payload models.Error
 }
@@ -362,11 +352,9 @@ func NewDeleteIpamIPDisabled() *DeleteIpamIPDisabled {
 	return &DeleteIpamIPDisabled{}
 }
 
-/*
-DeleteIpamIPDisabled describes a response with status code 501, with default header values.
-
-Allocation for address family disabled
-*/
+// DeleteIpamIPDisabled describes a response with status code 501, with default header values.
+//
+// Allocation for address family disabled
 type DeleteIpamIPDisabled struct {
 }
 

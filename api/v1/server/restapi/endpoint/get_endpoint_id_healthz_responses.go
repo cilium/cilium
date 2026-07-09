@@ -15,16 +15,12 @@ import (
 // GetEndpointIDHealthzOKCode is the HTTP code returned for type GetEndpointIDHealthzOK
 const GetEndpointIDHealthzOKCode int = 200
 
-/*
-GetEndpointIDHealthzOK Success
-
-swagger:response getEndpointIdHealthzOK
-*/
+// GetEndpointIDHealthzOK Success
+//
+// swagger:response getEndpointIdHealthzOK
 type GetEndpointIDHealthzOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.EndpointHealth `json:"body,omitempty"`
 }
 
@@ -60,11 +56,9 @@ func (o *GetEndpointIDHealthzOK) WriteResponse(rw http.ResponseWriter, producer 
 // GetEndpointIDHealthzInvalidCode is the HTTP code returned for type GetEndpointIDHealthzInvalid
 const GetEndpointIDHealthzInvalidCode int = 400
 
-/*
-GetEndpointIDHealthzInvalid Invalid identity provided
-
-swagger:response getEndpointIdHealthzInvalid
-*/
+// GetEndpointIDHealthzInvalid Invalid identity provided
+//
+// swagger:response getEndpointIdHealthzInvalid
 type GetEndpointIDHealthzInvalid struct {
 }
 
@@ -85,11 +79,9 @@ func (o *GetEndpointIDHealthzInvalid) WriteResponse(rw http.ResponseWriter, prod
 // GetEndpointIDHealthzNotFoundCode is the HTTP code returned for type GetEndpointIDHealthzNotFound
 const GetEndpointIDHealthzNotFoundCode int = 404
 
-/*
-GetEndpointIDHealthzNotFound Endpoint not found
-
-swagger:response getEndpointIdHealthzNotFound
-*/
+// GetEndpointIDHealthzNotFound Endpoint not found
+//
+// swagger:response getEndpointIdHealthzNotFound
 type GetEndpointIDHealthzNotFound struct {
 }
 
@@ -110,11 +102,9 @@ func (o *GetEndpointIDHealthzNotFound) WriteResponse(rw http.ResponseWriter, pro
 // GetEndpointIDHealthzTooManyRequestsCode is the HTTP code returned for type GetEndpointIDHealthzTooManyRequests
 const GetEndpointIDHealthzTooManyRequestsCode int = 429
 
-/*
-GetEndpointIDHealthzTooManyRequests Rate-limiting too many requests in the given time frame
-
-swagger:response getEndpointIdHealthzTooManyRequests
-*/
+// GetEndpointIDHealthzTooManyRequests Rate-limiting too many requests in the given time frame
+//
+// swagger:response getEndpointIdHealthzTooManyRequests
 type GetEndpointIDHealthzTooManyRequests struct {
 }
 

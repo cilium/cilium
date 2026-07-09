@@ -52,11 +52,9 @@ func NewGetBgpPeersOK() *GetBgpPeersOK {
 	return &GetBgpPeersOK{}
 }
 
-/*
-GetBgpPeersOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetBgpPeersOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetBgpPeersOK struct {
 	Payload []*models.BgpPeer
 }
@@ -120,11 +118,9 @@ func NewGetBgpPeersInternalServerError() *GetBgpPeersInternalServerError {
 	return &GetBgpPeersInternalServerError{}
 }
 
-/*
-GetBgpPeersInternalServerError describes a response with status code 500, with default header values.
-
-Internal Server Error
-*/
+// GetBgpPeersInternalServerError describes a response with status code 500, with default header values.
+//
+// Internal Server Error
 type GetBgpPeersInternalServerError struct {
 	Payload models.Error
 }
@@ -188,11 +184,9 @@ func NewGetBgpPeersDisabled() *GetBgpPeersDisabled {
 	return &GetBgpPeersDisabled{}
 }
 
-/*
-GetBgpPeersDisabled describes a response with status code 501, with default header values.
-
-BGP Control Plane disabled
-*/
+// GetBgpPeersDisabled describes a response with status code 501, with default header values.
+//
+// BGP Control Plane disabled
 type GetBgpPeersDisabled struct {
 	Payload models.Error
 }

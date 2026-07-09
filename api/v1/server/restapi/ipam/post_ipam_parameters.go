@@ -31,25 +31,13 @@ func NewPostIpamParams() PostIpamParams {
 type PostIpamParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*
-	  In: header
-	*/
+	// In: header
 	Expiration *bool
-
-	/*
-	  In: query
-	*/
+	// In: query
 	Family *string
-
-	/*
-	  In: query
-	*/
+	// In: query
 	Owner *string
-
-	/*
-	  In: query
-	*/
+	// In: query
 	Pool *string
 }
 

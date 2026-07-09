@@ -40,11 +40,9 @@ func NewGetConfigOK() *GetConfigOK {
 	return &GetConfigOK{}
 }
 
-/*
-GetConfigOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetConfigOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetConfigOK struct {
 	Payload *models.DaemonConfiguration
 }

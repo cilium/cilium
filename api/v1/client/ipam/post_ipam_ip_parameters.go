@@ -65,10 +65,9 @@ PostIpamIPParams contains all the parameters to send to the API endpoint
 */
 type PostIpamIPParams struct {
 
-	/* IP.
-
-	   IP address
-	*/
+	// IP.
+	//
+	// IP address
 	IP string
 
 	// Owner.

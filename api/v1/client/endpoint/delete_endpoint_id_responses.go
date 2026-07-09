@@ -76,11 +76,9 @@ func NewDeleteEndpointIDOK() *DeleteEndpointIDOK {
 	return &DeleteEndpointIDOK{}
 }
 
-/*
-DeleteEndpointIDOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// DeleteEndpointIDOK describes a response with status code 200, with default header values.
+//
+// Success
 type DeleteEndpointIDOK struct {
 }
 
@@ -132,11 +130,9 @@ func NewDeleteEndpointIDErrors() *DeleteEndpointIDErrors {
 	return &DeleteEndpointIDErrors{}
 }
 
-/*
-DeleteEndpointIDErrors describes a response with status code 206, with default header values.
-
-Deleted with a number of errors encountered
-*/
+// DeleteEndpointIDErrors describes a response with status code 206, with default header values.
+//
+// Deleted with a number of errors encountered
 type DeleteEndpointIDErrors struct {
 	Payload int64
 }
@@ -200,13 +196,10 @@ func NewDeleteEndpointIDInvalid() *DeleteEndpointIDInvalid {
 	return &DeleteEndpointIDInvalid{}
 }
 
-/*
-	DeleteEndpointIDInvalid describes a response with status code 400, with default header values.
-
-	Invalid endpoint ID format for specified type. Details in error
-
-message
-*/
+// DeleteEndpointIDInvalid describes a response with status code 400, with default header values.
+//
+// Invalid endpoint ID format for specified type. Details in error
+// message
 type DeleteEndpointIDInvalid struct {
 	Payload models.Error
 }
@@ -270,11 +263,9 @@ func NewDeleteEndpointIDForbidden() *DeleteEndpointIDForbidden {
 	return &DeleteEndpointIDForbidden{}
 }
 
-/*
-DeleteEndpointIDForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// DeleteEndpointIDForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type DeleteEndpointIDForbidden struct {
 }
 
@@ -326,11 +317,9 @@ func NewDeleteEndpointIDNotFound() *DeleteEndpointIDNotFound {
 	return &DeleteEndpointIDNotFound{}
 }
 
-/*
-DeleteEndpointIDNotFound describes a response with status code 404, with default header values.
-
-Endpoint not found
-*/
+// DeleteEndpointIDNotFound describes a response with status code 404, with default header values.
+//
+// Endpoint not found
 type DeleteEndpointIDNotFound struct {
 }
 
@@ -382,11 +371,9 @@ func NewDeleteEndpointIDTooManyRequests() *DeleteEndpointIDTooManyRequests {
 	return &DeleteEndpointIDTooManyRequests{}
 }
 
-/*
-DeleteEndpointIDTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// DeleteEndpointIDTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type DeleteEndpointIDTooManyRequests struct {
 }
 
@@ -438,11 +425,9 @@ func NewDeleteEndpointIDServiceUnavailable() *DeleteEndpointIDServiceUnavailable
 	return &DeleteEndpointIDServiceUnavailable{}
 }
 
-/*
-DeleteEndpointIDServiceUnavailable describes a response with status code 503, with default header values.
-
-Service Unavailable
-*/
+// DeleteEndpointIDServiceUnavailable describes a response with status code 503, with default header values.
+//
+// Service Unavailable
 type DeleteEndpointIDServiceUnavailable struct {
 }
 

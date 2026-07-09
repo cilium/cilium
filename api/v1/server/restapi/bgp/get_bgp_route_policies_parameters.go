@@ -30,12 +30,10 @@ func NewGetBgpRoutePoliciesParams() GetBgpRoutePoliciesParams {
 type GetBgpRoutePoliciesParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*Autonomous System Number (ASN) identifying a BGP virtual router instance.
-	If not specified, all virtual router instances are selected.
-
-	  In: query
-	*/
+	// Autonomous System Number (ASN) identifying a BGP virtual router instance.
+	// If not specified, all virtual router instances are selected.
+	//
+	// In: query
 	RouterAsn *int64
 }
 

@@ -15,16 +15,12 @@ import (
 // GetServiceOKCode is the HTTP code returned for type GetServiceOK
 const GetServiceOKCode int = 200
 
-/*
-GetServiceOK Success
-
-swagger:response getServiceOK
-*/
+// GetServiceOK Success
+//
+// swagger:response getServiceOK
 type GetServiceOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.Service `json:"body,omitempty"`
 }
 

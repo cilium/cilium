@@ -58,11 +58,9 @@ func NewPatchConfigOK() *PatchConfigOK {
 	return &PatchConfigOK{}
 }
 
-/*
-PatchConfigOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// PatchConfigOK describes a response with status code 200, with default header values.
+//
+// Success
 type PatchConfigOK struct {
 }
 
@@ -114,11 +112,9 @@ func NewPatchConfigBadRequest() *PatchConfigBadRequest {
 	return &PatchConfigBadRequest{}
 }
 
-/*
-PatchConfigBadRequest describes a response with status code 400, with default header values.
-
-Bad configuration parameters
-*/
+// PatchConfigBadRequest describes a response with status code 400, with default header values.
+//
+// Bad configuration parameters
 type PatchConfigBadRequest struct {
 	Payload models.Error
 }
@@ -182,11 +178,9 @@ func NewPatchConfigForbidden() *PatchConfigForbidden {
 	return &PatchConfigForbidden{}
 }
 
-/*
-PatchConfigForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PatchConfigForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PatchConfigForbidden struct {
 }
 
@@ -238,11 +232,9 @@ func NewPatchConfigFailure() *PatchConfigFailure {
 	return &PatchConfigFailure{}
 }
 
-/*
-PatchConfigFailure describes a response with status code 500, with default header values.
-
-Recompilation failed
-*/
+// PatchConfigFailure describes a response with status code 500, with default header values.
+//
+// Recompilation failed
 type PatchConfigFailure struct {
 	Payload models.Error
 }

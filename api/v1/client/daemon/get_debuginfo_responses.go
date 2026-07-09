@@ -46,11 +46,9 @@ func NewGetDebuginfoOK() *GetDebuginfoOK {
 	return &GetDebuginfoOK{}
 }
 
-/*
-GetDebuginfoOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetDebuginfoOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetDebuginfoOK struct {
 	Payload *models.DebugInfo
 }
@@ -116,11 +114,9 @@ func NewGetDebuginfoFailure() *GetDebuginfoFailure {
 	return &GetDebuginfoFailure{}
 }
 
-/*
-GetDebuginfoFailure describes a response with status code 500, with default header values.
-
-DebugInfo get failed
-*/
+// GetDebuginfoFailure describes a response with status code 500, with default header values.
+//
+// DebugInfo get failed
 type GetDebuginfoFailure struct {
 	Payload models.Error
 }

@@ -15,16 +15,12 @@ import (
 // GetCgroupDumpMetadataOKCode is the HTTP code returned for type GetCgroupDumpMetadataOK
 const GetCgroupDumpMetadataOKCode int = 200
 
-/*
-GetCgroupDumpMetadataOK Success
-
-swagger:response getCgroupDumpMetadataOK
-*/
+// GetCgroupDumpMetadataOK Success
+//
+// swagger:response getCgroupDumpMetadataOK
 type GetCgroupDumpMetadataOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.CgroupDumpMetadata `json:"body,omitempty"`
 }
 
@@ -60,16 +56,12 @@ func (o *GetCgroupDumpMetadataOK) WriteResponse(rw http.ResponseWriter, producer
 // GetCgroupDumpMetadataFailureCode is the HTTP code returned for type GetCgroupDumpMetadataFailure
 const GetCgroupDumpMetadataFailureCode int = 500
 
-/*
-GetCgroupDumpMetadataFailure CgroupDumpMetadata get failed
-
-swagger:response getCgroupDumpMetadataFailure
-*/
+// GetCgroupDumpMetadataFailure CgroupDumpMetadata get failed
+//
+// swagger:response getCgroupDumpMetadataFailure
 type GetCgroupDumpMetadataFailure struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

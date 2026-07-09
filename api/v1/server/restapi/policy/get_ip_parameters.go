@@ -31,16 +31,12 @@ func NewGetIPParams() GetIPParams {
 type GetIPParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*A CIDR range of IPs
-	  In: query
-	*/
+	// A CIDR range of IPs
+	// In: query
 	Cidr *string
-
-	/*List of labels
-
-	  In: body
-	*/
+	// List of labels
+	//
+	// In: body
 	Labels models.Labels
 }
 

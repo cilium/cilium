@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for operator API.
-*/
+// Client for operator API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -94,16 +92,14 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-GetHealthzgets health of cilium operator.
-
-Returns the status of cilium operator instance..
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetHealthzContext] instead.
-*/
+// GetHealthz gets health of cilium operator.
+//
+// Returns the status of cilium operator instance..
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetHealthzContext] instead.
 func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -115,13 +111,11 @@ func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*Ge
 	return a.GetHealthzContext(ctx, params, opts...)
 }
 
-/*
-GetHealthzContextgets health of cilium operator.
-
-Returns the status of cilium operator instance..
-
-Do not use the deprecated [GetHealthzParams.Context] with this method: it would be ignored.
-*/
+// GetHealthzContext gets health of cilium operator.
+//
+// Returns the status of cilium operator instance..
+//
+// Do not use the deprecated [GetHealthzParams.Context] with this method: it would be ignored.
 func (a *Client) GetHealthzContext(ctx context.Context, params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

@@ -29,11 +29,9 @@ func NewGetMapNameEvents(ctx *middleware.Context, handler GetMapNameEventsHandle
 	return &GetMapNameEvents{Context: ctx, Handler: handler}
 }
 
-/*
-	GetMapNameEvents swagger:route GET /map/{name}/events daemon getMapNameEvents
-
-Retrieves the recent event logs associated with this endpoint.
-*/
+// GetMapNameEvents swagger:route GET /map/{name}/events daemon getMapNameEvents
+//
+// Retrieves the recent event logs associated with this endpoint.
 type GetMapNameEvents struct {
 	Context *middleware.Context
 	Handler GetMapNameEventsHandler

@@ -32,11 +32,8 @@ func NewDeleteEndpointParams() DeleteEndpointParams {
 type DeleteEndpointParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*
-	  Required: true
-	  In: body
-	*/
+	// Required: true
+	// In: body
 	Endpoint *models.EndpointBatchDeleteRequest
 }
 

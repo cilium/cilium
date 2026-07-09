@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for cluster API.
-*/
+// Client for cluster API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -70,16 +68,14 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-GetClustergets remote clusters connection status.
-
-Returns the list of remote clusters and their status..
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetClusterContext] instead.
-*/
+// GetCluster gets remote clusters connection status.
+//
+// Returns the list of remote clusters and their status..
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetClusterContext] instead.
 func (a *Client) GetCluster(params *GetClusterParams, opts ...ClientOption) (*GetClusterOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -91,13 +87,11 @@ func (a *Client) GetCluster(params *GetClusterParams, opts ...ClientOption) (*Ge
 	return a.GetClusterContext(ctx, params, opts...)
 }
 
-/*
-GetClusterContextgets remote clusters connection status.
-
-Returns the list of remote clusters and their status..
-
-Do not use the deprecated [GetClusterParams.Context] with this method: it would be ignored.
-*/
+// GetClusterContext gets remote clusters connection status.
+//
+// Returns the list of remote clusters and their status..
+//
+// Do not use the deprecated [GetClusterParams.Context] with this method: it would be ignored.
 func (a *Client) GetClusterContext(ctx context.Context, params *GetClusterParams, opts ...ClientOption) (*GetClusterOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

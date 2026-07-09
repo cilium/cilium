@@ -63,7 +63,7 @@ func NewCiliumHealthAPIAPI(spec *loads.Document) *CiliumHealthAPIAPI {
 	}
 }
 
-/*CiliumHealthAPIAPI Cilium Health Checker */
+// CiliumHealthAPIAPI Cilium Health Checker
 type CiliumHealthAPIAPI struct {
 	spec            *loads.Document
 	context         *middleware.Context

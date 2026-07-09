@@ -15,16 +15,12 @@ import (
 // GetClusterNodesOKCode is the HTTP code returned for type GetClusterNodesOK
 const GetClusterNodesOKCode int = 200
 
-/*
-GetClusterNodesOK Success
-
-swagger:response getClusterNodesOK
-*/
+// GetClusterNodesOK Success
+//
+// swagger:response getClusterNodesOK
 type GetClusterNodesOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.ClusterNodeStatus `json:"body,omitempty"`
 }
 

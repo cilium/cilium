@@ -29,14 +29,12 @@ func NewGetBgpRoutePolicies(ctx *middleware.Context, handler GetBgpRoutePolicies
 	return &GetBgpRoutePolicies{Context: ctx, Handler: handler}
 }
 
-/*
-	GetBgpRoutePolicies swagger:route GET /bgp/route-policies bgp getBgpRoutePolicies
-
-Lists BGP route policies configured in BGP Control Plane.
-
-Retrieves route policies from BGP Control Plane.
-Deprecated: This will be removed in the future.
-*/
+// GetBgpRoutePolicies swagger:route GET /bgp/route-policies bgp getBgpRoutePolicies
+//
+// Lists BGP route policies configured in BGP Control Plane.
+//
+// Retrieves route policies from BGP Control Plane.
+// Deprecated: This will be removed in the future.
 type GetBgpRoutePolicies struct {
 	Context *middleware.Context
 	Handler GetBgpRoutePoliciesHandler

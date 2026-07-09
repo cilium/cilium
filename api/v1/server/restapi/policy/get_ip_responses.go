@@ -15,16 +15,12 @@ import (
 // GetIPOKCode is the HTTP code returned for type GetIPOK
 const GetIPOKCode int = 200
 
-/*
-GetIPOK Success
-
-swagger:response getIpOK
-*/
+// GetIPOK Success
+//
+// swagger:response getIpOK
 type GetIPOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.IPListEntry `json:"body,omitempty"`
 }
 
@@ -63,16 +59,12 @@ func (o *GetIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.Produce
 // GetIPBadRequestCode is the HTTP code returned for type GetIPBadRequest
 const GetIPBadRequestCode int = 400
 
-/*
-GetIPBadRequest Invalid request (error parsing parameters)
-
-swagger:response getIpBadRequest
-*/
+// GetIPBadRequest Invalid request (error parsing parameters)
+//
+// swagger:response getIpBadRequest
 type GetIPBadRequest struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -106,11 +98,9 @@ func (o *GetIPBadRequest) WriteResponse(rw http.ResponseWriter, producer runtime
 // GetIPNotFoundCode is the HTTP code returned for type GetIPNotFound
 const GetIPNotFoundCode int = 404
 
-/*
-GetIPNotFound No IP cache entries with provided parameters found
-
-swagger:response getIpNotFound
-*/
+// GetIPNotFound No IP cache entries with provided parameters found
+//
+// swagger:response getIpNotFound
 type GetIPNotFound struct {
 }
 

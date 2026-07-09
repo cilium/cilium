@@ -15,16 +15,12 @@ import (
 // GetEndpointIDLogOKCode is the HTTP code returned for type GetEndpointIDLogOK
 const GetEndpointIDLogOKCode int = 200
 
-/*
-GetEndpointIDLogOK Success
-
-swagger:response getEndpointIdLogOK
-*/
+// GetEndpointIDLogOK Success
+//
+// swagger:response getEndpointIdLogOK
 type GetEndpointIDLogOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.EndpointStatusLog `json:"body,omitempty"`
 }
 
@@ -63,11 +59,9 @@ func (o *GetEndpointIDLogOK) WriteResponse(rw http.ResponseWriter, producer runt
 // GetEndpointIDLogInvalidCode is the HTTP code returned for type GetEndpointIDLogInvalid
 const GetEndpointIDLogInvalidCode int = 400
 
-/*
-GetEndpointIDLogInvalid Invalid identity provided
-
-swagger:response getEndpointIdLogInvalid
-*/
+// GetEndpointIDLogInvalid Invalid identity provided
+//
+// swagger:response getEndpointIdLogInvalid
 type GetEndpointIDLogInvalid struct {
 }
 
@@ -88,11 +82,9 @@ func (o *GetEndpointIDLogInvalid) WriteResponse(rw http.ResponseWriter, producer
 // GetEndpointIDLogNotFoundCode is the HTTP code returned for type GetEndpointIDLogNotFound
 const GetEndpointIDLogNotFoundCode int = 404
 
-/*
-GetEndpointIDLogNotFound Endpoint not found
-
-swagger:response getEndpointIdLogNotFound
-*/
+// GetEndpointIDLogNotFound Endpoint not found
+//
+// swagger:response getEndpointIdLogNotFound
 type GetEndpointIDLogNotFound struct {
 }
 
@@ -113,11 +105,9 @@ func (o *GetEndpointIDLogNotFound) WriteResponse(rw http.ResponseWriter, produce
 // GetEndpointIDLogTooManyRequestsCode is the HTTP code returned for type GetEndpointIDLogTooManyRequests
 const GetEndpointIDLogTooManyRequestsCode int = 429
 
-/*
-GetEndpointIDLogTooManyRequests Rate-limiting too many requests in the given time frame
-
-swagger:response getEndpointIdLogTooManyRequests
-*/
+// GetEndpointIDLogTooManyRequests Rate-limiting too many requests in the given time frame
+//
+// swagger:response getEndpointIdLogTooManyRequests
 type GetEndpointIDLogTooManyRequests struct {
 }
 

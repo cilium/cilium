@@ -30,16 +30,12 @@ func NewGetMapNameEventsParams() GetMapNameEventsParams {
 type GetMapNameEventsParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*Whether to follow streamed requests
-	  In: query
-	*/
+	// Whether to follow streamed requests
+	// In: query
 	Follow *bool
-
-	/*Name of map
-	  Required: true
-	  In: path
-	*/
+	// Name of map
+	// Required: true
+	// In: path
 	Name string
 }
 

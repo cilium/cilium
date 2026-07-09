@@ -15,16 +15,12 @@ import (
 // GetHealthzOKCode is the HTTP code returned for type GetHealthzOK
 const GetHealthzOKCode int = 200
 
-/*
-GetHealthzOK Success
-
-swagger:response getHealthzOK
-*/
+// GetHealthzOK Success
+//
+// swagger:response getHealthzOK
 type GetHealthzOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.HealthResponse `json:"body,omitempty"`
 }
 
@@ -60,16 +56,12 @@ func (o *GetHealthzOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 // GetHealthzFailedCode is the HTTP code returned for type GetHealthzFailed
 const GetHealthzFailedCode int = 500
 
-/*
-GetHealthzFailed Failed to contact local Cilium daemon
-
-swagger:response getHealthzFailed
-*/
+// GetHealthzFailed Failed to contact local Cilium daemon
+//
+// swagger:response getHealthzFailed
 type GetHealthzFailed struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

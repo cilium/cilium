@@ -46,11 +46,9 @@ func NewGetCgroupDumpMetadataOK() *GetCgroupDumpMetadataOK {
 	return &GetCgroupDumpMetadataOK{}
 }
 
-/*
-GetCgroupDumpMetadataOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetCgroupDumpMetadataOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetCgroupDumpMetadataOK struct {
 	Payload *models.CgroupDumpMetadata
 }
@@ -116,11 +114,9 @@ func NewGetCgroupDumpMetadataFailure() *GetCgroupDumpMetadataFailure {
 	return &GetCgroupDumpMetadataFailure{}
 }
 
-/*
-GetCgroupDumpMetadataFailure describes a response with status code 500, with default header values.
-
-CgroupDumpMetadata get failed
-*/
+// GetCgroupDumpMetadataFailure describes a response with status code 500, with default header values.
+//
+// CgroupDumpMetadata get failed
 type GetCgroupDumpMetadataFailure struct {
 	Payload models.Error
 }

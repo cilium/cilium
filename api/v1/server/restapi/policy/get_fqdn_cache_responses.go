@@ -15,16 +15,12 @@ import (
 // GetFqdnCacheOKCode is the HTTP code returned for type GetFqdnCacheOK
 const GetFqdnCacheOKCode int = 200
 
-/*
-GetFqdnCacheOK Success
-
-swagger:response getFqdnCacheOK
-*/
+// GetFqdnCacheOK Success
+//
+// swagger:response getFqdnCacheOK
 type GetFqdnCacheOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.DNSLookup `json:"body,omitempty"`
 }
 
@@ -63,16 +59,12 @@ func (o *GetFqdnCacheOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // GetFqdnCacheBadRequestCode is the HTTP code returned for type GetFqdnCacheBadRequest
 const GetFqdnCacheBadRequestCode int = 400
 
-/*
-GetFqdnCacheBadRequest Invalid request (error parsing parameters)
-
-swagger:response getFqdnCacheBadRequest
-*/
+// GetFqdnCacheBadRequest Invalid request (error parsing parameters)
+//
+// swagger:response getFqdnCacheBadRequest
 type GetFqdnCacheBadRequest struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -106,11 +98,9 @@ func (o *GetFqdnCacheBadRequest) WriteResponse(rw http.ResponseWriter, producer 
 // GetFqdnCacheNotFoundCode is the HTTP code returned for type GetFqdnCacheNotFound
 const GetFqdnCacheNotFoundCode int = 404
 
-/*
-GetFqdnCacheNotFound No DNS data with provided parameters found
-
-swagger:response getFqdnCacheNotFound
-*/
+// GetFqdnCacheNotFound No DNS data with provided parameters found
+//
+// swagger:response getFqdnCacheNotFound
 type GetFqdnCacheNotFound struct {
 }
 

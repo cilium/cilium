@@ -15,16 +15,12 @@ import (
 // GetClusterOKCode is the HTTP code returned for type GetClusterOK
 const GetClusterOKCode int = 200
 
-/*
-GetClusterOK Success
-
-swagger:response getClusterOK
-*/
+// GetClusterOK Success
+//
+// swagger:response getClusterOK
 type GetClusterOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*common.RemoteCluster `json:"body,omitempty"`
 }
 

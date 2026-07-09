@@ -15,16 +15,12 @@ import (
 // GetBgpRoutePoliciesOKCode is the HTTP code returned for type GetBgpRoutePoliciesOK
 const GetBgpRoutePoliciesOKCode int = 200
 
-/*
-GetBgpRoutePoliciesOK Success
-
-swagger:response getBgpRoutePoliciesOK
-*/
+// GetBgpRoutePoliciesOK Success
+//
+// swagger:response getBgpRoutePoliciesOK
 type GetBgpRoutePoliciesOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.BgpRoutePolicy `json:"body,omitempty"`
 }
 
@@ -63,16 +59,12 @@ func (o *GetBgpRoutePoliciesOK) WriteResponse(rw http.ResponseWriter, producer r
 // GetBgpRoutePoliciesInternalServerErrorCode is the HTTP code returned for type GetBgpRoutePoliciesInternalServerError
 const GetBgpRoutePoliciesInternalServerErrorCode int = 500
 
-/*
-GetBgpRoutePoliciesInternalServerError Internal Server Error
-
-swagger:response getBgpRoutePoliciesInternalServerError
-*/
+// GetBgpRoutePoliciesInternalServerError Internal Server Error
+//
+// swagger:response getBgpRoutePoliciesInternalServerError
 type GetBgpRoutePoliciesInternalServerError struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -106,16 +98,12 @@ func (o *GetBgpRoutePoliciesInternalServerError) WriteResponse(rw http.ResponseW
 // GetBgpRoutePoliciesDisabledCode is the HTTP code returned for type GetBgpRoutePoliciesDisabled
 const GetBgpRoutePoliciesDisabledCode int = 501
 
-/*
-GetBgpRoutePoliciesDisabled BGP Control Plane disabled
-
-swagger:response getBgpRoutePoliciesDisabled
-*/
+// GetBgpRoutePoliciesDisabled BGP Control Plane disabled
+//
+// swagger:response getBgpRoutePoliciesDisabled
 type GetBgpRoutePoliciesDisabled struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

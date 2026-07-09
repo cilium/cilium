@@ -46,11 +46,9 @@ func NewGetFqdnNamesOK() *GetFqdnNamesOK {
 	return &GetFqdnNamesOK{}
 }
 
-/*
-GetFqdnNamesOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetFqdnNamesOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetFqdnNamesOK struct {
 	Payload *models.NameManager
 }
@@ -116,11 +114,9 @@ func NewGetFqdnNamesBadRequest() *GetFqdnNamesBadRequest {
 	return &GetFqdnNamesBadRequest{}
 }
 
-/*
-GetFqdnNamesBadRequest describes a response with status code 400, with default header values.
-
-Invalid request (error parsing parameters)
-*/
+// GetFqdnNamesBadRequest describes a response with status code 400, with default header values.
+//
+// Invalid request (error parsing parameters)
 type GetFqdnNamesBadRequest struct {
 	Payload models.Error
 }

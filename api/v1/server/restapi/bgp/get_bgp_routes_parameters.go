@@ -31,37 +31,27 @@ func NewGetBgpRoutesParams() GetBgpRoutesParams {
 type GetBgpRoutesParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*Address Family Indicator (AFI) of a BGP route
-	  Required: true
-	  In: query
-	*/
+	// Address Family Indicator (AFI) of a BGP route
+	// Required: true
+	// In: query
 	Afi string
-
-	/*IP address specifying a BGP neighbor.
-	Has to be specified only when table type is adj-rib-in or adj-rib-out.
-
-	  In: query
-	*/
+	// IP address specifying a BGP neighbor.
+	// Has to be specified only when table type is adj-rib-in or adj-rib-out.
+	//
+	// In: query
 	Neighbor *string
-
-	/*Autonomous System Number (ASN) identifying a BGP virtual router instance.
-	If not specified, all virtual router instances are selected.
-
-	  In: query
-	*/
+	// Autonomous System Number (ASN) identifying a BGP virtual router instance.
+	// If not specified, all virtual router instances are selected.
+	//
+	// In: query
 	RouterAsn *int64
-
-	/*Subsequent Address Family Indicator (SAFI) of a BGP route
-	  Required: true
-	  In: query
-	*/
+	// Subsequent Address Family Indicator (SAFI) of a BGP route
+	// Required: true
+	// In: query
 	Safi string
-
-	/*BGP Routing Information Base (RIB) table type
-	  Required: true
-	  In: query
-	*/
+	// BGP Routing Information Base (RIB) table type
+	// Required: true
+	// In: query
 	TableType string
 }
 

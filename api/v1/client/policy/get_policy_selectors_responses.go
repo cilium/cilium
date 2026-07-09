@@ -40,11 +40,9 @@ func NewGetPolicySelectorsOK() *GetPolicySelectorsOK {
 	return &GetPolicySelectorsOK{}
 }
 
-/*
-GetPolicySelectorsOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetPolicySelectorsOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetPolicySelectorsOK struct {
 	Payload models.SelectorCache
 }

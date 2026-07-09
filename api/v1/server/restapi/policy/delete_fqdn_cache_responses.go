@@ -15,11 +15,9 @@ import (
 // DeleteFqdnCacheOKCode is the HTTP code returned for type DeleteFqdnCacheOK
 const DeleteFqdnCacheOKCode int = 200
 
-/*
-DeleteFqdnCacheOK Success
-
-swagger:response deleteFqdnCacheOK
-*/
+// DeleteFqdnCacheOK Success
+//
+// swagger:response deleteFqdnCacheOK
 type DeleteFqdnCacheOK struct {
 }
 
@@ -40,16 +38,12 @@ func (o *DeleteFqdnCacheOK) WriteResponse(rw http.ResponseWriter, producer runti
 // DeleteFqdnCacheBadRequestCode is the HTTP code returned for type DeleteFqdnCacheBadRequest
 const DeleteFqdnCacheBadRequestCode int = 400
 
-/*
-DeleteFqdnCacheBadRequest Invalid request (error parsing parameters)
-
-swagger:response deleteFqdnCacheBadRequest
-*/
+// DeleteFqdnCacheBadRequest Invalid request (error parsing parameters)
+//
+// swagger:response deleteFqdnCacheBadRequest
 type DeleteFqdnCacheBadRequest struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -83,11 +77,9 @@ func (o *DeleteFqdnCacheBadRequest) WriteResponse(rw http.ResponseWriter, produc
 // DeleteFqdnCacheForbiddenCode is the HTTP code returned for type DeleteFqdnCacheForbidden
 const DeleteFqdnCacheForbiddenCode int = 403
 
-/*
-DeleteFqdnCacheForbidden Forbidden
-
-swagger:response deleteFqdnCacheForbidden
-*/
+// DeleteFqdnCacheForbidden Forbidden
+//
+// swagger:response deleteFqdnCacheForbidden
 type DeleteFqdnCacheForbidden struct {
 }
 

@@ -46,11 +46,9 @@ func NewGetPrefilterOK() *GetPrefilterOK {
 	return &GetPrefilterOK{}
 }
 
-/*
-GetPrefilterOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetPrefilterOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetPrefilterOK struct {
 	Payload *models.Prefilter
 }
@@ -116,11 +114,9 @@ func NewGetPrefilterFailure() *GetPrefilterFailure {
 	return &GetPrefilterFailure{}
 }
 
-/*
-GetPrefilterFailure describes a response with status code 500, with default header values.
-
-Prefilter get failed
-*/
+// GetPrefilterFailure describes a response with status code 500, with default header values.
+//
+// Prefilter get failed
 type GetPrefilterFailure struct {
 	Payload models.Error
 }

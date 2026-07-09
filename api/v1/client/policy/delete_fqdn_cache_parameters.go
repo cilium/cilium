@@ -65,10 +65,9 @@ DeleteFqdnCacheParams contains all the parameters to send to the API endpoint
 */
 type DeleteFqdnCacheParams struct {
 
-	/* Matchpattern.
-
-	   A toFQDNs compatible matchPattern expression
-	*/
+	// Matchpattern.
+	//
+	// A toFQDNs compatible matchPattern expression
 	Matchpattern *string
 
 	HTTPClient *http.Client

@@ -52,11 +52,9 @@ func NewGetFqdnCacheOK() *GetFqdnCacheOK {
 	return &GetFqdnCacheOK{}
 }
 
-/*
-GetFqdnCacheOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetFqdnCacheOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetFqdnCacheOK struct {
 	Payload []*models.DNSLookup
 }
@@ -120,11 +118,9 @@ func NewGetFqdnCacheBadRequest() *GetFqdnCacheBadRequest {
 	return &GetFqdnCacheBadRequest{}
 }
 
-/*
-GetFqdnCacheBadRequest describes a response with status code 400, with default header values.
-
-Invalid request (error parsing parameters)
-*/
+// GetFqdnCacheBadRequest describes a response with status code 400, with default header values.
+//
+// Invalid request (error parsing parameters)
 type GetFqdnCacheBadRequest struct {
 	Payload models.Error
 }
@@ -188,11 +184,9 @@ func NewGetFqdnCacheNotFound() *GetFqdnCacheNotFound {
 	return &GetFqdnCacheNotFound{}
 }
 
-/*
-GetFqdnCacheNotFound describes a response with status code 404, with default header values.
-
-No DNS data with provided parameters found
-*/
+// GetFqdnCacheNotFound describes a response with status code 404, with default header values.
+//
+// No DNS data with provided parameters found
 type GetFqdnCacheNotFound struct {
 }
 

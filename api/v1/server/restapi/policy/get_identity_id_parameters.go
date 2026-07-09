@@ -28,12 +28,10 @@ func NewGetIdentityIDParams() GetIdentityIDParams {
 type GetIdentityIDParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*Cluster wide unique identifier of a security identity.
-
-	  Required: true
-	  In: path
-	*/
+	// Cluster wide unique identifier of a security identity.
+	//
+	// Required: true
+	// In: path
 	ID string
 }
 

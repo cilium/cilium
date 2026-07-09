@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for endpoint API.
-*/
+// Client for endpoint API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -136,18 +134,15 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-	DeleteEndpointdeletes a list of endpoints.
-
-	Deletes a list of endpoints that have endpoints matching the provided properties
-
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.DeleteEndpointContext] instead.
-*/
+// DeleteEndpoint deletes a list of endpoints.
+//
+// Deletes a list of endpoints that have endpoints matching the provided properties
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.DeleteEndpointContext] instead.
 func (a *Client) DeleteEndpoint(params *DeleteEndpointParams, opts ...ClientOption) (*DeleteEndpointOK, *DeleteEndpointErrors, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -159,15 +154,12 @@ func (a *Client) DeleteEndpoint(params *DeleteEndpointParams, opts ...ClientOpti
 	return a.DeleteEndpointContext(ctx, params, opts...)
 }
 
-/*
-	DeleteEndpointContextdeletes a list of endpoints.
-
-	Deletes a list of endpoints that have endpoints matching the provided properties
-
-.
-
-	Do not use the deprecated [DeleteEndpointParams.Context] with this method: it would be ignored.
-*/
+// DeleteEndpointContext deletes a list of endpoints.
+//
+// Deletes a list of endpoints that have endpoints matching the provided properties
+// .
+//
+// Do not use the deprecated [DeleteEndpointParams.Context] with this method: it would be ignored.
 func (a *Client) DeleteEndpointContext(ctx context.Context, params *DeleteEndpointParams, opts ...ClientOption) (*DeleteEndpointOK, *DeleteEndpointErrors, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -210,26 +202,23 @@ func (a *Client) DeleteEndpointContext(ctx context.Context, params *DeleteEndpoi
 	panic(msg)
 }
 
-/*
-	DeleteEndpointIDdeletes endpoint.
-
-	Deletes the endpoint specified by the ID. Deletion is imminent and
-
-atomic, if the deletion request is valid and the endpoint exists,
-deletion will occur even if errors are encountered in the process. If
-errors have been encountered, the code 202 will be returned, otherwise
-200 on success.
-
-All resources associated with the endpoint will be freed and the
-workload represented by the endpoint will be disconnected.It will no
-longer be able to initiate or receive communications of any sort.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.DeleteEndpointIDContext] instead.
-*/
+// DeleteEndpointID deletes endpoint.
+//
+// Deletes the endpoint specified by the ID. Deletion is imminent and
+// atomic, if the deletion request is valid and the endpoint exists,
+// deletion will occur even if errors are encountered in the process. If
+// errors have been encountered, the code 202 will be returned, otherwise
+// 200 on success.
+//
+// All resources associated with the endpoint will be freed and the
+// workload represented by the endpoint will be disconnected.It will no
+// longer be able to initiate or receive communications of any sort.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.DeleteEndpointIDContext] instead.
 func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams, opts ...ClientOption) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -241,23 +230,20 @@ func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams, opts ...Client
 	return a.DeleteEndpointIDContext(ctx, params, opts...)
 }
 
-/*
-	DeleteEndpointIDContextdeletes endpoint.
-
-	Deletes the endpoint specified by the ID. Deletion is imminent and
-
-atomic, if the deletion request is valid and the endpoint exists,
-deletion will occur even if errors are encountered in the process. If
-errors have been encountered, the code 202 will be returned, otherwise
-200 on success.
-
-All resources associated with the endpoint will be freed and the
-workload represented by the endpoint will be disconnected.It will no
-longer be able to initiate or receive communications of any sort.
-.
-
-	Do not use the deprecated [DeleteEndpointIDParams.Context] with this method: it would be ignored.
-*/
+// DeleteEndpointIDContext deletes endpoint.
+//
+// Deletes the endpoint specified by the ID. Deletion is imminent and
+// atomic, if the deletion request is valid and the endpoint exists,
+// deletion will occur even if errors are encountered in the process. If
+// errors have been encountered, the code 202 will be returned, otherwise
+// 200 on success.
+//
+// All resources associated with the endpoint will be freed and the
+// workload represented by the endpoint will be disconnected.It will no
+// longer be able to initiate or receive communications of any sort.
+// .
+//
+// Do not use the deprecated [DeleteEndpointIDParams.Context] with this method: it would be ignored.
 func (a *Client) DeleteEndpointIDContext(ctx context.Context, params *DeleteEndpointIDParams, opts ...ClientOption) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -300,18 +286,15 @@ func (a *Client) DeleteEndpointIDContext(ctx context.Context, params *DeleteEndp
 	panic(msg)
 }
 
-/*
-	GetEndpointretrieves a list of endpoints that have metadata matching the provided parameters.
-
-	Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
-
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetEndpointContext] instead.
-*/
+// GetEndpoint retrieves a list of endpoints that have metadata matching the provided parameters.
+//
+// Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetEndpointContext] instead.
 func (a *Client) GetEndpoint(params *GetEndpointParams, opts ...ClientOption) (*GetEndpointOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -323,15 +306,12 @@ func (a *Client) GetEndpoint(params *GetEndpointParams, opts ...ClientOption) (*
 	return a.GetEndpointContext(ctx, params, opts...)
 }
 
-/*
-	GetEndpointContextretrieves a list of endpoints that have metadata matching the provided parameters.
-
-	Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
-
-.
-
-	Do not use the deprecated [GetEndpointParams.Context] with this method: it would be ignored.
-*/
+// GetEndpointContext retrieves a list of endpoints that have metadata matching the provided parameters.
+//
+// Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
+// .
+//
+// Do not use the deprecated [GetEndpointParams.Context] with this method: it would be ignored.
 func (a *Client) GetEndpointContext(ctx context.Context, params *GetEndpointParams, opts ...ClientOption) (*GetEndpointOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -374,18 +354,15 @@ func (a *Client) GetEndpointContext(ctx context.Context, params *GetEndpointPara
 	panic(msg)
 }
 
-/*
-	GetEndpointIDgets endpoint by endpoint ID.
-
-	Returns endpoint information
-
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetEndpointIDContext] instead.
-*/
+// GetEndpointID gets endpoint by endpoint ID.
+//
+// Returns endpoint information
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetEndpointIDContext] instead.
 func (a *Client) GetEndpointID(params *GetEndpointIDParams, opts ...ClientOption) (*GetEndpointIDOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -397,15 +374,12 @@ func (a *Client) GetEndpointID(params *GetEndpointIDParams, opts ...ClientOption
 	return a.GetEndpointIDContext(ctx, params, opts...)
 }
 
-/*
-	GetEndpointIDContextgets endpoint by endpoint ID.
-
-	Returns endpoint information
-
-.
-
-	Do not use the deprecated [GetEndpointIDParams.Context] with this method: it would be ignored.
-*/
+// GetEndpointIDContext gets endpoint by endpoint ID.
+//
+// Returns endpoint information
+// .
+//
+// Do not use the deprecated [GetEndpointIDParams.Context] with this method: it would be ignored.
 func (a *Client) GetEndpointIDContext(ctx context.Context, params *GetEndpointIDParams, opts ...ClientOption) (*GetEndpointIDOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -448,18 +422,15 @@ func (a *Client) GetEndpointIDContext(ctx context.Context, params *GetEndpointID
 	panic(msg)
 }
 
-/*
-	GetEndpointIDConfigretrieves endpoint configuration.
-
-	Retrieves the configuration of the specified endpoint.
-
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetEndpointIDConfigContext] instead.
-*/
+// GetEndpointIDConfig retrieves endpoint configuration.
+//
+// Retrieves the configuration of the specified endpoint.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetEndpointIDConfigContext] instead.
 func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams, opts ...ClientOption) (*GetEndpointIDConfigOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -471,15 +442,12 @@ func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams, opts ...
 	return a.GetEndpointIDConfigContext(ctx, params, opts...)
 }
 
-/*
-	GetEndpointIDConfigContextretrieves endpoint configuration.
-
-	Retrieves the configuration of the specified endpoint.
-
-.
-
-	Do not use the deprecated [GetEndpointIDConfigParams.Context] with this method: it would be ignored.
-*/
+// GetEndpointIDConfigContext retrieves endpoint configuration.
+//
+// Retrieves the configuration of the specified endpoint.
+// .
+//
+// Do not use the deprecated [GetEndpointIDConfigParams.Context] with this method: it would be ignored.
 func (a *Client) GetEndpointIDConfigContext(ctx context.Context, params *GetEndpointIDConfigParams, opts ...ClientOption) (*GetEndpointIDConfigOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -522,14 +490,12 @@ func (a *Client) GetEndpointIDConfigContext(ctx context.Context, params *GetEndp
 	panic(msg)
 }
 
-/*
-GetEndpointIDHealthzretrieves the status logs associated with this endpoint.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetEndpointIDHealthzContext] instead.
-*/
+// GetEndpointIDHealthz retrieves the status logs associated with this endpoint.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetEndpointIDHealthzContext] instead.
 func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams, opts ...ClientOption) (*GetEndpointIDHealthzOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -541,11 +507,9 @@ func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams, opts .
 	return a.GetEndpointIDHealthzContext(ctx, params, opts...)
 }
 
-/*
-GetEndpointIDHealthzContextretrieves the status logs associated with this endpoint.
-
-Do not use the deprecated [GetEndpointIDHealthzParams.Context] with this method: it would be ignored.
-*/
+// GetEndpointIDHealthzContext retrieves the status logs associated with this endpoint.
+//
+// Do not use the deprecated [GetEndpointIDHealthzParams.Context] with this method: it would be ignored.
 func (a *Client) GetEndpointIDHealthzContext(ctx context.Context, params *GetEndpointIDHealthzParams, opts ...ClientOption) (*GetEndpointIDHealthzOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -588,14 +552,12 @@ func (a *Client) GetEndpointIDHealthzContext(ctx context.Context, params *GetEnd
 	panic(msg)
 }
 
-/*
-GetEndpointIDLabelsretrieves the list of labels associated with an endpoint.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetEndpointIDLabelsContext] instead.
-*/
+// GetEndpointIDLabels retrieves the list of labels associated with an endpoint.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetEndpointIDLabelsContext] instead.
 func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams, opts ...ClientOption) (*GetEndpointIDLabelsOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -607,11 +569,9 @@ func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams, opts ...
 	return a.GetEndpointIDLabelsContext(ctx, params, opts...)
 }
 
-/*
-GetEndpointIDLabelsContextretrieves the list of labels associated with an endpoint.
-
-Do not use the deprecated [GetEndpointIDLabelsParams.Context] with this method: it would be ignored.
-*/
+// GetEndpointIDLabelsContext retrieves the list of labels associated with an endpoint.
+//
+// Do not use the deprecated [GetEndpointIDLabelsParams.Context] with this method: it would be ignored.
 func (a *Client) GetEndpointIDLabelsContext(ctx context.Context, params *GetEndpointIDLabelsParams, opts ...ClientOption) (*GetEndpointIDLabelsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -654,14 +614,12 @@ func (a *Client) GetEndpointIDLabelsContext(ctx context.Context, params *GetEndp
 	panic(msg)
 }
 
-/*
-GetEndpointIDLogretrieves the status logs associated with this endpoint.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.GetEndpointIDLogContext] instead.
-*/
+// GetEndpointIDLog retrieves the status logs associated with this endpoint.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetEndpointIDLogContext] instead.
 func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams, opts ...ClientOption) (*GetEndpointIDLogOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -673,11 +631,9 @@ func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams, opts ...Client
 	return a.GetEndpointIDLogContext(ctx, params, opts...)
 }
 
-/*
-GetEndpointIDLogContextretrieves the status logs associated with this endpoint.
-
-Do not use the deprecated [GetEndpointIDLogParams.Context] with this method: it would be ignored.
-*/
+// GetEndpointIDLogContext retrieves the status logs associated with this endpoint.
+//
+// Do not use the deprecated [GetEndpointIDLogParams.Context] with this method: it would be ignored.
 func (a *Client) GetEndpointIDLogContext(ctx context.Context, params *GetEndpointIDLogParams, opts ...ClientOption) (*GetEndpointIDLogOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -720,18 +676,15 @@ func (a *Client) GetEndpointIDLogContext(ctx context.Context, params *GetEndpoin
 	panic(msg)
 }
 
-/*
-	PatchEndpointIDmodifies existing endpoint.
-
-	Applies the endpoint change request to an existing endpoint
-
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.PatchEndpointIDContext] instead.
-*/
+// PatchEndpointID modifies existing endpoint.
+//
+// Applies the endpoint change request to an existing endpoint
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.PatchEndpointIDContext] instead.
 func (a *Client) PatchEndpointID(params *PatchEndpointIDParams, opts ...ClientOption) (*PatchEndpointIDOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -743,15 +696,12 @@ func (a *Client) PatchEndpointID(params *PatchEndpointIDParams, opts ...ClientOp
 	return a.PatchEndpointIDContext(ctx, params, opts...)
 }
 
-/*
-	PatchEndpointIDContextmodifies existing endpoint.
-
-	Applies the endpoint change request to an existing endpoint
-
-.
-
-	Do not use the deprecated [PatchEndpointIDParams.Context] with this method: it would be ignored.
-*/
+// PatchEndpointIDContext modifies existing endpoint.
+//
+// Applies the endpoint change request to an existing endpoint
+// .
+//
+// Do not use the deprecated [PatchEndpointIDParams.Context] with this method: it would be ignored.
 func (a *Client) PatchEndpointIDContext(ctx context.Context, params *PatchEndpointIDParams, opts ...ClientOption) (*PatchEndpointIDOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -794,19 +744,16 @@ func (a *Client) PatchEndpointIDContext(ctx context.Context, params *PatchEndpoi
 	panic(msg)
 }
 
-/*
-	PatchEndpointIDConfigmodifies mutable endpoint configuration.
-
-	Update the configuration of an existing endpoint and regenerates &
-
-recompiles the corresponding programs automatically.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.PatchEndpointIDConfigContext] instead.
-*/
+// PatchEndpointIDConfig modifies mutable endpoint configuration.
+//
+// Update the configuration of an existing endpoint and regenerates &
+// recompiles the corresponding programs automatically.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.PatchEndpointIDConfigContext] instead.
 func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams, opts ...ClientOption) (*PatchEndpointIDConfigOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -818,16 +765,13 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams, opts
 	return a.PatchEndpointIDConfigContext(ctx, params, opts...)
 }
 
-/*
-	PatchEndpointIDConfigContextmodifies mutable endpoint configuration.
-
-	Update the configuration of an existing endpoint and regenerates &
-
-recompiles the corresponding programs automatically.
-.
-
-	Do not use the deprecated [PatchEndpointIDConfigParams.Context] with this method: it would be ignored.
-*/
+// PatchEndpointIDConfigContext modifies mutable endpoint configuration.
+//
+// Update the configuration of an existing endpoint and regenerates &
+// recompiles the corresponding programs automatically.
+// .
+//
+// Do not use the deprecated [PatchEndpointIDConfigParams.Context] with this method: it would be ignored.
 func (a *Client) PatchEndpointIDConfigContext(ctx context.Context, params *PatchEndpointIDConfigParams, opts ...ClientOption) (*PatchEndpointIDConfigOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -870,19 +814,16 @@ func (a *Client) PatchEndpointIDConfigContext(ctx context.Context, params *Patch
 	panic(msg)
 }
 
-/*
-	PatchEndpointIDLabelssets label configuration of endpoint.
-
-	Sets labels associated with an endpoint. These can be user provided or
-
-derived from the orchestration system.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.PatchEndpointIDLabelsContext] instead.
-*/
+// PatchEndpointIDLabels sets label configuration of endpoint.
+//
+// Sets labels associated with an endpoint. These can be user provided or
+// derived from the orchestration system.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.PatchEndpointIDLabelsContext] instead.
 func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams, opts ...ClientOption) (*PatchEndpointIDLabelsOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -894,16 +835,13 @@ func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams, opts
 	return a.PatchEndpointIDLabelsContext(ctx, params, opts...)
 }
 
-/*
-	PatchEndpointIDLabelsContextsets label configuration of endpoint.
-
-	Sets labels associated with an endpoint. These can be user provided or
-
-derived from the orchestration system.
-.
-
-	Do not use the deprecated [PatchEndpointIDLabelsParams.Context] with this method: it would be ignored.
-*/
+// PatchEndpointIDLabelsContext sets label configuration of endpoint.
+//
+// Sets labels associated with an endpoint. These can be user provided or
+// derived from the orchestration system.
+// .
+//
+// Do not use the deprecated [PatchEndpointIDLabelsParams.Context] with this method: it would be ignored.
 func (a *Client) PatchEndpointIDLabelsContext(ctx context.Context, params *PatchEndpointIDLabelsParams, opts ...ClientOption) (*PatchEndpointIDLabelsOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -946,18 +884,15 @@ func (a *Client) PatchEndpointIDLabelsContext(ctx context.Context, params *Patch
 	panic(msg)
 }
 
-/*
-	PutEndpointIDcreates endpoint.
-
-	Creates a new endpoint
-
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.PutEndpointIDContext] instead.
-*/
+// PutEndpointID creates endpoint.
+//
+// Creates a new endpoint
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.PutEndpointIDContext] instead.
 func (a *Client) PutEndpointID(params *PutEndpointIDParams, opts ...ClientOption) (*PutEndpointIDCreated, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -969,15 +904,12 @@ func (a *Client) PutEndpointID(params *PutEndpointIDParams, opts ...ClientOption
 	return a.PutEndpointIDContext(ctx, params, opts...)
 }
 
-/*
-	PutEndpointIDContextcreates endpoint.
-
-	Creates a new endpoint
-
-.
-
-	Do not use the deprecated [PutEndpointIDParams.Context] with this method: it would be ignored.
-*/
+// PutEndpointIDContext creates endpoint.
+//
+// Creates a new endpoint
+// .
+//
+// Do not use the deprecated [PutEndpointIDParams.Context] with this method: it would be ignored.
 func (a *Client) PutEndpointIDContext(ctx context.Context, params *PutEndpointIDParams, opts ...ClientOption) (*PutEndpointIDCreated, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

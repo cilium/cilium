@@ -15,16 +15,12 @@ import (
 // GetConfigOKCode is the HTTP code returned for type GetConfigOK
 const GetConfigOKCode int = 200
 
-/*
-GetConfigOK Success
-
-swagger:response getConfigOK
-*/
+// GetConfigOK Success
+//
+// swagger:response getConfigOK
 type GetConfigOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.DaemonConfiguration `json:"body,omitempty"`
 }
 

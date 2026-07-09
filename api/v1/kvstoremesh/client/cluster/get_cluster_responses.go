@@ -40,11 +40,9 @@ func NewGetClusterOK() *GetClusterOK {
 	return &GetClusterOK{}
 }
 
-/*
-GetClusterOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetClusterOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetClusterOK struct {
 	Payload []*common.RemoteCluster
 }

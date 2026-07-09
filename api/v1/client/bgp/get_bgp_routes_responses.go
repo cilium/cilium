@@ -52,11 +52,9 @@ func NewGetBgpRoutesOK() *GetBgpRoutesOK {
 	return &GetBgpRoutesOK{}
 }
 
-/*
-GetBgpRoutesOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetBgpRoutesOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetBgpRoutesOK struct {
 	Payload []*models.BgpRoute
 }
@@ -120,11 +118,9 @@ func NewGetBgpRoutesInternalServerError() *GetBgpRoutesInternalServerError {
 	return &GetBgpRoutesInternalServerError{}
 }
 
-/*
-GetBgpRoutesInternalServerError describes a response with status code 500, with default header values.
-
-Internal Server Error
-*/
+// GetBgpRoutesInternalServerError describes a response with status code 500, with default header values.
+//
+// Internal Server Error
 type GetBgpRoutesInternalServerError struct {
 	Payload models.Error
 }
@@ -188,11 +184,9 @@ func NewGetBgpRoutesDisabled() *GetBgpRoutesDisabled {
 	return &GetBgpRoutesDisabled{}
 }
 
-/*
-GetBgpRoutesDisabled describes a response with status code 501, with default header values.
-
-BGP Control Plane disabled
-*/
+// GetBgpRoutesDisabled describes a response with status code 501, with default header values.
+//
+// BGP Control Plane disabled
 type GetBgpRoutesDisabled struct {
 	Payload models.Error
 }

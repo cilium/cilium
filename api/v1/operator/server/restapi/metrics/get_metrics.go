@@ -29,13 +29,11 @@ func NewGetMetrics(ctx *middleware.Context, handler GetMetricsHandler) *GetMetri
 	return &GetMetrics{Context: ctx, Handler: handler}
 }
 
-/*
-	GetMetrics swagger:route GET /metrics/ metrics getMetrics
-
-# Retrieve cilium operator metrics
-
-Returns the metrics exposed by the Cilium operator.
-*/
+// GetMetrics swagger:route GET /metrics/ metrics getMetrics
+//
+// # Retrieve cilium operator metrics
+//
+// Returns the metrics exposed by the Cilium operator.
 type GetMetrics struct {
 	Context *middleware.Context
 	Handler GetMetricsHandler

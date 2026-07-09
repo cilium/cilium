@@ -15,16 +15,12 @@ import (
 // GetMapOKCode is the HTTP code returned for type GetMapOK
 const GetMapOKCode int = 200
 
-/*
-GetMapOK Success
-
-swagger:response getMapOK
-*/
+// GetMapOK Success
+//
+// swagger:response getMapOK
 type GetMapOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.BPFMapList `json:"body,omitempty"`
 }
 

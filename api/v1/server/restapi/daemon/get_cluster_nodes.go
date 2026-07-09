@@ -29,11 +29,9 @@ func NewGetClusterNodes(ctx *middleware.Context, handler GetClusterNodesHandler)
 	return &GetClusterNodes{Context: ctx, Handler: handler}
 }
 
-/*
-	GetClusterNodes swagger:route GET /cluster/nodes daemon getClusterNodes
-
-Get nodes information stored in the cilium-agent
-*/
+// GetClusterNodes swagger:route GET /cluster/nodes daemon getClusterNodes
+//
+// Get nodes information stored in the cilium-agent
 type GetClusterNodes struct {
 	Context *middleware.Context
 	Handler GetClusterNodesHandler

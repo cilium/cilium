@@ -28,11 +28,9 @@ func NewGetMapNameParams() GetMapNameParams {
 type GetMapNameParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*Name of map
-	  Required: true
-	  In: path
-	*/
+	// Name of map
+	// Required: true
+	// In: path
 	Name string
 }
 

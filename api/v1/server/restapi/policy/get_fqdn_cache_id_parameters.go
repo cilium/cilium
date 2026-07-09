@@ -29,36 +29,28 @@ func NewGetFqdnCacheIDParams() GetFqdnCacheIDParams {
 type GetFqdnCacheIDParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*A CIDR range of IPs
-	  In: query
-	*/
+	// A CIDR range of IPs
+	// In: query
 	Cidr *string
-
-	/*String describing an endpoint with the format ``[prefix:]id``. If no prefix
-	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
-	will be addressable by all endpoint ID prefixes with the exception of the
-	local Cilium UUID which is assigned to all endpoints.
-
-	Supported endpoint id prefixes:
-	  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595
-	  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343
-	  - cni-attachment-id: CNI attachment ID, e.g. cni-attachment-id:22222:eth0
-	  - cep-name: cep name for this container if K8s is enabled, e.g. pod-name:default:foobar-net1
-
-	  Required: true
-	  In: path
-	*/
+	// String describing an endpoint with the format ``[prefix:]id``. If no prefix
+	// is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
+	// will be addressable by all endpoint ID prefixes with the exception of the
+	// local Cilium UUID which is assigned to all endpoints.
+	//
+	// Supported endpoint id prefixes:
+	//   - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595
+	//   - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343
+	//   - cni-attachment-id: CNI attachment ID, e.g. cni-attachment-id:22222:eth0
+	//   - cep-name: cep name for this container if K8s is enabled, e.g. pod-name:default:foobar-net1
+	//
+	// Required: true
+	// In: path
 	ID string
-
-	/*A toFQDNs compatible matchPattern expression
-	  In: query
-	*/
+	// A toFQDNs compatible matchPattern expression
+	// In: query
 	Matchpattern *string
-
-	/*Source from which FQDN entries come from
-	  In: query
-	*/
+	// Source from which FQDN entries come from
+	// In: query
 	Source *string
 }
 

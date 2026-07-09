@@ -65,10 +65,9 @@ DeleteIpamIPParams contains all the parameters to send to the API endpoint
 */
 type DeleteIpamIPParams struct {
 
-	/* IP.
-
-	   IP address
-	*/
+	// IP.
+	//
+	// IP address
 	IP string
 
 	// Pool.

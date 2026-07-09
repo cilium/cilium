@@ -30,11 +30,9 @@ func NewGetEndpointParams() GetEndpointParams {
 type GetEndpointParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*List of labels
-
-	  In: body
-	*/
+	// List of labels
+	//
+	// In: body
 	Labels models.Labels
 }
 

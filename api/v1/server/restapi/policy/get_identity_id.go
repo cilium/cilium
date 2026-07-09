@@ -29,11 +29,9 @@ func NewGetIdentityID(ctx *middleware.Context, handler GetIdentityIDHandler) *Ge
 	return &GetIdentityID{Context: ctx, Handler: handler}
 }
 
-/*
-	GetIdentityID swagger:route GET /identity/{id} policy getIdentityId
-
-Retrieve identity
-*/
+// GetIdentityID swagger:route GET /identity/{id} policy getIdentityId
+//
+// Retrieve identity
 type GetIdentityID struct {
 	Context *middleware.Context
 	Handler GetIdentityIDHandler

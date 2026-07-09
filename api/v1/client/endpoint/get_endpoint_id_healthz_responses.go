@@ -58,11 +58,9 @@ func NewGetEndpointIDHealthzOK() *GetEndpointIDHealthzOK {
 	return &GetEndpointIDHealthzOK{}
 }
 
-/*
-GetEndpointIDHealthzOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetEndpointIDHealthzOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetEndpointIDHealthzOK struct {
 	Payload *models.EndpointHealth
 }
@@ -128,11 +126,9 @@ func NewGetEndpointIDHealthzInvalid() *GetEndpointIDHealthzInvalid {
 	return &GetEndpointIDHealthzInvalid{}
 }
 
-/*
-GetEndpointIDHealthzInvalid describes a response with status code 400, with default header values.
-
-Invalid identity provided
-*/
+// GetEndpointIDHealthzInvalid describes a response with status code 400, with default header values.
+//
+// Invalid identity provided
 type GetEndpointIDHealthzInvalid struct {
 }
 
@@ -184,11 +180,9 @@ func NewGetEndpointIDHealthzNotFound() *GetEndpointIDHealthzNotFound {
 	return &GetEndpointIDHealthzNotFound{}
 }
 
-/*
-GetEndpointIDHealthzNotFound describes a response with status code 404, with default header values.
-
-Endpoint not found
-*/
+// GetEndpointIDHealthzNotFound describes a response with status code 404, with default header values.
+//
+// Endpoint not found
 type GetEndpointIDHealthzNotFound struct {
 }
 
@@ -240,11 +234,9 @@ func NewGetEndpointIDHealthzTooManyRequests() *GetEndpointIDHealthzTooManyReques
 	return &GetEndpointIDHealthzTooManyRequests{}
 }
 
-/*
-GetEndpointIDHealthzTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// GetEndpointIDHealthzTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type GetEndpointIDHealthzTooManyRequests struct {
 }
 

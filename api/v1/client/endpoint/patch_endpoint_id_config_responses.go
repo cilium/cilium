@@ -76,11 +76,9 @@ func NewPatchEndpointIDConfigOK() *PatchEndpointIDConfigOK {
 	return &PatchEndpointIDConfigOK{}
 }
 
-/*
-PatchEndpointIDConfigOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// PatchEndpointIDConfigOK describes a response with status code 200, with default header values.
+//
+// Success
 type PatchEndpointIDConfigOK struct {
 }
 
@@ -132,11 +130,9 @@ func NewPatchEndpointIDConfigInvalid() *PatchEndpointIDConfigInvalid {
 	return &PatchEndpointIDConfigInvalid{}
 }
 
-/*
-PatchEndpointIDConfigInvalid describes a response with status code 400, with default header values.
-
-Invalid configuration request
-*/
+// PatchEndpointIDConfigInvalid describes a response with status code 400, with default header values.
+//
+// Invalid configuration request
 type PatchEndpointIDConfigInvalid struct {
 }
 
@@ -188,11 +184,9 @@ func NewPatchEndpointIDConfigForbidden() *PatchEndpointIDConfigForbidden {
 	return &PatchEndpointIDConfigForbidden{}
 }
 
-/*
-PatchEndpointIDConfigForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PatchEndpointIDConfigForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PatchEndpointIDConfigForbidden struct {
 }
 
@@ -244,11 +238,9 @@ func NewPatchEndpointIDConfigNotFound() *PatchEndpointIDConfigNotFound {
 	return &PatchEndpointIDConfigNotFound{}
 }
 
-/*
-PatchEndpointIDConfigNotFound describes a response with status code 404, with default header values.
-
-Endpoint not found
-*/
+// PatchEndpointIDConfigNotFound describes a response with status code 404, with default header values.
+//
+// Endpoint not found
 type PatchEndpointIDConfigNotFound struct {
 }
 
@@ -300,11 +292,9 @@ func NewPatchEndpointIDConfigTooManyRequests() *PatchEndpointIDConfigTooManyRequ
 	return &PatchEndpointIDConfigTooManyRequests{}
 }
 
-/*
-PatchEndpointIDConfigTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// PatchEndpointIDConfigTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type PatchEndpointIDConfigTooManyRequests struct {
 }
 
@@ -356,11 +346,9 @@ func NewPatchEndpointIDConfigFailed() *PatchEndpointIDConfigFailed {
 	return &PatchEndpointIDConfigFailed{}
 }
 
-/*
-PatchEndpointIDConfigFailed describes a response with status code 500, with default header values.
-
-Update failed. Details in message.
-*/
+// PatchEndpointIDConfigFailed describes a response with status code 500, with default header values.
+//
+// Update failed. Details in message.
 type PatchEndpointIDConfigFailed struct {
 	Payload models.Error
 }
@@ -424,11 +412,9 @@ func NewPatchEndpointIDConfigServiceUnavailable() *PatchEndpointIDConfigServiceU
 	return &PatchEndpointIDConfigServiceUnavailable{}
 }
 
-/*
-PatchEndpointIDConfigServiceUnavailable describes a response with status code 503, with default header values.
-
-Service Unavailable
-*/
+// PatchEndpointIDConfigServiceUnavailable describes a response with status code 503, with default header values.
+//
+// Service Unavailable
 type PatchEndpointIDConfigServiceUnavailable struct {
 }
 

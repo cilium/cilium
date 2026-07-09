@@ -14,11 +14,9 @@ import (
 // DeleteEndpointOKCode is the HTTP code returned for type DeleteEndpointOK
 const DeleteEndpointOKCode int = 200
 
-/*
-DeleteEndpointOK Success
-
-swagger:response deleteEndpointOK
-*/
+// DeleteEndpointOK Success
+//
+// swagger:response deleteEndpointOK
 type DeleteEndpointOK struct {
 }
 
@@ -39,16 +37,12 @@ func (o *DeleteEndpointOK) WriteResponse(rw http.ResponseWriter, producer runtim
 // DeleteEndpointErrorsCode is the HTTP code returned for type DeleteEndpointErrors
 const DeleteEndpointErrorsCode int = 206
 
-/*
-DeleteEndpointErrors Deleted with a number of errors encountered
-
-swagger:response deleteEndpointErrors
-*/
+// DeleteEndpointErrors Deleted with a number of errors encountered
+//
+// swagger:response deleteEndpointErrors
 type DeleteEndpointErrors struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload int64 `json:"body,omitempty"`
 }
 
@@ -82,11 +76,9 @@ func (o *DeleteEndpointErrors) WriteResponse(rw http.ResponseWriter, producer ru
 // DeleteEndpointInvalidCode is the HTTP code returned for type DeleteEndpointInvalid
 const DeleteEndpointInvalidCode int = 400
 
-/*
-DeleteEndpointInvalid Invalid endpoint delete request
-
-swagger:response deleteEndpointInvalid
-*/
+// DeleteEndpointInvalid Invalid endpoint delete request
+//
+// swagger:response deleteEndpointInvalid
 type DeleteEndpointInvalid struct {
 }
 
@@ -107,11 +99,9 @@ func (o *DeleteEndpointInvalid) WriteResponse(rw http.ResponseWriter, producer r
 // DeleteEndpointNotFoundCode is the HTTP code returned for type DeleteEndpointNotFound
 const DeleteEndpointNotFoundCode int = 404
 
-/*
-DeleteEndpointNotFound No endpoints with provided parameters found
-
-swagger:response deleteEndpointNotFound
-*/
+// DeleteEndpointNotFound No endpoints with provided parameters found
+//
+// swagger:response deleteEndpointNotFound
 type DeleteEndpointNotFound struct {
 }
 
@@ -132,11 +122,9 @@ func (o *DeleteEndpointNotFound) WriteResponse(rw http.ResponseWriter, producer 
 // DeleteEndpointTooManyRequestsCode is the HTTP code returned for type DeleteEndpointTooManyRequests
 const DeleteEndpointTooManyRequestsCode int = 429
 
-/*
-DeleteEndpointTooManyRequests Rate-limiting too many requests in the given time frame
-
-swagger:response deleteEndpointTooManyRequests
-*/
+// DeleteEndpointTooManyRequests Rate-limiting too many requests in the given time frame
+//
+// swagger:response deleteEndpointTooManyRequests
 type DeleteEndpointTooManyRequests struct {
 }
 
@@ -157,11 +145,9 @@ func (o *DeleteEndpointTooManyRequests) WriteResponse(rw http.ResponseWriter, pr
 // DeleteEndpointServiceUnavailableCode is the HTTP code returned for type DeleteEndpointServiceUnavailable
 const DeleteEndpointServiceUnavailableCode int = 503
 
-/*
-DeleteEndpointServiceUnavailable Service Unavailable
-
-swagger:response deleteEndpointServiceUnavailable
-*/
+// DeleteEndpointServiceUnavailable Service Unavailable
+//
+// swagger:response deleteEndpointServiceUnavailable
 type DeleteEndpointServiceUnavailable struct {
 }
 

@@ -29,16 +29,11 @@ func NewDeleteIpamIPParams() DeleteIpamIPParams {
 type DeleteIpamIPParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*IP address
-	  Required: true
-	  In: path
-	*/
+	// IP address
+	// Required: true
+	// In: path
 	IP string
-
-	/*
-	  In: query
-	*/
+	// In: query
 	Pool *string
 }
 

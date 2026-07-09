@@ -15,16 +15,12 @@ import (
 // GetIdentityOKCode is the HTTP code returned for type GetIdentityOK
 const GetIdentityOKCode int = 200
 
-/*
-GetIdentityOK Success
-
-swagger:response getIdentityOK
-*/
+// GetIdentityOK Success
+//
+// swagger:response getIdentityOK
 type GetIdentityOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.Identity `json:"body,omitempty"`
 }
 
@@ -63,11 +59,9 @@ func (o *GetIdentityOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 // GetIdentityNotFoundCode is the HTTP code returned for type GetIdentityNotFound
 const GetIdentityNotFoundCode int = 404
 
-/*
-GetIdentityNotFound Identities with provided parameters not found
-
-swagger:response getIdentityNotFound
-*/
+// GetIdentityNotFound Identities with provided parameters not found
+//
+// swagger:response getIdentityNotFound
 type GetIdentityNotFound struct {
 }
 
@@ -88,16 +82,12 @@ func (o *GetIdentityNotFound) WriteResponse(rw http.ResponseWriter, producer run
 // GetIdentityUnreachableCode is the HTTP code returned for type GetIdentityUnreachable
 const GetIdentityUnreachableCode int = 520
 
-/*
-GetIdentityUnreachable Identity storage unreachable. Likely a network problem.
-
-swagger:response getIdentityUnreachable
-*/
+// GetIdentityUnreachable Identity storage unreachable. Likely a network problem.
+//
+// swagger:response getIdentityUnreachable
 type GetIdentityUnreachable struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -131,16 +121,12 @@ func (o *GetIdentityUnreachable) WriteResponse(rw http.ResponseWriter, producer 
 // GetIdentityInvalidStorageFormatCode is the HTTP code returned for type GetIdentityInvalidStorageFormat
 const GetIdentityInvalidStorageFormatCode int = 521
 
-/*
-GetIdentityInvalidStorageFormat Invalid identity format in storage
-
-swagger:response getIdentityInvalidStorageFormat
-*/
+// GetIdentityInvalidStorageFormat Invalid identity format in storage
+//
+// swagger:response getIdentityInvalidStorageFormat
 type GetIdentityInvalidStorageFormat struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

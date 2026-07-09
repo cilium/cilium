@@ -15,16 +15,12 @@ import (
 // GetNodeIdsOKCode is the HTTP code returned for type GetNodeIdsOK
 const GetNodeIdsOKCode int = 200
 
-/*
-GetNodeIdsOK Success
-
-swagger:response getNodeIdsOK
-*/
+// GetNodeIdsOK Success
+//
+// swagger:response getNodeIdsOK
 type GetNodeIdsOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.NodeID `json:"body,omitempty"`
 }
 

@@ -46,11 +46,9 @@ func NewGetIdentityEndpointsOK() *GetIdentityEndpointsOK {
 	return &GetIdentityEndpointsOK{}
 }
 
-/*
-GetIdentityEndpointsOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetIdentityEndpointsOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetIdentityEndpointsOK struct {
 	Payload []*models.IdentityEndpoints
 }
@@ -114,11 +112,9 @@ func NewGetIdentityEndpointsNotFound() *GetIdentityEndpointsNotFound {
 	return &GetIdentityEndpointsNotFound{}
 }
 
-/*
-GetIdentityEndpointsNotFound describes a response with status code 404, with default header values.
-
-Set of identities which are being used by local endpoints could not be found.
-*/
+// GetIdentityEndpointsNotFound describes a response with status code 404, with default header values.
+//
+// Set of identities which are being used by local endpoints could not be found.
 type GetIdentityEndpointsNotFound struct {
 }
 

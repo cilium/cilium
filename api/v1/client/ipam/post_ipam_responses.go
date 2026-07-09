@@ -52,11 +52,9 @@ func NewPostIpamCreated() *PostIpamCreated {
 	return &PostIpamCreated{}
 }
 
-/*
-PostIpamCreated describes a response with status code 201, with default header values.
-
-Success
-*/
+// PostIpamCreated describes a response with status code 201, with default header values.
+//
+// Success
 type PostIpamCreated struct {
 	Payload *models.IPAMResponse
 }
@@ -122,11 +120,9 @@ func NewPostIpamForbidden() *PostIpamForbidden {
 	return &PostIpamForbidden{}
 }
 
-/*
-PostIpamForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PostIpamForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PostIpamForbidden struct {
 }
 
@@ -178,11 +174,9 @@ func NewPostIpamFailure() *PostIpamFailure {
 	return &PostIpamFailure{}
 }
 
-/*
-PostIpamFailure describes a response with status code 502, with default header values.
-
-Allocation failure
-*/
+// PostIpamFailure describes a response with status code 502, with default header values.
+//
+// Allocation failure
 type PostIpamFailure struct {
 	Payload models.Error
 }

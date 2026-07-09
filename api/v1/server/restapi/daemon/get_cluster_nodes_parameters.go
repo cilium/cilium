@@ -29,13 +29,11 @@ func NewGetClusterNodesParams() GetClusterNodesParams {
 type GetClusterNodesParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
-
-	/*Client UUID should be used when the client wants to request
-	a diff of nodes added and / or removed since the last time
-	that client has made a request.
-
-	  In: header
-	*/
+	// Client UUID should be used when the client wants to request
+	// a diff of nodes added and / or removed since the last time
+	// that client has made a request.
+	//
+	// In: header
 	ClientID *int64
 }
 

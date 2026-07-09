@@ -315,7 +315,7 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 	}
 }
 
-/*CiliumAPIAPI Cilium */
+// CiliumAPIAPI Cilium
 type CiliumAPIAPI struct {
 	spec            *loads.Document
 	context         *middleware.Context

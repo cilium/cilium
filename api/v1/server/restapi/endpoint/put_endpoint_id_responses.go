@@ -15,16 +15,12 @@ import (
 // PutEndpointIDCreatedCode is the HTTP code returned for type PutEndpointIDCreated
 const PutEndpointIDCreatedCode int = 201
 
-/*
-PutEndpointIDCreated Created
-
-swagger:response putEndpointIdCreated
-*/
+// PutEndpointIDCreated Created
+//
+// swagger:response putEndpointIdCreated
 type PutEndpointIDCreated struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.Endpoint `json:"body,omitempty"`
 }
 
@@ -60,16 +56,12 @@ func (o *PutEndpointIDCreated) WriteResponse(rw http.ResponseWriter, producer ru
 // PutEndpointIDInvalidCode is the HTTP code returned for type PutEndpointIDInvalid
 const PutEndpointIDInvalidCode int = 400
 
-/*
-PutEndpointIDInvalid Invalid endpoint in request
-
-swagger:response putEndpointIdInvalid
-*/
+// PutEndpointIDInvalid Invalid endpoint in request
+//
+// swagger:response putEndpointIdInvalid
 type PutEndpointIDInvalid struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -103,11 +95,9 @@ func (o *PutEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer ru
 // PutEndpointIDForbiddenCode is the HTTP code returned for type PutEndpointIDForbidden
 const PutEndpointIDForbiddenCode int = 403
 
-/*
-PutEndpointIDForbidden Forbidden
-
-swagger:response putEndpointIdForbidden
-*/
+// PutEndpointIDForbidden Forbidden
+//
+// swagger:response putEndpointIdForbidden
 type PutEndpointIDForbidden struct {
 }
 
@@ -128,11 +118,9 @@ func (o *PutEndpointIDForbidden) WriteResponse(rw http.ResponseWriter, producer 
 // PutEndpointIDExistsCode is the HTTP code returned for type PutEndpointIDExists
 const PutEndpointIDExistsCode int = 409
 
-/*
-PutEndpointIDExists Endpoint already exists
-
-swagger:response putEndpointIdExists
-*/
+// PutEndpointIDExists Endpoint already exists
+//
+// swagger:response putEndpointIdExists
 type PutEndpointIDExists struct {
 }
 
@@ -153,11 +141,9 @@ func (o *PutEndpointIDExists) WriteResponse(rw http.ResponseWriter, producer run
 // PutEndpointIDTooManyRequestsCode is the HTTP code returned for type PutEndpointIDTooManyRequests
 const PutEndpointIDTooManyRequestsCode int = 429
 
-/*
-PutEndpointIDTooManyRequests Rate-limiting too many requests in the given time frame
-
-swagger:response putEndpointIdTooManyRequests
-*/
+// PutEndpointIDTooManyRequests Rate-limiting too many requests in the given time frame
+//
+// swagger:response putEndpointIdTooManyRequests
 type PutEndpointIDTooManyRequests struct {
 }
 
@@ -178,16 +164,12 @@ func (o *PutEndpointIDTooManyRequests) WriteResponse(rw http.ResponseWriter, pro
 // PutEndpointIDFailedCode is the HTTP code returned for type PutEndpointIDFailed
 const PutEndpointIDFailedCode int = 500
 
-/*
-PutEndpointIDFailed Endpoint creation failed
-
-swagger:response putEndpointIdFailed
-*/
+// PutEndpointIDFailed Endpoint creation failed
+//
+// swagger:response putEndpointIdFailed
 type PutEndpointIDFailed struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -221,11 +203,9 @@ func (o *PutEndpointIDFailed) WriteResponse(rw http.ResponseWriter, producer run
 // PutEndpointIDServiceUnavailableCode is the HTTP code returned for type PutEndpointIDServiceUnavailable
 const PutEndpointIDServiceUnavailableCode int = 503
 
-/*
-PutEndpointIDServiceUnavailable Service Unavailable
-
-swagger:response putEndpointIdServiceUnavailable
-*/
+// PutEndpointIDServiceUnavailable Service Unavailable
+//
+// swagger:response putEndpointIdServiceUnavailable
 type PutEndpointIDServiceUnavailable struct {
 }
 

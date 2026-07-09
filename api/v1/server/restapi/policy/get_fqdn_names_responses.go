@@ -15,16 +15,12 @@ import (
 // GetFqdnNamesOKCode is the HTTP code returned for type GetFqdnNamesOK
 const GetFqdnNamesOKCode int = 200
 
-/*
-GetFqdnNamesOK Success
-
-swagger:response getFqdnNamesOK
-*/
+// GetFqdnNamesOK Success
+//
+// swagger:response getFqdnNamesOK
 type GetFqdnNamesOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.NameManager `json:"body,omitempty"`
 }
 
@@ -60,16 +56,12 @@ func (o *GetFqdnNamesOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // GetFqdnNamesBadRequestCode is the HTTP code returned for type GetFqdnNamesBadRequest
 const GetFqdnNamesBadRequestCode int = 400
 
-/*
-GetFqdnNamesBadRequest Invalid request (error parsing parameters)
-
-swagger:response getFqdnNamesBadRequest
-*/
+// GetFqdnNamesBadRequest Invalid request (error parsing parameters)
+//
+// swagger:response getFqdnNamesBadRequest
 type GetFqdnNamesBadRequest struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

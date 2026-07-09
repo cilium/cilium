@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for bgp API.
-*/
+// Client for bgp API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -82,21 +80,18 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-	GetBgpPeerslists operational state of b g p peers.
-
-	Retrieves current operational state of BGP peers created by
-
-Cilium BGP virtual router. This includes session state, uptime,
-information per address family, etc.
-Deprecated: This will be removed in the future.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetBgpPeersContext] instead.
-*/
+// GetBgpPeers lists operational state of b g p peers.
+//
+// Retrieves current operational state of BGP peers created by
+// Cilium BGP virtual router. This includes session state, uptime,
+// information per address family, etc.
+// Deprecated: This will be removed in the future.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetBgpPeersContext] instead.
 func (a *Client) GetBgpPeers(params *GetBgpPeersParams, opts ...ClientOption) (*GetBgpPeersOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -108,18 +103,15 @@ func (a *Client) GetBgpPeers(params *GetBgpPeersParams, opts ...ClientOption) (*
 	return a.GetBgpPeersContext(ctx, params, opts...)
 }
 
-/*
-	GetBgpPeersContextlists operational state of b g p peers.
-
-	Retrieves current operational state of BGP peers created by
-
-Cilium BGP virtual router. This includes session state, uptime,
-information per address family, etc.
-Deprecated: This will be removed in the future.
-.
-
-	Do not use the deprecated [GetBgpPeersParams.Context] with this method: it would be ignored.
-*/
+// GetBgpPeersContext lists operational state of b g p peers.
+//
+// Retrieves current operational state of BGP peers created by
+// Cilium BGP virtual router. This includes session state, uptime,
+// information per address family, etc.
+// Deprecated: This will be removed in the future.
+// .
+//
+// Do not use the deprecated [GetBgpPeersParams.Context] with this method: it would be ignored.
 func (a *Client) GetBgpPeersContext(ctx context.Context, params *GetBgpPeersParams, opts ...ClientOption) (*GetBgpPeersOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -162,19 +154,16 @@ func (a *Client) GetBgpPeersContext(ctx context.Context, params *GetBgpPeersPara
 	panic(msg)
 }
 
-/*
-	GetBgpRoutePolicieslists b g p route policies configured in b g p control plane.
-
-	Retrieves route policies from BGP Control Plane.
-
-Deprecated: This will be removed in the future.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetBgpRoutePoliciesContext] instead.
-*/
+// GetBgpRoutePolicies lists b g p route policies configured in b g p control plane.
+//
+// Retrieves route policies from BGP Control Plane.
+// Deprecated: This will be removed in the future.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetBgpRoutePoliciesContext] instead.
 func (a *Client) GetBgpRoutePolicies(params *GetBgpRoutePoliciesParams, opts ...ClientOption) (*GetBgpRoutePoliciesOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -186,16 +175,13 @@ func (a *Client) GetBgpRoutePolicies(params *GetBgpRoutePoliciesParams, opts ...
 	return a.GetBgpRoutePoliciesContext(ctx, params, opts...)
 }
 
-/*
-	GetBgpRoutePoliciesContextlists b g p route policies configured in b g p control plane.
-
-	Retrieves route policies from BGP Control Plane.
-
-Deprecated: This will be removed in the future.
-.
-
-	Do not use the deprecated [GetBgpRoutePoliciesParams.Context] with this method: it would be ignored.
-*/
+// GetBgpRoutePoliciesContext lists b g p route policies configured in b g p control plane.
+//
+// Retrieves route policies from BGP Control Plane.
+// Deprecated: This will be removed in the future.
+// .
+//
+// Do not use the deprecated [GetBgpRoutePoliciesParams.Context] with this method: it would be ignored.
 func (a *Client) GetBgpRoutePoliciesContext(ctx context.Context, params *GetBgpRoutePoliciesParams, opts ...ClientOption) (*GetBgpRoutePoliciesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -238,19 +224,16 @@ func (a *Client) GetBgpRoutePoliciesContext(ctx context.Context, params *GetBgpR
 	panic(msg)
 }
 
-/*
-	GetBgpRouteslists b g p routes from b g p control plane r i b.
-
-	Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
-
-Deprecated: This will be removed in the future.
-.
-
-	This method does not support injected context.
-	However, timeout and opentracing contexts are honored whenever enabled.
-
-	If you need to pass a specific context, use [Client.GetBgpRoutesContext] instead.
-*/
+// GetBgpRoutes lists b g p routes from b g p control plane r i b.
+//
+// Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
+// Deprecated: This will be removed in the future.
+// .
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.GetBgpRoutesContext] instead.
 func (a *Client) GetBgpRoutes(params *GetBgpRoutesParams, opts ...ClientOption) (*GetBgpRoutesOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -262,16 +245,13 @@ func (a *Client) GetBgpRoutes(params *GetBgpRoutesParams, opts ...ClientOption) 
 	return a.GetBgpRoutesContext(ctx, params, opts...)
 }
 
-/*
-	GetBgpRoutesContextlists b g p routes from b g p control plane r i b.
-
-	Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
-
-Deprecated: This will be removed in the future.
-.
-
-	Do not use the deprecated [GetBgpRoutesParams.Context] with this method: it would be ignored.
-*/
+// GetBgpRoutesContext lists b g p routes from b g p control plane r i b.
+//
+// Retrieves routes from BGP Control Plane RIB filtered by parameters you specify.
+// Deprecated: This will be removed in the future.
+// .
+//
+// Do not use the deprecated [GetBgpRoutesParams.Context] with this method: it would be ignored.
 func (a *Client) GetBgpRoutesContext(ctx context.Context, params *GetBgpRoutesParams, opts ...ClientOption) (*GetBgpRoutesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

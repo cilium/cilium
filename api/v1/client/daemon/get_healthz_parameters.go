@@ -66,20 +66,18 @@ GetHealthzParams contains all the parameters to send to the API endpoint
 */
 type GetHealthzParams struct {
 
-	/* Brief.
-
-	   Brief will return a brief representation of the Cilium status.
-
-	*/
+	// Brief.
+	//
+	// Brief will return a brief representation of the Cilium status.
+	//
 	Brief *bool
 
-	/* RequireK8sConnectivity.
-
-	   If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
-
-
-	   Default: true
-	*/
+	// RequireK8sConnectivity.
+	//
+	// If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
+	//
+	//
+	// Default: true
 	RequireK8sConnectivity *bool
 
 	HTTPClient *http.Client

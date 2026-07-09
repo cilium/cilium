@@ -15,16 +15,12 @@ import (
 // DeletePrefilterOKCode is the HTTP code returned for type DeletePrefilterOK
 const DeletePrefilterOKCode int = 200
 
-/*
-DeletePrefilterOK Deleted
-
-swagger:response deletePrefilterOK
-*/
+// DeletePrefilterOK Deleted
+//
+// swagger:response deletePrefilterOK
 type DeletePrefilterOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.Prefilter `json:"body,omitempty"`
 }
 
@@ -60,11 +56,9 @@ func (o *DeletePrefilterOK) WriteResponse(rw http.ResponseWriter, producer runti
 // DeletePrefilterForbiddenCode is the HTTP code returned for type DeletePrefilterForbidden
 const DeletePrefilterForbiddenCode int = 403
 
-/*
-DeletePrefilterForbidden Forbidden
-
-swagger:response deletePrefilterForbidden
-*/
+// DeletePrefilterForbidden Forbidden
+//
+// swagger:response deletePrefilterForbidden
 type DeletePrefilterForbidden struct {
 }
 
@@ -85,16 +79,12 @@ func (o *DeletePrefilterForbidden) WriteResponse(rw http.ResponseWriter, produce
 // DeletePrefilterInvalidCIDRCode is the HTTP code returned for type DeletePrefilterInvalidCIDR
 const DeletePrefilterInvalidCIDRCode int = 461
 
-/*
-DeletePrefilterInvalidCIDR Invalid CIDR prefix
-
-swagger:response deletePrefilterInvalidCIdR
-*/
+// DeletePrefilterInvalidCIDR Invalid CIDR prefix
+//
+// swagger:response deletePrefilterInvalidCIdR
 type DeletePrefilterInvalidCIDR struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 
@@ -128,16 +118,12 @@ func (o *DeletePrefilterInvalidCIDR) WriteResponse(rw http.ResponseWriter, produ
 // DeletePrefilterFailureCode is the HTTP code returned for type DeletePrefilterFailure
 const DeletePrefilterFailureCode int = 500
 
-/*
-DeletePrefilterFailure Prefilter delete failed
-
-swagger:response deletePrefilterFailure
-*/
+// DeletePrefilterFailure Prefilter delete failed
+//
+// swagger:response deletePrefilterFailure
 type DeletePrefilterFailure struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

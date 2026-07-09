@@ -15,16 +15,12 @@ import (
 // GetMapNameEventsOKCode is the HTTP code returned for type GetMapNameEventsOK
 const GetMapNameEventsOKCode int = 200
 
-/*
-GetMapNameEventsOK Success
-
-swagger:response getMapNameEventsOK
-*/
+// GetMapNameEventsOK Success
+//
+// swagger:response getMapNameEventsOK
 type GetMapNameEventsOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload io.ReadCloser `json:"body,omitempty"`
 }
 
@@ -58,11 +54,9 @@ func (o *GetMapNameEventsOK) WriteResponse(rw http.ResponseWriter, producer runt
 // GetMapNameEventsNotFoundCode is the HTTP code returned for type GetMapNameEventsNotFound
 const GetMapNameEventsNotFoundCode int = 404
 
-/*
-GetMapNameEventsNotFound Map not found
-
-swagger:response getMapNameEventsNotFound
-*/
+// GetMapNameEventsNotFound Map not found
+//
+// swagger:response getMapNameEventsNotFound
 type GetMapNameEventsNotFound struct {
 }
 

@@ -15,16 +15,12 @@ import (
 // GetMetricsOKCode is the HTTP code returned for type GetMetricsOK
 const GetMetricsOKCode int = 200
 
-/*
-GetMetricsOK Success
-
-swagger:response getMetricsOK
-*/
+// GetMetricsOK Success
+//
+// swagger:response getMetricsOK
 type GetMetricsOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload []*models.Metric `json:"body,omitempty"`
 }
 
@@ -63,11 +59,9 @@ func (o *GetMetricsOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 // GetMetricsFailedCode is the HTTP code returned for type GetMetricsFailed
 const GetMetricsFailedCode int = 500
 
-/*
-GetMetricsFailed Metrics cannot be retrieved
-
-swagger:response getMetricsFailed
-*/
+// GetMetricsFailed Metrics cannot be retrieved
+//
+// swagger:response getMetricsFailed
 type GetMetricsFailed struct {
 }
 

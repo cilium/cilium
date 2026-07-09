@@ -15,16 +15,12 @@ import (
 // PostIpamCreatedCode is the HTTP code returned for type PostIpamCreated
 const PostIpamCreatedCode int = 201
 
-/*
-PostIpamCreated Success
-
-swagger:response postIpamCreated
-*/
+// PostIpamCreated Success
+//
+// swagger:response postIpamCreated
 type PostIpamCreated struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.IPAMResponse `json:"body,omitempty"`
 }
 
@@ -60,11 +56,9 @@ func (o *PostIpamCreated) WriteResponse(rw http.ResponseWriter, producer runtime
 // PostIpamForbiddenCode is the HTTP code returned for type PostIpamForbidden
 const PostIpamForbiddenCode int = 403
 
-/*
-PostIpamForbidden Forbidden
-
-swagger:response postIpamForbidden
-*/
+// PostIpamForbidden Forbidden
+//
+// swagger:response postIpamForbidden
 type PostIpamForbidden struct {
 }
 
@@ -85,16 +79,12 @@ func (o *PostIpamForbidden) WriteResponse(rw http.ResponseWriter, producer runti
 // PostIpamFailureCode is the HTTP code returned for type PostIpamFailure
 const PostIpamFailureCode int = 502
 
-/*
-PostIpamFailure Allocation failure
-
-swagger:response postIpamFailure
-*/
+// PostIpamFailure Allocation failure
+//
+// swagger:response postIpamFailure
 type PostIpamFailure struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload models.Error `json:"body,omitempty"`
 }
 

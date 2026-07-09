@@ -64,11 +64,9 @@ func NewGetIdentityIDOK() *GetIdentityIDOK {
 	return &GetIdentityIDOK{}
 }
 
-/*
-GetIdentityIDOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetIdentityIDOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetIdentityIDOK struct {
 	Payload *models.Identity
 }
@@ -134,11 +132,9 @@ func NewGetIdentityIDBadRequest() *GetIdentityIDBadRequest {
 	return &GetIdentityIDBadRequest{}
 }
 
-/*
-GetIdentityIDBadRequest describes a response with status code 400, with default header values.
-
-Invalid identity provided
-*/
+// GetIdentityIDBadRequest describes a response with status code 400, with default header values.
+//
+// Invalid identity provided
 type GetIdentityIDBadRequest struct {
 }
 
@@ -190,11 +186,9 @@ func NewGetIdentityIDNotFound() *GetIdentityIDNotFound {
 	return &GetIdentityIDNotFound{}
 }
 
-/*
-GetIdentityIDNotFound describes a response with status code 404, with default header values.
-
-Identity not found
-*/
+// GetIdentityIDNotFound describes a response with status code 404, with default header values.
+//
+// Identity not found
 type GetIdentityIDNotFound struct {
 }
 
@@ -246,11 +240,9 @@ func NewGetIdentityIDUnreachable() *GetIdentityIDUnreachable {
 	return &GetIdentityIDUnreachable{}
 }
 
-/*
-GetIdentityIDUnreachable describes a response with status code 520, with default header values.
-
-Identity storage unreachable. Likely a network problem.
-*/
+// GetIdentityIDUnreachable describes a response with status code 520, with default header values.
+//
+// Identity storage unreachable. Likely a network problem.
 type GetIdentityIDUnreachable struct {
 	Payload models.Error
 }
@@ -314,11 +306,9 @@ func NewGetIdentityIDInvalidStorageFormat() *GetIdentityIDInvalidStorageFormat {
 	return &GetIdentityIDInvalidStorageFormat{}
 }
 
-/*
-GetIdentityIDInvalidStorageFormat describes a response with status code 521, with default header values.
-
-Invalid identity format in storage
-*/
+// GetIdentityIDInvalidStorageFormat describes a response with status code 521, with default header values.
+//
+// Invalid identity format in storage
 type GetIdentityIDInvalidStorageFormat struct {
 	Payload models.Error
 }

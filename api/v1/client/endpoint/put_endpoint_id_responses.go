@@ -76,11 +76,9 @@ func NewPutEndpointIDCreated() *PutEndpointIDCreated {
 	return &PutEndpointIDCreated{}
 }
 
-/*
-PutEndpointIDCreated describes a response with status code 201, with default header values.
-
-Created
-*/
+// PutEndpointIDCreated describes a response with status code 201, with default header values.
+//
+// Created
 type PutEndpointIDCreated struct {
 	Payload *models.Endpoint
 }
@@ -146,11 +144,9 @@ func NewPutEndpointIDInvalid() *PutEndpointIDInvalid {
 	return &PutEndpointIDInvalid{}
 }
 
-/*
-PutEndpointIDInvalid describes a response with status code 400, with default header values.
-
-Invalid endpoint in request
-*/
+// PutEndpointIDInvalid describes a response with status code 400, with default header values.
+//
+// Invalid endpoint in request
 type PutEndpointIDInvalid struct {
 	Payload models.Error
 }
@@ -214,11 +210,9 @@ func NewPutEndpointIDForbidden() *PutEndpointIDForbidden {
 	return &PutEndpointIDForbidden{}
 }
 
-/*
-PutEndpointIDForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PutEndpointIDForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PutEndpointIDForbidden struct {
 }
 
@@ -270,11 +264,9 @@ func NewPutEndpointIDExists() *PutEndpointIDExists {
 	return &PutEndpointIDExists{}
 }
 
-/*
-PutEndpointIDExists describes a response with status code 409, with default header values.
-
-Endpoint already exists
-*/
+// PutEndpointIDExists describes a response with status code 409, with default header values.
+//
+// Endpoint already exists
 type PutEndpointIDExists struct {
 }
 
@@ -326,11 +318,9 @@ func NewPutEndpointIDTooManyRequests() *PutEndpointIDTooManyRequests {
 	return &PutEndpointIDTooManyRequests{}
 }
 
-/*
-PutEndpointIDTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// PutEndpointIDTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type PutEndpointIDTooManyRequests struct {
 }
 
@@ -382,11 +372,9 @@ func NewPutEndpointIDFailed() *PutEndpointIDFailed {
 	return &PutEndpointIDFailed{}
 }
 
-/*
-PutEndpointIDFailed describes a response with status code 500, with default header values.
-
-Endpoint creation failed
-*/
+// PutEndpointIDFailed describes a response with status code 500, with default header values.
+//
+// Endpoint creation failed
 type PutEndpointIDFailed struct {
 	Payload models.Error
 }
@@ -450,11 +438,9 @@ func NewPutEndpointIDServiceUnavailable() *PutEndpointIDServiceUnavailable {
 	return &PutEndpointIDServiceUnavailable{}
 }
 
-/*
-PutEndpointIDServiceUnavailable describes a response with status code 503, with default header values.
-
-Service Unavailable
-*/
+// PutEndpointIDServiceUnavailable describes a response with status code 503, with default header values.
+//
+// Service Unavailable
 type PutEndpointIDServiceUnavailable struct {
 }
 

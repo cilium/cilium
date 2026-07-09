@@ -70,11 +70,9 @@ func NewPatchEndpointIDLabelsOK() *PatchEndpointIDLabelsOK {
 	return &PatchEndpointIDLabelsOK{}
 }
 
-/*
-PatchEndpointIDLabelsOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// PatchEndpointIDLabelsOK describes a response with status code 200, with default header values.
+//
+// Success
 type PatchEndpointIDLabelsOK struct {
 }
 
@@ -126,11 +124,9 @@ func NewPatchEndpointIDLabelsForbidden() *PatchEndpointIDLabelsForbidden {
 	return &PatchEndpointIDLabelsForbidden{}
 }
 
-/*
-PatchEndpointIDLabelsForbidden describes a response with status code 403, with default header values.
-
-Forbidden
-*/
+// PatchEndpointIDLabelsForbidden describes a response with status code 403, with default header values.
+//
+// Forbidden
 type PatchEndpointIDLabelsForbidden struct {
 }
 
@@ -182,11 +178,9 @@ func NewPatchEndpointIDLabelsNotFound() *PatchEndpointIDLabelsNotFound {
 	return &PatchEndpointIDLabelsNotFound{}
 }
 
-/*
-PatchEndpointIDLabelsNotFound describes a response with status code 404, with default header values.
-
-Endpoint not found
-*/
+// PatchEndpointIDLabelsNotFound describes a response with status code 404, with default header values.
+//
+// Endpoint not found
 type PatchEndpointIDLabelsNotFound struct {
 }
 
@@ -238,11 +232,9 @@ func NewPatchEndpointIDLabelsTooManyRequests() *PatchEndpointIDLabelsTooManyRequ
 	return &PatchEndpointIDLabelsTooManyRequests{}
 }
 
-/*
-PatchEndpointIDLabelsTooManyRequests describes a response with status code 429, with default header values.
-
-Rate-limiting too many requests in the given time frame
-*/
+// PatchEndpointIDLabelsTooManyRequests describes a response with status code 429, with default header values.
+//
+// Rate-limiting too many requests in the given time frame
 type PatchEndpointIDLabelsTooManyRequests struct {
 }
 
@@ -294,11 +286,9 @@ func NewPatchEndpointIDLabelsUpdateFailed() *PatchEndpointIDLabelsUpdateFailed {
 	return &PatchEndpointIDLabelsUpdateFailed{}
 }
 
-/*
-PatchEndpointIDLabelsUpdateFailed describes a response with status code 500, with default header values.
-
-Error while updating labels
-*/
+// PatchEndpointIDLabelsUpdateFailed describes a response with status code 500, with default header values.
+//
+// Error while updating labels
 type PatchEndpointIDLabelsUpdateFailed struct {
 	Payload models.Error
 }
@@ -362,11 +352,9 @@ func NewPatchEndpointIDLabelsServiceUnavailable() *PatchEndpointIDLabelsServiceU
 	return &PatchEndpointIDLabelsServiceUnavailable{}
 }
 
-/*
-PatchEndpointIDLabelsServiceUnavailable describes a response with status code 503, with default header values.
-
-Service Unavailable
-*/
+// PatchEndpointIDLabelsServiceUnavailable describes a response with status code 503, with default header values.
+//
+// Service Unavailable
 type PatchEndpointIDLabelsServiceUnavailable struct {
 }
 

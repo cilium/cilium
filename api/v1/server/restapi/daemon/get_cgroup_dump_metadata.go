@@ -29,11 +29,9 @@ func NewGetCgroupDumpMetadata(ctx *middleware.Context, handler GetCgroupDumpMeta
 	return &GetCgroupDumpMetadata{Context: ctx, Handler: handler}
 }
 
-/*
-	GetCgroupDumpMetadata swagger:route GET /cgroup-dump-metadata daemon getCgroupDumpMetadata
-
-Retrieve cgroup metadata for all pods
-*/
+// GetCgroupDumpMetadata swagger:route GET /cgroup-dump-metadata daemon getCgroupDumpMetadata
+//
+// Retrieve cgroup metadata for all pods
 type GetCgroupDumpMetadata struct {
 	Context *middleware.Context
 	Handler GetCgroupDumpMetadataHandler

@@ -40,11 +40,9 @@ func NewGetNodeIdsOK() *GetNodeIdsOK {
 	return &GetNodeIdsOK{}
 }
 
-/*
-GetNodeIdsOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetNodeIdsOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetNodeIdsOK struct {
 	Payload []*models.NodeID
 }

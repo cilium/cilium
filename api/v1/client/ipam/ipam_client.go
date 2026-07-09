@@ -47,9 +47,7 @@ func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) Client
 	return &Client{transport: transport, formats: strfmt.Default}
 }
 
-/*
-Client for ipam API.
-*/
+// Client for ipam API.
 type Client struct {
 	transport runtime.ContextualTransport
 	formats   strfmt.Registry
@@ -82,14 +80,12 @@ type ClientService interface {
 	SetTransport(transport runtime.ContextualTransport)
 }
 
-/*
-DeleteIpamIPreleases an allocated IP address.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.DeleteIpamIPContext] instead.
-*/
+// DeleteIpamIP releases an allocated IP address.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.DeleteIpamIPContext] instead.
 func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -101,11 +97,9 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) 
 	return a.DeleteIpamIPContext(ctx, params, opts...)
 }
 
-/*
-DeleteIpamIPContextreleases an allocated IP address.
-
-Do not use the deprecated [DeleteIpamIPParams.Context] with this method: it would be ignored.
-*/
+// DeleteIpamIPContext releases an allocated IP address.
+//
+// Do not use the deprecated [DeleteIpamIPParams.Context] with this method: it would be ignored.
 func (a *Client) DeleteIpamIPContext(ctx context.Context, params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -148,14 +142,12 @@ func (a *Client) DeleteIpamIPContext(ctx context.Context, params *DeleteIpamIPPa
 	panic(msg)
 }
 
-/*
-PostIpamallocates an IP address.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.PostIpamContext] instead.
-*/
+// PostIpam allocates an IP address.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.PostIpamContext] instead.
 func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -167,11 +159,9 @@ func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIp
 	return a.PostIpamContext(ctx, params, opts...)
 }
 
-/*
-PostIpamContextallocates an IP address.
-
-Do not use the deprecated [PostIpamParams.Context] with this method: it would be ignored.
-*/
+// PostIpamContext allocates an IP address.
+//
+// Do not use the deprecated [PostIpamParams.Context] with this method: it would be ignored.
 func (a *Client) PostIpamContext(ctx context.Context, params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
@@ -214,14 +204,12 @@ func (a *Client) PostIpamContext(ctx context.Context, params *PostIpamParams, op
 	panic(msg)
 }
 
-/*
-PostIpamIPallocates an IP address.
-
-This method does not support injected context.
-However, timeout and opentracing contexts are honored whenever enabled.
-
-If you need to pass a specific context, use [Client.PostIpamIPContext] instead.
-*/
+// PostIpamIP allocates an IP address.
+//
+// This method does not support injected context.
+// However, timeout and opentracing contexts are honored whenever enabled.
+//
+// If you need to pass a specific context, use [Client.PostIpamIPContext] instead.
 func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error) {
 	var ctx context.Context
 	if params.inner.ctx != nil {
@@ -233,11 +221,9 @@ func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*Po
 	return a.PostIpamIPContext(ctx, params, opts...)
 }
 
-/*
-PostIpamIPContextallocates an IP address.
-
-Do not use the deprecated [PostIpamIPParams.Context] with this method: it would be ignored.
-*/
+// PostIpamIPContext allocates an IP address.
+//
+// Do not use the deprecated [PostIpamIPParams.Context] with this method: it would be ignored.
 func (a *Client) PostIpamIPContext(ctx context.Context, params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {

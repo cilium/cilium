@@ -29,11 +29,9 @@ func NewGetPolicySubjectSelectors(ctx *middleware.Context, handler GetPolicySubj
 	return &GetPolicySubjectSelectors{Context: ctx, Handler: handler}
 }
 
-/*
-	GetPolicySubjectSelectors swagger:route GET /policy/subject-selectors policy getPolicySubjectSelectors
-
-See what subject selectors match which identities on the local node
-*/
+// GetPolicySubjectSelectors swagger:route GET /policy/subject-selectors policy getPolicySubjectSelectors
+//
+// See what subject selectors match which identities on the local node
 type GetPolicySubjectSelectors struct {
 	Context *middleware.Context
 	Handler GetPolicySubjectSelectorsHandler

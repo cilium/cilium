@@ -51,7 +51,7 @@ func NewKvstoreMeshAPI(spec *loads.Document) *KvstoreMeshAPI {
 	}
 }
 
-/*KvstoreMeshAPI Cilium KVStoreMesh */
+// KvstoreMeshAPI Cilium KVStoreMesh
 type KvstoreMeshAPI struct {
 	spec            *loads.Document
 	context         *middleware.Context

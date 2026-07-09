@@ -40,11 +40,9 @@ func NewGetMapOK() *GetMapOK {
 	return &GetMapOK{}
 }
 
-/*
-GetMapOK describes a response with status code 200, with default header values.
-
-Success
-*/
+// GetMapOK describes a response with status code 200, with default header values.
+//
+// Success
 type GetMapOK struct {
 	Payload *models.BPFMapList
 }

@@ -15,16 +15,12 @@ import (
 // GetHealthzOKCode is the HTTP code returned for type GetHealthzOK
 const GetHealthzOKCode int = 200
 
-/*
-GetHealthzOK Success
-
-swagger:response getHealthzOK
-*/
+// GetHealthzOK Success
+//
+// swagger:response getHealthzOK
 type GetHealthzOK struct {
 
-	/*
-	  In: Body
-	*/
+	// In: Body
 	Payload *models.StatusResponse `json:"body,omitempty"`
 }
 
