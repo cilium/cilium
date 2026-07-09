@@ -29,5 +29,4 @@ CLI to help upgrade cilium
 * [cilium-dbg](cilium-dbg.md)	 - CLI
 * [cilium-dbg preflight migrate-identity](cilium-dbg_preflight_migrate-identity.md)	 - Migrate KVStore-backed identities to kubernetes CRD-backed identities
 * [cilium-dbg preflight validate-cnp](cilium-dbg_preflight_validate-cnp.md)	 - Validate Cilium Network Policies deployed in the cluster
-* [cilium-dbg preflight validate-configmap](cilium-dbg_preflight_validate-configmap.md)	 - Validate Cilium ConfigMap for unrecognized keys in the daemon and operator.
 

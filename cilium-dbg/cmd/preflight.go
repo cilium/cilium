@@ -26,7 +26,4 @@ func init() {
 	PreflightCmd.AddCommand(validateCNPCmd())
 
 	RootCmd.AddCommand(PreflightCmd)
-
-	PreflightCmd.AddCommand(validateConfigmapCmd())
-
 }
