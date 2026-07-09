@@ -16,21 +16,26 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
+	corev1 "k8s.io/api/core/v1"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/node"
+	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
@@ -1131,6 +1136,121 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	require.Contains(t, resources.Listeners, "baseline",
 		"baseline listener should still exist after NACK revert")
 	t.Log("verified snapshot was reverted after NACK, no completions stuck")
+
+	t.Log("stopping Envoy")
+	stopEnvoy()
+}
+
+func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
+	s := setupEnvoySuite(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+	}
+
+	SetXDSMode(config.EnvoyXDSModeADS)
+	t.Cleanup(func() { SetXDSMode("") })
+
+	logging.SetLogLevel(slog.LevelDebug)
+	flowdebug.Enable()
+
+	testRunDir, err := os.MkdirTemp("", "envoy_go_test")
+	require.NoError(t, err)
+	t.Logf("run directory: %s", testRunDir)
+
+	localEndpointStore := newLocalEndpointStore()
+	logger := hivetest.Logger(t)
+
+	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+		xdsServerConfig{
+			envoySocketDir:    util.GetSocketDir(testRunDir),
+			proxyGID:          1337,
+			httpNormalizePath: true,
+			metrics:           xds.NewXDSMetric(),
+		},
+		nil, nil)
+	require.NotNil(t, xdsServer)
+
+	go func() {
+		err = xdsServer.run(t.Context())
+		require.NoError(t, err)
+	}()
+
+	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
+	require.NotNil(t, accessLogServer)
+	go func() {
+		err = accessLogServer.run(t.Context())
+		require.NoError(t, err)
+	}()
+
+	starter := &onDemandXdsStarter{
+		logger: logger,
+		localNodeStore: node.NewTestLocalNodeStore(node.LocalNode{
+			Node: nodetypes.Node{
+				Labels: map[string]string{
+					corev1.LabelTopologyZone: "zone-a",
+				},
+			},
+		}),
+	}
+	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
+		adsMode:                        true,
+		runDir:                         testRunDir,
+		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:                         15,
+		connectTimeout:                 1,
+		maxActiveDownstreamConnections: 100,
+		defaultLogLevel:                "debug",
+		maxConnections:                 10,
+		maxRequests:                    100,
+		maxConcurrentRetries:           10,
+		maxPendingRequests:             1024,
+		nodeLocalityEnabled:            true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, envoyProxy)
+	t.Log("started Envoy")
+	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
+
+	resources := xds.NewResources()
+	resources.Endpoints[LocalityClusterName] = &envoy_config_endpoint.ClusterLoadAssignment{
+		ClusterName: LocalityClusterName,
+		Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
+			Locality: &envoy_config_core_v3.Locality{Zone: "zone-a"},
+			LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
+				HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
+					Endpoint: &envoy_config_endpoint.Endpoint{
+						Address: &envoy_config_core_v3.Address{
+							Address: &envoy_config_core_v3.Address_SocketAddress{
+								SocketAddress: &envoy_config_core_v3.SocketAddress{
+									Protocol: envoy_config_core_v3.SocketAddress_TCP,
+									Address:  "127.0.0.1",
+									PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+										PortValue: 8080,
+									},
+								},
+							},
+						},
+					},
+				},
+			}},
+		}},
+	}
+
+	s.waitGroup = completion.NewWaitGroup(ctx)
+	// UpsertEnvoyResources intentionally does not wait for endpoint ACKs. This
+	// regression test needs to observe the EDS ACK for the bootstrap locality cluster.
+	xdsServer.mutex.Lock()
+	err = xdsServer.updateSnapshot(ctx, &resources, localNodeID, s.waitGroup, map[string]func(error){EndpointTypeURL: nil}, computeChanges(nil, &resources))
+	xdsServer.mutex.Unlock()
+	require.NoError(t, err)
+
+	err = s.waitForProxyCompletion()
+	require.NoError(t, err)
+	require.Zero(t, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
+	t.Log("locality cluster endpoints ACKed")
 
 	t.Log("stopping Envoy")
 	stopEnvoy()
