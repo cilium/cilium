@@ -442,7 +442,7 @@ func TestParseCiliumNode(t *testing.T) {
 		IPv6SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("c0fe::/96"))},
 		IPv4HealthIP:            iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 		IPv6HealthIP:            iputil.AddrFrom(netip.MustParseAddr("c0de::1")),
-		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
-		IPv6IngressIP:           net.ParseIP("c0de::2"),
+		IPv4IngressIP:           iputil.AddrFrom(netip.MustParseAddr("1.1.1.2")),
+		IPv6IngressIP:           iputil.AddrFrom(netip.MustParseAddr("c0de::2")),
 	}, n)
 }
