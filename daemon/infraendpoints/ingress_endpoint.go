@@ -87,8 +87,8 @@ func (c *ingressEndpointCreator) createIngressEndpoint(ctx context.Context, heal
 		return fmt.Errorf("failed to get local node: %w", err)
 	}
 
-	if (c.ipv4Enabled && len(ln.IPv4IngressIP) == 0) ||
-		(c.ipv6Enabled && len(ln.IPv6IngressIP) == 0) {
+	if (c.ipv4Enabled && !ln.IPv4IngressIP.IsValid()) ||
+		(c.ipv6Enabled && !ln.IPv6IngressIP.IsValid()) {
 		msg := "Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected."
 		c.logger.Warn(msg)
 		health.Degraded(msg, nil)

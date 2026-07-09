@@ -15,6 +15,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -196,9 +197,9 @@ func (d *LocalIdentityRestorer) restoreIPCache(ipCache *ipcache.IPCache, localPr
 			d.params.NodeLocalStore.Update(func(n *node.LocalNode) {
 				addr := prefix.Addr()
 				if addr.Is4() {
-					n.IPv4IngressIP = addr.AsSlice()
+					n.IPv4IngressIP = iputil.AddrFrom(addr)
 				} else {
-					n.IPv6IngressIP = addr.AsSlice()
+					n.IPv6IngressIP = iputil.AddrFrom(addr)
 				}
 			})
 			d.params.Logger.Info("Restored ingress IP", logfields.Ingress, prefix)

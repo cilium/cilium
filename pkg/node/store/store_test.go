@@ -57,6 +57,16 @@ func TestValidatingNode(t *testing.T) {
 			errstr:    "name does not match key: got qux, expected fred",
 		},
 		{
+			name: "ingress IPs round-trip",
+			node: types.Node{
+				Cluster:       "foo",
+				Name:          "qux",
+				IPv4IngressIP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.5")),
+				IPv6IngressIP: iputil.AddrFrom(netip.MustParseAddr("f00d::5")),
+			},
+			validator: ClusterNameValidator("foo"),
+		},
+		{
 			name:      "valid cluster ID",
 			node:      types.Node{Cluster: "foo", Name: "qux", ClusterID: 10},
 			validator: ClusterIDValidator(ptr.To[uint32](10)),

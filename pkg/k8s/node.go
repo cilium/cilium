@@ -276,33 +276,35 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 		}
 	}
 
-	if newNode.IPv4IngressIP == nil {
+	if !newNode.IPv4IngressIP.IsValid() {
 		if ingressIP, ok := annotation.Get(k8sNode, annotation.V4IngressName, annotation.V4IngressNameAlias); !ok || ingressIP == "" {
 			scopedLog.Debug(
 				"Empty IPv4 Ingress annotation in node",
 			)
-		} else if ip := net.ParseIP(ingressIP); ip == nil {
+		} else if addr, err := netip.ParseAddr(ingressIP); err != nil {
 			scopedLog.Error(
 				"BUG, invalid IPv4 Ingress annotation in node",
 				logfields.V4IngressIP, ingressIP,
+				logfields.Error, err,
 			)
 		} else {
-			newNode.IPv4IngressIP = ip
+			newNode.IPv4IngressIP = iputil.AddrFrom(addr)
 		}
 	}
 
-	if newNode.IPv6IngressIP == nil {
+	if !newNode.IPv6IngressIP.IsValid() {
 		if ingressIP, ok := annotation.Get(k8sNode, annotation.V6IngressName, annotation.V6IngressNameAlias); !ok || ingressIP == "" {
 			scopedLog.Debug(
 				"Empty IPv6 Ingress annotation in node",
 			)
-		} else if ip := net.ParseIP(ingressIP); ip == nil {
+		} else if addr, err := netip.ParseAddr(ingressIP); err != nil {
 			scopedLog.Error(
 				"BUG, invalid IPv6 Ingress annotation in node",
 				logfields.V6IngressIP, ingressIP,
+				logfields.Error, err,
 			)
 		} else {
-			newNode.IPv6IngressIP = ip
+			newNode.IPv6IngressIP = iputil.AddrFrom(addr)
 		}
 	}
 
@@ -363,8 +365,10 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
 	node.IPv4HealthIP = iputil.AddrFrom(v4HealthIP)
 	node.IPv6HealthIP = iputil.AddrFrom(v6HealthIP)
 
-	node.IPv4IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV4)
-	node.IPv6IngressIP = net.ParseIP(n.Spec.IngressAddressing.IPV6)
+	v4IngressIP, _ := netip.ParseAddr(n.Spec.IngressAddressing.IPV4)
+	v6IngressIP, _ := netip.ParseAddr(n.Spec.IngressAddressing.IPV6)
+	node.IPv4IngressIP = iputil.AddrFrom(v4IngressIP)
+	node.IPv6IngressIP = iputil.AddrFrom(v6IngressIP)
 
 	for _, address := range n.Spec.Addresses {
 		if ip := net.ParseIP(address.IP); ip != nil {
