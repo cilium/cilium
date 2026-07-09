@@ -69,11 +69,11 @@ Helm chart configuration options include:
 
 - ``hubble.export.static.filePath``: file path of target log file. (default /var/run/cilium/hubble/events.log)
 
-- ``hubble.export.fileMaxSizeMb``: size in MB at which to rotate the Hubble export file. (default 10)
+- ``hubble.export.static.fileMaxSizeMb``: size in MB at which to rotate the Hubble export file. (default 10)
 
-- ``hubble.export.fileMaxBackups``: number of rotated Hubble export files to keep. (default 5)
+- ``hubble.export.static.fileMaxBackups``: number of rotated Hubble export files to keep. (default 5)
 
-- ``hubble.export.fileCompress``: enable compression of rotated files. (default false)
+- ``hubble.export.static.fileCompress``: enable compression of rotated files. (default false)
 
 Performance tuning
 ==================
@@ -248,8 +248,10 @@ Dynamic flow logs can be configured with ``end`` property which means that it wi
 automatically stop logging after specified date time. It supports the same
 field masking and filtering as static hubble exporter.
 
-For max output file size and backup files dynamic exporter reuses the same
-settings as static one: ``hubble.export.fileMaxSizeMb`` and ``hubble.export.fileMaxBackups``
+File rotation is configured per flow log entry. Each entry accepts its own
+``fileMaxSizeMb``, ``fileMaxBackups`` and ``fileCompress`` settings. If an entry
+omits these settings, the defaults are used (``fileMaxSizeMb: 10``,
+``fileMaxBackups: 5``, ``fileCompress: false``).
 
 Sample dynamic flow logs configs:
 
@@ -271,6 +273,9 @@ Sample dynamic flow logs configs:
           - name: "test002"
             filePath: "/var/run/cilium/hubble/test002.log"
             fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
+            fileMaxSizeMb: 100
+            fileMaxBackups: 2
+            fileCompress: true
             includeFilters:
             - source_pod: ["default/"]
               event_type:
