@@ -1452,6 +1452,14 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_err;
 
+		/* Tell callers the entry was just created: DSR uses this to
+		 * attach the DSR info also to a non-SYN packet which created
+		 * the entry (mid-flow packet re-routed to this LB node, e.g.
+		 * after an ECMP rehash), so that the backend node can build
+		 * the reverse-xlate state it never got from a SYN.
+		 */
+		state->svc_entry_created = 1;
+
 #ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 		_lb_act_conn_open(state->rev_nat_index, backend->zone);
 #endif
@@ -2278,6 +2286,14 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 */
 		if (IS_ERR(ret))
 			goto drop_err;
+
+		/* Tell callers the entry was just created: DSR uses this to
+		 * attach the DSR info also to a non-SYN packet which created
+		 * the entry (mid-flow packet re-routed to this LB node, e.g.
+		 * after an ECMP rehash), so that the backend node can build
+		 * the reverse-xlate state it never got from a SYN.
+		 */
+		state->svc_entry_created = 1;
 
 #ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 		_lb_act_conn_open(state->rev_nat_index, backend->zone);

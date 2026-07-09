@@ -52,7 +52,8 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 		  closing:1,
-	      reserved:7;
+	      svc_entry_created:1,	/* CT service entry was created by this packet */
+	      reserved:6;
 	__u32 src_sec_id;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
