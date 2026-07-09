@@ -120,6 +120,9 @@ func (s *nodeTaintSync) start(ctx cell.HookContext) error {
 
 func (s *nodeTaintSync) stop(_ cell.HookContext) error {
 	s.cancel()
+	// nodeQueue may be initialized by CiliumNodeGCCell, whose stop hook runs after
+	// this one. Shut it down explicitly so our workers blocked in Get can exit.
+	nodeQueue.ShutDown()
 	s.wg.Wait()
 	return nil
 }
