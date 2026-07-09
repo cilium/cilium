@@ -1546,6 +1546,35 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	}
 }
 
+#if defined(ENABLE_SVC_ICMP_PMTU_RELAY) && defined(TUNNEL_MODE) && !defined(IS_BPF_XDP)
+/* Deliver a relayed ICMP PMTU error whose outer destination the relay already
+ * rewrote to the backend: if the backend sits behind a tunnel endpoint,
+ * encapsulate and redirect to its node (mirrors nodeport_rev_dnat_ipv4()).
+ * @info is the looked-up remote endpoint for the backend, @proto the inner
+ * ethertype. Returns CTX_ACT_REDIRECT once encapsulated, a DROP_* error, or
+ * CTX_ACT_OK to let the caller fall back to recirculation (local or
+ * native-routed backend). */
+static __always_inline int
+pmtu_relay_tunnel_redirect(struct __ctx_buff *ctx,
+			   const struct remote_endpoint_info *info,
+			   __be16 src_port, __be16 proto)
+{
+	int oif = 0, ret;
+
+	if (!info || !info->flag_has_tunnel_ep || info->flag_skip_tunnel)
+		return CTX_ACT_OK;
+
+	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port, info,
+					REMOTE_NODE_ID, TRACE_REASON_UNKNOWN,
+					TRACE_PAYLOAD_LEN, &oif, proto);
+	if (IS_ERR(ret))
+		return ret;
+	if (ret == CTX_ACT_REDIRECT && oif)
+		return ctx_redirect(ctx, oif, 0);
+	return CTX_ACT_OK;
+}
+#endif
+
 /* See nodeport_lb4(). */
 static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
@@ -1612,6 +1641,21 @@ skip_service_lookup:
 	if (!is_svc_proto && tuple.nexthdr == IPPROTO_ICMPV6) {
 		ret = handle_icmp_svc_pmtu_v6(ctx, ip6, l4_off, ext_err);
 		if (ret == CTX_ACT_REDIRECT) {
+			/* Encap to a remote backend in tunnel mode; see the IPv4
+			 * path. Local/native backends fall through to recirculation.
+			 */
+#if defined(TUNNEL_MODE) && !defined(IS_BPF_XDP)
+			void *data, *data_end;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+			ret = pmtu_relay_tunnel_redirect(ctx,
+							 lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0),
+							 tunnel_gen_src_port_v6(&tuple),
+							 bpf_htons(ETH_P_IPV6));
+			if (ret != CTX_ACT_OK)	/* encapsulated + redirected, or error */
+				return ret;
+#endif
 			ctx_skip_nodeport_set(ctx);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
 						  ext_err);
@@ -3007,6 +3051,25 @@ skip_service_lookup:
 	if (!is_svc_proto && ip4->protocol == IPPROTO_ICMP) {
 		ret = handle_icmp_svc_pmtu_v4(ctx, ip4, l4_off, ext_err);
 		if (ret == CTX_ACT_REDIRECT) {
+			/* The relay rewrote the outer destination to the backend.
+			 * In tunnel mode a remote backend is only reachable over
+			 * the overlay; recirculating through from-netdev would not
+			 * encapsulate it, so encap here (mirrors
+			 * nodeport_rev_dnat_ipv4()). Local and native-routed
+			 * backends fall through to recirculation.
+			 */
+#if defined(TUNNEL_MODE) && !defined(IS_BPF_XDP)
+			void *data, *data_end;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
+			ret = pmtu_relay_tunnel_redirect(ctx,
+							 lookup_ip4_remote_endpoint(ip4->daddr, 0),
+							 tunnel_gen_src_port_v4(&tuple),
+							 bpf_htons(ETH_P_IP));
+			if (ret != CTX_ACT_OK)	/* encapsulated + redirected, or error */
+				return ret;
+#endif
 			ctx_skip_nodeport_set(ctx);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV,
 						  ext_err);
