@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/go-openapi/strfmt"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	versionapi "k8s.io/apimachinery/pkg/version"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -316,6 +318,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly,
 	}
 	if d.statusParams.KPRConfig.KubeProxyReplacement {
+		titleCaser := cases.Title(language.Und, cases.NoLower)
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(d.statusParams.LBConfig.LBMode)
 		switch d.statusParams.LBConfig.DSRDispatch {
@@ -327,8 +330,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeGeneve
 		}
 		if d.statusParams.LBConfig.LBMode == loadbalancer.LBModeHybrid {
-			//nolint:staticcheck
-			features.NodePort.Mode = strings.Title(d.statusParams.LBConfig.LBMode)
+			features.NodePort.Mode = titleCaser.String(d.statusParams.LBConfig.LBMode)
 		}
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
 		if d.statusParams.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
@@ -341,7 +343,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		if d.statusParams.DaemonConfig.NodePortAcceleration == option.NodePortAccelerationGeneric {
 			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGeneric
 		} else {
-			features.NodePort.Acceleration = strings.Title(d.statusParams.DaemonConfig.NodePortAcceleration)
+			features.NodePort.Acceleration = titleCaser.String(d.statusParams.DaemonConfig.NodePortAcceleration)
 		}
 		features.NodePort.PortMin = int64(d.statusParams.LBConfig.NodePortMin)
 		features.NodePort.PortMax = int64(d.statusParams.LBConfig.NodePortMax)
