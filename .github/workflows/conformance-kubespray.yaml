@@ -100,6 +100,7 @@ jobs:
           login-host: ${{ vars.DOCKER_READ_HOST }}
           login-username: ${{ vars.DOCKER_READ_USERNAME }}
           login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
   installation-and-connectivity:
     name: Installation and Connectivity Test
@@ -192,6 +193,7 @@ jobs:
           kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
 
       - name: Create imagePullSecret
+        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' }}
         run: |
           kubectl create secret docker-registry cilium-registry \
             --namespace kube-system \

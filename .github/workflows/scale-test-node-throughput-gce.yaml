@@ -88,6 +88,7 @@ jobs:
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
 
       - name: Login to docker registry for image wait
+        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' }}
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ${{ vars.DOCKER_READ_HOST}}
@@ -153,6 +154,7 @@ jobs:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
 
       - name: Create imagePullSecret
+        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' }}
         run: |
           kubectl create secret docker-registry cilium-registry \
             --namespace kube-system \

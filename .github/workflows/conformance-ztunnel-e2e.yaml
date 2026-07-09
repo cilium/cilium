@@ -86,6 +86,7 @@ jobs:
           login-host: ${{ vars.DOCKER_READ_HOST }}
           login-username: ${{ vars.DOCKER_READ_USERNAME }}
           login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
   setup-and-test:
     needs: [wait-for-images]
@@ -180,7 +181,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Create imagePullSecret
-        if: ${{ steps.cilium-config.outputs.skip != 'true' }}
+        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' && steps.cilium-config.outputs.skip != 'true' }}
         run: |
           kubectl create secret docker-registry cilium-registry \
             --namespace kube-system \

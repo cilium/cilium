@@ -21,13 +21,17 @@ inputs:
     description: 'The password to login to the registry if login is set to true.'
     required: false
     default: ''
+  auth-required:
+    description: 'Variable setting up if auth is required or not. Can be found in the repository variable under DOCKER_AUTH_REQUIRED name'
+    required: false
+    default: 'true'
 runs:
   using: composite
   steps:
     - name: Set environment variables
       uses: ./.github/actions/set-env-variables
     - name: Login to docker registry
-      if: ${{ inputs.login-host != '' && inputs.login-username != '' && inputs.login-password != '' }}
+      if: ${{ inputs.auth-required != 'false' && inputs.login-host != '' && inputs.login-username != '' && inputs.login-password != '' }}
       uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
       with:
         registry: ${{ inputs.login-host }}
