@@ -2,6 +2,8 @@ name: Cilium E2E Upgrade (ci-e2e-upgrade)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
+
   workflow_call:
     inputs:
       PR-number:
@@ -115,7 +117,7 @@ jobs:
       - name: Set initial commit status
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
         with:
-          sha: ${{ inputs.SHA || github.sha }}
+          sha: ${{ inputs.SHA || github.event.pull_request.head.sha }}
 
   generate-matrix:
     name: Generate Matrix
@@ -127,7 +129,7 @@ jobs:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.context-ref || github.sha }}
+          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Convert YAML to JSON
@@ -194,12 +196,12 @@ jobs:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.context-ref || github.sha }}
+          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha }}
           persist-credentials: false
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA || github.sha }}
+          SHA: ${{ inputs.SHA || github.event.pull_request.head.sha }}
           login-host: ${{ vars.DOCKER_READ_HOST }}
           login-username: ${{ vars.DOCKER_READ_USERNAME }}
           login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
@@ -227,7 +229,7 @@ jobs:
       - name: Set commit status to pending
         uses: cilium/cilium/.github/actions/set-commit-status@main # main
         with:
-          sha: ${{ inputs.SHA || github.sha }}
+          sha: ${{ inputs.SHA || github.event.pull_request.head.sha }}
 
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
@@ -237,7 +239,7 @@ jobs:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.context-ref || github.sha }}
+          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Set Environment Variables
@@ -253,7 +255,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SHA="${{ inputs.SHA }}"
           else
-            SHA="${{ github.sha }}"
+            SHA="${{ github.event.pull_request.head.sha }}"
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
           if [ "${{ matrix.mode }}" = "minor" ]; then
@@ -820,6 +822,6 @@ jobs:
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      sha: ${{ inputs.SHA || github.sha }}
+      context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha }}
+      sha: ${{ inputs.SHA || github.event.pull_request.head.sha }}
       success: ${{ needs.setup-and-test.result == 'success' }}
