@@ -6,7 +6,6 @@ package creator
 import (
 	"context"
 	"fmt"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/lumberjack/v2"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -114,18 +112,13 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		return fmt.Errorf("failed to get local node: %w", err)
 	}
 
-	// Node.IPv4IngressIP has been parsed with net.ParseIP() and may be in IPv4 mapped IPv6
-	// address format. Use netipx.FromStdIP() to make sure we get a plain IPv4 address.
-	ingressIPv4, _ := netipx.FromStdIP(ln.IPv4IngressIP)
-	ingressIPv6, _ := netip.AddrFromSlice(ln.IPv6IngressIP)
-
 	ep, err := endpoint.CreateIngressEndpoint(
 		c.epParams,
 		c.params.DNSRulesService,
 		c.params.Proxy,
 		c.policyLogger(),
-		ingressIPv4,
-		ingressIPv6,
+		ln.IPv4IngressIP.Addr,
+		ln.IPv6IngressIP.Addr,
 	)
 	if err != nil {
 		return err
