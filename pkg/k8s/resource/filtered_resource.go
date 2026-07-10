@@ -38,15 +38,23 @@ func (r *filteringResource[T]) Events(ctx context.Context, opts ...EventsOpt) <-
 	parentEvents := r.parent.Events(ctx, opts...)
 
 	go func() {
+		var send = func(ev Event[T]) {
+			select {
+			case out <- ev:
+			case <-ctx.Done():
+				ev.Done(nil)
+			}
+		}
+
 		defer close(out)
 		for ev := range parentEvents {
 			if ev.Kind == Sync {
-				out <- ev
+				send(ev)
 				continue
 			}
 
 			if r.filter(ev.Object) {
-				out <- ev
+				send(ev)
 			} else {
 				ev.Done(nil)
 			}
