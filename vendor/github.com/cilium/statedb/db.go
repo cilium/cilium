@@ -193,12 +193,24 @@ func (db *DB) WriteTxn(tables ...TableMeta) WriteTxn {
 	txn := db.writeTxnPool.Get().(*writeTxnState)
 	txn.db = db
 
+	// Deduplicate the set of tables to avoid acquiring the same table lock
+	// more than once, which would deadlock down the line.
+	seen := make(map[int]struct{}, len(tables))
+	tables = slices.DeleteFunc(slices.Clone(tables), func(table TableMeta) bool {
+		pos := table.tablePos()
+		if pos < 0 {
+			panic(tableError(table.Name(), ErrTableNotRegistered))
+		}
+		if _, exists := seen[pos]; exists {
+			return true
+		}
+		seen[pos] = struct{}{}
+		return false
+	})
+
 	txn.smus = reuseSlice(txn.smus, len(tables))
 	for i, table := range tables {
 		txn.smus[i] = table.sortableMutex()
-		if table.tablePos() < 0 {
-			panic(tableError(table.Name(), ErrTableNotRegistered))
-		}
 	}
 
 	lockAt := time.Now()
