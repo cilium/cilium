@@ -3,7 +3,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:2d07594c8751abfdd7c1ce5d8d6626d6e9049f6c@sha256:f34841d908bc365dd7233a8858fce9abde9d824044402a3ca398521acec61ebc
+ARG UBUNTU_IMAGE=docker.io/library/ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1787138071-3b8cd9a@sha256:d460f28d759ec06f5e7fbc9a91ef7f556d84f6e763f8b78ca128907455ffbc7c
 ARG GOLANG_IMAGE=docker.io/library/golang:1.27.0@sha256:65b6f280bf050ec5af12716857e8ea8439d694dbba8f31ceeb7630670071f2bb
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:19.1.7-1785833026-d8383c5@sha256:80ae6ceb1a1556d5f65f7a086d873c4706ed548444c4d49d89cbeedf24f817d4
@@ -12,7 +12,7 @@ FROM ${GOLANG_IMAGE} AS golang-dist
 
 FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 
-FROM ${CILIUM_RUNTIME_IMAGE} AS rootfs
+FROM ${UBUNTU_IMAGE} AS rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
 # we want to re-run 'apt-get upgrade' for stale images.
@@ -21,6 +21,7 @@ ENV FORCE_BUILD=1
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 RUN \
+    export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
@@ -37,6 +38,7 @@ RUN \
     unzip \
     # Base Cilium-build dependencies
     binutils \
+    ca-certificates \
     coreutils \
     curl \
     gcc \
@@ -79,8 +81,13 @@ WORKDIR /go/src/github.com/cilium/cilium/images/builder
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \
     ./install-test-formatters.sh
 
-# used to facilitate the verifier tests
-COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /usr/local/bin/llvm-strip /bin/
+# clang compiles the BPF datapath in the builder (e.g. 'make -C bpf build_all',
+# 'make run_bpf_tests')
+# llvm-objcopy/llvm-strip are used by the BPF Go tests (pkg/bpf/testdata).
+# llc is intentionally not copied: the BPF build is clang-only, and the datapath
+# verifier tests extract the toolchain from the cilium-llvm image (see
+# contrib/scripts/extract-llvm.sh), not from this image.
+COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llvm-objcopy /usr/local/bin/llvm-strip /bin/
 
 # Create a cache directory with 777 so that we can run the builder image and
 # compile golang code from any UID.

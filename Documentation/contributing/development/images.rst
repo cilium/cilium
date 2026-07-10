@@ -105,23 +105,18 @@ Images dependency:
 ::
 
     cilium/cilium
-    └── cilium/cilium-builder
-        └── cilium/cilium-runtime
-            ├── cilium/cilium-bpftool
-            └── cilium/cilium-llvm
+    ├── cilium/cilium-builder
+    │   └── cilium/cilium-llvm
+    └── cilium/cilium-runtime
+        ├── cilium/cilium-bpftool
+        └── cilium/cilium-llvm
 
     cilium/cilium-envoy
     └── cilium/cilium-envoy-builder
-        └── cilium/cilium-builder
-            └── cilium/cilium-runtime
-                ├── cilium/cilium-bpftool
-                └── cilium/cilium-llvm
 
     cilium/operator
     └── cilium/cilium-builder
-        └── cilium/cilium-runtime
-            ├── cilium/cilium-bpftool
-            └── cilium/cilium-llvm
+        └── cilium/cilium-llvm
 
 
 
@@ -153,7 +148,6 @@ different value and then proceed with the steps below.
 
 #. Ping one of the members of `team/build <https://github.com/orgs/cilium/teams/build/members>`__
    to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`__.
-   Note that at this step cilium-builder build failure is expected since we have yet to update the runtime digest.
 
 #. Wait for build to complete. If the PR was opened from an external fork the
    build will fail while trying to push the changes, this is expected.
