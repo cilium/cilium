@@ -147,12 +147,12 @@ func TestDifferentSpeedQueuesDefault(t *testing.T) {
 			priorityNamespaces:  make(map[string]struct{}),
 			syncDelay:           0,
 			doReconciler:        r,
+			cond:                *sync.NewCond(&lock.Mutex{}),
 		},
 		manager:        m,
 		reconciler:     r,
 		ciliumEndpoint: ciliumEndpoint,
 	}
-	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.priorityNamespaces["FastNamespace"] = struct{}{}
 	cesController.initializeQueue()
@@ -251,12 +251,12 @@ func TestCESManagementDefault(t *testing.T) {
 			priorityNamespaces:  make(map[string]struct{}),
 			syncDelay:           0,
 			doReconciler:        r,
+			cond:                *sync.NewCond(&lock.Mutex{}),
 		},
 		manager:        m,
 		reconciler:     r,
 		ciliumEndpoint: ciliumEndpoint,
 	}
-	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.initializeQueue()
 	var ns = "ns"
@@ -347,6 +347,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 			doReconciler:        r,
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
+			cond:                *sync.NewCond(&lock.Mutex{}),
 		},
 		ipsecEnabled:   false,
 		wgEnabled:      false,
@@ -355,7 +356,6 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 		pods:           pods,
 		ciliumIdentity: ciliumIdentity,
 	}
-	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.initializeQueue()
 
 	node1 := tu.CreateStoreNode("node1")
@@ -471,6 +471,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 			doReconciler:        r,
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
+			cond:                *sync.NewCond(&lock.Mutex{}),
 		},
 		ipsecEnabled:   false,
 		wgEnabled:      false,
@@ -479,7 +480,6 @@ func TestDifferentSpeedQueues(t *testing.T) {
 		pods:           pods,
 		ciliumIdentity: ciliumIdentity,
 	}
-	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.priorityNamespaces["FastNamespace"] = struct{}{}
 	cesController.initializeQueue()
@@ -595,6 +595,7 @@ func TestCESManagement(t *testing.T) {
 			doReconciler:        r,
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
+			cond:                *sync.NewCond(&lock.Mutex{}),
 		},
 		ipsecEnabled:   false,
 		wgEnabled:      false,
@@ -603,7 +604,6 @@ func TestCESManagement(t *testing.T) {
 		pods:           pods,
 		ciliumIdentity: ciliumIdentity,
 	}
-	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.initializeQueue()
 	var ns = "ns"
@@ -708,6 +708,7 @@ func TestSyncCESsInLocalCacheDeletedCID(t *testing.T) {
 			doReconciler:        r,
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
+			cond:                *sync.NewCond(&lock.Mutex{}),
 		},
 		ipsecEnabled:   false,
 		wgEnabled:      false,
@@ -716,7 +717,6 @@ func TestSyncCESsInLocalCacheDeletedCID(t *testing.T) {
 		pods:           pods,
 		ciliumIdentity: ciliumIdentity,
 	}
-	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.initializeQueue()
 
 	node1 := tu.CreateStoreNode("node1")
