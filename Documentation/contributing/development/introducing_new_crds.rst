@@ -292,7 +292,7 @@ Your new CRDs must be installed into Kubernetes. This is controlled in
 the ``pkg/k8s/synced/crd.go`` file.
 
 Here is an example diff which installs the CRDs ``v2alpha1.BGPPName``
-and ``v2alpha.BGPPoolName``:
+and ``v2alpha1.BGPPoolName``:
 
 .. code-block:: diff
 
