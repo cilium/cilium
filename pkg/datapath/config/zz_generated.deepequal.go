@@ -212,6 +212,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.EnablePolicyAccounting != other.EnablePolicyAccounting {
 		return false
 	}
+	if in.EnablePolicyIdentityAggregation != other.EnablePolicyIdentityAggregation {
+		return false
+	}
 	if in.EnableConntrackAccounting != other.EnableConntrackAccounting {
 		return false
 	}

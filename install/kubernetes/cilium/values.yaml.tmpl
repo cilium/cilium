@@ -2670,6 +2670,15 @@ policyEnforcementMode: "default"
 # -- policyCIDRMatchMode is a list of entities that may be selected by CIDR selector.
 # The possible value is "nodes".
 policyCIDRMatchMode:
+
+networkPolicy:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- (bool) Enable policy-map identity aggregation. This can significantly
+  # reduce policy map size when using supported entities. The default is disabled.
+  # Changing from enabled to disabled may cause brief connectivity interruptions.
+  aggregateIdentities: ~
 pprof:
   # -- Enable pprof for cilium-agent
   enabled: false

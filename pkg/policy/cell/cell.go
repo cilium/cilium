@@ -42,6 +42,7 @@ var Cell = cell.Module(
 type Config struct {
 	EnableWellKnownIdentities bool `mapstructure:"enable-well-known-identities"`
 	PolicyQueueSize           uint `mapstructure:"policy-queue-size"`
+	EnableIdentityAggregation bool `mapstructure:"policy-enable-identity-aggregation"`
 }
 
 var defaultConfig = Config{
@@ -49,11 +50,13 @@ var defaultConfig = Config{
 	// original behavior. New default Helm templates will disable this.
 	EnableWellKnownIdentities: true,
 	PolicyQueueSize:           100,
+	EnableIdentityAggregation: false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-well-known-identities", def.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	flags.Uint("policy-queue-size", def.PolicyQueueSize, "Size of queue for policy-related events")
+	flags.Bool("policy-enable-identity-aggregation", def.EnableIdentityAggregation, "Enable aggregating identities in the policy map.")
 }
 
 type policyRepoParams struct {

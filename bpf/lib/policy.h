@@ -15,6 +15,8 @@ DECLARE_CONFIG(bool, allow_icmp_frag_needed,
 DECLARE_CONFIG(bool, enable_icmp_rule, "Apply Network Policy for ICMP packets")
 DECLARE_CONFIG(bool, enable_policy_accounting,
 	       "Maintain packet and byte counters for every policy entry")
+DECLARE_CONFIG(bool, enable_policy_identity_aggregation,
+	       "Enable semantic identity aggregation in network policy")
 
 
 #ifndef EFFECTIVE_EP_ID

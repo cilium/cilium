@@ -233,6 +233,9 @@ type Config struct {
 	// policy entry
 	EnablePolicyAccounting bool
 
+	// EnablePolicyIdentityAggregation enables semantic policy map identity aggregation.
+	EnablePolicyIdentityAggregation bool
+
 	// Enable per flow (conntrack) statistics
 	EnableConntrackAccounting bool
 

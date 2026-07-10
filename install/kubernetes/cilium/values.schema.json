@@ -4875,6 +4875,17 @@
     "nativeRoutingCIDRFromClusterPool": {
       "type": "boolean"
     },
+    "networkPolicy": {
+      "properties": {
+        "aggregateIdentities": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "nodeIPAM": {
       "properties": {
         "enabled": {

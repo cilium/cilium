@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
@@ -125,6 +126,7 @@ type orchestratorParams struct {
 	BIGTCPConfig        bigtcp.Config
 	ConnectorConfig     connector.Config
 	PluginRegistry      plugin.Registry
+	PolicyConfig        policycell.Config
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -239,6 +241,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.IPsecConfig,
 			o.params.ConnectorConfig,
 			o.params.PluginRegistry.Plugins(),
+			o.params.PolicyConfig,
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)

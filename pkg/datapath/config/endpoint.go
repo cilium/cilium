@@ -54,6 +54,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+	cfg.EnablePolicyIdentityAggregation = lnc.EnablePolicyIdentityAggregation
 	cfg.DebugLB = ep.GetOptions().IsEnabled(option.DebugLB)
 
 	if lnc.DatapathIsLayer2 {

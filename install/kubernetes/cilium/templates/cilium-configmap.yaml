@@ -209,6 +209,9 @@ data:
   policy-cidr-match-mode: {{ join " " .Values.policyCIDRMatchMode | quote }}
 {{- end}}
 
+{{- if (not (kindIs "invalid" .Values.networkPolicy.aggregateIdentities )) }}
+  policy-enable-identity-aggregation: "{{ .Values.networkPolicy.aggregateIdentities }}"
+{{- end}}
 
 {{- if .Values.prometheus.enabled }}
   # If you want metrics enabled in all of your Cilium agents, set the port for
