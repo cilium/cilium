@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
+	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/shortener"
@@ -445,16 +446,171 @@ func Test_translator_toServicePorts_MixedProtocolsSamePort(t *testing.T) {
 func Test_getService(t *testing.T) {
 	type args struct {
 		resource              *model.FullyQualifiedResource
+		params                *model.Service
 		allPorts              []corev1.ServicePort
 		labels                map[string]string
 		annotations           map[string]string
 		externalTrafficPolicy string
+		hostNetworkEnabled    bool
+		nodeLabelSelector     *slim_metav1.LabelSelector
 	}
 	tests := []struct {
 		name string
 		args args
 		want *corev1.Service
 	}{
+		{
+			name: "configured node selector is ignored when host network is disabled",
+			args: args{
+				resource: &model.FullyQualifiedResource{
+					Name:      "test-node-selector",
+					Namespace: "default",
+					Version:   "v1",
+					Kind:      "Gateway",
+					UID:       "2a79c3f5-c7d1-42c6-b60f-c828f7d78827",
+				},
+				allPorts: []corev1.ServicePort{{Name: "port-80", Port: 80, Protocol: corev1.ProtocolTCP}},
+				nodeLabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+						"component": "gateway-api",
+						"role":      "infra",
+					},
+				},
+			},
+			want: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cilium-gateway-test-node-selector",
+					Namespace: "default",
+					Labels: map[string]string{
+						owningGatewayLabel:                       "test-node-selector",
+						"gateway.networking.k8s.io/gateway-name": "test-node-selector",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       "test-node-selector",
+							UID:        types.UID("2a79c3f5-c7d1-42c6-b60f-c828f7d78827"),
+							Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{{
+						Name:     fmt.Sprintf("port-%d", 80),
+						Port:     80,
+						Protocol: corev1.ProtocolTCP,
+					}},
+					Type: corev1.ServiceTypeLoadBalancer,
+				},
+			},
+		},
+		{
+			name: "host network nodeport service inherits configured node selector",
+			args: args{
+				resource: &model.FullyQualifiedResource{
+					Name:      "test-nodeport-selector",
+					Namespace: "default",
+					Version:   "v1",
+					Kind:      "Gateway",
+					UID:       "46965fd5-af46-4b55-9cfd-fdbebbaf2ff6",
+				},
+				params:             &model.Service{Type: string(corev1.ServiceTypeNodePort)},
+				hostNetworkEnabled: true,
+				allPorts:           []corev1.ServicePort{{Name: "port-80", Port: 80, Protocol: corev1.ProtocolTCP}},
+				nodeLabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+						"component": "gateway-api",
+						"role":      "infra",
+					},
+				},
+			},
+			want: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cilium-gateway-test-nodeport-selector",
+					Namespace: "default",
+					Labels: map[string]string{
+						owningGatewayLabel:                       "test-nodeport-selector",
+						"gateway.networking.k8s.io/gateway-name": "test-nodeport-selector",
+					},
+					Annotations: map[string]string{
+						annotation.ServiceNodeSelectorExposure: "component=gateway-api,role=infra",
+						annotation.ServiceSourceRangesPolicy:   "",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       "test-nodeport-selector",
+							UID:        types.UID("46965fd5-af46-4b55-9cfd-fdbebbaf2ff6"),
+							Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{{
+						Name:     fmt.Sprintf("port-%d", 80),
+						Port:     80,
+						Protocol: corev1.ProtocolTCP,
+					}},
+					Type: corev1.ServiceTypeNodePort,
+				},
+			},
+		},
+		{
+			name: "explicit infrastructure node selector overrides default",
+			args: args{
+				resource: &model.FullyQualifiedResource{
+					Name:      "test-explicit-node-selector",
+					Namespace: "default",
+					Version:   "v1",
+					Kind:      "Gateway",
+					UID:       "12345678-1234-1234-1234-123456789abc",
+				},
+				params:             &model.Service{Type: string(corev1.ServiceTypeNodePort)},
+				hostNetworkEnabled: true,
+				allPorts:           []corev1.ServicePort{{Name: "port-80", Port: 80, Protocol: corev1.ProtocolTCP}},
+				annotations: map[string]string{
+					annotation.ServiceNodeSelectorExposure: "role=custom",
+				},
+				nodeLabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+						"role": "infra",
+					},
+				},
+			},
+			want: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cilium-gateway-test-explicit-node-selector",
+					Namespace: "default",
+					Labels: map[string]string{
+						owningGatewayLabel:                       "test-explicit-node-selector",
+						"gateway.networking.k8s.io/gateway-name": "test-explicit-node-selector",
+					},
+					Annotations: map[string]string{
+						annotation.ServiceNodeSelectorExposure: "role=custom",
+						annotation.ServiceSourceRangesPolicy:   "",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       "test-explicit-node-selector",
+							UID:        types.UID("12345678-1234-1234-1234-123456789abc"),
+							Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{{
+						Name:     fmt.Sprintf("port-%d", 80),
+						Port:     80,
+						Protocol: corev1.ProtocolTCP,
+					}},
+					Type: corev1.ServiceTypeNodePort,
+				},
+			},
+		},
 		{
 			name: "long name - more than 64 characters",
 			args: args{
@@ -556,8 +712,12 @@ func Test_getService(t *testing.T) {
 				ServiceConfig: translation.ServiceConfig{
 					ExternalTrafficPolicy: tt.args.externalTrafficPolicy,
 				},
+				HostNetworkConfig: translation.HostNetworkConfig{
+					Enabled:           tt.args.hostNetworkEnabled,
+					NodeLabelSelector: tt.args.nodeLabelSelector,
+				},
 			}}
-			got := trans.desiredService(nil, tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			got := trans.desiredService(tt.args.params, tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.Equalf(t, tt.want, got, "desiredService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
 		})

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sort"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -429,14 +431,38 @@ func (t *gatewayAPITranslator) desiredL7DummyEndpointSlice(owner *model.FullyQua
 }
 
 func (t *gatewayAPITranslator) toServiceAnnotations(annotations map[string]string, params *model.Service) map[string]string {
-	if params == nil {
-		return annotations
+	if _, exists := annotations[annotation.ServiceNodeSelectorExposure]; !exists && t.cfg.HostNetworkConfig.Enabled {
+		if selector := t.serviceNodeSelectorAnnotationValue(); selector != "" {
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[annotation.ServiceNodeSelectorExposure] = selector
+		}
 	}
-	if annotations == nil {
-		annotations = make(map[string]string)
+
+	if params != nil {
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations[annotation.ServiceSourceRangesPolicy] = params.LoadBalancerSourceRangesPolicy
 	}
-	annotations[annotation.ServiceSourceRangesPolicy] = params.LoadBalancerSourceRangesPolicy
+
 	return annotations
+}
+
+func (t *gatewayAPITranslator) serviceNodeSelectorAnnotationValue() string {
+	selector := t.cfg.HostNetworkConfig.NodeLabelSelector
+	if selector == nil {
+		return ""
+	}
+
+	parts := make([]string, 0, len(selector.MatchLabels))
+	for key, value := range selector.MatchLabels {
+		parts = append(parts, fmt.Sprintf("%s=%s", key, value))
+	}
+	sort.Strings(parts)
+
+	return strings.Join(parts, ",")
 }
 
 func decorateCEC(cec *ciliumv2.CiliumEnvoyConfig, resource *model.FullyQualifiedResource, labels, annotations map[string]string) error {
