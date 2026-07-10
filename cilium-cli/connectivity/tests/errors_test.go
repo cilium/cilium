@@ -164,6 +164,34 @@ func TestGoBGPv4FailedToSendMatcher(t *testing.T) {
 	}
 }
 
+func TestLeaderElectionLeaseLockErrorMatcher(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		log       string
+		wantMatch bool
+	}{
+		{
+			name:      "ignored: client-go leader election lease retrieval failure",
+			log:       `time=2026-07-10T15:06:16Z level=error source=/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/leaderelection/leaderelection.go:461 msg="Error retrieving lease lock" subsys=klog error="Client.Timeout exceeded while awaiting headers"`,
+			wantMatch: true,
+		},
+		{
+			name:      "reported: same message from another package",
+			log:       `time=2026-07-10T15:06:16Z level=error source=/go/src/github.com/cilium/cilium/operator/pkg/leader/leader.go:42 msg="Error retrieving lease lock" subsys=klog`,
+			wantMatch: false,
+		},
+		{
+			name:      "reported: another client-go leader election error",
+			log:       `time=2026-07-10T15:06:16Z level=error source=/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/leaderelection/leaderelection.go:461 msg="Failed to renew lease" subsys=klog`,
+			wantMatch: false,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantMatch, vendoredLeaderElectionLeaseLockError.IsMatch(tt.log))
+		})
+	}
+}
+
 func TestExtractPathFromLog(t *testing.T) {
 	_, thisPath, _, _ := runtime.Caller(0)
 	repoDir, _ := filepath.Abs(filepath.Join(thisPath, "..", "..", "..", ".."))
