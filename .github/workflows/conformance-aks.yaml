@@ -208,9 +208,8 @@ jobs:
             --helm-set tls.secretsBackend=k8s \
             --helm-set=azure.resourceGroup=${{ env.name }} \
             --helm-set=ipv4.enabled=true \
-            --helm-set=ipv6.enabled=true \
-            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
-            --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+            --helm-set=ipv6.enabled=false \
+            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
@@ -226,24 +225,13 @@ jobs:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
       - name: Create AKS cluster
-        run: |
-          # Create group
-          az group create \
-            --name ${{ env.name }} \
-            --location ${{ matrix.location }} \
-            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
-
-          # Create AKS cluster
-          az aks create \
-            --resource-group ${{ env.name }} \
-            --name ${{ env.name }} \
-            --location ${{ matrix.location }} \
-            --kubernetes-version ${{ matrix.version }} \
-            --network-plugin none \
-            --node-count 2 \
-            --ip-families ipv4,ipv6 \
-            ${{ env.cost_reduction }} \
-            --generate-ssh-keys
+        uses: ./.github/actions/setup-aks-cluster
+        with:
+          cluster_name: ${{ env.name }}
+          location: ${{ matrix.location }}
+          version: ${{ matrix.version }}
+          tags: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}"
+          taints: ${{ env.cost_reduction }}
 
       - name: Get cluster credentials
         run: |
@@ -279,57 +267,16 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      - name: Install Cilium
-        id: install-cilium
-        run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
-
-      - name: Enable Relay
-        run: |
-          cilium hubble enable
-
-      - name: Wait for Cilium status to be ready
-        run: |
-          cilium status --wait --interactive=false --wait-duration=10m
-
-      - name: Make JUnit report directory
-        run: |
-          mkdir -p cilium-junits
-
-      - name: Run sequential connectivity test (${{ join(matrix.*, ', ') }})
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --test "seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-sequential-clear (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
-
-      - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --test-concurrency=${{ env.test_concurrency }} \
-          --test "!seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-concurrent-clear (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
-
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1"
-
-      - name: Clean up Cilium
-        run: |
-          cilium uninstall --wait
-
-      - name: Create custom IPsec secret
-        run: |
-          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
-
       - name: Install Cilium with encryption
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --helm-set hostFirewall.enabled=true \
+            --helm-set bandwidthManager.enabled=true \
+            --helm-set bandwidthManager.bbr=false \
+            --helm-set nodePort.enabled=true \
+            --helm-set hostPort.enabled=true \
             --helm-set encryption.enabled=true \
-            --helm-set encryption.type=ipsec
+            --helm-set encryption.type=wireguard
 
       - name: Enable Relay
         run: |
@@ -339,20 +286,9 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
 
-      - name: Run sequential connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+      - name: Collect sysdump
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-          --test "seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-sequential-ipsec (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
-
-      - name: Run concurrent connectivity test with IPSec (${{ join(matrix.*, ', ') }})
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-          --test-concurrency=${{ env.test_concurrency }} \
-          --test "!seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-concurrent-ipsec (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
+          cilium sysdump
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -375,7 +311,7 @@ jobs:
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cilium-sysdumps-${{ matrix.index }}
