@@ -28,11 +28,10 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
 
 	t.Run("creates entry and fires waiting watch", func(t *testing.T) {
-		_, _, computer, idmgr := fixture(t)
+		_, _, computer, _ := fixture(t)
 
 		targetID := identity.NumericIdentity(7)
 		id := identity.NewIdentity(targetID, labels.Labels{})
-		idmgr.Add(id)
 
 		_, _, watch, found := computer.GetIdentityPolicyByIdentity(id)
 		require.False(t, found)
