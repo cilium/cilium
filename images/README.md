@@ -9,24 +9,30 @@ anyone reading this document should also read [`cilium/image-tools` documentatio
 
 ### [`builder`](builder/Dockerfile)
 
-This image is based on `runtime` image.
+This image is based on the Ubuntu image.
 
-It adds `protoc` and plugins and the Go toolchain.
+It adds `protoc` and plugins, the Go toolchain, the cross-compilation
+toolchains, and the `clang` compiler (from the [`llvm`](https://github.com/cilium/image-tools#imagesllvm)
+image) used to build the BPF datapath.
 
 ### [`runtime`](runtime/Dockerfile)
 
-This image is based on [`bpftool`](https://github.com/cilium/image-tools#imagesbpftool),
-and [`llvm`](https://github.com/cilium/image-tools#imagesllvm) from `cilium/image-tools`.
+This image is based on the Ubuntu image. It provides the user-space the
+`cilium-agent` needs at runtime: networking tooling (`iproute2`, `iptables`,
+`ipset`, `kmod`), the `clang`/`llc` toolchain (from the [`llvm`](https://github.com/cilium/image-tools#imagesllvm) image)
+and [`bpftool`](https://github.com/cilium/image-tools#imagesbpftool) (both from
+`cilium/image-tools`) used to compile and inspect the BPF datapath on the node,
+and the CNI loopback plugin.
 
-At present, it also includes [`gops`](https://github.com/google/gops) for
-debugging as well as Ubuntu user-space for troubleshooting.
+It also includes [`gops`](https://github.com/google/gops) for debugging as well
+as Ubuntu user-space for troubleshooting.
 
 ### [`cilium`](cilium/Dockerfile)
 
-It includes `cilium-agent` and other binaries, including `cilium`, `envoy`,
+It includes `cilium-agent` and other binaries, including `cilium-dbg`, `envoy`,
 `cilium-health` and `hubble-cli`.
 
-This image is based on `runtime` image, and it contains Ubuntu user-space for
+This image is based on the `runtime` image, and it contains Ubuntu user-space for
 troubleshooting.
 
 ### [`operator`](operator/Dockerfile)
@@ -34,13 +40,11 @@ troubleshooting.
 This image includes only `cilium-operator` binaries (plus CA certificates),
 no other binaries or libraries are included.
 
-For other operators such as: aws, aks, generic, a copy of the same Dockerfile is
-used on all of them. Ideally we will re-use the same Dockerfile to build all the
-different operators.
+That same Dockerfile is used to build other operator variants (alibabacloud, aws, azure and generic) based on the value of the `OPERATOR_VARIANT` build-arg.
 
 ### [`hubble-relay`](hubble-relay/Dockerfile)
 
-This image includes only `hubble-relay` binary (plus CA certificates), no other
+This image includes only the `hubble-relay` binary (plus CA certificates), no other
 binaries or libraries are included.
 
 ## Tooling
