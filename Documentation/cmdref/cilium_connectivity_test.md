@@ -55,7 +55,7 @@ cilium connectivity test [flags]
       --include-conn-disrupt-test-l7-traffic                       Include conn disrupt test for L7 traffic
       --include-conn-disrupt-test-ns-traffic                       Include conn disrupt test for NS traffic
       --ip-families strings                                        Restrict test actions to specific IP families (default [ipv4,ipv6])
-      --json-mock-image string                                     Image path to use for json mock (default "quay.io/cilium/json-mock:v1.4.0@sha256:500dc80291d4f402462e4bb7ecfc2b726f08c8136999e5e91cdd54f9e90eebeb")
+      --json-mock-image string                                     Image path to use for json mock (default "quay.io/cilium/json-mock:v1.4.1@sha256:6a66df90808a39c02e7a9d58af7bf0e54d8f8b7d4bc528f48c891969a7049195")
       --junit-file string                                          Generate junit report and write to file
       --junit-property map                                         Add key=value properties to the generated junit file
       --k8s-version string                                         Kubernetes server version in case auto-detection fails
