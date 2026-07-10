@@ -191,7 +191,7 @@ jobs:
             rm -rf /usr/local/go
 
             # The LVH image ships with LLVM taken from a release Cilium version.
-            # Replace it with the one extracted from the cilium-builder image.
+            # Replace it with the one extracted from the cilium-llvm image.
             /host/base/contrib/scripts/extract-llvm.sh /var/tmp/llvm
             mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
             rm -r /var/tmp/llvm
