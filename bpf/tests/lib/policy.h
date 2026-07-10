@@ -37,7 +37,7 @@ policy_delete_entry(bool egress, __u32 sec_label, __u8 protocol, __be16 dport,
 		.dport = dport,
 	};
 
-	map_delete_elem(&cilium_policy_v2, &key);
+	map_delete_elem(&cilium_policy, &key);
 }
 
 static __always_inline void
@@ -62,7 +62,7 @@ policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __be16 dport,
 		.proxy_port = proxy_port,
 	};
 
-	map_update_elem(&cilium_policy_v2, &key, &value, BPF_ANY);
+	map_update_elem(&cilium_policy, &key, &value, BPF_ANY);
 }
 
 static __always_inline void
