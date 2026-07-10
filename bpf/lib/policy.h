@@ -218,6 +218,39 @@ __policy_check(const struct policy_entry *policy, const struct policy_entry *pol
 	return CTX_ACT_OK;
 }
 
+/**
+ * aggregate_for_identity returns the aggregated (i.e. wildcard) identity
+ * for the given leaf identity.
+ *
+ * This **must** match the implementation in pkg/policy/aggregate.go
+ */
+static __always_inline __u32 aggregate_for_identity(__u32 identity)
+{
+	/* If aggregation is disabled, the aggreagte is always the wildcard*/
+	if (!CONFIG(enable_policy_identity_aggregation))
+		return 0;
+
+	/* All remote nodes aggregate to ID 6. */
+	if (identity_is_remote_node(identity))
+		return REMOTE_NODE_ID;
+	if (identity_is_world(identity))
+		return WORLD_ID;
+
+	if (identity == POLICY_CLUSTER_ID || identity == POLICY_CLUSTER_MESH_ID || identity == 0)
+		return identity;
+	/* Identities 0-99 are special, we cannot easily aggregate them. */
+	if (identity < 100)
+		return 0;
+
+	/* identity is global scope and >= 100.
+	 * It must be an endpoint, either in cluster or cluster mesh.
+	 */
+	if (extract_cluster_id_from_identity(identity) == CONFIG(cluster_id))
+		return POLICY_CLUSTER_ID;
+
+	return POLICY_CLUSTER_MESH_ID;
+}
+
 /* Allow experimental access to the @map parameter. */
 static __always_inline int
 __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_id,

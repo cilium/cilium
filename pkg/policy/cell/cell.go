@@ -95,7 +95,7 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 		params.L7RulesTranslator,
 		params.IdentityManager,
 		params.MetricsManager,
-	)
+	).WithIdentityAggregation(params.Config.EnableIdentityAggregation)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {

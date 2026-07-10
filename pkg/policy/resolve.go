@@ -205,6 +205,8 @@ type selectorPolicy struct {
 	// EgressPolicyEnabled specifies whether this policy contains any policy
 	// at egress.
 	EgressPolicyEnabled bool
+
+	enableIdentityAggregation bool
 }
 
 func (p *selectorPolicy) GetSelectorSnapshot() SelectorSnapshot {
@@ -385,7 +387,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		calculatedPolicy = &EndpointPolicy{
 			SelectorPolicy: p,
 			selectors:      selectors,
-			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features),
+			policyMapState: newMapState(logger, p.enableIdentityAggregation, policyOwner.PreviousMapState(), features),
 			policyMapChanges: MapChanges{
 				logger:   logger,
 				firstRev: selectors.Revision,

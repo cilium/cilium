@@ -28,6 +28,8 @@ check_egress_policy(struct __ctx_buff *ctx, __u32 dst_id, __u8 proto, __be16 dpo
 				 &cookie);
 }
 
+ASSIGN_CONFIG(bool, enable_policy_identity_aggregation, true)
+
 CHECK("tc", "network_policy_egress_allow")
 int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 {

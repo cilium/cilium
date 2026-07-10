@@ -16,7 +16,7 @@ func TestAllAggregates(t *testing.T) {
 	// Validate that the aggregates evaluate to themselves:
 
 	for _, nid := range AllAggregates {
-		require.True(t, isAggregate(nid))
+		require.True(t, isAggregate(true, nid))
 	}
 
 	// check all identities
@@ -27,9 +27,9 @@ func TestAllAggregates(t *testing.T) {
 		// duplicate of AllAggregates for efficiency.
 		switch nid {
 		case 0, 6, 2, 11, 12:
-			require.True(t, isAggregate(nid))
+			require.True(t, isAggregate(true, nid))
 		default:
-			require.False(t, isAggregate(nid))
+			require.False(t, isAggregate(true, nid))
 		}
 	}
 }
@@ -59,7 +59,7 @@ func TestIsAggregate(t *testing.T) {
 		{identity.IdentityScopeRemoteNode, 6},
 		{identity.IdentityScopeRemoteNode + 100, 6},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in), "index %d ID %d", i, tc.in)
+		require.Equal(t, tc.out, aggregateFor(true, tc.in), "index %d ID %d", i, tc.in)
 	}
 
 	option.Config.ClusterID = 1
@@ -82,6 +82,6 @@ func TestIsAggregate(t *testing.T) {
 		{identity.IdentityScopeRemoteNode, 6},
 		{identity.IdentityScopeRemoteNode + 100, 6},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in), "cluster ID 1, index %d ID %d", i, tc.in)
+		require.Equal(t, tc.out, aggregateFor(true, tc.in), "cluster ID 1, index %d ID %d", i, tc.in)
 	}
 }

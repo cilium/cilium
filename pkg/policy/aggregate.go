@@ -30,7 +30,11 @@ import (
 // then it returns itself.
 //
 // THIS MUST!!! MATCH THE IMPLEMENTATION in bpf/lib/identity.h
-func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
+func aggregateFor(enableAggregation bool, nid identity.NumericIdentity) identity.NumericIdentity {
+	if !enableAggregation {
+		return identity.IdentityUnknown
+	}
+
 	switch nid {
 	case identity.ReservedIdentityRemoteNode, identity.ReservedIdentityKubeAPIServer:
 		return identity.ReservedIdentityRemoteNode
@@ -67,18 +71,21 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 }
 
 // aggregates returns true if child is a child of the wildcard.
-func aggregates(agg, child identity.NumericIdentity) bool {
-	return agg != child && aggregateFor(child) == agg
+func aggregates(enable bool, agg, child identity.NumericIdentity) bool {
+	return agg != child && aggregateFor(enable, child) == agg
 }
 
 // isAggregate returns true if th
-func isAggregate(nid identity.NumericIdentity) bool {
-	return nid == aggregateFor(nid)
+func isAggregate(enable bool, nid identity.NumericIdentity) bool {
+	return nid == aggregateFor(enable, nid)
 }
 
 // AllAggregates is the list of all identities that do not aggregate further.
 //
 // They must be inserted whenever a full wildcard (i.e. identity 0) is referenced.
+//
+// This is static, even when aggregation is disabled, to provide for
+// drop-free upgades.
 var AllAggregates = []identity.NumericIdentity{
 	identity.IdentityUnknown,
 	identity.ReservedIdentityRemoteNode,

@@ -115,6 +115,10 @@ type Repository struct {
 
 	// Getter for egress named ports
 	namedPortsGetter NamedPortsGetter
+
+	// enableIdentityAggregation indicates whether or not identity aggregation is enabled
+	// for this agent.
+	enableIdentityAggregation bool
 }
 
 func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
@@ -148,15 +152,16 @@ func NewPolicyRepository(
 	selectorCache := NewSelectorCache(logger, initialIDs)
 	subjectSelectorCache := NewSelectorCache(logger, nil)
 	repo := &Repository{
-		logger:               logger,
-		rules:                make(map[ruleKey]*rule),
-		rulesByNamespace:     make(map[string]sets.Set[ruleKey]),
-		rulesByResource:      make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
-		selectorCache:        selectorCache,
-		subjectSelectorCache: subjectSelectorCache,
-		certManager:          certManager,
-		metricsManager:       metricsManager,
-		l7RulesTranslator:    l7RulesTranslator,
+		logger:                    logger,
+		rules:                     make(map[ruleKey]*rule),
+		rulesByNamespace:          make(map[string]sets.Set[ruleKey]),
+		rulesByResource:           make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
+		selectorCache:             selectorCache,
+		subjectSelectorCache:      subjectSelectorCache,
+		certManager:               certManager,
+		metricsManager:            metricsManager,
+		l7RulesTranslator:         l7RulesTranslator,
+		enableIdentityAggregation: true, // always enable aggregation for unit tests.
 	}
 	repo.revision.Store(1)
 	repo.policyCache = newPolicyCache(repo, idmgr)
@@ -168,6 +173,12 @@ func NewPolicyRepository(
 // depends on the repository for identity updates.
 func (p *Repository) SetNamedPortsGetter(namedPortsGetter NamedPortsGetter) {
 	p.namedPortsGetter = namedPortsGetter
+}
+
+// WithIdentityAggregation configures whether or not identity aggregation should be enbled.
+func (p *Repository) WithIdentityAggregation(in bool) *Repository {
+	p.enableIdentityAggregation = in
+	return p
 }
 
 func (p *Repository) Search() (types.PolicyEntries, uint64) {
@@ -359,6 +370,8 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
+
+		enableIdentityAggregation: p.enableIdentityAggregation,
 	}
 
 	policyCtx := policyContext{
