@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 LVH="$1"
 
 lvh_wrapper() {
