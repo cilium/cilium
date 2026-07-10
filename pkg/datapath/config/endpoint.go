@@ -70,5 +70,10 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 
 	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
 
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPMasqAgent {
+		cfg.EnableIPv4BPFMasqAgent = option.Config.EnableIPv4Masquerade
+		cfg.EnableIPv6BPFMasqAgent = option.Config.EnableIPv6Masquerade
+	}
+
 	return cfg
 }

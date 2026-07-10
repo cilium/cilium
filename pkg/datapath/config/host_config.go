@@ -23,8 +23,12 @@ type BPFHost struct {
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
 	EnableICMPRule bool `config:"enable_icmp_rule"`
+	// Enable IPv4 BPF Masquerading agent.
+	EnableIPv4BPFMasqAgent bool `config:"enable_ipv4_bpf_masq_agent"`
 	// Enable IPv4 fragments tracking.
 	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
+	// Enable IPv6 BPF Masquerading agent.
+	EnableIPv6BPFMasqAgent bool `config:"enable_ipv6_bpf_masq_agent"`
 	// Enable IPv6 fragments tracking.
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable L2 Announcements.
@@ -76,7 +80,7 @@ type BPFHost struct {
 
 func NewBPFHost(node Node) *BPFHost {
 	return &BPFHost{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, 0x0, 0xe, 0x0, false, 0x0,
+		false, false, false, false, 0x0, 0xe, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

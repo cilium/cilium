@@ -16,8 +16,12 @@ type BPFOverlay struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable IPv4 BPF Masquerading agent.
+	EnableIPv4BPFMasqAgent bool `config:"enable_ipv4_bpf_masq_agent"`
 	// Enable IPv4 fragments tracking.
 	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
+	// Enable IPv6 BPF Masquerading agent.
+	EnableIPv6BPFMasqAgent bool `config:"enable_ipv6_bpf_masq_agent"`
 	// Enable IPv6 fragments tracking.
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Use netkit devices for pods.
@@ -49,7 +53,8 @@ type BPFOverlay struct {
 }
 
 func NewBPFOverlay(node Node) *BPFOverlay {
-	return &BPFOverlay{0x0, false, false, false, false, false, false, 0x0, 0x0,
+	return &BPFOverlay{0x0, false, false, false, false, false, false, false, false, 0x0,
+		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

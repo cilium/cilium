@@ -27,5 +27,10 @@ func Wireguard(lnc *Config, link netlink.Link) any {
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPMasqAgent {
+		cfg.EnableIPv4BPFMasqAgent = option.Config.EnableIPv4Masquerade
+		cfg.EnableIPv6BPFMasqAgent = option.Config.EnableIPv6Masquerade
+	}
+
 	return cfg
 }

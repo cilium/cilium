@@ -63,6 +63,11 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 
 	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
 
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPMasqAgent {
+		cfg.EnableIPv4BPFMasqAgent = option.Config.EnableIPv4Masquerade
+		cfg.EnableIPv6BPFMasqAgent = option.Config.EnableIPv6Masquerade
+	}
+
 	return cfg
 }
 
@@ -111,6 +116,11 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
 	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
+
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPMasqAgent {
+		cfg.EnableIPv4BPFMasqAgent = option.Config.EnableIPv4Masquerade
+		cfg.EnableIPv6BPFMasqAgent = option.Config.EnableIPv6Masquerade
+	}
 
 	return cfg
 }
@@ -188,6 +198,11 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		// stack, because ip_sabotage_in() would skip the TPROXY rule. We simplify
 		// the logic by always hairpinning to the proxy when it's a bridge.
 		cfg.ProxyRedirectViaCiliumNet = true
+	}
+
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPMasqAgent {
+		cfg.EnableIPv4BPFMasqAgent = option.Config.EnableIPv4Masquerade
+		cfg.EnableIPv6BPFMasqAgent = option.Config.EnableIPv6Masquerade
 	}
 
 	return cfg

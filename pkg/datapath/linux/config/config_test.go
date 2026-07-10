@@ -638,7 +638,7 @@ func TestPrivilegedWriteNodeConfigIPv4Only(t *testing.T) {
 }
 
 // TestPrivilegedWriteNodeConfigBPFMasquerade verifies that when BPF masquerade
-// is enabled, the correct ENABLE_MASQUERADE_IPV4, ENABLE_IP_MASQ_AGENT_IPV4,
+// is enabled, the correct ENABLE_MASQUERADE_IPV4
 // and SNAT exclusion CIDR defines are generated.
 // This covers the BPF masquerading with ip-masq-agent scenarios previously
 // tested by K8sDatapathConfig.
@@ -672,8 +672,6 @@ func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
 			require.Contains(t, output, "define ENABLE_MASQUERADE_IPV4 1\n",
 				"Expected ENABLE_MASQUERADE_IPV4 define with BPF masquerade")
-			require.Contains(t, output, "define ENABLE_IP_MASQ_AGENT_IPV4 1\n",
-				"Expected ENABLE_IP_MASQ_AGENT_IPV4 define with ip-masq-agent enabled")
 			require.Contains(t, output, "define ENABLE_NODEPORT 1\n",
 				"Expected ENABLE_NODEPORT define with BPF masquerade")
 		})
