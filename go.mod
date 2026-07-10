@@ -25,7 +25,7 @@ require (
 	github.com/cilium/hive v1.0.4
 	github.com/cilium/lumberjack/v2 v2.4.2
 	github.com/cilium/proxy v0.0.0-20260701124752-9c14fdc485a1
-	github.com/cilium/statedb v0.8.2
+	github.com/cilium/statedb v0.8.3
 	github.com/cilium/stream v0.0.1
 	github.com/cilium/workerpool v1.4.0
 	github.com/cloudflare/cfssl v1.6.5

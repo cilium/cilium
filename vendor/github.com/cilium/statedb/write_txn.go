@@ -156,7 +156,7 @@ func (txn *writeTxnState) modify(meta TableMeta, guardRevision Revision, newData
 		if val.Kind() == reflect.Pointer {
 			oldVal := reflect.ValueOf(oldObj.data)
 			if val.UnsafePointer() == oldVal.UnsafePointer() {
-				panic(fmt.Sprintf(
+				panic(fmt.Errorf(
 					"Insert() of the same object (%T) back into the table. Is the immutable object being mutated?",
 					obj.data))
 			}
@@ -235,15 +235,12 @@ func (txn *writeTxnState) delete(meta TableMeta, guardRevision Revision, data an
 		return object{}, false, ErrTransactionClosed
 	}
 
-	// Look up table and allocate a new revision.
+	// Look up table.
 	tableName := meta.Name()
 	table := txn.tableEntries[meta.tablePos()]
 	if !table.locked {
 		return object{}, false, tableError(tableName, ErrTableNotLockedForWriting)
 	}
-	oldRevision := table.revision
-	table.revision++
-	revision := table.revision
 
 	// Delete from the primary index first to grab the object.
 	// We assume that "data" has only enough defined fields to
@@ -260,10 +257,12 @@ func (txn *writeTxnState) delete(meta TableMeta, guardRevision Revision, data an
 	if guardRevision > 0 {
 		if obj.revision != guardRevision {
 			idIndex.insert(idKey, obj)
-			table.revision = oldRevision
 			return obj, true, ErrRevisionNotEqual
 		}
 	}
+
+	table.revision++
+	revision := table.revision
 
 	// Remove the object from the revision index.
 	binary.BigEndian.PutUint64(txn.revKey[:], obj.revision)
