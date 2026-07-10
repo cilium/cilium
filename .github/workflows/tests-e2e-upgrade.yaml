@@ -419,7 +419,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Create imagePullSecret
-        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' && steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
+        if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' && steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         run: |
           kubectl create secret docker-registry cilium-registry \
             --namespace kube-system \
