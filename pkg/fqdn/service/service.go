@@ -469,12 +469,13 @@ func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 			}
 			s.prefixLengths.Add([]netip.Prefix{prefix})
 		case ipcache.Delete:
-			if oldID != nil {
-				err := s.deleteFromIdentityToIPLocked(txn, oldID, prefix)
-				if err != nil {
-					s.log.Error("Failed to delete identity from identity to IP mapping", logfields.Error, err)
-					return
-				}
+			// On a delete the ipcache reports the removed identity in newID; oldID
+			// is nil for a plain delete. Prune newID's mapping so the prefix isn't
+			// left associated with a stale (garbage-collected) identity.
+			err := s.deleteFromIdentityToIPLocked(txn, &newID, prefix)
+			if err != nil {
+				s.log.Error("Failed to delete identity from identity to IP mapping", logfields.Error, err)
+				return
 			}
 		}
 	}
