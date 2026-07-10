@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"time"
 
@@ -68,8 +69,19 @@ func (c *Controller) initializeQueue() {
 		})
 }
 
+// isValidEndpoint reports whether a CiliumEndpoint has enough state to be
+// placed into a CES. Endpoints missing Networking/Identity are being
+// initialized by the agent and would produce invalid CoreCiliumEndpoint entries.
+func isValidEndpoint(cep *cilium_api_v2.CiliumEndpoint) bool {
+	return cep != nil &&
+		cep.Status.Networking != nil &&
+		cep.Status.Identity != nil &&
+		cep.GetName() != "" &&
+		cep.Namespace != ""
+}
+
 func (c *DefaultController) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {
-	if cep.Status.Networking == nil || cep.Status.Identity == nil || cep.GetName() == "" || cep.Namespace == "" {
+	if !isValidEndpoint(cep) {
 		return
 	}
 	touchedCESs := c.manager.UpdateCEPMapping(k8s.ConvertCEPToCoreCEP(cep), cep.Namespace)
@@ -162,7 +174,12 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 
 	c.initializeQueue()
 
-	if err := c.syncCESsInLocalCache(ctx); err != nil {
+	// Subscribe before draining to avoid missing events between subscription
+	// and drain (see syncCESsInLocalCache).
+	ciliumEndpointEvents := c.ciliumEndpoint.Events(c.context)
+	ciliumEndpointSliceEvents := c.ciliumEndpointSlice.Events(c.context)
+
+	if err := c.syncCESsInLocalCache(ciliumEndpointEvents, ciliumEndpointSliceEvents); err != nil {
 		return err
 	}
 
@@ -173,8 +190,12 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 	)
 	// Start the work pools processing CEP events only after syncing CES in local cache.
 	c.wp = workerpool.New(3)
-	c.wp.Submit("cilium-endpoints-updater", c.runCiliumEndpointsUpdater)
-	c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
+	c.wp.Submit("cilium-endpoints-updater", func(ctx context.Context) error {
+		return c.runCiliumEndpointsUpdater(ctx, ciliumEndpointEvents)
+	})
+	c.wp.Submit("cilium-endpoint-slices-updater", func(ctx context.Context) error {
+		return c.runCiliumEndpointSliceUpdater(ctx, ciliumEndpointSliceEvents)
+	})
 	c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
 
 	c.logger.InfoContext(ctx, "Starting CES controller reconciler.")
@@ -186,10 +207,10 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 		// Add the shutdown job last so it stops first.
 		job.OneShot("shutdown", func(ctx context.Context, health cell.Health) error {
 			<-ctx.Done()
+			c.contextCancel()
 			c.wp.Close()
 			c.fastQueue.ShutDown()
 			c.standardQueue.ShutDown()
-			c.contextCancel()
 			return nil
 		}),
 	)
@@ -216,6 +237,9 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 
 	c.initializeQueue()
 
+	// starts the events loop before syncCESsInLocalCache() to be sure we don't miss any event
+	ciliumEndpointSliceEvents := c.ciliumEndpointSlice.Events(c.context)
+
 	if err := c.syncCESsInLocalCache(ctx); err != nil {
 		return err
 	}
@@ -228,7 +252,7 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 			return c.runCiliumPodsUpdater(ctx)
 		}),
 		job.OneShot("proc-ces-events", func(ctx context.Context, health cell.Health) error {
-			return c.runCiliumEndpointSliceUpdater(ctx)
+			return c.runCiliumEndpointSliceUpdater(ctx, ciliumEndpointSliceEvents)
 		}),
 		job.OneShot("proc-ciliumnodes-events", func(ctx context.Context, health cell.Health) error {
 			return c.runCiliumNodesUpdater(ctx)
@@ -275,8 +299,8 @@ func (c *SlimController) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (c *DefaultController) runCiliumEndpointsUpdater(ctx context.Context) error {
-	for event := range c.ciliumEndpoint.Events(ctx) {
+func (c *DefaultController) runCiliumEndpointsUpdater(ctx context.Context, events <-chan resource.Event[*cilium_api_v2.CiliumEndpoint]) error {
+	for event := range events {
 		switch event.Kind {
 		case resource.Upsert:
 			c.logger.DebugContext(ctx, "Got Upsert Endpoint event", logfields.CEPName, event.Key)
@@ -308,8 +332,8 @@ func (c *SlimController) runCiliumPodsUpdater(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
-	for event := range c.ciliumEndpointSlice.Events(ctx) {
+func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context, events <-chan resource.Event[*capi_v2a1.CiliumEndpointSlice]) error {
+	for event := range events {
 		switch event.Kind {
 		case resource.Upsert:
 			c.logger.DebugContext(ctx, "Got Upsert Endpoint Slice event", logfields.CESName, event.Key)
@@ -465,21 +489,77 @@ func (c *SlimController) onPodDelete(pod *slim_corev1.Pod) {
 	c.enqueueCESReconciliation(touchedCES)
 }
 
-// Sync all CESs from cesStore to manager cache.
-// Note: CESs are synced locally before CES controller running and this is required.
-func (c *DefaultController) syncCESsInLocalCache(ctx context.Context) error {
-	store, err := c.ciliumEndpointSlice.Store(ctx)
-	if err != nil {
-		c.logger.WarnContext(ctx, "Error getting CES Store", logfields.Error, err)
-		return err
-	}
-	for _, ces := range store.List() {
-		cesName := c.manager.initializeMappingForCES(ces)
-		for _, cep := range ces.Endpoints {
-			c.manager.initializeMappingCEPtoCES(&cep, ces.Namespace, cesName)
+// syncCESsInLocalCache seeds the manager's CES↔CEP mapping from the CEP and
+// CES event replays.
+func (c *DefaultController) syncCESsInLocalCache(cepEvents <-chan resource.Event[*cilium_api_v2.CiliumEndpoint],
+	cesEvents <-chan resource.Event[*capi_v2a1.CiliumEndpointSlice]) error {
+	// Phase 1: snapshot live CEPs from the CEP replay.
+	livecep := map[resource.Key]*cilium_api_v2.CiliumEndpoint{}
+cepLoop:
+	for event := range cepEvents {
+		switch event.Kind {
+		case resource.Upsert:
+			if isValidEndpoint(event.Object) {
+				livecep[event.Key] = event.Object
+			}
+		case resource.Delete:
+			delete(livecep, event.Key)
+		case resource.Sync:
+			event.Done(nil)
+			break cepLoop
 		}
+		event.Done(nil)
 	}
-	c.logger.DebugContext(ctx, "Successfully synced all CESs locally")
+
+	// Phase 2: seed the CES cache, skipping CEPs not in the phase-1 snapshot.
+	var dirtyCESes []CESKey
+cesLoop:
+	for event := range cesEvents {
+		switch event.Kind {
+		case resource.Upsert:
+			ces := event.Object
+			cesName := c.manager.initializeMappingForCES(ces)
+			stale := false
+			for _, cep := range ces.Endpoints {
+				cepKey := NewCEPName(cep.Name, ces.Namespace).key()
+				if _, exists := livecep[cepKey]; exists {
+					c.manager.initializeMappingCEPtoCES(&cep, ces.Namespace, cesName)
+					delete(livecep, cepKey)
+				} else {
+					c.logger.Debug("Skipping stale CEP in CES during bootstrap",
+						logfields.CESName, ces.Name,
+						logfields.CEPName, cep.Name)
+					stale = true
+				}
+			}
+			if stale {
+				dirtyCESes = append(dirtyCESes, NewCESKey(ces.Name, ces.Namespace))
+			}
+		case resource.Delete:
+			// A CES we saw earlier in this replay has been deleted. Drop it
+			// from the mapping and from dirtyCESes.
+			cesName := CESName(event.Key.Name)
+			for _, cep := range c.manager.mapping.getCEPsInCES(cesName) {
+				c.manager.mapping.deleteCEP(cep)
+			}
+			c.manager.mapping.deleteCES(cesName)
+			dirtyCESes = slices.DeleteFunc(dirtyCESes, func(k CESKey) bool {
+				return k.Name == event.Key.Name && k.Namespace == event.Key.Namespace
+			})
+		case resource.Sync:
+			event.Done(nil)
+			break cesLoop
+		}
+		event.Done(nil)
+	}
+
+	// Phase 3: place orphan CEPs (no CES references them yet) into a CES.
+	for _, cep := range livecep {
+		c.onEndpointUpdate(cep)
+	}
+
+	c.enqueueCESReconciliation(dirtyCESes)
+	c.logger.Debug("Successfully synced all CESs locally")
 	return nil
 }
 
