@@ -90,6 +90,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	struct policy_verdict_notify *verdict_notify;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	__u32 dst_sec_identity = 0;
@@ -150,11 +151,23 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 
 	if (apply_policy) {
 		/* Emit verdict if drop or if allow for CT_NEW. */
-		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-			send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 1,
-						   verdict, proxy_port, policy_match_type, audited,
-						   auth_type, cookie);
+		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED) {
+			verdict_notify = get_policy_verdict_notify(ctx);
+			verdict_notify->remote_label = dst_sec_identity;
+			verdict_notify->dst_port = tuple->dport;
+			verdict_notify->proto = tuple->nexthdr;
+			verdict_notify->dir = POLICY_EGRESS;
+			verdict_notify->ipv6 = 1;
+			verdict_notify->verdict = verdict;
+			if (verdict == 0)
+				verdict_notify->verdict = (int)proxy_port;
+			verdict_notify->match_type = policy_match_type;
+			verdict_notify->audited = audited;
+			verdict_notify->auth_type = auth_type;
+			verdict_notify->cookie = cookie;
+
+			send_policy_verdict_notify(ctx, verdict_notify);
+		}
 
 		if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 			/* Trace the packet before it is forwarded to proxy */
@@ -233,6 +246,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	struct policy_verdict_notify *verdict_notify;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	const struct remote_endpoint_info *info;
@@ -293,11 +307,23 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 	}
 
 	/* Emit verdict if drop or if allow for CT_NEW. */
-	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
-					   tuple->nexthdr, POLICY_INGRESS, 1,
-					   verdict, proxy_port, policy_match_type, audited,
-					   auth_type, cookie);
+	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED) {
+		verdict_notify = get_policy_verdict_notify(ctx);
+		verdict_notify->remote_label = *src_sec_identity;
+		verdict_notify->dst_port = tuple->dport;
+		verdict_notify->proto = tuple->nexthdr;
+		verdict_notify->dir = POLICY_INGRESS;
+		verdict_notify->ipv6 = 1;
+		verdict_notify->verdict = verdict;
+		if (verdict == 0)
+			verdict_notify->verdict = (int)proxy_port;
+		verdict_notify->match_type = policy_match_type;
+		verdict_notify->audited = audited;
+		verdict_notify->auth_type = auth_type;
+		verdict_notify->cookie = cookie;
+
+		send_policy_verdict_notify(ctx, verdict_notify);
+	}
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.
@@ -362,6 +388,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	struct policy_verdict_notify *verdict_notify;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	__u32 dst_sec_identity = 0;
@@ -422,11 +449,23 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 
 	if (apply_policy) {
 		/* Emit verdict if drop or if allow for CT_NEW. */
-		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-			send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 0,
-						   verdict, proxy_port, policy_match_type, audited,
-						   auth_type, cookie);
+		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED) {
+			verdict_notify = get_policy_verdict_notify(ctx);
+			verdict_notify->remote_label = dst_sec_identity;
+			verdict_notify->dst_port = tuple->dport;
+			verdict_notify->proto = tuple->nexthdr;
+			verdict_notify->dir = POLICY_EGRESS;
+			verdict_notify->ipv6 = 0;
+			verdict_notify->verdict = verdict;
+			if (verdict == 0)
+				verdict_notify->verdict = (int)proxy_port;
+			verdict_notify->match_type = policy_match_type;
+			verdict_notify->audited = audited;
+			verdict_notify->auth_type = auth_type;
+			verdict_notify->cookie = cookie;
+
+			send_policy_verdict_notify(ctx, verdict_notify);
+		}
 
 		if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 			/* Trace the packet before it is forwarded to proxy */
@@ -500,6 +539,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, const struct iphdr *ip4,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	const struct remote_endpoint_info *info;
+	struct policy_verdict_notify *verdict_notify;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
@@ -560,11 +600,23 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, const struct iphdr *ip4,
 	}
 
 	/* Emit verdict if drop or if allow for CT_NEW. */
-	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
-					   tuple->nexthdr, POLICY_INGRESS, 0,
-					   verdict, proxy_port, policy_match_type, audited,
-					   auth_type, cookie);
+	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED) {
+		verdict_notify = get_policy_verdict_notify(ctx);
+		verdict_notify->remote_label = *src_sec_identity;
+		verdict_notify->dst_port = tuple->dport;
+		verdict_notify->proto = tuple->nexthdr;
+		verdict_notify->dir = POLICY_INGRESS;
+		verdict_notify->ipv6 = 0;
+		verdict_notify->verdict = verdict;
+		if (verdict == 0)
+			verdict_notify->verdict = (int)proxy_port;
+		verdict_notify->match_type = policy_match_type;
+		verdict_notify->audited = audited;
+		verdict_notify->auth_type = auth_type;
+		verdict_notify->cookie = cookie;
+
+		send_policy_verdict_notify(ctx, verdict_notify);
+	}
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.

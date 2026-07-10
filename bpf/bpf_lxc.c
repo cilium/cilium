@@ -839,6 +839,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	struct policy_verdict_notify *verdict_notify;
 	struct nodeport_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
 	bool hairpin_flow = false;
@@ -957,11 +958,21 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 		/* Emit verdict if drop or if allow for CT_NEW. */
 		if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
-			send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 1,
-						   verdict, proxy_port,
-						   policy_match_type, audited,
-						   auth_type, cookie);
+			verdict_notify = get_policy_verdict_notify(ctx);
+			verdict_notify->remote_label = *dst_sec_identity;
+			verdict_notify->dst_port = tuple->dport;
+			verdict_notify->proto = tuple->nexthdr;
+			verdict_notify->dir = POLICY_EGRESS;
+			verdict_notify->ipv6 = 1;
+			verdict_notify->verdict = verdict;
+			if (verdict == 0)
+				verdict_notify->verdict = (int)proxy_port;
+			verdict_notify->match_type = policy_match_type;
+			verdict_notify->audited = audited;
+			verdict_notify->auth_type = auth_type;
+			verdict_notify->cookie = cookie;
+
+			send_policy_verdict_notify(ctx, verdict_notify);
 		}
 
 		if (verdict != CTX_ACT_OK) {
@@ -1408,6 +1419,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	struct policy_verdict_notify *verdict_notify;
 	struct nodeport_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
@@ -1524,11 +1536,21 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 		/* Emit verdict if drop or if allow for CT_NEW. */
 		if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
-			send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 0,
-						   verdict, proxy_port,
-						   policy_match_type, audited,
-						   auth_type, cookie);
+			verdict_notify = get_policy_verdict_notify(ctx);
+			verdict_notify->remote_label = *dst_sec_identity;
+			verdict_notify->dst_port = tuple->dport;
+			verdict_notify->proto = tuple->nexthdr;
+			verdict_notify->dir = POLICY_EGRESS;
+			verdict_notify->ipv6 = 0;
+			verdict_notify->verdict = verdict;
+			if (verdict == 0)
+				verdict_notify->verdict = (int)proxy_port;
+			verdict_notify->match_type = policy_match_type;
+			verdict_notify->audited = audited;
+			verdict_notify->auth_type = auth_type;
+			verdict_notify->cookie = cookie;
+
+			send_policy_verdict_notify(ctx, verdict_notify);
 		}
 
 		if (verdict != CTX_ACT_OK) {
@@ -1853,6 +1875,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	bool is_untracked_fragment;
 	fraginfo_t fraginfo;
 	int ret, verdict, l4_off, zero = 0;
+	struct policy_verdict_notify *verdict_notify;
 	struct ct_buffer6 *ct_buffer;
 	struct trace_ctx trace;
 	union v6addr orig_sip;
@@ -1954,11 +1977,23 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		}
 
 		/* Emit verdict if drop or if allow for CT_NEW. */
-		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-			send_policy_verdict_notify(ctx, src_label, tuple->dport,
-						   tuple->nexthdr, POLICY_INGRESS, 1,
-						   verdict, *proxy_port, policy_match_type, audited,
-						   auth_type, cookie);
+		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED) {
+			verdict_notify = get_policy_verdict_notify(ctx);
+			verdict_notify->remote_label = src_label;
+			verdict_notify->dst_port = tuple->dport;
+			verdict_notify->proto = tuple->nexthdr;
+			verdict_notify->dir = POLICY_INGRESS;
+			verdict_notify->ipv6 = 1;
+			verdict_notify->verdict = verdict;
+			if (verdict == 0)
+				verdict_notify->verdict = (int)*proxy_port;
+			verdict_notify->match_type = policy_match_type;
+			verdict_notify->audited = audited;
+			verdict_notify->auth_type = auth_type;
+			verdict_notify->cookie = cookie;
+
+			send_policy_verdict_notify(ctx, verdict_notify);
+		}
 
 		if (verdict != CTX_ACT_OK)
 			return verdict;
@@ -2168,6 +2203,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	struct ct_buffer4 *ct_buffer;
 	struct trace_ctx trace;
 	int ret, verdict, l4_off;
+	struct policy_verdict_notify *verdict_notify;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
@@ -2274,11 +2310,23 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 			}
 		}
 		/* Emit verdict if drop or if allow for CT_NEW. */
-		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-			send_policy_verdict_notify(ctx, src_label, tuple->dport,
-						   tuple->nexthdr, POLICY_INGRESS, 0,
-						   verdict, *proxy_port, policy_match_type, audited,
-						   auth_type, cookie);
+		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED) {
+			verdict_notify = get_policy_verdict_notify(ctx);
+			verdict_notify->remote_label = src_label;
+			verdict_notify->dst_port = tuple->dport;
+			verdict_notify->proto = tuple->nexthdr;
+			verdict_notify->dir = POLICY_INGRESS;
+			verdict_notify->ipv6 = 0;
+			verdict_notify->verdict = verdict;
+			if (verdict == 0)
+				verdict_notify->verdict = (int)*proxy_port;
+			verdict_notify->match_type = policy_match_type;
+			verdict_notify->audited = audited;
+			verdict_notify->auth_type = auth_type;
+			verdict_notify->cookie = cookie;
+
+			send_policy_verdict_notify(ctx, verdict_notify);
+		}
 
 		if (verdict != CTX_ACT_OK)
 			return verdict;

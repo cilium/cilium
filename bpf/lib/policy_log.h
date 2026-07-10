@@ -43,7 +43,8 @@ struct policy_verdict_notify {
 	POLICY_VERDICT_EXTENSION
 };
 
-#ifdef POLICY_VERDICT_NOTIFY
+DEFINE_AUX(struct policy_verdict_notify, policy_verdict_notify);
+
 static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 {
 	/* Make dir being volatile to avoid compiler optimizing out
@@ -54,20 +55,33 @@ static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 	return ((filter & d) > 0);
 }
 
-static __always_inline void
-send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
-			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict, __u16 proxy_port,
-			   __u8 match_type, __u8 is_audited, __u8 auth_type, __u32 cookie)
+#ifdef POLICY_VERDICT_NOTIFY
+static __always_inline
+struct policy_verdict_notify *get_policy_verdict_notify(struct __ctx_buff *ctx)
 {
+	struct policy_verdict_notify *msg = AUX(policy_verdict_notify);
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
+
+	memset(msg, 0, sizeof(*msg));
+	*msg = (typeof(*msg)) {
+		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
+		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
+	};
+
+	return msg;
+}
+
+static __always_inline void
+send_policy_verdict_notify(const struct __ctx_buff *ctx,
+			   struct policy_verdict_notify *verdict_notify)
+{
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
 	struct ratelimit_settings settings = {
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
-	struct policy_verdict_notify msg;
 
 #if defined(IS_BPF_HOST)
 	/* When this function is called in the context of bpf_host (e.g. by
@@ -81,17 +95,14 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 	 * for default allow policies, to prevent a flood of notifications for
 	 * traffic allowed by default.
 	 */
-	if (match_type == POLICY_MATCH_ALL && verdict == CTX_ACT_OK)
+	if (verdict_notify->match_type == POLICY_MATCH_ALL && verdict_notify->verdict == CTX_ACT_OK)
 		return;
 #elif defined(IS_BPF_LXC)
-	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
+	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, verdict_notify->dir))
 		return;
 #else
 	#error "policy_log.h only supports inclusion from bpf_host or bpf_lxc"
 #endif
-
-	if (verdict == 0)
-		verdict = (int)proxy_port;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
 		settings.bucket_size = CONFIG(events_map_burst_limit);
@@ -100,36 +111,21 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 			return;
 	}
 
-	msg = (typeof(msg)) {
-		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
-		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
-		.remote_label	= remote_label,
-		.verdict	= verdict,
-		.dst_port	= bpf_ntohs(dst_port),
-		.match_type	= match_type,
-		.proto		= proto,
-		.dir		= dir,
-		.ipv6		= is_ipv6,
-		.audited	= is_audited,
-		.auth_type      = auth_type,
-		.cookie		= cookie,
-		.l3		= THIS_IS_L3_DEV,
-	};
-
-	policy_verdict_extension_hook(ctx, msg);
+	policy_verdict_extension_hook(ctx, verdict_notify);
 	ctx_event_output(ctx, &cilium_events,
-			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+			 (((__u64)verdict_notify->len_cap) << 32) | BPF_F_CURRENT_CPU,
+			 verdict_notify, sizeof(*verdict_notify));
 }
 #else
+static __always_inline
+struct policy_verdict_notify *get_policy_verdict_notify(struct __ctx_buff *ctx __maybe_unused)
+{
+	return AUX(policy_verdict_notify);
+}
+
 static __always_inline void
 send_policy_verdict_notify(const struct __ctx_buff *ctx __maybe_unused,
-			   __u32 remote_label __maybe_unused, __u16 dst_port __maybe_unused,
-			   __u8 proto __maybe_unused, __u8 dir __maybe_unused,
-			   __u8 is_ipv6 __maybe_unused, int verdict __maybe_unused,
-			   __u16 proxy_port __maybe_unused,
-			   __u8 match_type __maybe_unused, __u8 is_audited __maybe_unused,
-			   __u8 auth_type __maybe_unused, __u32 cookie __maybe_unused)
+			   struct policy_verdict_notify *verdict_notify __maybe_unused)
 {
 }
 #endif /* POLICY_VERDICT_NOTIFY */
