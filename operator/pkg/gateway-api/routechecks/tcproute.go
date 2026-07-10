@@ -40,18 +40,6 @@ func (t *TCPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condit
 	})
 }
 
-func (t *TCPRouteInput) SetAllParentCondition(condition metav1.Condition) {
-	// fill in the condition
-	condition.LastTransitionTime = metav1.NewTime(time.Now())
-	condition.ObservedGeneration = t.TCPRoute.GetGeneration()
-
-	for _, parent := range t.TCPRoute.Spec.ParentRefs {
-		t.mergeStatusConditions(parent, []metav1.Condition{
-			condition,
-		})
-	}
-}
-
 func (t *TCPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range t.TCPRoute.Status.RouteStatus.Parents {

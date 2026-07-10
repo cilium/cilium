@@ -44,18 +44,6 @@ func (h *HTTPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condi
 	})
 }
 
-func (h *HTTPRouteInput) SetAllParentCondition(condition metav1.Condition) {
-	// fill in the condition
-	condition.LastTransitionTime = metav1.NewTime(time.Now())
-	condition.ObservedGeneration = h.HTTPRoute.GetGeneration()
-
-	for _, parent := range h.HTTPRoute.Spec.ParentRefs {
-		h.mergeStatusConditions(parent, []metav1.Condition{
-			condition,
-		})
-	}
-}
-
 func (h *HTTPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range h.HTTPRoute.Status.RouteStatus.Parents {

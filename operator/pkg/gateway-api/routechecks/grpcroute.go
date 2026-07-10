@@ -148,18 +148,6 @@ func (g *GRPCRouteInput) SetParentCondition(ref gatewayv1beta1.ParentReference, 
 	})
 }
 
-func (g *GRPCRouteInput) SetAllParentCondition(condition metav1.Condition) {
-	// fill in the condition
-	condition.LastTransitionTime = metav1.NewTime(time.Now())
-	condition.ObservedGeneration = g.GRPCRoute.GetGeneration()
-
-	for _, parent := range g.GRPCRoute.Spec.ParentRefs {
-		g.mergeStatusConditions(parent, []metav1.Condition{
-			condition,
-		})
-	}
-}
-
 func (g *GRPCRouteInput) Log() *slog.Logger {
 	return g.Logger
 }

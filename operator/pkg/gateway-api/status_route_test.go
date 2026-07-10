@@ -84,11 +84,17 @@ func TestPruneRouteParentStatuses(t *testing.T) {
 	require.Equal(t, otherControllerDetachedParent, route.Status.Parents[1].ParentRef)
 	require.Equal(t, currentParentStatus, route.Status.Parents[2].ParentRef)
 
-	input.SetAllParentCondition(metav1.Condition{
-		Type:   string(gatewayv1.RouteConditionAccepted),
-		Status: metav1.ConditionTrue,
-		Reason: string(gatewayv1.RouteReasonAccepted),
-	})
+	acceptedCond := metav1.Condition{
+		Type:               string(gatewayv1.RouteConditionAccepted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(gatewayv1.RouteReasonAccepted),
+		ObservedGeneration: input.HTTPRoute.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	}
+
+	for _, parent := range input.HTTPRoute.Spec.ParentRefs {
+		input.SetParentCondition(parent, acceptedCond)
+	}
 
 	require.Len(t, route.Status.Parents, 3, "merge alone keeps both detached statuses")
 	require.Equal(t, ourDetachedParent, route.Status.Parents[0].ParentRef, "merge alone keeps both detached statuses")
