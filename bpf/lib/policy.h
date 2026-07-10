@@ -169,7 +169,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
-} cilium_policy_v2 __section_maps_btf;
+} cilium_policy __section_maps_btf;
 
 /* Return a verdict for the chosen 'policy', possibly propagating the auth type from 'policy2', if
  * non-NULL and of the same precedence.
@@ -369,7 +369,7 @@ policy_can_access(const struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
 		  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		  __u16 *proxy_port, __u32 *cookie)
 {
-	return __policy_can_access(&cilium_policy_v2, ctx, local_id, remote_id,
+	return __policy_can_access(&cilium_policy, ctx, local_id, remote_id,
 				   ethertype, dport, proto, off, dir,
 				   is_untracked_fragment, match_type, ext_err,
 				   proxy_port, cookie);

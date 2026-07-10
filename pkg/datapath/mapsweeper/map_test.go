@@ -68,9 +68,9 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 				42,
 			},
 			paths: []string{
-				"cilium_policy_v2_00001",
-				"cilium_policy_v2_00001",
-				"cilium_policy_v2_00042",
+				"cilium_policy_v3_00001",
+				"cilium_policy_v3_00001",
+				"cilium_policy_v3_00042",
 			},
 			removedPaths:    []string{},
 			removedMappings: []int{},
@@ -81,11 +81,11 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 				42,
 			},
 			paths: []string{
-				"cilium_policy_v2_00001",
-				"cilium_policy_v2_00042",
+				"cilium_policy_v3_00001",
+				"cilium_policy_v3_00042",
 			},
 			removedPaths: []string{
-				"cilium_policy_v2_00001",
+				"cilium_policy_v3_00001",
 			},
 			removedMappings: []int{
 				1,
@@ -97,11 +97,11 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 				1,
 			},
 			paths: []string{
-				"cilium_policy_v2_00001",
-				"cilium_policy_v2_00042",
+				"cilium_policy_v3_00001",
+				"cilium_policy_v3_00042",
 			},
 			removedPaths: []string{
-				"cilium_policy_v2_00042",
+				"cilium_policy_v3_00042",
 			},
 			removedMappings: []int{
 				42,
@@ -111,12 +111,12 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 			name:      "Delete every map",
 			endpoints: []uint16{},
 			paths: []string{
-				"cilium_policy_v2_00001",
-				"cilium_policy_v2_00042",
+				"cilium_policy_v3_00001",
+				"cilium_policy_v3_00042",
 			},
 			removedPaths: []string{
-				"cilium_policy_v2_00001",
-				"cilium_policy_v2_00042",
+				"cilium_policy_v3_00001",
+				"cilium_policy_v3_00042",
 			},
 			removedMappings: []int{
 				1,
@@ -130,14 +130,14 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 				42,
 			},
 			paths: []string{
-				"cilium_policy_v2_1",
-				"cilium_policy_v2_42",
-				"cilium_policy_v2_00001",
-				"cilium_policy_v2_00042",
+				"cilium_policy_v3_1",
+				"cilium_policy_v3_42",
+				"cilium_policy_v3_00001",
+				"cilium_policy_v3_00042",
 			},
 			removedPaths: []string{
-				"cilium_policy_v2_1",
-				"cilium_policy_v2_42",
+				"cilium_policy_v3_1",
+				"cilium_policy_v3_42",
 			},
 			removedMappings: []int{},
 		},
@@ -171,8 +171,8 @@ func TestRemoveDisabledMaps(t *testing.T) {
 				"cilium_proxy4",
 				"cilium_proxy6",
 				"cilium_policy_01234",
-				"cilium_policy_v2_01234",
-				"cilium_policy_v2_reserved_1",
+				"cilium_policy_v3_01234",
+				"cilium_policy_v3_reserved_1",
 			},
 		)
 		depricatedMaps := []string{

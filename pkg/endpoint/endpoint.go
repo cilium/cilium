@@ -2796,7 +2796,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		e.orchestrator.Unload(e.createEpInfoCache(""))
 
 		// Delete the endpoint's entries from the global cilium_(egress)call_policy
-		// maps and remove per-endpoint cilium_calls_ and cilium_policy_v2_ map pins.
+		// maps and remove per-endpoint cilium_calls_ and cilium_policy_ map pins.
 		if err := e.deleteMaps(); err != nil {
 			errs = append(errs, err...)
 		}

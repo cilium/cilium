@@ -34,7 +34,16 @@ const (
 	// MapName is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
 	// with that identity on that port for that direction.
-	MapName = "cilium_policy_v2_"
+	//
+	// This MUST be changed each time there is a bpf format change OR semantic change with the
+	// existing map layout in the policy map as interpreted by the bpf programs. Renaming leads
+	// to clean separation with the old map and program vs. the new map and program.
+	//
+	// Whenever this is changed, leave a comment here:
+	// "_v2_": removal of policy accounting fields and addition of the precedence field
+	//         to the policy map value.
+	// "_v3_": semantic change due to policy identity aggregation.
+	MapName = "cilium_policy_v3_"
 
 	// PolicyCallMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy

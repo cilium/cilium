@@ -103,7 +103,7 @@ const (
 	CiliumPerClusterSNATV6External      = "cilium_per_cluster_snat_v6_external"
 	CiliumPerClusterSNATV6ExternalInner = "cilium_per_cluster_snat_v6_external_inner"
 	CiliumPerCPUTraceID                 = "cilium_percpu_trace_id"
-	CiliumPolicyV2                      = "cilium_policy_v2"
+	CiliumPolicy                        = "cilium_policy"
 	CiliumPolicystats                   = "cilium_policystats"
 	CiliumRatelimit                     = "cilium_ratelimit"
 	CiliumRatelimitMetrics              = "cilium_ratelimit_metrics"
@@ -1034,9 +1034,9 @@ func newCiliumPerCPUTraceIDSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumPolicyV2Spec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumPolicySpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
-		Name:       CiliumPolicyV2,
+		Name:       CiliumPolicy,
 		Type:       ebpf.LPMTrie,
 		KeySize:    12,
 		Key:        anyTypeByName(btf, "policy_key"),
@@ -1367,7 +1367,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumPerClusterSNATV4ExternalSpec,
 	newCiliumPerClusterSNATV6ExternalSpec,
 	newCiliumPerCPUTraceIDSpec,
-	newCiliumPolicyV2Spec,
+	newCiliumPolicySpec,
 	newCiliumPolicystatsSpec,
 	newCiliumRatelimitSpec,
 	newCiliumRatelimitMetricsSpec,

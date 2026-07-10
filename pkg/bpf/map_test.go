@@ -25,7 +25,7 @@ func TestExtractCommonName(t *testing.T) {
 	assert.Equal(t, "policy", extractCommonName("cilium_policy"))
 	assert.Equal(t, "policy", extractCommonName("cilium_policy_1157"))
 	assert.Equal(t, "policy", extractCommonName("cilium_policy_reserved_1"))
-	assert.Equal(t, "policy", extractCommonName("cilium_policy_v2_1157"))
-	assert.Equal(t, "policy", extractCommonName("cilium_policy_v2_reserved_1"))
+	assert.Equal(t, "policy", extractCommonName("cilium_policy_v3_1157"))
+	assert.Equal(t, "policy", extractCommonName("cilium_policy_v3_reserved_1"))
 	assert.Equal(t, "tunnel_map", extractCommonName("cilium_tunnel_map"))
 }
