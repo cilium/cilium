@@ -27,8 +27,10 @@ openssl req -newkey rsa:2048 -nodes \
     -out external-service.cilium.req.pem
 
 # Figure out the addresses of the external nodes.
-mapfile -d ' ' -t IPTARGET < <(kubectl get nodes -l cilium.io/no-schedule=true -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-mapfile -d ' ' -t IPOTHERTARGET < <(kubectl get nodes -l cilium.io/no-schedule=true -o jsonpath='{.items[1].status.addresses[?(@.type=="InternalIP")].address}')
+IPTARGET_RAW=$(kubectl get nodes -l cilium.io/no-schedule=true -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+IPOTHERTARGET_RAW=$(kubectl get nodes -l cilium.io/no-schedule=true -o jsonpath='{.items[1].status.addresses[?(@.type=="InternalIP")].address}')
+mapfile -d ' ' -t IPTARGET < <(printf '%s' "$IPTARGET_RAW")
+mapfile -d ' ' -t IPOTHERTARGET < <(printf '%s' "$IPOTHERTARGET_RAW")
 
 # Create a config file to tell openssl how to turn the signing request into a certificate
 # Make sure the key usage is such that we can use the cert for HTTPS traffic.
@@ -52,7 +54,8 @@ openssl x509 -req -days 365 -set_serial 01 \
     -CAkey ca-key.pem
 
 # Start the external targets.
-mapfile -t NODES_WITHOUT_CILIUM < <(kubectl get nodes -l cilium.io/no-schedule=true -o name | sed 's@^node/@@')
+NODES_WITHOUT_CILIUM_RAW=$(kubectl get nodes -l cilium.io/no-schedule=true -o name | sed 's@^node/@@')
+mapfile -t NODES_WITHOUT_CILIUM < <(printf '%s' "$NODES_WITHOUT_CILIUM_RAW")
 
 kubectl create ns external
 NGINX_CERT_BASE64="$(base64 -w0 external-service.cilium.crt)" \
