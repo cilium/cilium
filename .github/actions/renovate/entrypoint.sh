@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 apt update
 
 apt install -y gettext docker-buildx
@@ -12,7 +14,8 @@ ls -lah /var/run/docker.sock
 
 # Add the group of /var/run/docker.sock to ubuntu user
 GROUP_ID=$(stat -c '%g' /var/run/docker.sock)
-GROUP_NAME=$(getent group "$GROUP_ID" | cut -d: -f1)
+# getent exits non-zero when no group matches the id, which is expected here.
+GROUP_NAME=$(getent group "$GROUP_ID" | cut -d: -f1 || true)
 
 if [ -z "$GROUP_NAME" ]; then
   GROUP_NAME="docker_group"
