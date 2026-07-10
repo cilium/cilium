@@ -59,6 +59,7 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 	hive.Start(log, t.Context())
 	r = newDefaultReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &DefaultController{
@@ -69,6 +70,7 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
 			doReconciler:        r,
+			cond:                *sync.NewCond(&lock.Mutex{}),
 		},
 		manager:        m,
 		reconciler:     r,
@@ -80,21 +82,39 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 	cep2 := tu.CreateManagerEndpoint("cep2", 1, "node2")
 	cep3 := tu.CreateManagerEndpoint("cep3", 2, "node3")
 	cep4 := tu.CreateManagerEndpoint("cep4", 2, "node2")
+	cepStore.CacheStore().Add(tu.CreateStoreEndpoint("cep1", "ns", 1))
+	cepStore.CacheStore().Add(tu.CreateStoreEndpoint("cep2", "ns", 1))
+	cepStore.CacheStore().Add(tu.CreateStoreEndpoint("cep3", "ns", 2))
+	cepStore.CacheStore().Add(tu.CreateStoreEndpoint("cep4", "ns", 2))
 	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep1, cep2, cep3, cep4})
 	cesStore.CacheStore().Add(ces1)
+
 	cep5 := tu.CreateManagerEndpoint("cep5", 1, "node1")
 	cep6 := tu.CreateManagerEndpoint("cep6", 1, "node2")
 	cep7 := tu.CreateManagerEndpoint("cep7", 2, "node3")
+	cepStore.CacheStore().Add(tu.CreateStoreEndpoint("cep5", "ns", 1))
+	cepStore.CacheStore().Add(tu.CreateStoreEndpoint("cep6", "ns", 1))
+	// cep7 is intentionally NOT added to the CEP store, simulating a pod that
+	// was deleted while the operator was down. The bootstrap must drop it from
+	// the mapping.
 	ces2 := tu.CreateStoreEndpointSlice("ces2", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep5, cep6, cep7})
 	cesStore.CacheStore().Add(ces2)
 
-	cesController.syncCESsInLocalCache(t.Context())
+	// Subscribe after seeding so the replay picks up the objects we injected.
+	cepEvents := ciliumEndpoint.Events(t.Context())
+	cesEvents := ciliumEndpointSlice.Events(t.Context())
+	cesController.syncCESsInLocalCache(cepEvents, cesEvents)
 
 	mapping := m.mapping
 
 	for _, ces := range []*cilium_v2a1.CiliumEndpointSlice{ces1, ces2} {
 		for _, cep := range ces.Endpoints {
 			cesN, _ := mapping.getCESName(NewCEPName(cep.Name, "ns"))
+			if cep.Name == "cep7" {
+				assert.Empty(t, cesN, "stale cep7 should not have a CES mapping")
+				continue
+			}
+
 			// ensure that the CEP is mapped to the correct CES
 			assert.Equal(t, cesN, CESName(ces.Name))
 		}
