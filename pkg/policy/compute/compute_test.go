@@ -137,6 +137,51 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 	})
 }
 
+func TestIdentityManagerObserver(t *testing.T) {
+	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
+
+	t.Run("add triggers implicit recompute", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+
+		targetID := identity.NumericIdentity(7)
+		id := identity.NewIdentity(targetID, labels.Labels{})
+
+		idmgr.Add(id)
+
+		obj := waitForEntry(t, computer, id, true)
+		assert.Equal(t, targetID, obj.Identity)
+	})
+
+	t.Run("remove deletes entry", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+
+		targetID := identity.NumericIdentity(8)
+		id := identity.NewIdentity(targetID, labels.Labels{})
+
+		idmgr.Add(id)
+		waitForEntry(t, computer, id, true)
+
+		idmgr.Remove(id)
+		waitForEntry(t, computer, id, false)
+	})
+}
+
+func waitForEntry(t *testing.T, computer PolicyRecomputer, id *identity.Identity, want bool) Result {
+	t.Helper()
+	timeout := time.After(time.Second)
+	for {
+		obj, _, watch, found := computer.GetIdentityPolicyByIdentity(id)
+		if found == want {
+			return obj
+		}
+		select {
+		case <-watch:
+		case <-timeout:
+			t.Fatalf("timed out waiting for entry found=%v for identity %d", want, id.ID)
+		}
+	}
+}
+
 // computeFor adds an identity and waits for its initial policy to be committed.
 func computeFor(t *testing.T, computer PolicyRecomputer, idmgr identitymanager.IDManager, nid identity.NumericIdentity) *identity.Identity {
 	t.Helper()
