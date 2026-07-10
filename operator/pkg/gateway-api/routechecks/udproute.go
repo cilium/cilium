@@ -40,18 +40,6 @@ func (u *UDPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condit
 	})
 }
 
-func (u *UDPRouteInput) SetAllParentCondition(condition metav1.Condition) {
-	// fill in the condition
-	condition.LastTransitionTime = metav1.NewTime(time.Now())
-	condition.ObservedGeneration = u.UDPRoute.GetGeneration()
-
-	for _, parent := range u.UDPRoute.Spec.ParentRefs {
-		u.mergeStatusConditions(parent, []metav1.Condition{
-			condition,
-		})
-	}
-}
-
 func (u *UDPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range u.UDPRoute.Status.RouteStatus.Parents {

@@ -41,18 +41,6 @@ func (t *TLSRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condit
 	})
 }
 
-func (t *TLSRouteInput) SetAllParentCondition(condition metav1.Condition) {
-	// fill in the condition
-	condition.LastTransitionTime = metav1.NewTime(time.Now())
-	condition.ObservedGeneration = t.TLSRoute.GetGeneration()
-
-	for _, parent := range t.TLSRoute.Spec.ParentRefs {
-		t.mergeStatusConditions(parent, []metav1.Condition{
-			condition,
-		})
-	}
-}
-
 func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range t.TLSRoute.Status.RouteStatus.Parents {
