@@ -32,7 +32,7 @@ Both control planes are implemented by a `Controller` which follows the `Kuberne
 Both control planes primary listen for `CiliumBGP*` CRDs, along with other Cilium and Kubernetes resources useful for implementing a BGP control plane. 
 
 The Operator-Side control plane processes `CiliumBGPClusterConfig` CRDs, and the CRDs referenced from it,
-and creates/updes/deletes one `CiliumBGPNodeConfig` for each BGP-enabled node in the cluster. The
+and creates/updates/deletes one `CiliumBGPNodeConfig` for each BGP-enabled node in the cluster. The
 `CiliumBGPNodeConfig` with the name of the given node becomes the primary configuration source of the `Agent-Side Control Plane`.
 
 ### Agent-Side Architecture
@@ -112,7 +112,7 @@ This implementation will
 * enable/disable any BGP server specific features
 * inform the caller if the node config cannot be applied
 
-The `Manager` implementation is capable of evaluating each `CiliumBGPNodeInstance` from withing a `CiliumBGPNodeConfig` in isolation.
+The `Manager` implementation is capable of evaluating each `CiliumBGPNodeInstance` from within a `CiliumBGPNodeConfig` in isolation.
 
 This means when applying a `CiliumBGPNodeConfig` the `Manager` will attempt to create each `CiliumBGPNodeInstance`.
 

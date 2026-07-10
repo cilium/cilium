@@ -101,7 +101,7 @@ This scheme is simple in that:
 In this scheme, each node just sends pod egress traffic to node's default
 gateway (the core routers), and lets the latter do the routing.
 
-Below is the a reference configuration for fulfilling the above purposes:
+Below is a reference configuration for fulfilling the above purposes:
 
 ::
 

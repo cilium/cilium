@@ -41,7 +41,7 @@ For Cilium to meet most of the common requirements for service-to-service authen
     to automatically create and maintain encrypted connections between Pods.
 
 To address the challenge of identity verification in dynamic and heterogeneous environments, 
-mutual authentication requires a framework secure identity verification for distributed systems.
+mutual authentication requires a framework for secure identity verification for distributed systems.
 
 .. Note::
 
