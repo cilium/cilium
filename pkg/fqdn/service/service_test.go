@@ -588,7 +588,7 @@ func TestHandleIPUpsert(t *testing.T) {
 	// Expectation: currentIdentityToIP:{2: [1.2.3.4/32, 4.5.6.7/32]}
 	prefix4 := netip.MustParsePrefix("10.10.10.10/24")
 	validCIDR4 := types.NewPrefixCluster(prefix4, 0)
-	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR4, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
+	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR4, nil, nil, nil, dummyIdentity2, 0, nil, 0)
 	identityToIP, _, found = server.identityToIPsTable.Get(server.db.ReadTxn(), idIndexIdentityToIP.Query(dummyIdentity2.ID))
 	require.True(t, found)
 	require.Equal(t, 3, identityToIP.IPs.Len())
@@ -597,7 +597,7 @@ func TestHandleIPUpsert(t *testing.T) {
 
 	// Call OnIPIdentityCacheChange with Delete for identity 2 and ip: 8.9.10.11/24.
 	// Expectation: currentIdentityToIP:{2: [1.2.3.4/32, 4.5.6.7/32]}
-	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR3, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
+	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR3, nil, nil, nil, dummyIdentity2, 0, nil, 0)
 	identityToIP, _, found = server.identityToIPsTable.Get(server.db.ReadTxn(), idIndexIdentityToIP.Query(dummyIdentity2.ID))
 	require.True(t, found)
 	require.Equal(t, 2, identityToIP.IPs.Len())
@@ -606,7 +606,7 @@ func TestHandleIPUpsert(t *testing.T) {
 
 	// Call OnIPIdentityCacheChange with Delete for identity 2 and ip: 4.5.6.7/32.
 	// Expectation: currentIdentityToIP:{2: [1.2.3.4/32]}
-	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR2, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
+	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR2, nil, nil, nil, dummyIdentity2, 0, nil, 0)
 	identityToIP, _, found = server.identityToIPsTable.Get(server.db.ReadTxn(), idIndexIdentityToIP.Query(dummyIdentity2.ID))
 	require.True(t, found)
 	require.Equal(t, 1, identityToIP.IPs.Len())
@@ -614,7 +614,7 @@ func TestHandleIPUpsert(t *testing.T) {
 
 	// Call again OnIPIdentityCacheChange with Delete for identity 2 and ip: 4.5.6.7/32.
 	// Expectation: currentIdentityToIP:{2: [1.2.3.4/32]}
-	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR2, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
+	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR2, nil, nil, nil, dummyIdentity2, 0, nil, 0)
 	identityToIP, _, found = server.identityToIPsTable.Get(server.db.ReadTxn(), idIndexIdentityToIP.Query(dummyIdentity2.ID))
 	require.True(t, found)
 	require.Equal(t, 1, identityToIP.IPs.Len())
@@ -622,7 +622,7 @@ func TestHandleIPUpsert(t *testing.T) {
 
 	// Call again OnIPIdentityCacheChange with Delete for identity 2 and ip: 1.2.3.4/32.
 	// Expectation: currentIdentityToIP:{}
-	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
+	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR, nil, nil, nil, dummyIdentity2, 0, nil, 0)
 	identityToIP, _, found = server.identityToIPsTable.Get(server.db.ReadTxn(), idIndexIdentityToIP.Query(dummyIdentity2.ID))
 	require.False(t, found)
 
