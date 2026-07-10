@@ -1,5 +1,7 @@
 metadata:
   creationTimestamp: null
+  annotations:
+    service.cilium.io/node-selector: a=b
   labels:
     gateway.networking.k8s.io/gateway-name: my-gateway
     io.cilium.gateway/owning-gateway: my-gateway
