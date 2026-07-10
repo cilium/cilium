@@ -193,7 +193,7 @@ jobs:
           kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
 
       - name: Create imagePullSecret
-        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' }}
+        if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
         run: |
           kubectl create secret docker-registry cilium-registry \
             --namespace kube-system \

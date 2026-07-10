@@ -282,7 +282,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Create imagePullSecret
-        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' && matrix.mode != 'baseline' }}
+        if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' && matrix.mode != 'baseline' }}
         run: |
           kubectl create secret docker-registry cilium-registry \
             --namespace kube-system \

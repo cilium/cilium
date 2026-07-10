@@ -493,7 +493,7 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Create imagePullSecrets
-        if: ${{ vars.DOCKER_AUTH_REQUIRED != 'false' }}
+        if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
         run: |
           for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
              kubectl --context $ctx create secret docker-registry cilium-registry \
