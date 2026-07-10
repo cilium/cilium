@@ -1,0 +1,28 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: tcp-gateway-invalid-backend
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: tcp
+      protocol: TCP
+      port: 9300
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-route-invalid-backend-ref-nonexistent
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: tcp-gateway-invalid-backend
+      sectionName: tcp
+  rules:
+    - backendRefs:
+        - name: nonexistent-service
+          port: 8080

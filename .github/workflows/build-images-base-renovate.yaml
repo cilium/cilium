@@ -1,0 +1,26 @@
+name: Base Image Release Build - Renovate
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  push:
+    branches:
+      - "renovate/main-**"
+    paths:
+      - images/runtime/**
+      - images/builder/**
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+  id-token: write
+
+jobs:
+  build-base-images-from-renovate:
+    name: "Build Base Images From Renovate"
+    uses: ./.github/workflows/build-images-base.yaml
+    secrets: inherit
+    with:
+      # Build the base images from this environment which is set up specifically
+      # for renovate.
+      environment: release-base-images-renovate

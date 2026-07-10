@@ -1,0 +1,53 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: echo
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: ListenerSet
+    name: delegated-listeners
+    sectionName: echo
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: route-hostname-independence
+    sectionName: gateway-http
+  hostnames:
+  - echo.example.com
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+status:
+  parents:
+  - parentRef:
+      group: gateway.networking.k8s.io
+      kind: ListenerSet
+      name: delegated-listeners
+      sectionName: echo
+    controllerName: io.cilium/gateway-controller
+    conditions:
+    - type: Accepted
+      status: "True"
+      reason: Accepted
+      message: Accepted HTTPRoute
+    - type: ResolvedRefs
+      status: "True"
+      reason: ResolvedRefs
+      message: Service reference is valid
+  - parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: route-hostname-independence
+      sectionName: gateway-http
+    controllerName: io.cilium/gateway-controller
+    conditions:
+    - type: Accepted
+      status: "False"
+      reason: NoMatchingListenerHostname
+      message: No matching listener hostname
+    - type: ResolvedRefs
+      status: "True"
+      reason: ResolvedRefs
+      message: Service reference is valid

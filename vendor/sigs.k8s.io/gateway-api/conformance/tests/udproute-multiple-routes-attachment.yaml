@@ -1,0 +1,142 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-attach-backend-1
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-attach-backend-1
+spec:
+  selector:
+    app: udp-attach-backend-1
+  ports:
+    - name: udp
+      protocol: UDP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-attach-backend-1
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-attach-backend-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: udp-attach-backend-1
+  template:
+    metadata:
+      labels:
+        app: udp-attach-backend-1
+    spec:
+      containers:
+        - name: udp-backend
+          image: registry.k8s.io/gateway-api/echo-basic:v1.6.0-dev.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UDP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: udp-attach-backend-1
+          ports:
+            - containerPort: 8080
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-attach-backend-2
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-attach-backend-2
+spec:
+  selector:
+    app: udp-attach-backend-2
+  ports:
+    - name: udp
+      protocol: UDP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-attach-backend-2
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp-attach-backend-2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: udp-attach-backend-2
+  template:
+    metadata:
+      labels:
+        app: udp-attach-backend-2
+    spec:
+      containers:
+        - name: udp-backend
+          image: registry.k8s.io/gateway-api/echo-basic:v1.6.0-dev.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UDP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: udp-attach-backend-2
+          ports:
+            - containerPort: 8080
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: udp-multi-route-attach-gateway
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: udp
+      protocol: UDP
+      port: 5301
+      allowedRoutes:
+        kinds:
+          - kind: UDPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: UDPRoute
+metadata:
+  name: udproute-attach-older
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: udp-multi-route-attach-gateway
+      sectionName: udp
+  rules:
+    - backendRefs:
+        - name: udp-attach-backend-1
+          port: 8080

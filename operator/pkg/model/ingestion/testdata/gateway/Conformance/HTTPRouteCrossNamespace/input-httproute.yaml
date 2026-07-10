@@ -1,0 +1,14 @@
+- metadata:
+    creationTimestamp: null
+    name: cross-namespace
+    namespace: gateway-conformance-web-backend
+  spec:
+    parentRefs:
+    - name: backend-namespaces
+      namespace: gateway-conformance-infra
+    rules:
+    - backendRefs:
+      - name: web-backend
+        port: 8080
+  status:
+    parents: null

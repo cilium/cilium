@@ -1,0 +1,136 @@
+#! --test-peering-ips=10.99.5.101,10.99.5.102
+
+# Tests BGP advertisement of Gateway API / Ingress services with local proxy (Envoy).
+# These services should be advertised via BGP even with externalTrafficPolicy: Local
+# and no local backends, because traffic is handled by the local Envoy proxy.
+#
+# The BGP reconciler uses Service.ProxyRedirect to detect if local Envoy is handling
+# the service. When ProxyRedirect is non-nil, the service is advertised regardless
+# of backend availability.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server test 65010 10.99.5.101 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer 10.99.5.102 65001
+
+# Add Gateway service (without endpoints)
+k8s/add service-gateway.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.5.102 ESTABLISHED
+
+# Set ProxyRedirect on the service to simulate local Envoy proxy handling traffic.
+# This triggers BGP reconciliation and causes the service to be advertised.
+svc/set-proxy-redirect default/cilium-gateway-my-gateway
+
+# Validate that LoadBalancer IP is advertised with eTP=Local and no backends
+# (because ProxyRedirect is set, indicating local Envoy is handling traffic)
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-gateway.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.5.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.5.101
+      localAddress: 10.99.5.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: bgp
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: io.cilium/gateway-api, operator: In, values: [ "true" ] }
+
+-- service-gateway.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-gateway-my-gateway
+  namespace: default
+  labels:
+    io.cilium/gateway-api: "true"
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  clusterIP: 10.96.100.1
+  clusterIPs:
+  - 10.96.100.1
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    io.cilium/gateway-owning-gateway: my-gateway
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.18.255.200
+
+-- gobgp-routes-gateway.expected --
+Prefix              NextHop       Attrs
+172.18.255.200/32   10.99.5.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.102}]

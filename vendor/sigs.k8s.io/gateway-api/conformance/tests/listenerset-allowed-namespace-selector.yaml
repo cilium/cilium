@@ -1,0 +1,77 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-allows-listenerset-in-selected-namespace
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: gateway-listener
+    port: 80
+    protocol: HTTP
+    hostname: "gateway-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+  allowedListeners:
+    namespaces:
+      from: Selector
+      selector:
+        matchLabels:
+          allowed: ns
+---
+# This namespace matches the label selector defined in `allowedListeners`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-api-listenerset-selector-allowed-ns
+  labels:
+    allowed: ns
+---
+# This listenerSet should be accepted since it is in the namespace that matches the label selector defined in `allowedListeners`
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-in-selected-namespace
+  namespace: gateway-api-listenerset-selector-allowed-ns
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-allows-listenerset-in-selected-namespace
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listenerset-in-selected-namespace-listener
+    port: 80
+    protocol: HTTP
+    hostname: "listenerset-in-selected-namespace-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+# This namespace does not match the label selector defined in `allowedListeners`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-api-listenerset-selector-not-allowed-ns
+---
+# This listenerSet should not be accepted since it is not in the namespace that matches the label selector defined in `allowedListeners`
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-not-in-selected-namespace
+  namespace: gateway-api-listenerset-selector-not-allowed-ns
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-allows-listenerset-in-selected-namespace
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listenerset-not-in-selected-namespace-listener
+    port: 80
+    protocol: HTTP
+    hostname: "listenerset-not-in-selected-namespace-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All

@@ -1,0 +1,36 @@
+- metadata:
+    creationTimestamp: null
+    name: query-param-matching
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      matches:
+      - queryParams:
+        - name: animal
+          value: whale
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+      matches:
+      - queryParams:
+        - name: animal
+          value: dolphin
+    - backendRefs:
+      - name: infra-backend-v3
+        port: 8080
+      matches:
+      - queryParams:
+        - name: animal
+          value: dolphin
+        - name: color
+          value: blue
+      - queryParams:
+        - name: ANIMAL
+          value: Whale
+  status:
+    parents: null

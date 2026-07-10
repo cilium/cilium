@@ -1,0 +1,6 @@
+secrets.yml
+vendor
+Godeps
+.idea
+*.out
+.mcp.json

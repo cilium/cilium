@@ -1,0 +1,34 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - rewrite.example
+    path_match:
+      prefix: /one
+    rewrite:
+      host_name: one.example.org
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - rewrite.example
+    path_match: {}
+    rewrite:
+      host_name: example.org
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1

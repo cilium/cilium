@@ -1,0 +1,19 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-weighted-backends
+  namespace: gateway-conformance-mesh
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: echo
+    port: 80
+  rules:
+  - backendRefs:
+    - name: echo-v1
+      port: 8080
+      weight: 70
+    - name: echo-v2
+      port: 8080
+      weight: 30

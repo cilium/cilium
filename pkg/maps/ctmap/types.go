@@ -1,0 +1,450 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package ctmap
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"unsafe"
+
+	"github.com/cilium/stream"
+
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/tuple"
+)
+
+// mapType is a type of connection tracking map.
+type mapType int
+
+const (
+	// map types which correspond to a
+	// combination of the following attributes:
+	// * IPv4 or IPv6;
+	// * TCP or non-TCP (shortened to Any)
+	mapTypeIPv4TCPGlobal mapType = iota
+	mapTypeIPv6TCPGlobal
+	mapTypeIPv4AnyGlobal
+	mapTypeIPv6AnyGlobal
+	mapTypeMax
+)
+
+// String renders the map type into a user-readable string.
+func (m mapType) String() string {
+	switch m {
+	case mapTypeIPv4TCPGlobal:
+		return "Global IPv4 TCP CT map"
+	case mapTypeIPv6TCPGlobal:
+		return "Global IPv6 TCP CT map"
+	case mapTypeIPv4AnyGlobal:
+		return "Global IPv4 non-TCP CT map"
+	case mapTypeIPv6AnyGlobal:
+		return "Global IPv6 non-TCP CT map"
+	}
+	return fmt.Sprintf("Unknown (%d)", int(m))
+}
+
+func (m mapType) name() string {
+	switch m {
+	case mapTypeIPv4TCPGlobal:
+		return "tcp4"
+	case mapTypeIPv6TCPGlobal:
+		return "tcp6"
+	case mapTypeIPv4AnyGlobal:
+		return "any4"
+	case mapTypeIPv6AnyGlobal:
+		return "any6"
+	default:
+		panic("Unexpected map type " + m.String())
+	}
+}
+
+func (m mapType) isIPv4() bool {
+	switch m {
+	case mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal:
+		return true
+	}
+	return false
+}
+
+func (m mapType) isIPv6() bool {
+	switch m {
+	case mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal:
+		return true
+	}
+	return false
+}
+
+func (m mapType) isTCP() bool {
+	switch m {
+	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal:
+		return true
+	}
+	return false
+}
+
+func (m mapType) key() bpf.MapKey {
+	switch m {
+	case mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal:
+		return &CtKey4Global{}
+	case mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal:
+		return &CtKey6Global{}
+	default:
+		panic("Unexpected map type " + m.String())
+	}
+}
+
+func (m mapType) value() bpf.MapValue {
+	return &CtEntry{}
+}
+
+func (m mapType) maxEntries() int {
+	switch m {
+	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal:
+		if option.Config.CTMapEntriesGlobalTCP != 0 {
+			return option.Config.CTMapEntriesGlobalTCP
+		}
+		return option.CTMapEntriesGlobalTCPDefault
+
+	case mapTypeIPv4AnyGlobal, mapTypeIPv6AnyGlobal:
+		if option.Config.CTMapEntriesGlobalAny != 0 {
+			return option.Config.CTMapEntriesGlobalAny
+		}
+		return option.CTMapEntriesGlobalAnyDefault
+
+	default:
+		panic("Unexpected map type " + m.String())
+	}
+}
+
+type CtKey interface {
+	bpf.MapKey
+
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() CtKey
+
+	// ToHost converts fields to host byte order.
+	ToHost() CtKey
+
+	// Dump contents of key to sb. Returns true if successful.
+	Dump(sb *strings.Builder, reverse bool) bool
+
+	// GetFlags flags containing the direction of the CtKey.
+	GetFlags() uint8
+
+	GetTupleKey() tuple.TupleKey
+}
+
+type CtKey4Global struct {
+	tuple.TupleKey4Global
+}
+
+// ToNetwork converts ports to network byte order.
+//
+// This is necessary to prevent callers from implicitly converting
+// the CtKey4Global type here into a local key type in the nested
+// TupleKey4Global field.
+func (k *CtKey4Global) ToNetwork() CtKey {
+	return &CtKey4Global{
+		TupleKey4Global: *k.TupleKey4Global.ToNetwork().(*tuple.TupleKey4Global),
+	}
+}
+
+// ToHost converts ports to host byte order.
+//
+// This is necessary to prevent callers from implicitly converting
+// the CtKey4Global type here into a local key type in the nested
+// TupleKey4Global field.
+func (k *CtKey4Global) ToHost() CtKey {
+	return &CtKey4Global{
+		TupleKey4Global: *k.TupleKey4Global.ToHost().(*tuple.TupleKey4Global),
+	}
+}
+
+// GetFlags returns the tuple's flags.
+func (k *CtKey4Global) GetFlags() uint8 {
+	return k.Flags
+}
+
+func (k *CtKey4Global) String() string {
+	return fmt.Sprintf("%s:%d --> %s:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
+}
+
+func (k *CtKey4Global) New() bpf.MapKey { return &CtKey4Global{} }
+
+// Dump writes the contents of key to sb and returns true if the value for next
+// header in the key is nonzero.
+func (k *CtKey4Global) Dump(sb *strings.Builder, reverse bool) bool {
+	var addrSource, addrDest string
+
+	if k.NextHeader == 0 {
+		return false
+	}
+
+	// Addresses swapped, see issue #5848
+	if reverse {
+		addrSource = k.DestAddr.String()
+		addrDest = k.SourceAddr.String()
+	} else {
+		addrSource = k.SourceAddr.String()
+		addrDest = k.DestAddr.String()
+	}
+
+	if k.Flags&TUPLE_F_SERVICE != 0 {
+		sb.WriteString(fmt.Sprintf("%s SVC %s:%d -> %s:%d ",
+			k.NextHeader.String(), k.SourceAddr.String(), k.DestPort,
+			k.DestAddr.String(), k.SourcePort),
+		)
+	} else if k.Flags&TUPLE_F_IN != 0 {
+		sb.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
+			k.NextHeader.String(), addrSource, k.SourcePort,
+			addrDest, k.DestPort),
+		)
+	} else {
+		sb.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
+			k.NextHeader.String(), addrSource, k.SourcePort,
+			addrDest, k.DestPort),
+		)
+	}
+
+	if k.Flags&TUPLE_F_RELATED != 0 {
+		sb.WriteString("related ")
+	}
+
+	return true
+}
+
+func (k *CtKey4Global) GetTupleKey() tuple.TupleKey {
+	return &k.TupleKey4Global
+}
+
+// CtKey6Global is needed to provide CtEntry type to Lookup values
+type CtKey6Global struct {
+	tuple.TupleKey6Global
+}
+
+const SizeofCtKey6Global = int(unsafe.Sizeof(CtKey6Global{}))
+
+// ToNetwork converts ports to network byte order.
+//
+// This is necessary to prevent callers from implicitly converting
+// the CtKey6Global type here into a local key type in the nested
+// TupleKey6Global field.
+func (k *CtKey6Global) ToNetwork() CtKey {
+	return &CtKey6Global{
+		TupleKey6Global: *k.TupleKey6Global.ToNetwork().(*tuple.TupleKey6Global),
+	}
+}
+
+// ToHost converts ports to host byte order.
+//
+// This is necessary to prevent callers from implicitly converting
+// the CtKey6Global type here into a local key type in the nested
+// TupleKey6Global field.
+func (k *CtKey6Global) ToHost() CtKey {
+	return &CtKey6Global{
+		TupleKey6Global: *k.TupleKey6Global.ToHost().(*tuple.TupleKey6Global),
+	}
+}
+
+// GetFlags returns the tuple's flags.
+func (k *CtKey6Global) GetFlags() uint8 {
+	return k.Flags
+}
+
+func (k *CtKey6Global) String() string {
+	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
+}
+
+func (k *CtKey6Global) New() bpf.MapKey { return &CtKey6Global{} }
+
+// Dump writes the contents of key to sb and returns true if the value for next
+// header in the key is nonzero.
+func (k *CtKey6Global) Dump(sb *strings.Builder, reverse bool) bool {
+	var addrSource, addrDest string
+
+	if k.NextHeader == 0 {
+		return false
+	}
+
+	// Addresses swapped, see issue #5848
+	if reverse {
+		addrSource = k.DestAddr.String()
+		addrDest = k.SourceAddr.String()
+	} else {
+		addrSource = k.SourceAddr.String()
+		addrDest = k.DestAddr.String()
+	}
+
+	if k.Flags&TUPLE_F_SERVICE != 0 {
+		sb.WriteString(fmt.Sprintf("%s SVC %s:%d -> %s:%d ",
+			k.NextHeader.String(), k.SourceAddr.String(), k.DestPort,
+			k.DestAddr.String(), k.SourcePort),
+		)
+	} else if k.Flags&TUPLE_F_IN != 0 {
+		sb.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
+			k.NextHeader.String(), addrSource, k.SourcePort,
+			addrDest, k.DestPort),
+		)
+	} else {
+		sb.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
+			k.NextHeader.String(), addrSource, k.SourcePort,
+			addrDest, k.DestPort),
+		)
+	}
+
+	if k.Flags&TUPLE_F_RELATED != 0 {
+		sb.WriteString("related ")
+	}
+
+	return true
+}
+
+func (k *CtKey6Global) GetTupleKey() tuple.TupleKey {
+	return &k.TupleKey6Global
+}
+
+// CtEntry represents an entry in the connection tracking table.
+type CtEntry struct {
+	Union0   [2]uint64 `align:"$union0"`
+	Packets  uint64    `align:"packets"`
+	Bytes    uint64    `align:"bytes"`
+	Lifetime uint32    `align:"lifetime"`
+	Flags    uint16    `align:"rx_closing"`
+	// RevNAT is in network byte order
+	RevNAT uint16 `align:"rev_nat_index"`
+	// NatPort is in network byte order
+	NatPort          uint16 `align:"nat_port"`
+	TxFlagsSeen      uint8  `align:"tx_flags_seen"`
+	RxFlagsSeen      uint8  `align:"rx_flags_seen"`
+	SourceSecurityID uint32 `align:"src_sec_id"`
+	LastTxReport     uint32 `align:"last_tx_report"`
+	LastRxReport     uint32 `align:"last_rx_report"`
+}
+
+const SizeofCtEntry = int(unsafe.Sizeof(CtEntry{}))
+
+const (
+	RxClosing = 1 << iota
+	TxClosing
+	Nat64
+	LBLoopback
+	SeenNonSyn
+	NodePort
+	ProxyRedirect
+	DSRInternal
+	FromL7LB
+	Reserved1
+	FromTunnel
+	MaxFlags
+)
+
+func (c *CtEntry) isDsrInternalEntry() bool {
+	return c.Flags&DSRInternal != 0
+}
+
+func (c *CtEntry) flagsString() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("Flags=%#04x [ ", c.Flags))
+	if (c.Flags & RxClosing) != 0 {
+		sb.WriteString("RxClosing ")
+	}
+	if (c.Flags & TxClosing) != 0 {
+		sb.WriteString("TxClosing ")
+	}
+	if (c.Flags & Nat64) != 0 {
+		sb.WriteString("Nat64 ")
+	}
+	if (c.Flags & LBLoopback) != 0 {
+		sb.WriteString("LBLoopback ")
+	}
+	if (c.Flags & SeenNonSyn) != 0 {
+		sb.WriteString("SeenNonSyn ")
+	}
+	if (c.Flags & NodePort) != 0 {
+		sb.WriteString("NodePort ")
+	}
+	if (c.Flags & ProxyRedirect) != 0 {
+		sb.WriteString("ProxyRedirect ")
+	}
+	if (c.Flags & DSRInternal) != 0 {
+		sb.WriteString("DSRInternal ")
+	}
+	if (c.Flags & FromL7LB) != 0 {
+		sb.WriteString("FromL7LB ")
+	}
+	if (c.Flags & FromTunnel) != 0 {
+		sb.WriteString("FromTunnel ")
+	}
+
+	unknownFlags := c.Flags
+	unknownFlags &^= MaxFlags - 1
+	if unknownFlags != 0 {
+		sb.WriteString(fmt.Sprintf("Unknown=%#04x ", unknownFlags))
+	}
+	sb.WriteString("]")
+	return sb.String()
+}
+
+func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
+	var timeDiff string
+	if toRemSecs != nil {
+		timeDiff = fmt.Sprintf(" (%s)", toRemSecs(c.Lifetime))
+	} else {
+		timeDiff = ""
+	}
+
+	return fmt.Sprintf("expires=%d%s Packets=%d Bytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d BackendID=%d NatPort=%d \n",
+		c.Lifetime,
+		timeDiff,
+		c.Packets,
+		c.Bytes,
+		c.RxFlagsSeen,
+		c.LastRxReport,
+		c.TxFlagsSeen,
+		c.LastTxReport,
+		c.flagsString(),
+		byteorder.NetworkToHost16(c.RevNAT),
+		c.SourceSecurityID,
+		c.Union0[1],
+		// TODO NatAddr, either IPv4 or IPv6
+		byteorder.NetworkToHost16(c.NatPort))
+}
+
+// String returns the readable format
+func (c *CtEntry) String() string {
+	return c.StringWithTimeDiff(nil)
+}
+
+func (c *CtEntry) New() bpf.MapValue { return &CtEntry{} }
+
+type GCRunner interface {
+	// Run runs the oneshot connection tracking garbage collection.
+	Run(filter GCFilter) (int, error)
+
+	// Observe4 allows external consumers to observe ongoing GC iterations over CT maps for IPv4 entries.
+	Observe4() stream.Observable[GCEvent]
+
+	// Observe6 allows external consumers to observe ongoing GC iterations over CT maps for IPv6 entries.
+	Observe6() stream.Observable[GCEvent]
+}
+
+type fakeCTMapGC struct{}
+
+func NewFakeGCRunner() GCRunner { return fakeCTMapGC{} }
+
+func (g fakeCTMapGC) Run(filter GCFilter) (int, error) {
+	return 0, nil
+}
+
+func (g fakeCTMapGC) Observe4() stream.Observable[GCEvent] {
+	return stream.FuncObservable[GCEvent](func(ctx context.Context, next func(event GCEvent), complete func(err error)) {})
+}
+
+func (g fakeCTMapGC) Observe6() stream.Observable[GCEvent] {
+	return stream.FuncObservable[GCEvent](func(ctx context.Context, next func(event GCEvent), complete func(err error)) {})
+}

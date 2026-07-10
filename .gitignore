@@ -1,0 +1,116 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+*.so.*
+*.d
+
+# LLVM IR files
+*.ll
+*.ll-*
+
+# Folders
+_obj
+_test
+_build/
+
+# Architecture specific extensions/prefixes
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.exe
+*.test
+*.prof
+
+*.swn
+*.swp
+coverage.out
+coverage-all.out
+coverage-all.html
+coverage-all-tmp.out
+bpf-coverage.html
+bpf-coverage.cover
+
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/extensions.json
+*.plist
+
+*_bash_completion
+*.swo
+outgoing
+
+*cscope.files
+*cscope.out
+*cscope.in.out
+*cscope.po.out
+*tags
+.gdb_history
+compile_commands.json
+
+man/
+
+test/envoy/cilium-files
+test/test_results*
+test/.vagrant
+test/tmp.yaml
+test/*_manifest.yaml
+test/*.xml
+test/*.json
+test/*.log
+test/cilium-[0-9a-f]*.yaml
+test/*tmp
+test/cilium-istioctl
+
+# Testdata, includes generated .o
+!**/testdata/*
+
+# Updates E2E Test
+old-charts/
+
+# generated test files
+test/k8s/manifests/cnp-second-namespaces.yaml
+test/cilium.conf.ginkgo
+
+# Emacs backup files
+*~
+
+# generated from make targets
+*.ok
+*.build_all
+LICENSE.all
+
+# Temporary files that allow build containers/VMs work without git
+# Not to be ignored by docker.
+GIT_VERSION
+
+# The following files get created during image builds
+.buildx
+.buildx_builder
+
+# Local developer config to be executed in the dev VM and CI VMs started locally
+.devvmrc
+
+# Generated dockerignore files
+images/*/Dockerfile.dockerignore
+
+# Local Emacs files
+.dir-locals.el
+
+# Clangd cache for indexed bpf code
+bpf/.cache
+.cache
+
+# Include dummy bpf object necessary for XDP_TX
+!test/bpf/xdp.o
+
+# Files used for direnv
+.direnv
+.envrc

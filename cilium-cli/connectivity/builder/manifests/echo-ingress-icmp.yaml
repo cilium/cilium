@@ -1,0 +1,21 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-ingress-from-client2-icmp
+spec:
+  description: "Allow other client to contact another client via ICMP"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        other: client
+      matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
+    icmps:
+    - fields:
+      - family: IPv4
+        type: 8
+      - family: IPv6
+        type: 128

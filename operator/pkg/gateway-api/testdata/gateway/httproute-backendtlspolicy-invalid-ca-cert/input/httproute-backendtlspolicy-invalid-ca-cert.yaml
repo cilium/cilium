@@ -1,0 +1,111 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-gateway-same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+      - ip: 172.18.255.196
+        ipMode: VIP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backendtlspolicy-invalid-ca-certificate-ref
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+  hostnames:
+    - abc.example.com
+  rules:
+    - backendRefs:
+        - name: backendtlspolicy-nonexistent-ca-certificate-ref-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-nonexistent-ca-certificate-ref
+    - backendRefs:
+        - name: backendtlspolicy-malformed-ca-certificate-ref-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-malformed-ca-certificate-ref
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backendtlspolicy-nonexistent-ca-certificate-ref-test
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: tls-backend
+  ports:
+    - name: "https"
+      protocol: TCP
+      appProtocol: HTTPS
+      port: 443
+      targetPort: 8443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backendtlspolicy-malformed-ca-certificate-ref-test
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: tls-backend
+  ports:
+    - name: "https"
+      protocol: TCP
+      appProtocol: HTTPS
+      port: 443
+      targetPort: 8443
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: nonexistent-ca-certificate-ref
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-nonexistent-ca-certificate-ref-test"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: "nonexistent-ca-certificate"
+    hostname: "abc.example.com"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: malformed-ca-certificate-ref
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-malformed-ca-certificate-ref-test"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: "malformed-ca-certificate"
+    hostname: "abc.example.com"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: malformed-ca-certificate
+  namespace: gateway-conformance-infra
+data: {}

@@ -1,0 +1,29 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled .Values.hubble.relay.prometheus.enabled }}
+# We use a separate service from hubble-relay which can be exposed externally
+kind: Service
+apiVersion: v1
+metadata:
+  name: hubble-relay-metrics
+  namespace: {{ include "cilium.namespace" . }}
+
+  {{- with .Values.hubble.relay.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: hubble-relay
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+spec:
+  clusterIP: None
+  type: ClusterIP
+  selector:
+    k8s-app: hubble-relay
+  ports:
+  - name: metrics
+    port: {{ .Values.hubble.relay.prometheus.port }}
+    protocol: TCP
+    targetPort: prometheus
+{{- end }}

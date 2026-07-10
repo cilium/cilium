@@ -1,0 +1,12 @@
+# Code owners groups assigned to this repository and a brief description of their areas:
+# @cilium/ci-structure       Continuous integration, testing
+# @cilium/contributing       Developer documentation & tools
+# @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
+# @cilium/sig-foundations    Core libraries and guidance to overall software architecture.
+
+# The following filepaths should be sorted so that more specific paths occur
+# after the less specific paths, otherwise the ownership for the specific paths
+# is not properly picked up in Github.
+* @cilium/sig-foundations
+/.github/workflows/ @cilium/github-sec @cilium/ci-structure @cilium/sig-foundations
+/CODEOWNERS @cilium/contributing @cilium/sig-foundations

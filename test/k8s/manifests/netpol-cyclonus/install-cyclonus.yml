@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cyclonus
+  namespace: kube-system
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - command:
+            - ./cyclonus
+            - generate
+            - --fail-fast=true
+            - --exclude=
+            - --include=upstream-e2e
+            - --perturbation-wait-seconds=20
+            - --retries=7
+            - --noisy=true
+            - --ignore-loopback=true
+            - --cleanup-namespaces=false
+            - --server-port=80
+            - --server-protocol=tcp
+            - --junit-results-file=/results/cyclonus-results.xml
+          name: cyclonus
+          imagePullPolicy: IfNotPresent
+          image: docker.io/mfenwick100/cyclonus:v0.5.6@sha256:f8da1d12837a85ada5d039725c89634f89ac30630e30f50ef17d745150294d26
+          volumeMounts:
+            - name: results
+              mountPath: /results
+      volumes:
+        - name: results
+          emptyDir: {}
+      serviceAccountName: cyclonus

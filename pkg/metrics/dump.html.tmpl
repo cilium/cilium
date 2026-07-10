@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metrics</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        table { width: 100%; border-collapse: collapse; }
+        tr { border-bottom: 1px solid #ddd; }
+        th, td { padding: 8px; text-align: left; }
+        tr.clickable:hover { background-color: #f5f5f5; cursor: pointer; }
+        .hidden { display: none; }
+        .search-header {  position: fixed; bottom: 4px; right: 4px; z-index: 99; }
+        .selected { background-color: #e9e9e9; border: 0px; }
+        .ratebox { position: relative; z-index: 99; float: left; }
+    </style>
+</head>
+<body>
+<div class="search-header">
+  <input id="search-input" type="text" placeholder="search name"/>
+</div>
+<table id="metrics-table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Labels</th>
+            <th>Latest</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+<script>
+
+const samples = [
+{{range $idx, $sample := .Samples}}
+  {{$sample}},
+{{end}}
+];
+
+const timespanMinutes = {{.IntervalSeconds}} / 60;
+let timeline = [];
+for (let i = 0; i < {{.NumSamples}}; i++) {
+    let minutes = Math.round(100.0*({{.NumSamples}}-i)*timespanMinutes)/100.0;
+    timeline.push(
+        "-" + minutes + "min",
+    ); 
+}
+
+function plot(idx) {
+    const sample = samples[idx];
+    var data = [], layout = {};
+    if (sample['histogram']) {
+        data = [
+            { name: 'p50', x: timeline, y: [...sample['histogram'].p50].reverse(), type: 'scatter', mode: 'lines', line: { color:'#97e3c2' }},
+            { name: 'p90', x: timeline, y: [...sample['histogram'].p90].reverse(), type: 'scatter', mode: 'lines', line: { color:'#aad2ec' }},
+            { name: 'p99', x: timeline, y: [...sample['histogram'].p99].reverse(), type: 'scatter', mode: 'lines', line: { color:'#f69c9e' }},
+        ];
+    } else {
+        var ys = [...sample['gaugeOrCounter'].samples].reverse();
+        var tl = [...timeline];
+        const rateChecked = document.getElementById(idx + "-rate").checked;
+        if (rateChecked) {
+            var prev = ys[0];
+            for (let i = 1; i < ys.length; i++) {
+                const rate = (ys[i] - prev) / {{.IntervalSeconds}};
+                prev = ys[i];
+                ys[i] = rate;
+            }
+            ys.shift(); tl.shift();
+        }
+        data = [{ x: tl, y: ys, type: 'bar', marker: { color:'#aad2ec' }}];
+        layout = {xaxis: { tickangle: -45}, barmode: 'group'}
+    }
+    Plotly.newPlot(idx + '-plot', data, layout, {staticPlot: true});
+}
+
+function togglePlot(row, idx) {
+    const nextRow = row.nextElementSibling;
+    if (nextRow.classList.contains('hidden')) {
+        nextRow.classList.remove('hidden');
+        row.classList.add('selected');
+        nextRow.classList.add('selected');
+        plot(idx);
+    } else {
+        nextRow.classList.add('hidden');
+        row.classList.remove('selected');
+        nextRow.classList.remove('selected');
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+   const metricsTable = document.getElementById("metrics-table").getElementsByTagName("tbody")[0];
+   for (let i = 0; i < samples.length; ++i) {
+     const sample = samples[i];
+     if (!sample) continue;
+     const row = document.createElement("tr");
+     row.className = "clickable"; 
+     row.setAttribute("onclick", "togglePlot(this, " + i + ")");
+     var cell = document.createElement("td");
+     cell.textContent = sample.name;
+     row.appendChild(cell);
+     cell = document.createElement("td");
+     cell.textContent = sample.labels;
+     row.appendChild(cell);
+     cell = document.createElement("td");
+     cell.textContent = sample.latest;
+     cell.style = "width: 15em";
+     row.appendChild(cell);
+     metricsTable.appendChild(row);
+     const plotRow = document.createElement("tr");
+     plotRow.className = "hidden";
+     cell = document.createElement("td");
+     cell.colSpan = 3;
+     if (sample['gaugeOrCounter']) {
+         const rateDiv = document.createElement("div");
+         rateDiv.className = "ratebox";
+         const rateBox = document.createElement("input");
+         rateBox.id = i + "-rate";
+         rateBox.setAttribute("onclick", "plot(" + i + ")");
+         rateBox.type = "checkbox";
+         const rateLabel = document.createElement("label");
+         rateLabel.textContent = "rate/s"
+         rateLabel.htmlFor = rateBox.id;
+         rateDiv.appendChild(rateBox);
+         rateDiv.appendChild(rateLabel);
+         cell.appendChild(rateDiv);
+     }
+     const plotDiv = document.createElement("div");
+     plotDiv.id = i + '-plot';
+     cell.appendChild(plotDiv);
+     plotRow.appendChild(cell);
+     metricsTable.appendChild(plotRow);
+   }
+});
+
+document.getElementById('search-input').addEventListener('keyup', function() {
+   const input = document.getElementById("search-input");
+   const filter = input.value.toUpperCase();
+   const table = document.getElementById("metrics-table");
+   const tr = table.getElementsByTagName("tr");
+   for (i = 1; i < tr.length; i+=2) {
+     const td = tr[i].getElementsByTagName("td");
+     const txtValue = td[0].textContent || td[0].innerText;
+     if (txtValue.toUpperCase().indexOf(filter) < 0) {
+       tr[i].style.display = "none";
+     } else {
+       tr[i].style.display = "";
+     }
+     tr[i+1].className = "hidden"; /* always hide the plots */
+   }
+});
+
+</script>
+
+</body>
+</html>
+

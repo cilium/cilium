@@ -1,0 +1,25 @@
+name: Clean ESP firewall rule
+description: "Remove the firewall rule allowing ESP traffic for GKE clusters"
+
+inputs:
+  cluster_name:
+    description: "Name of the GKE cluster"
+    required: true
+  cluster_zone:
+    description: "Zone of the GKE cluster"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Create service account and kubeconfig for cilium-cli
+      id: service-account-create
+      shell: bash
+      run: |
+          cluster_name=${{ inputs.cluster_name }}
+          cluster_zone=${{ inputs.cluster_zone }}
+          hash=$(gcloud container clusters describe $cluster_name --zone=$cluster_zone --format="value(id)")
+          hash="${hash:0:8}"
+          firewall_rule_name=gke-${cluster_name}-${hash}-allow-esp
+
+          gcloud compute firewall-rules delete --quiet $firewall_rule_name

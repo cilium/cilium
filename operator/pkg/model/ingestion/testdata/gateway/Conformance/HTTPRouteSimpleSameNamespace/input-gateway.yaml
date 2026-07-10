@@ -1,0 +1,14 @@
+metadata:
+  creationTimestamp: null
+  name: same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    name: http
+    port: 80
+    protocol: HTTP
+status: {}

@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package routechecks
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"reflect"
+	"regexp"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+)
+
+var _ Input = (*GRPCRouteInput)(nil)
+
+// GRPCRouteInput is used to implement the Input interface for GRPCRoute
+type GRPCRouteInput struct {
+	Ctx            context.Context
+	Logger         *slog.Logger
+	Client         client.Client
+	Grants         *gatewayv1.ReferenceGrantList
+	GRPCRoute      *gatewayv1.GRPCRoute
+	ControllerName string
+
+	gateways      map[gatewayv1.ParentReference]ListenerOwner
+	gammaServices map[gatewayv1.ParentReference]*corev1.Service
+}
+
+// GRPCRouteRule is used to implement the GenericRule interface for GRPCRoute
+type GRPCRouteRule struct {
+	Rule gatewayv1.GRPCRouteRule
+}
+
+func (g *GRPCRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
+	var refs []gatewayv1.BackendRef
+	for _, b := range g.Rule.BackendRefs {
+		refs = append(refs, b.BackendRef)
+	}
+
+	for _, f := range g.Rule.Filters {
+		if f.Type == gatewayv1.GRPCRouteFilterRequestMirror {
+			if f.RequestMirror == nil {
+				continue
+			}
+			refs = append(refs, gatewayv1.BackendRef{
+				BackendObjectReference: f.RequestMirror.BackendRef,
+			})
+		}
+	}
+
+	return refs
+}
+
+func (g *GRPCRouteInput) GetRules() []GenericRule {
+	var rules []GenericRule
+	for _, rule := range g.GRPCRoute.Spec.Rules {
+		rules = append(rules, &GRPCRouteRule{rule})
+	}
+	return rules
+}
+
+func (g *GRPCRouteInput) GetNamespace() string {
+	return g.GRPCRoute.GetNamespace()
+}
+
+func (g *GRPCRouteInput) GetClient() client.Client {
+	return g.Client
+}
+
+func (g *GRPCRouteInput) GetContext() context.Context {
+	return g.Ctx
+}
+
+func (g *GRPCRouteInput) GetGVK() schema.GroupVersionKind {
+	return gatewayv1.SchemeGroupVersion.WithKind("GRPCRoute")
+}
+
+func (g *GRPCRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
+	return g.Grants.Items
+}
+
+func (g *GRPCRouteInput) GetListenerOwner(parent gatewayv1.ParentReference) (ListenerOwner, error) {
+	if g.gateways == nil {
+		g.gateways = make(map[gatewayv1.ParentReference]ListenerOwner)
+	}
+
+	if owner, exists := g.gateways[parent]; exists {
+		return owner, nil
+	}
+
+	owner, err := ResolveListenerOwner(g.Ctx, g.Client, parent, g.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	g.gateways[parent] = owner
+	return owner, nil
+}
+
+func (g *GRPCRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
+	if g.gammaServices == nil {
+		g.gammaServices = make(map[gatewayv1.ParentReference]*corev1.Service)
+	}
+
+	if s, exists := g.gammaServices[parent]; exists {
+		return s, nil
+	}
+
+	ns := helpers.NamespaceDerefOr(parent.Namespace, g.GetNamespace())
+	s := &corev1.Service{}
+
+	if err := g.Client.Get(g.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, s); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			// if it is not just a not found error, we should return the error as something is bad
+			return nil, fmt.Errorf("error while getting gateway: %w", err)
+		}
+
+		// Gateway does not exist skip further checks
+		return nil, fmt.Errorf("service %q does not exist: %w", parent.Name, err)
+	}
+
+	g.gammaServices[parent] = s
+
+	return s, nil
+}
+
+func (g *GRPCRouteInput) GetHostnames() []gatewayv1beta1.Hostname {
+	return g.GRPCRoute.Spec.Hostnames
+}
+
+func (g *GRPCRouteInput) SetParentCondition(ref gatewayv1beta1.ParentReference, condition metav1.Condition) {
+	condition.LastTransitionTime = metav1.NewTime(time.Now())
+	condition.ObservedGeneration = g.GRPCRoute.GetGeneration()
+
+	g.mergeStatusConditions(ref, []metav1.Condition{
+		condition,
+	})
+}
+
+func (g *GRPCRouteInput) SetAllParentCondition(condition metav1.Condition) {
+	// fill in the condition
+	condition.LastTransitionTime = metav1.NewTime(time.Now())
+	condition.ObservedGeneration = g.GRPCRoute.GetGeneration()
+
+	for _, parent := range g.GRPCRoute.Spec.ParentRefs {
+		g.mergeStatusConditions(parent, []metav1.Condition{
+			condition,
+		})
+	}
+}
+
+func (g *GRPCRouteInput) Log() *slog.Logger {
+	return g.Logger
+}
+
+func (g *GRPCRouteInput) GetValidProtocols() []gatewayv1.ProtocolType {
+	return []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType}
+}
+
+func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
+	index := -1
+	for i, parent := range g.GRPCRoute.Status.RouteStatus.Parents {
+		if reflect.DeepEqual(parent.ParentRef, parentRef) {
+			index = i
+			break
+		}
+	}
+	if index != -1 {
+		g.GRPCRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(g.GRPCRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
+		return
+	}
+	g.GRPCRoute.Status.RouteStatus.Parents = append(g.GRPCRoute.Status.RouteStatus.Parents, gatewayv1.RouteParentStatus{
+		ParentRef:      parentRef,
+		ControllerName: gatewayv1.GatewayController(g.ControllerName),
+		Conditions:     updates,
+	})
+}
+
+func (g *GRPCRouteInput) ValidateMatchRegexps() (metav1.Condition, bool) {
+	for _, rule := range g.GRPCRoute.Spec.Rules {
+		for _, match := range rule.Matches {
+			if methodMatch := match.Method; methodMatch != nil && methodMatch.Type != nil &&
+				*methodMatch.Type == gatewayv1.GRPCMethodMatchRegularExpression {
+				if methodMatch.Service != nil {
+					if _, err := regexp.Compile(*methodMatch.Service); err != nil {
+						return invalidRegexCondition("method.service", err), true
+					}
+				}
+
+				if methodMatch.Method != nil {
+					if _, err := regexp.Compile(*methodMatch.Method); err != nil {
+						return invalidRegexCondition("method.method", err), true
+					}
+				}
+			}
+
+			for _, headerMatch := range match.Headers {
+				if headerMatch.Type != nil && *headerMatch.Type == gatewayv1.GRPCHeaderMatchRegularExpression {
+					if _, err := regexp.Compile(headerMatch.Value); err != nil {
+						return invalidRegexCondition("header", err), true
+					}
+				}
+			}
+		}
+	}
+	return metav1.Condition{}, false
+}

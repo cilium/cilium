@@ -1,0 +1,210 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "lock-down-gke"
+spec:
+  description: "Lock down nodes on GKE. USE AT YOUR OWN RISK."
+  nodeSelector:
+    matchLabels:
+      type: worker
+  ingress:
+  # Only ICMP echo/reply messages should be dropped if this is commented.
+  - fromEntities:
+    - remote-node
+    - health
+
+  - fromEntities:
+    - world
+    toPorts:
+    - ports:
+      # SSH access to the VMs
+      - port: "22"
+        protocol: TCP
+      # Remote Desktop access to the VMs
+      - port: "3389"
+        protocol: TCP
+
+  - fromEntities:
+    - remote-node
+    toPorts:
+    - ports:
+      # VXLAN tunnels between nodes
+      - port: "8472"
+        protocol: UDP
+      # etcd connections
+      - port: "2379"
+        protocol: TCP
+      - port: "2380"
+        protocol: TCP
+      # kubelet
+      - port: "10250"
+        protocol: TCP
+
+  # Aggregator of resource usages on GKE.
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: metrics-server
+    toPorts:
+    - ports:
+      - port: "10255"
+        protocol: TCP
+
+  # Health checks
+  - fromEntities:
+    - remote-node
+    - health
+    toPorts:
+    - ports:
+      - port: "4240"
+        protocol: TCP
+
+  # Requests from Heapster service to kube-proxy.
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: heapster
+    toPorts:
+    - ports:
+      - port: "10255"
+        protocol: TCP
+
+  # NodePort
+  # These two rules are only needed when kube-proxy is used.
+  # They should be removed when running in kube-proxy-free mode.
+  - fromEndpoints:
+    - matchLabels:
+        name: pod-to-b-intra-node-nodeport
+    toPorts:
+    - ports:
+      - port: "31414"
+        protocol: TCP
+  - fromEndpoints:
+    - matchLabels:
+        name: pod-to-b-multi-node-nodeport
+    toPorts:
+    - ports:
+      - port: "31414"
+        protocol: TCP
+
+
+  egress:
+  # Only ICMP echo/reply messages should be dropped if this is commented.
+  - toEntities:
+    - remote-node
+    - health
+
+  # Access to Google servers & API.
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+  - toCIDR:
+    - 169.254.169.254/32
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "80"
+        protocol: TCP
+      - port: "123"
+        protocol: UDP
+      - port: "67"
+        protocol: UDP
+
+  # Traffic to GKE's L7 LB
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: glbc
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+
+  # Konnectivity service
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: konnectivity-agent
+    toPorts:
+    - ports:
+      - port: "8093"
+        protocol: TCP
+
+  # DNS traffic to kube-dns
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "53"
+        protocol: UDP
+      - port: "10054"
+        protocol: TCP
+      - port: "10055"
+        protocol: TCP
+      - port: "8081"
+        protocol: TCP
+
+  # Aggregator of resource usages on GKE.
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: metrics-server
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+
+  # K8s Heapster service.
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: heapster
+    toPorts:
+    - ports:
+      - port: "8082"
+        protocol: TCP
+
+  - toEntities:
+    - remote-node
+    toPorts:
+    - ports:
+      # VXLAN tunnels between nodes
+      - port: "8472"
+        protocol: UDP
+      # etcd connections
+      - port: "2379"
+        protocol: TCP
+      - port: "2380"
+        protocol: TCP
+      # kube-api server
+      - port: "6443"
+        protocol: TCP
+      # kubelet
+      - port: "10250"
+        protocol: TCP
+
+  # Health checks
+  - toEntities:
+    - remote-node
+    - health
+    toPorts:
+    - ports:
+      - port: "4240"
+        protocol: TCP
+
+  # Required for host-networking pods of the connectivity-check
+  - toEndpoints:
+    - matchLabels:
+        name: echo-b
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP

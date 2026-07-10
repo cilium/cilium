@@ -1,0 +1,43 @@
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  creationTimestamp: "2024-08-12T10:08:17Z"
+  generation: 1
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: kind-worker
+    kubernetes.io/os: linux
+  name: kind-worker
+  ownerReferences:
+  - apiVersion: v1
+    kind: Node
+    name: kind-worker
+    uid: 7dffbc53-de44-459b-a0d8-d238e994e68d
+  resourceVersion: "839"
+  uid: 089469fd-62bb-4999-955d-7a674938c4bd
+spec:
+  addresses:
+  - ip: 172.19.0.2
+    type: InternalIP
+  - ip: fc00:c111::2
+    type: InternalIP
+  - ip: 10.244.1.2
+    type: CiliumInternalIP
+  - ip: fd00:10:244:1::b8a4
+    type: CiliumInternalIP
+  alibaba-cloud: {}
+  azure: {}
+  bootid: 9b075bb6-4124-4ae3-8dd0-ddddfb809a76
+  encryption: {}
+  eni: {}
+  health:
+    ipv4: 10.244.1.242
+    ipv6: fd00:10:244:1::a50a
+  ingress: {}
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+    - fd00:10:244:1::/64
+    pools: {}

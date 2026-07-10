@@ -1,0 +1,267 @@
+#
+# This test case validates that when using the k8s.TablesCell, we will have
+# a Table[LocalPod] that is correctly populated from the Pod objects received
+# from api-server. The test uses the client-go fake client instead of a real
+# api-server.
+#
+
+hive start
+
+# At the start the table is empty
+db/cmp k8s-pods empty.table 
+
+# Add a pod
+k8s/add pod.yaml
+
+# TIP: Since this is the first test of its kind, it's worth mentioning
+# here that you can add a 'break' command to drop into an interactive
+# debug shell to explore. E.g. if you would have 'break' here, you could
+# run 'help', 'db/show k8s-pods', 'db/show health', etc. to explore what
+# state the 'k8s add' above left us in.
+
+# Validate that it gets reflected and health is reported
+db/cmp k8s-pods pods.table
+db/cmp --grep=reflector-k8s-pods health health.table
+
+# Check the JSON export of the pod. 
+# The yaml annotations are missing from slimv1.Pod which is why all
+# the keys are lower-case.
+db/show --format=json --out=actual.json k8s-pods
+cmp expected.json actual.json
+
+# TIP2: When using 'cmp' and your expected file is big, you might want
+# to use the '-scripttest.update' flag to automatically update it.
+
+# Check that the pod name index works (FromString is implemented).
+db/get --index=name --columns=Name --out=actual.table k8s-pods default/nginx
+cmp pods_name.table actual.table
+
+# We can also prefix search by namespace. Only taking the 'Name' column
+# so we don't end up comparing the 'Age'.
+db/prefix --index=name --columns=Name -o actual.table k8s-pods default/
+cmp pods_name.table actual.table
+
+# Remove the pod
+k8s/delete pod.yaml
+
+# Table should be empty
+db/cmp k8s-pods empty.table
+
+-- health.table --
+Module        Component                              Level      Message
+k8s-tables    job-k8s-reflector-k8s-pods-daemon-k8s  OK         1 upserted, 0 deleted, 1 total objects
+
+-- empty.table --
+Name   HostNetwork   PodIPs   Phase   Age
+
+-- pods.table --
+Name           HostNetwork   PodIPs       Containers      Phase    Age
+default/nginx  false         10.244.1.178 nginx (80/TCP)  Running  60s
+
+-- pods_name.table --
+Name
+default/nginx
+-- expected.json --
+{
+  "kind": "Pod",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "nginx",
+    "namespace": "default",
+    "uid": "d96be1eb-51df-4383-87ab-bc29d5b42933",
+    "resourceVersion": "1",
+    "labels": {
+      "run": "nginx"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "nginx",
+        "image": "nginx",
+        "ports": [
+          {
+            "containerPort": 80,
+            "protocol": "TCP"
+          }
+        ],
+        "volumeMounts": [
+          {
+            "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+          }
+        ]
+      }
+    ],
+    "serviceAccountName": "default",
+    "nodeName": "testnode"
+  },
+  "status": {
+    "phase": "Running",
+    "conditions": [
+      {
+        "type": "PodReadyToStartContainers",
+        "status": "True",
+        "lastProbeTime": null,
+        "lastTransitionTime": "2024-11-21T14:52:24Z"
+      },
+      {
+        "type": "Initialized",
+        "status": "True",
+        "lastProbeTime": null,
+        "lastTransitionTime": "2024-11-21T14:52:23Z"
+      },
+      {
+        "type": "Ready",
+        "status": "True",
+        "lastProbeTime": null,
+        "lastTransitionTime": "2024-11-21T14:52:24Z"
+      },
+      {
+        "type": "ContainersReady",
+        "status": "True",
+        "lastProbeTime": null,
+        "lastTransitionTime": "2024-11-21T14:52:24Z"
+      },
+      {
+        "type": "PodScheduled",
+        "status": "True",
+        "lastProbeTime": null,
+        "lastTransitionTime": "2024-11-21T14:52:23Z"
+      }
+    ],
+    "hostIP": "172.19.0.3",
+    "podIP": "10.244.1.178",
+    "podIPs": [
+      {
+        "ip": "10.244.1.178"
+      }
+    ],
+    "startTime": "2024-11-21T14:52:23Z",
+    "containerStatuses": [
+      {
+        "state": {
+          "running": {
+            "startedAt": "2024-11-21T14:52:24Z"
+          }
+        },
+        "containerID": "containerd://8e707b9ac927f5c25b6be87ee483845993063b540f9465cbe14dc5ea113fc636"
+      }
+    ],
+    "qosClass": "BestEffort"
+  },
+  "updatedAt": "2000-01-01T10:30:00Z"
+}
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2024-11-21T14:52:23Z"
+  labels:
+    run: nginx
+  name: nginx
+  namespace: default
+  resourceVersion: "1"
+  uid: d96be1eb-51df-4383-87ab-bc29d5b42933
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: nginx
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-fsxsw
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: testnode
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-fsxsw
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2024-11-21T14:52:24Z"
+    status: "True"
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: "2024-11-21T14:52:23Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2024-11-21T14:52:24Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2024-11-21T14:52:24Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2024-11-21T14:52:23Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://8e707b9ac927f5c25b6be87ee483845993063b540f9465cbe14dc5ea113fc636
+    image: docker.io/library/nginx:latest
+    imageID: docker.io/library/nginx@sha256:bc5eac5eafc581aeda3008b4b1f07ebba230de2f27d47767129a6a905c84f470
+    lastState: {}
+    name: nginx
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2024-11-21T14:52:24Z"
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-fsxsw
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  - ip: fc00:c111::3
+  phase: Running
+  podIP: 10.244.1.178
+  podIPs:
+  - ip: 10.244.1.178
+  qosClass: BestEffort
+  startTime: "2024-11-21T14:52:23Z"

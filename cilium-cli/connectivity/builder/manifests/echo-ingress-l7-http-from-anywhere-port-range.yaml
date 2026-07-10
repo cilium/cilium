@@ -1,0 +1,20 @@
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "echo-ingress-l7-http-from-anywhere-port-range"
+spec:
+  description: "Allow port range to GET / on echo"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "4096"
+        endPort: 8191
+        protocol: TCP
+      rules:
+        http:
+          - method: "GET"
+            path: "/$"

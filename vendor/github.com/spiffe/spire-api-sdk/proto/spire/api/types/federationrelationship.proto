@@ -1,0 +1,59 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+import "spire/api/types/bundle.proto";
+
+message FederationRelationship {
+    // Required. The trust domain name (e.g., "example.org") to federate with.
+    string trust_domain = 1;
+
+    // Required. URL of the SPIFFE bundle endpoint that provides the trust
+    // bundle to federate with. Must use the HTTPS protocol.
+    string bundle_endpoint_url = 2;
+
+    // Required. The endpoint profile type.
+    oneof bundle_endpoint_profile {
+        // Use Web PKI endpoint profile.
+        HTTPSWebProfile https_web = 3;
+
+        // Use SPIFFE Authentication endpoint profile.
+        HTTPSSPIFFEProfile https_spiffe = 4;
+    }
+
+    // Optional. The bundle for the trust domain. This field can be used to
+    // create or replace the referenced trust domains' bundle when the
+    // relationship is created or updated.  When the relationship is retrieved,
+    // it will be set to the referenced trust domain's latest bundle (if
+    // available). Please note that the `https_spiffe` profile requires an
+    // existing trust domain bundle in order to function correctly. The
+    // required bundle must match the trust domain specified in the bundle
+    // endpoint SPIFFE ID. If the bundle endpoint SPIFFE ID resides in the same
+    // trust domain that you're trying to federate with, you may optionally
+    // specify that trust domain bundle here. If the bundle endpoint SPIFFE ID
+    // _does not_ reside in the same trust domain that you're federating with,
+    // please ensure that the trust domain bundle for that trust domain has
+    // been configured separately (e.g. configured via another federation
+    // relationship or manually set via the Bundle API).
+    spire.api.types.Bundle trust_domain_bundle = 5;
+}
+
+message HTTPSSPIFFEProfile {
+    // Required. Specifies the expected SPIFFE ID of the SPIFFE bundle endpoint
+    // server.
+    string endpoint_spiffe_id = 1;
+}
+
+message HTTPSWebProfile {
+}
+
+message FederationRelationshipMask {
+    // bundle_endpoint_url field mask.
+    bool bundle_endpoint_url = 1;
+
+    // bundle_endpoint_profile field mask.
+    bool bundle_endpoint_profile = 2;
+
+    // trust_domain_bundle field mask.
+    bool trust_domain_bundle = 3;
+}

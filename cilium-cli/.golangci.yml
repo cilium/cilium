@@ -1,0 +1,58 @@
+# See https://golangci-lint.run/usage/configuration/ for available options.
+# Also https://github.com/cilium/cilium/blob/main/.golangci.yaml as a reference.
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - bodyclose
+    - gocheckcompilerdirectives
+    - err113
+    - errorlint
+    - gofmt
+    - goheader
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - makezero
+    - misspell
+    - musttag
+    - reassign
+    - revive
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unused
+
+linters-settings:
+  goheader:
+    values:
+      regexp:
+        PROJECT: 'Cilium|Hubble'
+    template: |-
+      SPDX-License-Identifier: Apache-2.0
+      Copyright Authors of {{ PROJECT }}
+  goimports:
+    local-prefixes: github.com/cilium/cilium-cli
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+      - shadow
+  stylecheck:
+    checks: ["ST1019"]
+
+issues:
+  # This also warns about credential name variables which are false positives.
+  exclude:
+    - G101 # gosec: Potential hardcoded credentials
+  exclude-rules:
+      # Disallows any kind of `fmt.Errorf("%s is too high", bar)`, too opinionated.
+    - linters: [err113]
+      text: "do not define dynamic errors, use wrapped static errors instead"
+      # Most exported consts are self-descriptive.
+    - linters: [revive]
+      text: "exported const"

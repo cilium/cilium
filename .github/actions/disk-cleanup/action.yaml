@@ -1,0 +1,74 @@
+name: Disk cleanup
+description: "Cleanup disk space"
+runs:
+  using: composite
+  steps:
+    - name: Assess disk usage before cleanup
+      shell: bash
+      run: |
+        echo "# Overview"
+        df -h
+        echo "# Usage for /mnt"
+        sudo du --human-readable \
+                --threshold 50m \
+                -- /mnt
+        echo "# Usage for /var/lib/docker/volumes"
+        sudo du --human-readable \
+                --dereference \
+                --threshold 50m \
+                -- /var/lib/docker/volumes/
+    - name: Free up disk space
+      shell: bash
+      run: |
+        echo "Removing unnecessary files to free up disk space..."
+        # Optimize deletion speed by using maximum parallelism:
+        # 1. Use find with -delete which is more efficient for large directories
+        # 2. Run ALL deletions in parallel since CPU load is not a limiting factor
+        # 3. Use ionice to reduce I/O contention with highest priority
+        # 4. Use nice with highest priority for CPU scheduling
+
+        # Function to efficiently delete a directory
+        fast_delete() {
+          local dir="$1"
+          if [ -d "$dir" ]; then
+            echo "Deleting $dir..."
+            # Use find with maximum priority for both CPU and I/O
+            sudo nice -n -20 ionice -c 1 -n 0 find "$dir" -delete &>/dev/null || sudo nice -n -20 ionice -c 1 -n 0 rm -rf "$dir" &>/dev/null
+            echo "Completed deletion of $dir"
+          fi
+        }
+
+        # Run ALL deletions in parallel - maximum parallelization
+        fast_delete "/usr/local/lib/android" &
+        fast_delete "/usr/share/dotnet" &
+        fast_delete "/opt/google/chrome" &
+        fast_delete "/opt/microsoft/msedge" &
+        fast_delete "/opt/microsoft/powershell" &
+        fast_delete "/opt/pipx" &
+        fast_delete "/opt/ghc" &
+        fast_delete "/usr/local/.ghcup" &
+        fast_delete "/usr/lib/mono" &
+        fast_delete "/usr/local/julia*" &
+        fast_delete "/usr/local/lib/node_modules" &
+        fast_delete "/usr/local/share/chromium" &
+        fast_delete "/usr/local/share/powershell" &
+        fast_delete "/usr/share/swift" &
+
+        # Wait for all deletions to complete
+        wait
+
+        echo "Disk cleanup completed with maximum parallelism"
+    - name: Assess disk usage after cleanup
+      shell: bash
+      run: |
+        echo "# Overview"
+        df -h
+        echo "# Usage for /mnt"
+        sudo du --human-readable \
+                --threshold 50m \
+                -- /mnt
+        echo "# Usage for /var/lib/docker/volumes"
+        sudo du --human-readable \
+                --dereference \
+                --threshold 50m \
+                -- /var/lib/docker/volumes/

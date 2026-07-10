@@ -1,0 +1,16 @@
+http:
+- hostname: '*'
+  port: 55555
+  routes:
+  - backends:
+    - name: default-backend
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: load-balancing
+    namespace: random-namespace
+    version: networking.k8s.io/v1

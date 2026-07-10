@@ -1,0 +1,35 @@
+name: Create ESP firewall rule
+description: "Create a firewall rule to allow ESP traffic for GKE clusters"
+
+inputs:
+  cluster_name:
+    description: "Name of the GKE cluster"
+    required: true
+  cluster_zone:
+    description: "Zone of the GKE cluster"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Create service account and kubeconfig for cilium-cli
+      id: service-account-create
+      shell: bash
+      run: |
+          cluster_name=${{ inputs.cluster_name }}
+          cluster_zone=${{ inputs.cluster_zone }}
+          hash=$(gcloud container clusters describe $cluster_name --zone=$cluster_zone --format="value(id)")
+          hash="${hash:0:8}"
+          echo $hash
+          cluster_node_target_tag=gke-${cluster_name}-${hash}-node
+          echo $cluster_node_target_tag
+          firewall_rule_name=gke-${cluster_name}-${hash}-allow-esp
+
+          gcloud compute firewall-rules create $firewall_rule_name \
+            --network default \
+            --direction INGRESS \
+            --action ALLOW \
+            --rules esp \
+            --priority 1000 \
+            --source-tags $cluster_node_target_tag \
+            --target-tags $cluster_node_target_tag

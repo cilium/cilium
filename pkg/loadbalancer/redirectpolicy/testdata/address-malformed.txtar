@@ -1,0 +1,108 @@
+# Verifies that malformed AddressMatcher LRPs are not applied
+
+hive start
+
+# Add LRP and then LRP-selected pod.
+k8s/add lrp-addr-malformed.yaml
+k8s/add pod.yaml
+
+# Tables and maps should be empty.
+* db/empty services frontends backends localredirectpolicies
+
+# Delete the LRP.
+k8s/delete lrp-addr-malformed.yaml
+
+# Add it again LRP.
+k8s/add lrp-addr-malformed.yaml
+
+# Tables and maps should still be empty.
+* db/empty services frontends backends localredirectpolicies
+
+-- lrp-addr-malformed.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "5050"
+          name: "test"
+          protocol: TCP
+        - port: "5051"
+          name: "test1"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        name: "test"
+        protocol: TCP
+      - port: "81"
+        name: "test1"
+        protocol: TCP
+
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: test
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "5050"
+          name: "test"
+          protocol: TCP
+        - port: "5051"
+          name: "test1"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        name: "test"
+        protocol: TCP
+      - port: "81"
+        name: "test1"
+        protocol: TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: test
+          protocol: TCP
+        - containerPort: 81
+          name: test1
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  conditions:
+  - lastProbeTime: null
+    type: Ready

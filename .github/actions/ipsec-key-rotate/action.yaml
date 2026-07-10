@@ -1,0 +1,52 @@
+name: IPsec key rotation
+description: Rotates IPsec keys
+inputs:
+  key-algo:
+    required: true
+    description: "rfc4106-gcm-aes or cbc-aes-sha256"
+runs:
+  using: composite
+  steps:
+    - name: Rotate IPsec Key
+      shell: bash
+      run: |
+        echo "Updating IPsec secret"
+        cilium encrypt rotate-key --auth-algo ${{ inputs.key-algo }}
+
+        new_key=$(cilium encrypt key-status)
+        echo "New IPsec key: $new_key"
+
+        # We have two keys per node, per direction, per IP family.
+        # So a two-nodes IPv4-only cluster will have four keys.
+        exp_nb_keys=$(cilium encrypt status -o json | jq -r '."ipsec-expected-key-count"')
+        echo "Expected IPsec key count: $exp_nb_keys"
+
+        # During the key rotation, the number of keys doubles.
+        ((exp_nb_keys*=2))
+
+        # Wait until key rotation starts
+        # We expect the amount of keys in use to grow during rotation.
+        while true; do
+          keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
+          if [[ $keys_in_use == $exp_nb_keys ]]; then
+            break
+          fi
+          echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
+          sleep 10s
+        done
+
+        # After the key rotation is finished and old keys are cleaned up, the number of keys is
+        # halved.
+        ((exp_nb_keys/=2))
+
+        # Wait until key rotation completes
+        # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
+        sleep $((4*60))
+        while true; do
+          keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
+          if [[ $keys_in_use == $exp_nb_keys ]]; then
+            break
+          fi
+          echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
+          sleep 10s
+        done

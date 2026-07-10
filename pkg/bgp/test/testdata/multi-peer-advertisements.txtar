@@ -1,0 +1,234 @@
+#! --test-peering-ips=10.99.7.101,10.99.7.102,10.99.7.110
+
+# Tests advertisement updates across two peers using independent
+# CiliumBGPPeerConfig and CiliumBGPAdvertisement resources.
+
+# Start the hive
+hive start
+
+# Configure gobgp servers
+gobgp/add-server peer1 65010 10.99.7.101 1790
+gobgp/add-server peer2 65011 10.99.7.102 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer -s peer1 10.99.7.110 65001
+gobgp/add-peer -s peer2 10.99.7.110 65001
+
+# Add a k8s service
+k8s/add service.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml
+k8s/add bgp-peer-config-1.yaml bgp-advertisement-1-all.yaml
+k8s/add bgp-peer-config-2.yaml bgp-advertisement-2-all.yaml
+
+# Wait for peerings to be established
+gobgp/wait-state -s peer1 10.99.7.110 ESTABLISHED
+gobgp/wait-state -s peer2 10.99.7.110 ESTABLISHED
+
+# Validate PodCIDR + Service routes on peer 1
+gobgp/routes -s peer1 -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Validate PodCIDR + Service routes on peer 2
+gobgp/routes -s peer2 -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Update only peer 1 to use a PodCIDR-only advertisement
+k8s/update bgp-advertisement-1-podcidr.yaml
+
+# Validate peer 1 only receives the PodCIDR route
+gobgp/routes -s peer1 -o routes.actual
+* cmp gobgp-routes-podcidr.expected routes.actual
+
+# Validate peer 2 still receives PodCIDR + Service routes
+gobgp/routes -s peer2 -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Update only peer 2 to use a Service-only advertisement
+k8s/update bgp-advertisement-2-service.yaml
+
+# Validate peer 1 still only receives the PodCIDR route
+gobgp/routes -s peer1 -o routes.actual
+* cmp gobgp-routes-podcidr.expected routes.actual
+
+# Validate peer 2 only receives the Service route
+gobgp/routes -s peer2 -o routes.actual
+* cmp gobgp-routes-service.expected routes.actual
+
+# Update both peers to use PodCIDR + Service advertisements again
+k8s/update bgp-advertisement-1-all.yaml bgp-advertisement-2-all.yaml
+
+# Validate peer 1 receives PodCIDR + Service routes again
+gobgp/routes -s peer1 -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Validate peer 2 receives PodCIDR + Service routes again
+gobgp/routes -s peer2 -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.7.110
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.7.101
+      localAddress: 10.99.7.110
+      peerConfigRef:
+        name: gobgp-peer-config-1
+    - name: gobgp-peer-2
+      peerASN: 65011
+      peerAddress: 10.99.7.102
+      localAddress: 10.99.7.110
+      peerConfigRef:
+        name: gobgp-peer-config-2
+
+-- bgp-peer-config-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config-1
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: peer-1
+
+-- bgp-advertisement-1-all.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: peer-1-advertisements
+  labels:
+    advertise: peer-1
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+  - advertisementType: Service
+    service:
+      addresses:
+        - ClusterIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- bgp-advertisement-1-podcidr.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: peer-1-advertisements
+  labels:
+    advertise: peer-1
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+
+-- bgp-peer-config-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config-2
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: peer-2
+
+-- bgp-advertisement-2-all.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: peer-2-advertisements
+  labels:
+    advertise: peer-2
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+  - advertisementType: Service
+    service:
+      addresses:
+        - ClusterIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- bgp-advertisement-2-service.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: peer-2-advertisements
+  labels:
+    advertise: peer-2
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - ClusterIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- gobgp-routes-all.expected --
+Prefix            NextHop       Attrs
+10.244.0.0/24     10.99.7.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.7.110}]
+10.96.50.104/32   10.99.7.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.7.110}]
+-- gobgp-routes-podcidr.expected --
+Prefix          NextHop       Attrs
+10.244.0.0/24   10.99.7.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.7.110}]
+-- gobgp-routes-service.expected --
+Prefix            NextHop       Attrs
+10.96.50.104/32   10.99.7.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.7.110}]

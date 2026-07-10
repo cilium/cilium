@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package syncstate
+
+import (
+	"context"
+
+	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
+	"github.com/cilium/cilium/pkg/spanstat"
+)
+
+var Cell = cell.Module(
+	"sync",
+	"ClusterMesh Sync",
+
+	metrics.Metric(MetricsProvider),
+	cell.Provide(new),
+)
+
+func new(lc cell.Lifecycle, metrics Metrics) SyncState {
+	ss := SyncState{StoppableWaitGroup: lock.NewStoppableWaitGroup()}
+
+	go func() {
+		syncTime := spanstat.Start()
+		<-ss.WaitChannel()
+		metrics.BootstrapDuration.Set(syncTime.Seconds())
+	}()
+	return ss
+}
+
+// SyncState is a wrapper around lock.StoppableWaitGroup used to keep track of the synchronization
+// of various resources to the kvstore.
+type SyncState struct {
+	*lock.StoppableWaitGroup
+}
+
+// Complete returns true if all resources have been synchronized to the kvstore.
+func (ss SyncState) Complete() bool {
+	select {
+	case <-ss.WaitChannel():
+		return true
+	default:
+		return false
+	}
+}
+
+// WaitForResource adds a resource to the SyncState and returns a callback function that should be
+// called when the resource has been synchronized.
+func (ss SyncState) WaitForResource() func(context.Context) {
+	done := ss.Add()
+	return func(_ context.Context) {
+		done()
+	}
+}
+
+// Metrics contains metrics that should only be exported by the
+// clustermesh-apiserver or kvstoremesh.
+type Metrics struct {
+	// BootstrapDuration tracks the duration in seconds until ready to serve requests.
+	BootstrapDuration metric.Gauge
+}
+
+func MetricsProvider() Metrics {
+	return Metrics{
+		BootstrapDuration: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Name:      "bootstrap_seconds",
+			Help:      "Duration in seconds to complete bootstrap",
+		}),
+	}
+}

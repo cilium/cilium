@@ -1,0 +1,34 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tlsroute-invalid-backend-ref-unknown-kind
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: tls
+    protocol: TLS
+    port: 443
+    allowedRoutes:
+      namespaces:
+        from: Same
+    tls:
+      mode: Passthrough
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: invalid-backend-ref-unknown-kind
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: gateway-tlsroute-invalid-backend-ref-unknown-kind
+    namespace: gateway-conformance-infra
+  hostnames:
+  - "example.com"
+  rules:
+  - backendRefs:
+    - group: unknownkind.example.com
+      kind: NonExistent
+      name: tls-backend
+      port: 443

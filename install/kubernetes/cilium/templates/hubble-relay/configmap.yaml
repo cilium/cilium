@@ -1,0 +1,55 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
+{{- $peerSvcPort := .Values.hubble.peerService.servicePort -}}
+{{- if not .Values.hubble.peerService.servicePort }}
+{{- $peerSvcPort = (.Values.hubble.tls.enabled | ternary 443 80) -}}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-relay-config
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  {{- with .Values.hubble.relay.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  config.yaml: |
+    cluster-name: {{ .Values.cluster.name }}
+    peer-service: "hubble-peer.{{ include "cilium.namespace" . }}.svc.{{ .Values.hubble.peerService.clusterDomain }}.:{{ $peerSvcPort }}"
+    listen-address: {{ include "hubble-relay.config.listenAddress" . }}
+    gops: {{ .Values.hubble.relay.gops.enabled }}
+    gops-port: {{ .Values.hubble.relay.gops.port | quote }}
+    {{- if .Values.hubble.relay.pprof.enabled }}
+    pprof: {{ .Values.hubble.relay.pprof.enabled | quote }}
+    pprof-address: {{ .Values.hubble.relay.pprof.address | quote }}
+    pprof-port: {{ .Values.hubble.relay.pprof.port | quote }}
+    pprof-mutex-profile-fraction: {{ .Values.hubble.relay.pprof.mutexProfileFraction | quote }}
+    pprof-block-profile-rate: {{ .Values.hubble.relay.pprof.blockProfileRate | quote }}
+    {{- end }}
+    {{- if .Values.hubble.relay.prometheus.enabled }}
+    metrics-listen-address: ":{{ .Values.hubble.relay.prometheus.port }}"
+    {{- end }}
+    retry-timeout: {{ .Values.hubble.relay.retryTimeout }}
+    sort-buffer-len-max: {{ .Values.hubble.relay.sortBufferLenMax }}
+    sort-buffer-drain-timeout: {{ .Values.hubble.relay.sortBufferDrainTimeout }}
+    {{- if .Values.hubble.tls.enabled }}
+    tls-hubble-client-cert-file: /var/lib/hubble-relay/tls/client.crt
+    tls-hubble-client-key-file: /var/lib/hubble-relay/tls/client.key
+    tls-hubble-server-ca-files: /var/lib/hubble-relay/tls/hubble-server-ca.crt
+    {{- else }}
+    disable-client-tls: true
+    {{- end }}
+    {{- include "hubble-relay.config.tls" . | nindent 4 }}
+    {{- if .Values.hubble.relay.logOptions.format }}
+    log-format: {{ .Values.hubble.relay.logOptions.format }}
+    {{- end }}
+    {{- if .Values.hubble.relay.logOptions.level }}
+    log-level: {{ .Values.hubble.relay.logOptions.level }}
+    {{- end }}
+{{- end }}

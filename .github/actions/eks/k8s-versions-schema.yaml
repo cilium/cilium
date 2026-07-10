@@ -1,0 +1,9 @@
+include: list(include('includeItem'))
+---
+includeItem:
+  version: str()
+  region: str()
+  default: bool(required=False)
+  ipsec: bool(required=False)
+  kpr: bool(required=False)
+  aws-eni-pd: bool(required=False)

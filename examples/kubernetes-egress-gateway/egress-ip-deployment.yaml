@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "egress-ip-assign"
+  labels:
+    name: "egress-ip-assign"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: "egress-ip-assign"
+  template:
+    metadata:
+      labels:
+        name: "egress-ip-assign"
+    spec:
+      affinity:
+        # the following pod affinity ensures that the "egress-ip-assign" pod
+        # runs on the same node as the mediabot pod
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: class
+                    operator: In
+                    values:
+                      - mediabot
+                  - key: org
+                    operator: In
+                    values:
+                      - empire
+              topologyKey: "kubernetes.io/hostname"
+      hostNetwork: true
+      containers:
+      - name: egress-ip
+        image: docker.io/library/busybox:1.31.1
+        command: ["/bin/sh","-c"]
+        securityContext:
+          privileged: true
+        env:
+        - name: EGRESS_IPS
+          value: "192.168.60.100/24 192.168.60.101/24"
+        args:
+        - "for i in $EGRESS_IPS; do ip address add $i dev enp0s8; done; sleep 10000000"
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - "/bin/sh"
+              - "-c"
+              - "for i in $EGRESS_IPS; do ip address del $i dev enp0s8; done"

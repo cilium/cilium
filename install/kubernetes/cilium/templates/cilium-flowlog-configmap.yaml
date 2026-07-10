@@ -1,0 +1,29 @@
+{{- if and .Values.hubble.export.dynamic.enabled .Values.hubble.export.dynamic.config.createConfigMap }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.hubble.export.dynamic.config.configMapName }}
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  flowlogs.yaml: |
+    flowLogs:
+      {{- /* hubble export configurations moved, use default to make upgrades seemless */ -}}
+      {{- /* TODO: remove default once v1.18 is released, remove warning in warnings.txt and add failure validation in validate.yaml */ -}}
+      {{- range .Values.hubble.export.dynamic.config.content }}
+      {{- if hasKey $.Values.hubble.export "fileMaxSizeMb" }}
+      {{- $_ := set . "fileMaxSizeMb" (get $.Values.hubble.export "fileMaxSizeMb") -}}
+      {{- end }}
+      {{- if hasKey $.Values.hubble.export "fileMaxBackups" }}
+      {{- $_ := set . "fileMaxBackups" (get $.Values.hubble.export "fileMaxBackups") -}}
+      {{- end }}
+      {{- if hasKey $.Values.hubble.export "fileCompress" }}
+      {{- $_ := set . "fileCompress" (get $.Values.hubble.export "fileCompress") -}}
+      {{- end }}
+      {{- list . | toYaml | nindent 6 }}
+      {{- end }}
+{{- end }}

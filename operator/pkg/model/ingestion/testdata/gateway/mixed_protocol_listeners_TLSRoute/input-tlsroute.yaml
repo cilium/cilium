@@ -1,0 +1,15 @@
+- metadata:
+    creationTimestamp: null
+    name: argocd-tlsroute
+    namespace: default
+  spec:
+    hostnames:
+    - argocd.example.com
+    parentRefs:
+    - name: argocd-gateway
+    rules:
+    - backendRefs:
+      - name: argocd-server
+        port: 443
+  status:
+    parents: null

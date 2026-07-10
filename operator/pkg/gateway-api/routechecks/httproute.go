@@ -1,0 +1,241 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package routechecks
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"reflect"
+	"regexp"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+)
+
+// HTTPRouteInput is used to implement the Input interface for HTTPRoute
+type HTTPRouteInput struct {
+	Ctx            context.Context
+	Logger         *slog.Logger
+	Client         client.Client
+	Grants         *gatewayv1.ReferenceGrantList
+	HTTPRoute      *gatewayv1.HTTPRoute
+	ControllerName string
+
+	gateways      map[gatewayv1.ParentReference]ListenerOwner
+	gammaServices map[gatewayv1.ParentReference]*corev1.Service
+}
+
+func (h *HTTPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition) {
+	// fill in the condition
+	condition.LastTransitionTime = metav1.NewTime(time.Now())
+	condition.ObservedGeneration = h.HTTPRoute.GetGeneration()
+
+	h.mergeStatusConditions(ref, []metav1.Condition{
+		condition,
+	})
+}
+
+func (h *HTTPRouteInput) SetAllParentCondition(condition metav1.Condition) {
+	// fill in the condition
+	condition.LastTransitionTime = metav1.NewTime(time.Now())
+	condition.ObservedGeneration = h.HTTPRoute.GetGeneration()
+
+	for _, parent := range h.HTTPRoute.Spec.ParentRefs {
+		h.mergeStatusConditions(parent, []metav1.Condition{
+			condition,
+		})
+	}
+}
+
+func (h *HTTPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
+	index := -1
+	for i, parent := range h.HTTPRoute.Status.RouteStatus.Parents {
+		if reflect.DeepEqual(parent.ParentRef, parentRef) {
+			index = i
+			break
+		}
+	}
+	if index != -1 {
+		h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
+		return
+	}
+	h.HTTPRoute.Status.RouteStatus.Parents = append(h.HTTPRoute.Status.RouteStatus.Parents, gatewayv1.RouteParentStatus{
+		ParentRef:      parentRef,
+		ControllerName: gatewayv1.GatewayController(h.ControllerName),
+		Conditions:     updates,
+	})
+}
+
+func (h *HTTPRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
+	return h.Grants.Items
+}
+
+func (h *HTTPRouteInput) GetNamespace() string {
+	return h.HTTPRoute.GetNamespace()
+}
+
+func (h *HTTPRouteInput) GetGVK() schema.GroupVersionKind {
+	return gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute")
+}
+
+func (h *HTTPRouteInput) GetRules() []GenericRule {
+	var rules []GenericRule
+	for _, rule := range h.HTTPRoute.Spec.Rules {
+		rules = append(rules, &HTTPRouteRule{rule})
+	}
+	return rules
+}
+
+func (h *HTTPRouteInput) GetClient() client.Client {
+	return h.Client
+}
+
+func (h *HTTPRouteInput) GetContext() context.Context {
+	return h.Ctx
+}
+
+func (h *HTTPRouteInput) GetHostnames() []gatewayv1.Hostname {
+	return h.HTTPRoute.Spec.Hostnames
+}
+
+func (h *HTTPRouteInput) GetListenerOwner(parent gatewayv1.ParentReference) (ListenerOwner, error) {
+	if h.gateways == nil {
+		h.gateways = make(map[gatewayv1.ParentReference]ListenerOwner)
+	}
+
+	if owner, exists := h.gateways[parent]; exists {
+		return owner, nil
+	}
+
+	owner, err := ResolveListenerOwner(h.Ctx, h.Client, parent, h.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	h.gateways[parent] = owner
+
+	return owner, nil
+}
+
+func (h *HTTPRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
+	if h.gammaServices == nil {
+		h.gammaServices = make(map[gatewayv1.ParentReference]*corev1.Service)
+	}
+
+	if s, exists := h.gammaServices[parent]; exists {
+		return s, nil
+	}
+
+	ns := helpers.NamespaceDerefOr(parent.Namespace, h.GetNamespace())
+	s := &corev1.Service{}
+
+	if err := h.Client.Get(h.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, s); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			// if it is not just a not found error, we should return the error as something is bad
+			return nil, fmt.Errorf("error while getting gateway: %w", err)
+		}
+
+		// Gateway does not exist skip further checks
+		return nil, fmt.Errorf("service %q does not exist: %w", parent.Name, err)
+	}
+
+	h.gammaServices[parent] = s
+
+	return s, nil
+}
+
+func (h *HTTPRouteInput) Log() *slog.Logger {
+	return h.Logger
+}
+
+func (h *HTTPRouteInput) GetValidProtocols() []gatewayv1.ProtocolType {
+	return []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType}
+}
+
+// HTTPRouteRule is used to implement the GenericRule interface for HTTPRoute
+type HTTPRouteRule struct {
+	Rule gatewayv1.HTTPRouteRule
+}
+
+func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
+	var refs []gatewayv1.BackendRef
+	for _, backend := range t.Rule.BackendRefs {
+		refs = append(refs, backend.BackendRef)
+	}
+	for _, f := range t.Rule.Filters {
+		if f.Type == gatewayv1.HTTPRouteFilterRequestMirror {
+			if f.RequestMirror == nil {
+				continue
+			}
+			refs = append(refs, gatewayv1.BackendRef{
+				BackendObjectReference: f.RequestMirror.BackendRef,
+			})
+		}
+	}
+	return refs
+}
+
+// Validates the HTTPRoute header
+func (r *HTTPRouteInput) ValidateHeaderModifier() error {
+	for _, backendref := range r.HTTPRoute.Spec.Rules {
+		for _, f := range backendref.Filters {
+			if f.Type == gatewayv1.HTTPRouteFilterRequestHeaderModifier {
+				for _, set := range f.RequestHeaderModifier.Set {
+					if set.Name == "Host" {
+						return fmt.Errorf("Invalid HTTPRoute header: %q", set.Name)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func invalidRegexCondition(field string, err error) metav1.Condition {
+	return metav1.Condition{
+		Type:    string(gatewayv1.RouteConditionAccepted),
+		Status:  metav1.ConditionFalse,
+		Reason:  string(gatewayv1.RouteReasonUnsupportedValue),
+		Message: fmt.Sprintf("Invalid regular expression in %s match: %v", field, err),
+	}
+}
+
+func (h *HTTPRouteInput) ValidateMatchRegexps() (metav1.Condition, bool) {
+	for _, rule := range h.HTTPRoute.Spec.Rules {
+		for _, match := range rule.Matches {
+			if pathMatch := match.Path; pathMatch != nil && pathMatch.Type != nil &&
+				*pathMatch.Type == gatewayv1.PathMatchRegularExpression && pathMatch.Value != nil {
+				if _, err := regexp.Compile(*pathMatch.Value); err != nil {
+					return invalidRegexCondition("path", err), true
+				}
+			}
+
+			for _, headerMatch := range match.Headers {
+				if headerMatch.Type != nil && *headerMatch.Type == gatewayv1.HeaderMatchRegularExpression {
+					if _, err := regexp.Compile(headerMatch.Value); err != nil {
+						return invalidRegexCondition("header", err), true
+					}
+				}
+			}
+
+			for _, queryMatch := range match.QueryParams {
+				if queryMatch.Type != nil && *queryMatch.Type == gatewayv1.QueryParamMatchRegularExpression {
+					if _, err := regexp.Compile(queryMatch.Value); err != nil {
+						return invalidRegexCondition("queryParam", err), true
+					}
+				}
+			}
+		}
+	}
+
+	return metav1.Condition{}, false
+}

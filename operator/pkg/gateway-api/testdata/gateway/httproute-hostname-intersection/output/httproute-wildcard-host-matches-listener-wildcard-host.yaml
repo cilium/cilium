@@ -1,0 +1,37 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: wildcard-host-matches-listener-wildcard-host
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: httproute-hostname-intersection
+      namespace: gateway-conformance-infra
+  hostnames:
+    - "*.anotherwildcard.io" # matches listener-3's wildcard host
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /s4
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: httproute-hostname-intersection
+        namespace: gateway-conformance-infra

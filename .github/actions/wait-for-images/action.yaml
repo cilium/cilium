@@ -1,0 +1,54 @@
+name: Wait for images
+description: Wait for images
+inputs:
+  SHA:
+    description: 'inputs.sha'
+    required: true
+    default: 'incorrect-sha'
+  images:
+    description: 'list of images to wait for'
+    required: false
+    default: 'cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci'
+  login-host:
+    description: 'The host to login to if login is set to true.'
+    required: false
+    default: ''
+  login-username:
+    description: 'The username to login to the registry if login is set to true.'
+    required: false
+    default: ''
+  login-password:
+    description: 'The password to login to the registry if login is set to true.'
+    required: false
+    default: ''
+  auth-required:
+    description: 'Variable setting up if auth is required or not. Can be found in the repository variable under DOCKER_AUTH_REQUIRED name'
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - name: Set environment variables
+      uses: ./.github/actions/set-env-variables
+    - name: Login to docker registry
+      if: ${{ inputs.auth-required != 'false' && inputs.login-host != '' && inputs.login-username != '' && inputs.login-password != '' }}
+      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      with:
+        registry: ${{ inputs.login-host }}
+        username: ${{ inputs.login-username }}
+        password: ${{ inputs.login-password }}
+    - name: Wait for images
+      shell: bash
+      run: |
+        images=( ${{ inputs.images }} )
+        if [[ ! -d cilium-cli ]]; then
+            >&2 echo "Skipping cilium-cli-ci due to lack of local directory"
+            images=( "${images[@]/cilium-cli-ci}" )
+        fi
+        for image in ${images[@]}; do
+          until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ inputs.SHA }} &> /dev/null
+          do
+            echo "Waiting for ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ inputs.SHA }} image to become available..."
+            sleep 45s
+          done
+        done

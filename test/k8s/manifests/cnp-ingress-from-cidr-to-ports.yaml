@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "cnp-ingress-from-cidr-to-ports"
+spec:
+  description: "Policy to allow traffic external to cluster inwards via CIDR and port"
+  endpointSelector:
+    matchLabels:
+      zgroup: testDS
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+    fromCIDR:
+      - NODE_WITHOUT_CILIUM_IP/32

@@ -1,0 +1,370 @@
+name: Conformance Runtime (ci-runtime)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+  # Run every 8 hours
+  schedule:
+    - cron:  '0 3/8 * * *'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with cilium/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=golang-version depName=go
+  go-version: 1.26.5
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  # Wait for the cilium-ci image to be available, as it ships the BPF
+  # toolchain (clang/llc/tc) extracted into the test VMs below.
+  wait-for-images:
+    runs-on: ubuntu-24.04
+    name: Wait for images
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Waiting for images
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+
+  setup-and-test:
+    needs: wait-for-images
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    name: "Runtime Test (${{matrix.focus}})"
+    env:
+      # GitHub doesn't provide a way to retrieve the name of a job, so we have
+      # to repeated it here.
+      job_name: "Runtime Test (${{matrix.focus}})"
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        focus:
+          - "privileged"
+
+        include:
+
+          - focus: "privileged"
+            # TODO: not updated by renovate, investigate why the tests fail on newer images
+            lvhImage: "6.18-20260504.013701"
+
+    timeout-minutes: 50
+    steps:
+      - name: Set commit status to pending
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+      - name: Collect Workflow Telemetry
+        uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Provision LVH VMs
+        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        with:
+          test-name: runtime-tests
+          install-dependencies: true
+          image-version: "${{ matrix.lvhImage }}"
+          host-mount: ./
+          images-folder-parent: "/tmp"
+          cpu: 4
+          # renovate: datasource=github-tags depName=cilium/little-vm-helper
+          lvh-version: "v0.0.30"
+          mem: 14G
+
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        if: ${{ matrix.focus == 'privileged' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-unit-tests-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-unit-tests-cache-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/go/.cache/go-build
+          mkdir -p /tmp/.cache/go/pkg
+
+      - name: Move Go cache to local directories
+        if: ${{ steps.go-cache.outputs.cache-hit == 'true' && matrix.focus == 'privileged' }}
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        run: |
+          mv "${GOCACHE}/go-build-cache.tar.zst" ./go-build-cache.tar.zst || true
+          mv "${GOMODCACHE}/go-mod-cache.tar.zst" ./go-mod-cache.tar.zst || true
+
+      - name: Setup runtime
+        timeout-minutes: 10
+        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        with:
+          provision: 'false'
+          cmd: |
+            mkdir -p /root/go/src/github.com/cilium/
+            ln -s /host /root/go/src/github.com/cilium/cilium
+            mkdir -p /home/root/go/src/github.com/cilium/
+            ln -s /host /home/root/go/src/github.com/cilium/cilium
+            git config --global --add safe.directory /host
+            echo '127.0.0.1 localhost' >> /etc/hosts
+            echo '::1 localhost' >> /etc/hosts
+            # The privileged tests compile and load BPF programs and thus
+            # require the same clang/llc/tc toolchain shipped in the Cilium
+            # image. Extract the binaries instead of booting a full agent.
+            # These programs are not statically linked so they might break in
+            # the case of GHA runners being upgraded.
+            if ! command -v clang >/dev/null 2>&1; then
+              # Wait for systemd-resolved to be ready so that the image pull
+              # below can resolve the registry hostname.
+              for i in {1..5}; do curl "https://${{ env.REGISTRY_DEV }}" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
+              docker create --name cilium-toolchain ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+              docker cp cilium-toolchain:/usr/local/bin/clang /usr/bin/
+              docker cp cilium-toolchain:/usr/local/bin/llc /usr/bin/
+              docker cp cilium-toolchain:/usr/sbin/tc /usr/bin/
+              docker rm cilium-toolchain
+            fi
+            clang --version
+
+      - name: Prepare privileged tests
+        id: prepare-tests
+        if: ${{ matrix.focus == 'privileged' }}
+        timeout-minutes: 10
+        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        with:
+          provision: 'false'
+          cmd: |
+            apt-get update
+            apt-get install zstd -y
+            cd /host
+            # The LVH image might ship with an arbitrary Go toolchain version,
+            # install the same Go toolchain version as current HEAD.
+            go install golang.org/dl/go${{ env.go-version }}@latest
+            go${{ env.go-version }} download
+            # renovate: datasource=github-releases depName=mfridman/tparse
+            go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
+            # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+            go${{ env.go-version}} install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
+            # Use go cache and module cache from the host that is shared with the VM.
+            mkdir -p /go-caches
+            tar --use-compress-program=zstd -xpf /host/go-build-cache.tar.zst --same-owner -C /go-caches || true
+            tar --use-compress-program=zstd -xpf /host/go-mod-cache.tar.zst --same-owner -C /go-caches || true
+            ls -la /go-caches/go-build || true
+
+      - name: Privileged unit tests
+        id: run-tests
+        if: ${{ matrix.focus == 'privileged' }}
+        timeout-minutes: 40
+        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            make TMPDIR=/var/tmp GOCACHE="/go-caches/go-build" GOMODCACHE="/go-caches/pkg" SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
+
+      - name: Copy Go cache to host
+        id: copy-go-cache
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+        timeout-minutes: 10
+        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            tar --use-compress-program=zstd -cpf /host/go-build-cache.tar.zst -C /go-caches go-build || true
+            tar --use-compress-program=zstd -cpf /host/go-mod-cache.tar.zst -C /go-caches pkg || true
+
+      - name: Move Go cache to local directories
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        run: |
+          ls -lah "./go-build-cache.tar.zst" || true
+          ls -lah "./go-mod-cache.tar.zst" || true
+          mv ./go-build-cache.tar.zst "${GOCACHE}" || true
+          mv ./go-mod-cache.tar.zst "${GOMODCACHE}" || true
+          ls -lah "${GOCACHE}" || true
+          ls -lah "${GOMODCACHE}" || true
+
+
+      - name: Fetch JUnits
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          # junit_filename needs to be the same as the Job Name presented on the
+          # GH web UI - In the Summary page of a workflow run, left column
+          # "Jobs" - so that we can map the junit file to the right job - step
+          # pair on datastudio.
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cilium-junits-${{ matrix.focus }}
+          path: cilium-junits/*.xml
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() && runner.arch != 'ARM64' }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-24.04
+    needs: setup-and-test
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Merge JUnits
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: setup-and-test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set final commit status
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.setup-and-test.result }}

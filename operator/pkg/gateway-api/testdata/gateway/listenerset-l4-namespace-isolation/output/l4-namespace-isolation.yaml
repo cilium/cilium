@@ -1,0 +1,84 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: l4-namespace-isolation
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      kinds:
+      - kind: TCPRoute
+      namespaces:
+        from: All
+    name: tcp
+    port: 3000
+    protocol: TCP
+  - allowedRoutes:
+      kinds:
+      - kind: UDPRoute
+      namespaces:
+        from: All
+    name: udp
+    port: 3001
+    protocol: UDP
+status:
+  attachedListenerSets: 1
+  conditions:
+  - lastTransitionTime: "2026-06-12T01:24:17Z"
+    message: Gateway successfully scheduled
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: "2026-06-12T01:24:17Z"
+    message: Gateway waiting for address
+    reason: AddressNotAssigned
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Address not ready yet
+      reason: Pending
+      status: "False"
+      type: Programmed
+    name: tcp
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TCPRoute
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Address not ready yet
+      reason: Pending
+      status: "False"
+      type: Programmed
+    name: udp
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: UDPRoute

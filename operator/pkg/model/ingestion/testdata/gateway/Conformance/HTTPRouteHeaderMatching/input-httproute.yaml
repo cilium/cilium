@@ -1,0 +1,53 @@
+- metadata:
+    creationTimestamp: null
+    name: header-matching
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      matches:
+      - headers:
+        - name: version
+          value: one
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+      matches:
+      - headers:
+        - name: version
+          value: two
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      matches:
+      - headers:
+        - name: version
+          value: two
+        - name: color
+          value: orange
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      matches:
+      - headers:
+        - name: color
+          value: blue
+      - headers:
+        - name: color
+          value: blue
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+      matches:
+      - headers:
+        - name: color
+          value: red
+      - headers:
+        - name: color
+          value: yellow
+  status:
+    parents: null

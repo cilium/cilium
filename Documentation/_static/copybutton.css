@@ -1,0 +1,49 @@
+div.code-wrapper {
+  position: relative !important;
+}
+
+section > div.code-wrapper {
+  margin-bottom: 24px !important;
+}
+
+div.code-wrapper pre {
+  padding-top: 25px !important;
+}
+
+div.copybutton-wrapper {
+  display: block;
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: auto;
+  height: 20px;
+  text-align: center;
+  background-color: #eef0f0;
+  user-select: none;
+  padding: 2px 5px 0 7px;
+  font-size: 14px;
+  line-height: 14px;
+  font-weight: 400;
+  opacity: 0.4;
+  /* white-space: pre; */
+}
+
+div.code-wrapper:hover div.copybutton-wrapper {
+  opacity: 1;
+}
+
+div.copybutton-wrapper a.copybutton {
+  display: inline-block;
+  padding: 0 5px;
+  color: #666;
+}
+
+img.copy-icon {
+  position: relative;
+  top: -1px;
+  width: 14px;
+}
+
+div.copybutton-wrapper a.copybutton:hover {
+  color: #000;
+}

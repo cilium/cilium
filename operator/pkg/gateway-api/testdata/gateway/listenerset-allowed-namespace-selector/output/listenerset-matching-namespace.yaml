@@ -1,0 +1,51 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  creationTimestamp: null
+  name: matching-namespace
+  namespace: team-a-ns
+  resourceVersion: "999"
+spec:
+  parentRef:
+    name: allowed-namespace-selector
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: extra-http
+      port: 8080
+      protocol: HTTP
+status:
+  conditions:
+    - lastTransitionTime: "2025-07-01T00:00:00Z"
+      message: ListenerSet is accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T00:00:00Z"
+      message: ListenerSet is programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+  listeners:
+    - attachedRoutes: 0
+      conditions:
+        - lastTransitionTime: "2025-07-01T00:00:00Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-07-01T00:00:00Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T00:00:00Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
+          type: Programmed
+      name: extra-http
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute

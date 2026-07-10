@@ -1,0 +1,53 @@
+# The toFQDNs section relies on DNS introspection being performed by
+# the client-egress-only-dns policy.
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "client-egress-l7-tls"
+specs:
+- description: "L7 policy with TLS"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  # Allow HTTPS when X-Very-Secret-Token is set
+  - toFQDNs:
+    - matchName: "{{.ExternalTarget}}"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      terminatingTLS:
+        secret:
+          namespace: "{{.TestNamespace}}"
+          name: externaltarget-tls # internal certificate to terminate in cluster
+      originatingTLS:
+        secret:
+          namespace: "{{.ExternalTargetCANamespace}}"
+          name: "{{.ExternalTargetCAName}}" # public CA bundle to validate external target
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+          headers:
+          - "X-Very-Secret-Token: 42"
+  - toFQDNs:
+    - matchName: "{{.ExternalOtherTarget}}"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      terminatingTLS:
+        secret:
+          namespace: "{{.TestNamespace}}"
+          name: externaltarget-tls # internal certificate to terminate in cluster
+      originatingTLS:
+        secret:
+          namespace: "{{.ExternalTargetCANamespace}}"
+          name: "{{.ExternalTargetCAName}}" # public CA bundle to validate external target
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+          headers:
+          - "X-Very-Secret-Token: 42"

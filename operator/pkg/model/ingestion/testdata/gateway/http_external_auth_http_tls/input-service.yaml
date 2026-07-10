@@ -1,0 +1,17 @@
+- metadata:
+    creationTimestamp: null
+    name: my-service
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: auth-service
+    namespace: default
+  spec:
+    ports:
+    - name: auth
+      port: 8888
+  status:
+    loadBalancer: {}

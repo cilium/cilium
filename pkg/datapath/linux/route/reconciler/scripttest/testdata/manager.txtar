@@ -1,0 +1,69 @@
+netns/create otherns
+
+link/add veth0 veth --peername eth0 --peerns otherns
+link/add veth1 veth --peername eth1 --peerns otherns
+
+addr/add 192.168.1.1/24 veth0
+addr/add 192.168.1.0/24 --netns otherns eth0
+addr/add 192.168.2.1/24 veth1
+addr/add 192.168.2.0/24 --netns otherns eth1
+
+link/set lo up
+link/set veth0 up
+link/set eth0 --netns otherns up
+link/set veth1 up
+link/set eth1 --netns otherns up
+
+hive start
+db/initialized
+
+# Add two owners, owner 2 has higher priority (lower number)
+add-owner owner1
+add-owner owner2
+
+# Add routes for the same prefix but different devices
+add-route owner1 route1.yaml
+add-route owner2 route2.yaml
+
+# Route from owner2 should be selected
+db/cmp desired-routes desired-routes-both.table
+
+# Selected route should be present in the kernel
+route/list --table=2000
+* cmp stdout route2.txt
+
+# Remove owner2, route from owner1 should be selected
+remove-owner owner2
+db/cmp desired-routes desired-routes-owner1.table
+
+# Route from owner1 should be present in the kernel
+route/list --table=2000
+* cmp stdout route1.txt
+
+# Stop hive properly
+hive/stop
+
+-- route1.yaml --
+table: 2000
+prefix: "10.2.3.4/32"
+adminDistance: 101
+device: veth0
+nexthop: fe80::1
+
+-- route2.yaml --
+table: 2000
+prefix: "10.2.3.4/32"
+adminDistance: 100
+device: veth1
+
+-- desired-routes-both.table --
+Owner    Table   Prefix        Priority   AD    Selected   Nexthop   Src    Device      MTU    Scope      Type  
+owner1   2000    10.2.3.4/32   none       101   false      fe80::1   none   veth0 (2)   none   universe   unspec
+owner2   2000    10.2.3.4/32   none       100   true       none      none   veth1 (3)   none   universe   unspec
+-- desired-routes-owner1.table --
+Owner    Table   Prefix        Priority   AD    Selected   Nexthop   Src    Device      MTU    Scope      Type  
+owner1   2000    10.2.3.4/32   none       101   true       fe80::1   none   veth0 (2)   none   universe   unspec
+-- route1.txt --
+10.2.3.4/32 via inet6 fe80::1 dev veth0 scope universe table 2000
+-- route2.txt --
+10.2.3.4/32 dev veth1 scope universe table 2000

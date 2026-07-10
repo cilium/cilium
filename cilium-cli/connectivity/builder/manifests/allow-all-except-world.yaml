@@ -1,0 +1,39 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-all-except-world
+spec:
+  endpointSelector: {}
+  egress:
+  - toEntities:
+    - host
+    - remote-node
+    - cluster
+    - init
+    - health
+    - kube-apiserver
+  - toEndpoints:
+    - matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
+  # For nodelocaldns using a link-local address (the "localip" mode).
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+    # Including 'world' here may still be needed for versions up to 1.16 (#997)
+    toEntities:
+      - host
+      - world
+  ingress:
+  - fromEntities:
+    - host
+    - remote-node
+    - cluster
+    - init
+    - health
+    - kube-apiserver
+  - fromEndpoints:
+    - matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }

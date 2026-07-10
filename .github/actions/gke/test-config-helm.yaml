@@ -1,0 +1,8 @@
+# List of test cases for conformance-gke with helm installation options
+---
+config:
+  - type: "no-tunnel"
+    index: 1
+  - type: "tunnel"
+    index: 2
+    cilium-install-opts: "--datapath-mode=tunnel"

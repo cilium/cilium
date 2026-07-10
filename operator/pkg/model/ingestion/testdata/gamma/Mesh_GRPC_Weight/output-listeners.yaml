@@ -1,0 +1,34 @@
+- hostname: "*"
+  name: gateway-conformance-mesh-echo-7070
+  port: 7070
+  routes:
+    - backends:
+        - app_protocol: grpc
+          name: echo-v1
+          namespace: gateway-conformance-mesh
+          port:
+            port: 7070
+          weight: 70
+        - app_protocol: grpc
+          name: echo-v2
+          namespace: gateway-conformance-mesh
+          port:
+            port: 7070
+          weight: 30
+      hostnames:
+        - "*"
+      path_match: {}
+      timeout: {}
+  service:
+    type: ClusterIP
+  sources:
+    - kind: Service
+      name: echo
+      namespace: gateway-conformance-mesh
+      version: v1
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+      name: mesh-grpc-weighted-backends
+      namespace: gateway-conformance-mesh
+      version: v1
+  gamma: true

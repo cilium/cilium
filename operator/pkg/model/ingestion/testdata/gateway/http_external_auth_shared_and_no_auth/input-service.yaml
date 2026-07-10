@@ -1,0 +1,28 @@
+- metadata:
+    creationTimestamp: null
+    name: my-service
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: my-service2
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: my-service3
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: auth-service
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}

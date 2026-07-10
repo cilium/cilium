@@ -1,0 +1,238 @@
+#! --test-peering-ips=10.99.6.101,10.99.6.102 --kube-proxy-replacement=false
+
+# Tests ClusterIP / LoadBalancerIP / ExternalIP advertisements with kube-proxy-replacement disabled.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server test 65010 10.99.6.101 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer 10.99.6.102 65001
+
+# Add k8s services (LB service with eTP=Local)
+k8s/add service-clusterip.yaml service-lb-local.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.6.102 ESTABLISHED
+
+# Add endpoints for the LB service
+k8s/add endpoints-local.yaml
+
+# Validate that all svc IPs are advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Delete endpoints of the LB service
+k8s/delete endpoints-local.yaml
+
+# Validate that only ClusterIP with iTP=Cluster is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-tp-cluster.expected routes.actual
+
+# Update LB service to eTP=Cluster
+k8s/update service-lb-cluster.yaml
+
+# Validate that all svc IPs are advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.6.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.6.101
+      localAddress: 10.99.6.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - ClusterIP
+        - LoadBalancerIP
+        - ExternalIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- service-clusterip.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo2
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: ClusterIP
+  internalTrafficPolicy: Cluster
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+
+-- service-lb-local.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalIPs:
+  - 9.9.9.9
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Local
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-lb-cluster.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalIPs:
+  - 9.9.9.9
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpoints-local.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.20
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: test-node
+- addresses:
+  - 10.244.2.30
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: other-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- gobgp-routes-tp-cluster.expected --
+Prefix            NextHop       Attrs
+10.96.50.105/32   10.99.6.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.6.102}]
+-- gobgp-routes-all.expected --
+Prefix            NextHop       Attrs
+10.96.50.104/32   10.99.6.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.6.102}]
+10.96.50.105/32   10.99.6.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.6.102}]
+172.16.1.1/32     10.99.6.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.6.102}]
+9.9.9.9/32        10.99.6.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.6.102}]

@@ -1,0 +1,259 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-gateway-same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+      - ip: 172.18.255.196
+        ipMode: VIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-gateway-same-namespace-with-https-listener
+  namespace: gateway-conformance-infra
+spec:
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+      - ip: 172.18.255.197
+        ipMode: VIP
+---
+apiVersion: v1
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVORENDQXB5Z0F3SUJBZ0lSQUtEL0JMRkJmd0tJWjBXR3JIdFRINmd3RFFZSktvWklodmNOQVFFTEJRQXcKZHpFZU1Cd0dBMVVFQ2hNVmJXdGpaWEowSUdSbGRtVnNiM0J0Wlc1MElFTkJNU1l3SkFZRFZRUUxEQjEwWVcxdApZV05vUUdabFpHOXlZUzVzWVc0Z0tGUmhiU0JOWVdOb0tURXRNQ3NHQTFVRUF3d2tiV3RqWlhKMElIUmhiVzFoClkyaEFabVZrYjNKaExteGhiaUFvVkdGdElFMWhZMmdwTUI0WERUSXpNREl5TVRFeE1EZzBNMW9YRFRJMU1EVXkKTVRFeU1EZzBNMW93VVRFbk1DVUdBMVVFQ2hNZWJXdGpaWEowSUdSbGRtVnNiM0J0Wlc1MElHTmxjblJwWm1sagpZWFJsTVNZd0pBWURWUVFMREIxMFlXMXRZV05vUUdabFpHOXlZUzVzWVc0Z0tGUmhiU0JOWVdOb0tUQ0NBU0l3CkRRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFNSVp5KzBKUlZqcXBXZ2VxMmRQKzFvbGlPNEEKQ2Nabk1nNHRTcVBhbGhEUUw2TWY2OEhZTGZpenlKSXBSek1KOTA1cllkMEFjbVhtdS9nMEVvOHlrSHhGRHo1VApzZVBzMlhRbmc4TU40YXpzUm1tMWw0Zjc0b3Zhd1F6UWNiODIyUVAxQ1M2SUxaM1Z0d05qUmgybkF3dGhZQk1vCkNrbmdER2VROEdsMHRqSExGbkJkVGRTd1FSbUUyanREQmNBZ3lFR3BxKzZSZVl0Ky80N25ObjdkQ2Z0c1ZxaEUKQllyOVhIM2l0ZWZIbXNiZmo3eldGYnB0ZGtvN3E5bE1Id25CZCswaGQ0ME1tSklYTVpyT0dHRlpqYXdKREJxUwpzQnEyUTNsNlhRejhYN1AvR0E4RG44aDR3M3JwcG1pYU43TE9tR1hla2kzeFgyd3FuTSswczZhWllac0NBd0VBCkFhTmhNRjh3RGdZRFZSMFBBUUgvQkFRREFnV2dNQk1HQTFVZEpRUU1NQW9HQ0NzR0FRVUZCd01CTUI4R0ExVWQKSXdRWU1CYUFGR1EyREIwNkNkUUZRQnNZUHllME5Cd0VyVU5FTUJjR0ExVWRFUVFRTUE2Q0RIVnVhWFIwWlhOMApMbU52YlRBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVlFQXJ0SGRLV1hSNmFFTHBmYWwxN2JpYWJDUHZJRjlqNm53CnVEemNkTVlRTHJYbThNK05IZTh4M2RwSTd1M2xsdE8rZHpMbmcrblZLUU9SM2FsUUFDU21SRDljN2llOGVUNWQKN3pLT1RrNmtlWTE5NUkxd1ZWNGpiTkxiTldhOXk0UkpRUlR2QkxBdkFQOU5WdFV3MlEvdy9FclVUcVN5eitvYgpkd250NGdZQ3c2ZEdubHVMeGxmRjM0REI5S2ZsdlZOU25reU1CL2dzQjRBM3IxR1BPSW8wR3lmNzRpZzNGV3JTCndIWUtuQmJ0WmZZTzBKVjBMQ29QeUhlOGcwWGFqWmU4RENiUC9FNlNtbFROQW1KRVNWamlnVFRjSUJBa0ZJK24KdG9CQWR4ZmhqS1VHYUNsT0hTMjljcGFpeW5qU2F5R200UmtIa3g3bWNBdWE5bFdQZjdwU2EzbUNjRmIrd0ZyMwpBQmtIRFBKSDJhY2ZhVUsxdmdLVGdPd2NHLzZLQTgyMC9QcmFvU2loTGFQSy9BN2VnNzdyMUVlWXB0ME5lcHBiClhqdlVwM1ltVmxJTVpYUHpyak9zYXN0b0RTcnN5Z2o1amRWdG00UHNsdjluUGh6RHJCamxacEVKU2NXNEpsYisKNnd0ZDdwMDNVREJTS2ZUYlZST1ZBZTVtdkp2QTBob1MKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2QUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktZd2dnU2lBZ0VBQW9JQkFRRENHY3Z0Q1VWWTZxVm8KSHF0blQvdGFKWWp1QUFuR1p6SU9MVXFqMnBZUTBDK2pIK3ZCMkMzNHM4aVNLVWN6Q2ZkT2EySGRBSEpsNXJ2NApOQktQTXBCOFJROCtVN0hqN05sMEo0UEREZUdzN0VacHRaZUgrK0tMMnNFTTBIRy9OdGtEOVFrdWlDMmQxYmNEClkwWWRwd01MWVdBVEtBcEo0QXhua1BCcGRMWXh5eFp3WFUzVXNFRVpoTm83UXdYQUlNaEJxYXZ1a1htTGZ2K08KNXpaKzNRbjdiRmFvUkFXSy9WeDk0clhueDVyRzM0KzgxaFc2YlhaS082dlpUQjhKd1hmdElYZU5ESmlTRnpHYQp6aGhoV1kyc0NRd2FrckFhdGtONWVsME0vRit6L3hnUEE1L0llTU42NmFab21qZXl6cGhsM3BJdDhWOXNLcHpQCnRMT21tV0diQWdNQkFBRUNnZ0VBRWpBU29NSjJvZzlTc24vMU5iZ1Q2RzJOK0NjK3d6MldQaWZXVDZaQzI0NTIKZUVXY2RNeUoranoyZFdPeXpVQ0kwT3RVL3oxMGVzSDFLUnZRQldVS2p1cDF0RFJwZmQ4S3ZVeWFseU5zMnlSRQpzTkVZUXVEQ2FMSjExbnFOdmdvb3FhdERVZjNtc0Z4L1NxejV1L3VUV0hTbWFRVWVlYStwMmVhRjhJdkVLc1FmCjZRTmtsa2VIc3YrR1ZQditpaWJmYlhYbmU2STVhVjM1UmM0UTA4elJDZ1lYL0JOMUFZWFY2aG80UkM5ZFpWR1AKSlVrU0x6UmFkZWdvay9FT05La3JxTFpPRkpWYjJ3dEZxODVnSjAxbE9ETS9najdHcU01OU0vd2s1NUNhUUlSRAo5eDVINFg0cnBNMnJobWlOTGtJTjB0R0xLTzhYMzF1cDdoVHg5YnZKY1FLQmdRRDUxTUxXWVlVUHovdW12U3JOClFPVDlVaEVISS9ieHRDYldRdGhXM0wxcXJWVDdEQjhKa28vNi94WWxYaGw3bndWd0p6MjRqSmY5dnV4V2JCcEwKSFpSZjBRc0RPMi9PNHJxaEtEb3YvR01VQ3gyc2h6YytKN2srVDkzS05WQU5ZYTA1Z3VxTWVCOG4zMEhQcm9rRgpMZ2loVkZGMjBrOVo2U2liVXZnVE1wRjFFd0tCZ1FERzVNQmdjOG9GWG1sci83cEhLaXpDNEYzZURBWFV4VkhNCldDSWJTd015ek9YS3FEY2RYTkR6OGNRcmpoS2EyckQxZktoRTBvUlIrUXZIejhJUEMrME1zVDdRNlFzSUhZajUKQ1h1YkhyMHM1azhQSkFwK0xrMkVkSGVQWlFNL0kvdmovZ1N3eG5KOVFzNjRGV1oyNUs5elluTk5zaW9qUWVsNwpXVm1JOUlWYVdRS0JnRDNCWWdnc1F3QU5vVjh1RTQ1NUpDR2FUNnM4TUthK3FYcjlPd3o5czdUUzg5YTZ3RkZWCmNWSFNERjlnUzF4TGlzU1dicU5YM1pwVHY0ZjlZT0tBaFZUS0Q3YlUwbWFKbFNpUkVSRWJpa0pDSFN1d29PODAKVW80Y24rNkVEeTIvbjFwQUNrcCt4dlRNTXpCckxHT2paVzY3c1FkMkpUZE1jMFV4MVRDcHAxc1JBb0dBYUVWSQpyY2hHWXlZcDhwcXcxOW8rZVRRVFFmUGZvcnFIdGErR3dmUkRpd0JzZ0NCTU5MS1NRVEhBZkcwUlIrbmExL2d3CloxUk9Wb05RTDhLMXBCbkdmdDcxWmFTblNldmlBVjE5VmNkNXVlNU1DRTRHeWp3UUc1N0xoM3VYaGlTaFM5ZkMKTWNMNEJyOWRqSmg3alYwNnRpMG84ZFN6enFRaGVhOVFCMExhSHBFQ2dZQXBjOG9Cb2lLNjlzMHdYeUk0K1BoeApTY0JKMFhxREJZRmt4eVhyOFk1cEVhckVhcUN0bDFPUFBNT2lRUkRXb3hSUitGd0EvMGxhU2ZoNXh3MFUzYitxCmlaMlhwa3JiUXAwMzRyQzBVUjZwK0ttMVN2OUFWQ0FDQWpyY1EzTlphZjhiRE9XcXZwbGE3QXVxMG9HOGk2VVgKaEVLQ0tmL04zZ0Uxb01yVHhWelVEUT09Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+kind: Secret
+metadata:
+  name: tls-validity-checks-certificate
+  namespace: gateway-conformance-infra
+type: kubernetes.io/tls
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backendtlspolicy
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+  hostnames:
+    - abc.example.com
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: backendtlspolicy-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: backendtlspolicy-host-mismatch-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-host-mismatch
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: backendtlspolicy-cert-mismatch-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-cert-mismatch
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backendtlspolicy-test
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: tls-backend
+  ports:
+    - name: "btls"
+      protocol: TCP
+      port: 443
+      targetPort: 8443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backendtlspolicy-host-mismatch-test
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: tls-backend
+  ports:
+    - name: "btls"
+      protocol: TCP
+      appProtocol: HTTPS
+      port: 443
+      targetPort: 8443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backendtlspolicy-cert-mismatch-test
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: tls-backend
+  ports:
+    - name: "btls"
+      protocol: TCP
+      appProtocol: HTTPS
+      port: 443
+      targetPort: 8443
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: normative-test
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-test"
+      sectionName: "btls"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        # This ConfigMap is generated dynamically by the test suite.
+        # It contains the CA certificate used to sign the tls-backend serving certificate.
+        name: "tls-checks-ca-certificate"
+    hostname: "abc.example.com"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: host-mismatch
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-host-mismatch-test"
+      sectionName: "btls"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        # This ConfigMap is generated dynamically by the test suite.
+        # It contains the CA certificate used to sign the tls-backend serving certificate.
+        name: "tls-checks-ca-certificate"
+    hostname: "mismatch.example.com"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: cert-mismatch
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-cert-mismatch-test"
+      sectionName: "btls"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        # This ConfigMap is generated dynamically by the test suite.
+        # It contains a random, unused CA certificate to force validation to fail.
+        name: "mismatch-ca-certificate"
+    hostname: "abc.example.com"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tls-checks-ca-certificate
+  namespace: gateway-conformance-infra
+data:
+  "ca.crt": |
+    -----BEGIN CERTIFICATE-----
+    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
+    -----END CERTIFICATE-----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mismatch-ca-certificate
+  namespace: gateway-conformance-infra
+data:
+  "ca.crt": |
+    -----BEGIN CERTIFICATE-----
+    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
+    -----END CERTIFICATE-----

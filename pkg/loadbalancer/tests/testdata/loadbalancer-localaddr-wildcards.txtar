@@ -1,0 +1,652 @@
+#! --lb-test-fault-probability=0.0
+
+# Add node addresses
+db/insert node-addresses addrv4.yaml
+db/cmp node-addresses nodeaddrs-initial.table
+
+# Start the test application
+hive start
+
+# Add backend state for one multiprotocol service and one TCP-only service
+k8s/add endpointslice-multi.yaml endpointslice-single.yaml
+db/cmp backends backends.table
+
+# Add the services and verify the desired frontend state
+k8s/add service-multi.yaml service-single.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Verify that ClusterIP and LoadBalancer IPs get wildcard ANY entries
+lb/maps-dump lbmaps-initial.actual
+* cmp lbmaps-initial.expected lbmaps-initial.actual
+
+# Add a node-address that clashes with the first LoadBalancer VIP
+# This should suppress the wildcard entry only for 172.16.1.1
+db/insert node-addresses addrv4-eth0.yaml
+db/cmp node-addresses nodeaddrs-clash-1.table
+db/cmp frontends frontends.table
+lb/maps-dump lbmaps-clash-1.actual
+* cmp lbmaps-clash-1.expected lbmaps-clash-1.actual
+
+# Add a second clashing node-address for the other LoadBalancer VIP
+# This should suppress wildcard entries for 172.16.1.2 as well now
+db/insert node-addresses addrv4-eth1.yaml
+db/cmp node-addresses nodeaddrs-clash-both.table
+db/cmp frontends frontends.table
+lb/maps-dump lbmaps-clash-both.actual
+* cmp lbmaps-clash-both.expected lbmaps-clash-both.actual
+
+# Remove the first clashing node-address
+# The first VIP should regain its wildcard entry, while the second should remain suppressed
+db/delete node-addresses addrv4-eth0.yaml
+db/cmp node-addresses nodeaddrs-clash-2.table
+db/cmp frontends frontends.table
+lb/maps-dump lbmaps-clash-2.actual
+* cmp lbmaps-clash-2.expected lbmaps-clash-2.actual
+
+# Remove the second clashing node-address and verify both wildcard entries return
+db/delete node-addresses addrv4-eth1.yaml
+db/cmp node-addresses nodeaddrs-initial.table
+db/cmp frontends frontends.table
+lb/maps-dump lbmaps-restored.actual
+* cmp lbmaps-restored.expected lbmaps-restored.actual
+* cmp lbmaps-initial.actual lbmaps-restored.actual
+
+# Cleanup endpoint state first.
+k8s/delete endpointslice-multi.yaml endpointslice-single.yaml
+* db/empty backends
+
+# Then delete the services and verify the datapath is empty again.
+k8s/delete service-multi.yaml service-single.yaml
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- addrv4-eth0.yaml --
+addr: 172.16.1.1
+nodeport: false
+primary: true
+devicename: eth0
+
+-- addrv4-eth1.yaml --
+addr: 172.16.1.2
+nodeport: false
+primary: true
+devicename: eth1
+
+-- nodeaddrs-initial.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    test
+
+-- nodeaddrs-clash-1.table --
+Address     NodePort Primary DeviceName
+1.1.1.1     true     true    test
+172.16.1.1  false    true    eth0
+
+-- nodeaddrs-clash-both.table --
+Address     NodePort Primary DeviceName
+1.1.1.1     true     true    test
+172.16.1.1  false    true    eth0
+172.16.1.2  false    true    eth1
+
+-- nodeaddrs-clash-2.table --
+Address     NodePort Primary DeviceName
+1.1.1.1     true     true    test
+172.16.1.2  false    true    eth1
+
+-- services.table --
+Name               Source   PortNames                      TrafficPolicy   Flags
+test/echo-multi    k8s      dtls=443, http=80, https=443   Cluster
+test/echo-single   k8s      http=80                        Cluster
+
+-- frontends.table --
+Address                Type           ServiceName        PortName   Backends                                 RedirectTo   Status
+0.0.0.0:30781/TCP      NodePort       test/echo-multi    http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP                  Done
+0.0.0.0:30782/TCP      NodePort       test/echo-multi    https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP                Done
+0.0.0.0:30782/UDP      NodePort       test/echo-multi    dtls       10.244.1.1:443/UDP, 10.244.1.2:443/UDP                Done
+0.0.0.0:30783/TCP      NodePort       test/echo-single   http       10.244.2.1:80/TCP, 10.244.2.2:80/TCP                  Done
+10.96.50.104:80/TCP    ClusterIP      test/echo-multi    http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP                  Done
+10.96.50.104:443/TCP   ClusterIP      test/echo-multi    https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP                Done
+10.96.50.104:443/UDP   ClusterIP      test/echo-multi    dtls       10.244.1.1:443/UDP, 10.244.1.2:443/UDP                Done
+10.96.50.105:80/TCP    ClusterIP      test/echo-single   http       10.244.2.1:80/TCP, 10.244.2.2:80/TCP                  Done
+172.16.1.1:80/TCP      LoadBalancer   test/echo-multi    http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP                  Done
+172.16.1.1:443/TCP     LoadBalancer   test/echo-multi    https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP                Done
+172.16.1.1:443/UDP     LoadBalancer   test/echo-multi    dtls       10.244.1.1:443/UDP, 10.244.1.2:443/UDP                Done
+172.16.1.2:80/TCP      LoadBalancer   test/echo-single   http       10.244.2.1:80/TCP, 10.244.2.2:80/TCP                  Done
+
+-- backends.table --
+Service            Address             NodeName
+test/echo-multi    10.244.1.1:80/TCP   nodeport-worker1
+test/echo-multi    10.244.1.1:443/TCP  nodeport-worker1
+test/echo-multi    10.244.1.1:443/UDP  nodeport-worker1
+test/echo-multi    10.244.1.2:80/TCP   nodeport-worker2
+test/echo-multi    10.244.1.2:443/TCP  nodeport-worker2
+test/echo-multi    10.244.1.2:443/UDP  nodeport-worker2
+test/echo-single   10.244.2.1:80/TCP   nodeport-worker1
+test/echo-single   10.244.2.2:80/TCP   nodeport-worker2
+
+-- lbmaps-initial.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.1:443/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.2:443/TCP STATE=active
+BE: ID=5 ADDR=10.244.1.1:443/UDP STATE=active
+BE: ID=6 ADDR=10.244.1.2:443/UDP STATE=active
+BE: ID=7 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=8 ADDR=10.244.2.2:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=10 ADDR=172.16.1.1:80
+REV: ID=11 ADDR=172.16.1.1:443
+REV: ID=12 ADDR=172.16.1.1:443
+REV: ID=13 ADDR=0.0.0.0:30783
+REV: ID=14 ADDR=1.1.1.1:30783
+REV: ID=15 ADDR=10.96.50.105:80
+REV: ID=16 ADDR=172.16.1.2:80
+REV: ID=2 ADDR=1.1.1.1:30781
+REV: ID=3 ADDR=0.0.0.0:30782
+REV: ID=4 ADDR=1.1.1.1:30782
+REV: ID=5 ADDR=0.0.0.0:30782
+REV: ID=6 ADDR=1.1.1.1:30782
+REV: ID=7 ADDR=10.96.50.104:80
+REV: ID=8 ADDR=10.96.50.104:443
+REV: ID=9 ADDR=10.96.50.104:443
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.96.50.105:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=172.16.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=0 ADDR=172.16.1.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-clash-1.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.1:443/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.2:443/TCP STATE=active
+BE: ID=5 ADDR=10.244.1.1:443/UDP STATE=active
+BE: ID=6 ADDR=10.244.1.2:443/UDP STATE=active
+BE: ID=7 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=8 ADDR=10.244.2.2:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=10 ADDR=172.16.1.1:80
+REV: ID=11 ADDR=172.16.1.1:443
+REV: ID=12 ADDR=172.16.1.1:443
+REV: ID=13 ADDR=0.0.0.0:30783
+REV: ID=14 ADDR=1.1.1.1:30783
+REV: ID=15 ADDR=10.96.50.105:80
+REV: ID=16 ADDR=172.16.1.2:80
+REV: ID=2 ADDR=1.1.1.1:30781
+REV: ID=3 ADDR=0.0.0.0:30782
+REV: ID=4 ADDR=1.1.1.1:30782
+REV: ID=5 ADDR=0.0.0.0:30782
+REV: ID=6 ADDR=1.1.1.1:30782
+REV: ID=7 ADDR=10.96.50.104:80
+REV: ID=8 ADDR=10.96.50.104:443
+REV: ID=9 ADDR=10.96.50.104:443
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.96.50.105:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=172.16.1.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-clash-both.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.1:443/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.2:443/TCP STATE=active
+BE: ID=5 ADDR=10.244.1.1:443/UDP STATE=active
+BE: ID=6 ADDR=10.244.1.2:443/UDP STATE=active
+BE: ID=7 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=8 ADDR=10.244.2.2:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=10 ADDR=172.16.1.1:80
+REV: ID=11 ADDR=172.16.1.1:443
+REV: ID=12 ADDR=172.16.1.1:443
+REV: ID=13 ADDR=0.0.0.0:30783
+REV: ID=14 ADDR=1.1.1.1:30783
+REV: ID=15 ADDR=10.96.50.105:80
+REV: ID=16 ADDR=172.16.1.2:80
+REV: ID=2 ADDR=1.1.1.1:30781
+REV: ID=3 ADDR=0.0.0.0:30782
+REV: ID=4 ADDR=1.1.1.1:30782
+REV: ID=5 ADDR=0.0.0.0:30782
+REV: ID=6 ADDR=1.1.1.1:30782
+REV: ID=7 ADDR=10.96.50.104:80
+REV: ID=8 ADDR=10.96.50.104:443
+REV: ID=9 ADDR=10.96.50.104:443
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.96.50.105:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-clash-2.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.1:443/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.2:443/TCP STATE=active
+BE: ID=5 ADDR=10.244.1.1:443/UDP STATE=active
+BE: ID=6 ADDR=10.244.1.2:443/UDP STATE=active
+BE: ID=7 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=8 ADDR=10.244.2.2:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=10 ADDR=172.16.1.1:80
+REV: ID=11 ADDR=172.16.1.1:443
+REV: ID=12 ADDR=172.16.1.1:443
+REV: ID=13 ADDR=0.0.0.0:30783
+REV: ID=14 ADDR=1.1.1.1:30783
+REV: ID=15 ADDR=10.96.50.105:80
+REV: ID=16 ADDR=172.16.1.2:80
+REV: ID=2 ADDR=1.1.1.1:30781
+REV: ID=3 ADDR=0.0.0.0:30782
+REV: ID=4 ADDR=1.1.1.1:30782
+REV: ID=5 ADDR=0.0.0.0:30782
+REV: ID=6 ADDR=1.1.1.1:30782
+REV: ID=7 ADDR=10.96.50.104:80
+REV: ID=8 ADDR=10.96.50.104:443
+REV: ID=9 ADDR=10.96.50.104:443
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.96.50.105:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=172.16.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-restored.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.1:443/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.2:443/TCP STATE=active
+BE: ID=5 ADDR=10.244.1.1:443/UDP STATE=active
+BE: ID=6 ADDR=10.244.1.2:443/UDP STATE=active
+BE: ID=7 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=8 ADDR=10.244.2.2:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=10 ADDR=172.16.1.1:80
+REV: ID=11 ADDR=172.16.1.1:443
+REV: ID=12 ADDR=172.16.1.1:443
+REV: ID=13 ADDR=0.0.0.0:30783
+REV: ID=14 ADDR=1.1.1.1:30783
+REV: ID=15 ADDR=10.96.50.105:80
+REV: ID=16 ADDR=172.16.1.2:80
+REV: ID=2 ADDR=1.1.1.1:30781
+REV: ID=3 ADDR=0.0.0.0:30782
+REV: ID=4 ADDR=1.1.1.1:30782
+REV: ID=5 ADDR=0.0.0.0:30782
+REV: ID=6 ADDR=1.1.1.1:30782
+REV: ID=7 ADDR=10.96.50.104:80
+REV: ID=8 ADDR=10.96.50.104:443
+REV: ID=9 ADDR=10.96.50.104:443
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.96.50.105:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=172.16.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=0 ADDR=172.16.1.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=10 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=11 ADDR=172.16.1.1:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=12 ADDR=172.16.1.1:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=13 ADDR=0.0.0.0:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=14 ADDR=1.1.1.1:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=10.96.50.105:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:80/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30782/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30782/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=10.96.50.104:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=9 ADDR=10.96.50.104:443/UDP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- service-multi.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo-multi
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30782
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  - name: dtls
+    nodePort: 30782
+    port: 443
+    protocol: UDP
+    targetPort: 443
+  selector:
+    name: echo-multi
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-single.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo-single
+  namespace: test
+  resourceVersion: "742"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49c
+spec:
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30783
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo-single
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.2
+
+-- endpointslice-multi.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-multi-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-multi
+  name: echo-multi-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  nodeName: nodeport-worker1
+- addresses:
+  - 10.244.1.2
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP
+- name: dtls
+  port: 443
+  protocol: UDP
+
+-- endpointslice-single.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-single-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-single
+  name: echo-single-kvlm2
+  namespace: test
+  resourceVersion: "798"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd76
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  nodeName: nodeport-worker1
+- addresses:
+  - 10.244.2.2
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP

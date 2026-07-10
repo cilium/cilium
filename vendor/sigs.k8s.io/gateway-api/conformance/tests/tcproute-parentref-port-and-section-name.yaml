@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-echo-one
+  namespace: gateway-conformance-infra
+  labels:
+    app: tcp-echo-one
+spec:
+  selector:
+    app: tcp-echo-one
+  ports:
+    - name: tcp
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcp-echo-one
+  namespace: gateway-conformance-infra
+  labels:
+    app: tcp-echo-one
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-echo-one
+  template:
+    metadata:
+      labels:
+        app: tcp-echo-one
+    spec:
+      containers:
+        - name: tcp-echo
+          image: registry.k8s.io/gateway-api/echo-basic:v1.5.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TCP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: tcp-echo-one
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-echo-two
+  namespace: gateway-conformance-infra
+  labels:
+    app: tcp-echo-two
+spec:
+  selector:
+    app: tcp-echo-two
+  ports:
+    - name: tcp
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcp-echo-two
+  namespace: gateway-conformance-infra
+  labels:
+    app: tcp-echo-two
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-echo-two
+  template:
+    metadata:
+      labels:
+        app: tcp-echo-two
+    spec:
+      containers:
+        - name: tcp-echo
+          image: registry.k8s.io/gateway-api/echo-basic:v1.5.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TCP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: tcp-echo-two
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-echo-three
+  namespace: gateway-conformance-infra
+  labels:
+    app: tcp-echo-three
+spec:
+  selector:
+    app: tcp-echo-three
+  ports:
+    - name: tcp
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcp-echo-three
+  namespace: gateway-conformance-infra
+  labels:
+    app: tcp-echo-three
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-echo-three
+  template:
+    metadata:
+      labels:
+        app: tcp-echo-three
+    spec:
+      containers:
+        - name: tcp-echo
+          image: registry.k8s.io/gateway-api/echo-basic:v1.5.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TCP_ECHO_SERVER
+              value: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: tcp-echo-three
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 10m
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: tcp-multi-listener-gateway
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: one
+      protocol: TCP
+      port: 9300
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
+    - name: two
+      protocol: TCP
+      port: 9301
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
+    - name: three
+      protocol: TCP
+      port: 9302
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
+---
+# Scenario 1: parentRef with `port` only (matches listener `one` on port 9300).
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-route-by-port
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: tcp-multi-listener-gateway
+      port: 9300
+  rules:
+    - backendRefs:
+        - name: tcp-echo-one
+          port: 3000
+---
+# Scenario 2: parentRef with `sectionName` only (matches listener `two`).
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-route-by-section
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: tcp-multi-listener-gateway
+      sectionName: two
+  rules:
+    - backendRefs:
+        - name: tcp-echo-two
+          port: 3000
+---
+# Scenario 3: parentRef with both `sectionName` and `port` (listener `three`).
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-route-by-section-and-port
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: tcp-multi-listener-gateway
+      sectionName: three
+      port: 9302
+  rules:
+    - backendRefs:
+        - name: tcp-echo-three
+          port: 3000

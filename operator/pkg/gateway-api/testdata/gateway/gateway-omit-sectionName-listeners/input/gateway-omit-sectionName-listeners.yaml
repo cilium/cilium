@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-conformance-infra-label
+  labels:
+    gateway-conformance: infra
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-omit-sectionName-listeners
+  namespace: gateway-conformance-infra-label
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            gateway-conformance: infra
+    name: http-restrictive
+    port: 80
+    protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: omit-sectionName-listeners 
+  namespace: gateway-conformance-infra-label
+spec:
+  parentRefs:
+  - name: gateway-omit-sectionName-listeners
+    namespace: gateway-conformance-infra-label
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port: 8080

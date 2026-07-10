@@ -1,0 +1,73 @@
+# This test asserts that we only start pruning neighbor entries
+# after we have been fully initialized and know all desired neighbor entries.
+
+netns/create otherns
+link/set lo up --netns otherns
+
+link/add veth0 veth --peername eth0 --peerns otherns
+
+addr/add 192.168.1.1/24 veth0
+
+# Add two addresses to the other end of the veth pair, so we can switch the gateway later.
+addr/add 192.168.1.2/24 eth0 --netns otherns
+addr/add 192.168.1.3/24 eth0 --netns otherns
+
+link/set veth0 up
+link/set eth0 --netns otherns up
+
+# Set our default gateway to the first address initially.
+route/add 0.0.0.0/0 --gateway 192.168.1.2 --dev veth0
+
+hive/start
+
+db/show devices
+
+# Add the forwardable IP for our node, and assert that the neighbor entry is created.
+db/insert forwardable-ip node1-ipv4.yaml
+db/cmp neighbors neighbors.initial.table
+
+hive/stop
+
+# While hive is stopped, change the default gateway to the second address.
+route/del 0.0.0.0/0
+route/add 0.0.0.0/0 --gateway 192.168.1.3 --dev veth0
+
+hive/recreate
+
+# After hive is recreated, but before it is started we register a initializer
+# just like the node-manager does.
+forwardable-ip/register-initializer node-manager
+
+# We insert the forwardable IP again
+db/insert forwardable-ip node1-ipv4.yaml
+
+db
+
+hive/start
+
+# Now check that the neighbor entry for the new default gateway is created.
+# But the old neighbor entry is still there, because we haven't pruned it yet.
+db/cmp neighbors neighbors.before-prune.table
+
+# Now we finish the initialization, which will trigger the pruning of the neighbor entries.
+forwardable-ip/finish-initializer node-manager
+
+# After the initialization is finished, the reconciler will prune any neighbor entries
+# that are not in the desired neighbor table at that time.
+db/cmp neighbors neighbors.after-prune.table
+
+-- node1-ipv4.yaml --
+ip: 200.0.0.123
+owners:
+  - type: node
+    id: node1
+-- neighbors.initial.table --
+LinkIndex   IPAddr        Type   State       Flags         FlagsExt
+2           192.168.1.2   DST    REACHABLE   EXT_LEARNED   NONE
+-- neighbors.before-prune.table --
+LinkIndex   IPAddr        Type   State       Flags         FlagsExt
+2           192.168.1.2   DST    REACHABLE   EXT_LEARNED   NONE
+2           192.168.1.3   DST    REACHABLE   EXT_LEARNED   NONE
+-- neighbors.after-prune.table --
+LinkIndex   IPAddr        Type   State       Flags         FlagsExt
+2           192.168.1.3   DST    REACHABLE   EXT_LEARNED   NONE

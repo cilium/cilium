@@ -1,0 +1,7 @@
+- metadata:
+    creationTimestamp: null
+    name: echo-a-internal
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}

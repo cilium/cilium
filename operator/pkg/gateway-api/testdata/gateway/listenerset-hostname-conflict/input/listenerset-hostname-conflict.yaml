@@ -1,0 +1,52 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: hostname-conflict
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  allowedListeners:
+    namespaces:
+      from: Same
+  listeners:
+    - name: http
+      hostname: example.com
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: hostname-conflict-only
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: hostname-conflict
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: dup-hostname
+      hostname: example.com
+      port: 80
+      protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: hostname-conflict-mixed
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: hostname-conflict
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: dup-hostname
+      hostname: example.com
+      port: 80
+      protocol: HTTP
+    - name: unique-hostname
+      hostname: other.com
+      port: 80
+      protocol: HTTP

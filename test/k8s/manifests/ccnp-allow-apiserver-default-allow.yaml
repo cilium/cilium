@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: ccnp-allow-apiserver-default-allow
+spec:
+  endpointSelector: {}
+  enableDefaultDeny:
+    egress: false
+  egress:
+    - toEntities:
+      - kube-apiserver
+    - toEntities:
+      - all
+      toPorts:
+        - ports:
+          - port: "53"

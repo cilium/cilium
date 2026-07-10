@@ -1,0 +1,9 @@
+apiVersion: cilium.io/v2alpha1
+kind: CiliumGatewayClassConfig
+metadata:
+  name: cilium-gateway-config
+  namespace: default
+spec:
+  service:
+    type: NodePort
+    externalTrafficPolicy: Local

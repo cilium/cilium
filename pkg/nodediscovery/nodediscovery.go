@@ -1,0 +1,406 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package nodediscovery
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"slices"
+
+	"github.com/cilium/stream"
+	"go4.org/netipx"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/net"
+
+	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
+	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
+	nodemanager "github.com/cilium/cilium/pkg/node/manager"
+	nodestore "github.com/cilium/cilium/pkg/node/store"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+const (
+	maxRetryCount   = 10
+	backoffDuration = 500 * time.Millisecond
+)
+
+var localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
+
+type k8sGetters interface {
+	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
+}
+
+type GetNodeAddresses interface {
+	GetNodeAddresses() []nodeTypes.Address
+}
+
+// NodeDiscovery represents a node discovery action
+type NodeDiscovery struct {
+	logger           *slog.Logger
+	manager          nodemanager.NodeManager
+	registrar        nodestore.NodeRegistrar
+	registered       chan struct{}
+	cniConfigManager cni.CNIConfigManager
+	k8sGetters       k8sGetters
+	localNodeStore   *node.LocalNodeStore
+	clientset        client.Clientset
+	kvstoreClient    kvstore.Client
+	ctrlmgr          *controller.Manager
+	daemonConfig     *option.DaemonConfig
+	config           config
+}
+
+// NewNodeDiscovery returns a pointer to new node discovery object
+func NewNodeDiscovery(
+	logger *slog.Logger,
+	manager nodemanager.NodeManager,
+	clientset client.Clientset,
+	kvstoreClient kvstore.Client,
+	lns *node.LocalNodeStore,
+	cniConfigManager cni.CNIConfigManager,
+	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
+	daemonConfig *option.DaemonConfig,
+	c config,
+) *NodeDiscovery {
+	if !option.Config.EnableCiliumNodeCRD {
+		logger.Info("CiliumNode CRD is disabled; skipping CiliumNode resource management")
+		return &NodeDiscovery{}
+	}
+
+	return &NodeDiscovery{
+		logger:           logger,
+		manager:          manager,
+		localNodeStore:   lns,
+		registered:       make(chan struct{}),
+		cniConfigManager: cniConfigManager,
+		clientset:        clientset,
+		kvstoreClient:    kvstoreClient,
+		ctrlmgr:          controller.NewManager(),
+		k8sGetters:       k8sNodeWatcher,
+		daemonConfig:     daemonConfig,
+		config:           c,
+	}
+}
+
+// start configures the local node and starts node discovery. This is called on
+// agent startup to configure the local node based on the configuration options
+// passed to the agent. nodeName is the name to be used in the local agent.
+//
+// NOTE: StartDiscovery is manually called from newDaemon after the Wireguard and
+// IPSec cells have been initialized, as they modify the local node. This requires
+// the daemon to always hold references to both cells to ensure they're started first.
+// Keep this behavior in mind when modifying this function, its cell, or the daemon.
+func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
+	// Start observing local node changes, so that we keep the corresponding CiliumNode
+	// and kvstore representations in sync. The first update is performed synchronously
+	// so that they are guaranteed to exist when StartDiscovery returns.
+	updates := stream.ToChannel(ctx, n.localNodeStore)
+	localNode, found := <-updates
+	if !found {
+		n.logger.Error("Aborting node discovery as  no local node received")
+		return
+	}
+
+	go func() {
+		n.logger.Info(
+			"Adding local node to cluster",
+			logfields.Node, localNode.Name,
+		)
+		for {
+			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.manager); err != nil {
+				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
+				time.Sleep(time.Second)
+			} else {
+				break
+			}
+		}
+		close(n.registered)
+	}()
+
+	go func() {
+		select {
+		case <-n.registered:
+		case <-time.After(defaults.NodeInitTimeout):
+			logging.Fatal(n.logger, "Unable to initialize local node due to timeout")
+		}
+	}()
+
+	n.manager.NodeUpdated(localNode.Node)
+
+	n.updateLocalNode(ctx, &localNode)
+
+	go func() {
+		// Propagate all updates to the CiliumNode and kvstore representations.
+		for ln := range updates {
+			// We want to propagate a local node update back into the Manager.
+			// This is particularly helpful when an IPSec key rotation occurs
+			// and the manager needs to evaluate the local node's EncryptionKey
+			// field.
+			n.manager.NodeUpdated(ln.Node)
+			n.updateLocalNode(ctx, &ln)
+		}
+	}()
+}
+
+// WaitForKVStoreSync blocks until kvstore synchronization of node information
+// completed. It returns immediately in CRD mode.
+func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
+	if !option.Config.EnableCiliumNodeCRD { // Do not block if CiliumNode CRD is disabled
+		return nil
+	}
+
+	select {
+	case <-n.registered:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (n *NodeDiscovery) updateLocalNode(ctx context.Context, ln *node.LocalNode) {
+	if n.kvstoreClient.IsEnabled() {
+		n.ctrlmgr.UpdateController(
+			"propagating local node change to kv-store",
+			controller.ControllerParams{
+				Group:                localNodeToKVStoreControllerGroup,
+				Context:              ctx,
+				CancelDoFuncOnUpdate: true,
+				DoFunc: func(ctx context.Context) error {
+					select {
+					case <-n.registered:
+					case <-ctx.Done():
+						return nil
+					}
+
+					err := n.registrar.UpdateLocalKeySync(ctx, &ln.Node)
+					if err != nil && !errors.Is(err, context.Canceled) {
+						n.logger.Error("Unable to propagate local node change to kvstore", logfields.Error, err)
+					}
+					return err
+				},
+			})
+	}
+
+	if n.clientset.IsEnabled() {
+		// CRD IPAM endpoint restoration depends on the completion of this
+		// to avoid custom resource update conflicts.
+		n.updateCiliumNodeResource(ctx, ln)
+	}
+}
+
+// UpdateCiliumNodeResource updates the CiliumNode resource representing the
+// local node. This function can be safely executed only before starting the
+// discovery logic through StartDiscovery(), as otherwise possibly racing
+// against concurrent updates triggered by the LocalNodeStore observer.
+func (n *NodeDiscovery) UpdateCiliumNodeResource() {
+	// UpdateCiliumNodeResource is executed by the daemon start hook, and
+	// at that point we are guaranteed that the local node has already
+	// been initialized, and this Get() operation returns immediately.
+	ln, err := n.localNodeStore.Get(context.Background())
+	if err != nil {
+		logging.Fatal(n.logger, "Could not retrieve the local node object")
+	}
+
+	n.updateCiliumNodeResource(context.TODO(), &ln)
+}
+
+func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.LocalNode) {
+	if !option.Config.AutoCreateCiliumNodeResource {
+		return
+	}
+
+	n.logger.Info(
+		"Creating or updating CiliumNode resource",
+		logfields.Node, nodeTypes.GetName(),
+	)
+
+	performGet := true
+	var nodeResource *ciliumv2.CiliumNode
+	var lastErr error
+	for retryCount := range maxRetryCount {
+		performUpdate := true
+		if performGet {
+			var err error
+			nodeResource, err = n.k8sGetters.GetCiliumNode(ctx, nodeTypes.GetName())
+			if err != nil {
+				n.logger.Info(
+					"Unable to get CiliumNode resource",
+					logfields.Error, err,
+					logfields.Retries, retryCount,
+				)
+				performUpdate = false
+				nodeResource = &ciliumv2.CiliumNode{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nodeTypes.GetName(),
+					},
+				}
+			} else {
+				performGet = false
+			}
+		}
+
+		if err := n.mutateNodeResource(ctx, nodeResource, ln); err != nil {
+			lastErr = err
+			n.logger.Warn(
+				"Unable to mutate nodeResource",
+				logfields.Error, err,
+				logfields.Retries, retryCount,
+			)
+			continue
+		}
+
+		// if we retry after this point, is due to a conflict. We will do
+		// a new GET  to ensure we have the latest information before
+		// updating.
+		performGet = true
+		if performUpdate {
+			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(ctx, nodeResource, metav1.UpdateOptions{}); err != nil {
+				lastErr = err
+				n.logger.Info("Unable to update CiliumNode resource, will retry", logfields.Error, err)
+				// Backoff before retrying
+				time.Sleep(backoffDuration)
+				continue
+			} else {
+				return
+			}
+		} else {
+			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(ctx, nodeResource, metav1.CreateOptions{}); err != nil {
+				lastErr = err
+				n.logger.Info("Unable to create CiliumNode resource, will retry", logfields.Error, err)
+				// Backoff before retrying
+				time.Sleep(backoffDuration)
+				continue
+			} else {
+				n.logger.Info("Successfully created CiliumNode resource")
+				return
+			}
+		}
+	}
+	logging.Fatal(n.logger, "Could not create or update CiliumNode resource", logfields.Error, lastErr, logfields.Retries, maxRetryCount)
+}
+
+func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ciliumv2.CiliumNode, ln *node.LocalNode) error {
+	nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: "v1",
+		Kind:       "Node",
+		Name:       ln.Name,
+		UID:        ln.Local.UID,
+	}}
+
+	nodeResource.ObjectMeta.Labels = ln.Labels
+	nodeResource.ObjectMeta.Annotations = ln.Annotations
+
+	// This function can be called before we have restored the CiliumInternalIP.
+	// In that case, we do not want to remove the old CiliumInternalIP, as this
+	// would lead to the IP address flapping. Therefore, this code preserves any
+	// CiliumInternalIP if (and only if) the local node store does not yet
+	// include the restored CiliumInternalIP.
+	nodeResource.Spec.Addresses = slices.DeleteFunc(nodeResource.Spec.Addresses, func(address ciliumv2.NodeAddress) bool {
+		if address.Type == nodeAddressing.NodeCiliumInternalIP {
+			// Only delete a CiliumInternalIP if
+			// a) its IP family is disabled,
+			// and/or
+			// b) the LocalNode store contains an IP address which we can use instead
+			switch net.IPFamilyOfString(address.IP) {
+			case net.IPv4:
+				return !option.Config.EnableIPv4 || ln.GetCiliumInternalIP(false) != nil
+			case net.IPv6:
+				return !option.Config.EnableIPv6 || ln.GetCiliumInternalIP(true) != nil
+			}
+		}
+
+		return true // delete all other node addresses
+	})
+
+	for _, address := range ln.IPAddresses {
+		ip := address.IP.String()
+		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
+			Type: address.Type,
+			IP:   ip,
+		})
+	}
+
+	if option.Config.IPAM == ipamOption.IPAMKubernetes {
+		// We only want to copy the PodCIDR from the Kubernetes Node resource to
+		// the CiliumNode resource in IPAM Kubernetes mode. In other PodCIDR
+		// based IPAM modes (such as ClusterPool or MultiPool), the operator
+		// will set the PodCIDRs of the CiliumNode and those might be different
+		// from the ones assigned by Kubernetes.
+		// For non-podCIDR based IPAM modes (e.g. ENI, Azure, AlibabaCloud), there
+		// is no such thing as a podCIDR to begin with. In those cases, the
+		// IPv4/IPv6AllocRange is auto-generated and otherwise unused, so it does not
+		// make sense to copy it into the CiliumNode it either.
+		// See NodeRegistrar.RegisterNode() for the equivalent kvstore mode logic.
+		nodeResource.Spec.IPAM.PodCIDRs = []iputil.Prefix{}
+		if cidr := ln.IPv4AllocCIDR; cidr != nil {
+			if prefix, ok := netipx.FromStdIPNet(cidr.IPNet); ok {
+				nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(prefix))
+			}
+		}
+
+		if cidr := ln.IPv6AllocCIDR; cidr != nil {
+			if prefix, ok := netipx.FromStdIPNet(cidr.IPNet); ok {
+				nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(prefix))
+			}
+		}
+	}
+
+	nodeResource.Spec.Encryption.Key = int(ln.EncryptionKey)
+
+	nodeResource.Spec.HealthAddressing.IPv4 = ""
+	if ip := ln.IPv4HealthIP; ip != nil {
+		nodeResource.Spec.HealthAddressing.IPv4 = ip.String()
+	}
+
+	nodeResource.Spec.HealthAddressing.IPv6 = ""
+	if ip := ln.IPv6HealthIP; ip != nil {
+		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
+	}
+
+	nodeResource.Spec.IngressAddressing.IPV4 = ""
+	if ip := ln.IPv4IngressIP; ip != nil {
+		nodeResource.Spec.IngressAddressing.IPV4 = ip.String()
+	}
+
+	nodeResource.Spec.IngressAddressing.IPV6 = ""
+	if ip := ln.IPv6IngressIP; ip != nil {
+		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
+	}
+
+	nodeResource.Spec.BootID = ln.BootID
+
+	nodeResource.Spec.IPAM.StaticIPTags = n.config.IPAMStaticIPTags
+	if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
+		if len(c.IPAM.StaticIPTags) > 0 {
+			nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
+		}
+	}
+
+	switch option.Config.IPAM {
+	case ipamOption.IPAMENI:
+		return n.mutateENINodeResource(ctx, nodeResource)
+
+	case ipamOption.IPAMAzure:
+		return n.mutateAzureNodeResource(ctx, nodeResource, ln)
+
+	case ipamOption.IPAMAlibabaCloud:
+		return n.mutateAlibabaCloudNodeResource(ctx, nodeResource)
+	}
+
+	return nil
+}

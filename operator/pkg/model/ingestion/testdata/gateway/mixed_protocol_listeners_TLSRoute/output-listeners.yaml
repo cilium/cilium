@@ -1,0 +1,17 @@
+- hostname: '*'
+  name: tls-internal
+  port: 443
+  routes:
+  - backends:
+    - name: argocd-server
+      namespace: default
+      port:
+        port: 443
+    hostnames:
+    - argocd.example.com
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: argocd-gateway
+    namespace: default
+    version: v1

@@ -1,0 +1,22 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: mesh-grpc-weighted-backends
+  namespace: gateway-conformance-mesh
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: echo
+    port: 7070
+  rules:
+  - backendRefs:
+    - name: echo-v1
+      port: 7070
+      weight: 70
+    - name: echo-v2
+      port: 7070
+      weight: 30
+    - name: echo-v3
+      port: 7070
+      weight: 0

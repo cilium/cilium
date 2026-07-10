@@ -1,0 +1,65 @@
+#! --use-kernel-managed-arp-ping --metrics=+cilium_neighbor_entry_refresh_count
+
+# Test that when running with kernel-managed ARP ping, the neighbor entry is
+# created as EXT_MANAGED and automatically refreshed by the kernel.
+#
+# Skip this test if the kernel does not support managed ARP ping.
+[!kernel-can-manage-arp-ping] stop
+
+# Create a namespace for the other end of the veth pair
+netns/create otherns
+link/set lo up --netns otherns
+
+link/add veth0 veth --peername veth1 --peerns otherns
+
+addr/add 192.168.1.1/24 veth0
+addr/add --netns otherns 192.168.1.2/24 veth1
+
+link/set veth0 up
+link/set veth1 --netns otherns up
+
+route/add 0.0.0.0/0 --gateway 192.168.1.2 --dev veth0
+
+# Tell the kernel to mark neighbor entries as stale in 1000ms and disable the first probe delay.
+sysctl/set net ipv4 neigh veth0 base_reachable_time_ms 1000
+sysctl/set net ipv4 neigh veth0 delay_first_probe_time 0
+
+# Tell the kernel to probe the neighbor every 1000ms. The kernel does not actually seem to
+# go this fast, ~1-5 seconds seems to be as fast as we can get it.
+sysctl/set net ipv4 neigh veth0 interval_probe_time_ms 1000
+
+hive start
+db/initialized
+
+db/show devices
+
+db/insert forwardable-ip node1-ipv4.yaml
+
+# Assert neighbor entry exists and is reachable
+db/cmp neighbors neighbors.reachable.table
+
+# Assert neighbor entry becomes stale
+db/cmp neighbors neighbors.stale.table
+
+# Wait for the refresh to happen, which will trigger the neighbor table to change
+db/cmp --timeout=1m neighbors neighbors.reachable.table
+
+# Assert the refresh was not due to the agent
+metrics cilium_neighbor_entry_refresh_count -o refresh-count.actual
+cmp refresh-count.expected refresh-count.actual
+
+-- node1-ipv4.yaml --
+ip: 200.0.0.123
+owners:
+  - type: node
+    id: 1
+
+-- neighbors.reachable.table --
+LinkIndex   IPAddr        Type   State       Flags         FlagsExt
+2           192.168.1.2   DST    REACHABLE   EXT_LEARNED   EXT_MANAGED
+-- neighbors.stale.table --
+LinkIndex   IPAddr        Type   State   Flags         FlagsExt
+2           192.168.1.2   DST    STALE   EXT_LEARNED   EXT_MANAGED
+-- refresh-count.expected --
+Metric                                Labels   Value
+cilium_neighbor_entry_refresh_count            0.000000

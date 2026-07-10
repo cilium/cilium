@@ -1,0 +1,126 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: query-param-matching
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - queryParams:
+      - name: animal
+        value: whale
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+    matches:
+    - queryParams:
+      - name: animal
+        value: dolphin
+  - backendRefs:
+    - name: infra-backend-v3
+      port: 8080
+    matches:
+    - queryParams:
+      - name: animal
+        value: dolphin
+      - name: color
+        value: blue
+    - queryParams:
+      - name: ANIMAL
+        value: Whale
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /path1
+      queryParams:
+      - name: animal
+        value: whale
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+    matches:
+    - headers:
+      - name: version
+        value: one
+      queryParams:
+      - name: animal
+        value: whale
+  - backendRefs:
+    - name: infra-backend-v3
+      port: 8080
+    matches:
+    - headers:
+      - name: version
+        value: two
+      path:
+        type: PathPrefix
+        value: /path2
+      queryParams:
+      - name: animal
+        value: whale
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /path3
+      queryParams:
+      - name: animal
+        value: shark
+    - headers:
+      - name: version
+        value: three
+      path:
+        type: PathPrefix
+        value: /path4
+      queryParams:
+      - name: animal
+        value: kraken
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /path5
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+    matches:
+    - queryParams:
+      - name: animal
+        value: hydra
+  - backendRefs:
+    - name: infra-backend-v3
+      port: 8080
+    matches:
+    - headers:
+      - name: version
+        value: four
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

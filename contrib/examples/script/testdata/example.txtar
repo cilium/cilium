@@ -1,0 +1,29 @@
+#! --enable-example=true
+# ^ an (optional) shebang can be used to configure cells
+
+# This is a comment that starts a section of commands
+echo 'hello'
+
+# The test hive has not been started yet, let's start it!
+hive/start
+
+# Cells can provide custom commands
+example/hello foo
+stdout 'Hello, foo'
+
+# Check that call count equals 1
+example/counts
+stdout '1 SayHello()'
+
+# The file 'foo' should not be the same as 'bar'
+! cmp foo bar
+
+# The 'break' command breaks into an interactive prompt.
+# (commented out to not break the test)
+# break
+
+-- foo --
+foo
+
+-- bar --
+bar

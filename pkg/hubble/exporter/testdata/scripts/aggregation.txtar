@@ -1,0 +1,85 @@
+# Configure exporter with aggregation
+config/add aggregated-exporter.yaml
+
+# Send multiple similar events quickly
+event/send agg-flow-1.json
+event/send agg-flow-2.json
+event/send agg-flow-3.json
+
+# Wait for aggregation window to complete
+sleep 150ms
+
+# Verify file was created
+* file/exists $WORK/aggregated.log
+
+# Verify we got aggregated output with proper structure
+* file/read $WORK/aggregated.log aggregated.actual
+
+# Check that aggregation actually happened - should have aggregate field with count
+* grep -q '"aggregate"' aggregated.actual
+* grep -q '"unknown_direction_flow_count":3' aggregated.actual
+
+# Verify source and destination fields are present (from aggregationFields)
+* grep -q '"source".*"pod_name":"web-pod"' aggregated.actual
+* grep -q '"destination".*"pod_name":"db-pod"' aggregated.actual
+
+
+# Clean up
+config/delete aggregated-exporter.yaml
+
+# ---
+
+-- aggregated-exporter.yaml --
+name: aggregator-1
+filePath: $WORK/aggregated.log
+fieldMask:
+  - source
+  - destination
+  - verdict
+aggregationOptions:
+  windowInterval: 100ms
+  aggregationFields:
+    - source
+    - destination
+
+-- agg-flow-1.json --
+{
+  "time": "2024-01-01T10:00:00Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "default",
+    "pod_name": "web-pod"
+  },
+  "destination": {
+    "namespace": "default",
+    "pod_name": "db-pod"
+  }
+}
+
+-- agg-flow-2.json --
+{
+  "time": "2024-01-01T10:00:01Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "default",
+    "pod_name": "web-pod"
+  },
+  "destination": {
+    "namespace": "default",
+    "pod_name": "db-pod"
+  }
+}
+
+-- agg-flow-3.json --
+{
+  "time": "2024-01-01T10:00:02Z",
+  "verdict": "FORWARDED",
+  "source": {
+    "namespace": "default",
+    "pod_name": "web-pod"
+  },
+  "destination": {
+    "namespace": "default",
+    "pod_name": "db-pod"
+  }
+}

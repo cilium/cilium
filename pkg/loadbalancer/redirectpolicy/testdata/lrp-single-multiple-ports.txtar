@@ -1,0 +1,159 @@
+# Verify that local-redirect service entries are created for LRPs with single and multiple ports.
+
+hive start
+
+
+# Test case #1: LRP selected service has a single named port.
+# https://github.com/cilium/cilium/issues/41424.
+
+# Add LRP and policy selected resources
+k8s/add service.yaml lrp-backend.yaml lrp-svc.yaml
+
+# Compare statedb tables
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Add LRP and policy selected resources
+k8s/delete service.yaml lrp-backend.yaml lrp-svc.yaml
+
+# Compare statedb tables
+db/cmp localredirectpolicies lrp-empty.table
+db/cmp services services-empty.table
+db/cmp frontends frontends-empty.table
+
+# Test case #2: LRP selected service has a single port.
+
+# Add LRP and policy selected resources
+k8s/add service.yaml lrp-backend.yaml lrp-svc.yaml
+
+# Compare statedb tables
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+-- frontends-empty.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
+
+-- lrp-empty.table --
+Name           Type     FrontendType                Frontends
+
+-- services-empty.table --
+Name                          Source
+
+-- frontends.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
+192.168.10.10:8080/TCP     ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:80/TCP      test/lrp-svc:local-redirect   Done
+
+-- lrp.table --
+Name           Type     FrontendType                Frontends
+test/lrp-svc   service  all
+
+-- services.table --
+Name                          Source
+test/echo                     k8s
+test/lrp-svc:local-redirect   k8s
+
+-- lrp-backend.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-backend
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-backend
+      image: nginx
+      ports:
+        - containerPort: 80
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  - ip: 2001::1
+  qosClass: BestEffort
+  conditions:
+  - lastProbeTime: null
+    status: 'True'
+    type: Ready
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 192.168.10.10
+  clusterIPs:
+  - 192.168.10.10
+  - 1001::1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: ClusterIP
+
+-- lrp-svc.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-svc"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: echo
+      namespace: test
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        name: "tcp"
+        protocol: TCP
+
+-- service2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 192.168.10.10
+  clusterIPs:
+  - 192.168.10.10
+  - 1001::1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - port: 8080
+    protocol: TCP
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: ClusterIP
+
