@@ -30,20 +30,75 @@ var (
 	enableDefaultDenyDefault = true
 )
 
-// Sanitize validates and sanitizes a policy rule. Minor edits such as capitalization
-// of the protocol name are automatically fixed up.
-// As part of `EndpointSelector` sanitization we also convert the label keys to internal
-// representation prefixed with the source information. Check `EndpointSelector.sanitize()`
-// method for more details.
-// More fundamental violations will cause an error to be returned.
+// Validate validates a policy rule returning error if validation fails.
 //
-// Note: this function is called from both the operator and the agent;
-// make sure any configuration flags are bound in **both** binaries.
-func (r *Rule) Sanitize() error {
+// NOTE: This method is immutable and MUST not modify the Rule itself. Any edits
+// to the rule object should be done within Sanitize()
+func (r *Rule) Validate() error {
 	if len(r.Ingress) == 0 && len(r.IngressDeny) == 0 && len(r.Egress) == 0 && len(r.EgressDeny) == 0 {
 		return fmt.Errorf("rule must have at least one of Ingress, IngressDeny, Egress, EgressDeny")
 	}
 
+	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
+		return errors.New("rule must have one of EndpointSelector or NodeSelector")
+	}
+	if r.EndpointSelector.LabelSelector != nil && r.NodeSelector.LabelSelector != nil {
+		return errors.New("rule cannot have both EndpointSelector and NodeSelector")
+	}
+
+	if r.EndpointSelector.LabelSelector != nil {
+		if err := r.EndpointSelector.Validate(); err != nil {
+			return err
+		}
+	}
+
+	var hostPolicy bool
+	if r.NodeSelector.LabelSelector != nil {
+		if err := r.NodeSelector.Validate(); err != nil {
+			return err
+		}
+		hostPolicy = true
+	}
+
+	for i := range r.Ingress {
+		if err := r.Ingress[i].Validate(hostPolicy); err != nil {
+			return err
+		}
+	}
+
+	for i := range r.IngressDeny {
+		if err := r.IngressDeny[i].Validate(); err != nil {
+			return err
+		}
+	}
+
+	for i := range r.Egress {
+		if err := r.Egress[i].Validate(hostPolicy); err != nil {
+			return err
+		}
+	}
+
+	for i := range r.EgressDeny {
+		if err := r.EgressDeny[i].Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Sanitize sanitizes a policy rule. Minor edits such as capitalization of the protocol name
+// are automatically fixed up.
+// As part of `EndpointSelector` sanitization we also convert the label keys to internal
+// representation prefixed with the source information. Check `EndpointSelector.sanitize()`
+// method for more details.
+//
+// NOTE:
+//   - This function is called from both the operator and the agent;
+//     make sure any configuration flags are bound in **both** binaries.
+//   - This function assumes that the Rule is already validated with a prior
+//     call to Validate() method.
+func (r *Rule) Sanitize() {
 	if option.Config.EnableNonDefaultDenyPolicies {
 		// Fill in the default traffic posture of this Rule.
 		// Default posture is per-direction (ingress or egress),
@@ -63,51 +118,37 @@ func (r *Rule) Sanitize() error {
 		r.EnableDefaultDeny.Ingress = &enableDefaultDenyDefault
 	}
 
-	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
-		return errors.New("rule must have one of EndpointSelector or NodeSelector")
-	}
-	if r.EndpointSelector.LabelSelector != nil && r.NodeSelector.LabelSelector != nil {
-		return errors.New("rule cannot have both EndpointSelector and NodeSelector")
-	}
-
 	if r.EndpointSelector.LabelSelector != nil {
-		if err := r.EndpointSelector.Sanitize(); err != nil {
-			return err
-		}
+		r.EndpointSelector.Sanitize()
 	}
 
-	var hostPolicy bool
 	if r.NodeSelector.LabelSelector != nil {
-		if err := r.NodeSelector.Sanitize(); err != nil {
-			return err
-		}
-		hostPolicy = true
+		r.NodeSelector.Sanitize()
 	}
 
 	for i := range r.Ingress {
-		if err := r.Ingress[i].sanitize(hostPolicy); err != nil {
-			return err
-		}
+		r.Ingress[i].Sanitize()
 	}
 
 	for i := range r.IngressDeny {
-		if err := r.IngressDeny[i].sanitize(); err != nil {
-			return err
-		}
+		r.IngressDeny[i].Sanitize()
 	}
 
 	for i := range r.Egress {
-		if err := r.Egress[i].sanitize(hostPolicy); err != nil {
-			return err
-		}
+		r.Egress[i].Sanitize()
 	}
 
 	for i := range r.EgressDeny {
-		if err := r.EgressDeny[i].sanitize(); err != nil {
-			return err
-		}
+		r.EgressDeny[i].Sanitize()
 	}
+}
 
+// ValidateAndSanitize first validates the rule and sanitizes the object if validation succeeds.
+func (r *Rule) ValidateAndSanitize() error {
+	if err := r.Validate(); err != nil {
+		return err
+	}
+	r.Sanitize()
 	return nil
 }
 
@@ -122,14 +163,14 @@ func countL7Rules(ports []PortRule) map[string]int {
 	return result
 }
 
-func (i *IngressRule) sanitize(hostPolicy bool) error {
+func (i *IngressRule) Validate(hostPolicy bool) error {
 	l7Members := countL7Rules(i.ToPorts)
 	l7IngressSupport := map[string]bool{
 		"DNS":  false,
 		"HTTP": true,
 	}
 
-	if err := i.IngressCommonRule.sanitize(); err != nil {
+	if err := i.IngressCommonRule.Validate(); err != nil {
 		return err
 	}
 
@@ -155,22 +196,29 @@ func (i *IngressRule) sanitize(hostPolicy bool) error {
 	}
 
 	for n := range i.ToPorts {
-		if err := i.ToPorts[n].sanitize(true); err != nil {
+		if err := i.ToPorts[n].Validate(true); err != nil {
 			return err
 		}
 	}
 
 	for n := range i.ICMPs {
-		if err := i.ICMPs[n].verify(); err != nil {
+		if err := i.ICMPs[n].Validate(); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
-func (i *IngressDenyRule) sanitize() error {
-	if err := i.IngressCommonRule.sanitize(); err != nil {
+func (i *IngressRule) Sanitize() {
+	i.IngressCommonRule.Sanitize()
+
+	for n := range i.ToPorts {
+		i.ToPorts[n].Sanitize()
+	}
+}
+
+func (i *IngressDenyRule) Validate() error {
+	if err := i.IngressCommonRule.Validate(); err != nil {
 		return err
 	}
 
@@ -183,13 +231,13 @@ func (i *IngressDenyRule) sanitize() error {
 	}
 
 	for n := range i.ToPorts {
-		if err := i.ToPorts[n].sanitize(); err != nil {
+		if err := i.ToPorts[n].Validate(); err != nil {
 			return err
 		}
 	}
 
 	for n := range i.ICMPs {
-		if err := i.ICMPs[n].verify(); err != nil {
+		if err := i.ICMPs[n].Validate(); err != nil {
 			return err
 		}
 	}
@@ -197,7 +245,15 @@ func (i *IngressDenyRule) sanitize() error {
 	return nil
 }
 
-func (i *IngressCommonRule) sanitize() error {
+func (i *IngressDenyRule) Sanitize() {
+	i.IngressCommonRule.Sanitize()
+
+	for n := range i.ToPorts {
+		i.ToPorts[n].Sanitize()
+	}
+}
+
+func (i *IngressCommonRule) Validate() error {
 	l3Members := map[string]int{
 		"FromEndpoints": len(i.FromEndpoints),
 		"FromCIDR":      len(i.FromCIDR),
@@ -222,25 +278,25 @@ func (i *IngressCommonRule) sanitize() error {
 	}
 
 	for n := range i.FromEndpoints {
-		if err := i.FromEndpoints[n].Sanitize(); err != nil {
+		if err := i.FromEndpoints[n].Validate(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.FromNodes {
-		if err := i.FromNodes[n].Sanitize(); err != nil {
+		if err := i.FromNodes[n].Validate(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.FromCIDR {
-		if err := i.FromCIDR[n].sanitize(); err != nil {
+		if err := i.FromCIDR[n].Validate(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.FromCIDRSet {
-		if err := i.FromCIDRSet[n].sanitize(); err != nil {
+		if err := i.FromCIDRSet[n].Validate(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -253,6 +309,20 @@ func (i *IngressCommonRule) sanitize() error {
 	}
 
 	return retErr
+}
+
+func (i *IngressCommonRule) Sanitize() {
+	for n := range i.FromEndpoints {
+		i.FromEndpoints[n].Sanitize()
+	}
+
+	for n := range i.FromNodes {
+		i.FromNodes[n].Sanitize()
+	}
+
+	for n := range i.FromCIDRSet {
+		i.FromCIDRSet[n].Sanitize()
+	}
 }
 
 // countNonGeneratedRules counts the number of CIDRRule items which are not
@@ -289,7 +359,7 @@ func countNonGeneratedEndpoints(s []EndpointSelector) int {
 	return n
 }
 
-func (e *EgressRule) sanitize(hostPolicy bool) error {
+func (e *EgressRule) Validate(hostPolicy bool) error {
 	l3Members := e.l3Members()
 	l3DependentL4Support := e.l3DependentL4Support()
 	l7Members := countL7Rules(e.ToPorts)
@@ -298,7 +368,7 @@ func (e *EgressRule) sanitize(hostPolicy bool) error {
 		"HTTP": !hostPolicy,
 	}
 
-	if err := e.EgressCommonRule.sanitize(l3Members); err != nil {
+	if err := e.EgressCommonRule.Validate(l3Members); err != nil {
 		return err
 	}
 
@@ -330,25 +400,32 @@ func (e *EgressRule) sanitize(hostPolicy bool) error {
 	}
 
 	for i := range e.ToPorts {
-		if err := e.ToPorts[i].sanitize(false); err != nil {
+		if err := e.ToPorts[i].Validate(false); err != nil {
 			return err
 		}
 	}
 
 	for n := range e.ICMPs {
-		if err := e.ICMPs[n].verify(); err != nil {
+		if err := e.ICMPs[n].Validate(); err != nil {
 			return err
 		}
 	}
 
 	for i := range e.ToFQDNs {
-		err := e.ToFQDNs[i].sanitize()
-		if err != nil {
+		if err := e.ToFQDNs[i].Validate(); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (e *EgressRule) Sanitize() {
+	e.EgressCommonRule.Sanitize()
+
+	for i := range e.ToPorts {
+		e.ToPorts[i].Sanitize()
+	}
 }
 
 func (e *EgressRule) l3Members() map[string]int {
@@ -363,11 +440,11 @@ func (e *EgressRule) l3DependentL4Support() map[string]bool {
 	return l3DependentL4Support
 }
 
-func (e *EgressDenyRule) sanitize() error {
+func (e *EgressDenyRule) Validate() error {
 	l3Members := e.l3Members()
 	l3DependentL4Support := e.l3DependentL4Support()
 
-	if err := e.EgressCommonRule.sanitize(l3Members); err != nil {
+	if err := e.EgressCommonRule.Validate(l3Members); err != nil {
 		return err
 	}
 
@@ -386,18 +463,26 @@ func (e *EgressDenyRule) sanitize() error {
 	}
 
 	for i := range e.ToPorts {
-		if err := e.ToPorts[i].sanitize(); err != nil {
+		if err := e.ToPorts[i].Validate(); err != nil {
 			return err
 		}
 	}
 
 	for n := range e.ICMPs {
-		if err := e.ICMPs[n].verify(); err != nil {
+		if err := e.ICMPs[n].Validate(); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (e *EgressDenyRule) Sanitize() {
+	e.EgressCommonRule.Sanitize()
+
+	for i := range e.ToPorts {
+		e.ToPorts[i].Sanitize()
+	}
 }
 
 func (e *EgressDenyRule) l3Members() map[string]int {
@@ -408,7 +493,7 @@ func (e *EgressDenyRule) l3DependentL4Support() map[string]bool {
 	return e.EgressCommonRule.l3DependentL4Support()
 }
 
-func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
+func (e *EgressCommonRule) Validate(l3Members map[string]int) error {
 	for m1 := range l3Members {
 		for m2 := range l3Members {
 			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
@@ -424,24 +509,24 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 	}
 
 	for i := range e.ToEndpoints {
-		if err := e.ToEndpoints[i].Sanitize(); err != nil {
+		if err := e.ToEndpoints[i].Validate(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for i := range e.ToNodes {
-		if err := e.ToNodes[i].Sanitize(); err != nil {
+		if err := e.ToNodes[i].Validate(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
 	for i := range e.ToCIDR {
-		if err := e.ToCIDR[i].sanitize(); err != nil {
+		if err := e.ToCIDR[i].Validate(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 	for i := range e.ToCIDRSet {
-		if err := e.ToCIDRSet[i].sanitize(); err != nil {
+		if err := e.ToCIDRSet[i].Validate(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -454,6 +539,20 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 	}
 
 	return retErr
+}
+
+func (e *EgressCommonRule) Sanitize() {
+	for i := range e.ToEndpoints {
+		e.ToEndpoints[i].Sanitize()
+	}
+
+	for i := range e.ToNodes {
+		e.ToNodes[i].Sanitize()
+	}
+
+	for i := range e.ToCIDRSet {
+		e.ToCIDRSet[i].Sanitize()
+	}
 }
 
 func (e *EgressCommonRule) l3Members() map[string]int {
@@ -480,13 +579,13 @@ func (e *EgressCommonRule) l3DependentL4Support() map[string]bool {
 	}
 }
 
-func (pr *L7Rules) sanitize(ports []PortProtocol) error {
+func (pr *L7Rules) Validate(ports []PortProtocol) error {
 	nTypes := 0
 
 	if pr.HTTP != nil {
 		nTypes++
 		for i := range pr.HTTP {
-			if err := pr.HTTP[i].Sanitize(); err != nil {
+			if err := pr.HTTP[i].Validate(); err != nil {
 				return err
 			}
 		}
@@ -501,7 +600,7 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 
 		nTypes++
 		for i := range pr.DNS {
-			if err := pr.DNS[i].Sanitize(); err != nil {
+			if err := pr.DNS[i].Validate(); err != nil {
 				return err
 			}
 		}
@@ -517,7 +616,7 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 // have some unit tests relying on this. So, allow overriding this check in the unit tests.
 var TestAllowIngressListener = false
 
-func (pr *PortRule) sanitize(ingress bool) error {
+func (pr *PortRule) Validate(ingress bool) error {
 	hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
 	if ingress && hasDNSRules {
 		return fmt.Errorf("DNS rules are not allowed on ingress")
@@ -537,7 +636,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	for i := range pr.Ports {
 		var isZero bool
 		var err error
-		if isZero, err = pr.Ports[i].sanitize(hasDNSRules); err != nil {
+		if isZero, err = pr.Ports[i].Validate(hasDNSRules); err != nil {
 			return err
 		}
 		if isZero {
@@ -572,24 +671,36 @@ func (pr *PortRule) sanitize(ingress bool) error {
 			return errors.New("L7 rules can not be used when a port is 0")
 		}
 
-		if err := pr.Rules.sanitize(pr.Ports); err != nil {
+		if err := pr.Rules.Validate(pr.Ports); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (pr *PortDenyRule) sanitize() error {
+func (pr *PortRule) Sanitize() {
+	for i := range pr.Ports {
+		pr.Ports[i].Sanitize()
+	}
+}
+
+func (pr *PortDenyRule) Validate() error {
 	if len(pr.Ports) > maxPorts {
 		return fmt.Errorf("too many ports, the max is %d", maxPorts)
 	}
 	for i := range pr.Ports {
-		if _, err := pr.Ports[i].sanitize(false); err != nil {
+		if _, err := pr.Ports[i].Validate(false); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (pr *PortDenyRule) Sanitize() {
+	for i := range pr.Ports {
+		pr.Ports[i].Sanitize()
+	}
 }
 
 // isExtendedIPProtocol returns true if the protocol is an extended IP protocol
@@ -604,19 +715,14 @@ func isExtendedIPProtocol(proto L4Proto) bool {
 	}
 }
 
-func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
+func (pp *PortProtocol) Validate(hasDNSRules bool) (isZero bool, err error) {
 	if pp.Port == "" {
 		if !option.Config.EnableExtendedIPProtocols {
 			return isZero, errors.New("port must be specified")
 		}
 	}
 
-	// Port names are formatted as IANA Service Names.  This means that
-	// some legal numeric literals are no longer considered numbers, e.g,
-	// 0x10 is now considered a name rather than number 16.
-	if iana.IsSvcName(pp.Port) {
-		pp.Port = strings.ToLower(pp.Port) // Normalize for case insensitive comparison
-	} else if pp.Port != "" {
+	if !iana.IsSvcName(pp.Port) && pp.Port != "" {
 		// Extended IP protocols and tunnel/encapsulation protocols do not have
 		// transport-layer ports. Require port to be empty or 0 for these protocols.
 		if pp.Port != "0" && isExtendedIPProtocol(pp.Protocol) {
@@ -632,11 +738,21 @@ func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
 		}
 	}
 
-	pp.Protocol, err = ParseL4Proto(string(pp.Protocol))
+	_, err = ParseL4Proto(string(pp.Protocol))
 	return isZero, err
 }
 
-func (ir *ICMPRule) verify() error {
+func (pp *PortProtocol) Sanitize() {
+	// Port names are formatted as IANA Service Names.  This means that
+	// some legal numeric literals are no longer considered numbers, e.g,
+	// 0x10 is now considered a name rather than number 16.
+	if iana.IsSvcName(pp.Port) {
+		pp.Port = strings.ToLower(pp.Port) // Normalize for case insensitive comparison
+	}
+	pp.Protocol, _ = ParseL4Proto(string(pp.Protocol))
+}
+
+func (ir *ICMPRule) Validate() error {
 	if len(ir.Fields) > maxICMPFields {
 		return fmt.Errorf("too many types, the max is %d", maxICMPFields)
 	}
@@ -650,8 +766,8 @@ func (ir *ICMPRule) verify() error {
 	return nil
 }
 
-// sanitize the given CIDR.
-func (c CIDR) sanitize() error {
+// Validate the given CIDR.
+func (c CIDR) Validate() error {
 	strCIDR := string(c)
 	if strCIDR == "" {
 		return fmt.Errorf("IP must be specified")
@@ -673,10 +789,10 @@ func (c CIDR) sanitize() error {
 	return nil
 }
 
-// sanitize validates a CIDRRule by checking that the CIDR prefix itself is
+// Validate validates a CIDRRule by checking that the CIDR prefix itself is
 // valid, and ensuring that all of the exception CIDR prefixes are contained
 // within the allowed CIDR prefix.
-func (c *CIDRRule) sanitize() error {
+func (c *CIDRRule) Validate() error {
 	// Exactly one of CIDR, CIDRGroupRef, or CIDRGroupSelector must be set
 	cnt := 0
 	if len(c.CIDRGroupRef) > 0 {
@@ -687,8 +803,8 @@ func (c *CIDRRule) sanitize() error {
 	}
 	if c.CIDRGroupSelector.LabelSelector != nil {
 		cnt++
-		c.CIDRGroupSelector = NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector.LabelSelector)
-		if err := c.CIDRGroupSelector.Sanitize(); err != nil {
+		cidrSelector := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector.LabelSelector)
+		if err := cidrSelector.Validate(); err != nil {
 			return fmt.Errorf("failed to sanitize cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
 		}
 	}
@@ -733,4 +849,11 @@ func (c *CIDRRule) sanitize() error {
 	}
 
 	return nil
+}
+
+func (c *CIDRRule) Sanitize() {
+	if c.CIDRGroupSelector.LabelSelector != nil {
+		c.CIDRGroupSelector = NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector.LabelSelector)
+		c.CIDRGroupSelector.Sanitize()
+	}
 }
