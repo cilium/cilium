@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	lbmap "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -55,16 +56,16 @@ func dumpReverseSKEntries(entries map[string][]string, sockRevNat4Map, sockRevNa
 			if v, ok := value.(*lbmap.SockRevNat4Value); ok {
 				cookie = fmt.Sprintf("%d", k.Cookie)
 				entry = fmt.Sprintf("%s:%d -> %s:%d (revnat=%d)",
-					k.Address.String(), k.Port,
-					v.Address.String(), v.Port,
+					k.Address.String(), byteorder.NetworkToHost16(k.Port),
+					v.Address.String(), byteorder.NetworkToHost16(v.Port),
 					v.RevNatIndex)
 			}
 		case *lbmap.SockRevNat6Key:
 			if v, ok := value.(*lbmap.SockRevNat6Value); ok {
 				cookie = fmt.Sprintf("%d", k.Cookie)
 				entry = fmt.Sprintf("[%s]:%d -> [%s]:%d (revnat=%d)",
-					k.Address.String(), k.Port,
-					v.Address.String(), v.Port,
+					k.Address.String(), byteorder.NetworkToHost16(k.Port),
+					v.Address.String(), byteorder.NetworkToHost16(v.Port),
 					v.RevNatIndex)
 			}
 		}
