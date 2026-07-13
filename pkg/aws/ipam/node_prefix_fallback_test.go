@@ -438,6 +438,16 @@ func TestNodeSubnetPreferenceFallsBackToSiblingOnPrefixFailure(t *testing.T) {
 		nodeSubnetID:    x.DeepCopy(),
 		healthySubnetID: y.DeepCopy(),
 	}
+	instances.routeTables = ipamTypes.RouteTableMap{
+		"rt-1": &ipamTypes.RouteTable{
+			ID:               "rt-1",
+			VirtualNetworkID: "vpc-1",
+			Subnets: map[string]struct{}{
+				nodeSubnetID:    {},
+				healthySubnetID: {},
+			},
+		},
+	}
 
 	k8sObj := newCiliumNode("node1", withInstanceType("m5.large"))
 	k8sObj.Spec.ENI.VpcID = "vpc-1"

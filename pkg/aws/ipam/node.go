@@ -715,7 +715,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	isPrefixDelegated := n.node.Ops().IsPrefixDelegated()
 	n.mutex.RUnlock()
 
-	subnets := n.findSuitableSubnet(resource.Spec.ENI, limits)
+	subnets := n.findSuitableSubnets(resource.Spec.ENI, limits, isPrefixDelegated)
 	if len(subnets) == 0 {
 		return 0,
 			unableToFindSubnet,
@@ -728,6 +728,9 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 			)
 	}
 	subnet := subnets[0]
+	if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+		n.logSubnetRouteTableMismatch(subnet, "")
+	}
 	allocation.PoolID = ipamTypes.PoolID(subnet.ID)
 
 	securityGroupIDs, err := n.getSecurityGroupIDs(ctx, resource.Spec.ENI)
@@ -787,23 +790,21 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 			}
 
 			if err != nil {
-				if isPrefixDelegated && isSubnetAtPrefixCapacity(err) {
-					// All eligible subnets are at prefix capacity. Fall back to /32.
-					scopedLog.Warn(
-						"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
-						logfields.Node, n.k8sObj.Name,
-					)
-					eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnets[0].ID, desc, securityGroupIDs, false, allocateIPv6)
-					if err == nil {
-						subnet = subnets[0]
-					}
-				}
-
-				if err != nil {
-					return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
+				// All eligible subnets are at prefix capacity. Fall back to /32.
+				scopedLog.Warn(
+					"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
+					logfields.Node, n.k8sObj.Name,
+				)
+				eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnets[0].ID, desc, securityGroupIDs, false, allocateIPv6)
+				if err == nil {
+					subnet = subnets[0]
 				}
 			}
 		}
+	}
+
+	if err != nil {
+		return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 	}
 
 	scopedLog.Debug("ENI after initial creation", logfields.ENI, eni)
@@ -1215,60 +1216,57 @@ func (n *Node) logSubnetRouteTableMismatch(subnet *ipamTypes.Subnet, matchType s
 	)
 }
 
-// findSuitableSubnet attempts to find subnets to allocate an ENI in according to the following heuristic.
+// findSuitableSubnets attempts to find subnets to allocate an ENI in according to the following heuristic.
 //  0. In general, the subnet has to be in the same VPC and match the availability zone of the
 //     node. If there are multiple candidates, subnets are ordered by AvailableAddresses descending.
+//     For non-PD mode, only the primary subnet is returned. For PD mode, the full ordered list
+//     is returned so CreateInterface can retry across sibling subnets before falling back to /32.
 //  1. If the node spec has explicit SubnetIDs set, we use those.
 //  2. If the node spec has SubnetTags set, we use those.
 //  3. We try to use the subnet the node was first created in, to avoid putting the ENI in a
-//     surprising subnet if possible.
+//     surprising subnet if possible. For PD mode, steps 3 and 4 are combined: route-table
+//     siblings are appended as retry candidates, ensuring consistent routing with the primary
+//     interface and avoiding public subnet selection.
 //  4. If we can't use the subnet first ENI in, try to use the subnet in the same route table as the node's subnet.
 //  5. If none of these work, fall back to just choosing the subnet with the most addresses
 //     available.
-func (n *Node) findSuitableSubnet(spec types.ENISpec, limits ipamTypes.Limits) []*ipamTypes.Subnet {
-	if len(spec.SubnetIDs) > 0 {
-		subnets := n.manager.FindSubnetByIDsSorted(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs)
+func (n *Node) findSuitableSubnets(spec types.ENISpec, limits ipamTypes.Limits, isPrefixDelegated bool) []*ipamTypes.Subnet {
+	// non-PD only ever uses the primary choice; PD gets the full ordered list.
+	pick := func(subnets []*ipamTypes.Subnet) []*ipamTypes.Subnet {
+		if !isPrefixDelegated && len(subnets) > 1 {
+			return subnets[:1]
+		}
+		return subnets
+	}
 
-		if len(subnets) > 0 {
-			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnets[0]) {
-				n.logSubnetRouteTableMismatch(subnets[0], "Specified")
-			}
-			return subnets
+	if len(spec.SubnetIDs) > 0 {
+		if subnets := n.manager.FindSubnetByIDsSorted(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs); len(subnets) > 0 {
+			return pick(subnets)
 		}
 	}
 
 	if len(spec.SubnetTags) > 0 {
-		subnets := n.manager.FindSubnetByTagsSorted(spec.VpcID, spec.AvailabilityZone, spec.SubnetTags)
-
-		if len(subnets) > 0 {
-			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnets[0]) {
-				n.logSubnetRouteTableMismatch(subnets[0], "Tagged")
-			}
-			return subnets
+		if subnets := n.manager.FindSubnetByTagsSorted(spec.VpcID, spec.AvailabilityZone, spec.SubnetTags); len(subnets) > 0 {
+			return pick(subnets)
 		}
 	}
 
 	if subnet := n.manager.GetSubnet(spec.NodeSubnetID); subnet != nil && subnet.AvailableAddresses >= limits.IPv4 {
-		// Include other subnets in the same AZ as retry candidates for PD fallback.
-		others := n.manager.FindSubnetByTagsSorted(spec.VpcID, spec.AvailabilityZone, nil)
 		result := []*ipamTypes.Subnet{subnet}
-		for _, s := range others {
-			if s.ID != subnet.ID {
-				result = append(result, s)
-			}
+		if isPrefixDelegated {
+			// Retry candidates must share the node subnet's route table so pod
+			// traffic keeps routing consistently with the primary interface.
+			result = append(result, n.findSubnetInSameRouteTableWithNodeSubnetSorted()...)
 		}
 		return result
 	}
 
 	if subnets := n.findSubnetInSameRouteTableWithNodeSubnetSorted(); len(subnets) > 0 {
-		return subnets
+		return pick(subnets)
 	}
 
 	if subnets := n.manager.FindSubnetByTagsSorted(spec.VpcID, spec.AvailabilityZone, nil); len(subnets) > 0 {
-		if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnets[0]) {
-			n.logSubnetRouteTableMismatch(subnets[0], "")
-		}
-		return subnets
+		return pick(subnets)
 	}
 
 	return nil
