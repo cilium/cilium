@@ -353,6 +353,11 @@ func TestFilteringResource_Observe_context_cancel(t *testing.T) {
 
 	// We don't push events to blockingEvents, so Observe only returns if ctx is Done
 	wg.Wait()
+
+	// Mimic what the actual implementation would do when the context is canceled,
+	// and close the upstream events channel. This ensures that the goroutine can
+	// terminate, as otherwise flagged by goleak.
+	close(fake.events)
 }
 
 func TestFilteredResource_WithFakeClient(t *testing.T) {
