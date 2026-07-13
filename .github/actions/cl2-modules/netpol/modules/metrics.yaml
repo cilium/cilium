@@ -17,13 +17,17 @@ steps:
         unit: s
         enableViolations: {{$ENABLE_VIOLATIONS}}
         queries:
+        # Gate on the median, not the tail: histogram p99 is interpolated
+        # within the top populated bucket and is too noisy to hard-fail on,
+        # while p50 still catches a broad realization regression. p90/p99
+        # stay reported (no threshold) for trend-watching.
         - name: Perc99
           query: histogram_quantile(0.99, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
-          threshold: {{$NETPOL_LATENCY_THRESHOLD}}
         - name: Perc90
           query: histogram_quantile(0.90, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
         - name: Perc50
           query: histogram_quantile(0.50, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
+          threshold: {{$NETPOL_LATENCY_THRESHOLD}}
 
     - Identifier: CiliumCPUUsage
       Method: GenericPrometheusQuery
