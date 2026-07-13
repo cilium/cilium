@@ -5,7 +5,6 @@ package k8s
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"net/netip"
 	"slices"
@@ -166,23 +165,14 @@ func serviceEventStream(db *statedb.DB, services statedb.Table[*loadbalancer.Ser
 // onServiceEvent processes a ServiceNotification and (if necessary)
 // recalculates all policies affected by this change.
 func (p *policyWatcher) onServiceEvent(event serviceEvent) {
-	err := p.updateToServicesPolicies(event)
-	if err != nil {
-		p.log.Warn(
-			"Failed to recalculate CiliumNetworkPolicy rules after service event",
-			logfields.Error, err,
-			logfields.Event, event,
-		)
-	}
+	p.updateToServicesPolicies(event)
 }
 
 // updateToServicesPolicies is to be invoked when a service has changed (i.e. it was
 // added, removed, its endpoints have changed, or its labels have changed).
 // This function then checks if any of the known CNP/CCNPs are affected by this
 // change, and recomputes them by calling resolveCiliumNetworkPolicyRefs.
-func (p *policyWatcher) updateToServicesPolicies(ev serviceEvent) error {
-	var errs []error
-
+func (p *policyWatcher) updateToServicesPolicies(ev serviceEvent) {
 	// candidatePolicyKeys contains the set of policy names we need to process
 	// for this service update. By default, we consider all policies with
 	// a ToServices selector as candidates.
@@ -223,13 +213,13 @@ func (p *policyWatcher) updateToServicesPolicies(ev serviceEvent) error {
 				logfields.ServiceID, ev.name,
 			)
 		}
-		initialRecvTime := time.Now()
 
+		initialRecvTime := time.Now()
 		resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
 
-		errs = append(errs, p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID, nil))
+		// CNP retrieved from cnpCache is already validated.
+		p.upsertCiliumNetworkPolicyV2(cnp, key, initialRecvTime, resourceID, nil)
 	}
-	return errors.Join(errs...)
 }
 
 // resolveToServices translates all ToServices rules found in the provided CNP
