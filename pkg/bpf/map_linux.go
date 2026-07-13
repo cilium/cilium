@@ -1193,6 +1193,16 @@ func (m *Map) Dump(hash map[string][]string) error {
 // BatchLookup returns the count of elements in the map by dumping the map
 // using batch lookup.
 func (m *Map) BatchLookup(cursor *ebpf.MapBatchCursor, keysOut, valuesOut any, opts *ebpf.BatchOptions) (int, error) {
+	// Hold the read lock for the duration of the batch lookup so that a
+	// concurrent Close() (which takes the write lock and sets m.m to nil)
+	// cannot yank the underlying map out from under us mid-iteration.
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	if m.m == nil {
+		return 0, fmt.Errorf("%s: %w", m.name, ErrMapNotOpened)
+	}
+
 	return m.m.BatchLookup(cursor, keysOut, valuesOut, opts)
 }
 
