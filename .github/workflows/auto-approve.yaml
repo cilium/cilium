@@ -66,7 +66,7 @@ jobs:
           for reviewer in $reviewers; do
             if [ "$reviewer" != "ciliumbot" ]; then
               echo "Removing reviewer $reviewer"
-              gh -R ${GITHUB_REPOSITORY} pr edit ${PULL_REQUEST_NUMBER} --remove-reviewer "$reviewer"
+              gh api --method DELETE "/repos/${GITHUB_REPOSITORY}/pulls/${PULL_REQUEST_NUMBER}/requested_reviewers" -f "reviewers[]=${reviewer}"
             fi
           done
         else
