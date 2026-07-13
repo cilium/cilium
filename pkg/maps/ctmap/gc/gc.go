@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"slices"
+	"sync"
 	stdtime "time"
 
 	"github.com/cilium/ebpf"
@@ -116,6 +117,13 @@ type GC struct {
 	observable6 stream.Observable[ctmap.GCEvent]
 	next6       func(ctmap.GCEvent)
 	complete6   func(error)
+
+	// stopGC is closed by the OnStop hook to signal the GC goroutine started
+	// by Enable() to stop. gcWG tracks that goroutine so that OnStop can wait
+	// for any in-flight GC pass to drain before the ct-map cell closes the
+	// global CT maps out from under it.
+	stopGC chan struct{}
+	gcWG   sync.WaitGroup
 }
 
 func newGC(params parameters) *GC {
@@ -141,6 +149,8 @@ func newGC(params parameters) *GC {
 				return mapsFunc == nil
 			},
 		),
+
+		stopGC: make(chan struct{}),
 	}
 
 	gc.observable4, gc.next4, gc.complete4 = stream.Multicast[ctmap.GCEvent]()
@@ -148,7 +158,25 @@ func newGC(params parameters) *GC {
 
 	params.Lifecycle.Append(cell.Hook{
 		// OnStart not yet defined pending further modularization of CT map GC.
-		OnStop: func(cell.HookContext) error {
+		OnStop: func(ctx cell.HookContext) error {
+			// Signal the GC goroutine (if started by Enable) to stop and wait
+			// for any in-flight GC pass to finish. This GC module depends on
+			// ctmap.CTMaps, so hive runs this OnStop before the ct-map cell
+			// closes the global CT maps; draining here guarantees no BatchLookup
+			// races that close and dereferences a nil map. See the goroutine in
+			// enableWithConfig.
+			close(gc.stopGC)
+			drained := make(chan struct{})
+			go func() {
+				gc.gcWG.Wait()
+				close(drained)
+			}()
+			select {
+			case <-drained:
+			case <-ctx.Done():
+				gc.logger.Warn("Timed out waiting for connection tracking garbage collector to stop")
+			}
+
 			gc.controllerManager.RemoveAllAndWait()
 			gc.complete4(nil)
 			gc.complete6(nil)
@@ -214,7 +242,7 @@ func (gc *GC) enableWithConfig(
 		mapPressureSignalCh = make(chan struct{})
 	}
 
-	go func() {
+	gc.gcWG.Go(func() {
 		ipv4 := gc.ipv4
 		ipv6 := gc.ipv6
 		triggeredBySignal := false
@@ -330,12 +358,18 @@ func (gc *GC) enableWithConfig(
 			}
 
 			ipv4, ipv6, triggeredBySignal = gc.waitForGCTrigger(ctx, mapPressureSignalCh, interval)
+			select {
+			case <-gc.stopGC:
+				gc.logger.Info("Stopping conntrack garbage collector")
+				return
+			default:
+			}
 			if ctx.Err() != nil {
 				gc.logger.Info("GC job context failed", logfields.Error, ctx.Err())
 				return
 			}
 		}
-	}()
+	})
 
 	// Start a background go routine that waits to see if either the initial scan completes before
 	// our expected time of 30 seconds.
@@ -590,6 +624,8 @@ func (gc *GC) waitForGCTrigger(ctx context.Context, mapPressureSignalCh <-chan s
 				logfields.NextRunIn, interval,
 			)
 		case <-ctx.Done():
+			return
+		case <-gc.stopGC:
 			return
 		}
 	}
