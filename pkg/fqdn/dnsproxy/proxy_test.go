@@ -1558,7 +1558,7 @@ func (t selectorMock) IsNone() bool {
 	panic("implement me")
 }
 
-func (t selectorMock) String() string {
+func (t selectorMock) Key() string {
 	return t.key
 }
 

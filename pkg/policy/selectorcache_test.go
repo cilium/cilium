@@ -306,7 +306,7 @@ func (cs *testCachedSelector) IsNone() bool {
 	return false
 }
 
-func (cs *testCachedSelector) String() string {
+func (cs *testCachedSelector) Key() string {
 	return cs.name
 }
 

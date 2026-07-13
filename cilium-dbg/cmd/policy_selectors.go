@@ -4,18 +4,22 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/gosuri/uitable"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 var verbosePolicySelectors bool
@@ -33,58 +37,61 @@ var policyCacheGetCmd = func(name, description string, f func() (models.Selector
 					os.Exit(1)
 				}
 			} else if resp != nil {
-				w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 				// Sort to keep output stable
 				sort.Slice(resp, func(i, j int) bool {
 					return resp[i].Selector < resp[j].Selector
 				})
-				fmt.Fprintf(w, "SELECTOR\tLABELS\tUSERS\tIDENTITIES\n")
 
 				for _, mapping := range resp {
-					lbls := constructLabelArrayListFromAPIType(mapping.Labels)
-
-					first := true
-					fmt.Fprintf(w, "%s", mapping.Selector)
-					if verbosePolicySelectors {
-						var lstr string
-						if len(lbls) != 0 {
-							lstr = lbls.Sort().String()
-						}
-						fmt.Fprintf(w, "\t%s", lstr)
-					} else {
-						fmt.Fprintf(w, "\t%s", getNameAndNamespaceFromLabels(lbls))
-					}
-					fmt.Fprintf(w, "\t%d", mapping.Users)
-					if len(mapping.Identities) == 0 {
-						fmt.Fprintf(w, "\t\n")
-					}
-					for _, idty := range mapping.Identities {
-						if first {
-							fmt.Fprintf(w, "\t%d\t\n", idty)
-							first = false
-						} else {
-							fmt.Fprintf(w, "\t\t\t%d\t\n", idty)
-						}
-					}
+					table := uitable.New()
+					table.Wrap = true
+					table.MaxColWidth = 50000
+					table.AddRow("Selector:", formatSelector(mapping.Selector))
+					table.AddRow("Owners:", formatLabels(mapping.Labels))
+					table.AddRow("User count:", mapping.Users)
+					table.AddRow("Identities:", strings.Join(
+						slices.Map(mapping.Identities, func(i int64) string {
+							return strconv.FormatInt(i, 10)
+						}),
+						"\n",
+					))
+					fmt.Println(table)
+					fmt.Print("\n\n")
 				}
-
-				w.Flush()
 			}
 		},
 	}
 }
 
-func getNameAndNamespaceFromLabels(list labels.LabelArrayList) string {
+func formatLabels(in models.LabelArrayList) string {
+	list := constructLabelArrayListFromAPIType(in)
+
 	var sb strings.Builder
+	first := true
 	for _, lbls := range list {
-		ns := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sconst.PolicyLabelNamespace)
-		if ns != "" {
-			if sb.Len() > 0 {
-				sb.WriteString(",")
+		if !first {
+			sb.WriteRune('\n')
+		} else {
+			first = false
+		}
+		if verbosePolicySelectors {
+			sb.WriteString(lbls.String())
+			continue
+		}
+
+		kind := lbls.Get("io.cilium.k8s.policy.derived-from")
+		ns := lbls.Get("k8s:io.cilium.k8s.policy.namespace")
+		name := lbls.Get("k8s:io.cilium.k8s.policy.name")
+		if kind != "" {
+			sb.WriteString(kind)
+			sb.WriteRune(':')
+			if ns != "" {
+				sb.WriteString(ns)
+				sb.WriteRune('/')
 			}
-			sb.WriteString(ns)
-			sb.WriteRune('/')
-			sb.WriteString(lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sconst.PolicyLabelName))
+			sb.WriteString(name)
+		} else {
+			sb.WriteString(lbls.String())
 		}
 	}
 	return sb.String()
@@ -104,6 +111,23 @@ func constructLabelArrayListFromAPIType(in models.LabelArrayList) labels.LabelAr
 		list = append(list, lbls)
 	}
 	return list
+}
+
+func formatSelector(sel string) string {
+	if !strings.HasPrefix(sel, `{"`) {
+		return sel
+	}
+
+	es := api.EndpointSelector{}
+	err := json.Unmarshal([]byte(sel), &es)
+	if err != nil {
+		return sel
+	}
+	selYaml, err := yaml.Marshal(es)
+	if err != nil {
+		return sel
+	}
+	return strings.TrimSpace(string(selYaml))
 }
 
 func init() {

@@ -355,7 +355,7 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	buffer := bytes.NewBufferString("[")
 	for _, cs := range selectors {
 		buffer.WriteString("{\"")
-		buffer.WriteString(cs.String())
+		buffer.WriteString(cs.Key())
 		buffer.WriteString("\":")
 		b, err := json.Marshal(l7[cs])
 		if err == nil {
@@ -1963,7 +1963,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		for sel, rules := range v.RuleOrigin {
 			lal := rules.GetLabelArrayList()
 			derivedFrom.MergeSorted(lal)
-			rulesBySelector[sel.String()] = lal.GetModel()
+			rulesBySelector[sel.Key()] = lal.GetModel()
 		}
 		ingress = append(ingress, &models.PolicyRule{
 			Rule:             v.Marshal(),
