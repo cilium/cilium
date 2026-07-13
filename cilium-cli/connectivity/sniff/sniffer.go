@@ -116,23 +116,30 @@ const (
 		sleep 1
 	done
 
-	# Process still exists, exit with error.
+	# Process did not stop in time: force kill it. This is not an error on its
+	# own, as tcpdump may be slow to react to SIGINT on a contended node. Only
+	# fail if nothing was captured; otherwise report the packets and succeed.
 	kill -9 $pid 2>/dev/null
-	exit 197
+	if [ "$(tcpdump -r {{ .DumpPath }} --count 2>/dev/null)" = "0 packets" ]; then
+		exit 197
+	fi
+	report
+	exit 0
 }
 `
 )
 
 type Sniffer struct {
-	target   *check.Pod
-	dumpPath string
-	logPath  string
-	pidPath  string
-	out      bytes.Buffer
-	mode     Mode
-	cmd      []string
-	stopCmd  []string
-	once     sync.Once
+	target      *check.Pod
+	dumpPath    string
+	logPath     string
+	pidPath     string
+	out         bytes.Buffer
+	mode        Mode
+	cmd         []string
+	stopCmd     []string
+	killTimeout time.Duration
+	once        sync.Once
 }
 
 type sniffScriptParams struct {
@@ -150,6 +157,15 @@ type debugLogger interface {
 	Debugf(string, ...any)
 }
 
+// KillTimeout returns the configured sniffer kill timeout, falling back to the
+// default when the given value is unset (<= 0).
+func KillTimeout(configured time.Duration) time.Duration {
+	if configured <= 0 {
+		return SniffKillTimeout
+	}
+	return configured
+}
+
 // Start starts a tcpdump capture on the given pod, listening to the specified
 // interface. The mode configures whether Validate() will (not) expect any packet
 // to match the filter. The returned finalization/close function must be run
@@ -160,11 +176,12 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 	killTimeout time.Duration, dbg debugLogger,
 ) (*Sniffer, func() error, error) {
 	sniffer := &Sniffer{
-		target:   target,
-		dumpPath: fmt.Sprintf("/tmp/%s.pcap", name),
-		logPath:  fmt.Sprintf("/tmp/%s.log", name),
-		pidPath:  fmt.Sprintf("/tmp/%s.pid", name),
-		mode:     mode,
+		target:      target,
+		dumpPath:    fmt.Sprintf("/tmp/%s.pcap", name),
+		logPath:     fmt.Sprintf("/tmp/%s.log", name),
+		pidPath:     fmt.Sprintf("/tmp/%s.pid", name),
+		mode:        mode,
+		killTimeout: killTimeout,
 	}
 
 	// Limit packet capture to avoid large files: 1 in sanity mode, 1000 in assert mode.
@@ -259,6 +276,13 @@ func (sniffer *Sniffer) stop() (err error) {
 	}
 
 	sniffer.once.Do(func() {
+		// Time allowed for tcpdump to shut down after being signalled. Falls back
+		// to the default when the sniffer was created without an explicit timeout.
+		stopWait := sniffer.killTimeout
+		if stopWait <= 0 {
+			stopWait = sniffScriptTimeout
+		}
+
 		// Execute the template with only the needed params.
 		var buf bytes.Buffer
 		tmpl := template.Must(template.New("sniffStop").Parse(sniffScriptStopTmpl))
@@ -266,7 +290,7 @@ func (sniffer *Sniffer) stop() (err error) {
 		err = tmpl.Execute(&buf, sniffScriptParams{
 			PidPath:     sniffer.pidPath,
 			DumpPath:    sniffer.dumpPath,
-			WaitSeconds: int(sniffScriptTimeout.Seconds()),
+			WaitSeconds: int(stopWait.Seconds()),
 		})
 		if err != nil {
 			err = fmt.Errorf("template execution failed: %w", err)
@@ -276,9 +300,10 @@ func (sniffer *Sniffer) stop() (err error) {
 		// Finally wrap the resulting command.
 		sniffer.stopCmd = append([]string{"sh", "-c"}, buf.String())
 
-		// Context with timeout for stopping tcpdump.
+		// Context with timeout for stopping tcpdump. Must outlive the in-pod wait
+		// loop, so size it relative to stopWait rather than the fixed default.
 		// NOTE: Context is not passed anymore to this function to avoid premature cancellation.
-		ctx, cancel := context.WithTimeout(context.Background(), sniffConnectionTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), stopWait+5*time.Second)
 		defer cancel()
 
 		// Stop tcpdump and store output.

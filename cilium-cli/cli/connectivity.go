@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -229,6 +230,8 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.SecondaryNetworkIface, "secondary-network-iface", "", "Secondary network iface name (e.g., to test NodePort BPF on multiple networks)")
 
 	cmd.Flags().DurationVar(&params.Timeout, "timeout", defaults.ConnectivityTestSuiteTimeout, "Maximum time to allow the connectivity test suite to take")
+
+	cmd.Flags().DurationVar(&params.SniffKillTimeout, "sniff-kill-timeout", sniff.SniffKillTimeout, "Time allowed for the in-pod tcpdump sniffer to shut down during encryption tests (increase on slow or contended nodes)")
 
 	cmd.Flags().IntVar(&params.TestConcurrency, "test-concurrency", 1, "Count of namespaces to perform the connectivity tests in parallel (value <= 0 will be treated as 1)")
 	cmd.Flags().StringSliceVar(&params.IPFamilies, "ip-families", []string{features.IPFamilyV4.String(), features.IPFamilyV6.String()}, "Restrict test actions to specific IP families")

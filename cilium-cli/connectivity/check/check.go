@@ -150,6 +150,11 @@ type Parameters struct {
 	CurlInsecure   bool
 	CurlParallel   uint
 
+	// SniffKillTimeout is the time allowed for the in-pod tcpdump sniffer to
+	// shut down after being signalled during encryption tests. Slow or
+	// contended nodes may need a higher value.
+	SniffKillTimeout time.Duration
+
 	ExitZeroOnFailure       bool
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options

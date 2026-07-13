@@ -298,7 +298,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 		snifferMode = sniff.ModeSanity
 	}
 
-	srcSniffer, cancel, err := sniff.Sniff(ctx, s.Name(), clientHost, srcIface, srcFilter, snifferMode, sniff.SniffKillTimeout, t)
+	srcSniffer, cancel, err := sniff.Sniff(ctx, s.Name(), clientHost, srcIface, srcFilter, snifferMode, sniff.KillTimeout(t.Context().Params().SniffKillTimeout), t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +309,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType, wgEncap)
 		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam, wgEncap)
 
-		dstSniffer, cancel, err = sniff.Sniff(ctx, s.Name(), serverHost, dstIface, dstFilter, snifferMode, sniff.SniffKillTimeout, t)
+		dstSniffer, cancel, err = sniff.Sniff(ctx, s.Name(), serverHost, dstIface, dstFilter, snifferMode, sniff.KillTimeout(t.Context().Params().SniffKillTimeout), t)
 		if err != nil {
 			t.Fatal(err)
 		}
