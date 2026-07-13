@@ -538,6 +538,12 @@ func (e *EgressCommonRule) Validate(l3Members map[string]int) error {
 		}
 	}
 
+	for i := range e.ToServices {
+		if err := e.ToServices[i].Validate(); err != nil {
+			return errors.Join(err, retErr)
+		}
+	}
+
 	return retErr
 }
 
@@ -552,6 +558,10 @@ func (e *EgressCommonRule) Sanitize() {
 
 	for i := range e.ToCIDRSet {
 		e.ToCIDRSet[i].Sanitize()
+	}
+
+	for i := range e.ToServices {
+		e.ToServices[i].Sanitize()
 	}
 }
 
