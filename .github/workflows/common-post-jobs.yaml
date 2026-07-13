@@ -17,6 +17,11 @@ on:
         required: false
         type: boolean
         default: true
+      merge-junits:
+        description: "Whether to merge and upload cilium-junits-* artifacts. Set to false for workflows that do not run cilium connectivity test and therefore produce no JUnit report (e.g. kubectl-wait smoke tests)."
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -39,6 +44,7 @@ jobs:
           persist-credentials: false
 
       - name: Merge JUnits
+        if: ${{ inputs.merge-junits }}
         uses: ./.github/actions/merge-artifacts
         with:
           name: cilium-junits
