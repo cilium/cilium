@@ -7,12 +7,8 @@
 hive start
 
 # Configure gobgp server
-gobgp/add-server test0 --router-id=1.2.3.4 65010 fd00::bb:cc:dd:1 1790
-gobgp/add-server test1 --router-id=5.6.7.8 65011 fd00::bb:cc:dd:2 1790
-
-# Configure peers on GoBGP
-gobgp/add-peer -s test0 fd00::bb:cc:dd:10 65001
-gobgp/add-peer -s test1 fd00::bb:cc:dd:10 65001
+gobgp/add-server test0 test0.toml
+gobgp/add-server test1 test1.toml
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml
@@ -98,6 +94,44 @@ gobgp/routes -s test1 -o routes.actual ipv6 unicast
 
 #####
 
+-- test0.toml --
+[global.config]
+  as = 65010
+  router-id = "1.2.3.4"
+  local-address-list = ["fd00::bb:cc:dd:1"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00::bb:cc:dd:10"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
+-- test1.toml --
+[global.config]
+  as = 65011
+  router-id = "5.6.7.8"
+  local-address-list = ["fd00::bb:cc:dd:2"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00::bb:cc:dd:10"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
 -- cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode

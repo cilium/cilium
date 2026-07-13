@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net/netip"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -17,6 +16,8 @@ import (
 	"github.com/cilium/hive/script"
 	gobgpapi "github.com/osrg/gobgp/v4/api"
 	"github.com/osrg/gobgp/v4/pkg/apiutil"
+	gobgpconfig "github.com/osrg/gobgp/v4/pkg/config"
+	"github.com/osrg/gobgp/v4/pkg/config/oc"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v4/pkg/server"
 	"github.com/spf13/pflag"
@@ -32,36 +33,35 @@ const (
 	serverNameFlag      = "server-name"
 	serverNameFlagShort = "s"
 
-	routerIDFlag      = "router-id"
-	routerIDFlagShort = "r"
-
 	timeoutFlag      = "timeout"
 	timeoutFlagShort = "t"
-
-	passwordFlag      = "password"
-	passwordFlagShort = "p"
-
-	familiesFlag      = "families"
-	familiesFlagShort = "f"
 
 	gobgpSessionStatePrefix = "SESSION_STATE_"
 )
 
+// gobgpServerState tracks a running GoBGP test server instance together with
+// the last GoBGP configuration successfully applied to it, so that
+// gobgp/reload-server can diff a new configuration against it.
+type gobgpServerState struct {
+	server *server.BgpServer
+	config *oc.BgpConfigSet
+}
+
 type GoBGPCmdContext struct {
-	servers map[string]*server.BgpServer
+	servers map[string]*gobgpServerState
 }
 
 func NewGoBGPCmdContext() *GoBGPCmdContext {
 	return &GoBGPCmdContext{
-		servers: make(map[string]*server.BgpServer),
+		servers: make(map[string]*gobgpServerState),
 	}
 }
 
-func (ctx *GoBGPCmdContext) AddServer(name string, srv *server.BgpServer) {
+func (ctx *GoBGPCmdContext) AddServer(name string, srv *server.BgpServer, config *oc.BgpConfigSet) {
 	if _, found := ctx.servers[name]; found {
 		panic("Server " + name + " already exists")
 	}
-	ctx.servers[name] = srv
+	ctx.servers[name] = &gobgpServerState{server: srv, config: config}
 }
 
 func (ctx *GoBGPCmdContext) DeleteServer(name string) {
@@ -79,20 +79,23 @@ func (ctx *GoBGPCmdContext) GetServer(name string) (*server.BgpServer, bool) {
 	if name == "" {
 		if ctx.NServers() > 0 {
 			// Return fierst server if no name is specified
-			for _, srv := range ctx.servers {
-				return srv, true
+			for _, state := range ctx.servers {
+				return state.server, true
 			}
 		} else {
 			return nil, false
 		}
 	}
-	srv, found := ctx.servers[name]
-	return srv, found
+	state, found := ctx.servers[name]
+	if !found {
+		return nil, false
+	}
+	return state.server, true
 }
 
 func (ctx *GoBGPCmdContext) Cleanup() {
-	for _, s := range ctx.servers {
-		s.Stop()
+	for _, state := range ctx.servers {
+		state.server.Stop()
 	}
 }
 
@@ -100,7 +103,7 @@ func GoBGPScriptCmds(ctx *GoBGPCmdContext) map[string]script.Cmd {
 	return map[string]script.Cmd{
 		"gobgp/add-server":      GoBGPAddServerCmd(ctx),
 		"gobgp/delete-server":   GoBGPDeleteServerCmd(ctx),
-		"gobgp/add-peer":        GoBGPAddPeerCmd(ctx),
+		"gobgp/reload-server":   GoBGPReloadServerCmd(ctx),
 		"gobgp/wait-state":      GoBGPWaitStateCmd(ctx),
 		"gobgp/peers":           GoBGPPeersCmd(ctx),
 		"gobgp/routes":          GoBGPRoutesCmd(ctx),
@@ -111,61 +114,43 @@ func GoBGPScriptCmds(ctx *GoBGPCmdContext) map[string]script.Cmd {
 func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
-			Summary: "Add a new GoBGP server instance",
-			Args:    "name asn ip port",
-			Flags: func(fs *pflag.FlagSet) {
-				fs.StringP(routerIDFlag, routerIDFlagShort, "", "router-id of the server. Defaults to server ip if not provided.")
-			},
+			Summary: "Add a new GoBGP server instance from a native GoBGP configuration file",
+			Args:    "name config-file",
 			Detail: []string{
-				"Add a new GoBGP server instance with the specified parameters.",
-				"The server will be stopped during the test cleanup, but can be also removed during the test with gobgp/delete-server command.",
+				"Add a new GoBGP server instance. The <config-file> argument specifies an initial",
+				"configuration file. The format is the same as the one of upstream gobgpd.",
 				"",
-				"'Name' is the name of the server.",
-				"'ASN' is the autonomous system number of this instance.",
-				"'ip' is the IP address on which the server listens for incoming connections.",
-				"'port' is the port number on which the server listens for incoming connections.",
+				"'name' is the name used to refer to this server instance in other gobgp/* commands.",
+				"'config-file' is a path to an initial configuration file. The format is the same as",
+				"the one of the upstream gobgpd consumes.",
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) < 4 {
-				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-server name asn ip port'")
+			if len(args) < 2 {
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-server name config-file'")
 			}
-			asn, err := strconv.Atoi(args[1])
+			path := s.Path(args[1])
+			configSet, err := gobgpconfig.ReadConfigFile(path, "")
 			if err != nil {
-				return nil, fmt.Errorf("could not parse asn: %w", err)
-			}
-			port, err := strconv.Atoi(args[3])
-			if err != nil {
-				return nil, fmt.Errorf("could not parse port: %w", err)
-			}
-			routerID, err := s.Flags.GetString(routerIDFlag)
-			if err != nil {
-				return nil, err
-			}
-			if routerID == "" {
-				routerID = args[2]
+				return nil, fmt.Errorf("could not read GoBGP config file %s: %w", args[1], err)
 			}
 
 			// start new GoBGP server
 			logger := slog.Default().With(
 				types.ComponentLogField, "gobgp-server",
-				types.LocalASNLogField, asn,
+				types.NameLogField, args[0],
 			)
 			gobgpServer := server.NewBgpServer(server.LoggerOption(logger, nil))
 			go gobgpServer.Serve()
-			err = gobgpServer.StartBgp(s.Context(), &gobgpapi.StartBgpRequest{Global: &gobgpapi.Global{
-				Asn:             uint32(asn),
-				RouterId:        routerID,
-				ListenAddresses: []string{args[2]},
-				ListenPort:      int32(port),
-			}})
+			appliedConfig, err := gobgpconfig.InitialConfig(s.Context(), gobgpServer, configSet, false)
 			if err != nil {
 				gobgpServer.Stop()
 				return nil, err
 			}
-			cmdCtx.AddServer(args[0], gobgpServer)
+			cmdCtx.AddServer(args[0], gobgpServer, appliedConfig)
 
-			s.Logf("Started GoBGP Server Name: %s, ASN: %d, ip: %s, port: %d\n", args[0], asn, args[2], port)
+			s.Logf("Started GoBGP Server %q\n", args[0])
+
 			return nil, nil
 		},
 	)
@@ -198,90 +183,49 @@ func GoBGPDeleteServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 	)
 }
 
-func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
+func GoBGPReloadServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
-			Summary: "Add a new peer the GoBGP server instance",
-			Args:    "ip remote-asn",
-			Flags: func(fs *pflag.FlagSet) {
-				fs.StringP(serverNameFlag, serverNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
-				fs.StringP(passwordFlag, passwordFlagShort, "", "Authentication password used for the peer.")
-				fs.StringP(familiesFlag, familiesFlagShort, "ipv4/unicast,ipv6/unicast", "Comma-separated list of AFI/SAFIs enabled for the peer. If not specified, ipv4/unicast and ipv6/unicast are enabled.")
-			},
+			Summary: "Reload the configuration of a running GoBGP server instance",
+			Args:    "name config-file",
 			Detail: []string{
-				"Add a new peer with the given IP and remote ASN to the GoBGP server instance.",
+				"Apply a new GoBGP configuration file to an already-running server instance, the same way",
+				"gobgpd applies a config file change on SIGHUP: the new file is diffed against the last",
+				"configuration applied to this server, and peers/peer-groups/route-policies are added,",
+				"removed or updated to match.",
 				"",
-				"'ip' is IP address of the peer.",
-				"'remote-asn' is the remote ASN number of the peer.",
-				"If there are multiple server instances configured, the server-asn flag needs to be specified.",
+				"Global/listen parameters (ASN, listen address, port) in the new file are ignored - GoBGP",
+				"cannot change those on a running server. To change them, use gobgp/delete-server followed",
+				"by gobgp/add-server instead.",
+				"",
+				"Like gobgpd's own reload, per-item failures (e.g. a malformed peer) are only logged, not",
+				"returned as a command error - inspect gobgp/peers, gobgp/routes, etc. afterwards to confirm",
+				"the change actually applied.",
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			if len(args) < 2 {
-				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/ass-peer ip remote-asn'")
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/reload-server name config-file'")
 			}
-			gobgpServer, err := getGoBGPServer(s, cmdCtx)
-			if err != nil {
-				return nil, err
-			}
-
-			peer := &gobgpapi.Peer{
-				Conf: &gobgpapi.PeerConf{
-					NeighborAddress: args[0],
-				},
-				Transport: &gobgpapi.Transport{
-					PassiveMode: true,
-				},
-				GracefulRestart: &gobgpapi.GracefulRestart{
-					Enabled: true,
-				},
-			}
-			_, err = fmt.Sscanf(args[1], "%d", &peer.Conf.PeerAsn)
-			if err != nil {
-				return nil, fmt.Errorf("could not parse remote-asn: %w", err)
+			state, found := cmdCtx.servers[args[0]]
+			if !found {
+				return nil, fmt.Errorf("GoBGP Server with name: %s not found", args[0])
 			}
 
-			families, err := s.Flags.GetString(familiesFlag)
+			path := s.Path(args[1])
+			newConfig, err := gobgpconfig.ReadConfigFile(path, "")
 			if err != nil {
-				return nil, err
-			}
-			if families == "" {
-				return nil, fmt.Errorf("families have to be specified for the peer")
-			}
-			afiSafis := strings.SplitSeq(families, ",")
-			for afiSafi := range afiSafis {
-				afiSafiArr := strings.Split(afiSafi, "/")
-				if len(afiSafiArr) != 2 {
-					return nil, fmt.Errorf("invalid afi/safi format: %s", afiSafi)
-				}
-				peer.AfiSafis = append(peer.AfiSafis, &gobgpapi.AfiSafi{
-					Config: &gobgpapi.AfiSafiConfig{
-						Family: &gobgpapi.Family{
-							Afi:  gobgpapi.Family_Afi(types.ParseAfi(afiSafiArr[0])),
-							Safi: gobgpapi.Family_Safi(types.ParseSafi(afiSafiArr[1])),
-						},
-					},
-					AddPaths: &gobgpapi.AddPaths{
-						Config: &gobgpapi.AddPathsConfig{
-							Receive: true,
-						},
-					},
-				})
+				return nil, fmt.Errorf("could not read GoBGP config file %s: %w", args[1], err)
 			}
 
-			password, err := s.Flags.GetString(passwordFlag)
+			appliedConfig, err := gobgpconfig.UpdateConfig(s.Context(), state.server, state.config, newConfig)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error reloading GoBGP server %s: %w", args[0], err)
 			}
-			if password != "" {
-				peer.Conf.AuthPassword = password
-			}
+			state.config = appliedConfig
 
-			err = gobgpServer.AddPeer(s.Context(), &gobgpapi.AddPeerRequest{Peer: peer})
-			if err != nil {
-				return nil, fmt.Errorf("error by adding peer to server: %w", err)
-			}
-			s.Logf("Added peer to GoBGP Server: %+v\n", peer)
+			s.Logf("Reloaded GoBGP Server %q\n", args[0])
+
 			return nil, nil
 		},
 	)

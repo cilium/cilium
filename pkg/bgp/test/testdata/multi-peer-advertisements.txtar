@@ -7,12 +7,8 @@
 hive start
 
 # Configure gobgp servers
-gobgp/add-server peer1 65010 10.99.7.101 1790
-gobgp/add-server peer2 65011 10.99.7.102 1790
-
-# Configure peers on GoBGP
-gobgp/add-peer -s peer1 10.99.7.110 65001
-gobgp/add-peer -s peer2 10.99.7.110 65001
+gobgp/add-server peer1 peer1.toml
+gobgp/add-server peer2 peer2.toml
 
 # Add a k8s service
 k8s/add service.yaml
@@ -69,6 +65,32 @@ gobgp/routes -s peer2 -o routes.actual
 
 #####
 
+-- peer1.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.7.101"
+  local-address-list = ["10.99.7.101"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.7.110"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+-- peer2.toml --
+[global.config]
+  as = 65011
+  router-id = "10.99.7.102"
+  local-address-list = ["10.99.7.102"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.7.110"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
 -- cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
