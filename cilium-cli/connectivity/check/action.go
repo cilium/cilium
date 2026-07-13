@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -306,6 +307,30 @@ func isExecTransportError(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "unable to upgrade connection") ||
 		strings.Contains(msg, "error dialing backend")
+}
+
+// execInPodWithTransportRetry runs a one-shot command in a pod, retrying only
+// on transport-level failures to establish the exec stream (see
+// isExecTransportError). Setup/teardown helpers use it because they have no
+// curl-level --retry of their own, so a single transient apiserver/konnectivity
+// upgrade-connection blip — common on managed clusters and under load — would
+// otherwise abort the whole test before the command ran. A non-zero exit of the
+// command itself is a real result and is returned on the first attempt.
+func (ct *ConnectivityTest) execInPodWithTransportRetry(ctx context.Context, client *k8s.Client, namespace, pod, container string, cmd []string) (bytes.Buffer, error) {
+	var output bytes.Buffer
+	var err error
+	for i := 1; i <= testCommandRetries; i++ {
+		output, err = client.ExecInPod(ctx, namespace, pod, container, cmd)
+		if err == nil || !isExecTransportError(err) {
+			break
+		}
+		ct.Debugf("retrying exec in pod %s/%s due to exec transport error: %s", namespace, pod, err)
+		select {
+		case <-ctx.Done():
+		case <-time.After(time.Second):
+		}
+	}
+	return output, err
 }
 
 func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
