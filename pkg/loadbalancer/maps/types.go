@@ -989,24 +989,27 @@ const (
 
 // SockRevNat4Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
+// SockRevNat4Key  must match 'struct ipv4_revnat_tuple' in "bpf/lib/sock.h".
 type SockRevNat4Key struct {
 	Cookie  uint64     `align:"cookie"`
 	Address types.IPv4 `align:"address"`
-	Port    int16      `align:"port"`
-	_       int16
+	// port is Network Byte Order, it is simply binary unmarshalled from ebpf map
+	Port uint16 `align:"port"`
+	_    int16
 }
 
 // SockRevNat4Value is an entry in the reverse NAT sock map.
 type SockRevNat4Value struct {
-	Address     types.IPv4 `align:"address"`
-	Port        int16      `align:"port"`
-	RevNatIndex uint16     `align:"rev_nat_index"`
+	Address types.IPv4 `align:"address"`
+	// port is Network Byte Order, it is simply binary unmarshalled from ebpf map
+	Port        uint16 `align:"port"`
+	RevNatIndex uint16 `align:"rev_nat_index"`
 }
 
 func NewSockRevNat4Key(cookie uint64, addr net.IP, port uint16) *SockRevNat4Key {
 	var key SockRevNat4Key
 	key.Cookie = cookie
-	key.Port = int16(byteorder.NetworkToHost16(port))
+	key.Port = byteorder.HostToNetwork16(port)
 	copy(key.Address[:], addr.To4())
 
 	return &key
@@ -1014,25 +1017,27 @@ func NewSockRevNat4Key(cookie uint64, addr net.IP, port uint16) *SockRevNat4Key 
 
 // String converts the key into a human readable string format.
 func (k *SockRevNat4Key) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", k.Address, k.Port, k.Cookie)
+	return fmt.Sprintf("[%s]:%d, %d", k.Address, byteorder.NetworkToHost16(k.Port), k.Cookie)
 }
 
 func (k *SockRevNat4Key) New() bpf.MapKey { return &SockRevNat4Key{} }
 
 // String converts the value into a human readable string format.
 func (v *SockRevNat4Value) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", v.Address, v.Port, v.RevNatIndex)
+	return fmt.Sprintf("[%s]:%d, %d", v.Address, byteorder.NetworkToHost16(v.Port), v.RevNatIndex)
 }
 
 func (v *SockRevNat4Value) New() bpf.MapValue { return &SockRevNat4Value{} }
 
 // SockRevNat6Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
+// SockRevNat6Key  must match 'struct ipv6_revnat_tuple' in "bpf/lib/sock.h".
 type SockRevNat6Key struct {
 	Cookie  uint64     `align:"cookie"`
 	Address types.IPv6 `align:"address"`
-	Port    int16      `align:"port"`
-	_       [6]byte
+	// port is Network Byte Order, it is simply binary unmarshalled from ebpf map
+	Port uint16 `align:"port"`
+	_    [6]byte
 }
 
 // SizeofSockRevNat6Key is the size of type SockRevNat6Key.
@@ -1040,9 +1045,10 @@ const SizeofSockRevNat6Key = int(unsafe.Sizeof(SockRevNat6Key{}))
 
 // SockRevNat6Value is an entry in the reverse NAT sock map.
 type SockRevNat6Value struct {
-	Address     types.IPv6 `align:"address"`
-	Port        int16      `align:"port"`
-	RevNatIndex uint16     `align:"rev_nat_index"`
+	Address types.IPv6 `align:"address"`
+	// port is Network Byte Order, it is simply binary unmarshalled from ebpf map
+	Port        uint16 `align:"port"`
+	RevNatIndex uint16 `align:"rev_nat_index"`
 }
 
 // SizeofSockRevNat6Value is the size of type SockRevNat6Value.
@@ -1052,7 +1058,7 @@ func NewSockRevNat6Key(cookie uint64, addr net.IP, port uint16) *SockRevNat6Key 
 	var key SockRevNat6Key
 
 	key.Cookie = cookie
-	key.Port = int16(byteorder.NetworkToHost16(port))
+	key.Port = byteorder.HostToNetwork16(port)
 	ipv6Array := addr.To16()
 	copy(key.Address[:], ipv6Array[:])
 
@@ -1061,14 +1067,14 @@ func NewSockRevNat6Key(cookie uint64, addr net.IP, port uint16) *SockRevNat6Key 
 
 // String converts the key into a human readable string format.
 func (k *SockRevNat6Key) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", k.Address, k.Port, k.Cookie)
+	return fmt.Sprintf("[%s]:%d, %d", k.Address, byteorder.NetworkToHost16(k.Port), k.Cookie)
 }
 
 func (k *SockRevNat6Key) New() bpf.MapKey { return &SockRevNat6Key{} }
 
 // String converts the value into a human readable string format.
 func (v *SockRevNat6Value) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", v.Address, v.Port, v.RevNatIndex)
+	return fmt.Sprintf("[%s]:%d, %d", v.Address, byteorder.NetworkToHost16(v.Port), v.RevNatIndex)
 }
 
 func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
