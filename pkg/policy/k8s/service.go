@@ -353,7 +353,9 @@ type serviceDetailer interface {
 }
 
 // serviceSelectorMatches returns true if the ToServices k8sServiceSelector
-// matches the labels of the provided service svc
+// matches the labels of the provided service svc.
+//
+// NOTE: This method assumes that the selector is validated beforehand.
 func serviceSelectorMatches(sel *api.K8sServiceSelectorNamespace, svc serviceDetailer) bool {
 	if !(sel.Namespace == svc.getNamespace() || sel.Namespace == "") {
 		return false
@@ -368,7 +370,10 @@ type labelsMatcher labels.Labels
 // Lookup implements labels.LabelMatcher
 func (l labelsMatcher) LookupLabel(label *labels.Label) (value string, exists bool) {
 	v, ok := l[label.Key]
-	return v.Value, ok
+	if ok && (label.IsAnySource() || v.Source == label.Source) {
+		return v.Value, true
+	}
+	return "", false
 }
 
 var _ labels.LabelMatcher = labelsMatcher{}
