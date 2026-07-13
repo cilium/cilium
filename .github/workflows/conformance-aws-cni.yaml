@@ -294,15 +294,15 @@ jobs:
 
       - name: Install kubectl
         run: |
-          curl -sLO "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
-          curl -sLO "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          curl -sfL --retry 5 --retry-all-errors --retry-delay 3 -O "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sfL --retry 5 --retry-all-errors --retry-delay 3 -O "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
           echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
           sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
           kubectl version --client
 
       - name: Install eksctl CLI
         run: |
-          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 -O "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
           sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 

@@ -34,7 +34,7 @@ jobs:
 
       - name: Install eksctl CLI
         run: |
-          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 -O "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
           sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
