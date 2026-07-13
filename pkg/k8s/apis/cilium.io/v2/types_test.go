@@ -56,7 +56,7 @@ var (
 				},
 			}, {
 				EgressCommonRule: api.EgressCommonRule{
-					ToCIDR: []api.CIDR{"10.0.0.1"},
+					ToCIDR: []api.CIDR{"10.0.0.1/32"},
 				},
 			}, {
 				EgressCommonRule: api.EgressCommonRule{
@@ -97,7 +97,7 @@ var (
 				},
 			}, {
 				EgressCommonRule: api.EgressCommonRule{
-					ToCIDR: []api.CIDR{"10.0.0.1"},
+					ToCIDR: []api.CIDR{"10.0.0.1/32"},
 				},
 			}, {
 				EgressCommonRule: api.EgressCommonRule{
@@ -141,7 +141,7 @@ var (
 			},
 			{
 				EgressCommonRule: api.EgressCommonRule{
-					ToCIDR: []api.CIDR{"10.0.0.1"},
+					ToCIDR: []api.CIDR{"10.0.0.1/32"},
 				},
 			}, {
 				EgressCommonRule: api.EgressCommonRule{
@@ -222,7 +222,7 @@ var (
                 ]
             },{
                 "toCIDR": [
-                    "10.0.0.1"
+                    "10.0.0.1/32"
                 ]
             },{
                 "toCIDRSet": [
@@ -489,7 +489,7 @@ func TestParseWithNodeSelector(t *testing.T) {
 				},
 			}, {
 				EgressCommonRule: api.EgressCommonRule{
-					ToCIDR: []api.CIDR{"10.0.0.1"},
+					ToCIDR: []api.CIDR{"10.0.0.1/32"},
 				},
 			}, {
 				EgressCommonRule: api.EgressCommonRule{

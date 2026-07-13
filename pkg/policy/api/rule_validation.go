@@ -659,11 +659,7 @@ func (c CIDR) sanitize() error {
 
 	prefix, err := netip.ParsePrefix(strCIDR)
 	if err != nil {
-		_, err := netip.ParseAddr(strCIDR)
-		if err != nil {
-			return fmt.Errorf("unable to parse CIDR: %w", err)
-		}
-		return nil
+		return fmt.Errorf("unable to parse CIDR: %w", err)
 	}
 	prefixLength := prefix.Bits()
 	if prefixLength < 0 {
