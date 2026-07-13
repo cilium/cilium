@@ -821,8 +821,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 			Namespace: Namespace,
 			Name:      "policy_implementation_delay",
-			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
-			Help:      "Time between a policy change and it being fully deployed into the datapath",
+			// Decade-spaced buckets (10us..100s) leave a void across the
+			// 0.05-2s region where the realization SLO actually lives, so
+			// histogram_quantile interpolates any sub-second tail up towards
+			// the next boundary (1s) and reports meaningless p90/p99 values.
+			// Use buckets dense in the SLO region instead.
+			Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+			Help:    "Time between a policy change and it being fully deployed into the datapath",
 		}, metric.Labels{
 			{
 				Name:   LabelPolicySource,
