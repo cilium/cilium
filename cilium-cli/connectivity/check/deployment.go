@@ -1817,8 +1817,8 @@ func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
 		}
 
 		for _, pod := range clientPods.Items {
-			_, err := ct.client.ExecInPod(ctx, ct.params.TestNamespace, pod.Name, pod.Spec.Containers[0].Name,
-				[]string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d >> /etc/ssl/certs/ca-certificates.crt", encodedCert)})
+			cmd := []string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d >> /etc/ssl/certs/ca-certificates.crt", encodedCert)}
+			_, err := ct.execInPodWithTransportRetry(ctx, ct.client, ct.params.TestNamespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
 			if err != nil {
 				return fmt.Errorf("unable to add CA to pod %s: %w", pod.Name, err)
 			}
@@ -3047,7 +3047,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			if iface := ct.params.SecondaryNetworkIface; iface != "" {
 				if ct.Features[features.IPv4].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
+					addr, err := ct.execInPodWithTransportRetry(ctx, client, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
 					if err != nil {
 						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
 					}
@@ -3055,7 +3055,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 				}
 				if ct.Features[features.IPv6].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
+					addr, err := ct.execInPodWithTransportRetry(ctx, client, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
 					if err != nil {
 						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
 					}
