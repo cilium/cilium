@@ -184,7 +184,7 @@ triggers:
     - l7-perf.yaml
   /build-images-dependency:  #this trigger is not meant to be used in comments, as build workflows are not triggered by Ariane. Having this trigger allows us to have others depend on images workflow though.
     workflows:
-    - build-images-ci.yaml
+    - build-images-ci-v1.20.yaml
 
 # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
 schedule:
