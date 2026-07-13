@@ -312,6 +312,12 @@ func (d *doubleWriteBackend) ListAndWatch(ctx context.Context, handler allocator
 		// Since we don't need to use the results of the list operation, we can use a no-op handler
 		go d.crdBackend.ListAndWatch(ctx, NoOpHandler{})
 		d.kvstoreBackend.ListAndWatch(ctx, handler)
+		// Return here: the real handler is driven exclusively by the KVStore
+		// backend in this mode. Falling through to run the CRD backend with the
+		// same handler would deliver a second OnListDone (and thus a duplicate
+		// Sync event) whenever the KVStore watch terminates with a live context,
+		// closing the allocator's listDone channel twice.
+		return
 	}
 	d.crdBackend.ListAndWatch(ctx, handler)
 }

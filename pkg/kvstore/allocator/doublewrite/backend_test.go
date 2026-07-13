@@ -58,6 +58,59 @@ func setup(tb testing.TB) (string, *k8sClient.FakeClientset, kvstore.BackendOper
 	return kvstorePrefix, kubeClient, kvstoreClient, backend
 }
 
+// fakeBackend embeds allocator.Backend so that only the methods exercised by a
+// test need to be implemented; every other method is nil and must not be called.
+type fakeBackend struct {
+	allocator.Backend
+	listAndWatch func(ctx context.Context, handler allocator.CacheMutations)
+}
+
+func (f *fakeBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations) {
+	f.listAndWatch(ctx, handler)
+}
+
+// countingHandler records how many times OnListDone is invoked on it.
+type countingHandler struct {
+	NoOpHandler
+	onListDone atomic.Int32
+}
+
+func (h *countingHandler) OnListDone() { h.onListDone.Add(1) }
+
+// TestListAndWatchReadFromKVStoreSingleOnListDone is a regression test for a
+// double-close of the allocator's listDone channel. In read-from-KVStore mode
+// the real handler must be driven only by the KVStore backend. Previously a
+// missing return caused the CRD backend to also run with the real handler once
+// the KVStore watch returned, delivering a second OnListDone/Sync event and
+// panicking with "close of closed channel" in the identity watcher.
+func TestListAndWatchReadFromKVStoreSingleOnListDone(t *testing.T) {
+	handler := &countingHandler{}
+
+	// The KVStore backend receives the real handler, signals sync completion,
+	// then returns while the context is still live (mimicking a transient
+	// etcd/watch disconnect rather than a shutdown).
+	kvstoreBackend := &fakeBackend{listAndWatch: func(ctx context.Context, h allocator.CacheMutations) {
+		h.OnListDone()
+	}}
+	// The CRD backend forwards OnListDone to whatever handler it is given, so a
+	// duplicate only reaches the real handler if it is (incorrectly) wired to it.
+	crdBackend := &fakeBackend{listAndWatch: func(ctx context.Context, h allocator.CacheMutations) {
+		h.OnListDone()
+	}}
+
+	backend := &doubleWriteBackend{
+		logger:          hivetest.Logger(t),
+		crdBackend:      crdBackend,
+		kvstoreBackend:  kvstoreBackend,
+		readFromKVStore: true,
+	}
+
+	backend.ListAndWatch(context.Background(), handler)
+
+	require.Equal(t, int32(1), handler.onListDone.Load(),
+		"real handler must receive exactly one OnListDone in read-from-KVStore mode")
+}
+
 func TestAllocateID(t *testing.T) {
 	kvstorePrefix, kubeClient, kvstoreClient, backend := setup(t)
 
