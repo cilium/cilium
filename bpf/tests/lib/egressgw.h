@@ -265,6 +265,7 @@ static __always_inline int create_ct_entry(struct __ctx_buff *ctx, __be16 client
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 
+	tuple.flags = TUPLE_F_OUT;
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.daddr = EXTERNAL_SVC_IP;
 	tuple.sport = EXTERNAL_SVC_PORT;
@@ -477,6 +478,7 @@ static __always_inline int create_ct_entry_v6(struct __ctx_buff *ctx, __be16 cli
 	struct ipv6_ct_tuple __align_stack_8 tuple = {};
 	struct ct_state ct_state = {};
 
+	tuple.flags = TUPLE_F_OUT;
 	tuple.nexthdr = IPPROTO_TCP;
 	ipv6_addr_copy((union v6addr *)&tuple.daddr, &ext_svc_ip);
 	tuple.sport = EXTERNAL_SVC_PORT;
