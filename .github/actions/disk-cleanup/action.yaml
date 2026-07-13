@@ -1,5 +1,10 @@
 name: Disk cleanup
 description: "Cleanup disk space"
+inputs:
+  min-free-gb:
+    description: "Only clean up when the root filesystem has less than this many GB free. Unset cleans up unconditionally."
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -17,7 +22,28 @@ runs:
                 --dereference \
                 --threshold 50m \
                 -- /var/lib/docker/volumes/
+    - name: Decide whether cleanup is needed
+      id: decide
+      shell: bash
+      env:
+        MIN_FREE_GB: ${{ inputs.min-free-gb }}
+      run: |
+        if [ -z "${MIN_FREE_GB}" ]; then
+          echo "No min-free-gb threshold set; cleaning up unconditionally."
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        avail=$(df --block-size=G --output=avail / | tail -1 | tr -dc '0-9')
+        echo "Root filesystem has ${avail}G free; threshold is ${MIN_FREE_GB}G."
+        if [ "${avail}" -lt "${MIN_FREE_GB}" ]; then
+          echo "Below threshold; cleaning up."
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Enough free space; skipping cleanup."
+          echo "needed=false" >> "$GITHUB_OUTPUT"
+        fi
     - name: Free up disk space
+      if: steps.decide.outputs.needed == 'true'
       shell: bash
       run: |
         echo "Removing unnecessary files to free up disk space..."
@@ -59,6 +85,7 @@ runs:
 
         echo "Disk cleanup completed with maximum parallelism"
     - name: Assess disk usage after cleanup
+      if: steps.decide.outputs.needed == 'true'
       shell: bash
       run: |
         echo "# Overview"
