@@ -399,7 +399,18 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
-          echo eks_zone_1=${{ matrix.region }}b >> $GITHUB_OUTPUT
+
+          # us-west-1 only exposes two usable availability zones for subnet
+          # creation (us-west-1a and us-west-1c); us-west-1b rejects subnets.
+          case "${{ matrix.region }}" in
+          us-west-1)
+            ZONE_1=${{ matrix.region }}a
+            ;;
+          *)
+            ZONE_1=${{ matrix.region }}b
+            ;;
+          esac
+          echo eks_zone_1=${ZONE_1} >> $GITHUB_OUTPUT
           echo eks_zone_2=${{ matrix.region }}c >> $GITHUB_OUTPUT
 
       - name: Install kubectl
