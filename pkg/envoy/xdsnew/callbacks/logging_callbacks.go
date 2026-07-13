@@ -9,7 +9,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	sotw "github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
+	envoy_xds "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -28,15 +28,33 @@ func (cb LoggingCallbacks) OnFetchResponse(*discovery.DiscoveryRequest, *discove
 }
 
 // OnStreamDeltaRequest implements server.Callbacks.
-func (cb LoggingCallbacks) OnStreamDeltaRequest(int64, *discovery.DeltaDiscoveryRequest) error {
+func (cb LoggingCallbacks) OnStreamDeltaRequest(streamID int64, req *discovery.DeltaDiscoveryRequest) error {
+	args := []any{
+		logfields.XDSStreamID, streamID,
+		logfields.XDSTypeURL, req.GetTypeUrl(),
+		logfields.XDSNonce, req.GetResponseNonce(),
+		logfields.XDSResourceNames, req.GetResourceNamesSubscribe(),
+		"xdsResourceNamesUnsubscribe", req.GetResourceNamesUnsubscribe(),
+	}
+	if req.GetErrorDetail() != nil {
+		args = append(args, logfields.Error, req.GetErrorDetail().GetMessage())
+	}
+	cb.Log.Info("OnStreamDeltaRequest", args...)
 	return nil
 }
 
 // OnStreamDeltaResponse implements server.Callbacks.
-func (cb LoggingCallbacks) OnStreamDeltaResponse(int64, *discovery.DeltaDiscoveryRequest, *discovery.DeltaDiscoveryResponse) {
+func (cb LoggingCallbacks) OnStreamDeltaResponse(streamID int64, req *discovery.DeltaDiscoveryRequest, resp *discovery.DeltaDiscoveryResponse) {
+	cb.Log.Info("OnStreamDeltaResponse",
+		logfields.XDSStreamID, streamID,
+		logfields.XDSVersion, resp.GetSystemVersionInfo(),
+		logfields.XDSTypeURL, resp.GetTypeUrl(),
+		logfields.XDSNonce, resp.GetNonce(),
+		logfields.XDSNumResources, len(resp.GetResources()),
+		"xdsRemovedResources", resp.GetRemovedResources())
 }
 
-var _ sotw.Callbacks = LoggingCallbacks{}
+var _ envoy_xds.Callbacks = LoggingCallbacks{}
 
 // OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
@@ -75,9 +93,14 @@ func (cb LoggingCallbacks) OnStreamResponse(ctx context.Context, streamID int64,
 }
 
 func (cb LoggingCallbacks) OnDeltaStreamOpen(ctx context.Context, streamID int64, typeURL string) error {
+	cb.Log.Info("OnDeltaStreamOpen",
+		logfields.XDSStreamID, streamID,
+		logfields.XDSTypeURL, typeURL)
 	return nil
 }
 
 // OnDeltaStreamClosed invokes DeltaStreamClosedFunc.
 func (cb LoggingCallbacks) OnDeltaStreamClosed(streamID int64, node *core.Node) {
+	cb.Log.Info("OnDeltaStreamClosed",
+		logfields.XDSStreamID, streamID)
 }
