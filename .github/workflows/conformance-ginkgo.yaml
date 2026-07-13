@@ -117,6 +117,8 @@ jobs:
         with:
           ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false
+          # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+          allow-unsafe-pr-checkout: true
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo E2E from GH cache
@@ -274,6 +276,8 @@ jobs:
         with:
           ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false
+          # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+          allow-unsafe-pr-checkout: true
 
       - name: Install cilium-cli
         uses: cilium/cilium-cli@e391e739db83a8b888ecf18786af6853c51a0c58 # v0.19.5

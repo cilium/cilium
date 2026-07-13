@@ -52,11 +52,15 @@ jobs:
           exit 1
         fi
 
-    - name: Checkout Source Code
+    # Warning: since this is a privileged workflow, subsequent workflow job
+    # steps must take care not to execute untrusted code.
+    - name: Checkout Source Code (NOT TRUSTED)
       uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.checkout_ref }}
+        # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+        allow-unsafe-pr-checkout: true
         # required for git describe
         fetch-depth: 0
 
@@ -84,11 +88,15 @@ jobs:
     - name: Set Environment Variables
       uses: ./.github/actions/set-env-variables
 
-    - name: Checkout Feature Branch Code
+    # Warning: since this is a privileged workflow, subsequent workflow job
+    # steps must take care not to execute untrusted code.
+    - name: Checkout Feature Branch Code (NOT TRUSTED)
       uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.checkout_ref }}
+        # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+        allow-unsafe-pr-checkout: true
         sparse-checkout: install/kubernetes/cilium
 
     - name: Push charts

@@ -193,6 +193,8 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.sha }}
+          # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+          allow-unsafe-pr-checkout: true
 
       - name: Check for disk usage
         shell: bash

@@ -213,6 +213,8 @@ jobs:
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
+          # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+          allow-unsafe-pr-checkout: true
 
       - name: Derive stable Cilium installation config
         id: cilium-stable-config
@@ -326,6 +328,8 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+          allow-unsafe-pr-checkout: true
           path: untrusted/cilium-newest
           sparse-checkout: |
             install/kubernetes/cilium
