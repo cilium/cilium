@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"os"
 	"runtime"
 	"strconv"
 	"sync"
@@ -42,6 +43,7 @@ func TestMain(m *testing.M) {
 		// Force garbage-collection to force finalizers to run and catch
 		// missing Event.Done() calls.
 		runtime.GC()
+		os.Exit(exitCode)
 	}
 	testutils.GoleakVerifyTestMain(m,
 		testutils.GoleakCleanup(cleanup),
