@@ -291,10 +291,12 @@ func isExpectedEnvoyWarning(logMsg string, adsMode bool) bool {
 		return true
 	}
 
-	// During ADS/SDS teardown Envoy may unsubscribe from Secret resources while
-	// an older Secret response is already queued on the ADS stream. Envoy drops
-	// that stale response and logs "Ignoring unwatched type URL".
-	return adsMode && strings.Contains(logMsg, "Ignoring unwatched type URL "+SecretTypeURL)
+	// During ADS resource teardown Envoy may unsubscribe while an older response
+	// is already queued on the ADS stream. Envoy drops that stale response and
+	// logs "Ignoring unwatched type URL".
+	return adsMode &&
+		(strings.Contains(logMsg, "Ignoring unwatched type URL "+SecretTypeURL) ||
+			strings.Contains(logMsg, "Ignoring unwatched type URL "+EndpointTypeURL))
 }
 
 // newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.

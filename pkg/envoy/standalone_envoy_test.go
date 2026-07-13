@@ -77,6 +77,48 @@ type EnvoySuite struct {
 	waitGroup *completion.WaitGroup
 }
 
+func TestIsExpectedEnvoyWarning(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		adsMode bool
+		want    bool
+	}{
+		{
+			name:    "initial fetch timeout",
+			message: "[gRPC config: initial fetch timed out for type.googleapis.com/example",
+			want:    true,
+		},
+		{
+			name:    "ADS secret response after unsubscribe",
+			message: "[Ignoring unwatched type URL " + SecretTypeURL,
+			adsMode: true,
+			want:    true,
+		},
+		{
+			name:    "ADS endpoint response after unsubscribe",
+			message: "[Ignoring unwatched type URL " + EndpointTypeURL,
+			adsMode: true,
+			want:    true,
+		},
+		{
+			name:    "split endpoint response",
+			message: "[Ignoring unwatched type URL " + EndpointTypeURL,
+		},
+		{
+			name:    "unrelated ADS warning",
+			message: "[Ignoring unwatched type URL " + ListenerTypeURL,
+			adsMode: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isExpectedEnvoyWarning(tt.message, tt.adsMode))
+		})
+	}
+}
+
 func setupEnvoySuite(tb testing.TB) *EnvoySuite {
 	return &EnvoySuite{
 		tb: tb,
