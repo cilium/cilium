@@ -296,7 +296,8 @@ jobs:
             --provider=local                              \
             --dump-logs-on-failure=true                   \
             --report-dir=${E2E_REPORT_DIR}                \
-            --disable-log-dump=true
+            --disable-log-dump=true                       \
+            --delete-namespace-on-failure=false
 
       # Sequentially kill kube-apiserver pods to verify cilium agent pods fail over to an active instance.
       - name: Test kube-apiserver high availability
@@ -349,6 +350,38 @@ jobs:
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           mkdir -p ./_artifacts/logs
+
+          # The sig-network run keeps failed specs' namespaces alive
+          # (--delete-namespace-on-failure=false), so capture per-pod state
+          # before the kind export tears the cluster down. This is where the
+          # sig-network Conntrack UDP NodePort failure lives: the client probe
+          # pod (pod-client) has been observed crash-looping during the
+          # backend poll window, and namespace teardown plus --disable-log-dump
+          # previously destroyed the evidence (lastState.terminated exit code
+          # /reason and the --previous container stdout that shows whether the
+          # nc loop ran to completion) needed to tell a client-pod crash apart
+          # from a real datapath regression.
+          kubectl get pods -A -o wide > ./_artifacts/logs/pods-wide.txt 2>&1
+          kubectl get pods -A -o yaml > ./_artifacts/logs/pods.yaml 2>&1
+          kubectl get events -A --sort-by=.lastTimestamp > ./_artifacts/logs/events.txt 2>&1
+
+          # For every pod left behind in a sig-network test namespace, dump the
+          # describe output, current logs and previous-container logs so a
+          # future occurrence is fully diagnosable.
+          for ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}'); do
+            case "$ns" in
+              conntrack-*|services-*|nettest-*|network-*)
+                nsdir="./_artifacts/logs/${ns}"
+                mkdir -p "$nsdir"
+                for pod in $(kubectl -n "$ns" get pods -o jsonpath='{.items[*].metadata.name}'); do
+                  kubectl -n "$ns" describe pod "$pod" > "${nsdir}/${pod}.describe.txt" 2>&1
+                  kubectl -n "$ns" logs "$pod" --all-containers=true > "${nsdir}/${pod}.log" 2>&1
+                  kubectl -n "$ns" logs "$pod" --all-containers=true --previous > "${nsdir}/${pod}.previous.log" 2>&1
+                done
+                ;;
+            esac
+          done
+
           /usr/local/bin/kind export logs --name  ${{ env.cluster_name }} --verbosity=3 ./_artifacts/logs
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
