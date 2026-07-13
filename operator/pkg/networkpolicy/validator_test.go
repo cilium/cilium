@@ -55,7 +55,7 @@ func TestValidateCNPEndpointSelectorNamespace(t *testing.T) {
 				},
 				Ingress: []api.IngressRule{{}},
 			}
-			require.NoError(t, spec.Sanitize())
+			require.NoError(t, spec.ValidateAndSanitize())
 
 			err := validateCNPEndpointSelectorNamespace(tc.namespace, spec)
 			if tc.wantErr {
@@ -95,7 +95,7 @@ func TestValidateCNPEndpointSelectorNamespace(t *testing.T) {
 			},
 			Ingress: []api.IngressRule{{}},
 		}
-		require.NoError(t, spec.Sanitize())
+		require.NoError(t, spec.ValidateAndSanitize())
 		require.Error(t, validateCNPEndpointSelectorNamespace("foo", spec))
 	})
 }

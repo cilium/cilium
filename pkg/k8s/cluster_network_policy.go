@@ -144,7 +144,7 @@ func kcnpParseFQDNSelectors(fqdns []policyv1alpha2.DomainName) (types.Selectors,
 			fqdnSelector.MatchName = string(fqdn)
 		}
 		dnsRule := api.PortRuleDNS(fqdnSelector)
-		if err := dnsRule.Sanitize(); err != nil {
+		if err := dnsRule.Validate(); err != nil {
 			return nil, nil, err
 		}
 		peerSelectors = append(peerSelectors, types.ToSelector(fqdnSelector))
