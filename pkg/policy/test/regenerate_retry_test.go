@@ -93,7 +93,7 @@ func TestRegenerateRetries(t *testing.T) {
 			labels.NewLabel(k8sConst.PolicyLabelName, "retryRule", labels.LabelSourceAny),
 		},
 	}
-	require.NoError(t, rule.Sanitize())
+	require.NoError(t, rule.ValidateAndSanitize())
 
 	done := make(chan uint64, 1)
 	f.importer.UpdatePolicy(&policytypes.PolicyUpdate{

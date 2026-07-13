@@ -43,7 +43,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err := validPortRule.Sanitize()
+	err := validPortRule.Validate()
 	require.NoError(t, err)
 
 	// Rule is invalid because no port is specified for DNS proxy rule.
@@ -65,7 +65,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = validPortRule.Sanitize()
+	err = validPortRule.Validate()
 	require.Error(t, err, "Port 53 must be specified for DNS rules")
 
 	// Rule is valid because all protocols are allowed for L7 rules with ToFQDNs.
@@ -91,7 +91,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = validPortRule.Sanitize()
+	err = validPortRule.Validate()
 	require.NoError(t, err, "Saw an error for a L7 rule with DNS rules. This should be allowed.")
 
 	validSCTPRule := Rule{
@@ -110,7 +110,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = validSCTPRule.Sanitize()
+	err = validSCTPRule.Validate()
 	require.NoError(t, err, "Saw an error for an SCTP rule.")
 
 	validSCTPDenyRule := Rule{
@@ -129,7 +129,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = validSCTPDenyRule.Sanitize()
+	err = validSCTPDenyRule.Validate()
 	require.NoError(t, err, "Saw an error for an SCTP deny rule.")
 
 	// Rule is invalid because only ProtoTCP is allowed for L7 rules (except with DNS, below).
@@ -154,7 +154,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.ErrorContains(t, err, "L7 rules can only apply to TCP (not UDP) except for DNS rules")
 
 	// Rule is invalid because DNS proxy rules are not allowed on ingress rules.
@@ -179,7 +179,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.Error(t, err, "DNS rule should not be allowed on ingress")
 
 	// Rule is invalid because only ProtoTCP is allowed for L7 rules (except with DNS, below).
@@ -204,7 +204,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.Error(t, err)
 	require.Equal(t, "L7 rules can only apply to TCP (not ANY) except for DNS rules", err.Error())
 
@@ -231,7 +231,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.Error(t, err)
 	require.Equal(t, "L7 rules can only apply to TCP (not UDP) except for DNS rules", err.Error())
 
@@ -258,7 +258,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.Error(t, err)
 	require.Equal(t, "L7 rules can only apply to TCP (not UDP) except for DNS rules", err.Error())
 
@@ -279,7 +279,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = validPortRule.Sanitize()
+	err = validPortRule.Validate()
 	require.NoError(t, err)
 
 	// Rule is invalid because empty ServerNames are not allowed
@@ -299,7 +299,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.ErrorIs(t, err, errEmptyServerName)
 
 	//  Rule is invalid because ServerNames with L7 rules are not allowed without TLS termination.
@@ -324,7 +324,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.Error(t, err)
 	require.Equal(t, "ServerNames are not allowed with L7 rules without TLS termination", err.Error())
 
@@ -355,7 +355,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = validPortRule.Sanitize()
+	err = validPortRule.Validate()
 	require.NoError(t, err)
 
 	// Rule is valid because Listener is allowed on egress, default Kind
@@ -380,7 +380,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = validPortRule.Sanitize()
+	err = validPortRule.Validate()
 	require.NoError(t, err)
 
 	// Rule is valid because Listener is allowed on egress, Kind CiliumClusterwideEnvoyConfig
@@ -406,7 +406,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = validPortRule.Sanitize()
+	err = validPortRule.Validate()
 	require.NoError(t, err)
 
 	// Rule is valid because Listener is allowed on egress, Kind CiliumEnvoyConfig
@@ -432,7 +432,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = validPortRule.Sanitize()
+	err = validPortRule.Validate()
 	require.NoError(t, err)
 
 	// Rule is invalid because Listener is not allowed on ingress (yet)
@@ -457,7 +457,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.Error(t, err)
 	require.Equal(t, "Listener is not allowed on ingress (myCustomListener)", err.Error())
 
@@ -488,7 +488,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 			},
 		},
 	}
-	err = invalidPortRule.Sanitize()
+	err = invalidPortRule.Validate()
 	require.Error(t, err)
 	require.Equal(t, "Listener is not allowed with L7 rules (myCustomListener)", err.Error())
 }
@@ -516,7 +516,7 @@ func TestL7RuleRejectsEmptyPort(t *testing.T) {
 		},
 	}
 
-	err := invalidL7PortRule.Sanitize()
+	err := invalidL7PortRule.Validate()
 	require.Error(t, err)
 }
 
@@ -545,7 +545,7 @@ func TestHTTPRuleRegexes(t *testing.T) {
 		},
 	}
 
-	err := invalidHTTPRegexPathRule.Sanitize()
+	err := invalidHTTPRegexPathRule.Validate()
 	require.Error(t, err)
 
 	invalidHTTPRegexMethodRule := Rule{
@@ -570,61 +570,62 @@ func TestHTTPRuleRegexes(t *testing.T) {
 		},
 	}
 
-	err = invalidHTTPRegexMethodRule.Sanitize()
+	err = invalidHTTPRegexMethodRule.Validate()
 	require.Error(t, err)
 }
 
 // Test the validation of CIDR rule prefix definitions
-func TestCIDRsanitize(t *testing.T) {
+func TestCIDRValidation(t *testing.T) {
 	sel := EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}}}
 	expectedSel := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, sel.LabelSelector)
 
 	cidr := CIDRRule{}
-	err := cidr.sanitize()
+	err := cidr.Validate()
 	require.Error(t, err)
 
 	// IPv4
 	cidr = CIDRRule{Cidr: "0.0.0.0/0"}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
 
 	cidr = CIDRRule{Cidr: "10.0.0.0/24"}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
 
 	cidr = CIDRRule{Cidr: "192.0.2.3/32"}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
 
 	// IPv6
 	cidr = CIDRRule{Cidr: "::/0"}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
 
 	cidr = CIDRRule{Cidr: "ff02::/64"}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
 
 	cidr = CIDRRule{Cidr: "", CIDRGroupRef: "cidrgroup"}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
 
 	cidr = CIDRRule{Cidr: "", CIDRGroupSelector: sel}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
+	cidr.Sanitize()
 	require.Equal(t, expectedSel, cidr.CIDRGroupSelector)
 
 	cidr = CIDRRule{Cidr: "", CIDRGroupRef: "foo", CIDRGroupSelector: sel}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.Error(t, err)
 
 	cidr = CIDRRule{Cidr: "2001:0db8:85a3:0000:0000:8a2e:0370:7334/128"}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
 
 	// Non-contiguous mask.
 	cidr = CIDRRule{Cidr: "10.0.0.0/254.0.0.255"}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.Error(t, err)
 
 	// Valid ExceptCIDRs
@@ -632,7 +633,7 @@ func TestCIDRsanitize(t *testing.T) {
 		Cidr:        "10.0.0.0/24",
 		ExceptCIDRs: []CIDR{"10.0.0.1/32", "10.0.0.128/25"},
 	}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.NoError(t, err)
 
 	// Invalid ExceptCIDRs: Broader than main CIDR
@@ -640,7 +641,7 @@ func TestCIDRsanitize(t *testing.T) {
 		Cidr:        "10.0.0.0/24",
 		ExceptCIDRs: []CIDR{"10.0.0.0/16"},
 	}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.Error(t, err)
 
 	// Invalid ExceptCIDRs: Outside main CIDR
@@ -648,11 +649,11 @@ func TestCIDRsanitize(t *testing.T) {
 		Cidr:        "10.0.0.0/24",
 		ExceptCIDRs: []CIDR{"10.1.0.0/24"},
 	}
-	err = cidr.sanitize()
+	err = cidr.Validate()
 	require.Error(t, err)
 }
 
-func TestToServicesSanitize(t *testing.T) {
+func TestToServicesValidation(t *testing.T) {
 	svcLabels := map[string]string{
 		"app": "tested-service",
 	}
@@ -682,7 +683,7 @@ func TestToServicesSanitize(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, toServicesL3L4.Sanitize())
+	require.NoError(t, toServicesL3L4.Validate())
 
 	toServicesDenyL3L4 := Rule{
 		EndpointSelector: WildcardEndpointSelector,
@@ -708,7 +709,7 @@ func TestToServicesSanitize(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, toServicesDenyL3L4.Sanitize())
+	require.NoError(t, toServicesDenyL3L4.Validate())
 }
 
 // This test ensures that DNS rules do not accept port ranges
@@ -734,7 +735,7 @@ func TestPortRangesNotAllowedWithDNSRules(t *testing.T) {
 			},
 		},
 	}
-	err := invalidPortRule.Sanitize()
+	err := invalidPortRule.Validate()
 	require.Error(t, err)
 	require.Equal(t, "DNS rules do not support port ranges", err.Error())
 }
@@ -763,7 +764,7 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 			},
 		},
 	}
-	err := invalidL7RuleIngress.Sanitize()
+	err := invalidL7RuleIngress.Validate()
 	require.Equal(t, "L7 policy is not supported on host ingress yet", err.Error())
 
 	invalidL7RuleEgress := Rule{
@@ -778,7 +779,7 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 		},
 	}
 
-	err = invalidL7RuleEgress.Sanitize()
+	err = invalidL7RuleEgress.Validate()
 	require.Equal(t, "L7 protocol HTTP is not supported on host egress yet", err.Error())
 
 	validL7RuleEgress := Rule{
@@ -801,7 +802,7 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 			},
 		},
 	}
-	err = validL7RuleEgress.Sanitize()
+	err = validL7RuleEgress.Validate()
 	require.NoError(t, err)
 
 	validNodeRuleIngress := Rule{
@@ -814,7 +815,7 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 			},
 		},
 	}
-	err = validNodeRuleIngress.Sanitize()
+	err = validNodeRuleIngress.Validate()
 	require.NoError(t, err)
 
 	validNodeRuleIngressDeny := Rule{
@@ -827,7 +828,7 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 			},
 		},
 	}
-	err = validNodeRuleIngressDeny.Sanitize()
+	err = validNodeRuleIngressDeny.Validate()
 	require.NoError(t, err)
 }
 
@@ -853,7 +854,7 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 		EndpointSelector: invalidSel,
 	}
 
-	err := invalidEpSelectorRule.Sanitize()
+	err := invalidEpSelectorRule.Validate()
 	require.Error(t, err)
 
 	invalidEpSelectorIngress := Rule{
@@ -867,7 +868,7 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 		},
 	}
 
-	err = invalidEpSelectorIngress.Sanitize()
+	err = invalidEpSelectorIngress.Validate()
 	require.Error(t, err)
 
 	invalidEpSelectorIngressDeny := Rule{
@@ -881,7 +882,7 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 		},
 	}
 
-	err = invalidEpSelectorIngressDeny.Sanitize()
+	err = invalidEpSelectorIngressDeny.Validate()
 	require.Error(t, err)
 
 	invalidEpSelectorEgress := Rule{
@@ -895,7 +896,7 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 		},
 	}
 
-	err = invalidEpSelectorEgress.Sanitize()
+	err = invalidEpSelectorEgress.Validate()
 	require.Error(t, err)
 
 	invalidEpSelectorEgressDeny := Rule{
@@ -909,7 +910,7 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 		},
 	}
 
-	err = invalidEpSelectorEgressDeny.Sanitize()
+	err = invalidEpSelectorEgressDeny.Validate()
 	require.Error(t, err)
 }
 
@@ -933,7 +934,7 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 		NodeSelector: invalidSel,
 		Egress:       []EgressRule{{}},
 	}
-	err := invalidNodeSelectorRule.Sanitize()
+	err := invalidNodeSelectorRule.Validate()
 	require.EqualError(t, err, "invalid label selector: matchExpressions[0].operator: Invalid value: \"asdfasdfasdf\": not a valid selector operator")
 
 	invalidRuleBothSelectors := Rule{
@@ -941,13 +942,13 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 		NodeSelector:     WildcardEndpointSelector,
 		Egress:           []EgressRule{{}},
 	}
-	err = invalidRuleBothSelectors.Sanitize()
+	err = invalidRuleBothSelectors.Validate()
 	require.Equal(t, "rule cannot have both EndpointSelector and NodeSelector", err.Error())
 
 	invalidRuleNoSelector := Rule{
 		Egress: []EgressRule{{}},
 	}
-	err = invalidRuleNoSelector.Sanitize()
+	err = invalidRuleNoSelector.Validate()
 	require.Equal(t, "rule must have one of EndpointSelector or NodeSelector", err.Error())
 }
 
@@ -974,7 +975,7 @@ func TestTooManyPortsRule(t *testing.T) {
 			},
 		},
 	}
-	err := tooManyPortsRule.Sanitize()
+	err := tooManyPortsRule.Validate()
 	require.Error(t, err)
 
 	tooManyDenyPortsRule := Rule{
@@ -990,7 +991,7 @@ func TestTooManyPortsRule(t *testing.T) {
 			},
 		},
 	}
-	err = tooManyDenyPortsRule.Sanitize()
+	err = tooManyDenyPortsRule.Validate()
 	require.Error(t, err)
 }
 
@@ -1013,7 +1014,7 @@ func TestInvalidIPProtocolRules(t *testing.T) {
 		},
 	}
 
-	err := nonZeroPortRule1.Sanitize()
+	err := nonZeroPortRule1.Validate()
 	require.Error(t, err)
 
 	nonZeroPortRule2 := Rule{
@@ -1034,7 +1035,7 @@ func TestInvalidIPProtocolRules(t *testing.T) {
 		},
 	}
 
-	err = nonZeroPortRule2.Sanitize()
+	err = nonZeroPortRule2.Validate()
 	require.Error(t, err)
 }
 
@@ -1061,7 +1062,7 @@ func TestTooManyICMPFields(t *testing.T) {
 			},
 		},
 	}
-	err := tooManyICMPRule.Sanitize()
+	err := tooManyICMPRule.Validate()
 	require.Error(t, err)
 
 	tooManyICMPDenyRule := Rule{
@@ -1077,7 +1078,7 @@ func TestTooManyICMPFields(t *testing.T) {
 			},
 		},
 	}
-	err = tooManyICMPDenyRule.Sanitize()
+	err = tooManyICMPDenyRule.Validate()
 	require.Error(t, err)
 }
 
@@ -1099,7 +1100,7 @@ func TestWrongICMPFieldFamily(t *testing.T) {
 			},
 		},
 	}
-	err := wrongFamilyICMPRule.Sanitize()
+	err := wrongFamilyICMPRule.Validate()
 	require.Error(t, err)
 
 	wrongFamilyICMPDenyRule := Rule{
@@ -1118,7 +1119,7 @@ func TestWrongICMPFieldFamily(t *testing.T) {
 			},
 		},
 	}
-	err = wrongFamilyICMPDenyRule.Sanitize()
+	err = wrongFamilyICMPDenyRule.Validate()
 	require.Error(t, err)
 }
 
@@ -1210,13 +1211,13 @@ func TestICMPRuleWithOtherRuleFailed(t *testing.T) {
 	}
 
 	option.Config.EnableICMPRules = true
-	err := ingressICMPWithPort.Sanitize()
+	err := ingressICMPWithPort.Validate()
 	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
-	err = egressICMPWithPort.Sanitize()
+	err = egressICMPWithPort.Validate()
 	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
-	err = ingressICMPDenyWithPort.Sanitize()
+	err = ingressICMPDenyWithPort.Validate()
 	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
-	err = egressICMPDenyWithPort.Sanitize()
+	err = egressICMPDenyWithPort.Validate()
 	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
 }
 
@@ -1227,14 +1228,17 @@ func BenchmarkCIDRSanitize(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		err := cidr4.sanitize()
+		err := cidr4.Validate()
 		if err != nil {
 			b.Fatal(err)
 		}
-		err = cidr6.sanitize()
+		cidr4.Sanitize()
+
+		err = cidr6.Validate()
 		if err != nil {
 			b.Fatal(err)
 		}
+		cidr6.Sanitize()
 	}
 }
 
@@ -1298,7 +1302,7 @@ func TestSanitizeDefaultDeny(t *testing.T) {
 		b := tc.before
 		b.EndpointSelector = EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{}}
 
-		err := b.Sanitize()
+		err := b.ValidateAndSanitize()
 		if tc.wantError {
 			assert.Error(t, err)
 			continue

@@ -102,13 +102,13 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 
 	var errs error
 	if newPol.Spec != nil {
-		errs = errors.Join(errs, newPol.Spec.Sanitize())
+		errs = errors.Join(errs, newPol.Spec.Validate())
 		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, newPol.Spec))
 		errs = errors.Join(errs, validateCNPNodeSelector(newPol.Spec))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
-		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, r.Validate())
 		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, r))
 		errs = errors.Join(errs, validateCNPNodeSelector(r))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
@@ -159,11 +159,11 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 
 	var errs error
 	if newPol.Spec != nil {
-		errs = errors.Join(errs, newPol.Spec.Sanitize())
+		errs = errors.Join(errs, newPol.Spec.Validate())
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
-		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, r.Validate())
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 

@@ -277,8 +277,9 @@ func TestEndpointSelectorMarshalling(t *testing.T) {
 				require.ErrorContains(t, err, "unexpected end of JSON input")
 				require.Equal(t, tt.expected, es)
 
-				err = es.Sanitize()
+				err = es.Validate()
 				require.NoError(t, err)
+				es.Sanitize()
 				require.Equal(t, tt.sanitizedExepected, es, "Sanitized EndpointSelector")
 
 				marshalledData, err := json.Marshal(es)
@@ -294,12 +295,14 @@ func TestEndpointSelectorMarshalling(t *testing.T) {
 			require.NoError(t, err)
 			require.Equalf(t, tt.inputJSON, string(esMarshalled), "Marshalled EndpointSelector")
 
-			err = es.Sanitize()
+			err = es.Validate()
 			require.NoError(t, err)
+			es.Sanitize()
 			require.Equal(t, tt.sanitizedExepected, es, "Sanitized EndpointSelector")
 
-			err = es.Sanitize()
+			err = es.Validate()
 			require.NoError(t, err)
+			es.Sanitize()
 			require.Equal(t, tt.sanitizedExepected, es, "Idempotent EndpointSelector sanitization")
 
 			esSanitizedMarshalled, err := json.Marshal(es)
@@ -309,8 +312,9 @@ func TestEndpointSelectorMarshalling(t *testing.T) {
 			sanitizedEs := EndpointSelector{}
 			err = json.Unmarshal(esSanitizedMarshalled, &sanitizedEs)
 			require.NoError(t, err)
-			err = sanitizedEs.Sanitize()
+			err = sanitizedEs.Validate()
 			require.NoError(t, err)
+			sanitizedEs.Sanitize()
 			require.Equal(t, tt.sanitizedExepected, sanitizedEs, "Idempotent EndpointSelector sanitization and marshalling")
 		})
 	}
@@ -375,13 +379,14 @@ func TestEndpointSelectorSanitize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.input.Sanitize()
+			err := tt.input.Validate()
 			if tt.shouldFail {
 				require.ErrorContains(t, err, "invalid label selector")
 				return
 			}
 
 			require.NoError(t, err)
+			tt.input.Sanitize()
 			require.Equal(t, tt.expected, tt.input)
 		})
 	}

@@ -77,7 +77,6 @@ func (epd *PerSelectorPolicy) appendL7WildcardRule(policyContext PolicyContext) 
 		// Wildcarding at L7 for DNS is specified via allowing all via
 		// MatchPattern!
 		rule := api.PortRuleDNS{MatchPattern: "*"}
-		rule.Sanitize()
 		if !rule.Exists(epd.L7Rules) {
 			policyContext.PolicyTrace("   Merging DNS wildcard rule: %+v\n", rule)
 			epd.L7Rules.DNS = append(epd.L7Rules.DNS, rule)

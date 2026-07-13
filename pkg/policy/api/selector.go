@@ -218,17 +218,22 @@ func (n *EndpointSelector) IsWildcard() bool {
 		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
 }
 
-func (n *EndpointSelector) Sanitize() error {
+// Validate validates the EndpointSelector object.
+func (n *EndpointSelector) Validate() error {
 	errList := labels.ValidateLabelSelector(n.LabelSelector, labels.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
 	if len(errList) > 0 {
 		return fmt.Errorf("invalid label selector: %w", errList.ToAggregate())
 	}
+	return nil
+}
 
+// Sanitize converts the label selector keys to internal representation prefixed with
+// source information. This method assumes that the EndpointSelector is validated
+// beforehand.
+func (n *EndpointSelector) Sanitize() {
 	es := NewESFromK8sLabelSelector(labels.LabelSourceAnyKeyPrefix, n.LabelSelector)
 	n.cachedLabelSelectorString = es.cachedLabelSelectorString
 	n.LabelSelector = es.LabelSelector
-
-	return nil
 }
 
 // EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.

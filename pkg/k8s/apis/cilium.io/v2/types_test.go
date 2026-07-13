@@ -263,14 +263,14 @@ var (
 
 func sanitizeCNPRules(cnp *CiliumNetworkPolicy) error {
 	if cnp.Spec != nil {
-		if err := cnp.Spec.Sanitize(); err != nil {
+		if err := cnp.Spec.ValidateAndSanitize(); err != nil {
 			return err
 		}
 	}
 
 	if cnp.Specs != nil {
 		for _, rule := range cnp.Specs {
-			if err := rule.Sanitize(); err != nil {
+			if err := rule.ValidateAndSanitize(); err != nil {
 				return err
 			}
 		}
