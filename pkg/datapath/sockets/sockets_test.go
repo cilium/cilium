@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 )
 
@@ -638,6 +639,129 @@ func BenchmarkDestroyers(b *testing.B) {
 			}
 		})
 	}
+}
+
+type fakeNetlinkDumpReceiver struct {
+	batches []fakeNetlinkBatch
+	calls   int
+}
+
+type fakeNetlinkBatch struct {
+	msgs []syscall.NetlinkMessage
+	from *unix.SockaddrNetlink
+	err  error
+}
+
+func (f *fakeNetlinkDumpReceiver) Receive() ([]syscall.NetlinkMessage, *unix.SockaddrNetlink, error) {
+	if f.calls >= len(f.batches) {
+		panic("Receive() called after the netlink dump was terminated; the real socket would block here forever")
+	}
+	b := f.batches[f.calls]
+	f.calls++
+	return b.msgs, b.from, b.err
+}
+
+func nlDoneMsg() syscall.NetlinkMessage {
+	return syscall.NetlinkMessage{Header: syscall.NlMsghdr{Type: unix.NLMSG_DONE}}
+}
+
+func nlErrorMsg(errno syscall.Errno) syscall.NetlinkMessage {
+	data := make([]byte, 4)
+	native.PutUint32(data, uint32(-int32(errno)))
+	return syscall.NetlinkMessage{
+		Header: syscall.NlMsghdr{Type: unix.NLMSG_ERROR},
+		Data:   data,
+	}
+}
+
+func nlSocketMsg() syscall.NetlinkMessage {
+	return syscall.NetlinkMessage{
+		Header: syscall.NlMsghdr{Type: nl.SOCK_DIAG_BY_FAMILY},
+		Data:   []byte{2, 7, 0, 0, 170, 213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 89, 101, 0, 0, 5, 0, 8, 0, 0, 0, 0, 0, 8, 0, 15, 0, 0, 0, 0, 0, 12, 0, 21, 0, 157, 14, 0, 0, 0, 0, 0, 0, 6, 0, 22, 0, 80, 0, 0, 0},
+	}
+}
+
+func fromKernel() *unix.SockaddrNetlink {
+	return &unix.SockaddrNetlink{Pid: nl.PidKernel}
+}
+
+func TestReceiveNetlinkSocketsMidDumpError(t *testing.T) {
+	newReceiver := func() *fakeNetlinkDumpReceiver {
+		return &fakeNetlinkDumpReceiver{batches: []fakeNetlinkBatch{
+			{msgs: []syscall.NetlinkMessage{nlSocketMsg()}, from: fromKernel()},
+			{msgs: []syscall.NetlinkMessage{nlErrorMsg(unix.ENOENT)}, from: fromKernel()},
+		}}
+	}
+
+	t.Run("callback propagates the error", func(t *testing.T) {
+		var cbSockets, cbErrors int
+		err := receiveNetlinkSockets(newReceiver(), func(s *Socket, err error) error {
+			if err != nil || s == nil {
+				cbErrors++
+				return err
+			}
+			cbSockets++
+			return nil
+		})
+		assert.ErrorIs(t, err, unix.ENOENT)
+		assert.Equal(t, 1, cbSockets)
+		assert.Equal(t, 1, cbErrors)
+	})
+
+	t.Run("callback swallows the error", func(t *testing.T) {
+		var cbCalls int
+		err := receiveNetlinkSockets(newReceiver(), func(s *Socket, err error) error {
+			cbCalls++
+			return nil
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, 2, cbCalls)
+	})
+}
+
+func TestReceiveNetlinkSocketsReceiveError(t *testing.T) {
+	t.Run("callback stops iteration", func(t *testing.T) {
+		r := &fakeNetlinkDumpReceiver{batches: []fakeNetlinkBatch{
+			{err: unix.EBADF},
+		}}
+		err := receiveNetlinkSockets(r, func(s *Socket, err error) error {
+			return err
+		})
+		assert.ErrorIs(t, err, unix.EBADF)
+	})
+
+	t.Run("callback continues iteration", func(t *testing.T) {
+		r := &fakeNetlinkDumpReceiver{batches: []fakeNetlinkBatch{
+			{err: unix.ENOBUFS},
+			{msgs: []syscall.NetlinkMessage{nlSocketMsg(), nlDoneMsg()}, from: fromKernel()},
+		}}
+		var cbSockets int
+		err := receiveNetlinkSockets(r, func(s *Socket, err error) error {
+			if err != nil || s == nil {
+				return nil
+			}
+			cbSockets++
+			return nil
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, 1, cbSockets)
+	})
+}
+
+func TestReceiveNetlinkSocketsNormalDump(t *testing.T) {
+	r := &fakeNetlinkDumpReceiver{batches: []fakeNetlinkBatch{
+		{msgs: []syscall.NetlinkMessage{nlSocketMsg(), nlSocketMsg()}, from: fromKernel()},
+		{msgs: []syscall.NetlinkMessage{nlDoneMsg()}, from: fromKernel()},
+	}}
+	var cbSockets int
+	err := receiveNetlinkSockets(r, func(s *Socket, err error) error {
+		require.NoError(t, err)
+		require.NotNil(t, s)
+		cbSockets++
+		return nil
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 2, cbSockets)
 }
 
 func TestFilterAndDestroySockets_NilSocket(t *testing.T) {
