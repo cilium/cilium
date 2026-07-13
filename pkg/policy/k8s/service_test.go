@@ -283,8 +283,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	// Add foo-svc, which is selected by svcByNameCNP twice
 	fooEv := servicesFixture.upsertService(fooSvcID, nil, nil, fooEps, nil)
 
-	err = p.updateToServicesPolicies(fooEv)
-	assert.NoError(t, err)
+	p.updateToServicesPolicies(fooEv)
 	rules = <-policyAdd
 	assert.Len(t, rules, 2)
 
@@ -311,8 +310,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Add bar-svc, which is selected by both policies
 	barEv := servicesFixture.upsertService(barSvcID, barSvcLabels, nil, barEps, nil)
-	err = p.updateToServicesPolicies(barEv)
-	assert.NoError(t, err)
+	p.updateToServicesPolicies(barEv)
 
 	// Expect two policies to be updated (in any order)
 	var policies [2]policytypes.PolicyEntries
@@ -359,9 +357,8 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Change foo-svc endpoints, which is selected by svcByNameCNP twice
 	fooEv = servicesFixture.upsertService(fooSvcID, nil, nil, fooEps[:1], &fooEv)
-	err = p.updateToServicesPolicies(fooEv)
+	p.updateToServicesPolicies(fooEv)
 
-	assert.NoError(t, err)
 	byNameRules = <-policyAdd
 	assert.Len(t, byNameRules, 2)
 
@@ -380,8 +377,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
 	barEv = servicesFixture.upsertService(barSvcID, nil, nil, barEps, &barEv)
-	err = p.updateToServicesPolicies(barEv)
-	assert.NoError(t, err)
+	p.updateToServicesPolicies(barEv)
 
 	// Expect two policies to be updated (in any order)
 	oldByNameRules := make(policytypes.PolicyEntries, 0)
@@ -421,8 +417,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Add baz-svc, which is selected by svcByLabelCNP
 	bazEv := servicesFixture.upsertService(bazSvcID, barSvcLabels, bazSvcSelector, bazEps, nil)
-	err = p.updateToServicesPolicies(bazEv)
-	assert.NoError(t, err)
+	p.updateToServicesPolicies(bazEv)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
 	// Check that Spec was translated
@@ -527,8 +522,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	}
 
 	fooEv := servicesFixture.upsertService(fooSvcID, nil, fooSvcSelector, nil, nil)
-	err = p.updateToServicesPolicies(fooEv)
-	assert.NoError(t, err)
+	p.updateToServicesPolicies(fooEv)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
 
@@ -552,8 +546,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 		"new": "label",
 	}
 	fooEv = servicesFixture.upsertService(fooSvcID, fooSvcLabels, fooSvcSelector, nil, &fooEv)
-	err = p.updateToServicesPolicies(fooEv)
-	assert.NoError(t, err)
+	p.updateToServicesPolicies(fooEv)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
 	assert.Len(t, rules[0].L3, 1)
@@ -607,9 +600,8 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Empty(t, rules[0].L3)
 
 	barEv := servicesFixture.upsertService(barSvcID, barSvcLabels, barSvcLabels, nil, nil)
-	err = p.updateToServicesPolicies(barEv)
+	p.updateToServicesPolicies(barEv)
 
-	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
 	assert.Len(t, rules[0].L3, 1)
@@ -629,8 +621,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 
 	// Delete bar-svc labels. This should remove all toEndpoints from svcByLabelCNP
 	barEv = servicesFixture.upsertService(barSvcID, nil, barSvcLabels, nil, &barEv)
-	err = p.updateToServicesPolicies(barEv)
-	assert.NoError(t, err)
+	p.updateToServicesPolicies(barEv)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
 	assert.Empty(t, rules[0].L3)
@@ -653,9 +644,8 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 
 	// Add foo-svc again, which should re-add the policy
 	fooEv.previous = nil // Bypass change checks
-	err = p.updateToServicesPolicies(fooEv)
+	p.updateToServicesPolicies(fooEv)
 	p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID, nil)
-	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
 	assert.Len(t, rules[0].L3, 1)
