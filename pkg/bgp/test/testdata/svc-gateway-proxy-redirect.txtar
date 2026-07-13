@@ -12,10 +12,7 @@
 hive start
 
 # Configure gobgp server
-gobgp/add-server test 65010 10.99.5.101 1790
-
-# Configure peers on GoBGP
-gobgp/add-peer 10.99.5.102 65001
+gobgp/add-server test gobgp-server.toml
 
 # Add Gateway service (without endpoints)
 k8s/add service-gateway.yaml
@@ -37,6 +34,22 @@ gobgp/routes -o routes.actual
 
 #####
 
+-- gobgp-server.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.5.101"
+  local-address-list = ["10.99.5.101"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.5.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
 -- cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode

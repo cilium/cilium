@@ -9,8 +9,7 @@ hive start
 k8s/add service-lb.yaml
 
 # Configure GoBGP server
-gobgp/add-server test 65010 10.99.0.121 1790
-gobgp/add-peer 10.99.0.130 65001
+gobgp/add-server test gobgp-server-1.toml
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-advertisement.yaml
@@ -29,8 +28,7 @@ gobgp/routes -o routes.actual
 
 # Re-configure GoBGP server with the new IP
 gobgp/delete-server test
-gobgp/add-server test 65010 10.99.0.122 1790
-gobgp/add-peer 10.99.0.130 65001
+gobgp/add-server test gobgp-server-2.toml
 
 # Update peer IP
 k8s/update bgp-node-config-2.yaml
@@ -61,6 +59,36 @@ gobgp/peers -o peers.actual
 
 #####
 
+-- gobgp-server-1.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.0.121"
+  local-address-list = ["10.99.0.121"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.0.130"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.graceful-restart.config]
+    enabled = true
+-- gobgp-server-2.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.0.122"
+  local-address-list = ["10.99.0.122"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.0.130"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.graceful-restart.config]
+    enabled = true
 -- cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode

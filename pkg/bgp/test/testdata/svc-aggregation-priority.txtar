@@ -11,8 +11,7 @@ hive start
 k8s/add service-exact-and-aggregate.yaml service-aggregate-only.yaml
 
 # Configure an iBGP server so local preference is advertised
-gobgp/add-server test --router-id=10.99.4.221 65001 fd00::99:4:221 1790
-gobgp/add-peer fd00::99:4:222 65001
+gobgp/add-server test gobgp-server.toml
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
@@ -36,6 +35,22 @@ gobgp/routes -o routes.actual ipv4 unicast
 
 #####
 
+-- gobgp-server.toml --
+[global.config]
+  as = 65001
+  router-id = "10.99.4.221"
+  local-address-list = ["fd00::99:4:221"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00::99:4:222"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
 -- cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode

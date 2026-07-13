@@ -4,16 +4,10 @@
 hive start
 
 # Configure GoBGP servers
-gobgp/add-server server0 65000 fd00:10:99:7::1 1790 --router-id 10.99.7.1
-gobgp/add-server server1 65000 fd00:10:99:7::2 1790 --router-id 10.99.7.2
-gobgp/add-server server2 65001 fd00:10:99:7::3 1790 --router-id 10.99.7.3
-gobgp/add-server server3 65001 fd00:10:99:7::4 1790 --router-id 10.99.7.4
-
-# Configure peers on GoBGP
-gobgp/add-peer -s server0 fd00:10:99:7::5 65000
-gobgp/add-peer -s server1 fd00:10:99:7::5 65000
-gobgp/add-peer -s server2 fd00:10:99:7::6 65001
-gobgp/add-peer -s server3 fd00:10:99:7::6 65001
+gobgp/add-server server0 server0.toml
+gobgp/add-server server1 server1.toml
+gobgp/add-server server2 server2.toml
+gobgp/add-server server3 server3.toml
 
 # Advertise routes on GoBGP
 gobgp/advertise-route -s server0 10.0.0.0/24
@@ -72,6 +66,104 @@ bgp/routes in ipv4 unicast --no-age -o bgp-routes-in-ipv4-unicast.actual
 bgp/routes in ipv6 unicast --no-age -o bgp-routes-in-ipv6-unicast.actual
 * cmp bgp-routes-in-ipv6-unicast.expected bgp-routes-in-ipv6-unicast.actual
 
+# Delete all peers from server0 (to test reload-server)
+gobgp/reload-server server0 server0-no-peer.toml
+
+# No peer should be present on server0
+gobgp/peers -s server0 -o bgp-peers.actual
+* cmp no-peer.expected bgp-peers.actual
+
+-- server0.toml --
+[global.config]
+  as = 65000
+  router-id = "10.99.7.1"
+  local-address-list = ["fd00:10:99:7::1"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00:10:99:7::5"
+    peer-as = 65000
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.graceful-restart.config]
+    enabled = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
+-- server0-no-peer.toml --
+[global.config]
+  as = 65000
+  router-id = "10.99.7.1"
+  local-address-list = ["fd00:10:99:7::1"]
+  port = 1790
+
+-- server1.toml --
+[global.config]
+  as = 65000
+  router-id = "10.99.7.2"
+  local-address-list = ["fd00:10:99:7::2"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00:10:99:7::5"
+    peer-as = 65000
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.graceful-restart.config]
+    enabled = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
+-- server2.toml --
+[global.config]
+  as = 65001
+  router-id = "10.99.7.3"
+  local-address-list = ["fd00:10:99:7::3"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00:10:99:7::6"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.graceful-restart.config]
+    enabled = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
+-- server3.toml --
+[global.config]
+  as = 65001
+  router-id = "10.99.7.4"
+  local-address-list = ["fd00:10:99:7::4"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00:10:99:7::6"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.graceful-restart.config]
+    enabled = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
 -- cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -219,9 +311,6 @@ Instance: instance0
       extended-message
       graceful-restart
       4-octet-as
-      add-path:
-        ipv4-unicast: receive
-        ipv6-unicast: receive
       fqdn:
         name: <redacted>
         domain: 
@@ -278,9 +367,6 @@ Instance: instance0
       extended-message
       graceful-restart
       4-octet-as
-      add-path:
-        ipv4-unicast: receive
-        ipv6-unicast: receive
       fqdn:
         name: <redacted>
         domain: 
@@ -338,9 +424,6 @@ Instance: instance1
       extended-message
       graceful-restart
       4-octet-as
-      add-path:
-        ipv4-unicast: receive
-        ipv6-unicast: receive
       fqdn:
         name: <redacted>
         domain: 
@@ -397,9 +480,6 @@ Instance: instance1
       extended-message
       graceful-restart
       4-octet-as
-      add-path:
-        ipv4-unicast: receive
-        ipv6-unicast: receive
       fqdn:
         name: <redacted>
         domain: 
@@ -449,3 +529,5 @@ instance0   peer0   fd00:10::/64     fd00:10:99:7::1   -
             peer1   fd00:10::/64     fd00:10:99:7::2   -
 instance1   peer0   fd00:10:1::/64   fd00:10:99:7::3   -
             peer1   fd00:10:2::/64   fd00:10:99:7::4   -
+-- no-peer.expected --
+PeerAddress   RouterID   PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
