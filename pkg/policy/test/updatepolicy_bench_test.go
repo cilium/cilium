@@ -90,7 +90,7 @@ func runUpdatePolicyBench(b *testing.B, numEPs, numIDs int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rule := makeRuleSelectingAllIdentities(numIDs, i)
-		require.NoError(b, rule.Sanitize())
+		require.NoError(b, rule.ValidateAndSanitize())
 
 		done := make(chan uint64, 1)
 		start := time.Now()

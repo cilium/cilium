@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFQDNSelectorSanitize tests that the sanitizer correctly catches bad
+// TestFQDNSelectorValidation tests that the validator correctly catches bad
 // cases, and allows good ones.
-func TestFQDNSelectorSanitize(t *testing.T) {
+func TestFQDNSelectorValidation(t *testing.T) {
 	for _, accept := range []FQDNSelector{
 		{MatchName: "cilium.io."},
 		{MatchName: "get-cilium.io."},
@@ -23,7 +23,7 @@ func TestFQDNSelectorSanitize(t *testing.T) {
 		{MatchPattern: "*cilium.io"},
 		{MatchPattern: "cilium.io"},
 	} {
-		err := accept.sanitize()
+		err := accept.Validate()
 		require.NoError(t, err, "FQDNSelector %+v was rejected but it should be valid", accept)
 	}
 
@@ -32,14 +32,14 @@ func TestFQDNSelectorSanitize(t *testing.T) {
 		{MatchPattern: "[a-z]*.cilium.io."},
 		{MatchName: "cilium.io", MatchPattern: "*cilium.io"},
 	} {
-		err := reject.sanitize()
+		err := reject.Validate()
 		require.Error(t, err, "FQDNSelector %+v was accepted but it should be invalid", reject)
 	}
 }
 
-// TestPortRuleDNSSanitize tests that the sanitizer correctly catches bad
+// TestPortRuleDNSValidation tests that the validator correctly catches bad
 // cases, and allows good ones.
-func TestPortRuleDNSSanitize(t *testing.T) {
+func TestPortRuleDNSValidation(t *testing.T) {
 	for _, accept := range []PortRuleDNS{
 		{MatchName: "cilium.io."},
 		{MatchName: "get-cilium.io."},
@@ -51,7 +51,7 @@ func TestPortRuleDNSSanitize(t *testing.T) {
 		{MatchPattern: "*cilium.io"},
 		{MatchPattern: "cilium.io"},
 	} {
-		err := accept.Sanitize()
+		err := accept.Validate()
 		require.NoError(t, err, "PortRuleDNS %+v was rejected but it should be valid", accept)
 	}
 
@@ -60,7 +60,7 @@ func TestPortRuleDNSSanitize(t *testing.T) {
 		{MatchPattern: "[a-z]*.cilium.io."},
 		{MatchName: "a{1,2}.cilium.io.", MatchPattern: "[a-z]*.cilium.io."},
 	} {
-		err := reject.Sanitize()
+		err := reject.Validate()
 		require.Error(t, err, "PortRuleDNS %+v was accepted but it should be invalid", reject)
 	}
 }

@@ -266,7 +266,7 @@ func TestRuleMarshalling(t *testing.T) {
 			require.NoError(t, err)
 			require.Equalf(t, tt.inputJSON, string(ruleMarshalled), "Marshalled Rule")
 
-			err = rule.Sanitize()
+			err = rule.ValidateAndSanitize()
 			if tt.expectedErr == sanitizeError {
 				require.Error(t, err)
 				return
