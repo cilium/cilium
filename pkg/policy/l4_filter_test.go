@@ -93,7 +93,7 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 	td.cachedSelectorCIDR = func(cidr api.CIDR) CachedSelector {
 		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, types.ToSelector(cidr))
 		return css[0]
-	}(api.CIDR("10.1.1.1"))
+	}(api.CIDR("10.1.1.1/32"))
 
 	td.cachedSelectorCIDR0 = func(cidr api.CIDR) CachedSelector {
 		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, types.ToSelector(cidr))

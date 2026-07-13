@@ -454,15 +454,6 @@ func newCIDRSelectorFromRequirements(key string, reqs Requirements, except []api
 }
 
 func NewCIDRSelector(key string, cidr api.CIDR, except []api.CIDR) *CIDRSelector {
-	i := strings.LastIndexByte(string(cidr), '/')
-	if i < 0 {
-		parsedIP, err := netip.ParseAddr(string(cidr))
-		if err != nil {
-			// input is sanitized, so this panic should never fire
-			panic(fmt.Errorf("%q is not an IP address: %w", cidr, err))
-		}
-		cidr += api.CIDR(fmt.Sprintf("/%d", parsedIP.BitLen()))
-	}
 	lbl, err := labels.IPStringToLabel(string(cidr))
 	if err != nil {
 		// input is sanitized, so this panic should never fire

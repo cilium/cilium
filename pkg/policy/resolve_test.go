@@ -320,7 +320,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
-					ToCIDR: []api.CIDR{"10.1.1.1"},
+					ToCIDR: []api.CIDR{"10.1.1.1/32"},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
