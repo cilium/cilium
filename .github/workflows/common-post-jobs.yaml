@@ -12,6 +12,11 @@ on:
       success:
         required: true
         type: boolean
+      merge-artifacts:
+        description: "Whether to merge and upload cilium-junits-*/features-tested-* artifacts. Set to false for workflows that run no tests and produce no such artifacts (e.g. pure lint jobs)."
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -20,7 +25,7 @@ permissions:
 
 jobs:
   merge-upload:
-    if: ${{ always() }}
+    if: ${{ always() && inputs.merge-artifacts }}
     name: Merge and Upload Artifacts
     runs-on: ubuntu-24.04
     permissions:
