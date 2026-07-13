@@ -106,10 +106,17 @@ func shouldGCNode(ctx context.Context, nodeName string, ciliumNodeStore resource
 		return false, err
 	}
 
-	cn, _, err := ciliumNodeStore.GetByKey(resource.Key{Name: nodeName})
+	cn, exists, err := ciliumNodeStore.GetByKey(resource.Key{Name: nodeName})
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to fetch CiliumNode from store", logfields.Error, err)
 		return false, err
+	}
+	if !exists {
+		// Raced with a store delete between IterKeys() and GetByKey(), nothing
+		// to GC. Drop any stale candidate entry, since this key will not be
+		// yielded by IterKeys() again once the delete propagates.
+		candidateStore.Delete(nodeName)
+		return false, nil
 	}
 
 	// if there is owner references, let k8s handle garbage collection
