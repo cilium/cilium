@@ -253,9 +253,17 @@ func (d dummyNodeManager) Subscribe(node.Handler) {
 	panic("unimplemented")
 }
 
+// SubscribeNodeState implements manager.NodeManager.
+func (d dummyNodeManager) SubscribeNodeState(nodemanager.NodeStateObserver) {
+}
+
 // Unsubscribe implements manager.NodeManager.
 func (d dummyNodeManager) Unsubscribe(node.Handler) {
 	panic("unimplemented")
+}
+
+// UnsubscribeNodeState implements manager.NodeManager.
+func (d dummyNodeManager) UnsubscribeNodeState(nodemanager.NodeStateObserver) {
 }
 
 // SetPrefixClusterMutatorFn implements manager.NodeManager

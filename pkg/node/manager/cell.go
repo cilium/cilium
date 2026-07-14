@@ -48,8 +48,24 @@ type Notifier interface {
 	Unsubscribe(node.Handler)
 }
 
+// NodeStateObserver observes every accepted change to the NodeManager's stored
+// node state. Callbacks are synchronous and read-only; implementations must not
+// call back into NodeManager.
+type NodeStateObserver interface {
+	NodeUpsert(types.Node)
+	NodeDelete(types.Node)
+}
+
+// NodeStateNotifier provides a serialized stream of the NodeManager's stored
+// node state, including a complete replay when an observer subscribes.
+type NodeStateNotifier interface {
+	SubscribeNodeState(NodeStateObserver)
+	UnsubscribeNodeState(NodeStateObserver)
+}
+
 type NodeManager interface {
 	Notifier
+	NodeStateNotifier
 
 	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
 	GetNodes() map[types.Identity]types.Node
