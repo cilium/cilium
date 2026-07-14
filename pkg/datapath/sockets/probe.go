@@ -118,7 +118,7 @@ func (p *sockDestroyProbe) handleSocket(s *netlink.Socket, err error) error {
 		p.logger.Debug("found probe socket, attempting destroy",
 			logfields.Port, p.port,
 			logfields.Protocol, p.proto)
-		destroyErr := DestroySocket(slog.Default(), *s, netlink.Proto(p.proto), 0xff)
+		destroyErr := DestroySocket(p.logger, *s, netlink.Proto(p.proto), 0xff)
 		if errors.Is(destroyErr, unix.ENOTSUP) {
 			// Note: Returning error stops iteration and passes err through to
 			// return value of Iterate.
