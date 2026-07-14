@@ -19,6 +19,7 @@ loadbalancers.
 .. note::
     * Enabling the Cilium Gateway API host network mode automatically disables the LoadBalancer type Service mode. They are mutually exclusive.
     * The listener is exposed on all interfaces (``0.0.0.0`` for IPv4 and/or ``::`` for IPv6).
+    * Host network mode is not compatible with ``TCPRoute`` and ``UDPRoute``. Their traffic bypasses Envoy and reaches the Gateway's generated Service directly, which normally exposes the configured ``Gateway`` listener port as a ``LoadBalancer`` Service. Enabling host network mode turns this Service into a ``NodePort`` Service instead, which gets a randomly assigned port from the node port range rather than the port configured on the ``Gateway`` listener.
 
 Host network mode can be enabled via Helm:
 
