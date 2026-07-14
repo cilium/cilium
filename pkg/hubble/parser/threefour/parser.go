@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -29,13 +30,14 @@ import (
 
 // Parser is a parser for L3/L4 payloads
 type Parser struct {
-	log            *slog.Logger
-	endpointGetter getters.EndpointGetter
-	identityGetter getters.IdentityGetter
-	dnsGetter      getters.DNSGetter
-	ipGetter       getters.IPGetter
-	serviceGetter  getters.ServiceGetter
-	linkGetter     getters.LinkGetter
+	log              *slog.Logger
+	endpointGetter   getters.EndpointGetter
+	identityGetter   getters.IdentityGetter
+	dnsGetter        getters.DNSGetter
+	ipGetter         getters.IPGetter
+	serviceGetter    getters.ServiceGetter
+	linkGetter       getters.LinkGetter
+	nodeLabelsGetter getters.NodeLabelsGetter
 
 	dropNotifyDecoder          options.DropNotifyDecoderFunc
 	traceNotifyDecoder         options.TraceNotifyDecoderFunc
@@ -165,6 +167,7 @@ func New(
 		ipGetter:                   ipGetter,
 		serviceGetter:              serviceGetter,
 		linkGetter:                 linkGetter,
+		nodeLabelsGetter:           args.NodeLabelsGetter,
 		dropNotifyDecoder:          args.DropNotifyDecoder,
 		debugCaptureDecoder:        args.DebugCaptureDecoder,
 		traceNotifyDecoder:         args.TraceNotifyDecoder,
@@ -267,6 +270,18 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 
 	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
+	decoded.SourceNodeLabels = nil
+	decoded.DestinationNodeLabels = nil
+	if p.nodeLabelsGetter != nil {
+		decoded.SourceNodeLabels = p.nodeLabelsGetter.GetNodeLabels(srcIP, getters.NodeClusterHint{
+			Identity:      identity.NumericIdentity(srcLabelID),
+			IdentityKnown: identity.NumericIdentity(srcLabelID) != identity.IdentityUnknown,
+		})
+		decoded.DestinationNodeLabels = p.nodeLabelsGetter.GetNodeLabels(dstIP, getters.NodeClusterHint{
+			Identity:      identity.NumericIdentity(dstLabelID),
+			IdentityKnown: identity.NumericIdentity(dstLabelID) != identity.IdentityUnknown,
+		})
+	}
 	datapathContext := common.DatapathContext{
 		SrcIP:                 srcIP,
 		SrcLabelID:            srcLabelID,
