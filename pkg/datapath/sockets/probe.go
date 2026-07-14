@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"strconv"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -47,40 +48,39 @@ func parsePort(a string) (uint16, error) {
 	return ap.Port(), nil
 }
 
-func createProbeTCPSocket(ctx context.Context) (closer, uint16, error) {
-	lis, err := net.ListenTCP("tcp", &net.TCPAddr{
+func createProbeTCPSocket(ctx context.Context) (lis *net.TCPListener, conn net.Conn, port uint16, err error) {
+	lis, err = net.ListenTCP("tcp", &net.TCPAddr{
 		IP: net.IP{127, 0, 0, 1},
 	})
 	if err != nil {
-		return lis, 0, err
+		return nil, nil, 0, err
 	}
 
-	port, err := parsePort(lis.Addr().String())
+	port, err = parsePort(lis.Addr().String())
 	if err != nil {
 		lis.Close()
-		return lis, 0, err
+		return nil, nil, 0, err
 	}
 
+	dialer := net.Dialer{}
 	// According to the kernel; we cannot terminate tcp listener
 	// sockets in the LIST state.
 	// Therefore, we dial our listener to create a connection that
 	// we can use to probe on.
-	conn, err := net.DialTCP("tcp", nil, &net.TCPAddr{
-		IP:   net.IP{127, 0, 0, 1},
-		Port: int(port),
-	})
+	conn, err = dialer.DialContext(ctx, "tcp", "localhost:"+strconv.Itoa(int(port)))
 	if err != nil {
 		lis.Close()
-		return lis, 0, err
+		return nil, nil, 0, err
 	}
 
 	port, err = parsePort(conn.LocalAddr().String())
 	if err != nil {
 		lis.Close()
-		return nil, 0, err
+		conn.Close()
+		return nil, nil, 0, err
 	}
 
-	return lis, uint16(port), nil
+	return lis, conn, port, nil
 }
 
 func createProbeUDPSocket() (closer, uint16, error) {
@@ -128,10 +128,11 @@ func (p *SocketInetProbe) probeForSockDestroy(ctx context.Context, logger *slog.
 			port:       port,
 		}
 	} else {
-		tcpSock, port, err := createProbeTCPSocket(ctx)
+		lis, tcpSock, port, err := createProbeTCPSocket(ctx)
 		if err != nil {
 			return err
 		}
+		defer lis.Close()
 		defer tcpSock.Close()
 
 		probe = inetProbe{
@@ -139,6 +140,11 @@ func (p *SocketInetProbe) probeForSockDestroy(ctx context.Context, logger *slog.
 			filterMask: StateFilterTCP,
 			port:       port,
 		}
+	}
+
+	// Bail out early if the caller cancelled before we start iterating.
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("failed to complete probes: %w", err)
 	}
 
 	ok := false
