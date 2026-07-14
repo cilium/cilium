@@ -2209,6 +2209,7 @@ func (r *gatewayReconciler) setTCPRouteStatuses(scopedLog *slog.Logger, ctx cont
 	for tcpRouteIndex, original := range tcpRoutes.Items {
 
 		tcpr := original.DeepCopy()
+		tcpr.Status.Parents = pruneRouteParentStatuses(tcpr.Status.Parents, tcpr.Spec.ParentRefs, r.controllerName)
 
 		i := &routechecks.TCPRouteInput{
 			Ctx:            ctx,
@@ -2240,6 +2241,7 @@ func (r *gatewayReconciler) setUDPRouteStatuses(scopedLog *slog.Logger, ctx cont
 	for udpRouteIndex, original := range udpRoutes.Items {
 
 		udpr := original.DeepCopy()
+		udpr.Status.Parents = pruneRouteParentStatuses(udpr.Status.Parents, udpr.Spec.ParentRefs, r.controllerName)
 
 		i := &routechecks.UDPRouteInput{
 			Ctx:            ctx,

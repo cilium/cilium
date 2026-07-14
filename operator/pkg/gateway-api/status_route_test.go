@@ -4,13 +4,17 @@
 package gateway_api
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 )
 
@@ -108,4 +112,52 @@ func TestPruneRouteParentStatuses(t *testing.T) {
 	require.Equal(t, gatewayv1.GatewayController("example.com/other-gateway-controller"), route.Status.Parents[0].ControllerName, "prune removes only the detached Cilium-owned status")
 	require.Equal(t, currentParentStatus, route.Status.Parents[1].ParentRef, "prune removes only the detached Cilium-owned status")
 	require.Equal(t, gatewayv1.GatewayController(defaultControllerName), route.Status.Parents[1].ControllerName, "prune removes only the detached Cilium-owned status")
+}
+
+func TestSetTCPRouteStatusesPrunesDetachedParents(t *testing.T) {
+	route := &gatewayv1.TCPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "default"},
+		Status: gatewayv1.TCPRouteStatus{RouteStatus: gatewayv1.RouteStatus{Parents: []gatewayv1.RouteParentStatus{{
+			ParentRef:      gatewayv1.ParentReference{Name: "detached-gateway"},
+			ControllerName: gatewayv1.GatewayController(defaultControllerName),
+		}}}},
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithStatusSubresource(&gatewayv1.TCPRoute{}).
+		WithObjects(route).
+		Build()
+	routes := &gatewayv1.TCPRouteList{}
+	require.NoError(t, c.List(t.Context(), routes))
+
+	r := &gatewayReconciler{Client: c, controllerName: defaultControllerName}
+	require.NoError(t, r.setTCPRouteStatuses(slog.Default(), t.Context(), routes, &gatewayv1.ReferenceGrantList{}))
+
+	updated := &gatewayv1.TCPRoute{}
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), updated))
+	require.Empty(t, updated.Status.Parents)
+}
+
+func TestSetUDPRouteStatusesPrunesDetachedParents(t *testing.T) {
+	route := &gatewayv1.UDPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "default"},
+		Status: gatewayv1.UDPRouteStatus{RouteStatus: gatewayv1.RouteStatus{Parents: []gatewayv1.RouteParentStatus{{
+			ParentRef:      gatewayv1.ParentReference{Name: "detached-gateway"},
+			ControllerName: gatewayv1.GatewayController(defaultControllerName),
+		}}}},
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithStatusSubresource(&gatewayv1.UDPRoute{}).
+		WithObjects(route).
+		Build()
+	routes := &gatewayv1.UDPRouteList{}
+	require.NoError(t, c.List(t.Context(), routes))
+
+	r := &gatewayReconciler{Client: c, controllerName: defaultControllerName}
+	require.NoError(t, r.setUDPRouteStatuses(slog.Default(), t.Context(), routes, &gatewayv1.ReferenceGrantList{}))
+
+	updated := &gatewayv1.UDPRoute{}
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), updated))
+	require.Empty(t, updated.Status.Parents)
 }
