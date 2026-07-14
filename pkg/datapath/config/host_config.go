@@ -66,6 +66,16 @@ type BPFHost struct {
 	TunnelProtocol uint8 `config:"tunnel_protocol"`
 	// VXLAN tunnel endpoint network mask.
 	VTEPMask uint32 `config:"vtep_mask"`
+	// --vlan-bpf-bypass slot 0; 0xFFFF = unused.
+	VlanFilterID0 uint16 `config:"vlan_filter_id_0"`
+	// --vlan-bpf-bypass slot 1; 0xFFFF = unused.
+	VlanFilterID1 uint16 `config:"vlan_filter_id_1"`
+	// --vlan-bpf-bypass slot 2; 0xFFFF = unused.
+	VlanFilterID2 uint16 `config:"vlan_filter_id_2"`
+	// --vlan-bpf-bypass slot 3; 0xFFFF = unused.
+	VlanFilterID3 uint16 `config:"vlan_filter_id_3"`
+	// --vlan-bpf-bypass slot 4; 0xFFFF = unused.
+	VlanFilterID4 uint16 `config:"vlan_filter_id_4"`
 	// Index of the WireGuard interface.
 	WGIfIndex uint32 `config:"wg_ifindex"`
 	// Port for the WireGuard interface.
@@ -80,5 +90,6 @@ func NewBPFHost(node Node) *BPFHost {
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		false, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
+		false, 0x0, 0x0, 0x0, 0x0, 0xffff, 0xffff, 0xffff, 0xffff,
+		0xffff, 0x0, 0x0, node}
 }
