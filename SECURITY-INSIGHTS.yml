@@ -1,8 +1,8 @@
 header:
   schema-version: '1.0.0'
-  expiration-date: '2025-01-26T01:00:00.000Z'
-  last-updated: '2024-01-26'
-  last-reviewed: '2024-01-26'
+  expiration-date: '2027-07-14T01:00:00.000Z'
+  last-updated: '2026-07-14'
+  last-reviewed: '2026-07-14'
   project-url: https://github.com/cilium/cilium
   license: https://github.com/cilium/cilium/blob/main/LICENSE
 project-lifecycle:
