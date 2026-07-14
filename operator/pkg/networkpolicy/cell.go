@@ -43,4 +43,5 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("validate-network-policy", def.ValidateNetworkPolicy, "Whether to enable or disable the informational network policy validator")
 
 	flags.Bool("mesh-auth-enabled", def.MeshAuthEnabled, "Enable authentication processing & garbage collection (beta)")
+	flags.MarkDeprecated("mesh-auth-enabled", "Mutual Auth is deprecated as of Cilium v1.20. See https://github.com/cilium/cilium/issues/47132 for details.")
 }
