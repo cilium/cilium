@@ -153,13 +153,14 @@ func (p *SocketInetProbe) probeForSockDestroy(ctx context.Context, logger *slog.
 			logger.Debug("found probe socket, attempting destroy",
 				logfields.Port, probe.port,
 				logfields.Protocol, probe.proto)
-			destroyErr := DestroySocket(slog.Default(), *s, netlink.Proto(probe.proto), 0xff)
+			destroyErr := DestroySocket(logger, *s, netlink.Proto(probe.proto), 0xff)
 			if errors.Is(destroyErr, unix.ENOTSUP) {
 				// Note: Returning error stops iteration and passes err through to
 				// return value of Iterate.
 				return fmt.Errorf("%w: operation to destroy probe socket is unsupported. "+
 					"This likely means that kernel CONFIG_INET_DIAG_DESTROY must be set in order for this functionality to work",
 					probes.ErrNotSupported)
+
 			}
 			if destroyErr != nil {
 				return destroyErr
