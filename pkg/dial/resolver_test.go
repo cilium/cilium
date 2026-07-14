@@ -58,6 +58,7 @@ func TestLBServiceResolver(t *testing.T) {
 		node.LocalNodeStoreTestCell,
 		source.Cell,
 		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.DefaultClusterInfo },
 			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
 			func() loadbalancer.ExternalConfig {
 				return loadbalancer.ExternalConfig{EnableIPv4: true, EnableIPv6: true}
