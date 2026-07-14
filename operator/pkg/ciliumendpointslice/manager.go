@@ -321,22 +321,6 @@ func (c *slimManager) AddPodMapping(pod *slim_corev1.Pod, nodeName string, cidKe
 	return []CESKey{NewCESKey(cesName.string(), pod.Namespace)}
 }
 
-// UpsertPodWithIdentity is used to insert coreCEP in local cache, this may result in creating a new
-// CES object or updating an existing CES object.
-// func (c *slimManager) UpsertPodWithIdentity(pod *slim_corev1.Pod, nodeName string, cid *cilium_v2.CiliumIdentity) []CESKey {
-// 	c.mutex.Lock()
-// 	defer c.mutex.Unlock()
-
-// 	cepName, cesName := c.upsertPodIntoCESLocked(pod)
-// 	cidName, gidLabels := cidToGidLabels(cid)
-// 	c.mapping.upsertCEP(cepName, cesName, NodeName(nodeName), gidLabels, cidName)
-// 	c.logger.Debug("CEP mapped to CES",
-// 		logfields.CEPName, cepName.string(),
-// 		logfields.CESName, cesName.string(),
-// 	)
-// 	return []CESKey{NewCESKey(cesName.string(), pod.Namespace)}
-// }
-
 // For a pod, return the associated CEP name and CES name (if none already exist,
 // create a new CES)
 func (c *slimManager) upsertPodIntoCESLocked(pod *slim_corev1.Pod) (CEPName, CESName) {
