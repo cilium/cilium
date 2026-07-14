@@ -345,6 +345,20 @@ jobs:
           retention-days: 5
           if-no-files-found: ignore
 
+      - name: Features tested on cluster 1
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1"
+
+      - name: Features tested on cluster 2
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2"
+
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
