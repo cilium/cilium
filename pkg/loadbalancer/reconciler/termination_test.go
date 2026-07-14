@@ -121,6 +121,7 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 				}
 			},
 		),
+		sockets.Cell,
 		cell.Invoke(registerSocketTermination),
 		cell.Invoke(func(db_ *statedb.DB, backends_ statedb.RWTable[*loadbalancer.Backend]) {
 			db = db_

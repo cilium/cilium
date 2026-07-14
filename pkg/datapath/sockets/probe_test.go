@@ -15,6 +15,7 @@ import (
 
 func TestPrivilegedProbetInetDiagDestroyEnabled(t *testing.T) {
 	testutils.PrivilegedTest(t)
-	assert.NoError(t, InetDiagDestroyEnabled(hivetest.Logger(t), true, true))
-	assert.NoError(t, InetDiagDestroyEnabled(hivetest.Logger(t), false, false))
+	p := newSocketInetProbe()
+	assert.NoError(t, p.InetDiagDestroyTCPEnabled(hivetest.Logger(t)))
+	assert.NoError(t, p.InetDiagDestroyUDPEnabled(hivetest.Logger(t)))
 }
