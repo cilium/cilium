@@ -33,25 +33,49 @@ const (
 )
 
 type fakeNodeStateNotifier struct {
+	mu               sync.Mutex
 	initial          []nodeTypes.Node
 	observer         manager.NodeStateObserver
 	subscribeCalls   int
 	unsubscribeCalls int
 }
 
+type blockingNodeStateNotifier struct {
+	*fakeNodeStateNotifier
+	subscribeEntered chan struct{}
+	releaseSubscribe chan struct{}
+}
+
+func (f *blockingNodeStateNotifier) SubscribeNodeState(observer manager.NodeStateObserver) {
+	close(f.subscribeEntered)
+	<-f.releaseSubscribe
+	f.fakeNodeStateNotifier.SubscribeNodeState(observer)
+}
+
 func (f *fakeNodeStateNotifier) SubscribeNodeState(observer manager.NodeStateObserver) {
+	f.mu.Lock()
 	f.subscribeCalls++
 	f.observer = observer
-	for _, n := range f.initial {
+	initial := append([]nodeTypes.Node(nil), f.initial...)
+	f.mu.Unlock()
+	for _, n := range initial {
 		observer.NodeUpsert(n)
 	}
 }
 
 func (f *fakeNodeStateNotifier) UnsubscribeNodeState(observer manager.NodeStateObserver) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.unsubscribeCalls++
 	if f.observer == observer {
 		f.observer = nil
 	}
+}
+
+func (f *fakeNodeStateNotifier) calls() (subscribe, unsubscribe int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.subscribeCalls, f.unsubscribeCalls
 }
 
 func newTestIPCache(t testing.TB) *ipcache.IPCache {
@@ -101,7 +125,7 @@ func requireLabels(t testing.TB, want []string, got []string, msgAndArgs ...any)
 	require.Equal(t, want, got, msgAndArgs...)
 }
 
-func TestResolverConstructionHasNoSubscriptionAndInitialReplayIsSynchronous(t *testing.T) {
+func TestResolverLifecycleStartReplaysSynchronouslyAndIsIdempotent(t *testing.T) {
 	ipc := newTestIPCache(t)
 	notifier := &fakeNodeStateNotifier{initial: []nodeTypes.Node{
 		nodeWithAddresses(localCluster, "node-a", localClusterID,
@@ -109,18 +133,74 @@ func TestResolverConstructionHasNoSubscriptionAndInitialReplayIsSynchronous(t *t
 	}}
 	r := NewResolver(ipc, cmtypes.ClusterInfo{ID: localClusterID, Name: localCluster}, notifier)
 
-	require.Zero(t, notifier.subscribeCalls, "construction must not own lifecycle subscription")
+	subscribe, unsubscribe := notifier.calls()
+	require.Zero(t, subscribe, "construction must not own lifecycle subscription")
+	require.Zero(t, unsubscribe)
 	require.Empty(t, r.GetNodeLabels(netip.MustParseAddr("192.0.2.10"), allocatedHint(localClusterID)))
 
-	notifier.SubscribeNodeState(r)
-	require.Equal(t, 1, notifier.subscribeCalls)
+	require.NoError(t, r.Start())
+	subscribe, unsubscribe = notifier.calls()
+	require.Equal(t, 1, subscribe)
+	require.Zero(t, unsubscribe)
 	requireLabels(t, []string{"a=first", "z=last"},
-		r.GetNodeLabels(netip.MustParseAddr("192.0.2.10"), allocatedHint(localClusterID)))
+		r.GetNodeLabels(netip.MustParseAddr("192.0.2.10"), allocatedHint(localClusterID)),
+		"the notifier replay must complete before Start returns")
 
-	// Replayed duplicate state is idempotent.
-	r.NodeUpsert(notifier.initial[0])
-	requireLabels(t, []string{"a=first", "z=last"},
-		r.GetNodeLabels(netip.MustParseAddr("192.0.2.10"), allocatedHint(localClusterID)))
+	require.NoError(t, r.Start())
+	r.Stop()
+	r.Stop()
+	subscribe, unsubscribe = notifier.calls()
+	require.Equal(t, 1, subscribe, "repeated Start must not subscribe twice")
+	require.Equal(t, 1, unsubscribe, "repeated Stop must not unsubscribe twice")
+}
+
+func TestResolverLifecycleFailsClosedWithoutNotifierAndAfterStop(t *testing.T) {
+	r := NewResolver(nil, cmtypes.ClusterInfo{ID: localClusterID, Name: localCluster}, nil)
+	require.ErrorContains(t, r.Start(), "notifier")
+	r.Stop()
+	require.ErrorContains(t, r.Start(), "stopped")
+
+	notifier := &fakeNodeStateNotifier{}
+	r = NewResolver(nil, cmtypes.ClusterInfo{ID: localClusterID, Name: localCluster}, notifier)
+	require.NoError(t, r.Start())
+	r.Stop()
+	require.ErrorContains(t, r.Start(), "stopped")
+	subscribe, unsubscribe := notifier.calls()
+	require.Equal(t, 1, subscribe)
+	require.Equal(t, 1, unsubscribe)
+}
+
+func TestResolverLifecycleSerializesConcurrentStartAndStop(t *testing.T) {
+	notifier := &blockingNodeStateNotifier{
+		fakeNodeStateNotifier: &fakeNodeStateNotifier{},
+		subscribeEntered:      make(chan struct{}),
+		releaseSubscribe:      make(chan struct{}),
+	}
+	r := NewResolver(nil, cmtypes.ClusterInfo{ID: localClusterID, Name: localCluster}, notifier)
+
+	startResults := make(chan error, 2)
+	go func() { startResults <- r.Start() }()
+	<-notifier.subscribeEntered
+	go func() { startResults <- r.Start() }()
+	close(notifier.releaseSubscribe)
+	require.NoError(t, <-startResults)
+	require.NoError(t, <-startResults)
+
+	var stops sync.WaitGroup
+	stops.Add(2)
+	go func() {
+		defer stops.Done()
+		r.Stop()
+	}()
+	go func() {
+		defer stops.Done()
+		r.Stop()
+	}()
+	stops.Wait()
+
+	subscribe, unsubscribe := notifier.calls()
+	require.Equal(t, 1, subscribe)
+	require.Equal(t, 1, unsubscribe)
 }
 
 func TestResolverSelectsAuthoritativeIdentityScope(t *testing.T) {

@@ -20,20 +20,55 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/hubble/parser/nodes"
 	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 )
 
 var Cell = cell.Module(
 	"payload-parser",
 	"Provides a payload parser for Hubble",
 
-	cell.Provide(newPayloadParser),
+	cell.Provide(
+		newPayloadParser,
+		newDirectionalNodeLabelsResolver,
+	),
 	cell.Config(defaultConfig),
 )
+
+type directionalNodeLabelsParams struct {
+	cell.In
+
+	Lifecycle   cell.Lifecycle
+	IPCache     *ipcache.IPCache
+	NodeManager nodeManager.NodeManager
+	ClusterInfo cmtypes.ClusterInfo
+}
+
+type directionalNodeLabelsOut struct {
+	cell.Out
+
+	ParserOption parserOptions.Option `group:"hubble-parser-options"`
+	Lifecycle    nodes.DirectionalNodeLabelsLifecycle
+}
+
+func newDirectionalNodeLabelsResolver(params directionalNodeLabelsParams) directionalNodeLabelsOut {
+	resolver := nodes.NewResolver(params.IPCache, params.ClusterInfo, params.NodeManager)
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(cell.HookContext) error {
+			resolver.Stop()
+			return nil
+		},
+	})
+	return directionalNodeLabelsOut{
+		ParserOption: parserOptions.WithNodeLabelsGetter(resolver),
+		Lifecycle:    resolver,
+	}
+}
 
 func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 	if err := params.Config.validate(); err != nil {

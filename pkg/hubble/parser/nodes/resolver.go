@@ -5,9 +5,11 @@
 package nodes
 
 import (
+	"errors"
 	"net"
 	"net/netip"
 	"slices"
+	"sync"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -16,6 +18,28 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+)
+
+// DirectionalNodeLabelsLifecycle controls the resolver's NodeManager state
+// subscription and its synchronous initial replay.
+type DirectionalNodeLabelsLifecycle interface {
+	Start() error
+	Stop()
+}
+
+type resolverLifecycleState uint8
+
+const (
+	resolverLifecycleInert resolverLifecycleState = iota
+	resolverLifecycleStarting
+	resolverLifecycleStarted
+	resolverLifecycleStopping
+	resolverLifecycleStopped
+)
+
+var (
+	errNilNodeStateNotifier = errors.New("directional node labels notifier is nil")
+	errResolverStopped      = errors.New("directional node labels resolver is stopped")
 )
 
 type nodeSnapshot struct {
@@ -32,6 +56,10 @@ type Resolver struct {
 	clusterInfo cmtypes.ClusterInfo
 	notifier    manager.NodeStateNotifier
 
+	lifecycleMu         sync.Mutex
+	lifecycleState      resolverLifecycleState
+	lifecycleTransition chan struct{}
+
 	mu         lock.RWMutex
 	byIdentity map[nodeTypes.Identity]nodeSnapshot
 	byAddress  map[netip.Addr]map[nodeTypes.Identity]struct{}
@@ -39,6 +67,7 @@ type Resolver struct {
 
 var _ getters.NodeLabelsGetter = (*Resolver)(nil)
 var _ manager.NodeStateObserver = (*Resolver)(nil)
+var _ DirectionalNodeLabelsLifecycle = (*Resolver)(nil)
 
 // NewResolver constructs an inert resolver. Subscription is explicit and is
 // not performed during construction.
@@ -49,6 +78,84 @@ func NewResolver(ipc *ipcache.IPCache, clusterInfo cmtypes.ClusterInfo, notifier
 		notifier:    notifier,
 		byIdentity:  make(map[nodeTypes.Identity]nodeSnapshot),
 		byAddress:   make(map[netip.Addr]map[nodeTypes.Identity]struct{}),
+	}
+}
+
+// Start subscribes the resolver exactly once. SubscribeNodeState performs its
+// replay synchronously, so the resolver is ready when Start returns.
+func (r *Resolver) Start() error {
+	for {
+		r.lifecycleMu.Lock()
+		switch r.lifecycleState {
+		case resolverLifecycleInert:
+			if r.notifier == nil {
+				r.lifecycleMu.Unlock()
+				return errNilNodeStateNotifier
+			}
+			r.lifecycleState = resolverLifecycleStarting
+			done := make(chan struct{})
+			r.lifecycleTransition = done
+			notifier := r.notifier
+			r.lifecycleMu.Unlock()
+
+			// NodeManager replays through callbacks here. Do not hold the
+			// lifecycle mutex across this external call: callbacks take the
+			// resolver index lock and must not participate in lock inversion.
+			notifier.SubscribeNodeState(r)
+
+			r.lifecycleMu.Lock()
+			r.lifecycleState = resolverLifecycleStarted
+			close(done)
+			r.lifecycleTransition = nil
+			r.lifecycleMu.Unlock()
+			return nil
+		case resolverLifecycleStarting, resolverLifecycleStopping:
+			done := r.lifecycleTransition
+			r.lifecycleMu.Unlock()
+			<-done
+		case resolverLifecycleStarted:
+			r.lifecycleMu.Unlock()
+			return nil
+		case resolverLifecycleStopped:
+			r.lifecycleMu.Unlock()
+			return errResolverStopped
+		}
+	}
+}
+
+// Stop unsubscribes a successfully started resolver exactly once. A stopped
+// resolver cannot be restarted.
+func (r *Resolver) Stop() {
+	for {
+		r.lifecycleMu.Lock()
+		switch r.lifecycleState {
+		case resolverLifecycleInert:
+			r.lifecycleState = resolverLifecycleStopped
+			r.lifecycleMu.Unlock()
+			return
+		case resolverLifecycleStarting, resolverLifecycleStopping:
+			done := r.lifecycleTransition
+			r.lifecycleMu.Unlock()
+			<-done
+		case resolverLifecycleStarted:
+			r.lifecycleState = resolverLifecycleStopping
+			done := make(chan struct{})
+			r.lifecycleTransition = done
+			notifier := r.notifier
+			r.lifecycleMu.Unlock()
+
+			notifier.UnsubscribeNodeState(r)
+
+			r.lifecycleMu.Lock()
+			r.lifecycleState = resolverLifecycleStopped
+			close(done)
+			r.lifecycleTransition = nil
+			r.lifecycleMu.Unlock()
+			return
+		case resolverLifecycleStopped:
+			r.lifecycleMu.Unlock()
+			return
+		}
 	}
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
+	"github.com/cilium/cilium/pkg/hubble/parser/nodes"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	peercell "github.com/cilium/cilium/pkg/hubble/peer/cell"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -97,8 +98,9 @@ type hubbleParams struct {
 
 	DropEventEmitter dropeventemitter.FlowProcessor
 
-	PayloadParser    parser.Decoder
-	NamespaceManager namespace.Manager
+	PayloadParser         parser.Decoder
+	DirectionalNodeLabels nodes.DirectionalNodeLabelsLifecycle
+	NamespaceManager      namespace.Manager
 
 	GRPCMetrics          *grpc_prometheus.ServerMetrics
 	MetricsFlowProcessor metrics.FlowProcessor
@@ -127,6 +129,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.ExporterBuilders,
 		params.DropEventEmitter,
 		params.PayloadParser,
+		params.DirectionalNodeLabels,
 		params.NamespaceManager,
 		params.GRPCMetrics,
 		params.MetricsFlowProcessor,
