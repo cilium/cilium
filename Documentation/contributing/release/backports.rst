@@ -156,16 +156,14 @@ One-time Setup
 Preparation
 ~~~~~~~~~~~
 
-Pull requests that are candidates for backports to the X.Y stable release are
-tracked through the following links:
+Pull requests that are candidates for backports to the |CURRENT_RELEASE| stable
+release are tracked through the following links:
 
-* PRs with the needs-backport/X.Y label (\ |CURRENT_RELEASE|: :github-backport:`GitHub Link<needs-backport>`)
-* PRs with the backport-pending/X.Y label (\ |CURRENT_RELEASE|: :github-backport:`GitHub Link<backport-pending>`)
-* The X.Y GitHub project (\ |NEXT_RELEASE|: :github-project:`GitHub Link<>`)
+* PRs with the needs-backport/|CURRENT_RELEASE| label (:github-backport:`GitHub Link<needs-backport>`)
+* PRs with the backport-pending/|CURRENT_RELEASE| label (:github-backport:`GitHub Link<backport-pending>`)
 
 Make sure that the Github labels are up-to-date, as this process will deal with
-all commits from PRs that have the ``needs-backport/X.Y`` label set (for a
-stable release version X.Y).
+all commits from PRs that have the needs-backport/|CURRENT_RELEASE| label set.
 
 Creating the Backports Branch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
