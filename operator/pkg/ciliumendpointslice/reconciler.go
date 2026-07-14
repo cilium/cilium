@@ -449,7 +449,7 @@ func getProtocolString(p slim_corev1.Protocol) (string, error) {
 	}
 }
 
-func (r *slimReconciler) getNodeNameForPod(pod *slim_corev1.Pod) (string, error) {
+func getNodeNameForPod(pod *slim_corev1.Pod) (string, error) {
 	if pod.Spec.NodeName == "" {
 		return "", fmt.Errorf("pod has empty node name")
 	}
