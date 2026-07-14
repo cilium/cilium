@@ -244,6 +244,51 @@ func (ipc *IPCache) getHostIPCacheRLocked(ip string) (net.IP, uint8) {
 	return ipKeyPair.IP, ipKeyPair.Key
 }
 
+// GetHostIP returns the host IP for the exact endpoint or single-host prefix
+// representation of addr in the same cluster scope.
+func (ipc *IPCache) GetHostIP(addr cmtypes.AddrCluster) (netip.Addr, bool) {
+	if !addr.Addr().IsValid() {
+		return netip.Addr{}, false
+	}
+
+	endpointKey := addr.String()
+	prefixKey := addr.AsPrefixCluster().String()
+
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+
+	lookup := func(key string) (host netip.Addr, exists, valid bool) {
+		if _, exists = ipc.ipToIdentityCache[key]; !exists {
+			return netip.Addr{}, false, false
+		}
+
+		pair, found := ipc.ipToHostIPCache[key]
+		if !found {
+			return netip.Addr{}, true, false
+		}
+
+		host, valid = netip.AddrFromSlice(pair.IP)
+		return host.Unmap(), true, valid
+	}
+
+	endpointHost, endpointExists, endpointValid := lookup(endpointKey)
+	prefixHost, prefixExists, prefixValid := lookup(prefixKey)
+
+	if endpointExists && (!endpointValid || prefixExists && (!prefixValid || endpointHost != prefixHost)) {
+		return netip.Addr{}, false
+	}
+	if prefixExists && !prefixValid {
+		return netip.Addr{}, false
+	}
+	if endpointExists {
+		return endpointHost, true
+	}
+	if prefixExists {
+		return prefixHost, true
+	}
+	return netip.Addr{}, false
+}
+
 // GetK8sMetadata returns Kubernetes metadata for the given IP address.
 // The returned pointer should *never* be modified.
 func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *K8sMetadata {
