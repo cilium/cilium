@@ -593,13 +593,15 @@ jobs:
           for filename in *.xml; do cp "${filename}" "../../cilium-junits/${junit_filename}"; done;
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cilium-sysdumps-bugtool-${{ matrix.k8s-version }}-${{matrix.focus}}
-          path: |
-            bugtool-*.tar.gz
-            test_results-*.tar.gz
+          name: cilium-sysdumps-${{ matrix.k8s-version }}-${{matrix.focus}}
+          # The tarball is written under the host-mounted 'untrusted/' dir.
+          path: untrusted/test_results-*.tar.gz
+          # Fail loudly if the tarball is missing: a silent "No files found"
+          # warning is what hid this upload from being noticed for months.
+          if-no-files-found: error
 
       - name: Run common post steps
         if: ${{ always() }}
