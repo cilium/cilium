@@ -1150,6 +1150,7 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"-p", protocol,
 		"-d", IP,
 		"--dport", p,
+		"-m", "comment", "--comment", "cilium: NOTRACK for node-local-dns",
 		"-j", "CT",
 		"--notrack"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
@@ -1159,9 +1160,9 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		cmd, ciliumForwardChain,
 		"-p", protocol,
 		"-d", IP,
-		"--dport",
-		p, "-j",
-		"ACCEPT"}); err != nil {
+		"--dport", p,
+		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
+		"-j", "ACCEPT"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 
@@ -1173,6 +1174,7 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"-p", protocol,
 		"-s", IP,
 		"--sport", p,
+		"-m", "comment", "--comment", "cilium: NOTRACK for node-local-dns",
 		"-j", "CT",
 		"--notrack"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
@@ -1182,9 +1184,9 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		cmd, ciliumForwardChain,
 		"-p", protocol,
 		"-s", IP,
-		"--sport",
-		p, "-j",
-		"ACCEPT"}); err != nil {
+		"--sport", p,
+		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
+		"-j", "ACCEPT"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 
@@ -1196,6 +1198,7 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"-p", protocol,
 		"-d", IP,
 		"--dport", p,
+		"-m", "comment", "--comment", "cilium: NOTRACK for node-local-dns",
 		"-j", "CT",
 		"--notrack"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
@@ -1206,6 +1209,7 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"-p", protocol,
 		"-d", IP,
 		"--dport", p,
+		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
 		"-j", "ACCEPT"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
@@ -1217,9 +1221,9 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		cmd, ciliumInputChain,
 		"-p", protocol,
 		"-s", IP,
-		"--sport",
-		p, "-j",
-		"ACCEPT"}); err != nil {
+		"--sport", p,
+		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
+		"-j", "ACCEPT"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 
@@ -1232,6 +1236,7 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"-p", protocol,
 		"-s", IP,
 		"--sport", p,
+		"-m", "comment", "--comment", "cilium: NOTRACK for node-local-dns",
 		"-j", "CT",
 		"--notrack"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
@@ -1242,6 +1247,7 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"-p", protocol,
 		"-s", IP,
 		"--sport", p,
+		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
 		"-j", "ACCEPT"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
@@ -1250,9 +1256,9 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		cmd, ciliumInputChain,
 		"-p", protocol,
 		"-d", IP,
-		"--dport",
-		p, "-j",
-		"ACCEPT"}); err != nil {
+		"--dport", p,
+		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
+		"-j", "ACCEPT"}); err != nil {
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 	return err
