@@ -27,7 +27,7 @@ import (
 )
 
 type doReconciler interface {
-	reconcileCES(cesName CESName) error
+	reconcileCES(ctx context.Context, cesName CESName) error
 }
 
 type endpointGetter interface {
@@ -39,7 +39,6 @@ type endpointGetter interface {
 type reconciler struct {
 	logger   *slog.Logger
 	client   clientset.CiliumV2alpha1Interface
-	context  context.Context
 	cesStore resource.Store[*cilium_v2a1.CiliumEndpointSlice]
 	metrics  *Metrics
 
@@ -71,19 +70,15 @@ type slimReconciler struct {
 
 // newDefaultReconciler creates and initializes a new defaultReconciler.
 func newDefaultReconciler(
-	ctx context.Context,
 	client clientset.CiliumV2alpha1Interface,
 	cesMgr *defaultManager,
 	logger *slog.Logger,
-	ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint],
-	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+	cepStore resource.Store[*cilium_v2.CiliumEndpoint],
+	cesStore resource.Store[*cilium_v2a1.CiliumEndpointSlice],
 	metrics *Metrics,
 ) *defaultReconciler {
-	cepStore, _ := ciliumEndpoint.Store(ctx)
-	cesStore, _ := ciliumEndpointSlice.Store(ctx)
 	dReconciler := defaultReconciler{
 		reconciler: reconciler{
-			context:    ctx,
 			logger:     logger,
 			client:     client,
 			cesManager: cesMgr,
@@ -99,27 +94,20 @@ func newDefaultReconciler(
 
 // newSlimReconciler creates and initializes a new slimReconciler.
 func newSlimReconciler(
-	ctx context.Context,
 	client clientset.CiliumV2alpha1Interface,
 	cesMgr *slimManager,
 	logger *slog.Logger,
-	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
-	pod resource.Resource[*slim_corev1.Pod],
-	ciliumIdentity resource.Resource[*cilium_v2.CiliumIdentity],
-	ciliumNode resource.Resource[*cilium_v2.CiliumNode],
-	namespace resource.Resource[*slim_corev1.Namespace],
+	cesStore resource.Store[*cilium_v2a1.CiliumEndpointSlice],
+	podStore resource.Store[*slim_corev1.Pod],
+	cidStore resource.Store[*cilium_v2.CiliumIdentity],
+	ciliumNodeStore resource.Store[*cilium_v2.CiliumNode],
+	namespaceStore resource.Store[*slim_corev1.Namespace],
 	metrics *Metrics,
 	ipsecEnabled bool,
 	wgEnabled bool,
 ) *slimReconciler {
-	cesStore, _ := ciliumEndpointSlice.Store(ctx)
-	podStore, _ := pod.Store(ctx)
-	cidStore, _ := ciliumIdentity.Store(ctx)
-	ciliumNodeStore, _ := ciliumNode.Store(ctx)
-	namespaceStore, _ := namespace.Store(ctx)
 	sReconciler := slimReconciler{
 		reconciler: reconciler{
-			context:    ctx,
 			logger:     logger,
 			client:     client,
 			cesManager: cesMgr,
@@ -138,7 +126,7 @@ func newSlimReconciler(
 	return &sReconciler
 }
 
-func (r *reconciler) reconcileCES(cesName CESName) (err error) {
+func (r *reconciler) reconcileCES(ctx context.Context, cesName CESName) (err error) {
 	desiredCEPsNumber := r.cesManager.getCEPCountInCES(cesName)
 	r.metrics.CiliumEndpointSliceDensity.Observe(float64(desiredCEPsNumber))
 	// Check the CES exists is in cesStore i.e. in api-server copy of CESs, if exist update or delete the CES.
@@ -147,19 +135,19 @@ func (r *reconciler) reconcileCES(cesName CESName) (err error) {
 		return
 	}
 	if !exists && desiredCEPsNumber > 0 {
-		return r.reconcileCESCreate(cesName)
+		return r.reconcileCESCreate(ctx, cesName)
 	} else if exists && desiredCEPsNumber > 0 {
-		return r.reconcileCESUpdate(cesName, cesObj)
+		return r.reconcileCESUpdate(ctx, cesName, cesObj)
 	} else if exists && desiredCEPsNumber == 0 {
-		return r.reconcileCESDelete(cesObj)
+		return r.reconcileCESDelete(ctx, cesObj)
 	} else { // !exist && desiredCEPsNumber == 0 => no op
 		return nil
 	}
 }
 
 // Create a new CES in api-server.
-func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
-	r.logger.DebugContext(r.context, "Reconciling CES Create", logfields.CESName, cesName.string())
+func (r *reconciler) reconcileCESCreate(ctx context.Context, cesName CESName) (err error) {
+	r.logger.DebugContext(ctx, "Reconciling CES Create", logfields.CESName, cesName.string())
 	ceps := r.cesManager.getCEPinCES(cesName)
 	r.metrics.CiliumEndpointsChangeCount.WithLabelValues(LabelValueCEPInsert).Observe(float64(len(ceps)))
 	newCES := &cilium_v2a1.CiliumEndpointSlice{
@@ -177,7 +165,7 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 
 	for _, cepName := range ceps {
 		ccep := r.endpointGetter.getCoreEndpointFromStore(cepName)
-		r.logger.DebugContext(r.context,
+		r.logger.DebugContext(ctx,
 			fmt.Sprintf("Adding CEP to new CES (exist %v)", ccep != nil),
 			logfields.CESName, cesName.string(),
 			logfields.CEPName, cepName.string())
@@ -188,8 +176,8 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 
 	// Call the client API, to Create CES
 	if _, err = r.client.CiliumEndpointSlices().Create(
-		r.context, newCES, meta_v1.CreateOptions{}); err != nil && !errors.Is(err, context.Canceled) {
-		r.logger.InfoContext(r.context,
+		ctx, newCES, meta_v1.CreateOptions{}); err != nil && !errors.Is(err, context.Canceled) {
+		r.logger.InfoContext(ctx,
 			"Unable to create CiliumEndpointSlice in k8s-apiserver",
 			logfields.CESName, newCES.Name,
 			logfields.Error, err)
@@ -198,8 +186,8 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 }
 
 // Update an existing CES
-func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.CiliumEndpointSlice) (err error) {
-	r.logger.DebugContext(r.context, "Reconciling CES Update", logfields.CESName, cesName.string())
+func (r *reconciler) reconcileCESUpdate(ctx context.Context, cesName CESName, cesObj *cilium_v2a1.CiliumEndpointSlice) (err error) {
+	r.logger.DebugContext(ctx, "Reconciling CES Update", logfields.CESName, cesName.string())
 	updatedCES := cesObj.DeepCopy()
 	cepInserted := 0
 	cepRemoved := 0
@@ -213,7 +201,7 @@ func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.Cil
 	// Get the CEPs objects from the CEP Store and map the names to them
 	for _, cepName := range cepsAssignedToCES {
 		ccep := r.endpointGetter.getCoreEndpointFromStore(cepName)
-		r.logger.DebugContext(r.context,
+		r.logger.DebugContext(ctx,
 			fmt.Sprintf("Adding CEP to existing CES (exist %v)", ccep != nil),
 			logfields.CESName, cesName.string(),
 			logfields.CEPName, cepName.string())
@@ -237,7 +225,7 @@ func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.Cil
 		}
 	}
 	updatedCES.Endpoints = updatedEndpoints
-	r.logger.DebugContext(r.context,
+	r.logger.DebugContext(ctx,
 		fmt.Sprintf("Inserted %d endpoints, updated %d endpoints, removed %d endpoints",
 			cepInserted,
 			cepUpdated,
@@ -256,28 +244,28 @@ func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.Cil
 	r.metrics.CiliumEndpointsChangeCount.WithLabelValues(LabelValueCEPRemove).Observe(float64(cepRemoved))
 
 	if !cesEqual {
-		r.logger.DebugContext(r.context, "CES changed, updating", logfields.CESName, cesName.string())
+		r.logger.DebugContext(ctx, "CES changed, updating", logfields.CESName, cesName.string())
 		// Call the client API, to Create CESs
 		if _, err = r.client.CiliumEndpointSlices().Update(
-			r.context, updatedCES, meta_v1.UpdateOptions{}); err != nil && !errors.Is(err, context.Canceled) {
-			r.logger.InfoContext(r.context,
+			ctx, updatedCES, meta_v1.UpdateOptions{}); err != nil && !errors.Is(err, context.Canceled) {
+			r.logger.InfoContext(ctx,
 				"Unable to update CiliumEndpointSlice in k8s-apiserver",
 				logfields.CESName, updatedCES.Name,
 				logfields.Error, err)
 		}
 	} else {
-		r.logger.DebugContext(r.context, "CES up to date, skipping update", logfields.CESName, cesName.string())
+		r.logger.DebugContext(ctx, "CES up to date, skipping update", logfields.CESName, cesName.string())
 	}
 	return
 }
 
 // Delete the CES.
-func (r *reconciler) reconcileCESDelete(ces *cilium_v2a1.CiliumEndpointSlice) (err error) {
-	r.logger.DebugContext(r.context, "Reconciling CES Delete", logfields.CESName, ces.Name)
+func (r *reconciler) reconcileCESDelete(ctx context.Context, ces *cilium_v2a1.CiliumEndpointSlice) (err error) {
+	r.logger.DebugContext(ctx, "Reconciling CES Delete", logfields.CESName, ces.Name)
 	r.metrics.CiliumEndpointsChangeCount.WithLabelValues(LabelValueCEPRemove).Observe(float64(len(ces.Endpoints)))
 	if err = r.client.CiliumEndpointSlices().Delete(
-		r.context, ces.Name, meta_v1.DeleteOptions{}); err != nil && !errors.Is(err, context.Canceled) {
-		r.logger.InfoContext(r.context,
+		ctx, ces.Name, meta_v1.DeleteOptions{}); err != nil && !errors.Is(err, context.Canceled) {
+		r.logger.InfoContext(ctx,
 			"Unable to delete CiliumEndpointSlice in k8s-apiserver",
 			logfields.CESName, ces.Name,
 			logfields.Error, err)
@@ -291,7 +279,7 @@ func (r *defaultReconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2
 	if err == nil && exists {
 		return k8s.ConvertCEPToCoreCEP(cepObj)
 	}
-	r.logger.DebugContext(r.context,
+	r.logger.Debug(
 		fmt.Sprintf("Couldn't get CEP from Store (err=%v, exists=%v)", err, exists),
 		logfields.CEPName, cepName.string(),
 	)
@@ -303,7 +291,7 @@ func (r *slimReconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.
 	if err == nil && exists {
 		return r.convertPodToCoreCEP(podObj)
 	}
-	r.logger.DebugContext(r.context,
+	r.logger.Debug(
 		"Couldn't get Pod from Store",
 		logfields.Error, err,
 		logfields.Exists, exists,
@@ -322,7 +310,7 @@ func (r *slimReconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.
 func (r *slimReconciler) convertPodToCoreCEP(pod *slim_corev1.Pod) *cilium_v2a1.CoreCiliumEndpoint {
 	identityId, err := r.getPodIdentityIDFromCache(pod)
 	if err != nil {
-		r.logger.DebugContext(r.context, "Could not get pod identity ID",
+		r.logger.Debug("Could not get pod identity ID",
 			logfields.K8sPodName, pod.GetName(),
 			logfields.K8sNamespace, pod.Namespace,
 			logfields.Error, err,
@@ -332,7 +320,7 @@ func (r *slimReconciler) convertPodToCoreCEP(pod *slim_corev1.Pod) *cilium_v2a1.
 
 	networking, err := GetPodEndpointNetworking(pod)
 	if err != nil {
-		r.logger.DebugContext(r.context, "Could not get pod's endpoint networking",
+		r.logger.Debug("Could not get pod's endpoint networking",
 			logfields.K8sPodName, pod.GetName(),
 			logfields.K8sNamespace, pod.Namespace,
 			logfields.Error, err,
@@ -342,7 +330,7 @@ func (r *slimReconciler) convertPodToCoreCEP(pod *slim_corev1.Pod) *cilium_v2a1.
 
 	encryptionKey, err := r.getEndpointEncryptionKey(pod)
 	if err != nil {
-		r.logger.DebugContext(r.context, "Could not get pod's endpoint encryption key",
+		r.logger.Debug("Could not get pod's endpoint encryption key",
 			logfields.K8sPodName, pod.GetName(),
 			logfields.K8sNamespace, pod.Namespace,
 			logfields.Error, err,

@@ -164,22 +164,29 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 	// if the error has not appeared or the maximum number of retries has been reached, the element is forgotten.
 
 	c.logger.InfoContext(ctx, "Bootstrap ces controller")
-	c.context, c.contextCancel = context.WithCancel(context.Background())
 	defer utilruntime.HandleCrash()
 
 	c.manager = newDefaultManager(c.maxCEPsInCES, c.logger)
 
-	c.reconciler = newDefaultReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
+	cepStore, _ := c.ciliumEndpoint.Store(ctx)
+	cesStore, _ := c.ciliumEndpointSlice.Store(ctx)
+	c.reconciler = newDefaultReconciler(c.clientset.CiliumV2alpha1(), c.manager, c.logger, cepStore, cesStore, c.metrics)
 	c.doReconciler = c.reconciler
 
 	c.initializeQueue()
 
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	// ensure the worker context is canceled if the Start context is canceled, to ensure it returns quickly.
+	stop := context.AfterFunc(ctx, workerCancel)
+	defer stop()
+
 	// Subscribe before draining to avoid missing events between subscription
 	// and drain (see syncCESsInLocalCache).
-	ciliumEndpointEvents := c.ciliumEndpoint.Events(c.context)
-	ciliumEndpointSliceEvents := c.ciliumEndpointSlice.Events(c.context)
+	ciliumEndpointEvents := c.ciliumEndpoint.Events(workerCtx)
+	ciliumEndpointSliceEvents := c.ciliumEndpointSlice.Events(workerCtx)
 
 	if err := c.syncCESsInLocalCache(ciliumEndpointEvents, ciliumEndpointSliceEvents); err != nil {
+		workerCancel()
 		return err
 	}
 
@@ -199,15 +206,16 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 	c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
 
 	c.logger.InfoContext(ctx, "Starting CES controller reconciler.")
+
 	c.Job.Add(
-		job.OneShot("proc-queues", func(ctx context.Context, health cell.Health) error {
-			c.worker()
+		job.OneShot("proc-queues", func(_ context.Context, health cell.Health) error {
+			c.worker(workerCtx)
 			return nil
 		}),
 		// Add the shutdown job last so it stops first.
 		job.OneShot("shutdown", func(ctx context.Context, health cell.Health) error {
 			<-ctx.Done()
-			c.contextCancel()
+			workerCancel()
 			c.wp.Close()
 			c.fastQueue.ShutDown()
 			c.standardQueue.ShutDown()
@@ -227,20 +235,30 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 	// Processing queues handled as with DefaultController.
 
 	c.logger.InfoContext(ctx, "Bootstrap ces controller")
-	c.context, c.contextCancel = context.WithCancel(context.Background())
 	defer utilruntime.HandleCrash()
 
 	c.manager = newSlimManager(c.maxCEPsInCES, c.logger)
 
-	c.reconciler = newSlimReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpointSlice, c.pods, c.ciliumIdentity, c.ciliumNodes, c.namespace, c.metrics, c.ipsecEnabled, c.wgEnabled)
+	cesStore, _ := c.ciliumEndpointSlice.Store(ctx)
+	podStore, _ := c.pods.Store(ctx)
+	ciStore, _ := c.ciliumIdentity.Store(ctx)
+	cnodeStore, _ := c.ciliumNodes.Store(ctx)
+	namespaceStore, _ := c.namespace.Store(ctx)
+	c.reconciler = newSlimReconciler(c.clientset.CiliumV2alpha1(), c.manager, c.logger, cesStore, podStore, ciStore, cnodeStore, namespaceStore, c.metrics, c.ipsecEnabled, c.wgEnabled)
 	c.doReconciler = c.reconciler
 
 	c.initializeQueue()
 
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	// ensure the worker context is canceled if the Start context is canceled, to ensure it returns quickly.
+	stop := context.AfterFunc(ctx, workerCancel)
+	defer stop()
+
 	// starts the events loop before syncCESsInLocalCache() to be sure we don't miss any event
-	ciliumEndpointSliceEvents := c.ciliumEndpointSlice.Events(c.context)
+	ciliumEndpointSliceEvents := c.ciliumEndpointSlice.Events(workerCtx)
 
 	if err := c.syncCESsInLocalCache(ctx); err != nil {
+		workerCancel()
 		return err
 	}
 
@@ -260,8 +278,8 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 		job.OneShot("proc-ciliumidentities-events", func(ctx context.Context, health cell.Health) error {
 			return c.runCiliumIdentitiesUpdater(ctx)
 		}),
-		job.OneShot("proc-queues", func(ctx context.Context, health cell.Health) error {
-			c.worker()
+		job.OneShot("proc-queues", func(_ context.Context, health cell.Health) error {
+			c.worker(workerCtx)
 			return nil
 		}),
 		// Add the shutdown job last so it stops first.
@@ -269,7 +287,7 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 			<-ctx.Done()
 			c.fastQueue.ShutDown()
 			c.standardQueue.ShutDown()
-			c.contextCancel()
+			workerCancel()
 			return nil
 		}),
 	)
@@ -622,15 +640,15 @@ func (c *SlimController) syncCESsInLocalCache(ctx context.Context) error {
 
 // worker runs a worker thread that just dequeues items, processes them, and
 // marks them done.
-func (c *Controller) worker() {
-	for c.processNextWorkItem() {
+func (c *Controller) worker(ctx context.Context) {
+	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *Controller) rateLimitProcessing() {
+func (c *Controller) rateLimitProcessing(ctx context.Context) {
 	delay := c.rateLimit.getDelay()
 	select {
-	case <-c.context.Done():
+	case <-ctx.Done():
 	case <-time.After(delay):
 	}
 }
@@ -650,8 +668,8 @@ func (c *Controller) getQueue() workqueue.TypedRateLimitingInterface[CESKey] {
 	}
 }
 
-func (c *Controller) processNextWorkItem() bool {
-	c.rateLimitProcessing()
+func (c *Controller) processNextWorkItem(ctx context.Context) bool {
+	c.rateLimitProcessing(ctx)
 	queue := c.getQueue()
 	key, quit := queue.Get()
 	if quit {
@@ -662,7 +680,7 @@ func (c *Controller) processNextWorkItem() bool {
 	c.logger.Debug("Processing CES", logfields.CESName, key.string())
 
 	queueDelay := c.getAndResetCESProcessingDelay(key)
-	err := c.doReconciler.reconcileCES(CESName(key.Name))
+	err := c.doReconciler.reconcileCES(ctx, CESName(key.Name))
 	if queue == c.fastQueue {
 		c.metrics.CiliumEndpointSliceQueueDelay.WithLabelValues(LabelQueueFast).Observe(queueDelay)
 	} else {
