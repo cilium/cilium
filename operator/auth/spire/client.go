@@ -104,6 +104,7 @@ func (cfg MutualAuthConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("mesh-auth-mutual-enabled",
 		cfg.Enabled,
 		"The flag to enable mutual authentication for the SPIRE server (beta).")
+	flags.MarkDeprecated("mesh-auth-mutual-enabled", "Mutual Auth is deprecated as of Cilium v1.20. See https://github.com/cilium/cilium/issues/47132 for details.")
 }
 
 // ClientConfig contains the configuration for the SPIRE client.
