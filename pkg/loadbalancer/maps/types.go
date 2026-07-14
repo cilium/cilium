@@ -216,6 +216,10 @@ func (s *Service4Value) New() bpf.MapValue { return &Service4Value{} }
 
 func (s *Service4Value) String() string {
 	sHost := s.ToHost().(*Service4Value)
+	if loadbalancer.ServiceFlags(sHost.GetFlags()).IsL7LB() {
+		return fmt.Sprintf("%d %d[%d] (%d) [0x%x 0x%x]",
+			sHost.GetL7LBProxyPort(), sHost.Count, sHost.QCount, sHost.RevNat, sHost.Flags, sHost.Flags2)
+	}
 	return fmt.Sprintf("%d %d[%d] (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.QCount, sHost.RevNat, sHost.Flags, sHost.Flags2)
 }
 
@@ -263,7 +267,7 @@ func (s *Service4Value) SetL7LBProxyPort(port uint16) {
 }
 
 func (s *Service4Value) GetL7LBProxyPort() uint16 {
-	return byteorder.HostToNetwork16(uint16(s.BackendID))
+	return byteorder.NetworkToHost16(uint16(s.BackendID))
 }
 
 func (s *Service4Value) SetBackendID(id loadbalancer.BackendID) {
