@@ -25,7 +25,7 @@ import (
 // probe. We manage the lifecycle via the cell such that we can
 // memoize results.
 func newSocketInetProbe() *SocketInetProbe {
-	return &SocketInetProbe{}
+	return &SocketInetProbe{probeSocketFns: defaultProbeSocketFns}
 }
 
 type SocketInetProbe struct {
@@ -34,6 +34,8 @@ type SocketInetProbe struct {
 	udpProbed   bool
 	tcpProbeErr error
 	udpProbeErr error
+
+	probeSocketFns
 }
 
 type closer interface {
@@ -46,6 +48,16 @@ func parsePort(a string) (uint16, error) {
 		return 0, err
 	}
 	return ap.Port(), nil
+}
+
+// testProbeSocketFns abstracts the socket-creation and privileged netlink
+// inet_diag operations used while probing so that tests can substitute fakes
+// and exercise the probing logic without CAP_NET_ADMIN.
+type probeSocketFns struct {
+	createProbeTCPSocket func(ctx context.Context) (lis *net.TCPListener, conn net.Conn, port uint16, err error)
+	createProbeUDPSocket func() (closer, uint16, error)
+	iterate              func(proto uint8, family uint8, stateFilter uint32, fn func(*netlink.Socket, error) error) error
+	destroySocket        func(logger *slog.Logger, sock netlink.Socket, proto netlink.Proto, stateFilter uint32) error
 }
 
 func createProbeTCPSocket(ctx context.Context) (lis *net.TCPListener, conn net.Conn, port uint16, err error) {
@@ -100,6 +112,13 @@ func createProbeUDPSocket() (closer, uint16, error) {
 	return lis, port, nil
 }
 
+var defaultProbeSocketFns = probeSocketFns{
+	createProbeTCPSocket: createProbeTCPSocket,
+	createProbeUDPSocket: createProbeUDPSocket,
+	iterate:              Iterate,
+	destroySocket:        DestroySocket,
+}
+
 type inetProbe struct {
 	proto      int
 	filterMask uint32
@@ -116,7 +135,7 @@ func (p *SocketInetProbe) probeForSockDestroy(ctx context.Context, logger *slog.
 	var probe inetProbe
 
 	if udp {
-		udpSock, port, err := createProbeUDPSocket()
+		udpSock, port, err := p.createProbeUDPSocket()
 		if err != nil {
 			return err
 		}
@@ -128,12 +147,12 @@ func (p *SocketInetProbe) probeForSockDestroy(ctx context.Context, logger *slog.
 			port:       port,
 		}
 	} else {
-		lis, tcpSock, port, err := createProbeTCPSocket(ctx)
+		lis, tcpConn, port, err := p.createProbeTCPSocket(ctx)
 		if err != nil {
 			return err
 		}
 		defer lis.Close()
-		defer tcpSock.Close()
+		defer tcpConn.Close()
 
 		probe = inetProbe{
 			proto:      unix.IPPROTO_TCP,
@@ -150,23 +169,27 @@ func (p *SocketInetProbe) probeForSockDestroy(ctx context.Context, logger *slog.
 	ok := false
 	count := 0
 	lo := net.IP{127, 0, 0, 1}
-	if err := Iterate(uint8(probe.proto), unix.AF_INET, probe.filterMask, func(s *netlink.Socket, err error) error {
-		logger.Debug("found probe socket, attempting destroy",
-			logfields.Port, probe.port,
-			logfields.Protocol, probe.proto)
+	if err := p.iterate(uint8(probe.proto), unix.AF_INET, probe.filterMask, func(s *netlink.Socket, err error) error {
+		// Abort the dump promptly on cancellation.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		// A per-message error yields a nil socket; surface it and stop.
+		if err != nil {
+			return err
+		}
 		count++
-		if s.ID.SourcePort == uint16(probe.port) && s.ID.Source.Equal(lo) {
+		if s.ID.SourcePort == probe.port && s.ID.Source.Equal(lo) {
 			logger.Debug("found probe socket, attempting destroy",
 				logfields.Port, probe.port,
 				logfields.Protocol, probe.proto)
-			destroyErr := DestroySocket(logger, *s, netlink.Proto(probe.proto), 0xff)
+			destroyErr := p.destroySocket(logger, *s, netlink.Proto(probe.proto), 0xff)
 			if errors.Is(destroyErr, unix.ENOTSUP) {
 				// Note: Returning error stops iteration and passes err through to
 				// return value of Iterate.
 				return fmt.Errorf("%w: operation to destroy probe socket is unsupported. "+
 					"This likely means that kernel CONFIG_INET_DIAG_DESTROY must be set in order for this functionality to work",
 					probes.ErrNotSupported)
-
 			}
 			if destroyErr != nil {
 				return destroyErr
@@ -191,7 +214,6 @@ func (p *SocketInetProbe) probeForSockDestroy(ctx context.Context, logger *slog.
 				proto = "udp"
 				requiredConfig = "CONFIG_INET_UDP_DIAG"
 			}
-
 			return fmt.Errorf("%w: no netlink messages testing INET_DIAG listing for %s. "+
 				"This indicates that the kernel does not have the appropriate kernel config set (%s)",
 				probes.ErrNotSupported, proto, requiredConfig)
