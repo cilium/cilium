@@ -17,7 +17,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
-	op_k8s "github.com/cilium/cilium/operator/k8s"
+	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -184,6 +184,7 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 	// and drain (see syncCESsInLocalCache).
 	ciliumEndpointEvents := c.ciliumEndpoint.Events(workerCtx)
 	ciliumEndpointSliceEvents := c.ciliumEndpointSlice.Events(workerCtx)
+	namespaceEvents := c.namespace.Events(workerCtx)
 
 	if err := c.syncCESsInLocalCache(ciliumEndpointEvents, ciliumEndpointSliceEvents); err != nil {
 		workerCancel()
@@ -192,16 +193,16 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 
 	c.Job.Add(
 		job.OneShot("proc-ns-events", func(ctx context.Context, health cell.Health) error {
-			return c.processNamespaceEvents(ctx)
+			return c.processNamespaceEvents(namespaceEvents)
 		}),
 	)
 	// Start the work pools processing CEP events only after syncing CES in local cache.
 	c.wp = workerpool.New(3)
 	c.wp.Submit("cilium-endpoints-updater", func(ctx context.Context) error {
-		return c.runCiliumEndpointsUpdater(ctx, ciliumEndpointEvents)
+		return c.runCiliumEndpointsUpdater(ciliumEndpointEvents)
 	})
 	c.wp.Submit("cilium-endpoint-slices-updater", func(ctx context.Context) error {
-		return c.runCiliumEndpointSliceUpdater(ctx, ciliumEndpointSliceEvents)
+		return c.runCiliumEndpointSliceUpdater(ciliumEndpointSliceEvents)
 	})
 	c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
 
@@ -256,27 +257,31 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 
 	// starts the events loop before syncCESsInLocalCache() to be sure we don't miss any event
 	ciliumEndpointSliceEvents := c.ciliumEndpointSlice.Events(workerCtx)
+	ciliumNodesEvents := c.ciliumNodes.Events(workerCtx)
+	ciliumIdentityEvents := c.ciliumIdentity.Events(workerCtx)
+	podsEvents := c.pods.Events(workerCtx)
+	namespaceEvents := c.namespace.Events(workerCtx)
 
-	if err := c.syncCESsInLocalCache(ctx); err != nil {
+	if err := c.syncCESsInLocalCache(ciliumNodesEvents, ciliumIdentityEvents, ciliumEndpointSliceEvents, podsEvents); err != nil {
 		workerCancel()
 		return err
 	}
 
 	c.Job.Add(
 		job.OneShot("proc-ns-events", func(ctx context.Context, health cell.Health) error {
-			return c.processNamespaceEvents(ctx)
+			return c.processNamespaceEvents(namespaceEvents)
 		}),
 		job.OneShot("proc-pods-events", func(ctx context.Context, health cell.Health) error {
-			return c.runCiliumPodsUpdater(ctx)
+			return c.runCiliumPodsUpdater(podsEvents)
 		}),
 		job.OneShot("proc-ces-events", func(ctx context.Context, health cell.Health) error {
-			return c.runCiliumEndpointSliceUpdater(ctx, ciliumEndpointSliceEvents)
+			return c.runCiliumEndpointSliceUpdater(ciliumEndpointSliceEvents)
 		}),
 		job.OneShot("proc-ciliumnodes-events", func(ctx context.Context, health cell.Health) error {
-			return c.runCiliumNodesUpdater(ctx)
+			return c.runCiliumNodesUpdater(ctx, ciliumNodesEvents)
 		}),
 		job.OneShot("proc-ciliumidentities-events", func(ctx context.Context, health cell.Health) error {
-			return c.runCiliumIdentitiesUpdater(ctx)
+			return c.runCiliumIdentitiesUpdater(ciliumIdentityEvents)
 		}),
 		job.OneShot("proc-queues", func(_ context.Context, health cell.Health) error {
 			c.worker(workerCtx)
@@ -305,14 +310,14 @@ func (c *SlimController) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (c *DefaultController) runCiliumEndpointsUpdater(ctx context.Context, events <-chan resource.Event[*cilium_api_v2.CiliumEndpoint]) error {
+func (c *DefaultController) runCiliumEndpointsUpdater(events <-chan resource.Event[*cilium_api_v2.CiliumEndpoint]) error {
 	for event := range events {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.DebugContext(ctx, "Got Upsert Endpoint event", logfields.CEPName, event.Key)
+			c.logger.Debug("Got Upsert Endpoint event", logfields.CEPName, event.Key)
 			c.onEndpointUpdate(event.Object)
 		case resource.Delete:
-			c.logger.DebugContext(ctx, "Got Delete Endpoint event", logfields.CEPName, event.Key)
+			c.logger.Debug("Got Delete Endpoint event", logfields.CEPName, event.Key)
 			c.onEndpointDelete(event.Object)
 		}
 		event.Done(nil)
@@ -320,15 +325,15 @@ func (c *DefaultController) runCiliumEndpointsUpdater(ctx context.Context, event
 	return nil
 }
 
-func (c *SlimController) runCiliumPodsUpdater(ctx context.Context) error {
-	for event := range c.pods.Events(ctx) {
+func (c *SlimController) runCiliumPodsUpdater(events <-chan resource.Event[*slim_corev1.Pod]) error {
+	for event := range events {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.DebugContext(ctx, "Got Upsert Pod event", logfields.K8sPodName, event.Key)
+			c.logger.Debug("Got Upsert Pod event", logfields.K8sPodName, event.Key)
 			err := c.onPodUpdate(event.Object)
 			event.Done(err)
 		case resource.Delete:
-			c.logger.DebugContext(ctx, "Got Delete Pod event", logfields.K8sPodName, event.Key)
+			c.logger.Debug("Got Delete Pod event", logfields.K8sPodName, event.Key)
 			c.onPodDelete(event.Object)
 			event.Done(nil)
 		default:
@@ -338,14 +343,14 @@ func (c *SlimController) runCiliumPodsUpdater(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context, events <-chan resource.Event[*capi_v2a1.CiliumEndpointSlice]) error {
+func (c *Controller) runCiliumEndpointSliceUpdater(events <-chan resource.Event[*capi_v2a1.CiliumEndpointSlice]) error {
 	for event := range events {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.DebugContext(ctx, "Got Upsert Endpoint Slice event", logfields.CESName, event.Key)
+			c.logger.Debug("Got Upsert Endpoint Slice event", logfields.CESName, event.Key)
 			c.onSliceUpdate(event.Object)
 		case resource.Delete:
-			c.logger.DebugContext(ctx, "Got Delete Endpoint Slice event", logfields.CESName, event.Key)
+			c.logger.Debug("Got Delete Endpoint Slice event", logfields.CESName, event.Key)
 			c.onSliceDelete(event.Object)
 		}
 		event.Done(nil)
@@ -357,21 +362,23 @@ func (c *DefaultController) runCiliumNodesUpdater(ctx context.Context) error {
 	return runCiliumNodesUpdater(
 		ctx,
 		c.Controller,
+		c.ciliumNodes.Events(ctx),
 		nil,
 	)
 }
 
-func (c *SlimController) runCiliumNodesUpdater(ctx context.Context) error {
+func (c *SlimController) runCiliumNodesUpdater(ctx context.Context, events <-chan resource.Event[*cilium_api_v2.CiliumNode]) error {
 	return runCiliumNodesUpdater(
 		ctx,
 		c.Controller,
+		events,
 		func(event resource.Event[*cilium_api_v2.CiliumNode]) {
 			switch event.Kind {
 			case resource.Upsert:
-				c.logger.DebugContext(ctx, "Got Upsert CiliumNode event", logfields.NodeName, event.Key)
+				c.logger.Debug("Got Upsert CiliumNode event", logfields.NodeName, event.Key)
 				c.onNodeUpdate(event.Object)
 			case resource.Delete:
-				c.logger.DebugContext(ctx, "Got Delete CiliumNode event", logfields.NodeName, event.Key)
+				c.logger.Debug("Got Delete CiliumNode event", logfields.NodeName, event.Key)
 				c.onNodeDelete(event.Object)
 			}
 		},
@@ -379,20 +386,21 @@ func (c *SlimController) runCiliumNodesUpdater(ctx context.Context) error {
 }
 
 func runCiliumNodesUpdater(ctx context.Context, ctrlr *Controller,
+	events <-chan resource.Event[*cilium_api_v2.CiliumNode],
 	handleEvent func(event resource.Event[*cilium_api_v2.CiliumNode])) error {
 	ciliumNodesStore, err := ctrlr.ciliumNodes.Store(ctx)
 	if err != nil {
-		ctrlr.logger.WarnContext(ctx, "Couldn't get CiliumNodes store", logfields.Error, err)
+		ctrlr.logger.Warn("Couldn't get CiliumNodes store", logfields.Error, err)
 		return err
 	}
-	for event := range ctrlr.ciliumNodes.Events(ctx) {
+	for event := range events {
 		if handleEvent != nil {
 			handleEvent(event)
 		}
 		event.Done(nil)
 		totalNodes := len(ciliumNodesStore.List())
 		if ctrlr.rateLimit.updateRateLimiterWithNodes(totalNodes) {
-			ctrlr.logger.InfoContext(ctx, "Updated CES controller workqueue configuration",
+			ctrlr.logger.Info("Updated CES controller workqueue configuration",
 				logfields.WorkQueueQPSLimit, ctrlr.rateLimit.current.Limit,
 				logfields.WorkQueueBurstLimit, ctrlr.rateLimit.current.Burst)
 		}
@@ -400,8 +408,8 @@ func runCiliumNodesUpdater(ctx context.Context, ctrlr *Controller,
 	return nil
 }
 
-func (c *SlimController) runCiliumIdentitiesUpdater(ctx context.Context) error {
-	for event := range c.ciliumIdentity.Events(ctx) {
+func (c *SlimController) runCiliumIdentitiesUpdater(events <-chan resource.Event[*cilium_api_v2.CiliumIdentity]) error {
+	for event := range events {
 		switch event.Kind {
 		case resource.Upsert:
 			c.logger.Debug("Got Upsert CiliumIdentity event", logfields.CIDName, event.Key)
@@ -440,41 +448,48 @@ func (c *SlimController) onIdentityDelete(cid *cilium_api_v2.CiliumIdentity) {
 // saving them here in case of any changes in value, to minimize the
 // number of CES updates.
 // Returns error if requires retry without pod update.
-func (c *SlimController) onPodUpdate(pod *slim_corev1.Pod) error {
+// resolvePodPlacement gathers the state needed to place a pod into a CES.
+// Returns (node, cidKey, true) if the pod is placeable, or ("", nil, false)
+// if it should be skipped (empty name/namespace, host-network, no IPs,
+// unscheduled, or unresolvable labels). Errors are logged at debug level.
+func (c *SlimController) resolvePodPlacement(pod *slim_corev1.Pod) (string, *key.GlobalIdentity, bool) {
 	if pod.GetName() == "" || pod.GetNamespace() == "" {
-		return nil
+		return "", nil, false
 	}
-
-	if pod.Spec.HostNetwork { // no CEP for host networking pods
-		return nil
+	if pod.Spec.HostNetwork {
+		// no CEP for host networking pods
+		return "", nil, false
 	}
-
-	_, err := GetPodEndpointNetworking(pod)
-	if err != nil {
+	if _, err := GetPodEndpointNetworking(pod); err != nil {
 		c.logger.Debug("could not get endpointnetworking for pod",
 			logfields.K8sPodName, pod.Name,
 			logfields.Error, err)
 		// When pod is assigned IPs or scheduled, we will receive a new update.
-		return nil
+		return "", nil, false
 	}
-
-	node, err := c.reconciler.getNodeNameForPod(pod)
+	node, err := getNodeNameForPod(pod)
 	if err != nil {
 		c.logger.Debug("could not get node name for pod",
 			logfields.K8sPodName, pod.Name,
 			logfields.Error, err)
 		// When pod is scheduled, we will receive a new update.
-		return nil
+		return "", nil, false
 	}
-
 	cidKey, err := getPodCIDKey(pod, c.logger, c.reconciler.namespaceStore)
 	if err != nil {
 		c.logger.Debug("could not get labels for pod",
 			logfields.K8sPodName, pod.Name,
 			logfields.Error, err)
-		return err
+		return "", nil, false
 	}
+	return node, cidKey, true
+}
 
+func (c *SlimController) onPodUpdate(pod *slim_corev1.Pod) error {
+	node, cidKey, ok := c.resolvePodPlacement(pod)
+	if !ok {
+		return nil
+	}
 	touchedCESs := c.manager.AddPodMapping(pod, node, cidKey)
 	c.enqueueCESReconciliation(touchedCESs)
 	return nil
@@ -561,58 +576,163 @@ cesLoop:
 
 // Sync all CESs from cesStore to manager cache.
 // Note: CESs are synced locally before CES controller running and this is required.
-func (c *SlimController) syncCESsInLocalCache(ctx context.Context) error {
-	cesStore, err := c.ciliumEndpointSlice.Store(ctx)
-	if err != nil {
-		c.logger.WarnContext(ctx, "Error getting CES Store", logfields.Error, err)
-		return err
-	}
-
-	cidStore, err := c.ciliumIdentity.Store(ctx)
-	if err != nil {
-		c.logger.WarnContext(ctx, "Error getting CID Store", logfields.Error, err)
-		return err
-	}
-
-	cnodeStore, err := c.ciliumNodes.Store(ctx)
-	if err != nil {
-		c.logger.WarnContext(ctx, "Error getting CiliumNode Store", logfields.Error, err)
-		return err
-	}
-
-	cidToLabels := make(map[CID]Labels)
-	for _, cid := range cidStore.List() {
-		cidName, gidLabels := cidToGidLabels(cid)
-		cidToLabels[cidName] = gidLabels
-	}
-
-	for _, ces := range cesStore.List() {
-		c.manager.initializeMappingForCES(ces)
-		for _, cep := range ces.Endpoints {
-			identityid := strconv.FormatInt(cep.IdentityID, 10)
-			labels, ok := cidToLabels[CID(identityid)]
-			// If the CID is not found (e.g., deleted during operator restart), we skip restoring the state of this CEP on startup.
-			// We will get the CEP & CID add events through the resource stores and update the latest state in the local cache.
-			if !ok {
-				c.logger.DebugContext(ctx, "CID not found in Store for CEP",
-					logfields.CIDName, identityid,
-					logfields.CEPName, cep.Name)
-				continue
+func (c *SlimController) syncCESsInLocalCache(
+	nodeEvents <-chan resource.Event[*cilium_api_v2.CiliumNode],
+	identityEvents <-chan resource.Event[*cilium_api_v2.CiliumIdentity],
+	cesEvents <-chan resource.Event[*capi_v2a1.CiliumEndpointSlice],
+	podEvents <-chan resource.Event[*slim_corev1.Pod]) error {
+	// Phase 1. Drain CiliumNode events up to Sync to build an IP → node-name map.
+	nodeIPToName := make(map[string]string)
+nodeLoop:
+	for event := range nodeEvents {
+		switch event.Kind {
+		case resource.Upsert:
+			node := event.Object
+			for _, addr := range node.Spec.Addresses {
+				nodeIPToName[addr.IP] = node.Name
 			}
-
-			nodeObj, err := cnodeStore.ByIndex(op_k8s.CiliumNodeIPIndex, cep.Networking.NodeIP)
-			// If the CiliumNode is not found (e.g., deleted during operator restart), we skip restoring the state of this CEP on startup.
-			// We will get the CEP & CiliumNode add events through the resource stores and update the latest state in the local cache.
-			if err != nil || len(nodeObj) == 0 {
-				c.logger.DebugContext(ctx, "Error getting CiliumNode by IP",
-					logfields.Error, err)
-				continue
+			c.manager.UpdateNodeMapping(node, c.ipsecEnabled, c.wgEnabled)
+		case resource.Delete:
+			node := event.Object
+			for _, addr := range node.Spec.Addresses {
+				delete(nodeIPToName, addr.IP)
 			}
-			c.manager.initializeMappingPodToNode(NewCEPName(cep.Name, ces.Namespace), NodeName(nodeObj[0].Name), CESName(ces.Name), CID(identityid), Labels(labels), EncryptionKey(cep.Encryption.Key))
+			c.manager.RemoveNodeMapping(node)
+		case resource.Sync:
+			event.Done(nil)
+			break nodeLoop
 		}
+		event.Done(nil)
 	}
 
-	c.logger.DebugContext(ctx, "Successfully synced all CESs locally")
+	// Phase 2. Drain CiliumIdentity events up to Sync to build the CID → labels map.
+	cidToLabels := make(map[CID]Labels)
+identityLoop:
+	for event := range identityEvents {
+		switch event.Kind {
+		case resource.Upsert:
+			cid := event.Object
+			cidName, gidLabels := cidToGidLabels(cid)
+			cidToLabels[cidName] = gidLabels
+			c.manager.UpdateIdentityMapping(cid)
+		case resource.Delete:
+			cid := event.Object
+			cidName, _ := cidToGidLabels(cid)
+			delete(cidToLabels, cidName)
+			c.manager.RemoveIdentityMapping(cid)
+		case resource.Sync:
+			event.Done(nil)
+			break identityLoop
+		}
+		event.Done(nil)
+	}
+
+	// Phase 3. Drain Pod events up to Sync into livepods. We only build the
+	// map here — placement into CESes must wait until after the CES-drain
+	// has populated the CES cache; otherwise AddPodMapping would find no
+	// existing CES and create a phantom one.
+	livepods := make(map[CEPName]*slim_corev1.Pod)
+podLoop:
+	for event := range podEvents {
+		switch event.Kind {
+		case resource.Upsert:
+			pod := event.Object
+			if _, _, ok := c.resolvePodPlacement(pod); ok {
+				livepods[GetCEPNameFromPod(pod)] = pod
+			}
+		case resource.Delete:
+			pod := event.Object
+			delete(livepods, GetCEPNameFromPod(pod))
+		case resource.Sync:
+			event.Done(nil)
+			break podLoop
+		}
+		event.Done(nil)
+	}
+
+	var dirtyCESes []CESKey
+
+	// Phase 4. Drain CiliumEndpointSlice events up to Sync, applying each
+	// seen CES to the manager cache. Uses livepods for the stale-CEP check.
+cesLoop:
+	for event := range cesEvents {
+		switch event.Kind {
+		case resource.Upsert:
+			ces := event.Object
+			c.manager.initializeMappingForCES(ces)
+			stale := false
+			for _, cep := range ces.Endpoints {
+				cepName := NewCEPName(cep.Name, ces.Namespace)
+				// If the Pod is not found (e.g., deleted during operator
+				// restart), skip restoring the CEP so it doesn't inflate
+				// the CES capacity count in the local cache.
+				if _, ok := livepods[cepName]; !ok {
+					c.logger.Debug("Pod not found for CEP during bootstrap; skipping",
+						logfields.CEPName, cep.Name)
+					stale = true
+					continue
+				}
+
+				identityid := strconv.FormatInt(cep.IdentityID, 10)
+				labels, ok := cidToLabels[CID(identityid)]
+				// If the CID is not found (e.g., deleted during operator restart), we skip restoring the state of this CEP on startup.
+				// We will get the CEP & CID add events through the resource stores and update the latest state in the local cache.
+				if !ok {
+					c.logger.Debug("CID not found in Store for CEP",
+						logfields.CIDName, identityid,
+						logfields.CEPName, cep.Name)
+					stale = true
+					continue
+				}
+
+				nodeName, ok := nodeIPToName[cep.Networking.NodeIP]
+				// If the CiliumNode is not found (e.g., deleted during operator restart), we skip restoring the state of this CEP on startup.
+				// We will get the CEP & CiliumNode add events through the resource stores and update the latest state in the local cache.
+				if !ok {
+					c.logger.Debug("CiliumNode not found for CEP node IP",
+						logfields.IPAddr, cep.Networking.NodeIP,
+						logfields.CEPName, cep.Name)
+					stale = true
+					continue
+				}
+
+				c.manager.initializeMappingPodToNode(NewCEPName(cep.Name, ces.Namespace), NodeName(nodeName), CESName(ces.Name), CID(identityid), Labels(labels), EncryptionKey(cep.Encryption.Key))
+				// The pod is now accounted for in the CES cache; drop it
+				// from livepods so phase 5 doesn't try to place it again.
+				delete(livepods, cepName)
+			}
+
+			if stale {
+				dirtyCESes = append(dirtyCESes, NewCESKey(ces.Name, ces.Namespace))
+			}
+		case resource.Delete:
+			// A CES we may have seeded above has been deleted during bootstrap;
+			// drop it from the mapping and from dirtyCESes so we don't
+			// enqueue an already-deleted CES.
+			cesName := CESName(event.Object.Name)
+			for _, cep := range c.manager.mapping.getCEPsInCES(cesName) {
+				c.manager.mapping.deleteCEP(cep)
+			}
+			c.manager.mapping.deleteCES(cesName)
+			dirtyCESes = slices.DeleteFunc(dirtyCESes, func(k CESKey) bool {
+				return k.Name == event.Object.Name && k.Namespace == event.Object.Namespace
+			})
+		case resource.Sync:
+			event.Done(nil)
+			break cesLoop
+		}
+		event.Done(nil)
+	}
+
+	c.enqueueCESReconciliation(dirtyCESes)
+
+	// Phase 5: place any remaining pods (those not already accounted for by
+	// an existing CES).
+	for _, pod := range livepods {
+		c.onPodUpdate(pod)
+	}
+
+	c.logger.Debug("Successfully synced all CESs locally")
 	return nil
 }
 

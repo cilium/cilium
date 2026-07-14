@@ -4,7 +4,6 @@
 package ciliumendpointslice
 
 import (
-	"context"
 	"fmt"
 
 	k8s "github.com/cilium/cilium/pkg/annotation"
@@ -17,16 +16,14 @@ const (
 	priorityNamespaceAnnotation = "cilium.io/ces-namespace"
 )
 
-func (c *Controller) processNamespaceEvents(ctx context.Context) error {
-	for event := range c.namespace.Events(ctx) {
+func (c *Controller) processNamespaceEvents(events <-chan resource.Event[*slimcorev1.Namespace]) error {
+	for event := range events {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.DebugContext(ctx, "Got Upsert Namespace event ", logfields.K8sNamespace, event.Key)
-
+			c.logger.Debug("Got Upsert Namespace event ", logfields.K8sNamespace, event.Key)
 			c.onNamespaceUpsert(event.Object)
 		case resource.Delete:
-			c.logger.DebugContext(ctx, "Got Delete Namespace event ", logfields.K8sNamespace, event.Key)
-
+			c.logger.Debug("Got Delete Namespace event ", logfields.K8sNamespace, event.Key)
 			c.onNamespaceDelete(event.Object)
 		}
 		event.Done(nil)

@@ -419,7 +419,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	ces2 := tu.CreateStoreEndpointSlice("ces2", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep5, cep6, cep7})
 	cesStore.CacheStore().Add(ces2)
 
-	cesController.syncCESsInLocalCache(t.Context())
+	cesController.syncCESsInLocalCache(ciliumNode.Events(t.Context()), ciliumIdentity.Events(t.Context()), ciliumEndpointSlice.Events(t.Context()), pods.Events(t.Context()))
 
 	cache := m.mapping
 
@@ -675,7 +675,19 @@ func TestCESManagement(t *testing.T) {
 	hive.Stop(tlog, t.Context())
 }
 
-func TestSyncCESsInLocalCacheDeletedCID(t *testing.T) {
+// TestSyncCESsInLocalCacheOperatorDowntime covers three scenarios that can
+// happen while the operator is down and must be handled correctly on the
+// next bootstrap:
+//   - a CID is deleted → pods that used it should still be tracked but
+//     their entries in cepData have no resolvable identity yet (reconciler
+//     filters those at write time).
+//   - a pod is deleted → its entry in the CES on the API side is stale;
+//     bootstrap must skip it and mark the CES dirty so the reconciler
+//     rewrites it without the deleted pod.
+//   - a pod is added → it exists in the Pod store but no CES lists it yet;
+//     bootstrap's phase 5 must place it into an existing CES (with room)
+//     rather than creating a phantom one.
+func TestSyncCESsInLocalCacheOperatorDowntime(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *slimReconciler
 	var fakeClient *k8sClient.FakeClientset
@@ -734,6 +746,7 @@ func TestSyncCESsInLocalCacheDeletedCID(t *testing.T) {
 			doReconciler:        r,
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
+			syncDelay:           0,
 			cond:                *sync.NewCond(&lock.Mutex{}),
 		},
 		ipsecEnabled:   false,
@@ -759,14 +772,20 @@ func TestSyncCESsInLocalCacheDeletedCID(t *testing.T) {
 	pod4 := cidtest.NewPod("pod4", "ns", tu.TestLbsB, "node2")
 	pod5 := cidtest.NewPod("pod5", "ns", tu.TestLbsA, "node1")
 	pod6 := cidtest.NewPod("pod6", "ns", tu.TestLbsA, "node1")
-	pod7 := cidtest.NewPod("pod7", "ns", tu.TestLbsB, "node1")
+	// pod7 (declared inline as the CES entry below) is intentionally NOT
+	// added to the Pod store, simulating a pod deleted while operator was
+	// down. The CES still lists it.
+	// pod8 exists in the Pod store but no CES lists it yet — simulating a
+	// pod that was created while the operator was down.
+	pod8 := cidtest.NewPod("pod8", "ns", tu.TestLbsB, "node1")
 	podStore.CacheStore().Add(pod1)
 	podStore.CacheStore().Add(pod2)
 	podStore.CacheStore().Add(pod3)
 	podStore.CacheStore().Add(pod4)
 	podStore.CacheStore().Add(pod5)
 	podStore.CacheStore().Add(pod6)
-	podStore.CacheStore().Add(pod7)
+	// pod7 is intentionally NOT added to the Pod store.
+	podStore.CacheStore().Add(pod8)
 
 	cid1 := cidtest.NewCIDWithNamespace("1", pod1, ns)
 	cid2 := cidtest.NewCIDWithNamespace("2", pod3, ns)
@@ -785,21 +804,37 @@ func TestSyncCESsInLocalCacheDeletedCID(t *testing.T) {
 	ces2 := tu.CreateStoreEndpointSlice("ces2", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep5, cep6, cep7})
 	cesStore.CacheStore().Add(ces2)
 
-	// Delete CID to simulate the scenario where CID deleted during Operator restart
+	// Delete CID1 to simulate the scenario where a CID was deleted while
+	// the operator was down.
 	cidStore.CacheStore().Delete(cid1)
 
-	cesController.syncCESsInLocalCache(t.Context())
-	// Immediately after sync, CESCache does not contain pods with CID1
+	cesController.syncCESsInLocalCache(ciliumNode.Events(t.Context()), ciliumIdentity.Events(t.Context()), ciliumEndpointSlice.Events(t.Context()), pods.Events(t.Context()))
+
+	// CID1 is gone from the identity mapping.
 	assert.NotContains(t, m.mapping.cidToGidLabels, cid1)
+
+	// Pods that still exist are in cepData; pod7 (deleted while down) is not.
 	for _, pod := range podStore.List() {
-		if pod.Name == "pod1" || pod.Name == "pod2" || pod.Name == "pod5" || pod.Name == "pod6" {
-			assert.NotContains(t, m.mapping.cepData, NewCEPName(pod.Name, "ns"))
-		} else {
-			assert.Contains(t, m.mapping.cepData, NewCEPName(pod.Name, "ns"))
-		}
+		assert.Contains(t, m.mapping.cepData, NewCEPName(pod.Name, "ns"))
+	}
+	assert.NotContains(t, m.mapping.cepData, NewCEPName("pod7", "ns"))
+
+	// pod8 (added while down) was placed in some CES via phase 5's
+	// onPodUpdate — either into an existing CES with capacity or a fresh
+	// one if none had room.
+	_, ok := m.mapping.getCESName(NewCEPName("pod8", "ns"))
+	assert.True(t, ok, "pod8 should be placed in a CES")
+
+	// Some CES(es) should have been enqueued for reconciliation:
+	// - ces2 because pod7 was skipped as stale.
+	// - the CES that received pod8 (via onPodUpdate's enqueue).
+	if err := testutils.WaitUntil(func() bool {
+		return cesController.fastQueue.Len()+cesController.standardQueue.Len() >= 1
+	}, time.Second); err != nil {
+		t.Fatalf("expected CES(es) to be enqueued after bootstrap; queues empty")
 	}
 
-	// After some time, the CESController should reprocess the CEPs
+	// Calling onPodUpdate again is idempotent for already-placed pods.
 	cesController.onPodUpdate(pod1)
 	cesController.onPodUpdate(pod2)
 	cesController.onPodUpdate(pod5)
