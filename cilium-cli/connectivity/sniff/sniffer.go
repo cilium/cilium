@@ -30,6 +30,12 @@ const (
 	sniffScriptTimeout = 10 * time.Second
 	// Max timeout before aborting k8s connection in Start/Stop; must exceed sniffScriptTimeout.
 	sniffConnectionTimeout = sniffScriptTimeout + 5*time.Second
+	// Additional allowance on top of the in-pod stop wait to cover kubectl exec
+	// setup/teardown and API round-trip latency. The in-pod stop script always
+	// self-terminates within its wait loop (force-killing with `kill -9`), so the
+	// client context only needs to outlive that wait plus this transport overhead;
+	// it exists solely to trip on a genuinely wedged exec, not to bound tcpdump.
+	sniffStopExecOverhead = sniffConnectionTimeout
 	// Max remote sniffer runtime to prevent lingering processes in the pod.
 	// NOTE: too low may kill tcpdump while test is running.
 	SniffKillTimeout = sniffConnectionTimeout * 4
@@ -300,10 +306,12 @@ func (sniffer *Sniffer) stop() (err error) {
 		// Finally wrap the resulting command.
 		sniffer.stopCmd = append([]string{"sh", "-c"}, buf.String())
 
-		// Context with timeout for stopping tcpdump. Must outlive the in-pod wait
-		// loop, so size it relative to stopWait rather than the fixed default.
+		// Context with timeout for stopping tcpdump. The in-pod script always
+		// self-terminates within stopWait (it force-kills with `kill -9` after the
+		// wait loop), so the client context only needs to outlive that wait plus
+		// exec transport overhead; it guards solely against a wedged kubectl exec.
 		// NOTE: Context is not passed anymore to this function to avoid premature cancellation.
-		ctx, cancel := context.WithTimeout(context.Background(), stopWait+5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), stopWait+sniffStopExecOverhead)
 		defer cancel()
 
 		// Stop tcpdump and store output.
