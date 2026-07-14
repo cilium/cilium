@@ -20,4 +20,5 @@ Any traffic flowing via user space proxies (for example, because an L7 policy is
 in place, or using Ingress/Gateway API) will be disrupted during upgrade. Endpoints
 communicating via the proxy must reconnect to re-establish connections.
 
+.. include:: upgrade-next.inc
 .. include:: upgrade-current.inc
