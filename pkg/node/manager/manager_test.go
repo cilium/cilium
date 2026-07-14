@@ -13,11 +13,9 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -61,6 +59,7 @@ type nodeEvent struct {
 type ipcacheMock struct {
 	events         chan nodeEvent
 	metadataSource source.Source
+	onRemove       func()
 }
 
 func newIPcacheMock() *ipcacheMock {
@@ -111,6 +110,9 @@ func (i *ipcacheMock) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.So
 }
 
 func (i *ipcacheMock) RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
+	if i.onRemove != nil {
+		i.onRemove()
+	}
 	i.Delete(prefix.String(), source.CustomResource, aux...)
 }
 
@@ -341,28 +343,62 @@ func waitForNodeStateTestOperation(t *testing.T, done <-chan struct{}, operation
 	}
 }
 
-// startNodeStateTestOperation advances operation to either completion or its
-// first blocking point. Running one P and yielding after the goroutine marks
-// itself active makes the concurrency assertions below independent of sleeps.
-func startNodeStateTestOperation(t *testing.T, operation func()) (<-chan struct{}, *atomic.Int32) {
+func requireNodeStateTestLockHeld(t *testing.T, tryLock func() bool, unlock func(), lockBoundary string) {
 	t.Helper()
 
-	oldProcs := runtime.GOMAXPROCS(1)
-	t.Cleanup(func() { runtime.GOMAXPROCS(oldProcs) })
+	if tryLock() {
+		unlock()
+		t.Fatalf("%s was not locked", lockBoundary)
+	}
+}
+
+// startNodeStateTestManagerLockContender proves that the goroutine has reached
+// the manager-lock boundary with a failed TryLock before it runs operation.
+func startNodeStateTestManagerLockContender(t *testing.T, mngr *manager, operation func()) <-chan struct{} {
+	t.Helper()
 
 	done := make(chan struct{})
-	started := make(chan struct{})
-	state := &atomic.Int32{}
+	managerLockContended := make(chan bool, 1)
 	go func() {
-		state.Store(1)
-		close(started)
+		if mngr.mutex.TryLock() {
+			mngr.mutex.Unlock()
+			managerLockContended <- false
+			close(done)
+			return
+		}
+		managerLockContended <- true
 		operation()
-		state.Store(2)
 		close(done)
 	}()
-	<-started
-	runtime.Gosched()
-	return done, state
+
+	select {
+	case contended := <-managerLockContended:
+		require.True(t, contended, "operation reached an unlocked manager-lock boundary")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for operation to contend on the manager lock")
+	}
+	return done
+}
+
+// waitForNodeStateTestLockHeld waits only for eventual progress. The failed
+// TryLock, rather than the timeout or scheduling, proves that the lock is held.
+func waitForNodeStateTestLockHeld(t *testing.T, tryLock func() bool, unlock func(), lockBoundary string) {
+	t.Helper()
+
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	for {
+		if !tryLock() {
+			return
+		}
+		unlock()
+
+		select {
+		case <-timer.C:
+			t.Fatalf("timed out waiting for %s to become locked", lockBoundary)
+		default:
+		}
+	}
 }
 
 func TestNodeStateSubscriptionReplaysCurrentNodes(t *testing.T) {
@@ -401,10 +437,11 @@ func TestNodeStateSubscriptionSerializesReplayBeforeUpdate(t *testing.T) {
 		close(subscribeDone)
 	}()
 	require.Equal(t, current, receiveNodeStateTestEvent(t, observer.entered).node)
+	requireNodeStateTestLockHeld(t, mngr.mutex.TryLock, mngr.mutex.Unlock, "manager lock during subscription replay")
 
 	updated := *current.DeepCopy()
 	updated.Labels["version"] = "new"
-	updateDone, updateState := startNodeStateTestOperation(t, func() {
+	updateDone := startNodeStateTestManagerLockContender(t, mngr, func() {
 		mngr.updateNodeState(
 			updated,
 			updated.Identity(),
@@ -413,12 +450,6 @@ func TestNodeStateSubscriptionSerializesReplayBeforeUpdate(t *testing.T) {
 			nil, nil, nil, nil, nil,
 		)
 	})
-	require.Equal(t, int32(1), updateState.Load(), "accepted update did not block behind replay")
-	select {
-	case event := <-observer.entered:
-		t.Fatalf("accepted update callback overtook initial replay: %+v", event)
-	default:
-	}
 	releaseReplayOnce.Do(func() { close(releaseReplay) })
 	waitForNodeStateTestOperation(t, subscribeDone, "subscription replay")
 	waitForNodeStateTestOperation(t, updateDone, "concurrent node update")
@@ -553,11 +584,11 @@ func TestNodeStateUnsubscribeWaitsForCallbackAndPreventsLaterCallbacks(t *testin
 		close(updateDone)
 	}()
 	require.Equal(t, first, receiveNodeStateTestEvent(t, observer.entered).node)
+	requireNodeStateTestLockHeld(t, mngr.mutex.TryLock, mngr.mutex.Unlock, "manager lock during observer callback")
 
-	unsubscribeDone, unsubscribeState := startNodeStateTestOperation(t, func() {
+	unsubscribeDone := startNodeStateTestManagerLockContender(t, mngr, func() {
 		mngr.UnsubscribeNodeState(observer)
 	})
-	require.Equal(t, int32(1), unsubscribeState.Load(), "unsubscribe returned while an observer callback was in flight")
 
 	releaseCallbackOnce.Do(func() { close(releaseCallback) })
 	waitForNodeStateTestOperation(t, updateDone, "blocked observer callback")
@@ -598,9 +629,9 @@ func TestNodeStateOrderingAndManagerEntryLockOrder(t *testing.T) {
 			<-ipcache.events
 		}
 
-		// The documented order is manager mutex then entry mutex. Holding the
-		// entry lock here forces delete to wait before cleanup while retaining
-		// the manager lock; releasing it must let the delete complete.
+		// Holding the entry lock forces deletion to retain the manager lock while
+		// it waits. Cleanup then pauses so both retained locks can be probed at
+		// the actual IPCache removal boundary.
 		mngr.mutex.Lock()
 		entry := mngr.nodes[current.Identity()]
 		entry.mutex.Lock()
@@ -608,17 +639,33 @@ func TestNodeStateOrderingAndManagerEntryLockOrder(t *testing.T) {
 		defer unlockEntryOnce.Do(entry.mutex.Unlock)
 		mngr.mutex.Unlock()
 
-		deleteDone, deleteState := startNodeStateTestOperation(t, func() {
-			mngr.deleteNodeState(current, current.Identity())
-		})
-		require.Equal(t, int32(1), deleteState.Load(), "delete did not block on the live entry lock")
-		select {
-		case event := <-ipcache.events:
-			t.Fatalf("IPCache cleanup ran before the live entry lock was acquired: %+v", event)
-		default:
+		cleanupEntered := make(chan struct{})
+		cleanupRelease := make(chan struct{})
+		var cleanupReleaseOnce sync.Once
+		defer cleanupReleaseOnce.Do(func() { close(cleanupRelease) })
+		var cleanupOnce sync.Once
+		ipcache.onRemove = func() {
+			cleanupOnce.Do(func() {
+				close(cleanupEntered)
+				<-cleanupRelease
+			})
 		}
 
+		deleteStarted := make(chan struct{})
+		deleteDone := make(chan struct{})
+		go func() {
+			close(deleteStarted)
+			mngr.deleteNodeState(current, current.Identity())
+			close(deleteDone)
+		}()
+		waitForNodeStateTestOperation(t, deleteStarted, "node deletion start")
+		waitForNodeStateTestLockHeld(t, mngr.mutex.TryLock, mngr.mutex.Unlock, "manager lock retained while delete waits for entry lock")
+
 		unlockEntryOnce.Do(entry.mutex.Unlock)
+		waitForNodeStateTestOperation(t, cleanupEntered, "IPCache cleanup boundary")
+		requireNodeStateTestLockHeld(t, mngr.mutex.TryLock, mngr.mutex.Unlock, "manager lock during IPCache cleanup")
+		requireNodeStateTestLockHeld(t, entry.mutex.TryLock, entry.mutex.Unlock, "entry lock during IPCache cleanup")
+		cleanupReleaseOnce.Do(func() { close(cleanupRelease) })
 		waitForNodeStateTestOperation(t, deleteDone, "node deletion after releasing entry lock")
 		require.NotContains(t, mngr.GetNodes(), current.Identity())
 	})
