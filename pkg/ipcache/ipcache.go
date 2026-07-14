@@ -244,11 +244,25 @@ func (ipc *IPCache) getHostIPCacheRLocked(ip string) (net.IP, uint8) {
 	return ipKeyPair.IP, ipKeyPair.Key
 }
 
-// GetHostIP returns the host IP for the exact endpoint or single-host prefix
-// representation of addr in the same cluster scope.
-func (ipc *IPCache) GetHostIP(addr cmtypes.AddrCluster) (netip.Addr, bool) {
+// HostIPLookupStatus describes the result of an exact host IP lookup.
+type HostIPLookupStatus uint8
+
+const (
+	// HostIPLookupAbsent means neither exact identity representation exists.
+	HostIPLookupAbsent HostIPLookupStatus = iota
+	// HostIPLookupResolved means every existing exact representation contains
+	// the same valid host IP.
+	HostIPLookupResolved
+	// HostIPLookupInvalid means the input is invalid or an exact representation
+	// is missing a valid host IP or conflicts with another representation.
+	HostIPLookupInvalid
+)
+
+// LookupHostIP returns the host IP and status for the exact endpoint and
+// single-host prefix representations of addr in the same cluster scope.
+func (ipc *IPCache) LookupHostIP(addr cmtypes.AddrCluster) (netip.Addr, HostIPLookupStatus) {
 	if !addr.Addr().IsValid() {
-		return netip.Addr{}, false
+		return netip.Addr{}, HostIPLookupInvalid
 	}
 
 	endpointKey := addr.String()
@@ -274,19 +288,25 @@ func (ipc *IPCache) GetHostIP(addr cmtypes.AddrCluster) (netip.Addr, bool) {
 	endpointHost, endpointExists, endpointValid := lookup(endpointKey)
 	prefixHost, prefixExists, prefixValid := lookup(prefixKey)
 
-	if endpointExists && (!endpointValid || prefixExists && (!prefixValid || endpointHost != prefixHost)) {
-		return netip.Addr{}, false
+	if !endpointExists && !prefixExists {
+		return netip.Addr{}, HostIPLookupAbsent
 	}
-	if prefixExists && !prefixValid {
-		return netip.Addr{}, false
+	if endpointExists && !endpointValid || prefixExists && !prefixValid ||
+		endpointExists && prefixExists && endpointHost != prefixHost {
+		return netip.Addr{}, HostIPLookupInvalid
 	}
 	if endpointExists {
-		return endpointHost, true
+		return endpointHost, HostIPLookupResolved
 	}
-	if prefixExists {
-		return prefixHost, true
-	}
-	return netip.Addr{}, false
+	return prefixHost, HostIPLookupResolved
+}
+
+// GetHostIP returns the host IP for the exact endpoint or single-host prefix
+// representation of addr in the same cluster scope. Invalid and ambiguous
+// mappings retain the compatibility behavior of returning ok=false.
+func (ipc *IPCache) GetHostIP(addr cmtypes.AddrCluster) (netip.Addr, bool) {
+	hostIP, status := ipc.LookupHostIP(addr)
+	return hostIP, status == HostIPLookupResolved
 }
 
 // GetK8sMetadata returns Kubernetes metadata for the given IP address.

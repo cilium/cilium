@@ -199,12 +199,30 @@ func TestResolverRejectsUntrustedIdentityScopes(t *testing.T) {
 		map[string]string{"scope": "local"}, "192.0.2.10"))
 	upsertHost(t, ipc, "10.0.0.1", "192.0.2.10")
 
+	malformedGlobal := identity.UserReservedNumericIdentity - 1
+	require.Less(t, malformedGlobal, identity.GetMinimalAllocationIdentity(0))
+	require.False(t, malformedGlobal.IsReservedIdentity())
+	require.False(t, identity.IsUserReservedIdentity(malformedGlobal))
+	require.Equal(t, identity.IdentityScopeGlobal, malformedGlobal.Scope())
+	require.False(t, malformedGlobal.HasLocalScope())
+	require.False(t, malformedGlobal.HasRemoteNodeScope())
+	t.Run("below allocation range", func(t *testing.T) {
+		ipc := newTestIPCache(t)
+		r := NewResolver(ipc, cmtypes.ClusterInfo{ID: 0, Name: localCluster}, nil)
+		r.NodeUpsert(nodeWithAddresses(localCluster, "local-node", 0,
+			map[string]string{"scope": "local-zero"}, "192.0.2.127"))
+		upsertHost(t, ipc, "10.0.0.127", "192.0.2.127")
+
+		require.Empty(t, r.GetNodeLabels(netip.MustParseAddr("10.0.0.127"), getters.NodeClusterHint{
+			Identity: malformedGlobal, IdentityKnown: true,
+		}))
+	})
+
 	maxGlobal := identity.GetMaximumAllocationIdentity(cmtypes.ClusterIDMax)
 	cases := map[string]identity.NumericIdentity{
 		"unknown":                   identity.IdentityUnknown,
 		"world":                     identity.ReservedIdentityWorld,
 		"user reserved":             identity.UserReservedNumericIdentity,
-		"below allocation range":    identity.GetMinimalAllocationIdentity(0) - 1,
 		"above allocation range":    maxGlobal + 1,
 		"local scope":               identity.MinLocalIdentity,
 		"health":                    identity.ReservedIdentityHealth,
@@ -303,6 +321,48 @@ func TestResolverDirectNodeFallbackIsScopedAndUnambiguous(t *testing.T) {
 		require.Empty(t, r.GetNodeLabels(
 			netip.MustParseAddr("10.0.0.1"), allocatedHint(localClusterID)))
 	})
+
+	for _, tt := range []struct {
+		name    string
+		entries map[string]net.IP
+	}{
+		{
+			name: "conflicting exact IPCache representations",
+			entries: map[string]net.IP{
+				"10.0.0.1":    net.ParseIP("192.0.2.10"),
+				"10.0.0.1/32": net.ParseIP("192.0.2.11"),
+			},
+		},
+		{
+			name: "missing host metadata",
+			entries: map[string]net.IP{
+				"10.0.0.1": nil,
+			},
+		},
+		{
+			name: "invalid host bytes",
+			entries: map[string]net.IP{
+				"10.0.0.1": {1, 2, 3},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ipc := newTestIPCache(t)
+			r := NewResolver(ipc, cmtypes.ClusterInfo{ID: localClusterID, Name: localCluster}, nil)
+			r.NodeUpsert(nodeWithAddresses(localCluster, "endpoint-owner", localClusterID,
+				map[string]string{"node": "endpoint-owner"}, "10.0.0.1"))
+			for endpoint, hostIP := range tt.entries {
+				_, err := ipc.Upsert(endpoint, hostIP, 0, nil, ipcache.Identity{
+					ID:     identity.GetMinimalAllocationIdentity(0),
+					Source: source.KVStore,
+				})
+				require.NoError(t, err)
+			}
+
+			require.Empty(t, r.GetNodeLabels(
+				netip.MustParseAddr("10.0.0.1"), allocatedHint(localClusterID)))
+		})
+	}
 }
 
 func TestResolverOwnerClassificationFailsClosed(t *testing.T) {
@@ -334,6 +394,10 @@ func TestResolverOwnerClassificationFailsClosed(t *testing.T) {
 			map[string]string{"node": "contradiction"}, "192.0.2.42"))
 		require.Empty(t, r.GetNodeLabels(
 			netip.MustParseAddr("192.0.2.42"), allocatedHint(remoteClusterID)))
+		require.Empty(t, r.GetNodeLabels(
+			netip.MustParseAddr("192.0.2.42"), allocatedHint(localClusterID)))
+		require.Empty(t, r.GetNodeLabels(
+			netip.MustParseAddr("192.0.2.42"), getters.NodeClusterHint{LocalEndpoint: true}))
 	})
 
 	t.Run("empty remote cluster name is excluded", func(t *testing.T) {

@@ -71,18 +71,20 @@ func TestGetHostIP(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		entries []cacheEntry
-		addr    cmtypes.AddrCluster
-		want    netip.Addr
-		wantOK  bool
+		name       string
+		entries    []cacheEntry
+		addr       cmtypes.AddrCluster
+		want       netip.Addr
+		wantStatus HostIPLookupStatus
+		wantOK     bool
 	}{
 		{
-			name:    "local IPv4 endpoint",
-			entries: []cacheEntry{{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")}},
-			addr:    cmtypes.MustParseAddrCluster("10.0.0.1"),
-			want:    netip.MustParseAddr("192.0.2.1"),
-			wantOK:  true,
+			name:       "local IPv4 endpoint",
+			entries:    []cacheEntry{{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.1"),
+			want:       netip.MustParseAddr("192.0.2.1"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
 		},
 		{
 			name: "remote IPv4 endpoint selects same ClusterID",
@@ -90,9 +92,10 @@ func TestGetHostIP(t *testing.T) {
 				{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")},
 				{key: "10.0.0.1@42", hostIP: net.ParseIP("192.0.2.42")},
 			},
-			addr:   cmtypes.MustParseAddrCluster("10.0.0.1@42"),
-			want:   netip.MustParseAddr("192.0.2.42"),
-			wantOK: true,
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.1@42"),
+			want:       netip.MustParseAddr("192.0.2.42"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
 		},
 		{
 			name: "local IPv4 endpoint does not select remote ClusterID",
@@ -100,21 +103,24 @@ func TestGetHostIP(t *testing.T) {
 				{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")},
 				{key: "10.0.0.1@42", hostIP: net.ParseIP("192.0.2.42")},
 			},
-			addr:   cmtypes.MustParseAddrCluster("10.0.0.1"),
-			want:   netip.MustParseAddr("192.0.2.1"),
-			wantOK: true,
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.1"),
+			want:       netip.MustParseAddr("192.0.2.1"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
 		},
 		{
-			name:    "remote IPv4 endpoint does not fall back to local scope",
-			entries: []cacheEntry{{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")}},
-			addr:    cmtypes.MustParseAddrCluster("10.0.0.1@42"),
+			name:       "remote IPv4 endpoint does not fall back to local scope",
+			entries:    []cacheEntry{{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.1@42"),
+			wantStatus: HostIPLookupAbsent,
 		},
 		{
-			name:    "exact IPv4 host prefix",
-			entries: []cacheEntry{{key: "10.0.0.2/32@42", hostIP: net.ParseIP("192.0.2.2")}},
-			addr:    cmtypes.MustParseAddrCluster("10.0.0.2@42"),
-			want:    netip.MustParseAddr("192.0.2.2"),
-			wantOK:  true,
+			name:       "exact IPv4 host prefix",
+			entries:    []cacheEntry{{key: "10.0.0.2/32@42", hostIP: net.ParseIP("192.0.2.2")}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.2@42"),
+			want:       netip.MustParseAddr("192.0.2.2"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
 		},
 		{
 			name: "matching IPv4 endpoint and host prefix",
@@ -122,23 +128,26 @@ func TestGetHostIP(t *testing.T) {
 				{key: "10.0.0.3@42", hostIP: net.ParseIP("192.0.2.3")},
 				{key: "10.0.0.3/32@42", hostIP: net.ParseIP("192.0.2.3")},
 			},
-			addr:   cmtypes.MustParseAddrCluster("10.0.0.3@42"),
-			want:   netip.MustParseAddr("192.0.2.3"),
-			wantOK: true,
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.3@42"),
+			want:       netip.MustParseAddr("192.0.2.3"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
 		},
 		{
-			name:    "IPv6 endpoint",
-			entries: []cacheEntry{{key: "fd00::1@42", hostIP: net.ParseIP("2001:db8::1")}},
-			addr:    cmtypes.MustParseAddrCluster("fd00::1@42"),
-			want:    netip.MustParseAddr("2001:db8::1"),
-			wantOK:  true,
+			name:       "IPv6 endpoint",
+			entries:    []cacheEntry{{key: "fd00::1@42", hostIP: net.ParseIP("2001:db8::1")}},
+			addr:       cmtypes.MustParseAddrCluster("fd00::1@42"),
+			want:       netip.MustParseAddr("2001:db8::1"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
 		},
 		{
-			name:    "exact IPv6 host prefix",
-			entries: []cacheEntry{{key: "fd00::2/128@42", hostIP: net.ParseIP("2001:db8::2")}},
-			addr:    cmtypes.MustParseAddrCluster("fd00::2@42"),
-			want:    netip.MustParseAddr("2001:db8::2"),
-			wantOK:  true,
+			name:       "exact IPv6 host prefix",
+			entries:    []cacheEntry{{key: "fd00::2/128@42", hostIP: net.ParseIP("2001:db8::2")}},
+			addr:       cmtypes.MustParseAddrCluster("fd00::2@42"),
+			want:       netip.MustParseAddr("2001:db8::2"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
 		},
 		{
 			name: "conflicting exact representations",
@@ -146,30 +155,54 @@ func TestGetHostIP(t *testing.T) {
 				{key: "10.0.0.4@42", hostIP: net.ParseIP("192.0.2.4")},
 				{key: "10.0.0.4/32@42", hostIP: net.ParseIP("192.0.2.44")},
 			},
-			addr: cmtypes.MustParseAddrCluster("10.0.0.4@42"),
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.4@42"),
+			wantStatus: HostIPLookupInvalid,
 		},
 		{
-			name:    "broader prefix is not an exact host match",
-			entries: []cacheEntry{{key: "10.0.0.0/24@42", hostIP: net.ParseIP("192.0.2.5")}},
-			addr:    cmtypes.MustParseAddrCluster("10.0.0.5@42"),
+			name: "valid endpoint and missing host prefix",
+			entries: []cacheEntry{
+				{key: "10.0.0.5@42", hostIP: net.ParseIP("192.0.2.5")},
+				{key: "10.0.0.5/32@42"},
+			},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.5@42"),
+			wantStatus: HostIPLookupInvalid,
 		},
 		{
-			name:    "nil host IP",
-			entries: []cacheEntry{{key: "10.0.0.6@42"}},
-			addr:    cmtypes.MustParseAddrCluster("10.0.0.6@42"),
+			name: "missing endpoint host and valid prefix",
+			entries: []cacheEntry{
+				{key: "10.0.0.6@42"},
+				{key: "10.0.0.6/32@42", hostIP: net.ParseIP("192.0.2.6")},
+			},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.6@42"),
+			wantStatus: HostIPLookupInvalid,
 		},
 		{
-			name:    "invalid host IP",
-			entries: []cacheEntry{{key: "10.0.0.7@42", hostIP: net.IP{1, 2, 3}}},
-			addr:    cmtypes.MustParseAddrCluster("10.0.0.7@42"),
+			name:       "broader prefix is not an exact host match",
+			entries:    []cacheEntry{{key: "10.0.0.0/24@42", hostIP: net.ParseIP("192.0.2.5")}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.6@42"),
+			wantStatus: HostIPLookupAbsent,
 		},
 		{
-			name: "invalid address",
-			addr: cmtypes.AddrCluster{},
+			name:       "nil host IP",
+			entries:    []cacheEntry{{key: "10.0.0.7@42"}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.7@42"),
+			wantStatus: HostIPLookupInvalid,
 		},
 		{
-			name: "absent address",
-			addr: cmtypes.MustParseAddrCluster("10.0.0.8@42"),
+			name:       "invalid host IP",
+			entries:    []cacheEntry{{key: "10.0.0.8@42", hostIP: net.IP{1, 2, 3}}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.8@42"),
+			wantStatus: HostIPLookupInvalid,
+		},
+		{
+			name:       "invalid address",
+			addr:       cmtypes.AddrCluster{},
+			wantStatus: HostIPLookupInvalid,
+		},
+		{
+			name:       "absent address",
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.9@42"),
+			wantStatus: HostIPLookupAbsent,
 		},
 	}
 
@@ -183,6 +216,10 @@ func TestGetHostIP(t *testing.T) {
 				})
 				require.NoError(t, err)
 			}
+
+			got, status := s.IPIdentityCache.LookupHostIP(tt.addr)
+			require.Equal(t, tt.wantStatus, status)
+			require.Equal(t, tt.want, got)
 
 			got, ok := s.IPIdentityCache.GetHostIP(tt.addr)
 			require.Equal(t, tt.wantOK, ok)

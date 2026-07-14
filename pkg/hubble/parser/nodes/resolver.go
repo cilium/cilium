@@ -180,14 +180,19 @@ func (r *Resolver) GetNodeLabels(ip netip.Addr, hint getters.NodeClusterHint) []
 	if r.ipcache == nil {
 		return nil
 	}
-	hostIP, found := r.ipcache.GetHostIP(cmtypes.AddrClusterFrom(ip, ipcacheScope))
-	if found {
+	hostIP, status := r.ipcache.LookupHostIP(cmtypes.AddrClusterFrom(ip, ipcacheScope))
+	switch status {
+	case ipcache.HostIPLookupResolved:
 		return r.labelsForAddress(hostIP, expectedCluster)
+	case ipcache.HostIPLookupAbsent:
+		// Direct-node fallback is permitted only after a true exact scoped
+		// IPCache absence and retains the authenticated expected ClusterID.
+		return r.labelsForAddress(ip, expectedCluster)
+	case ipcache.HostIPLookupInvalid:
+		return nil
+	default:
+		return nil
 	}
-
-	// Direct-node fallback is permitted only after an exact scoped IPCache miss
-	// and retains the already authenticated expected ClusterID.
-	return r.labelsForAddress(ip, expectedCluster)
 }
 
 func (r *Resolver) resolveScope(hint getters.NodeClusterHint) (ipcacheScope, expectedCluster uint32, ok bool) {
