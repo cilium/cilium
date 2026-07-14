@@ -243,8 +243,9 @@ the ``nodeSelector`` field:
     If there is no match for the given set of labels, Cilium drops the
     traffic that matches the destination CIDR(s).
 
-The IP address that should be used to SNAT traffic must also be configured.
-There are 3 different ways this can be achieved:
+The policy needs to select the egress network interface on a gateway node,
+and the IP addresses that should be used to SNAT traffic. There are 3 different ways
+this can be achieved:
 
 1. By specifying the interface:
 
@@ -259,7 +260,8 @@ There are 3 different ways this can be achieved:
    In this case the first IPv4 and IPv6 addresses assigned to the ``ethX`` interface
    will be used.
 
-2. By explicitly specifying the egress IP:
+2. By explicitly specifying the egress IP. Here the egress network interface is
+   determined dynamically for each packet, by performing a route lookup in the datapath.
 
    .. code-block:: yaml
 
@@ -273,9 +275,9 @@ There are 3 different ways this can be achieved:
 
      The egress IP must be assigned to a network device on the node.
 
-3. By omitting both ``egressIP`` and ``interface`` properties, which will make
-   the agent use the first IPv4 and IPv6 addresses assigned to the interface
-   for the default route.
+3. By omitting both ``egressIP`` and ``interface`` properties. This selects the
+   network interface with the default route as the egress interface, and the
+   first IPv4 and IPv6 addresses on this interface as the egress IPs.
 
    .. code-block:: yaml
 
@@ -285,8 +287,8 @@ There are 3 different ways this can be achieved:
            testLabel: testVal
 
 Regardless of which way the egress IP is configured, the user must ensure that
-Cilium is running on the device that has the egress IP assigned to it, by
-setting the ``--devices`` agent option accordingly.
+Cilium is running on the selected network interface, by setting the ``--devices``
+agent option accordingly.
 
 .. warning::
 
@@ -299,7 +301,7 @@ setting the ``--devices`` agent option accordingly.
 
 .. note::
 
-   After Cilium has selected the Egress IP for an Egress Gateway policy (or failed to do so), it does not automatically respond to a change in the
+   After Cilium has selected the network interface and Egress IP for an Egress Gateway policy (or failed to do so), it does not automatically respond to a change in the
    gateway node's network configuration (for example if an IP address is added or deleted). You can force a fresh selection by re-applying the
    Egress Gateway policy.
 
