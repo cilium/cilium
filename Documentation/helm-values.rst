@@ -1688,6 +1688,10 @@
      - Maximum number of retries for each HTTP request
      - int
      - ``3``
+   * - :spelling:ignore:`envoy.httpRetryTimeout`
+     - Time in seconds after which a forwarded but uncompleted HTTP request is retried. Default 0 (never).
+     - int
+     - ``0``
    * - :spelling:ignore:`envoy.httpUpstreamLingerTimeout`
      - Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
      - string
