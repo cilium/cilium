@@ -16,11 +16,11 @@ kind: CustomResourceDefinition
 metadata:
   name: serviceimports.multicluster.x-k8s.io
   labels:
-    multicluster.x-k8s.io/release-version: "v0.5.0"
+    multicluster.x-k8s.io/release-version: "v0.5.2"
     # The revision is updated on each CRD change and reset back to 0 on every new version.
     # It can be used together with the version label when installing those CRDs
     # and prevent any downgrades.
-    multicluster.x-k8s.io/crd-schema-revision: "1"
+    multicluster.x-k8s.io/crd-schema-revision: "0"
 spec:
   group: multicluster.x-k8s.io
   scope: Namespaced
