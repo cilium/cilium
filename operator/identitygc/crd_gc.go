@@ -57,9 +57,13 @@ func (igc *GC) runHeartbeatUpdater(ctx context.Context) error {
 	for event := range igc.identity.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			// Identity is marked as alive if it is new or it has
-			// been updated.
-			igc.heartbeatStore.markAlive(event.Object.Name, time.Now())
+			// Identity is marked as alive if it is new or it has been updated.
+			// Avoid marking the identity as alive if it is already marked,
+			// because otherwise that would keep the identity alive for another
+			// GC pass and defer its deletion by another heartbeat.
+			if _, marked := event.Object.Annotations[identitybackend.HeartBeatAnnotation]; !marked {
+				igc.heartbeatStore.markAlive(event.Object.Name, time.Now())
+			}
 		case resource.Delete:
 			// When the identity is deleted, delete the
 			// heartbeat entry as well. This will not be
