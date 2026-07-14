@@ -1,0 +1,114 @@
+# Test that lb/maps-dump displays the L7 proxy port correctly for an L7
+# load-balanced service. The Envoy proxy port is stored in the service map's
+# BackendID union in network byte order (SetL7LBProxyPort), and lb/maps-dump
+# decodes it with GetL7LBProxyPort().
+#
+# A non-round proxy port (18036 = 0x4674) is used on purpose: a regression that
+# returned the raw BackendID would show the byte-swapped value (29766 = 0x7446)
+# instead.
+
+hive start
+
+# Add a ClusterIP service with one backend.
+k8s/add service.yaml endpointslice.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Add a CiliumEnvoyConfig that redirects port 80 to the proxy at port 18036.
+k8s/add cec.yaml
+db/cmp services services-l7.table
+
+# The service map entry must show the decoded L7 proxy port.
+lb/maps-dump lbmaps.actual
+cmp lbmaps.expected lbmaps.actual
+
+# Remove the CEC and verify the redirect is cleared.
+k8s/delete cec.yaml
+db/cmp services services.table
+
+# Cleanup
+k8s/delete service.yaml endpointslice.yaml
+* db/empty services frontends backends
+* lb/maps-empty
+
+-- services.table --
+Name       Flags
+test/echo
+
+-- services-l7.table --
+Name       Flags
+test/echo  ProxyRedirects=18036 (ports: [80])
+
+-- frontends.table --
+Address               Type       ServiceName  PortName  Status  Backends
+10.96.50.104:80/TCP   ClusterIP  test/echo    http      Done    10.244.1.1:80/TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 L7Proxy=18036 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: echo-cec
+  namespace: test
+spec:
+  services:
+    - name: echo
+      namespace: test
+      ports:
+      - 80
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: http-listener
+      address:
+        socket_address:
+          address: 127.0.0.1
+          port_value: 18036
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
