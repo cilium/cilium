@@ -550,3 +550,7 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
       success: ${{ needs.install-and-perftest.result == 'success' }}
+      # This perf test does not collect feature status (capture_features_tested
+      # is false), so it produces no features-tested artifact. Skip that merge
+      # to avoid a spurious "No matching features-tested-* artifacts found" warning.
+      merge-features: false

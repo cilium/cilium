@@ -22,6 +22,11 @@ on:
         required: false
         type: boolean
         default: true
+      merge-features:
+        description: "Whether to merge and upload features-tested-* artifacts. Set to false for workflows that do not collect feature status and therefore produce no such artifact (e.g. perf tests)."
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -52,6 +57,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merge Features tested
+        if: ${{ inputs.merge-features }}
         uses: ./.github/actions/merge-artifacts
         with:
           name: features-tested
