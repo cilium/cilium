@@ -4359,6 +4359,9 @@ authentication:
   # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
   # Note that this is not full mTLS support without also enabling encryption of some form.
   # Current encryption options are WireGuard or IPsec, configured in encryption block above.
+  #
+  # Deprecated as of Cilium v1.20, this feature will be removed in Cilium v1.21.
+  # See https://github.com/cilium/cilium/issues/47132 for details.
   mutual:
     # -- Port on the agent where mutual authentication handshakes between agents will be performed
     port: 4250
