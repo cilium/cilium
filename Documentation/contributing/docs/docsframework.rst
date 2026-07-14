@@ -264,7 +264,6 @@ Custom Sphinx roles
 The documentation defines several custom roles:
 
 - ``git-tree``
-- ``github-project``
 - ``github-backport``
 - ``gh-issue``
 - ``prev-docs``
