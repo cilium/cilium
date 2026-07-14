@@ -4,7 +4,6 @@
 package ciliumendpointslice
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -53,9 +52,7 @@ type params struct {
 }
 
 type Controller struct {
-	logger        *slog.Logger
-	context       context.Context
-	contextCancel context.CancelFunc
+	logger *slog.Logger
 
 	// Cilium kubernetes clients to access V2 and V2alpha1 resources
 	clientset           k8sClient.Clientset
