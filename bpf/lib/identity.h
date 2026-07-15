@@ -128,6 +128,7 @@ static __always_inline bool identity_in_range(__u32 identity, __u32 range_start,
 }
 
 #define IDENTITY_LOCAL_SCOPE_MASK 0xFF000000
+#define IDENTITY_LOCAL_SCOPE_CIDR 0x01000000
 #define IDENTITY_LOCAL_SCOPE_REMOTE_NODE 0x02000000
 
 static __always_inline bool identity_is_host(__u32 identity)
@@ -383,11 +384,14 @@ static __always_inline __u32 aggregate_for_identity(__u32 identity)
 		return identity;
 	}
 
+	switch (identity & IDENTITY_LOCAL_SCOPE_MASK) {
+	case IDENTITY_LOCAL_SCOPE_CIDR:
+		return AGGREGATE_WORLD_ID;
+	}
+
 	/* All remote nodes aggregate to ID 6. */
 	if (identity_is_remote_node(identity))
 		return REMOTE_NODE_ID;
-	if (identity_is_world(identity))
-		return WORLD_ID;
 
 	/* Identities 0-99 are special, we cannot easily aggregate them. */
 	if (identity < 100)
