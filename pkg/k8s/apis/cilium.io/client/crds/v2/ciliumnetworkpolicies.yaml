@@ -394,7 +394,7 @@ spec:
                       description: |-
                         ToEntities is a list of special entities to which the endpoint subject
                         to the rule is allowed to initiate connections. Supported entities are
-                        `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                        `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
                         `health`, `unmanaged`, `none` and `all`.
                       items:
                         description: |-
@@ -405,6 +405,7 @@ spec:
                         - all
                         - world
                         - cluster
+                        - cluster-mesh
                         - host
                         - init
                         - ingress
@@ -1393,7 +1394,7 @@ spec:
                       description: |-
                         ToEntities is a list of special entities to which the endpoint subject
                         to the rule is allowed to initiate connections. Supported entities are
-                        `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                        `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
                         `health`, `unmanaged`, `none` and `all`.
                       items:
                         description: |-
@@ -1404,6 +1405,7 @@ spec:
                         - all
                         - world
                         - cluster
+                        - cluster-mesh
                         - host
                         - init
                         - ingress
@@ -2026,7 +2028,7 @@ spec:
                       description: |-
                         FromEntities is a list of special entities which the endpoint subject
                         to the rule is allowed to receive connections from. Supported entities are
-                        `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                        `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
                         `health`, `unmanaged`, `none` and `all`.
                       items:
                         description: |-
@@ -2037,6 +2039,7 @@ spec:
                         - all
                         - world
                         - cluster
+                        - cluster-mesh
                         - host
                         - init
                         - ingress
@@ -2880,7 +2883,7 @@ spec:
                       description: |-
                         FromEntities is a list of special entities which the endpoint subject
                         to the rule is allowed to receive connections from. Supported entities are
-                        `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                        `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
                         `health`, `unmanaged`, `none` and `all`.
                       items:
                         description: |-
@@ -2891,6 +2894,7 @@ spec:
                         - all
                         - world
                         - cluster
+                        - cluster-mesh
                         - host
                         - init
                         - ingress
@@ -3597,7 +3601,7 @@ spec:
                         description: |-
                           ToEntities is a list of special entities to which the endpoint subject
                           to the rule is allowed to initiate connections. Supported entities are
-                          `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                          `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
                           `health`, `unmanaged`, `none` and `all`.
                         items:
                           description: |-
@@ -3608,6 +3612,7 @@ spec:
                           - all
                           - world
                           - cluster
+                          - cluster-mesh
                           - host
                           - init
                           - ingress
@@ -4597,7 +4602,7 @@ spec:
                         description: |-
                           ToEntities is a list of special entities to which the endpoint subject
                           to the rule is allowed to initiate connections. Supported entities are
-                          `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                          `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
                           `health`, `unmanaged`, `none` and `all`.
                         items:
                           description: |-
@@ -4608,6 +4613,7 @@ spec:
                           - all
                           - world
                           - cluster
+                          - cluster-mesh
                           - host
                           - init
                           - ingress
@@ -5230,7 +5236,7 @@ spec:
                         description: |-
                           FromEntities is a list of special entities which the endpoint subject
                           to the rule is allowed to receive connections from. Supported entities are
-                          `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                          `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
                           `health`, `unmanaged`, `none` and `all`.
                         items:
                           description: |-
@@ -5241,6 +5247,7 @@ spec:
                           - all
                           - world
                           - cluster
+                          - cluster-mesh
                           - host
                           - init
                           - ingress
@@ -6085,7 +6092,7 @@ spec:
                         description: |-
                           FromEntities is a list of special entities which the endpoint subject
                           to the rule is allowed to receive connections from. Supported entities are
-                          `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+                          `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
                           `health`, `unmanaged`, `none` and `all`.
                         items:
                           description: |-
@@ -6096,6 +6103,7 @@ spec:
                           - all
                           - world
                           - cluster
+                          - cluster-mesh
                           - host
                           - init
                           - ingress

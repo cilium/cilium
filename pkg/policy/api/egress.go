@@ -66,7 +66,7 @@ type EgressCommonRule struct {
 
 	// ToEntities is a list of special entities to which the endpoint subject
 	// to the rule is allowed to initiate connections. Supported entities are
-	// `world`, `cluster`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
+	// `world`, `cluster`, `cluster-mesh`, `host`, `remote-node`, `kube-apiserver`, `ingress`, `init`,
 	// `health`, `unmanaged`, `none` and `all`.
 	//
 	// +kubebuilder:validation:Optional
