@@ -62,10 +62,10 @@ type Frontend struct {
 	// HealthCheckBackends associated with the frontend that includes the ones that should be health checked.
 	HealthCheckBackends BackendsSeq2
 
-	// ID is the identifier allocated to this frontend. Used as the key
-	// in the services BPF map. This field is populated by the reconciler
-	// and is initially set to zero. It can be considered valid only when
-	// [Status] is set to done.
+	// ID is the identifier allocated to this frontend and used as the key in
+	// the services BPF map. It can be considered valid only when [Status] is
+	// set to done. When valid, a zero ID means the frontend is not a candidate
+	// for reconciliation; a non-zero ID identifies its datapath entry.
 	ID ServiceID
 
 	// RedirectTo if set selects the backends from this service name instead

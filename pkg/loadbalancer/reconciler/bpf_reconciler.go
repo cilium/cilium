@@ -731,17 +731,30 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 		return nil
 	}
 
-	isLocalAddr := func(addr netip.Addr) bool {
-		k := tables.NodeAddressKey{Addr: addr}
-		for range ops.nodeAddrs.Prefix(txn, tables.NodeAddressIndex.Query(k)) {
-			return true
+	isDatapathCandidate := ops.isDatapathCandidate(fe)
+	if isDatapathCandidate {
+		isLocalAddr := func(addr netip.Addr) bool {
+			k := tables.NodeAddressKey{Addr: addr}
+			for range ops.nodeAddrs.Prefix(txn, tables.NodeAddressIndex.Query(k)) {
+				return true
+			}
+			return false
 		}
-		return false
-	}
 
-	if err := ops.updateFrontend(fe, isLocalAddr); err != nil {
-		ops.log.Warn("Updating frontend failed", logfields.Error, err)
-		return err
+		if err := ops.updateFrontend(fe, isLocalAddr); err != nil {
+			ops.log.Warn("Updating frontend failed", logfields.Error, err)
+			return err
+		}
+	} else {
+		if err := ops.deleteFrontend(fe); err != nil {
+			ops.log.Warn("Deleting non-candidate frontend failed", logfields.Error, err)
+			return err
+		}
+
+		// Unlike Delete(), this Frontend will remain in StateDB. deleteFrontend()
+		// releases its service ID, so clear the debugging field to avoid exposing
+		// an ID that may subsequently be allocated to another Frontend.
+		fe.ID = 0
 	}
 
 	isExpansion := fe.Type == loadbalancer.SVCTypeNodePort ||
@@ -754,23 +767,27 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto}
 		old := sets.New(ops.nodePortAddrByPort[key]...)
 
-		// Collect matching node addresses, skipping those owned by a primary frontend. See #44730.
+		// Collect matching node addresses for datapath candidates, skipping those
+		// owned by a primary frontend. See #44730. For non-candidates this remains
+		// empty so any previously expanded frontends are withdrawn below.
 		var nodePortAddrs []netip.Addr
-		for na := range ops.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)) {
-			if na.Addr.Is6() != fe.Address.IsIPv6() {
-				continue
+		if isDatapathCandidate {
+			for na := range ops.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)) {
+				if na.Addr.Is6() != fe.Address.IsIPv6() {
+					continue
+				}
+				feAddr := loadbalancer.NewL3n4Addr(
+					fe.Address.Protocol(),
+					cmtypes.AddrClusterFrom(na.Addr, 0),
+					fe.Address.Port(),
+					fe.Address.Scope(),
+				)
+				if ops.isPrimaryFrontend(txn, feAddr) {
+					old.Delete(na.Addr)
+					continue
+				}
+				nodePortAddrs = append(nodePortAddrs, na.Addr)
 			}
-			feAddr := loadbalancer.NewL3n4Addr(
-				fe.Address.Protocol(),
-				cmtypes.AddrClusterFrom(na.Addr, 0),
-				fe.Address.Port(),
-				fe.Address.Scope(),
-			)
-			if ops.isPrimaryFrontend(txn, feAddr) {
-				old.Delete(na.Addr)
-				continue
-			}
-			nodePortAddrs = append(nodePortAddrs, na.Addr)
 		}
 
 		// Create the NodePort/HostPort frontends with the node addresses.
@@ -812,7 +829,11 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 				return err
 			}
 		}
-		ops.nodePortAddrByPort[key] = nodePortAddrs
+		if len(nodePortAddrs) == 0 {
+			delete(ops.nodePortAddrByPort, key)
+		} else {
+			ops.nodePortAddrByPort[key] = nodePortAddrs
+		}
 	}
 
 	return nil
@@ -1196,6 +1217,26 @@ func (ops *BPFOps) isWildcardClass(svc *loadbalancer.Service) bool {
 	// programming wildcard entries for IP addresses we don't manage.
 	return *lbClass == cilium_api_v2alpha1.BGPLoadBalancerClass ||
 		*lbClass == cilium_api_v2alpha1.L2AnnounceLoadBalancerClass
+}
+
+// isDatapathCandidate() returns true if a Frontend should be present in the datapath
+// service map, false otherwise.
+func (ops *BPFOps) isDatapathCandidate(fe *loadbalancer.Frontend) bool {
+	// If KPR is on, everything is a candidate.
+	if ops.extCfg.KubeProxyReplacement {
+		return true
+	}
+
+	// If KPR is off, it depends on the Frontend type.
+	switch fe.Type {
+	case loadbalancer.SVCTypeClusterIP, loadbalancer.SVCTypeLocalRedirect,
+		loadbalancer.SVCTypeExternalIPs:
+		// We should always program ClusterIP and LocalRedirect, as well as
+		// ExternalIP for pod-to-pod scenarios.
+		return true
+	}
+
+	return false
 }
 
 func (ops *BPFOps) upsertService(svcKey maps.ServiceKey, svcVal maps.ServiceValue) error {
