@@ -90,6 +90,10 @@ var (
 
 	endpointSelectorKubeAPIServer = NewESFromLabels(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer])
 
+	endpointSelectorClusterAggregate = NewESFromLabels(labels.NewLabel(labels.IDNameAggregateCluster, "", labels.LabelSourceReserved))
+
+	endpointSelectorClusterMeshAggregate = NewESFromLabels(labels.NewLabel(labels.IDNameAggregateClusterMesh, "", labels.LabelSourceReserved))
+
 	// used by both cluster and cluster-mesh entities
 	clusterSelectors = EndpointSelectorSlice{
 		endpointSelectorHost,
@@ -99,6 +103,7 @@ var (
 		endpointSelectorHealth,
 		endpointSelectorUnmanaged,
 		endpointSelectorKubeAPIServer,
+		endpointSelectorClusterAggregate,
 	}
 
 	// EntitySelectorMapping maps special entity names that come in
@@ -131,10 +136,12 @@ var (
 
 		// ClusterMesh can be initialized statically, as it selects all endpoints
 		// with the cluster mesh label set.
-		EntityClusterMesh: append(clusterSelectors, NewESFromMatchRequirements(nil, []v1.LabelSelectorRequirement{{
-			Key:      k8sapi.PolicyLabelCluster,
-			Operator: v1.LabelSelectorOpExists,
-		}})),
+		EntityClusterMesh: append(clusterSelectors,
+			endpointSelectorClusterMeshAggregate,
+			NewESFromMatchRequirements(nil, []v1.LabelSelectorRequirement{{
+				Key:      k8sapi.PolicyLabelCluster,
+				Operator: v1.LabelSelectorOpExists,
+			}})),
 	}
 )
 

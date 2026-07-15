@@ -70,13 +70,15 @@ type policyRepoParams struct {
 
 func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	// Must be done before calling policy.NewPolicyRepository() below.
-	num := identity.InitStaticIdentities(params.DaemonConfig.K8sNamespace, params.ClusterInfo, params.Config.EnableWellKnownIdentities)
-	metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
-	identity.WellKnown.ForEach(func(i *identity.Identity) {
-		for labelSource := range i.Labels.CollectSources() {
-			metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
-		}
-	})
+	if params.Config.EnableWellKnownIdentities {
+		num := identity.InitWellKnownIdentities(params.DaemonConfig.K8sNamespace, params.ClusterInfo)
+		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
+		identity.WellKnown.ForEach(func(i *identity.Identity) {
+			for labelSource := range i.Labels.CollectSources() {
+				metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
+			}
+		})
+	}
 
 	policyapi.InitEntities(params.ClusterInfo.Name)
 
