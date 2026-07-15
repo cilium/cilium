@@ -77,6 +77,16 @@ const (
 	// IDNameUnknown is the label used to identify an endpoint with an
 	// unknown identity.
 	IDNameUnknown = "unknown"
+
+	// The aggregate identities are used for policy map aggregation but never
+	// applied to traffic directly.
+	// see pkg/policy/aggregate.go for details
+
+	IDNameAggregateCluster     = "aggregate-cluster"
+	IDNameAggregateClusterMesh = "aggregate-cluster-mesh"
+
+	IDNameAggregateWorld      = "aggregate-world"
+	IDNameAggregateRemoteNode = "aggregate-remote-node"
 )
 
 var (
@@ -114,6 +124,11 @@ var (
 	// LabelKeyFixedIdentity is the label that can be used to define a fixed
 	// identity.
 	LabelKeyFixedIdentity = "io.cilium.fixed-identity"
+
+	LabelsAggregateCluster     = Labels{IDNameAggregateCluster: NewLabel(IDNameAggregateCluster, "", LabelSourceReserved)}
+	LabelsAggregateClusterMesh = Labels{IDNameAggregateClusterMesh: NewLabel(IDNameAggregateClusterMesh, "", LabelSourceReserved)}
+	LabelsAggregateWorld       = Labels{IDNameAggregateWorld: NewLabel(IDNameAggregateWorld, "", LabelSourceReserved)}
+	LabelsAggregateRemoteNode  = Labels{IDNameAggregateRemoteNode: NewLabel(IDNameAggregateRemoteNode, "", LabelSourceReserved)}
 )
 
 const (
