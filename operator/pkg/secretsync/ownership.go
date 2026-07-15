@@ -5,6 +5,7 @@ package secretsync
 
 import (
 	"fmt"
+	"maps"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,9 +59,7 @@ func ensureOwnedBy(existing, desired client.Object, namespaceLabel, nameLabel st
 
 func setSourceAnnotations(obj client.Object, kind string, source types.NamespacedName) {
 	annotations := make(map[string]string, len(obj.GetAnnotations())+3)
-	for key, value := range obj.GetAnnotations() {
-		annotations[key] = value
-	}
+	maps.Copy(annotations, obj.GetAnnotations())
 
 	annotations[SourceKindAnnotation] = kind
 	annotations[SourceNamespaceAnnotation] = source.Namespace
