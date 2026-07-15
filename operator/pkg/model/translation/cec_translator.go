@@ -50,8 +50,9 @@ type ListenerConfig struct {
 }
 
 type ClusterConfig struct {
-	IdleTimeoutSeconds int  `json:"idle_timeout_seconds,omitempty"`
-	UseAppProtocol     bool `json:"use_app_protocol,omitempty"`
+	IdleTimeoutSeconds       int  `json:"idle_timeout_seconds,omitempty"`
+	MaxRequestsPerConnection int  `json:"max_requests_per_connection,omitempty"`
+	UseAppProtocol           bool `json:"use_app_protocol,omitempty"`
 }
 
 type RouteConfig struct {

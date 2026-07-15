@@ -34,6 +34,7 @@ const (
 func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string, tls *model.BackendTLSOrigination) []ClusterMutator {
 	res := []ClusterMutator{
 		withIdleTimeout(i.Config.ClusterConfig.IdleTimeoutSeconds),
+		withMaxRequestsPerConnection(i.Config.ClusterConfig.MaxRequestsPerConnection),
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
 		withTLSOrigination(i.Config.SecretsNamespace, tls),

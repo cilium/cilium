@@ -973,13 +973,20 @@ func GetUpstreamCodecFilter() *envoy_config_http.HttpFilter {
 	}
 }
 
+// GetHTTPRetryPolicy returns the common HTTP retry policy using a timeout in seconds.
+func GetHTTPRetryPolicy(retryCount, retryTimeout uint) *envoy_config_route.RetryPolicy {
+	return &envoy_config_route.RetryPolicy{
+		RetryOn:       "5xx",
+		NumRetries:    wrapperspb.UInt32(uint32(retryCount)),
+		PerTryTimeout: &durationpb.Duration{Seconds: int64(retryTimeout)},
+	}
+}
+
 func GetHttpFilterChainProto(clusterName string, tls bool, isIngress bool, accessLogPath string, config xdsServerConfig) *envoy_config_listener.FilterChain {
 	requestTimeout := int64(config.httpRequestTimeout)       // seconds
 	idleTimeout := int64(config.httpIdleTimeout)             // seconds
 	maxGRPCTimeout := int64(config.httpMaxGRPCTimeout)       // seconds
 	streamIdleTimeout := int64(config.httpStreamIdleTimeout) // seconds
-	numRetries := uint32(config.httpRetryCount)
-	retryTimeout := int64(config.httpRetryTimeout) // seconds
 	xffNumTrustedHops := config.proxyXffNumTrustedHopsEgress
 	if isIngress {
 		xffNumTrustedHops = config.proxyXffNumTrustedHopsIngress
@@ -990,12 +997,8 @@ func GetHttpFilterChainProto(clusterName string, tls bool, isIngress bool, acces
 			ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
 				Cluster: clusterName,
 			},
-			Timeout: &durationpb.Duration{Seconds: requestTimeout},
-			RetryPolicy: &envoy_config_route.RetryPolicy{
-				RetryOn:       "5xx",
-				NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
-				PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
-			},
+			Timeout:     &durationpb.Duration{Seconds: requestTimeout},
+			RetryPolicy: GetHTTPRetryPolicy(uint(config.httpRetryCount), uint(config.httpRetryTimeout)),
 		}
 		if idleTimeout > 0 {
 			action.IdleTimeout = &durationpb.Duration{Seconds: idleTimeout}
@@ -1055,11 +1058,7 @@ func GetHttpFilterChainProto(clusterName string, tls bool, isIngress bool, acces
 								MaxStreamDuration: &envoy_config_route.RouteAction_MaxStreamDuration{
 									GrpcTimeoutHeaderMax: &durationpb.Duration{Seconds: maxGRPCTimeout},
 								},
-								RetryPolicy: &envoy_config_route.RetryPolicy{
-									RetryOn:       "5xx",
-									NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
-									PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
-								},
+								RetryPolicy: GetHTTPRetryPolicy(uint(config.httpRetryCount), uint(config.httpRetryTimeout)),
 							},
 						},
 					}, {

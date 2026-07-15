@@ -109,7 +109,7 @@ type ingressParams struct {
 	AgentConfig        *option.DaemonConfig
 	OperatorConfig     *operatorOption.OperatorConfig
 	IngressConfig      IngressConfig
-	ProxyTimeouts      ciliumenvoyconfig.EnvoyProxyTimeouts
+	ProxyConfig        ciliumenvoyconfig.EnvoyProxyConfig
 	PodCfg             ciliumpod.Config
 }
 
@@ -135,11 +135,12 @@ func registerReconciler(params ingressParams) error {
 		},
 		ListenerConfig: translation.ListenerConfig{
 			UseProxyProtocol:         params.IngressConfig.EnableIngressProxyProtocol,
-			StreamIdleTimeoutSeconds: params.ProxyTimeouts.ProxyStreamIdleTimeoutSeconds,
+			StreamIdleTimeoutSeconds: params.ProxyConfig.ProxyStreamIdleTimeoutSeconds,
 		},
 		ClusterConfig: translation.ClusterConfig{
-			IdleTimeoutSeconds: params.ProxyTimeouts.ProxyIdleTimeoutSeconds,
-			UseAppProtocol:     false,
+			IdleTimeoutSeconds:       params.ProxyConfig.ProxyIdleTimeoutSeconds,
+			MaxRequestsPerConnection: params.ProxyConfig.ProxyMaxRequestsPerConnection,
+			UseAppProtocol:           false,
 		},
 		RouteConfig: translation.RouteConfig{
 			HostNameSuffixMatch: false,
