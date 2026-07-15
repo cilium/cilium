@@ -2084,7 +2084,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	// Mock the identities what would be selected by the world, IP, and subnet selectors
 
 	// Selections for the label selector 'reserved:world'
-	reservedWorldSelections := identity.NumericIdentitySlice{identity.ReservedIdentityWorld}
+	reservedWorldSelections := identity.NumericIdentitySlice{identity.ReservedIdentityWorld, worldIPIdentity, worldSubnetIdentity}
 
 	// Selections for the CIDR selector 'cidr:192.0.2.3/32'
 	worldIPSelections := identity.NumericIdentitySlice{worldIPIdentity}
@@ -2282,8 +2282,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		// completely remove (or not add in the first place) the redundant ID from the ipcache so that
 		// datapath could never assign that ID to a packet for policy enforcement.
 		// These test case are left here for such future improvement.
-		{"deny-deny: a superset a|b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a|b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 0, 0, 0, insertBoth},
+		{"deny-deny: b superset a|b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a|b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 0, 0, insertBoth},
 
 		{"deny-deny: b superset a|b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 0, 0, insertAllowAll | insertB},
 		{"deny-deny: b superset a|b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 0, 0, insertB},
@@ -2309,8 +2309,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-deny: a superset a L4, b L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
 		{"deny-deny: a superset a L4, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 0, 6, insertBoth},
 
-		{"deny-deny: b superset a L4, b L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 0, 6, insertAllowAll | insertB},
-		{"deny-deny: b superset a L4, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 0, 6, insertB},
+		{"deny-deny: b superset a L4, b L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L4, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 0, 6, insertBoth},
 
 		{"deny-deny: a superset a L4, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 80, 6, insertAllowAll | insertA},
 		{"deny-deny: a superset a L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 80, 6, insertA},
@@ -2333,8 +2333,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-deny: a superset a L3L4, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
 		{"deny-deny: a superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 80, 6, 80, 6, insertBoth},
 
-		{"deny-deny: b superset a L3L4, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 80, 6, insertAllowAll | insertB},
-		{"deny-deny: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 80, 6, insertB},
+		{"deny-deny: b superset a L3L4, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 80, 6, insertBoth},
 
 		// allow-allow insertions do not need tests as their affect on one another does not matter.
 	}

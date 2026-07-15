@@ -17,6 +17,19 @@
 // When generating the policy map, we need to manage the fact that not all
 // identities aggregate to 0. To do this, entries with ID 0 are expanded
 // to include all aggregates.
+//
+// The aggregate identities do not have the "logical" set of labels applied
+// to them. For example, the world aggregate identity does not have the `reserved:world`
+// label attached. This is to prevent over-selection in the case of NotIn
+// selectors (i.e. hole-punching).
+//
+// Consider the selector "reserved:world !cidr:1.1.1.1/32". If `reserved:world` / 2
+// were the aggregate ID, then traffic to `1.1.1.1/32` would be inadvertently allowed.
+//
+// Thus, we must instead associate the aggregate IDs with known-safe selectors
+// that we are certain select the entire logical "space". At present, those are
+// the entities. Otherwise, the aggregate selectors must not be selectable by
+// user selectors.
 
 package policy
 
@@ -40,8 +53,6 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 	switch nid {
 	case identity.ReservedIdentityRemoteNode, identity.ReservedIdentityKubeAPIServer:
 		return identity.ReservedIdentityRemoteNode
-	case identity.ReservedIdentityWorld, identity.ReservedIdentityWorldIPv4, identity.ReservedIdentityWorldIPv6:
-		return identity.ReservedIdentityWorld
 	}
 
 	// All identities below 100 are special-cased.
@@ -54,7 +65,7 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 	case identity.IdentityScopeRemoteNode:
 		return identity.ReservedIdentityRemoteNode
 	case identity.IdentityScopeLocal:
-		return identity.ReservedIdentityWorld
+		return identity.ReservedIdentityAggregateWorld
 	}
 
 	// NID is global scope and > 100.
@@ -82,7 +93,7 @@ func isAggregate(nid identity.NumericIdentity) bool {
 var AllAggregates = []identity.NumericIdentity{
 	identity.IdentityUnknown,
 	identity.ReservedIdentityRemoteNode,
-	identity.ReservedIdentityWorld,
+	identity.ReservedIdentityAggregateWorld,
 	identity.ReservedIdentityAggregateCluster,
 	identity.ReservedIdentityAggregateClusterMesh,
 }

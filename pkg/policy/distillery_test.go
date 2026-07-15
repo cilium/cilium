@@ -1308,11 +1308,19 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
-	cpyRule                   = *ruleL3DenyWorld
-	ruleL3DenyWorldWithLabels = (&cpyRule).WithLabels(labels.LabelWorld.LabelArray())
-	worldReservedID           = identity.ReservedIdentityWorld
-	mapKeyL3WorldIngress      = IngressKey().WithIdentity(worldReservedID)
-	mapKeyL3WorldEgress       = EgressKey().WithIdentity(worldReservedID)
+	cpyRule                       = *ruleL3DenyWorld
+	ruleL3DenyWorldWithLabels     = (&cpyRule).WithLabels(labels.LabelWorld.LabelArray())
+	worldReservedID               = identity.ReservedIdentityWorld
+	worldReservedIDIPv4           = identity.ReservedIdentityWorldIPv4
+	worldReservedIDIPv6           = identity.ReservedIdentityWorldIPv6
+	mapKeyL3WorldIngress          = IngressKey().WithIdentity(worldReservedID)
+	mapKeyL3WorldIngressIPv4      = IngressKey().WithIdentity(worldReservedIDIPv4)
+	mapKeyL3WorldIngressIPv6      = IngressKey().WithIdentity(worldReservedIDIPv6)
+	mapKeyL3AggregateWorldIngress = IngressKey().WithIdentity(identity.ReservedIdentityAggregateWorld)
+	mapKeyL3WorldEgress           = EgressKey().WithIdentity(worldReservedID)
+	mapKeyL3WorldEgressIPv4       = EgressKey().WithIdentity(worldReservedIDIPv4)
+	mapKeyL3WorldEgressIPv6       = EgressKey().WithIdentity(worldReservedIDIPv6)
+	mapKeyL3AggregateWorldEgress  = EgressKey().WithIdentity(identity.ReservedIdentityAggregateWorld)
 
 	AllowEntry = types.AllowEntry().WithPriority(0)
 	DenyEntry  = types.DenyEntry().WithPriority(0)
@@ -1428,6 +1436,27 @@ var (
 	mapKeyL3L4Port8080ProtoUDPWorldEgress   = EgressKey().WithIdentity(worldReservedID).WithUDPPort(8080)
 	mapKeyL3L4Port8080ProtoSCTPWorldIngress = IngressKey().WithIdentity(worldReservedID).WithSCTPPort(8080)
 	mapKeyL3L4Port8080ProtoSCTPWorldEgress  = EgressKey().WithIdentity(worldReservedID).WithSCTPPort(8080)
+
+	mapKeyL3L4Port8080ProtoTCPWorldIPv4Ingress  = IngressKey().WithIdentity(worldReservedIDIPv4).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoTCPWorldIPv4Egress   = EgressKey().WithIdentity(worldReservedIDIPv4).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPv4Ingress  = IngressKey().WithIdentity(worldReservedIDIPv4).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPv4Egress   = EgressKey().WithIdentity(worldReservedIDIPv4).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv4Ingress = IngressKey().WithIdentity(worldReservedIDIPv4).WithSCTPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv4Egress  = EgressKey().WithIdentity(worldReservedIDIPv4).WithSCTPPort(8080)
+
+	mapKeyL3L4Port8080ProtoTCPWorldIPv6Ingress  = IngressKey().WithIdentity(worldReservedIDIPv6).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoTCPWorldIPv6Egress   = EgressKey().WithIdentity(worldReservedIDIPv6).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPv6Ingress  = IngressKey().WithIdentity(worldReservedIDIPv6).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPv6Egress   = EgressKey().WithIdentity(worldReservedIDIPv6).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv6Ingress = IngressKey().WithIdentity(worldReservedIDIPv6).WithSCTPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv6Egress  = EgressKey().WithIdentity(worldReservedIDIPv6).WithSCTPPort(8080)
+
+	mapKeyL3L4Port8080ProtoTCPAggregateWorldIngress  = IngressKey().WithIdentity(identity.ReservedIdentityAggregateWorld).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoTCPAggregateWorldEgress   = EgressKey().WithIdentity(identity.ReservedIdentityAggregateWorld).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPAggregateWorldIngress  = IngressKey().WithIdentity(identity.ReservedIdentityAggregateWorld).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPAggregateWorldEgress   = EgressKey().WithIdentity(identity.ReservedIdentityAggregateWorld).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPAggregateWorldIngress = IngressKey().WithIdentity(identity.ReservedIdentityAggregateWorld).WithSCTPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPAggregateWorldEgress  = EgressKey().WithIdentity(identity.ReservedIdentityAggregateWorld).WithSCTPPort(8080)
 
 	mapKeyL3L4Port8080ProtoTCPWorldSNIngress  = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(8080)
 	mapKeyL3L4Port8080ProtoTCPWorldSNEgress   = EgressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(8080)
@@ -1552,12 +1581,13 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	lblWorldSubnet := labels.GetCIDRLabelArray(netip.MustParsePrefix(string(worldSubnet)))
 
 	identityCache := identity.IdentityMap{
-		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
-		identity.ReservedIdentityWorldIPv4:    labels.LabelWorldIPv4.LabelArray(),
-		identity.ReservedIdentityWorldIPv6:    labels.LabelWorldIPv6.LabelArray(),
-		worldIPIdentity:                       lblWorldIP,     // "192.0.2.3/32"
-		worldSubnetIdentity:                   lblWorldSubnet, // "192.0.2.0/24"
+		identity.NumericIdentity(identityFoo):   labelsFoo,
+		identity.ReservedIdentityWorld:          labels.LabelWorld.LabelArray(),
+		identity.ReservedIdentityWorldIPv4:      labels.LabelWorldIPv4.LabelArray(),
+		identity.ReservedIdentityWorldIPv6:      labels.LabelWorldIPv6.LabelArray(),
+		identity.ReservedIdentityAggregateWorld: labels.LabelsAggregateWorld.LabelArray(),
+		worldIPIdentity:                         lblWorldIP,     // "192.0.2.3/32"
+		worldSubnetIdentity:                     lblWorldSubnet, // "192.0.2.0/24"
 	}
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
@@ -1568,13 +1598,25 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		expected mapState
 	}{
 		{"deny_world_no_labels", api.Rules{ruleAllowAllIngress, ruleL3DenyWorld, ruleL3AllowWorldIP}, testMapState(t, mapStateMap{
-			mapKeyAnyIngress:     mapEntryAllow,
-			mapKeyL3WorldIngress: mapEntryDeny,
-			mapKeyL3WorldEgress:  mapEntryDeny,
+			mapKeyAnyIngress:              mapEntryAllow,
+			mapKeyL3WorldIngress:          mapEntryDeny,
+			mapKeyL3WorldIngressIPv4:      mapEntryDeny,
+			mapKeyL3WorldIngressIPv6:      mapEntryDeny,
+			mapKeyL3AggregateWorldIngress: mapEntryDeny,
+			mapKeyL3WorldEgress:           mapEntryDeny,
+			mapKeyL3WorldEgressIPv4:       mapEntryDeny,
+			mapKeyL3WorldEgressIPv6:       mapEntryDeny,
+			mapKeyL3AggregateWorldEgress:  mapEntryDeny,
 		})}, {"deny_world_with_labels", api.Rules{ruleAllowAllIngress, ruleL3DenyWorldWithLabels, ruleL3AllowWorldIP}, testMapState(t, mapStateMap{
-			mapKeyAnyIngress:     mapEntryAllow,
-			mapKeyL3WorldIngress: mapEntryWorldDenyWithLabels,
-			mapKeyL3WorldEgress:  mapEntryWorldDenyWithLabels,
+			mapKeyAnyIngress:              mapEntryAllow,
+			mapKeyL3WorldIngress:          mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldIngressIPv4:      mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldIngressIPv6:      mapEntryWorldDenyWithLabels,
+			mapKeyL3AggregateWorldIngress: mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldEgress:           mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldEgressIPv4:       mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldEgressIPv6:       mapEntryWorldDenyWithLabels,
+			mapKeyL3AggregateWorldEgress:  mapEntryWorldDenyWithLabels,
 		})}, {"deny_one_ip_with_a_larger_subnet", api.Rules{ruleAllowAllIngress, ruleL3DenySubnet, ruleL3AllowWorldIP}, testMapState(t, mapStateMap{
 			mapKeyAnyIngress:             mapEntryAllow,
 			mapKeyL3SubnetIngress:        mapEntryDeny,
@@ -1587,14 +1629,37 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
 			mapKeyL3SubnetEgress:         mapEntryAllow,
 		})}, {"broad_cidr_deny_is_a_portproto_subset_of_a_specific_cidr_allow", api.Rules{ruleAllowAllIngress, ruleL3L4Port8080ProtoAnyDenyWorld, ruleL3AllowWorldIP}, testMapState(t, mapStateMap{
-			mapKeyAnyIngress:                        mapEntryAllow,
+			mapKeyAnyIngress: mapEntryAllow,
+
 			mapKeyL3L4Port8080ProtoTCPWorldIngress:  mapEntryDeny,
 			mapKeyL3L4Port8080ProtoTCPWorldEgress:   mapEntryDeny,
 			mapKeyL3L4Port8080ProtoUDPWorldIngress:  mapEntryDeny,
 			mapKeyL3L4Port8080ProtoUDPWorldEgress:   mapEntryDeny,
 			mapKeyL3L4Port8080ProtoSCTPWorldIngress: mapEntryDeny,
 			mapKeyL3L4Port8080ProtoSCTPWorldEgress:  mapEntryDeny,
-			mapKeyL3SmallerSubnetEgress:             mapEntryAllow,
+
+			mapKeyL3L4Port8080ProtoTCPWorldIPv4Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv4Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv4Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv4Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv4Ingress: mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv4Egress:  mapEntryDeny,
+
+			mapKeyL3L4Port8080ProtoTCPWorldIPv6Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv6Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv6Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv6Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv6Ingress: mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv6Egress:  mapEntryDeny,
+
+			mapKeyL3L4Port8080ProtoTCPAggregateWorldIngress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPAggregateWorldEgress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPAggregateWorldIngress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPAggregateWorldEgress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPAggregateWorldIngress: mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPAggregateWorldEgress:  mapEntryDeny,
+
+			mapKeyL3SmallerSubnetEgress: mapEntryAllow,
 		})}, {"broad_cidr_allow_is_a_portproto_subset_of_a_specific_cidr_deny", api.Rules{ruleAllowAllIngress, ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, testMapState(t, mapStateMap{
 			mapKeyAnyIngress:                          mapEntryAllow,
 			mapKeyL3L4Port8080ProtoTCPWorldSNIngress:  mapEntryAllow,
@@ -1711,7 +1776,7 @@ func Test_Allowception(t *testing.T) {
 	computedMapStateForAllowCeption := emptyMapState(hivetest.Logger(t)).withState(mapStateMap{
 		ingressKey(identity.ReservedIdentityWorld, 0, 0, 0): mapEntryAllow,
 		ingressKey(one3Z8Identity, 0, 0, 0):                 mapEntryDeny,
-		// No entry for one0Z32Identity, as it is wildcarded by reserved:world
+		ingressKey(one0Z32Identity, 0, 0, 0):                mapEntryAllow,
 	})
 
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)

@@ -549,6 +549,9 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	cachedSelectorWorldV6 := td.sc.findCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
 	require.NotNil(t, cachedSelectorWorldV6)
 
+	cachedSelectorAggregateWorld := td.sc.findCachedIdentitySelector(api.EntitySelectorMapping[api.EntityWorld][3])
+	require.NotNil(t, cachedSelectorAggregateWorld)
+
 	cachedSelectorTest := td.sc.findCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
@@ -569,16 +572,18 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 						U8Proto:  0x6,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
-							cachedSelectorWorld:   denyPerSelectorPolicy,
-							cachedSelectorWorldV4: denyPerSelectorPolicy,
-							cachedSelectorWorldV6: denyPerSelectorPolicy,
-							cachedSelectorTest:    denyPerSelectorPolicy,
+							cachedSelectorWorld:          denyPerSelectorPolicy,
+							cachedSelectorWorldV4:        denyPerSelectorPolicy,
+							cachedSelectorWorldV6:        denyPerSelectorPolicy,
+							cachedSelectorAggregateWorld: denyPerSelectorPolicy,
+							cachedSelectorTest:           denyPerSelectorPolicy,
 						},
 						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
-							cachedSelectorWorld:   {ruleLabel},
-							cachedSelectorWorldV4: {ruleLabel},
-							cachedSelectorWorldV6: {ruleLabel},
-							cachedSelectorTest:    {ruleLabel},
+							cachedSelectorWorld:          {ruleLabel},
+							cachedSelectorWorldV4:        {ruleLabel},
+							cachedSelectorWorldV6:        {ruleLabel},
+							cachedSelectorAggregateWorld: {ruleLabel},
+							cachedSelectorTest:           {ruleLabel},
 						}),
 					},
 				}),
@@ -593,9 +598,12 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey(): allowEgressMapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80): rule1MapStateEntry,
-			IngressKey().WithIdentity(192).WithTCPPort(80):                            rule1MapStateEntry,
-			IngressKey().WithIdentity(194).WithTCPPort(80):                            rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityAggregateWorld).WithTCPPort(80): rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):          rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80):      rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80):      rule1MapStateEntry,
+			IngressKey().WithIdentity(192).WithTCPPort(80):                                     rule1MapStateEntry,
+			IngressKey().WithIdentity(194).WithTCPPort(80):                                     rule1MapStateEntry,
 		}),
 	}
 

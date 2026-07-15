@@ -257,10 +257,10 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 		assert(aggregate_for_identity(0x0001aabb) == AGGREGATE_CLUSTER_MESH_ID);
 
 		/* world identities */
-		assert(aggregate_for_identity(16777217) == WORLD_ID);
-		assert(aggregate_for_identity(WORLD_IPV4_ID) == WORLD_ID);
-		assert(aggregate_for_identity(WORLD_IPV6_ID) == WORLD_ID);
-		assert(aggregate_for_identity(WORLD_ID) == WORLD_ID);
+		assert(aggregate_for_identity(16777217) == w);
+		assert(aggregate_for_identity(WORLD_IPV4_ID) == 0);
+		assert(aggregate_for_identity(WORLD_IPV6_ID) == 0);
+		assert(aggregate_for_identity(WORLD_ID) == 0);
 
 		/* remote node identities */
 		assert(aggregate_for_identity(REMOTE_NODE_ID) == REMOTE_NODE_ID);

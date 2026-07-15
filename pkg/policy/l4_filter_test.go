@@ -67,9 +67,10 @@ type testData struct {
 	cachedSelectorBar1 CachedSelector
 	cachedSelectorBar2 CachedSelector
 
-	cachedSelectorWorld   CachedSelector
-	cachedSelectorWorldV4 CachedSelector
-	cachedSelectorWorldV6 CachedSelector
+	cachedSelectorWorld          CachedSelector
+	cachedSelectorWorldV4        CachedSelector
+	cachedSelectorWorldV6        CachedSelector
+	cachedSelectorAggregateWorld CachedSelector
 }
 
 func newTestData(tb testing.TB, logger *slog.Logger) *testData {
@@ -113,6 +114,7 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 	td.cachedSelectorWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][0])
 	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0])
 	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0])
+	td.cachedSelectorAggregateWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][3])
 
 	idMgr.Add(idA)
 	idMgr.Add(idB)
