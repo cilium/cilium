@@ -246,7 +246,7 @@ func TestCheckBackendIsExistingServiceSetsResolvedRefsFalseForUnknownServicePort
 		Ctx:            context.Background(),
 		Logger:         slog.New(slog.DiscardHandler),
 		Client:         cl,
-		Grants:         &gatewayv1.ReferenceGrantList{},
+		Grants:         nil,
 		HTTPRoute:      route,
 		ControllerName: "io.cilium/gateway-deployment-controller",
 	}

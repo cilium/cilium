@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -274,4 +276,66 @@ func Test_filterOutConflictedListeners_listenerSetPrecedence(t *testing.T) {
 	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
 	assert.Len(t, filtered, 1)
 	assert.Equal(t, gatewayv1.SectionName("older"), filtered[0].Name)
+}
+
+func Test_setListenerStatus_usesCrossSourceConflicts(t *testing.T) {
+	gw := &gatewayv1.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Gateway",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "gw",
+			Namespace:  "default",
+			Generation: 1,
+		},
+		Spec: gatewayv1.GatewaySpec{
+			Listeners: []gatewayv1.Listener{
+				*muxedListener("gateway", gatewayv1.HTTPSProtocolType, 443, "api.example.test"),
+			},
+		},
+	}
+
+	reconciler, _ := testReconciler(t, gw)
+	conflicts := listenerConflictsBySource{
+		gatewayFQR(gw): {
+			"gateway": {
+				reason:  gatewayv1.ListenerReasonProtocolConflict,
+				message: `Listener conflicts with listener "listenerset": same port 443 has overlapping HTTPS and TLS passthrough hostnames.`,
+			},
+		},
+	}
+
+	status, err := reconciler.setListenerStatus(
+		t.Context(),
+		gw,
+		conflicts,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, ListenersStatusNoneValid, status)
+	require.Len(t, gw.Status.Listeners, 1)
+
+	conflicted := findCondition(gw.Status.Listeners[0].Conditions, string(gatewayv1.ListenerConditionConflicted))
+	require.NotNil(t, conflicted)
+	assert.Equal(t, metav1.ConditionTrue, conflicted.Status)
+	assert.Equal(t, string(gatewayv1.ListenerReasonProtocolConflict), conflicted.Reason)
+
+	accepted := findCondition(gw.Status.Listeners[0].Conditions, string(gatewayv1.ListenerConditionAccepted))
+	require.NotNil(t, accepted)
+	assert.Equal(t, metav1.ConditionFalse, accepted.Status)
+}
+
+func findCondition(conds []metav1.Condition, condType string) *metav1.Condition {
+	for _, cond := range conds {
+		if cond.Type == condType {
+			return &cond
+		}
+	}
+	return nil
 }

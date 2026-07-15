@@ -30,7 +30,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
-	"github.com/cilium/cilium/operator/pkg/model/ingestion"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/loading"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -452,8 +452,15 @@ func Test_Conformance(t *testing.T) {
 			})
 
 			r := &gatewayReconciler{
-				Client:             c,
-				translator:         gatewayAPITranslator,
+				Client:     c,
+				Scheme:     c.Scheme(),
+				translator: gatewayAPITranslator,
+				inputLoader: loading.NewTranslationInputLoader(c, logger, defaultControllerName, loading.TranslationInputLoaderConfig{
+					IncludeTCPRoutes:      !tt.disableTCPRoute,
+					IncludeUDPRoutes:      !tt.disableUDPRoute,
+					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
+					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
+				}),
 				logger:             logger,
 				controllerName:     defaultControllerName,
 				hostNetworkEnabled: tt.hostNetwork,
@@ -807,7 +814,14 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 				Build()
 
 			r := &gatewayReconciler{
-				Client:         c,
+				Client: c,
+				Scheme: c.Scheme(),
+				inputLoader: loading.NewTranslationInputLoader(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), defaultControllerName, loading.TranslationInputLoaderConfig{
+					IncludeTCPRoutes:      helpers.HasTCPRouteSupport(c.Scheme()),
+					IncludeUDPRoutes:      helpers.HasUDPRouteSupport(c.Scheme()),
+					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
+					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
+				}),
 				logger:         hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 				controllerName: defaultControllerName,
 			}
@@ -1050,22 +1064,16 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 					WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 					Build(),
 			}
-			listenerContexts := make([]ingestion.ListenerWithContext, 0, len(gw.Spec.Listeners))
-			for _, listener := range gw.Spec.Listeners {
-				listenerContexts = append(listenerContexts, ingestion.ListenerWithContext{
-					Listener: listener,
-					Source:   gatewayFQR(gw),
-				})
-			}
 			gotStatus, err := r.setListenerStatus(
 				t.Context(),
 				gw,
-				conflictsAcrossSources(listenerContexts),
-				&gatewayv1.HTTPRouteList{},
-				&gatewayv1.TLSRouteList{},
-				&gatewayv1.GRPCRouteList{},
-				&gatewayv1.TCPRouteList{},
-				&gatewayv1.UDPRouteList{},
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
 				helpers.NewNamespaceLabelIndex(nil),
 			)
 			require.NoError(t, err)
@@ -1441,7 +1449,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 
 		hrList := &gatewayv1.HTTPRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
-		require.NoError(t, r.setHTTPRouteStatuses(r.logger, ctx, hrList, &gatewayv1.ReferenceGrantList{}))
+		require.NoError(t, r.setHTTPRouteStatuses(r.logger, ctx, hrList.Items, nil))
 
 		var updatedValidRoute, updatedInvalidRoute gatewayv1.HTTPRoute
 		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))
@@ -1509,7 +1517,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 
 		hrList := &gatewayv1.GRPCRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
-		require.NoError(t, r.setGRPCRouteStatuses(r.logger, ctx, hrList, &gatewayv1.ReferenceGrantList{}))
+		require.NoError(t, r.setGRPCRouteStatuses(r.logger, ctx, hrList.Items, nil))
 
 		var updatedValidRoute, updatedInvalidRoute gatewayv1.GRPCRoute
 		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))
