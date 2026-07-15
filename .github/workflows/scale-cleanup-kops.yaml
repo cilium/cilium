@@ -24,7 +24,7 @@ concurrency:
 
 env:
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 574.0.0
+  gcloud_version: 575.0.1
 
 jobs:
   cleanup-kops-clusters:
