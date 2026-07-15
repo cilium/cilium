@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
+	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
@@ -38,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -95,86 +97,184 @@ func testScript(t *testing.T) {
 				logging.SetLogLevel(slog.LevelDebug)
 			}
 			log := hivetest.Logger(t, opts...)
-
-			h := hive.New(
-				k8sClient.FakeClientCell(),
-				daemonk8s.ResourcesCell,
-				k8sTables.TablesCell,
-				cell.Config(envoyCfg.SecretSyncConfig{}),
-
-				cell.Config(loadbalancer.TestConfig{
-					// By default 10% of the time the LBMap operations fail
-					TestFaultProbability: 0.1,
-				}),
-				metrics.Cell,
-				maglev.Cell,
-				lbipamconfig.Cell,
-				nodeipamconfig.Cell,
-				node.LocalNodeStoreTestCell,
-				cell.Provide(
-					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
-					func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
-					tables.NewNodeAddressTable,
-					statedb.RWTable[tables.NodeAddress].ToTable,
-					source.NewSources,
-					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
-						return &option.DaemonConfig{
-							EnableIPv4: true,
-							EnableIPv6: true,
-						}
-					},
-					func() kpr.KPRConfig {
-						return kpr.KPRConfig{
-							KubeProxyReplacement: true,
-						}
-					},
-					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer, waitFn loadbalancer.InitWaitFunc) uhive.ScriptCmdsOut {
-						return uhive.NewScriptCmds(testCommands{w, lns, ops, waitFn}.cmds())
-					},
-				),
-
-				lbcell.Cell,
-			)
-
-			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-			h.RegisterFlags(flags)
-
-			// Set some defaults
-			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
-			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
-			flags.Set("bpf-lb-maglev-table-size", "1021")
-
-			// Expand $WORK in args. Used by testdata/file.txtar.
-			// This works by creating a new temporary directory for this test (e.g. /tmp/<tempdir/002)
-			// and replacing the directory with /001 which is the temp directory that scripttest created.
-			tempDir := filepath.Join(filepath.Dir(t.TempDir()), "001")
-			for i := range args {
-				args[i] = strings.ReplaceAll(args[i], "$WORK", tempDir)
-			}
-
-			// Parse the shebang arguments in the script.
-			require.NoError(t, flags.Parse(args), "flags.Parse")
-
-			t.Cleanup(func() {
-				assert.NoError(t, h.Stop(log, context.TODO()))
-			})
-			cmds, err := h.ScriptCommands(log)
-			require.NoError(t, err, "ScriptCommands")
-			maps.Insert(cmds, maps.All(script.DefaultCmds()))
-
 			conds := map[string]script.Cond{
 				"privileged": script.BoolCondition("testutils.IsPrivileged", testutils.IsPrivileged()),
 			}
-			return &script.Engine{
-				Cmds:             cmds,
+			rt := &scriptRuntime{
+				t:        t,
+				log:      log,
+				baseArgs: append([]string(nil), args...),
+				workDir:  filepath.Join(filepath.Dir(t.TempDir()), "001"),
+			}
+			rt.engine = &script.Engine{
 				Conds:            conds,
 				RetryInterval:    20 * time.Millisecond,
 				MaxRetryInterval: 500 * time.Millisecond,
 			}
+			require.NoError(t, rt.recreate(), "create initial hive")
+			return rt.engine
 		},
 		[]string{
 			/* empty environment */
 		}, "testdata/*.txtar")
+}
+
+// scriptRuntime owns the application instance used by a single script. Recreating
+// the Hive models restarting the Cilium agent: its in-memory StateDB is rebuilt,
+// while the Kubernetes API and pinned BPF maps continue to exist outside the
+// process. The fake client and fake LB maps model those two persistent stores.
+type scriptRuntime struct {
+	t        testing.TB
+	log      *slog.Logger
+	engine   *script.Engine
+	baseArgs []string
+	workDir  string
+
+	client *k8sClient.FakeClientset
+	lbMaps lbmaps.LBMaps
+}
+
+func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]script.Cmd, error) {
+	var (
+		client *k8sClient.FakeClientset
+		lbMaps lbmaps.LBMaps
+	)
+
+	app := cell.Group(
+		k8sClient.FakeClientCell(),
+		daemonk8s.ResourcesCell,
+		k8sTables.TablesCell,
+		cell.Config(envoyCfg.SecretSyncConfig{}),
+		kpr.Cell,
+
+		cell.Config(loadbalancer.TestConfig{
+			// By default 10% of the time the LBMap operations fail.
+			TestFaultProbability: 0.1,
+		}),
+		metrics.Cell,
+		maglev.Cell,
+		lbipamconfig.Cell,
+		nodeipamconfig.Cell,
+		node.LocalNodeStoreTestCell,
+		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
+			func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
+			tables.NewNodeAddressTable,
+			statedb.RWTable[tables.NodeAddress].ToTable,
+			source.NewSources,
+			func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
+				return &option.DaemonConfig{
+					EnableIPv4: true,
+					EnableIPv6: true,
+				}
+			},
+			func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer, waitFn loadbalancer.InitWaitFunc) uhive.ScriptCmdsOut {
+				return uhive.NewScriptCmds(testCommands{w, lns, ops, waitFn}.cmds())
+			},
+		),
+		cell.Invoke(func(c *k8sClient.FakeClientset, m lbmaps.LBMaps) {
+			client = c
+			lbMaps = m
+		}),
+
+		lbcell.Cell,
+	)
+
+	// A new FakeClientCell and LB maps implementation would normally be constructed
+	// with every Hive. Decorate them on recreation so Kubernetes objects created by
+	// the script and datapath state programmed by the previous agent remain visible
+	// to the new agent. StateDB is not decorated and is therefore always fresh.
+	if rt.client != nil {
+		app = cell.Decorate(
+			func(k8sclient.Clientset) k8sclient.Clientset { return rt.client },
+			app,
+		)
+	}
+	if rt.lbMaps != nil {
+		app = cell.Decorate(
+			func(lbmaps.LBMaps) lbmaps.LBMaps { return rt.lbMaps },
+			app,
+		)
+	}
+
+	h := hive.New(app)
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	h.RegisterFlags(flags)
+
+	// Preserve the defaults used by the existing script suite. The shebang and
+	// hive/recreate arguments may override these values.
+	for name, value := range map[string]string{
+		"kube-proxy-replacement":   "true",
+		"lb-retry-backoff-min":     "10ms",
+		"lb-retry-backoff-max":     "10ms",
+		"bpf-lb-maglev-table-size": "1021",
+	} {
+		if err := flags.Set(name, value); err != nil {
+			return nil, nil, fmt.Errorf("setting default --%s: %w", name, err)
+		}
+	}
+
+	// Treat the shebang as the base agent configuration and flags passed to
+	// hive/recreate as overrides for the replacement agent.
+	args := append([]string(nil), rt.baseArgs...)
+	args = append(args, extraArgs...)
+	for i := range args {
+		args[i] = strings.ReplaceAll(args[i], "$WORK", rt.workDir)
+	}
+	if err := flags.Parse(args); err != nil {
+		return nil, nil, fmt.Errorf("parsing hive arguments: %w", err)
+	}
+
+	rt.t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		assert.NoError(rt.t, h.Stop(rt.log, ctx))
+	})
+	cmds, err := h.ScriptCommands(rt.log)
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting script commands: %w", err)
+	}
+
+	if rt.client == nil {
+		rt.client = client
+	}
+	if rt.lbMaps == nil {
+		rt.lbMaps = lbMaps
+	}
+
+	// Always direct Kubernetes commands to the client retained across Hive
+	// instances rather than the per-Hive client hidden by the decorator.
+	maps.Insert(cmds, maps.All(k8sClient.FakeClientCommands(rt.client)))
+	maps.Insert(cmds, maps.All(script.DefaultCmds()))
+	cmds["hive/recreate"] = script.Command(
+		script.CmdUsage{
+			Summary: "recreate the test Hive while retaining Kubernetes and BPF map state",
+			Args:    "[flags...]",
+			Detail: []string{
+				"The current Hive must be stopped before it is recreated.",
+				"The new Hive has a fresh StateDB, while the fake Kubernetes API and LB maps are retained to model an agent restart.",
+				"Flags override values from the script shebang for the replacement Hive.",
+			},
+		},
+		func(_ *script.State, args ...string) (script.WaitFunc, error) {
+			return nil, rt.recreate(args...)
+		},
+	)
+	return h, cmds, nil
+}
+
+func (rt *scriptRuntime) recreate(extraArgs ...string) error {
+	_, cmds, err := rt.newHive(extraArgs)
+	if err != nil {
+		return err
+	}
+	if rt.engine.Cmds == nil {
+		rt.engine.Cmds = cmds
+	} else {
+		clear(rt.engine.Cmds)
+		maps.Copy(rt.engine.Cmds, cmds)
+	}
+	return nil
 }
 
 type testCommands struct {
