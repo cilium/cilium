@@ -50,11 +50,6 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 		return nid
 	}
 
-	switch nid {
-	case identity.ReservedIdentityRemoteNode, identity.ReservedIdentityKubeAPIServer:
-		return identity.ReservedIdentityRemoteNode
-	}
-
 	// All identities below 100 are special-cased.
 	// They cannot be aggregated.
 	if nid < 100 {
@@ -63,7 +58,7 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 
 	switch nid.Scope() {
 	case identity.IdentityScopeRemoteNode:
-		return identity.ReservedIdentityRemoteNode
+		return identity.ReservedIdentityAggregateRemoteNode
 	case identity.IdentityScopeLocal:
 		return identity.ReservedIdentityAggregateWorld
 	}
@@ -92,7 +87,7 @@ func isAggregate(nid identity.NumericIdentity) bool {
 // They must be inserted whenever a full wildcard (i.e. identity 0) is referenced.
 var AllAggregates = []identity.NumericIdentity{
 	identity.IdentityUnknown,
-	identity.ReservedIdentityRemoteNode,
+	identity.ReservedIdentityAggregateRemoteNode,
 	identity.ReservedIdentityAggregateWorld,
 	identity.ReservedIdentityAggregateCluster,
 	identity.ReservedIdentityAggregateClusterMesh,

@@ -84,6 +84,8 @@ var (
 
 	endpointSelectorRemoteNode = NewESFromLabels(labels.NewLabel(labels.IDNameRemoteNode, "", labels.LabelSourceReserved))
 
+	endpointSelectorRemoteNodeAggregate = NewESFromLabels(labels.NewLabel(labels.IDNameAggregateRemoteNode, "", labels.LabelSourceReserved))
+
 	endpointSelectorHealth = NewESFromLabels(labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved))
 
 	EndpointSelectorNone = NewESFromLabels(labels.NewLabel(labels.IDNameNone, "", labels.LabelSourceReserved))
@@ -120,7 +122,7 @@ var (
 		EntityHost:          {endpointSelectorHost},
 		EntityInit:          {endpointSelectorInit},
 		EntityIngress:       {endpointSelectorIngress},
-		EntityRemoteNode:    {endpointSelectorRemoteNode},
+		EntityRemoteNode:    {endpointSelectorRemoteNode, endpointSelectorRemoteNodeAggregate},
 		EntityHealth:        {endpointSelectorHealth},
 		EntityUnmanaged:     {endpointSelectorUnmanaged},
 		EntityNone:          {EndpointSelectorNone},
