@@ -41,7 +41,7 @@ env:
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 574.0.0
+  gcloud_version: 575.0.1
 
 jobs:
   install-and-scaletest:
@@ -89,7 +89,7 @@ jobs:
 
       - name: Login to docker registry for image wait
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ${{ vars.DOCKER_READ_HOST}}
           username: ${{ vars.DOCKER_READ_USERNAME}}
