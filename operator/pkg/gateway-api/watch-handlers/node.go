@@ -19,8 +19,8 @@ import (
 )
 
 // EnqueueRequestForNodes returns an event handler for any changes to a node's IP address, returns reconcile.Requests
-// for all Cilium-relvant Gateways
-func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayLabel string) handler.EventHandler {
+// for all controller-relevant Gateways.
+func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayLabel, controllerName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, ns client.Object) []reconcile.Request {
 		scopedLog := logger.With(
 			logfields.K8sNamespace, ns.GetName(),
@@ -31,10 +31,10 @@ func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayL
 			return nil
 		}
 
-		gateways, err := getAllCiliumGatewaysSet(ctx, c)
+		gateways, err := getAllGatewaysSetForController(ctx, c, controllerName)
 
 		if err != nil {
-			scopedLog.ErrorContext(ctx, "Failed to get Cilium Gateways", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to get controller Gateways", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -59,7 +59,7 @@ func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayL
 			}
 		}
 
-		// queue up a request for every Cilium related gateway
+		// Queue up a request for every matching gateway.
 		for gw := range gateways {
 			gwSplit := strings.SplitN(gw, "/", 2)
 

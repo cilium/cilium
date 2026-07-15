@@ -123,25 +123,26 @@ func getGatewayReconcileRequestsForRoute(ctx context.Context, c client.Client, o
 	return reqs
 }
 
-func getAllCiliumGatewaysSet(ctx context.Context, c client.Client) (map[string]struct{}, error) {
-	// Fetch all the Cilium-relevant Gateways using the indexers.ImplementationGatewayIndex.
+func getAllGatewaysSetForController(ctx context.Context, c client.Client, controllerName string) (map[string]struct{}, error) {
+	// Fetch all Gateways for the target controller using the
+	// indexers.ImplementationGatewayIndex.
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(indexers.ImplementationGatewayIndex, "cilium"),
+		FieldSelector: fields.OneTermEqualSelector(indexers.ImplementationGatewayIndex, controllerName),
 	}); err != nil {
 		return nil, err
 	}
-	// Build a set of all Cilium Gateway full names.
+	// Build a set of all matching Gateway full names.
 	// This makes sure we only add a reconcile.Request once for each Gateway.
-	allCiliumGatewaysSet := make(map[string]struct{})
+	allGatewaysSet := make(map[string]struct{})
 
 	for _, gw := range gwList.Items {
 		gwFullName := types.NamespacedName{
 			Name:      gw.GetName(),
 			Namespace: gw.GetNamespace(),
 		}
-		allCiliumGatewaysSet[gwFullName.String()] = struct{}{}
+		allGatewaysSet[gwFullName.String()] = struct{}{}
 	}
 
-	return allCiliumGatewaysSet, nil
+	return allGatewaysSet, nil
 }
