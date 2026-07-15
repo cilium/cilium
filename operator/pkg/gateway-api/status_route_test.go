@@ -131,7 +131,7 @@ func TestSetTCPRouteStatusesPrunesDetachedParents(t *testing.T) {
 	require.NoError(t, c.List(t.Context(), routes))
 
 	r := &gatewayReconciler{Client: c, controllerName: defaultControllerName}
-	require.NoError(t, r.setTCPRouteStatuses(slog.Default(), t.Context(), routes, &gatewayv1.ReferenceGrantList{}))
+	require.NoError(t, r.setTCPRouteStatuses(slog.Default(), t.Context(), routes.Items, nil))
 
 	updated := &gatewayv1.TCPRoute{}
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), updated))
@@ -155,7 +155,7 @@ func TestSetUDPRouteStatusesPrunesDetachedParents(t *testing.T) {
 	require.NoError(t, c.List(t.Context(), routes))
 
 	r := &gatewayReconciler{Client: c, controllerName: defaultControllerName}
-	require.NoError(t, r.setUDPRouteStatuses(slog.Default(), t.Context(), routes, &gatewayv1.ReferenceGrantList{}))
+	require.NoError(t, r.setUDPRouteStatuses(slog.Default(), t.Context(), routes.Items, nil))
 
 	updated := &gatewayv1.UDPRoute{}
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), updated))
