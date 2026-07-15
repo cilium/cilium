@@ -571,6 +571,12 @@ jobs:
         run: |
           cd untrusted
           sudo chown $USER:$USER -R ./test
+          # The renamed reports must land in the workspace root, not here in
+          # untrusted/: the shared post-logic action uploads them with the glob
+          # './features-tested-*.json', which actions/upload-artifact resolves
+          # relative to $GITHUB_WORKSPACE. Moving them into untrusted/ (the '.'
+          # after this cd) leaves them outside that glob, so the upload found
+          # nothing and warned on every E2E job.
           find . -type f -iname 'feature-status-*.json' | while IFS= read -r file; do
             basename_file=$(basename "$file")
             suffix="${basename_file#feature-status-}"
@@ -580,11 +586,11 @@ jobs:
               new_filename="${new_filename:0:250}"
             fi
             # Check if file already exists and fail if it does
-            if [ -f "./${new_filename}" ]; then
-              echo "Error: File ./${new_filename} already exists. Aborting to prevent overwrite."
+            if [ -f "${GITHUB_WORKSPACE}/${new_filename}" ]; then
+              echo "Error: File ${GITHUB_WORKSPACE}/${new_filename} already exists. Aborting to prevent overwrite."
               exit 1
             fi
-            mv "$file" "./${new_filename}"
+            mv "$file" "${GITHUB_WORKSPACE}/${new_filename}"
           done
           # Collect any feature-status collection error logs so a failure that
           # would otherwise only appear on the (ephemeral) VM console survives,
