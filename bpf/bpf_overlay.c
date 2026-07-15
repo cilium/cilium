@@ -357,8 +357,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		__be32 snat_addr, daddr;
 
 		daddr = ip4->daddr;
-		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr,
-					       &egress_ifindex)) {
+		if (egress_gw_snat_needed_hook(ctx, ip4->saddr, daddr, &snat_addr,
+					       &egress_ifindex, false)) {
 			__u32 tbid = EGRESS_GATEWAY_RT_TBID;
 
 			if (snat_addr == EGRESS_GATEWAY_NO_EGRESS_IP)

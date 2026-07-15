@@ -172,13 +172,18 @@ egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 }
 
 static __always_inline
-bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
+bool egress_gw_snat_needed(const struct __ctx_buff *ctx __maybe_unused,
+			   __be32 saddr __maybe_unused,
 			   __be32 daddr __maybe_unused,
 			   __be32 *snat_addr __maybe_unused,
-			   __u32 *egress_ifindex __maybe_unused)
+			   __u32 *egress_ifindex __maybe_unused,
+			   bool from_host __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	const struct egress_gw_policy_entry_v2 *egress_gw_policy;
+
+	if (from_host)
+		return false;
 
 	egress_gw_policy = lookup_ip4_egress_gw_policy(saddr, daddr);
 	if (!egress_gw_policy)
@@ -235,8 +240,9 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 }
 
 static __always_inline
-bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr,
-				__u32 *egress_ifindex)
+bool egress_gw_snat_needed_hook(struct __ctx_buff *ctx, __be32 saddr,
+				__be32 daddr, __be32 *snat_addr,
+				__u32 *egress_ifindex, bool from_host)
 {
 	const struct remote_endpoint_info *remote_ep;
 
@@ -249,7 +255,8 @@ bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr,
 	    identity_is_cluster(remote_ep->sec_identity))
 		return false;
 
-	return egress_gw_snat_needed(saddr, daddr, snat_addr, egress_ifindex);
+	return egress_gw_snat_needed(ctx, saddr, daddr, snat_addr,
+				    egress_ifindex, from_host);
 }
 
 static __always_inline
