@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
@@ -49,7 +50,8 @@ func Test_matchesControllerName(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.expected, matchesControllerName("foo")(tc.object))
+			gwc, ok := tc.object.(*gatewayv1.GatewayClass)
+			require.Equal(t, tc.expected, ok && string(gwc.Spec.ControllerName) == "foo")
 		})
 	}
 }
@@ -117,8 +119,8 @@ func Test_referencedConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &gatewayClassReconciler{controllerName: defaultControllerName}
-			require.Equal(t, tc.expected, r.referencedConfig(tc.object))
+			indexer := indexers.IndexGatewayClassByCiliumGatewayClassConfig(gatewayv1.GatewayController(defaultControllerName))
+			require.Equal(t, tc.expected, indexer(tc.object))
 		})
 	}
 }
