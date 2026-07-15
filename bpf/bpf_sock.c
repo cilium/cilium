@@ -314,6 +314,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	};
 	const struct lb4_service *backend_slot;
 	bool backend_from_affinity = false;
+	bool scale_to_zero = false;
 	__u32 backend_id = 0;
 #ifdef ENABLE_L7_LB
 	struct lb4_backend l7backend;
@@ -334,7 +335,19 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return -ENXIO;
+#ifdef ENABLE_SCALE_TO_ZERO
+	/* Signal demand to the agent. Otherwise it only samples live connections
+	 * every 30s and misses short-lived ones, scaling a busy service to zero.
+	 */
+	if (!lb4_svc_is_l7_loadbalancer(svc))
+		scale_to_zero = scale_to_zero_signal(ctx_full, svc->rev_nat_index);
+#endif
 	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc)) {
+		/* Punt to the per-packet path to hold and translate on scale-up.
+		 * Host netns has no such fallback, so it fast-rejects below.
+		 */
+		if (scale_to_zero && !in_hostns)
+			return -ENXIO;
 		/* Drop packet when service has no endpoints when this flag is enabled (default) */
 		if (CONFIG(enable_no_service_endpoints_routable))
 			return -EHOSTUNREACH;
@@ -1059,6 +1072,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	};
 	const struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
+	bool scale_to_zero = false;
 	__u32 backend_id = 0;
 #ifdef ENABLE_L7_LB
 	struct lb6_backend l7backend;
@@ -1078,7 +1092,17 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only, is_connect);
+#ifdef ENABLE_SCALE_TO_ZERO
+	/* Signal demand to the agent. Otherwise it only samples live connections
+	 * every 30s and misses short-lived ones, scaling a busy service to zero.
+	 */
+	if (!lb6_svc_is_l7_loadbalancer(svc))
+		scale_to_zero = scale_to_zero_signal(ctx, svc->rev_nat_index);
+#endif
 	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc)) {
+		/* See __sock4_xlate_fwd: hold via the per-packet path. */
+		if (scale_to_zero && !in_hostns)
+			return -ENXIO;
 		/* Drop packet when service has no endpoints when this flag is enabled (default) */
 		if (CONFIG(enable_no_service_endpoints_routable))
 			return -EHOSTUNREACH;

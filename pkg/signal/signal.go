@@ -30,6 +30,8 @@ const (
 	SignalCTFillUp
 	// SignalAuthRequired denotes a connection dropped due to missing authentication
 	SignalAuthRequired
+	// SignalScaleToZero denotes demand for a tracked scale-to-zero service
+	SignalScaleToZero
 	SignalTypeMax
 )
 
@@ -37,6 +39,7 @@ var signalName = [SignalTypeMax]string{
 	SignalNatFillUp:    "nat_fill_up",
 	SignalCTFillUp:     "ct_fill_up",
 	SignalAuthRequired: "auth_required",
+	SignalScaleToZero:  "scale_to_zero",
 }
 
 // SignalHandler parses signal data from the perf message via a reader.

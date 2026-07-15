@@ -524,6 +524,10 @@ enum DropReason {
     DROP_NO_EGRESS_IP = 204;
     // Punt packet to a user space proxy.
     DROP_PUNT_PROXY = 205;
+    reserved 206; // was DROP_NO_DEVICE
+    // Scale-to-zero service with no backends. Dropped silently so the client
+    // retransmits while backends scale up.
+    DROP_SERVICE_SCALED_TO_ZERO = 207;
 }
 
 enum TrafficDirection {

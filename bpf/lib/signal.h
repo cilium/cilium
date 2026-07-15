@@ -17,6 +17,7 @@ enum {
 	SIGNAL_NAT_FILL_UP = 0,
 	SIGNAL_CT_FILL_UP,
 	SIGNAL_AUTH_REQUIRED,
+	SIGNAL_SCALE_TO_ZERO,
 };
 
 enum {
@@ -31,6 +32,7 @@ struct signal_msg {
 			__u32 proto;
 		};
 		struct auth_key auth;
+		__u32 svc_id;
 	};
 };
 

@@ -110,6 +110,21 @@ func iterate(proto uint8, family uint8, stateFilter uint32, fn func(*Socket, err
 	return iterateNetlinkSockets(proto, family, stateFilter, fn)
 }
 
+// GetSocketCookies adds the socket cookie of every UDP or TCP socket matching
+// the given protocol, family and state filter (in the current network
+// namespace) to out. The cookie encoding matches the keys of the sock
+// reverse-NAT BPF maps.
+func GetSocketCookies(proto, family uint8, stateFilter uint32, out map[uint64]struct{}) error {
+	return iterate(proto, family, stateFilter, func(s *Socket, err error) error {
+		if err != nil {
+			return err
+		}
+		cookie := uint64(s.ID.Cookie[1])<<32 + uint64(s.ID.Cookie[0])
+		out[cookie] = struct{}{}
+		return nil
+	})
+}
+
 type SocketDestroyer interface {
 	Destroy(logger *slog.Logger, filter SocketFilter) error
 }
