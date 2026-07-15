@@ -43,6 +43,25 @@ func mustParseIP(s string) (res types.IPv6) {
 	return res
 }
 
+type nodeLabelsCall struct {
+	ip   netip.Addr
+	hint getters.NodeClusterHint
+}
+
+type recordingNodeLabelsGetter struct {
+	calls   []nodeLabelsCall
+	results [][]string
+}
+
+func (g *recordingNodeLabelsGetter) GetNodeLabels(ip netip.Addr, hint getters.NodeClusterHint) []string {
+	callIndex := len(g.calls)
+	g.calls = append(g.calls, nodeLabelsCall{ip: ip, hint: hint})
+	if callIndex < len(g.results) {
+		return g.results[callIndex]
+	}
+	return nil
+}
+
 func TestDecodeSockEvent(t *testing.T) {
 	const (
 		xwingIPv4                 = "192.168.10.10"
@@ -464,4 +483,213 @@ func TestDecodeSockEvent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDecodeNodeLabelsUsesLocalSourceProvenance(t *testing.T) {
+	const (
+		sourceIP = "192.0.2.10"
+		destIP   = "198.51.100.20"
+		cgroupID = 1010
+	)
+	localLabels := []string{"topology.kubernetes.io/zone=local-a"}
+	getter := &recordingNodeLabelsGetter{results: [][]string{localLabels, nil}}
+	cgroupGetter := &testutils.FakePodMetadataGetter{
+		OnGetPodMetadataForContainer: func(id uint64) *cgroupManager.PodMetadata {
+			require.Equal(t, uint64(cgroupID), id)
+			return &cgroupManager.PodMetadata{IPs: []string{sourceIP}}
+		},
+	}
+	parser, err := New(
+		hivetest.Logger(t), nil, nil, nil, nil, nil, cgroupGetter,
+		options.WithNodeLabelsGetter(getter),
+	)
+	require.NoError(t, err)
+
+	msg := monitor.TraceSockNotify{
+		Type:       monitorAPI.MessageTypeTraceSock,
+		XlatePoint: monitor.XlatePointPreDirectionFwd,
+		DstIP:      mustParseIP(destIP),
+		DstPort:    8080,
+		CgroupId:   cgroupID,
+		L4Proto:    monitor.L4ProtocolTCP,
+	}
+	buf := &bytes.Buffer{}
+	require.NoError(t, binary.Write(buf, binary.NativeEndian, &msg))
+	decoded := &flowpb.Flow{}
+	require.NoError(t, parser.Decode(buf.Bytes(), decoded))
+
+	require.Equal(t, []nodeLabelsCall{
+		{
+			ip: netip.MustParseAddr(sourceIP),
+			hint: getters.NodeClusterHint{
+				Identity:      identity.IdentityUnknown,
+				IdentityKnown: false,
+				LocalEndpoint: true,
+			},
+		},
+		{
+			ip: netip.MustParseAddr(destIP),
+			hint: getters.NodeClusterHint{
+				Identity:      identity.IdentityUnknown,
+				IdentityKnown: false,
+				LocalEndpoint: false,
+			},
+		},
+	}, getter.calls)
+	require.Equal(t, localLabels, decoded.GetSourceNodeLabels())
+	require.Empty(t, decoded.GetDestinationNodeLabels())
+	require.Same(t, &localLabels[0], &decoded.SourceNodeLabels[0], "getter results must be assigned without copying")
+}
+
+func TestDecodeReverseNATSwapsLabelsWithFlowOrientation(t *testing.T) {
+	const (
+		initialSourceIP = "192.0.2.10"
+		initialDestIP   = "198.51.100.20"
+		cgroupID        = 1010
+		initialSourceEP = 110
+		initialDestEP   = 220
+	)
+	localLabels := []string{"topology.kubernetes.io/zone=local-a"}
+	getter := &recordingNodeLabelsGetter{results: [][]string{localLabels, nil}}
+	cgroupGetter := &testutils.FakePodMetadataGetter{
+		OnGetPodMetadataForContainer: func(id uint64) *cgroupManager.PodMetadata {
+			require.Equal(t, uint64(cgroupID), id)
+			return &cgroupManager.PodMetadata{IPs: []string{initialSourceIP}}
+		},
+	}
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip netip.Addr) (getters.EndpointInfo, bool) {
+			switch ip.String() {
+			case initialSourceIP:
+				return &testutils.FakeEndpointInfo{ID: initialSourceEP, PodName: "initial-source"}, true
+			case initialDestIP:
+				return &testutils.FakeEndpointInfo{ID: initialDestEP, PodName: "initial-destination"}, true
+			default:
+				t.Fatalf("unexpected endpoint lookup for %s", ip)
+				return nil, false
+			}
+		},
+	}
+	dnsGetter := &testutils.FakeFQDNCache{
+		OnGetNamesOf: func(epID uint32, ip netip.Addr) []string {
+			switch {
+			case epID == initialSourceEP && ip.String() == initialDestIP:
+				return []string{"initial-destination.example"}
+			case epID == initialDestEP && ip.String() == initialSourceIP:
+				return []string{"initial-source.example"}
+			default:
+				t.Fatalf("unexpected DNS lookup from endpoint %d for %s", epID, ip)
+				return nil
+			}
+		},
+	}
+	serviceGetter := &testutils.FakeServiceGetter{
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+			switch {
+			case ip.String() == initialDestIP && port == 8080:
+				return &flowpb.Service{Name: "initial-destination"}
+			case ip.String() == initialSourceIP && port == 0:
+				return &flowpb.Service{Name: "initial-source"}
+			default:
+				t.Fatalf("unexpected service lookup for %s:%d", ip, port)
+				return nil
+			}
+		},
+	}
+	parser, err := New(
+		hivetest.Logger(t), endpointGetter, nil, dnsGetter, nil, serviceGetter, cgroupGetter,
+		options.WithNodeLabelsGetter(getter),
+	)
+	require.NoError(t, err)
+
+	msg := monitor.TraceSockNotify{
+		Type:       monitorAPI.MessageTypeTraceSock,
+		XlatePoint: monitor.XlatePointPostDirectionRev,
+		DstIP:      mustParseIP(initialDestIP),
+		DstPort:    8080,
+		CgroupId:   cgroupID,
+		L4Proto:    monitor.L4ProtocolTCP,
+	}
+	buf := &bytes.Buffer{}
+	require.NoError(t, binary.Write(buf, binary.NativeEndian, &msg))
+	decoded := &flowpb.Flow{}
+	require.NoError(t, parser.Decode(buf.Bytes(), decoded))
+
+	require.Equal(t, initialDestIP, decoded.GetIP().GetSource())
+	require.Equal(t, initialSourceIP, decoded.GetIP().GetDestination())
+	require.Equal(t, uint32(initialDestEP), decoded.GetSource().GetID())
+	require.Equal(t, "initial-destination", decoded.GetSource().GetPodName())
+	require.Equal(t, uint32(initialSourceEP), decoded.GetDestination().GetID())
+	require.Equal(t, "initial-source", decoded.GetDestination().GetPodName())
+	require.Equal(t, "initial-destination", decoded.GetSourceService().GetName())
+	require.Equal(t, "initial-source", decoded.GetDestinationService().GetName())
+	require.Equal(t, []string{"initial-destination.example"}, decoded.GetSourceNames())
+	require.Equal(t, []string{"initial-source.example"}, decoded.GetDestinationNames())
+	require.Equal(t, []nodeLabelsCall{
+		{
+			ip: netip.MustParseAddr(initialSourceIP),
+			hint: getters.NodeClusterHint{
+				Identity:      identity.IdentityUnknown,
+				IdentityKnown: false,
+				LocalEndpoint: true,
+			},
+		},
+		{
+			ip: netip.MustParseAddr(initialDestIP),
+			hint: getters.NodeClusterHint{
+				Identity:      identity.IdentityUnknown,
+				IdentityKnown: false,
+				LocalEndpoint: false,
+			},
+		},
+	}, getter.calls)
+	require.Empty(t, decoded.GetSourceNodeLabels())
+	require.Equal(t, localLabels, decoded.GetDestinationNodeLabels())
+	require.Same(t, &localLabels[0], &decoded.DestinationNodeLabels[0], "swapped getter results must be assigned without copying")
+}
+
+func TestDecodeNodeLabelsNilGetterPreservesOutputAndClearsReuse(t *testing.T) {
+	const (
+		sourceIP = "192.0.2.10"
+		destIP   = "198.51.100.20"
+		cgroupID = 1010
+	)
+	cgroupGetter := &testutils.FakePodMetadataGetter{
+		OnGetPodMetadataForContainer: func(uint64) *cgroupManager.PodMetadata {
+			return &cgroupManager.PodMetadata{IPs: []string{sourceIP}}
+		},
+	}
+	msg := monitor.TraceSockNotify{
+		Type:       monitorAPI.MessageTypeTraceSock,
+		XlatePoint: monitor.XlatePointPreDirectionFwd,
+		DstIP:      mustParseIP(destIP),
+		DstPort:    8080,
+		CgroupId:   cgroupID,
+		L4Proto:    monitor.L4ProtocolTCP,
+	}
+	buf := &bytes.Buffer{}
+	require.NoError(t, binary.Write(buf, binary.NativeEndian, &msg))
+
+	baselineParser, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, cgroupGetter)
+	require.NoError(t, err)
+	baseline := &flowpb.Flow{}
+	require.NoError(t, baselineParser.Decode(buf.Bytes(), baseline))
+
+	recorder := &recordingNodeLabelsGetter{results: [][]string{{"must-not-be-called"}}}
+	nilGetterParser, err := New(
+		hivetest.Logger(t), nil, nil, nil, nil, nil, cgroupGetter,
+		options.WithNodeLabelsGetter(recorder),
+		options.WithNodeLabelsGetter(nil),
+	)
+	require.NoError(t, err)
+	reused := &flowpb.Flow{
+		SourceNodeLabels:      []string{"stale-source-label"},
+		DestinationNodeLabels: []string{"stale-destination-label"},
+	}
+	require.NoError(t, nilGetterParser.Decode(buf.Bytes(), reused))
+
+	require.Empty(t, recorder.calls, "a final nil option must disable the getter")
+	require.Empty(t, reused.GetSourceNodeLabels())
+	require.Empty(t, reused.GetDestinationNodeLabels())
+	require.Equal(t, baseline, reused, "nil getter output must match existing socket parser behavior")
 }

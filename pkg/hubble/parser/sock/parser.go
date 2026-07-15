@@ -21,14 +21,15 @@ import (
 
 // Parser is a parser for SockTraceNotify payloads
 type Parser struct {
-	log            *slog.Logger
-	endpointGetter getters.EndpointGetter
-	identityGetter getters.IdentityGetter
-	dnsGetter      getters.DNSGetter
-	ipGetter       getters.IPGetter
-	serviceGetter  getters.ServiceGetter
-	cgroupGetter   getters.PodMetadataGetter
-	epResolver     *common.EndpointResolver
+	log              *slog.Logger
+	endpointGetter   getters.EndpointGetter
+	identityGetter   getters.IdentityGetter
+	dnsGetter        getters.DNSGetter
+	ipGetter         getters.IPGetter
+	serviceGetter    getters.ServiceGetter
+	cgroupGetter     getters.PodMetadataGetter
+	nodeLabelsGetter getters.NodeLabelsGetter
+	epResolver       *common.EndpointResolver
 
 	traceSockNotifyDecoder options.TraceSockNotifyDecoderFunc
 
@@ -65,6 +66,7 @@ func New(log *slog.Logger,
 		ipGetter:               ipGetter,
 		serviceGetter:          serviceGetter,
 		cgroupGetter:           cgroupGetter,
+		nodeLabelsGetter:       args.NodeLabelsGetter,
 		epResolver:             common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
 		traceSockNotifyDecoder: args.TraceSockNotifyDecoder,
 		skipUnknownCGroupIDs:   args.SkipUnknownCGroupIDs,
@@ -110,6 +112,17 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	}
 	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, 0, datapathContext)
 	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, 0, datapathContext)
+	var srcNodeLabels, dstNodeLabels []string
+	if p.nodeLabelsGetter != nil {
+		srcNodeLabels = p.nodeLabelsGetter.GetNodeLabels(srcIP, getters.NodeClusterHint{
+			IdentityKnown: false,
+			LocalEndpoint: true,
+		})
+		dstNodeLabels = p.nodeLabelsGetter.GetNodeLabels(dstIP, getters.NodeClusterHint{
+			IdentityKnown: false,
+			LocalEndpoint: false,
+		})
+	}
 
 	// On the reverse path, source and destination IP of the packet are reversed
 	isRevNat := decodeRevNat(sock.XlatePoint)
@@ -117,8 +130,11 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 		srcIP, dstIP = dstIP, srcIP
 		srcPort, dstPort = dstPort, srcPort
 		srcEndpoint, dstEndpoint = dstEndpoint, srcEndpoint
+		srcNodeLabels, dstNodeLabels = dstNodeLabels, srcNodeLabels
 	}
 
+	decoded.SourceNodeLabels = srcNodeLabels
+	decoded.DestinationNodeLabels = dstNodeLabels
 	decoded.Verdict = decodeVerdict(sock.XlatePoint)
 	decoded.IP = decodeL3(srcIP, dstIP, ipVersion)
 	decoded.L4 = decodeL4(sock.L4Proto, srcPort, dstPort)
