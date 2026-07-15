@@ -250,30 +250,9 @@ func k8sLabel(key string, value string) string {
 	return "k8s:" + key + "=" + value
 }
 
-// InitStaticIdentities establishes all well-known and static identities. Returns the
+// InitWellKnownIdentities establishes all well-known and static identities. Returns the
 // number of well-known (but not reserved) identities initialized.
-func InitStaticIdentities(ciliumNS string, cinfo cmtypes.ClusterInfo, enableWellKnown bool) int {
-
-	// Add the cluster identity to reserved identities.
-	// This cannot be done statically, as we need to know the cluster name.
-	AddReservedIdentityWithLabels(ReservedIdentityAggregateCluster,
-		labels.FromSlice([]labels.Label{
-			labels.NewLabel(labels.IDNameCluster, "", labels.LabelSourceReserved),
-			labels.NewLabel(api.PolicyLabelCluster, cinfo.Name, labels.LabelSourceK8s),
-		}))
-
-	// The ClusterMesh identity has the cluster label name, but with a value of "".
-	// This is selected by the Has selector.
-	AddReservedIdentityWithLabels(ReservedIdentityAggregateClusterMesh,
-		labels.FromSlice([]labels.Label{
-			labels.NewLabel(labels.IDNameClusterMesh, "", labels.LabelSourceReserved),
-			labels.NewLabel(api.PolicyLabelCluster, "", labels.LabelSourceK8s),
-		}))
-
-	if !enableWellKnown {
-		return 0
-	}
-
+func InitWellKnownIdentities(ciliumNS string, cinfo cmtypes.ClusterInfo) int {
 	// kube-dns labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=kube-dns
 	//   k8s:io.kubernetes.pod.namespace=kube-system
