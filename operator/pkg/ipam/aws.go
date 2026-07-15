@@ -42,6 +42,7 @@ type AWSConfig struct {
 	AWSUsePrimaryAddress         bool
 	EC2APIEndpoint               string
 	AWSMaxResultsPerCall         int32
+	AWSCrossAccountRoleARN       string `mapstructure:"aws-cross-account-role"`
 }
 
 var awsDefaultConfig = AWSConfig{
@@ -54,6 +55,7 @@ var awsDefaultConfig = AWSConfig{
 	AWSUsePrimaryAddress:         false,
 	EC2APIEndpoint:               "",
 	AWSMaxResultsPerCall:         0,
+	AWSCrossAccountRoleARN:       "",
 }
 
 func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
@@ -69,6 +71,7 @@ func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(operatorOption.AWSUsePrimaryAddress, awsDefaultConfig.AWSUsePrimaryAddress, "Allows for using primary address of the ENI for allocations on the node")
 	flags.String(operatorOption.EC2APIEndpoint, awsDefaultConfig.EC2APIEndpoint, "AWS API endpoint for the EC2 service")
 	flags.Int32(operatorOption.AWSMaxResultsPerCall, awsDefaultConfig.AWSMaxResultsPerCall, "Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests")
+	flags.String(operatorOption.AWSCrossAccountRoleARN, awsDefaultConfig.AWSCrossAccountRoleARN, "ARN of an IAM role in the VPC-owner (network) account for cross-account ENI operations")
 }
 
 type awsParams struct {
@@ -92,16 +95,17 @@ func startAWSAllocator(p awsParams) {
 	}
 
 	allocator := &aws.AllocatorAWS{
-		AWSReleaseExcessIPs:          p.AwsCfg.AWSReleaseExcessIPs,
-		ExcessIPReleaseDelay:         p.AwsCfg.ExcessIPReleaseDelay,
-		AWSEnablePrefixDelegation:    p.AwsCfg.AWSEnablePrefixDelegation,
-		ENITags:                      p.AwsCfg.ENITags,
-		ENIGarbageCollectionTags:     p.AwsCfg.ENIGarbageCollectionTags,
-		ENIGarbageCollectionInterval: p.AwsCfg.ENIGarbageCollectionInterval,
-		AWSUsePrimaryAddress:         p.AwsCfg.AWSUsePrimaryAddress,
-		EC2APIEndpoint:               p.AwsCfg.EC2APIEndpoint,
-		AWSMaxResultsPerCall:         p.AwsCfg.AWSMaxResultsPerCall,
-		ParallelAllocWorkers:         p.Cfg.ParallelAllocWorkers,
+		AWSReleaseExcessIPs:              p.AwsCfg.AWSReleaseExcessIPs,
+		ExcessIPReleaseDelay:             p.AwsCfg.ExcessIPReleaseDelay,
+		AWSEnablePrefixDelegation:        p.AwsCfg.AWSEnablePrefixDelegation,
+		ENITags:                          p.AwsCfg.ENITags,
+		ENIGarbageCollectionTags:         p.AwsCfg.ENIGarbageCollectionTags,
+		ENIGarbageCollectionInterval:     p.AwsCfg.ENIGarbageCollectionInterval,
+		AWSUsePrimaryAddress:             p.AwsCfg.AWSUsePrimaryAddress,
+		EC2APIEndpoint:                   p.AwsCfg.EC2APIEndpoint,
+		AWSMaxResultsPerCall:             p.AwsCfg.AWSMaxResultsPerCall,
+		ParallelAllocWorkers:             p.Cfg.ParallelAllocWorkers,
+		AWSCrossAccountRoleARN:           p.AwsCfg.AWSCrossAccountRoleARN,
 	}
 
 	p.Lifecycle.Append(

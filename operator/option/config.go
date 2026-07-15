@@ -132,6 +132,14 @@ const (
 	// and DescribeSecurityGroups. Set to 0 to let AWS determine the optimal page size.
 	AWSMaxResultsPerCall = "aws-max-results-per-call"
 
+	// AWSCrossAccountRoleARN is the ARN of an IAM role in the VPC-owner (network) account.
+	// When not empty, Cilium assumes this role for all ENI lifecycle operations (create, delete,
+	// assign/unassign IPs) ENI ops will be completed by this, separate connection and
+	// the local instance profile will be used for all instance-level operations
+	// (attach, describe instances). Required when pod subnets live in a different AWS account
+	// from the EC2 instances and are not shared via RAM.
+	AWSCrossAccountRoleARN = "aws-cross-account-role"
+
 	// Azure options
 
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API

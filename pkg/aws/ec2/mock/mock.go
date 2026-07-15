@@ -798,3 +798,7 @@ func (e *API) GetSecurityGroups(ctx context.Context, vpcID string) (types.Securi
 func (e *API) GetInstanceTypes(ctx context.Context) ([]ec2_types.InstanceTypeInfo, error) {
 	return e.instanceTypes, nil
 }
+
+func (e *API) CreateNetworkInterfacePermission(ctx context.Context, eniID string, accountID string) error {
+	return nil
+}
