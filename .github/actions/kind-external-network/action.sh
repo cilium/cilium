@@ -1,3 +1,5 @@
+set -euo pipefail
+
 IP4RANGE="172.20.0.0/16"
 IP6RANGE="fd00:10:64::/64"
 
