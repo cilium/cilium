@@ -61,7 +61,7 @@ spec:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
               commonTlsContext:
                 tlsCertificateSdsSecretConfigs:
-                  - name: /gateway-conformance-infra-multi-port-https-tls
+                  - name: gateway-conformance-infra/multi-port-https-tls
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
@@ -122,7 +122,7 @@ spec:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
               commonTlsContext:
                 tlsCertificateSdsSecretConfigs:
-                  - name: /gateway-conformance-infra-multi-port-https-tls
+                  - name: gateway-conformance-infra/multi-port-https-tls
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:

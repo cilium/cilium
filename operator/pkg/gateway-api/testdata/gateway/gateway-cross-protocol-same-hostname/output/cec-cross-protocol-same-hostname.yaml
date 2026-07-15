@@ -94,7 +94,7 @@ spec:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
               commonTlsContext:
                 tlsCertificateSdsSecretConfigs:
-                  - name: /gateway-conformance-infra-cross-protocol-tls
+                  - name: gateway-conformance-infra/cross-protocol-tls
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
