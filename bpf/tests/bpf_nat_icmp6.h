@@ -221,49 +221,6 @@ int snat_v6_egress_udp_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-int do_icmp6_pkt_too_big_check(const struct __ctx_buff *ctx)
-{
-	struct ipv6hdr *l3 = NULL;
-	struct ipv6hdr *inner_l3 = NULL;
-	void *l4 = NULL;
-	void *data = (void *)(long)ctx->data;
-	void *data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr) +
-		2 * sizeof(__u16) > data_end)
-		return TEST_FAIL;
-
-	l3 = (struct ipv6hdr *)(data + sizeof(__u32) + sizeof(struct ethhdr));
-	if (memcmp(&l3->daddr, (void *)v6_pod_one, 16) > 0)
-		return TEST_FAIL;
-
-	if (memcmp(&l3->saddr, (void *)v6_ext_node_one, 16) > 0)
-		return TEST_FAIL;
-
-	if (l3->nexthdr != IPPROTO_ICMPV6)
-		return TEST_FAIL;
-
-	inner_l3 = (struct ipv6hdr *)(data + sizeof(__u32) +
-		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr));
-
-	if (memcmp(&inner_l3->daddr, (void *)v6_ext_node_one, 16) > 0)
-		return TEST_FAIL;
-
-	if (memcmp(&inner_l3->saddr, (void *)v6_pod_one, 16) > 0)
-		return TEST_FAIL;
-
-	l4 = (void *)(data + sizeof(__u32) +
-		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr));
-	if (*((__u16 *)l4) != bpf_htons(20))
-		return TEST_FAIL;
-	if (*((__u16 *)(l4 + sizeof(__u16))) != bpf_htons(1234))
-		return TEST_FAIL;
-	return 0;
-}
-
 PKTGEN("tc", "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_pktgen(struct __ctx_buff *ctx)
 {
