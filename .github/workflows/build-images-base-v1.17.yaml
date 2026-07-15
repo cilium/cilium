@@ -92,16 +92,6 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
-
-      - name: Set up QEMU
-        id: qemu
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -131,6 +121,23 @@ jobs:
           else
             echo exists="false" >> $GITHUB_OUTPUT
           fi
+
+      # Set up the multi-arch build tooling (and cosign) only when the runtime
+      # image actually needs to be built. If it already exists, this is deferred
+      # until we know whether the builder image needs building (see the matching
+      # block below), so that when both images already exist we skip this setup.
+      - name: Set up Docker Buildx
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Set up QEMU
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        id: qemu
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Install Cosign
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -221,6 +228,20 @@ jobs:
             echo exists="false" >> $GITHUB_OUTPUT
           fi
 
+      # If the runtime image already existed we skipped the multi-arch build
+      # setup above; set it up now that we know the builder image must be built.
+      - name: Set up Docker Buildx
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Set up QEMU
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Install Cosign
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
       - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
@@ -302,13 +323,18 @@ jobs:
           if [[ "${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}" == "true" ]]; then
             ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
             export CONTAINER_IMAGE=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}
+            # The builder image changed, so its bundled codegen tooling may
+            # produce different protobuf output: regenerate it.
+            export VOLUME=$PWD/api/v1
+            make -C ../cilium-base-branch/api/v1
           else
             digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}")
             ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${digest}"
-            export CONTAINER_IMAGE="${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${digest}"
+            # The builder image is unchanged, so regenerating protobuf would be a
+            # no-op (output is a function of the builder image and proto sources,
+            # and this workflow only triggers on image changes). Skip the
+            # expensive builder-image pull + protoc run.
           fi
-          export VOLUME=$PWD/api/v1
-          make -C ../cilium-base-branch/api/v1
           if ! git diff --quiet; then
             if [[ "${{ steps.update-runtime-image.outputs.committed }}" == "true" ]]; then
               git commit --amend -sam "images: update cilium-{runtime,builder}"
