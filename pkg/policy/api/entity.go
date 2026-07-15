@@ -13,7 +13,7 @@ import (
 // individual identities.  Entities are used to describe "outside of cluster",
 // "host", etc.
 //
-// +kubebuilder:validation:Enum=all;world;cluster;host;init;ingress;unmanaged;remote-node;health;none;kube-apiserver
+// +kubebuilder:validation:Enum=all;world;cluster;cluster-mesh;host;init;ingress;unmanaged;remote-node;health;none;kube-apiserver
 type Entity string
 
 const (
