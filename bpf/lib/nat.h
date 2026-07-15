@@ -605,6 +605,18 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
 	tuple->flags = dir;
 }
 
+/* Store struct ipv4_ct_tuple and struct ipv4_nat_target objects in maps to
+ * optimize stack usage.
+ */
+struct snat_v4_args {
+	struct ipv4_ct_tuple tuple;
+	struct ipv4_nat_target target;
+};
+
+DEFINE_AUX(struct snat_v4_args, snat_v4_args);
+
+#if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
+
 /* The function contains a core logic for deciding whether an egressing packet
  * has to be SNAT-ed, filling the relevant state in the target parameter if
  * that's the case.
@@ -626,23 +638,11 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 {
 	const struct endpoint_info *local_ep;
 	const struct remote_endpoint_info *remote_ep;
-
-	/* To prevent aliasing with masqueraded connections,
-	 * we need to track all host connections that use config
-	 * nat_ipv4_masquerade.
-	 *
-	 * This either reserves the source port (so that it's not used
-	 * for masquerading), or port-SNATs the host connection (if the sport
-	 * is already in use for a masqueraded connection).
-	 */
-	if (tuple->saddr == CONFIG(nat_ipv4_masquerade).be32) {
-		target->addr = CONFIG(nat_ipv4_masquerade).be32;
-		target->needs_ct = true;
-
-		return NAT_NEEDED;
-	}
+	bool from_host;
 
 	local_ep = __lookup_ip4_endpoint(tuple->saddr);
+	from_host = (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST ||
+		    (local_ep && (local_ep->flags & ENDPOINT_F_HOST));
 
 	/* Check if this packet belongs to reply traffic coming from a
 	 * local endpoint.
@@ -651,7 +651,7 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	 * node which matches the packet source IP, which means we can
 	 * skip the CT lookup since this cannot be reply traffic.
 	 */
-	if (local_ep) {
+	if (local_ep && !from_host) {
 		int err;
 
 		target->from_local_endpoint = true;
@@ -687,22 +687,38 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	 * that we always want to SNAT a packet if it's matched by an egress NAT policy.
 	 */
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
-	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr,
-				       &target->ifindex)) {
+	if (egress_gw_snat_needed_hook(ctx, tuple->saddr, tuple->daddr,
+				       &target->addr, &target->ifindex,
+				       from_host)) {
 		if (target->addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 			return DROP_NO_EGRESS_IP;
 
 		target->egress_gateway = true;
 		/* If the endpoint is local, then the connection is already tracked. */
-		if (!local_ep)
+		if (from_host || !local_ep)
 			target->needs_ct = true;
 
-		if (local_ep && local_ep->rt_info)
+		if (!from_host && local_ep && local_ep->rt_info)
 			target->tbid = local_ep->rt_info;
 
 		return NAT_NEEDED;
 	}
 #endif
+
+	/* To prevent aliasing with masqueraded connections,
+	 * we need to track all host connections that use config
+	 * nat_ipv4_masquerade.
+	 *
+	 * This either reserves the source port (so that it's not used
+	 * for masquerading), or port-SNATs the host connection (if the sport
+	 * is already in use for a masqueraded connection).
+	 */
+	if (tuple->saddr == CONFIG(nat_ipv4_masquerade).be32) {
+		target->addr = CONFIG(nat_ipv4_masquerade).be32;
+		target->needs_ct = true;
+
+		return NAT_NEEDED;
+	}
 
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
 	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
@@ -772,16 +788,6 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	return NAT_PUNT_TO_STACK;
 }
 
-/* Store struct ipv6_ct_tuple and struct ipv6_nat_target objects in maps to
- * optimize stack usage.
- */
-struct snat_v4_args {
-	struct ipv4_ct_tuple tuple;
-	struct ipv4_nat_target target;
-};
-
-DEFINE_AUX(struct snat_v4_args, snat_v4_args);
-
 __noinline __weak int
 snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off)
 {
@@ -795,6 +801,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off
 	return __snat_v4_needs_masquerade(ctx, &args->tuple, ip4, fraginfo,
 					  l4_off, &args->target);
 }
+
+#endif /* ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
 
 #ifdef ENABLE_SNAT_ICMPV4
 static __always_inline __maybe_unused int
