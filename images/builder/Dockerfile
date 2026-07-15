@@ -3,13 +3,10 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1782994507-725357c@sha256:004fa5966bba637f748bc7fa129ad61500b43410177f11f590a75b29431279de
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:ea98443f896d818c549681c4bfc1329a37f42701@sha256:fbd7a719ba355ba57332cfae4e28b408dabc421d4f989ab0fb24a774a62b8395
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1783861476-95bbb92@sha256:648e2bb2d69f17a4f13a2ed7fd71aa8d0de6a16554b13497655de869a95bcdfb
 ARG GOLANG_IMAGE=docker.io/library/golang:1.26.5@sha256:3aff6657219a4d9c14e27fb1d8976c49c29fddb70ba835014f477e1c70636647
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:19.1.7-1782898005-bed4da5@sha256:270bf0e70853c388b72c2247e4ade91d35d74898e2ec12edd5b72ace9ee34333
-
-FROM ${COMPILERS_IMAGE} AS compilers-image
 
 FROM ${GOLANG_IMAGE} AS golang-dist
 
@@ -52,8 +49,6 @@ RUN \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-COPY --from=compilers-image /usr/lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu
 
 COPY --from=golang-dist /usr/local/go /usr/local/go
 RUN mkdir -p /go
