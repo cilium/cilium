@@ -148,6 +148,10 @@ type testCase struct {
 
 	delete bool
 
+	// kubeProxyReplacement overrides the default enabled setting for this case.
+	kubeProxyReplacement *bool
+	expectIDCleared      bool
+
 	// expectErr when true causes UpdateService to fail on backend slots
 	// and expects Update to return an error.
 	expectErr bool
@@ -158,10 +162,11 @@ type testCase struct {
 	maps, maglev []maps.MapDump
 }
 
-// faultyLBMaps wraps an LBMaps and can inject errors on UpdateService.
+// faultyLBMaps wraps an LBMaps and can inject errors on map operations.
 type faultyLBMaps struct {
 	maps.LBMaps
-	fail bool
+	fail              bool
+	failDeleteService bool
 }
 
 func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValue) error {
@@ -169,6 +174,13 @@ func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValu
 		return errors.New("update service failed")
 	}
 	return m.LBMaps.UpdateService(key, value)
+}
+
+func (m *faultyLBMaps) DeleteService(key maps.ServiceKey) error {
+	if m.failDeleteService {
+		return errors.New("delete service failed")
+	}
+	return m.LBMaps.DeleteService(key)
 }
 
 var testServiceName = loadbalancer.NewServiceName("test", "test")
@@ -243,6 +255,17 @@ func newTestCase(name string, mod func(*loadbalancer.Service, *loadbalancer.Fron
 		maps:      maps,
 		maglev:    maglev,
 	}
+}
+
+func withKubeProxyReplacement(enabled bool, tc testCase) testCase {
+	tc.kubeProxyReplacement = &enabled
+	return tc
+}
+
+func withStaleFrontendID(tc testCase) testCase {
+	tc.frontend.ID = 123
+	tc.expectIDCleared = true
+	return tc
 }
 
 func deleteFrontend(addr loadbalancer.L3n4Addr, typ loadbalancer.SVCType) func(*loadbalancer.Service, *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
@@ -517,13 +540,17 @@ var nodePortTestCases = []testCase{
 		false,
 	),
 
-	newTestCase(
-		"NodePort_cleanup",
-		deleteFrontend(zeroAddr, NodePort),
+	withStaleFrontendID(withKubeProxyReplacement(false, newTestCase(
+		"NodePort_non_candidate_cleanup",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = NodePort
+			fe.Address = zeroAddr
+			return false, nil
+		},
 		[]maps.MapDump{},
 		nil,
 		false,
-	),
+	))),
 }
 
 var hostPortTestCases = []testCase{
@@ -552,13 +579,17 @@ var hostPortTestCases = []testCase{
 		false,
 	),
 
-	newTestCase(
-		"HostPort_zero_cleanup",
-		deleteFrontend(zeroAddr, HostPort),
+	withKubeProxyReplacement(false, newTestCase(
+		"HostPort_zero_non_candidate_cleanup",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = HostPort
+			fe.Address = zeroAddr
+			return false, nil
+		},
 		[]maps.MapDump{},
 		nil,
 		false,
-	),
+	)),
 
 	// HostPort with fixed address.
 	newTestCase(
@@ -581,13 +612,17 @@ var hostPortTestCases = []testCase{
 		false,
 	),
 
-	newTestCase(
-		"HostPort_fixed_cleanup",
-		deleteFrontend(autoAddr, HostPort),
+	withKubeProxyReplacement(false, newTestCase(
+		"HostPort_fixed_non_candidate_cleanup",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = HostPort
+			fe.Address = autoAddr
+			return false, nil
+		},
 		[]maps.MapDump{},
 		nil,
 		false,
-	),
+	)),
 }
 
 var proxyTestCases = []testCase{
@@ -889,7 +924,7 @@ var externalIPTestCases = []testCase{
 
 var localRedirectTestCases = []testCase{
 	// If a frontend has a redirect set to another service it will have the "LocalRedirect" flag.
-	newTestCase(
+	withKubeProxyReplacement(false, newTestCase(
 		"LocalRedirect",
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = LocalRedirect
@@ -904,7 +939,7 @@ var localRedirectTestCases = []testCase{
 		},
 		nil,
 		false,
-	),
+	)),
 
 	newTestCase(
 		"LocalRedirect_cleanup",
@@ -1351,9 +1386,68 @@ func TestBPFOps(t *testing.T) {
 
 	faultMaps := &faultyLBMaps{LBMaps: lbmaps}
 
+	t.Run("Update_withdraws_non_candidate_without_prune", func(t *testing.T) {
+		// The table-driven cases below invoke Prune before validating the maps,
+		// which could hide an incomplete deletion in Update. This test checks the
+		// maps and BPFOps bookkeeping immediately after a frontend becomes a
+		// non-candidate, without giving Prune an opportunity to clean up for it.
+		external := extCfg
+		localCfg := cfg
+		localCfg.LBAlgorithm = loadbalancer.LBAlgorithmRandom
+		ops := newBPFOps(bpfOpsParams{
+			Lifecycle:      lc,
+			Log:            log,
+			Config:         localCfg,
+			ExternalConfig: external,
+			LBMaps:         faultMaps,
+			Maglev:         maglev,
+			DB:             db,
+			NodeAddresses:  nodeAddrs,
+			Frontends:      frontends,
+		})
+
+		svc := baseService
+		frontend := baseFrontend
+		frontend.Type = LoadBalancer
+		frontend.Address = extraFrontend
+		frontend.Service = &svc
+		frontend.Backends = concatBe(frontend.Backends, baseBackend, 1)
+
+		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
+		require.NotZero(t, frontend.ID, "programmed Frontend ID")
+		require.False(t, lbmaps.IsEmpty(), "programmed BPF maps")
+
+		ops.extCfg.KubeProxyReplacement = false
+		// Withdrawing a frontend performs multiple map operations. A failed
+		// operation must leave the ID intact so the reconciler can retry the
+		// partially completed deletion.
+		faultMaps.failDeleteService = true
+		err := ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend)
+		faultMaps.failDeleteService = false
+		require.Error(t, err)
+		require.NotZero(t, frontend.ID, "Frontend ID after failed withdrawal")
+		require.Equal(t, frontend.Address, ops.serviceIDAlloc.idToAddr[frontend.ID],
+			"Frontend ID allocation after failed withdrawal")
+
+		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
+
+		require.Zero(t, frontend.ID, "withdrawn Frontend ID")
+		require.True(t, lbmaps.IsEmpty(), "BPF maps after Update")
+		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
+		require.Empty(t, ops.backendStates, "Backend state remains")
+		require.Empty(t, ops.backendReferences, "Backend references remain")
+		require.Empty(t, ops.wildcardReferences, "Wildcard references remain")
+	})
+
 	runTests := func(ops *BPFOps, testCaseSet []testCase, algo string, addr loadbalancer.L3n4Addr, validateMaglev bool) {
 		for _, testCase := range testCaseSet {
 			t.Run(fmt.Sprintf("%s/%s/ipv6:%v", testCase.name, algo, addr.IsIPv6()), func(t *testing.T) {
+				ops.extCfg.KubeProxyReplacement = true
+				if testCase.kubeProxyReplacement != nil {
+					ops.extCfg.KubeProxyReplacement = *testCase.kubeProxyReplacement
+				}
+
 				frontend := testCase.frontend
 
 				switch frontend.Address.String() {
@@ -1393,6 +1487,9 @@ func TestBPFOps(t *testing.T) {
 						require.Error(t, err, "Update")
 					} else {
 						require.NoError(t, err, "Update")
+					}
+					if testCase.expectIDCleared {
+						require.Zero(t, frontend.ID, "non-candidate Frontend ID")
 					}
 
 					// Invariant: every backendStates entry must have a non-zero addr.
