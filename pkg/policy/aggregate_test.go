@@ -4,6 +4,8 @@
 package policy
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,19 +21,75 @@ func TestAllAggregates(t *testing.T) {
 		require.True(t, isAggregate(nid))
 	}
 
-	// check all identities
-	// Should only take a second or two.
-	// Validates that all aggregate identities are known.
-	for i := range (identity.IdentityScopeRemoteNode | identity.MaxAllocatorLocalIdentity) / 100 {
-		nid := i * 100
+	c := identity.ReservedIdentityAggregateCluster
+	m := identity.ReservedIdentityAggregateClusterMesh
+	n := identity.ReservedIdentityAggregateRemoteNode
+	w := identity.ReservedIdentityAggregateWorld
+
+	// Gather results, we will optionally write them
+	// to C test literals to ensure we produce reasonable results
+	var expectedIn, expectedOut []identity.NumericIdentity
+	// set to True to update C test literals
+	writeOutput := false
+
+	check := func(nid identity.NumericIdentity) {
 		// duplicate of AllAggregates for efficiency.
 		switch nid {
-		case 0, 6, 2, 11, 12:
+		case 0, c, m, n, w:
 			require.True(t, isAggregate(nid))
 		default:
 			require.False(t, isAggregate(nid))
 		}
+
+		if writeOutput {
+			expectedIn = append(expectedIn, nid)
+			expectedOut = append(expectedOut, aggregateFor(nid))
+		}
 	}
+
+	// check all interesting identities
+	// Should only take a second or two.
+	// Validates that all aggregate identities are known.
+	for i := range 100 {
+		check(identity.NumericIdentity(i))
+	}
+	for _, nid := range []identity.NumericIdentity{
+		101,
+		1024,
+		0xFFFF,
+		identity.IdentityScopeLocal,
+		identity.IdentityScopeRemoteNode,
+	} {
+		check(nid - 1)
+		check(nid)
+		check(nid + 1)
+	}
+
+	if writeOutput {
+		err := writeCArray("../../bpf/tests/aggregate_nid_in.txt", expectedIn)
+		fmt.Printf("wrote %d entries", len(expectedIn))
+		require.NoError(t, err)
+		err = writeCArray("../../bpf/tests/aggregate_nid_out.txt", expectedOut)
+		require.NoError(t, err)
+	}
+}
+
+func writeCArray(path string, nids []identity.NumericIdentity) error {
+	fp, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	for i, nid := range nids {
+		if _, err := fmt.Fprintf(fp, "%d, ", nid); err != nil {
+			return err
+		}
+		if i%10 == 9 {
+			if _, err := fmt.Fprintln(fp, ""); err != nil {
+				return err
+			}
+		}
+	}
+	return fp.Close()
 }
 
 func TestIsAggregate(t *testing.T) {

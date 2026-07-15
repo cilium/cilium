@@ -12,6 +12,7 @@
 #include <lib/policy.h>
 
 #include "lib/policy.h"
+#include "network_policy_tuples.h"
 
 #define REMOTE_IDENTITY		112233
 
@@ -266,6 +267,12 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 		assert(aggregate_for_identity(REMOTE_NODE_ID) == 0);
 		assert(aggregate_for_identity(KUBE_APISERVER_NODE_ID) == 0);
 		assert(aggregate_for_identity(33554432) == n);
+	});
+
+    /* tests that aggregates match the userspace implementation */
+	TEST("aggregate-for-id-userspace", {
+		for (unsigned long i = 0; i < ARRAY_SIZE(aggregate_nid_in); i++)
+			assert(aggregate_for_identity(aggregate_nid_in[i]) == aggregate_nid_out[i]);
 	});
 
 	test_finish();
