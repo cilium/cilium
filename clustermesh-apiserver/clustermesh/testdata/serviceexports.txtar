@@ -150,12 +150,6 @@ metadata:
   "labels": {
     "my-label": "test"
   },
-  "Labels": {
-    "my-label": "test"
-  },
-  "Annotations": {
-    "my-annotation": "foo"
-  },
   "exportCreationTimestamp": "2026-01-01T00:00:00Z",
   "ports": [
     {
@@ -199,12 +193,6 @@ metadata:
   },
   "labels": {
     "my-label": "test"
-  },
-  "Labels": {
-    "my-label": "test"
-  },
-  "Annotations": {
-    "my-annotation": "bar"
   },
   "exportCreationTimestamp": "2026-01-01T00:00:00Z",
   "ports": [
