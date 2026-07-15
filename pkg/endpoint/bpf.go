@@ -552,27 +552,7 @@ func (e *Endpoint) policyMapSync(policyMapDump policy.MapStateMap, stats *regene
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy != e.desiredPolicy {
 		if len(policyMapDump) > 0 {
-			// A non-empty dump only happens on the first regeneration after an
-			// agent restart, when the BPF policy map still holds the entries
-			// that were enforced before the restart but no policy has been
-			// realized yet (see the caller in runPreCompilationSteps). Those
-			// entries represent the last known good policy, so preserve them:
-			// add the desired keys but do not delete the restored ones against a
-			// desired policy that may not have finished resolving its selectors
-			// yet. Deleting them here breaks established L3/L4 connections until
-			// the desired policy is complete (a POLICY_DENIED black-hole during
-			// upgrade/downgrade).
-			//
-			// The preserved entries that end up not being part of the desired
-			// policy (e.g. entries keyed on identities that were reallocated
-			// across the restart) are left in the map. They are not tracked by
-			// realizedPolicy once regeneration completes, so normal syncs do not
-			// remove them; the periodic full reconciliation (syncPolicyMapWithDump)
-			// removes them once the desired policy is fully realized. Mark the
-			// endpoint so that first reconciliation is treated as expected
-			// convergence rather than a policy-map bug.
-			_, _, err = e.syncPolicyMapWith(policyMapDump, false, true)
-			e.preservedRestoredPolicyEntries = true
+			_, _, err = e.syncPolicyMapWith(policyMapDump, false)
 		} else {
 			err = e.syncPolicyMap()
 		}
@@ -1404,16 +1384,7 @@ func (e *Endpoint) syncPolicyMap() error {
 // syncPolicyMapWith updates the bpf policy map state based on the
 // difference between a realized MapStateMap from a recent policy map dump
 // and desired policy state.
-//
-// When skipDeletes is true, entries present in the realized map but missing
-// from the desired policy are left in place instead of being deleted. This is
-// used on the first regeneration after an agent restart, where the realized map
-// is the pre-restart map and the desired policy may not have finished resolving
-// its selectors yet: deleting then would tear down entries that still enforce
-// established L3/L4 connections. The stale entries are cleaned up once the
-// desired policy is fully realized, by a subsequent regeneration and by the
-// periodic full reconciliation (syncPolicyMapWithDump).
-func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool, skipDeletes bool) (diffCount int, diffs []policy.MapChange, err error) {
+func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
 	addErrors, deleteErrors := 0, 0
 
 	e.updatePolicyMapPressureMetric(e.desiredPolicy.Len())
@@ -1451,19 +1422,17 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 	}
 
 	// Delete policy keys present in the realized state, but not present in the desired state
-	if !skipDeletes {
-		for k, v := range e.desiredPolicy.MissingMap(realized) {
-			if !e.deletePolicyKey(k) {
-				deleteErrors++
-				continue
-			}
-			diffCount++
-			if withDiffs {
-				diffs = append(diffs, policy.MapChange{
-					Key:   k,
-					Value: v,
-				})
-			}
+	for k, v := range e.desiredPolicy.MissingMap(realized) {
+		if !e.deletePolicyKey(k) {
+			deleteErrors++
+			continue
+		}
+		diffCount++
+		if withDiffs {
+			diffs = append(diffs, policy.MapChange{
+				Key:   k,
+				Value: v,
+			})
 		}
 	}
 
@@ -1546,38 +1515,12 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	e.PolicyDebug("syncPolicyMapWithDump", logfields.DumpedPolicyMap, currentMap)
 	// Diffs between the maps indicate an error in the policy map update logic.
 	// Collect and log diffs if policy logging is enabled.
-	//
-	// Always collect diffs (withDiffs=true) so that a restart-preserved cleanup
-	// can be told apart from a genuine bug: on the first reconciliation after a
-	// restart that preserved policy map entries, we expect only deletions of the
-	// leftover entries and no additions. That case is expected convergence, not a
-	// bug, so log it at a lower severity and clear the marker. Any addition, or
-	// any discrepancy once the marker is cleared, still indicates a real policy
-	// map update bug and is logged as a warning (which CI treats as an error).
-	diffCount, diffs, err := e.syncPolicyMapWith(currentMap, true, false)
+	diffCount, diffs, err := e.syncPolicyMapWith(currentMap, e.getLogger() != nil)
 
 	if diffCount > 0 {
-		onlyDeletes := true
-		for _, d := range diffs {
-			if d.Add {
-				onlyDeletes = false
-				break
-			}
-		}
-		if e.preservedRestoredPolicyEntries && onlyDeletes {
-			e.getLogger().Info(
-				"Removed policy map entries preserved across agent restart now that the desired policy is realized",
-				logfields.Count, diffCount,
-			)
-		} else {
-			e.getLogger().Warn("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps", logfields.Count, diffCount)
-		}
+		e.getLogger().Warn("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps", logfields.Count, diffCount)
 		e.PolicyDebug("syncPolicyMapWithDump", logfields.DumpedDiffs, diffs)
 	}
-
-	// The reconciliation has converged the map to the desired policy, so any
-	// entries preserved across the restart have now been dealt with.
-	e.preservedRestoredPolicyEntries = false
 
 	return err
 }
