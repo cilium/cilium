@@ -5,7 +5,6 @@ package gateway_api
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +17,7 @@ import (
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/loading"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/predicates"
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -40,6 +39,7 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
+	inputLoader        *loading.TranslationInputLoader
 	logger             *slog.Logger
 	controllerName     string
 	hostNetworkEnabled bool
@@ -49,9 +49,15 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
-		Client:             mgr.GetClient(),
-		Scheme:             mgr.GetScheme(),
-		translator:         translator,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		translator: translator,
+		inputLoader: loading.NewTranslationInputLoader(mgr.GetClient(), scopedLog, controllerName, loading.TranslationInputLoaderConfig{
+			IncludeTCPRoutes:      helpers.HasTCPRouteSupport(mgr.GetScheme()),
+			IncludeUDPRoutes:      helpers.HasUDPRouteSupport(mgr.GetScheme()),
+			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
+			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
+		}),
 		logger:             scopedLog,
 		controllerName:     controllerName,
 		hostNetworkEnabled: hostNetworkEnabled,
@@ -69,126 +75,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	serviceImportEnabled := helpers.HasServiceImportSupport(scheme)
 	listenerSetEnabled := helpers.HasListenerSetSupport(scheme)
 
-	// Add field indexes for HTTPRoutes
-	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.BackendServiceHTTPRouteIndex: indexers.GenerateIndexerHTTPRouteByBackendService(r.Client, r.logger),
-		indexers.GatewayHTTPRouteIndex:        indexers.IndexHTTPRouteByGateway,
-	} {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexName, indexerFunc); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-		}
-	}
-	// Only index HTTPRoute and GRPCRoute by ServiceImport if ServiceImport is enabled
-	if serviceImportEnabled {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.BackendServiceImportHTTPRouteIndex, indexers.IndexHTTPRouteByBackendServiceImport); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportHTTPRouteIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.BackendServiceImportGRPCRouteIndex, indexers.IndexGRPCRouteByBackendServiceImport); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportGRPCRouteIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexers.BackendServiceImportTLSRouteIndex, indexers.IndexTLSRouteByBackendServiceImport); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportTLSRouteIndex, err)
-		}
-		if tcpRouteEnabled {
-			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TCPRoute{}, indexers.BackendServiceImportTCPRouteIndex, indexers.IndexTCPRouteByBackendServiceImport); err != nil {
-				return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportTCPRouteIndex, err)
-			}
-		}
-		if udpRouteEnabled {
-			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.UDPRoute{}, indexers.BackendServiceImportUDPRouteIndex, indexers.IndexUDPRouteByBackendServiceImport); err != nil {
-				return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportUDPRouteIndex, err)
-			}
-		}
-	}
-
-	// Index Gateways by implementation (ie `cilium`)
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, indexers.ImplementationGatewayIndex, indexers.GenerateIndexerGatewayByImplementation(r.Client, gatewayv1.GatewayController(r.controllerName))); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ImplementationGatewayIndex, err)
-	}
-
-	// Index Gateways by referenced TLS Secrets
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, helpers.GatewaySecretIndex, indexers.IndexGatewayBySecret); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", helpers.GatewaySecretIndex, err)
-	}
-
-	// Add indexes for TLSRoutes
-	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.BackendServiceTLSRouteIndex: indexers.GenerateIndexerTLSRoutebyBackendService(r.Client, r.logger),
-		indexers.GatewayTLSRouteIndex:        indexers.IndexTLSRouteByGateway,
-	} {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexName, indexerFunc); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-		}
-	}
-
-	// Add indexes for TCPRoutes
-	if tcpRouteEnabled {
-		for indexName, indexerFunc := range map[string]client.IndexerFunc{
-			indexers.BackendServiceTCPRouteIndex: indexers.GenerateIndexerTCPRoutebyBackendService(r.Client, r.logger),
-			indexers.GatewayTCPRouteIndex:        indexers.IndexTCPRouteByGateway,
-		} {
-			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TCPRoute{}, indexName, indexerFunc); err != nil {
-				return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-			}
-		}
-	}
-
-	// Add indexes for UDPRoutes
-	if udpRouteEnabled {
-		for indexName, indexerFunc := range map[string]client.IndexerFunc{
-			indexers.BackendServiceUDPRouteIndex: indexers.GenerateIndexerUDPRoutebyBackendService(r.Client, r.logger),
-			indexers.GatewayUDPRouteIndex:        indexers.IndexUDPRouteByGateway,
-		} {
-			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.UDPRoute{}, indexName, indexerFunc); err != nil {
-				return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-			}
-		}
-	}
-
-	// Add field indexes for GRPCRoutes
-	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.BackendServiceGRPCRouteIndex: indexers.GenerateIndexerGRPCRoutebyBackendService(r.Client, r.logger),
-		indexers.GatewayGRPCRouteIndex:        indexers.IndexGRPCRouteByGateway,
-	} {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexName, indexerFunc); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
-		}
-	}
-
-	// IndexBackendTLSPolicies by referenced ConfigMaps
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicyConfigMapIndex, indexers.IndexBTLSPolicyByConfigMap); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendTLSPolicyConfigMapIndex, err)
-	}
-
-	// Index ListenerSets by parent Gateway, and routes by ListenerSet parentRefs
-	if listenerSetEnabled {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.ListenerSet{}, indexers.ListenerSetGatewayIndex, indexers.IndexListenerSetByGateway); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ListenerSetGatewayIndex, err)
-		}
-
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.ListenerSet{}, helpers.ListenerSetSecretIndex, indexers.IndexListenerSetBySecret); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", helpers.ListenerSetSecretIndex, err)
-		}
-
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.HTTPRouteListenerSetIndex, indexers.IndexHTTPRouteByListenerSet); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.HTTPRouteListenerSetIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.GRPCRouteListenerSetIndex, indexers.IndexGRPCRouteByListenerSet); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.GRPCRouteListenerSetIndex, err)
-		}
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexers.TLSRouteListenerSetIndex, indexers.IndexTLSRouteByListenerSet); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.TLSRouteListenerSetIndex, err)
-		}
-		if tcpRouteEnabled {
-			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TCPRoute{}, indexers.TCPRouteListenerSetIndex, indexers.IndexTCPRouteByListenerSet); err != nil {
-				return fmt.Errorf("failed to setup field indexer %q: %w", indexers.TCPRouteListenerSetIndex, err)
-			}
-		}
-		if udpRouteEnabled {
-			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.UDPRoute{}, indexers.UDPRouteListenerSetIndex, indexers.IndexUDPRouteByListenerSet); err != nil {
-				return fmt.Errorf("failed to setup field indexer %q: %w", indexers.UDPRouteListenerSetIndex, err)
-			}
-		}
+	if err := r.inputLoader.SetupIndexes(mgr); err != nil {
+		return err
 	}
 
 	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.Client, r.controllerName, r.logger)

@@ -24,7 +24,7 @@ type TLSRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
-	Grants         *gatewayv1.ReferenceGrantList
+	Grants         []gatewayv1.ReferenceGrant
 	TLSRoute       *gatewayv1.TLSRoute
 	ControllerName string
 
@@ -61,7 +61,7 @@ func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferenc
 }
 
 func (t *TLSRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
-	return t.Grants.Items
+	return t.Grants
 }
 
 func (t *TLSRouteInput) GetNamespace() string {
