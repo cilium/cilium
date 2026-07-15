@@ -22,8 +22,14 @@ enum identity {
 	INGRESS_ID = 8,
 	WORLD_IPV4_ID = 9,
 	WORLD_IPV6_ID = 10,
-	POLICY_CLUSTER_ID = 11, /* This ID is not used by endpoints, only policy map */
-	POLICY_CLUSTER_MESH_ID = 12,
+
+	/* These identities are used by the policy system for aggregation,
+	 * they're never applied to traffic or endpoints directly.
+	 */
+	AGGREGATE_CLUSTER_ID = 11, /* This ID is not used by endpoints, only policy map */
+	AGGREGATE_CLUSTER_MESH_ID = 12,
+	AGGREGATE_WORLD_ID = 13,
+	AGGREGATE_REMOTE_NODE_ID = 14,
 };
 
 EXPORT_TYPE(enum identity);
@@ -367,14 +373,22 @@ static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __be16 proto
  */
 static __always_inline __u32 aggregate_for_identity(__u32 identity)
 {
+	/* aggregates must aggregate to themselves */
+	switch (identity) {
+	case 0:
+	case AGGREGATE_CLUSTER_ID:
+	case AGGREGATE_CLUSTER_MESH_ID:
+	case AGGREGATE_REMOTE_NODE_ID:
+	case AGGREGATE_WORLD_ID:
+		return identity;
+	}
+
 	/* All remote nodes aggregate to ID 6. */
 	if (identity_is_remote_node(identity))
 		return REMOTE_NODE_ID;
 	if (identity_is_world(identity))
 		return WORLD_ID;
 
-	if (identity == POLICY_CLUSTER_ID || identity == POLICY_CLUSTER_MESH_ID || identity == 0)
-		return identity;
 	/* Identities 0-99 are special, we cannot easily aggregate them. */
 	if (identity < 100)
 		return 0;
@@ -383,7 +397,7 @@ static __always_inline __u32 aggregate_for_identity(__u32 identity)
 	 * It must be an endpoint, either in cluster or cluster mesh.
 	 */
 	if (extract_cluster_id_from_identity(identity) == CONFIG(cluster_id))
-		return POLICY_CLUSTER_ID;
+		return AGGREGATE_CLUSTER_ID;
 
-	return POLICY_CLUSTER_MESH_ID;
+	return AGGREGATE_CLUSTER_MESH_ID;
 }
