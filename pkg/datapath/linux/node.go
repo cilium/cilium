@@ -116,6 +116,10 @@ func NewNodeHandler(
 			handler.RestoreNodeIDs()
 			return nil
 		},
+		OnStop: func(_ cell.HookContext) error {
+			nodeManager.Unsubscribe(handler)
+			return nil
+		},
 	})
 
 	return handler, handler
