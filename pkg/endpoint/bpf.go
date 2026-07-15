@@ -1582,12 +1582,6 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	return err
 }
 
-// syncPolicyMapControllerName is shared by the controller's creation and its
-// callers so the name cannot drift apart.
-func (e *Endpoint) syncPolicyMapControllerName() string {
-	return fmt.Sprintf("sync-policymap-%d", e.ID)
-}
-
 // startSyncPolicyMapController starts the policymap sync controller. Must be called with the endpoint mutex held.
 func (e *Endpoint) startSyncPolicyMapController() {
 	// Skip the controller if the endpoint has no policy map
@@ -1595,7 +1589,7 @@ func (e *Endpoint) startSyncPolicyMapController() {
 		return
 	}
 
-	ctrlName := e.syncPolicyMapControllerName()
+	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
 	e.controllers.CreateController(ctrlName,
 		controller.ControllerParams{
 			Group:  syncPolicymapControllerGroup,
