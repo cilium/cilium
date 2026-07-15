@@ -31,17 +31,17 @@ import (
 //
 // THIS MUST!!! MATCH THE IMPLEMENTATION in bpf/lib/identity.h
 func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
+	// all aggregates must aggregate to themselves
+	switch nid {
+	case identity.IdentityUnknown, identity.ReservedIdentityAggregateCluster, identity.ReservedIdentityAggregateClusterMesh, identity.ReservedIdentityAggregateWorld, identity.ReservedIdentityAggregateRemoteNode:
+		return nid
+	}
+
 	switch nid {
 	case identity.ReservedIdentityRemoteNode, identity.ReservedIdentityKubeAPIServer:
 		return identity.ReservedIdentityRemoteNode
 	case identity.ReservedIdentityWorld, identity.ReservedIdentityWorldIPv4, identity.ReservedIdentityWorldIPv6:
 		return identity.ReservedIdentityWorld
-	case identity.ReservedIdentityCluster:
-		return identity.ReservedIdentityCluster
-	case identity.ReservedIdentityClusterMesh:
-		return identity.ReservedIdentityClusterMesh
-	case identity.IdentityUnknown:
-		return identity.IdentityUnknown
 	}
 
 	// All identities below 100 are special-cased.
@@ -61,9 +61,9 @@ func aggregateFor(nid identity.NumericIdentity) identity.NumericIdentity {
 	// Determine if nid is in-cluster.
 	cid := nid.ClusterID()
 	if cid == option.Config.ClusterID {
-		return identity.ReservedIdentityCluster
+		return identity.ReservedIdentityAggregateCluster
 	}
-	return identity.ReservedIdentityClusterMesh
+	return identity.ReservedIdentityAggregateClusterMesh
 }
 
 // aggregates returns true if child is a child of the wildcard.
@@ -83,6 +83,6 @@ var AllAggregates = []identity.NumericIdentity{
 	identity.IdentityUnknown,
 	identity.ReservedIdentityRemoteNode,
 	identity.ReservedIdentityWorld,
-	identity.ReservedIdentityCluster,
-	identity.ReservedIdentityClusterMesh,
+	identity.ReservedIdentityAggregateCluster,
+	identity.ReservedIdentityAggregateClusterMesh,
 }

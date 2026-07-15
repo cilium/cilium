@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#define ENABLE_IPV4
+#define ENABLE_IPV6
+
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
@@ -235,17 +238,23 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 
 	/* tests that partial aggregates are correctly calculated */
 	TEST("aggregate-for-id", {
+		/* shorthand */
+		__u32 c = AGGREGATE_CLUSTER_ID;
+		__u32 m = AGGREGATE_CLUSTER_MESH_ID;
+		__u32 n = AGGREGATE_REMOTE_NODE_ID;
+		__u32 w = AGGREGATE_WORLD_ID;
+
 		/* all aggregates must aggregate to themselves */
 		assert(aggregate_for_identity(0) == 0);
-		assert(aggregate_for_identity(2) == 2);
-		assert(aggregate_for_identity(6) == 6);
-		assert(aggregate_for_identity(11) == 11);
-		assert(aggregate_for_identity(12) == 12);
+		assert(aggregate_for_identity(c) == c);
+		assert(aggregate_for_identity(m) == m);
+		assert(aggregate_for_identity(n) == n);
+		assert(aggregate_for_identity(w) == w);
 
 		/* in-cluster identity */
-		assert(aggregate_for_identity(400) == POLICY_CLUSTER_ID);
+		assert(aggregate_for_identity(400) == AGGREGATE_CLUSTER_ID);
 		/* cluster-mesh identity */
-		assert(aggregate_for_identity(0x0001aabb) == POLICY_CLUSTER_MESH_ID);
+		assert(aggregate_for_identity(0x0001aabb) == AGGREGATE_CLUSTER_MESH_ID);
 
 		/* world identities */
 		assert(aggregate_for_identity(16777217) == WORLD_ID);
