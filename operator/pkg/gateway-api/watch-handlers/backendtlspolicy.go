@@ -23,9 +23,9 @@ import (
 )
 
 // EnqueueRequestForBackendTLSPolicy returns an event handler that, when passed a BackendTLSPolicy, returns reconcile.Requests
-// for all Cilium-relevant Gateways where that BackendTLSPolicy references a Service that is used as a backend for a
+// for all controller-relevant Gateways where that BackendTLSPolicy references a Service that is used as a backend for a
 // Route that is attached to that Gateway.
-func EnqueueRequestForBackendTLSPolicy(c client.Client, logger *slog.Logger) handler.EventHandler {
+func EnqueueRequestForBackendTLSPolicy(c client.Client, logger *slog.Logger, controllerName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := logger.With(logfields.LogSubsys, "queue-gw-from-backendtlspolicy")
 
@@ -35,16 +35,16 @@ func EnqueueRequestForBackendTLSPolicy(c client.Client, logger *slog.Logger) han
 			return nil
 		}
 
-		// Build a set of all Cilium Gateway full names.
+		// Build a set of all matching Gateway full names.
 		// This makes sure we only add a reconcile.Request once for each Gateway.
-		allCiliumGatewaysSet, err := getAllCiliumGatewaysSet(ctx, c)
+		allGatewaysSet, err := getAllGatewaysSetForController(ctx, c, controllerName)
 		if err != nil {
-			scopedLog.ErrorContext(ctx, "Failed to get Cilium Gateways", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to get controller Gateways", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
 		ns := o.GetNamespace()
-		updateReconcileRequestsForBackendTLSPolicy(ctx, c, scopedLog, allCiliumGatewaysSet, reconcileRequests, btlsp, ns)
+		updateReconcileRequestsForBackendTLSPolicy(ctx, c, scopedLog, allGatewaysSet, reconcileRequests, btlsp, ns)
 
 		recs := slices.Collect(maps.Keys(reconcileRequests))
 		if len(recs) > 0 {
@@ -56,7 +56,7 @@ func EnqueueRequestForBackendTLSPolicy(c client.Client, logger *slog.Logger) han
 	})
 }
 
-func EnqueueRequestForBackendTLSPolicyConfigMap(c client.Client, logger *slog.Logger) handler.EventHandler {
+func EnqueueRequestForBackendTLSPolicyConfigMap(c client.Client, logger *slog.Logger, controllerName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := logger.With(logfields.LogSubsys, "queue-gw-from-backendtlspolicy-configmap")
 
@@ -84,11 +84,11 @@ func EnqueueRequestForBackendTLSPolicyConfigMap(c client.Client, logger *slog.Lo
 			return []reconcile.Request{}
 		}
 
-		// Build a set of all Cilium Gateway full names.
+		// Build a set of all matching Gateway full names.
 		// This makes sure we only add a reconcile.Request once for each Gateway.
-		allCiliumGatewaysSet, err := getAllCiliumGatewaysSet(ctx, c)
+		allGatewaysSet, err := getAllGatewaysSetForController(ctx, c, controllerName)
 		if err != nil {
-			scopedLog.ErrorContext(ctx, "Failed to get Cilium Gateways", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to get controller Gateways", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -117,8 +117,8 @@ func EnqueueRequestForBackendTLSPolicyConfigMap(c client.Client, logger *slog.Lo
 			}
 
 			// This BackendTLSPolicy references the ConfigMap being enqueued, check to see if it's in the
-			// ownership chain any Cilium-relevant Gateways.
-			updateReconcileRequestsForBackendTLSPolicy(ctx, c, scopedLog, allCiliumGatewaysSet, reconcileRequests, &btlsp, cfgMap.GetNamespace())
+			// ownership chain any matching Gateways.
+			updateReconcileRequestsForBackendTLSPolicy(ctx, c, scopedLog, allGatewaysSet, reconcileRequests, &btlsp, cfgMap.GetNamespace())
 
 		}
 		recs := slices.Collect(maps.Keys(reconcileRequests))
