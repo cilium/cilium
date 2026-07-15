@@ -202,39 +202,8 @@ State Propagation
     that the initial IPs synchronization from all clusters has completed.
 
  #. When using global services, ensure that global services are configured with
-    endpoints from all clusters. Run ``cilium-dbg service list`` in any Cilium pod
-    and validate that the backend IPs consist of pod IPs from all clusters
-    running relevant backends. You can further validate the correct datapath
-    plumbing by running ``cilium-dbg bpf lb list`` to inspect the state of the eBPF
-    maps.
-
-    If this fails:
-
-    * Run ``cilium-dbg debuginfo`` and look for the section ``k8s-service-cache``. In
-      that section, you will find the contents of the service correlation
-      cache. It will list the Kubernetes services and endpoints of the local
-      cluster.  It will also have a section ``externalEndpoints`` which must
-      list all endpoints of remote clusters.
-
-      ::
-
-          #### k8s-service-cache
-
-          (*k8s.ServiceCache)(0xc00000c500)({
-          [...]
-           services: (map[k8s.ServiceID]*k8s.Service) (len=2) {
-             (k8s.ServiceID) default/kubernetes: (*k8s.Service)(0xc000cd11d0)(frontend:172.20.0.1/ports=[https]/selector=map[]),
-             (k8s.ServiceID) kube-system/kube-dns: (*k8s.Service)(0xc000cd1220)(frontend:172.20.0.10/ports=[metrics dns dns-tcp]/selector=map[k8s-app:kube-dns])
-           },
-           endpoints: (map[k8s.ServiceID]*k8s.Endpoints) (len=2) {
-             (k8s.ServiceID) kube-system/kube-dns: (*k8s.Endpoints)(0xc0000103c0)(10.16.127.105:53/TCP,10.16.127.105:53/UDP,10.16.127.105:9153/TCP),
-             (k8s.ServiceID) default/kubernetes: (*k8s.Endpoints)(0xc0000103f8)(192.168.60.11:6443/TCP)
-           },
-           externalEndpoints: (map[k8s.ServiceID]k8s.externalEndpoints) {
-           }
-          })
-
-      The sections ``services`` and ``endpoints`` represent the services of the
-      local cluster, the section ``externalEndpoints`` lists all remote
-      services and will be correlated with services matching the same
-      ``ServiceID``.
+    endpoints from all clusters. Run ``cilium-dbg shell -- db/show backends``
+    (or ``cilium-dbg service list``) in any Cilium pod and validate that the
+    backend IPs consist of pod IPs from all clusters running relevant backends.
+    You can further validate the correct datapath plumbing by running
+    ``cilium-dbg bpf lb list`` to inspect the state of the eBPF maps.
