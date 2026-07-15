@@ -70,6 +70,8 @@ const (
 var (
 	endpointSelectorWorld = NewESFromLabels(labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved))
 
+	endpointSelectorWorldAggregate = NewESFromLabels(labels.NewLabel(labels.IDNameAggregateWorld, "", labels.LabelSourceReserved))
+
 	endpointSelectorWorldIPv4 = NewESFromLabels(labels.NewLabel(labels.IDNameWorldIPv4, "", labels.LabelSourceReserved))
 
 	endpointSelectorWorldIPv6 = NewESFromLabels(labels.NewLabel(labels.IDNameWorldIPv6, "", labels.LabelSourceReserved))
@@ -112,7 +114,7 @@ var (
 	// validation above.
 	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
 		EntityAll:           {WildcardEndpointSelector},
-		EntityWorld:         {endpointSelectorWorld, endpointSelectorWorldIPv4, endpointSelectorWorldIPv6},
+		EntityWorld:         {endpointSelectorWorld, endpointSelectorWorldIPv4, endpointSelectorWorldIPv6, endpointSelectorWorldAggregate},
 		EntityWorldIPv4:     {endpointSelectorWorldIPv4},
 		EntityWorldIPv6:     {endpointSelectorWorldIPv6},
 		EntityHost:          {endpointSelectorHost},

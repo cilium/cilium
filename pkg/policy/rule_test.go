@@ -1788,7 +1788,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 	require.Equal(t, uint16(80), filter.Port)
 	require.False(t, filter.Ingress)
 
-	require.Len(t, filter.PerSelectorPolicies, 3)
+	require.Len(t, filter.PerSelectorPolicies, 4)
 }
 
 func TestEgressL4AllowAllEntity(t *testing.T) {

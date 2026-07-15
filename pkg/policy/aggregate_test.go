@@ -41,6 +41,9 @@ func TestIsAggregate(t *testing.T) {
 	})
 	option.Config.ClusterID = 0
 
+	// save typing
+	w := identity.ReservedIdentityAggregateWorld
+
 	for i, tc := range []struct {
 		in, out identity.NumericIdentity
 	}{
@@ -51,11 +54,12 @@ func TestIsAggregate(t *testing.T) {
 		{identity.ReservedCoreDNS, 11},
 		{1001, 11},
 		{0x00_01_00_55, 12}, // clustermesh
-		{identity.MinLocalIdentity, 2},
-		{identity.MaxLocalIdentity, 2},
-		{identity.ReservedIdentityWorld, 2},
-		{identity.ReservedIdentityWorldIPv4, 2},
-		{identity.ReservedIdentityWorldIPv6, 2},
+		{identity.MinLocalIdentity, w},
+		{identity.MaxLocalIdentity, w},
+		{w, w},
+		{identity.ReservedIdentityWorld, 0},
+		{identity.ReservedIdentityWorldIPv4, 0},
+		{identity.ReservedIdentityWorldIPv6, 0},
 		{identity.IdentityScopeRemoteNode, 6},
 		{identity.IdentityScopeRemoteNode + 100, 6},
 	} {
@@ -74,11 +78,12 @@ func TestIsAggregate(t *testing.T) {
 		{identity.ReservedCoreDNS, 12},
 		{1001, 12},          // Now ths ID is clustermesh
 		{0x00_01_00_55, 11}, // now in-cluster
-		{identity.MinLocalIdentity, 2},
-		{identity.MaxLocalIdentity, 2},
-		{identity.ReservedIdentityWorld, 2},
-		{identity.ReservedIdentityWorldIPv4, 2},
-		{identity.ReservedIdentityWorldIPv6, 2},
+		{identity.MinLocalIdentity, w},
+		{identity.MaxLocalIdentity, w},
+		{w, w},
+		{identity.ReservedIdentityWorld, 0},
+		{identity.ReservedIdentityWorldIPv4, 0},
+		{identity.ReservedIdentityWorldIPv6, 0},
 		{identity.IdentityScopeRemoteNode, 6},
 		{identity.IdentityScopeRemoteNode + 100, 6},
 	} {

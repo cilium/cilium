@@ -229,6 +229,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 	identityWorld := identity.ReservedIdentityWorld
 	identityWorldIPv4 := identity.ReservedIdentityWorldIPv4
 	identityWorldIPv6 := identity.ReservedIdentityWorldIPv6
+	identityAggregateWorld := identity.ReservedIdentityAggregateWorld
 	labelsWorld := labels.LabelWorld.LabelArray()
 
 	identity1111 := localIdentity(1111)
@@ -251,12 +252,13 @@ func TestOrderedPolicyValidation(t *testing.T) {
 	prioNormal := types.Priority(perTierRoundUp)
 
 	identityCache := identity.IdentityMap{
-		identityFoo:       labelsFoo,
-		identityWorld:     labelsWorld,
-		identityWorldIPv4: labels.LabelWorldIPv4.LabelArray(),
-		identityWorldIPv6: labels.LabelWorldIPv6.LabelArray(),
-		identity1111:      labels1111,
-		identity1100:      labels1100,
+		identityFoo:                             labelsFoo,
+		identityWorld:                           labelsWorld,
+		identityWorldIPv4:                       labels.LabelWorldIPv4.LabelArray(),
+		identityWorldIPv6:                       labels.LabelWorldIPv6.LabelArray(),
+		identity.ReservedIdentityAggregateWorld: labels.LabelsAggregateWorld.LabelArray(),
+		identity1111:                            labels1111,
+		identity1100:                            labels1100,
 	}
 	selectorCache := testNewSelectorCache(t, logger, identityCache)
 	identity := identity.NewIdentityFromLabelArray(identityFoo, labelsFoo)
@@ -963,7 +965,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			name: "ordered test-3a: CIDR deny with an earlier order allow hole",
 			// 42: allow 1.1.1.1:u53
 			// 43: deny 1.1.0.0/16
-			// 43: deny world
+			// 43: deny entity world
 			// 99: deny everything
 			// 100: deny everything
 			entries: types.PolicyEntries{
@@ -997,9 +999,12 @@ func TestOrderedPolicyValidation(t *testing.T) {
 
 			expected: map[Key]mapStateEntry{
 				// default allow ingress
-				ingressKey(0, 0, 0, 0):              newAllowEntryWithLabels(LabelsAllowAnyIngress),
-				egressKey(identity1111, 17, 53, 16): allowEntry.withLevel(0),
-				egressL3OnlyKey(identityWorld):      denyEntry.withLevel(1),
+				ingressKey(0, 0, 0, 0):                  newAllowEntryWithLabels(LabelsAllowAnyIngress),
+				egressKey(identity1111, 17, 53, 16):     allowEntry.withLevel(0),
+				egressL3OnlyKey(identityWorld):          denyEntry.withLevel(1),
+				egressL3OnlyKey(identityWorldIPv4):      denyEntry.withLevel(1),
+				egressL3OnlyKey(identityWorldIPv6):      denyEntry.withLevel(1),
+				egressL3OnlyKey(identityAggregateWorld): denyEntry.withLevel(1), // this prevents the CIDR entries from being inserted
 			},
 			probes: []probe{
 				{key: egressKey(identity1111, 6, 53, 16), found: true, entry: DenyEntry},
