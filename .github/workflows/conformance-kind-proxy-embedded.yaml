@@ -159,12 +159,18 @@ jobs:
         run: |
           # Note: On Kind, we install Cilium with HostPort (portmap CNI chaining) enabled,
           # to ensure coverage of that feature in cilium connectivity test
+          # This test intentionally sends traffic with and without L7 LB in succession.
+          # Bound attempts on a stale pooled connection and close that socket immediately
+          # so Envoy can release a colliding 5-tuple and retry when the client reuses its
+          # source port for a direct connection.
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=hubble.relay.enabled=true
             --helm-set=cni.chainingMode=portmap \
             --helm-set-string=kubeProxyReplacement=true \
             --helm-set=k8sClusterNetworkPolicy.enabled=${ENABLE_CLUSTERNETWORKPOLICY} \
             --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set=envoy.httpRetryTimeout=1 \
+            --helm-set=envoy.httpUpstreamLingerTimeout=0 \
             --helm-set=tls.readSecretsOnlyFromSecretsNamespace=true \
             --helm-set=tls.secretSync.enabled=true \
             --helm-set=envoy.enabled=false \
