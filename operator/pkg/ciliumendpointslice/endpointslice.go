@@ -278,7 +278,7 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 			return c.runCiliumEndpointSliceUpdater(ciliumEndpointSliceEvents)
 		}),
 		job.OneShot("proc-ciliumnodes-events", func(ctx context.Context, health cell.Health) error {
-			return c.runCiliumNodesUpdater(ctx, ciliumNodesEvents)
+			return c.runCiliumNodesUpdater(ciliumNodesEvents)
 		}),
 		job.OneShot("proc-ciliumidentities-events", func(ctx context.Context, health cell.Health) error {
 			return c.runCiliumIdentitiesUpdater(ciliumIdentityEvents)
@@ -360,16 +360,14 @@ func (c *Controller) runCiliumEndpointSliceUpdater(events <-chan resource.Event[
 
 func (c *DefaultController) runCiliumNodesUpdater(ctx context.Context) error {
 	return runCiliumNodesUpdater(
-		ctx,
 		c.Controller,
 		c.ciliumNodes.Events(ctx),
 		nil,
 	)
 }
 
-func (c *SlimController) runCiliumNodesUpdater(ctx context.Context, events <-chan resource.Event[*cilium_api_v2.CiliumNode]) error {
+func (c *SlimController) runCiliumNodesUpdater(events <-chan resource.Event[*cilium_api_v2.CiliumNode]) error {
 	return runCiliumNodesUpdater(
-		ctx,
 		c.Controller,
 		events,
 		func(event resource.Event[*cilium_api_v2.CiliumNode]) {
@@ -385,21 +383,22 @@ func (c *SlimController) runCiliumNodesUpdater(ctx context.Context, events <-cha
 	)
 }
 
-func runCiliumNodesUpdater(ctx context.Context, ctrlr *Controller,
+func runCiliumNodesUpdater(ctrlr *Controller,
 	events <-chan resource.Event[*cilium_api_v2.CiliumNode],
 	handleEvent func(event resource.Event[*cilium_api_v2.CiliumNode])) error {
-	ciliumNodesStore, err := ctrlr.ciliumNodes.Store(ctx)
-	if err != nil {
-		ctrlr.logger.Warn("Couldn't get CiliumNodes store", logfields.Error, err)
-		return err
-	}
+	knownNodes := make(map[resource.Key]struct{})
 	for event := range events {
 		if handleEvent != nil {
 			handleEvent(event)
 		}
+		switch event.Kind {
+		case resource.Upsert:
+			knownNodes[event.Key] = struct{}{}
+		case resource.Delete:
+			delete(knownNodes, event.Key)
+		}
 		event.Done(nil)
-		totalNodes := len(ciliumNodesStore.List())
-		if ctrlr.rateLimit.updateRateLimiterWithNodes(totalNodes) {
+		if ctrlr.rateLimit.updateRateLimiterWithNodes(len(knownNodes)) {
 			ctrlr.logger.Info("Updated CES controller workqueue configuration",
 				logfields.WorkQueueQPSLimit, ctrlr.rateLimit.current.Limit,
 				logfields.WorkQueueBurstLimit, ctrlr.rateLimit.current.Burst)
