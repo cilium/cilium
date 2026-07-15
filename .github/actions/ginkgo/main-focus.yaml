@@ -228,6 +228,9 @@ exclude:
     focus: "f05-agent-policy-multi-node-2"
 
   - k8s-version: "1.33"
+    focus: "f06-agent-policy-basic"
+
+  - k8s-version: "1.33"
     focus: "f11-datapath-service-ns-tc"
 
   - k8s-version: "1.33"
