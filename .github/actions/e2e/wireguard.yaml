@@ -6,7 +6,6 @@
   secondary-network: 'true'
   tunnel: 'vxlan'
   encryption: 'wireguard'
-  encryption-node: 'false'
   lb-mode: 'snat'
   endpoint-routes: 'true'
   egress-gateway: 'true'
@@ -21,7 +20,6 @@
   secondary-network: 'true'
   tunnel: 'vxlan'
   encryption: 'wireguard'
-  encryption-node: 'true'
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
@@ -38,7 +36,6 @@
   secondary-network: 'true'
   tunnel: 'disabled'
   encryption: 'wireguard'
-  encryption-node: 'true'
   encryption-strict-egress: 'true'
   lb-mode: 'snat'
   egress-gateway: 'true'
@@ -55,7 +52,6 @@
   tunnel: 'geneve'
   lb-mode: 'snat'
   encryption: 'wireguard'
-  encryption-node: 'false'
   host-fw: 'true'
   ciliumendpointslice: 'true'
   ingress-controller: 'true'
@@ -82,7 +78,6 @@
   secondary-network: 'true'
   tunnel: 'vxlan'
   encryption: 'wireguard'
-  encryption-node: 'false'
   encryption-strict-ingress: 'true'
   # Without strict egress encryption we observed unencrytped host-to-pod packets arriving at cil_from_overlay
   # during startup. This only seems to happen while the agent is still setting up the datapath, so possibly a
@@ -99,7 +94,6 @@
   secondary-network: 'true'
   tunnel: 'disabled'
   encryption: 'wireguard'
-  encryption-node: 'false'
   encryption-strict-ingress: 'true'
   encryption-strict-egress: 'true'
   # Strict ingress encryption in native routing mode is new in this release, so

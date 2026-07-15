@@ -200,7 +200,6 @@ jobs:
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: 'ipsec'
-          encryption-node: ${{ matrix.encryption-node }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}

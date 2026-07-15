@@ -348,7 +348,6 @@ jobs:
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
-          encryption-node: ${{ matrix.encryption-node }}
           encryption-strict-egress: ${{ matrix.encryption-strict-egress }}
           encryption-strict-ingress: ${{ matrix.encryption-strict-ingress }}
           egress-gateway: ${{ matrix.egress-gateway }}
@@ -380,7 +379,6 @@ jobs:
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
-          encryption-node: ${{ matrix.encryption-node }}
           encryption-strict-egress: ${{ matrix.encryption-strict-egress }}
           encryption-strict-ingress: ${{ matrix.encryption-strict-ingress }}
           egress-gateway: ${{ matrix.egress-gateway }}

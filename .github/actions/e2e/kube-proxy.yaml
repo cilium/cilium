@@ -42,7 +42,6 @@
   kpr: 'false'
   tunnel: 'disabled'
   encryption: 'wireguard'
-  encryption-node: 'false'
   encryption-strict-mode: 'true'
   misc: 'socketLB.enabled=true'
   local-redirect-policy: 'true'

@@ -34,9 +34,6 @@ inputs:
   encryption:
     description: '"ipsec", "wireguard" or empty'
     default: ''
-  encryption-node:
-    description: 'Enable node-to-node encryption (WireGuard only)'
-    default: 'false'
   encryption-strict-egress:
     description: 'Enable strict mode egress encryption'
     default: ''
@@ -197,9 +194,6 @@ runs:
           ENCRYPT=""
           if [ "${{ inputs.encryption }}" != "" ]; then
             ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ inputs.encryption }}"
-            if [ "${{ inputs.encryption-node }}" != "" ]; then
-              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ inputs.encryption-node }}"
-            fi
             if [ "${{ inputs.encryption-strict-egress }}" != "" ]; then
               ENCRYPT+=" --helm-set=encryption.strictMode.egress.enabled=${{ inputs.encryption-strict-egress }}"
               ENCRYPT+=" --helm-set=encryption.strictMode.egress.cidr=10.244.0.0/16"
