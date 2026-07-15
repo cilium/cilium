@@ -512,7 +512,7 @@ func TestResolverUpsertDeleteAndImmutableSnapshots(t *testing.T) {
 	oldLabels := r.GetNodeLabels(netip.MustParseAddr("192.0.2.10"), allocatedHint(localClusterID))
 	requireLabels(t, []string{"a=first", "version=one"}, oldLabels)
 	repeatedLabels := r.GetNodeLabels(netip.MustParseAddr("192.0.2.10"), allocatedHint(localClusterID))
-	require.True(t, &oldLabels[0] == &repeatedLabels[0], "cache hits must share the immutable published slice")
+	require.Same(t, &oldLabels[0], &repeatedLabels[0], "cache hits must share the immutable published slice")
 	for _, address := range []string{"192.0.2.11", "2001:db8::11", "192.0.2.12", "2001:db8::12"} {
 		requireLabels(t, oldLabels, r.GetNodeLabels(netip.MustParseAddr(address), allocatedHint(localClusterID)))
 	}

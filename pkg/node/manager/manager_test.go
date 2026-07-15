@@ -484,8 +484,8 @@ func TestNodeStateAcceptedUpdatesIgnoreDatapathSuppression(t *testing.T) {
 		{kind: "upsert", node: added},
 		{kind: "upsert", node: updated},
 	}, observer.recordedEvents())
-	require.Zero(t, len(dp.NodeAddEvent))
-	require.Zero(t, len(dp.NodeUpdateEvent))
+	require.Empty(t, dp.NodeAddEvent)
+	require.Empty(t, dp.NodeUpdateEvent)
 }
 
 func TestNodeStateRejectedUpdateEmitsNothing(t *testing.T) {
@@ -538,7 +538,7 @@ func TestNodeStateDeleteUsesLatestStoredSnapshot(t *testing.T) {
 	default:
 		t.Fatal("latest stored node address was not removed from IPCache")
 	}
-	require.Zero(t, len(ipcache.events), "stale caller payload drove additional IPCache cleanup")
+	require.Empty(t, ipcache.events, "stale caller payload drove additional IPCache cleanup")
 }
 
 func TestNodeStateSourceMismatchedDeleteEmitsNothing(t *testing.T) {
