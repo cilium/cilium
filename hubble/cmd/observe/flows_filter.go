@@ -697,6 +697,14 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 		f.apply(func(f *flowpb.FlowFilter) {
 			f.NodeLabels = append(f.GetNodeLabels(), val)
 		})
+	case "from-node-labels":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.SourceNodeLabels = append(f.GetSourceNodeLabels(), val)
+		})
+	case "to-node-labels":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.DestinationNodeLabels = append(f.GetDestinationNodeLabels(), val)
+		})
 
 	// cluster name filters
 	case "cluster":
