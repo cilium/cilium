@@ -1,8 +1,24 @@
+set -euo pipefail
+
 KINDNETWORK=$1
 IP4TARGET=$2
 IP4OTHERTARGET=$3
 IP6TARGET=$4
 IP6OTHERTARGET=$5
+
+# Run the given command, retrying up to 5 times on failure.
+retry() {
+	local attempt
+	for attempt in $(seq 1 5); do
+		if "$@"; then
+			return 0
+		fi
+		echo "Attempt ${attempt}/5 of '$*' failed, retrying in 5s..." >&2
+		sleep 5
+	done
+	echo "::error::Command '$*' failed after 5 attempts" >&2
+	return 1
+}
 
 TARGETNAME=fake.external.service.cilium
 OTHERTARGETNAME=fake.external.service.other.cilium
@@ -102,20 +118,29 @@ http {
 EOF
 
 # Start our first external target
-CONTAINERID=$(docker run -d --name webserver --network $KINDNETWORK \
+retry docker run -d --name webserver --network $KINDNETWORK \
     --ip $IP4TARGET --ip6 $IP6TARGET \
     -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro \
     -v $(pwd)/external-service.cilium.crt:/etc/ssl/external-service.cilium.crt:ro \
     -v $(pwd)/external-service.cilium.key:/etc/ssl/external-service.cilium.key:ro \
-    nginx)
+    nginx
 
 # Start the second external target
-CONTAINERID=$(docker run -d --name other-webserver --network $KINDNETWORK \
+retry docker run -d --name other-webserver --network $KINDNETWORK \
     --ip $IP4OTHERTARGET --ip6 $IP6OTHERTARGET \
     -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro \
     -v $(pwd)/external-service.cilium.crt:/etc/ssl/external-service.cilium.crt:ro \
     -v $(pwd)/external-service.cilium.key:/etc/ssl/external-service.cilium.key:ro \
-    nginx)
+    nginx
+
+# Fail fast if either target did not actually come up.
+for container in webserver other-webserver; do
+	running=$(docker inspect -f '{{.State.Running}}' "$container")
+	if [ "$running" != "true" ]; then
+		echo "::error::External target container '$container' is not running (State.Running=$running)" >&2
+		exit 1
+	fi
+done
 
 # Get the current CoreDNS config file
 kubectl -n kube-system get configmap/coredns -o json | jq ".data.Corefile" -r  > Corefile
