@@ -43,14 +43,15 @@ func TestIsAggregate(t *testing.T) {
 
 	// save typing
 	w := identity.ReservedIdentityAggregateWorld
+	n := identity.ReservedIdentityAggregateRemoteNode
 
 	for i, tc := range []struct {
 		in, out identity.NumericIdentity
 	}{
 		{0, 0},
 		{identity.ReservedIdentityHost, 0},
-		{identity.ReservedIdentityRemoteNode, 6},
-		{identity.ReservedIdentityKubeAPIServer, 6},
+		{identity.ReservedIdentityRemoteNode, 0},
+		{identity.ReservedIdentityKubeAPIServer, 0},
 		{identity.ReservedCoreDNS, 11},
 		{1001, 11},
 		{0x00_01_00_55, 12}, // clustermesh
@@ -60,8 +61,8 @@ func TestIsAggregate(t *testing.T) {
 		{identity.ReservedIdentityWorld, 0},
 		{identity.ReservedIdentityWorldIPv4, 0},
 		{identity.ReservedIdentityWorldIPv6, 0},
-		{identity.IdentityScopeRemoteNode, 6},
-		{identity.IdentityScopeRemoteNode + 100, 6},
+		{identity.IdentityScopeRemoteNode, n},
+		{identity.IdentityScopeRemoteNode + 100, n},
 	} {
 		require.Equal(t, tc.out, aggregateFor(tc.in), "index %d ID %d", i, tc.in)
 	}
@@ -73,8 +74,8 @@ func TestIsAggregate(t *testing.T) {
 	}{
 		{0, 0},
 		{identity.ReservedIdentityHost, 0},
-		{identity.ReservedIdentityRemoteNode, 6},
-		{identity.ReservedIdentityKubeAPIServer, 6},
+		{identity.ReservedIdentityRemoteNode, 0},
+		{identity.ReservedIdentityKubeAPIServer, 0},
 		{identity.ReservedCoreDNS, 12},
 		{1001, 12},          // Now ths ID is clustermesh
 		{0x00_01_00_55, 11}, // now in-cluster
@@ -84,8 +85,8 @@ func TestIsAggregate(t *testing.T) {
 		{identity.ReservedIdentityWorld, 0},
 		{identity.ReservedIdentityWorldIPv4, 0},
 		{identity.ReservedIdentityWorldIPv6, 0},
-		{identity.IdentityScopeRemoteNode, 6},
-		{identity.IdentityScopeRemoteNode + 100, 6},
+		{identity.IdentityScopeRemoteNode, n},
+		{identity.IdentityScopeRemoteNode + 100, n},
 	} {
 		require.Equal(t, tc.out, aggregateFor(tc.in), "cluster ID 1, index %d ID %d", i, tc.in)
 	}

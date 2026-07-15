@@ -384,18 +384,17 @@ static __always_inline __u32 aggregate_for_identity(__u32 identity)
 		return identity;
 	}
 
-	switch (identity & IDENTITY_LOCAL_SCOPE_MASK) {
-	case IDENTITY_LOCAL_SCOPE_CIDR:
-		return AGGREGATE_WORLD_ID;
-	}
-
-	/* All remote nodes aggregate to ID 6. */
-	if (identity_is_remote_node(identity))
-		return REMOTE_NODE_ID;
-
 	/* Identities 0-99 are special, we cannot easily aggregate them. */
 	if (identity < 100)
 		return 0;
+
+	/* local (cidr) and remote-node identities do aggregate */
+	switch (identity & IDENTITY_LOCAL_SCOPE_MASK) {
+	case IDENTITY_LOCAL_SCOPE_REMOTE_NODE:
+		return AGGREGATE_REMOTE_NODE_ID;
+	case IDENTITY_LOCAL_SCOPE_CIDR:
+		return AGGREGATE_WORLD_ID;
+	}
 
 	/* identity is global scope and >= 100.
 	 * It must be an endpoint, either in cluster or cluster mesh.

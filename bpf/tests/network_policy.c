@@ -263,9 +263,9 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 		assert(aggregate_for_identity(WORLD_ID) == 0);
 
 		/* remote node identities */
-		assert(aggregate_for_identity(REMOTE_NODE_ID) == REMOTE_NODE_ID);
-		assert(aggregate_for_identity(KUBE_APISERVER_NODE_ID) == REMOTE_NODE_ID);
-		assert(aggregate_for_identity(33554432) == REMOTE_NODE_ID);
+		assert(aggregate_for_identity(REMOTE_NODE_ID) == 0);
+		assert(aggregate_for_identity(KUBE_APISERVER_NODE_ID) == 0);
+		assert(aggregate_for_identity(33554432) == n);
 	});
 
 	test_finish();
