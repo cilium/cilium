@@ -29,7 +29,7 @@ type GRPCRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
-	Grants         *gatewayv1.ReferenceGrantList
+	Grants         []gatewayv1.ReferenceGrant
 	GRPCRoute      *gatewayv1.GRPCRoute
 	ControllerName string
 
@@ -87,7 +87,7 @@ func (g *GRPCRouteInput) GetGVK() schema.GroupVersionKind {
 }
 
 func (g *GRPCRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
-	return g.Grants.Items
+	return g.Grants
 }
 
 func (g *GRPCRouteInput) GetListenerOwner(parent gatewayv1.ParentReference) (ListenerOwner, error) {

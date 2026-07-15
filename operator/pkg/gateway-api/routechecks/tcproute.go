@@ -24,7 +24,7 @@ type TCPRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
-	Grants         *gatewayv1.ReferenceGrantList
+	Grants         []gatewayv1.ReferenceGrant
 	TCPRoute       *gatewayv1.TCPRoute
 	ControllerName string
 
@@ -60,7 +60,7 @@ func (t *TCPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferenc
 }
 
 func (t *TCPRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
-	return t.Grants.Items
+	return t.Grants
 }
 
 func (t *TCPRouteInput) GetNamespace() string {

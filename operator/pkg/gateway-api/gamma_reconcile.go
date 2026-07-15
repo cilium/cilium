@@ -182,7 +182,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 			Ctx:            ctx,
 			Logger:         gammaLogger.With(httpRoute, hrName),
 			Client:         r.Client,
-			Grants:         grants,
+			Grants:         grants.Items,
 			HTTPRoute:      hr,
 			ControllerName: r.controllerName,
 		}
@@ -292,7 +292,7 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 			Ctx:            ctx,
 			Logger:         gammaLogger.With(grpcRoute, grpcName),
 			Client:         r.Client,
-			Grants:         grants,
+			Grants:         grants.Items,
 			GRPCRoute:      grpc,
 			ControllerName: r.controllerName,
 		}
