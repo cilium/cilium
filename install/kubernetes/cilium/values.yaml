@@ -1154,7 +1154,7 @@ encryption:
   # -- Encryption method. Can be one of ipsec, wireguard or ztunnel.
   type: ipsec
   # -- Enable encryption for pure node to node traffic.
-  # This option is only effective when encryption.type is set to "wireguard".
+  # This option is only effective when encryption.type is set to "wireguard". Deprecated: will be removed in v1.22.
   nodeEncryption: false
   # -- Configure the Encryption Pod2Pod strict mode.
   strictMode:

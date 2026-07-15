@@ -1377,7 +1377,7 @@
      - string
      - ``"cilium-ipsec-keys"``
    * - :spelling:ignore:`encryption.nodeEncryption`
-     - Enable encryption for pure node to node traffic. This option is only effective when encryption.type is set to "wireguard".
+     - Enable encryption for pure node to node traffic. This option is only effective when encryption.type is set to "wireguard". Deprecated: will be removed in v1.22.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode`

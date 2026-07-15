@@ -42,7 +42,9 @@ The following options have been deprecated in this version of Cilium. A future
 version of Cilium will remove these options, so if you use these options then
 you may need to take action to migrate to an alternative.
 
-* TODO
+* Node encryption, enabled with ``encryption.nodeEncryption`` and only
+  compatible with WireGuard, is deprecated and will be removed in v1.22. Please
+  reach out if you are interested to maintain this feature.
 
 Removed Options
 ###############

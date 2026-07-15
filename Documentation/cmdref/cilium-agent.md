@@ -195,7 +195,6 @@ cilium-agent [flags]
       --enable-xdp-prefilter                                      Enable XDP prefiltering
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
       --enable-ztunnel                                            Use zTunnel as Cilium's encryption infrastructure
-      --encrypt-node                                              Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)
       --encryption-strict-egress-allow-remote-node-identities     Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
       --encryption-strict-egress-cidr string                      In strict-mode-egress encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped.
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
@@ -371,7 +370,6 @@ cilium-agent [flags]
       --multicast-enabled                                         Enables multicast in Cilium
       --nat-map-stats-entries int                                 Number k top stats entries to store locally in statedb (default 32)
       --nat-map-stats-interval duration                           Interval upon which nat maps are iterated for stats (default 30s)
-      --node-encryption-opt-out-labels string                     Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")
       --node-labels strings                                       List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)
       --node-port-bind-protection                                 Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-range strings                                   Set the min/max NodePort port range (default [30000,32767])

@@ -84,6 +84,7 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(types.WireguardTrackAllIPsFallback, def.WireguardTrackAllIPsFallback, "Force WireGuard to track all IPs")
 	flags.MarkHidden(types.WireguardTrackAllIPsFallback)
 	flags.String(types.NodeEncryptionOptOutLabels, def.NodeEncryptionOptOutLabels, "Label selector for nodes which will opt-out of node-to-node encryption")
+	flags.MarkDeprecated(types.NodeEncryptionOptOutLabels, "This option is obsolete and will be removed in v1.22")
 }
 
 // Final config of the WireGuard agent.
