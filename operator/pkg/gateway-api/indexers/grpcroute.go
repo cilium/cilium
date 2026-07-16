@@ -101,6 +101,26 @@ func GenerateIndexerGRPCRoutebyBackendService(c client.Client, logger *slog.Logg
 					}.String(),
 				)
 			}
+			for _, f := range rule.Filters {
+				if f.Type != gatewayv1.GRPCRouteFilterRequestMirror || f.RequestMirror == nil {
+					continue
+				}
+				namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
+				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, f.RequestMirror.BackendRef)
+				if err != nil {
+					logger.Error("Failed to get request mirror backend service name",
+						logfields.LogSubsys, logfields.GRPCRoute,
+						logfields.Resource, client.ObjectKeyFromObject(rawObj),
+						logfields.Error, err)
+					continue
+				}
+				backendServices = append(backendServices,
+					types.NamespacedName{
+						Namespace: namespace,
+						Name:      backendServiceName,
+					}.String(),
+				)
+			}
 		}
 
 		return backendServices

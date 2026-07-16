@@ -4,6 +4,7 @@
 package indexers
 
 import (
+	"log/slog"
 	"reflect"
 	"slices"
 	"testing"
@@ -12,8 +13,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
 func TestIndexGRPCRouteByGateway(t *testing.T) {
@@ -179,6 +183,54 @@ func TestIndexGRPCRouteByBackendServiceImport(t *testing.T) {
 				t.Errorf("IndexGRPCRouteByBackendServiceImport() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGenerateIndexerGRPCRoutebyBackendServiceIncludesRequestMirror(t *testing.T) {
+	indexer := GenerateIndexerGRPCRoutebyBackendService(
+		fake.NewClientBuilder().WithScheme(helpers.TestScheme(nil)).Build(),
+		slog.New(slog.DiscardHandler),
+	)
+
+	route := &gatewayv1.GRPCRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mirror-route",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.GRPCRouteSpec{
+			Rules: []gatewayv1.GRPCRouteRule{
+				{
+					BackendRefs: []gatewayv1.GRPCBackendRef{
+						{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Name: "primary-svc",
+								},
+							},
+						},
+					},
+					Filters: []gatewayv1.GRPCRouteFilter{
+						{
+							Type: gatewayv1.GRPCRouteFilterRequestMirror,
+							RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+								BackendRef: gatewayv1.BackendObjectReference{
+									Name:      "mirror-svc",
+									Namespace: ptr.To[gatewayv1.Namespace]("other-ns"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	want := []string{
+		"default/primary-svc",
+		"other-ns/mirror-svc",
+	}
+	if got := indexer(route); !slices.Equal(got, want) {
+		t.Errorf("GenerateIndexerGRPCRoutebyBackendService() = %v, want %v", got, want)
 	}
 }
 
