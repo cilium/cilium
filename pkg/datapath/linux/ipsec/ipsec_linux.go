@@ -62,6 +62,9 @@ const (
 	offsetEncKey   = 4
 	maxOffset      = offsetEncKey
 
+	replayWindowDefault = 1024
+	replayWindowMax     = 4096
+
 	defaultDropPriority = 100
 
 	// The request ID which signifies all Cilium managed policies and states.
@@ -83,12 +86,14 @@ const (
 )
 
 type ipSecKey struct {
-	Spi    uint8
-	KeyLen int
-	ReqID  int
-	Auth   *netlink.XfrmStateAlgo
-	Crypt  *netlink.XfrmStateAlgo
-	Aead   *netlink.XfrmStateAlgo
+	Spi          uint8
+	KeyLen       int
+	ReqID        int
+	ESN          bool
+	ReplayWindow int
+	Auth         *netlink.XfrmStateAlgo
+	Crypt        *netlink.XfrmStateAlgo
+	Aead         *netlink.XfrmStateAlgo
 }
 
 type oldXfrmStateKey struct {
@@ -343,9 +348,11 @@ func (a *agent) getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dst
 	}
 
 	nodeKey := &ipSecKey{
-		Spi:    a.key.Spi,
-		KeyLen: a.key.KeyLen,
-		ReqID:  a.key.ReqID,
+		Spi:          a.key.Spi,
+		KeyLen:       a.key.KeyLen,
+		ReqID:        a.key.ReqID,
+		ESN:          a.key.ESN,
+		ReplayWindow: a.key.ReplayWindow,
 	}
 
 	srcNodeIP := canonicalIP(localNodeIP)
@@ -376,10 +383,10 @@ func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 	state := netlink.XfrmState{
 		Mode:         netlink.XFRM_MODE_TUNNEL,
 		Proto:        netlink.XFRM_PROTO_ESP,
-		ESN:          true,
+		ESN:          keys.ESN,
 		Spi:          int(keys.Spi),
 		Reqid:        keys.ReqID,
-		ReplayWindow: 1024,
+		ReplayWindow: keys.ReplayWindow,
 	}
 	if keys.Aead != nil {
 		state.Aead = keys.Aead
@@ -1119,7 +1126,7 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 			return 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		newKey.Spi, offsetBase, err = parseSPI(s[offsetSPI])
+		newKey.Spi, offsetBase, newKey.ESN, newKey.ReplayWindow, err = parseSPI(s[offsetSPI])
 		if err != nil {
 			return 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
@@ -1198,21 +1205,31 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 	return spi, nil
 }
 
-func parseSPI(spiStr string) (uint8, int, error) {
-	if spiStr[len(spiStr)-1] == '+' {
+func parseSPI(spiStr string) (uint8, int, bool, int, error) {
+	esn := true
+	replayWindow := replayWindowDefault
+	switch spiStr[len(spiStr)-1] {
+	case '+':
+		spiStr = spiStr[:len(spiStr)-1]
+	case '*':
+		replayWindow = replayWindowMax
+		spiStr = spiStr[:len(spiStr)-1]
+	case '-':
+		esn = false
+		replayWindow = 0
 		spiStr = spiStr[:len(spiStr)-1]
 	}
 	spi, err := strconv.Atoi(spiStr)
 	if err != nil {
-		return 0, 0, fmt.Errorf("the first argument of the IPsec secret is not a number. Attempted %q", spiStr)
+		return 0, 0, false, 0, fmt.Errorf("the first argument of the IPsec secret is not a number. Attempted %q", spiStr)
 	}
 	if spi > linux_defaults.IPsecMaxKeyVersion {
-		return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+		return 0, 0, false, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
 	if spi == 0 {
-		return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+		return 0, 0, false, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
-	return uint8(spi), 0, nil
+	return uint8(spi), 0, esn, replayWindow, nil
 }
 
 // getCurrentSPI returns the SPI of the currently loaded key, or zero if there is no key.

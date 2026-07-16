@@ -189,7 +189,7 @@ func TestParseSPI(t *testing.T) {
 		{"+", 0, 0, true},
 	}
 	for _, tc := range testCases {
-		spi, off, err := parseSPI(tc.input)
+		spi, off, _, _, err := parseSPI(tc.input)
 		if spi != tc.expSPI {
 			t.Fatalf("For input %q, expected SPI %d, but got %d", tc.input, tc.expSPI, spi)
 		}
