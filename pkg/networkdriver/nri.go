@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -271,6 +272,13 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 		for _, devices := range alloc {
 			if err := podNs.Do(func() error {
 				for _, a := range devices {
+					if a.Manager == types.DeviceManagerTypeDummy {
+						// dummy device is an on-demand virtual device: the
+						// netns delete that follows tears them down, so there is
+						// nothing to move back to the root namespace.
+						continue
+					}
+
 					// Determine the interface name in the pod namespace
 					ifName := a.Device.KernelIfName()
 					if a.Config.PodIfName != "" {

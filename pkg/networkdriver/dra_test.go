@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -42,6 +43,28 @@ func TestSerializeDevice(t *testing.T) {
 		require.Equal(t, types.DeviceManagerTypeMock, mgr)
 		require.Equal(t, cfg.PodIfName, gotCfg.PodIfName)
 		require.NotEmpty(t, devRaw)
+	})
+
+	t.Run("dummy device round-trip", func(t *testing.T) {
+		dev := &dummy.DummyDevice{Name: "dummy0", HWAddr: "aa:bb:cc:dd:ee:ff", MTU: 1500}
+		cfg := types.DeviceConfig{PodIfName: "eth-pod"}
+		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeDummy}
+
+		raw, err := serializeDevice(a)
+		require.NoError(t, err)
+
+		mgr, devRaw, gotCfg, err := deserializeDevice(raw)
+		require.NoError(t, err)
+		require.Equal(t, types.DeviceManagerTypeDummy, mgr)
+		require.Equal(t, cfg.PodIfName, gotCfg.PodIfName)
+		require.NotEmpty(t, devRaw)
+
+		// Restore from the raw bytes using DummyManager.
+		dummyMgr, err := newDummyManager(t)
+		require.NoError(t, err)
+		restored, err := dummyMgr.RestoreDevice(devRaw)
+		require.NoError(t, err)
+		require.Equal(t, dev.IfName(), restored.IfName())
 	})
 }
 
@@ -220,4 +243,10 @@ func TestPrepareResourceClaim(t *testing.T) {
 		res := driver.prepareResourceClaim(t.Context(), claim)
 		require.NoError(t, res.Err)
 	})
+}
+
+// newDummyManager returns a DummyManager with count=2 for use in tests.
+func newDummyManager(t *testing.T) (*dummy.DummyManager, error) {
+	t.Helper()
+	return dummy.NewManager(hivetest.Logger(t), &v2alpha1.DummyDeviceManagerConfig{Count: 2})
 }
