@@ -88,6 +88,8 @@
 # The following code owners are responsible for a range of general feedback for
 # contributions to specific repositories:
 #
+# - @cilium/cilium-io
+#   Reviewing code related to the website
 # - @cilium/sig-hubble:
 #   Review all Cilium and Hubble code related to observing system events,
 #   exporting those via gRPC protocols outside the node and outside the
@@ -109,6 +111,7 @@
 # the CODEOWNERS file in the corresponding repository.
 #
 # - @cilium/cilium-cli-maintainers
+# - @cilium/cilium-io-committers
 # - @cilium/cilium-maintainers
 # - @cilium/cilium-packer-ci-build-maintainers
 # - @cilium/ebpf-lib-maintainers
