@@ -186,7 +186,7 @@ The ``hive.Hive`` type can be thought of as an application container, composed f
     // Hive also provides a sub-command for inspecting it:
     cmd.AddCommand(hive.Command())
 
-`hive/cell <https://pkg.go.dev/github.com/hive/cell>`_ defines the Cell interface that 
+`hive/cell <https://pkg.go.dev/github.com/cilium/hive/cell>`_ defines the Cell interface that
 ``hive.New()`` consumes and the following functions for creating cells:
 
 - :ref:`api_module`: A named set of cells.
