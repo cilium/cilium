@@ -186,7 +186,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(predicates.GatewayClassOwnedByController(r.controllerName))).
 		// Watch related backend Service for status
 		// LB Services are handled by the Owns call later.
-		Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForBackendService(r.Client, *r.logger, r.controllerName)).
+		Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForBackendService(r.Client, r.Scheme, *r.logger, r.controllerName)).
 		// Watch HTTPRoute linked to Gateway
 		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForOwningHTTPRoute(r.Client, r.logger, r.controllerName)).
 		// Watch GRPCRoute linked to Gateway
