@@ -68,10 +68,10 @@ func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
 		v4NativeRoutingCIDR, v6NativeRoutingCIDR string
 	)
 
-	if n.IPv4AllocCIDR != nil {
+	if n.IPv4AllocCIDR.IsValid() {
 		v4AllocCIDR = n.IPv4AllocCIDR.String()
 	}
-	if n.IPv6AllocCIDR != nil {
+	if n.IPv6AllocCIDR.IsValid() {
 		v6AllocCIDR = n.IPv6AllocCIDR.String()
 	}
 	if n.Local.IPv4NativeRoutingCIDR != nil {

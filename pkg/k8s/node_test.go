@@ -13,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -59,9 +58,9 @@ func TestParseNode(t *testing.T) {
 
 	n := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node1", n.Name)
-	require.NotNil(t, n.IPv4AllocCIDR)
+	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
-	require.NotNil(t, n.IPv6AllocCIDR)
+	require.True(t, n.IPv6AllocCIDR.IsValid())
 	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 	require.Equal(t, "m5.xlarge", n.Labels["type"])
 	require.Len(t, n.IPAddresses, 2)
@@ -90,9 +89,9 @@ func TestParseNode(t *testing.T) {
 
 	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
-	require.NotNil(t, n.IPv4AllocCIDR)
+	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
-	require.Nil(t, n.IPv6AllocCIDR)
+	require.False(t, n.IPv6AllocCIDR.IsValid())
 
 	// No IPv6 annotation but PodCIDR with v6
 	k8sNode = &slim_corev1.Node{
@@ -109,9 +108,9 @@ func TestParseNode(t *testing.T) {
 
 	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
-	require.NotNil(t, n.IPv4AllocCIDR)
+	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.254.0.0/16", n.IPv4AllocCIDR.String())
-	require.NotNil(t, n.IPv6AllocCIDR)
+	require.True(t, n.IPv6AllocCIDR.IsValid())
 	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 
 	// No IPv4/IPv6 annotations but PodCIDRs with IPv4/IPv6
@@ -130,9 +129,9 @@ func TestParseNode(t *testing.T) {
 
 	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
-	require.NotNil(t, n.IPv4AllocCIDR)
+	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
-	require.NotNil(t, n.IPv6AllocCIDR)
+	require.True(t, n.IPv6AllocCIDR.IsValid())
 	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 
 	// Node with multiple status addresses of the same type and family
@@ -186,7 +185,7 @@ func TestParseNode(t *testing.T) {
 
 	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
-	require.NotNil(t, n.IPv4AllocCIDR)
+	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
 	require.Len(t, n.IPAddresses, len(expected))
 	addrsFound := 0
@@ -230,9 +229,9 @@ func TestParseNodeWithoutAnnotations(t *testing.T) {
 
 	n := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node1", n.Name)
-	require.NotNil(t, n.IPv4AllocCIDR)
+	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
-	require.Nil(t, n.IPv6AllocCIDR)
+	require.False(t, n.IPv6AllocCIDR.IsValid())
 	require.Equal(t, "m5.xlarge", n.Labels["type"])
 
 	for _, key := range []string{"cilium.io/foo", "qux.cilium.io/foo", "fr3d.qux.cilium.io/foo"} {
@@ -255,8 +254,8 @@ func TestParseNodeWithoutAnnotations(t *testing.T) {
 
 	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
-	require.Nil(t, n.IPv4AllocCIDR)
-	require.NotNil(t, n.IPv6AllocCIDR)
+	require.False(t, n.IPv4AllocCIDR.IsValid())
+	require.True(t, n.IPv6AllocCIDR.IsValid())
 	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 }
 
@@ -374,7 +373,7 @@ func TestParseNodeWithService(t *testing.T) {
 
 	n1 := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node1", n1.Name)
-	require.NotNil(t, n1.IPv4AllocCIDR)
+	require.True(t, n1.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n1.IPv4AllocCIDR.String())
 	require.Equal(t, "beefy", n1.Labels[annotation.ServiceNodeExposure])
 
@@ -389,7 +388,7 @@ func TestParseNodeWithService(t *testing.T) {
 
 	n2 := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n2.Name)
-	require.NotNil(t, n2.IPv4AllocCIDR)
+	require.True(t, n2.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.2.0.0/16", n2.IPv4AllocCIDR.String())
 	require.Empty(t, n2.Labels[annotation.ServiceNodeExposure])
 }
@@ -437,10 +436,10 @@ func TestParseCiliumNode(t *testing.T) {
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
 		},
 		EncryptionKey:           uint8(10),
-		IPv4AllocCIDR:           cidr.MustParseCIDR("10.10.0.0/16"),
-		IPv6AllocCIDR:           cidr.MustParseCIDR("c0de::/96"),
-		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("10.20.0.0/16")},
-		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("c0fe::/96")},
+		IPv4AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("10.10.0.0/16")),
+		IPv6AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("c0de::/96")),
+		IPv4SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("10.20.0.0/16"))},
+		IPv6SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("c0fe::/96"))},
 		IPv4HealthIP:            iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 		IPv6HealthIP:            iputil.AddrFrom(netip.MustParseAddr("c0de::1")),
 		IPv4IngressIP:           net.ParseIP("1.1.1.2"),

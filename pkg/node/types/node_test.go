@@ -4,14 +4,15 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
@@ -148,44 +149,52 @@ func TestNodeValidate(t *testing.T) {
 
 func TestGetIPv4AllocCIDRs(t *testing.T) {
 	var (
-		cidr1 = cidr.MustParseCIDR("1.0.0.0/24")
-		cidr2 = cidr.MustParseCIDR("2.0.0.0/24")
-		cidr3 = cidr.MustParseCIDR("3.0.0.0/24")
+		p1 = netip.MustParsePrefix("1.0.0.0/24")
+		p2 = netip.MustParsePrefix("2.0.0.0/24")
+		p3 = netip.MustParsePrefix("3.0.0.0/24")
 	)
 
 	var tests = []struct {
 		// name of test
 		name string
 		// primary ipv4 allocation cidr
-		allocCIDR *cidr.CIDR
+		allocCIDR Prefix
 		// secondary ipv4 allocation cidrs
-		secAllocCIDRs []*cidr.CIDR
+		secAllocCIDRs []Prefix
 		// expected ipv4 cidrs
-		expectedCIDRs []*cidr.CIDR
+		expectedCIDRs []netip.Prefix
 	}{
 		{
-			name:          "nil cidrs",
-			allocCIDR:     nil,
+			name:          "zero cidrs",
+			allocCIDR:     Prefix{},
 			secAllocCIDRs: nil,
-			expectedCIDRs: make([]*cidr.CIDR, 0),
+			expectedCIDRs: make([]netip.Prefix, 0),
 		},
 		{
 			name:          "one primary and no secondary cidrs",
-			allocCIDR:     cidr1,
+			allocCIDR:     PrefixFrom(p1),
 			secAllocCIDRs: nil,
-			expectedCIDRs: []*cidr.CIDR{cidr1},
+			expectedCIDRs: []netip.Prefix{p1},
 		},
 		{
 			name:          "one primary and one secondary cidr",
-			allocCIDR:     cidr1,
-			secAllocCIDRs: []*cidr.CIDR{cidr2},
-			expectedCIDRs: []*cidr.CIDR{cidr1, cidr2},
+			allocCIDR:     PrefixFrom(p1),
+			secAllocCIDRs: []Prefix{PrefixFrom(p2)},
+			expectedCIDRs: []netip.Prefix{p1, p2},
 		},
 		{
 			name:          "one primary and multiple secondary cidrs",
-			allocCIDR:     cidr1,
-			secAllocCIDRs: []*cidr.CIDR{cidr2, cidr3},
-			expectedCIDRs: []*cidr.CIDR{cidr1, cidr2, cidr3},
+			allocCIDR:     PrefixFrom(p1),
+			secAllocCIDRs: []Prefix{PrefixFrom(p2), PrefixFrom(p3)},
+			expectedCIDRs: []netip.Prefix{p1, p2, p3},
+		},
+		{
+			// An invalid (zero) secondary is skipped rather than surfaced as a
+			// zero netip.Prefix entry.
+			name:          "invalid secondary cidr is skipped",
+			allocCIDR:     PrefixFrom(p1),
+			secAllocCIDRs: []Prefix{{}, PrefixFrom(p2)},
+			expectedCIDRs: []netip.Prefix{p1, p2},
 		},
 	}
 	for _, tt := range tests {
@@ -204,44 +213,44 @@ func TestGetIPv4AllocCIDRs(t *testing.T) {
 
 func TestGetIPv6AllocCIDRs(t *testing.T) {
 	var (
-		cidr2001 = cidr.MustParseCIDR("2001:db8::/32")
-		cidr2002 = cidr.MustParseCIDR("2002:db8::/32")
-		cidr2003 = cidr.MustParseCIDR("2003:db8::/32")
+		p2001 = netip.MustParsePrefix("2001:db8::/32")
+		p2002 = netip.MustParsePrefix("2002:db8::/32")
+		p2003 = netip.MustParsePrefix("2003:db8::/32")
 	)
 
 	var tests = []struct {
 		// name of test
 		name string
 		// primary ipv6 allocation cidr
-		allocCIDR *cidr.CIDR
+		allocCIDR Prefix
 		// secondary ipv6 allocation cidrs
-		secAllocCIDRs []*cidr.CIDR
+		secAllocCIDRs []Prefix
 		// expected ipv6 cidrs
-		expectedCIDRs []*cidr.CIDR
+		expectedCIDRs []netip.Prefix
 	}{
 		{
-			name:          "nil cidrs",
-			allocCIDR:     nil,
+			name:          "zero cidrs",
+			allocCIDR:     Prefix{},
 			secAllocCIDRs: nil,
-			expectedCIDRs: make([]*cidr.CIDR, 0),
+			expectedCIDRs: make([]netip.Prefix, 0),
 		},
 		{
 			name:          "one primary and no secondary cidrs",
-			allocCIDR:     cidr2001,
+			allocCIDR:     PrefixFrom(p2001),
 			secAllocCIDRs: nil,
-			expectedCIDRs: []*cidr.CIDR{cidr2001},
+			expectedCIDRs: []netip.Prefix{p2001},
 		},
 		{
 			name:          "one primary and one secondary cidr",
-			allocCIDR:     cidr2001,
-			secAllocCIDRs: []*cidr.CIDR{cidr2002},
-			expectedCIDRs: []*cidr.CIDR{cidr2001, cidr2002},
+			allocCIDR:     PrefixFrom(p2001),
+			secAllocCIDRs: []Prefix{PrefixFrom(p2002)},
+			expectedCIDRs: []netip.Prefix{p2001, p2002},
 		},
 		{
 			name:          "one primary and multiple secondary cidrs",
-			allocCIDR:     cidr2001,
-			secAllocCIDRs: []*cidr.CIDR{cidr2002, cidr2003},
-			expectedCIDRs: []*cidr.CIDR{cidr2001, cidr2002, cidr2003},
+			allocCIDR:     PrefixFrom(p2001),
+			secAllocCIDRs: []Prefix{PrefixFrom(p2002), PrefixFrom(p2003)},
+			expectedCIDRs: []netip.Prefix{p2001, p2002, p2003},
 		},
 	}
 	for _, tt := range tests {
@@ -256,4 +265,86 @@ func TestGetIPv6AllocCIDRs(t *testing.T) {
 			assert.Equal(t, tt.expectedCIDRs, actual)
 		})
 	}
+}
+
+// TestNodeCIDRFieldsWireGolden is the core kvstore-compatibility proof for the
+// migration of the alloc-CIDR fields from *cidr.CIDR to types.Prefix: the
+// serialized Node must keep emitting the legacy net.IPNet object form (base64
+// mask, {"IP","Mask"} key order) so independently-upgraded agents and
+// kvstoremesh peers still parse it. Do not relax these to JSONEq: byte-exact
+// key order and mask encoding are what old agents diff against.
+func TestNodeCIDRFieldsWireGolden(t *testing.T) {
+	n := Node{
+		Name:                    "node-1",
+		Cluster:                 "default",
+		IPv4AllocCIDR:           PrefixFrom(netip.MustParsePrefix("10.244.1.0/24")),
+		IPv6AllocCIDR:           PrefixFrom(netip.MustParsePrefix("fd00::/64")),
+		IPv4SecondaryAllocCIDRs: []Prefix{PrefixFrom(netip.MustParsePrefix("10.244.2.0/24"))},
+		IPv6SecondaryAllocCIDRs: []Prefix{PrefixFrom(netip.MustParsePrefix("fd01::/64"))},
+	}
+
+	b, err := n.Marshal()
+	require.NoError(t, err)
+
+	// json.RawMessage preserves the exact on-wire bytes of each field value.
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(b, &raw))
+
+	//nolint:testifylint // byte-exact wire format matters for kvstore compat, JSONEq would ignore key order.
+	assert.Equal(t, `{"IP":"10.244.1.0","Mask":"////AA=="}`, string(raw["IPv4AllocCIDR"]))
+	//nolint:testifylint // byte-exact wire format matters for kvstore compat, JSONEq would ignore key order.
+	assert.Equal(t, `{"IP":"fd00::","Mask":"//////////8AAAAAAAAAAA=="}`, string(raw["IPv6AllocCIDR"]))
+	//nolint:testifylint // byte-exact wire format matters for kvstore compat, JSONEq would ignore key order.
+	assert.Equal(t, `[{"IP":"10.244.2.0","Mask":"////AA=="}]`, string(raw["IPv4SecondaryAllocCIDRs"]))
+	//nolint:testifylint // byte-exact wire format matters for kvstore compat, JSONEq would ignore key order.
+	assert.Equal(t, `[{"IP":"fd01::","Mask":"//////////8AAAAAAAAAAA=="}]`, string(raw["IPv6SecondaryAllocCIDRs"]))
+
+	// An unset primary CIDR still serializes to a "null" key, matching a nil
+	// *cidr.CIDR (adding omitempty/omitzero here would drop the key and change
+	// the bytes).
+	zero := Node{Name: "node-2", Cluster: "default"}
+	zb, err := zero.Marshal()
+	require.NoError(t, err)
+	var zraw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(zb, &zraw))
+	assert.Equal(t, "null", string(zraw["IPv4AllocCIDR"]))
+	assert.Equal(t, "null", string(zraw["IPv6AllocCIDR"]))
+
+	// Round-trip: the marshaled bytes unmarshal back into the same Node.
+	var back Node
+	require.NoError(t, back.Unmarshal(n.GetKeyName(), b))
+	require.True(t, back.DeepEqual(&n))
+}
+
+// TestNodeCIDRFieldsUnmarshalLegacy proves a pre-migration payload (produced by
+// an agent that stored *cidr.CIDR) still parses into the new types.Prefix
+// fields.
+func TestNodeCIDRFieldsUnmarshalLegacy(t *testing.T) {
+	legacy := []byte(`{
+		"Name": "node-1",
+		"Cluster": "default",
+		"ClusterID": 1,
+		"IPv4AllocCIDR": {"IP":"10.244.1.0","Mask":"////AA=="},
+		"IPv6AllocCIDR": {"IP":"fd00::","Mask":"//////////8AAAAAAAAAAA=="},
+		"IPv4SecondaryAllocCIDRs": [{"IP":"10.244.2.0","Mask":"////AA=="}],
+		"IPv6SecondaryAllocCIDRs": [{"IP":"fd01::","Mask":"//////////8AAAAAAAAAAA=="}]
+	}`)
+
+	var n Node
+	require.NoError(t, n.Unmarshal("default/node-1", legacy))
+
+	assert.Equal(t, netip.MustParsePrefix("10.244.1.0/24"), n.IPv4AllocCIDR.Prefix.Prefix)
+	assert.Equal(t, netip.MustParsePrefix("fd00::/64"), n.IPv6AllocCIDR.Prefix.Prefix)
+	require.Len(t, n.IPv4SecondaryAllocCIDRs, 1)
+	assert.Equal(t, netip.MustParsePrefix("10.244.2.0/24"), n.IPv4SecondaryAllocCIDRs[0].Prefix.Prefix)
+	require.Len(t, n.IPv6SecondaryAllocCIDRs, 1)
+	assert.Equal(t, netip.MustParsePrefix("fd01::/64"), n.IPv6SecondaryAllocCIDRs[0].Prefix.Prefix)
+
+	// And re-marshaling reproduces the legacy bytes for those fields.
+	b, err := n.Marshal()
+	require.NoError(t, err)
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(b, &raw))
+	//nolint:testifylint // byte-exact wire format matters for kvstore compat, JSONEq would ignore key order.
+	assert.Equal(t, `{"IP":"10.244.1.0","Mask":"////AA=="}`, string(raw["IPv4AllocCIDR"]))
 }

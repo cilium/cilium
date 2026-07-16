@@ -26,8 +26,6 @@ var nodeAnnotationControllerGroup = controller.NewGroup("update-k8s-node-annotat
 
 func (n *NodeDiscovery) prepareNodeAnnotations(localNode nodeTypes.Node) nodeAnnotation {
 	annotationMap := map[string]fmt.Stringer{
-		annotation.V4CIDRName:     localNode.IPv4AllocCIDR,
-		annotation.V6CIDRName:     localNode.IPv6AllocCIDR,
 		annotation.V4IngressName:  localNode.IPv4IngressIP,
 		annotation.V6IngressName:  localNode.IPv6IngressIP,
 		annotation.CiliumHostIP:   localNode.GetCiliumInternalIP(false),
@@ -39,6 +37,12 @@ func (n *NodeDiscovery) prepareNodeAnnotations(localNode nodeTypes.Node) nodeAnn
 		if !reflect.ValueOf(v).IsNil() {
 			annotations[k] = v.String()
 		}
+	}
+	if localNode.IPv4AllocCIDR.IsValid() {
+		annotations[annotation.V4CIDRName] = localNode.IPv4AllocCIDR.String()
+	}
+	if localNode.IPv6AllocCIDR.IsValid() {
+		annotations[annotation.V6CIDRName] = localNode.IPv6AllocCIDR.String()
 	}
 	if localNode.IPv4HealthIP.IsValid() {
 		annotations[annotation.V4HealthName] = localNode.IPv4HealthIP.String()

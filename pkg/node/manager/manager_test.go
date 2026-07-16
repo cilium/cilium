@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -653,10 +652,10 @@ func TestIpcache(t *testing.T) {
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
 		},
 
-		IPv4AllocCIDR:           cidr.MustParseCIDR("10.0.0.0/24"),
-		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("192.168.10.0/28")},
-		IPv6AllocCIDR:           cidr.MustParseCIDR("f00d::/96"),
-		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("cafe::/96")},
+		IPv4AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+		IPv4SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("192.168.10.0/28"))},
+		IPv6AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("f00d::/96")),
+		IPv6SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("cafe::/96"))},
 	}
 	mngr.NodeUpdated(n1)
 
@@ -844,10 +843,10 @@ func TestNodeEncryption(t *testing.T) {
 			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
 		},
-		IPv4AllocCIDR:           cidr.MustParseCIDR("10.0.0.0/24"),
-		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("192.168.10.0/28")},
-		IPv6AllocCIDR:           cidr.MustParseCIDR("f00d::/96"),
-		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("cafe::/96")},
+		IPv4AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+		IPv4SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("192.168.10.0/28"))},
+		IPv6AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("f00d::/96")),
+		IPv6SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("cafe::/96"))},
 		EncryptionKey:           42,
 	}
 	mngr.NodeUpdated(n1)

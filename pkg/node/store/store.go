@@ -197,9 +197,9 @@ func copyForRemoteNodes(n *nodeTypes.Node) *nodeTypes.Node {
 		// those cases, the IPv4/IPv6AllocRange is auto-generated and otherwise unused, so it does
 		// not make sense to copy it to the kvstore.
 		// See NodeDiscovery.mutateNodeResource() for the equivalent CRD mode logic.
-		node.IPv4AllocCIDR = nil
+		node.IPv4AllocCIDR = nodeTypes.Prefix{}
 		node.IPv4SecondaryAllocCIDRs = nil
-		node.IPv6AllocCIDR = nil
+		node.IPv6AllocCIDR = nodeTypes.Prefix{}
 		node.IPv6SecondaryAllocCIDRs = nil
 	}
 	return node

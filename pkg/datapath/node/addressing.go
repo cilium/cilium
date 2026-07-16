@@ -6,11 +6,11 @@ package node
 import (
 	"context"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -61,15 +61,15 @@ func (a addressFamily) PrimaryExternal() net.IP {
 	return nil
 }
 
-func (a addressFamily) AllocationCIDR() *cidr.CIDR {
+func (a addressFamily) AllocationCIDR() netip.Prefix {
 	if n, err := a.localNode.Get(context.Background()); err == nil {
 		if a.flags&ipv6 != 0 {
-			return n.IPv6AllocCIDR
+			return n.IPv6AllocCIDR.Prefix.Prefix
 		} else {
-			return n.IPv4AllocCIDR
+			return n.IPv4AllocCIDR.Prefix.Prefix
 		}
 	}
-	return nil
+	return netip.Prefix{}
 }
 
 type getFlags int

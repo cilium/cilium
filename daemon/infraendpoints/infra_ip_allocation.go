@@ -119,7 +119,7 @@ func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family node.A
 		if routerIP == nil {
 			return nil, fmt.Errorf("invalid local-router-ip: %s", r.daemonConfig.LocalRouterIPv4)
 		}
-		if r.nodeAddressing.IPv4().AllocationCIDR().Contains(routerIP) {
+		if r.nodeAddressing.IPv4().AllocationCIDR().Contains(iputil.AddrFromIP(routerIP)) {
 			r.logger.Warn("Specified router IP is within IPv4 podCIDR.")
 		}
 		return routerIP, nil
@@ -134,7 +134,7 @@ func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family node.A
 		if routerIP == nil {
 			return nil, fmt.Errorf("invalid local-router-ip: %s", r.daemonConfig.LocalRouterIPv6)
 		}
-		if r.nodeAddressing.IPv6().AllocationCIDR().Contains(routerIP) {
+		if r.nodeAddressing.IPv6().AllocationCIDR().Contains(iputil.AddrFromIP(routerIP)) {
 			r.logger.Warn("Specified router IP is within IPv6 podCIDR.")
 		}
 		return routerIP, nil

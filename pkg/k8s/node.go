@@ -10,10 +10,7 @@ import (
 	"net/netip"
 	"strconv"
 
-	"go4.org/netipx"
-
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -124,33 +121,33 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 			)
 		} else {
 			for _, podCIDR := range k8sNode.Spec.PodCIDRs {
-				if allocCIDR, err := cidr.ParseCIDR(podCIDR); err != nil {
+				if allocCIDR, err := netip.ParsePrefix(podCIDR); err != nil {
 					scopedLog.Warn(
 						"Invalid PodCIDR value for node",
 						logfields.Error, err,
 						logfields.PodCIDRs, k8sNode.Spec.PodCIDRs,
 					)
 				} else {
-					if allocCIDR.IP.To4() != nil {
-						newNode.IPv4AllocCIDR = allocCIDR
+					if allocCIDR.Addr().Is4() {
+						newNode.IPv4AllocCIDR = nodeTypes.PrefixFrom(allocCIDR)
 					} else {
-						newNode.IPv6AllocCIDR = allocCIDR
+						newNode.IPv6AllocCIDR = nodeTypes.PrefixFrom(allocCIDR)
 					}
 				}
 			}
 		}
 	} else if len(k8sNode.Spec.PodCIDR) != 0 {
-		if allocCIDR, err := cidr.ParseCIDR(k8sNode.Spec.PodCIDR); err != nil {
+		if allocCIDR, err := netip.ParsePrefix(k8sNode.Spec.PodCIDR); err != nil {
 			scopedLog.Warn(
 				"Invalid PodCIDR value for node",
 				logfields.Error, err,
 				logfields.V4Prefix, k8sNode.Spec.PodCIDR,
 			)
 		} else {
-			if allocCIDR.IP.To4() != nil {
-				newNode.IPv4AllocCIDR = allocCIDR
+			if allocCIDR.Addr().Is4() {
+				newNode.IPv4AllocCIDR = nodeTypes.PrefixFrom(allocCIDR)
 			} else {
-				newNode.IPv6AllocCIDR = allocCIDR
+				newNode.IPv6AllocCIDR = nodeTypes.PrefixFrom(allocCIDR)
 			}
 		}
 	}
@@ -209,13 +206,13 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 	// Spec.PodCIDR takes precedence since it's
 	// the CIDR assigned by k8s controller manager
 	// In case it's invalid or empty then we fall back to our annotations.
-	if newNode.IPv4AllocCIDR == nil {
+	if !newNode.IPv4AllocCIDR.IsValid() {
 		if ipv4CIDR, ok := annotation.Get(k8sNode, annotation.V4CIDRName, annotation.V4CIDRNameAlias); !ok || ipv4CIDR == "" {
 			scopedLog.Debug(
 				"Empty IPv4 CIDR annotation in node",
 			)
 		} else {
-			allocCIDR, err := cidr.ParseCIDR(ipv4CIDR)
+			allocCIDR, err := netip.ParsePrefix(ipv4CIDR)
 			if err != nil {
 				scopedLog.Error(
 					"BUG, invalid IPv4 annotation CIDR in node",
@@ -223,18 +220,18 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 					logfields.V4Prefix, ipv4CIDR,
 				)
 			} else {
-				newNode.IPv4AllocCIDR = allocCIDR
+				newNode.IPv4AllocCIDR = nodeTypes.PrefixFrom(allocCIDR)
 			}
 		}
 	}
 
-	if newNode.IPv6AllocCIDR == nil {
+	if !newNode.IPv6AllocCIDR.IsValid() {
 		if ipv6CIDR, ok := annotation.Get(k8sNode, annotation.V6CIDRName, annotation.V6CIDRNameAlias); !ok || ipv6CIDR == "" {
 			scopedLog.Debug(
 				"Empty IPv6 CIDR annotation in node",
 			)
 		} else {
-			allocCIDR, err := cidr.ParseCIDR(ipv6CIDR)
+			allocCIDR, err := netip.ParsePrefix(ipv6CIDR)
 			if err != nil {
 				scopedLog.Error(
 					"BUG, invalid IPv6 annotation CIDR in node",
@@ -242,7 +239,7 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 					logfields.V6Prefix, ipv6CIDR,
 				)
 			} else {
-				newNode.IPv6AllocCIDR = allocCIDR
+				newNode.IPv6AllocCIDR = nodeTypes.PrefixFrom(allocCIDR)
 			}
 		}
 	}
@@ -315,18 +312,19 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 // ParseCiliumNode parses a CiliumNode custom resource and returns a Node
 // instance. Invalid IP and CIDRs are silently ignored
 func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
-	var appendAllocCIDR = func(node *nodeTypes.Node, podCIDR *cidr.CIDR) {
-		if podCIDR.IP.To4() != nil {
-			if node.IPv4AllocCIDR == nil {
-				node.IPv4AllocCIDR = podCIDR
+	var appendAllocCIDR = func(node *nodeTypes.Node, podCIDR netip.Prefix) {
+		prefix := nodeTypes.PrefixFrom(podCIDR)
+		if podCIDR.Addr().Is4() {
+			if !node.IPv4AllocCIDR.IsValid() {
+				node.IPv4AllocCIDR = prefix
 			} else {
-				node.IPv4SecondaryAllocCIDRs = append(node.IPv4SecondaryAllocCIDRs, podCIDR)
+				node.IPv4SecondaryAllocCIDRs = append(node.IPv4SecondaryAllocCIDRs, prefix)
 			}
 		} else {
-			if node.IPv6AllocCIDR == nil {
-				node.IPv6AllocCIDR = podCIDR
+			if !node.IPv6AllocCIDR.IsValid() {
+				node.IPv6AllocCIDR = prefix
 			} else {
-				node.IPv6SecondaryAllocCIDRs = append(node.IPv6SecondaryAllocCIDRs, podCIDR)
+				node.IPv6SecondaryAllocCIDRs = append(node.IPv6SecondaryAllocCIDRs, prefix)
 			}
 		}
 	}
@@ -348,7 +346,7 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
 		if !podCIDR.IsValid() {
 			continue
 		}
-		appendAllocCIDR(&node, cidr.NewCIDR(netipx.PrefixIPNet(podCIDR.Masked())))
+		appendAllocCIDR(&node, podCIDR.Prefix)
 	}
 
 	for _, pool := range n.Spec.IPAM.Pools.Allocated {
@@ -356,7 +354,7 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
 			if !podCIDR.IsValid() {
 				continue
 			}
-			appendAllocCIDR(&node, cidr.NewCIDR(netipx.PrefixIPNet(podCIDR.Masked())))
+			appendAllocCIDR(&node, podCIDR.Prefix)
 		}
 	}
 

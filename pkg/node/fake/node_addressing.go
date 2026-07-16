@@ -5,8 +5,8 @@ package fake
 
 import (
 	"net"
+	"net/netip"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -18,7 +18,7 @@ var (
 	fakeIPv4 = addressFamily{
 		router:          net.ParseIP("1.1.1.2"),
 		primaryExternal: net.ParseIP("1.1.1.1"),
-		allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
+		allocCIDR:       netip.MustParsePrefix("1.1.1.0/24"),
 	}
 
 	IPv6InternalAddress = tables.TestIPv6InternalAddress.AsSlice()
@@ -27,7 +27,7 @@ var (
 	fakeIPv6 = addressFamily{
 		router:          net.ParseIP("cafe::2"),
 		primaryExternal: net.ParseIP("cafe::1"),
-		allocCIDR:       cidr.MustParseCIDR("cafe::/96"),
+		allocCIDR:       netip.MustParsePrefix("cafe::/96"),
 	}
 )
 
@@ -65,7 +65,7 @@ func NewAddressing() node.Addressing {
 type addressFamily struct {
 	router          net.IP
 	primaryExternal net.IP
-	allocCIDR       *cidr.CIDR
+	allocCIDR       netip.Prefix
 }
 
 func (a *addressFamily) Router() net.IP {
@@ -76,7 +76,7 @@ func (a *addressFamily) PrimaryExternal() net.IP {
 	return a.primaryExternal
 }
 
-func (a *addressFamily) AllocationCIDR() *cidr.CIDR {
+func (a *addressFamily) AllocationCIDR() netip.Prefix {
 	return a.allocCIDR
 }
 

@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	sysctlFake "github.com/cilium/cilium/pkg/datapath/linux/sysctl/fake"
@@ -91,8 +90,8 @@ func TestScriptClusterPoolToMultiPool(t *testing.T) {
 						localNode := node.LocalNode{
 							Node: nodeTypes.Node{
 								Name:          nodeTypes.GetName(),
-								IPv4AllocCIDR: cidr.MustParseCIDR("10.244.0.0/24"),
-								IPv6AllocCIDR: cidr.MustParseCIDR("fd00:10:244::/96"),
+								IPv4AllocCIDR: nodeTypes.PrefixFrom(netip.MustParsePrefix("10.244.0.0/24")),
+								IPv6AllocCIDR: nodeTypes.PrefixFrom(netip.MustParsePrefix("fd00:10:244::/96")),
 							},
 							Local: &node.LocalNodeInfo{},
 						}

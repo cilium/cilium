@@ -5,8 +5,7 @@ package node
 
 import (
 	"net"
-
-	"github.com/cilium/cilium/pkg/cidr"
+	"net/netip"
 )
 
 // AddressingFamily is the node addressing information for a particular address
@@ -23,7 +22,7 @@ type AddressingFamily interface {
 
 	// AllocationCIDR is the CIDR used for IP allocation of all endpoints
 	// on the node
-	AllocationCIDR() *cidr.CIDR
+	AllocationCIDR() netip.Prefix
 }
 
 // Addressing implements addressing of a node

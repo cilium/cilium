@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"go4.org/netipx"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -131,16 +130,16 @@ func (ipam *IPAM) ConfigureAllocator() {
 		)
 
 		if ipam.config.IPv6Enabled() {
-			prefix, ok := netipx.FromStdIPNet(ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet)
-			if !ok {
+			prefix := ipam.nodeAddressing.IPv6().AllocationCIDR()
+			if !prefix.IsValid() {
 				logging.Fatal(ipam.logger, "Invalid IPv6 allocation CIDR")
 			}
 			ipam.ipv6Allocator = newHostScopeAllocator(prefix)
 		}
 
 		if ipam.config.IPv4Enabled() {
-			prefix, ok := netipx.FromStdIPNet(ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet)
-			if !ok {
+			prefix := ipam.nodeAddressing.IPv4().AllocationCIDR()
+			if !prefix.IsValid() {
 				logging.Fatal(ipam.logger, "Invalid IPv4 allocation CIDR")
 			}
 			ipam.ipv4Allocator = newHostScopeAllocator(prefix)

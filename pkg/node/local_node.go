@@ -3,7 +3,11 @@
 
 package node
 
-import "github.com/cilium/cilium/pkg/cidr"
+import (
+	"go4.org/netipx"
+
+	"github.com/cilium/cilium/pkg/cidr"
+)
 
 // RemoteSNATDstAddrExclusionCIDRv4 returns a CIDR for SNAT exclusion. Any
 // packet sent from a local endpoint to an IP address belonging to the CIDR
@@ -14,7 +18,10 @@ func (n *LocalNode) RemoteSNATDstAddrExclusionCIDRv4() *cidr.CIDR {
 		return n.Local.IPv4NativeRoutingCIDR
 	}
 
-	return n.IPv4AllocCIDR
+	if p := n.IPv4AllocCIDR.Prefix.Prefix; p.IsValid() {
+		return cidr.NewCIDR(netipx.PrefixIPNet(p))
+	}
+	return nil
 }
 
 // RemoteSNATDstAddrExclusionCIDRv6 returns a IPv6 CIDR for SNAT exclusion. Any
@@ -26,5 +33,8 @@ func (n *LocalNode) RemoteSNATDstAddrExclusionCIDRv6() *cidr.CIDR {
 		return n.Local.IPv6NativeRoutingCIDR
 	}
 
-	return n.IPv6AllocCIDR
+	if p := n.IPv6AllocCIDR.Prefix.Prefix; p.IsValid() {
+		return cidr.NewCIDR(netipx.PrefixIPNet(p))
+	}
+	return nil
 }

@@ -14,5 +14,5 @@ func TestNewAddressing(t *testing.T) {
 
 	require.NotNil(t, fna.IPv6().Router())
 	require.NotNil(t, fna.IPv4().Router())
-	require.NotNil(t, fna.IPv4().AllocationCIDR())
+	require.True(t, fna.IPv4().AllocationCIDR().IsValid())
 }

@@ -10,7 +10,6 @@ import (
 	"slices"
 
 	"github.com/cilium/stream"
-	"go4.org/netipx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/net"
 
@@ -347,16 +346,12 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// make sense to copy it into the CiliumNode it either.
 		// See NodeRegistrar.RegisterNode() for the equivalent kvstore mode logic.
 		nodeResource.Spec.IPAM.PodCIDRs = []iputil.Prefix{}
-		if cidr := ln.IPv4AllocCIDR; cidr != nil {
-			if prefix, ok := netipx.FromStdIPNet(cidr.IPNet); ok {
-				nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(prefix))
-			}
+		if ln.IPv4AllocCIDR.IsValid() {
+			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, ln.IPv4AllocCIDR.Prefix)
 		}
 
-		if cidr := ln.IPv6AllocCIDR; cidr != nil {
-			if prefix, ok := netipx.FromStdIPNet(cidr.IPNet); ok {
-				nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, iputil.PrefixFrom(prefix))
-			}
+		if ln.IPv6AllocCIDR.IsValid() {
+			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, ln.IPv6AllocCIDR.Prefix)
 		}
 	}
 

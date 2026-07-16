@@ -158,8 +158,8 @@ func TestReconciliationLoop(t *testing.T) {
 							Type: addressing.NodeCiliumInternalIP,
 						},
 					}
-					n.IPv4AllocCIDR = cidr.MustParseCIDR("5.5.5.0/24")
-					n.IPv6AllocCIDR = cidr.MustParseCIDR("2001:aaaa::/96")
+					n.IPv4AllocCIDR = types.PrefixFrom(netip.MustParsePrefix("5.5.5.0/24"))
+					n.IPv6AllocCIDR = types.PrefixFrom(netip.MustParsePrefix("2001:aaaa::/96"))
 				})
 
 				txn := db.WriteTxn(devices)
@@ -213,8 +213,8 @@ func TestReconciliationLoop(t *testing.T) {
 							Type: addressing.NodeCiliumInternalIP,
 						},
 					}
-					n.IPv4AllocCIDR = cidr.MustParseCIDR("6.6.6.0/24")
-					n.IPv6AllocCIDR = cidr.MustParseCIDR("3002:bbbb::/96")
+					n.IPv4AllocCIDR = types.PrefixFrom(netip.MustParsePrefix("6.6.6.0/24"))
+					n.IPv6AllocCIDR = types.PrefixFrom(netip.MustParsePrefix("3002:bbbb::/96"))
 				})
 			},
 			expected: desiredState{

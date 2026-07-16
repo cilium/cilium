@@ -20,11 +20,11 @@ import (
 )
 
 func fakeIPv4AllocCIDRIP(fakeAddressing node.Addressing) netip.Addr {
-	return netip.MustParseAddr(fakeAddressing.IPv4().AllocationCIDR().IP.String())
+	return fakeAddressing.IPv4().AllocationCIDR().Addr()
 }
 
 func fakeIPv6AllocCIDRIP(fakeAddressing node.Addressing) netip.Addr {
-	return netip.MustParseAddr(fakeAddressing.IPv6().AllocationCIDR().IP.String())
+	return fakeAddressing.IPv6().AllocationCIDR().Addr()
 }
 
 var testConfiguration = &option.DaemonConfig{

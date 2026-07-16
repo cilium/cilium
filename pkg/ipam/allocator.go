@@ -96,7 +96,7 @@ func (ipam *IPAM) allocateIP(ip netip.Addr, owner string, pool Pool, needSyncUps
 			}
 		}
 		if ipam.config.IPAMMode() == ipamOption.IPAMClusterPool || ipam.config.IPAMMode() == ipamOption.IPAMKubernetes {
-			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv4Allocator.Capacity()))
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().String()).Set(float64(ipam.ipv4Allocator.Capacity()))
 		} else {
 			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv4Allocator.Capacity()))
 		}
@@ -117,7 +117,7 @@ func (ipam *IPAM) allocateIP(ip netip.Addr, owner string, pool Pool, needSyncUps
 			}
 		}
 		if ipam.config.IPAMMode() == ipamOption.IPAMClusterPool || ipam.config.IPAMMode() == ipamOption.IPAMKubernetes {
-			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv6Allocator.Capacity()))
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().String()).Set(float64(ipam.ipv6Allocator.Capacity()))
 		} else {
 			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv6Allocator.Capacity()))
 		}
@@ -147,14 +147,14 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 	case IPv6:
 		allocator = ipam.ipv6Allocator
 		if ipam.config.IPAMMode() == ipamOption.IPAMClusterPool || ipam.config.IPAMMode() == ipamOption.IPAMKubernetes {
-			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv6Allocator.Capacity()))
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().String()).Set(float64(ipam.ipv6Allocator.Capacity()))
 		} else {
 			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv6Allocator.Capacity()))
 		}
 	case IPv4:
 		allocator = ipam.ipv4Allocator
 		if ipam.config.IPAMMode() == ipamOption.IPAMClusterPool || ipam.config.IPAMMode() == ipamOption.IPAMKubernetes {
-			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv4Allocator.Capacity()))
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().String()).Set(float64(ipam.ipv4Allocator.Capacity()))
 		} else {
 			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv4Allocator.Capacity()))
 		}
@@ -305,7 +305,7 @@ func (ipam *IPAM) releaseIPLocked(ip netip.Addr, pool Pool) error {
 
 		ipam.ipv4Allocator.Release(ip, pool)
 		if ipam.config.IPAMMode() == ipamOption.IPAMClusterPool || ipam.config.IPAMMode() == ipamOption.IPAMKubernetes {
-			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv4Allocator.Capacity()))
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().String()).Set(float64(ipam.ipv4Allocator.Capacity()))
 		} else {
 			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv4Allocator.Capacity()))
 		}
@@ -317,7 +317,7 @@ func (ipam *IPAM) releaseIPLocked(ip netip.Addr, pool Pool) error {
 
 		ipam.ipv6Allocator.Release(ip, pool)
 		if ipam.config.IPAMMode() == ipamOption.IPAMClusterPool || ipam.config.IPAMMode() == ipamOption.IPAMKubernetes {
-			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv6Allocator.Capacity()))
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().String()).Set(float64(ipam.ipv6Allocator.Capacity()))
 		} else {
 			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv6Allocator.Capacity()))
 		}

@@ -27,7 +27,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -910,10 +909,10 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	}
 }
 
-func (m *manager) cidrsToPrefixesCluster(n *nodeTypes.Node, cidrs ...*cidr.CIDR) iter.Seq[cmtypes.PrefixCluster] {
+func (m *manager) cidrsToPrefixesCluster(n *nodeTypes.Node, prefixes ...netip.Prefix) iter.Seq[cmtypes.PrefixCluster] {
 	return func(yield func(cmtypes.PrefixCluster) bool) {
-		for _, cidr := range cidrs {
-			if !yield(cmtypes.PrefixClusterFromCIDR(cidr, m.prefixClusterMutatorFn(n)...)) {
+		for _, prefix := range prefixes {
+			if !yield(cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)) {
 				return
 			}
 		}

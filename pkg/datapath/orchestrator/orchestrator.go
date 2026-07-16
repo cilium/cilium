@@ -182,7 +182,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 				if agentConfig.EnableIPv4 {
 					loopback := n.Local.ServiceLoopbackIPv4.IsValid()
 					ipv4GW := n.GetCiliumInternalIP(false) != nil
-					ipv4Range := n.IPv4AllocCIDR != nil
+					ipv4Range := n.IPv4AllocCIDR.IsValid()
 					if !ipv4GW || !ipv4Range || !loopback {
 						return false
 					}

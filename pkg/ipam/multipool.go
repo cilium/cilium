@@ -257,11 +257,11 @@ func startLocalNodeAllocCIDRsSync(
 
 				no := k8s.ParseCiliumNode(ev.Object)
 				localNodeStore.Update(func(n *node.LocalNode) {
-					if enableIPv4 && no.IPv4AllocCIDR != nil {
+					if enableIPv4 && no.IPv4AllocCIDR.IsValid() {
 						n.IPv4AllocCIDR = no.IPv4AllocCIDR
 						n.IPv4SecondaryAllocCIDRs = no.IPv4SecondaryAllocCIDRs
 					}
-					if enableIPv6 && no.IPv6AllocCIDR != nil {
+					if enableIPv6 && no.IPv6AllocCIDR.IsValid() {
 						n.IPv6AllocCIDR = no.IPv6AllocCIDR
 						n.IPv6SecondaryAllocCIDRs = no.IPv6SecondaryAllocCIDRs
 					}
