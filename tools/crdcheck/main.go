@@ -23,6 +23,14 @@ type checkCRDFunc func(*crdv1.CustomResourceDefinition) error
 
 var allChecks = []checkCRDFunc{
 	checkForCategory,
+	checkEntityEnum,
+}
+
+// sourceCheckFunc validates the Go API source rather than a generated CRD.
+type sourceCheckFunc func() error
+
+var sourceChecks = []sourceCheckFunc{
+	checkEntityEnumMarker,
 }
 
 func main() {
@@ -71,6 +79,13 @@ func main() {
 		return nil
 	}); err != nil {
 		log.Fatal(err)
+	}
+
+	// Source-level checks that are not tied to a specific CRD file.
+	for _, f := range sourceChecks {
+		if err := f(); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
