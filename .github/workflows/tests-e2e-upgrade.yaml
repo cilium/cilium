@@ -290,11 +290,10 @@ jobs:
         run: |
           make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
 
-          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
           echo "config= \
             --set=etcd.enabled=true \
             --set=identityAllocationMode=kvstore \
-            --set=etcd.endpoints[0]=http://${IP}:2378 \
+            --set=etcd.endpoints[0]=http://kvstore.kube-system.svc:2378 \
           " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
