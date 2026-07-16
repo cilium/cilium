@@ -4193,24 +4193,53 @@ func serviceAddressKey(ip, port, proto, scope string) string {
 }
 
 func (kub *Kubectl) CollectFeatures() {
-	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
-	defer cancel()
-
 	testPath, err := CreateReportDirectory()
 	if err != nil {
 		log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
 		return
 	}
 
+	// Collect each report format under its own MidCommandTimeout rather than a
+	// single shared one: the metrics fetch dominates the budget, so sharing one
+	// context between the two collections risks starving the second of time.
+	kub.collectFeatureStatus(testPath, "markdown", "md")
+	kub.collectFeatureStatus(testPath, "json", "json")
+}
+
+// collectFeatureStatus runs `cilium-cli features status` for a single output
+// format, writing the report next to the other test_results. It uses its own
+// MidCommandTimeout so each format gets the full budget.
+func (kub *Kubectl) collectFeatureStatus(testPath, format, ext string) {
+	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
+	defer cancel()
+
 	// We need to get into the root directory because the CLI doesn't yet
 	// support absolute path. Once https://github.com/cilium/cilium-cli/pull/1552
 	// is installed in test VM images, we can remove this.
-	res := kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o markdown --output-file='%s/feature-status-%s.md'", testPath, ginkgoext.GetTestName()))
+	//
+	// The output path is double-quoted, not single-quoted: some test names
+	// contain an apostrophe (e.g. "Checks the pod's mac address"), which
+	// GetTestName keeps. Under single quotes the apostrophe would terminate the
+	// quoted string and the shell would drop it, so cilium-cli would receive a
+	// path without the apostrophe while CreateReportDirectory created the
+	// directory with it, and the write would fail with "no such file or
+	// directory". Double quotes preserve the apostrophe and keep both in sync.
+	res := kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o %s --output-file=\"%s/feature-status-%s.%s\"", format, testPath, ginkgoext.GetTestName(), ext))
 	if !res.WasSuccessful() {
-		log.WithError(res.GetError()).Errorf("failed to collect feature status :%s", res.CombineOutput().String())
+		recordFeatureStatusError(testPath, format, res)
 	}
-	res = kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o json --output-file='%s/feature-status-%s.json'", testPath, ginkgoext.GetTestName()))
-	if !res.WasSuccessful() {
-		log.WithError(res.GetError()).Errorf("failed to collect feature status :%s", res.CombineOutput().String())
+}
+
+// recordFeatureStatusError logs a failed 'features status' collection and also
+// persists its combined output to a file under testPath. The command runs
+// inside the test VM and only ever logged to the (ephemeral) VM console, so on
+// a passing run the failure left no downloadable trace. Writing it next to the
+// other test_results artifacts makes the real error visible after the fact.
+func recordFeatureStatusError(testPath, format string, res *CmdRes) {
+	out := res.CombineOutput().String()
+	log.WithError(res.GetError()).Errorf("failed to collect feature status :%s", out)
+	errFile := filepath.Join(testPath, fmt.Sprintf("feature-status-error-%s-%s.log", ginkgoext.GetTestName(), format))
+	if writeErr := os.WriteFile(errFile, []byte(out), 0o644); writeErr != nil {
+		log.WithError(writeErr).Errorf("cannot write feature status error log '%s'", errFile)
 	}
 }
