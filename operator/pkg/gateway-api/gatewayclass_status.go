@@ -31,9 +31,6 @@ var exemptFeatures = []features.Feature{
 	features.TLSRouteModeTerminateFeature,
 	features.GatewayBackendClientCertificateFeature,
 	features.GatewayFrontendClientCertificateValidationFeature,
-	features.HTTPRoute303RedirectStatusCodeFeature,
-	features.HTTPRoute307RedirectStatusCodeFeature,
-	features.HTTPRoute308RedirectStatusCodeFeature,
 	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
 }
 
