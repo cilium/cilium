@@ -1773,6 +1773,9 @@ func (in *DummyDeviceManagerConfig) DeepEqual(other *DummyDeviceManagerConfig) b
 	if in.Enabled != other.Enabled {
 		return false
 	}
+	if in.Count != other.Count {
+		return false
+	}
 
 	return true
 }
