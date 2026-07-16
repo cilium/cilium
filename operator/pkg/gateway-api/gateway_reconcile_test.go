@@ -65,11 +65,6 @@ func Test_Conformance(t *testing.T) {
 			IdleTimeoutSeconds: 60,
 		},
 	})
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
-		ServiceConfig: translation.ServiceConfig{
-			ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
-		},
-	})
 
 	type gwDetails struct {
 		FullName types.NamespacedName
@@ -270,9 +265,9 @@ func Test_Conformance(t *testing.T) {
 		{name: "gateway-cross-protocol-same-hostname", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "cross-protocol-same-hostname", Namespace: "gateway-conformance-infra"}}}},
 		{name: "gateway-cross-protocol-same-port-same-hostname", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "cross-protocol-same-port-same-hostname", Namespace: "gateway-conformance-infra"}, wantErr: true}}},
 		{name: "gateway-ns-restricted-same-hostname", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "ns-restricted-same-hostname", Namespace: "gateway-conformance-infra"}}}},
+		{name: "gatewayclassconfig-nodeport", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "nodeport-gateway", Namespace: "gateway-conformance-infra"}}}},
 		{name: "hostNetwork-enabled-valid", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-exceed-max-address", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
-		{name: "gatewayclassconfig-nodeport", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "nodeport-gateway", Namespace: "gateway-conformance-infra"}}}},
 	}
 
 	for _, tt := range tests {
@@ -303,20 +298,19 @@ func Test_Conformance(t *testing.T) {
 					clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, gatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
 					clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, gatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
 					clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, gatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
-					if tt.hostNetwork {
-						gatewayAPITranslator = gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
-							ServiceConfig: translation.ServiceConfig{
-								ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
-							},
-							OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
-								UseRemoteAddress: true,
-							},
-							HostNetworkConfig: translation.HostNetworkConfig{
-								Enabled: true,
-							},
-						})
-					}
+
 					c := clientBuilder.Build()
+					gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
+						ServiceConfig: translation.ServiceConfig{
+							ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+						},
+						OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+							UseRemoteAddress: true,
+						},
+						HostNetworkConfig: translation.HostNetworkConfig{
+							Enabled: tt.hostNetwork,
+						},
+					})
 
 					r := &gatewayReconciler{
 						Client:     c,
