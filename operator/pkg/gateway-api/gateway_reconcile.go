@@ -880,11 +880,16 @@ func (r *gatewayReconciler) getGatewayClassConfig(ctx context.Context, gwc *gate
 		return nil
 	}
 
-	res := &v2alpha1.CiliumGatewayClassConfig{}
-	if err := r.Client.Get(ctx, client.ObjectKey{
+	key := client.ObjectKey{
 		Namespace: string(*gwc.Spec.ParametersRef.Namespace),
 		Name:      gwc.Spec.ParametersRef.Name,
-	}, res); err != nil {
+	}
+
+	res := &v2alpha1.CiliumGatewayClassConfig{}
+	if err := r.Client.Get(ctx, key, res); err != nil {
+		r.logger.ErrorContext(ctx, "Failed to get CiliumGatewayClassConfig",
+			logfields.Resource, key,
+			logfields.Error, err)
 		return nil
 	}
 	return res
