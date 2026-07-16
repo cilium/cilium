@@ -16,6 +16,8 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 	k8syaml "sigs.k8s.io/yaml"
+
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 func fromYaml(t *testing.T, yamlText string, obj any) {
@@ -116,6 +118,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			res = append(res, obj)
 		case "GatewayClass":
 			obj := &gatewayv1.GatewayClass{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		case "CiliumGatewayClassConfig":
+			obj := &v2alpha1.CiliumGatewayClassConfig{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
 		case "ReferenceGrant":
