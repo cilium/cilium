@@ -91,6 +91,8 @@ Repository Owners
 The following code owners are responsible for a range of general feedback for
 contributions to specific repositories:
 
+- `@cilium/cilium-io <https://github.com/orgs/cilium/teams/cilium-io>`__
+  Reviewing code related to the website
 - `@cilium/sig-hubble <https://github.com/orgs/cilium/teams/sig-hubble>`__:
   Review all Cilium and Hubble code related to observing system events,
   exporting those via gRPC protocols outside the node and outside the
@@ -112,6 +114,7 @@ related processes. For the full codeowners for individual repositories, see
 the CODEOWNERS file in the corresponding repository.
 
 - `@cilium/cilium-cli-maintainers <https://github.com/orgs/cilium/teams/cilium-cli-maintainers>`__
+- `@cilium/cilium-io-committers <https://github.com/orgs/cilium/teams/cilium-io-committers>`__
 - `@cilium/cilium-maintainers <https://github.com/orgs/cilium/teams/cilium-maintainers>`__
 - `@cilium/cilium-packer-ci-build-maintainers <https://github.com/orgs/cilium/teams/cilium-packer-ci-build-maintainers>`__
 - `@cilium/ebpf-lib-maintainers <https://github.com/orgs/cilium/teams/ebpf-lib-maintainers>`__
