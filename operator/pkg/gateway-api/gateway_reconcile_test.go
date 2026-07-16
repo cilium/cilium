@@ -1315,6 +1315,22 @@ func fakeIndexHTTPRouteByBackendService(rawObj client.Object) []string {
 				}.String(),
 			)
 		}
+		for _, f := range rule.Filters {
+			if f.Type != gatewayv1.HTTPRouteFilterRequestMirror || f.RequestMirror == nil {
+				continue
+			}
+			if !helpers.IsService(f.RequestMirror.BackendRef) {
+				continue
+			}
+			namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
+			backendServices = append(
+				backendServices,
+				types.NamespacedName{
+					Namespace: namespace,
+					Name:      string(f.RequestMirror.BackendRef.Name),
+				}.String(),
+			)
+		}
 	}
 	return backendServices
 }
