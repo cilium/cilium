@@ -105,19 +105,37 @@ func GenerateIndexerHTTPRouteByBackendService(c client.Client, logger *slog.Logg
 				)
 			}
 			for _, f := range rule.Filters {
-				if f.Type != gatewayv1.HTTPRouteFilterExternalAuth || f.ExternalAuth == nil {
+				var (
+					namespace          string
+					backendServiceName string
+					err                error
+				)
+
+				switch {
+				case f.Type == gatewayv1.HTTPRouteFilterRequestMirror && f.RequestMirror != nil:
+					namespace = helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
+					backendServiceName, err = helpers.GetBackendServiceName(c, namespace, f.RequestMirror.BackendRef)
+					if err != nil {
+						logger.Error("Failed to get request mirror backend service name",
+							logfields.LogSubsys, logfields.HTTPRoute,
+							logfields.HTTPRoute, client.ObjectKeyFromObject(rawObj),
+							logfields.Error, err)
+						continue
+					}
+				case f.Type == gatewayv1.HTTPRouteFilterExternalAuth && f.ExternalAuth != nil:
+					namespace = helpers.NamespaceDerefOr(f.ExternalAuth.BackendRef.Namespace, route.Namespace)
+					backendServiceName, err = helpers.GetBackendServiceName(c, namespace, f.ExternalAuth.BackendRef)
+					if err != nil {
+						logger.Error("Failed to get ext_auth backend service name",
+							logfields.LogSubsys, logfields.HTTPRoute,
+							logfields.HTTPRoute, client.ObjectKeyFromObject(rawObj),
+							logfields.Error, err)
+						continue
+					}
+				default:
 					continue
 				}
-				ea := f.ExternalAuth
-				namespace := helpers.NamespaceDerefOr(ea.BackendRef.Namespace, route.Namespace)
-				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, ea.BackendRef)
-				if err != nil {
-					logger.Error("Failed to get ext_auth backend service name",
-						logfields.LogSubsys, logfields.HTTPRoute,
-						logfields.HTTPRoute, client.ObjectKeyFromObject(rawObj),
-						logfields.Error, err)
-					continue
-				}
+
 				backendServices = append(backendServices,
 					types.NamespacedName{
 						Namespace: namespace,
