@@ -174,5 +174,35 @@ rules:
   - list
   - watch
   - get
+- apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceclaims
+  verbs:
+  - list
+  - watch
+  - get
+  - update
+  - patch
+- apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceclaims/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceslices
+  verbs:
+  - list
+  - watch
+  - get
+  - create
+  - update
+  - patch
+  - delete
 {{- end }}
 {{- end }}

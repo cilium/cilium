@@ -1,0 +1,560 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package networkdriver
+
+import (
+	"cmp"
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"path"
+	"slices"
+
+	"github.com/blang/semver/v4"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/containerd/nri/pkg/stub"
+	corev1 "k8s.io/api/core/v1"
+	resourceapi "k8s.io/api/resource/v1"
+	kube_types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
+	"k8s.io/utils/ptr"
+
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
+	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
+	ciliumslices "github.com/cilium/cilium/pkg/slices"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+var (
+	defaultDriverPluginPath = "/var/lib/kubelet/plugins/"
+)
+
+func driverPluginPath(driverName string) string {
+	return path.Join(defaultDriverPluginPath, driverName)
+}
+
+type Driver struct {
+	kubeClient     kubernetes.Interface
+	draPlugin      *kubeletplugin.Helper
+	nriPlugin      stub.Stub
+	logger         *slog.Logger
+	lock           lock.Mutex
+	jg             job.Group
+	resourceClaims resource.Resource[*resourceapi.ResourceClaim]
+	pods           resource.Resource[*corev1.Pod]
+
+	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
+	config    *v2alpha1.CiliumNetworkDriverNodeConfigSpec
+
+	deviceManagers map[types.DeviceManagerType]types.DeviceManager
+	// pod.UID: claim.UID: allocation
+	allocations map[kube_types.UID]map[kube_types.UID][]allocation
+	// pod.UID: network namespace path. Captured at RunPodSandbox (and rebuilt on
+	// plugin (re)connect via Synchronize) so StopPodSandbox can recover the netns on
+	// containerd < 2.1, where the stop event carries no namespaces: the sandbox task
+	// is already killed, so the NRI PodSandbox spec comes back empty. containerd
+	// removes the netns only after the StopPodSandbox hook returns, so the cached
+	// path is still valid when we use it. Guarded by lock, like allocations.
+	podNetns map[kube_types.UID]string
+	// manager_type: devices
+	devices map[types.DeviceManagerType][]types.Device
+	// device ifname: pool name — stable cross-reconcile assignment for conflict resolution
+	assignedDevices map[string]string
+
+	db             *statedb.DB
+	localNodeStore *node.LocalNodeStore
+}
+
+type allocation struct {
+	Device  types.Device
+	Config  types.DeviceConfig
+	Manager types.DeviceManagerType
+}
+
+// watchConfig blocks until the first configuration is found (from the CRD). Update attempts are logged but not passed
+// to the channel
+func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNetworkDriverNodeConfigSpec {
+	ch := make(chan v2alpha1.CiliumNetworkDriverNodeConfigSpec)
+
+	go func() {
+		defer close(ch)
+
+		var (
+			cfg *v2alpha1.CiliumNetworkDriverNodeConfigSpec
+
+			synced   bool
+			upserted bool
+			handled  bool
+		)
+
+		if driver.configCRD == nil {
+			// disabled
+			driver.logger.DebugContext(
+				ctx, "resource listener is nil",
+			)
+
+			return
+		}
+
+		for ev := range driver.configCRD.Events(ctx) {
+			ev.Done(nil)
+
+			switch ev.Kind {
+			case resource.Delete:
+				cfg = nil
+				upserted = false
+				continue
+			case resource.Sync:
+				synced = true
+			case resource.Upsert:
+				cfg = ev.Object.Spec.DeepCopy()
+				upserted = true
+			}
+
+			// discard updates if we already handled a config
+			if handled {
+				driver.logger.InfoContext(
+					ctx, "config received, but we already have one",
+				)
+				continue
+			}
+
+			// wait for sync and upsert before reading the config
+			if !synced || !upserted {
+				continue
+			}
+
+			driver.logger.DebugContext(ctx, "network driver configuration found")
+
+			handled = true
+			ch <- *cfg
+		}
+	}()
+
+	return ch
+}
+
+// Start retrieves and validates the configuration. If configuration is found and valid, it
+// initializes all the devicemanagers that are enabled by config, and starts the DRA + NRI registration.
+func (driver *Driver) Start(ctx cell.HookContext) error {
+	driver.jg.Add(job.OneShot("network-driver-main", func(ctx context.Context, _ cell.Health) error {
+
+		if version.Version().LT(semver.Version{Major: 1, Minor: 34}) {
+			driver.logger.InfoContext(
+				ctx, "Cilium Network Driver requires Kubernetes v1.34 or later. not starting",
+				logfields.K8sAPIVersion, version.Version(),
+			)
+
+			return nil
+		}
+
+		cfg, ok := <-driver.watchConfig(ctx)
+		if !ok {
+			return nil
+		}
+
+		driver.config = &cfg
+
+		if driver.config == nil {
+			// not found, we wont start the driver
+			driver.logger.DebugContext(
+				ctx, "Network Driver configuration not found",
+			)
+
+			return nil
+		}
+
+		driver.logger.DebugContext(
+			ctx, "Starting network driver...",
+			logfields.K8sAPIVersion, version.Version(),
+			logfields.DriverName, driver.config.DriverName,
+		)
+
+		driver.logger.DebugContext(ctx,
+			"starting driver with config",
+			logfields.Config, driver.config)
+
+		if err := validateConfig(driver.config); err != nil {
+			driver.logger.ErrorContext(
+				ctx, "invalid configuration",
+				logfields.Error, err,
+			)
+
+			return err
+		}
+
+		mgrs, err := devicemanagers.InitManagers(driver.logger, driver.config.DeviceManagerConfigs)
+		if err != nil {
+			return err
+		}
+
+		driver.deviceManagers = mgrs
+
+		if err := driver.restoreDevices(ctx); err != nil {
+			driver.logger.ErrorContext(ctx,
+				"failed to restore allocated devices from claims, network driver might be unable to correctly release associated resources",
+				logfields.Error, err,
+			)
+		}
+
+		for pod, claimAllocs := range driver.allocations {
+			for claim, allocs := range claimAllocs {
+				for _, alloc := range allocs {
+					driver.logger.DebugContext(ctx,
+						"allocation device restored",
+						logfields.PodUID, pod,
+						logfields.ClaimUID, claim,
+						logfields.Device, alloc.Device.IfName(),
+						logfields.Config, alloc.Config,
+					)
+				}
+			}
+		}
+
+		if err := driver.startDRA(ctx); err != nil {
+			driver.Stop(ctx)
+			return err
+		}
+
+		if err := driver.startNRI(ctx); err != nil {
+			driver.Stop(ctx)
+			return err
+		}
+
+		trigger := job.NewTrigger()
+
+		driver.jg.Add(
+			job.Timer(
+				"network-driver-dra-publish-resources",
+				driver.publish,
+				time.Duration(driver.config.PublishIntervalSeconds)*time.Second,
+				job.WithTrigger(trigger),
+			),
+		)
+
+		trigger.Trigger()
+
+		return nil
+	}))
+
+	return nil
+}
+
+// Stop stops the nri and dra hooks.
+func (driver *Driver) Stop(ctx cell.HookContext) error {
+	driver.logger.DebugContext(ctx, "Stopping network driver...")
+
+	// Stop NRI plugin first
+	if driver.nriPlugin != nil {
+		driver.nriPlugin.Stop()
+	}
+
+	// Stop DRA plugin
+	if driver.draPlugin != nil {
+		driver.draPlugin.Stop()
+	}
+
+	driver.logger.DebugContext(ctx, "Network driver stopped")
+
+	return nil
+}
+
+// publish publishes the devices to the kubelet plugin api.
+// these show up in the cluster as resource.k8s.io/v1/ResourceSlice after published.
+func (driver *Driver) publish(ctx context.Context) error {
+	return driver.withLock(func() error {
+		pools, err := driver.getDevicePools(ctx)
+		if err != nil {
+			driver.logger.ErrorContext(ctx, "failed to list devices", logfields.Error, err)
+			return err
+		}
+
+		res := resourceslice.DriverResources{
+			Pools: pools,
+		}
+
+		driver.logger.DebugContext(ctx, "publishing resourceslices", logfields.Count, len(res.Pools))
+
+		return driver.draPlugin.PublishResources(ctx, res)
+	})
+}
+
+func (driver *Driver) withLock(f func() error) error {
+	driver.lock.Lock()
+	defer driver.lock.Unlock()
+
+	return f()
+}
+
+// filterDevices returns the resulting devices after applying a filter.
+func filterDevices(devices []types.Device, filter v2alpha1.CiliumNetworkDriverDeviceFilter) []types.Device {
+	var result []types.Device
+
+	for _, d := range devices {
+		if d.Match(filter) {
+			result = append(result, d)
+		}
+	}
+
+	return result
+}
+
+// getDevicePools queries each device manager for their devices, and group them into pools
+// that are advertised as resourceslices to the kube-api.
+//
+// When a device matches more than one pool an error is logged and the device is
+// assigned to the first pool according to the following priority:
+//  1. The pool the device was assigned to in a previous call (stable across reconcile cycles).
+//  2. The pool that comes first in alphabetical order (deterministic tie-break for new devices).
+func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourceslice.Pool, error) {
+	driver.devices = make(map[types.DeviceManagerType][]types.Device)
+
+	for m, mgr := range driver.deviceManagers {
+		devices, err := mgr.ListDevices()
+		if err != nil {
+			return nil, err
+		}
+
+		if len(devices) > 0 {
+			driver.logger.DebugContext(
+				ctx, "retrieved devices from devicemanager",
+				logfields.DriverName, m,
+				logfields.Devices, len(devices),
+			)
+
+			driver.devices[mgr.Type()] = append(driver.devices[mgr.Type()], devices...)
+		}
+	}
+
+	var allDevices []types.Device
+	for _, devs := range driver.devices {
+		allDevices = append(allDevices, devs...)
+	}
+
+	devicePool := driver.resolvePoolAssignments(ctx, allDevices)
+
+	pools := driver.buildPools(allDevices, devicePool)
+
+	return pools, nil
+}
+
+// resolvePoolAssignments matches each device to a single pool, logging conflicts.
+// It returns a map from device ifname to the chosen pool name, and persists
+// the assignment for stability across reconcile cycles.
+func (driver *Driver) resolvePoolAssignments(ctx context.Context, allDevices []types.Device) map[string]string {
+	// Sort pools alphabetically so the tie-break for new devices is deterministic.
+	sortedPools := slices.Clone(driver.config.Pools)
+	slices.SortFunc(sortedPools, func(a, b v2alpha1.CiliumNetworkDriverDevicePoolConfig) int {
+		return cmp.Compare(a.PoolName, b.PoolName)
+	})
+
+	// For each device, collect all matching pool names (already in alphabetical order).
+	deviceMatchingPools := make(map[string][]string)
+	for _, p := range sortedPools {
+		if p.Filter == nil {
+			driver.logger.ErrorContext(ctx, "pool filter is missing. not handling this pool", logfields.PoolName, p.PoolName)
+			continue
+		}
+
+		for _, dev := range filterDevices(allDevices, *p.Filter) {
+			ifname := dev.IfName()
+			if ifname == "" {
+				driver.logger.Error("received device without a name", logfields.Attributes, dev.GetAttrs())
+				continue
+			}
+
+			deviceMatchingPools[ifname] = append(deviceMatchingPools[ifname], p.PoolName)
+		}
+	}
+
+	// Resolve each device to a single pool, preferring the previous assignment
+	// for stability, falling back to the alphabetically-first match.
+	devicePool := make(map[string]string, len(deviceMatchingPools))
+	for ifname, matchingPools := range deviceMatchingPools {
+		if len(matchingPools) > 1 {
+			driver.logger.ErrorContext(ctx, "device matches multiple pools",
+				logfields.Device, ifname,
+				logfields.PoolName, matchingPools,
+			)
+		}
+
+		chosen := matchingPools[0]
+		if prevPool, wasPrev := driver.assignedDevices[ifname]; wasPrev && slices.Contains(matchingPools, prevPool) {
+			chosen = prevPool
+		}
+
+		devicePool[ifname] = chosen
+	}
+
+	driver.assignedDevices = devicePool
+
+	return devicePool
+}
+
+// buildPools constructs the resourceslice pool map from the resolved device→pool assignments.
+func (driver *Driver) buildPools(allDevices []types.Device, devicePool map[string]string) map[string]resourceslice.Pool {
+	// Pre-populate all pools that have a valid filter so empty pools are published.
+	pools := make(map[string]resourceslice.Pool, len(driver.config.Pools))
+	for _, p := range driver.config.Pools {
+		if p.Filter != nil {
+			pools[p.PoolName] = resourceslice.Pool{Slices: []resourceslice.Slice{{}}}
+		}
+	}
+
+	// Index devices by ifname for O(1) lookup.
+	devByIfName := make(map[string]types.Device, len(allDevices))
+	for _, d := range allDevices {
+		devByIfName[d.IfName()] = d
+	}
+
+	for ifname, poolName := range devicePool {
+		dev, ok := devByIfName[ifname]
+		if !ok {
+			continue
+		}
+
+		attrs := dev.GetAttrs()
+		attrs["pool"] = resourceapi.DeviceAttribute{StringValue: ptr.To(poolName)}
+
+		entry := pools[poolName]
+		entry.Slices[0].Devices = append(entry.Slices[0].Devices, resourceapi.Device{
+			Name:       ifname,
+			Attributes: attrs,
+		})
+		pools[poolName] = entry
+	}
+
+	return pools
+}
+
+func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatus) (allocation, error) {
+	devMgrType, devRaw, devCfg, err := deserializeDevice(devStatus.Data.Raw)
+	if err != nil {
+		return allocation{}, fmt.Errorf("failed to deserialize device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
+	}
+
+	devMgr, found := driver.deviceManagers[devMgrType]
+	if !found {
+		return allocation{}, fmt.Errorf("unknown device manager type %s", devMgrType)
+	}
+
+	dev, err := devMgr.RestoreDevice(devRaw)
+	if err != nil {
+		return allocation{}, fmt.Errorf("failed to restore device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
+	}
+
+	return allocation{
+		Device:  dev,
+		Config:  devCfg,
+		Manager: devMgrType,
+	}, nil
+}
+
+func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim) error {
+	var errs []error
+
+	// Detect the crash-before-UpdateStatus case: the claim is allocated and
+	// reserved (the scheduler+kubelet did their part) but Status.Devices is
+	// empty because the driver crashed between Device.Setup() and UpdateStatus.
+	// We have no serialized device state to restore from, so the kernel device
+	// is left configured but completely invisible to the driver. Log a warning
+	// so the operator can identify and manually clean up the orphaned device.
+	if claim.Status.Allocation != nil && len(claim.Status.ReservedFor) > 0 && len(claim.Status.Devices) == 0 {
+		driver.logger.Warn("claim is allocated and reserved but has no device status — "+
+			"driver may have crashed before UpdateStatus; the kernel device may be orphaned",
+			logfields.Name, claim.Name,
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.UID, string(claim.UID),
+		)
+	}
+
+	for _, devStatus := range claim.Status.Devices {
+		if devStatus.Driver != driver.config.DriverName {
+			continue
+		}
+
+		alloc, err := driver.deviceFromClaim(devStatus)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to restore device from claim: %w", err))
+			continue
+		}
+
+		if len(claim.Status.ReservedFor) != 1 {
+			errs = append(errs, fmt.Errorf("unexpected ReservedFor length %d for claim, should be 1", len(claim.Status.ReservedFor)))
+			continue
+		}
+		podUID := claim.Status.ReservedFor[0].UID
+
+		var claimAllocs map[kube_types.UID][]allocation
+
+		claimAllocs, found := driver.allocations[podUID]
+		if !found {
+			claimAllocs = make(map[kube_types.UID][]allocation)
+			driver.allocations[podUID] = claimAllocs
+		}
+
+		claimAllocs[claim.UID] = append(claimAllocs[claim.UID], alloc)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (driver *Driver) restoreDevices(ctx context.Context) error {
+	podsStore, err := driver.pods.Store(ctx)
+	if err != nil {
+		return err
+	}
+
+	var localPodClaims []resource.Key
+	for _, pod := range podsStore.List() {
+		for _, claimRef := range pod.Status.ResourceClaimStatuses {
+			if claimRef.ResourceClaimName == nil {
+				driver.logger.InfoContext(ctx, "resourceClaimStatuses field is empty for pod, no allocation to restore",
+					logfields.K8sNamespace, pod.GetNamespace(),
+					logfields.Name, pod.Name,
+				)
+				continue
+			}
+			localPodClaims = append(localPodClaims, resource.Key{
+				Namespace: pod.GetNamespace(),
+				Name:      *claimRef.ResourceClaimName,
+			})
+		}
+	}
+	localPodClaims = ciliumslices.Unique(localPodClaims)
+
+	claimsStore, err := driver.resourceClaims.Store(ctx)
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, key := range localPodClaims {
+		claim, exists, err := claimsStore.GetByKey(key)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to get claim %s/%s from store: %w", key.Namespace, key.Name, err))
+			continue
+		}
+		if !exists {
+			errs = append(errs, fmt.Errorf("claim %s/%s not found in store", key.Namespace, key.Name))
+			continue
+		}
+		if err := driver.restoreDevicesFromClaim(claim); err != nil {
+			errs = append(errs, fmt.Errorf("failed to restore allocated devices from claim %s/%s: %w", claim.Namespace, claim.Name, err))
+		}
+	}
+
+	return errors.Join(errs...)
+}

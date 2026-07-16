@@ -671,6 +671,7 @@ Makefile* @cilium/build
 /pkg/multicast @cilium/sig-datapath
 /pkg/murmur3/ @cilium/sig-datapath
 /pkg/netns/ @cilium/sig-datapath @cilium/sig-k8s
+/pkg/networkdriver @cilium/network-driver
 /pkg/node @cilium/sig-agent
 /pkg/node/neighbordiscovery @cilium/sig-agent @cilium/sig-datapath
 /pkg/nodediscovery/ @cilium/sig-agent

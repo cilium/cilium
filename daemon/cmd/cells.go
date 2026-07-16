@@ -70,6 +70,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/features"
+	"github.com/cilium/cilium/pkg/networkdriver"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
@@ -281,6 +282,9 @@ var (
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgp.Cell,
+
+		// The Cilium Network Driver for exposing network devices to workloads via DRA.
+		networkdriver.Cell,
 
 		// Brokers datapath signals from signalmap
 		signal.Cell,
