@@ -682,12 +682,13 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, const struct __ctx_bu
 			return DROP_CT_INVALID_HDR;
 
 		action = ct_tcp_select_action(tcp_flags);
-
-		if (ct_state && dir == CT_SERVICE && tcp_is_syn(tcp_flags))
-			ct_state->syn = true;
 	} else {
 		action = ACTION_UNSPEC;
 	}
+
+	/* ct_state may be reused; always set to reflect the current packet. */
+	if (ct_state)
+		ct_state->syn = tcp_is_syn(tcp_flags);
 
 	cilium_dbg3(ctx, DBG_CT_LOOKUP6_1, (__u32)tuple->saddr.p4, (__u32)tuple->daddr.p4,
 		    (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
@@ -942,12 +943,13 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, const struct __ctx_bu
 			return DROP_CT_INVALID_HDR;
 
 		action = ct_tcp_select_action(tcp_flags);
-
-		if (ct_state && dir == CT_SERVICE && tcp_is_syn(tcp_flags))
-			ct_state->syn = true;
 	} else {
 		action = ACTION_UNSPEC;
 	}
+
+	/* ct_state may be reused; always set to reflect the current packet. */
+	if (ct_state)
+		ct_state->syn = tcp_is_syn(tcp_flags);
 
 #ifndef QUIET_CT
 	cilium_dbg3(ctx, DBG_CT_LOOKUP4_1, tuple->saddr, tuple->daddr,
