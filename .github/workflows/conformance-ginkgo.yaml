@@ -582,6 +582,19 @@ jobs:
             fi
             mv "$file" "./${new_filename}"
           done
+          # Collect any feature-status collection error logs so a failure that
+          # would otherwise only appear on the (ephemeral) VM console survives,
+          # even on a passing run.
+          mkdir -p feature-status-errors
+          find ./test -type f -iname 'feature-status-error-*.log' -exec cp {} feature-status-errors/ \; || true
+
+      - name: Upload feature status error logs
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: feature-status-errors-${{ env.job_name }}
+          path: untrusted/feature-status-errors/*.log
+          if-no-files-found: ignore
 
       - name: Fetch JUnits
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
