@@ -1,5 +1,54 @@
 # Changelog
 
+## v1.17.18
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fix incorrect policy denials for traffic to L7 load balanced services when remote identity changes (Backport PR cilium/cilium#47006, Upstream PR cilium/cilium#46821, @fristonio)
+* ipam/multi-pool: Do now wait for zero prealloc request (Backport PR cilium/cilium#47199, Upstream PR cilium/cilium#46867, @pippolo84)
+
+**CI Changes:**
+* .github: Generate CI binaries with correct module version (Backport PR cilium/cilium#47097, Upstream PR cilium/cilium#46742, @joestringer)
+* chore: check-cilium-envoy-image.sh should get values from Makefile.va… (Backport PR cilium/cilium#46922, Upstream PR cilium/cilium#46840, @sekhar-isovalent)
+* v1.17: ariane: Remove Conformance AKS (cilium/cilium#47145, @pchaigno)
+* v1.17: workflows: Remove coverage for AKS (cilium/cilium#46998, @pchaigno)
+
+**Misc Changes:**
+* .github: allow fork PR checkout with actions/checkout v7 (Backport PR cilium/cilium#47137, Upstream PR cilium/cilium#47133, @aanm)
+* [v1.17] - .github/workflows: unpin cilium/cilium self-references to track main (cilium/cilium#46611, @aanm)
+* [v1.17] - Reapply ".github/workflows: do not use deployments for environments" (cilium/cilium#46576, @aanm)
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#46660, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#46778, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#46916, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#47113, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#46913, @cilium-renovate[bot])
+* chore(deps): update aws-actions/configure-aws-credentials action to v6.2.2 (v1.17) (cilium/cilium#47126, @cilium-renovate[bot])
+* chore(deps): update base-images to v1.25.12 (v1.17) (cilium/cilium#46984, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.19.5 (v1.17) (cilium/cilium#46728, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.25.11 docker digest to 00feed3 (v1.17) (cilium/cilium#46661, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.25.11 docker digest to 995e25c (v1.17) (cilium/cilium#46777, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.25.11 docker digest to f188e8c (v1.17) (cilium/cilium#46914, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.25.12 docker digest to d7912ce (v1.17) (cilium/cilium#47112, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to d29e660 (v1.17) (cilium/cilium#47042, @cilium-renovate[bot])
+* chore(deps): update google/cloud-sdk docker tag to v573 (v1.17) (cilium/cilium#46667, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.4.6 (v1.17) (cilium/cilium#47043, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.36.9-1782267392-edeb3f2af56c37c407efa1f63f0b32f595399bbc (v1.17) (cilium/cilium#46702, @cilium-renovate[bot])
+* chore: BYOCNI loopback for cilium (Backport PR cilium/cilium#46707, Upstream PR cilium/cilium#46646, @sekhar-isovalent)
+* chore: optimize building gops and cni/loopback (Backport PR cilium/cilium#46847, Upstream PR cilium/cilium#46781, @sekhar-isovalent)
+* ci: always set fail-fast to false on image builds (Backport PR cilium/cilium#47199, Upstream PR cilium/cilium#47064, @aanm)
+* docs: fix note about ipv4-native-routing-cidr default value (Backport PR cilium/cilium#46795, Upstream PR cilium/cilium#46603, @rptaylor)
+* Fix instance of cilium having incorrect specified policy_change_total failure label "failure" value which caused unnecessary warnings. (Backport PR cilium/cilium#46795, Upstream PR cilium/cilium#46388, @tommyp1ckles)
+* fix(deps): update k8s.io/utils digest to be93311 (v1.17) (cilium/cilium#46915, @cilium-renovate[bot])
+* fix(deps): update k8s.io/utils digest to cf1189d (v1.17) (cilium/cilium#47117, @cilium-renovate[bot])
+* images ci: free preinstalled toolchains on tight runners before building (Backport PR cilium/cilium#47199, Upstream PR cilium/cilium#47141, @aanm)
+* images: Only build `gops` for the relevant platform (Backport PR cilium/cilium#46707, Upstream PR cilium/cilium#41160, @HadrienPatte)
+* Makefile: Generate full Cilium version in worktree (Backport PR cilium/cilium#46795, Upstream PR cilium/cilium#46737, @joestringer)
+
+**Other Changes:**
+* install: Update image digests for v1.17.17 (cilium/cilium#46591, @cilium-release-bot[bot])
+
 ## v1.17.17
 
 Summary of Changes
