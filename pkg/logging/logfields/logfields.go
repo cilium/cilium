@@ -1937,4 +1937,12 @@ const (
 	CiliumDatapathPluginAttachmentPolicy = "datapathPluginAttachmentPolicy"
 
 	CiliumDatapathPluginVersion = "datapathPluginVersion"
+
+	Attributes = "attributes"
+
+	DriverName = "driverName"
+
+	PodUID = "podUID"
+
+	ClaimUID = "claimUID"
 )
