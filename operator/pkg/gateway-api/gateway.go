@@ -14,7 +14,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -195,8 +194,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.TLSRoute{}, watchhandlers.EnqueueRequestForOwningTLSRoute(r.Client, r.logger, r.controllerName)).
 		// Watch related secrets used to configure TLS
 		Watches(&corev1.Secret{},
-			watchhandlers.EnqueueRequestForTLSSecret(r.Client, r.controllerName, r.logger),
-			builder.WithPredicates(predicate.NewPredicateFuncs(predicates.SecretUsedInGatewayFn(r.Client, r.controllerName, r.logger)))).
+			watchhandlers.EnqueueRequestForTLSSecret(r.Client, r.controllerName, r.logger)).
 		// Watch related namespace in allowed namespaces
 		Watches(&corev1.Namespace{},
 			watchhandlers.EnqueueRequestForAllowedNamespace(r.Client, r.logger)).
