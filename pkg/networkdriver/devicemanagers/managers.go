@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
 
@@ -15,6 +16,15 @@ func InitManagers(logger *slog.Logger, managerConfigs *v2alpha1.CiliumNetworkDri
 
 	if managerConfigs == nil {
 		return nil, nil
+	}
+
+	if managerConfigs.Dummy != nil && managerConfigs.Dummy.Enabled {
+		dummyMgr, err := dummy.NewManager(logger, managerConfigs.Dummy)
+		if err != nil {
+			return nil, err
+		}
+
+		result[types.DeviceManagerTypeDummy] = dummyMgr
 	}
 
 	return result, nil

@@ -93,17 +93,22 @@ const (
 	// the networkdriver package can reference it without importing a real
 	// device-manager package.
 	DeviceManagerTypeMock DeviceManagerType = iota
+	DeviceManagerTypeDummy
 	DeviceManagerTypeUnknown
 )
 
 const (
 	deviceManagerTypeMockStr = "mock"
+	dummyDeviceManagerStr    = "dummy"
 )
 
 func (d DeviceManagerType) String() string {
 	switch d {
 	case DeviceManagerTypeMock:
 		return deviceManagerTypeMockStr
+
+	case DeviceManagerTypeDummy:
+		return dummyDeviceManagerStr
 	}
 
 	return ""
@@ -113,6 +118,9 @@ func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 	switch d {
 	case DeviceManagerTypeMock:
 		return json.Marshal(deviceManagerTypeMockStr)
+
+	case DeviceManagerTypeDummy:
+		return json.Marshal(dummyDeviceManagerStr)
 	}
 
 	return nil, errUnknownDeviceManagerType
@@ -128,6 +136,8 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 	switch strings.ToLower(s) {
 	case deviceManagerTypeMockStr:
 		*d = DeviceManagerTypeMock
+	case dummyDeviceManagerStr:
+		*d = DeviceManagerTypeDummy
 	default:
 		return errUnknownDeviceManagerType
 	}

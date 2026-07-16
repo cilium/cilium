@@ -31,6 +31,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
 
@@ -136,6 +137,31 @@ func TestFilterDevices(t *testing.T) {
 		require.Len(t, got, 1)
 		require.Equal(t, "eth0", got[0].IfName())
 	})
+
+	t.Run("dummy devices filtered by manager type", func(t *testing.T) {
+		mgr, err := dummy.NewManager(hivetest.Logger(t), &v2alpha1.DummyDeviceManagerConfig{Count: 3})
+		require.NoError(t, err)
+		devs, err := mgr.ListDevices()
+		require.NoError(t, err)
+
+		// Filter by dummy manager — all three must match.
+		got := filterDevices(devs, v2alpha1.CiliumNetworkDriverDeviceFilter{
+			DeviceManagers: []string{types.DeviceManagerTypeDummy.String()},
+		})
+		require.Len(t, got, 3)
+
+		// Filter by a different manager — none must match.
+		require.Empty(t, filterDevices(devs, v2alpha1.CiliumNetworkDriverDeviceFilter{
+			DeviceManagers: []string{"sriov"},
+		}))
+
+		// IfName filter matching only dummy1 — exactly one must match.
+		got = filterDevices(devs, v2alpha1.CiliumNetworkDriverDeviceFilter{
+			IfNames: []string{"dummy1"},
+		})
+		require.Len(t, got, 1)
+		require.Equal(t, "dummy1", got[0].IfName())
+	})
 }
 
 func TestResolvePoolAssignments(t *testing.T) {
@@ -235,6 +261,20 @@ func TestBuildPools(t *testing.T) {
 		require.Contains(t, pools, "pool-a")
 		require.Len(t, pools["pool-a"].Slices[0].Devices, 1)
 		require.Equal(t, "eth0", pools["pool-a"].Slices[0].Devices[0].Name)
+	})
+
+	t.Run("dummy devices assigned to pool", func(t *testing.T) {
+		driver := buildDriverWithDummyManager(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+			dummyPoolConfig("dummy-pool"),
+		})
+
+		allDevices := driver.devices[types.DeviceManagerTypeDummy]
+		devicePool := driver.resolvePoolAssignments(t.Context(), allDevices)
+		pools := driver.buildPools(allDevices, devicePool)
+
+		require.Contains(t, pools, "dummy-pool")
+		require.Len(t, pools["dummy-pool"].Slices[0].Devices, 2,
+			"both dummy devices must appear in the pool")
 	})
 }
 
@@ -339,6 +379,47 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, driver.allocations)
 	})
+
+	t.Run("dummy device restored via real DummyManager", func(t *testing.T) {
+		driver := buildDriverWithDummyManager(t, nil)
+
+		dev := &dummy.DummyDevice{Name: "dummy0"}
+		devData, err := dev.MarshalBinary()
+		require.NoError(t, err)
+
+		serialized, err := json.Marshal(types.SerializedDevice{
+			Manager: types.DeviceManagerTypeDummy,
+			Dev:     devData,
+			Config:  types.DeviceConfig{PodIfName: "eth0"},
+		})
+		require.NoError(t, err)
+
+		claim := &resourceapi.ResourceClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-claim", Namespace: "default", UID: prepTestClaimUID},
+			Status: resourceapi.ResourceClaimStatus{
+				ReservedFor: []resourceapi.ResourceClaimConsumerReference{
+					{Resource: "pods", UID: prepTestPodUID},
+				},
+				Devices: []resourceapi.AllocatedDeviceStatus{
+					{
+						Driver: prepTestDriverName,
+						Pool:   "dummy-pool",
+						Device: "dummy0",
+						Data:   &runtime.RawExtension{Raw: serialized},
+					},
+				},
+			},
+		}
+
+		require.NoError(t, driver.restoreDevicesFromClaim(claim))
+
+		require.Contains(t, driver.allocations, prepTestPodUID)
+		allocs := driver.allocations[prepTestPodUID][prepTestClaimUID]
+		require.Len(t, allocs, 1)
+		require.Equal(t, "dummy0", allocs[0].Device.IfName())
+		require.Equal(t, "eth0", allocs[0].Config.PodIfName)
+		require.Equal(t, types.DeviceManagerTypeDummy, allocs[0].Manager)
+	})
 }
 
 func TestGetNetworkNamespace(t *testing.T) {
@@ -414,4 +495,50 @@ func TestSynchronize(t *testing.T) {
 		require.Nil(t, updates)
 		require.Empty(t, d.podNetns)
 	})
+}
+
+// ---------------------------------------------------------------------------
+// DummyDevice-based extensions — real DummyManager wired into driver logic
+// ---------------------------------------------------------------------------
+
+// buildDriverWithDummyManager returns a *Driver whose deviceManagers map
+// contains a real DummyManager with count=2.  It also seeds driver.devices
+// by calling ListDevices so pool-resolution helpers have real devices to work
+// with.  No netlink calls are made here — that only happens in Setup/Free.
+func buildDriverWithDummyManager(t *testing.T, pools []v2alpha1.CiliumNetworkDriverDevicePoolConfig) *Driver {
+	t.Helper()
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
+	mgr, err := dummy.NewManager(tlog, &v2alpha1.DummyDeviceManagerConfig{Count: 2})
+	require.NoError(t, err)
+
+	devs, err := mgr.ListDevices()
+	require.NoError(t, err)
+
+	d := buildPrepDriver(t, cs)
+	d.config = &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
+		DriverName: prepTestDriverName,
+		Pools:      pools,
+	}
+	d.deviceManagers = map[types.DeviceManagerType]types.DeviceManager{
+		types.DeviceManagerTypeDummy: mgr,
+	}
+	d.devices = map[types.DeviceManagerType][]types.Device{
+		types.DeviceManagerTypeDummy: devs,
+	}
+	d.assignedDevices = make(map[string]string)
+	d.podNetns = make(map[kubetypes.UID]string)
+	return d
+}
+
+// dummyPoolConfig returns a single pool config whose filter accepts all dummy
+// devices (empty DeviceManagers list means "any").
+func dummyPoolConfig(name string) v2alpha1.CiliumNetworkDriverDevicePoolConfig {
+	return v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+		PoolName: name,
+		Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{
+			DeviceManagers: []string{types.DeviceManagerTypeDummy.String()},
+		},
+	}
 }
