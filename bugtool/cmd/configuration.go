@@ -172,6 +172,7 @@ func defaultCommands(confDir string, cmdDir string) []string {
 		"cat -u /proc/net/softnet_stat",
 		"cat -u /proc/net/snmp",
 		"cat -u /proc/net/netstat",
+		"cat -u /proc/net/snmp6",
 	)
 
 	return commands
@@ -191,10 +192,17 @@ func miscSystemCommands() []string {
 		// column 3 is time_squeeze (softirq ran out of budget, i.e. the CPU
 		// could not keep up). snmp and netstat add the IP/TCP layer drop
 		// counters (e.g. ListenDrops, ListenOverflows, TCPBacklogDrop) that tell
-		// a socket accept-queue drop apart from a backlog drop.
+		// a socket accept-queue drop apart from a backlog drop. snmp6 and
+		// dev_snmp6 are the IPv6 counterparts: they carry Ip6InDiscards,
+		// Ip6InAddrErrors, Ip6InNoRoutes, Ip6InHdrErrors, Ip6InTruncatedPkts,
+		// Ip6InUnknownProtos and the Tcp6/Udp6 error counters, i.e. the one
+		// place an IPv6 packet dropped in the host IP stack is recorded. The
+		// dev_snmp6 glob is expanded by bash -c into the per-interface files.
 		"cat /proc/net/softnet_stat",
 		"cat /proc/net/snmp",
 		"cat /proc/net/netstat",
+		"cat /proc/net/snmp6",
+		"cat -v -A /proc/net/dev_snmp6/*",
 		// Host and misc
 		"ps auxfw",
 		"hostname",
