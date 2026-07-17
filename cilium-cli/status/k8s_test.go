@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
@@ -258,7 +259,7 @@ func TestStatusCustomAgentDaemonSetName(t *testing.T) {
 	assert.NotNil(t, client)
 
 	const (
-		customDSName     = "cilium-v1-16-0"
+		customDSName      = "cilium-v1-16-0"
 		customPodSelector = "k8s-app=cilium-v1-16-0"
 	)
 
@@ -284,4 +285,29 @@ func TestStatusCustomAgentDaemonSetName(t *testing.T) {
 	formatted := status.Format()
 	assert.Contains(t, formatted, "Cilium:")
 	assert.Contains(t, formatted, customDSName)
+
+	// Not-ready custom DaemonSet: Errors and Format()'s Cilium summary must key off the
+	// custom name (not defaults.AgentDaemonSetName), otherwise the banner would show OK.
+	client.reset()
+	client.setDaemonSet("kube-system", customDSName, customPodSelector, 3, 1, 1, 2, 3, 1, 1)
+	status, err = collector.Status(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.Contains(t, status.Errors, customDSName)
+	assert.NotContains(t, status.Errors, defaults.AgentDaemonSetName)
+	customSummary := status.statusSummary(customDSName)
+	assert.NotEqual(t, Green+"OK"+Reset, customSummary)
+	assert.Equal(t, Green+"OK"+Reset, status.statusSummary(defaults.AgentDaemonSetName))
+	formatted = status.Format()
+	assert.Regexp(t, `(?m)Cilium:\s+`+regexp.QuoteMeta(customSummary), formatted)
+}
+
+func TestFormatEmptyAgentDaemonSetNameFallsBack(t *testing.T) {
+	status := newStatus()
+	status.AddAggregatedError(defaults.AgentDaemonSetName, defaults.AgentDaemonSetName, errors.New("agent missing"))
+
+	summary := status.statusSummary(defaults.AgentDaemonSetName)
+	formatted := status.Format()
+	assert.Regexp(t, `(?m)Cilium:\s+`+regexp.QuoteMeta(summary), formatted)
+	assert.NotRegexp(t, `(?m)Cilium:\s+`+regexp.QuoteMeta(Green+"OK"+Reset), formatted)
 }
