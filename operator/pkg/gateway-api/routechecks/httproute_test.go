@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -90,6 +91,117 @@ func TestHTTPRouteValidateMatchRegexps(t *testing.T) {
 				assert.Equal(t, metav1.ConditionFalse, cond.Status)
 				assert.Equal(t, string(gatewayv1.RouteReasonUnsupportedValue), cond.Reason)
 			}
+		})
+	}
+}
+
+func TestHTTPRouteRuleGetBackendRefs(t *testing.T) {
+	svcPort := ptr.To[gatewayv1.PortNumber](8080)
+	authPort := ptr.To[gatewayv1.PortNumber](9001)
+	mirrorPort := ptr.To[gatewayv1.PortNumber](9002)
+
+	tests := []struct {
+		name      string
+		rule      gatewayv1.HTTPRouteRule
+		wantNames []gatewayv1.ObjectName
+	}{
+		{
+			name: "backendRefs only",
+			rule: gatewayv1.HTTPRouteRule{
+				BackendRefs: []gatewayv1.HTTPBackendRef{
+					{BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{Name: "my-service", Port: svcPort},
+					}},
+				},
+			},
+			wantNames: []gatewayv1.ObjectName{"my-service"},
+		},
+		{
+			name: "ExternalAuth filter includes its BackendRef",
+			rule: gatewayv1.HTTPRouteRule{
+				BackendRefs: []gatewayv1.HTTPBackendRef{
+					{BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{Name: "my-service", Port: svcPort},
+					}},
+				},
+				Filters: []gatewayv1.HTTPRouteFilter{
+					{
+						Type: gatewayv1.HTTPRouteFilterExternalAuth,
+						ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+							ExternalAuthProtocol: gatewayv1.HTTPRouteExternalAuthGRPCProtocol,
+							BackendRef:           gatewayv1.BackendObjectReference{Name: "auth-service", Port: authPort},
+						},
+					},
+				},
+			},
+			wantNames: []gatewayv1.ObjectName{"my-service", "auth-service"},
+		},
+		{
+			name: "nil ExternalAuth filter is skipped",
+			rule: gatewayv1.HTTPRouteRule{
+				Filters: []gatewayv1.HTTPRouteFilter{
+					{Type: gatewayv1.HTTPRouteFilterExternalAuth, ExternalAuth: nil},
+				},
+			},
+			wantNames: nil,
+		},
+		{
+			name: "RequestMirror filter still included",
+			rule: gatewayv1.HTTPRouteRule{
+				BackendRefs: []gatewayv1.HTTPBackendRef{
+					{BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{Name: "my-service", Port: svcPort},
+					}},
+				},
+				Filters: []gatewayv1.HTTPRouteFilter{
+					{
+						Type: gatewayv1.HTTPRouteFilterRequestMirror,
+						RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+							BackendRef: gatewayv1.BackendObjectReference{Name: "mirror-service", Port: mirrorPort},
+						},
+					},
+				},
+			},
+			wantNames: []gatewayv1.ObjectName{"my-service", "mirror-service"},
+		},
+		{
+			name: "ExternalAuth and RequestMirror filters both included",
+			rule: gatewayv1.HTTPRouteRule{
+				BackendRefs: []gatewayv1.HTTPBackendRef{
+					{BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{Name: "my-service", Port: svcPort},
+					}},
+				},
+				Filters: []gatewayv1.HTTPRouteFilter{
+					{
+						Type: gatewayv1.HTTPRouteFilterExternalAuth,
+						ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+							ExternalAuthProtocol: gatewayv1.HTTPRouteExternalAuthGRPCProtocol,
+							BackendRef:           gatewayv1.BackendObjectReference{Name: "auth-service", Port: authPort},
+						},
+					},
+					{
+						Type: gatewayv1.HTTPRouteFilterRequestMirror,
+						RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+							BackendRef: gatewayv1.BackendObjectReference{Name: "mirror-service", Port: mirrorPort},
+						},
+					},
+				},
+			},
+			wantNames: []gatewayv1.ObjectName{"my-service", "auth-service", "mirror-service"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rule := &HTTPRouteRule{Rule: tt.rule}
+			refs := rule.GetBackendRefs()
+
+			var gotNames []gatewayv1.ObjectName
+			for _, r := range refs {
+				gotNames = append(gotNames, r.Name)
+			}
+			assert.Equal(t, tt.wantNames, gotNames)
 		})
 	}
 }
