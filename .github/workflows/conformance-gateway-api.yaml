@@ -199,9 +199,9 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
-          SKIPPED_TESTS="TCPRouteWeightedRouting,UDPRouteWeightedRouting"
+          SKIPPED_TESTS=""
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
-            SKIPPED_TESTS+=",MeshConsumerRoute,HTTPRouteListenerPortMatching"
+            SKIPPED_TESTS="MeshConsumerRoute,HTTPRouteListenerPortMatching"
           fi
 
           # The conformance-profile jobs consume SKIPPED_TESTS through the
@@ -215,7 +215,10 @@ jobs:
           # flows through make's $(GATEWAY_TEST_FLAGS), where a trailing '$'
           # breaks shell quoting; none of the skipped names is a prefix of
           # another conformance test, so the alternation cannot over-match.
-          SKIPPED_TESTS_REGEX="TestConformance/(${SKIPPED_TESTS//,/|})"
+          SKIPPED_TESTS_REGEX=""
+          if [ -n "${SKIPPED_TESTS}" ]; then
+            SKIPPED_TESTS_REGEX="TestConformance/(${SKIPPED_TESTS//,/|})"
+          fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=true \

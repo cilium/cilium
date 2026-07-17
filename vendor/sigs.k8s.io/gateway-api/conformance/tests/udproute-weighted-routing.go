@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
+	"sigs.k8s.io/gateway-api/conformance/utils/udp"
 	"sigs.k8s.io/gateway-api/conformance/utils/weight"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
@@ -69,6 +70,8 @@ var UDPRouteWeightedRouting = confsuite.ConformanceTest{
 				"udp-backend-v2": 0.3,
 				"udp-backend-v3": 0.0,
 			}
+
+			udp.ExpectEchoResponse(t, suite.TimeoutConfig.MaxTimeToConsistency, gwAddr)
 
 			sender := weight.NewFunctionBasedSender(func() (string, error) {
 				return udpEchoSendOnce(t.Context(), gwAddr, 2*time.Second)

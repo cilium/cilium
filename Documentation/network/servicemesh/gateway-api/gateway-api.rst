@@ -23,7 +23,7 @@ See the `Gateway API site <https://gateway-api.sigs.k8s.io/>`__ for more details
 Cilium Gateway API Support
 ##########################
 
-Cilium supports Gateway API v1.6.0 for below resources, all the Core conformance
+Cilium supports Gateway API v1.6.1 for below resources, all the Core conformance
 tests are passed.
 
 - `GatewayClass <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/>`_
@@ -77,7 +77,7 @@ Cilium's Gateway API features:
    access-logs
    listenerset
 
-More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.3.0/examples/standard>`_.
+More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.6.1/examples/standard>`_.
 
 Troubleshooting
 ###############
