@@ -30,6 +30,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	tcpserver "sigs.k8s.io/gateway-api/conformance/echo-basic/tcpserver"
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
@@ -204,4 +205,30 @@ func EchoSendOnce(ctx context.Context, gwAddr string, timeout time.Duration) (st
 		return "", fmt.Errorf("TCP echo response missing pod name: %q", line)
 	}
 	return resp.Pod, nil
+}
+
+// ExpectAddressBeAvailable polls until a TCP connection to the provided address
+// can be established, or fails the test if the timeout expires. It only verifies
+// that the address accepts TCP connections; it does not validate an echo response
+// or backend selection.
+func ExpectAddressBeAvailable(t *testing.T, interval, timeout time.Duration, address string) {
+	t.Helper()
+
+	tlog.Logf(t, "performing TCP connection probe on %s", address)
+	err := wait.PollUntilContextTimeout(t.Context(), interval, timeout, true,
+		func(ctx context.Context) (bool, error) {
+			var dialer net.Dialer
+			conn, err := dialer.DialContext(ctx, "tcp", address)
+			if err != nil {
+				tlog.Logf(t, "failed to establish TCP connection to %s; retrying: %v", address, err)
+				return false, nil
+			}
+			tlog.Logf(t, "established TCP connection to %s", address)
+			if err := conn.Close(); err != nil {
+				tlog.Logf(t, "failed to close TCP probe connection to %s: %v", address, err)
+			}
+
+			return true, nil
+		})
+	require.NoError(t, err, "failed waiting for TCP connection to %s after %v", address, timeout)
 }

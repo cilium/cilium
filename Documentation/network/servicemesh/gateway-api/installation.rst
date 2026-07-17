@@ -6,7 +6,7 @@ Prerequisites
   replacement <kubeproxy-free>`.
 * Cilium must be configured with the L7 proxy enabled using ``l7Proxy=true``
   (enabled by default).
-* The below CRDs from Gateway API v1.6.0 ``must`` be pre-installed.
+* The below CRDs from Gateway API v1.6.1 ``must`` be pre-installed.
   Please refer to these `docs <https://gateway-api.sigs.k8s.io/guides/getting-started/introduction/#installing-gateway-api>`_
   for installation steps. Alternatively, the below snippet could be used.
 
@@ -22,13 +22,13 @@ Prerequisites
 
     .. code-block:: shell-session
 
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_backendtlspolicies.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_tlsroutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_backendtlspolicies.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_tlsroutes.yaml
 
   If you wish to use the ListenerSet, TCPRoute, or UDPRoute functionality, you
   also need to install the related CRDs. For each CRD that is not installed,
@@ -44,19 +44,19 @@ Prerequisites
 
     .. code-block:: shell-session
 
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_listenersets.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_listenersets.yaml
 
   TCPRoute:
 
     .. code-block:: shell-session
 
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_tcproutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_tcproutes.yaml
 
   UDPRoute:
 
     .. code-block:: shell-session
 
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/standard/gateway.networking.k8s.io_udproutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_udproutes.yaml
 
 * By default, the Gateway API controller creates a service of LoadBalancer type,
   so your environment will need to support this. Alternatively, since Cilium 1.16+,
