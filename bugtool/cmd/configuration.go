@@ -72,26 +72,129 @@ func cgroup2fsMounts() []string {
 	return mounts
 }
 
+var bpfMapsPath = []string{
+	"tc/globals/cilium_auth_map",
+	"tc/globals/cilium_call_policy",
+	"tc/globals/cilium_calls_overlay_2",
+	"tc/globals/cilium_calls_wireguard_2",
+	"tc/globals/cilium_calls_xdp",
+	"tc/globals/cilium_capture_cache",
+	"tc/globals/cilium_runtime_config",
+	"tc/globals/cilium_lxc",
+	"tc/globals/cilium_metrics",
+	"tc/globals/cilium_tunnel_map",
+	"tc/globals/cilium_ktime_cache",
+	"tc/globals/cilium_ipcache",
+	"tc/globals/cilium_events",
+	"tc/globals/cilium_signals",
+	"tc/globals/cilium_capture4_rules",
+	"tc/globals/cilium_capture6_rules",
+	"tc/globals/cilium_nodeport_neigh4",
+	"tc/globals/cilium_nodeport_neigh6",
+	"tc/globals/cilium_node_map",
+	"tc/globals/cilium_node_map_v2",
+	"tc/globals/cilium_lb4_source_range",
+	"tc/globals/cilium_lb6_source_range",
+	"tc/globals/cilium_lb4_maglev",
+	"tc/globals/cilium_lb6_maglev",
+	"tc/globals/cilium_lb6_health",
+	"tc/globals/cilium_lb6_reverse_sk",
+	"tc/globals/cilium_lb4_health",
+	"tc/globals/cilium_lb4_reverse_sk",
+	"tc/globals/cilium_ipmasq_v4",
+	"tc/globals/cilium_ipmasq_v6",
+	"tc/globals/cilium_ipv4_frag_datagrams",
+	"tc/globals/cilium_throttle",
+	"tc/globals/cilium_encrypt_state",
+	"tc/globals/cilium_egress_gw_policy_v4",
+	"tc/globals/cilium_srv6_vrf_v4",
+	"tc/globals/cilium_srv6_vrf_v6",
+	"tc/globals/cilium_srv6_policy_v4",
+	"tc/globals/cilium_srv6_policy_v6",
+	"tc/globals/cilium_srv6_sid",
+	"tc/globals/cilium_lb4_services_v2",
+	"tc/globals/cilium_lb4_backends_v2",
+	"tc/globals/cilium_lb4_backends_v3",
+	"tc/globals/cilium_lb4_backends",
+	"tc/globals/cilium_lb4_reverse_nat",
+	"tc/globals/cilium_ct4_global",
+	"tc/globals/cilium_ct_any4_global",
+	"tc/globals/cilium_lb4_affinity",
+	"tc/globals/cilium_lb6_affinity",
+	"tc/globals/cilium_lb_affinity_match",
+	"tc/globals/cilium_lb6_services_v2",
+	"tc/globals/cilium_lb6_backends_v2",
+	"tc/globals/cilium_lb6_backends_v3",
+	"tc/globals/cilium_lb6_backends",
+	"tc/globals/cilium_lb6_reverse_nat",
+	"tc/globals/cilium_ct6_global",
+	"tc/globals/cilium_ct_any6_global",
+	"tc/globals/cilium_snat_v4_external",
+	"tc/globals/cilium_snat_v6_external",
+	"tc/globals/cilium_vtep_map",
+	"tc/globals/cilium_l2_responder_v4",
+	"tc/globals/cilium_ratelimit",
+	"tc/globals/cilium_ratelimit_metrics",
+	"tc/globals/cilium_skip_lb4",
+	"tc/globals/cilium_skip_lb6",
+}
+
 func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	var commands []string
 	// Not expecting all of the commands to be available
-	commands = []string{
+	commands = append(commands, miscSystemCommands()...)
+
+	commands = append(commands, bpfMapDumpCommands(bpfMapsPath)...)
+
+	// Commands that require variables and / or more configuration are added
+	// separately below
+	commands = append(commands, catCommands()...)
+	commands = append(commands, routeCommands()...)
+	commands = append(commands, ethtoolCommands()...)
+	commands = append(commands, copyConfigCommands(confDir, k8sPods)...)
+	// We want to collect these twice: at the very beginning and at the
+	// very end of the bugtool collection, to see if the counters are
+	// increasing.
+	// The commands end up being the names of the files where their output
+	// is stored, so we can't have the two commands be the exact same or the
+	// second would overwrite. To avoid that, we use the -u flag in this second
+	// command; that flag is documented as being ignored.
+	commands = append(commands,
+		"cat -u /proc/net/xfrm_stat",
+		"cat -u /proc/net/softnet_stat",
+		"cat -u /proc/net/snmp",
+		"cat -u /proc/net/netstat",
+		"cat -u /proc/net/snmp6",
+	)
+
+	return commands
+}
+
+func miscSystemCommands() []string {
+	return []string{
 		// We want to collect this twice: at the very beginning and at the
 		// very end of the bugtool collection, to see if the counters are
 		// increasing.
 		"cat /proc/net/xfrm_stat",
 		// Host packet-drop counters, collected at the start and, via the -u
-		// variants below, at the end so the delta over the collection window is
-		// visible. softnet_stat is the only place a packet dropped before it
-		// reaches a netdev or socket queue is counted: column 2 is the per-CPU
-		// backlog drop count (netdev_max_backlog exceeded) and column 3 is
-		// time_squeeze (softirq ran out of budget, i.e. the CPU could not keep
-		// up). snmp and netstat add the IP/TCP layer drop counters (e.g.
-		// ListenDrops, ListenOverflows, TCPBacklogDrop) that tell a socket
-		// accept-queue drop apart from a backlog drop.
+		// variants in defaultCommands, at the end so the delta over the
+		// collection window is visible. softnet_stat is the only place a packet
+		// dropped before it reaches a netdev or socket queue is counted: column
+		// 2 is the per-CPU backlog drop count (netdev_max_backlog exceeded) and
+		// column 3 is time_squeeze (softirq ran out of budget, i.e. the CPU
+		// could not keep up). snmp and netstat add the IP/TCP layer drop
+		// counters (e.g. ListenDrops, ListenOverflows, TCPBacklogDrop) that tell
+		// a socket accept-queue drop apart from a backlog drop. snmp6 and
+		// dev_snmp6 are the IPv6 counterparts: they carry Ip6InDiscards,
+		// Ip6InAddrErrors, Ip6InNoRoutes, Ip6InHdrErrors, Ip6InTruncatedPkts,
+		// Ip6InUnknownProtos and the Tcp6/Udp6 error counters, i.e. the one
+		// place an IPv6 packet dropped in the host IP stack is recorded. The
+		// dev_snmp6 glob is expanded by bash -c into the per-interface files.
 		"cat /proc/net/softnet_stat",
 		"cat /proc/net/snmp",
 		"cat /proc/net/netstat",
+		"cat /proc/net/snmp6",
+		"cat -v -A /proc/net/dev_snmp6/*",
 		// Host and misc
 		"ps auxfw",
 		"hostname",
@@ -136,113 +239,6 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
 		"find /sys/fs/bpf -ls",
 	}
-
-	// LB and CT map for debugging services; using bpftool for a reliable dump
-	bpfMapsPath := []string{
-		"tc/globals/cilium_auth_map",
-		"tc/globals/cilium_call_policy",
-		"tc/globals/cilium_calls_overlay_2",
-		"tc/globals/cilium_calls_wireguard_2",
-		"tc/globals/cilium_calls_xdp",
-		"tc/globals/cilium_capture_cache",
-		"tc/globals/cilium_runtime_config",
-		"tc/globals/cilium_lxc",
-		"tc/globals/cilium_metrics",
-		"tc/globals/cilium_tunnel_map",
-		"tc/globals/cilium_ktime_cache",
-		"tc/globals/cilium_ipcache",
-		"tc/globals/cilium_events",
-		"tc/globals/cilium_signals",
-		"tc/globals/cilium_capture4_rules",
-		"tc/globals/cilium_capture6_rules",
-		"tc/globals/cilium_nodeport_neigh4",
-		"tc/globals/cilium_nodeport_neigh6",
-		"tc/globals/cilium_node_map",
-		"tc/globals/cilium_node_map_v2",
-		"tc/globals/cilium_lb4_source_range",
-		"tc/globals/cilium_lb6_source_range",
-		"tc/globals/cilium_lb4_maglev",
-		"tc/globals/cilium_lb6_maglev",
-		"tc/globals/cilium_lb6_health",
-		"tc/globals/cilium_lb6_reverse_sk",
-		"tc/globals/cilium_lb4_health",
-		"tc/globals/cilium_lb4_reverse_sk",
-		"tc/globals/cilium_ipmasq_v4",
-		"tc/globals/cilium_ipmasq_v6",
-		"tc/globals/cilium_ipv4_frag_datagrams",
-		"tc/globals/cilium_throttle",
-		"tc/globals/cilium_encrypt_state",
-		"tc/globals/cilium_egress_gw_policy_v4",
-		"tc/globals/cilium_srv6_vrf_v4",
-		"tc/globals/cilium_srv6_vrf_v6",
-		"tc/globals/cilium_srv6_policy_v4",
-		"tc/globals/cilium_srv6_policy_v6",
-		"tc/globals/cilium_srv6_sid",
-		"tc/globals/cilium_lb4_services_v2",
-		"tc/globals/cilium_lb4_backends_v2",
-		"tc/globals/cilium_lb4_backends_v3",
-		"tc/globals/cilium_lb4_backends",
-		"tc/globals/cilium_lb4_reverse_nat",
-		"tc/globals/cilium_ct4_global",
-		"tc/globals/cilium_ct_any4_global",
-		"tc/globals/cilium_lb4_affinity",
-		"tc/globals/cilium_lb6_affinity",
-		"tc/globals/cilium_lb_affinity_match",
-		"tc/globals/cilium_lb6_services_v2",
-		"tc/globals/cilium_lb6_backends_v2",
-		"tc/globals/cilium_lb6_backends_v3",
-		"tc/globals/cilium_lb6_backends",
-		"tc/globals/cilium_lb6_reverse_nat",
-		"tc/globals/cilium_ct6_global",
-		"tc/globals/cilium_ct_any6_global",
-		"tc/globals/cilium_snat_v4_external",
-		"tc/globals/cilium_snat_v6_external",
-		"tc/globals/cilium_vtep_map",
-		"tc/globals/cilium_l2_responder_v4",
-		"tc/globals/cilium_ratelimit",
-		"tc/globals/cilium_ratelimit_metrics",
-		"tc/globals/cilium_skip_lb4",
-		"tc/globals/cilium_skip_lb6",
-	}
-	commands = append(commands, bpfMapDumpCommands(bpfMapsPath)...)
-
-	cgroup2fsMounts := cgroup2fsMounts()
-	for i := range cgroup2fsMounts {
-		commands = append(commands, []string{
-			fmt.Sprintf("bpftool cgroup tree %s", cgroup2fsMounts[i]),
-		}...)
-	}
-
-	// Commands that require variables and / or more configuration are added
-	// separately below
-	commands = append(commands, catCommands()...)
-	commands = append(commands, routeCommands()...)
-	commands = append(commands, ethtoolCommands()...)
-	commands = append(commands, copyConfigCommands(confDir, k8sPods)...)
-	commands = append(commands, ciliumInfoCommands(cmdDir, k8sPods)...)
-
-	tcCommands, err := tcInterfaceCommands()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to generate per interface tc commands: %s\n", err)
-	} else {
-		commands = append(commands, tcCommands...)
-	}
-
-	// We want to collect this twice: at the very beginning and at the
-	// very end of the bugtool collection, to see if the counters are
-	// increasing.
-	// The commands end up being the names of the files where their output
-	// is stored, so we can't have the two commands be the exact same or the
-	// second would overwrite. To avoid that, we use the -u flag in this second
-	// command; that flag is documented as being ignored.
-	commands = append(commands,
-		"cat -u /proc/net/xfrm_stat",
-		"cat -u /proc/net/softnet_stat",
-		"cat -u /proc/net/snmp",
-		"cat -u /proc/net/netstat",
-	)
-
-	return k8sCommands(commands, k8sPods)
 }
 
 func bpfMapDumpCommands(mapPaths []string) []string {
