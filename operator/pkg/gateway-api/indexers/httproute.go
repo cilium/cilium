@@ -151,6 +151,28 @@ func IndexHTTPRouteByBackendServiceImport(rawObj client.Object) []string {
 				}.String(),
 			)
 		}
+		for _, f := range rule.Filters {
+			var backendRef gatewayv1.BackendObjectReference
+
+			switch {
+			case f.Type == gatewayv1.HTTPRouteFilterRequestMirror && f.RequestMirror != nil:
+				backendRef = f.RequestMirror.BackendRef
+			case f.Type == gatewayv1.HTTPRouteFilterExternalAuth && f.ExternalAuth != nil:
+				backendRef = f.ExternalAuth.BackendRef
+			default:
+				continue
+			}
+
+			if !helpers.IsServiceImport(backendRef) {
+				continue
+			}
+			backendServiceImports = append(backendServiceImports,
+				types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(backendRef.Namespace, hr.Namespace),
+					Name:      string(backendRef.Name),
+				}.String(),
+			)
+		}
 	}
 	return backendServiceImports
 }
