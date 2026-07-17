@@ -84,6 +84,29 @@ runs:
           --resource-group ${{ inputs.cluster_name }} \
           --name ${{ inputs.cluster_name }}
 
+    - name: Wait for all nodes to register with the API server
+      shell: bash
+      run: |
+        # az aks get-credentials returns as soon as the control plane is
+        # reachable, but the VMSS instances boot kubelet and register with the
+        # API server on a stagger. The next step labels the first two nodes as
+        # nodes-without-cilium and never re-labels, so it has to run only once
+        # the full expected topology (node_count + 2) is present. Otherwise it
+        # labels a single early node and generic-external-targets later reads
+        # .items[1] off a one-element list and aborts with an out-of-bounds
+        # jsonpath error.
+        expected=$(( ${{ inputs.node_count }} + 2 ))
+        timeout=300; elapsed=0
+        until [ "$(kubectl get nodes --no-headers 2>/dev/null | wc -l)" -ge "$expected" ]; do
+          if [ "$elapsed" -ge "$timeout" ]; then
+            echo "::error::only $(kubectl get nodes --no-headers 2>/dev/null | wc -l)/$expected nodes registered after ${timeout}s"
+            kubectl get nodes -o wide
+            exit 1
+          fi
+          echo "waiting for nodes to register ($(kubectl get nodes --no-headers 2>/dev/null | wc -l)/$expected)..."
+          sleep 10; elapsed=$((elapsed + 10))
+        done
+
     - name: Patch nodes without Cilium
       uses: ./.github/actions/nodes-without-cilium
 

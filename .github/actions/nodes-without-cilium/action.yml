@@ -7,4 +7,8 @@ runs:
       shell: bash
       run: |
         mapfile -t nodes_without_cilium < <(kubectl get nodes -o name | head -n 2)
+        # Fail loudly at the labeling site if fewer than two nodes are present:
+        # generic-external-targets needs two labeled nodes and this step never
+        # re-labels, so a late error here beats a jsonpath out-of-bounds later.
+        [ "${#nodes_without_cilium[@]}" -ge 2 ] || { echo "::error::expected >=2 nodes to label, found ${#nodes_without_cilium[@]}"; kubectl get nodes -o wide; exit 1; }
         kubectl patch "${nodes_without_cilium[@]}" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
