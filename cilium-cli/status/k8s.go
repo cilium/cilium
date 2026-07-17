@@ -276,6 +276,21 @@ func (k *K8sStatusCollector) daemonSetStatus(ctx context.Context, status *Status
 	return false, nil
 }
 
+// isSupersededPodRejection reports whether a Failed pod reached its terminal
+// state by admission-rejection or eviction rather than by running and crashing.
+// Such pods (e.g. bound to a node still carrying node.cilium.io/agent-not-ready
+// :NoExecute) are already replaced by a healthy sibling from the controller, so
+// they must not fail `status --wait`. A container that ran and crashed has an
+// empty pod-level Status.Reason and is therefore still surfaced.
+func isSupersededPodRejection(reason string) bool {
+	switch reason {
+	case "TaintToleration", "NodeAffinity", "NodeLost", "Evicted",
+		"Shutdown", "Preempting", "UnexpectedAdmissionError":
+		return true
+	}
+	return false
+}
+
 type podStatusCallback func(ctx context.Context, status *Status, name string, pod *corev1.Pod)
 
 func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name, filter string, callback podStatusCallback) error {
@@ -298,6 +313,13 @@ func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name
 			status.AddAggregatedWarning(name, pod.Name, fmt.Errorf("pod is pending"))
 		case corev1.PodRunning, corev1.PodSucceeded:
 		case corev1.PodFailed:
+			// A pod rejected by admission or evicted before its workload ran
+			// is terminal and already superseded by a healthy replacement from
+			// the controller. The Deployment/DaemonSet gate remains authoritative
+			// for real availability, so don't fail the status on such leftovers.
+			if isSupersededPodRejection(pod.Status.Reason) {
+				break
+			}
 			status.AddAggregatedError(name, pod.Name, fmt.Errorf("pod has failed: %s - %s", pod.Status.Reason, pod.Status.Message))
 		}
 
