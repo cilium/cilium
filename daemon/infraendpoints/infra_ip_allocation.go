@@ -62,7 +62,7 @@ type infraIPAllocatorParams struct {
 
 type InfraIPAllocator interface {
 	AllocateIPs(ctx context.Context) error
-	GetHealthEndpointRouting() *linuxrouting.RoutingInfo
+	GetHealthEndpointRouting() (ipv4, ipv6 *linuxrouting.RoutingInfo)
 }
 
 var _ InfraIPAllocator = &infraIPAllocator{}
@@ -81,8 +81,12 @@ type infraIPAllocator struct {
 	ipAllocator    ipamAllocator
 
 	// healthEndpointRouting is the information required to set up the health
-	// endpoint's routing in ENI or Azure IPAM mode
+	// endpoint's IPv4 routing in ENI or AlibabaCloud IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
+
+	// healthEndpointRoutingV6 is the information required to set up the health
+	// endpoint's IPv6 routing in ENI or AlibabaCloud IPAM mode
+	healthEndpointRoutingV6 *linuxrouting.RoutingInfo
 }
 
 type ipamAllocator interface {
@@ -112,8 +116,8 @@ const (
 	mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. The Kubernetes resource contained %s, while the filesystem contained %s. Using the router IP from the filesystem. To change the router IP, specify --%s and/or --%s."
 )
 
-func (r *infraIPAllocator) GetHealthEndpointRouting() *linuxrouting.RoutingInfo {
-	return r.healthEndpointRouting
+func (r *infraIPAllocator) GetHealthEndpointRouting() (ipv4, ipv6 *linuxrouting.RoutingInfo) {
+	return r.healthEndpointRouting, r.healthEndpointRoutingV6
 }
 
 func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family node.AddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
@@ -469,7 +473,25 @@ func (r *infraIPAllocator) allocateHealthIPs(ctx context.Context, oldV4HealthIP 
 			}
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6HealthIP = iputil.AddrFrom(result.IP) })
 		}
+
+		// Coalescing multiple CIDRs. GH #18868
+		if r.daemonConfig.EnableIPv6Masquerade &&
+			r.daemonConfig.IPAM == ipamOption.IPAMENI &&
+			result != nil &&
+			len(result.CIDRs) > 0 {
+			result.CIDRs = r.coalesceCIDRs(result.CIDRs)
+		}
+
 		r.logger.Debug("Allocated IPv6 health endpoint address", logfields.IPAddr, result.IP)
+
+		// In ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
+		// in order to set up rules and routes on the local node to direct
+		// endpoint traffic out of the ENIs.
+		if r.daemonConfig.IPAM == ipamOption.IPAMENI {
+			if r.healthEndpointRoutingV6, err = r.parseRoutingInfo(result); err != nil {
+				r.logger.Warn("Unable to allocate health information for ENI", logfields.Error, err)
+			}
+		}
 	}
 	return nil
 }
