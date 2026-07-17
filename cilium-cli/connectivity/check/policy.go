@@ -21,6 +21,7 @@ import (
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -129,23 +130,34 @@ func waitCiliumPolicyRevision(ctx context.Context, pod Pod, rev int, timeout tim
 }
 
 // endpointsBelowPolicyRevision returns how many endpoints managed by the given
-// Cilium pod have not yet realized the given policy revision. Endpoints with an
-// unknown realized revision are counted as not ready.
+// Cilium pod have not yet realized the given policy revision.
 func endpointsBelowPolicyRevision(ctx context.Context, pod Pod, rev int) (int, error) {
 	eps, err := pod.K8sClient.CiliumDbgEndpoints(ctx, pod.Pod.Namespace, pod.Pod.Name)
 	if err != nil {
 		return 0, err
 	}
+	return countEndpointsBelowPolicyRevision(eps, rev), nil
+}
 
+// countEndpointsBelowPolicyRevision counts endpoints that have not yet realized
+// the given policy revision. Endpoints without a security identity yet are
+// skipped: they have computed no policy at all, so they enforce no revision we
+// could be waiting on, and once they get an identity regeneration computes
+// policy at the current revision. Endpoints that do have an identity but a
+// missing or older realized revision are counted as not ready.
+func countEndpointsBelowPolicyRevision(eps []*models.Endpoint, rev int) int {
 	notReady := 0
 	for _, ep := range eps {
-		if ep.Status == nil || ep.Status.Policy == nil ||
+		if ep.Status == nil || ep.Status.Identity == nil {
+			continue
+		}
+		if ep.Status.Policy == nil ||
 			ep.Status.Policy.Realized == nil ||
 			ep.Status.Policy.Realized.PolicyRevision < int64(rev) {
 			notReady++
 		}
 	}
-	return notReady, nil
+	return notReady
 }
 
 type policy interface {
