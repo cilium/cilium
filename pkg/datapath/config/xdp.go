@@ -19,6 +19,7 @@ func XDP(lnc *Config, link netlink.Link) any {
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = uint16(lnc.SNATCollisionRetries)
 
 	cfg.EnableXDPPrefilter = option.Config.EnableXDPPrefilter
 

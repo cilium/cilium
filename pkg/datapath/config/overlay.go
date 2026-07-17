@@ -32,6 +32,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 	}
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = uint16(lnc.SNATCollisionRetries)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
