@@ -1333,6 +1333,90 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 	return lsAttr, nil
 }
 
+func MarshalMUPTLVs(tlvs []bgp.MUPTLVInterface) ([]*api.MUPTLV, error) {
+	if len(tlvs) == 0 {
+		return nil, nil
+	}
+	apiTLVs := make([]*api.MUPTLV, 0, len(tlvs))
+	for _, tlv := range tlvs {
+		switch t := tlv.(type) {
+		case *bgp.MUPSessionParametersTLV:
+			apiTLVs = append(apiTLVs, &api.MUPTLV{
+				Tlv: &api.MUPTLV_SessionParameters{
+					SessionParameters: &api.MUPSessionParametersTLV{
+						Teid: binary.BigEndian.Uint32(t.TEID.AsSlice()),
+						Qfi:  uint32(t.QFI),
+					},
+				},
+			})
+		case *bgp.MUPInterworkEndpointTLV:
+			apiTLVs = append(apiTLVs, &api.MUPTLV{
+				Tlv: &api.MUPTLV_InterworkEndpoint{
+					InterworkEndpoint: &api.MUPInterworkEndpointTLV{
+						Address: t.Address.String(),
+					},
+				},
+			})
+		case *bgp.MUPSourceAddressTLV:
+			apiTLVs = append(apiTLVs, &api.MUPTLV{
+				Tlv: &api.MUPTLV_SourceAddress{
+					SourceAddress: &api.MUPSourceAddressTLV{
+						Address: t.Address.String(),
+					},
+				},
+			})
+		case *bgp.MUPUnknownTLV:
+			apiTLVs = append(apiTLVs, &api.MUPTLV{
+				Tlv: &api.MUPTLV_Unknown{
+					Unknown: &api.MUPUnknownTLV{
+						Type:  uint32(t.TLVType),
+						Value: t.Value,
+					},
+				},
+			})
+		default:
+			return nil, fmt.Errorf("invalid mup tlv type to marshal: %T", tlv)
+		}
+	}
+	return apiTLVs, nil
+}
+
+func UnmarshalMUPTLVs(tlvs []*api.MUPTLV) ([]bgp.MUPTLVInterface, error) {
+	if len(tlvs) == 0 {
+		return nil, nil
+	}
+	bgpTLVs := make([]bgp.MUPTLVInterface, 0, len(tlvs))
+	for _, tlv := range tlvs {
+		switch t := tlv.GetTlv().(type) {
+		case *api.MUPTLV_SessionParameters:
+			b := make([]byte, 4)
+			binary.BigEndian.PutUint32(b, t.SessionParameters.Teid)
+			teid, ok := netip.AddrFromSlice(b)
+			if !ok {
+				return nil, fmt.Errorf("invalid teid: %x", t.SessionParameters.Teid)
+			}
+			bgpTLVs = append(bgpTLVs, bgp.NewMUPSessionParametersTLV(teid, uint8(t.SessionParameters.Qfi)))
+		case *api.MUPTLV_InterworkEndpoint:
+			address, err := netip.ParseAddr(t.InterworkEndpoint.Address)
+			if err != nil {
+				return nil, err
+			}
+			bgpTLVs = append(bgpTLVs, bgp.NewMUPInterworkEndpointTLV(address))
+		case *api.MUPTLV_SourceAddress:
+			address, err := netip.ParseAddr(t.SourceAddress.Address)
+			if err != nil {
+				return nil, err
+			}
+			bgpTLVs = append(bgpTLVs, bgp.NewMUPSourceAddressTLV(address))
+		case *api.MUPTLV_Unknown:
+			bgpTLVs = append(bgpTLVs, bgp.NewMUPUnknownTLV(uint8(t.Unknown.Type), t.Unknown.Value))
+		default:
+			return nil, fmt.Errorf("invalid mup tlv type to unmarshal: %T", t)
+		}
+	}
+	return bgpTLVs, nil
+}
+
 func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 	var nlri api.NLRI
 
@@ -1602,6 +1686,10 @@ func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 				sal = uint32(r.SourceAddressLength)
 				sa = r.SourceAddress.String()
 			}
+			tlvs, err := MarshalMUPTLVs(r.TLVs)
+			if err != nil {
+				return nil, err
+			}
 			nlri.Nlri = &api.NLRI_MupType_1SessionTransformed{
 				MupType_1SessionTransformed: &api.MUPType1SessionTransformedRoute{
 					Rd:                    rd,
@@ -1612,10 +1700,15 @@ func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 					EndpointAddress:       r.EndpointAddress.String(),
 					SourceAddressLength:   sal,
 					SourceAddress:         sa,
+					Tlvs:                  tlvs,
 				},
 			}
 		case *bgp.MUPType2SessionTransformedRoute:
 			rd, err := MarshalRD(r.RD)
+			if err != nil {
+				return nil, err
+			}
+			tlvs, err := MarshalMUPTLVs(r.TLVs)
 			if err != nil {
 				return nil, err
 			}
@@ -1625,6 +1718,7 @@ func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 					EndpointAddressLength: uint32(r.EndpointAddressLength),
 					EndpointAddress:       r.EndpointAddress.String(),
 					Teid:                  binary.BigEndian.Uint32(r.TEID.AsSlice()),
+					Tlvs:                  tlvs,
 				},
 			}
 		}
@@ -1870,7 +1964,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			}
 			sa = &a
 		}
-		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea, sa)
+		tlvs, err := UnmarshalMUPTLVs(v.Tlvs)
+		if err != nil {
+			return nil, err
+		}
+		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea, sa, tlvs...)
 	case *api.NLRI_MupType_2SessionTransformed:
 		v := n.MupType_2SessionTransformed
 		rd, err := UnmarshalRD(v.Rd)
@@ -1887,7 +1985,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 		if !ok {
 			return nil, fmt.Errorf("invalid teid: %x", v.Teid)
 		}
-		nlri = bgp.NewMUPType2SessionTransformedRoute(rd, uint8(v.EndpointAddressLength), ea, teid)
+		tlvs, err := UnmarshalMUPTLVs(v.Tlvs)
+		if err != nil {
+			return nil, err
+		}
+		nlri = bgp.NewMUPType2SessionTransformedRoute(rd, uint8(v.EndpointAddressLength), ea, teid, tlvs...)
 	case *api.NLRI_LsAddrPrefix:
 		v := n.LsAddrPrefix
 		switch t := v.Nlri.GetNlri().(type) {
@@ -2314,11 +2416,27 @@ func NewExtendedCommunitiesAttributeFromNative(a *bgp.PathAttributeExtendedCommu
 				},
 			}
 		case *bgp.MUPExtended:
-			community.Extcom = &api.ExtendedCommunity_Mup{
-				Mup: &api.MUPExtended{
+			community.Extcom = &api.ExtendedCommunity_MupTwoOctetAsSpecific{
+				MupTwoOctetAsSpecific: &api.MUPTwoOctetAsSpecificExtended{
 					SubType:    uint32(v.SubType),
-					SegmentId2: uint32(v.SegmentID2),
-					SegmentId4: v.SegmentID4,
+					Asn:        uint32(v.SegmentID2),
+					LocalAdmin: v.SegmentID4,
+				},
+			}
+		case *bgp.MUPIPv4AddressSpecificExtended:
+			community.Extcom = &api.ExtendedCommunity_MupIpv4AddressSpecific{
+				MupIpv4AddressSpecific: &api.MUPIPv4AddressSpecificExtended{
+					SubType:    uint32(v.SubType),
+					Address:    v.IPv4.String(),
+					LocalAdmin: uint32(v.LocalAdmin),
+				},
+			}
+		case *bgp.MUPFourOctetAsSpecificExtended:
+			community.Extcom = &api.ExtendedCommunity_MupFourOctetAsSpecific{
+				MupFourOctetAsSpecific: &api.MUPFourOctetAsSpecificExtended{
+					SubType:    uint32(v.SubType),
+					Asn:        v.AS,
+					LocalAdmin: uint32(v.LocalAdmin),
 				},
 			}
 		case *bgp.VPLSExtended:
@@ -2428,9 +2546,34 @@ func unmarshalExComm(a *api.ExtendedCommunitiesAttribute) (*bgp.PathAttributeExt
 		case *api.ExtendedCommunity_TrafficRemark:
 			v := comm.TrafficRemark
 			community = bgp.NewTrafficRemarkExtended(uint8(v.Dscp))
-		case *api.ExtendedCommunity_Mup:
-			v := comm.Mup
-			community = bgp.NewMUPExtended(uint16(v.SegmentId2), v.SegmentId4)
+		case *api.ExtendedCommunity_MupTwoOctetAsSpecific:
+			v := comm.MupTwoOctetAsSpecific
+			subType := bgp.ExtendedCommunityAttrSubType(v.SubType)
+			if subType != bgp.EC_SUBTYPE_MUP_DIRECT_SEG && subType != bgp.EC_SUBTYPE_MUP_INTERWORK_SEG {
+				return nil, fmt.Errorf("invalid mup 2-octet as specific sub type: %d", v.SubType)
+			}
+			community = bgp.NewMUPExtended(subType, uint16(v.Asn), v.LocalAdmin)
+		case *api.ExtendedCommunity_MupIpv4AddressSpecific:
+			v := comm.MupIpv4AddressSpecific
+			subType := bgp.ExtendedCommunityAttrSubType(v.SubType)
+			if subType != bgp.EC_SUBTYPE_MUP_DIRECT_SEG_IPV4 && subType != bgp.EC_SUBTYPE_MUP_INTERWORK_SEG_IPV4 {
+				return nil, fmt.Errorf("invalid mup ipv4 address specific sub type: %d", v.SubType)
+			}
+			address, err := netip.ParseAddr(v.Address)
+			if err != nil {
+				return nil, err
+			}
+			community, err = bgp.NewMUPIPv4AddressSpecificExtended(subType, address, uint16(v.LocalAdmin))
+			if err != nil {
+				return nil, err
+			}
+		case *api.ExtendedCommunity_MupFourOctetAsSpecific:
+			v := comm.MupFourOctetAsSpecific
+			subType := bgp.ExtendedCommunityAttrSubType(v.SubType)
+			if subType != bgp.EC_SUBTYPE_MUP_DIRECT_SEG_4_OCTET_AS && subType != bgp.EC_SUBTYPE_MUP_INTERWORK_SEG_4_OCTET_AS {
+				return nil, fmt.Errorf("invalid mup 4-octet as specific sub type: %d", v.SubType)
+			}
+			community = bgp.NewMUPFourOctetAsSpecificExtended(subType, v.Asn, uint16(v.LocalAdmin))
 		case *api.ExtendedCommunity_Vpls:
 			v := comm.Vpls
 			community = bgp.NewVPLSExtended(uint8(v.ControlFlags), uint16(v.Mtu))

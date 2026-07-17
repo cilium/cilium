@@ -403,11 +403,19 @@ func (s *SRv6InformationSubTLV) DecodeFromBytes(data []byte) error {
 	p += 2
 	// reserved byte
 	p++
-	if p+3 > len(data) {
+	// Sub-Sub-TLVs are bounded by this sub-TLV's declared Length, not by
+	// the caller's remaining buffer, which may still hold sibling
+	// sub-TLVs of the enclosing Service TLV. subTLVHdrLen + Length is the
+	// end of this sub-TLV's body.
+	end := subTLVHdrLen + int(s.Length)
+	if end > len(data) {
+		return malformedAttrListErr("decoding failed: Prefix SID TLV malformed")
+	}
+	if p+3 > end {
 		// There is no Sub Sub TLVs detected, returning
 		return nil
 	}
-	stlvs := data[p:]
+	stlvs := data[p:end]
 	for len(stlvs) >= prefixSIDtlvHdrLen {
 		t := &SubSubTLV{}
 		_, err := t.DecodeFromBytes(stlvs)

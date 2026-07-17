@@ -1778,6 +1778,12 @@ func (h *Header) decodeFromBytes(data []byte) error {
 	default:
 		return fmt.Errorf("unsupported ZAPI version: %d", h.Version)
 	}
+	// The on-wire Len covers the header plus the body. A value below the
+	// header size makes ReceiveSingleMsg compute int(h.Len-HeaderSize) in
+	// uint16, which wraps to a large body length instead of a short read.
+	if h.Len < HeaderSize(h.Version) {
+		return fmt.Errorf("invalid ZAPI message length %d: less than header size %d", h.Len, HeaderSize(h.Version))
+	}
 	return nil
 }
 

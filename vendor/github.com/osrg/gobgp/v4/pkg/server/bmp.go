@@ -140,6 +140,11 @@ func (b *bmpClient) loop() {
 			}
 			if b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_PRE_POLICY || b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
 				ops = append(ops, WatchUpdate(true, "", ""))
+				// Adj-RIB-In withdrawals generated on peer down / graceful-restart
+				// expiry are not received on the wire, so they arrive on a separate
+				// watch type. They clear the ribout cache so identical routes are
+				// reported again after the session re-establishes.
+				ops = append(ops, WatchAdjInWithdraw())
 			}
 			if b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_POST_POLICY || b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
 				ops = append(ops, WatchPostUpdate(true, "", ""))
@@ -194,7 +199,6 @@ func (b *bmpClient) loop() {
 					"global",
 					0,
 					time.Now().Unix(),
-					table.UseMultiplePaths.Enabled,
 				)); err != nil {
 					return false
 				}
@@ -304,36 +308,49 @@ func (b *bmpClient) loop() {
 	}
 }
 
-func bmpLocRIBPeerUp(localAS uint32, routerID netip.Addr, tableName string, peerDist uint64, timestamp int64, addPathEnabled bool) *bmp.BMPMessage {
+func bmpLocRIBPeerUp(localAS uint32, routerID netip.Addr, tableName string, peerDist uint64, timestamp int64) *bmp.BMPMessage {
 	const asTrans uint16 = 23456
 
 	myAS := asTrans
 	opts := []bgp.OptionParameterInterface{}
 	if localAS <= 0xffff {
 		myAS = uint16(localAS)
-	} else {
-		opts = append(opts, bgp.NewOptionParameterCapability([]bgp.ParameterCapabilityInterface{
-			bgp.NewCapFourOctetASNumber(localAS),
-		}))
 	}
-	if addPathEnabled {
-		opts = append(opts, bgp.NewOptionParameterCapability([]bgp.ParameterCapabilityInterface{
-			bgp.NewCapAddPath([]*bgp.CapAddPathTuple{
-				bgp.NewCapAddPathTuple(bgp.RF_IPv4_UC, bgp.BGP_ADD_PATH_BOTH),
-				bgp.NewCapAddPathTuple(bgp.RF_IPv6_UC, bgp.BGP_ADD_PATH_BOTH),
-			}),
-		}))
-	}
+	// RFC 9069 5.2: "Capabilities MUST include the 4-octet ASN and all necessary
+	// capabilities to represent the Loc-RIB Route Monitoring messages." The
+	// 4-octet ASN capability is therefore advertised unconditionally, not only
+	// when the ASN does not fit in the 2-octet My Autonomous System field.
+	opts = append(opts, bgp.NewOptionParameterCapability([]bgp.ParameterCapabilityInterface{
+		bgp.NewCapFourOctetASNumber(localAS),
+	}))
+	// Loc-RIB Route Monitoring messages are always marshalled with
+	// BGP_ADD_PATH_BOTH (see bmpAddPathMarshallingOption), so the receiver always
+	// needs the ADD-PATH capability to decode their NLRIs. Advertising it only
+	// when global multipath happened to be enabled left the fabricated OPEN
+	// describing an encoding that was not the one on the wire, and every NLRI was
+	// then parsed 4 octets out of step.
+	opts = append(opts, bgp.NewOptionParameterCapability([]bgp.ParameterCapabilityInterface{
+		bgp.NewCapAddPath([]*bgp.CapAddPathTuple{
+			bgp.NewCapAddPathTuple(bgp.RF_IPv4_UC, bgp.BGP_ADD_PATH_BOTH),
+			bgp.NewCapAddPathTuple(bgp.RF_IPv6_UC, bgp.BGP_ADD_PATH_BOTH),
+		}),
+	}))
 
 	open, _ := bgp.NewBGPOpenMessage(myAS, 90, routerID, opts)
 
+	// RFC 9069 5.1: for a Loc-RIB Instance Peer only the Peer Address is
+	// zero-filled. The Peer AS is "the primary router BGP autonomous system
+	// number" and the Peer BGP ID is "the global instance router-id". They must
+	// match the header the Route Monitoring messages carry (see bmpPeerRoute),
+	// otherwise a receiver cannot correlate this Peer Up with them and loses the
+	// capabilities negotiated above.
 	ph := bmp.NewBMPPeerHeader(
 		bmp.BMP_PEER_TYPE_LOCAL_RIB,
 		0,
 		peerDist,
 		netip.Addr{},
-		0,
-		netip.IPv4Unspecified(),
+		localAS,
+		routerID,
 		float64(timestamp),
 	)
 	return bmp.NewBMPPeerUpNotification(
@@ -348,13 +365,17 @@ func bmpLocRIBPeerUp(localAS uint32, routerID netip.Addr, tableName string, peer
 }
 
 func bmpLocRIBPeerDown(localAS uint32, routerID netip.Addr, tableName string, peerDist uint64, timestamp int64) *bmp.BMPMessage {
+	// RFC 9069 5.1: as in bmpLocRIBPeerUp, only the Peer Address is zero-filled.
+	// The Peer AS and Peer BGP ID identify the router, so that a receiver can tie
+	// this Peer Down to the Peer Up and the Route Monitoring messages for the
+	// same Loc-RIB instance.
 	ph := bmp.NewBMPPeerHeader(
 		bmp.BMP_PEER_TYPE_LOCAL_RIB,
 		0,
 		peerDist,
 		netip.Addr{},
-		0,
-		netip.IPv4Unspecified(),
+		localAS,
+		routerID,
 		float64(timestamp),
 	)
 	return bmp.NewBMPPeerDownNotification(
