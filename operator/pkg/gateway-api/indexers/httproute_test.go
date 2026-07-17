@@ -212,6 +212,48 @@ func TestIndexHTTPRouteByBackendServiceImport(t *testing.T) {
 			},
 			want: []string(nil),
 		},
+		{
+			name: "Has ServiceImport filter refs",
+			obj: &gatewayv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "has-serviceimport-filters",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.HTTPRouteSpec{
+					Rules: []gatewayv1.HTTPRouteRule{
+						{
+							Filters: []gatewayv1.HTTPRouteFilter{
+								{
+									Type: gatewayv1.HTTPRouteFilterRequestMirror,
+									RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+										BackendRef: gatewayv1.BackendObjectReference{
+											Group:     ptr.To[gatewayv1.Group](mcsapiv1beta1.GroupName),
+											Kind:      ptr.To[gatewayv1.Kind]("ServiceImport"),
+											Name:      "mirror-import",
+											Namespace: ptr.To[gatewayv1.Namespace]("mirror-ns"),
+										},
+									},
+								},
+								{
+									Type: gatewayv1.HTTPRouteFilterExternalAuth,
+									ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+										BackendRef: gatewayv1.BackendObjectReference{
+											Group: ptr.To[gatewayv1.Group](mcsapiv1beta1.GroupName),
+											Kind:  ptr.To[gatewayv1.Kind]("ServiceImport"),
+											Name:  "auth-import",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{
+				"mirror-ns/mirror-import",
+				"default/auth-import",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
