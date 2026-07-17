@@ -130,9 +130,8 @@ func (l *ListenerWithContext) FilterUDPRoutes(routes []gatewayv1.UDPRoute) []gat
 
 // Input is the input for GatewayAPI.
 type Input struct {
-	GatewayClass               gatewayv1.GatewayClass
-	GatewayClassConfig         *v2alpha1.CiliumGatewayClassConfig
-	ServerHeaderTransformation model.ServerHeaderTransformation
+	GatewayClass       gatewayv1.GatewayClass
+	GatewayClassConfig *v2alpha1.CiliumGatewayClassConfig
 
 	Gateway             gatewayv1.Gateway
 	HTTPRoutes          []gatewayv1.HTTPRoute
@@ -150,9 +149,7 @@ type Input struct {
 
 // GatewayAPI translates Gateway API resources into a model.
 func GatewayAPI(log *slog.Logger, input Input) *model.Model {
-	var resHTTP []model.HTTPListener
-	var resTLSPassthrough []model.TLSPassthroughListener
-	var resL4 []model.L4Listener
+	m := &model.Model{}
 
 	labels := make(map[string]string)
 	annotations := make(map[string]string)
@@ -232,7 +229,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
 			httpRoutes = append(httpRoutes, toGRPCRoutes(l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
-			resHTTP = append(resHTTP, model.HTTPListener{
+			m.HTTP = append(m.HTTP, model.HTTPListener{
 				Name:                       string(l.Name),
 				Sources:                    []model.FullyQualifiedResource{l.Source},
 				Port:                       uint32(l.Port),
@@ -241,11 +238,11 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Routes:                     httpRoutes,
 				Infrastructure:             infra,
 				Service:                    toServiceModel(input.GatewayClassConfig),
-				ServerHeaderTransformation: input.ServerHeaderTransformation,
+				ServerHeaderTransformation: toServerHeaderTransformation(input.GatewayClassConfig),
 			})
 
 			if l.Protocol == gatewayv1.TLSProtocolType {
-				resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
+				m.TLSPassthrough = append(m.TLSPassthrough, model.TLSPassthroughListener{
 					Name:           string(l.Name),
 					Sources:        []model.FullyQualifiedResource{l.Source},
 					Port:           uint32(l.Port),
@@ -258,7 +255,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 		case gatewayv1.TCPProtocolType:
 			namespacesPreFiltered := l.AllowedNamespaces != nil
-			resL4 = append(resL4, model.L4Listener{
+			m.L4 = append(m.L4, model.L4Listener{
 				Name:           string(l.Name),
 				Sources:        []model.FullyQualifiedResource{l.Source},
 				Port:           uint32(l.Port),
@@ -270,7 +267,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 		case gatewayv1.UDPProtocolType:
 			namespacesPreFiltered := l.AllowedNamespaces != nil
-			resL4 = append(resL4, model.L4Listener{
+			m.L4 = append(m.L4, model.L4Listener{
 				Name:           string(l.Name),
 				Sources:        []model.FullyQualifiedResource{l.Source},
 				Port:           uint32(l.Port),
@@ -282,27 +279,20 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 		}
 	}
 
-	m := &model.Model{
-		HTTP:           resHTTP,
-		TLSPassthrough: resTLSPassthrough,
-		L4:             resL4,
-	}
-
-	if input.GatewayClassConfig != nil {
+	if gcc := input.GatewayClassConfig; gcc != nil {
 		// HTTP Options
 		m.HTTPOptions = &model.HTTPOptions{
 			GRPCWebTranslation: &model.GRPCWebTranslationConfig{
-				Enabled: input.GatewayClassConfig.GRPCWebTranslationEnabled(),
+				Enabled: gcc.GRPCWebTranslationEnabled(),
 			},
 		}
-
 		// Telemetry
-		if input.GatewayClassConfig.IsTelemetryConfigured() {
+		if gcc.IsTelemetryConfigured() {
 			nn := types.NamespacedName{
 				Namespace: input.Gateway.GetNamespace(),
 				Name:      input.Gateway.GetName(),
 			}
-			m.Telemetry = toTelemetryConfig(nn, input.GatewayClassConfig.Spec.Telemetry)
+			m.Telemetry = toTelemetryConfig(nn, gcc.Spec.Telemetry)
 		}
 	}
 

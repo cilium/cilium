@@ -99,3 +99,10 @@ func toTelemetryConfig(nn types.NamespacedName, telemetry *v2alpha1.Telemetry) *
 
 	return t
 }
+
+func toServerHeaderTransformation(gcc *v2alpha1.CiliumGatewayClassConfig) model.ServerHeaderTransformation {
+	if gcc == nil || gcc.Spec.Envoy == nil || gcc.Spec.Envoy.ServerHeaderTransformation == nil {
+		return ""
+	}
+	return model.ServerHeaderTransformation(*gcc.Spec.Envoy.ServerHeaderTransformation)
+}
