@@ -12,7 +12,6 @@ spec:
         - command:
             - ./cyclonus
             - generate
-            - --fail-fast=true
             - --exclude=
             - --include=upstream-e2e
             - --perturbation-wait-seconds=20
