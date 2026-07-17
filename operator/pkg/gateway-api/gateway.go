@@ -76,11 +76,13 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
 		}
 	}
-
-	// Only index HTTPRoute by ServiceImport if ServiceImport is enabled
+	// Only index HTTPRoute and GRPCRoute by ServiceImport if ServiceImport is enabled
 	if serviceImportEnabled {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.BackendServiceImportHTTPRouteIndex, indexers.IndexHTTPRouteByBackendServiceImport); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportHTTPRouteIndex, err)
+		}
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.BackendServiceImportGRPCRouteIndex, indexers.IndexGRPCRouteByBackendServiceImport); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportGRPCRouteIndex, err)
 		}
 	}
 
