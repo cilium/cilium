@@ -270,7 +270,6 @@ jobs:
             --helm-set=cni.chainingMode=aws-cni \
             --helm-set=eni.enabled=false \
             --helm-set=ipam.mode=cluster-pool \
-            --helm-set=enable-l7-proxy=false \
             --helm-set=routingMode=native \
             --helm-set=bandwidthManager.enabled=false \
             --helm-set=extraArgs={--enable-identity-mark=false} \
@@ -447,6 +446,7 @@ jobs:
           external-target-fake-dns: true
           hubble: false
           test-concurrency: 3
+          tests: '!fqdn,!l7' # L7 policies are not supported in chaining mode.
 
       - name: Set up job variables for connectivity tests
         id: vars-conn
