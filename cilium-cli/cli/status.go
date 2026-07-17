@@ -69,6 +69,8 @@ func newCmdStatus() *cobra.Command {
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
 	cmd.Flags().BoolVar(&params.Interactive, "interactive", true, "Refresh the status summary output after each retry when --wait flag is specified")
 	cmd.Flags().BoolVar(&params.Verbose, "verbose", false, "Print more verbose error / log messages")
+	cmd.Flags().StringVar(&params.AgentDaemonSetName, "agent-daemonset-name", defaults.AgentDaemonSetName, "Name of cilium agent daemonset")
+	cmd.Flags().StringVar(&params.AgentPodSelector, "agent-pod-selector", defaults.AgentPodSelector, "Label on cilium-agent pods to select with")
 
 	return cmd
 }

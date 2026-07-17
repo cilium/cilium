@@ -142,6 +142,10 @@ type Status struct {
 
 	ConfigErrors []string `json:"config_errors,omitempty"`
 
+	// AgentDaemonSetName is the Cilium agent DaemonSet name used when collecting
+	// status. It is the map key for agent entries in PodState/Errors/PhaseCount.
+	AgentDaemonSetName string `json:"agent_daemonset_name,omitempty"`
+
 	mutex *lock.Mutex
 }
 
@@ -382,8 +386,13 @@ func (s *Status) Format() string {
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 4, ' ', 0)
 
+	agentDaemonSetName := s.AgentDaemonSetName
+	if agentDaemonSetName == "" {
+		agentDaemonSetName = defaults.AgentDaemonSetName
+	}
+
 	fmt.Fprint(w, Yellow+"    /¯¯\\\n")
-	fmt.Fprint(w, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\tCilium:\t"+s.statusSummary(defaults.AgentDaemonSetName)+"\n")
+	fmt.Fprint(w, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\tCilium:\t"+s.statusSummary(agentDaemonSetName)+"\n")
 	fmt.Fprint(w, Cyan+" \\__"+Red+"/¯¯\\"+Green+"__/"+Reset+"\tOperator:\t"+s.statusSummary(defaults.OperatorDeploymentName)+"\n")
 	fmt.Fprint(w, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"\tEnvoy DaemonSet:\t"+envoyStatusSummary(s.statusSummary(defaults.EnvoyDaemonSetName))+"\n")
 	fmt.Fprint(w, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/"+Reset+"\tHubble Relay:\t"+s.statusSummary(defaults.RelayDeploymentName)+"\n")

@@ -252,3 +252,36 @@ func TestFormat(t *testing.T) {
 	buf = nilStatus.Format()
 	assert.Empty(t, buf)
 }
+
+func TestStatusCustomAgentDaemonSetName(t *testing.T) {
+	client := newK8sStatusMockClient()
+	assert.NotNil(t, client)
+
+	const (
+		customDSName     = "cilium-v1-16-0"
+		customPodSelector = "k8s-app=cilium-v1-16-0"
+	)
+
+	collector, err := NewK8sStatusCollector(client, K8sStatusParameters{
+		Namespace:          "kube-system",
+		AgentDaemonSetName: customDSName,
+		AgentPodSelector:   customPodSelector,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, collector)
+
+	client.setDaemonSet("kube-system", customDSName, customPodSelector, 3, 3, 3, 0, 3, 1, 1)
+	status, err := collector.Status(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.Equal(t, customDSName, status.AgentDaemonSetName)
+	assert.Equal(t, 3, status.PodState[customDSName].Desired)
+	assert.Equal(t, 3, status.PodState[customDSName].Ready)
+	assert.Equal(t, 3, status.PhaseCount[customDSName][string(corev1.PodRunning)])
+	assert.Len(t, status.CiliumStatus, 3)
+	assert.NotContains(t, status.PodState, defaults.AgentDaemonSetName)
+
+	formatted := status.Format()
+	assert.Contains(t, formatted, "Cilium:")
+	assert.Contains(t, formatted, customDSName)
+}

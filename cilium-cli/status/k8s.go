@@ -67,6 +67,13 @@ type K8sStatusParameters struct {
 	// Verbose increases the verbosity of certain output, such as Cilium
 	// error logs on failure.
 	Verbose bool
+
+	// AgentDaemonSetName is the name of the Cilium agent DaemonSet. Defaults
+	// to defaults.AgentDaemonSetName when empty.
+	AgentDaemonSetName string
+	// AgentPodSelector is the label selector used to find Cilium agent pods.
+	// Defaults to defaults.AgentPodSelector when empty.
+	AgentPodSelector string
 }
 
 type K8sStatusCollector struct {
@@ -87,6 +94,12 @@ type k8sImplementation interface {
 }
 
 func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
+	if params.AgentDaemonSetName == "" {
+		params.AgentDaemonSetName = defaults.AgentDaemonSetName
+	}
+	if params.AgentPodSelector == "" {
+		params.AgentPodSelector = defaults.AgentPodSelector
+	}
 	return &K8sStatusCollector{
 		client: client,
 		params: params,
@@ -473,16 +486,19 @@ func (k *K8sStatusCollector) logComponentTask(status *Status, namespace, deploym
 
 func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFunc) *Status {
 	status := newStatus()
+	agentDaemonSetName := k.params.AgentDaemonSetName
+	agentPodSelector := k.params.AgentPodSelector
+	status.AgentDaemonSetName = agentDaemonSetName
 	tasks := []statusTask{
 		{
-			name: defaults.AgentDaemonSetName,
+			name: agentDaemonSetName,
 			task: func(_ context.Context) error {
-				_, err := k.daemonSetStatus(ctx, status, defaults.AgentDaemonSetName)
+				_, err := k.daemonSetStatus(ctx, status, agentDaemonSetName)
 				status.mutex.Lock()
 				defer status.mutex.Unlock()
 
 				if err != nil {
-					status.AddAggregatedError(defaults.AgentDaemonSetName, defaults.AgentDaemonSetName, err)
+					status.AddAggregatedError(agentDaemonSetName, agentDaemonSetName, err)
 					status.CollectionError(err)
 				}
 
@@ -685,7 +701,7 @@ func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFu
 
 	// for the sake of sanity, don't get pod logs more than once
 	agentLogsOnce := sync.Once{}
-	err := k.podStatus(ctx, status, defaults.AgentDaemonSetName, defaults.AgentPodSelector, func(_ context.Context, status *Status, name string, pod *corev1.Pod) {
+	err := k.podStatus(ctx, status, agentDaemonSetName, agentPodSelector, func(_ context.Context, status *Status, name string, pod *corev1.Pod) {
 		if pod.Status.Phase == corev1.PodRunning {
 			// extract container status
 			var containerStatus *corev1.ContainerStatus
@@ -735,8 +751,8 @@ func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFu
 					status.mutex.Lock()
 					defer status.mutex.Unlock()
 
-					status.parseStatusResponse(defaults.AgentDaemonSetName, pod.Name, s, err)
-					status.parseEndpointsResponse(defaults.AgentDaemonSetName, pod.Name, eps, epserr)
+					status.parseStatusResponse(agentDaemonSetName, pod.Name, s, err)
+					status.parseEndpointsResponse(agentDaemonSetName, pod.Name, eps, epserr)
 					status.CiliumStatus[pod.Name] = s
 					status.CiliumEndpoints[pod.Name] = eps
 
@@ -749,7 +765,7 @@ func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFu
 				},
 			})
 			agentLogsOnce.Do(func() { // in a sync.Once so we don't waste time retrieving lots of logs
-				tasks = append(tasks, k.logComponentTask(status, pod.Namespace, defaults.AgentDaemonSetName, pod.Name, defaults.AgentContainerName, containerStatus))
+				tasks = append(tasks, k.logComponentTask(status, pod.Namespace, agentDaemonSetName, pod.Name, defaults.AgentContainerName, containerStatus))
 			})
 		}
 	})
