@@ -25,6 +25,9 @@ const (
 	// Indexes GRPCRoutes by all the backend Services referenced in the object.
 	BackendServiceGRPCRouteIndex = "backendServiceGRPCRouteIndex"
 
+	// Indexes GRPCRoutes by all the backend ServiceImports referenced in the object.
+	BackendServiceImportGRPCRouteIndex = "BackendServiceImportGRPCRouteIndex"
+
 	// Indexes GRPCRoutes by all the Gateway parents referenced in the object.
 	GatewayGRPCRouteIndex = "gatewayGRPCRouteIndex"
 

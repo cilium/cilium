@@ -13,6 +13,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 func TestIndexGRPCRouteByGateway(t *testing.T) {
@@ -91,6 +92,91 @@ func TestIndexGRPCRouteByGateway(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IndexGRPCRouteByGateway(tt.obj); !slices.Equal(got, tt.want) {
 				t.Errorf("IndexGRPCRouteByGateway() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIndexGRPCRouteByBackendServiceImport(t *testing.T) {
+	tests := []struct {
+		name string
+		obj  client.Object
+		want []string
+	}{
+		{
+			name: "Has ServiceImport backend and request mirror refs",
+			obj: &gatewayv1.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "has-serviceimport",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GRPCRouteSpec{
+					Rules: []gatewayv1.GRPCRouteRule{
+						{
+							BackendRefs: []gatewayv1.GRPCBackendRef{
+								{
+									BackendRef: gatewayv1.BackendRef{
+										BackendObjectReference: gatewayv1.BackendObjectReference{
+											Group:     ptr.To[gatewayv1.Group](mcsapiv1beta1.GroupName),
+											Kind:      ptr.To[gatewayv1.Kind]("ServiceImport"),
+											Name:      "backend-import",
+											Namespace: ptr.To[gatewayv1.Namespace]("backend-ns"),
+										},
+									},
+								},
+							},
+							Filters: []gatewayv1.GRPCRouteFilter{
+								{
+									Type: gatewayv1.GRPCRouteFilterRequestMirror,
+									RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+										BackendRef: gatewayv1.BackendObjectReference{
+											Group: ptr.To[gatewayv1.Group](mcsapiv1beta1.GroupName),
+											Kind:  ptr.To[gatewayv1.Kind]("ServiceImport"),
+											Name:  "mirror-import",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{
+				"backend-ns/backend-import",
+				"default/mirror-import",
+			},
+		},
+		{
+			name: "Has no ServiceImport refs",
+			obj: &gatewayv1.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-serviceimport",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GRPCRouteSpec{
+					Rules: []gatewayv1.GRPCRouteRule{
+						{
+							BackendRefs: []gatewayv1.GRPCBackendRef{
+								{
+									BackendRef: gatewayv1.BackendRef{
+										BackendObjectReference: gatewayv1.BackendObjectReference{
+											Name: "backend-svc",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IndexGRPCRouteByBackendServiceImport(tt.obj); !slices.Equal(got, tt.want) {
+				t.Errorf("IndexGRPCRouteByBackendServiceImport() = %v, want %v", got, tt.want)
 			}
 		})
 	}

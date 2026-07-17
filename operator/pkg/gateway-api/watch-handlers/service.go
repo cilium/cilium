@@ -132,7 +132,7 @@ func EnqueueRequestForBackendService(c client.Client, scheme *runtime.Scheme, lo
 }
 
 // EnqueueRequestForBackendServiceImport makes sure that Gateways are reconciled
-// if a relevant HTTPRoute backend Service Imports are updated.
+// if a relevant HTTPRoute or GRPCRoute backend ServiceImport is updated.
 func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, controllerName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		_, ok := o.(*mcsapiv1beta1.ServiceImport)
@@ -145,7 +145,7 @@ func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, 
 		// make a set to hold all reconcile requests
 		reconcileRequests := make(map[reconcile.Request]struct{})
 
-		// Then, fetch all HTTPRoutes that reference this service, using the backendServiceIndex
+		// Fetch all HTTPRoutes and GRPCRoutes that reference this ServiceImport.
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := c.List(ctx, hrList, &client.ListOptions{
@@ -155,15 +155,27 @@ func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, 
 			return []reconcile.Request{}
 		}
 
+		grpcRouteList := &gatewayv1.GRPCRouteList{}
+
+		if err := c.List(ctx, grpcRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceImportGRPCRouteIndex, client.ObjectKeyFromObject(o).String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Failed to get related GRPCRoutes", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
 		allGatewaysSet, err := getAllGatewaysSetForController(ctx, c, controllerName)
 		if err != nil {
 			scopedLog.ErrorContext(ctx, "Failed to get controller Gateways", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
-		// iterate through the HTTPRoutes, return a reconcile.Request for each Gateway that is relevant.
+		// Iterate through matching routes and return a reconcile.Request for each relevant Gateway.
 		for _, hr := range hrList.Items {
 			updateReconcileRequestsForParentRefs(ctx, c, hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, reconcileRequests)
+		}
+		for _, grpcr := range grpcRouteList.Items {
+			updateReconcileRequestsForParentRefs(ctx, c, grpcr.Spec.ParentRefs, grpcr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 
 		// return the keys of the set.
