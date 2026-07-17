@@ -168,3 +168,30 @@ runs:
         fi
 
         eksctl create nodegroup -f ./eks-nodegroups.yaml ${TIMEOUT_ARG}
+
+    - name: Dump nodegroup CloudFormation failure events
+      if: failure()
+      shell: bash
+      run: |
+        # When a managed nodegroup fails to create, eksctl only prints
+        # "waiter state transitioned to Failure" and exits, so the actual
+        # cause (capacity, subnet, IAM, bootstrap) never reaches the logs.
+        # Dump the failed CloudFormation resource events, which carry the
+        # ResourceStatusReason, so the next occurrence is diagnosable.
+        STACKS=$(aws cloudformation list-stacks \
+          --region ${{ inputs.region }} \
+          --query "StackSummaries[?starts_with(StackName, 'eksctl-${{ inputs.cluster_name }}-nodegroup-')].StackName" \
+          --output text 2>/dev/null || true)
+        if [ -z "$STACKS" ]; then
+          echo "No eksctl nodegroup stacks found for cluster ${{ inputs.cluster_name }}."
+          exit 0
+        fi
+        for stack in $STACKS; do
+          echo "::group::CloudFormation failure events for $stack"
+          aws cloudformation describe-stack-events \
+            --region ${{ inputs.region }} \
+            --stack-name "$stack" \
+            --query "StackEvents[?contains(ResourceStatus, 'FAILED')].{Time:Timestamp,Resource:LogicalResourceId,Type:ResourceType,Status:ResourceStatus,Reason:ResourceStatusReason}" \
+            --output table 2>&1 || true
+          echo "::endgroup::"
+        done
