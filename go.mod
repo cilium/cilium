@@ -137,8 +137,8 @@ require (
 	k8s.io/metrics v0.36.2
 	k8s.io/utils v0.0.0-20260617174310-a95e086a2553
 	sigs.k8s.io/controller-runtime v0.24.1
-	sigs.k8s.io/gateway-api v1.6.0
-	sigs.k8s.io/gateway-api/conformance v1.6.0
+	sigs.k8s.io/gateway-api v1.6.1
+	sigs.k8s.io/gateway-api/conformance v1.6.1
 	sigs.k8s.io/mcs-api v0.5.2
 	sigs.k8s.io/mcs-api/conformance v0.5.2
 	sigs.k8s.io/mcs-api/controllers v0.5.2

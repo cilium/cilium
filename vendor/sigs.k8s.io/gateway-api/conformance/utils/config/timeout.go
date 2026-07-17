@@ -86,11 +86,11 @@ type TimeoutConfig struct {
 
 	// TCPRouteMustHaveCondition represents the maximum time for a TCPRoute to have the supplied Condition.
 	// Max value for conformant implementation: None
-	TCPRouteMustHaveCondition time.Duration
+	TCPRouteMustHaveCondition time.Duration `json:"tcpRouteMustHaveCondition"`
 
 	// UDPRouteMustHaveCondition represents the maximum time for a UDPRoute to have the supplied Condition.
 	// Max value for conformant implementation: None
-	UDPRouteMustHaveCondition time.Duration
+	UDPRouteMustHaveCondition time.Duration `json:"udpRouteMustHaveCondition"`
 
 	// RouteMustHaveParents represents the maximum time for an xRoute to have parents in status that match the expected parents.
 	// Max value for conformant implementation: None
@@ -307,6 +307,12 @@ func SetupTimeoutConfig(timeoutConfig *TimeoutConfig) {
 	if timeoutConfig.GatewayListenersMustHaveConditions == 0 {
 		timeoutConfig.GatewayListenersMustHaveConditions = defaultTimeoutConfig.GatewayListenersMustHaveConditions
 	}
+	if timeoutConfig.ListenerSetMustHaveCondition == 0 {
+		timeoutConfig.ListenerSetMustHaveCondition = defaultTimeoutConfig.ListenerSetMustHaveCondition
+	}
+	if timeoutConfig.ListenerSetListenersMustHaveConditions == 0 {
+		timeoutConfig.ListenerSetListenersMustHaveConditions = defaultTimeoutConfig.ListenerSetListenersMustHaveConditions
+	}
 	if timeoutConfig.GWCMustBeAccepted == 0 {
 		timeoutConfig.GWCMustBeAccepted = defaultTimeoutConfig.GWCMustBeAccepted
 	}
@@ -348,5 +354,8 @@ func SetupTimeoutConfig(timeoutConfig *TimeoutConfig) {
 	}
 	if timeoutConfig.DefaultPollInterval == 0 {
 		timeoutConfig.DefaultPollInterval = defaultTimeoutConfig.DefaultPollInterval
+	}
+	if timeoutConfig.RequiredConsecutiveSuccesses == 0 {
+		timeoutConfig.RequiredConsecutiveSuccesses = defaultTimeoutConfig.RequiredConsecutiveSuccesses
 	}
 }

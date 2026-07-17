@@ -219,7 +219,7 @@ var BackendTLSPolicy = confsuite.ConformanceTest{
 
 			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, invalidAcceptedCond)
 			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, invalidResolvedRefsCond)
-			suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{testCM}, suite.Cleanup)
+			suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{testCM}, suite.CleanupTestResources)
 			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, acceptedCond)
 			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, resolvedRefsCond)
 

@@ -21,8 +21,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	v1core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
@@ -72,6 +74,7 @@ var GatewayInfrastructure = suite.ConformanceTest{
 		})
 
 		t.Logf("verifying that generated resources for Gateway %s/%s have the proper gateway name label", gwNN.Namespace, gwNN.Name)
+		// Accepted=True does not guarantee generated infrastructure is visible yet.
 		// Don't check services because implementations may have special filtering logic (e.g. for LB annotations)
 		// Instead, check service accounts for the gateway-name label first and then
 		// fallback to Pod if that fails
@@ -85,33 +88,42 @@ var GatewayInfrastructure = suite.ConformanceTest{
 		for k, v := range currentGW.Spec.Infrastructure.Labels {
 			labels[string(k)] = string(v)
 		}
-		var foundResource bool
 		listOptions := metav1.ListOptions{LabelSelector: v1.GatewayNameLabelKey + "=" + gwNN.Name}
-		saList, err := s.Clientset.CoreV1().ServiceAccounts(ns).List(ctx, listOptions)
-		require.NoError(t, err, "error listing ServiceAccounts")
-		podList, err := s.Clientset.CoreV1().Pods(ns).List(ctx, listOptions)
-		require.NoError(t, err, "error listing Pods")
-		serviceList, err := s.Clientset.CoreV1().Services(ns).List(ctx, listOptions)
-		require.NoError(t, err, "error listing Services")
+		var saList *v1core.ServiceAccountList
+		var podList *v1core.PodList
+		var serviceList *v1core.ServiceList
+
+		waitErr := wait.PollUntilContextTimeout(t.Context(), s.TimeoutConfig.DefaultPollInterval, s.TimeoutConfig.DefaultTestTimeout, true, func(ctx context.Context) (bool, error) {
+			saList, err = s.Clientset.CoreV1().ServiceAccounts(ns).List(ctx, listOptions)
+			if err != nil {
+				return false, err
+			}
+			podList, err = s.Clientset.CoreV1().Pods(ns).List(ctx, listOptions)
+			if err != nil {
+				return false, err
+			}
+			serviceList, err = s.Clientset.CoreV1().Services(ns).List(ctx, listOptions)
+			if err != nil {
+				return false, err
+			}
+
+			return len(saList.Items) > 0 || len(podList.Items) > 0 || len(serviceList.Items) > 0, nil
+		})
+		require.NoError(t, waitErr, "expected to find a ServiceAccount, Pod, or Service with the gateway-name label")
 		if len(saList.Items) > 0 {
-			foundResource = true
 			sa := saList.Items[0]
 			require.Subsetf(t, sa.Labels, labels, "expected Pod label set %v to contain all Gateway infrastructure labels %v", sa.Labels, labels)
 			require.Subsetf(t, sa.Annotations, annotations, "expected Pod annotation set %v to contain all Gateway infrastructure annotations %v", sa.Annotations, annotations)
 		}
 		if len(podList.Items) > 0 {
-			foundResource = true
 			pod := podList.Items[0]
 			require.Subsetf(t, pod.Labels, labels, "expected Pod label set %v to contain all Gateway infrastructure labels %v", pod.Labels, labels)
 			require.Subsetf(t, pod.Annotations, annotations, "expected Pod annotation set %v to contain all Gateway infrastructure annotations %v", pod.Annotations, annotations)
 		}
 		if len(serviceList.Items) > 0 {
-			foundResource = true
 			service := serviceList.Items[0]
 			require.Subsetf(t, service.Labels, labels, "expected Pod label set %v to contain all Gateway infrastructure labels %v", service.Labels, labels)
 			require.Subsetf(t, service.Annotations, annotations, "expected Pod annotation set %v to contain all Gateway infrastructure annotations %v", service.Annotations, annotations)
 		}
-
-		require.True(t, foundResource, "expected to find a ServiceAccount, Pod, or Service with the gateway-name label")
 	},
 }
