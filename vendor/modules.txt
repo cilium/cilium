@@ -2849,7 +2849,7 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v1.6.0
+# sigs.k8s.io/gateway-api v1.6.1
 ## explicit; go 1.26.0
 sigs.k8s.io/gateway-api/apis/v1
 sigs.k8s.io/gateway-api/apis/v1alpha2
@@ -2858,7 +2858,7 @@ sigs.k8s.io/gateway-api/apis/v1beta1
 sigs.k8s.io/gateway-api/apisx/v1alpha1
 sigs.k8s.io/gateway-api/pkg/consts
 sigs.k8s.io/gateway-api/pkg/features
-# sigs.k8s.io/gateway-api/conformance v1.6.0
+# sigs.k8s.io/gateway-api/conformance v1.6.1
 ## explicit; go 1.26.0
 sigs.k8s.io/gateway-api/conformance
 sigs.k8s.io/gateway-api/conformance/apis/v1
