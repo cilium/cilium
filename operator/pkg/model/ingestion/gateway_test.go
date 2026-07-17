@@ -1210,6 +1210,35 @@ func TestGatewayAPI_GatewayClassConfig(t *testing.T) {
 			},
 		}, m.Telemetry)
 	})
+	t.Run("sets server header transformation from GatewayClassConfig envoy config", func(t *testing.T) {
+		m := GatewayAPI(logger, Input{
+			Gateway: gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "cilium",
+				},
+				Spec: gatewayv1.GatewaySpec{
+					Listeners: []gatewayv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gatewayv1.HTTPProtocolType,
+						},
+					},
+				},
+			},
+			GatewayClassConfig: &v2alpha1.CiliumGatewayClassConfig{
+				Spec: v2alpha1.CiliumGatewayClassConfigSpec{
+					Envoy: &v2alpha1.EnvoyConfig{
+						ServerHeaderTransformation: ptr.To(v2alpha1.ServerHeaderTransformationPassThrough),
+					},
+				},
+			},
+		})
+
+		require.Len(t, m.HTTP, 1)
+		assert.Equal(t, model.ServerHeaderTransformationPassThrough, m.HTTP[0].ServerHeaderTransformation)
+	})
 }
 
 func TestGatewayAPI_GatewayClassConfigTelemetry(t *testing.T) {
