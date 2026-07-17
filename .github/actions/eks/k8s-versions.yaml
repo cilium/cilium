@@ -1,8 +1,6 @@
 # List of k8s version for EKS tests
 ---
 include:
-  - version: "1.32"
-    region: us-west-1
   - version: "1.33"
     region: us-east-2
   - version: "1.34"
