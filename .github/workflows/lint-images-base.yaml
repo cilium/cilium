@@ -115,3 +115,7 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
       success: ${{ needs.lint.result == 'success' }}
+      # This is a pure lint job: it runs no tests and installs no Cilium, so it
+      # never produces cilium-junits-*/features-tested-* artifacts. Skip the
+      # artifact merge to avoid spurious "No matching artifacts found" warnings.
+      merge-artifacts: false
