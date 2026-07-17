@@ -519,9 +519,24 @@ func extractRoutes(logger *slog.Logger,
 					continue
 				}
 
-				svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, hr.Namespace), services)
+				namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, hr.Namespace)
+				svcName, err := getBackendServiceName(namespace, services, serviceImports, f.RequestMirror.BackendRef)
+				if err != nil {
+					continue
+				}
+
+				mirror := f.RequestMirror.DeepCopy()
+				if svcName != string(mirror.BackendRef.Name) {
+					mirror.BackendRef = gatewayv1.BackendObjectReference{
+						Name:      gatewayv1.ObjectName(svcName),
+						Namespace: mirror.BackendRef.Namespace,
+						Port:      mirror.BackendRef.Port,
+					}
+				}
+
+				svc := getServiceSpec(svcName, namespace, services)
 				if svc != nil {
-					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, hr.Namespace))
+					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, mirror, hr.Namespace))
 				}
 			case gatewayv1.HTTPRouteFilterExternalAuth:
 				if f.ExternalAuth != nil {
@@ -842,9 +857,24 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 					continue
 				}
 
-				svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, grpcr.Namespace), services)
+				namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, grpcr.Namespace)
+				svcName, err := getBackendServiceName(namespace, services, serviceImports, f.RequestMirror.BackendRef)
+				if err != nil {
+					continue
+				}
+
+				mirror := f.RequestMirror.DeepCopy()
+				if svcName != string(mirror.BackendRef.Name) {
+					mirror.BackendRef = gatewayv1.BackendObjectReference{
+						Name:      gatewayv1.ObjectName(svcName),
+						Namespace: mirror.BackendRef.Namespace,
+						Port:      mirror.BackendRef.Port,
+					}
+				}
+
+				svc := getServiceSpec(svcName, namespace, services)
 				if svc != nil {
-					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, grpcr.Namespace))
+					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, mirror, grpcr.Namespace))
 				}
 			}
 		}
