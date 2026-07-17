@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -92,4 +93,44 @@ func TestHTTPRouteValidateMatchRegexps(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHTTPRouteRuleGetBackendRefsIncludesFilterBackends(t *testing.T) {
+	rule := &HTTPRouteRule{
+		Rule: gatewayv1.HTTPRouteRule{
+			BackendRefs: []gatewayv1.HTTPBackendRef{
+				{
+					BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{
+							Name: "backend-svc",
+						},
+					},
+				},
+			},
+			Filters: []gatewayv1.HTTPRouteFilter{
+				{
+					Type: gatewayv1.HTTPRouteFilterRequestMirror,
+					RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+						BackendRef: gatewayv1.BackendObjectReference{
+							Name: "mirror-svc",
+						},
+					},
+				},
+				{
+					Type: gatewayv1.HTTPRouteFilterExternalAuth,
+					ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+						BackendRef: gatewayv1.BackendObjectReference{
+							Name: "auth-svc",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	refs := rule.GetBackendRefs()
+	require.Len(t, refs, 3)
+	assert.Equal(t, gatewayv1.ObjectName("backend-svc"), refs[0].Name)
+	assert.Equal(t, gatewayv1.ObjectName("mirror-svc"), refs[1].Name)
+	assert.Equal(t, gatewayv1.ObjectName("auth-svc"), refs[2].Name)
 }
