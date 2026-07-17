@@ -160,12 +160,14 @@ func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 		refs = append(refs, backend.BackendRef)
 	}
 	for _, f := range t.Rule.Filters {
-		if f.Type == gatewayv1.HTTPRouteFilterRequestMirror {
-			if f.RequestMirror == nil {
-				continue
-			}
+		switch {
+		case f.Type == gatewayv1.HTTPRouteFilterRequestMirror && f.RequestMirror != nil:
 			refs = append(refs, gatewayv1.BackendRef{
 				BackendObjectReference: f.RequestMirror.BackendRef,
+			})
+		case f.Type == gatewayv1.HTTPRouteFilterExternalAuth && f.ExternalAuth != nil:
+			refs = append(refs, gatewayv1.BackendRef{
+				BackendObjectReference: f.ExternalAuth.BackendRef,
 			})
 		}
 	}
