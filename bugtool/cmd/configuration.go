@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/cilium/cilium/pkg/components"
@@ -179,7 +180,7 @@ func defaultCommands(confDir string, cmdDir string) []string {
 }
 
 func miscSystemCommands() []string {
-	return []string{
+	commands := []string{
 		// We want to collect this twice: at the very beginning and at the
 		// very end of the bugtool collection, to see if the counters are
 		// increasing.
@@ -246,6 +247,38 @@ func miscSystemCommands() []string {
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
 		"find /sys/fs/bpf -ls",
+	}
+
+	commands = append(commands, conntrackCommands()...)
+
+	return commands
+}
+
+// conntrackCommands dumps the kernel netfilter conntrack table and its global
+// counters. This is where the DNAT/masquerade state for kube-proxy's iptables
+// N/S load balancing lives: when kube-proxy (kube-proxy-replacement=false) does
+// the NodePort DNAT and KUBE-MARK-MASQ, the connection is invisible to both
+// Hubble and Cilium's BPF conntrack (the SNAT rewrites the tuple before it
+// reaches any Cilium datapath prog), so `cilium-dbg bpf ct list` and the flow
+// logs never see it. The kernel conntrack table is the only place its
+// reply-direction state (ASSURED, reply packets/bytes, or the absence thereof)
+// can be observed. `conntrack -S` additionally exposes the per-CPU
+// drop/early_drop/insert_failed counters. This complements the softnet_stat /
+// snmp / netstat host drop counters already collected above.
+//
+// Prefer the conntrack(8) tool, but fall back to reading the raw
+// /proc/net/nf_conntrack table when the binary is not present in the agent
+// image (writeCmdToFile skips any command whose binary is missing anyway, but
+// without the fallback we would collect nothing at all in that case).
+func conntrackCommands() []string {
+	if _, err := exec.LookPath("conntrack"); err == nil {
+		return []string{
+			"conntrack -L",
+			"conntrack -S",
+		}
+	}
+	return []string{
+		"cat /proc/net/nf_conntrack",
 	}
 }
 
