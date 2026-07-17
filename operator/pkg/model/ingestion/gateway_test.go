@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -1005,6 +1006,64 @@ func TestHTTPRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 	assert.Equal(t, "other-ns", routes[0].RequestMirrors[0].Backend.Namespace)
 }
 
+func TestHTTPRequestMirrorServiceImportIsResolved(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	routes := extractRoutes(logger, 80, nil, gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "serviceimport-http-mirror",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{
+				{
+					BackendRefs: []gatewayv1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Name: gatewayv1.ObjectName("backend"),
+									Port: ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+					Filters: []gatewayv1.HTTPRouteFilter{
+						{
+							Type: gatewayv1.HTTPRouteFilterRequestMirror,
+							RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+								BackendRef: gatewayv1.BackendObjectReference{
+									Group: ptr.To[gatewayv1.Group](mcsapiv1beta1.GroupName),
+									Kind:  ptr.To[gatewayv1.Kind]("ServiceImport"),
+									Name:  gatewayv1.ObjectName("mirror-import"),
+									Port:  ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, []corev1.Service{
+		testService("default", "backend", 8080),
+		testService("default", "mirror-service", 8080),
+	}, []mcsapiv1beta1.ServiceImport{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mirror-import",
+				Namespace: "default",
+				Annotations: map[string]string{
+					"multicluster.kubernetes.io/derived-service": "mirror-service",
+				},
+			},
+		},
+	}, nil, nil)
+
+	require.Len(t, routes, 1)
+	require.Len(t, routes[0].RequestMirrors, 1)
+	assert.Equal(t, "mirror-service", routes[0].RequestMirrors[0].Backend.Name)
+	assert.Equal(t, "default", routes[0].RequestMirrors[0].Backend.Namespace)
+}
+
 func TestGRPCRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
 	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1161,6 +1220,62 @@ func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 	require.Len(t, routes[0].RequestMirrors, 1)
 	assert.Equal(t, "mirror-backend", routes[0].RequestMirrors[0].Backend.Name)
 	assert.Equal(t, "other-ns", routes[0].RequestMirrors[0].Backend.Namespace)
+}
+
+func TestGRPCRequestMirrorServiceImportIsResolved(t *testing.T) {
+	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "serviceimport-grpc-mirror",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.GRPCRouteSpec{
+			Rules: []gatewayv1.GRPCRouteRule{
+				{
+					BackendRefs: []gatewayv1.GRPCBackendRef{
+						{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Name: gatewayv1.ObjectName("backend"),
+									Port: ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+					Filters: []gatewayv1.GRPCRouteFilter{
+						{
+							Type: gatewayv1.GRPCRouteFilterRequestMirror,
+							RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
+								BackendRef: gatewayv1.BackendObjectReference{
+									Group: ptr.To[gatewayv1.Group](mcsapiv1beta1.GroupName),
+									Kind:  ptr.To[gatewayv1.Kind]("ServiceImport"),
+									Name:  gatewayv1.ObjectName("mirror-import"),
+									Port:  ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, []corev1.Service{
+		testService("default", "backend", 8080),
+		testService("default", "mirror-service", 8080),
+	}, []mcsapiv1beta1.ServiceImport{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mirror-import",
+				Namespace: "default",
+				Annotations: map[string]string{
+					"multicluster.kubernetes.io/derived-service": "mirror-service",
+				},
+			},
+		},
+	}, nil)
+
+	require.Len(t, routes, 1)
+	require.Len(t, routes[0].RequestMirrors, 1)
+	assert.Equal(t, "mirror-service", routes[0].RequestMirrors[0].Backend.Name)
+	assert.Equal(t, "default", routes[0].RequestMirrors[0].Backend.Namespace)
 }
 
 func TestGatewayAPI_GatewayClassConfig(t *testing.T) {
