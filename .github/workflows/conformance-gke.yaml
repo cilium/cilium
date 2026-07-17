@@ -348,7 +348,10 @@ jobs:
             --wait=false"
 
           if [[ ${{ matrix.config.type }} == "tunnel" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=tunnel"
+            # Keep using GKE's alias-IP PodCIDRs in tunnel mode. Cluster-pool
+            # IPAM allocates unrelated 10.0.x.0/24 ranges which GCE cannot
+            # route from the nodes without Cilium.
+            CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=tunnel --helm-set=ipam.mode=kubernetes"
           fi
 
           if [[ "${{ matrix.config.ipsec }}" == "true" ]]; then
