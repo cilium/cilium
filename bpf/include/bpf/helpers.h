@@ -119,3 +119,10 @@ static long BPF_FUNC(loop, __u32 nr_loops, void *callback_fn, void *callback_ctx
 static void *BPF_FUNC(ringbuf_reserve, void *ringbuf, __u64 size, __u64 flags);
 static void BPF_FUNC(ringbuf_submit, void *data, __u64 flags);
 static void BPF_FUNC(ringbuf_discard, void *data, __u64 flags);
+
+/* Socket storage helpers */
+#ifndef BPF_SK_STORAGE_MOCKED
+static void *
+BPF_FUNC(sk_storage_get, void *map, struct bpf_sock *sk, void *value, __u64 flags);
+static int BPF_FUNC(sk_storage_delete, void *map, struct bpf_sock *sk);
+#endif
