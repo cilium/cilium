@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -87,6 +88,7 @@ func TestScript(t *testing.T) {
 				k8sTables.TablesCell,
 				metrics.Cell,
 
+				registry.Cell,
 				lbcell.Cell,
 
 				cell.Config(loadbalancer.TestConfig{}),
