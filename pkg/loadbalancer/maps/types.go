@@ -972,6 +972,12 @@ const (
 	// SockRevNat6MapName is the BPF map name.
 	SockRevNat6MapName = "cilium_lb6_reverse_sk"
 
+	// SockRevNat4StMapName is the BPF sk_storage map name.
+	SockRevNat4StMapName = "cilium_lb4_reverse_sk_v2"
+
+	// SockRevNat6StMapName is the BPF sk_storage map name.
+	SockRevNat6StMapName = "cilium_lb6_reverse_sk_v2"
+
 	// SockRevNat4MapSize is the maximum number of entries in the BPF map.
 	SockRevNat4MapSize = 256 * 1024
 
@@ -986,6 +992,20 @@ const (
 	// map. It is set by Init(), but unit tests use the initial value below.
 	MaxSockRevNat6MapEntries = SockRevNat6MapSize
 )
+
+// SockRevNatStKey is used as the key for the sk_storage maps.
+// BPF sk_storage maps use the socket file descriptor as an implicit key,
+// but the bpf interface requires a key type of size 4.
+type SockRevNatStKey struct {
+	Pad uint32
+}
+
+// String converts the key into a human readable string format.
+func (k *SockRevNatStKey) String() string {
+	return "sk_storage"
+}
+
+func (k *SockRevNatStKey) New() bpf.MapKey { return &SockRevNatStKey{} }
 
 // SockRevNat4Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
@@ -1002,6 +1022,22 @@ type SockRevNat4Value struct {
 	Port        int16      `align:"port"`
 	RevNatIndex uint16     `align:"rev_nat_index"`
 }
+
+// SockRevNat4StValue is an entry in the IPv4 reverse NAT sk_storage map.
+type SockRevNat4StValue struct {
+	Address        types.IPv4 `align:"address"`
+	Port           int16      `align:"port"`
+	RevNatIndex    uint16     `align:"rev_nat_index"`
+	BackendAddress types.IPv4 `align:"backend_address"`
+	BackendPort    int16      `align:"backend_port"`
+	Pad            uint16     `align:"pad"`
+}
+
+func (v *SockRevNat4StValue) String() string {
+	return fmt.Sprintf("[%s]:%d, %d -> [%s]:%d", v.Address, v.Port, v.RevNatIndex, v.BackendAddress, v.BackendPort)
+}
+
+func (v *SockRevNat4StValue) New() bpf.MapValue { return &SockRevNat4StValue{} }
 
 func NewSockRevNat4Key(cookie uint64, addr net.IP, port uint16) *SockRevNat4Key {
 	var key SockRevNat4Key
@@ -1044,6 +1080,22 @@ type SockRevNat6Value struct {
 	Port        int16      `align:"port"`
 	RevNatIndex uint16     `align:"rev_nat_index"`
 }
+
+// SockRevNat6StValue is an entry in the IPv6 reverse NAT sk_storage map.
+type SockRevNat6StValue struct {
+	Address        types.IPv6 `align:"address"`
+	Port           int16      `align:"port"`
+	RevNatIndex    uint16     `align:"rev_nat_index"`
+	BackendAddress types.IPv6 `align:"backend_address"`
+	BackendPort    int16      `align:"backend_port"`
+	Pad            uint16     `align:"pad"`
+}
+
+func (v *SockRevNat6StValue) String() string {
+	return fmt.Sprintf("[%s]:%d, %d -> [%s]:%d", v.Address, v.Port, v.RevNatIndex, v.BackendAddress, v.BackendPort)
+}
+
+func (v *SockRevNat6StValue) New() bpf.MapValue { return &SockRevNat6StValue{} }
 
 // SizeofSockRevNat6Value is the size of type SockRevNat6Value.
 const SizeofSockRevNat6Value = int(unsafe.Sizeof(SockRevNat6Value{}))

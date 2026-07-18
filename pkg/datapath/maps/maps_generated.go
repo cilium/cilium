@@ -69,6 +69,7 @@ const (
 	CiliumLB4MaglevInner                = "cilium_lb4_maglev_inner"
 	CiliumLB4ReverseNAT                 = "cilium_lb4_reverse_nat"
 	CiliumLB4ReverseSk                  = "cilium_lb4_reverse_sk"
+	CiliumLB4ReverseSkV2                = "cilium_lb4_reverse_sk_v2"
 	CiliumLB4ServicesV2                 = "cilium_lb4_services_v2"
 	CiliumLB4SourceRange                = "cilium_lb4_source_range"
 	CiliumLB6Affinity                   = "cilium_lb6_affinity"
@@ -78,6 +79,7 @@ const (
 	CiliumLB6MaglevInner                = "cilium_lb6_maglev_inner"
 	CiliumLB6ReverseNAT                 = "cilium_lb6_reverse_nat"
 	CiliumLB6ReverseSk                  = "cilium_lb6_reverse_sk"
+	CiliumLB6ReverseSkV2                = "cilium_lb6_reverse_sk_v2"
 	CiliumLB6ServicesV2                 = "cilium_lb6_services_v2"
 	CiliumLB6SourceRange                = "cilium_lb6_source_range"
 	CiliumLBACT                         = "cilium_lb_act"
@@ -553,6 +555,20 @@ func newCiliumLB4ReverseSkSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
+func newCiliumLB4ReverseSkV2Spec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumLB4ReverseSkV2,
+		Type:       ebpf.SkStorage,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "int"),
+		ValueSize:  16,
+		Value:      anyTypeByName(btf, "ipv4_sk_storage_entry"),
+		MaxEntries: 0,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
 func newCiliumLB4ServicesV2Spec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       CiliumLB4ServicesV2,
@@ -674,6 +690,20 @@ func newCiliumLB6ReverseSkSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Value:      anyTypeByName(btf, "ipv6_revnat_entry"),
 		MaxEntries: 262144,
 		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumLB6ReverseSkV2Spec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumLB6ReverseSkV2,
+		Type:       ebpf.SkStorage,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "int"),
+		ValueSize:  40,
+		Value:      anyTypeByName(btf, "ipv6_sk_storage_entry"),
+		MaxEntries: 0,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -1326,6 +1356,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumLB4MaglevSpec,
 	newCiliumLB4ReverseNATSpec,
 	newCiliumLB4ReverseSkSpec,
+	newCiliumLB4ReverseSkV2Spec,
 	newCiliumLB4ServicesV2Spec,
 	newCiliumLB4SourceRangeSpec,
 	newCiliumLB6AffinitySpec,
@@ -1334,6 +1365,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumLB6MaglevSpec,
 	newCiliumLB6ReverseNATSpec,
 	newCiliumLB6ReverseSkSpec,
+	newCiliumLB6ReverseSkV2Spec,
 	newCiliumLB6ServicesV2Spec,
 	newCiliumLB6SourceRangeSpec,
 	newCiliumLBACTSpec,

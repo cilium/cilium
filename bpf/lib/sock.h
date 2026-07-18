@@ -41,6 +41,23 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_reverse_sk __section_maps_btf;
 
+struct ipv4_sk_storage_entry {
+	__be32 address;
+	__be16 port;
+	__u16 rev_nat_index;
+	__be32 backend_address;
+	__be16 backend_port;
+	__u16 pad;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_SK_STORAGE);
+	__type(key, int);
+	__type(value, struct ipv4_sk_storage_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_lb4_reverse_sk_v2 __section_maps_btf;
+
 struct ipv6_revnat_tuple {
 	__sock_cookie cookie;
 	union v6addr address;
@@ -62,3 +79,20 @@ struct {
 	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_reverse_sk __section_maps_btf;
+
+struct ipv6_sk_storage_entry {
+	union v6addr address;
+	__be16 port;
+	__u16 rev_nat_index;
+	union v6addr backend_address;
+	__be16 backend_port;
+	__u16 pad;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_SK_STORAGE);
+	__type(key, int);
+	__type(value, struct ipv6_sk_storage_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_lb6_reverse_sk_v2 __section_maps_btf;

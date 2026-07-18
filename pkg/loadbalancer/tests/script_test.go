@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -97,6 +98,7 @@ func testScript(t *testing.T) {
 				logging.SetLogLevel(slog.LevelDebug)
 			}
 			log := hivetest.Logger(t, opts...)
+
 			conds := map[string]script.Cond{
 				"privileged": script.BoolCondition("testutils.IsPrivileged", testutils.IsPrivileged()),
 			}
@@ -177,6 +179,7 @@ func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]scr
 			lbMaps = m
 		}),
 
+		registry.Cell,
 		lbcell.Cell,
 	)
 
