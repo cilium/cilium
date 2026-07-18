@@ -81,6 +81,16 @@ func (r *rulesClient) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, ex
 	return ipcache.Identity{}, false
 }
 
+func (r *rulesClient) LookupIdentityByIP(ip netip.Addr) *identity.Identity {
+	secID, exists := r.LookupSecIDByIP(ip)
+	if !exists {
+		return nil
+	}
+	return &identity.Identity{
+		ID: secID.ID,
+	}
+}
+
 func (r *rulesClient) lookupPrefix(txn statedb.ReadTxn, prefix netip.Prefix) (identity ipcache.Identity, exists bool) {
 	if _, cidr, err := net.ParseCIDR(prefix.String()); err == nil {
 		ones, bits := cidr.Mask.Size()

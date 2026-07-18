@@ -693,9 +693,9 @@ func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.
 		}
 	}
 
-	msgDetails, serverAddrPort, epIPPort, serverID, protocol, allowed := s.reconstructNotifyArgs(mappings, sourceIP)
+	msgDetails, serverAddrPort, epIPPort, serverSecID, protocol, allowed := s.reconstructNotifyArgs(mappings, sourceIP)
 
-	if err := s.updateOnDNSMsg.NotifyOnDNSMsg(now, ep, epIPPort, serverID, serverAddrPort, msgDetails, protocol, allowed, &stat); err != nil {
+	if err := s.updateOnDNSMsg.NotifyOnDNSMsg(now, ep, epIPPort, serverSecID, serverAddrPort, msgDetails, protocol, allowed, &stat); err != nil {
 		s.log.Error("Failed to process DNS message",
 			logfields.Error, err,
 			logfields.DNSName, mappings.GetFqdn(),
@@ -722,7 +722,7 @@ func (s *FQDNDataServer) reconstructNotifyArgs(mappings *pb.FQDNMapping, sourceI
 	msgDetails *dnsproxy.MsgDetails,
 	serverAddrPort netip.AddrPort,
 	epIPPort string,
-	serverID identity.NumericIdentity,
+	serverSecID *identity.Identity,
 	protocol string,
 	allowed bool,
 ) {
@@ -782,7 +782,11 @@ func (s *FQDNDataServer) reconstructNotifyArgs(mappings *pb.FQDNMapping, sourceI
 		epIPPort = fmt.Sprintf("%s:%d", string(sourceIP), md.GetSourcePort())
 	}
 
-	serverID = identity.NumericIdentity(md.GetServerIdentity())
+	if md.GetServerIdentity() != 0 {
+		serverSecID = &identity.Identity{
+			ID: identity.NumericIdentity(md.GetServerIdentity()),
+		}
+	}
 	protocol = md.GetProtocol()
 	allowed = md.GetAllowed()
 	return

@@ -158,6 +158,16 @@ func (s *DNSProxyTestSuite) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identi
 	}
 }
 
+func (s *DNSProxyTestSuite) LookupIdentityByIP(ip netip.Addr) *identity.Identity {
+	secID, exists := s.LookupSecIDByIP(ip)
+	if !exists {
+		return nil
+	}
+	return &identity.Identity{
+		ID: secID.ID,
+	}
+}
+
 func (s *DNSProxyTestSuite) LookupByIdentity(nid identity.NumericIdentity) []string {
 	DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
 	switch nid {

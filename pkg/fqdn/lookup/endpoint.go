@@ -21,6 +21,9 @@ type ProxyLookupHandler interface {
 	// from the ipcache.
 	LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool)
 
+	// LookupIdentityByIP looks up the full identity for a given IP address.
+	LookupIdentityByIP(ip netip.Addr) *identity.Identity
+
 	// LookupByIdentity is a provided callback that returns the IPs of a given security ID.
 	LookupByIdentity(nid identity.NumericIdentity) []string
 
@@ -61,6 +64,14 @@ func (p *proxyLookupHandler) LookupRegisteredEndpoint(endpointAddr netip.Addr) (
 
 func (p *proxyLookupHandler) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
 	return p.ipCache.LookupSecIDByIP(ip)
+}
+
+func (p *proxyLookupHandler) LookupIdentityByIP(ip netip.Addr) *identity.Identity {
+	secID, exists := p.ipCache.LookupSecIDByIP(ip)
+	if !exists {
+		return nil
+	}
+	return p.ipCache.IdentityAllocator.LookupIdentityByID(context.Background(), secID.ID)
 }
 
 func (p *proxyLookupHandler) LookupByIdentity(nid identity.NumericIdentity) []string {

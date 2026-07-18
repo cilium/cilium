@@ -97,7 +97,7 @@ func TestNotifyOnDNSMsg(t *testing.T) {
 		details   *dnsproxy.MsgDetails
 		epIPPort  string
 		server    string
-		serverID  identity.NumericIdentity
+		serverSecID *identity.Identity
 		protocol  string
 		allowed   bool
 		stat      *dnsproxy.ProxyRequestContext
@@ -112,7 +112,7 @@ func TestNotifyOnDNSMsg(t *testing.T) {
 			details:  buildResponseDetails(),
 			epIPPort: "10.1.1.10:5353",
 			server:   "8.8.8.8:53",
-			serverID: identity.NumericIdentity(42),
+			serverSecID: &identity.Identity{ID: identity.NumericIdentity(42)},
 			protocol: "tcp",
 			allowed:  false,
 			stat:     buildStatWithTimings(),
@@ -262,7 +262,7 @@ func TestNotifyOnDNSMsg(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h, mc, ep := newTestHandler(t, tc.nilEp)
 			serverAP := netip.MustParseAddrPort(tc.server)
-			err := h.NotifyOnDNSMsg(time.Now(), ep, tc.epIPPort, tc.serverID, serverAP, tc.details, tc.protocol, tc.allowed, tc.stat)
+			err := h.NotifyOnDNSMsg(time.Now(), ep, tc.epIPPort, tc.serverSecID, serverAP, tc.details, tc.protocol, tc.allowed, tc.stat)
 			if tc.expectErr {
 				require.Error(t, err)
 				return
