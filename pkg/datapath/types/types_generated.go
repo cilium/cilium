@@ -341,6 +341,17 @@ type IPv4RevNATTuple struct {
 	Pad     uint16
 }
 
+// IPv4SkStorageEntry is generated from the BPF C type ipv4_sk_storage_entry.
+type IPv4SkStorageEntry struct {
+	_              structs.HostLayout
+	Address        uint32
+	Port           uint16
+	RevNATIndex    uint16
+	BackendAddress uint32
+	BackendPort    uint16
+	Pad            uint16
+}
+
 // IPv6CTTuple is generated from the BPF C type ipv6_ct_tuple.
 type IPv6CTTuple struct {
 	_     structs.HostLayout
@@ -424,6 +435,23 @@ type IPv6RevNATTuple struct {
 	Port uint16
 	Pad  uint16
 	_    [4]byte
+}
+
+// IPv6SkStorageEntry is generated from the BPF C type ipv6_sk_storage_entry.
+type IPv6SkStorageEntry struct {
+	_       structs.HostLayout
+	Address struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+	Port           uint16
+	RevNATIndex    uint16
+	BackendAddress struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+	BackendPort uint16
+	Pad         uint16
 }
 
 // L2ResponderStats is generated from the BPF C type l2_responder_stats.
