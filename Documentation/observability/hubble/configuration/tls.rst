@@ -109,12 +109,14 @@ restart Hubble server or Hubble Relay.
         set to ``false``, secrets containing the certificates must be created in the
         ``kube-system`` namespace, and the secret names must be provided to Helm.
 
-        Provided files must be **base64 encoded** PEM certificates.
+        The **Common Name (CN)** and **Subject Alternative Name (SAN)** of the
+        certificates must be set as follows. ``<cluster-name>`` refers to the
+        cluster name defined by ``cluster.name`` (defaults to ``default``):
 
-        In addition, the **Common Name (CN)** and **Subject Alternative Name (SAN)**
-        of the certificate for Hubble server MUST be set to
-        ``*.{cluster-name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is the
-        cluster name defined by ``cluster.name`` (defaults to ``default``).
+        - Hubble server: ``*.<cluster-name>.hubble-grpc.cilium.io``
+        - Hubble Relay: ``*.hubble-relay.cilium.io``
+        - Hubble UI: ``*.hubble-ui.cilium.io``
+        - Hubble metrics: ``<cluster-name>.hubble-metrics.cilium.io``
 
         Once the certificates have been issued, the secrets must be created in the ``kube-system`` namespace.
 
