@@ -7,6 +7,8 @@ Install the Cilium CLI
 
 .. include:: /installation/cli-download.rst
 
+.. _troubleshooting_clustermesh_automatic_verification:
+
 Automatic Verification
 ----------------------
 
@@ -51,6 +53,8 @@ Automatic Verification
       command to run the checks only towards a subset of remote clusters.
 
 
+.. _troubleshooting_clustermesh_manual_verification:
+
 Manual Verification
 -------------------
 
@@ -87,25 +91,7 @@ you may perform the following steps to troubleshoot ClusterMesh issues.
       $ kubectl --context $CLUSTER1 exec -it -n kube-system deploy/clustermesh-apiserver \
           -c kvstoremesh -- clustermesh-apiserver kvstoremesh-dbg status --verbose
 
- #. Validate that the required TLS secrets are set up properly. By default, the
-    following TLS secrets must be available in the namespace in which Cilium is
-    installed:
-
-    * ``clustermesh-apiserver-server-cert``, which is used by the etcd container
-      in the clustermesh-apiserver deployment. Not applicable if an external etcd
-      cluster is used.
-
-    * ``clustermesh-apiserver-admin-cert``, which is used by the apiserver/kvstoremesh
-      containers in the clustermesh-apiserver deployment, to authenticate against the
-      sidecar etcd instance. Not applicable if an external etcd cluster is used.
-
-    * ``clustermesh-apiserver-remote-cert``, which is used by Cilium agents, or
-      the kvstoremesh container in the clustermesh-apiserver deployment when
-      KVStoreMesh is enabled, to authenticate against remote etcd instances.
-
-    * ``clustermesh-apiserver-local-cert``, which is used by Cilium agents to
-      authenticate against the local etcd instance. Only applicable if KVStoreMesh
-      is enabled.
+ #. For TLS-related manual checks, see :ref:`troubleshooting_clustermesh_tls`.
 
  #. Validate that the configuration for remote clusters is picked up correctly.
     For each remote cluster, an info log message ``New remote cluster
@@ -209,3 +195,141 @@ State Propagation
     backend IPs consist of pod IPs from all clusters running relevant backends.
     You can further validate the correct datapath plumbing by running
     ``cilium-dbg bpf lb list`` to inspect the state of the eBPF maps.
+
+.. _troubleshooting_clustermesh_tls:
+
+TLS Certificate Troubleshooting
+-------------------------------
+
+If you encounter issues after enabling Cluster Mesh TLS, use the following
+instructions to help diagnose the problem. First, refer to
+:ref:`troubleshooting_clustermesh_automatic_verification` and run the
+troubleshoot commands. They validate TLS authentication and display certificate
+information in a human-readable format.
+
+The following checks apply regardless of the certificate management method:
+
+* Verify that certificates have not expired and that their CN and SANs match
+  the expected values.
+* Verify that each client trusts the CA that signed the server certificate.
+* By default, the following TLS Secrets must be available in the namespace in
+  which Cilium is installed:
+
+   * ``clustermesh-apiserver-server-cert``, which is used by the etcd container
+     in the clustermesh-apiserver deployment. Not applicable if an external etcd
+     cluster is used.
+
+   * ``clustermesh-apiserver-admin-cert``, which is used by the apiserver/kvstoremesh
+     containers in the clustermesh-apiserver deployment, to authenticate against the
+     sidecar etcd instance. Not applicable if an external etcd cluster is used.
+
+   * ``clustermesh-apiserver-remote-cert``, which is used by Cilium agents, or
+     the kvstoremesh container in the clustermesh-apiserver deployment when
+     KVStoreMesh is enabled, to authenticate against remote etcd instances.
+
+   * ``clustermesh-apiserver-local-cert``, which is used by Cilium agents to
+     authenticate against the local etcd instance. Only applicable if KVStoreMesh
+     is enabled.
+
+The following checks depend on the specific method used to provision the
+certificates:
+
+.. tabs::
+
+    .. group-tab:: cert-manager
+
+        While installing Cilium or cert-manager you may get the following error::
+
+            Error: Internal error occurred: failed calling webhook "webhook.cert-manager.io": Post "https://cert-manager-webhook.cert-manager.svc:443/mutate?timeout=10s": dial tcp x.x.x.x:443: connect: connection refused
+
+        This happens when cert-manager's webhook (which is used to verify the
+        ``Certificate``'s CRD resources) is not available. There are several ways
+        to resolve this issue. Pick one of the following options:
+
+        .. tabs::
+
+            .. tab:: Install CRDs first
+
+                Install cert-manager CRDs before Cilium and cert-manager (see `cert-manager's documentation about installing CRDs with kubectl <https://cert-manager.io/docs/installation/helm/#option-1-installing-crds-with-kubectl>`__):
+
+                .. code-block:: shell-session
+
+                    $ kubectl create -f cert-manager.crds.yaml
+
+                Then install cert-manager, configure an issuer and install Cilium.
+
+            .. tab:: Upgrade Cilium
+
+                Install Cilium with Cluster Mesh disabled:
+
+                .. code-block:: shell-session
+
+                    $ helm install cilium cilium/cilium \
+                        --set clustermesh.useAPIServer=false \
+                        --set clustermesh.config.enabled=false \
+                        ...
+
+                Then install cert-manager, configure an issuer, and enable Cluster Mesh.
+
+            .. tab:: Disable webhook
+
+                Disable cert-manager validation (assuming Cilium is installed in
+                the ``kube-system`` namespace):
+
+                .. code-block:: shell-session
+
+                    $ kubectl label namespace kube-system cert-manager.io/disable-validation=true
+
+                Then install Cilium, cert-manager, and configure an issuer.
+
+            .. tab:: Host network webhook
+
+                Configure cert-manager to expose its webhook within the host
+                network namespace:
+
+                .. code-block:: shell-session
+
+                    $ helm install cert-manager jetstack/cert-manager \
+                        --set webhook.hostNetwork=true \
+                        --set 'webhook.tolerations[0].operator=Exists'
+
+                Then configure an issuer and install Cilium.
+
+    .. group-tab:: Helm
+
+        When using Helm certificates are not automatically renewed. If you
+        encounter issues with expired certificates, you can manually renew them
+        by running ``helm upgrade`` to renew the certificates.
+
+    .. group-tab:: User Provided Certificates
+
+        If you encounter issues with the certificates, you can check the
+        certificates and keys by decoding them:
+
+        .. code-block:: shell-session
+
+            $ kubectl -n kube-system get secret clustermesh-apiserver-server-cert -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -text -noout
+            $ kubectl -n kube-system get secret clustermesh-apiserver-server-cert -o jsonpath='{.data.tls\.key}' | base64 -d | openssl pkey -text -noout
+            $ kubectl -n kube-system get secret clustermesh-apiserver-server-cert -o jsonpath='{.data.ca\.crt}' | base64 -d | openssl x509 -text -noout
+
+        The same commands can be used for the other secrets as well.
+
+    .. group-tab:: Custom Per-Pod Certificates
+
+        **Pod stuck in init / CrashLoopBackOff:**
+
+        The certificate agent init container must write all expected certificate
+        and configuration files before the main container starts. Check its logs
+        and the pod's events:
+
+        .. code-block:: shell-session
+
+            $ kubectl -n kube-system logs <pod> -c <cert-agent>
+            $ kubectl -n kube-system describe pod <pod>
+
+        **Secrets still being generated:**
+
+        If the chart still generates TLS Secrets, verify that
+        ``clustermesh.apiserver.tls.auto.enabled`` is set to ``false``. Automatic
+        generation is controlled by this value, not by
+        ``clustermesh.apiserver.tls.disableDefaultVolumes``.

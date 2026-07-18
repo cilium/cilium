@@ -159,38 +159,219 @@ Example install using the Cilium CLI:
    generate the security identity and it will need to be re-created in order to
    establish access across clusters.
 
-Shared Certificate Authority
-============================
+Configure TLS certificates
+==========================
 
-If you are planning to run Hubble Relay across clusters, it is best to share a
-certificate authority (CA) between the clusters as it will enable mTLS across
-clusters to just work.
+Cluster Mesh uses mTLS to secure control plane connections within and between
+clusters. TLS certificates can be generated automatically or manually provided.
 
-You can propagate the CA copying the Kubernetes secret containing the CA
-from one cluster to another:
+The following options are available to configure TLS certificates
+automatically:
 
-.. code-block:: shell-session
+* cilium's `certgen <https://github.com/cilium/certgen>`__ (using a Kubernetes ``CronJob``)
+* `cert-manager <https://cert-manager.io/>`__
+* `Helm <https://helm.sh/docs/chart_template_guide/function_list/#gensignedcert>`__
 
-  kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
-    kubectl --context $CLUSTER2 create -f -
+Every cluster must trust the certificates presented by the other clusters. Use
+a common root CA, or configure ``tls.caBundle`` with every trusted CA certificate.
 
-.. _clustermesh_external_tls:
+.. tabs::
 
-Custom Per-Pod Certificates
-===========================
+    .. group-tab:: CronJob (certgen)
 
-You can inject custom certificates for Cluster Mesh components by
-configuring the following Helm settings:
+        When using certgen, TLS certificates are generated at installation time
+        and a Kubernetes ``CronJob`` is scheduled to renew them (regardless of
+        their expiration date). The certgen method is easier to implement than
+        cert-manager but less flexible.
 
-- Set ``disableDefaultVolumes=true``
-- Inject your own certificate agent via ``extraInitContainers``
-- Specify ``extraVolumes``/``extraVolumeMounts`` to share the certificate
-  mount with the init container
+        The following Helm values configure certgen:
 
-This is useful when you want to provide certificates directly to each pod
-rather than through Kubernetes Secrets (e.g., per-pod certificates issued
-at runtime by HashiCorp Vault, the cert-manager CSI driver, or SPIFFE).
-See :ref:`hubble_enable_tls` for the general pattern.
+        .. code-block:: yaml
+
+          clustermesh:
+            apiserver:
+              tls:
+                auto:
+                  # enable automatic TLS certificate generation
+                  enabled: true
+                  # auto generate certificates using cronJob method
+                  method: cronJob
+                  # certificates validity duration in days (default 1 year)
+                  certValidityDuration: 365
+                  # schedule for certificate re-generation (crontab syntax)
+                  schedule: "0 0 1 */4 *"
+
+    .. group-tab:: cert-manager
+
+        This method relies on `cert-manager <https://cert-manager.io/>`__ to generate
+        the TLS certificates. cert-manager is the de facto way to manage TLS certificates
+        on Kubernetes, and it has the following advantages compared to the other
+        documented methods:
+
+        * Support for multiple issuers (e.g. a custom CA,
+          `Vault <https://www.vaultproject.io/>`__,
+          `Let's Encrypt <https://letsencrypt.org/>`__,
+          `Google's Certificate Authority Service <https://cloud.google.com/certificate-authority-service>`__,
+          and more) allowing to choose the issuer fitting your organization's
+          requirements.
+        * Manages certificates via a
+          `CRD <https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/>`__
+          which is easier to inspect with Kubernetes tools than PEM files.
+
+        **Installation steps:**
+
+        #. First, install `cert-manager <https://cert-manager.io/docs/installation/>`__
+           and setup an `issuer <https://cert-manager.io/docs/configuration/>`_.
+           Please make sure that your issuer can create certificates for the
+           configured Cluster Mesh API server names.
+        #. Install or upgrade Cilium with the following Helm values:
+
+        .. code-block:: yaml
+
+          clustermesh:
+            apiserver:
+              tls:
+                auto:
+                  # enable automatic TLS certificate generation
+                  enabled: true
+                  # auto generate certificates using cert-manager
+                  method: certmanager
+                  # certificates validity duration in days (default 1 year)
+                  certValidityDuration: 365
+                  certManagerIssuerRef:
+                    # Reference to cert-manager's issuer
+                    group: cert-manager.io
+                    kind: ClusterIssuer
+                    name: ca-issuer
+
+        During the first Cilium installation, cert-manager's webhook might not
+        yet be available when Cilium creates its ``Certificate`` resources. See
+        :ref:`troubleshooting_clustermesh_tls` if that occurs.
+
+    .. group-tab:: Helm
+
+        When using Helm, TLS certificates are (re-)generated every time Helm is used
+        to install or upgrade Cilium.
+
+        The following Helm values configure Helm certificate generation:
+
+        .. code-block:: yaml
+
+          clustermesh:
+            apiserver:
+              tls:
+                auto:
+                  # enable automatic TLS certificate generation
+                  enabled: true
+                  # auto generate certificates using helm method
+                  method: helm
+                  # certificates validity duration in days (default 1 year)
+                  certValidityDuration: 365
+
+        The downside of the Helm method is that while certificates are automatically
+        generated, they are not automatically renewed.  Consequently, running
+        ``helm upgrade`` is required when certificates are about to expire (i.e. before
+        the configured ``clustermesh.apiserver.tls.auto.certValidityDuration``).
+
+    .. group-tab:: User Provided Certificates
+
+        In order to provide your own TLS certificates,
+        ``clustermesh.apiserver.tls.auto.enabled`` must be set to ``false``,
+        and the following fixed-name Secrets must be created in the
+        namespace where Cilium is installed, which is typically ``kube-system``.
+
+        The **Common Name (CN)** and **Subject Alternative Name (SAN)** of the
+        certificates must be set as follows:
+
+        * Server: CN ``clustermesh-apiserver.<namespace>.svc``. SANs must
+          include ``clustermesh-apiserver.<namespace>.svc``,
+          ``*.mesh.cilium.io``, ``127.0.0.1``, ``::1``, and every DNS name
+          through which remote clusters reach the Cluster Mesh API Service
+        * Admin: CN ``admin-<cluster-name>``
+        * Remote: CN ``remote`` with the default ``migration`` authentication
+          mode
+        * Local: CN ``local-<cluster-name>``
+
+        Once the certificates have been issued, create the following Secrets in
+        the target namespace:
+
+        * ``clustermesh-apiserver-server-cert``
+        * ``clustermesh-apiserver-admin-cert``
+        * ``clustermesh-apiserver-remote-cert``
+        * ``clustermesh-apiserver-local-cert``
+
+        Each Secret must contain the following keys:
+
+        * ``tls.crt``: The certificate file
+        * ``tls.key``: The private key file
+        * ``ca.crt``: The CA certificate file
+
+        After creating the Secrets, install or upgrade Cilium with automatic
+        certificate generation disabled using the following Helm values:
+
+        .. code-block:: yaml
+
+           clustermesh:
+             apiserver:
+               tls:
+                 auto:
+                   enabled: false
+
+    .. group-tab:: Custom Per-Pod Certificates
+
+        If you want to provide TLS certificates directly to each pod rather than
+        through Kubernetes Secrets, for example with HashiCorp Vault, the
+        cert-manager CSI driver, or SPIFFE, configure a certificate agent and
+        mount its output into the components.
+
+        The external certificate agent is responsible for generating valid
+        certificates. It must generate certificates with the same CN and SAN
+        requirements as user-provided certificates.
+
+        The following Helm values disable automatic certificate generation and
+        the default Cluster Mesh certificate volumes:
+
+        .. code-block:: yaml
+
+          clustermesh:
+            apiserver:
+              tls:
+                auto:
+                  enabled: false
+                disableDefaultVolumes: true
+
+        You can then configure your certificate init containers using the
+        following extension points:
+
+        .. code-block:: yaml
+
+          # Cilium agent
+          extraInitContainers: []
+          extraVolumes: []
+          extraVolumeMounts: []
+
+          operator:
+            extraInitContainers: []
+            extraVolumes: []
+            extraVolumeMounts: []
+
+          clustermesh:
+            apiserver:
+              extraInitContainers: []
+              extraVolumes: []
+              extraVolumeMounts: []
+              kvstoremesh:
+                extraVolumeMounts: []
+
+        Disabling the default Cluster Mesh volumes also removes the peer
+        configuration mounts.
+
+        You need to mount ``cilium-clustermesh`` for the Cilium agent and operator,
+        and ``cilium-kvstoremesh`` for KVStoreMesh, or provide equivalent peer
+        configuration from your own integration. The exact values depend on your
+        certificate management system and are out of scope for this guide.
+
+For TLS troubleshooting, see :ref:`troubleshooting_clustermesh_tls`.
 
 .. _enable_clustermesh:
 
