@@ -7,8 +7,7 @@ on:
     branches:
       - main
       - ft/main/**
-  # Required so actionlint / Validate Workflow Names run in the merge queue
-  # (otherwise required checks stay pending forever). See #47262.
+  # Add this workflow to be triggered by merge queue events
   merge_group:
 
 permissions: read-all
