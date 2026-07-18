@@ -742,9 +742,15 @@ func (r *gatewayReconciler) resolveAllowedListeners(
 	gw *gatewayv1.Gateway,
 ) ([]ingestion.ListenerWithContext, []gatewayv1.ListenerSet, error) {
 	gwSource := gatewayFQR(gw)
+	conflictedListeners := conflictedGatewayListeners(gw)
 
 	var merged []ingestion.ListenerWithContext
 	for _, l := range gw.Spec.Listeners {
+		// Conflicted listeners are rejected in Gateway status and must not be
+		// included in the model passed to the translation pipeline.
+		if _, conflicted := conflictedListeners[l.Name]; conflicted {
+			continue
+		}
 		merged = append(merged, ingestion.ListenerWithContext{
 			Listener: l,
 			Source:   gwSource,
