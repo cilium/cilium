@@ -109,12 +109,14 @@ restart Hubble server or Hubble Relay.
         set to ``false``, secrets containing the certificates must be created in the
         ``kube-system`` namespace, and the secret names must be provided to Helm.
 
-        Provided files must be **base64 encoded** PEM certificates.
+        The **Common Name (CN)** and **Subject Alternative Name (SAN)** of the
+        certificates must be set as follows. ``<cluster-name>`` refers to the
+        cluster name defined by ``cluster.name`` (defaults to ``default``):
 
-        In addition, the **Common Name (CN)** and **Subject Alternative Name (SAN)**
-        of the certificate for Hubble server MUST be set to
-        ``*.{cluster-name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is the
-        cluster name defined by ``cluster.name`` (defaults to ``default``).
+        - Hubble server: ``*.<cluster-name>.hubble-grpc.cilium.io``
+        - Hubble Relay: ``*.hubble-relay.cilium.io``
+        - Hubble UI: ``*.hubble-ui.cilium.io``
+        - Hubble metrics: ``<cluster-name>.hubble-metrics.cilium.io``
 
         Once the certificates have been issued, the secrets must be created in the ``kube-system`` namespace.
 
@@ -175,60 +177,59 @@ restart Hubble server or Hubble Relay.
         If you want to provide TLS certificates directly to each pod rather
         than through Kubernetes Secrets (e.g., per-pod certificates issued at
         runtime by HashiCorp Vault, the cert-manager CSI driver, or SPIFFE),
-        you can disable the default TLS certificate volumes by setting
-        ``disableDefaultVolumes=true`` and provide your own via
-        ``extraVolumes``/``extraVolumeMounts``, and inject a
-        certificate-fetching sidecar via ``extraInitContainers``.
-
-        **Certificate requirements:**
+        configure a certificate agent and mount its output into the component.
 
         The external certificate agent is responsible for generating valid
-        certificates. The Common Name (CN) and Subject Alternative Name
-        (SAN) requirements are the same as for user-provided certificates:
+        certificates. It must generate certificates with the same CN and
+        SAN requirements as user-provided certificates, and write these files:
 
-        - Hubble server: ``*.{cluster-name}.hubble-grpc.cilium.io`` where
-          ``{cluster-name}`` is the cluster name defined by ``cluster.name``
-          (defaults to ``default``)
-        - Hubble Relay: ``*.hubble-relay.cilium.io``
-        - Hubble UI: ``*.hubble-ui.cilium.io``
+        - Hubble server: ``server.crt``, ``server.key``, and
+          ``client-ca.crt`` in ``/var/lib/cilium/tls/hubble``
+        - Hubble Relay: ``client.crt``, ``client.key``, and
+          ``hubble-server-ca.crt`` in ``/var/lib/hubble-relay/tls``. If Relay
+          TLS server is enabled, you also need ``server.crt`` and ``server.key``
+          in the same directory
+        - Hubble UI: ``client.crt``, ``client.key``, and
+          ``hubble-relay-ca.crt`` in ``/var/lib/hubble-ui/certs``
 
-        The certificate agent must write files matching the names expected
-        by each component:
+        The following Helm values disable the default certificate volumes:
 
-        - Hubble server: ``server.crt``, ``server.key``, ``client-ca.crt``
-        - Hubble Relay: ``client.crt``, ``client.key``,
-          ``hubble-server-ca.crt``, and if relay TLS server is enabled:
-          ``server.crt``, ``server.key``
-        - Hubble UI: ``client.crt``, ``client.key``, ``hubble-relay-ca.crt``
+        .. code-block:: yaml
 
-        **Configuration:**
+            hubble:
+              tls:
+                disableDefaultVolumes: true
 
-        For each component, disable its default TLS volume, provide your own
-        via ``extraVolumes``/``extraVolumeMounts``, and configure the
-        certificate agent under ``extraInitContainers``. Hubble Relay and
-        Hubble UI are optional; only set the values for the components you
-        deploy.
+              relay:
+                tls:
+                  disableDefaultVolumes: true
 
-        ::
+              ui:
+                tls:
+                  disableDefaultVolumes: true
+
+        Configure the certificate agent using the following extension points:
+
+        .. code-block:: yaml
 
             # Hubble server (on the cilium-agent DaemonSet)
-            --set hubble.tls.disableDefaultVolumes=true
-            # configure the certificate agent under the top-level extraInitContainers
+            extraInitContainers: []
+            extraVolumes: []
+            extraVolumeMounts: []
 
-            # Hubble Relay
-            --set hubble.relay.tls.disableDefaultVolumes=true
-            # configure the certificate agent under hubble.relay.extraInitContainers
+            hubble:
+              relay:
+                extraInitContainers: []
+                extraVolumes: []
+                extraVolumeMounts: []
 
-            # Hubble UI
-            --set hubble.ui.tls.disableDefaultVolumes=true
-            # configure the certificate agent under hubble.ui.extraInitContainers
+              ui:
+                extraInitContainers: []
+                backend:
+                  extraVolumes: []
+                  extraVolumeMounts: []
 
-        Each component can be configured independently.
-
-        You will need to determine the valid contents of the ``extraVolumes``,
-        ``extraVolumeMounts``, and ``extraInitContainers`` settings based on
-        your own approach to certificate management. The values of these
-        settings are out of scope for this guide.
+        Their exact contents are out of scope for this guide.
 
 .. _hubble_enable_tls_troubleshooting:
 
