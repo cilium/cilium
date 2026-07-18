@@ -51,7 +51,7 @@ func TestPrivilegedUnusedMaps(t *testing.T) {
 
 	reach, err := computeReachability(spec)
 	require.NoError(t, err)
-	err = removeUnusedMaps(spec, nil, reach, nil)
+	err = removeUnusedMaps(spec, nil, reach, nil, nil)
 	require.NoError(t, err)
 
 	assert.NotNil(t, spec.Maps["map_a"])
@@ -75,7 +75,7 @@ func TestPrivilegedUnusedMaps(t *testing.T) {
 
 	reach, err = computeReachability(spec)
 	require.NoError(t, err)
-	err = removeUnusedMaps(spec, nil, reach, nil)
+	err = removeUnusedMaps(spec, nil, reach, nil, nil)
 	require.NoError(t, err)
 
 	assert.Nil(t, spec.Maps["map_a"])
@@ -103,7 +103,7 @@ func TestPrivilegedUnusedMapsFalseNegative(t *testing.T) {
 	reach, err := computeReachability(spec)
 	require.NoError(t, err)
 
-	err = removeUnusedMaps(spec, nil, reach, nil)
+	err = removeUnusedMaps(spec, nil, reach, nil, nil)
 	require.NoError(t, err)
 
 	coll := mustNewCollection(t, spec)
@@ -123,7 +123,7 @@ func TestUnusedMapsFixedSet(t *testing.T) {
 	orig := set.NewSet("test")
 	fixed := orig.Clone()
 
-	err = removeUnusedMaps(spec, &fixed, reach, nil)
+	err = removeUnusedMaps(spec, &fixed, reach, nil, nil)
 	require.NoError(t, err)
 
 	assert.True(t, orig.Equal(fixed))
