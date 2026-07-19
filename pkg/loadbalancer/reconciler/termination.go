@@ -68,6 +68,7 @@ type socketTerminationParams struct {
 
 	MakeSocketDestroyer socketDestroyerFactory
 	NetNSOps            netnsOps
+	InetProbe           *sockets.SocketInetProbe
 
 	// TestSyncChan is used by the tests to synchronize with the job so it
 	// knows when to delete the backend.
@@ -107,19 +108,28 @@ func registerSocketTermination(p socketTerminationParams) error {
 		return nil
 	}
 
-	if err := sockets.InetDiagDestroyEnabled(p.Log, p.Config.LBSockTerminateAllProtos, true); err != nil {
-		if errors.Is(err, probes.ErrNotSupported) {
+	var probeErr error
+	if err := p.InetProbe.InetDiagDestroyUDPEnabled(p.Log); err != nil {
+		probeErr = errors.Join(probeErr, err)
+	}
+	if p.Config.LBSockTerminateAllProtos {
+		if err := p.InetProbe.InetDiagDestroyTCPEnabled(p.Log); err != nil {
+			probeErr = errors.Join(probeErr, err)
+		}
+	}
+	if probeErr != nil {
+		if errors.Is(probeErr, probes.ErrNotSupported) {
 			// The kernel doesn't support socket termination.
 			p.Log.Error("Forcefully terminating sockets connected to deleted service backends "+
-				"not supported by underlying kernel", logfields.Error, err)
-			p.Health.Degraded("service LV socket termination not supported by kernel", err)
+				"not supported by underlying kernel", logfields.Error, probeErr)
+			p.Health.Degraded("service LV socket termination not supported by kernel", probeErr)
 			return nil
 		}
 		p.Log.Error("Unexpected error while probing kernel socket termination support."+
 			"Will proceed with starting socket destroyer job but functionality may be degraded",
-			logfields.Error, err)
+			logfields.Error, probeErr)
 		p.Health.Degraded("Unexpected error while probing kernel socket termination support",
-			err)
+			probeErr)
 	}
 	p.JobGroup.Add(
 		job.OneShot(

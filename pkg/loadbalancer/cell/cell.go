@@ -6,6 +6,7 @@ package cell
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/healthserver"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -31,6 +32,9 @@ var Cell = cell.Group(
 
 	// Reconciliation from tables to BPF maps.
 	reconciler.Cell,
+
+	// Inet probe for socket termination probing.
+	sockets.Cell,
 
 	// Control-plane for CiliumLocalRedirectPolicy
 	redirectpolicy.Cell,
