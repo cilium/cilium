@@ -68,6 +68,8 @@ int hostfw_iptables_host_ipv4_01_pod_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
 	ipcache_v4_add_world_entry();
 
+	policy_add_egress_deny_all_entry();
+
 	set_identity_mark(ctx, POD_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
 
 	return netdev_send_packet(ctx);
@@ -109,6 +111,8 @@ int hostfw_iptables_host_ipv4_01_pod_check(const struct __ctx_buff *ctx)
 
 	assert(ct_entry->packets == 1);
 
+	policy_delete_egress_all_entry();
+
 	test_finish();
 }
 
@@ -137,6 +141,8 @@ int hostfw_iptables_host_ipv4_02_pod_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_iptables_host_ipv4_02_pod")
 int hostfw_iptables_host_ipv4_02_pod_setup(struct __ctx_buff *ctx)
 {
+	policy_add_ingress_deny_all_entry();
+
 	return netdev_receive_packet(ctx);
 }
 
@@ -174,6 +180,8 @@ int hostfw_iptables_host_ipv4_02_pod_check(const struct __ctx_buff *ctx)
 
 	assert(ct_entry->packets == 2);
 
+	policy_delete_ingress_all_entry();
+
 	test_finish();
 }
 
@@ -206,6 +214,8 @@ int hostfw_iptables_host_ipv4_03_host_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_iptables_host_ipv4_03_host")
 int hostfw_iptables_host_ipv4_03_host_setup(struct __ctx_buff *ctx)
 {
+	policy_add_egress_deny_all_entry();
+
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
 
 	return netdev_send_packet(ctx);
@@ -228,6 +238,8 @@ int hostfw_iptables_host_ipv4_03_host_check(const struct __ctx_buff *ctx)
 	status_code = data;
 
 	assert(*status_code == CTX_ACT_DROP);
+
+	policy_delete_egress_all_entry();
 
 	test_finish();
 }
@@ -303,6 +315,8 @@ int hostfw_iptables_host_ipv4_04_host_check(const struct __ctx_buff *ctx)
 
 	assert(ct_entry->packets == 1);
 
+	policy_delete_egress_all_entry();
+
 	test_finish();
 }
 
@@ -331,6 +345,8 @@ int hostfw_iptables_host_ipv4_05_host_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_iptables_host_ipv4_05_host")
 int hostfw_iptables_host_ipv4_05_host_setup(struct __ctx_buff *ctx)
 {
+	policy_add_ingress_deny_all_entry();
+
 	return netdev_receive_packet(ctx);
 }
 
@@ -368,7 +384,7 @@ int hostfw_iptables_host_ipv4_05_host_check(const struct __ctx_buff *ctx)
 
 	assert(ct_entry->packets == 2);
 
-	policy_delete_egress_all_entry();
+	policy_delete_ingress_all_entry();
 
 	test_finish();
 }
