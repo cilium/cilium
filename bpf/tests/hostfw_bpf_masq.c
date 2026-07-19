@@ -67,6 +67,8 @@ int hostfw_ipv4_bpf_masq_proxy_01_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
 	ipcache_v4_add_world_entry();
 
+	policy_add_egress_deny_all_entry();
+
 	set_identity_mark(ctx, POD_SEC_IDENTITY, MARK_MAGIC_PROXY_EGRESS);
 
 	return netdev_send_packet(ctx);
@@ -108,6 +110,8 @@ int hostfw_ipv4_bpf_masq_proxy_01_check(const struct __ctx_buff *ctx)
 
 	assert(ct_entry->packets == 1);
 
+	policy_delete_egress_all_entry();
+
 	test_finish();
 }
 
@@ -136,6 +140,8 @@ int hostfw_ipv4_bpf_masq_proxy_02_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_ipv4_bpf_masq_proxy_02")
 int hostfw_ipv4_bpf_masq_proxy_02_setup(struct __ctx_buff *ctx)
 {
+	policy_add_ingress_allow_all_entry();
+
 	return netdev_receive_packet(ctx);
 }
 
@@ -172,6 +178,8 @@ int hostfw_ipv4_bpf_masq_proxy_02_check(const struct __ctx_buff *ctx)
 		test_fatal("no CT entry found");
 
 	assert(ct_entry->packets == 2);
+
+	policy_delete_ingress_all_entry();
 
 	test_finish();
 }
