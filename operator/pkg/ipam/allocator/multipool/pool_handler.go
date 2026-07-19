@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
@@ -35,7 +36,7 @@ func ParsePoolSpec(poolString string) (*ParsedPoolSpec, error) {
 		return c == ';'
 	})
 
-	var ipv4CIDRs, ipv6CIDRs []cilium_v2alpha1.PoolCIDR
+	var ipv4CIDRs, ipv6CIDRs []iputil.Prefix
 	var ipv4MaskSize, ipv6MaskSize uint8
 	var allowFirstIP, allowLastIP bool
 
@@ -47,11 +48,11 @@ func ParsePoolSpec(poolString string) (*ParsedPoolSpec, error) {
 		switch key {
 		case poolKeyIPv4CIDRs:
 			for cidr := range strings.SplitSeq(value, ",") {
-				_, err := netip.ParsePrefix(cidr)
+				prefix, err := netip.ParsePrefix(cidr)
 				if err != nil {
 					return nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv4CIDRs, err)
 				}
-				ipv4CIDRs = append(ipv4CIDRs, cilium_v2alpha1.PoolCIDR(cidr))
+				ipv4CIDRs = append(ipv4CIDRs, iputil.PrefixFrom(prefix))
 			}
 		case poolKeyIPv4MaskSize:
 			mask, err := strconv.ParseUint(value, 10, 8)
@@ -61,11 +62,11 @@ func ParsePoolSpec(poolString string) (*ParsedPoolSpec, error) {
 			ipv4MaskSize = uint8(mask)
 		case poolKeyIPv6CIDRs:
 			for cidr := range strings.SplitSeq(value, ",") {
-				_, err := netip.ParsePrefix(cidr)
+				prefix, err := netip.ParsePrefix(cidr)
 				if err != nil {
 					return nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv6CIDRs, err)
 				}
-				ipv6CIDRs = append(ipv6CIDRs, cilium_v2alpha1.PoolCIDR(cidr))
+				ipv6CIDRs = append(ipv6CIDRs, iputil.PrefixFrom(prefix))
 			}
 		case poolKeyIPv6MaskSize:
 			mask, err := strconv.ParseUint(value, 10, 8)
@@ -121,7 +122,7 @@ func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.I
 		ipv4MaskSize = int(v4Spec.MaskSize)
 		ipv4CIDRs = make([]string, len(v4Spec.CIDRs))
 		for i, cidr := range v4Spec.CIDRs {
-			ipv4CIDRs[i] = string(cidr)
+			ipv4CIDRs[i] = cidr.String()
 		}
 	}
 
@@ -129,7 +130,7 @@ func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.I
 		ipv6MaskSize = int(v6Spec.MaskSize)
 		ipv6CIDRs = make([]string, len(v6Spec.CIDRs))
 		for i, cidr := range v6Spec.CIDRs {
-			ipv6CIDRs[i] = string(cidr)
+			ipv6CIDRs[i] = cidr.String()
 		}
 	}
 

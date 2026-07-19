@@ -10,6 +10,7 @@ package v2alpha1
 
 import (
 	models "github.com/cilium/cilium/api/v1/models"
+	ip "github.com/cilium/cilium/pkg/ip"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -2320,8 +2321,10 @@ func (in *IPv4PoolSpec) DeepCopyInto(out *IPv4PoolSpec) {
 	*out = *in
 	if in.CIDRs != nil {
 		in, out := &in.CIDRs, &out.CIDRs
-		*out = make([]PoolCIDR, len(*in))
-		copy(*out, *in)
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }
@@ -2357,8 +2360,10 @@ func (in *IPv6PoolSpec) DeepCopyInto(out *IPv6PoolSpec) {
 	*out = *in
 	if in.CIDRs != nil {
 		in, out := &in.CIDRs, &out.CIDRs
-		*out = make([]PoolCIDR, len(*in))
-		copy(*out, *in)
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }

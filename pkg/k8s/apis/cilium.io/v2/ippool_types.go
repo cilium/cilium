@@ -6,6 +6,7 @@ package v2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -95,7 +96,7 @@ type IPv4PoolSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=32
-	CIDRs []PoolCIDR `json:"cidrs"`
+	CIDRs []iputil.Prefix `json:"cidrs"`
 
 	// MaskSize is the mask size of the pool.
 	//
@@ -122,7 +123,7 @@ type IPv6PoolSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=32
-	CIDRs []PoolCIDR `json:"cidrs"`
+	CIDRs []iputil.Prefix `json:"cidrs"`
 
 	// MaskSize is the mask size of the pool.
 	//
@@ -142,16 +143,11 @@ type IPv6PoolSpec struct {
 	Pool []PoolCIDRConfig `json:"pool,omitempty"`
 }
 
-// PoolCIDR is an IP pool CIDR.
-//
-// +kubebuilder:validation:Format=cidr
-type PoolCIDR string
-
 type PoolCIDRConfig struct {
 	// CIDR references one of the CIDRs listed in the parent pool spec.
 	//
 	// +kubebuilder:validation:Required
-	CIDR PoolCIDR `json:"cidr"`
+	CIDR iputil.Prefix `json:"cidr"`
 
 	// ReservedRanges is a list of IP ranges within CIDR that must not be allocated.
 	//

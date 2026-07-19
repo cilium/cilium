@@ -1919,7 +1919,7 @@ func (in *IPv4PoolSpec) DeepEqual(other *IPv4PoolSpec) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -1967,7 +1967,7 @@ func (in *IPv6PoolSpec) DeepEqual(other *IPv6PoolSpec) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}

@@ -27,8 +27,8 @@ import (
 )
 
 var (
-	redPoolCIDRv4        = v2alpha1.PoolCIDR("10.0.0.0/16")
-	redPoolCIDRv6        = v2alpha1.PoolCIDR("2001:db8::/64")
+	redPoolCIDRv4        = iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/16"))
+	redPoolCIDRv6        = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8::/64"))
 	redPoolNodePrefix1v4 = iputil.PrefixFrom(netip.MustParsePrefix("10.0.1.0/24"))
 	redPoolNodePrefix2v4 = iputil.PrefixFrom(netip.MustParsePrefix("10.0.2.0/24"))
 	redPoolNodePrefix1v6 = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:0:0:1234::/96"))
@@ -46,11 +46,11 @@ var (
 		},
 		Spec: v2alpha1.IPPoolSpec{
 			IPv4: &v2alpha1.IPv4PoolSpec{
-				CIDRs:    []v2alpha1.PoolCIDR{redPoolCIDRv4},
+				CIDRs:    []iputil.Prefix{redPoolCIDRv4},
 				MaskSize: 24,
 			},
 			IPv6: &v2alpha1.IPv6PoolSpec{
-				CIDRs:    []v2alpha1.PoolCIDR{redPoolCIDRv6},
+				CIDRs:    []iputil.Prefix{redPoolCIDRv6},
 				MaskSize: 96,
 			},
 		},
@@ -130,16 +130,16 @@ var (
 		},
 	}
 
-	bluePoolCIDR1v4       = v2alpha1.PoolCIDR("10.1.0.0/16")
+	bluePoolCIDR1v4       = iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16"))
 	bluePoolNodePrefix1v4 = iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24"))
-	bluePoolCIDR2v4       = v2alpha1.PoolCIDR("10.2.0.0/16")
+	bluePoolCIDR2v4       = iputil.PrefixFrom(netip.MustParsePrefix("10.2.0.0/16"))
 	bluePoolNodePrefix2v4 = iputil.PrefixFrom(netip.MustParsePrefix("10.2.1.0/24"))
-	bluePoolCIDR3v4       = v2alpha1.PoolCIDR("10.3.0.0/16")
-	bluePoolCIDR1v6       = v2alpha1.PoolCIDR("2001:db8:1::/64")
+	bluePoolCIDR3v4       = iputil.PrefixFrom(netip.MustParsePrefix("10.3.0.0/16"))
+	bluePoolCIDR1v6       = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1::/64"))
 	bluePoolNodePrefix1v6 = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1:0:1234::/96"))
-	bluePoolCIDR2v6       = v2alpha1.PoolCIDR("2001:db8:2::/64")
+	bluePoolCIDR2v6       = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:2::/64"))
 	bluePoolNodePrefix2v6 = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:2:0:1234::/96"))
-	bluePoolCIDR3v6       = v2alpha1.PoolCIDR("2001:db8:3::/64")
+	bluePoolCIDR3v6       = iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:3::/64"))
 
 	bluePoolName       = "blue-pool"
 	blueLabelSelector  = slimv1.LabelSelector{MatchLabels: map[string]string{"pool": "blue"}}
@@ -153,7 +153,7 @@ var (
 		},
 		Spec: v2alpha1.IPPoolSpec{
 			IPv4: &v2alpha1.IPv4PoolSpec{
-				CIDRs: []v2alpha1.PoolCIDR{
+				CIDRs: []iputil.Prefix{
 					bluePoolCIDR1v4,
 					bluePoolCIDR2v4,
 					bluePoolCIDR3v4,
@@ -161,7 +161,7 @@ var (
 				MaskSize: 24,
 			},
 			IPv6: &v2alpha1.IPv6PoolSpec{
-				CIDRs: []v2alpha1.PoolCIDR{
+				CIDRs: []iputil.Prefix{
 					bluePoolCIDR1v6,
 					bluePoolCIDR2v6,
 					bluePoolCIDR3v6,

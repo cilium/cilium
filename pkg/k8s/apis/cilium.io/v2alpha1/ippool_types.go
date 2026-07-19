@@ -6,6 +6,7 @@ package v2alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -93,7 +94,7 @@ type IPv4PoolSpec struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	CIDRs []PoolCIDR `json:"cidrs"`
+	CIDRs []iputil.Prefix `json:"cidrs"`
 
 	// MaskSize is the mask size of the pool.
 	//
@@ -109,7 +110,7 @@ type IPv6PoolSpec struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	CIDRs []PoolCIDR `json:"cidrs"`
+	CIDRs []iputil.Prefix `json:"cidrs"`
 
 	// MaskSize is the mask size of the pool.
 	//
@@ -119,11 +120,6 @@ type IPv6PoolSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="maskSize is immutable"
 	MaskSize uint8 `json:"maskSize"`
 }
-
-// PoolCIDR is an IP pool CIDR.
-//
-// +kubebuilder:validation:Format=cidr
-type PoolCIDR string
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=false

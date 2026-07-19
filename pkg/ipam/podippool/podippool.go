@@ -47,7 +47,7 @@ func (p LocalPodIPPool) TableRow() []string {
 	if p.Spec.IPv4 != nil {
 		v4Cidrs = make([]string, len(p.Spec.IPv4.CIDRs))
 		for i := range p.Spec.IPv4.CIDRs {
-			v4Cidrs[i] = string(p.Spec.IPv4.CIDRs[i])
+			v4Cidrs[i] = p.Spec.IPv4.CIDRs[i].String()
 		}
 		v4MaskSize = strconv.FormatUint(uint64(p.Spec.IPv4.MaskSize), 10)
 	} else {
@@ -60,7 +60,7 @@ func (p LocalPodIPPool) TableRow() []string {
 	if p.Spec.IPv6 != nil {
 		v6Cidrs = make([]string, len(p.Spec.IPv6.CIDRs))
 		for i := range p.Spec.IPv6.CIDRs {
-			v6Cidrs[i] = string(p.Spec.IPv6.CIDRs[i])
+			v6Cidrs[i] = p.Spec.IPv6.CIDRs[i].String()
 		}
 		v6MaskSize = strconv.FormatUint(uint64(p.Spec.IPv6.MaskSize), 10)
 	} else {

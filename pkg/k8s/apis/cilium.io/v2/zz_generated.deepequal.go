@@ -2242,7 +2242,7 @@ func (in *IPv4PoolSpec) DeepEqual(other *IPv4PoolSpec) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -2289,7 +2289,7 @@ func (in *IPv6PoolSpec) DeepEqual(other *IPv6PoolSpec) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -2532,9 +2532,10 @@ func (in *PoolCIDRConfig) DeepEqual(other *PoolCIDRConfig) bool {
 		return false
 	}
 
-	if in.CIDR != other.CIDR {
+	if !in.CIDR.DeepEqual(&other.CIDR) {
 		return false
 	}
+
 	if ((in.ReservedRanges != nil) && (other.ReservedRanges != nil)) || ((in.ReservedRanges == nil) != (other.ReservedRanges == nil)) {
 		in, other := &in.ReservedRanges, &other.ReservedRanges
 		if other == nil {

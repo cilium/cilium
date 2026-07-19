@@ -73,7 +73,6 @@ spec:
                     description: CIDRs is a list of IPv4 CIDRs that are part of the
                       pool.
                     items:
-                      description: PoolCIDR is an IP pool CIDR.
                       format: cidr
                       type: string
                     maxItems: 32
@@ -137,7 +136,6 @@ spec:
                     description: CIDRs is a list of IPv6 CIDRs that are part of the
                       pool.
                     items:
-                      description: PoolCIDR is an IP pool CIDR.
                       format: cidr
                       type: string
                     maxItems: 32
@@ -384,7 +382,6 @@ spec:
                     description: CIDRs is a list of IPv4 CIDRs that are part of the
                       pool.
                     items:
-                      description: PoolCIDR is an IP pool CIDR.
                       format: cidr
                       type: string
                     minItems: 1
@@ -408,7 +405,6 @@ spec:
                     description: CIDRs is a list of IPv6 CIDRs that are part of the
                       pool.
                     items:
-                      description: PoolCIDR is an IP pool CIDR.
                       format: cidr
                       type: string
                     minItems: 1
