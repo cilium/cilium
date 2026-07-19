@@ -27,6 +27,10 @@ Cluster Addressing Requirements
   may default to :ref:`arch_overlay` or :ref:`native_routing` mode depending on
   the specific cloud environment.
 
+* The Cilium versions of all clusters must differ by no more than one minor
+  release. For example, Cilium ``1.18.x`` can connect to clusters running
+  Cilium ``1.17.x`` or ``1.19.x``, but not ``1.16.x``.
+
 * PodCIDR ranges in all clusters and all nodes must be non-conflicting and
   unique IP addresses.
 
