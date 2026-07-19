@@ -84,6 +84,23 @@ policy_add_ingress_deny_all_entry(void)
 	policy_add_entry(false, 0, 0, 0, 0, true, 0);
 }
 
+static __always_inline void policy_add_ingress_allow_all_entry(void)
+{
+	policy_add_entry(false, 0, 0, 0, 0, false, 0);
+}
+
+static __always_inline void
+policy_delete_ingress_l3_l4_entry(__u32 sec_label, __u8 protocol, __be16 dport,
+				  __u8 port_range)
+{
+	policy_delete_entry(false, sec_label, protocol, dport, port_range);
+}
+
+static __always_inline void policy_delete_ingress_all_entry(void)
+{
+	policy_delete_ingress_l3_l4_entry(0, 0, 0, 0);
+}
+
 static __always_inline void
 policy_add_egress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __be16 dport,
 				    __u8 port_range)
