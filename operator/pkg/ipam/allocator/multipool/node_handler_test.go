@@ -99,7 +99,7 @@ func TestNodeHandler(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
-	err := backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
+	err := backend.UpsertPool("default", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, 24, nil, 0)
 	assert.NoError(t, err)
 
 	onUpdateArgs := make(chan mockArgs)
@@ -371,7 +371,7 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	}
 
 	// Previous CIDRs should be unorphaned if test-pool is restored
-	err := backend.UpsertPool("test-pool", []string{"10.0.0.0/16"}, 24, nil, 0)
+	err := backend.UpsertPool("test-pool", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")}, 24, nil, 0)
 	assert.NoError(t, err)
 
 	assert.Empty(t, backend.orphans)
@@ -396,7 +396,7 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 
 	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
 	err := backend.UpsertPool("test-pool",
-		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
+		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28"), netip.MustParsePrefix("10.0.0.32/28"), netip.MustParsePrefix("10.0.0.48/28")}, 28,
 		nil, 0)
 	assert.NoError(t, err)
 
@@ -461,7 +461,7 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 
 	// Shrink the pool and remove two CIDRs still in use by the node
 	err = backend.UpsertPool("test-pool",
-		[]string{"10.0.0.0/28", "10.0.0.16/28"}, 28,
+		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28")}, 28,
 		nil, 0)
 	assert.NoError(t, err)
 
@@ -513,7 +513,7 @@ func TestNodeHandlerRetries(t *testing.T) {
 
 	t.Run("get and update", func(t *testing.T) {
 		backend := NewPoolAllocator(hivetest.Logger(t), true, false)
-		assert.NoError(t, backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0))
+		assert.NoError(t, backend.UpsertPool("default", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, 24, nil, 0))
 
 		node := &v2.CiliumNode{
 			ObjectMeta: metav1.ObjectMeta{
@@ -596,7 +596,7 @@ func TestNodeHandlerRetries(t *testing.T) {
 
 	t.Run("updatestatus", func(t *testing.T) {
 		backend := NewPoolAllocator(hivetest.Logger(t), true, false)
-		assert.NoError(t, backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0))
+		assert.NoError(t, backend.UpsertPool("default", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, 24, nil, 0))
 
 		node := &v2.CiliumNode{
 			ObjectMeta: metav1.ObjectMeta{

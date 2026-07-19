@@ -11,6 +11,7 @@ import (
 
 	iputil "github.com/cilium/cilium/pkg/ip"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -115,23 +116,17 @@ func ParsePoolSpec(poolString string) (*ParsedPoolSpec, error) {
 }
 
 func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.IPv4PoolSpec, v6Spec *cilium_v2alpha1.IPv6PoolSpec, allowFirstIP, allowLastIP bool) error {
-	var ipv4CIDRs, ipv6CIDRs []string
+	var ipv4CIDRs, ipv6CIDRs []netip.Prefix
 	var ipv4MaskSize, ipv6MaskSize int
 
 	if v4Spec != nil {
 		ipv4MaskSize = int(v4Spec.MaskSize)
-		ipv4CIDRs = make([]string, len(v4Spec.CIDRs))
-		for i, cidr := range v4Spec.CIDRs {
-			ipv4CIDRs[i] = cidr.String()
-		}
+		ipv4CIDRs = slices.Map(v4Spec.CIDRs, func(c iputil.Prefix) netip.Prefix { return c.Prefix })
 	}
 
 	if v6Spec != nil {
 		ipv6MaskSize = int(v6Spec.MaskSize)
-		ipv6CIDRs = make([]string, len(v6Spec.CIDRs))
-		for i, cidr := range v6Spec.CIDRs {
-			ipv6CIDRs[i] = cidr.String()
-		}
+		ipv6CIDRs = slices.Map(v6Spec.CIDRs, func(c iputil.Prefix) netip.Prefix { return c.Prefix })
 	}
 
 	var opts []PoolOption

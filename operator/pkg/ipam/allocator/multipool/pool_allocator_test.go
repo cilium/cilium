@@ -20,8 +20,8 @@ import (
 func TestPoolAllocator(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 	err := p.UpsertPool("default",
-		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
-		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16"), netip.MustParsePrefix("10.200.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80"), netip.MustParsePrefix("fc00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 	defaultPool, exists := p.pools["default"]
@@ -262,7 +262,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `cannot allocate from non-existing pool: no-exist`)
 
 	err = p.UpsertPool("ipv4-only",
-		[]string{"10.0.0.0/16"}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -279,13 +279,13 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `pool empty`)
 
 	err = p.UpsertPool("ipv4-only-same-cidr",
-		[]string{"10.0.0.0/16"}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
 	err = p.UpsertPool("ipv6-only",
 		nil, 0,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 	node.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
@@ -357,8 +357,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	_, exists := p.pools["jupiter"]
 	assert.False(t, exists)
 	err := p.UpsertPool("jupiter",
-		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
-		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16"), netip.MustParsePrefix("10.200.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80"), netip.MustParsePrefix("fc00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 	_, exists = p.pools["jupiter"]
@@ -377,8 +377,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	_, exists = p.pools["mars"]
 	assert.False(t, exists)
 	err = p.UpsertPool("mars",
-		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
-		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.10.0.0/16"), netip.MustParsePrefix("10.20.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fe00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 96,
 	)
 	assert.NoError(t, err)
 	mars, exists := p.pools["mars"]
@@ -392,8 +392,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// IPv4 mask size cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]string{"10.10.0.0/16", "10.30.0.0/16"}, 25,
-		[]string{"fa00:100::/80", "fb00:200::/80"}, 97,
+		[]netip.Prefix{netip.MustParsePrefix("10.10.0.0/16"), netip.MustParsePrefix("10.30.0.0/16")}, 25,
+		[]netip.Prefix{netip.MustParsePrefix("fa00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 97,
 	)
 	assert.ErrorContains(t, err, `cannot change IPv4 mask size in existing pool "mars"`)
 	mars, exists = p.pools["mars"]
@@ -407,8 +407,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// IPv6 mask size cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]string{"10.1.0.0/16", "10.3.0.0/16"}, 24,
-		[]string{"fa00:100::/80", "fb00:200::/80"}, 97,
+		[]netip.Prefix{netip.MustParsePrefix("10.1.0.0/16"), netip.MustParsePrefix("10.3.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fa00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 97,
 	)
 	assert.ErrorContains(t, err, `cannot change IPv6 mask size in existing pool "mars"`)
 	mars, exists = p.pools["mars"]
@@ -422,8 +422,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// allowFirstIP cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
-		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.10.0.0/16"), netip.MustParsePrefix("10.20.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fe00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 96,
 		WithAllowFirstIP(),
 	)
 	assert.ErrorContains(t, err, `cannot change allowFirstIP in existing pool "mars"`)
@@ -434,8 +434,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// allowLastIP cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
-		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.10.0.0/16"), netip.MustParsePrefix("10.20.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fe00:100::/80"), netip.MustParsePrefix("fb00:200::/80")}, 96,
 		WithAllowLastIP(),
 	)
 	assert.ErrorContains(t, err, `cannot change allowLastIP in existing pool "mars"`)
@@ -446,8 +446,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// Changes in pool CIDRs are reflected in internal bookkeeping after upsert
 	err = p.UpsertPool("mars",
-		[]string{"10.1.0.0/16", "10.3.0.0/16", "10.10.0.0/16"}, 24,
-		[]string{"fa00:100::/80", "fc00:200::/80", "fe00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.1.0.0/16"), netip.MustParsePrefix("10.3.0.0/16"), netip.MustParsePrefix("10.10.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fa00:100::/80"), netip.MustParsePrefix("fc00:200::/80"), netip.MustParsePrefix("fe00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 	mars, exists = p.pools["mars"]
@@ -601,7 +601,7 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPoolAllocator(hivetest.Logger(t), true, false)
-			err := p.UpsertPool("test-pool", []string{"10.0.0.0/29"}, 30, nil, 0, tt.options...)
+			err := p.UpsertPool("test-pool", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/29")}, 30, nil, 0, tt.options...)
 			assert.NoError(t, err)
 			p.RestoreFinished()
 
@@ -646,7 +646,7 @@ func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 
 	// Initial pool with two IPv4 CIDRs
 	err := p.UpsertPool("shrink-test",
-		[]string{"10.0.0.0/16", "10.1.0.0/16"}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/16"), netip.MustParsePrefix("10.1.0.0/16")}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -697,8 +697,8 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 
 	// upsert new pool test-pool
 	err := p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 	testPool, exists := p.pools["test-pool"]
@@ -722,7 +722,7 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 	// remove v4 CIDRs from "test-pool"
 	err = p.UpsertPool("test-pool",
 		nil, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -817,8 +817,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// upsert new pool test-pool
 	err := p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 	testPool, exists := p.pools["test-pool"]
@@ -906,8 +906,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// insert again "test-pool"
 	err = p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -947,7 +947,7 @@ func TestOrphanCIDRs(t *testing.T) {
 	// remove v4 CIDRs from "test-pool"
 	err = p.UpsertPool("test-pool",
 		nil, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -1009,8 +1009,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// update "test-pool" to restore v4 CIDRs
 	err = p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -1134,8 +1134,8 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	// upsert new pool "another-test-pool" that contains orphan CIDRs from "test-pool"
 	// this should fail, since we don't allow another pool to "steal" orphan CIDRs
 	err = p.UpsertPool("another-test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.ErrorContains(t, err, `unable to mark orphaned CIDR 10.100.0.0/24 still used by node node1 as allocated`)
 	assert.ErrorContains(t, err, `cannot reuse from non-existing pool: test-pool`)
@@ -1143,8 +1143,8 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	// restore the original "test-pool"
 	// this should succeed, and it should unorphan the CIDRs
 	err = p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16")}, 24,
+		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80")}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -1170,7 +1170,7 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	err := p.UpsertPool("test-pool",
-		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
+		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28"), netip.MustParsePrefix("10.0.0.32/28"), netip.MustParsePrefix("10.0.0.48/28")}, 28,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -1209,7 +1209,7 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	}, p.AllocatedPools(node.Name))
 
 	err = p.UpsertPool("test-pool",
-		[]string{"10.0.0.0/28", "10.0.0.16/28"}, 28,
+		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28")}, 28,
 		nil, 0,
 	)
 	assert.NoError(t, err)
