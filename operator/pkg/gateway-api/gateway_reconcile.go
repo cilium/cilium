@@ -103,6 +103,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// At this point, the GatewayClass is managed by Cilium, so Gateway-level validations are safe to run.
+	setGatewayInsecureFrontendValidationMode(gw)
 	if ref := gw.Spec.Infrastructure; ref != nil && ref.ParametersRef != nil {
 		setGatewayAccepted(gw, false, "Invalid Gateway parameters: spec.infrastructure.parametersRef is not supported", gatewayv1.GatewayReasonInvalidParameters)
 		setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
@@ -1288,9 +1289,10 @@ func (r *gatewayReconciler) setListenerStatus(
 		invalidMessages = append(invalidMessages, res.invalidMessages...)
 		conds = merge(conds, res.conds...)
 		supportedKinds := res.supportedKinds
+		rejectionReason := res.invalidReason
 
 		// Validate Frontend TLS (mTLS) ConfigMap references
-		if isValid {
+		if isValid && l.Protocol == gatewayv1.HTTPSProtocolType {
 			frontendValidation := getFrontendTLSValidation(gw, l.Port)
 			if frontendValidation != nil && len(frontendValidation.CACertificateRefs) > 1 {
 				conds = merge(conds, metav1.Condition{
@@ -1304,15 +1306,18 @@ func (r *gatewayReconciler) setListenerStatus(
 			}
 			if ref, ok := helpers.FirstFrontendTLSCACertificateRef(frontendValidation); ok {
 				if !helpers.IsObjectRefConfigMap(ref) {
+					message := fmt.Sprintf("Frontend TLS CACertificateRef %q has unsupported kind %q; must be a ConfigMap", ref.Name, ref.Kind)
 					conds = merge(conds, metav1.Condition{
 						Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,
 						Reason:             string(gatewayv1.ListenerReasonInvalidCACertificateKind),
-						Message:            "Invalid Frontend TLS CACertificateRef, must be a ConfigMap",
+						Message:            message,
+						ObservedGeneration: gw.GetGeneration(),
 						LastTransitionTime: metav1.Now(),
 					})
-					invalidMessages = append(invalidMessages, "Invalid Frontend TLS CACertificateRef, must be a ConfigMap.")
+					invalidMessages = append(invalidMessages, message+".")
 					isValid = false
+					rejectionReason = gatewayv1.ListenerReasonNoValidCACertificate
 				}
 
 				if isValid {
@@ -1320,15 +1325,18 @@ func (r *gatewayReconciler) setListenerStatus(
 					if refNs != gw.Namespace && !helpers.IsObjectRefAllowed(gw.Namespace, ref,
 						gatewayv1.SchemeGroupVersion.WithKind("Gateway"),
 						corev1.SchemeGroupVersion.WithKind("ConfigMap"), grants.Items) {
+						message := fmt.Sprintf("Frontend TLS CACertificateRef %q in namespace %q is not permitted", ref.Name, refNs)
 						conds = merge(conds, metav1.Condition{
 							Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 							Status:             metav1.ConditionFalse,
 							Reason:             string(gatewayv1.ListenerReasonRefNotPermitted),
-							Message:            "Frontend TLS CACertificateRef is not permitted",
+							Message:            message,
+							ObservedGeneration: gw.GetGeneration(),
 							LastTransitionTime: metav1.Now(),
 						})
-						invalidMessages = append(invalidMessages, "Invalid Frontend TLS CACertificateRef, not permitted.")
+						invalidMessages = append(invalidMessages, message+".")
 						isValid = false
+						rejectionReason = gatewayv1.ListenerReasonNoValidCACertificate
 					}
 				}
 
@@ -1338,15 +1346,18 @@ func (r *gatewayReconciler) setListenerStatus(
 						r.logger.InfoContext(ctx, "Found an invalid Frontend TLS ConfigMap",
 							logfields.Error, err.Error(),
 							logfields.Resource, client.ObjectKeyFromObject(gw).String())
+						message := fmt.Sprintf("Frontend TLS CACertificateRef %q is invalid: %s", ref.Name, err)
 						conds = merge(conds, metav1.Condition{
 							Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 							Status:             metav1.ConditionFalse,
 							Reason:             string(gatewayv1.ListenerReasonInvalidCACertificateRef),
-							Message:            "Invalid Frontend TLS CACertificateRef",
+							Message:            message,
+							ObservedGeneration: gw.GetGeneration(),
 							LastTransitionTime: metav1.Now(),
 						})
-						invalidMessages = append(invalidMessages, "Invalid Frontend TLS CACertificateRef, "+err.Error())
+						invalidMessages = append(invalidMessages, message+".")
 						isValid = false
+						rejectionReason = gatewayv1.ListenerReasonNoValidCACertificate
 					}
 				}
 			}
@@ -1355,7 +1366,7 @@ func (r *gatewayReconciler) setListenerStatus(
 		if !isValid {
 			invalidListeners++
 			conds = merge(conds,
-				listenerAcceptedCondition(gw.GetGeneration(), false, res.invalidReason, "Listener not valid. "+strings.Join(invalidMessages, " ")),
+				listenerAcceptedCondition(gw.GetGeneration(), false, rejectionReason, "Listener not valid. "+strings.Join(invalidMessages, " ")),
 				listenerProgrammedCondition(gw.GetGeneration(), false, gatewayv1.ListenerReasonPending, "Address not ready yet"))
 			// If the Listener is not valid, then no kinds are supported
 			// supportedKinds = []gatewayv1.RouteGroupKind{}

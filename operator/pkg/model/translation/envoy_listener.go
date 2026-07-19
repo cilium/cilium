@@ -888,13 +888,31 @@ func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, fron
 		downStreamContext.RequireClientCertificate = &wrapperspb.BoolValue{
 			Value: frontendValidation.RequireClientCertificate,
 		}
-		downStreamContext.CommonTlsContext.ValidationContextType =
-			&envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
-				ValidationContextSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
-					Name: fmt.Sprintf("%s/%s-cfgmap-%s",
-						ciliumSecretNamespace, caCertRef.Namespace, caCertRef.Name),
-				},
-			}
+		validationContextSDS := &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+			Name: syncnames.SyncedConfigMapSDSSecretName(
+				ciliumSecretNamespace,
+				types.NamespacedName{Namespace: caCertRef.Namespace, Name: caCertRef.Name},
+			),
+		}
+		if frontendValidation.RequireClientCertificate {
+			downStreamContext.CommonTlsContext.ValidationContextType =
+				&envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
+					ValidationContextSdsSecretConfig: validationContextSDS,
+				}
+		} else {
+			// AllowInsecureFallback permits both absent and untrusted client
+			// certificates. Keep the CA bundle available through SDS while
+			// overriding verification behavior for this filter chain only.
+			downStreamContext.CommonTlsContext.ValidationContextType =
+				&envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{
+							TrustChainVerification: envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext_ACCEPT_UNTRUSTED,
+						},
+						ValidationContextSdsSecretConfig: validationContextSDS,
+					},
+				}
+		}
 	}
 
 	downstreamBytes, _ := proto.Marshal(&downStreamContext)

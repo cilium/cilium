@@ -212,6 +212,11 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 	}
 
 	for _, l := range listeners {
+		var frontendTLSValidation *model.FrontendTLSValidation
+		if l.Protocol == gatewayv1.HTTPSProtocolType {
+			frontendTLSValidation = toFrontendTLSValidation(&input.Gateway, l.Port, input.ReferenceGrants)
+		}
+
 		switch l.Protocol {
 		case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType, gatewayv1.TLSProtocolType:
 			filteredHTTPRoutes := l.FilterHTTPRoutes(input.HTTPRoutes)
@@ -236,7 +241,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Port:                       uint32(l.Port),
 				Hostname:                   toHostname(l.Hostname),
 				TLS:                        toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
-				FrontendTLSValidation:      toFrontendTLSValidation(&input.Gateway, l.Port, input.ReferenceGrants),
+				FrontendTLSValidation:      frontendTLSValidation,
 				Routes:                     httpRoutes,
 				Infrastructure:             infra,
 				Service:                    toServiceModel(input.GatewayClassConfig),

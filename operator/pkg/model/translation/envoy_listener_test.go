@@ -16,9 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 func Test_getHostNetworkListenerAddresses(t *testing.T) {
@@ -947,6 +949,7 @@ func Test_toTransportSocket(t *testing.T) {
 		frontendValidation       *model.FrontendTLSValidation
 		wantRequireClientCert    bool
 		wantValidationContextSDS string
+		wantAcceptUntrusted      bool
 	}{
 		{
 			name:                  "server TLS only - no client validation",
@@ -970,8 +973,11 @@ func Test_toTransportSocket(t *testing.T) {
 				},
 				RequireClientCertificate: true,
 			},
-			wantRequireClientCert:    true,
-			wantValidationContextSDS: "cilium-secrets/default-cfgmap-client-ca",
+			wantRequireClientCert: true,
+			wantValidationContextSDS: syncnames.SyncedConfigMapSDSSecretName(
+				"cilium-secrets",
+				types.NamespacedName{Namespace: "default", Name: "client-ca"},
+			),
 		},
 		{
 			name:                  "with frontend validation - AllowInsecureFallback mode",
@@ -985,8 +991,12 @@ func Test_toTransportSocket(t *testing.T) {
 				},
 				RequireClientCertificate: false,
 			},
-			wantRequireClientCert:    false,
-			wantValidationContextSDS: "cilium-secrets/gateway-ns-cfgmap-ca-bundle",
+			wantRequireClientCert: false,
+			wantValidationContextSDS: syncnames.SyncedConfigMapSDSSecretName(
+				"cilium-secrets",
+				types.NamespacedName{Namespace: "gateway-ns", Name: "ca-bundle"},
+			),
+			wantAcceptUntrusted: true,
 		},
 		{
 			name:                  "empty CACertRefs - no validation context",
@@ -1030,11 +1040,21 @@ func Test_toTransportSocket(t *testing.T) {
 
 			// Check ValidationContext SDS config
 			if tt.wantValidationContextSDS != "" {
-				sdsConfig := downstreamCtx.CommonTlsContext.GetValidationContextSdsSecretConfig()
+				sdsConfig := downstreamValidationContextSDS(&downstreamCtx)
 				assert.NotNil(t, sdsConfig, "expected ValidationContextSdsSecretConfig to be set")
 				assert.Equal(t, tt.wantValidationContextSDS, sdsConfig.Name)
 			} else {
-				assert.Nil(t, downstreamCtx.CommonTlsContext.GetValidationContextSdsSecretConfig())
+				assert.Nil(t, downstreamValidationContextSDS(&downstreamCtx))
+			}
+
+			combined := downstreamCtx.CommonTlsContext.GetCombinedValidationContext()
+			if tt.wantAcceptUntrusted {
+				require.NotNil(t, combined)
+				assert.Equal(t,
+					envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext_ACCEPT_UNTRUSTED,
+					combined.DefaultValidationContext.TrustChainVerification)
+			} else {
+				assert.Nil(t, combined)
 			}
 
 			// Verify server TLS certificates are present
@@ -1093,7 +1113,7 @@ func Test_httpsFilterChains_SharedSecretDifferentValidation(t *testing.T) {
 		downstreamCtx := downstreamTLSContextFromTransportSocket(t, chain.TransportSocket)
 		requireClientCert := downstreamCtx.RequireClientCertificate != nil && downstreamCtx.RequireClientCertificate.GetValue()
 		validationSDS := ""
-		if sds := downstreamCtx.CommonTlsContext.GetValidationContextSdsSecretConfig(); sds != nil {
+		if sds := downstreamValidationContextSDS(downstreamCtx); sds != nil {
 			validationSDS = sds.Name
 		}
 
@@ -1112,13 +1132,26 @@ func Test_httpsFilterChains_SharedSecretDifferentValidation(t *testing.T) {
 	}{
 		"a.example.com": {
 			requireClientCert: true,
-			validationSDS:     "cilium-secrets/gateway-ns-cfgmap-client-ca-a",
+			validationSDS: syncnames.SyncedConfigMapSDSSecretName(
+				"cilium-secrets",
+				types.NamespacedName{Namespace: "gateway-ns", Name: "client-ca-a"},
+			),
 		},
 		"b.example.com": {
 			requireClientCert: false,
-			validationSDS:     "cilium-secrets/gateway-ns-cfgmap-client-ca-b",
+			validationSDS: syncnames.SyncedConfigMapSDSSecretName(
+				"cilium-secrets",
+				types.NamespacedName{Namespace: "gateway-ns", Name: "client-ca-b"},
+			),
 		},
 	}, gotByHostname)
+}
+
+func downstreamValidationContextSDS(ctx *envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext) *envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig {
+	if sds := ctx.CommonTlsContext.GetValidationContextSdsSecretConfig(); sds != nil {
+		return sds
+	}
+	return ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig()
 }
 
 func Test_httpsFilterChains_DeterministicAcrossListenerOrder(t *testing.T) {

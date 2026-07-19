@@ -1960,3 +1960,41 @@ func TestToFrontendTLSValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestGatewayAPIFrontendTLSValidationOnlyAppliesToHTTPS(t *testing.T) {
+	gw := gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
+		Spec: gatewayv1.GatewaySpec{
+			Listeners: []gatewayv1.Listener{
+				{Name: "http", Port: 80, Protocol: gatewayv1.HTTPProtocolType},
+				{Name: "https", Port: 443, Protocol: gatewayv1.HTTPSProtocolType},
+			},
+			TLS: &gatewayv1.GatewayTLSConfig{
+				Frontend: &gatewayv1.FrontendTLSConfig{
+					Default: gatewayv1.TLSConfig{
+						Validation: &gatewayv1.FrontendTLSValidation{
+							CACertificateRefs: []gatewayv1.ObjectReference{{
+								Group: "", Kind: "ConfigMap", Name: "client-ca",
+							}},
+							Mode: gatewayv1.AllowValidOnly,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	m := GatewayAPI(hivetest.Logger(t), Input{Gateway: gw})
+	require.Len(t, m.HTTP, 2)
+	for _, listener := range m.HTTP {
+		switch listener.Name {
+		case "http":
+			assert.Nil(t, listener.FrontendTLSValidation)
+		case "https":
+			require.NotNil(t, listener.FrontendTLSValidation)
+			assert.Equal(t, "client-ca", listener.FrontendTLSValidation.CACertRefs[0].Name)
+		default:
+			t.Fatalf("unexpected listener %q", listener.Name)
+		}
+	}
+}
