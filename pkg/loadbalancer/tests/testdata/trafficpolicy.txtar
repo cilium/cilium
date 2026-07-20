@@ -1,49 +1,80 @@
-#! 
+#! --lb-test-fault-probability=0.0
 
 # Start the test application
 hive start
 
 # Create a LoadBalancer service with Local traffic policies and associate two backends 
 # to it, one of them on this node ("testnode") and one on another node.
-k8s/add service_tp_local.yaml endpointslice.yaml
-db/cmp services services.table
-db/cmp frontends frontends.table
-db/cmp backends backends.table 
+k8s/add service-local.yaml endpointslice.yaml
+db/cmp services services-local.table
+db/cmp frontends frontends-local.table
+db/cmp backends backends.table
 
-# Check the BPF maps
-lb/maps-dump lbmaps.actual
-* cmp lbmaps.actual lbmaps.expected
+lb/maps-dump lbmaps-local.actual
+* cmp lbmaps-local.actual lbmaps-local.expected
 
-# Update service to have mixed traffic policy
-k8s/update service_tp_mixed.yaml
-db/cmp services services_tp_mixed.table
+# Update service to have mixed traffic policy, with eTP=Cluster, iTP=Local
+k8s/update service-mixed1.yaml
+db/cmp services services-mixed1.table
+db/cmp frontends frontends-mixed1.table
 
-# Check the BPF maps. We should now have an external and internal frontends
-# with matching traffic policies.
-lb/maps-dump lbmaps.actual
-* cmp lbmaps.actual lbmaps_tp_mixed.expected
+lb/maps-dump lbmaps-mixed1.actual
+* cmp lbmaps-mixed1.actual lbmaps-mixed1.expected
+
+# Update service so the mixed traffic policy is reversed, with eTP=Local, iTP=Cluster
+k8s/update service-mixed2.yaml
+db/cmp services services-mixed2.table
+db/cmp frontends frontends-mixed2.table
+
+lb/maps-dump lbmaps-mixed2.actual
+* cmp lbmaps-mixed2.actual lbmaps-mixed2.expected
+
+# Update service so we now have a consistent policy of eTP/iTP=Cluster
+k8s/update service-cluster.yaml
+db/cmp services services-cluster.table
+db/cmp frontends frontends-cluster.table
+
+lb/maps-dump lbmaps-cluster.actual
+* cmp lbmaps-cluster.actual lbmaps-cluster.expected
 
 #####
 
--- services.table --
+-- services-local.table --
 Name        Source   PortNames  TrafficPolicy   Flags
 test/echo   k8s      http=80    Local           
-
--- services_tp_mixed.table --
+-- services-mixed1.table --
 Name        Source   PortNames  TrafficPolicy           Flags
 test/echo   k8s      http=80    Ext=Cluster, Int=Local
-
--- frontends.table --
-Address               Type         ServiceName   PortName   Backends            Status
-1.1.1.1:80/TCP        LoadBalancer test/echo     http       10.244.1.1:80/TCP   Done
-10.96.50.104:80/TCP   ClusterIP    test/echo     http       10.244.1.1:80/TCP   Done
-
+-- services-mixed2.table --
+Name        Source   PortNames   TrafficPolicy            Flags
+test/echo   k8s      http=80     Ext=Local, Int=Cluster
+-- services-cluster.table --
+Name        Source   PortNames   TrafficPolicy   Flags
+test/echo   k8s      http=80     Cluster
+-- frontends-local.table --
+Address               Type           ServiceName   PortName   Backends            RedirectTo   Status
+1.1.1.1:80/TCP        LoadBalancer   test/echo     http       10.244.1.1:80/TCP                Done
+10.96.50.104:80/TCP   ClusterIP      test/echo     http       10.244.1.1:80/TCP                Done
+-- frontends-mixed1.table --
+Address               Type           ServiceName   PortName   Backends                               RedirectTo   Status
+1.1.1.1:80/TCP        LoadBalancer   test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP                Done
+1.1.1.1:80/TCP/i      LoadBalancer   test/echo     http       10.244.1.1:80/TCP                                   Done
+10.96.50.104:80/TCP   ClusterIP      test/echo     http       10.244.1.1:80/TCP                                   Done
+-- frontends-mixed2.table --
+Address               Type           ServiceName   PortName   Backends                               RedirectTo   Status
+1.1.1.1:80/TCP        LoadBalancer   test/echo     http       10.244.1.1:80/TCP                                   Done
+1.1.1.1:80/TCP/i      LoadBalancer   test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP                Done
+10.96.50.104:80/TCP   ClusterIP      test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP                Done
+-- frontends-cluster.table --
+Address               Type           ServiceName   PortName   Backends                               RedirectTo   Status
+1.1.1.1:80/TCP        LoadBalancer   test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP                Done
+10.96.50.104:80/TCP   ClusterIP      test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP                Done
 -- backends.table --
 Service    Address            NodeName
 test/echo  10.244.1.1:80/TCP  testnode
 test/echo  10.244.2.1:80/TCP  othernode
 
--- service_tp_local.yaml --
+-- service-local.yaml --
 apiVersion: v1
 kind: Service
 metadata:
@@ -70,7 +101,7 @@ status:
     ingress:
     - ip: 1.1.1.1
 
--- service_tp_mixed.yaml --
+-- service-mixed1.yaml --
 apiVersion: v1
 kind: Service
 metadata:
@@ -84,6 +115,60 @@ spec:
   - 10.96.50.104
   externalTrafficPolicy: Cluster
   internalTrafficPolicy: Local
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 1.1.1.1
+
+-- service-mixed2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 1.1.1.1
+
+-- service-cluster.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
   ports:
   - name: http
     port: 80
@@ -116,7 +201,6 @@ endpoints:
     serving: true
     terminating: false
   nodeName: testnode
-
 - addresses:
   - 10.244.2.1
   conditions:
@@ -124,13 +208,12 @@ endpoints:
     serving: true
     terminating: false
   nodeName: othernode
-    
 ports:
 - name: http
   port: 80
   protocol: TCP
 
--- lbmaps.expected --
+-- lbmaps-local.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 REV: ID=1 ADDR=1.1.1.1:80
 REV: ID=2 ADDR=10.96.50.104:80
@@ -140,7 +223,7 @@ SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 F
 SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
 SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
 SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
--- lbmaps_tp_mixed.expected --
+-- lbmaps-mixed1.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 BE: ID=2 ADDR=10.244.2.1:80/TCP STATE=active
 REV: ID=1 ADDR=1.1.1.1:80
@@ -155,3 +238,32 @@ SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUN
 SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+InternalLocal+non-routable
 SVC: ID=3 ADDR=1.1.1.1:80/TCP/i SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+InternalLocal+two-scopes
 SVC: ID=3 ADDR=1.1.1.1:80/TCP/i SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+InternalLocal+two-scopes
+-- lbmaps-mixed2.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=1 ADDR=1.1.1.1:80
+REV: ID=2 ADDR=10.96.50.104:80
+REV: ID=3 ADDR=1.1.1.1:80
+SVC: ID=0 ADDR=1.1.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+Local+two-scopes
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+two-scopes
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable
+SVC: ID=3 ADDR=1.1.1.1:80/TCP/i SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer+Local+two-scopes
+SVC: ID=3 ADDR=1.1.1.1:80/TCP/i SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+two-scopes
+SVC: ID=3 ADDR=1.1.1.1:80/TCP/i SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+two-scopes
+-- lbmaps-cluster.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=1 ADDR=1.1.1.1:80
+REV: ID=2 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=1.1.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
