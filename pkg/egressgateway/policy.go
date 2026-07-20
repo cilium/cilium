@@ -173,23 +173,23 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	}
 }
 
-func deviceGetFirstAdresses(dev *tables.Device) (netip.Addr, netip.Addr) {
-	var firstIPv4, firstIPv6 netip.Addr
+func deviceGetPrimaryAddresses(manager *Manager, iface string) (netip.Addr, netip.Addr) {
+	var primaryIP4, primaryIP6 netip.Addr
 
-	for _, addr := range dev.Addrs {
-		if addr.Addr.Is4() && !firstIPv4.IsValid() {
-			firstIPv4 = addr.Addr
-		}
-		if addr.Addr.Is6() && !firstIPv6.IsValid() {
-			firstIPv6 = addr.Addr
+	addrs := manager.nodeAddrTable.List(manager.db.ReadTxn(), tables.NodeAddressDeviceNameIndex.Query(iface))
+	for addr := range addrs {
+		if !addr.Primary {
+			continue
 		}
 
-		if firstIPv4.IsValid() && firstIPv6.IsValid() {
-			break
+		if addr.Addr.Is4() {
+			primaryIP4 = addr.Addr
+		} else if addr.Addr.Is6() {
+			primaryIP6 = addr.Addr
 		}
 	}
 
-	return firstIPv4, firstIPv6
+	return primaryIP4, primaryIP6
 }
 
 func getDeviceWithAddress(manager *Manager, addr netip.Addr) *tables.Device {
@@ -222,7 +222,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 		if found {
 			gwc.egressIfindex = uint32(dev.Index)
 
-			egressIP4, egressIP6 = deviceGetFirstAdresses(dev)
+			egressIP4, egressIP6 = deviceGetPrimaryAddresses(manager, dev.Name)
 			if v4Needed && !egressIP4.IsValid() {
 				return fmt.Errorf("failed to retrieve IPv4 address for egress interface")
 			}
@@ -263,7 +263,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 				egressIP4 = gc.egressIP
 
 				if v6Needed {
-					_, egressIP6 = deviceGetFirstAdresses(dev)
+					_, egressIP6 = deviceGetPrimaryAddresses(manager, dev.Name)
 					if !egressIP6.IsValid() {
 						return fmt.Errorf("failed to retrieve IPv6 address for egress interface")
 					}
@@ -272,7 +272,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 				egressIP6 = gc.egressIP
 
 				if v4Needed {
-					egressIP4, _ = deviceGetFirstAdresses(dev)
+					egressIP4, _ = deviceGetPrimaryAddresses(manager, dev.Name)
 					if !egressIP4.IsValid() {
 						return fmt.Errorf("failed to retrieve IPv4 address for egress interface")
 					}

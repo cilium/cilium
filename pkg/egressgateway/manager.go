@@ -147,8 +147,9 @@ type Manager struct {
 
 	sysctl sysctl.Sysctl
 
-	db          *statedb.DB
-	deviceTable statedb.Table[*tables.Device]
+	db            *statedb.DB
+	deviceTable   statedb.Table[*tables.Device]
+	nodeAddrTable statedb.Table[tables.NodeAddress]
 }
 
 type Params struct {
@@ -168,8 +169,9 @@ type Params struct {
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
 	Sysctl            sysctl.Sysctl
 
-	DB          *statedb.DB
-	DeviceTable statedb.Table[*tables.Device]
+	DB            *statedb.DB
+	DeviceTable   statedb.Table[*tables.Device]
+	NodeAddrTable statedb.Table[tables.NodeAddress]
 
 	Lifecycle cell.Lifecycle
 }
@@ -236,6 +238,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		sysctl:                        p.Sysctl,
 		db:                            p.DB,
 		deviceTable:                   p.DeviceTable,
+		nodeAddrTable:                 p.NodeAddrTable,
 		nodesAddresses2Labels:         make(map[string]map[string]string),
 	}
 
