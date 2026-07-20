@@ -19,6 +19,7 @@ func Wireguard(lnc *Config, link netlink.Link) any {
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
+	cfg.EnableBandwidthManager = lnc.EnableBandwidthManager
 
 	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
