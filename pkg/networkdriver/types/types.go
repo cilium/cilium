@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	resourceapi "k8s.io/api/resource/v1"
+	"k8s.io/dynamic-resource-allocation/deviceattribute"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -36,6 +37,21 @@ const (
 	DeviceManagerLabel = "deviceManager"
 	// PoolNameLabel is the pool name.
 	PoolNameLabel = "pool"
+	// PCIBusIDLabel contains the PCI bus address for
+	// the device. Only applicable to PCI based devices.
+	PCIBusIDLabel = deviceattribute.StandardDeviceAttributePrefix + "pciBusID"
+	// PFNameLabel contains the kernel ifname for the
+	// PF on a VF device. Only applicable to sr-iov
+	// VF devices.
+	PFNameLabel = "pfName"
+	// VendorLabel identifies the vendor of this device
+	// same as /sys/bus/pci/devices/<pciAddr>/vendor
+	VendorLabel = "vendor"
+	// DeviceIDLabel contains a device's device id
+	// same as /sys/bus/pci/devices/<pciAddr>/device
+	DeviceIDLabel = "deviceID"
+	// DriverLabel identifies a device's driver.
+	DriverLabel = "driver"
 )
 
 var (
@@ -95,12 +111,14 @@ const (
 	// device-manager package.
 	DeviceManagerTypeMock DeviceManagerType = iota
 	DeviceManagerTypeDummy
+	DeviceManagerTypeSRIOV
 	DeviceManagerTypeUnknown
 )
 
 const (
 	deviceManagerTypeMockStr = "mock"
 	dummyDeviceManagerStr    = "dummy"
+	sriovDeviceManagerStr    = "sr-iov"
 )
 
 func (d DeviceManagerType) String() string {
@@ -110,6 +128,9 @@ func (d DeviceManagerType) String() string {
 
 	case DeviceManagerTypeDummy:
 		return dummyDeviceManagerStr
+
+	case DeviceManagerTypeSRIOV:
+		return sriovDeviceManagerStr
 	}
 
 	return ""
@@ -122,6 +143,9 @@ func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 
 	case DeviceManagerTypeDummy:
 		return json.Marshal(dummyDeviceManagerStr)
+
+	case DeviceManagerTypeSRIOV:
+		return json.Marshal(sriovDeviceManagerStr)
 	}
 
 	return nil, errUnknownDeviceManagerType
@@ -139,6 +163,8 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 		*d = DeviceManagerTypeMock
 	case dummyDeviceManagerStr:
 		*d = DeviceManagerTypeDummy
+	case sriovDeviceManagerStr:
+		*d = DeviceManagerTypeSRIOV
 	default:
 		return errUnknownDeviceManagerType
 	}
@@ -175,6 +201,7 @@ type DeviceManagerConfig interface {
 
 type DeviceConfig struct {
 	PodIfName string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
+	Vlan      int32  `json:"vlan,omitempty"`      // VLAN ID to assign to the device (0 = untagged / no change)
 }
 
 func (d *DeviceConfig) Empty() bool {
