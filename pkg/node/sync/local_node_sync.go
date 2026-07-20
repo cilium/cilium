@@ -213,7 +213,6 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 	// The fields left uninitialized/unrestored here:
 	//   - Cilium internal IPs (restored from cilium_host or allocated by IPAM)
 	//   - Health IPs (allocated by IPAM)
-	//   - Ingress IPs (restored from ipcachemap or allocated)
 	//   - WireGuard key (set by WireGuard agent)
 	//   - IPsec key (set by IPsec)
 	//   - alloc CIDRs (depends on IPAM mode; restored from Node or CiliumNode)
@@ -223,6 +222,18 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 			node.SetNodeInternalIP(addr.IP)
 		} else if addr.Type == addressing.NodeExternalIP {
 			node.SetNodeExternalIP(addr.IP)
+		}
+	}
+	// The Ingress IPs parsed from Kubernetes Node annotations are only a fallback.
+	// The local CiliumNode fetched immediately below overrides them when available.
+	// A later bootstrap stage gives addresses restored from the BPF ipcache map
+	// highest precedence; IPAM allocates new addresses only if none could be restored.
+	if ini.Config.EnableEnvoyConfig {
+		if ini.Config.EnableIPv4 {
+			node.IPv4IngressIP = parsedNode.IPv4IngressIP
+		}
+		if ini.Config.EnableIPv6 {
+			node.IPv6IngressIP = parsedNode.IPv6IngressIP
 		}
 	}
 	ini.syncFromK8s(node, parsedNode)
@@ -246,6 +257,23 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 			if ini.Config.EnableIPv6 {
 				addr, _ := netip.ParseAddr(k8sCiliumNode.Spec.HealthAddressing.IPv6)
 				node.IPv6HealthIP = iputil.AddrFrom(addr)
+			}
+		}
+
+		// Prefer the durable local CiliumNode values over the Kubernetes Node
+		// annotation fallback. The BPF ipcache restoration runs later and may
+		// override these with the addresses used by the previous datapath.
+		if ini.Config.EnableEnvoyConfig {
+			if ini.Config.EnableIPv4 {
+				if ip := net.ParseIP(k8sCiliumNode.Spec.IngressAddressing.IPV4); ip != nil {
+					node.IPv4IngressIP = ip
+				}
+			}
+
+			if ini.Config.EnableIPv6 {
+				if ip := net.ParseIP(k8sCiliumNode.Spec.IngressAddressing.IPV6); ip != nil {
+					node.IPv6IngressIP = ip
+				}
 			}
 		}
 	} else {
