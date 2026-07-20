@@ -42,6 +42,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
+	cfg.EnableBandwidthManager = lnc.EnableBandwidthManager
 
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)

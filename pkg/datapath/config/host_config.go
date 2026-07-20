@@ -19,6 +19,8 @@ type BPFHost struct {
 	// Respond to ARP requests from local containers to resolve the default
 	// gateway.
 	EnableARPResponder bool `config:"enable_arp_responder"`
+	// Enable bandwidth manager.
+	EnableBandwidthManager bool `config:"enable_bandwidth_manager"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
@@ -80,7 +82,7 @@ type BPFHost struct {
 
 func NewBPFHost(node Node) *BPFHost {
 	return &BPFHost{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, 0x0, 0xe, 0x0, false, 0x0,
+		false, false, false, 0x0, 0xe, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
