@@ -322,6 +322,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		dnsOnly{},
 		toFqdns{},
 		toFqdnsWithProxy{},
+		standaloneDnsProxy{},
 		podToControlplaneHost{},
 		podToK8sOnControlplane{},
 		podToControlplaneHostCidr{},
