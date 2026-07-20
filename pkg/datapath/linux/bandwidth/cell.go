@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -78,14 +77,14 @@ func registerReconciler(p registerParams) error {
 	return err
 }
 
-func newBandwidthManager(lc cell.Lifecycle, p bandwidthManagerParams) (Manager, defines.NodeFnOut) {
+func newBandwidthManager(lc cell.Lifecycle, p bandwidthManagerParams) Manager {
 	m := &manager{params: p}
 
 	if !option.Config.DryMode {
 		lc.Append(m)
 	}
 
-	return m, defines.NewNodeFnOut(m.defines)
+	return m
 }
 
 func (m *manager) Start(cell.HookContext) error {

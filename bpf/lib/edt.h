@@ -41,10 +41,13 @@ struct {
 /* From XDP layer, we neither go through an egress hook nor qdisc
  * from here, hence nothing to be set.
  */
-#if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
+#if __ctx_is == __ctx_skb
+
 static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
 					      __u32 aggregate)
 {
+	if (!CONFIG(enable_bandwidth_manager))
+		return;
 	/* 16 bit as current used aggregate, and preserved in host ns. */
 	ctx->queue_mapping = aggregate;
 }
@@ -126,4 +129,4 @@ edt_set_aggregate(struct __ctx_buff *ctx __maybe_unused,
 		  __u32 aggregate __maybe_unused)
 {
 }
-#endif /* ENABLE_BANDWIDTH_MANAGER */
+#endif /* __ctx_is == __ctx_skb */
