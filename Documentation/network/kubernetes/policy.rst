@@ -13,11 +13,14 @@ Network Policy
 If you are running Cilium on Kubernetes, you can benefit from Kubernetes
 distributing policies for you. In this mode, Kubernetes is responsible for
 distributing the policies across all nodes and Cilium will automatically apply
-the policies. Three formats are available to configure network policies natively
+the policies. Multiple formats are available to configure network policies natively
 with Kubernetes:
 
 - The standard `NetworkPolicy` resource which supports L3 and L4 policies
   at ingress or egress of the Pod.
+
+- The `ClusterNetworkPolicy` format (v1alpha2) which supports
+  cluster-scoped policies.
 
 - The extended `CiliumNetworkPolicy` format which is available as a
   :term:`CustomResourceDefinition` which supports specification of policies
@@ -46,6 +49,37 @@ For more information, see the official `NetworkPolicy documentation
 .. note::
 
     By default, ``ipBlock`` rules in NetworkPolicy do not match intra-cluster IPs (such as Pod or Node IPs). Setting the :ref:`--policy-cidr-match-mode <cidr_select_nodes>` option (or equivalent Helm value ``policyCIDRMatchMode``) to ``pods`` or ``nodes`` allows ``ipBlock`` rules to match intra-cluster IPs.
+
+.. _ClusterNetworkPolicy:
+
+Kubernetes ClusterNetworkPolicy
+===============================
+
+Support for the Kubernetes ClusterNetworkPolicy (KCNP) is available starting with Cilium 1.20.
+For more information, see the official `ClusterNetworkPolicy documentation
+<https://network-policy-api.sigs.k8s.io/api-overview/>`_.
+
+Enabling KCNP
+-------------
+
+Support must be enabled by setting the ``--enable-k8s-cluster-network-policy`` flag to ``true`` (or equivalent Helm value ``k8sClusterNetworkPolicy.enabled=true``). You also must install the Custom Resource Definition (CRD) from `sigs.k8s.io/network-policy-api <https://sigs.k8s.io/network-policy-api>`_:
+
+.. code-block:: shell-session
+
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/release-0.2/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml
+
+The KCNP API specifies that CIDR rules must also match pod and node IPs. For full conformance, set the :ref:`--policy-cidr-match-mode <cidr_select_nodes>` flag to ``pods,nodes``.
+
+Tiers
+-----
+
+The KCNP API uses tiers as top-level groupings for policy evaluation. Policy rules are evaluated in the following order:
+
+1. **Admin tier**: High-priority security rules set by cluster administrators.
+2. **NetworkPolicy tier**: Workload and cluster rules, including standard `NetworkPolicy`, `CiliumNetworkPolicy`, and `CiliumClusterwideNetworkPolicy`.
+3. **Baseline tier**: Default guardrails set by cluster administrators.
+
+A Kubernetes ClusterNetworkPolicy can be assigned to either the Admin or Baseline tier. Rules in the Admin tier take precedence over all policies at the NetworkPolicy tier level, including CiliumClusterwideNetworkPolicy, CiliumNetworkPolicy, and standard NetworkPolicy resources and cannot be overridden by them. Keep this in mind when migrating from CiliumClusterwideNetworkPolicy to Kubernetes ClusterNetworkPolicy.
 
 .. _CiliumNetworkPolicy:
 
