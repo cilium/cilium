@@ -38,10 +38,6 @@ type BPFWireguard struct {
 	NATIPv6Masquerade types.V6Addr `config:"nat_ipv6_masquerade"`
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
 	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
-	// IPv4 network where strict egress encryption is enforced.
-	StrictIPv4Net types.V4Addr `config:"strict_ipv4_net"`
-	// Prefix length of the strict egress encryption IPv4 network.
-	StrictIPv4NetSize uint8 `config:"strict_ipv4_net_size"`
 	// Port number used for the overlay network.
 	TunnelPort uint16 `config:"tunnel_port"`
 	// The identifier of the tunnel protocol used for the overlay network.
@@ -55,6 +51,5 @@ func NewBPFWireguard(node Node) *BPFWireguard {
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}), 0x0,
-		0x0, 0x0, node}
+		false, 0x0, 0x0, node}
 }

@@ -13,10 +13,12 @@
 #include "lib/ipv4.h"
 #include "lib/identity.h"
 
+#ifdef IS_BPF_HOST
 DECLARE_CONFIG(union v4addr, strict_ipv4_net,
 	       "IPv4 network where strict egress encryption is enforced.")
 DECLARE_CONFIG(__u8, strict_ipv4_net_size,
 	       "Prefix length of the strict egress encryption IPv4 network.")
+#endif
 
 static __always_inline void
 set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
@@ -25,7 +27,7 @@ set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
 }
 
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
+#if defined(ENCRYPTION_STRICT_MODE_EGRESS) && defined(IS_BPF_HOST)
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
 static __always_inline bool
 strict_allow(struct __ctx_buff *ctx, __be16 proto) {
@@ -66,7 +68,7 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 		return true;
 	}
 }
-#endif /* ENCRYPTION_STRICT_MODE_EGRESS */
+#endif /* ENCRYPTION_STRICT_MODE_EGRESS && IS_BPF_HOST */
 
 /* checks whether the source endpoint matches the encryption policy */
 static __always_inline bool
