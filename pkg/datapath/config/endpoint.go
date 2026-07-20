@@ -56,6 +56,8 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.DebugLB = ep.GetOptions().IsEnabled(option.DebugLB)
 
+	cfg.MonitorAggregation = uint8(ep.GetOptions().GetValue(option.MonitorAggregation))
+
 	if lnc.DatapathIsLayer2 {
 		cfg.EnableARPResponder = !ep.RequireARPPassthrough()
 	}

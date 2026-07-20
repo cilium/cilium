@@ -100,3 +100,5 @@ NODE_CONFIG(bool, enable_identity_mark, "Enable setting identity mark for local 
 NODE_CONFIG(bool, enable_bpf_host_routing, "Enable BPF Host Routing")
 
 NODE_CONFIG(bool, encryption_strict_ingress, "Enable strict encryption for ingress traffic")
+
+NODE_CONFIG(__u8, monitor_aggregation, "Level of aggregation for monitor events")

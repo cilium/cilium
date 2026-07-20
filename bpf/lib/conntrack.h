@@ -211,8 +211,8 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	 * executed, it pulls the latest set of accumulated flags. Therefore
 	 * even in the worst case such a conflict is likely only to cause a
 	 * small number of additional notifications, which is still likely to
-	 * be significantly less under this MONITOR_AGGREGATION mode than would
-	 * otherwise be sent if the MONITOR_AGGREGATION level is set to none
+	 * be significantly less under this monitor aggregation mode than would
+	 * otherwise be sent if the monitor aggregation level is set to none
 	 * (ie, sending a notification for every packet).
 	 */
 	if (last_report + bpf_sec_to_mono(CT_REPORT_INTERVAL) < now ||

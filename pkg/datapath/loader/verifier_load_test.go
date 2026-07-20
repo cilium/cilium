@@ -5,6 +5,7 @@ package loader
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -23,6 +24,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		Always(func(t *config.BPFLXC, _ bool) {
 			t.Node.EnableBPFHostRouting = true
 			t.Node.LBSelectionPerService = true
+			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.AllowICMPFragNeeded = true
@@ -49,6 +51,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 		Always(func(t *config.BPFHost, _ bool) {
 			t.Node.EnableBPFHostRouting = true
 			t.Node.LBSelectionPerService = true
+			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.AllowICMPFragNeeded = true
@@ -81,6 +84,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 		Always(func(t *config.BPFOverlay, _ bool) {
 			t.Node.EnableBPFHostRouting = true
 			t.Node.LBSelectionPerService = true
+			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.EnableConntrackAccounting = true
@@ -96,6 +100,7 @@ func baseSockPermutations() *loadPermutationBuilder {
 		Always(func(t *config.BPFSock, _ bool) {
 			t.Node.EnableBPFHostRouting = true
 			t.Node.LBSelectionPerService = true
+			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 			t.Node.DebugLB = true
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
@@ -111,6 +116,7 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 	b.addOptions(
 		Always(func(t *config.BPFWireguard, _ bool) {
 			t.Node.EnableBPFHostRouting = true
+			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.EnableConntrackAccounting = true
@@ -128,6 +134,7 @@ func baseXDPPermutations() *loadPermutationBuilder {
 		Always(func(t *config.BPFXDP, _ bool) {
 			t.Node.EnableBPFHostRouting = true
 			t.Node.LBSelectionPerService = true
+			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.EnableConntrackAccounting = true

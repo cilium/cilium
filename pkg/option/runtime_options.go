@@ -62,7 +62,6 @@ var (
 	}
 
 	specMonitorAggregation = Option{
-		Define:      "MONITOR_AGGREGATION",
 		Description: "Set the level of aggregation for monitor events in the datapath",
 		Verify:      VerifyMonitorAggregationLevel,
 		Parse:       ParseMonitorAggregationLevel,
