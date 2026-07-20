@@ -12,13 +12,16 @@
 
 /* For now the map is not thread safe, may add spin lock in the future */
 
-#if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
+#if __ctx_is == __ctx_skb
 static __always_inline int accept(struct __ctx_buff *ctx, __u32 ep_id)
 {
 	__u64 tokens, now, t_last, elapsed_time, bps;
 	struct edt_id aggregate = {};
 	struct edt_info *info;
 	__u32 ret = CTX_ACT_OK;
+
+	if (!CONFIG(enable_bandwidth_manager))
+		return CTX_ACT_OK;
 
 	aggregate.id = ep_id;
 	if (!aggregate.id)
@@ -57,4 +60,4 @@ accept(struct __ctx_buff *ctx __maybe_unused, __u32 ep_id __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_BANDWIDTH_MANAGER */
+#endif /* __ctx_is == __ctx_skb */
