@@ -62,6 +62,8 @@ func newTestLinuxNodeOps(t *testing.T) (*linuxNodeHandler, *linuxNodeOps) {
 		fakeipsec.Config{},
 		node.NewTestLocalNodeStore(node.LocalNode{}),
 		newNodePolicy(),
+		nil,
+		nil,
 	)
 	return handler, &linuxNodeOps{handler: handler}
 }
