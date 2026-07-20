@@ -271,19 +271,32 @@ jobs:
           jq '{ "include": [ .include[] | select(.default) ] }' eks.json > /tmp/eks-defaults.json
           jq '{ "include": [ .include[] | select(.default) ] }' aws-cni.json > /tmp/aws-cni-defaults.json
 
-          # Expand matrix with different addon configurations
+          # Expand matrix with different addon configurations.
+          #
+          # The "zones" field MUST match what the conformance-eks.yaml /
+          # conformance-aws-cni.yaml consumers compute from the region, because
+          # setup-eks-cluster hashes "<addons> <zones>" into the pool key. If
+          # the pool clusters are created with a different zone set than the PR
+          # jobs search for, the pool key never matches, every PR leg creates a
+          # brand-new (NAT-gateway-consuming) cluster instead of claiming a
+          # pooled one, and the region eventually hits its NAT gateway quota.
+          # Consumer derivation (keep in sync): ZONE_1 = <region>a for us-west-1
+          # (us-west-1b rejects subnets), else <region>b; ZONE_2 = <region>c.
           cat > /tmp/expand-addons.jq << 'EOF'
+          def zones: (if .region == "us-west-1" then .region + "a" else .region + "b" end) + " " + .region + "c";
           {
             "include": [
               # all-addons configuration from aws-cni versions
               (.aws_cni.include[] | . + {
                 "addons": "coredns kube-proxy vpc-cni",
-                "addons_name": "all-addons"
+                "addons_name": "all-addons",
+                "zones": (. | zones)
               }),
               # coredns-kubeproxy configuration from eks versions
               (.eks.include[] | . + {
                 "addons": "coredns kube-proxy",
-                "addons_name": "coredns-kubeproxy"
+                "addons_name": "coredns-kubeproxy",
+                "zones": (. | zones)
               })
             ]
           }
