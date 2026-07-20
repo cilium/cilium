@@ -64,6 +64,7 @@ var defaultNetworkDriverConfig = NetworkDriverConfig{
 type networkDriverParams struct {
 	cell.In
 
+	CellCfg        NetworkDriverConfig
 	Log            *slog.Logger
 	Lifecycle      cell.Lifecycle
 	ClientSet      k8sClient.Clientset
@@ -130,6 +131,10 @@ func podResource(
 }
 
 func registerNetworkDriver(params networkDriverParams) *Driver {
+	if !params.CellCfg.Enabled {
+		return nil
+	}
+
 	driver := &Driver{
 		logger:         params.Log,
 		jg:             params.JobGroup,

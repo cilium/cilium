@@ -149,17 +149,16 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 // Start retrieves and validates the configuration. If configuration is found and valid, it
 // initializes all the devicemanagers that are enabled by config, and starts the DRA + NRI registration.
 func (driver *Driver) Start(ctx cell.HookContext) error {
+	if version.Version().LT(semver.Version{Major: 1, Minor: 34}) {
+		driver.logger.InfoContext(
+			ctx, "Cilium Network Driver requires Kubernetes v1.34 or later. not starting",
+			logfields.K8sAPIVersion, version.Version(),
+		)
+
+		return nil
+	}
+
 	driver.jg.Add(job.OneShot("network-driver-main", func(ctx context.Context, _ cell.Health) error {
-
-		if version.Version().LT(semver.Version{Major: 1, Minor: 34}) {
-			driver.logger.InfoContext(
-				ctx, "Cilium Network Driver requires Kubernetes v1.34 or later. not starting",
-				logfields.K8sAPIVersion, version.Version(),
-			)
-
-			return nil
-		}
-
 		cfg, ok := <-driver.watchConfig(ctx)
 		if !ok {
 			return nil
