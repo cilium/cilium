@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
+	subnetmap "github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
@@ -259,7 +260,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 	a, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy())
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
 	if s.enableIPv4 {
@@ -305,7 +306,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy())
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.AuxiliaryPrefixes = []ip.Prefix{ip.PrefixFrom(net1), ip.PrefixFrom(net2)}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
@@ -386,7 +387,7 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 	require.NoError(t, err)
 	policy := newNodePolicy()
 	policy.SetEnableEncapsulation(override)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, policy)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, policy, nil, nil)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = encap
@@ -549,7 +550,7 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy())
+	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
 
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
@@ -703,7 +704,7 @@ func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.
 
 	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy())
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
 
 	mustConfigureNode(t, s.ns, lnh, config)
 
@@ -797,7 +798,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy())
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
@@ -984,6 +985,87 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	}
 }
 
+// TestPrivilegedNodeUpdateHybridRouting exercises the full NodeAdd/NodeUpdate/
+// NodeDelete -> nodeUpdate/nodeDelete -> updateHybridRoutes path, verifying
+// that each remote pod CIDR gets the route type dictated by the subnet
+// topology, that reclassification on update swaps route types instead of
+// leaving stale ones behind, and that deletion cleans up both route types.
+func TestPrivilegedNodeUpdateHybridRouting(t *testing.T) {
+	s := setup(t, "IPv4")
+
+	localAlloc := netip.MustParsePrefix("10.244.0.0/24")
+	sameGroupAlloc := netip.MustParsePrefix("10.244.1.0/24")
+	otherGroupAlloc := netip.MustParsePrefix("10.245.0.0/24")
+
+	externalNodeIP := net.ParseIP("4.4.4.4")
+
+	// Subnet topology: local node and sameGroupAlloc share group 1;
+	// otherGroupAlloc is in a different group 2.
+	db, subnetTable := setupSubnetTable(t, []subnetmap.SubnetTableEntry{
+		subnetmap.NewSubnetEntry(netip.MustParsePrefix("10.244.0.0/16"), 1),
+		subnetmap.NewSubnetEntry(netip.MustParsePrefix("10.245.0.0/16"), 2),
+	})
+
+	localNode := node.LocalNode{
+		Node: nodeTypes.Node{
+			IPv4AllocCIDR: nodeTypes.PrefixFrom(localAlloc),
+		},
+	}
+	lns := node.NewTestLocalNodeStore(localNode)
+
+	// The remote node IP must be directly reachable for direct route
+	// installation to succeed, so give it a local device.
+	externalNodeDevice := "dummy_node1"
+	dev := mustSetupDevice(t, s.ns, externalNodeDevice, externalNodeIP)
+
+	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
+	log := hivetest.Logger(t)
+	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), db, subnetTable)
+
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.EnableIPv6 = false
+	nodeConfig.EnableEncapsulation = true
+	nodeConfig.RequiresNativeRouting = true
+	nodeConfig.EnableAutoDirectRouting = true
+	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev)
+	mustConfigureNode(t, s.ns, lnh, nodeConfig)
+
+	// nodev1: only a tunnel-eligible CIDR (different subnet group).
+	nodev1 := nodeTypes.Node{
+		Name: "node1",
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNodeIP, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR: nodeTypes.PrefixFrom(otherGroupAlloc),
+	}
+	mustAddNode(t, s.ns, lnh, nodev1)
+
+	require.NotNil(t, mustGetNodeRoute(t, s.ns, lnh, otherGroupAlloc), "expected tunnel route for other-group CIDR")
+	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, otherGroupAlloc, externalNodeIP), "no direct route expected for other-group CIDR")
+
+	// nodev2: switch to a direct-eligible CIDR (same subnet group as local node).
+	nodev2 := nodeTypes.Node{
+		Name: "node1",
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNodeIP, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR: nodeTypes.PrefixFrom(sameGroupAlloc),
+	}
+	mustUpdateNode(t, s.ns, lnh, nodev1, nodev2)
+
+	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, otherGroupAlloc), "stale tunnel route for old CIDR should be gone")
+	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc), "no tunnel route expected for same-group CIDR")
+	require.Len(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP), 1, "expected direct route for same-group CIDR")
+
+	// delete the node: both route types should be attempted and removed.
+	mustDeleteNode(t, s.ns, lnh, nodev2)
+
+	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc))
+	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP))
+}
+
 func mustInsertRoute(tb testing.TB, ns *netns.NetNS, n *linuxNodeHandler, prefix netip.Prefix) {
 	tb.Helper()
 
@@ -1033,7 +1115,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy())
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = false
@@ -1178,7 +1260,7 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy())
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
