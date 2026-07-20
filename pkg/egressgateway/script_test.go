@@ -66,6 +66,7 @@ func TestPrivilegedScripts(t *testing.T) {
 
 				Cell,
 				sysctl.Cell,
+				tables.NodeAddressCell,
 
 				// Note: We use the default local node store, and setup the node obj
 				// using the mock node sync type.
@@ -122,7 +123,9 @@ func TestPrivilegedScripts(t *testing.T) {
 
 					tables.NewDeviceTable,
 					statedb.RWTable[*tables.Device].ToTable,
-					statedb.RWTable[tables.NodeAddress].ToTable,
+					// For NodeAddressCell
+					tables.NewRouteTable,
+					statedb.RWTable[*tables.Route].ToTable,
 
 					func() loadbalancer.Config {
 						return loadbalancer.DefaultConfig
