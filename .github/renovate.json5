@@ -219,8 +219,10 @@
         "quay.io/lvh-images/{/,}**", // LVH images
         "sigs.k8s.io/{/,}**" // Kubernetes official SIG repo
       ],
-      "automerge": true,
-      "automergeType": "pr",
+      // Open as draft so CODEOWNERS are only requested once ciliumbot has
+      // been added and the auto-approve workflow can mark the PR ready.
+      // GitHub auto-merge is also enabled by the auto-approve workflow.
+      "draftPR": true,
       "groupName": "auto-merge-trusted-deps",
       // Replace the list of reviewers with just ciliumbot
       "reviewers": [
@@ -258,8 +260,10 @@
       ],
       "groupName": "goswagger",
       "separateMajorMinor": true,
-      "automerge": true,
-      "automergeType": "pr",
+      // Open as draft so CODEOWNERS are only requested once ciliumbot has
+      // been added and the auto-approve workflow can mark the PR ready.
+      // GitHub auto-merge is also enabled by the auto-approve workflow.
+      "draftPR": true,
       // Replace the list of reviewers with just ciliumbot
       "reviewers":[
         "ciliumbot",
