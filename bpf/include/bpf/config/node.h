@@ -100,3 +100,6 @@ NODE_CONFIG(bool, enable_identity_mark, "Enable setting identity mark for local 
 NODE_CONFIG(bool, enable_bpf_host_routing, "Enable BPF Host Routing")
 
 NODE_CONFIG(bool, encryption_strict_ingress, "Enable strict encryption for ingress traffic")
+
+NODE_CONFIG(bool, enable_ipv4_bpf_masq_agent, "Enable IPv4 BPF Masquerading agent")
+NODE_CONFIG(bool, enable_ipv6_bpf_masq_agent, "Enable IPv6 BPF Masquerading agent")

@@ -98,5 +98,10 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
 
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPMasqAgent {
+		node.EnableIPv4BPFMasqAgent = option.Config.EnableIPv4Masquerade
+		node.EnableIPv6BPFMasqAgent = option.Config.EnableIPv6Masquerade
+	}
+
 	return node
 }

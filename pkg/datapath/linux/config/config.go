@@ -411,8 +411,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 			// ip-masq-agent depends on bpf-masq
 			var excludeCIDR *cidr.CIDR
 			if option.Config.EnableIPMasqAgent {
-				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
-
 				// native-routing-cidr is optional with ip-masq-agent and may be nil
 				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
 			} else {
@@ -430,8 +428,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 			var excludeCIDR *cidr.CIDR
 			if option.Config.EnableIPMasqAgent {
-				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
-
 				excludeCIDR = option.Config.IPv6NativeRoutingCIDR
 			} else {
 				excludeCIDR = cfg.NativeRoutingCIDRIPv6

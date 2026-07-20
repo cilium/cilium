@@ -736,8 +736,7 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		return NAT_PUNT_TO_STACK;
 
 	/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
-#ifdef ENABLE_IP_MASQ_AGENT_IPV4
-	{
+	if (CONFIG(enable_ipv4_bpf_masq_agent)) {
 		struct lpm_v4_key pfx;
 
 		pfx.lpm.prefixlen = 32;
@@ -745,7 +744,6 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		if (map_lookup_elem(&cilium_ipmasq_v4, &pfx))
 			return NAT_PUNT_TO_STACK;
 	}
-#endif
 
 	/* Masquerading for pod-to-remote-node traffic depends on the
 	 * datapath configuration (native vs overlay routing):
@@ -1774,8 +1772,7 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))
 		return NAT_PUNT_TO_STACK;
 
-#ifdef ENABLE_IP_MASQ_AGENT_IPV6
-	{
+	if (CONFIG(enable_ipv6_bpf_masq_agent)) {
 		struct lpm_v6_key pfx __align_stack_8;
 
 		pfx.lpm.prefixlen = sizeof(pfx.addr) * 8;
@@ -1790,7 +1787,6 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		if (map_lookup_elem(&cilium_ipmasq_v6, &pfx))
 			return NAT_PUNT_TO_STACK;
 	}
-#endif
 
 	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
 	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
