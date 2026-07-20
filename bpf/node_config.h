@@ -113,15 +113,6 @@
 #define LB4_SRC_RANGE_MAP_SIZE	1000
 #define LB6_SRC_RANGE_MAP_SIZE	1000
 
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
-#  ifndef STRICT_IPV4_NET
-#   define STRICT_IPV4_NET	0
-#  endif
-#  ifndef STRICT_IPV4_NET_SIZE
-#   define STRICT_IPV4_NET_SIZE	8
-#  endif
-#endif
-
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
 case 116: \
 switch (vlan_id) { \

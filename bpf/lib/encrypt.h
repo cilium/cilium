@@ -13,6 +13,11 @@
 #include "lib/ipv4.h"
 #include "lib/identity.h"
 
+DECLARE_CONFIG(union v4addr, strict_ipv4_net,
+	       "IPv4 network where strict egress encryption is enforced.")
+DECLARE_CONFIG(__u8, strict_ipv4_net_size,
+	       "Prefix length of the strict egress encryption IPv4 network.")
+
 static __always_inline void
 set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 {
@@ -43,11 +48,11 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 			return true;
 
 		in_strict_cidr = ipv4_is_in_subnet(ip4->daddr,
-						   STRICT_IPV4_NET,
-						   STRICT_IPV4_NET_SIZE);
+						   CONFIG(strict_ipv4_net).be32,
+						   CONFIG(strict_ipv4_net_size));
 		in_strict_cidr &= ipv4_is_in_subnet(ip4->saddr,
-						    STRICT_IPV4_NET,
-						    STRICT_IPV4_NET_SIZE);
+						    CONFIG(strict_ipv4_net).be32,
+						    CONFIG(strict_ipv4_net_size));
 
 #if defined(TUNNEL_MODE) || defined(STRICT_IPV4_OVERLAPPING_CIDR)
 		/* Allow pod to remote-node communication */

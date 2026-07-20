@@ -27,5 +27,10 @@ func Wireguard(lnc *Config, link netlink.Link) any {
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
+	if option.Config.EnableEncryptionStrictModeEgress {
+		cfg.StrictIPv4Net.Addr = option.Config.EncryptionStrictEgressCIDR.Addr().As4()
+		cfg.StrictIPv4NetSize = uint8(option.Config.EncryptionStrictEgressCIDR.Bits())
+	}
+
 	return cfg
 }

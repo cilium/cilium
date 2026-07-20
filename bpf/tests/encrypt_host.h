@@ -32,11 +32,6 @@
 #define DST_NODE_ID			123
 #define ENCRYPT_KEY			0xFF
 
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
-#define STRICT_IPV4_NET			IPV4(192, 168, 0, 0)
-#define STRICT_IPV4_NET_SIZE		16
-#endif
-
 /* mock and record calls to ctx_redirect */
 struct ctx_redirect_recorder {
 	int ifindex;
@@ -53,6 +48,11 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, _
 #define ctx_redirect mock_ctx_redirect
 
 #include "lib/bpf_host.h"
+
+#ifdef ENCRYPTION_STRICT_MODE_EGRESS
+ASSIGN_CONFIG(union v4addr, strict_ipv4_net, { .be32 = IPV4(192, 168, 0, 0) })
+ASSIGN_CONFIG(__u8, strict_ipv4_net_size, 16)
+#endif
 
 #include "lib/ipcache.h"
 #include "lib/ipsec.h"
