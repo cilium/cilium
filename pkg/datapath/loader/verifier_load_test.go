@@ -92,6 +92,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableEndpointRoutes = v }),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 		Increment(func(t *config.BPFLXC, v bool) { setDebugOptions(&t.Node, v) }),
+		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableBandwidthManager = v }),
 	)
 	return b
 }
@@ -136,6 +137,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 			}
 		}),
 		IncrementOrPermute(func(t *config.BPFHost, v bool) { setDebugOptions(&t.Node, v) }),
+		Increment(func(t *config.BPFHost, v bool) { t.Node.EnableBandwidthManager = v }),
 	)
 	return b
 }
@@ -154,6 +156,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
 		Increment(func(t *config.BPFOverlay, v bool) { setDebugOptions(&t.Node, v) }),
+		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableBandwidthManager = v }),
 	)
 	return b
 }
@@ -201,6 +204,7 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFWireguard, v bool) { t.Node.EnableEndpointRoutes = v }),
 		Increment(func(t *config.BPFWireguard, v bool) { setDebugOptions(&t.Node, v) }),
+		Increment(func(t *config.BPFWireguard, v bool) { t.Node.EnableBandwidthManager = v }),
 	)
 	return b
 }
