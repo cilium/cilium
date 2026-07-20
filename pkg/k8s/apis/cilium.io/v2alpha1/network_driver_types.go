@@ -167,7 +167,7 @@ type CiliumNetworkDriverDevicePoolConfig struct {
 // +deepequal-gen=true
 type CiliumNetworkDriverDeviceFilter struct {
 	// +kubebuilder:validation:Optional
-	PfNames []string `json:"pfNames,omitempty"`
+	PFNames []string `json:"pfNames,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	PCIAddrs []string `json:"pciAddrs,omitempty"`
@@ -218,7 +218,7 @@ type SRIOVDeviceManagerConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	SysPciDevicesPath string `json:"sysBusPCIDevPath,omitempty"`
+	SysPCIDevicesPath string `json:"sysBusPCIDevPath,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +listType=map
@@ -232,8 +232,8 @@ type SRIOVDeviceConfig struct {
 	//
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="VfCount is immutable"
-	VfCount int `json:"vfCount"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="VFCount is immutable"
+	VFCount int `json:"vfCount"`
 
 	// Kernel ifname
 	//

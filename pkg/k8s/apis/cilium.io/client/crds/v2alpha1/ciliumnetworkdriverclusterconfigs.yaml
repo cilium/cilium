@@ -183,7 +183,7 @@ spec:
                                     PF.
                                   type: integer
                                   x-kubernetes-validations:
-                                  - message: VfCount is immutable
+                                  - message: VFCount is immutable
                                     rule: self == oldSelf
                               required:
                               - ifName
