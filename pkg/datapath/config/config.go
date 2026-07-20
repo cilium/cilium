@@ -217,6 +217,9 @@ type Config struct {
 	// device and to cilium_wg0.
 	EnableWireguard bool
 
+	// EnableBandwidthManager enables BPF bandwidth manager (EDT)
+	EnableBandwidthManager bool
+
 	// Ephemeral port range minimun.
 	EphemeralMin uint16
 

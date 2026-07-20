@@ -39,6 +39,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 			t.EnableIPv6Fragments = true
 			t.EnableARPResponder = true
 			t.EnableNetkit = false
+			t.EnableBandwidthManager = true
 		}),
 
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
@@ -74,6 +75,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFHost, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFHost, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFHost, v bool) { t.EnableBandwidthManager = v }),
 	)
 	return b
 }
@@ -87,6 +89,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 			t.EnableConntrackAccounting = true
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFOverlay, v bool) { t.EnableBandwidthManager = v }),
 	)
 	return b
 }

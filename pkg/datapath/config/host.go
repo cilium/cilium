@@ -33,6 +33,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
+	cfg.EnableBandwidthManager = lnc.EnableBandwidthManager
 
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
@@ -86,6 +87,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
+	cfg.EnableBandwidthManager = lnc.EnableBandwidthManager
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfIndex = uint32(ifindex)
@@ -161,6 +163,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
+	cfg.EnableBandwidthManager = lnc.EnableBandwidthManager
 
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
