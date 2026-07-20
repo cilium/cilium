@@ -4110,7 +4110,11 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		rcVersion = fmt.Sprintf("v%s.0", GetCurrentK8SEnv())
 	}
 	res = kub.Exec(
-		fmt.Sprintf("curl -sSLo %s https://dl.k8s.io/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
+		// --retry-all-errors is required because a transient TLS/SSL connect
+		// failure to dl.k8s.io surfaces as curl exit 35, which is not part of
+		// curl's default --retry set. Mirrors the download retry convention
+		// applied to the .github/ workflows and composite actions in #47167.
+		fmt.Sprintf("curl -sSfLo %s --retry 5 --retry-all-errors --retry-delay 3 https://dl.k8s.io/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
 			path, rcVersion, path))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("failed to download kubectl")
