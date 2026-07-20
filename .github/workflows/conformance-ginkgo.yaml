@@ -358,7 +358,7 @@ jobs:
           path: untrusted
 
       - name: Install cilium-cli
-        uses: cilium/cilium-cli@e391e739db83a8b888ecf18786af6853c51a0c58 # v0.19.5
+        uses: cilium/cilium-cli@fc661364dd4962fb50f6415216d5f6edbfa6a822 # v0.19.6
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
