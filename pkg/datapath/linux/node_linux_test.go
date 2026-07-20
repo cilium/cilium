@@ -261,7 +261,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 	a, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, nil, nil)
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
 	if s.enableIPv4 {
@@ -305,7 +305,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, nil, nil)
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net1, net2}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
@@ -384,7 +384,7 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, nil, nil)
 
 	lnh.OverrideEnableEncapsulation(override)
 
@@ -549,7 +549,7 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, nil, nil)
 
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
@@ -709,7 +709,7 @@ func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.
 
 	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, nil, nil)
 
 	mustConfigureNode(t, s.ns, lnh, config)
 
@@ -805,7 +805,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, nil, nil)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
@@ -1045,7 +1045,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, nil, nil)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = false
@@ -1190,7 +1190,7 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, nil, nil)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
