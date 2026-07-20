@@ -24,9 +24,9 @@ export PROG
 
 set -o errtrace
 
-# TODO:
-# - Figure out a way to share common bits with other Kubernetes sub repos
-# - cleanup / function headers
+# NOTE: This file is adapted from upstream Kubernetes release tooling. Cilium-
+# specific helpers live in contrib/backporting/common.sh and gitlib.sh rather
+# than sharing this library with other Kubernetes sub-projects.
 
 ##############################################################################
 # COMMON CONSTANTS
@@ -307,7 +307,10 @@ common::timestamp () {
   esac
 }
 
-# Write our own trap to capture signal
+###############################################################################
+# common::trap() Register trap handlers for signals.
+# @param func - handler function name
+# @param sig... - one or more signal names
 common::trap () {
   local func="$1"
   shift
@@ -318,6 +321,9 @@ common::trap () {
   done
 }
 
+###############################################################################
+# common::trapclean() Handle trapped signals and print a traceback before exit.
+# @param sig - trapped signal name
 common::trapclean () {
   local sig=$1
   local frame=0
@@ -390,7 +396,10 @@ common::askyorn () {
   [[ $yorn == [yY] ]]
 }
 
-# Save a specified number of backups to a file
+###############################################################################
+# common::rotatelog() Rotate a log file, keeping up to num backups.
+# @param file - log file path
+# @param num - number of rotated backups to keep
 common::rotatelog () {
   local file=$1
   local num=$2
