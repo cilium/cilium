@@ -1947,4 +1947,6 @@ const (
 	ClaimUID = "claimUID"
 
 	PendingInitializers = "pendingInitializers"
+
+	VFCount = "vFCount"
 )
