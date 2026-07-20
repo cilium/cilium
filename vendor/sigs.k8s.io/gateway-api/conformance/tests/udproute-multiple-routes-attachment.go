@@ -88,7 +88,7 @@ var UDPRouteMultipleRoutesAttachment = confsuite.ConformanceTest{
 				}},
 			},
 		}
-		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{newerRoute}, suite.Cleanup)
+		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{newerRoute}, suite.CleanupTestResources)
 
 		acceptedCond := metav1.Condition{
 			Type:   string(gatewayv1.RouteConditionAccepted),

@@ -122,7 +122,7 @@ spec:
   listeners:
     - name: tcp
       protocol: TCP
-      port: 9091
+      port: 9310
       allowedRoutes:
         kinds:
           - kind: TCPRoute
