@@ -5,6 +5,7 @@ include:
     region: us-west-1
   - version: "1.33"
     region: us-east-2
+    default: true
   - version: "1.34"
     region: us-east-1
     aws-eni-pd: true
