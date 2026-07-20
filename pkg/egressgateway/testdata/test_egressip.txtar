@@ -9,6 +9,8 @@ k8s/add ciliumendpoint1.yaml
 
 db/insert devices device-eth0.yaml device-eth1.yaml
 
+db/cmp --timeout=10s node-addresses nodeaddrs.expected
+
 # Check that manager realizes expected bpf map state.
  egress/policy-maps-dump policymap.actual
  * cmp policymap.actual policymap.expected.1
@@ -28,6 +30,14 @@ db/cmp --timeout=10s sysctl sysctl.expected.1
 db/show sysctl --columns Name,Value
 db/cmp --timeout=10s sysctl sysctl.expected.2
 
+-- nodeaddrs.expected --
+Address                   NodePort Primary DeviceName
+10.10.0.1                 false    true    *
+10.10.0.1                 true     true    eth0
+10.10.0.2                 true     true    eth1
+fd00::10:10:0:1           false    true    *
+fd00::10:10:0:1           true     true    eth0
+fd00::10:10:0:2           true     true    eth1
 -- policymap.expected.1 --
 source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=10.10.0.1 egress_ifindex=0 gateway_ip=172.18.0.3
 source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=fd00::10:10:0:1 egress_ifindex=0 gateway_ip=172.18.0.3
@@ -116,9 +126,11 @@ addrs:
   - addr: 10.10.0.1
   - addr: fd00::10:10:0:1
   - addr: fe80::42:bdff:ec52:ab11
+    scope: 0xfd
 type: veth
 flags: 1 # admin-up
 operstatus: up
+selected: true
 -- device-eth1.yaml --
 index: 2
 name: eth1
@@ -126,6 +138,8 @@ addrs:
   - addr: 10.10.0.2
   - addr: fd00::10:10:0:2
   - addr: fe80::42:bdff:ec52:ab12
+    scope: 0xfd
 type: veth
 flags: 1 # admin-up
 operstatus: up
+selected: true
