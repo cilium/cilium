@@ -126,6 +126,14 @@ spec:
                         type: string
                     type: object
                 type: object
+              draRegistrationMaxAttempts:
+                default: 10
+                description: |-
+                  Maximum number of DRA registration attempts before giving up.
+                  Each failed attempt recreates the plugin sockets so that kubelet's
+                  inotify-based plugin watcher is retriggered.
+                format: int64
+                type: integer
               draRegistrationRetryInterval:
                 default: 1
                 description: Interval between DRA registration retries
@@ -133,7 +141,10 @@ spec:
                 type: integer
               draRegistrationTimeout:
                 default: 5
-                description: Max amount of time waiting for DRA registration to succeed
+                description: |-
+                  Max amount of time waiting for DRA registration to succeed per attempt.
+                  If a single attempt times out the plugin sockets are recreated to retrigger
+                  kubelet's plugin-watcher inotify, and a new attempt is started.
                 format: int64
                 type: integer
               driverName:

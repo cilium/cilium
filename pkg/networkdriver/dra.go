@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	node_types "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -45,29 +46,59 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 		kubeletplugin.KubeClient(driver.kubeClient),
 	}
 
-	p, err := kubeletplugin.Start(ctx, driver, pluginOpts...)
-	if err != nil {
-		return err
-	}
+	retryInterval := time.Duration(driver.config.DraRegistrationRetryIntervalSeconds) * time.Second
+	attemptTimeout := time.Duration(driver.config.DraRegistrationTimeoutSeconds) * time.Second
+	maxAttempts := int(driver.config.DraRegistrationMaxAttempts)
 
-	driver.draPlugin = p
+	err := resiliency.Retry(ctx, retryInterval, maxAttempts, func(ctx context.Context, attempt int) (bool, error) {
+		p, err := kubeletplugin.Start(ctx, driver, pluginOpts...)
+		if err != nil {
+			// Fatal: socket or gRPC setup failed; no point retrying.
+			return false, err
+		}
+		driver.draPlugin = p
 
-	err = wait.PollUntilContextTimeout(
-		ctx, time.Duration(driver.config.DraRegistrationRetryIntervalSeconds)*time.Second,
-		time.Duration(driver.config.DraRegistrationTimeoutSeconds)*time.Second, true,
-		func(context.Context) (bool, error) {
-			registrationStatus := driver.draPlugin.RegistrationStatus()
-			if registrationStatus == nil {
-				return false, nil
-			}
+		// Wait up to attemptTimeout for kubelet to call back and complete registration.
+		// Kubelet discovers the plugin via an inotify watch on plugins_registry/. If it
+		// misses the CREATE event (e.g. because it was momentarily busy or restarting),
+		// stopping the plugin removes the socket, and the next attempt creates a fresh one,
+		// re-triggering the inotify event.
+		attemptCtx, cancelAttempt := context.WithTimeout(ctx, attemptTimeout)
+		pollErr := wait.PollUntilContextTimeout(
+			attemptCtx, retryInterval, attemptTimeout, true,
+			func(context.Context) (bool, error) {
+				status := driver.draPlugin.RegistrationStatus()
+				if status == nil {
+					return false, nil
+				}
+				driver.logger.DebugContext(ctx, "DRA registration status",
+					logfields.Status, status,
+				)
+				return status.PluginRegistered, nil
+			})
+		cancelAttempt()
 
-			driver.logger.DebugContext(
-				ctx, "DRA registration status",
-				logfields.Status, registrationStatus,
-			)
+		if pollErr == nil {
+			// Registered — done.
+			return true, nil
+		}
 
-			return registrationStatus.PluginRegistered, nil
-		})
+		// Attempt timed out (or ctx cancelled). Stop the plugin so its sockets are
+		// removed; the next attempt will recreate them and retrigger kubelet's watcher.
+		driver.draPlugin.Stop()
+		driver.draPlugin = nil
+
+		if ctx.Err() != nil {
+			return false, ctx.Err()
+		}
+
+		driver.logger.WarnContext(ctx,
+			"DRA plugin registration attempt timed out, recreating sockets and retrying",
+			logfields.DriverName, driver.config.DriverName,
+			logfields.Attempt, attempt,
+		)
+		return false, nil
+	})
 
 	if err != nil {
 		return fmt.Errorf("DRA plugin registration failed: %w", err)

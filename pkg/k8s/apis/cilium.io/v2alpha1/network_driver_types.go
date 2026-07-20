@@ -110,11 +110,20 @@ type CiliumNetworkDriverNodeConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1
 	DraRegistrationRetryIntervalSeconds int64 `json:"draRegistrationRetryInterval,omitempty"`
-	// Max amount of time waiting for DRA registration to succeed
+	// Max amount of time waiting for DRA registration to succeed per attempt.
+	// If a single attempt times out the plugin sockets are recreated to retrigger
+	// kubelet's plugin-watcher inotify, and a new attempt is started.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=5
 	DraRegistrationTimeoutSeconds int64 `json:"draRegistrationTimeout,omitempty"`
+	// Maximum number of DRA registration attempts before giving up.
+	// Each failed attempt recreates the plugin sockets so that kubelet's
+	// inotify-based plugin watcher is retriggered.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=10
+	DraRegistrationMaxAttempts int64 `json:"draRegistrationMaxAttempts,omitempty"`
 	// How often DRA plugin scans for devices and publishes resourceslices.
 	//
 	// +kubebuilder:validation:Optional
