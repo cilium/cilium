@@ -42,15 +42,9 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ inputs.context-ref }}
-          persist-credentials: false
-
       - name: Merge JUnits
         if: ${{ inputs.merge-junits }}
-        uses: ./.github/actions/merge-artifacts
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
         with:
           name: cilium-junits
           pattern: cilium-junits-*
@@ -58,7 +52,7 @@ jobs:
 
       - name: Merge Features tested
         if: ${{ inputs.merge-features }}
-        uses: ./.github/actions/merge-artifacts
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
         with:
           name: features-tested
           pattern: features-tested-*
