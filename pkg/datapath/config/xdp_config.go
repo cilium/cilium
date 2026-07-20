@@ -28,6 +28,14 @@ type BPFXDP struct {
 	EnableXDPPrefilter bool `config:"enable_xdp_prefilter"`
 	// Ephemeral port range minimun.
 	EphemeralMin uint16 `config:"ephemeral_min"`
+	// IPv4 source prefix used for DSR IPIP RSS.
+	IPv4RSSPrefix types.V4Addr `config:"ipv4_rss_prefix"`
+	// Prefix length of the IPv4 DSR IPIP RSS source prefix.
+	IPv4RSSPrefixBits uint8 `config:"ipv4_rss_prefix_bits"`
+	// IPv6 source prefix used for DSR IPIP RSS.
+	IPv6RSSPrefix types.V6Addr `config:"ipv6_rss_prefix"`
+	// Prefix length of the IPv6 DSR IPIP RSS source prefix.
+	IPv6RSSPrefixBits uint8 `config:"ipv6_rss_prefix_bits"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
@@ -47,7 +55,10 @@ type BPFXDP struct {
 }
 
 func NewBPFXDP(node Node) *BPFXDP {
-	return &BPFXDP{0x0, false, false, false, false, false, false, 0x0, 0x0,
+	return &BPFXDP{0x0, false, false, false, false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		0x0,
+		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+		0x0, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

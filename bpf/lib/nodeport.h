@@ -33,6 +33,17 @@ DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to")
 
+#ifdef IS_BPF_XDP
+DECLARE_CONFIG(
+	union v4addr, ipv4_rss_prefix, "IPv4 source prefix used for DSR IPIP RSS")
+DECLARE_CONFIG(__u8, ipv4_rss_prefix_bits,
+	       "Prefix length of the IPv4 DSR IPIP RSS source prefix")
+DECLARE_CONFIG(
+	union v6addr, ipv6_rss_prefix, "IPv6 source prefix used for DSR IPIP RSS")
+DECLARE_CONFIG(__u8, ipv6_rss_prefix_bits,
+	       "Prefix length of the IPv6 DSR IPIP RSS source prefix")
+#endif
+
 /* Evaluate the input values for detecting compilation errors.
  * Just blindly substituting this macro with the CTX_ACT_OK
  * kills the C compile-time check against the input values
@@ -268,12 +279,13 @@ static __always_inline int dsr_set_ipip6_dev(
 	return 0;
 }
 
+#    ifdef IS_BPF_XDP
 static __always_inline void
 rss_gen_src6(union v6addr *src, const union v6addr *client, __be32 l4_hint)
 {
-	__u32 bits = 128 - IPV6_RSS_PREFIX_BITS;
+	__u32 bits = 128 - CONFIG(ipv6_rss_prefix_bits);
 
-	*src = (union v6addr)IPV6_RSS_PREFIX;
+	*src = CONFIG(ipv6_rss_prefix);
 	if (bits) {
 		__u32 todo;
 
@@ -295,6 +307,7 @@ rss_gen_src6(union v6addr *src, const union v6addr *client, __be32 l4_hint)
 		src->p4 |= bpf_htonl(hash_32(client->p4 ^ l4_hint, bits));
 	}
 }
+#    endif /* IS_BPF_XDP */
 
 static __always_inline int dsr_set_ipip6(
 	struct __ctx_buff *ctx, const struct ipv6hdr *ip6 __maybe_unused,
@@ -1647,15 +1660,17 @@ dsr_set_ipip4_dev(struct __ctx_buff *ctx, __u32 tunnel_ep, __u32 seclabel)
 	return 0;
 }
 
+#    ifdef IS_BPF_XDP
 static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
 {
-	const __u32 bits = 32 - IPV4_RSS_PREFIX_BITS;
-	__be32 src = IPV4_RSS_PREFIX;
+	const __u32 bits = 32 - CONFIG(ipv4_rss_prefix_bits);
+	__be32 src = CONFIG(ipv4_rss_prefix).be32;
 
 	if (bits)
 		src |= bpf_htonl(hash_32(client ^ l4_hint, bits));
 	return src;
 }
+#    endif /* IS_BPF_XDP */
 
 /*
  * Original packet: [clientIP:clientPort -> serviceIP:servicePort] } IP/L4

@@ -98,15 +98,11 @@
 #  ifndef IPV4_DIRECT_ROUTING
 #   define IPV4_DIRECT_ROUTING 0
 #  endif
-#  define IPV4_RSS_PREFIX IPV4_DIRECT_ROUTING
-#  define IPV4_RSS_PREFIX_BITS 32
 # endif
 # ifdef ENABLE_IPV6
 #  ifndef IPV6_DIRECT_ROUTING
 #   define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #  endif
-#  define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
-#  define IPV6_RSS_PREFIX_BITS 128
 # endif
 #endif
 

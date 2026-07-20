@@ -45,6 +45,7 @@ NAT
 NetNS
 PerCPU
 RevNAT
+RSS
 SAddr
 SNAT
 SPI

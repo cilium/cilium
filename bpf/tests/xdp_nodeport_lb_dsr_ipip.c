@@ -45,6 +45,11 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
+ASSIGN_CONFIG(union v4addr, ipv4_rss_prefix, { .be32 = IPV4_DIRECT_ROUTING })
+ASSIGN_CONFIG(__u8, ipv4_rss_prefix_bits, 32)
+ASSIGN_CONFIG(union v6addr, ipv6_rss_prefix, IPV6_DIRECT_ROUTING)
+ASSIGN_CONFIG(__u8, ipv6_rss_prefix_bits, 128)
+
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
 {
