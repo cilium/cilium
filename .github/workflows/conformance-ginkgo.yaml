@@ -516,10 +516,14 @@ jobs:
               export RACE=1
               export LOCKDEBUG=1
             fi
+            HELM_OVERRIDES="${{ env.HELM_OVERRIDES }}"
             # Only pass the imagePullSecrets helm override when registry auth is required.
-            HELM_OVERRIDES=""
             if [[ "${{ vars.DOCKER_AUTH_REQUIRED }}" == "true" ]]; then
-              HELM_OVERRIDES="-cilium.install-helm-overrides=imagePullSecrets[0].name=cilium-registry"
+              if [[ -n "${HELM_OVERRIDES}" ]]; then
+                HELM_OVERRIDES="${HELM_OVERRIDES},imagePullSecrets[0].name=cilium-registry"
+              else
+                HELM_OVERRIDES="-cilium.install-helm-overrides=imagePullSecrets[0].name=cilium-registry"
+              fi
             fi
             echo "/root/go/bin/ginkgo \
              --focus=\"${{ matrix.cliFocus }}\" \
