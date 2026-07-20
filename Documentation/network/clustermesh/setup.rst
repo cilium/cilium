@@ -110,17 +110,6 @@ Scaling Limitations
   changed for existing clusters. Changing this option on a live cluster may result in connection
   disruption and possible incorrect enforcement of network policies
 
-Install the Cilium CLI
-======================
-
-.. include:: ../../installation/cli-download.rst
-
-.. warning::
-
-  Don't use the Cilium CLI *helm* mode to enable Cluster Mesh or connect clusters
-  configured using the Cilium CLI operating in *classic* mode, as the two modes are
-  not compatible with each other.
-
 Prepare the Clusters
 ####################
 
@@ -141,20 +130,17 @@ cluster ID (1-255). The cluster name must respect the following constraints:
 * It must begin and end with a lower case alphanumeric character;
 * It may contain lower case alphanumeric characters and dashes between.
 
-It is best to assign both the cluster name and the cluster ID at installation time:
+It is best to assign both the cluster name and the cluster ID at installation time.
+Set the following Helm values for each cluster:
 
- * ConfigMap options ``cluster-name`` and ``cluster-id``
- * Helm options ``cluster.name`` and ``cluster.id``
- * Cilium CLI install options ``--set cluster.name`` and ``--set cluster.id``
+.. code-block:: yaml
 
-Review :ref:`k8s_install_quick` for more details and use cases.
+   cluster:
+     name: cluster1
+     id: 1
 
-Example install using the Cilium CLI:
-
-.. code-block:: shell-session
-
-  cilium install --set cluster.name=$CLUSTER1 --set cluster.id=1 --context $CLUSTER1
-  cilium install --set cluster.name=$CLUSTER2 --set cluster.id=2 --context $CLUSTER2
+Use a different name and ID in each cluster. Review :ref:`k8s_install_quick` for
+more details and use cases.
 
 .. important::
 
@@ -162,6 +148,8 @@ Example install using the Cilium CLI:
    workloads, you will need to restart all workloads. The cluster ID is used to
    generate the security identity and it will need to be re-created in order to
    establish access across clusters.
+
+.. _clustermesh_setup_tls:
 
 Configure TLS certificates
 ==========================
@@ -377,10 +365,222 @@ a common root CA, or configure ``tls.caBundle`` with every trusted CA certificat
 
 For TLS troubleshooting, see :ref:`troubleshooting_clustermesh_tls`.
 
-.. _enable_clustermesh:
+Configure Cluster Mesh with Helm
+================================
 
-Enable Cluster Mesh
-===================
+The following example values files configure ``cluster1`` and ``cluster2`` as a
+Cluster Mesh. Adapt them to your environment. They assume that the Cluster Mesh
+API servers are reachable through a LoadBalancer exposed with a
+``clusterX.example.com`` DNS name, and use certgen with a shared CA for
+simplicity. Choose a different certificate method if appropriate, as described
+in :ref:`clustermesh_setup_tls`.
+
+Create the following values files:
+
+.. tabs::
+
+    .. group-tab:: cluster1.yaml
+
+        .. code-block:: yaml
+
+            cluster:
+              name: cluster1
+              id: 1
+
+            clustermesh:
+              useAPIServer: true
+
+              config:
+                enabled: true
+
+              apiserver:
+                service:
+                  type: LoadBalancer
+                  annotations: {}
+                  # The following annotations are examples. Adapt them to your
+                  # environment and context.
+                  #
+                  # Optional: Have ExternalDNS create the DNS records to
+                  # reach this API server. Otherwise, create the same record
+                  # through your usual DNS management workflow.
+                  # annotations:
+                  #   external-dns.alpha.kubernetes.io/hostname: cluster1.example.com
+                  #
+                  # AKS:
+                  # annotations:
+                  #   service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+                  #
+                  # EKS:
+                  # annotations:
+                  #   service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+                  #
+                  # GKE:
+                  # annotations:
+                  #   networking.gke.io/load-balancer-type: Internal
+                  #   networking.gke.io/internal-load-balancer-allow-global-access: "true"
+                tls:
+                  auto:
+                    enabled: true
+                    method: cronJob
+                    server:
+                      extraDnsNames:
+                        - cluster1.example.com
+
+              # Optional Cluster Mesh features that you may find useful:
+              # enableEndpointSliceSynchronization: true
+              # mcsapi:
+              #   enabled: true
+              #   corednsAutoConfigure:
+              #     enabled: true
+
+    .. group-tab:: cluster2.yaml
+
+        .. code-block:: yaml
+
+            cluster:
+              name: cluster2
+              id: 2
+
+            clustermesh:
+              useAPIServer: true
+
+              config:
+                enabled: true
+
+              apiserver:
+                service:
+                  type: LoadBalancer
+                  annotations: {}
+                  # The following annotations are examples. Adapt them to your
+                  # environment and context.
+                  #
+                  # Optional: Have ExternalDNS create the DNS records to
+                  # reach this API server. Otherwise, create the same record
+                  # through your usual DNS management workflow.
+                  # annotations:
+                  #   external-dns.alpha.kubernetes.io/hostname: cluster2.example.com
+                  #
+                  # AKS:
+                  # annotations:
+                  #   service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+                  #
+                  # EKS:
+                  # annotations:
+                  #   service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+                  #
+                  # GKE:
+                  # annotations:
+                  #   networking.gke.io/load-balancer-type: Internal
+                  #   networking.gke.io/internal-load-balancer-allow-global-access: "true"
+                tls:
+                  auto:
+                    enabled: true
+                    method: cronJob
+                    server:
+                      extraDnsNames:
+                        - cluster2.example.com
+
+              # Optional Cluster Mesh features that you may find useful:
+              # enableEndpointSliceSynchronization: true
+              # mcsapi:
+              #   enabled: true
+              #   corednsAutoConfigure:
+              #     enabled: true
+
+    .. group-tab:: clusters.yaml
+
+        .. code-block:: yaml
+
+            clustermesh:
+              config:
+                clusters:
+                  cluster1:
+                    address: cluster1.example.com
+                    port: 2379
+                  cluster2:
+                    address: cluster2.example.com
+                    port: 2379
+
+The ``clusters.yaml`` file contains all the remote clusters so that you don't
+have to repeat the same information in every cluster's values file. Note that
+this is possible since Cilium ignores the local cluster from the list of remote
+clusters.
+
+.. important::
+
+    All the possible values for ``clustermesh.apiserver.service.type`` are:
+
+    LoadBalancer:
+        A Kubernetes service of type LoadBalancer is used to expose the control
+        plane. This uses a stable LoadBalancer IP and is typically the best option. 
+
+    NodePort:
+        A Kubernetes service of type NodePort is used to expose the control plane.
+        This requires stable Node IPs. If a node disappears, the Cluster Mesh may
+        have to reconnect to a different node. If all nodes have become
+        unavailable, you may have to re-connect the clusters to extract new node
+        IPs.
+
+    ClusterIP:
+        A Kubernetes service of type ClusterIP is used to expose the control
+        plane. This requires the ClusterIPs are routable between clusters. This is
+        typically only available via the helm chart installation method.
+
+.. cilium-helm-upgrade::
+    :namespace: kube-system
+    :extra-args: --kube-context $CLUSTER1 --reuse-values -f clusters.yaml -f cluster1.yaml
+
+Copy the Cilium CA to ``cluster2`` before enabling Cluster Mesh there, so both
+clusters generate certificates signed by the same CA:
+
+.. code-block:: shell-session
+
+    $ kubectl --context $CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
+        kubectl --context $CLUSTER2 create -f -
+
+.. cilium-helm-upgrade::
+    :namespace: kube-system
+    :extra-args: --kube-context $CLUSTER2 --reuse-values -f clusters.yaml -f cluster2.yaml
+
+Adapt these files to your configuration-management model as needed. For
+example, you can use a common values file for all the shared settings or split
+the cluster map into group files to apply only the groups that each cluster
+should join and build a "partial mesh" instead of connecting every cluster to
+every other cluster.
+
+Cluster Mesh supports many other configuration scenarios such as using a
+standalone etcd with the KVStore mode, generating your own certificates and/or
+etcd client config, or configuring a partial mesh where not all clusters are
+connected to all others. Don't hesitate to explore the Helm values to discover
+all the available options.
+
+Install the Cilium CLI
+======================
+
+The remaining validation steps use the Cilium CLI. It is also required if you
+use the alternative Cilium CLI setup.
+
+.. include:: ../../installation/cli-download.rst
+
+Alternative: configure with the Cilium CLI
+==========================================
+
+The Cilium CLI can also enable and configure Cluster Mesh across clusters. It
+is a wrapper around Helm and may be used alongside Helm when applicable.
+This can be convenient if you are already using the Cilium CLI to configure
+Cilium or to do a quick setup such as in a lab environment or for a demo.
+
+This alternative still requires a unique ``cluster.name`` and ``cluster.id``
+to be configured in every cluster.
+
+Example install using the Cilium CLI:
+
+.. code-block:: shell-session
+
+    $ cilium install --set cluster.name=$CLUSTER1 --set cluster.id=1 --context $CLUSTER1
+    $ cilium install --set cluster.name=$CLUSTER2 --set cluster.id=2 --context $CLUSTER2
+
+Review :ref:`k8s_install_quick` for more details and use cases.
 
 Enable all required components by running ``cilium clustermesh enable`` in the
 context of both clusters. This will deploy the ``clustermesh-apiserver`` into
@@ -391,29 +591,18 @@ clusters.
 
 .. code-block:: shell-session
 
-   cilium clustermesh enable --context $CLUSTER1
-   cilium clustermesh enable --context $CLUSTER2
+    $ cilium clustermesh enable --context $CLUSTER1
+    $ cilium clustermesh enable --context $CLUSTER2
 
-.. important::
+Finally, connect the clusters. This step only needs to be done in one
+direction. The connection will automatically be established in both directions:
 
-   In some cases, the service type cannot be automatically detected and you need to specify it manually. This
-   can be done with the option ``--service-type``. The possible values are:
+.. code-block:: shell-session
 
-   LoadBalancer:
-     A Kubernetes service of type LoadBalancer is used to expose the control
-     plane. This uses a stable LoadBalancer IP and is typically the best option. 
+    $ cilium clustermesh connect --context $CLUSTER1 --destination-context $CLUSTER2
 
-   NodePort:
-     A Kubernetes service of type NodePort is used to expose the control plane.
-     This requires stable Node IPs. If a node disappears, the Cluster Mesh may
-     have to reconnect to a different node. If all nodes have become
-     unavailable, you may have to re-connect the clusters to extract new node
-     IPs.
-
-   ClusterIP:
-     A Kubernetes service of type ClusterIP is used to expose the control
-     plane. This requires the ClusterIPs are routable between clusters. This is
-     typically only available via the helm chart installation method.
+Validate Cluster Mesh
+=====================
 
 Wait for the Cluster Mesh components to come up by invoking ``cilium
 clustermesh status --wait``. If you are using a service of type LoadBalancer
@@ -421,33 +610,8 @@ then this will also wait for the LoadBalancer to be assigned an IP.
 
 .. code-block:: shell-session
 
-   cilium clustermesh status --context $CLUSTER1 --wait
-   cilium clustermesh status --context $CLUSTER2 --wait
-
-.. code-block:: shell-session
-
-    ✅ Cluster access information is available:
-      - 10.168.0.89:2379
-    ✅ Service "clustermesh-apiserver" of type "LoadBalancer" found
-    🔌 Cluster Connections:
-
-
-Connect Clusters
-================
-
-Finally, connect the clusters. This step only needs to be done in one
-direction. The connection will automatically be established in both directions:
-
-.. code-block:: shell-session
-
-    cilium clustermesh connect --context $CLUSTER1 --destination-context $CLUSTER2
-
-It may take a bit for the clusters to be connected. You can run ``cilium
-clustermesh status --wait`` to wait for the connection to be successful:
-
-.. code-block:: shell-session
-
-   cilium clustermesh status --context $CLUSTER1 --wait
+    $ cilium clustermesh status --context $CLUSTER1 --wait
+    $ cilium clustermesh status --context $CLUSTER2 --wait
 
 The output will look something like this:
 
@@ -466,8 +630,8 @@ The output will look something like this:
     🔌 Cluster Connections:
     - cilium-cli-ci-multicluster-2-168: 2/2 configured, 2/2 connected
 
-If this step does not complete successfully, proceed to the troubleshooting
-section.
+If this step does not complete successfully, proceed to the
+:ref:`clustermesh_setup_troubleshooting` section.
 
 Test Pod Connectivity Between Clusters
 ======================================
@@ -478,7 +642,7 @@ mode:
 
 .. code-block:: shell-session
 
-   cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2
+    $ cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2
 
 Next Steps
 ==========
@@ -487,6 +651,8 @@ Logical next steps to explore from here are:
 
  * :ref:`gs_clustermesh_load_balancing`
  * :ref:`gs_clustermesh_network_policy`
+
+.. _clustermesh_setup_troubleshooting:
 
 Troubleshooting
 ###############
@@ -497,15 +663,15 @@ Use the following list of steps to troubleshoot issues with ClusterMesh:
 
     .. code-block:: shell-session
 
-       cilium status --context $CLUSTER1
-       cilium status --context $CLUSTER2
+        $ cilium status --context $CLUSTER1
+        $ cilium status --context $CLUSTER2
 
  #. Validate that Cluster Mesh is enabled and operational:
 
     .. code-block:: shell-session
 
-       cilium clustermesh status --context $CLUSTER1
-       cilium clustermesh status --context $CLUSTER2
+        $ cilium clustermesh status --context $CLUSTER1
+        $ cilium clustermesh status --context $CLUSTER2
 
 If you cannot resolve the issue with the above commands, see the
 :ref:`troubleshooting_clustermesh` for a more detailed troubleshooting guide.
