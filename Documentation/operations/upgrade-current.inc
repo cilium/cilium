@@ -10,7 +10,22 @@ If you are using the following features in your environment, then you may need
 to take action because of changes to the behavior of these features. Read the
 notes carefully below to understand what to do during upgrade.
 
-* TODO
+* :ref:`gs_mutual_authentication` support is now deprecated and will be removed
+  in a future version. Consider using :ref:`encryption_ztunnel` instead, and
+  please provide feedback on whether this alternative feature addresses your
+  use cases.
+* Envoy Go Extensions (proxylib) was removed after deprecation in Cilium 1.16.
+  If you have ``CiliumNetworkPolicy`` or ``CiliumClusterwideNetworkPolicy``
+  network policies with the section ``.spec.ingress[].toPorts[].rules`` or
+  ``.spec.egress[].toPorts[].rules``, with the sub-field ``kafka``, ``l7`` or
+  ``l7proto``, remove the corresponding ``rules`` section from the policy
+  before upgrading.
+* If you are still using the ``v2alpha1`` API version of ``CiliumNodeConfig``,
+  update existing manifests or tooling that references ``cilium.io/v2alpha1``
+  to use ``cilium.io/v2`` instead.
+* Cilium updated to use CNI standard ``v1.0.0`` by default. If you use custom
+  CNI configuration, consider updating the version requested in your CNI
+  config to version ``1.0.0``.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
@@ -214,11 +229,6 @@ Changed Metrics
 * The ``session_state``, ``advertised_routes``, ``received_routes``, ``reconcile_errors_total``, ``reconcile_run_duration_seconds`` metrics
   now include ``instance_name`` label. Label ``vrouter`` is removed please use ``instance_name`` instead.
 * The ``session_state``, ``advertised_routes``, ``received_routes`` metrics now include ``local_asn`` label.
-
-Deprecated Metrics
-##################
-
-* TODO
 
 Removed Metrics
 ###############
