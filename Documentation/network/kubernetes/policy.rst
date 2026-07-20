@@ -43,13 +43,9 @@ NetworkPolicy
 For more information, see the official `NetworkPolicy documentation
 <https://kubernetes.io/docs/concepts/services-networking/network-policies/>`_.
 
-Known missing features for Kubernetes Network Policy:
+.. note::
 
-+-------------------------------+-------------------+
-| Feature                       | Tracking Issue    |
-+===============================+===================+
-| ``ipBlock`` set with a pod IP | :gh-issue:`9209`  |
-+-------------------------------+-------------------+
+    By default, ``ipBlock`` rules in NetworkPolicy do not match intra-cluster IPs (such as Pod or Node IPs). Setting the :ref:`--policy-cidr-match-mode <cidr_select_nodes>` option (or equivalent Helm value ``policyCIDRMatchMode``) to ``pods`` or ``nodes`` allows ``ipBlock`` rules to match intra-cluster IPs.
 
 .. _CiliumNetworkPolicy:
 
