@@ -249,6 +249,17 @@ func (a *Action) fail() {
 	a.failed = true
 }
 
+// Failed reports whether Fail/Failf/Fatal/Fatalf was called on this Action.
+// Scenarios can use it to trigger extra diagnostics on a failed Action.
+func (a *Action) Failed() bool {
+	return a.failed
+}
+
+// Name returns the name of the Action.
+func (a *Action) Name() string {
+	return a.name
+}
+
 // WriteDataToPod writes data to a file in the source pod
 // It does this by using a shell command, writing huge files should be avoided
 func (a *Action) WriteDataToPod(ctx context.Context, filePath string, data []byte) {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/cilium/cilium/pkg/components"
@@ -178,7 +179,7 @@ func defaultCommands(confDir string, cmdDir string) []string {
 }
 
 func miscSystemCommands() []string {
-	return []string{
+	commands := []string{
 		// We want to collect this twice: at the very beginning and at the
 		// very end of the bugtool collection, to see if the counters are
 		// increasing.
@@ -238,6 +239,35 @@ func miscSystemCommands() []string {
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
 		"find /sys/fs/bpf -ls",
+	}
+
+	commands = append(commands, conntrackCommands()...)
+
+	return commands
+}
+
+// conntrackCommands dumps the kernel netfilter conntrack table and its global
+// counters. On the plain-ENI EKS datapath with kube-proxy-replacement=false,
+// kube-proxy does the NodePort DNAT and KUBE-MARK-MASQ in iptables before the
+// packet reaches any Cilium datapath BPF prog, so the connection is invisible
+// to both Hubble and Cilium's BPF conntrack (`cilium-dbg bpf ct list`). The
+// kernel conntrack table is the only place its reply-direction state (ASSURED,
+// reply packets/bytes, or the absence thereof) can be observed, and
+// `conntrack -S` exposes the per-CPU drop/early_drop/insert_failed counters.
+// This complements the softnet_stat / snmp / netstat host drop counters above.
+//
+// Prefer conntrack(8), but fall back to reading /proc/net/nf_conntrack when the
+// binary is not present in the agent image (writeCmdToFile skips a command
+// whose binary is missing, so without the fallback we would collect nothing).
+func conntrackCommands() []string {
+	if _, err := exec.LookPath("conntrack"); err == nil {
+		return []string{
+			"conntrack -L",
+			"conntrack -S",
+		}
+	}
+	return []string{
+		"cat /proc/net/nf_conntrack",
 	}
 }
 

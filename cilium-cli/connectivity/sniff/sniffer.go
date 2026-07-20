@@ -25,6 +25,11 @@ const (
 	// ModeSanity: expect to observe packets matching the filter, to be
 	// leveraged as a sanity check to verify that the filter is correct.
 	ModeSanity Mode = "sanity"
+	// ModeDebug: purely diagnostic capture. Validate is not used in this mode;
+	// the caller invokes Dump to log whatever was captured, and the result never
+	// influences the test verdict. Intended to record datapath state around an
+	// already-failed Action for later analysis.
+	ModeDebug Mode = "debug"
 
 	// Max wait time for tcpdump to start/stop in remote shell.
 	sniffScriptTimeout = 10 * time.Second
@@ -167,12 +172,13 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		mode:     mode,
 	}
 
-	// Limit packet capture to avoid large files: 1 in sanity mode, 1000 in assert mode.
+	// Limit packet capture to avoid large files: 1 in sanity mode, 1000 in
+	// assert and debug modes.
 	var count int
 	switch sniffer.mode {
 	case ModeSanity:
 		count = 1
-	case ModeAssert:
+	case ModeAssert, ModeDebug:
 		count = 1000
 	}
 
@@ -250,6 +256,26 @@ func (sniffer *Sniffer) Validate(a *check.Action) {
 		a.Failf("Expected to capture packets, but none found. This check might be broken.")
 		a.Infof("Capture executed on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), strings.Join(sniffer.cmd, " "))
 	}
+}
+
+// Dump stops the capture and logs whatever was captured, without ever failing
+// the Action. It is meant for ModeDebug captures taken around an already-failed
+// Action, purely to record datapath state for later analysis. The label
+// identifies the capture point (e.g. the interface) in the logs.
+func (sniffer *Sniffer) Dump(a *check.Action, label string) {
+	if sniffer == nil {
+		return
+	}
+
+	if err := sniffer.stop(); err != nil {
+		a.Infof("Failed to stop diagnostic capture on %s (%s) [%s]: %s",
+			sniffer.target.String(), sniffer.target.NodeName(), label, err)
+		return
+	}
+
+	a.Infof("Diagnostic capture on %s (%s) [%s], filter %q:\n%s",
+		sniffer.target.String(), sniffer.target.NodeName(), label,
+		strings.Join(sniffer.cmd, " "), sniffer.out.String())
 }
 
 // stop runs the remote command to kill the sniffer process. It executes at most once.
