@@ -2023,6 +2023,8 @@ snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
 		switch (icmp6hdr.icmp6_type) {
 		case ICMPV6_ECHO_REPLY:
 		case ICMPV6_REDIRECT:
+		case ICMP6_RS_MSG_TYPE:
+		case ICMP6_RA_MSG_TYPE:
 		case ICMP6_NS_MSG_TYPE:
 		case ICMP6_NA_MSG_TYPE:
 			return NAT_PUNT_TO_STACK;
