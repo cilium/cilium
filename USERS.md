@@ -673,6 +673,12 @@ Users (Alphabetically)
       L: https://blog.palark.com/why-cilium-for-kubernetes-networking/
       Q: @shurup
 
+    * N: PayPal
+      D: PayPal is using Cilium as the CNI for its self-managed Kubernetes clusters.
+      U: CNI, Multi-pool IPAM, BGP, kube-proxy replacement, ipmasq, native routing
+      L: [PayPal](https://www.paypal.com/in/home)
+      Q: @dsanthosh
+
     * N: Pionative
       D: Pionative supplies all its clients across cloud providers with
       Kubernetes running Cilium to deliver the best performance out there.
