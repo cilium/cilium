@@ -641,7 +641,7 @@ gateway-api-conformance-report: ## Run Gateway API conformance tests with a conf
 		--url github.com/cilium/cilium \
 		--version $(CILIUM_VERSION) \
 		--contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
-		--conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC \
+		--conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,GATEWAY-TCP,GATEWAY-UDP,MESH-HTTP,MESH-GRPC \
 		--report-output=$(CURDIR)/gateway-api-conformance-report.yaml \
 	| $(GOTEST_FORMATTER)
 
