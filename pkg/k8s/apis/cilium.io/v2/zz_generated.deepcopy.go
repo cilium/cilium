@@ -1442,13 +1442,17 @@ func (in *CiliumEgressGatewayPolicySpec) DeepCopyInto(out *CiliumEgressGatewayPo
 	}
 	if in.DestinationCIDRs != nil {
 		in, out := &in.DestinationCIDRs, &out.DestinationCIDRs
-		*out = make([]CIDR, len(*in))
-		copy(*out, *in)
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.ExcludedCIDRs != nil {
 		in, out := &in.ExcludedCIDRs, &out.ExcludedCIDRs
-		*out = make([]CIDR, len(*in))
-		copy(*out, *in)
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.EgressGateway != nil {
 		in, out := &in.EgressGateway, &out.EgressGateway

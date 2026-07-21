@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"slices"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -663,11 +665,11 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 
 	// If IPv6 egress policies are enabled, add the necessary destination CIDR
 	if ipv6Enabled {
-		pl.Spec.DestinationCIDRs = append(pl.Spec.DestinationCIDRs, "::/0")
+		pl.Spec.DestinationCIDRs = append(pl.Spec.DestinationCIDRs, iputil.PrefixFrom(netip.MustParsePrefix("::/0")))
 	}
 
 	// Set the excluded CIDRs
-	pl.Spec.ExcludedCIDRs = []ciliumv2.CIDR{}
+	pl.Spec.ExcludedCIDRs = []iputil.Prefix{}
 
 	switch params.ExcludedCIDRsConf {
 	case ExternalNodeExcludedCIDRs:
@@ -675,13 +677,13 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 			if parsedIP := net.ParseIP(nodeWithoutCiliumIP.IP); parsedIP.To4() == nil {
 				// If it is an IPv6 address, add the necessary excluded CIDR
 				if ipv6Enabled {
-					cidr := ciliumv2.CIDR(fmt.Sprintf("%s/128", nodeWithoutCiliumIP.IP))
+					cidr := iputil.PrefixFrom(netip.MustParsePrefix(fmt.Sprintf("%s/128", nodeWithoutCiliumIP.IP)))
 					pl.Spec.ExcludedCIDRs = append(pl.Spec.ExcludedCIDRs, cidr)
 				}
 				continue
 			}
 
-			cidr := ciliumv2.CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
+			cidr := iputil.PrefixFrom(netip.PrefixFrom(netip.MustParseAddr(nodeWithoutCiliumIP.IP), 32))
 			pl.Spec.ExcludedCIDRs = append(pl.Spec.ExcludedCIDRs, cidr)
 		}
 	}

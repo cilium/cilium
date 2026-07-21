@@ -6,6 +6,7 @@ package v2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -42,11 +43,6 @@ type CiliumEgressGatewayPolicyList struct {
 	Items []CiliumEgressGatewayPolicy `json:"items"`
 }
 
-// +kubebuilder:validation:Pattern=`^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:)))(%.+)?s*(\/(12[0-8]|1[0-1][0-9]|[1-9][0-9]|[0-9]))$`
-// + The regex for the IPv6 CIDR range (second part of the OR) was taken from
-// + https://blog.markhatton.co.uk/2011/03/15/regular-expressions-for-ip-addresses-cidr-ranges-and-hostnames/`
-type CIDR string
-
 type CiliumEgressGatewayPolicySpec struct {
 	// Egress represents a list of rules by which egress traffic is
 	// filtered from the source pods.
@@ -58,7 +54,7 @@ type CiliumEgressGatewayPolicySpec struct {
 	// If a destination IP matches any one CIDR, it will be selected.
 	//
 	// +kubebuilder:validation:Required
-	DestinationCIDRs []CIDR `json:"destinationCIDRs"`
+	DestinationCIDRs []iputil.Prefix `json:"destinationCIDRs"`
 
 	// ExcludedCIDRs is a list of destination CIDRs that will be excluded
 	// from the egress gateway redirection and SNAT logic.
@@ -66,7 +62,7 @@ type CiliumEgressGatewayPolicySpec struct {
 	// effect.
 	//
 	// +kubebuilder:validation:Optional
-	ExcludedCIDRs []CIDR `json:"excludedCIDRs,omitempty"`
+	ExcludedCIDRs []iputil.Prefix `json:"excludedCIDRs,omitempty"`
 
 	// EgressGateway is the gateway node responsible for SNATing traffic.
 	// In case multiple nodes are a match for the given set of labels, the first node
