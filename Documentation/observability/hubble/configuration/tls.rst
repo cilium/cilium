@@ -46,18 +46,27 @@ restart Hubble server or Hubble Relay.
         their expiration date). The certgen method is easier to implement than
         cert-manager but less flexible.
 
-        ::
+        The following Helm values configure certgen:
 
-            --set hubble.tls.auto.enabled=true               # enable automatic TLS certificate generation
-            --set hubble.tls.auto.method=cronJob             # auto generate certificates using cronJob method
-            --set hubble.tls.auto.certValidityDuration=1095  # certificates validity duration in days (default 3 years)
-            --set hubble.tls.auto.schedule="0 0 1 */4 *"     # schedule for certificates re-generation (crontab syntax)
+        .. code-block:: yaml
+
+            hubble:
+              tls:
+                auto:
+                  # enable automatic TLS certificate generation
+                  enabled: true
+                  # auto generate certificates using cronJob method
+                  method: cronJob
+                  # certificates validity duration in days (default 3 years)
+                  certValidityDuration: 1095
+                  # schedule for certificates re-generation (crontab syntax)
+                  schedule: "0 0 1 */4 *"
 
     .. group-tab:: cert-manager
 
         This method relies on `cert-manager <https://cert-manager.io/>`__ to generate
-        the TLS certificates. cert-manager has becomes the de facto way to manage TLS on
-        Kubernetes, and it has the following advantages compared to the other
+        the TLS certificates. cert-manager is the de facto way to manage TLS certificates
+        on Kubernetes, and it has the following advantages compared to the other
         documented methods:
 
         * Support for multiple issuers (e.g. a custom CA,
@@ -76,27 +85,47 @@ restart Hubble server or Hubble Relay.
            and setup an `issuer <https://cert-manager.io/docs/configuration/>`_.
            Please make sure that your issuer is able to create certificates under the
            ``cilium.io`` domain name.
-        #. Install/upgrade Cilium including the following Helm flags:
+        #. Install or upgrade Cilium with the following Helm values:
 
-        ::
+        .. code-block:: yaml
 
-            --set hubble.tls.auto.enabled=true                                 # enable automatic TLS certificate generation
-            --set hubble.tls.auto.method=certmanager                           # auto generate certificates using cert-manager
-            --set hubble.tls.auto.certValidityDuration=1095                    # certificates validity duration in days (default 3 years)
-            --set hubble.tls.auto.certManagerIssuerRef.group="cert-manager.io" # Reference to cert-manager's issuer
-            --set hubble.tls.auto.certManagerIssuerRef.kind="ClusterIssuer"
-            --set hubble.tls.auto.certManagerIssuerRef.name="ca-issuer"
+            hubble:
+              tls:
+                auto:
+                  # enable automatic TLS certificate generation
+                  enabled: true
+                  # auto generate certificates using cert-manager
+                  method: certmanager
+                  # certificates validity duration in days (default 3 years)
+                  certValidityDuration: 1095
+                  certManagerIssuerRef:
+                    # Reference to cert-manager's issuer
+                    group: cert-manager.io
+                    kind: ClusterIssuer
+                    name: ca-issuer
+
+        During the first Cilium installation, cert-manager's webhook might not
+        yet be available when Cilium creates its ``Certificate`` resources. See
+        :ref:`hubble_enable_tls_troubleshooting` if that occurs.
 
     .. group-tab:: Helm
 
         When using Helm, TLS certificates are (re-)generated every time Helm is used
-        for install or upgrade.
+        to install or upgrade Cilium.
 
-        ::
+        The following Helm values configure Helm certificate generation:
 
-            --set hubble.tls.auto.enabled=true               # enable automatic TLS certificate generation
-            --set hubble.tls.auto.method=helm                # auto generate certificates using helm method
-            --set hubble.tls.auto.certValidityDuration=1095  # certificates validity duration in days (default 3 years)
+        .. code-block:: yaml
+
+            hubble:
+              tls:
+                auto:
+                  # enable automatic TLS certificate generation
+                  enabled: true
+                  # auto generate certificates using helm method
+                  method: helm
+                  # certificates validity duration in days (default 3 years)
+                  certValidityDuration: 1095
 
         The downside of the Helm method is that while certificates are automatically
         generated, they are not automatically renewed.  Consequently, running
@@ -107,7 +136,8 @@ restart Hubble server or Hubble Relay.
 
         In order to provide your own TLS certificates, ``hubble.tls.auto.enabled`` must be
         set to ``false``, secrets containing the certificates must be created in the
-        ``kube-system`` namespace, and the secret names must be provided to Helm.
+        namespace where Cilium is installed, which is typically ``kube-system``,
+        and the secret names must be provided to Helm.
 
         The **Common Name (CN)** and **Subject Alternative Name (SAN)** of the
         certificates must be set as follows. ``<cluster-name>`` refers to the
@@ -118,7 +148,8 @@ restart Hubble server or Hubble Relay.
         - Hubble UI: ``*.hubble-ui.cilium.io``
         - Hubble metrics: ``<cluster-name>.hubble-metrics.cilium.io``
 
-        Once the certificates have been issued, the secrets must be created in the ``kube-system`` namespace.
+        Once the certificates have been issued, create the secrets in the target
+        namespace.
 
         Each secret must contain the following keys:
 
@@ -153,18 +184,36 @@ restart Hubble server or Hubble Relay.
 
           $ kubectl -n kube-system create secret generic hubble-metrics-certs --from-file=hubble-metrics.crt --from-file=hubble-metrics.key --from-file=ca.crt
 
-        After the secrets have been created, the secret names must be provided to Helm and automatic certificate generation must be disabled:
+        After the secrets have been created, provide their names to Helm and
+        disable automatic certificate generation with the following Helm values:
 
-        ::
+        .. code-block:: yaml
 
-            --set hubble.tls.auto.enabled=false                                       # Disable automatic TLS certificate generation
-            --set hubble.tls.server.existingSecret="hubble-server-certs"
-            --set hubble.relay.tls.server.enabled=true                                # Enable TLS on Hubble Relay (optional)
-            --set hubble.relay.tls.server.existingSecret="hubble-relay-server-certs"
-            --set hubble.relay.tls.client.existingSecret="hubble-relay-client-certs"
-            --set hubble.ui.tls.client.existingSecret="hubble-ui-client-certs"
-            --set hubble.metrics.tls.enabled=true                                     # Enable TLS on the Hubble metrics API (optional)
-            --set hubble.metrics.tls.server.existingSecret="hubble-metrics-certs"
+            hubble:
+              tls:
+                auto:
+                  # Disable automatic TLS certificate generation.
+                  enabled: false
+                server:
+                  existingSecret: hubble-server-certs
+              relay:
+                tls:
+                  server:
+                    # Enable TLS on Hubble Relay (optional).
+                    enabled: true
+                    existingSecret: hubble-relay-server-certs
+                  client:
+                    existingSecret: hubble-relay-client-certs
+              ui:
+                tls:
+                  client:
+                    existingSecret: hubble-ui-client-certs
+              metrics:
+                tls:
+                  # Enable TLS on the Hubble metrics API (optional).
+                  enabled: true
+                  server:
+                    existingSecret: hubble-metrics-certs
 
         - ``hubble.relay.tls.server.existingSecret`` and ``hubble.ui.tls.client.existingSecret``
           only need to be provided when ``hubble.relay.tls.server.enabled=true`` (default ``false``).
@@ -243,9 +292,7 @@ If you encounter issues after enabling TLS, you can use the following instructio
     .. group-tab:: cert-manager
 
 
-        While installing Cilium or cert-manager you may get the following error:
-
-        ::
+        While installing Cilium or cert-manager you may get the following error::
 
             Error: Internal error occurred: failed calling webhook "webhook.cert-manager.io": Post "https://cert-manager-webhook.cert-manager.svc:443/mutate?timeout=10s": dial tcp x.x.x.x:443: connect: connection refused
 
@@ -299,7 +346,7 @@ If you encounter issues after enabling TLS, you can use the following instructio
 
                     $ helm install cert-manager jetstack/cert-manager \
                             --set webhook.hostNetwork=true \
-                            --set webhook.tolerations='["operator": "Exists"]'
+                            --set 'webhook.tolerations[0].operator=Exists'
 
                 Then configure an issuer and install Cilium.
 
