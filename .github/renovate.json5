@@ -278,6 +278,45 @@
         "go.mod",
         "go.sum"
       ],
+      // Separate major upgrades from minor/patch. Renovate does not support
+      // major upgrades of vendored Go modules: the 'gomodUpdateImportPaths'
+      // 'mod upgrade' step runs before 'go mod vendor' re-syncs
+      // vendor/modules.txt and fails with "inconsistent vendoring", which
+      // aborts the whole grouped artifact update and blocks every minor/patch
+      // update sharing the branch. Separating majors keeps this group flowing.
+      // With this set, a dependency that has both a minor and a major available
+      // still gets its minor update here (and its major in the group below).
+      // See https://github.com/renovatebot/renovate/issues/21010
+      "separateMajorMinor": true,
+      "postUpdateOptions": [
+        // update source import paths on major updates
+        "gomodUpdateImportPaths"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod tidy",
+          "go mod vendor"
+        ],
+        "executionMode": "update"
+      },
+      "matchBaseBranches": [
+        "main"
+      ]
+    },
+    {
+      // Go module major upgrades, isolated into their own PR. These are expected
+      // to fail the automated artifact update for vendored modules (see the
+      // comment on the group above) and require manual intervention by
+      // maintainers, so they must not share a branch with the minor/patch group.
+      "groupName": "all go dependencies main (major)",
+      "groupSlug": "all-go-deps-major-main",
+      "matchFileNames": [
+        "go.mod",
+        "go.sum"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "postUpdateOptions": [
         // update source import paths on major updates
         "gomodUpdateImportPaths"
