@@ -24,9 +24,9 @@ always preserving the role-oriented nature of Gateway API. Additionally, GAMMA
 strives to advocate for consistency between implementations of Gateway API by
 service mesh projects, regardless of their technology stack or proxy.
 
-In Gateway API v1.0, GAMMA supports adding extra HTTP routing to Services by
-binding a HTTPRoute to a Service as a parent (as opposed to the north/south
-Gateway API usage of binding a HTTPRoute to a Gateway as a parent).
+In Gateway API, GAMMA supports adding extra routing to Services by
+binding a Route (HTTPRoute or GRPCRoute) to a Service as a parent (as opposed
+to the north/south Gateway API usage of binding a Route to a Gateway as a parent).
 
 This allows Cilium to intercept layer 7 traffic flowing to a parent Service and
 route the traffic through the per-node Envoy proxy. Because of this, GAMMA
@@ -37,9 +37,9 @@ needing to know anything about configuring Envoy directly.
 Types of GAMMA configuration
 ############################
 
-In GAMMA, there are two types of HTTPRoutes: "producer" and "consumer" Routes.
+In GAMMA, there are two types of Routes: "producer" and "consumer" Routes.
 
-"Producer" routes are HTTPRoutes that bind to a Service that lives in the same
+"Producer" routes are Routes (HTTPRoute or GRPCRoute) that bind to a Service that lives in the same
 namespace and have the same owner as the owner of the Service whose traffic is
 being managed. So, for an application ``foo``, in the namespace ``foo``, with a
 Service called ``foo-svc``, the owner of ``foo`` would create a HTTPRoute in the ``foo``
@@ -47,30 +47,28 @@ namespace that lists ``foo-svc`` as its parent. The routing then affects all tra
 coming to the ``foo`` service from the whole cluster, and is controlled by the
 "producer" of the ``foo`` service - its owner.
 
-"Consumer" routes are HTTPRoutes that bind to a Service that lives in a different
+"Consumer" routes are Routes that bind to a Service that lives in a different
 namespace than that Service. These Routes are called "consumer" Routes because
-they are owned by the _consumer_ of the Service they bind to. For the ``foo`` Service
+they are owned by the *consumer* of the Service they bind to. For the ``foo`` Service
 above, a Route in the ``bar`` namespace, to be used by the app in that namespace,
-that binds to the ``foo-svc`` Service in the ``foo`` namespace is a _consumer_ Service
-because it changes the routing for the ``bar`` service, which _consumes_ the ``foo``
+that binds to the ``foo-svc`` Service in the ``foo`` namespace is a *consumer* Service
+because it changes the routing for the ``bar`` service, which *consumes* the ``foo``
 Service.
 
-Cilium currently supports only "Producer" Routes, and so HTTPRoutes must be
-in the same namespace as the Service that they are binding to.
+Cilium currently supports only "Producer" Routes, and so HTTPRoutes and
+GRPCRoutes must be in the same namespace as the Service that they are binding to.
 
 Cilium GAMMA Support
 ##########################
 
-Cilium supports GAMMA v1.0.0 for the following resources:  
+Cilium supports GAMMA for the following resources (see
+:ref:`gs_gateway_api` for supported Gateway API version details):
 
 - `HTTPRoute <https://gateway-api.sigs.k8s.io/reference/api-types/httproute/>`_
+- `GRPCRoute <https://gateway-api.sigs.k8s.io/reference/api-types/grpcroute/>`_
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/reference/api-types/referencegrant/>`_
 
-Cilium support is limited to passing the Core conformance  
-tests and two out of three Extended Mesh tests. Note that GAMMA is itself  
-experimental as at Gateway API v1.0.0.  
-
-Cilium currently does not support "consumer" HTTPRoutes, and so does not  
-support the ``MeshConsumerRoute`` feature of the Mesh conformance profile.  
+Cilium currently does not support "consumer" Routes (HTTPRoute or GRPCRoute), and
+so does not support the ``MeshConsumerRoute`` feature of the Mesh conformance profile.
 
 .. include:: installation.rst
