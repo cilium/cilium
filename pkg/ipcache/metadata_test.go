@@ -1520,6 +1520,79 @@ func TestIPCacheCIDRResourceConsolidation(t *testing.T) {
 	assert.Nil(t, s.IPIdentityCache.metadata.get(cidr))
 }
 
+// TestIPCacheCIDRResourceConsolidationNonCanonical is a test for CIDR reference
+// counting with non-canonical prefixes. Ensures deleting a policy for 10.0.0.1/24
+// does not release the shared canonical identity for 10.0.0.0/24.
+func TestIPCacheCIDRResourceConsolidationNonCanonical(t *testing.T) {
+	s := setupIPCacheTestSuite(t)
+
+	// ns-A expresses the network with host bits set; ns-B uses the canonical
+	// (masked) form. Both collapse onto the same canonical prefix 10.0.0.0/24.
+	nsAPrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.0.0.1/24"))
+	nsBPrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.0.0.0/24"))
+	canonical := canonicalPrefix(nsAPrefix)
+	assert.Equal(t, canonical, canonicalPrefix(nsBPrefix))
+
+	nsAResource := types.NewResourceID(types.ResourceKindCNP, "ns-a", "policy-a")
+	nsBResource := types.NewResourceID(types.ResourceKindCNP, "ns-b", "policy-b")
+
+	// ns-A adds 10.0.0.1/24.
+	assert.NoError(t, s.IPIdentityCache.WaitForRevision(
+		context.TODO(), s.IPIdentityCache.UpsertMetadataBatch(MU{
+			Prefix:   nsAPrefix,
+			Source:   source.Generated,
+			Resource: nsAResource,
+			Metadata: []IPMetadata{labels.GetCIDRLabels(nsAPrefix.AsPrefix())},
+			IsCIDR:   true,
+		}),
+	))
+	// ns-B adds 10.0.0.0/24 (same canonical network, different raw prefix).
+	assert.NoError(t, s.IPIdentityCache.WaitForRevision(
+		context.TODO(), s.IPIdentityCache.UpsertMetadataBatch(MU{
+			Prefix:   nsBPrefix,
+			Source:   source.Generated,
+			Resource: nsBResource,
+			Metadata: []IPMetadata{labels.GetCIDRLabels(nsBPrefix.AsPrefix())},
+			IsCIDR:   true,
+		}),
+	))
+
+	// Both references must collapse onto one canonical counter key (count 2)
+	// with a single consolidated metadata entry.
+	assert.Equal(t, 2, s.IPIdentityCache.metadata.prefixRefCounter[canonical])
+	assert.NotNil(t, s.IPIdentityCache.metadata.get(canonical))
+
+	// ns-A's policy is deleted. Before the fix, the counter was keyed by the
+	// raw prefix 10.0.0.1/24, so this dropped that key to 0, tore down the
+	// shared canonical entry, and released the identity still used by ns-B.
+	assert.NoError(t, s.IPIdentityCache.WaitForRevision(
+		context.TODO(), s.IPIdentityCache.RemoveMetadataBatch(MU{
+			Prefix:   nsAPrefix,
+			Source:   source.Generated,
+			Resource: nsAResource,
+			Metadata: []IPMetadata{labels.Labels{}},
+			IsCIDR:   true,
+		}),
+	))
+	// ns-B must be unaffected: the entry survives with a refcount of 1.
+	assert.Equal(t, 1, s.IPIdentityCache.metadata.prefixRefCounter[canonical])
+	assert.NotNil(t, s.IPIdentityCache.metadata.get(canonical),
+		"deleting ns-A's CIDR policy must not release the identity still used by ns-B")
+
+	// ns-B's policy is deleted; only now is the shared entry truly removed.
+	assert.NoError(t, s.IPIdentityCache.WaitForRevision(
+		context.TODO(), s.IPIdentityCache.RemoveMetadataBatch(MU{
+			Prefix:   nsBPrefix,
+			Source:   source.Generated,
+			Resource: nsBResource,
+			Metadata: []IPMetadata{labels.Labels{}},
+			IsCIDR:   true,
+		}),
+	))
+	assert.Zero(t, s.IPIdentityCache.metadata.prefixRefCounter[canonical])
+	assert.Nil(t, s.IPIdentityCache.metadata.get(canonical))
+}
+
 func BenchmarkManyResources(b *testing.B) {
 	logger := hivetest.Logger(b)
 	m := newMetadata(logger)
