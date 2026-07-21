@@ -8,6 +8,7 @@
 #include "common.h"
 #include "dbg.h"
 #include "csum.h"
+#include "identity.h"
 
 #define TCP_DPORT_OFF (offsetof(struct tcphdr, dest))
 #define TCP_SPORT_OFF (offsetof(struct tcphdr, source))
@@ -80,4 +81,18 @@ static __always_inline int l4_load_tcp_flags(const struct __ctx_buff *ctx, int l
 					     union tcp_flags *flags)
 {
 	return ctx_load_bytes(ctx, l4_off + 12, flags, 2);
+}
+
+/* A non-first fragment from the world whose first fragment (with the L4 ports)
+ * was never seen can't be matched against policy, so it's dropped. On public
+ * node IPs this is mostly ambient internet noise; report it under a distinct
+ * reason so it can be told apart from in-cluster fragment bugs. Caller must
+ * pass a resolved source identity.
+ */
+static __always_inline int
+frag_not_found_world(int ret, __u32 src_sec_identity)
+{
+	if (ret == DROP_FRAG_NOT_FOUND && identity_is_world(src_sec_identity))
+		return DROP_FRAG_NOT_FOUND_WORLD;
+	return ret;
 }
