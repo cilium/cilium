@@ -931,11 +931,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat := ProxyRequestContext{DataSource: accesslog.DNSSourceProxy}
 	stat.TotalTime.Start()
 	requestID := request.Id // save the original request ID
-	qname := string(request.Question[0].Name)
 	protocol := w.LocalAddr().Network()
 	epIPPort := w.RemoteAddr().String()
 	scopedLog := p.logger.With(
-		logfields.DNSName, qname,
 		logfields.IPAddr, epIPPort,
 		logfields.DNSRequestID, requestID,
 	)
@@ -963,6 +961,17 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 	stat.ProcessingTime.Start()
 
+	qname, _, _, _, _, _, _, err := ExtractMsgDetails(request)
+	if err != nil {
+		scopedLog.Error("cannot extract DNS message details", logfields.Error, err)
+		stat.Err = fmt.Errorf("cannot extract DNS message details: %w", err)
+		stat.ProcessingTime.End(false)
+		stat.TotalTime.End(false)
+		p.sendErrorResponse(scopedLog, w, request, false)
+		return
+	}
+
+	scopedLog = scopedLog.With(logfields.DNSName, qname)
 	scopedLog.Debug("Handling DNS query from endpoint")
 
 	addrPort, err := netip.ParseAddrPort(epIPPort)
