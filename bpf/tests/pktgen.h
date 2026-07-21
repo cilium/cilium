@@ -119,6 +119,17 @@ volatile const __u8 v6_node_one[] = v6_node_one_addr;
 volatile const __u8 v6_node_two[] = v6_node_two_addr;
 volatile const __u8 v6_node_three[] = v6_node_three_addr;
 
+/* Link-local address of a node's native device, and the Neighbor Discovery
+ * multicast destinations.
+ */
+#define v6_node_one_ll_addr {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+#define v6_all_nodes_mcast_addr {0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+#define v6_all_routers_mcast_addr {0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
+
+volatile const __u8 v6_node_one_ll[] = v6_node_one_ll_addr;
+volatile const __u8 v6_all_nodes_mcast[] = v6_all_nodes_mcast_addr;
+volatile const __u8 v6_all_routers_mcast[] = v6_all_routers_mcast_addr;
+
 /* IPv6 addresses for services in the cluster */
 #define v6_svc_one_addr {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 #define v6_svc_two_addr {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
