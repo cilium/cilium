@@ -17,6 +17,8 @@
 #define ICMP6_ND_OPTS (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr))
 #define ICMP6_ND_OPT_LEN 8
 
+#define ICMP6_RS_MSG_TYPE		133
+#define ICMP6_RA_MSG_TYPE		134
 #define ICMP6_NS_MSG_TYPE		135
 #define ICMP6_NA_MSG_TYPE		136
 #define ICMP6_RR_MSG_TYPE		138
