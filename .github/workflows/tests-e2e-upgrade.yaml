@@ -182,6 +182,14 @@ jobs:
             echo "::notice::Including only test-l7: false configurations (${CONFIG_COUNT} configs - L3/L4 testing only)"
             echo "timeout=90" >> $GITHUB_OUTPUT
           fi
+          # WIP (do not merge): fan the matrix out to 100 copies of the lb-1
+          # minor leg (kernel 5.15) to try to reproduce the rare
+          # "CT: Map insertion failed" INGRESS drop with the drop monitor live.
+          jq '[.[] | select(.name == "lb-1" and .mode == "minor")] | .[0] as $e
+              | [range(0;100) | $e + {name: ("lb-1-" + (100 + .|tostring)[1:])}]' \
+            /tmp/generated/e2e/matrix.json > /tmp/generated/e2e/matrix.fanout.json
+          mv /tmp/generated/e2e/matrix.fanout.json /tmp/generated/e2e/matrix.json
+
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
