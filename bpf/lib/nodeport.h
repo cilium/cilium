@@ -140,9 +140,7 @@ nodeport_need_dsr_info(__u8 nexthdr, const struct ct_state *ct_state)
 	 * We also send DSR info for the first TCP packet towards a new backend,
 	 * so that it can at least RevDNAT its RST reply.
 	 */
-	return (nexthdr != IPPROTO_TCP) ||
-	       ct_state->new_backend ||
-	       ct_state->syn;
+	return (nexthdr != IPPROTO_TCP) || ct_state->new_backend || ct_state->syn;
 }
 
 # if defined(ENABLE_IPV4)
@@ -517,23 +515,6 @@ static __always_inline int nodeport_extract_dsr_v6(
 	const struct ipv6_ct_tuple *tuple, int l4_off, union v6addr *addr,
 	__be16 *port, bool *dsr)
 {
-	struct ipv6_ct_tuple tmp = *tuple;
-
-	if (tuple->nexthdr == IPPROTO_TCP) {
-		union tcp_flags tcp_flags = {};
-
-		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
-			return DROP_CT_INVALID_HDR;
-
-		ipv6_ct_tuple_reverse(&tmp);
-
-		if (!(tcp_flags.value & TCP_FLAG_SYN)) {
-			*dsr = ct_has_dsr_egress_entry6(get_ct_map6(&tmp), &tmp);
-			*port = 0;
-			return 0;
-		}
-	}
-
 #   if defined(IS_BPF_OVERLAY)
 	{
 		struct geneve_dsr_opt6 gopt;
@@ -567,11 +548,26 @@ static __always_inline int nodeport_extract_dsr_v6(
 	}
 #   endif
 
-	/* SYN for a new connection that's not / no longer DSR.
-	 * If it's reopened, avoid sending subsequent traffic down the DSR path.
-	 */
-	if (tuple->nexthdr == IPPROTO_TCP)
-		ct_update_dsr(get_ct_map6(&tmp), &tmp, false);
+	if (tuple->nexthdr == IPPROTO_TCP) {
+		struct ipv6_ct_tuple tmp = *tuple;
+		union tcp_flags tcp_flags = {};
+
+		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		ipv6_ct_tuple_reverse(&tmp);
+
+		if (tcp_flags.value & TCP_FLAG_SYN) {
+			/* SYN for a new connection that's not / no longer DSR.
+			 * If it's reopened, avoid sending subsequent traffic down the DSR path.
+			 */
+			ct_update_dsr(get_ct_map6(&tmp), &tmp, false);
+		} else {
+			*dsr = ct_has_dsr_egress_entry6(get_ct_map6(&tmp), &tmp);
+			*port = 0;
+			return 0;
+		}
+	}
 
 	return 0;
 }
@@ -1761,17 +1757,17 @@ dsr_set_opt4(struct __ctx_buff *ctx, struct iphdr *ip4, __be32 svc_addr,
 
 	opt.type = DSR_IPV4_OPT_TYPE;
 	opt.len = sizeof(opt);
-#ifdef TEST_DSR_OPT_NETWORK_BYTE_ORDER
+#    ifdef TEST_DSR_OPT_NETWORK_BYTE_ORDER
 	/* We're annoyingly sending out the IPv4 option in host byte-order,
 	 * and this is baked into the wire-format now.
 	 * For easier testing with scapy, fix this up.
 	 */
 	opt.port = svc_port;
 	opt.addr = svc_addr;
-#else
+#    else
 	opt.port = bpf_htons(svc_port);
 	opt.addr = bpf_htonl(svc_addr);
-#endif
+#    endif
 
 	sum = csum_diff(&iph_old, 4, &iph_new, 4, 0);
 	sum = csum_diff(NULL, 0, &opt, sizeof(opt), sum);
@@ -1848,33 +1844,9 @@ static __always_inline int nodeport_extract_dsr_v4(
 	const struct ipv4_ct_tuple *tuple, int l4_off, __be32 *addr,
 	__be16 *port, bool *dsr)
 {
-	struct ipv4_ct_tuple tmp = *tuple;
-
 	/* Parse DSR info from the packet, to get the addr/port of the
 	 * addressed service. We need this for RevDNATing the backend's replies.
-	 *
-	 * TCP connections have the DSR Option only in their SYN packet.
-	 * To identify that a non-SYN packet belongs to a DSR connection,
-	 * we need to check whether a corresponding CT entry with .dsr flag exists.
 	 */
-	if (tuple->nexthdr == IPPROTO_TCP) {
-		union tcp_flags tcp_flags = {};
-
-		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
-			return DROP_CT_INVALID_HDR;
-
-		ipv4_ct_tuple_reverse(&tmp);
-
-		if (!(tcp_flags.value & TCP_FLAG_SYN)) {
-			/* If the packet belongs to a tracked DSR connection,
-			 * trigger a CT update.
-			 * We don't have any DSR info to report back, and that's ok.
-			 */
-			*dsr = ct_has_dsr_egress_entry4(get_ct_map4(&tmp), &tmp);
-			*port = 0;
-			return 0;
-		}
-	}
 
 #   if defined(IS_BPF_OVERLAY)
 	{
@@ -1906,23 +1878,46 @@ static __always_inline int nodeport_extract_dsr_v4(
 
 		if (opt.type == DSR_IPV4_OPT_TYPE && opt.len == sizeof(opt)) {
 			*dsr = true;
-#ifdef TEST_DSR_OPT_NETWORK_BYTE_ORDER
+#    ifdef TEST_DSR_OPT_NETWORK_BYTE_ORDER
 			*addr = opt.addr;
 			*port = opt.port;
-#else
+#    else
 			*addr = bpf_ntohl(opt.addr);
 			*port = bpf_ntohs(opt.port);
-#endif
+#    endif
 			return 0;
 		}
 	}
 #   endif
 
-	/* SYN for a new connection that's not / no longer DSR.
-	 * If it's reopened, avoid sending subsequent traffic down the DSR path.
+	/* TCP connections typically have the DSR info only in their SYN packet.
+	 * To identify that a packet without DSR info belongs to a DSR connection,
+	 * we need to check whether a corresponding CT entry with .dsr flag exists.
 	 */
-	if (tuple->nexthdr == IPPROTO_TCP)
-		ct_update_dsr(get_ct_map4(&tmp), &tmp, false);
+	if (tuple->nexthdr == IPPROTO_TCP) {
+		struct ipv4_ct_tuple tmp = *tuple;
+		union tcp_flags tcp_flags = {};
+
+		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		ipv4_ct_tuple_reverse(&tmp);
+
+		if (tcp_flags.value & TCP_FLAG_SYN) {
+			/* SYN for a new connection that's not / no longer DSR.
+			 * If it's reopened, avoid sending subsequent traffic down the DSR path.
+			 */
+			ct_update_dsr(get_ct_map4(&tmp), &tmp, false);
+		} else {
+			/* If the packet belongs to a tracked DSR connection,
+			 * trigger a CT update.
+			 * We don't have any DSR info to report back, and that's ok.
+			 */
+			*dsr = ct_has_dsr_egress_entry4(get_ct_map4(&tmp), &tmp);
+			*port = 0;
+			return 0;
+		}
+	}
 
 	return 0;
 }
