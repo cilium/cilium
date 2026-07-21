@@ -136,8 +136,13 @@ nodeport_need_dsr_info(__u8 nexthdr, const struct ct_state *ct_state)
 	/* We only need to embed the DSR info into the first packet of a connection
 	 * (since it will then be cached on the backend node).
 	 * Doing so for the TCP-SYN avoids MTU troubles.
+	 *
+	 * We also send DSR info for the first TCP packet towards a new backend,
+	 * so that it can at least RevDNAT its RST reply.
 	 */
-	return (nexthdr != IPPROTO_TCP) || ct_state->syn;
+	return (nexthdr != IPPROTO_TCP) ||
+	       ct_state->new_backend ||
+	       ct_state->syn;
 }
 
 #if defined(ENABLE_IPV4)
@@ -1792,8 +1797,17 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 
 	opt.type = DSR_IPV4_OPT_TYPE;
 	opt.len = sizeof(opt);
+#ifdef TEST_DSR_OPT_NETWORK_BYTE_ORDER
+	/* We're annoyingly sending out the IPv4 option in host byte-order,
+	 * and this is baked into the wire-format now.
+	 * For easier testing with scapy, fix this up.
+	 */
+	opt.port = svc_port;
+	opt.addr = svc_addr;
+#else
 	opt.port = bpf_htons(svc_port);
 	opt.addr = bpf_htonl(svc_addr);
+#endif
 
 	sum = csum_diff(&iph_old, 4, &iph_new, 4, 0);
 	sum = csum_diff(NULL, 0, &opt, sizeof(opt), sum);
@@ -1940,8 +1954,13 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 
 		if (opt.type == DSR_IPV4_OPT_TYPE && opt.len == sizeof(opt)) {
 			*dsr = true;
+#ifdef TEST_DSR_OPT_NETWORK_BYTE_ORDER
+			*addr = opt.addr;
+			*port = opt.port;
+#else
 			*addr = bpf_ntohl(opt.addr);
 			*port = bpf_ntohs(opt.port);
+#endif
 			return 0;
 		}
 	}
