@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/annotation"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -656,8 +657,8 @@ func newConnDisruptCEGP(ns, gwNode string) *ciliumv2.CiliumEgressGatewayPolicy {
 					},
 				},
 			},
-			DestinationCIDRs: []ciliumv2.CIDR{"0.0.0.0/0"},
-			ExcludedCIDRs:    []ciliumv2.CIDR{},
+			DestinationCIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("0.0.0.0/0"))},
+			ExcludedCIDRs:    []iputil.Prefix{},
 			EgressGateway: &ciliumv2.EgressGateway{
 				NodeSelector: &slimmetav1.LabelSelector{
 					MatchLabels: map[string]slimmetav1.MatchLabelsValue{

@@ -1267,7 +1267,7 @@ func (in *CiliumEgressGatewayPolicySpec) DeepEqual(other *CiliumEgressGatewayPol
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -1284,7 +1284,7 @@ func (in *CiliumEgressGatewayPolicySpec) DeepEqual(other *CiliumEgressGatewayPol
 			return false
 		} else {
 			for i, inElement := range *in {
-				if inElement != (*other)[i] {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
