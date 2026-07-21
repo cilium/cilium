@@ -4,6 +4,7 @@ on:
   pull_request:
     types:
     - review_requested
+    - synchronize
 
 jobs:
   pre-approve:
@@ -60,6 +61,12 @@ jobs:
         ciliumbot_requested_by_renovate=$(gh api "/repos/${GITHUB_REPOSITORY}/issues/${PULL_REQUEST_NUMBER}/events" --paginate --jq '[.[] | select(.event == "review_requested" and .requested_reviewer.login == "ciliumbot" and .actor.login == "cilium-renovate[bot]")] | length > 0')
 
         if [ "$ciliumbot_requested_by_renovate" == "true" ]; then
+          if [ "${GITHUB_ACTOR}" = "auto-committer[bot]" ]; then
+            # Follow-up image updates re-draft the PR before pushing. Re-request
+            # review from ciliumbot before undrafting so GitHub can resolve
+            # CODEOWNERS against a pending bot review again.
+            gh -R ${GITHUB_REPOSITORY} pr edit ${PULL_REQUEST_NUMBER} --add-reviewer ciliumbot
+          fi
           echo "ciliumbot was requested by cilium-renovate[bot], marking the PR ready"
           # Renovate is configured to open these PRs as drafts so ciliumbot is
           # attached before GitHub requests CODEOWNERS on ready-for-review.
