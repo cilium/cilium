@@ -104,6 +104,16 @@ struct dsr_opt_v4 {
 #define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
 #define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
 
+/* CB_PORT carries the service port in its lower 16 bits. The GENEVE DSR
+ * path uses the bit below to request that the DSR option be attached even
+ * to a non-SYN packet: set when this very packet created the CT service
+ * entry (see lb{4,6}_local()), which happens when an in-flight packet is
+ * re-routed to a new LB node (e.g. ECMP rehash). Without the option, the
+ * backend node has no way to build the reverse-xlate state, and its
+ * replies (typically a TCP RST) cannot be translated back to the client.
+ */
+#define CB_PORT_DSR_FORCE_OPT	(1U << 16)
+
 static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused)
 {
 #ifdef ENABLE_DSR
@@ -405,7 +415,7 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 struct ipv6hdr *ip6,
 						 const union v6addr *svc_addr,
-						 __be16 svc_port,
+						 __be16 svc_port, bool force_opt,
 						 int *ifindex, int *ohead)
 {
 	const struct remote_endpoint_info *info;
@@ -448,7 +458,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
+		if (!(tcp_flags.value & (TCP_FLAG_SYN)) && !force_opt)
 			need_opt = false;
 	}
 
@@ -542,9 +552,14 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 		ipv6_ct_tuple_reverse(&tmp);
 
 		if (!(tcp_flags.value & TCP_FLAG_SYN)) {
-			*dsr = ct_has_dsr_egress_entry6(get_ct_map6(&tmp), &tmp);
-			*port = 0;
-			return 0;
+			if (ct_has_dsr_egress_entry6(get_ct_map6(&tmp), &tmp)) {
+				*dsr = true;
+				*port = 0;
+				return 0;
+			}
+			/* See nodeport_extract_dsr_v4(): no local DSR state,
+			 * the DSR info may be present on this packet instead.
+			 */
 		}
 	}
 
@@ -710,6 +725,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	union v6addr addr __align_stack_8 = {};
 	__s8 ext_err = 0;
 	__be16 port;
+	bool force_opt __maybe_unused = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -719,6 +735,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	ctx_load_meta_ipv6(ctx, &addr, CB_ADDR_V6_1);
 
 	port = (__be16)ctx_load_meta(ctx, CB_PORT);
+	force_opt = !!(ctx_load_meta(ctx, CB_PORT) & CB_PORT_DSR_FORCE_OPT);
 
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip6(ctx, ip6, &addr,
@@ -726,7 +743,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_ext6(ctx, ip6, &addr, port, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif, &ohead);
+	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, force_opt, &oif, &ohead);
 	if (!IS_ERR(ret))
 		fib_params.l.family = AF_INET;
 #else
@@ -1525,7 +1542,9 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
 		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &backend->address);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
-		ctx_store_meta(ctx, CB_PORT, key->dport);
+		ctx_store_meta(ctx, CB_PORT, (__u32)key->dport |
+			       (ct_state_svc.svc_entry_created ?
+				CB_PORT_DSR_FORCE_OPT : 0));
 		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &key->address);
 #endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR, ext_err);
@@ -1816,6 +1835,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 # elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct iphdr *ip4,
 						 __be32 svc_addr, __be16 svc_port,
+						 bool force_opt,
 						 int *ifindex, __be16 *ohead)
 {
 	const struct remote_endpoint_info *info;
@@ -1851,12 +1871,15 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		/* The GENEVE option is required only for the first packet
-		 * (SYN), in the case of TCP, as for further packets of the
-		 * same connection a remote node will use a NAT entry to
-		 * reverse xlate a reply.
+		/* The GENEVE option is required only for the packet which
+		 * creates the CT service entry: the SYN in the common case,
+		 * but also a non-SYN packet that was re-routed to this LB
+		 * node mid-flow (e.g. ECMP rehash) -- flagged by the caller
+		 * via force_opt. For all other packets of the connection the
+		 * remote node already holds a NAT entry to reverse xlate a
+		 * reply.
 		 */
-		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
+		if (!(tcp_flags.value & (TCP_FLAG_SYN)) && !force_opt)
 			need_opt = false;
 	}
 
@@ -1923,9 +1946,19 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 			 * trigger a CT update.
 			 * We don't have any DSR info to report back, and that's ok.
 			 */
-			*dsr = ct_has_dsr_egress_entry4(get_ct_map4(&tmp), &tmp);
-			*port = 0;
-			return 0;
+			if (ct_has_dsr_egress_entry4(get_ct_map4(&tmp), &tmp)) {
+				*dsr = true;
+				*port = 0;
+				return 0;
+			}
+			/* No local DSR state: this node never saw the SYN of
+			 * that connection (in-flight packet re-routed to a new
+			 * LB node which selected a backend on this node). Fall
+			 * through: the LB attaches the DSR info to the packet
+			 * which created its CT entry, so state can be built
+			 * and the backend's reply (typically a TCP RST) can be
+			 * RevDNATed instead of being dropped.
+			 */
 		}
 	}
 
@@ -2101,6 +2134,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	__be32 addr;
 	__be16 port;
+	bool force_opt __maybe_unused = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -2108,6 +2142,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	}
 	addr = ctx_load_meta(ctx, CB_ADDR_V4);
 	port = (__be16)ctx_load_meta(ctx, CB_PORT);
+	force_opt = !!(ctx_load_meta(ctx, CB_PORT) & CB_PORT_DSR_FORCE_OPT);
 
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip4(ctx, ip4,
@@ -2118,7 +2153,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 			   addr,
 			   port, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	ret = encap_geneve_dsr_opt4(ctx, ip4, addr, port, &oif, &ohead);
+	ret = encap_geneve_dsr_opt4(ctx, ip4, addr, port, force_opt, &oif, &ohead);
 #else
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
@@ -2905,7 +2940,9 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, backend->address);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
-		ctx_store_meta(ctx, CB_PORT, key->dport);
+		ctx_store_meta(ctx, CB_PORT, (__u32)key->dport |
+			       (ct_state_svc.svc_entry_created ?
+				CB_PORT_DSR_FORCE_OPT : 0));
 		ctx_store_meta(ctx, CB_ADDR_V4, key->address);
 #endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR, ext_err);
