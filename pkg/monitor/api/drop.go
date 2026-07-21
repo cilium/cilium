@@ -106,6 +106,7 @@ var errors = map[uint8]string{
 	204: "No Egress IP configured",
 	205: "Punt to proxy",
 	206: "No device",
+	207: "First logical datagram fragment not found from world",
 }
 
 func extendedReason(extError int8) string {
