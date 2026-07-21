@@ -262,12 +262,11 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 
 static __always_inline void
 ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
-		     enum ct_dir dir, bool syn)
+		     enum ct_dir dir)
 {
 	state->rev_nat_index = entry->rev_nat_index;
 	if (dir == CT_SERVICE) {
 		state->backend_id = (__u32)entry->backend_id;
-		state->syn = syn;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
 #ifdef USE_LOOPBACK_LB
 		state->loopback = entry->lb_loopback;
@@ -434,7 +433,7 @@ __ct_lookup(const void *map, const struct __ctx_buff *ctx, const void *tuple,
 
 		/* Fill ct_state after all potential CT_NEW returns. */
 		if (ct_state)
-			ct_lookup_fill_state(ct_state, entry, dir, syn);
+			ct_lookup_fill_state(ct_state, entry, dir);
 
 		return CT_ESTABLISHED;
 	}
@@ -680,6 +679,9 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, const struct __ctx_bu
 			return DROP_CT_INVALID_HDR;
 
 		action = ct_tcp_select_action(tcp_flags);
+
+		if (ct_state && dir == CT_SERVICE && (tcp_flags.value & TCP_FLAG_SYN))
+			ct_state->syn = true;
 	} else {
 		action = ACTION_UNSPEC;
 	}
@@ -938,6 +940,9 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, const struct __ctx_bu
 			return DROP_CT_INVALID_HDR;
 
 		action = ct_tcp_select_action(tcp_flags);
+
+		if (ct_state && dir == CT_SERVICE && (tcp_flags.value & TCP_FLAG_SYN))
+			ct_state->syn = true;
 	} else {
 		action = ACTION_UNSPEC;
 	}
