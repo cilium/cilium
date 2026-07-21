@@ -102,6 +102,30 @@ func TestToGoBGPPeer(t *testing.T) {
 			},
 		},
 		{
+			name: "Address IPv6 link-local with zone",
+			neighbor: &types.Neighbor{
+				Address: netip.MustParseAddr("fe80::1%eth0"),
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: "fe80::1%eth0",
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
+			name: "BGP unnumbered (Interface only)",
+			neighbor: &types.Neighbor{
+				Interface: "eth0",
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborInterface: "eth0",
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
 			name: "ASN",
 			neighbor: &types.Neighbor{
 				Address: netip.MustParseAddr("10.0.0.1"),

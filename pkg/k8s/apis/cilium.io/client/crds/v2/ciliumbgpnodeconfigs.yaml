@@ -149,9 +149,30 @@ spec:
                             required:
                             - name
                             type: object
+                          peerInterface:
+                            description: |-
+                              PeerInterface is the name of the local network interface used to reach
+                              the peer. When set together with an IPv6 link-local peerAddress (fe80::/10),
+                              the BGP session is established to that address over the named interface
+                              (the interface is encoded as an IPv6 zone identifier).
+                            maxLength: 255
+                            minLength: 1
+                            type: string
                         required:
                         - name
                         type: object
+                        x-kubernetes-validations:
+                        - message: peerAddress must be an IPv6 link-local address
+                            (fe80::/10) when peerInterface is set
+                          rule: '!has(self.peerInterface) || !has(self.peerAddress)
+                            || self.peerAddress.startsWith(''fe80:'') || self.peerAddress.startsWith(''FE80:'')'
+                        - message: localAddress must not be set when peerInterface
+                            is set
+                          rule: '!has(self.peerInterface) || !has(self.localAddress)'
+                        - message: one of peerAddress, peerInterface, or autoDiscovery
+                            must be set
+                          rule: has(self.peerAddress) || has(self.peerInterface) ||
+                            has(self.autoDiscovery)
                       type: array
                       x-kubernetes-list-map-keys:
                       - name

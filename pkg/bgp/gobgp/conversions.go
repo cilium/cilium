@@ -597,6 +597,13 @@ func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 		conf.NeighborAddress = ""
 	}
 
+	// For BGP unnumbered peering, NeighborInterface tells gobgp to discover
+	// the peer's link-local via IPv6 ND on the interface. Setting both
+	// NeighborInterface and NeighborAddress is not supported by gobgp: when
+	// NeighborInterface is set, gobgp unconditionally overwrites the address
+	// via ND discovery (see vendor gobgp pkg/config/oc/default.go).
+	conf.NeighborInterface = n.Interface
+
 	conf.AuthPassword = n.AuthPassword
 	conf.PeerAsn = n.ASN
 

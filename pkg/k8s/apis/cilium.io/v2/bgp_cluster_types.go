@@ -114,6 +114,8 @@ type CiliumBGPInstance struct {
 	Peers []CiliumBGPPeer `json:"peers,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.peerInterface) || !has(self.peerAddress) || self.peerAddress.startsWith('fe80:') || self.peerAddress.startsWith('FE80:')",message="peerAddress must be an IPv6 link-local address (fe80::/10) when peerInterface is set"
+// +kubebuilder:validation:XValidation:rule="has(self.peerAddress) || has(self.peerInterface) || has(self.autoDiscovery)",message="one of peerAddress, peerInterface, or autoDiscovery must be set"
 type CiliumBGPPeer struct {
 	// Name is the name of the BGP peer. It is a unique identifier for the peer within the BGP instance.
 	//
@@ -145,6 +147,19 @@ type CiliumBGPPeer struct {
 	//
 	// +kubebuilder:validation:Optional
 	AutoDiscovery *BGPAutoDiscovery `json:"autoDiscovery,omitempty"`
+
+	// PeerInterface is the name of the local network interface used to reach
+	// the peer. When set together with an IPv6 link-local peerAddress (fe80::/10),
+	// the BGP session is established to that address over the named interface
+	// (the interface is encoded as an IPv6 zone identifier).
+	//
+	// Interface naming may differ across nodes in a heterogeneous fleet; in that
+	// case use CiliumBGPNodeConfigOverride to set peerInterface per node.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	PeerInterface *string `json:"peerInterface,omitempty"`
 
 	// PeerConfigRef is a reference to a peer configuration resource.
 	// If not specified, the default BGP configuration is used for this peer.

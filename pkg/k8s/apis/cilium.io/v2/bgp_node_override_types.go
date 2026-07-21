@@ -90,6 +90,7 @@ type CiliumBGPNodeConfigInstanceOverride struct {
 }
 
 // CiliumBGPNodeConfigPeerOverride defines configuration options which can be overridden for a specific peer.
+// +kubebuilder:validation:XValidation:rule="!has(self.peerInterface) || !has(self.localAddress)",message="localAddress must not be set when peerInterface is set"
 type CiliumBGPNodeConfigPeerOverride struct {
 	// Name is the name of the peer for which the configuration is overridden.
 	//
@@ -108,4 +109,13 @@ type CiliumBGPNodeConfigPeerOverride struct {
 	//
 	// +kubebuilder:validation:Optional
 	LocalPort *int32 `json:"localPort,omitempty"`
+
+	// PeerInterface overrides the local network interface used to reach the
+	// peer. Use this when interface naming differs across nodes; the override
+	// takes precedence over the value set on the cluster-level peer.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	PeerInterface *string `json:"peerInterface,omitempty"`
 }

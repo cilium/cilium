@@ -686,6 +686,11 @@ func (in *CiliumBGPNodeConfigPeerOverride) DeepCopyInto(out *CiliumBGPNodeConfig
 		*out = new(int32)
 		**out = **in
 	}
+	if in.PeerInterface != nil {
+		in, out := &in.PeerInterface, &out.PeerInterface
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -785,6 +790,11 @@ func (in *CiliumBGPNodePeer) DeepCopyInto(out *CiliumBGPNodePeer) {
 	}
 	if in.LocalAddress != nil {
 		in, out := &in.LocalAddress, &out.LocalAddress
+		*out = new(string)
+		**out = **in
+	}
+	if in.PeerInterface != nil {
+		in, out := &in.PeerInterface, &out.PeerInterface
 		*out = new(string)
 		**out = **in
 	}
@@ -919,6 +929,11 @@ func (in *CiliumBGPPeer) DeepCopyInto(out *CiliumBGPPeer) {
 		in, out := &in.AutoDiscovery, &out.AutoDiscovery
 		*out = new(BGPAutoDiscovery)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.PeerInterface != nil {
+		in, out := &in.PeerInterface, &out.PeerInterface
+		*out = new(string)
+		**out = **in
 	}
 	if in.PeerConfigRef != nil {
 		in, out := &in.PeerConfigRef, &out.PeerConfigRef

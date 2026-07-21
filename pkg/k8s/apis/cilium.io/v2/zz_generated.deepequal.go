@@ -656,6 +656,14 @@ func (in *CiliumBGPNodeConfigPeerOverride) DeepEqual(other *CiliumBGPNodeConfigP
 		}
 	}
 
+	if (in.PeerInterface == nil) != (other.PeerInterface == nil) {
+		return false
+	} else if in.PeerInterface != nil {
+		if *in.PeerInterface != *other.PeerInterface {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -789,6 +797,14 @@ func (in *CiliumBGPNodePeer) DeepEqual(other *CiliumBGPNodePeer) bool {
 		return false
 	} else if in.LocalAddress != nil {
 		if *in.LocalAddress != *other.LocalAddress {
+			return false
+		}
+	}
+
+	if (in.PeerInterface == nil) != (other.PeerInterface == nil) {
+		return false
+	} else if in.PeerInterface != nil {
+		if *in.PeerInterface != *other.PeerInterface {
 			return false
 		}
 	}
@@ -953,6 +969,14 @@ func (in *CiliumBGPPeer) DeepEqual(other *CiliumBGPPeer) bool {
 		return false
 	} else if in.AutoDiscovery != nil {
 		if !in.AutoDiscovery.DeepEqual(other.AutoDiscovery) {
+			return false
+		}
+	}
+
+	if (in.PeerInterface == nil) != (other.PeerInterface == nil) {
+		return false
+	} else if in.PeerInterface != nil {
+		if *in.PeerInterface != *other.PeerInterface {
 			return false
 		}
 	}

@@ -345,6 +345,87 @@ func Test_NodeLabels(t *testing.T) {
 	}
 }
 
+func Test_toNodeBGPInstance_PeerInterface(t *testing.T) {
+	tests := []struct {
+		name      string
+		cluster   v2.CiliumBGPInstance
+		overrides []v2.CiliumBGPNodeConfigInstanceOverride
+		expect    *string
+	}{
+		{
+			name: "cluster sets peerInterface, no override",
+			cluster: v2.CiliumBGPInstance{
+				Name: "i",
+				Peers: []v2.CiliumBGPPeer{
+					{
+						Name:             "p",
+						PeerAddress:      ptr.To("fe80::1"),
+						PeerASN:          ptr.To[int64](64512),
+						PeerInterface: ptr.To("eth0"),
+					},
+				},
+			},
+			expect: ptr.To("eth0"),
+		},
+		{
+			name: "override wins over cluster",
+			cluster: v2.CiliumBGPInstance{
+				Name: "i",
+				Peers: []v2.CiliumBGPPeer{
+					{
+						Name:             "p",
+						PeerAddress:      ptr.To("fe80::1"),
+						PeerASN:          ptr.To[int64](64512),
+						PeerInterface: ptr.To("eth0"),
+					},
+				},
+			},
+			overrides: []v2.CiliumBGPNodeConfigInstanceOverride{
+				{
+					Name: "i",
+					Peers: []v2.CiliumBGPNodeConfigPeerOverride{
+						{Name: "p", PeerInterface: ptr.To("enp193s0np0")},
+					},
+				},
+			},
+			expect: ptr.To("enp193s0np0"),
+		},
+		{
+			name: "override unset preserves cluster value",
+			cluster: v2.CiliumBGPInstance{
+				Name: "i",
+				Peers: []v2.CiliumBGPPeer{
+					{
+						Name:             "p",
+						PeerAddress:      ptr.To("fe80::1"),
+						PeerASN:          ptr.To[int64](64512),
+						PeerInterface: ptr.To("eth0"),
+					},
+				},
+			},
+			overrides: []v2.CiliumBGPNodeConfigInstanceOverride{
+				{
+					Name: "i",
+					Peers: []v2.CiliumBGPNodeConfigPeerOverride{
+						{Name: "p", LocalAddress: ptr.To("10.0.0.1")},
+					},
+				},
+			},
+			expect: ptr.To("eth0"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BGPResourceManager{}
+			got, err := b.toNodeBGPInstance([]v2.CiliumBGPInstance{tt.cluster}, tt.overrides, "node-1")
+			require.NoError(t, err)
+			require.Len(t, got, 1)
+			require.Len(t, got[0].Peers, 1)
+			require.Equal(t, tt.expect, got[0].Peers[0].PeerInterface)
+		})
+	}
+}
+
 // Test_ClusterConfigSteps is step based test to validate the BGP node config controller
 func Test_ClusterConfigSteps(t *testing.T) {
 	clusterConfigName := "bgp-cluster-config"
