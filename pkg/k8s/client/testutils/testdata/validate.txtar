@@ -1,0 +1,115 @@
+# Tests for CRD validation on k8s/add and k8s/update. By default the fake
+# clientset rejects objects the kube-apiserver would reject, validating them
+# against their CRD OpenAPI schema (plus unknown-field detection). Kinds without
+# a known CRD schema (core objects, non-Cilium CRDs) are accepted as-is.
+# Validation can be disabled per command with --validate=false.
+
+hive/start
+
+# A well-formed CNP passes validation on both add and update.
+k8s/add good-cnp.yaml
+k8s/update good-cnp.yaml
+
+# A CNP with an unknown/misspelled spec field is rejected the way the
+# kube-apiserver would. The typed decoder silently drops unknown fields, so
+# this only fails because validation runs on the raw YAML.
+! k8s/add unknown-field-cnp.yaml
+! k8s/update unknown-field-cnp.yaml
+
+# An invalid L4 protocol enum is rejected against the CRD OpenAPI schema.
+! k8s/add bad-proto-cnp.yaml
+
+# Validation is generic across Cilium CRDs, not just policies: a well-formed
+# CiliumEnvoyConfig passes, and one with an unknown field is rejected.
+k8s/add good-cec.yaml
+! k8s/add unknown-field-cec.yaml
+
+# A kind without a known CRD schema (a core Service) is accepted: validation
+# only rejects objects whose kind has a schema.
+k8s/add service.yaml
+
+# With --validate=false, the same bogus CNP is accepted (the unknown field is
+# silently dropped by the typed decode). This is the opt-out that lets a test
+# deliberately feed an object the apiserver would reject.
+k8s/add --validate=false unknown-field-cnp.yaml
+
+-- good-cnp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: good
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: foo
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: bar
+
+-- unknown-field-cnp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: unknown-field
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: foo
+  totallyBogusUnknownField: true
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: bar
+
+-- bad-proto-cnp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: bad-proto
+  namespace: default
+spec:
+  endpointSelector: {}
+  egress:
+  - toPorts:
+    - ports:
+      - port: "80"
+        protocol: NOTAPROTOCOL
+
+-- good-cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: cec
+  namespace: default
+spec:
+  services:
+  - name: foo
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: listener
+
+-- unknown-field-cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: cec
+  namespace: default
+spec:
+  bogusUnknownFieldHere: true
+  services:
+  - name: foo
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: listener
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
