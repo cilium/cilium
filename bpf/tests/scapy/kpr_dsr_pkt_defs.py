@@ -206,6 +206,32 @@ kpr_v4_dsr_lb2_data2_post_geneve_xdp = (
     b"foobar"
 )
 
+kpr_v4_dsr_remote_node_reply = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    TCP(sport=tcp_dst_one, dport=tcp_src_one, flags="R")
+)
+
+kpr_v4_dsr_remote_node_reply_post = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_svc_one, dst=v4_ext_one) /
+    TCP(sport=tcp_svc_one, dport=tcp_src_one, flags="R")
+)
+
+kpr_v4_dsr_remote_node_data_option = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_pod_one, ttl=63,
+       options=[bytes(IPOption_DSR(port=tcp_svc_two, addr=v4_svc_one))]) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="") /
+    b"foobar"
+)
+
+kpr_v4_dsr_remote_node_reply2_post = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_svc_one, dst=v4_ext_one) /
+    TCP(sport=tcp_svc_two, dport=tcp_src_one, flags="R")
+)
+
 kpr_v6_dsr_lb1_syn = (
     Ether(src=host_mac_addr, dst=mac_one) /
     IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
@@ -345,4 +371,30 @@ kpr_v6_dsr_lb2_data2_post_geneve_xdp = (
     IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
     TCP(sport=tcp_src_one, dport=tcp_dst_two, flags="") /
     b"foobar"
+)
+
+kpr_v6_dsr_remote_node_reply = (
+    Ether(src=mac_two, dst=mac_one) /
+    IPv6(src=v6_pod_one, dst=v6_ext_node_one) /
+    TCP(sport=tcp_dst_one, dport=tcp_src_one, flags="R")
+)
+
+kpr_v6_dsr_remote_node_reply_post = (
+    Ether(src=mac_two, dst=mac_one) /
+    IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
+    TCP(sport=tcp_svc_one, dport=tcp_src_one, flags="R")
+)
+
+kpr_v6_dsr_remote_node_data_option = (
+    Ether(src=host_mac_addr, dst=mac_one) /
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one, nh=60) /
+    IPv6Ext_DSR(addr=v6_svc_one, port=tcp_svc_two) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="", chksum=25015) /
+    b"foobar"
+)
+
+kpr_v6_dsr_remote_node_reply2_post = (
+    Ether(src=mac_two, dst=mac_one) /
+    IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
+    TCP(sport=tcp_svc_two, dport=tcp_src_one, flags="R")
 )
