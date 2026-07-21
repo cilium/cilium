@@ -592,7 +592,6 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 #ifdef ENABLE_DSR_ICMP_ERRORS
 	const __s32 orig_dgram = 64, off = ETH_HLEN;
 	__u8 orig_ipv6_hdr[orig_dgram];
-	__be16 type = bpf_htons(ETH_P_IPV6);
 	__u64 len_new = off + sizeof(*ip6) + orig_dgram;
 	__u64 len_old = ctx_full_len(ctx);
 	void *data_end = ctx_data_end(ctx);
@@ -667,7 +666,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (eth_store_saddr(ctx, dmac.addr, 0) < 0)
 		goto drop_err;
-	if (ctx_store_bytes(ctx, ETH_ALEN * 2, &type, sizeof(type), 0) < 0)
+	if (eth_store_proto(ctx, bpf_htons(ETH_P_IPV6), 0) < 0)
 		goto drop_err;
 	if (ctx_store_bytes(ctx, off, &ip, sizeof(ip), 0) < 0)
 		goto drop_err;
@@ -1977,7 +1976,6 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 #ifdef ENABLE_DSR_ICMP_ERRORS
 	const __s32 orig_dgram = 8, off = ETH_HLEN;
 	const __u32 l3_max = MAX_IPOPTLEN + sizeof(*ip4) + orig_dgram;
-	__be16 type = bpf_htons(ETH_P_IP);
 	__s32 len_new = off + ipv4_hdrlen(ip4) + orig_dgram;
 	__s32 len_old = (__s32)ctx_full_len(ctx);
 	__u8 reason = (__u8)-code;
@@ -2063,7 +2061,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (eth_store_saddr(ctx, dmac.addr, 0) < 0)
 		goto drop_err;
-	if (ctx_store_bytes(ctx, ETH_ALEN * 2, &type, sizeof(type), 0) < 0)
+	if (eth_store_proto(ctx, bpf_htons(ETH_P_IP), 0) < 0)
 		goto drop_err;
 	if (ctx_store_bytes(ctx, off, &ip, sizeof(ip), 0) < 0)
 		goto drop_err;
