@@ -1,5 +1,89 @@
 # Changelog
 
+## v1.20.0-rc.1
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Cilium's Beta Mutual Auth support is now deprecated and will be removed in a future version. (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47162, @youngnick)
+* clustermesh: promote Multi-Cluster Services API (MCS-API) to a stable support level and improve its documentation (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#46953, @MrFreezeex)
+
+**Minor Changes:**
+* envoy: reject CECs with duplicate filter chains (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#46848, @asauber)
+* Gateway API: Add HTTP Server header transformation support (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#46764, @xtineskim)
+* gateway-api: Cilium now supports the additional redirect codes 303, 307, and 308 for HTTPRoute redirects. (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47232, @youngnick)
+* helm: Avoid operator roles, secret creation in preflight (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#47053, @joestringer)
+* images: Update runtime and builder images base to ubuntu 26.04 (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47215, @HadrienPatte)
+
+**Bugfixes:**
+* datapath/linux: Unsubscribe node handler on shutdown (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47197, @HadrienPatte)
+* datapath: Fix masquerade IP selection with route-discovered node addresses (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#46843, @tsotne95)
+* datapath: relax strict ingress to allow hostport (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#47200, @rgo3)
+* doublewrite: Don't run CRD backend with real handler when reading from KVStore (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#47144, @HadrienPatte)
+* Fix bug causing Cilium to intercept traffic towards LoadBalancer VIPs when KPR is disabled, when the traffic should be delegated to kube-proxy. (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47204, @ajmmm)
+* Fix bug where BGP Migration may deadlock (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#46897, @weizhoublue)
+* Fix potential hangs caused by Netlink errors in filterAndDestroySockets. (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#46967, @ysksuzuki)
+* fix(policy): add cluster-mesh to the Entity enum validation (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47225, @doniacld)
+* gateway-api: fix redirect guards affecting route ordering for similar HTTPRoute matches. (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#46884, @arybolovlev)
+* gateway-api: include ext auth into HTTPRoute checks (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47265, @mhofstetter)
+* gateway-api: watch backend Service changes for tcp&udp routes (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47239, @mhofstetter)
+* gateway-api: watch ServiceImport refs from GRPCRoutes (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47268, @mhofstetter)
+* operator/endpointslice: Fix races on defaultController (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47102, @mauriciovasquezbernal)
+* operator: Fix nil-pointer panic in CiliumNode GC (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#47127, @HadrienPatte)
+
+**CI Changes:**
+* .github: fix conformance-ginkgo sysdump artifact upload path (Backport PR cilium/cilium#47291, Upstream PR cilium/cilium#47187, @aanm)
+* .github: retry CLI and binary downloads over transient network errors (Backport PR cilium/cilium#47291, Upstream PR cilium/cilium#47167, @aanm)
+* .github: select a usable AZ for EKS us-west-1 (Backport PR cilium/cilium#47291, Upstream PR cilium/cilium#47168, @aanm)
+* ci: wait for all AKS nodes to register before labeling nodes-without-cilium (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47270, @aanm)
+* conformance-aws-cni: skip l7 and fqdn tests by name on chaining mode (Backport PR cilium/cilium#47291, Upstream PR cilium/cilium#47269, @aanm)
+* egressgw: remove redundant rp_filter assertion from privileged test (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47106, @Avr8)
+* envoy: add ads locality test (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#47032, @viktor-kurchenko)
+* gha/e2e: cover etcd behind a service (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47235, @giorio94)
+* gha: dump nodegroup CloudFormation failure events on create failure (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47298, @aanm)
+* gha: stop scheduled runs emitting spurious artifact warnings (Backport PR cilium/cilium#47291, Upstream PR cilium/cilium#46989, @aanm)
+* policy/compute: Fix flaky TestRecomputeIdentityPolicy (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#47101, @christarazi)
+* test/cyclonus: drop --fail-fast so a policy failure can't crash the run (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47272, @aanm)
+* test/helpers: allowlist renamed leader-election lease-lock retrieval error (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47249, @aanm)
+
+**Misc Changes:**
+* .github: allow fork PR checkout with actions/checkout v7 (Backport PR cilium/cilium#47173, Upstream PR cilium/cilium#47133, @aanm)
+* [v1.20] Revert "routing: add hybrid routing mode support" (cilium/cilium#47373, @joestringer)
+* Add an example datapath plugin. (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#46872, @jrife)
+* bgp: Optimize route policy reconciliation to reduce unnecessary processing on the cilium agent (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#46928, @rastislavs)
+* bugtool: collect snmp6 and dev_snmp6 for IPv6 host packet drops (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47353, @aanm)
+* chore(deps): update all github action dependencies (v1.20) (cilium/cilium#47320, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.19.6 (v1.20) (cilium/cilium#47339, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.26.5 docker digest to 3aff665 (v1.20) (cilium/cilium#47314, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to f7f8f72 (v1.20) (cilium/cilium#47315, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.4.8 (v1.20) (cilium/cilium#47317, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.20) (patch) (cilium/cilium#47318, @cilium-renovate[bot])
+* docs/clustermesh: remove obsolete reference to service cache (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47195, @giorio94)
+* docs: Add "action required" release notes for 1.20 (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47372, @joestringer)
+* docs: egressgw: clarify egress interface/IP selection (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47185, @julianwiedmann)
+* docs: mark TCPRoute/UDPRoute as unsupported under host network mode (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47171, @PhilipSchmid)
+* docs: Update NetworkPolicy and ClusterNetworkPolicy documentation (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47227, @TheBeeZee)
+* egressgw: use node-addresses table to resolve EgressIPs (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47350, @julianwiedmann)
+* fix(deps): update k8s.io/utils digest to cf1189d (v1.20) (cilium/cilium#47316, @cilium-renovate[bot])
+* Fix: Prune Removed ParentRefs During L4 Route Status Reconciliation (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47160, @weizhoublue)
+* gateway-api(deps): bump upstream dependencies to v1.6.1. (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47274, @arybolovlev)
+* gateway-api: Add TCP and UDP gateway conformance profiles (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47381, @arybolovlev)
+* gateway-api: cleanup hardcoded Cilium GatewayClass controllerclass (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47210, @mhofstetter)
+* gateway-api: drop redundant TLS secret watch predicate (Backport PR cilium/cilium#47374, Upstream PR cilium/cilium#47240, @mhofstetter)
+* gha: capture per-pod diagnostics for sig-network conntrack UDP NodePort failures (Backport PR cilium/cilium#47291, Upstream PR cilium/cilium#47140, @aanm)
+* gha: fix features-tested warnings for l7-perf and mcs-api (Backport PR cilium/cilium#47291, Upstream PR cilium/cilium#47172, @aanm)
+* images ci: free preinstalled toolchains on tight runners before building (Backport PR cilium/cilium#47291, Upstream PR cilium/cilium#47141, @aanm)
+* pkg/loadbalancer: add hidden --bpf-lb-enable-wildcard-entries flag (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#46647, @ajmmm)
+* Policy: Use separate placeholder identities for aggregation (Backport PR cilium/cilium#47256, Upstream PR cilium/cilium#47216, @squeed)
+* Reformat upgrade docs for v1.21+ (Backport PR cilium/cilium#47257, Upstream PR cilium/cilium#47192, @joestringer)
+* resource: fix possible goroutine leak in filtered resource (Backport PR cilium/cilium#47397, Upstream PR cilium/cilium#47129, @giorio94)
+* Revert restore-path policy map changes (#46927, #47062, #47075) (Backport PR cilium/cilium#47201, Upstream PR cilium/cilium#47202, @aanm)
+* vendor: sync mcs-api to v0.5.2 tag instead of hash pinning (Backport PR cilium/cilium#47179, Upstream PR cilium/cilium#47166, @MrFreezeex)
+
+**Other Changes:**
+* install: Update image digests for v1.20.0-rc.0 (cilium/cilium#47158, @cilium-release-bot[bot])
+
 ## v1.20.0-rc.0
 
 Summary of Changes
