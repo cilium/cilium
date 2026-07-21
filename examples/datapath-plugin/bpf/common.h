@@ -16,5 +16,3 @@ char attachment_context[256];
 			trace_printk(____fmt, sizeof(____fmt),	\
 				     ##__VA_ARGS__);		\
 		})
-
-
