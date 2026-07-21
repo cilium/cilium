@@ -10,7 +10,7 @@ import (
 	"maps"
 	"net/netip"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"

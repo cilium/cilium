@@ -20,11 +20,10 @@ github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8 v8.2
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8 v8.2.0/go.mod h1:E+lMyo/54sqYcxG3b2DJP+aUp2xP3VVDcYdyNYKdu74=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/internal/v3 v3.2.0 h1:+lnLQhKh3cgSOIOVH61UZ3s/l9d+bAZp5d/spt1+7UI=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/internal/v3 v3.2.0/go.mod h1:tStOHrivWUrcBolspvKV70Us1ckESYGYSHdG4LX8zyY=
-github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9 v9.0.0 h1:CbHDMVJhcJSmXenq+UDWyIjumzVkZIb5pVUGzsCok5M=
-github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9 v9.0.0/go.mod h1:raqbEXrok4aycS74XoU6p9Hne1dliAFpHLizlp+qJoM=
+github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10 v10.0.0 h1:DI6sDa/IfWSjPCo6G7CuO9sekRNajIfg134SP1C13js=
+github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10 v10.0.0/go.mod h1:oSXzE/x+1AxZplJylWMM4BCq+RkQ3XM2uc9IkIgcBKk=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armdeployments v1.0.0 h1:67nFqWXpo0x5Nz0XEb1yI7s8D+EHy8NsTinYw9sZnLk=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armdeployments v1.0.0/go.mod h1:fewgRjNVE84QVVh798sIMFb7gPXPp7NmnekGnboSnXk=
-github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0 h1:Dd+RhdJn0OTtVGaeDLZpcumkIVCtA/3/Fo42+eoYvVM=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3 v3.0.1 h1:guyQA4b8XB2sbJZXzUnOF9mn0WDBv/ZT7me9wTipKtE=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3 v3.0.1/go.mod h1:8h8yhzh9o+0HeSIhUxYny+rEQajScrfIpNktvgYG3Q8=
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEKWjV8V+WSxDXJ4NFATAsZjh8iIbsQIg=
@@ -383,8 +382,8 @@ github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeN
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
 github.com/google/go-github v17.0.0+incompatible/go.mod h1:zLgOLi98H3fifZn+44m+umXrS52loVEgC2AApnigrVQ=
-github.com/google/go-github/v88 v88.0.0 h1:dZA9IKkPK1eXZj4ypngnpRj5FwdpTv4whix2PrQMP7M=
-github.com/google/go-github/v88 v88.0.0/go.mod h1:rufTDgn2N45wjhukLTyxmvc9nilSp3mr3Rgtt6b1MPw=
+github.com/google/go-github/v89 v89.0.0 h1:35bEK5XoEcF3PZrlVbl9XN63f5BcJRA/UGkxeC9xPg0=
+github.com/google/go-github/v89 v89.0.0/go.mod h1:QLcbU0ipeAqQuR5KSg8c2lql4Qk1EwJ2dWz/0rP4Nho=
 github.com/google/go-licenses/v2 v2.0.1 h1:ti+9bi5o7DKbeeg5eBb/uZTgsaPNoJaLCh93cRcXsW8=
 github.com/google/go-licenses/v2 v2.0.1/go.mod h1:efibo0EDNGkau6AIMOViGW+rTNPudhxX9rCxtfw5zKE=
 github.com/google/go-querystring v1.0.0/go.mod h1:odCYkC5MyYFN7vkCjXpyrEuKhc/BUO6wN/zVPAxq5ck=

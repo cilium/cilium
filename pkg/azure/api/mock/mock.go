@@ -9,7 +9,7 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/util/sets"
 
