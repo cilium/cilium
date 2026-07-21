@@ -524,6 +524,11 @@ enum DropReason {
     DROP_NO_EGRESS_IP = 204;
     // Punt packet to a user space proxy.
     DROP_PUNT_PROXY = 205;
+    // A non-first IP fragment from the world was dropped because its first
+    // fragment (carrying the L4 ports) was never seen, so host policy cannot
+    // be evaluated. Split from DROP_FRAG_NOT_FOUND to distinguish ambient
+    // external fragments from in-cluster fragment-tracking bugs.
+    DROP_FRAG_NOT_FOUND_WORLD = 207;
 }
 
 enum TrafficDirection {

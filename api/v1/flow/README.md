@@ -1181,6 +1181,7 @@ here.
 | DROP_EP_NOT_READY | 203 | A BPF program wants to tail call some endpoint&#39;s policy program in cilium_call_policy, but the program is not available. |
 | DROP_NO_EGRESS_IP | 204 | An Egress Gateway node matched a packet against an Egress Gateway policy that didn&#39;t select a valid Egress IP. |
 | DROP_PUNT_PROXY | 205 | Punt packet to a user space proxy. |
+| DROP_FRAG_NOT_FOUND_WORLD | 207 | A non-first IP fragment from the world was dropped because its first fragment (carrying the L4 ports) was never seen, so host policy cannot be evaluated. Split from DROP_FRAG_NOT_FOUND to distinguish ambient external fragments from in-cluster fragment-tracking bugs. |
 
 
 
