@@ -1441,6 +1441,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto no_service;
+
+			state->new_backend = true;
 		}
 
 		state->backend_id = backend_id;
@@ -1488,6 +1490,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto no_service;
 
+			state->new_backend = true;
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		}
@@ -2268,6 +2271,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto no_service;
+
+			state->new_backend = true;
 		}
 
 		state->backend_id = backend_id;
@@ -2315,6 +2320,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto no_service;
 
+			state->new_backend = true;
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		}

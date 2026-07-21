@@ -52,8 +52,9 @@ struct ct_state {
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
-		  closing:1,
-	      reserved:7;
+	      closing:1,
+	      new_backend:1,	/* Service connection was assigned a new backend */
+	      reserved:6;
 	__u32 src_sec_id;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
