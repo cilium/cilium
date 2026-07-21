@@ -117,7 +117,7 @@ func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 
 	lp := r.populateLocalPools(p.CiliumNode)
 
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2.BGPCiliumPodIPPoolAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, p.ResolvedPeerAddresses, v2.BGPCiliumPodIPPoolAdvert)
 	if err != nil {
 		return err
 	}

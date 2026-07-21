@@ -167,8 +167,15 @@ type PeerState struct {
 	// Name of the peer
 	Name string `json:"name,omitempty"`
 
-	// Address of the peer
+	// Address of the peer. For unnumbered peers this is the peer's IPv6
+	// link-local address discovered by the router on Interface, carrying the
+	// interface as an IPv6 zone (e.g. "fe80::1%eth0"). It is invalid if the
+	// router has not resolved the peer yet.
 	Address netip.Addr `json:"peer-address,omitempty"`
+
+	// Interface is the local interface of an unnumbered peer. Empty for peers
+	// configured with an explicit address.
+	Interface string `json:"peer-interface,omitempty"`
 
 	// TCP port number of peer
 	// Maximum: 65535

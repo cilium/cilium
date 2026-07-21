@@ -654,14 +654,13 @@ func toGoBGPTransport(n *types.NeighborTransport, oldPeer *gobgp.Peer, v4 bool) 
 		transport.RemotePort = n.RemotePort
 	}
 
-	if n.LocalAddress == "" {
-		// If local address is not set, set it to wildcard
-		if v4 {
-			transport.LocalAddress = wildcardIPv4Addr
-		} else {
-			transport.LocalAddress = wildcardIPv6Addr
-		}
-	} else {
+	// Only propagate an explicitly-configured local address. If it is left
+	// empty, gobgp defaults it in SetDefaultNeighborConfigValues: the wildcard
+	// (0.0.0.0 / ::) for a numbered peer, or the interface's own IPv6 link-local
+	// for an unnumbered/link-local peer. Forcing the wildcard here overrides that
+	// derivation and leaves gobgp unable to source the connection for a
+	// link-local peer (it would try to dial fe80::x%iface from "::").
+	if n.LocalAddress != "" {
 		transport.LocalAddress = n.LocalAddress
 	}
 

@@ -110,7 +110,7 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 		return err
 	}
 
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2.BGPInterfaceAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, p.ResolvedPeerAddresses, v2.BGPInterfaceAdvert)
 	if err != nil {
 		return err
 	}

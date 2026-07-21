@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	gobgp "github.com/osrg/gobgp/v4/api"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 
@@ -473,4 +474,52 @@ func TestGetRoutes(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Empty(t, res.Routes) // adj-rib is empty as there is no actual peering up
+}
+
+func TestResolvedPeerAddress(t *testing.T) {
+	tests := []struct {
+		name        string
+		peer        *gobgp.Peer
+		want        netip.Addr
+		wantDisplay string
+	}{
+		{
+			name:        "numbered peer uses configured neighbor address",
+			peer:        &gobgp.Peer{Conf: &gobgp.PeerConf{NeighborAddress: "192.168.0.1"}},
+			want:        netip.MustParseAddr("192.168.0.1"),
+			wantDisplay: "192.168.0.1",
+		},
+		{
+			name: "unnumbered peer uses the resolved link-local from peer state",
+			peer: &gobgp.Peer{
+				Conf:  &gobgp.PeerConf{NeighborInterface: "eth0"},
+				State: &gobgp.PeerState{NeighborAddress: "fe80::1%eth0"},
+			},
+			want:        netip.MustParseAddr("fe80::1%eth0"),
+			wantDisplay: "fe80::1%eth0",
+		},
+		{
+			name: "unresolved unnumbered peer has no address and displays the interface",
+			peer: &gobgp.Peer{
+				// GoBGP renders an unset netip.Addr as "invalid IP".
+				Conf:  &gobgp.PeerConf{NeighborAddress: "invalid IP", NeighborInterface: "eth0"},
+				State: &gobgp.PeerState{NeighborAddress: "invalid IP"},
+			},
+			want:        netip.Addr{},
+			wantDisplay: "eth0",
+		},
+		{
+			name:        "configured address wins over peer state",
+			peer:        &gobgp.Peer{Conf: &gobgp.PeerConf{NeighborAddress: "192.168.0.1"}, State: &gobgp.PeerState{NeighborAddress: "fe80::1%eth0"}},
+			want:        netip.MustParseAddr("192.168.0.1"),
+			wantDisplay: "192.168.0.1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, resolvedPeerAddress(tt.peer))
+			require.Equal(t, tt.wantDisplay, peerDisplayAddress(tt.peer))
+		})
+	}
 }

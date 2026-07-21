@@ -103,7 +103,7 @@ type CiliumBGPNodeInstance struct {
 
 // +kubebuilder:validation:XValidation:rule="!has(self.peerInterface) || !has(self.peerAddress) || self.peerAddress.startsWith('fe80:') || self.peerAddress.startsWith('FE80:')",message="peerAddress must be an IPv6 link-local address (fe80::/10) when peerInterface is set"
 // +kubebuilder:validation:XValidation:rule="!has(self.peerInterface) || !has(self.localAddress)",message="localAddress must not be set when peerInterface is set"
-// +kubebuilder:validation:XValidation:rule="has(self.peerAddress) || has(self.peerInterface) || has(self.autoDiscovery)",message="one of peerAddress, peerInterface, or autoDiscovery must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.peerAddress) || has(self.autoDiscovery)",message="one of peerAddress or autoDiscovery must be set"
 type CiliumBGPNodePeer struct {
 	// Name is the name of the BGP peer. This name is used to identify the BGP peer for the BGP instance.
 	//

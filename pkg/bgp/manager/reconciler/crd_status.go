@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"slices"
 	"sort"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/api/v1/models"
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
@@ -350,6 +352,40 @@ func (r *StatusReconciler) cleanupStatus(ctx context.Context, health cell.Health
 	})
 }
 
+// samePeer reports whether a peer from the running gobgp state is the one described
+// by the configured CRD peer.
+//
+// The name is the primary key. toGoBGPPeerConf encodes the CRD peer name into the
+// gobgp peer Description for exactly this reason, and GetPeerStateLegacy decodes it
+// back out, so the name is available for every peer this agent created. It is also
+// the only usable key for an unnumbered peer, which carries no PeerAddress in the
+// CRD at all - matching those on address alone silently drops them from the status.
+//
+// Fall back to the address only when the running state carries no name (a peer this
+// agent did not create, or one predating the Description encoding). Addresses are
+// compared parsed rather than as strings: the running state reports the canonical
+// form from netip.Addr.String(), so a CRD spelling like "fc00::0" would never
+// string-match the running "fc00::" and the peer's state would silently go missing.
+func samePeer(running *models.BgpPeer, configured v2.CiliumBGPNodePeer) bool {
+	if running.Name != "" || configured.Name != "" {
+		return running.Name == configured.Name
+	}
+
+	if configured.PeerAddress == nil {
+		return false
+	}
+
+	runningAddr, err := netip.ParseAddr(running.PeerAddress)
+	if err != nil {
+		return false
+	}
+	configuredAddr, err := netip.ParseAddr(*configured.PeerAddress)
+	if err != nil {
+		return false
+	}
+	return runningAddr == configuredAddr
+}
+
 func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *instance.BGPInstance) (*v2.CiliumBGPNodeInstanceStatus, error) {
 	res := &v2.CiliumBGPNodeInstanceStatus{
 		Name:     instance.Config.Name,
@@ -363,19 +399,29 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 	}
 
 	for _, configuredPeers := range instance.Config.Peers {
-		if configuredPeers.PeerASN == nil || configuredPeers.PeerAddress == nil {
+		if configuredPeers.PeerASN == nil {
 			continue
 		}
 
+		// PeerAddress is absent for unnumbered peers, whose address gobgp only
+		// discovers at runtime via ND. Report whatever is configured for now; the
+		// resolved address from the running state overwrites it below once matched.
 		peerStatus := v2.CiliumBGPNodePeerStatus{
 			Name:        configuredPeers.Name,
-			PeerAddress: *configuredPeers.PeerAddress,
+			PeerAddress: ptr.Deref(configuredPeers.PeerAddress, ""),
 			PeerASN:     configuredPeers.PeerASN,
 		}
 
 		for _, runningPeerState := range peers.Peers {
-			if runningPeerState.PeerAddress != *configuredPeers.PeerAddress {
+			if !samePeer(runningPeerState, configuredPeers) {
 				continue
+			}
+
+			// Prefer the running state's address: it is canonical, and for an
+			// unnumbered peer it is the only place the discovered link-local
+			// address (zoned, e.g. "fe80::1%eth0") is available at all.
+			if runningPeerState.PeerAddress != "" {
+				peerStatus.PeerAddress = runningPeerState.PeerAddress
 			}
 
 			if *configuredPeers.PeerASN == 0 { // If PeerASN is not set, use the ASN from the running state

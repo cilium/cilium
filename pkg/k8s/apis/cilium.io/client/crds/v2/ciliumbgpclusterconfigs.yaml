@@ -107,10 +107,31 @@ spec:
                                 description: mode is the mode of the auto-discovery.
                                 enum:
                                 - DefaultGateway
+                                - Unnumbered
                                 type: string
+                              unnumbered:
+                                description: |-
+                                  unnumbered is the configuration for BGP unnumbered peering over an
+                                  interface with no configured peer address.
+                                properties:
+                                  interface:
+                                    description: |-
+                                      interface is the name of the local network interface used to reach the
+                                      peer.
+                                    maxLength: 255
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - interface
+                                type: object
                             required:
                             - mode
                             type: object
+                            x-kubernetes-validations:
+                            - message: defaultGateway must be set when mode is DefaultGateway
+                              rule: self.mode != 'DefaultGateway' || has(self.defaultGateway)
+                            - message: unnumbered must be set when mode is Unnumbered
+                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
                           name:
                             description: Name is the name of the BGP peer. It is a
                               unique identifier for the peer within the BGP instance.
@@ -151,9 +172,12 @@ spec:
                           peerInterface:
                             description: |-
                               PeerInterface is the name of the local network interface used to reach
-                              the peer. When set together with an IPv6 link-local peerAddress (fe80::/10),
-                              the BGP session is established to that address over the named interface
-                              (the interface is encoded as an IPv6 zone identifier).
+                              the peer. It must be set together with an IPv6 link-local peerAddress
+                              (fe80::/10): the BGP session is established to that address over the named
+                              interface (the interface is encoded as an IPv6 zone identifier).
+
+                              For BGP unnumbered peering (an interface with no configured peer address),
+                              use autoDiscovery with mode Unnumbered instead of peerInterface.
 
                               Interface naming may differ across nodes in a heterogeneous fleet; in that
                               case use CiliumBGPNodeConfigOverride to set peerInterface per node.
@@ -168,10 +192,8 @@ spec:
                             (fe80::/10) when peerInterface is set
                           rule: '!has(self.peerInterface) || !has(self.peerAddress)
                             || self.peerAddress.startsWith(''fe80:'') || self.peerAddress.startsWith(''FE80:'')'
-                        - message: one of peerAddress, peerInterface, or autoDiscovery
-                            must be set
-                          rule: has(self.peerAddress) || has(self.peerInterface) ||
-                            has(self.autoDiscovery)
+                        - message: one of peerAddress or autoDiscovery must be set
+                          rule: has(self.peerAddress) || has(self.autoDiscovery)
                       type: array
                       x-kubernetes-list-map-keys:
                       - name

@@ -108,10 +108,31 @@ spec:
                                 description: mode is the mode of the auto-discovery.
                                 enum:
                                 - DefaultGateway
+                                - Unnumbered
                                 type: string
+                              unnumbered:
+                                description: |-
+                                  unnumbered is the configuration for BGP unnumbered peering over an
+                                  interface with no configured peer address.
+                                properties:
+                                  interface:
+                                    description: |-
+                                      interface is the name of the local network interface used to reach the
+                                      peer.
+                                    maxLength: 255
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - interface
+                                type: object
                             required:
                             - mode
                             type: object
+                            x-kubernetes-validations:
+                            - message: defaultGateway must be set when mode is DefaultGateway
+                              rule: self.mode != 'DefaultGateway' || has(self.defaultGateway)
+                            - message: unnumbered must be set when mode is Unnumbered
+                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
                           localAddress:
                             description: |-
                               LocalAddress is the IP address of the local interface to use for the peering session.
@@ -169,10 +190,8 @@ spec:
                         - message: localAddress must not be set when peerInterface
                             is set
                           rule: '!has(self.peerInterface) || !has(self.localAddress)'
-                        - message: one of peerAddress, peerInterface, or autoDiscovery
-                            must be set
-                          rule: has(self.peerAddress) || has(self.peerInterface) ||
-                            has(self.autoDiscovery)
+                        - message: one of peerAddress or autoDiscovery must be set
+                          rule: has(self.peerAddress) || has(self.autoDiscovery)
                       type: array
                       x-kubernetes-list-map-keys:
                       - name

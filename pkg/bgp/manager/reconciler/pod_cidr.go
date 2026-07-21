@@ -111,7 +111,7 @@ func (r *PodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 	}
 
 	// get per peer per family pod cidr advertisements
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2.BGPPodCIDRAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, p.ResolvedPeerAddresses, v2.BGPPodCIDRAdvert)
 	if err != nil {
 		return err
 	}
