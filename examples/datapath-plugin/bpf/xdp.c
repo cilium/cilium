@@ -21,4 +21,3 @@ int after(struct __ctx_buff *ctx __maybe_unused, int ret)
 }
 
 BPF_LICENSE("Dual BSD/GPL");
-

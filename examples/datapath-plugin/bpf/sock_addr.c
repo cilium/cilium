@@ -21,4 +21,3 @@ int after(struct bpf_sock_addr *ctx __maybe_unused, int ret)
 }
 
 BPF_LICENSE("Dual BSD/GPL");
-
