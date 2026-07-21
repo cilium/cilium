@@ -290,13 +290,17 @@ jobs:
               (.aws_cni.include[] | . + {
                 "addons": "coredns kube-proxy vpc-cni",
                 "addons_name": "all-addons",
-                "zones": (. | zones)
+                "zones": (. | zones),
+                "az_cluster": (if .region == "us-west-1" then .region + "a" else .region + "b" end),
+                "az_external": (.region + "c")
               }),
               # coredns-kubeproxy configuration from eks versions
               (.eks.include[] | . + {
                 "addons": "coredns kube-proxy",
                 "addons_name": "coredns-kubeproxy",
-                "zones": (. | zones)
+                "zones": (. | zones),
+                "az_cluster": (if .region == "us-west-1" then .region + "a" else .region + "b" end),
+                "az_external": (.region + "c")
               })
             ]
           }
@@ -523,6 +527,9 @@ jobs:
           owner: "eks-cluster-pool-manager"
           version: ${{ matrix.version }}
           spot: false
+          nodes_without_cilium: 2
+          az_cluster: ${{ matrix.az_cluster }}
+          az_external: ${{ matrix.az_external }}
 
       - name: Upload kubeconfig to S3 pool
         if: ${{ steps.check-pool.outputs.should_create == 'true' }}
