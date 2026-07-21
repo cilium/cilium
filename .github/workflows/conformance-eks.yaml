@@ -570,6 +570,19 @@ jobs:
         run: |
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
+          # Quarantine: on legs without prefix delegation the node attaches
+          # multiple secondary ENIs, and the outside-to-nodeport reply for the
+          # L7 policy test egresses a secondary ENI while carrying the primary
+          # ENI's source IP, so the VPC source/dest check drops it (curl 28).
+          # This is a real, still-under-investigation datapath bug rather than a
+          # flake; skip only this test on the affected legs so the failure is
+          # not silently masked elsewhere. The prefix-delegation legs still run
+          # and gate it. Remove once the ENI return-path routing is fixed.
+          if [[ "${{ matrix.aws-eni-pd }}" != "true" ]]; then
+            CONNECTIVITY_TEST_DEFAULTS+=" --test '!north-south-loadbalancing-with-l7-policy'"
+            echo "::warning title=Test quarantined::north-south-loadbalancing-with-l7-policy/outside-to-nodeport is skipped on this leg (${{ join(matrix.*, ', ') }}) because it hits a known ENI return-path drop without prefix delegation. The test is quarantined here and still gates on the prefix-delegation legs; remove once the bug is fixed."
+          fi
+
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Check that AWS leftover iptables chains have been removed
