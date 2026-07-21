@@ -518,6 +518,11 @@ jobs:
           if [[ "${{ matrix.config.kpr }}" == "true" ]]; then
             CONNECTIVITY_TEST_DEFAULTS+=" --test '!pod-to-host'"
           fi
+          # GKE nodes have public IPs and receive stray internet fragments
+          # whose first fragment never reaches the node, which the datapath
+          # correctly drops as world-sourced. Tolerate only that variant here;
+          # in-cluster fragment drops keep the strict reason. See cilium#44131.
+          CONNECTIVITY_TEST_DEFAULTS+=" --expected-drop-reasons='+First logical datagram fragment not found from world'"
 
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
