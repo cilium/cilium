@@ -1089,7 +1089,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
-		// TODO(weil0ng): add a proper check for ipam in PR# 15429.
 		if !option.Config.RequiresNativeRouting() {
 			logging.Fatal(logger, fmt.Sprintf("%s and %s require native or hybrid routing mode.", option.LocalRouterIPv4, option.LocalRouterIPv6))
 		}
