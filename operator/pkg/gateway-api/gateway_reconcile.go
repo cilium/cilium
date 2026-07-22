@@ -751,10 +751,12 @@ func (r *gatewayReconciler) resolveAllowedListeners(
 		if _, conflicted := conflictedListeners[l.Name]; conflicted {
 			continue
 		}
-		merged = append(merged, ingestion.ListenerWithContext{
-			Listener: l,
-			Source:   gwSource,
-		})
+		if r.listenerSupportedForIngestion(l) {
+			merged = append(merged, ingestion.ListenerWithContext{
+				Listener: l,
+				Source:   gwSource,
+			})
+		}
 	}
 
 	if !helpers.HasListenerSetSupport(r.Client.Scheme()) {
@@ -787,11 +789,13 @@ func (r *gatewayReconciler) resolveAllowedListeners(
 		lsSource := listenerSetFQR(ls)
 		for _, entry := range ls.Spec.Listeners {
 			listener := helpers.ListenerEntryToListener(entry)
-			merged = append(merged, ingestion.ListenerWithContext{
-				Listener:          listener,
-				Source:            lsSource,
-				AllowedNamespaces: resolveAllowedNamespaces(ctx, r.Client, ls.GetNamespace(), listener, scopedLog),
-			})
+			if r.listenerSupportedForIngestion(listener) {
+				merged = append(merged, ingestion.ListenerWithContext{
+					Listener:          listener,
+					Source:            lsSource,
+					AllowedNamespaces: resolveAllowedNamespaces(ctx, r.Client, ls.GetNamespace(), listener, scopedLog),
+				})
+			}
 		}
 	}
 
@@ -1453,6 +1457,14 @@ func (r *gatewayReconciler) validateListener(ctx context.Context, l gatewayv1.Li
 		res.isValid = false
 	}
 
+	if r.hostNetworkEnabled && isL4Protocol(l.Protocol) {
+		res.invalidMessages = append(res.invalidMessages,
+			fmt.Sprintf("%s listeners are not supported when Gateway API Host Network mode is enabled", l.Protocol))
+		res.invalidReason = gatewayv1.ListenerReasonUnsupportedProtocol
+		res.isValid = false
+		return res
+	}
+
 	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
 		res.supportedKinds = []gatewayv1.RouteGroupKind{}
 		for _, supported := range allSupported {
@@ -1715,6 +1727,30 @@ func (r *gatewayReconciler) runCommonRouteChecks(ctx context.Context, input rout
 	return nil
 }
 
+// checkRouteSupported returns false when route validation should stop for this input.
+func (r *gatewayReconciler) checkRouteSupported(input routechecks.Input, parent gatewayv1.ParentReference) bool {
+	switch k := input.GetGVK().Kind; k {
+	case kindTCPRoute, kindUDPRoute:
+		if r.hostNetworkEnabled {
+			input.SetParentCondition(parent, metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionAccepted),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.RouteReasonUnsupportedValue),
+				Message: fmt.Sprintf("%s is not supported when Gateway API Host Network mode is enabled", k),
+			})
+			input.SetParentCondition(parent, metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionResolvedRefs),
+				Status:  metav1.ConditionUnknown,
+				Reason:  string(gatewayv1.RouteReasonPending),
+				Message: "Backend references were not evaluated because this route type is not supported in Gateway API Host Network mode",
+			})
+			return false
+		}
+	}
+
+	return true
+}
+
 var gatewayCheckFuncs = []routechecks.CheckWithParentFunc{
 	routechecks.CheckGatewayMatchingProtocol,
 	routechecks.CheckGatewayRouteKindAllowed,
@@ -1764,6 +1800,10 @@ func (r *gatewayReconciler) runGatewayRouteChecks(ctx context.Context, input rou
 		return nil
 	}
 
+	if !r.checkRouteSupported(input, parent) {
+		return nil
+	}
+
 	setInitialRouteConditions(input, parent)
 
 	if err := runCheckFuncs(input, parent, gatewayCheckFuncs, "Gateway"); err != nil {
@@ -1790,6 +1830,10 @@ func (r *gatewayReconciler) runListenerSetRouteChecks(ctx context.Context, input
 
 	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(ctx, r.Client, r.controllerName, r.logger)
 	if !hasMatchingControllerFn(gw) {
+		return nil
+	}
+
+	if !r.checkRouteSupported(input, parent) {
 		return nil
 	}
 
@@ -2373,6 +2417,19 @@ func (r *gatewayReconciler) updateBackendTLSPolicyStatus(ctx context.Context, sc
 	}
 	scopedLog.Debug("BackendTLSPolicy status", backendTLSPolicy, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) listenerSupportedForIngestion(listener gatewayv1.Listener) bool {
+	// TCPRoute and UDPRoute rely on NodePort Services, which are incompatible
+	// with Envoy running in host networking mode.
+	if !r.hostNetworkEnabled {
+		return true
+	}
+	if isL4Protocol(listener.Protocol) {
+		return false
+	}
+
+	return true
 }
 
 func listenerOwnerNamespace(gw *gatewayv1.Gateway, listenerSource *model.FullyQualifiedResource) string {
