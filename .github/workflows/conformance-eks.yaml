@@ -499,9 +499,17 @@ jobs:
           # availability zone), to reflect the most common type of real deployments.
           NATIVE_CIDR=$(aws ec2 describe-subnets --region ${{ matrix.region }} \
             --filters Name=availability-zone,Values=${{ steps.vars.outputs.eks_zone_1 }} \
-                Name=tag:alpha.eksctl.io/cluster-name,Values=${{ steps.vars.outputs.cluster_name }} \
+                Name=tag:alpha.eksctl.io/cluster-name,Values=${{ steps.setup-cluster.outputs.cluster_name }} \
                 Name=map-public-ip-on-launch,Values=false \
             --query 'Subnets[*].CidrBlock' --output text)
+          # A pooled cluster is tagged with its real eksctl name, not the
+          # synthetic run name, so an empty result means the lookup missed and
+          # Cilium would silently fall back to the whole-VPC CIDR, disabling the
+          # masquerade this test relies on. Fail loudly instead.
+          if [ "$(echo "$NATIVE_CIDR" | wc -w)" -ne 1 ]; then
+            echo "::error::native routing CIDR lookup returned '$NATIVE_CIDR' (expected exactly one CIDR); masquerade would not engage"
+            exit 1
+          fi
           echo "ipv4_native_cidr=$NATIVE_CIDR" >> $GITHUB_OUTPUT
           echo "Native routing CIDR: $NATIVE_CIDR"
 
