@@ -10,8 +10,15 @@
 Ingress Example with TLS Termination
 ************************************
 
-This example builds on the HTTP and gRPC ingress examples, adding TLS
-termination.
+This example builds on the HTTP ingress example, adding TLS termination.
+
+.. Note::
+
+    Ingress TLS termination does not support ALPN negotiation, so gRPC
+    clients that enforce ALPN (as required by the gRPC spec) will fail to
+    connect. If you need to terminate TLS for gRPC traffic, use the
+    :ref:`gs_gateway_grpc` instead, which supports ALPN via the
+    ``gatewayAPI.enableAlpn`` Helm flag.
 
 .. literalinclude:: ../../../examples/kubernetes/servicemesh/tls-ingress.yaml
      :language: yaml
@@ -100,29 +107,11 @@ Make HTTPS Requests
         Specifying -v on the curl request, you can see that the TLS handshake took
         place successfully.
 
-        Similarly you can specify the CA on a gRPC request like this:
-
-        .. code-block:: shell-session
-
-            # Download demo.proto file if you have not done before
-            $ curl -o demo.proto https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/main/protos/demo.proto
-            $ grpcurl -proto ./demo.proto -cacert minica.pem hipstershop.cilium.rocks:443 hipstershop.ProductCatalogService/ListProducts
-
     .. group-tab:: cert-manager
 
         .. code-block:: shell-session
 
             $ curl https://bookinfo.cilium.rocks/details/1
-
-        Similarly you can specify the CA on a gRPC request like this:
-
-        .. code-block:: shell-session
-
-            grpcurl -proto ./demo.proto -cacert minica.pem hipstershop.cilium.rocks:443 hipstershop.ProductCatalogService/ListProducts
-
-.. Note::
-
-    See the gRPC Ingress example if you don't already have the ``demo.proto`` file downloaded.
 
 You can also visit https://bookinfo.cilium.rocks in your browser. The browser
 might warn you that the certificate authority is unknown but if you proceed past
