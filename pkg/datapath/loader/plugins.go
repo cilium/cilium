@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -37,8 +38,9 @@ import (
 )
 
 const (
-	bpfLoaderGCRetryInterval    = time.Minute
-	preHookDispatcherProgPrefix = "pre_dispatcher_"
+	bpfLoaderGCRetryInterval               = time.Minute
+	preHookDispatcherProgPrefix            = "pre_dispatcher_"
+	staticTailCallHookDispatcherProgPrefix = "tail_call_static_dispatcher_"
 )
 
 func linkToInterfaceInfo(l netlink.Link) *datapathplugins.AttachmentContext_InterfaceInfo {
@@ -348,10 +350,20 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 				continue
 			}
 
-			if h.Type != datapathplugins.HookType_PRE && h.Type != datapathplugins.HookType_POST {
+			if h.Type != datapathplugins.HookType_PRE && h.Type != datapathplugins.HookType_POST && h.Type != datapathplugins.HookType_TAIL_CALL {
 				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): invalid hook type %v", r.plugin.Name(), h.Type))
 
 				continue
+			}
+
+			if h.TailCallTarget != "" {
+				tgt, resolveErr := resolveTailCallTarget(spec, h)
+				if resolveErr != nil {
+					err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): \"%s\": %w", r.plugin.Name(), h.Target, resolveErr))
+
+					continue
+				}
+				hooksSpec.addTailCallTarget(ps.Name, r.plugin.Name(), tgt)
 			}
 
 			hooksSpec.hook(ps.Name, h.Type).addNode(r.plugin.Name())
@@ -407,11 +419,32 @@ func canInstrument(cs *ebpf.CollectionSpec, prog *ebpf.ProgramSpec, hookType dat
 		return fmt.Errorf("cannot instrument tail call programs with POST hooks; inside a PROG_ARRAY map, so we have to limit POST hook instrumentation to __section_entry programs.")
 	}
 
-	if hookType == datapathplugins.HookType_PRE && (bpf.IsTailCall(prog) || isPolicyProgram(prog.Name)) && bpf.CallsMapSpec(cs) == nil {
+	if (hookType == datapathplugins.HookType_TAIL_CALL ||
+		(hookType == datapathplugins.HookType_PRE && (bpf.IsTailCall(prog) || isPolicyProgram(prog.Name)))) && bpf.CallsMapSpec(cs) == nil {
 		return fmt.Errorf("cannot instrument with %s hooks: collection has no calls map to hold the dispatcher", hookType)
 	}
 
 	return nil
+}
+
+// resolveTailCallTarget resolves the tail_call_target of a TAIL_CALL hook to
+// the (calls map, slot) pair that static tail calls into it use.
+func resolveTailCallTarget(cs *ebpf.CollectionSpec, h *datapathplugins.PrepareCollectionResponse_HookSpec) (target, error) {
+	if h.Type != datapathplugins.HookType_TAIL_CALL {
+		return target{}, fmt.Errorf("tail_call_target is only supported on %s hooks, got %s", datapathplugins.HookType_TAIL_CALL, h.Type)
+	}
+
+	tp := cs.Programs[h.TailCallTarget]
+	if tp == nil {
+		return target{}, fmt.Errorf("tail_call_target \"%s\" does not exist in the collection spec", h.TailCallTarget)
+	}
+
+	slot, err := bpf.TailCallSlot(tp)
+	if err != nil {
+		return target{}, fmt.Errorf("tail_call_target \"%s\": %w", h.TailCallTarget, err)
+	}
+
+	return target{mapName: bpf.CallsMapSpec(cs).Name, slot: slot}, nil
 }
 
 func progID(p *ebpf.Program) (uint32, error) {
@@ -662,16 +695,45 @@ func postHookSubprogName(pluginName string) string {
 	return fmt.Sprintf("__post_hook_%s__", pluginName)
 }
 
+func staticTailCallHookSubprogName(pluginName string, origSlot uint32) string {
+	return fmt.Sprintf("__tail_call_hook_%s_to_%d__", pluginName, origSlot)
+}
+
 // hooksSpec tracks inter-plugin dependencies and applies them to instrument
 // programs in BPF collections with appropriate dispatchers.
 type hooksSpec struct {
 	hooks map[string]map[datapathplugins.HookType]*pluginDependencyGraph
+	// tailCallTargets maps source program -> plugin -> resolved tail_call_target
+	// filters for that plugin's TAIL_CALL hooks on the source program. A plugin
+	// without an entry is unfiltered and intercepts all outbound static tail calls.
+	// A plugin with an entry only intercepts tail calls into those targets, even
+	// if it also sent TAIL_CALL hooks without a tail_call_target for the source.
+	tailCallTargets map[string]map[string][]target
 }
 
 func newHooksSpec() *hooksSpec {
 	return &hooksSpec{
-		hooks: make(map[string]map[datapathplugins.HookType]*pluginDependencyGraph),
+		hooks:           make(map[string]map[datapathplugins.HookType]*pluginDependencyGraph),
+		tailCallTargets: make(map[string]map[string][]target),
 	}
+}
+
+// addTailCallTarget restricts plugin's TAIL_CALL hooks on src to tail calls
+// into tgt. Multiple targets for the same (src, plugin) are OR'd.
+func (hs *hooksSpec) addTailCallTarget(src, plugin string, tgt target) {
+	if hs.tailCallTargets[src] == nil {
+		hs.tailCallTargets[src] = make(map[string][]target)
+	}
+	if !slices.Contains(hs.tailCallTargets[src][plugin], tgt) {
+		hs.tailCallTargets[src][plugin] = append(hs.tailCallTargets[src][plugin], tgt)
+	}
+}
+
+// tailCallMatches reports whether plugin's TAIL_CALL hook on src should
+// intercept outbound tail calls into tgt.
+func (hs *hooksSpec) tailCallMatches(src, plugin string, tgt target) bool {
+	targets, filtered := hs.tailCallTargets[src][plugin]
+	return !filtered || slices.Contains(targets, tgt)
 }
 
 // hook returns the plugin dependency graph for the hook point indicated by
@@ -680,8 +742,9 @@ func newHooksSpec() *hooksSpec {
 func (hs *hooksSpec) hook(target string, hookType datapathplugins.HookType) *pluginDependencyGraph {
 	if hs.hooks[target] == nil {
 		hs.hooks[target] = map[datapathplugins.HookType]*pluginDependencyGraph{
-			datapathplugins.HookType_PRE:  {},
-			datapathplugins.HookType_POST: {},
+			datapathplugins.HookType_PRE:       {},
+			datapathplugins.HookType_POST:      {},
+			datapathplugins.HookType_TAIL_CALL: {},
 		}
 	}
 
@@ -722,7 +785,13 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, opts *bpf.Col
 
 			continue
 		}
-		if patchErr := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, hooks, hookSlots, opts, callsMap); patchErr != nil {
+		tailcalls, sortErr := hookTypes[datapathplugins.HookType_TAIL_CALL].sort()
+		if sortErr != nil {
+			err = errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_TAIL_CALL, sortErr))
+
+			continue
+		}
+		if patchErr := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, tailcalls, hooks, hookSlots, opts, callsMap); patchErr != nil {
 			err = errors.Join(err, fmt.Errorf("instrumenting %s: %w", hookTarget, patchErr))
 
 			continue
@@ -741,7 +810,11 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, opts *bpf.Col
 	return hooks, hookSlots, err
 }
 
-func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, tailcalls []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+	if err := hs.instrumentOutboundTailCalls(ps, pre, tailcalls, hooks, hookSlots, opts, callsMap); err != nil {
+		return err
+	}
+
 	if isPolicyProgram(ps.Name) {
 		return hs.instrumentPolicyProgram(ps, pre, hooks, hookSlots, opts, callsMap)
 	}
@@ -1063,6 +1136,198 @@ func buildPreHookDispatcher(ps *ebpf.ProgramSpec, mapName string, origSlot uint3
 	prog.Instructions = append(mainInsns, subprogInsns...)
 
 	return prog, nil
+}
+
+type target struct {
+	mapName string
+	slot    uint32
+}
+
+type tailCallSite struct {
+	insnIdx int
+	target  target
+}
+
+// instrumentOutboundTailCalls orchestrates outbound TAIL_CALL hooks on a source program:
+// 1. Scans the source program's instructions for outbound FnTailCall call sites.
+// 2. For each unique static target, allocates DispatcherSlot and PluginSlots in callsMap.
+// 3. Builds the Outbound Dispatcher, chaining only the plugins whose tail_call_target filter matches the target, and registers it in cs.Programs. Targets matched by no plugin are left unspliced.
+// 4. Populates req.Hooks and hookSlots for each TAIL_CALL plugin.
+// 5. Registers a program patch on the source program to splice tail calls to route to the dispatchers.
+func (hs *hooksSpec) instrumentOutboundTailCalls(ps *ebpf.ProgramSpec, pre []string, tail []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+	if len(tail) == 0 {
+		return nil
+	}
+
+	pluginSlots := make(map[string]uint32, len(tail))
+	firstPluginSlot := callsMap.MaxEntries
+	callsMap.MaxEntries += uint32(len(tail))
+	for idx, pluginName := range tail {
+		if hooks[pluginName] == nil {
+			hooks[pluginName] = &datapathplugins.InstrumentCollectionRequest{}
+		}
+		h := &datapathplugins.InstrumentCollectionRequest_Hook{
+			Type:   datapathplugins.HookType_TAIL_CALL,
+			Target: ps.Name,
+		}
+		hooks[pluginName].Hooks = append(hooks[pluginName].Hooks, h)
+		pluginSlots[pluginName] = firstPluginSlot + uint32(idx)
+		hookSlots[h] = pluginSlots[pluginName]
+	}
+
+	dispatcherSlots := make(map[target]uint32)
+	skipped := make(map[target]bool)
+	var calls []tailCallSite
+
+	err := forEachStaticTailCall(ps.Instructions, func(call tailCallSite) error {
+		if skipped[call.target] {
+			return nil
+		}
+		slot, exists := dispatcherSlots[call.target]
+		if !exists {
+			// Preserve the global hook order while dropping plugins whose
+			// tail_call_target filter does not match this target.
+			plugins := slices.DeleteFunc(slices.Clone(tail), func(pluginName string) bool {
+				return !hs.tailCallMatches(ps.Name, pluginName, call.target)
+			})
+			if len(plugins) == 0 {
+				skipped[call.target] = true
+				return nil
+			}
+
+			slot = callsMap.MaxEntries
+			callsMap.MaxEntries++
+
+			dispatcherProg, err := buildOutboundTailCallDispatcher(ps, callsMap.Name, call.target, slot, pluginSlots, plugins)
+			if err != nil {
+				return fmt.Errorf("building outbound dispatcher for %s to %s/%d: %w", ps.Name, call.target.mapName, call.target.slot, err)
+			}
+
+			opts.Keep.Insert(dispatcherProg.Name)
+			opts.CollectionPatches = append(opts.CollectionPatches, func(cs *ebpf.CollectionSpec) error {
+				cs.Programs[dispatcherProg.Name] = dispatcherProg
+				return nil
+			})
+			dispatcherSlots[call.target] = slot
+		}
+		calls = append(calls, call)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("instrumenting outbound tail calls in %s: %w", ps.Name, err)
+	}
+
+	if len(calls) == 0 {
+		return nil
+	}
+
+	targetName := ps.Name
+	if isPolicyProgram(ps.Name) && len(pre) > 0 {
+		targetName = "relocated_" + ps.Name
+	}
+
+	opts.ProgramPatches[targetName] = append(opts.ProgramPatches[targetName], func(insns asm.Instructions) (asm.Instructions, error) {
+		return spliceOutboundTailCalls(insns, callsMap.Name, calls, dispatcherSlots), nil
+	})
+
+	return nil
+}
+
+// buildOutboundTailCallDispatcher constructs the ebpf.ProgramSpec for an outbound static
+// tail-call dispatcher. When a program performs an outbound tail call: (1) The call site is
+// rewritten to tail-call dispatcherSlot instead, (2) the dispatcher sequentially invokes each
+// registered TAIL_CALL plugin hook via a subprogram wrapper, and concludes with a static tail
+// call to origSlot in targetMap.
+//
+//	int outbound_static_dispatcher_<target>_to_<origSlot>(void *ctx) {
+//	    int ret;
+//
+//	    ret = __tail_call_hook_plugin_a__(ctx);
+//	    if (ret != RET_PROCEED)
+//	        return ret;
+//	    ret = __tail_call_hook_plugin_b__(ctx);
+//	    if (ret != RET_PROCEED)
+//	        return ret;
+//	    ...
+//	    tail_call(ctx, &prog_array, ORIG_SLOT);
+//	    return CTX_ACT_DROP;
+//	}
+//
+//	static int __tail_call_hook_plugin_a__(void *ctx) {
+//	    tail_call(ctx, &prog_array, PLUGIN_A_SLOT);
+//	    return RET_PROCEED;
+//	}
+//
+//	static int __tail_call_hook_plugin_b__(void *ctx) {
+//	    tail_call(ctx, &prog_array, PLUGIN_B_SLOT);
+//	    return RET_PROCEED;
+//	}
+func buildOutboundTailCallDispatcher(ps *ebpf.ProgramSpec, mapName string, tgt target, dispatcherSlot uint32, pluginSlots map[string]uint32, plugins []string) (*ebpf.ProgramSpec, error) {
+	progName := fmt.Sprintf("%s%s_to_%s_%d", staticTailCallHookDispatcherProgPrefix, ps.Name, tgt.mapName, tgt.slot)
+
+	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
+	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
+	if !hasFuncProto {
+		return nil, fmt.Errorf("unable to extract function BTF info for target program")
+	}
+
+	var mainInsns asm.Instructions
+	mainInsns = append(mainInsns,
+		btf.WithFuncMetadata(
+			asm.Mov.Reg(asm.R6, asm.R1).WithSymbol(progName).WithSource(asm.Comment(progName)),
+			&btf.Func{
+				Name:    progName,
+				Linkage: btf.GlobalFunc,
+				Type:    funcProto,
+				Tags:    []string{fmt.Sprintf("tail:%s/%d", mapName, dispatcherSlot)},
+			},
+		),
+	)
+
+	var subprogInsns asm.Instructions
+	if len(plugins) > 0 {
+		// Sequentially invoke each registered TAIL_CALL plugin via a dedicated subprogram wrapper
+		for _, pluginName := range plugins {
+			subprogLabel := staticTailCallHookSubprogName(pluginName, tgt.slot)
+			pluginSlot := pluginSlots[pluginName]
+
+			mainInsns = append(mainInsns,
+				asm.Mov.Reg(asm.R1, asm.R6),
+				asm.Call.Label(subprogLabel),
+				asm.JNE.Imm32(asm.R0, retValProceed(ps), "return"),
+			)
+
+			subprogInsns = append(subprogInsns, emitWrappedTailCall(subprogLabel, mapName, pluginSlot, ps, funcProto)...)
+		}
+	}
+
+	// Final onward tail call (static immediate slot)
+	mainInsns = append(mainInsns,
+		asm.Mov.Reg(asm.R1, asm.R6),
+		asm.LoadMapPtr(asm.R2, 0).WithReference(tgt.mapName),
+		asm.Mov.Imm(asm.R3, int32(tgt.slot)),
+		asm.FnTailCall.Call(),
+
+		// Fallback if final tail call misses
+		asm.Mov.Imm(asm.R0, retValDrop(ps)),
+		asm.Return().WithSymbol("return"),
+	)
+
+	prog := ps.Copy()
+	prog.Name = progName
+	prog.SectionName = resolveSectionName(ps.Type)
+	prog.Instructions = append(mainInsns, subprogInsns...)
+
+	return prog, nil
+}
+
+func spliceOutboundTailCalls(insns asm.Instructions, callsMapName string, calls []tailCallSite, dispatcherSlots map[target]uint32) asm.Instructions {
+	for _, call := range calls {
+		slot := dispatcherSlots[call.target]
+		insns[call.insnIdx-1].Constant = int64(slot)
+		insns[call.insnIdx-2] = insns[call.insnIdx-2].WithReference(callsMapName)
+	}
+	return insns
 }
 
 // instrumentEntrypointProgram generates a program patcher that prepends a dispatcher that
@@ -1526,4 +1791,56 @@ func resolveSectionName(targetType ebpf.ProgramType) string {
 	default:
 		return "classifier/tail"
 	}
+}
+
+func forEachStaticTailCall(insns asm.Instructions, cb func(call tailCallSite) error) error {
+	const (
+		stateStart int = iota
+		stateR1Load
+		stateR2Load
+		stateR3Load
+	)
+	state := stateStart
+	var mapName string
+	var slot uint32
+
+	for i := range insns {
+		insn := &insns[i]
+
+		if insn.Dst == asm.R1 && (insn.OpCode.ALUOp() == asm.Mov || insn.OpCode.Class().IsLoad()) {
+			state = stateR1Load
+			continue
+		}
+
+		switch state {
+		case stateR1Load:
+			if insn.Dst == asm.R2 && insn.IsLoadFromMap() && insn.Reference() != "" {
+				mapName = insn.Reference()
+				state = stateR2Load
+				continue
+			}
+		case stateR2Load:
+			if insn.Dst == asm.R3 && insn.OpCode.ALUOp() == asm.Mov && insn.OpCode.Source() == asm.ImmSource {
+				slot = uint32(insn.Constant)
+				state = stateR3Load
+				continue
+			}
+		case stateR3Load:
+			if insn.IsBuiltinCall() && insn.Constant == int64(asm.FnTailCall) {
+				tgt := target{
+					mapName: mapName,
+					slot:    slot,
+				}
+				if err := cb(tailCallSite{insnIdx: i, target: tgt}); err != nil {
+					return err
+				}
+			}
+		}
+
+		state = stateStart
+		mapName = ""
+		slot = 0
+	}
+
+	return nil
 }
