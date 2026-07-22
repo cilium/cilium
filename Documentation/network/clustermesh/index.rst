@@ -20,6 +20,3 @@ Multi-cluster Networking
    load-balancing
    policy
    affinity
-   aks-clustermesh-prep
-   eks-clustermesh-prep
-   gke-clustermesh-prep
