@@ -107,7 +107,7 @@ spec:
   services:
     - name: echo
       namespace: test
-      cec: listener
+      listener: listener
       ports:
       - 80
   resources:
