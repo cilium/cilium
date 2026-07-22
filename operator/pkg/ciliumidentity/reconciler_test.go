@@ -6,13 +6,13 @@ package ciliumidentity
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -232,12 +232,8 @@ func TestReconcileCID(t *testing.T) {
 				t.Errorf("Unexpected error during reconciliation: %v", err)
 			}
 
-			if !reflect.DeepEqual(createCID, tc.expectedCreate) {
-				t.Errorf("Unexpected createCID result: got %v, want %v", createCID, tc.expectedCreate)
-			}
-			if !reflect.DeepEqual(updateCID, tc.expectedUpdate) {
-				t.Errorf("Unexpected updateCID result: got %v, want %v", updateCID, tc.expectedUpdate)
-			}
+			assert.Equal(t, tc.expectedCreate, createCID)
+			assert.Equal(t, tc.expectedUpdate, updateCID)
 			if deleteCIDName != tc.expectedDelete {
 				t.Errorf("Unexpected deleteCIDName result: got %v, want %v", deleteCIDName, tc.expectedDelete)
 			}

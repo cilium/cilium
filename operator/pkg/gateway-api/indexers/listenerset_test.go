@@ -4,9 +4,9 @@
 package indexers
 
 import (
-	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,9 +55,7 @@ func TestIndexListenerSetByGateway(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := IndexListenerSetByGateway(tt.obj)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("IndexListenerSetByGateway() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
