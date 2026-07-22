@@ -77,7 +77,7 @@ Cilium's Gateway API features:
    access-logs
    listenerset
 
-More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/|GATEWAY_API_VERSION|/examples/standard>`_.
+More examples can be found in the `upstream repository <GATEWAY_API_EXAMPLES_URL_>`_.
 
 Troubleshooting
 ###############
