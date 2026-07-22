@@ -77,7 +77,7 @@ repository in the Cilium project:
   metrics being added or extended.
 - `@cilium/release-managers <https://github.com/orgs/cilium/teams/release-managers>`__:
   Review files related to releases like AUTHORS and VERSION.
-- `@cilium/security <https://github.com/orgs/cilium/teams/security>`__:
+- `@cilium/security-cilium <https://github.com/orgs/cilium/teams/security-cilium>`__:
   Provide feedback on changes that could have security implications for Cilium,
   and maintain security-related documentation.
 - `@cilium/vendor <https://github.com/orgs/cilium/teams/vendor>`__:
