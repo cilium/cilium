@@ -37,6 +37,38 @@ func newWalker(baseDir, dbgDir string, output tarWriter, logger io.Writer) *walk
 	}
 }
 
+func (w *walker) tarEntryName(path string) string {
+	if w.baseDir != "" {
+		return filepath.Join(w.baseDir, strings.TrimPrefix(path, w.dbgDir))
+	}
+	return path
+}
+
+// writeEmptyFile writes a zero-length regular-file archive entry so the dump
+// still shows that the path existed even though its contents could not be collected.
+// If the collection failed, the original error is recorded in PAX headers so the
+// placeholder entry can be distinguished from a genuinely empty file.
+func (w *walker) writeEmptyFile(path string, info os.FileInfo, openErr error) {
+	header, err := tar.FileInfoHeader(info, "")
+	if err != nil {
+		fmt.Fprintf(w.log, "Failed to prepare empty file header for %s: %s\n", path, err)
+		return
+	}
+	header.Name = w.tarEntryName(path)
+	header.Typeflag = tar.TypeReg
+	header.Linkname = ""
+	header.Size = 0
+	if openErr != nil {
+		header.Format = tar.FormatPAX
+		header.PAXRecords = map[string]string{
+			"CILIUM.collection_error": openErr.Error(),
+		}
+	}
+	if err := w.output.WriteHeader(header); err != nil {
+		fmt.Fprintf(w.log, "Failed to write empty file header for %s: %s\n", path, err)
+	}
+}
+
 func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		fmt.Fprintf(w.log, "Error while walking path %s: %s", path, err)
@@ -50,8 +82,9 @@ func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 	file, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintf(w.log, "Failed to open %s: %s\n", path, err)
-		// TODO: Write an empty file here, just to hint that this file
-		// existed by there was some problem attempting to add it.
+		if !info.IsDir() {
+			w.writeEmptyFile(path, info, err)
+		}
 		return nil
 	}
 	defer file.Close()
@@ -78,9 +111,7 @@ func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 		return nil
 	}
 
-	if w.baseDir != "" {
-		header.Name = filepath.Join(w.baseDir, strings.TrimPrefix(path, w.dbgDir))
-	}
+	header.Name = w.tarEntryName(path)
 
 	if err := w.output.WriteHeader(header); err != nil {
 		fmt.Fprintf(w.log, "Failed to write header: %s\n", err)
