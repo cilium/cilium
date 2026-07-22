@@ -103,25 +103,25 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 			}
 
 			// With http, over port 80.
-			httpOpts := s.rc.CurlOptions(http, ipFam, client, ct.Params())
-			httpOpts = append(httpOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 			t.NewAction(s, fmt.Sprintf("http-to-%s-%s-%d", extTarget, ipFam, i), &client, http, ipFam).Run(func(a *check.Action) {
+				httpOpts := s.rc.CurlOptions(http, ipFam, client, ct.Params(), a.ExpectingSuccess())
+				httpOpts = append(httpOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 				a.ExecInPod(ctx, a.CurlCommand(http, httpOpts...))
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 			})
 
 			// With https, over port 443.
-			httpsOpts := s.rc.CurlOptions(https, ipFam, client, ct.Params())
-			httpsOpts = append(httpsOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 			t.NewAction(s, fmt.Sprintf("https-to-%s-%s-%d", extTarget, ipFam, i), &client, https, ipFam).Run(func(a *check.Action) {
+				httpsOpts := s.rc.CurlOptions(https, ipFam, client, ct.Params(), a.ExpectingSuccess())
+				httpsOpts = append(httpsOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 				a.ExecInPod(ctx, a.CurlCommand(https, httpsOpts...))
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 			})
 
 			// With https, over port 443, index.html.
-			httpsindexOpts := s.rc.CurlOptions(httpsindex, ipFam, client, ct.Params())
-			httpsindexOpts = append(httpsindexOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 			t.NewAction(s, fmt.Sprintf("https-to-%s-index-%s-%d", extTarget, ipFam, i), &client, httpsindex, ipFam).Run(func(a *check.Action) {
+				httpsindexOpts := s.rc.CurlOptions(httpsindex, ipFam, client, ct.Params(), a.ExpectingSuccess())
+				httpsindexOpts = append(httpsindexOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 				a.ExecInPod(ctx, a.CurlCommand(httpsindex, httpsindexOpts...))
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 			})

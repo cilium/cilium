@@ -71,8 +71,16 @@ type retryCondition struct {
 }
 
 // CurlOptions returns curl retry option or empty slice depending on retry conditions
-func (rc *retryCondition) CurlOptions(peer check.TestPeer, ipFam features.IPFamily, pod check.Pod, params check.Parameters) []string {
+func (rc *retryCondition) CurlOptions(peer check.TestPeer, ipFam features.IPFamily, pod check.Pod, params check.Parameters, expectSuccess bool) []string {
 	if params.Retry == 0 {
+		return []string{}
+	}
+	// Never retry an action that is expected to be dropped. curl cannot retry
+	// without waiting between attempts, so retrying a denied request just adds
+	// retry delay while it re-issues traffic meant to fail; the retry condition
+	// exists to paper over transient failures of the allowed requests, not the
+	// denied ones.
+	if !expectSuccess {
 		return []string{}
 	}
 	if !rc.all && rc.destIP == "" && rc.destPort == 0 {

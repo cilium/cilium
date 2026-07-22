@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/netip"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -164,8 +165,9 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 		ep := check.HTTPEndpointWithLabels(epName, url, echo.Labels())
 
 		t.NewAction(s, epName, client, ep, ipFam).Run(func(a *check.Action) {
-			curlOpts = append(curlOpts, s.retryCondition.CurlOptions(ep, ipFam, *client, ct.Params())...)
-			a.ExecInPod(ctx, a.CurlCommand(ep, curlOpts...))
+			opts := slices.Clone(curlOpts)
+			opts = append(opts, s.retryCondition.CurlOptions(ep, ipFam, *client, ct.Params(), a.ExpectingSuccess())...)
+			a.ExecInPod(ctx, a.CurlCommand(ep, opts...))
 
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 			a.ValidateFlows(ctx, ep, a.GetIngressRequirements(check.FlowParameters{}))
@@ -178,8 +180,8 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 			labels["X-Very-Secret-Token"] = "42"
 			ep = check.HTTPEndpointWithLabels(epName, url, labels)
 			t.NewAction(s, epName, client, ep, ipFam).Run(func(a *check.Action) {
-				opts := make([]string, 0, len(curlOpts)+2)
-				opts = append(opts, curlOpts...)
+				opts := slices.Clone(curlOpts)
+				opts = append(opts, s.retryCondition.CurlOptions(ep, ipFam, *client, ct.Params(), a.ExpectingSuccess())...)
 				opts = append(opts, "-H", "X-Very-Secret-Token: 42")
 
 				a.ExecInPod(ctx, a.CurlCommand(ep, opts...))

@@ -1197,14 +1197,16 @@ func (a *Action) validateMetric(ctx context.Context, node string, result Metrics
 	}
 }
 
-func (a *Action) expectingSuccess() bool {
+// ExpectingSuccess reports whether the action's registered expectation is a
+// successful command (exit code 0), as opposed to an expected drop.
+func (a *Action) ExpectingSuccess() bool {
 	return a.expectedExitCode() == ExitCode(0)
 }
 
 func (a *Action) CurlCommandWithOutput(peer TestPeer, opts ...string) []string {
-	return a.test.ctx.CurlCommandWithOutput(peer, a.IPFamily(), a.expectingSuccess(), opts)
+	return a.test.ctx.CurlCommandWithOutput(peer, a.IPFamily(), a.ExpectingSuccess(), opts)
 }
 
 func (a *Action) CurlCommand(peer TestPeer, opts ...string) []string {
-	return a.test.ctx.CurlCommand(peer, a.IPFamily(), a.expectingSuccess(), opts)
+	return a.test.ctx.CurlCommand(peer, a.IPFamily(), a.ExpectingSuccess(), opts)
 }
