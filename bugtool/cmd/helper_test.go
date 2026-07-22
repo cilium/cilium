@@ -30,6 +30,22 @@ func (t *dummyTarWriter) WriteHeader(h *tar.Header) error {
 	return nil
 }
 
+type capturingTarWriter struct {
+	headers []*tar.Header
+	content []byte
+}
+
+func (t *capturingTarWriter) Write(p []byte) (n int, err error) {
+	t.content = append(t.content, p...)
+	return len(p), nil
+}
+
+func (t *capturingTarWriter) WriteHeader(h *tar.Header) error {
+	copied := *h
+	t.headers = append(t.headers, &copied)
+	return nil
+}
+
 type logWrapper struct {
 	logf func(format string, args ...any)
 }
@@ -69,6 +85,7 @@ func TestWalkPath(t *testing.T) {
 	// With real file
 	realFile, err := os.CreateTemp(baseDir, "test")
 	require.NoError(t, err)
+	require.NoError(t, realFile.Close())
 	info, err = os.Stat(realFile.Name())
 	require.NoError(t, err)
 	err = w.walkPath(realFile.Name(), info, nil)
@@ -90,6 +107,30 @@ func TestWalkPath(t *testing.T) {
 	require.NoError(t, err)
 	err = w.walkPath(nestedDir, info, nil)
 	require.NoError(t, err)
+}
+
+func TestWalkPathOpenFailureWritesEmptyFile(t *testing.T) {
+	baseDir, tmpDir := t.TempDir(), t.TempDir()
+
+	// Broken symlink: Lstat succeeds so the path appears in the walk, but Open fails.
+	brokenLink := filepath.Join(baseDir, "broken_link")
+	require.NoError(t, os.Symlink("doesnotexist", brokenLink))
+	info, err := os.Lstat(brokenLink)
+	require.NoError(t, err)
+
+	capture := &capturingTarWriter{}
+	w := newWalker(baseDir, tmpDir, capture, &logWrapper{t.Logf})
+	require.NoError(t, w.walkPath(brokenLink, info, nil))
+
+	require.Len(t, capture.headers, 1)
+	require.Equal(t, w.tarEntryName(brokenLink), capture.headers[0].Name)
+	require.Equal(t, byte(tar.TypeReg), capture.headers[0].Typeflag)
+	require.Empty(t, capture.headers[0].Linkname)
+	require.Equal(t, int64(0), capture.headers[0].Size)
+	require.Equal(t, tar.FormatPAX, capture.headers[0].Format)
+	require.Contains(t, capture.headers[0].PAXRecords, "CILIUM.collection_error")
+	require.NotEmpty(t, capture.headers[0].PAXRecords["CILIUM.collection_error"])
+	require.Empty(t, capture.content)
 }
 
 // TestHashEncryptionKeys tests proper hashing of keys. Lines in which `auth` or
