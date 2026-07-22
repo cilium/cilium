@@ -160,6 +160,7 @@ jobs:
         id: run-tests
         run: |
           make run_bpf_tests \
+              -j "$(nproc)" \
               LOG_CODEOWNERS=1 \
               JUNIT_PATH="test/${{ env.job_name }}.xml" \
           || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
