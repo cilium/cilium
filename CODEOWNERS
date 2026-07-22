@@ -74,7 +74,7 @@
 #   metrics being added or extended.
 # - @cilium/release-managers:
 #   Review files related to releases like AUTHORS and VERSION.
-# - @cilium/security:
+# - @cilium/security-cilium:
 #   Provide feedback on changes that could have security implications for Cilium,
 #   and maintain security-related documentation.
 # - @cilium/vendor:
@@ -483,7 +483,7 @@ Makefile* @cilium/build
 /Documentation/overview/intro.rst @cilium/docs-structure
 /Documentation/requirements.txt @cilium/docs-structure
 /Documentation/security/http.rst @cilium/sig-policy @cilium/docs-structure
-/Documentation/security/images/cilium_threat_model* @cilium/security @cilium/docs-structure
+/Documentation/security/images/cilium_threat_model* @cilium/security-cilium @cilium/docs-structure
 /Documentation/security/network/encryption-ipsec.rst @cilium/ipsec @cilium/docs-structure
 /Documentation/security/network/encryption-wireguard.rst @cilium/wireguard @cilium/docs-structure
 /Documentation/security/network/encryption-ztunnel.rst @cilium/ztunnel @cilium/docs-structure
@@ -491,7 +491,7 @@ Makefile* @cilium/build
 /Documentation/security/policy-creation.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/policy/ @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/standalone-dns-proxy.rst @cilium/fqdn @cilium/docs-structure
-/Documentation/security/threat-model.rst @cilium/security @cilium/docs-structure
+/Documentation/security/threat-model.rst @cilium/security-cilium @cilium/docs-structure
 /Documentation/spelling_wordlist.txt @cilium/docs-structure
 /Documentation/update-cmdref.sh @cilium/docs-structure
 /Documentation/update-feature-metrics.sh @cilium/docs-structure
@@ -721,7 +721,7 @@ Makefile* @cilium/build
 /plugins/cilium-cni/ @cilium/sig-k8s
 /README.rst @cilium/docs-structure @cilium/release-managers
 /SECURITY.md @cilium/contributing
-/SECURITY-INSIGHTS.yml @cilium/security
+/SECURITY-INSIGHTS.yml @cilium/security-cilium
 /stable.txt @cilium/release-managers
 /standalone-dns-proxy/ @cilium/fqdn
 /standalone-dns-proxy/Makefile @cilium/build
