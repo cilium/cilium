@@ -6,12 +6,12 @@ package spire
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -522,13 +522,11 @@ func Test_resolvedK8sService(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := resolvedK8sService(t.Context(), tt.args.client, tt.args.address)
-			if tt.wantedErr != nil && (err == nil || !reflect.DeepEqual(err.Error(), tt.wantedErr.Error())) {
+			if tt.wantedErr != nil && (err == nil || err.Error() != tt.wantedErr.Error()) {
 				t.Errorf("resolvedK8sService() error = %v, wantErr %v", err, tt.wantedErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("resolvedK8sService() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
