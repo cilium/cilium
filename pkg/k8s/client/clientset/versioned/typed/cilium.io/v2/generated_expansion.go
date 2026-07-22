@@ -38,5 +38,3 @@ type CiliumNetworkPolicyExpansion interface{}
 type CiliumNodeExpansion interface{}
 
 type CiliumNodeConfigExpansion interface{}
-
-type CiliumPodIPPoolExpansion interface{}
