@@ -564,7 +564,7 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 			baseSpec, err := testprogs.LoadPluginsBase()
 			require.NoError(t, err)
 			opts := &bpf.CollectionOptions{}
-			instrumentCollectionRequests, err := hooksSpec.instrumentCollection(baseSpec, opts)
+			instrumentCollectionRequests, _, err := hooksSpec.instrumentCollection(baseSpec, opts)
 			require.NoError(t, err)
 			for program, patch := range opts.ProgramPatches {
 				baseSpec.Programs[program].Instructions, err = patch(baseSpec.Programs[program].Instructions)
