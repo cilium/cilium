@@ -81,7 +81,7 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if gi, ok := val.(*key.GlobalIdentity); ok {
-				identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray())
+				identity := identity.NewIdentity(identity.NumericIdentity(id), gi.Labels())
 				identities = append(identities, identitymodel.CreateModel(identity))
 			}
 
@@ -285,7 +285,7 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 	}
 
 	if gi, ok := allocatorKey.(*key.GlobalIdentity); ok {
-		return identity.NewIdentityFromLabelArray(id, gi.LabelArray())
+		return identity.NewIdentity(id, gi.Labels())
 	}
 
 	return nil

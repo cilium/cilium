@@ -22,7 +22,7 @@ var _ allocator.AllocatorKey = (*GlobalIdentity)(nil)
 
 // GlobalIdentity is the structure used to store an identity
 type GlobalIdentity struct {
-	lbls labels.LabelArray
+	lbls labels.Labels
 
 	// metadata contains metadata that are stored for example by the backends.
 	metadata map[any]any
@@ -31,14 +31,15 @@ type GlobalIdentity struct {
 func NewGlobalIdentity(lbls labels.Labels) *GlobalIdentity {
 	return &GlobalIdentity{
 		metadata: map[any]any{},
-		lbls:     lbls.LabelArray(),
+		lbls:     lbls,
 	}
 }
 
 // GetKey encodes an Identity as string
 func (gi *GlobalIdentity) GetKey() string {
 	var str strings.Builder
-	for _, l := range gi.lbls {
+	// This must be a sorted label array
+	for _, l := range gi.lbls.LabelArray() {
 		str.Write(l.FormatForKVStore())
 	}
 	return str.String()
@@ -52,7 +53,7 @@ func (gi *GlobalIdentity) GetAsMap() map[string]string {
 
 // PutKey decodes an Identity from its string representation
 func (gi *GlobalIdentity) PutKey(v string) allocator.AllocatorKey {
-	return &GlobalIdentity{lbls: labels.NewLabelArrayFromSortedList(v)}
+	return &GlobalIdentity{lbls: labels.NewLabelsFromSortedList(v)}
 }
 
 // PutKeyFromMap decodes an Identity from a map of key to value. Output
@@ -60,19 +61,15 @@ func (gi *GlobalIdentity) PutKey(v string) allocator.AllocatorKey {
 // Note: NewLabelArrayFromMap will parse the ':' separated label source from
 // the keys because the source parameter is ""
 func (gi *GlobalIdentity) PutKeyFromMap(v map[string]string) allocator.AllocatorKey {
-	return &GlobalIdentity{lbls: labels.Map2Labels(v, "").LabelArray()}
+	return &GlobalIdentity{lbls: labels.Map2Labels(v, "")}
 }
 
 func (gi *GlobalIdentity) String() string {
 	return gi.lbls.String()
 }
 
-func (gi *GlobalIdentity) LabelArray() labels.LabelArray {
-	return gi.lbls
-}
-
 func (gi *GlobalIdentity) Labels() labels.Labels {
-	return gi.lbls.Labels()
+	return gi.lbls
 }
 
 func (gi *GlobalIdentity) Equals(other *GlobalIdentity) bool {
@@ -101,5 +98,5 @@ func (gi *GlobalIdentity) Value(key any) any {
 func GetCIDKeyFromLabels(allLabels map[string]string, source string) *GlobalIdentity {
 	lbs := labels.Map2Labels(allLabels, source)
 	idLabels, _ := labelsfilter.Filter(lbs)
-	return &GlobalIdentity{lbls: idLabels.LabelArray()}
+	return &GlobalIdentity{lbls: idLabels}
 }

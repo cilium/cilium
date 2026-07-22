@@ -1052,7 +1052,7 @@ func clusterNameValidator(clusterName string) allocator.CacheValidator {
 		}
 
 		var found bool
-		for _, lbl := range gi.LabelArray() {
+		for _, lbl := range gi.Labels() {
 			if lbl.Key != api.PolicyLabelCluster {
 				continue
 			}
