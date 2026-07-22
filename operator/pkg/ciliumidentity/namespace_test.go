@@ -4,8 +4,9 @@
 package ciliumidentity
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -64,9 +65,7 @@ func TestGetNamespaceLabels(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			result := getNamespaceLabels(tc.namespace)
 
-			if !reflect.DeepEqual(result, tc.expected) {
-				t.Errorf("Expected %v, but got %v", tc.expected, result)
-			}
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
