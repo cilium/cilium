@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -55,6 +56,17 @@ var (
 	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
 )
 
+type syncWriter struct {
+	mu *sync.Mutex
+	w  io.Writer
+}
+
+func (s *syncWriter) Write(p []byte) (n int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.w.Write(p)
+}
+
 type testLogWriter struct {
 	t *testing.T
 }
@@ -81,17 +93,21 @@ func TestBPF(t *testing.T) {
 		t.Fatal("os readdir: ", err)
 	}
 
-	var instrLog io.Writer
+	var (
+		instrLogMu sync.Mutex
+		instrLog   io.Writer
+		profileMu  sync.Mutex
+	)
 	if *testInstrumentationLog != "" {
 		instrLogFile, err := os.Create(*testInstrumentationLog)
 		if err != nil {
 			t.Fatal("os create instrumentation log: ", err)
 		}
-		defer instrLogFile.Close()
+		t.Cleanup(func() { instrLogFile.Close() })
 
 		buf := bufio.NewWriter(instrLogFile)
-		instrLog = buf
-		defer buf.Flush()
+		instrLog = &syncWriter{w: buf, mu: &instrLogMu}
+		t.Cleanup(func() { buf.Flush() })
 	}
 
 	mergedProfiles := make([]*cover.Profile, 0)
@@ -110,12 +126,17 @@ func TestBPF(t *testing.T) {
 		}
 
 		t.Run(entry.Name(), func(t *testing.T) {
+			t.Parallel()
 			testNetNS := netns.NewNetNS(t)
 			profiles := loadAndRunSpec(t, entry, instrLog, testNetNS)
-			for _, profile := range profiles {
-				if len(profile.Blocks) > 0 {
-					mergedProfiles = addProfile(mergedProfiles, profile)
+			if len(profiles) > 0 {
+				profileMu.Lock()
+				for _, profile := range profiles {
+					if len(profile.Blocks) > 0 {
+						mergedProfiles = addProfile(mergedProfiles, profile)
+					}
 				}
+				profileMu.Unlock()
 			}
 			if err := testNetNS.Close(); err != nil {
 				t.Fatal("netns close: ", err)
@@ -130,22 +151,24 @@ func TestBPF(t *testing.T) {
 	}
 
 	if *testCoverageReport != "" {
-		coverReport, err := os.Create(*testCoverageReport)
-		if err != nil {
-			t.Fatalf("create coverage report: %s", err.Error())
-		}
-		defer coverReport.Close()
-
-		switch *testCoverageFormat {
-		case "html":
-			if err = coverbee.HTMLOutput(mergedProfiles, coverReport); err != nil {
-				t.Fatalf("create HTML coverage report: %s", err.Error())
+		t.Cleanup(func() {
+			coverReport, err := os.Create(*testCoverageReport)
+			if err != nil {
+				t.Fatalf("create coverage report: %s", err.Error())
 			}
-		case "go-cover", "cover":
-			coverbee.ProfilesToGoCover(mergedProfiles, coverReport, "count")
-		default:
-			t.Fatal("unknown output format")
-		}
+			defer coverReport.Close()
+
+			switch *testCoverageFormat {
+			case "html":
+				if err = coverbee.HTMLOutput(mergedProfiles, coverReport); err != nil {
+					t.Fatalf("create HTML coverage report: %s", err.Error())
+				}
+			case "go-cover", "cover":
+				coverbee.ProfilesToGoCover(mergedProfiles, coverReport, "count")
+			default:
+				t.Fatal("unknown output format")
+			}
+		})
 	}
 }
 
@@ -153,8 +176,10 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNet
 	logger := hivetest.Logger(t)
 	elfPath := path.Join(*testPath, entry.Name())
 
+	// Buffer instrumentation logs per subtest to prevent interleaved output when running tests in parallel.
+	localBuf := new(bytes.Buffer)
 	if instrLog != nil {
-		fmt.Fprintln(instrLog, "===", elfPath, "===")
+		fmt.Fprintln(localBuf, "===", elfPath, "===")
 	}
 
 	spec := loadAndPrepSpec(t, elfPath)
@@ -186,7 +211,11 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNet
 	if !collectCoverage {
 		coll, _, err = bpf.LoadCollection(logger, spec, nil)
 	} else {
-		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{}, instrLog)
+		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{}, localBuf)
+	}
+
+	if instrLog != nil && localBuf.Len() > 0 {
+		instrLog.Write(localBuf.Bytes())
 	}
 
 	var ve *ebpf.VerifierError
