@@ -59,9 +59,6 @@ func TestGetCIDKeyFromLabels(t *testing.T) {
 				t.Fatalf("Expected a GlobalIdentity result, but got nil")
 			}
 
-			result.lbls.Sort()
-			tt.expected.lbls.Sort()
-
 			if !tt.expected.Equals(result) {
 				t.Errorf("Unexpected result:\nGot: %v\nExpected: %v", result.lbls, tt.expected.lbls)
 			}

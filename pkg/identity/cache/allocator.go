@@ -1056,24 +1056,16 @@ func clusterNameValidator(clusterName string) allocator.CacheValidator {
 			return fmt.Errorf("unsupported key type %T", ak)
 		}
 
-		var found bool
-		for _, lbl := range gi.LabelArray() {
-			if lbl.Key != api.PolicyLabelCluster {
-				continue
-			}
+		lbl, found := gi.Labels()[api.PolicyLabelCluster]
 
-			switch {
-			case lbl.Source != labels.LabelSourceK8s:
-				return fmt.Errorf("unexpected source for cluster label: got %s, expected %s", lbl.Source, labels.LabelSourceK8s)
-			case lbl.Value != clusterName:
-				return fmt.Errorf("unexpected cluster name: got %s, expected %s", lbl.Value, clusterName)
-			default:
-				found = true
-			}
-		}
-
-		if !found {
+		switch {
+		case !found:
 			return fmt.Errorf("could not find expected label %s", api.PolicyLabelCluster)
+		case lbl.Source != labels.LabelSourceK8s:
+			return fmt.Errorf("unexpected source for cluster label: got %s, expected %s", lbl.Source, labels.LabelSourceK8s)
+		case lbl.Value != clusterName:
+			return fmt.Errorf("unexpected cluster name: got %s, expected %s", lbl.Value, clusterName)
+
 		}
 
 		return nil

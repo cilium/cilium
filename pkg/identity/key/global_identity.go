@@ -5,7 +5,6 @@ package key
 
 import (
 	"maps"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/labelsfilter"
 
@@ -22,7 +21,7 @@ var _ allocator.AllocatorKey = (*GlobalIdentity)(nil)
 
 // GlobalIdentity is the structure used to store an identity
 type GlobalIdentity struct {
-	lbls labels.LabelArray
+	lbls labels.Labels
 
 	// metadata contains metadata that are stored for example by the backends.
 	metadata map[any]any
@@ -30,17 +29,16 @@ type GlobalIdentity struct {
 
 func NewGlobalIdentity(lbls labels.Labels) *GlobalIdentity {
 	return &GlobalIdentity{
-		lbls: lbls.LabelArray(),
+		lbls: lbls,
 	}
 }
 
 // GetKey encodes an Identity as string
 func (gi *GlobalIdentity) GetKey() string {
-	var str strings.Builder
-	for _, l := range gi.lbls {
-		str.Write(l.FormatForKVStore())
+	if gi == nil {
+		return ""
 	}
-	return str.String()
+	return string(gi.lbls.SortedList())
 }
 
 // GetAsMap encodes a GlobalIdentity a map of keys to values. The keys will
@@ -69,12 +67,8 @@ func (gi *GlobalIdentity) String() string {
 	return gi.lbls.String()
 }
 
-func (gi *GlobalIdentity) LabelArray() labels.LabelArray {
-	return gi.lbls
-}
-
 func (gi *GlobalIdentity) Labels() labels.Labels {
-	return gi.lbls.Labels()
+	return gi.lbls
 }
 
 func (gi *GlobalIdentity) Equals(other *GlobalIdentity) bool {
