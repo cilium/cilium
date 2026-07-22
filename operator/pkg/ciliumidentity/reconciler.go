@@ -173,7 +173,7 @@ func (r *reconciler) reconcileCID(cidResourceKey resource.Key) error {
 	}
 
 	storeCIDKey := key.GetCIDKeyFromLabels(storeCID.SecurityLabels, "")
-	if cidKey.Equals(storeCIDKey.LabelArray) {
+	if cidKey.Equals(storeCIDKey) {
 		return nil
 	}
 
@@ -231,7 +231,7 @@ func (r *reconciler) upsertDesiredState(cidName string, cidKey *key.GlobalIdenti
 	}
 
 	cachedCIDKey, exists := r.desiredCIDState.LookupByID(cidName)
-	if exists && cidKey.Equals(cachedCIDKey.LabelArray) {
+	if exists && cidKey.Equals(cachedCIDKey) {
 		return nil
 	}
 
@@ -412,7 +412,7 @@ func namedPortLabelsFromCID(cid *cilium_api_v2.CiliumIdentity) labels.LabelArray
 	}
 
 	var namedPortLabels labels.LabelArray
-	for _, lbl := range key.GetCIDKeyFromLabels(cid.SecurityLabels, "").LabelArray {
+	for _, lbl := range key.GetCIDKeyFromLabels(cid.SecurityLabels, "").Labels() {
 		if lbl.Source == labels.LabelSourceGenerated && ciliumio.IsNamedPortsIdentityLabelName(lbl.Key) {
 			namedPortLabels = append(namedPortLabels, lbl)
 		}
@@ -443,7 +443,7 @@ func GetCIDKeyForPod(logger *slog.Logger, pod *slim_corev1.Pod, nsStore resource
 		}
 	}
 	idLabels, _ := labelsfilter.Filter(lbs)
-	return &key.GlobalIdentity{LabelArray: idLabels.LabelArray()}, nil
+	return key.NewGlobalIdentity(idLabels.LabelArray()), nil
 }
 
 func getNamespace(namespace string, nsStore resource.Store[*slim_corev1.Namespace]) (*slim_corev1.Namespace, error) {
