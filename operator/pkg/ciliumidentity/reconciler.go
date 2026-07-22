@@ -443,7 +443,7 @@ func GetCIDKeyForPod(logger *slog.Logger, pod *slim_corev1.Pod, nsStore resource
 		}
 	}
 	idLabels, _ := labelsfilter.Filter(lbs)
-	return key.NewGlobalIdentity(idLabels.LabelArray()), nil
+	return key.NewGlobalIdentity(idLabels), nil
 }
 
 func getNamespace(namespace string, nsStore resource.Store[*slim_corev1.Namespace]) (*slim_corev1.Namespace, error) {
