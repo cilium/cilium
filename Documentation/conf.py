@@ -96,6 +96,10 @@ image_tag = 'v' + release
 
 # The upstream Gateway API version referenced across the documentation.
 gateway_api_version = 'v1.6.1'
+gateway_api_raw_base_url = (
+    'https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/' +
+    gateway_api_version
+)
 
 # Fetch the docs version from an environment variable.
 # Map latest -> main.
@@ -148,7 +152,8 @@ rst_epilog = """
 .. |GO_RELEASE| replace:: \\{g}
 .. |IMAGE_TAG| replace:: \\{i}
 .. |GATEWAY_API_VERSION| replace:: \\{gav}
-""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release, i=image_tag, v=chart_version, gav=gateway_api_version)
+.. |GATEWAY_API_RAW_BASE_URL| replace:: \\{grbu}
+""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release, i=image_tag, v=chart_version, gav=gateway_api_version, grbu=gateway_api_raw_base_url)
 
 # Make Slack link globally available.
 rst_epilog += """
