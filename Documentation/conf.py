@@ -94,6 +94,9 @@ go_release = [line.rstrip()[len("go "):]
 # The image tag for Cilium docker images
 image_tag = 'v' + release
 
+# The upstream Gateway API version referenced across the documentation.
+gateway_api_version = 'v1.6.1'
+
 # Fetch the docs version from an environment variable.
 # Map latest -> main.
 # Map stable -> current version number.
@@ -144,7 +147,8 @@ rst_epilog = """
 .. |CHART_VERSION| replace:: \\{v}
 .. |GO_RELEASE| replace:: \\{g}
 .. |IMAGE_TAG| replace:: \\{i}
-""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release, i=image_tag, v=chart_version)
+.. |GATEWAY_API_VERSION| replace:: \\{gav}
+""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release, i=image_tag, v=chart_version, gav=gateway_api_version)
 
 # Make Slack link globally available.
 rst_epilog += """
