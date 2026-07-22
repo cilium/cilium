@@ -11,11 +11,11 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"maps"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -293,7 +293,7 @@ func testMetric(metrics []models.Metric, name string, value float64, labels map[
 			if metric.Value != value {
 				return fmt.Errorf("expected value %f for %q, got %f", value, name, metric.Value)
 			}
-			if !reflect.DeepEqual(metric.Labels, labels) {
+			if !maps.Equal(metric.Labels, labels) {
 				return fmt.Errorf("expected labels map %v for %q, got %v", labels, name, metric.Labels)
 			}
 			return nil
