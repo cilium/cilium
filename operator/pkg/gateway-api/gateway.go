@@ -40,19 +40,21 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger         *slog.Logger
-	controllerName string
+	logger             *slog.Logger
+	controllerName     string
+	hostNetworkEnabled bool
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
-		Client:         mgr.GetClient(),
-		Scheme:         mgr.GetScheme(),
-		translator:     translator,
-		logger:         scopedLog,
-		controllerName: controllerName,
+		Client:             mgr.GetClient(),
+		Scheme:             mgr.GetScheme(),
+		translator:         translator,
+		logger:             scopedLog,
+		controllerName:     controllerName,
+		hostNetworkEnabled: hostNetworkEnabled,
 	}
 }
 

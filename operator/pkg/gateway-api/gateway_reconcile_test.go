@@ -337,6 +337,10 @@ func Test_Conformance(t *testing.T) {
 		{name: "gatewayclassconfig-nodeport", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "nodeport-gateway", Namespace: "gateway-conformance-infra"}}}},
 		{name: "hostNetwork-enabled-valid", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-exceed-max-address", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
+		{name: "hostNetwork-enabled-no-l4-listeners", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
+		{name: "hostNetwork-enabled-mixed-routes", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
+		{name: "hostNetwork-enabled-tcp-route", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}, wantErr: true, skipCEC: true}}, hostNetwork: true},
+		{name: "hostNetwork-enabled-udp-route", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}, wantErr: true, skipCEC: true}}, hostNetwork: true},
 		// ListenerSet tests
 		{name: "listenerset-default-not-allowed", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "default-not-allowed", Namespace: "gateway-conformance-infra"}},
@@ -445,10 +449,11 @@ func Test_Conformance(t *testing.T) {
 			})
 
 			r := &gatewayReconciler{
-				Client:         c,
-				translator:     gatewayAPITranslator,
-				logger:         logger,
-				controllerName: defaultControllerName,
+				Client:             c,
+				translator:         gatewayAPITranslator,
+				logger:             logger,
+				controllerName:     defaultControllerName,
+				hostNetworkEnabled: tt.hostNetwork,
 			}
 
 			// Reconcile all related HTTPRoute objects

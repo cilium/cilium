@@ -1,0 +1,38 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: host-networking
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: tcp
+      port: 22
+      protocol: TCP
+status:
+  conditions:
+    - message: No Accepted Listeners
+      reason: ListenersNotValid
+      status: "False"
+      type: Accepted
+      lastTransitionTime: "2026-02-28T00:00:00Z"
+    - message: No Accepted Listeners
+      reason: ListenersNotValid
+      status: "False"
+      type: Programmed
+      lastTransitionTime: "2026-02-28T00:00:00Z"
+  listeners:
+    - attachedRoutes: 0
+      conditions:
+        - message: Listener not valid. TCP listeners are not supported when Gateway API Host Network mode is enabled
+          reason: UnsupportedProtocol
+          status: "False"
+          type: Accepted
+          lastTransitionTime: "2026-02-28T00:00:00Z"
+        - message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+          lastTransitionTime: "2026-02-28T00:00:00Z"
+      name: tcp
