@@ -30,6 +30,22 @@ Prerequisites
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_backendtlspolicies.yaml
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/standard/gateway.networking.k8s.io_tlsroutes.yaml
 
+
+    .. warning::
+
+      If you have used the ``TLSRoute`` resource in releases before Cilium v1.20, you should install the Experimental version of the TLSRoute resource instead.
+
+      If you install the Standard version, *all your TLSRoutes will not be readable*.
+
+      The Standard version of the ``TLSRoute`` resource in Gateway API v1.6 does *not* include the ``v1alpha2`` version that TLSRoute previously used, which
+      means that the apiserver cannot read the records in etcd.
+
+      Install the experimental version with:
+
+      .. code-block:: shell-session
+
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.1/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+
   If you wish to use the ListenerSet, TCPRoute, or UDPRoute functionality, you
   also need to install the related CRDs. For each CRD that is not installed,
   Cilium will disable support for the feature.

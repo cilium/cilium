@@ -26,6 +26,21 @@ notes carefully below to understand what to do during upgrade.
 * Cilium updated to use CNI standard ``v1.0.0`` by default. If you use custom
   CNI configuration, consider updating the version requested in your CNI
   config to version ``1.0.0``.
+* Cilium's Gateway API support now requires Gateway API v1.6.1 at a minimum to work correctly.
+
+  This is because the ``TLSRoute`` resource has been upgraded from ``v1alpha2`` to ``v1``
+  support in Gateway API v1.6.1, and your cluster must support the ``v1`` version at all times.
+
+  As a result, if you were previously using ``TLSRoute``, you *must* install the Experimental
+  version of the ``TLSRoute`` resource from Gateway API v1.6.1, which still includes the ``v1alpha2``
+  version of the CRD.
+  
+  If you install the v1.6 Standard version of the ``TLSRoute`` resource,
+  any existing ``TLSRoute`` objects *will not be able to be read by the apiserver from etcd*,
+  and will effectively *disappear* from your cluster.
+  
+  Please backup your ``TLSRoute`` resources and ensure that Gateway API is upgraded to v1.6.1 before
+  upgrading Cilium to v1.20. See :ref:`gs_gateway_api` for installation instructions.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
