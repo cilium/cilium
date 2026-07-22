@@ -2145,6 +2145,26 @@ func (m *manager) addCiliumENIRules() error {
 			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
 			return err
 		}
+		// WIP: a reply coming from a local pod on a connection that was
+		// source-NATed is a NodePort/LB hairpin reply that kube-proxy will
+		// un-masquerade back to the node IP. Its egress route lookup happens
+		// while it still carries the pod source IP, so the per-endpoint rule
+		// (from <podIP> lookup <secondary-ENI table>) sends it out a secondary
+		// ENI while it leaves carrying the node primary IP, and the VPC
+		// source/dest check drops it. Tag it with the NodePort mark before the
+		// route decision so the fwmark rule routes it via the main table and it
+		// egresses the primary ENI. The SNAT+REPLY match is what distinguishes
+		// it from east-west (not masqueraded) and pod->internet egress
+		// (pod-originated, not a reply), which must keep using the pod's ENI.
+		if err := m.ip4tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", "lxc+",
+			"-m", "conntrack", "--ctstate", "SNAT", "--ctdir", "REPLY",
+			"-m", "comment", "--comment", "cilium: primary ENI NodePort reply",
+			"-j", "MARK", "--set-xmark", nfmask + "/" + ctmask}); err != nil {
+			return err
+		}
 	}
 
 	if m.sharedCfg.EnableIPv6 {
@@ -2168,6 +2188,17 @@ func (m *manager) addCiliumENIRules() error {
 			"-i", "lxc+",
 			"-m", "comment", "--comment", "cilium: primary ENI",
 			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
+			return err
+		}
+		// See the IPv4 note above: tag the un-masqueraded NodePort/LB hairpin
+		// reply so it routes via the main table and egresses the primary ENI.
+		if err := m.ip6tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", "lxc+",
+			"-m", "conntrack", "--ctstate", "SNAT", "--ctdir", "REPLY",
+			"-m", "comment", "--comment", "cilium: primary ENI NodePort reply",
+			"-j", "MARK", "--set-xmark", nfmask + "/" + ctmask}); err != nil {
 			return err
 		}
 	}
