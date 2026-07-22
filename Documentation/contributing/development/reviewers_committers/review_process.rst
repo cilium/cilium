@@ -42,13 +42,16 @@ Review process
 #. Set the labels accordingly. A bot called maintainer's little helper might
    automatically help you with this.
 
-   +--------------------------------+---------------------------------------------------------------------------+
-   | Labels                         | When to set                                                               |
-   +================================+===========================================================================+
-   | ``dont-merge/needs-sign-off``  | Some commits are not signed off                                           |
-   +--------------------------------+---------------------------------------------------------------------------+
-   | ``dont-merge/needs-rebase``    | PR is outdated and needs to be rebased                                    |
-   +--------------------------------+---------------------------------------------------------------------------+
+   +-----------------------------------+------------------------------------------------------------------------+
+   | Labels                            | When to set                                                            |
+   +===================================+========================================================================+
+   | ``dont-merge/needs-sign-off``     | Some commits are not signed off                                        |
+   +-----------------------------------+------------------------------------------------------------------------+
+   | ``dont-merge/needs-rebase``       | PR is outdated and needs to be rebased                                 |
+   +-----------------------------------+------------------------------------------------------------------------+
+   | ``dont-merge/needs-ci-validation``| PR changes CI workflows not tested by the PR (set automatically); see  |
+   |                                   | :ref:`testing_ci_workflow_changes` before removing it                  |
+   +-----------------------------------+------------------------------------------------------------------------+
 
 #. Validate that bugfixes are marked with ``kind/bug`` and validate whether the
    assessment of backport requirements as requested by the submitter conforms
