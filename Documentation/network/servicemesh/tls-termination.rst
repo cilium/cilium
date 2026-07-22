@@ -10,7 +10,8 @@
 Ingress Example with TLS Termination
 ************************************
 
-This example builds on the HTTP ingress example, adding TLS termination.
+This example builds on the HTTP and gRPC ingress examples, adding TLS
+termination.
 
 .. Note::
 
