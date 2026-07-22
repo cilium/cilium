@@ -210,7 +210,7 @@ func testEventWatcherBatching(t *testing.T) {
 	watcher.watch(events)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	key := cacheKey.NewGlobalIdentity(lbls.LabelArray())
+	key := cacheKey.NewGlobalIdentity(lbls)
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
@@ -349,7 +349,7 @@ func testAllocator(t *testing.T, client kvstore.Client) {
 }
 
 func createCIDObj(id string, lbls labels.Labels) *capi_v2.CiliumIdentity {
-	k := cacheKey.NewGlobalIdentity(lbls.LabelArray())
+	k := cacheKey.NewGlobalIdentity(lbls)
 	selectedLabels := identitybackend.SelectK8sLabels(k.GetAsMap())
 	return &capi_v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
@@ -484,7 +484,7 @@ func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 type kvstoreClient struct{ kvstore.Client }
 
 func (c *kvstoreClient) addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
-	key := cacheKey.NewGlobalIdentity(lbls.LabelArray())
+	key := cacheKey.NewGlobalIdentity(lbls)
 	idPrefix := kvstore.JoinKey(IdentitiesPath, "id")
 	keyPath := kvstore.JoinKey(idPrefix, id)
 	success, err := c.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)

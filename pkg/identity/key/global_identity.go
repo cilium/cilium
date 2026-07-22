@@ -28,10 +28,10 @@ type GlobalIdentity struct {
 	metadata map[any]any
 }
 
-func NewGlobalIdentity(lbls labels.LabelArray) *GlobalIdentity {
+func NewGlobalIdentity(lbls labels.Labels) *GlobalIdentity {
 	return &GlobalIdentity{
 		metadata: map[any]any{},
-		lbls:     lbls,
+		lbls:     lbls.LabelArray(),
 	}
 }
 

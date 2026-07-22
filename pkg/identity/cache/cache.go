@@ -235,8 +235,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 		return nil
 	}
 
-	lblArray := lbls.LabelArray()
-	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, key.NewGlobalIdentity(lblArray))
+	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, key.NewGlobalIdentity(lbls))
 	if err != nil {
 		return nil
 	}
@@ -248,7 +247,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 		return nil
 	}
 
-	return identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), lblArray)
+	return identity.NewIdentity(identity.NumericIdentity(id), lbls)
 }
 
 var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
