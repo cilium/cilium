@@ -123,10 +123,9 @@ jobs:
           - "privileged"
 
         include:
-
           - focus: "privileged"
-            # TODO: not updated by renovate, investigate why the tests fail on newer images
-            lvhImage: "6.18-20260504.013701"
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            lvhImage: "6.18-20260713.013514"
 
     timeout-minutes: 50
     steps:
