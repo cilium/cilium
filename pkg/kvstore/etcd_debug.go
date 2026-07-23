@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"regexp"
@@ -37,15 +38,15 @@ var etcdVersionRegexp = regexp.MustCompile(`"etcdserver":"(?P<version>.*?)"`)
 // e.g., to support service name to IP address resolution when CoreDNS is not
 // the configured DNS server --- for pods running in the host network namespace.
 type EtcdDbgDialer interface {
-	LookupIP(ctx context.Context, hostname string) ([]net.IP, error)
+	LookupIP(ctx context.Context, hostname string) ([]netip.Addr, error)
 	DialContext(ctx context.Context, addr string) (net.Conn, error)
 }
 
 // DefaultEtcdDbgDialer provides a default implementation of the EtcdDbgDialer interface.
 type DefaultEtcdDbgDialer struct{}
 
-func (DefaultEtcdDbgDialer) LookupIP(ctx context.Context, hostname string) ([]net.IP, error) {
-	return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
+func (DefaultEtcdDbgDialer) LookupIP(ctx context.Context, hostname string) ([]netip.Addr, error) {
+	return net.DefaultResolver.LookupNetIP(ctx, "ip", hostname)
 }
 
 func (DefaultEtcdDbgDialer) DialContext(ctx context.Context, addr string) (net.Conn, error) {
@@ -125,7 +126,7 @@ func etcdDbgEndpoint(ctx context.Context, ep string, tlscfg *tls.Config, dialer 
 
 	// Hostname resolution
 	hostname := u.Hostname()
-	if net.ParseIP(hostname) == nil {
+	if _, err := netip.ParseAddr(hostname); err != nil {
 		ips, err := dialer.LookupIP(ctx, hostname)
 		if err != nil {
 			iw.Println("❌ Cannot resolve hostname: %s", err)
@@ -380,7 +381,7 @@ func etcdDbgParseDN(der []byte) string {
 	return name.String()
 }
 
-func etcdDbgOutputIPs(ips []net.IP) string {
+func etcdDbgOutputIPs(ips []netip.Addr) string {
 	var buf bytes.Buffer
 	for i, ip := range ips {
 		if i > 0 {
@@ -391,8 +392,7 @@ func etcdDbgOutputIPs(ips []net.IP) string {
 			buf.WriteString("...")
 			break
 		}
-
-		buf.WriteString(ip.String())
+		buf.WriteString(ip.Unmap().String())
 	}
 	return buf.String()
 }
