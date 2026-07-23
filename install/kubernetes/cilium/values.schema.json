@@ -1400,6 +1400,9 @@
                 "nodePort": {
                   "type": "integer"
                 },
+                "port": {
+                  "type": "integer"
+                },
                 "type": {
                   "type": "string"
                 }

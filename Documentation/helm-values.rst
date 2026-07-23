@@ -900,6 +900,10 @@
      - Optional port to use as the node port for apiserver access.
      - int
      - ``32379``
+   * - :spelling:ignore:`clustermesh.apiserver.service.port`
+     - Service port for the clustermesh-apiserver service.
+     - int
+     - ``2379``
    * - :spelling:ignore:`clustermesh.apiserver.service.type`
      - The type of service used for apiserver access.
      - string
