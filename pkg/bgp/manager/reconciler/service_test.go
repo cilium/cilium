@@ -2839,6 +2839,9 @@ func newServiceTestFixture(t *testing.T, config option.BGPConfig) *svcTestFixtur
 					Logger:                  p.Logger,
 					DB:                      f.svcReconciler.db,
 					DesiredRoutePolicyTable: f.svcReconciler.desiredRoutePolicyTable,
+					DaemonConfig: &ciliumoption.DaemonConfig{
+						EnableBGPControlPlane: true,
+					},
 				}).Reconciler.(*RoutePolicyReconciler)
 			}),
 		),

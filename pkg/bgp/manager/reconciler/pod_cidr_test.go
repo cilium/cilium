@@ -449,7 +449,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 			db := statedb.New()
-			desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db)
+			dc := &option.DaemonConfig{
+				EnableBGPControlPlane: true,
+			}
+			desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db, dc)
 			req.NoError(err)
 
 			// initialize pod cidr reconciler

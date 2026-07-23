@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func Test_InterfaceAdvertisement(t *testing.T) {
@@ -422,7 +423,10 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 	db := statedb.New()
 	deviceTable, err := tables.NewDeviceTable(db)
 	req.NoError(err)
-	desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db)
+	dc := &option.DaemonConfig{
+		EnableBGPControlPlane: true,
+	}
+	desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db, dc)
 	req.NoError(err)
 
 	// initialize reconciler

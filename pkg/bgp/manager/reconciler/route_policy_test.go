@@ -20,6 +20,7 @@ import (
 	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
 	bgpmock "github.com/cilium/cilium/pkg/bgp/mock"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type routePolicyTestFixture struct {
@@ -61,6 +62,11 @@ func newRoutePolicyTestFixture(t testing.TB) *routePolicyTestFixture {
 	}
 	f.hive = ciliumhive.New(
 		cell.Provide(
+			func() *option.DaemonConfig {
+				return &option.DaemonConfig{
+					EnableBGPControlPlane: true,
+				}
+			},
 			bgpTables.NewDesiredRoutePoliciesTable,
 			statedb.RWTable[*bgpTables.DesiredRoutePolicy].ToTable,
 
