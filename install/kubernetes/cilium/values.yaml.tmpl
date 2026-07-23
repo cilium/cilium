@@ -4026,6 +4026,8 @@ clustermesh:
       type: NodePort
       # -- Optional port to use as the node port for apiserver access.
       nodePort: 32379
+      # -- Service port for the clustermesh-apiserver service.
+      port: 2379
       # -- Annotations for the clustermesh-apiserver service.
       # Example annotations to configure an internal load balancer on different cloud providers:
       # * AKS: service.beta.kubernetes.io/azure-load-balancer-internal: "true"

@@ -587,6 +587,7 @@ jobs:
             --set=clustermesh.config.enabled=true \
             --set clustermesh.config.clusters[0].name=${{ env.ciliumClusterName1 }} \
             --set clustermesh.config.clusters[1].name=${{ env.ciliumClusterName2 }} \
+            --set clustermesh.apiserver.service.port=23790 \
             ${{ steps.kvstore.outputs.cilium_install_clustermesh }} \
           " >> $GITHUB_OUTPUT
 
