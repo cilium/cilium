@@ -223,7 +223,7 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.conformance-test-ipv6.result != 'failure' }}
+      success: ${{ needs.conformance-test-ipv6.result == 'success' }}
       # This job runs a kubectl-based connectivity check rather than cilium
       # connectivity test, so it produces no JUnit report. Skip the junit merge
       # to avoid a spurious "No matching cilium-junits-* artifacts found" warning.
