@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore"
-	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 // DisableLocalNameLookup allows to disable the lookup of the local cluster
@@ -162,15 +161,15 @@ var _ kvstore.EtcdDbgDialer = (*staticEtcdDbgDialerWithFallback)(nil)
 // but with a kvstore.EtcdDbgDialer interface. It also wraps an existing
 // kvstore.EtcdDbgDialer as fallback if the specified hostname does not match.
 type staticEtcdDbgDialerWithFallback struct {
-	hostAliases           map[string][]net.IP
+	hostAliases           map[string][]netip.Addr
 	fallbackEtcdDbgDialer kvstore.EtcdDbgDialer
 	dialer                func(ctx context.Context, addr string) (net.Conn, error)
 }
 
 func newStaticEtcdDbgDialerWithFallback(configHostAliases []common.HostAlias, dialer kvstore.EtcdDbgDialer) *staticEtcdDbgDialerWithFallback {
-	hostAliases := make(map[string][]net.IP, len(configHostAliases))
+	hostAliases := make(map[string][]netip.Addr, len(configHostAliases))
 	for _, hostAlias := range configHostAliases {
-		hostAliases[hostAlias.Hostname] = cslices.Map(hostAlias.IPs, func(in netip.Addr) net.IP { return in.AsSlice() })
+		hostAliases[hostAlias.Hostname] = hostAlias.IPs
 	}
 	return &staticEtcdDbgDialerWithFallback{
 		hostAliases:           hostAliases,
@@ -181,7 +180,7 @@ func newStaticEtcdDbgDialerWithFallback(configHostAliases []common.HostAlias, di
 	}
 }
 
-func (sd *staticEtcdDbgDialerWithFallback) LookupIP(ctx context.Context, hostname string) ([]net.IP, error) {
+func (sd *staticEtcdDbgDialerWithFallback) LookupIP(ctx context.Context, hostname string) ([]netip.Addr, error) {
 	if ips, ok := sd.hostAliases[hostname]; ok {
 		return ips, nil
 	}

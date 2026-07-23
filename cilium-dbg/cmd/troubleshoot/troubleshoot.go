@@ -77,21 +77,21 @@ func (td *troubleshootDialer) DialContext(ctx context.Context, addr string) (con
 	return td.dial(ctx, addr)
 }
 
-func (td *troubleshootDialer) LookupIP(ctx context.Context, hostname string) ([]net.IP, error) {
+func (td *troubleshootDialer) LookupIP(ctx context.Context, hostname string) ([]netip.Addr, error) {
 	// Let's mimic the same behavior of the dialer returned by k8s.CreateCustomDialer,
 	// that is try to first resolve the hostname as a service, and then fallback to
 	// the system resolver.
 	addr := td.resolve(ctx, hostname)
 	if addr == hostname {
-		return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
+		return net.DefaultResolver.LookupNetIP(ctx, "ip", hostname)
 	}
 
-	parsed := net.ParseIP(addr)
-	if parsed == nil {
-		return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
+	parsed, err := netip.ParseAddr(addr)
+	if err != nil {
+		return net.DefaultResolver.LookupNetIP(ctx, "ip", hostname)
 	}
 
-	return []net.IP{parsed}, nil
+	return []netip.Addr{parsed}, nil
 }
 
 func (td *troubleshootDialer) Resolve(ctx context.Context, host, port string) (string, string) {
