@@ -46,7 +46,7 @@ struct ct_state {
 	__u16 loopback:1,
 	      node_port:1,
 	      dsr_internal:1,   /* DSR is k8s service related, cluster internal */
-	      syn:1,
+	      syn:1,		/* Is a TCP SYN */
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
@@ -680,7 +680,8 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, const struct __ctx_bu
 
 		action = ct_tcp_select_action(tcp_flags);
 
-		if (ct_state && dir == CT_SERVICE && (tcp_flags.value & TCP_FLAG_SYN))
+		if (ct_state && dir == CT_SERVICE &&
+		    (tcp_flags.value & TCP_FLAG_SYN) && !(tcp_flags.value & TCP_FLAG_ACK))
 			ct_state->syn = true;
 	} else {
 		action = ACTION_UNSPEC;
@@ -941,7 +942,8 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, const struct __ctx_bu
 
 		action = ct_tcp_select_action(tcp_flags);
 
-		if (ct_state && dir == CT_SERVICE && (tcp_flags.value & TCP_FLAG_SYN))
+		if (ct_state && dir == CT_SERVICE &&
+		    (tcp_flags.value & TCP_FLAG_SYN) && !(tcp_flags.value & TCP_FLAG_ACK))
 			ct_state->syn = true;
 	} else {
 		action = ACTION_UNSPEC;
