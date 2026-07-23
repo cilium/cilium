@@ -262,6 +262,14 @@ func sortListenerSets(sets []gatewayv1.ListenerSet) {
 	})
 }
 
+func sortedListenerEntries(entries []gatewayv1.ListenerEntry) []gatewayv1.ListenerEntry {
+	sorted := append([]gatewayv1.ListenerEntry(nil), entries...)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Name < sorted[j].Name
+	})
+	return sorted
+}
+
 func deduplicateHTTPRoutes(routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
 	seen := make(map[types.NamespacedName]struct{}, len(routes))
 	result := make([]gatewayv1.HTTPRoute, 0, len(routes))

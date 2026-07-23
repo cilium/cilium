@@ -799,7 +799,7 @@ func (r *gatewayReconciler) mergeListeners(
 	for i := range listenerSets {
 		ls := &listenerSets[i]
 		lsSource := listenerSetFQR(ls)
-		for _, entry := range ls.Spec.Listeners {
+		for _, entry := range sortedListenerEntries(ls.Spec.Listeners) {
 			listener := helpers.ListenerEntryToListener(entry)
 			merged = append(merged, ingestion.ListenerWithContext{
 				Listener:          listener,
@@ -1625,7 +1625,7 @@ func (r *gatewayReconciler) setListenerSetStatuses(
 		oneValidListener := false
 		var listenerStatuses []gatewayv1.ListenerEntryStatus
 
-		for _, entry := range ls.Spec.Listeners {
+		for _, entry := range sortedListenerEntries(ls.Spec.Listeners) {
 			l := helpers.ListenerEntryToListener(entry)
 			var conds []metav1.Condition
 

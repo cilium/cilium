@@ -70,6 +70,18 @@ func Test_sortListenerSets(t *testing.T) {
 	}
 }
 
+func Test_sortedListenerEntries(t *testing.T) {
+	entries := []gatewayv1.ListenerEntry{
+		{Name: "zebra"},
+		{Name: "alpha"},
+	}
+
+	sorted := sortedListenerEntries(entries)
+	require.Equal(t, gatewayv1.SectionName("alpha"), sorted[0].Name)
+	require.Equal(t, gatewayv1.SectionName("zebra"), sorted[1].Name)
+	require.Equal(t, gatewayv1.SectionName("zebra"), entries[0].Name)
+}
+
 func Test_isListenerSetAllowed_noAllowedListeners(t *testing.T) {
 	gw := &gatewayv1.Gateway{
 		Spec: gatewayv1.GatewaySpec{},

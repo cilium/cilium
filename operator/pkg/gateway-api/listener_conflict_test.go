@@ -10,6 +10,7 @@ import (
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 )
@@ -245,4 +246,38 @@ func Test_filterConflictingListeners(t *testing.T) {
 	assert.Len(t, filtered, 2)
 	assert.Equal(t, gatewayv1.SectionName("listenerset-https"), filtered[0].Name)
 	assert.Equal(t, gatewayv1.SectionName("listenerset-http"), filtered[1].Name)
+}
+
+func Test_filterConflictingListeners_listenerSetOrderIsStable(t *testing.T) {
+	listenerSetSource := model.FullyQualifiedResource{Kind: "ListenerSet"}
+	listenerEntries := []gatewayv1.ListenerEntry{
+		{
+			Name:     "z-tls",
+			Hostname: ptr.To(gatewayv1.Hostname("api.example.test")),
+			Port:     443,
+			Protocol: gatewayv1.TLSProtocolType,
+			TLS:      &gatewayv1.ListenerTLSConfig{Mode: ptr.To(gatewayv1.TLSModePassthrough)},
+		},
+		{
+			Name:     "a-https",
+			Hostname: ptr.To(gatewayv1.Hostname("api.example.test")),
+			Port:     443,
+			Protocol: gatewayv1.HTTPSProtocolType,
+			TLS:      &gatewayv1.ListenerTLSConfig{Mode: ptr.To(gatewayv1.TLSModeTerminate)},
+		},
+	}
+
+	for _, entries := range [][]gatewayv1.ListenerEntry{listenerEntries, {listenerEntries[1], listenerEntries[0]}} {
+		listeners := make([]ingestion.ListenerWithContext, 0, len(entries))
+		for _, entry := range sortedListenerEntries(entries) {
+			listeners = append(listeners, ingestion.ListenerWithContext{
+				Listener: helpers.ListenerEntryToListener(entry),
+				Source:   listenerSetSource,
+			})
+		}
+
+		filtered := filterConflictingListeners(&gatewayv1.Gateway{}, listeners)
+		assert.Len(t, filtered, 1)
+		assert.Equal(t, gatewayv1.SectionName("a-https"), filtered[0].Name)
+	}
 }
