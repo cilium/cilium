@@ -82,7 +82,14 @@ var Cell = cell.Module(
 	cell.Provide(
 		tables.NewBGPReconcileErrorTable,
 		tables.NewDesiredRoutePoliciesTable,
-		statedb.RWTable[*tables.DesiredRoutePolicy].ToTable,
+		func(t statedb.RWTable[*tables.DesiredRoutePolicy], dc *option.DaemonConfig) statedb.Table[*tables.DesiredRoutePolicy] {
+			// Do not create this resource if BGP Control Plane is disabled.
+			if !dc.BGPControlPlaneEnabled() {
+				return nil
+			}
+
+			return statedb.RWTable[*tables.DesiredRoutePolicy].ToTable(t)
+		},
 	),
 
 	// provide privates for reconciler v2

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -229,7 +230,12 @@ func DesiredRoutePoliciesByInstanceOwnerResource(instance string, owner string, 
 	})
 }
 
-func NewDesiredRoutePoliciesTable(db *statedb.DB) (statedb.RWTable[*DesiredRoutePolicy], error) {
+func NewDesiredRoutePoliciesTable(db *statedb.DB, dc *option.DaemonConfig) (statedb.RWTable[*DesiredRoutePolicy], error) {
+	// Do not create this resource if BGP Control Plane is disabled.
+	if !dc.BGPControlPlaneEnabled() {
+		return nil, nil
+	}
+
 	return statedb.NewTable(
 		db,
 		"bgp-desired-route-policies",
