@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
+	"math"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
@@ -22,22 +23,60 @@ import (
 // Proxy DaemonSet pods.
 const standaloneDNSProxyPodSelector = "k8s-app=standalone-dns-proxy"
 
-// StandaloneDNSProxy validates that the Standalone DNS Proxy (SDP) keeps
-// enforcing toFQDNs/DNS policy for previously-resolved domains while the Cilium
-// agent on the client's node is unavailable.
+// dnsProxyMetric is the Cilium agent counter that both DNS proxies (the in-agent
+// proxy and the Standalone DNS Proxy) feed via the agent. The proxy_type label
+// is always "fqdn" for DNS.
+const dnsProxyMetric = "cilium_policy_l7_total"
+
+const (
+	// sdpAllowedRequests and sdpDeniedRequests are the number of DNS requests
+	// sent for the allowed and denied domains respectively during the
+	// functional test. They are large enough that, given DNS load is shared
+	// between the in-agent proxy and the Standalone DNS Proxy, at least some
+	// requests are served by the SDP.
+	sdpAllowedRequests = 10
+	sdpDeniedRequests  = 10
+
+	// sdpMetricSettle is a short grace period to let the DNS proxy metrics
+	// settle before the "after" snapshot is taken. SDP-served requests are
+	// reported to the agent over gRPC, so their metric increments may lag
+	// slightly behind the curl returning.
+	sdpMetricSettle = 3 * time.Second
+
+	// sdpFlowWait bounds how long a single probe waits for its DNS flow(s) to be
+	// captured by the Hubble flow listener before counting SDP attribution.
+	sdpFlowWait = 5 * time.Second
+)
+
+// StandaloneDNSProxy validates that the Standalone DNS Proxy (SDP) is actively
+// serving DNS while the Cilium agent is up.
 //
-// The scenario runs in two phases:
+// It sends a batch of allowed and a batch of denied DNS requests from a single
+// client pod and asserts, in two independent validation states:
 //
-//  1. With the Cilium agent running, it establishes a baseline and, crucially,
-//     primes the DNS cache and toFQDNs identity for the allowed domain. The SDP
-//     cannot allocate new identities while the agent is down, so the allowed
-//     domain must have been observed beforehand.
-//  2. It takes the Cilium agent down on the client's node only (leaving the SDP
-//     DaemonSet pod running) and verifies that the allowed domain still resolves
-//     via the SDP and connects, while the blocked domain stays dropped.
+//  1. Functional counts (metrics): the agent's DNS proxy counter
+//     (cilium_policy_l7_total{proxy_type="fqdn"}) records at least one
+//     "forwarded" verdict per allowed request and at least one "denied" verdict
+//     per denied request. The counter is fed by both DNS proxies, so the delta
+//     reflects the total DNS load.
+//  2. SDP attribution (flows): a subset of the DNS flows carry
+//     observation_source="standalone-proxy", proving the SDP handled part of the
+//     load for both allowed and denied requests.
 //
-// Hubble runs inside the agent and is therefore unavailable during phase 2, so
-// every action validates via curl exit codes only (flow collection disabled).
+// Metric assertions are skipped when the agent does not expose Prometheus
+// metrics; SDP flow-attribution assertions are skipped when Hubble is disabled.
+// The per-request curl outcome (success for the allowed domain, failure for the
+// denied domain whose DNS is refused) is validated via the exit code provided
+// by the test's registered expectations.
+//
+// NOTE: DNS load sharing between the two proxies is non-deterministic and a
+// single curl may emit more than one DNS query, so counts are asserted as lower
+// bounds ("at least N", "at least one served by the SDP") with the actual values
+// logged. Pinning exact counts would require cluster-specific calibration.
+// Observed on a 2-node kind cluster (10 allowed + 10 denied curls): forwarded
+// delta ~20 (A+AAAA per curl), denied delta ~30 (REFUSED triggers resolver
+// retries), and the SDP-attributed flow share varied run-to-run (e.g. 14/15 then
+// 10/12), confirming the load-share is not fixed.
 func StandaloneDNSProxy() check.Scenario {
 	return &standaloneDNSProxy{
 		ScenarioBase: check.NewScenarioBase(),
@@ -56,11 +95,155 @@ func (s *standaloneDNSProxy) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	ipFam := features.IPFamilyV4
 
-	// Deterministically pick a single client pod; the Cilium agent on its node
-	// is the one taken down to validate SDP resilience.
-	client := firstClientPod(ct)
+	client := ct.RandomClientPod()
 	if client == nil {
 		t.Fatal("No client pods available for the standalone-dns-proxy test")
+	}
+	node := client.NodeName()
+
+	allowed := check.HTTPEndpoint("sdp-allowed-"+ct.Params().ExternalTarget, "http://"+ct.Params().ExternalTarget)
+	blocked := check.HTTPEndpoint("sdp-blocked-"+ct.Params().ExternalOtherTarget, "http://"+ct.Params().ExternalOtherTarget)
+
+	forwardedLabels := map[string]string{"proxy_type": "fqdn", "rule": "forwarded"}
+	deniedLabels := map[string]string{"proxy_type": "fqdn", "rule": "denied"}
+
+	beforeForwarded := s.metric(t, node, forwardedLabels)
+	beforeDenied := s.metric(t, node, deniedLabels)
+
+	// Allowed batch: DNS resolves through the proxy (forwarded) and the
+	// connection to port 80 succeeds.
+	t.Logf("[sdp] Sending %d allowed DNS requests for %q", sdpAllowedRequests, ct.Params().ExternalTarget)
+	sdpAllowed := 0
+	for i := 0; i < sdpAllowedRequests; i++ {
+		sdpAllowed += s.probe(ctx, t, client, allowed, ipFam, fmt.Sprintf("allowed-%d", i))
+	}
+
+	// Denied batch: DNS is refused by the proxy (denied), so curl fails to
+	// resolve the name.
+	t.Logf("[sdp] Sending %d denied DNS requests for %q", sdpDeniedRequests, ct.Params().ExternalOtherTarget)
+	sdpDenied := 0
+	for i := 0; i < sdpDeniedRequests; i++ {
+		sdpDenied += s.probe(ctx, t, client, blocked, ipFam, fmt.Sprintf("denied-%d", i))
+	}
+
+	// Let the DNS proxy metrics settle; SDP reports its verdicts to the agent
+	// over gRPC.
+	time.Sleep(sdpMetricSettle)
+
+	afterForwarded := s.metric(t, node, forwardedLabels)
+	afterDenied := s.metric(t, node, deniedLabels)
+
+	// Validation state 1: functional counts via agent metrics.
+	if ct.CiliumAgentMetrics().IsEmpty() {
+		t.Logf("[sdp] Cilium agent Prometheus metrics unavailable; skipping DNS proxy metric assertions")
+	} else {
+		forwardedDelta := afterForwarded - beforeForwarded
+		deniedDelta := afterDenied - beforeDenied
+		t.Logf("[sdp] DNS proxy metric deltas on node %q: forwarded=%.0f (>= %d expected), denied=%.0f (>= %d expected)",
+			node, forwardedDelta, sdpAllowedRequests, deniedDelta, sdpDeniedRequests)
+		if forwardedDelta < float64(sdpAllowedRequests) {
+			t.Failf("expected at least %d forwarded DNS proxy events on node %q, got %.0f", sdpAllowedRequests, node, forwardedDelta)
+		}
+		if deniedDelta < float64(sdpDeniedRequests) {
+			t.Failf("expected at least %d denied DNS proxy events on node %q, got %.0f", sdpDeniedRequests, node, deniedDelta)
+		}
+	}
+
+	// Validation state 2: SDP attribution via Hubble flows.
+	if !ct.Params().Hubble {
+		t.Logf("[sdp] Hubble disabled; skipping standalone DNS proxy flow-attribution assertions")
+		return
+	}
+	t.Logf("[sdp] DNS flows attributed to the standalone DNS proxy: allowed=%d, denied=%d", sdpAllowed, sdpDenied)
+	if sdpAllowed < 1 {
+		t.Failf("expected at least one allowed DNS flow served by the standalone DNS proxy, got %d", sdpAllowed)
+	}
+	if sdpDenied < 1 {
+		t.Failf("expected at least one denied DNS flow served by the standalone DNS proxy, got %d", sdpDenied)
+	}
+}
+
+// metric returns the sum of the DNS proxy counter on the given node for the
+// provided label set, failing the test on error. It returns 0 when the agent
+// does not expose Prometheus metrics (the caller treats that as "skip").
+func (s *standaloneDNSProxy) metric(t *check.Test, node string, labels map[string]string) float64 {
+	v, err := t.Context().SumCiliumAgentMetric(node, dnsProxyMetric, labels)
+	if err != nil {
+		t.Fatalf("Failed to read %s%v on node %q: %s", dnsProxyMetric, labels, node, err)
+	}
+	return v
+}
+
+// probe issues a single curl from the client pod and returns the number of DNS
+// flows generated by that request that were served by the Standalone DNS Proxy
+// (observation_source="standalone-proxy"). Flow collection is a no-op when
+// Hubble is disabled, in which case this returns 0. The curl exit code is
+// validated by ExecInPod against the test's registered expectations.
+func (s *standaloneDNSProxy) probe(ctx context.Context, t *check.Test, client *check.Pod, peer check.TestPeer, ipFam features.IPFamily, name string) int {
+	a := t.NewAction(s, name, client, peer, ipFam)
+
+	sdp := 0
+	a.Run(func(a *check.Action) {
+		a.ExecInPod(ctx, a.CurlCommand(peer))
+
+		if !t.Context().Params().Hubble {
+			return
+		}
+		// Wait (bounded) for this request's DNS flow(s) to be captured, since
+		// flows may arrive slightly after curl returns, then count the ones
+		// attributed to the standalone DNS proxy.
+		anyDNS := filters.DNS("", math.MaxUint32)
+		sdpDNS := filters.DNSObservationSource("", math.MaxUint32, "standalone-proxy")
+		for deadline := time.Now().Add(sdpFlowWait); time.Now().Before(deadline); {
+			if a.CountFlows(anyDNS) > 0 {
+				break
+			}
+			time.Sleep(check.PollInterval)
+		}
+		sdp = a.CountFlows(sdpDNS)
+	})
+	return sdp
+}
+
+// StandaloneDNSProxyHA validates that the Standalone DNS Proxy (SDP) keeps
+// enforcing toFQDNs/DNS policy for previously-resolved domains while the Cilium
+// agent on the client's node is unavailable.
+//
+// The scenario runs in two phases:
+//
+//  1. With the Cilium agent running, it establishes a baseline and, crucially,
+//     primes the DNS cache and toFQDNs identity for the allowed domain. The SDP
+//     cannot allocate new identities while the agent is down, so the allowed
+//     domain must have been observed beforehand.
+//  2. It takes the Cilium agent down on the client's node only (leaving the SDP
+//     DaemonSet pod running) and verifies that the allowed domain still resolves
+//     via the SDP and connects, while the blocked domain stays dropped.
+//
+// Hubble runs inside the agent and is therefore unavailable during phase 2, so
+// every action validates via curl exit codes only (flow collection disabled).
+func StandaloneDNSProxyHA() check.Scenario {
+	return &standaloneDNSProxyHA{
+		ScenarioBase: check.NewScenarioBase(),
+	}
+}
+
+type standaloneDNSProxyHA struct {
+	check.ScenarioBase
+}
+
+func (s *standaloneDNSProxyHA) Name() string {
+	return "standalone-dns-proxy-ha"
+}
+
+func (s *standaloneDNSProxyHA) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+	ipFam := features.IPFamilyV4
+
+	// Pick a single client pod; the Cilium agent on its node is the one taken
+	// down to validate SDP resilience.
+	client := ct.RandomClientPod()
+	if client == nil {
+		t.Fatal("No client pods available for the standalone-dns-proxy-ha test")
 	}
 	node := client.NodeName()
 
@@ -88,7 +271,7 @@ func (s *standaloneDNSProxy) Run(ctx context.Context, t *check.Test) {
 // Hubble, which runs inside the agent and is unavailable once the agent is down,
 // so the expected outcome is asserted via the curl exit code only (provided by
 // the test's registered expectations).
-func (s *standaloneDNSProxy) curl(ctx context.Context, t *check.Test, client *check.Pod, peer check.TestPeer, ipFam features.IPFamily, name string) {
+func (s *standaloneDNSProxyHA) curl(ctx context.Context, t *check.Test, client *check.Pod, peer check.TestPeer, ipFam features.IPFamily, name string) {
 	a := t.NewAction(s, name, client, peer, ipFam)
 	a.CollectFlows = false
 	a.Run(func(a *check.Action) {
@@ -103,7 +286,7 @@ func (s *standaloneDNSProxy) curl(ctx context.Context, t *check.Test, client *ch
 //
 // A node-affinity patch is used because the Cilium agent tolerates all taints,
 // so cordoning or tainting the node would not evict it.
-func (s *standaloneDNSProxy) disableAgentOnNode(ctx context.Context, t *check.Test, node string) {
+func (s *standaloneDNSProxyHA) disableAgentOnNode(ctx context.Context, t *check.Test, node string) {
 	ct := t.Context()
 	ns := ct.Params().CiliumNamespace
 	dsName := ct.Params().AgentDaemonSetName
@@ -132,6 +315,12 @@ func (s *standaloneDNSProxy) disableAgentOnNode(ctx context.Context, t *check.Te
 		}
 		if err := check.WaitForDaemonSet(fctx, ct, ct.K8sClient(), ns, dsName); err != nil {
 			return fmt.Errorf("waiting for Cilium agent DaemonSet to recover: %w", err)
+		}
+		// The agent pod was recreated with a new name, so the framework's cached
+		// Cilium pod set is now stale. Refresh it before the remaining finalizers
+		// (policy-revision wait, agent log collection) run against it.
+		if err := ct.RefreshCiliumPods(fctx); err != nil {
+			return fmt.Errorf("refreshing Cilium pod cache after agent recovery: %w", err)
 		}
 		return nil
 	})
@@ -240,20 +429,4 @@ func isPodReady(pod *corev1.Pod) bool {
 		}
 	}
 	return false
-}
-
-// firstClientPod returns the client pod with the lowest name, or nil if there
-// are none. Selecting deterministically keeps the test reproducible.
-func firstClientPod(ct *check.ConnectivityTest) *check.Pod {
-	pods := ct.ClientPods()
-	names := make([]string, 0, len(pods))
-	for name := range pods {
-		names = append(names, name)
-	}
-	if len(names) == 0 {
-		return nil
-	}
-	slices.Sort(names)
-	pod := pods[names[0]]
-	return &pod
 }
