@@ -392,7 +392,7 @@ func (m *multiPoolManager) waitForAllPools() {
 func (m *multiPoolManager) waitForStaticIP() {
 	for {
 		requested, assigned := m.staticIPStatus()
-		if !requested || assigned != "" {
+		if !requested || assigned.IsValid() {
 			return
 		}
 
@@ -485,12 +485,12 @@ func (m *multiPoolManager) localNodeUpdated() <-chan struct{} {
 	return m.localNodeUpdate
 }
 
-func (m *multiPoolManager) staticIPStatus() (requested bool, assigned string) {
+func (m *multiPoolManager) staticIPStatus() (requested bool, assigned netip.Addr) {
 	node := m.getNode()
 	if node == nil {
-		return false, ""
+		return false, netip.Addr{}
 	}
-	return len(node.Spec.IPAM.StaticIPTags) > 0, node.Status.IPAM.AssignedStaticIP
+	return len(node.Spec.IPAM.StaticIPTags) > 0, node.Status.IPAM.AssignedStaticIP.Addr
 }
 
 // neededIPCeil rounds up numIPs to the next but one multiple of preAlloc.

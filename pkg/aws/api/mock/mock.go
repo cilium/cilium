@@ -713,7 +713,7 @@ func (e *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 	return &instance, nil
 }
 
-func (e *API) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error) {
+func (e *API) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (netip.Addr, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AssociateEIP)
 
@@ -721,22 +721,21 @@ func (e *API) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.
 	defer e.mutex.Unlock()
 
 	if err, ok := e.errors[AssociateEIP]; ok {
-		return "", err
+		return netip.Addr{}, err
 	}
 
-	ipAddr := "192.0.2.254"
+	addr := netip.MustParseAddr("192.0.2.254")
 
 	for _, enis := range e.enis {
 		for id, eni := range enis {
 			if eniID == id {
-				a, _ := netip.ParseAddr(ipAddr)
-				eni.PublicIP = iputil.AddrFrom(a)
-				return ipAddr, nil
+				eni.PublicIP = iputil.AddrFrom(addr)
+				return addr, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("unable to find ENI %s", eniID)
+	return netip.Addr{}, fmt.Errorf("unable to find ENI %s", eniID)
 }
 
 func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {

@@ -646,20 +646,20 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 	return nil
 }
 
-func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (netip.Addr, error) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
 	for _, eni := range n.enis {
 		if eni.Number == 0 {
 			if eni.PublicIP.IsValid() {
-				return eni.PublicIP.String(), nil
+				return eni.PublicIP.Addr, nil
 			}
 			return n.manager.ec2api.AssociateEIP(ctx, eni.ID, staticIPTags)
 		}
 	}
 
-	return "", fmt.Errorf("no primary ENI found")
+	return netip.Addr{}, fmt.Errorf("no primary ENI found")
 }
 
 func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec types.ENISpec) ([]string, error) {
@@ -970,7 +970,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 			// Check for public IP on primary ENI before exclusion logic
 			// The primary ENI may be excluded from IPAM but we still need to track its public IP
 			if e.Number == 0 && e.PublicIP.IsValid() {
-				stats.AssignedStaticIP = e.PublicIP.String()
+				stats.AssignedStaticIP = e.PublicIP.Addr
 			}
 
 			// 3. Finally, we iterate any already existing interfaces and add on any extra

@@ -3,6 +3,8 @@
 
 package stats
 
+import "net/netip"
+
 // InterfaceStats contains stats about the current state of an individual IPAM node.
 // This is used while performing a resync to determine if the node is able to
 // allocate more addresses.
@@ -25,5 +27,5 @@ type InterfaceStats struct {
 	RemainingAvailableIPv6InterfaceCount int
 
 	// AssignedStaticIP is the static IP address assigned to the node (ex: public Elastic IP address in AWS)
-	AssignedStaticIP string
+	AssignedStaticIP netip.Addr
 }

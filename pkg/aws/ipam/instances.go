@@ -47,7 +47,7 @@ type EC2API interface {
 	AssignENIIPv6Prefix(ctx context.Context, eniID string) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
 	GetInstanceTypes(context.Context) ([]ec2_types.InstanceTypeInfo, error)
-	AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error)
+	AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (netip.Addr, error)
 }
 
 type MetadataAPI interface {

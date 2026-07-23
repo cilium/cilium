@@ -1032,9 +1032,9 @@ func (c *Client) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes
 }
 
 // AssociateEIP tries to find an Elastic IP Address with the given tags and associates it with the given instance
-func (c *Client) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error) {
+func (c *Client) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (netip.Addr, error) {
 	if len(eipTags) == 0 {
-		return "", fmt.Errorf("no EIP tags were provided")
+		return netip.Addr{}, fmt.Errorf("no EIP tags were provided")
 	}
 
 	filters := make([]ec2_types.Filter, 0, len(eipTags))
@@ -1053,7 +1053,7 @@ func (c *Client) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTyp
 	addresses, err := c.ec2Client.DescribeAddresses(ctx, describeAddressesInput)
 	c.metricsAPI.ObserveAPICall(DescribeAddresses, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
-		return "", err
+		return netip.Addr{}, err
 	}
 	c.logger.Info(
 		"Found EIPs corresponding to tags",
@@ -1076,7 +1076,7 @@ func (c *Client) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTyp
 		association, err := c.ec2Client.AssociateAddress(ctx, associateAddressInput)
 		c.metricsAPI.ObserveAPICall(AssociateAddress, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
-			return "", err
+			return netip.Addr{}, err
 		}
 		c.logger.Info(
 			"Associated EIP successfully",
@@ -1084,10 +1084,15 @@ func (c *Client) AssociateEIP(ctx context.Context, eniID string, eipTags ipamTyp
 			logfields.Interface, eniID,
 			logfields.AssociationID, aws.ToString(association.AssociationId),
 		)
-		return aws.ToString(address.PublicIp), nil
+		publicIP := aws.ToString(address.PublicIp)
+		addr, err := netip.ParseAddr(publicIP)
+		if err != nil {
+			return netip.Addr{}, fmt.Errorf("failed to parse associated EIP %q: %w", publicIP, err)
+		}
+		return addr, nil
 	}
 
-	return "", fmt.Errorf("no unassociated EIPs found for tags %v", eipTags)
+	return netip.Addr{}, fmt.Errorf("no unassociated EIPs found for tags %v", eipTags)
 }
 
 func createAWSTagSlice(tags map[string]string) []ec2_types.Tag {

@@ -235,7 +235,7 @@ type IPStatistics struct {
 	InterfaceCandidates int
 
 	// AssignedStaticIP is the static IP address assigned to the node (ex: public Elastic IP address in AWS)
-	AssignedStaticIP string
+	AssignedStaticIP netip.Addr
 }
 
 // IsRunning returns true if the node is considered to be running
@@ -328,28 +328,6 @@ func (n *Node) getStaticIPTags() ipamTypes.Tags {
 		return n.resource.Spec.IPAM.StaticIPTags
 	}
 	return ipamTypes.Tags{}
-}
-
-// staticIPNeedsResolution reports whether the recorded static IP needs to be
-// (re)resolved through the cloud provider. This is the case when no IP has been
-// assigned yet, or when the stored value is not a valid IP address.
-//
-// The latter handles a migration: earlier operator versions persisted the Azure
-// public IP prefix/address resource ID as a placeholder instead of the actual
-// address. Such legacy values fail to parse as an IP, so they are re-resolved
-// and overwritten with the real address on the next maintenance run. Providers
-// that already record an IP (e.g. AWS) parse cleanly and are left untouched.
-//
-// TODO: the non-IP (resource ID) branch only exists to migrate values persisted
-// by 1.19 azure operators and can be removed in 1.21, once all AssignedStaticIP
-// values are guaranteed to have been updated to actual IP addresses by 1.20
-// operators.
-func staticIPNeedsResolution(assignedStaticIP string) bool {
-	if assignedStaticIP == "" {
-		return true
-	}
-	_, err := netip.ParseAddr(assignedStaticIP)
-	return err != nil
 }
 
 // GetNeededAddresses returns the number of needed addresses that need to be
@@ -704,10 +682,10 @@ func (n *Node) recalculate(ctx context.Context) {
 	n.instanceSyncRetriggered = false
 
 	n.ipv4Alloc.available = a
-	if stats.AssignedStaticIP != "" {
+	if stats.AssignedStaticIP.IsValid() {
 		n.stats.IPv4.AssignedStaticIP = stats.AssignedStaticIP
-	} else if n.stats.IPv4.AssignedStaticIP == "" && n.resource != nil {
-		n.stats.IPv4.AssignedStaticIP = n.resource.Status.IPAM.AssignedStaticIP
+	} else if !n.stats.IPv4.AssignedStaticIP.IsValid() && n.resource != nil {
+		n.stats.IPv4.AssignedStaticIP = n.resource.Status.IPAM.AssignedStaticIP.Addr
 	}
 
 	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
@@ -765,7 +743,7 @@ func (n *Node) allocationNeeded() bool {
 		return false
 	}
 
-	if len(n.getStaticIPTags()) > 0 && staticIPNeedsResolution(n.stats.IPv4.AssignedStaticIP) {
+	if len(n.getStaticIPTags()) > 0 && !n.stats.IPv4.AssignedStaticIP.IsValid() {
 		return true
 	}
 
@@ -1312,14 +1290,14 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 	if len(n.getStaticIPTags()) > 0 {
 		nodeStats := n.Stats()
 
-		if staticIPNeedsResolution(nodeStats.IPv4.AssignedStaticIP) {
-			ip, err := n.ops.AllocateStaticIP(ctx, n.getStaticIPTags())
+		if !nodeStats.IPv4.AssignedStaticIP.IsValid() {
+			addr, err := n.ops.AllocateStaticIP(ctx, n.getStaticIPTags())
 			if err != nil {
 				return false, err
 			}
 
 			n.mutex.Lock()
-			n.stats.IPv4.AssignedStaticIP = ip
+			n.stats.IPv4.AssignedStaticIP = addr
 			n.mutex.Unlock()
 		}
 	}
@@ -1474,8 +1452,8 @@ func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 func (n *Node) PopulateStaticIPStatus(node *v2.CiliumNode) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	if n.stats.IPv4.AssignedStaticIP != "" {
-		node.Status.IPAM.AssignedStaticIP = n.stats.IPv4.AssignedStaticIP
+	if n.stats.IPv4.AssignedStaticIP.IsValid() {
+		node.Status.IPAM.AssignedStaticIP = iputil.AddrFrom(n.stats.IPv4.AssignedStaticIP)
 	}
 }
 

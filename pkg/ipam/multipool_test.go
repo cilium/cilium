@@ -1503,13 +1503,13 @@ func TestMultiPoolManagerWaitForAllPools(t *testing.T) {
 }
 
 func Test_multiPoolManager_staticIPStatus(t *testing.T) {
-	newNode := func(tags map[string]string, assigned string) *ciliumv2.CiliumNode {
+	newNode := func(tags map[string]string, assigned netip.Addr) *ciliumv2.CiliumNode {
 		return &ciliumv2.CiliumNode{
 			Spec: ciliumv2.NodeSpec{
 				IPAM: types.IPAMSpec{StaticIPTags: tags},
 			},
 			Status: ciliumv2.NodeStatus{
-				IPAM: types.IPAMStatus{AssignedStaticIP: assigned},
+				IPAM: types.IPAMStatus{AssignedStaticIP: iputil.AddrFrom(assigned)},
 			},
 		}
 	}
@@ -1518,31 +1518,31 @@ func Test_multiPoolManager_staticIPStatus(t *testing.T) {
 		name                  string
 		node                  *ciliumv2.CiliumNode
 		wantRequestedStaticIP bool
-		wantAssignedStaticIP  string
+		wantAssignedStaticIP  netip.Addr
 	}{
 		{
 			name:                  "nil node",
 			node:                  nil,
 			wantRequestedStaticIP: false,
-			wantAssignedStaticIP:  "",
+			wantAssignedStaticIP:  netip.Addr{},
 		},
 		{
 			name:                  "no static IP requested",
-			node:                  newNode(nil, ""),
+			node:                  newNode(nil, netip.Addr{}),
 			wantRequestedStaticIP: false,
-			wantAssignedStaticIP:  "",
+			wantAssignedStaticIP:  netip.Addr{},
 		},
 		{
 			name:                  "static IP requested but not yet assigned",
-			node:                  newNode(map[string]string{"env": "prod"}, ""),
+			node:                  newNode(map[string]string{"env": "prod"}, netip.Addr{}),
 			wantRequestedStaticIP: true,
-			wantAssignedStaticIP:  "",
+			wantAssignedStaticIP:  netip.Addr{},
 		},
 		{
 			name:                  "static IP requested and assigned",
-			node:                  newNode(map[string]string{"env": "prod"}, "1.2.3.4"),
+			node:                  newNode(map[string]string{"env": "prod"}, netip.MustParseAddr("1.2.3.4")),
 			wantRequestedStaticIP: true,
-			wantAssignedStaticIP:  "1.2.3.4",
+			wantAssignedStaticIP:  netip.MustParseAddr("1.2.3.4"),
 		},
 	}
 
