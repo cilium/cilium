@@ -96,8 +96,13 @@ jobs:
       - name: Set up environment (download Kubernetes dependencies)
         run: |
           TMP_DIR=$(mktemp -d)
-          # Test binaries
-          curl -fL --retry 5 --retry-all-errors --retry-delay 3 https://dl.k8s.io/${{ env.KIND_K8S_VERSION }}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
+          # Test binaries. The e2e.test/ginkgo pair is pulled from
+          # v1.37.0-beta.0 rather than the cluster's KIND_K8S_VERSION
+          # (v1.36.0) to pick up upstream commit 108da50828f, which stops
+          # the UDP Conntrack client probe from crash-looping. The cluster
+          # (KIND_K8S_IMAGE) and kubectl stay on v1.36.0.
+          E2E_TEST_VERSION="v1.37.0-beta.0"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 https://dl.k8s.io/${E2E_TEST_VERSION}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
           tar -xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
             --directory ${TMP_DIR} \
             --strip-components=3 kubernetes/test/bin/ginkgo kubernetes/test/bin/e2e.test
