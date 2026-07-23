@@ -1005,7 +1005,7 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			log("🔮 Auto-exposing service within GCP VPC (networking.gke.io/load-balancer-type=Internal)")
 			helmVals["clustermesh"].(map[string]any)["apiserver"] = map[string]any{
 				"service": map[string]any{
-					"type": corev1.ServiceTypeLoadBalancer,
+					"type": string(corev1.ServiceTypeLoadBalancer),
 					"annotations": map[string]any{
 						"networking.gke.io/load-balancer-type": "Internal",
 						// Allows cross-region access
@@ -1017,7 +1017,7 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			log("🔮 Auto-exposing service within Azure VPC (service.beta.kubernetes.io/azure-load-balancer-internal)")
 			helmVals["clustermesh"].(map[string]any)["apiserver"] = map[string]any{
 				"service": map[string]any{
-					"type": corev1.ServiceTypeLoadBalancer,
+					"type": string(corev1.ServiceTypeLoadBalancer),
 					"annotations": map[string]any{
 						"service.beta.kubernetes.io/azure-load-balancer-internal": "true",
 					},
@@ -1027,7 +1027,7 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-scheme: internal")
 			helmVals["clustermesh"].(map[string]any)["apiserver"] = map[string]any{
 				"service": map[string]any{
-					"type": corev1.ServiceTypeLoadBalancer,
+					"type": string(corev1.ServiceTypeLoadBalancer),
 					"annotations": map[string]any{
 						"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
 					},
