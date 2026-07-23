@@ -668,7 +668,6 @@ jobs:
 
       - name: Test Cilium ${{ steps.vars.outputs.skip_upgrade != 'true' && 'after agent restart' }}
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
-        continue-on-error: true
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-restart-${{ matrix.name }}-precheck
