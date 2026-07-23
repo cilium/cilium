@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 )
 
 func muxedListener(
@@ -223,4 +226,23 @@ func Test_acceptedListeners(t *testing.T) {
 		reason := accepted.checkConflict(*muxedListener("second", gatewayv1.HTTPProtocolType, 80, "bar.example.com"))
 		assert.Empty(t, string(reason))
 	})
+}
+
+func Test_filterConflictingListeners(t *testing.T) {
+	gw := gatewayWithConflictListeners(
+		muxedListener("gateway-https", gatewayv1.HTTPSProtocolType, 443, "api.example.test"),
+		tlsPassthroughListener("gateway-tls", 443, "api.example.test"),
+	)
+	listeners := []ingestion.ListenerWithContext{
+		{Listener: gw.Spec.Listeners[0], Source: model.FullyQualifiedResource{Kind: "Gateway"}},
+		{Listener: gw.Spec.Listeners[1], Source: model.FullyQualifiedResource{Kind: "Gateway"}},
+		{Listener: *muxedListener("listenerset-https", gatewayv1.HTTPSProtocolType, 8443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "ListenerSet"}},
+		{Listener: *tlsPassthroughListener("listenerset-tls", 8443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "ListenerSet"}},
+		{Listener: *muxedListener("listenerset-http", gatewayv1.HTTPProtocolType, 80, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "ListenerSet"}},
+	}
+
+	filtered := filterConflictingListeners(gw, listeners)
+	assert.Len(t, filtered, 2)
+	assert.Equal(t, gatewayv1.SectionName("listenerset-https"), filtered[0].Name)
+	assert.Equal(t, gatewayv1.SectionName("listenerset-http"), filtered[1].Name)
 }

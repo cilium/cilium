@@ -124,11 +124,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	mergedListeners, attachedListenerSets, err := r.resolveAllowedListeners(ctx, scopedLog, gw)
-	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to resolve allowed ListenerSet listeners", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	var attachedListenerSets []gatewayv1.ListenerSet
+	if helpers.HasListenerSetSupport(r.Client.Scheme()) {
+		listenerSets, err := r.listenerSetsForGateway(ctx, gw)
+		if err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list ListenerSets", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
+		attachedListenerSets = r.filterAllowedListenerSets(ctx, scopedLog, gw, listenerSets)
 	}
+	mergedListeners := r.mergeListeners(ctx, scopedLog, gw, attachedListenerSets)
+	mergedListeners = filterConflictingListeners(gw, mergedListeners)
 
 	httpRouteList := &gatewayv1.HTTPRouteList{}
 	if err := r.Client.List(ctx, httpRouteList, &client.ListOptions{
@@ -736,43 +742,30 @@ func (r *gatewayReconciler) updateListenerSetStatus(ctx context.Context, origina
 	return r.Client.Status().Update(ctx, new)
 }
 
-func (r *gatewayReconciler) resolveAllowedListeners(
+func (r *gatewayReconciler) listenerSetsForGateway(
 	ctx context.Context,
-	scopedLog *slog.Logger,
 	gw *gatewayv1.Gateway,
-) ([]ingestion.ListenerWithContext, []gatewayv1.ListenerSet, error) {
-	gwSource := gatewayFQR(gw)
-	conflictedListeners := conflictedGatewayListeners(gw)
-
-	var merged []ingestion.ListenerWithContext
-	for _, l := range gw.Spec.Listeners {
-		// Conflicted listeners are rejected in Gateway status and must not be
-		// included in the model passed to the translation pipeline.
-		if _, conflicted := conflictedListeners[l.Name]; conflicted {
-			continue
-		}
-		merged = append(merged, ingestion.ListenerWithContext{
-			Listener: l,
-			Source:   gwSource,
-		})
-	}
-
-	if !helpers.HasListenerSetSupport(r.Client.Scheme()) {
-		return merged, nil, nil
-	}
-
+) ([]gatewayv1.ListenerSet, error) {
 	lsList := &gatewayv1.ListenerSetList{}
 	if err := r.Client.List(ctx, lsList, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexers.ListenerSetGatewayIndex, client.ObjectKeyFromObject(gw).String()),
 	}); err != nil {
-		return nil, nil, fmt.Errorf("failed to list ListenerSets: %w", err)
+		return nil, fmt.Errorf("failed to list ListenerSets: %w", err)
 	}
 
 	sortListenerSets(lsList.Items)
+	return lsList.Items, nil
+}
 
-	var attachedSets []gatewayv1.ListenerSet
-	for i := range lsList.Items {
-		ls := &lsList.Items[i]
+func (r *gatewayReconciler) filterAllowedListenerSets(
+	ctx context.Context,
+	scopedLog *slog.Logger,
+	gw *gatewayv1.Gateway,
+	listenerSets []gatewayv1.ListenerSet,
+) []gatewayv1.ListenerSet {
+	var allowed []gatewayv1.ListenerSet
+	for i := range listenerSets {
+		ls := &listenerSets[i]
 		if !isListenerSetAllowed(ctx, r.Client, gw, ls, scopedLog) {
 			original := ls.DeepCopy()
 			setListenerSetAccepted(ls, false, "ListenerSet is not allowed by the Gateway's allowedListeners policy", gatewayv1.ListenerSetReasonNotAllowed)
@@ -782,8 +775,29 @@ func (r *gatewayReconciler) resolveAllowedListeners(
 			}
 			continue
 		}
-		attachedSets = append(attachedSets, *ls)
+		allowed = append(allowed, *ls)
+	}
+	return allowed
+}
 
+func (r *gatewayReconciler) mergeListeners(
+	ctx context.Context,
+	scopedLog *slog.Logger,
+	gw *gatewayv1.Gateway,
+	listenerSets []gatewayv1.ListenerSet,
+) []ingestion.ListenerWithContext {
+	gwSource := gatewayFQR(gw)
+
+	var merged []ingestion.ListenerWithContext
+	for _, listener := range gw.Spec.Listeners {
+		merged = append(merged, ingestion.ListenerWithContext{
+			Listener: listener,
+			Source:   gwSource,
+		})
+	}
+
+	for i := range listenerSets {
+		ls := &listenerSets[i]
 		lsSource := listenerSetFQR(ls)
 		for _, entry := range ls.Spec.Listeners {
 			listener := helpers.ListenerEntryToListener(entry)
@@ -795,7 +809,29 @@ func (r *gatewayReconciler) resolveAllowedListeners(
 		}
 	}
 
-	return merged, attachedSets, nil
+	return merged
+}
+
+func filterConflictingListeners(
+	gw *gatewayv1.Gateway,
+	listeners []ingestion.ListenerWithContext,
+) []ingestion.ListenerWithContext {
+	conflictedGatewayListeners := conflictedGatewayListeners(gw)
+	accepted := &acceptedListeners{}
+	filtered := make([]ingestion.ListenerWithContext, 0, len(listeners))
+	for _, listener := range listeners {
+		if listener.Source.Kind == "Gateway" {
+			if _, conflicted := conflictedGatewayListeners[listener.Name]; conflicted {
+				continue
+			}
+		}
+		if accepted.checkConflict(listener.Listener) != "" {
+			continue
+		}
+		accepted.accept(listener.Listener)
+		filtered = append(filtered, listener)
+	}
+	return filtered
 }
 
 // resolveAllowedNamespaces resolves a listener's allowedRoutes.namespaces policy
