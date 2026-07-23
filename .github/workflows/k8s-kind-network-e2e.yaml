@@ -294,7 +294,12 @@ jobs:
           # Run tests
           export KUBERNETES_CONFORMANCE_TEST='y'
           export E2E_REPORT_DIR=${PWD}/_artifacts
-          /usr/local/bin/ginkgo --nodes=25                \
+          # 25-way parallelism on the 4-vCPU runner starves endpoint
+          # regeneration, so pod CNI ADD takes an endpoint-create 429 and
+          # pods come up late or without an IP, flaking sig-network specs.
+          # Lower the parallelism to ease that pressure. Match the
+          # network-policies job at 10.
+          /usr/local/bin/ginkgo --nodes=10                \
             --focus="\[sig-network\]"     \
             --skip="${SKIP_FLAG}"   \
             /usr/local/bin/e2e.test                       \
