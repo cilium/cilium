@@ -154,6 +154,7 @@ func (in *IPAMStatus) DeepCopyInto(out *IPAMStatus) {
 	out.OperatorStatus = in.OperatorStatus
 	out.ReleaseIPs = in.ReleaseIPs.DeepCopy()
 	out.ReleaseIPv6s = in.ReleaseIPv6s.DeepCopy()
+	in.AssignedStaticIP.DeepCopyInto(&out.AssignedStaticIP)
 	return
 }
 

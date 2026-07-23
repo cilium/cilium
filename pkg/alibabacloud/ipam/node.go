@@ -318,9 +318,9 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 	return err
 }
 
-func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (netip.Addr, error) {
 	// TODO, see https://github.com/cilium/cilium/issues/34094
-	return "", fmt.Errorf("not implemented")
+	return netip.Addr{}, fmt.Errorf("not implemented")
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.

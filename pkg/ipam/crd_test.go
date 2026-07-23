@@ -142,10 +142,10 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 }
 
 func TestNodeStoreStaticIPStatus(t *testing.T) {
-	newNode := func(tags map[string]string, assigned string) *ciliumv2.CiliumNode {
+	newNode := func(tags map[string]string, assigned netip.Addr) *ciliumv2.CiliumNode {
 		cn := newCiliumNode("node1", 0, 0, 0)
 		cn.Spec.IPAM.StaticIPTags = tags
-		cn.Status.IPAM.AssignedStaticIP = assigned
+		cn.Status.IPAM.AssignedStaticIP = iputil.AddrFrom(assigned)
 		return cn
 	}
 
@@ -153,31 +153,31 @@ func TestNodeStoreStaticIPStatus(t *testing.T) {
 		name                  string
 		ownNode               *ciliumv2.CiliumNode
 		wantRequestedStaticIP bool
-		wantAssignedStaticIP  string
+		wantAssignedStaticIP  netip.Addr
 	}{
 		{
 			name:                  "nil node",
 			ownNode:               nil,
 			wantRequestedStaticIP: false,
-			wantAssignedStaticIP:  "",
+			wantAssignedStaticIP:  netip.Addr{},
 		},
 		{
 			name:                  "no static IP requested",
-			ownNode:               newNode(nil, ""),
+			ownNode:               newNode(nil, netip.Addr{}),
 			wantRequestedStaticIP: false,
-			wantAssignedStaticIP:  "",
+			wantAssignedStaticIP:  netip.Addr{},
 		},
 		{
 			name:                  "static IP requested but not yet assigned",
-			ownNode:               newNode(map[string]string{"env": "prod"}, ""),
+			ownNode:               newNode(map[string]string{"env": "prod"}, netip.Addr{}),
 			wantRequestedStaticIP: true,
-			wantAssignedStaticIP:  "",
+			wantAssignedStaticIP:  netip.Addr{},
 		},
 		{
 			name:                  "static IP requested and assigned",
-			ownNode:               newNode(map[string]string{"env": "prod"}, "1.2.3.4"),
+			ownNode:               newNode(map[string]string{"env": "prod"}, netip.MustParseAddr("1.2.3.4")),
 			wantRequestedStaticIP: true,
-			wantAssignedStaticIP:  "1.2.3.4",
+			wantAssignedStaticIP:  netip.MustParseAddr("1.2.3.4"),
 		},
 	}
 

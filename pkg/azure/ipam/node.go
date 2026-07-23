@@ -159,7 +159,7 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 	}
 }
 
-func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (netip.Addr, error) {
 	var addr netip.Addr
 	var err error
 	if n.vmss == "" {
@@ -168,9 +168,9 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 		addr, err = n.manager.api.AssignPublicIPAddressesVMSS(ctx, n.instanceID, n.vmss, staticIPTags)
 	}
 	if err != nil {
-		return "", err
+		return netip.Addr{}, err
 	}
-	return addr.String(), nil
+	return addr, nil
 }
 
 // CreateInterface is called to create a new interface. This operation is

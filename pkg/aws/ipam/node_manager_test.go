@@ -971,7 +971,7 @@ func TestNodeManagerStaticIP(t *testing.T) {
 	node = mngr.Get("node1")
 	require.NotNil(t, node)
 	// Verify that the static IP has been successfully assigned
-	require.Equal(t, "192.0.2.254", node.Stats().IPv4.AssignedStaticIP)
+	require.Equal(t, netip.MustParseAddr("192.0.2.254"), node.Stats().IPv4.AssignedStaticIP)
 }
 
 // TestNodeManagerStaticIPAlreadyAssociated verifies that when an ENI already has a public IP assigned to it, it is properly detected
@@ -1059,7 +1059,7 @@ func TestNodeManagerStaticIPPrimaryENI(t *testing.T) {
 	node := mngr.Get("node1")
 	require.NotNil(t, node)
 	// Verify that the static IP has been successfully assigned.
-	require.Equal(t, "192.0.2.254", node.Stats().IPv4.AssignedStaticIP)
+	require.Equal(t, netip.MustParseAddr("192.0.2.254"), node.Stats().IPv4.AssignedStaticIP)
 
 	// Verify that the EIP was associated with the primary ENI and not with any
 	// secondary ENI.

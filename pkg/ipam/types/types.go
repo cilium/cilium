@@ -272,7 +272,7 @@ type IPAMStatus struct {
 	// AssignedStaticIP is the static IP assigned to the node (ex: public Elastic IP address in AWS)
 	//
 	// +optional
-	AssignedStaticIP string `json:"assigned-static-ip,omitempty"`
+	AssignedStaticIP iputil.Addr `json:"assigned-static-ip,omitzero"`
 }
 
 // IPAMPoolDemand is a request from the agent to the operator, indicating how
