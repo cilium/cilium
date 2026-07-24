@@ -50,19 +50,21 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger        *slog.Logger
-	installedCRDs []schema.GroupVersionKind
+	logger           *slog.Logger
+	installedCRDs    []schema.GroupVersionKind
+	hostNetworkLabel metav1.LabelSelector
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind, hostNetworkLabel metav1.LabelSelector) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		translator:    translator,
-		logger:        scopedLog,
-		installedCRDs: installedCRDs,
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		translator:       translator,
+		logger:           scopedLog,
+		installedCRDs:    installedCRDs,
+		hostNetworkLabel: hostNetworkLabel,
 	}
 }
 
@@ -529,12 +531,6 @@ func (r *gatewayReconciler) enqueueRequestForNodes(c client.Client, logger *slog
 		scopedLog := logger.With(
 			logfields.K8sNamespace, ns.GetName(),
 		)
-		nodeList := &corev1.NodeList{}
-		if err := c.List(ctx, nodeList); err != nil {
-			scopedLog.WarnContext(ctx, "Unable to list nodes", logfields.Error, err)
-			return nil
-		}
-
 		gateways, err := getAllCiliumGatewaysSet(ctx, c)
 
 		if err != nil {
@@ -544,7 +540,7 @@ func (r *gatewayReconciler) enqueueRequestForNodes(c client.Client, logger *slog
 
 		reqs := make([]reconcile.Request, 0, len(gateways))
 		svcList := &corev1.ServiceList{}
-		svcMap := make(map[string]struct{})
+		svcMap := make(map[types.UID]struct{})
 
 		// for each gateway, filter for the services owned by the gateway
 		for gw := range gateways {
@@ -558,7 +554,7 @@ func (r *gatewayReconciler) enqueueRequestForNodes(c client.Client, logger *slog
 			// if the service owned by the gateway is a nodeport, add to map of UID
 			for _, svc := range svcList.Items {
 				if svc.Spec.Type == "NodePort" {
-					svcMap[string(svc.GetOwnerReferences()[0].UID)] = struct{}{}
+					svcMap[svc.GetOwnerReferences()[0].UID] = struct{}{}
 				}
 			}
 		}
@@ -584,7 +580,7 @@ func (r *gatewayReconciler) enqueueRequestForNodes(c client.Client, logger *slog
 			if err := c.Get(ctx, gatewayNamespaceName, gateway); err != nil {
 				scopedLog.WarnContext(ctx, "Unable to get gateway", logfields.Error, err)
 			}
-			if _, err := svcMap[string(gateway.GetUID())]; err {
+			if _, err := svcMap[gateway.GetUID()]; err {
 				// there is no nodeport svc for this gateway, no need to reconcile
 				continue
 			}
