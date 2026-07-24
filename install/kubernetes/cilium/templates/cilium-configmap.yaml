@@ -862,7 +862,11 @@ data:
 
 {{- if $socketLB }}
 {{- if hasKey $socketLB "enabled" }}
+{{- if eq $kubeProxyReplacement "true" }}
+  bpf-lb-sock: "true"
+{{- else }}
   bpf-lb-sock: {{ $socketLB.enabled | quote }}
+{{- end }}
 {{- end }}
 {{- if or (hasKey $socketLB "hostNamespaceOnly") .Values.gatewayAPI.enabled }}
 # When Gateway API is enabled this is forced to "true" so per-backend weights
