@@ -229,6 +229,10 @@ cilium-agent [flags]
       --external-envoy-proxy                                      whether the Envoy is deployed externally in form of a DaemonSet or not
       --fixed-identity-mapping map                                Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
       --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
+      --fqdn-policy-dns-server-ips strings                        Comma-separated list of IP addresses of DNS servers for FQDN policy resolution
+      --fqdn-policy-dns-server-namespace string                   Namespace of DNS server pods for FQDN policy resolution
+      --fqdn-policy-dns-server-pod-label stringToString           Label of DNS server pods for FQDN policy resolution (default [])
+      --fqdn-policy-dns-server-port int                           Port of DNS server pods for FQDN policy resolution (default 53)
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
       --health-check-icmp-failure-threshold int                   Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy. (default 3)
