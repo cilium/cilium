@@ -21,14 +21,16 @@ import (
 )
 
 type GatewayAddressStatusManager struct {
-	client client.Client
-	logger *slog.Logger
+	client           client.Client
+	logger           *slog.Logger
+	hostNetworkLabel []metav1.LabelSelector
 }
 
-func NewGatewayAddressStatusManager(client client.Client, logger *slog.Logger) *GatewayAddressStatusManager {
+func NewGatewayAddressStatusManager(client client.Client, logger *slog.Logger, hostNetworkLabel ...metav1.LabelSelector) *GatewayAddressStatusManager {
 	return &GatewayAddressStatusManager{
-		client: client,
-		logger: logger,
+		client:           client,
+		logger:           logger,
+		hostNetworkLabel: hostNetworkLabel,
 	}
 }
 
@@ -88,28 +90,38 @@ func (m *GatewayAddressStatusManager) SetAddressStatus(ctx context.Context, gw *
 		// NodePort service gets as many Node
 		// IP addresses as we can fit into Status
 		nodes := &corev1.NodeList{}
-		if err := m.client.List(ctx, nodes); err != nil {
-			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load nodes", gatewayv1.GatewayReasonAddressNotAssigned)
-			return fmt.Errorf("failed to load nodes: %w", err)
-		}
 
 		ips := make([]netip.Addr, 0)
-		for _, node := range nodes.Items {
-			if len(node.Status.Addresses) == 0 {
-				continue
-			}
-			nodeAddress := node.Status.Addresses[0]
-			ip, err := netip.ParseAddr(nodeAddress.Address)
+		// for every label that is present, determine if there are any nodes with those labels and
+		// add them to the list of ips
+		for _, s := range m.hostNetworkLabel {
+			selector, err := metav1.LabelSelectorAsSelector(&s)
 			if err != nil {
-				// the first address is not an IP address (e.g. a hostname),
-				// skip the node instead of reporting an invalid address.
-				continue
+				return fmt.Errorf("unable to get node selector label")
 			}
-			ips = append(ips, ip.Unmap())
+			if err := m.client.List(ctx, nodes, &client.ListOptions{
+				LabelSelector: selector,
+			}); err != nil {
+				return fmt.Errorf("unable to list nodes")
+			}
+			for _, node := range nodes.Items {
+				if len(node.Status.Addresses) == 0 {
+					continue
+				}
+				nodeAddress := node.Status.Addresses[0]
+				ip, err := netip.ParseAddr(nodeAddress.Address)
+				if err != nil {
+					// the first address is not an IP address (e.g. a hostname),
+					// skip the node instead of reporting an invalid address.
+					continue
+				}
+				ips = append(ips, ip.Unmap())
+			}
 		}
 
 		// sort the addresses for consistent ip addresses assigned
 		slices.SortFunc(ips, netip.Addr.Compare)
+
 		// allows for only a max of 16 addresses
 		if len(ips) > 16 {
 			ips = ips[:16]

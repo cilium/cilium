@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
@@ -284,6 +285,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	cecTranslator := translation.NewCECTranslator(cfg)
 
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, cfg)
+	var nodeLabelSelector v1.LabelSelector
+	if cfg.HostNetworkConfig.NodeLabelSelector != nil {
+		nodeLabelSelector = v1.LabelSelector{MatchLabels: cfg.HostNetworkConfig.NodeLabelSelector.MatchLabels}
+	}
 
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
@@ -292,6 +297,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		defaultControllerName,
 		installedOptionalKinds,
 		cfg.HostNetworkConfig.Enabled,
+		nodeLabelSelector,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -421,12 +427,13 @@ func registerReconcilers(
 	controllerName string,
 	installedOptionalCRDs []schema.GroupVersionKind,
 	hostNetworkEnabled bool,
+	hostNetworkLabel v1.LabelSelector,
 ) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger, controllerName),
-		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled),
+		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, hostNetworkLabel),
 		newGammaReconciler(mgr, translator, logger, controllerName),
 		newGatewayClassConfigReconciler(mgr, logger),
 		newEndpointSliceReconciler(mgr, logger),

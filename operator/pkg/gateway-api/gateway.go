@@ -9,6 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -50,9 +51,11 @@ type gatewayReconciler struct {
 	controllerName                string
 	tcpUDPRouteSupport            bool
 	tcpUDPUnsupportedReason       string
+	hostNetworkEnabled            bool
+	hostNetworkLabel              metav1.LabelSelector
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 	includeTCPRoutes := helpers.HasTCPRouteSupport(mgr.GetScheme())
 	includeUDPRoutes := helpers.HasUDPRouteSupport(mgr.GetScheme())
@@ -68,7 +71,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
 			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
 		}),
-		gatewayAddressStatusManager: NewGatewayAddressStatusManager(mgr.GetClient(), scopedLog),
+		gatewayAddressStatusManager: NewGatewayAddressStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
 		listenerStatusManager: NewListenerStatusManager(
 			mgr.GetClient(),
 			scopedLog,
@@ -93,6 +96,8 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		controllerName:                controllerName,
 		tcpUDPRouteSupport:            tcpUDPRouteSupport,
 		tcpUDPUnsupportedReason:       hostNetworkTCPUDPRouteUnsupportedReason,
+		hostNetworkEnabled:            hostNetworkEnabled,
+		hostNetworkLabel:              hostNetworkLabel,
 	}
 }
 
