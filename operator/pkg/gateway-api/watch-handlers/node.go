@@ -25,12 +25,7 @@ func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayL
 		scopedLog := logger.With(
 			logfields.K8sNamespace, ns.GetName(),
 		)
-		nodeList := &corev1.NodeList{}
-		if err := c.List(ctx, nodeList); err != nil {
-			scopedLog.WarnContext(ctx, "Unable to list nodes", logfields.Error, err)
-			return nil
-		}
-
+		// get all the gateways with cilium controller name
 		gateways, err := getAllGatewaysSetForController(ctx, c, controllerName)
 
 		if err != nil {
@@ -40,7 +35,7 @@ func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayL
 
 		reqs := make([]reconcile.Request, 0, len(gateways))
 		svcList := &corev1.ServiceList{}
-		svcMap := make(map[string]struct{})
+		svcMap := make(map[types.UID]struct{})
 
 		// for each gateway, filter for the services owned by the gateway
 		for gw := range gateways {
@@ -54,7 +49,7 @@ func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayL
 			// if the service owned by the gateway is a nodeport, add to map of UID
 			for _, svc := range svcList.Items {
 				if svc.Spec.Type == "NodePort" {
-					svcMap[string(svc.GetOwnerReferences()[0].UID)] = struct{}{}
+					svcMap[svc.GetOwnerReferences()[0].UID] = struct{}{}
 				}
 			}
 		}
@@ -80,13 +75,13 @@ func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayL
 			if err := c.Get(ctx, gatewayNamespaceName, gateway); err != nil {
 				scopedLog.WarnContext(ctx, "Unable to get gateway", logfields.Error, err)
 			}
-			if _, err := svcMap[string(gateway.GetUID())]; err {
-				// there is no nodeport svc for this gateway, no need to reconcile
-				continue
+
+			if _, exist := svcMap[gateway.GetUID()]; exist {
+				// gateway present in svcMap have a nodeport service and should be queued for reconcile
+				reqs = append(reqs, reconcile.Request{
+					NamespacedName: gatewayNamespaceName,
+				})
 			}
-			reqs = append(reqs, reconcile.Request{
-				NamespacedName: gatewayNamespaceName,
-			})
 		}
 		return reqs
 	})

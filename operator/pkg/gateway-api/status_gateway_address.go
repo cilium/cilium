@@ -1,0 +1,242 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package gateway_api
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/netip"
+	"slices"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/shortener"
+)
+
+type GatewayAddressStatusManager struct {
+	client           client.Client
+	logger           *slog.Logger
+	hostNetworkLabel []metav1.LabelSelector
+}
+
+func NewGatewayAddressStatusManager(client client.Client, logger *slog.Logger, hostNetworkLabel ...metav1.LabelSelector) *GatewayAddressStatusManager {
+	return &GatewayAddressStatusManager{
+		client:           client,
+		logger:           logger,
+		hostNetworkLabel: hostNetworkLabel,
+	}
+}
+
+// ValidateStaticAddresses validates spec.addresses before resource
+// reconciliation continues. It only checks the requested static address shape;
+// it does not look at assigned Service status. Invalid addresses are surfaced
+// through Gateway conditions and reported as not valid.
+func (m *GatewayAddressStatusManager) ValidateStaticAddresses(gw *gatewayv1.Gateway) bool {
+	if len(gw.Spec.Addresses) == 0 {
+		return true
+	}
+	for _, address := range gw.Spec.Addresses {
+		if address.Type != nil && *address.Type != gatewayv1.IPAddressType {
+			setGatewayAccepted(gw, false, "Unsupported Gateway address, address type is not supported", gatewayv1.GatewayReasonUnsupportedAddress)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			return false
+		}
+		if address.Value == "" {
+			setGatewayAccepted(gw, false, "Unsupported Gateway address, address value is not set", gatewayv1.GatewayReasonUnsupportedAddress)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			return false
+		}
+		if _, err := netip.ParseAddr(address.Value); err != nil {
+			setGatewayAccepted(gw, false, "Unsupported Gateway address, invalid ip address", gatewayv1.GatewayReasonUnsupportedAddress)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			return false
+		}
+	}
+	return true
+}
+
+// SetAddressStatus reads the managed frontend Service and projects its observed
+// addresses into Gateway status. When at least one usable address is present,
+// it also marks the Gateway and accepted listeners as Programmed.
+func (m *GatewayAddressStatusManager) SetAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
+	m.logger.InfoContext(ctx, "Checking address status for Gateway", logfields.Resource, client.ObjectKeyFromObject(gw).String())
+	setGatewayProgrammed(gw, metav1.ConditionFalse, "Gateway waiting for address", gatewayv1.GatewayReasonAddressNotAssigned)
+
+	svcList := &corev1.ServiceList{}
+	if err := m.client.List(ctx, svcList, client.MatchingLabels{
+		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
+	}, client.InNamespace(gw.GetNamespace())); err != nil {
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load services", gatewayv1.GatewayReasonAddressNotAssigned)
+		return fmt.Errorf("failed to load services: %w", err)
+	}
+
+	if len(svcList.Items) == 0 {
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load services: no service found", gatewayv1.GatewayReasonAddressNotAssigned)
+		return fmt.Errorf("failed to load services: no service found")
+	}
+	svc := svcList.Items[0]
+
+	var addresses []gatewayv1.GatewayStatusAddress
+	// Check the svc type
+	switch svc.Spec.Type {
+	case corev1.ServiceTypeNodePort:
+		// NodePort service gets as many Node
+		// IP addresses as we can fit into Status
+		nodes := &corev1.NodeList{}
+
+		ips := make([]netip.Addr, 0)
+		// for every label that is present, determine if there are any nodes with those labels and
+		// add them to the list of ips
+		for _, s := range m.hostNetworkLabel {
+			selector, err := metav1.LabelSelectorAsSelector(&s)
+			if err != nil {
+				return fmt.Errorf("unable to get node selector label")
+			}
+			if err := m.client.List(ctx, nodes, &client.ListOptions{
+				LabelSelector: selector,
+			}); err != nil {
+				return fmt.Errorf("unable to list nodes")
+			}
+			for _, node := range nodes.Items {
+				if len(node.Status.Addresses) == 0 {
+					continue
+				}
+				nodeAddress := node.Status.Addresses[0]
+				ip, err := netip.ParseAddr(nodeAddress.Address)
+				if err != nil {
+					// the first address is not an IP address (e.g. a hostname),
+					// skip the node instead of reporting an invalid address.
+					continue
+				}
+				ips = append(ips, ip.Unmap())
+			}
+		}
+
+		// sort the addresses for consistent ip addresses assigned
+		slices.SortFunc(ips, netip.Addr.Compare)
+
+		// allows for only a max of 16 addresses
+		if len(ips) > 16 {
+			ips = ips[:16]
+		}
+		for _, ipAddress := range ips {
+			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+				Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
+				Value: ipAddress.String(),
+			})
+		}
+	case corev1.ServiceTypeLoadBalancer:
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			// Potential loadbalancer service isn't ready yet. No need to report as an error, because
+			// reconciliation should be triggered when the loadbalancer services gets updated.
+			return nil
+		}
+		for _, s := range svc.Status.LoadBalancer.Ingress {
+			if len(s.IP) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
+					Value: s.IP,
+				})
+			}
+			if len(s.Hostname) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
+					Value: s.Hostname,
+				})
+			}
+		}
+	default:
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load services: invalid service type for gateway", gatewayv1.GatewayReasonAddressNotAssigned)
+		return fmt.Errorf("failed to load services: invalid service type for gateway")
+	}
+
+	if len(addresses) > 0 {
+		m.logger.InfoContext(ctx, "At least one valid address, marking gateway programmed", logfields.Resource, client.ObjectKeyFromObject(gw).String())
+		setGatewayProgrammed(gw, metav1.ConditionTrue, "Gateway Programmed", gatewayv1.GatewayReasonProgrammed)
+		for i := range gw.Status.Listeners {
+			l := &gw.Status.Listeners[i]
+			// Is Listener Accepted?
+			accepted := false
+
+			for _, cond := range l.Conditions {
+				if cond.Type == string(gatewayv1.GatewayConditionAccepted) &&
+					cond.Status == metav1.ConditionTrue {
+					accepted = true
+					break
+				}
+			}
+			if accepted {
+				l.Conditions = helpers.MergeConditions(l.Conditions, metav1.Condition{
+					Type:               string(gatewayv1.ListenerConditionProgrammed),
+					Status:             metav1.ConditionTrue,
+					Reason:             string(gatewayv1.ListenerReasonProgrammed),
+					Message:            "Listener Programmed",
+					ObservedGeneration: gw.Generation,
+					LastTransitionTime: metav1.Now(),
+				})
+			}
+		}
+	}
+
+	gw.Status.Addresses = addresses
+	return nil
+}
+
+// SetStaticAddressStatus compares requested static addresses with the assigned
+// load balancer ingress addresses. It is a post-reconcile check for whether
+// the requested static addresses were actually satisfied.
+func (m *GatewayAddressStatusManager) SetStaticAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
+	if len(gw.Spec.Addresses) == 0 {
+		return nil
+	}
+	svcList := &corev1.ServiceList{}
+	if err := m.client.List(ctx, svcList, client.MatchingLabels{
+		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
+	}, client.InNamespace(gw.GetNamespace())); err != nil {
+		return fmt.Errorf("failed to load services: %w", err)
+	}
+
+	if len(svcList.Items) == 0 {
+		return fmt.Errorf("failed to load services: no service found")
+	}
+
+	svc := svcList.Items[0]
+	if len(svc.Status.LoadBalancer.Ingress) == 0 {
+		// Potential loadbalancer service isn't ready yet. No need to report as an error, because
+		// reconciliation should be triggered when the loadbalancer services gets updated.
+		return nil
+	}
+
+	// Compare parsed addresses because the same IP address can have multiple
+	// textual representations.
+	addresses := make(map[netip.Addr]struct{}, len(svc.Status.LoadBalancer.Ingress))
+	for _, addr := range svc.Status.LoadBalancer.Ingress {
+		ip, err := netip.ParseAddr(addr.IP)
+		if err != nil {
+			// Ignore hostname-only ingress entries.
+			continue
+		}
+		addresses[ip] = struct{}{}
+	}
+
+	for _, addr := range gw.Spec.Addresses {
+		ip, err := netip.ParseAddr(addr.Value)
+		if err != nil {
+			setGatewayProgrammed(gw, metav1.ConditionFalse, fmt.Sprintf("StaticAddress %q can't be used", addr.Value), gatewayv1.GatewayReasonAddressNotUsable)
+			return nil
+		}
+		if _, ok := addresses[ip]; !ok {
+			setGatewayProgrammed(gw, metav1.ConditionFalse, fmt.Sprintf("StaticAddress %q can't be used", addr.Value), gatewayv1.GatewayReasonAddressNotUsable)
+			return nil
+		}
+	}
+
+	return nil
+}

@@ -10,6 +10,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -43,9 +44,10 @@ type gatewayReconciler struct {
 	logger             *slog.Logger
 	controllerName     string
 	hostNetworkEnabled bool
+	hostNetworkLabel   metav1.LabelSelector
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
@@ -55,6 +57,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		logger:             scopedLog,
 		controllerName:     controllerName,
 		hostNetworkEnabled: hostNetworkEnabled,
+		hostNetworkLabel:   hostNetworkLabel,
 	}
 }
 
