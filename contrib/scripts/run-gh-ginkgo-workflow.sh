@@ -9,6 +9,8 @@ set -o pipefail
 set -o nounset
 
 ginkgo_matrix_yaml=".github/actions/ginkgo/main-k8s-versions.yaml"
+# renovate: datasource=github-releases depName=helm/helm
+helm_version="4.3.0"
 
 check_cmd() {
     for cmd in "$@"; do
@@ -47,11 +49,9 @@ report() {
 }
 
 install_helm() {
-    local HELM_VERSION=3.7.0
-
     pushd "${tmpdir}" >/dev/null
-    wget "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
-    tar -xf "helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+    wget "https://get.helm.sh/helm-v${helm_version}-linux-amd64.tar.gz"
+    tar -xf "helm-v${helm_version}-linux-amd64.tar.gz"
     mv linux-amd64/helm ./helm
     popd >/dev/null
 }
@@ -256,9 +256,14 @@ check_cmd_or_fail docker git qemu-system-x86_64 zstd
 root_dir="$(git rev-parse --show-toplevel)"
 
 helm="helm"
-if ! check_cmd "${helm}"; then
+if ! check_cmd "${helm}" || \
+    [[ "$("${helm}" version --short | cut -d+ -f1)" != "v${helm_version}" ]]; then
     install_helm
     helm="${tmpdir}/helm"
+fi
+helm_path="$(command -v "${helm}")"
+if [[ "${helm_path}" != "${PWD}/helm" && "${helm_path}" != "./helm" ]]; then
+    cp "${helm_path}" ./helm
 fi
 
 if ! check_cmd ginkgo; then

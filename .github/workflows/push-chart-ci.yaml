@@ -186,6 +186,12 @@ jobs:
 
         echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
 
+    - name: Set up Helm
+      uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      with:
+        # renovate: datasource=github-releases depName=helm/helm
+        version: v4.3.0
+
     - name: Push charts
       uses: cilium/reusable-workflows/.github/actions/push-helm-chart@ad5dbc4e2c7f7322efc87b0e20553d44e9de536e # v0.1.1
       with:
@@ -221,4 +227,4 @@ jobs:
       run: |
         echo "Example commands:"
         echo helm template -n kube-system oci://${{ env.REGISTRY_DEV }}/${{ env.CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
-        echo helm install cilium -n kube-system  oci://${{ env.REGISTRY_DEV }}/${{ env.CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
+        echo helm install cilium -n kube-system oci://${{ env.REGISTRY_DEV }}/${{ env.CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
