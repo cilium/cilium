@@ -4,13 +4,12 @@
 package gateway_api
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
-	"sort"
+	"net/netip"
+	"slices"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -1039,19 +1038,23 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 			return fmt.Errorf("unable to list nodes")
 		}
 
-		ips := make([]net.IP, 0)
+		ips := make([]netip.Addr, 0)
 		for _, node := range nodes.Items {
 			if len(node.Status.Addresses) == 0 {
 				continue
 			}
 			nodeAddress := node.Status.Addresses[0]
-			ips = append(ips, net.ParseIP(nodeAddress.Address))
+			ip, err := netip.ParseAddr(nodeAddress.Address)
+			if err != nil {
+				// the first address is not an IP address (e.g. a hostname),
+				// skip the node instead of reporting an invalid address.
+				continue
+			}
+			ips = append(ips, ip.Unmap())
 		}
 
 		// sort the addresses for consistent ip addresses assigned
-		sort.Slice(ips, func(i, j int) bool {
-			return bytes.Compare(ips[i], ips[j]) < 0
-		})
+		slices.SortFunc(ips, netip.Addr.Compare)
 
 		// allows for only a max of 16 addresses
 		if len(ips) > 16 {
@@ -1420,8 +1423,7 @@ func (r *gatewayReconciler) verifyGatewayStaticAddresses(gw *gatewayv1.Gateway) 
 		if address.Value == "" {
 			return fmt.Errorf("address value is not set")
 		}
-		ip := net.ParseIP(address.Value)
-		if ip == nil {
+		if _, err := netip.ParseAddr(address.Value); err != nil {
 			return fmt.Errorf("invalid ip address")
 		}
 	}
