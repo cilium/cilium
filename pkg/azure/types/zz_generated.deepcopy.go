@@ -38,7 +38,6 @@ func (in *AzureInterface) DeepCopyInto(out *AzureInterface) {
 	}
 	in.Subnet.DeepCopyInto(&out.Subnet)
 	in.Gateway.DeepCopyInto(&out.Gateway)
-	in.CIDR.DeepCopyInto(&out.CIDR)
 	return
 }
 

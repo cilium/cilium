@@ -352,7 +352,6 @@ func parseInterface(logger *slog.Logger, iface *armnetwork.Interface, subnets ip
 				if subnet, ok := subnets[i.Subnet.ID]; ok {
 					if subnet.CIDR.IsValid() {
 						i.Subnet.CIDR = iputil.PrefixFrom(subnet.CIDR)
-						i.CIDR = i.Subnet.CIDR //nolint:staticcheck // transitional, see https://github.com/cilium/cilium/issues/46074
 					}
 					i.Gateway = deriveGatewayIP(subnet.CIDR.Addr())
 				}
@@ -379,9 +378,6 @@ func parseInterface(logger *slog.Logger, iface *armnetwork.Interface, subnets ip
 			addr := types.AzureAddress{
 				IP:    iputil.AddrFrom(parsedIP),
 				State: strings.ToLower(string(*ip.Properties.ProvisioningState)),
-			}
-			if ip.Properties.Subnet != nil {
-				addr.Subnet = *ip.Properties.Subnet.ID //nolint:staticcheck // transitional, see https://github.com/cilium/cilium/issues/46074
 			}
 			i.Addresses = append(i.Addresses, addr)
 		}
