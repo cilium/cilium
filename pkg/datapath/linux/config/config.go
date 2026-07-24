@@ -19,6 +19,7 @@ import (
 	"text/template"
 
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -379,8 +380,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 			if option.Config.EnableIPMasqAgent {
 				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
 
-				// native-routing-cidr is optional with ip-masq-agent and may be nil
-				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+				// native-routing-cidr is optional with ip-masq-agent and may be unset
+				if option.Config.IPv4NativeRoutingCIDR.IsValid() {
+					excludeCIDR = cidr.NewCIDR(netipx.PrefixIPNet(option.Config.IPv4NativeRoutingCIDR))
+				}
 			} else {
 				excludeCIDR = cfg.NativeRoutingCIDRIPv4
 			}
@@ -398,7 +401,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 			if option.Config.EnableIPMasqAgent {
 				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
 
-				excludeCIDR = option.Config.IPv6NativeRoutingCIDR
+				if option.Config.IPv6NativeRoutingCIDR.IsValid() {
+					excludeCIDR = cidr.NewCIDR(netipx.PrefixIPNet(option.Config.IPv6NativeRoutingCIDR))
+				}
 			} else {
 				excludeCIDR = cfg.NativeRoutingCIDRIPv6
 			}

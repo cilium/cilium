@@ -678,7 +678,7 @@ func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 			option.Config.EnableIPv4Masquerade = true
 			option.Config.EnableIPv6Masquerade = false
 			option.Config.EnableIPMasqAgent = true
-			option.Config.IPv4NativeRoutingCIDR = cidr.MustParseCIDR("10.0.0.0/8")
+			option.Config.IPv4NativeRoutingCIDR = netip.MustParsePrefix("10.0.0.0/8")
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
 			require.Contains(t, output, "define ENABLE_MASQUERADE_IPV4 1\n",
