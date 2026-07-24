@@ -20,6 +20,9 @@ const (
 )
 
 const (
+	// NetlinkBufferSize is the default value for option.NetlinkBufferSize
+	NetlinkBufferSize = 4 << 20 // 4MiB
+
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
 

@@ -112,6 +112,10 @@ const (
 	// Forces the auto-detection of devices, even if specific devices are explicitly listed
 	ForceDeviceDetection = "force-device-detection"
 
+	// NetlinkBufferSize sets the size in bytes of the netlink socket receive
+	// buffer used by the devices controller's subscriptions
+	NetlinkBufferSize = "netlink-buffer-size"
+
 	// DirectRoutingDevice is the name of a device used to connect nodes in
 	// direct routing mode (only required by BPF NodePort)
 	DirectRoutingDevice = "direct-routing-device"
