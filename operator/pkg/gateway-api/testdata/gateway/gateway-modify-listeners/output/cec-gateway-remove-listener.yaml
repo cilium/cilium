@@ -50,43 +50,6 @@ spec:
           upgradeConfigs:
           - upgradeType: websocket
           useRemoteAddress: true
-    - filterChainMatch:
-        serverNames:
-        - secure.test.com
-        transportProtocol: tls
-      filters:
-      - name: envoy.filters.network.http_connection_manager
-        typedConfig:
-          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-          commonHttpProtocolOptions:
-            maxStreamDuration: 0s
-          httpFilters:
-          - name: envoy.filters.http.grpc_web
-            typedConfig:
-              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
-          - name: envoy.filters.http.grpc_stats
-            typedConfig:
-              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
-              emitFilterState: true
-              enableUpstreamStats: true
-          - name: envoy.filters.http.router
-            typedConfig:
-              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-          internalAddressConfig: {}
-          rds:
-            routeConfigName: listener-secure
-          statPrefix: listener-secure
-          streamIdleTimeout: 300s
-          upgradeConfigs:
-          - upgradeType: websocket
-          useRemoteAddress: true
-      transportSocket:
-        name: envoy.transport_sockets.tls
-        typedConfig:
-          '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
-          commonTlsContext:
-            tlsCertificateSdsSecretConfigs:
-            - name: cilium-secrets/cilium-sync-secret-261c3c0ed7182ef9200310151d846ebc492656fb3bcdf448223b3495dcc9016a
     listenerFilters:
     - name: envoy.filters.listener.tls_inspector
       typedConfig:
@@ -122,20 +85,6 @@ spec:
           cluster: gateway-conformance-infra:infra-backend-v1:8080
           maxStreamDuration:
             maxStreamDuration: 0s
-  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
-    name: listener-secure
-    virtualHosts:
-    - domains:
-      - secure.test.com
-      - secure.test.com:*
-      name: secure.test.com
-      routes:
-      - match:
-          prefix: /
-        route:
-          cluster: gateway-conformance-infra:infra-backend-v1:8080
-          maxStreamDuration:
-            maxStreamDuration: 0s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
     edsClusterConfig:
       serviceName: gateway-conformance-infra/infra-backend-v1:8080
@@ -156,4 +105,3 @@ spec:
     namespace: gateway-conformance-infra
     ports:
     - 80
-    - 443

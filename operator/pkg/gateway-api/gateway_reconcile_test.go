@@ -356,6 +356,9 @@ func Test_Conformance(t *testing.T) {
 		{name: "listenerset-hostname-conflict", skipCEC: true, gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "hostname-conflict", Namespace: "gateway-conformance-infra"}},
 		}},
+		{name: "listenerset-tls-protocol-conflict", gateway: []gwDetails{
+			{FullName: types.NamespacedName{Name: "tls-protocol-conflict", Namespace: "gateway-conformance-infra"}},
+		}},
 		{name: "listenerset-cross-listenerset-hostname-conflict", skipCEC: true, gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "cross-listenerset-hostname-conflict", Namespace: "gateway-conformance-infra"}},
 		}},
@@ -1044,7 +1047,6 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 					WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 					Build(),
 			}
-
 			gotStatus, err := r.setListenerStatus(
 				t.Context(),
 				gw,
