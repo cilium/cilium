@@ -50,6 +50,7 @@
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "Documentation/requirements-min/requirements.txt",
     "cilium-cli/**",
+    "contrib/scripts/run-gh-ginkgo-workflow.sh",
     "pkg/azure/**",
     "images/**",
     "examples/datapath-plugin/*",
@@ -701,6 +702,16 @@
       ]
     },
     {
+      // Keep the Helm CLI, validation image, and Go SDK on one version update.
+      "groupName": "Helm 4 toolchain",
+      "groupSlug": "helm-4-toolchain",
+      "matchDepNames": [
+        "alpine/helm",
+        "helm/helm",
+        "helm.sh/helm/v4"
+      ]
+    },
+    {
       "groupName": "Hubble CLI",
       "groupSlug": "hubble-cli",
       "matchDepNames": [
@@ -1150,7 +1161,8 @@
         "/images/builder/install-protoc.sh/",
         "/images/builder/install-protoplugins.sh/",
         "/images/runtime/build-cni.sh/",
-        "/images/runtime/build-gops.sh/"
+        "/images/runtime/build-gops.sh/",
+        "/contrib/scripts/run-gh-ginkgo-workflow.sh/"
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:
