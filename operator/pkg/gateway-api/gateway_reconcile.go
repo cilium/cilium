@@ -681,7 +681,13 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 		// NodePort service gets as many Node
 		// IP addresses as we can fit into Status
 		nodes := &corev1.NodeList{}
-		if err := r.Client.List(ctx, nodes); err != nil {
+		selector, err := metav1.LabelSelectorAsSelector(&r.hostNetworkLabel)
+		if err != nil {
+			return fmt.Errorf("unable to get node selector label")
+		}
+		if err := r.Client.List(ctx, nodes, &client.ListOptions{
+			LabelSelector: selector,
+		}); err != nil {
 			return fmt.Errorf("unable to list nodes")
 		}
 
