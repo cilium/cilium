@@ -30,6 +30,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
+	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -1047,9 +1048,17 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 					WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 					Build(),
 			}
+			listenerContexts := make([]ingestion.ListenerWithContext, 0, len(gw.Spec.Listeners))
+			for _, listener := range gw.Spec.Listeners {
+				listenerContexts = append(listenerContexts, ingestion.ListenerWithContext{
+					Listener: listener,
+					Source:   gatewayFQR(gw),
+				})
+			}
 			gotStatus, err := r.setListenerStatus(
 				t.Context(),
 				gw,
+				conflictsAcrossSources(listenerContexts),
 				&gatewayv1.HTTPRouteList{},
 				&gatewayv1.TLSRouteList{},
 				&gatewayv1.GRPCRouteList{},
