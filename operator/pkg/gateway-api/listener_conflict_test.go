@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 )
 
 func muxedListener(
@@ -163,13 +166,13 @@ func gatewayWithConflictListeners(listeners ...*gatewayv1.Listener) *gatewayv1.G
 	return gw
 }
 
-func Test_conflictedGatewayListeners(t *testing.T) {
+func Test_conflictsWithinSource(t *testing.T) {
 	t.Run("non-conflicting listeners produce no entries", func(t *testing.T) {
 		gw := gatewayWithConflictListeners(
 			muxedListener("a", gatewayv1.HTTPProtocolType, 80, "foo.example.com"),
 			muxedListener("b", gatewayv1.HTTPProtocolType, 80, "bar.example.com"),
 		)
-		assert.Empty(t, conflictedGatewayListeners(gw))
+		assert.Empty(t, conflictsWithinSource(gw.Spec.Listeners))
 	})
 
 	t.Run("identical hostname duplicate marks both listeners", func(t *testing.T) {
@@ -177,7 +180,7 @@ func Test_conflictedGatewayListeners(t *testing.T) {
 			muxedListener("a", gatewayv1.HTTPSProtocolType, 443, "foo.example.com"),
 			muxedListener("b", gatewayv1.HTTPSProtocolType, 443, "foo.example.com"),
 		)
-		conflicts := conflictedGatewayListeners(gw)
+		conflicts := conflictsWithinSource(gw.Spec.Listeners)
 		assert.Equal(t, gatewayv1.ListenerReasonHostnameConflict, conflicts["a"].reason)
 		assert.Equal(t, gatewayv1.ListenerReasonHostnameConflict, conflicts["b"].reason)
 		assert.Contains(t, conflicts["a"].message, `listener "b"`)
@@ -189,7 +192,7 @@ func Test_conflictedGatewayListeners(t *testing.T) {
 			l4Listener("a", gatewayv1.TCPProtocolType, 80),
 			muxedListener("b", gatewayv1.HTTPProtocolType, 80, "foo.example.com"),
 		)
-		conflicts := conflictedGatewayListeners(gw)
+		conflicts := conflictsWithinSource(gw.Spec.Listeners)
 		assert.Equal(t, gatewayv1.ListenerReasonProtocolConflict, conflicts["a"].reason)
 		assert.Equal(t, gatewayv1.ListenerReasonProtocolConflict, conflicts["b"].reason)
 	})
@@ -199,7 +202,7 @@ func Test_conflictedGatewayListeners(t *testing.T) {
 			muxedListener("https", gatewayv1.HTTPSProtocolType, 443, "api.example.test"),
 			tlsPassthroughListener("tls-passthrough", 443, "api.example.test"),
 		)
-		conflicts := conflictedGatewayListeners(gw)
+		conflicts := conflictsWithinSource(gw.Spec.Listeners)
 		assert.Equal(t, gatewayv1.ListenerReasonProtocolConflict, conflicts["https"].reason)
 		assert.Equal(t,
 			`Listener conflicts with listener "tls-passthrough": same port 443 has overlapping HTTPS and TLS passthrough hostnames.`,
@@ -223,4 +226,52 @@ func Test_acceptedListeners(t *testing.T) {
 		reason := accepted.checkConflict(*muxedListener("second", gatewayv1.HTTPProtocolType, 80, "bar.example.com"))
 		assert.Empty(t, string(reason))
 	})
+}
+
+func Test_filterOutConflictedListeners_gatewayListeners(t *testing.T) {
+	listeners := []ingestion.ListenerWithContext{
+		{Listener: *muxedListener("https", gatewayv1.HTTPSProtocolType, 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "Gateway"}},
+		{Listener: *tlsPassthroughListener("tls", 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "Gateway"}},
+	}
+
+	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
+	assert.Empty(t, filtered)
+}
+
+func Test_filterOutConflictedListeners_listenerSetListeners(t *testing.T) {
+	listeners := []ingestion.ListenerWithContext{
+		{Listener: *muxedListener("https", gatewayv1.HTTPSProtocolType, 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "ListenerSet", Name: "one"}},
+		{Listener: *tlsPassthroughListener("tls", 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "ListenerSet", Name: "one"}},
+	}
+
+	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
+	assert.Empty(t, filtered)
+}
+
+func Test_filterOutConflictedListeners_gatewayPrecedence(t *testing.T) {
+	listeners := []ingestion.ListenerWithContext{
+		{Listener: *muxedListener("gateway", gatewayv1.HTTPSProtocolType, 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "Gateway"}},
+		{Listener: *tlsPassthroughListener("listenerset", 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "ListenerSet", Name: "one"}},
+	}
+
+	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
+	assert.Len(t, filtered, 1)
+	assert.Equal(t, gatewayv1.SectionName("gateway"), filtered[0].Name)
+}
+
+func Test_filterOutConflictedListeners_listenerSetPrecedence(t *testing.T) {
+	listeners := []ingestion.ListenerWithContext{
+		{
+			Listener: *muxedListener("older", gatewayv1.HTTPSProtocolType, 443, "api.example.test"),
+			Source:   model.FullyQualifiedResource{Kind: "ListenerSet", Name: "older"},
+		},
+		{
+			Listener: *tlsPassthroughListener("newer", 443, "api.example.test"),
+			Source:   model.FullyQualifiedResource{Kind: "ListenerSet", Name: "newer"},
+		},
+	}
+
+	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
+	assert.Len(t, filtered, 1)
+	assert.Equal(t, gatewayv1.SectionName("older"), filtered[0].Name)
 }

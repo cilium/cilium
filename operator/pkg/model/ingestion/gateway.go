@@ -34,7 +34,8 @@ const (
 type ListenerWithContext struct {
 	gatewayv1.Listener
 	// Source is where this listener appears: Gateway or ListenerSet
-	Source model.FullyQualifiedResource
+	Source           model.FullyQualifiedResource
+	SourceGeneration int64
 
 	// AllowedNamespaces is the set of namespaces allowed for Route attachment
 	AllowedNamespaces map[string]struct{}
