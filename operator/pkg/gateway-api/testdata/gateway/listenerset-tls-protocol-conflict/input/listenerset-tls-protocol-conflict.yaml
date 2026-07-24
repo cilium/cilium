@@ -1,0 +1,59 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: tls-protocol-conflict
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  allowedListeners:
+    namespaces:
+      from: Same
+  listeners:
+    - name: https
+      hostname: tls.example.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: tls-checks-certificate
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: tls-protocol-conflict
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: tls-protocol-conflict
+  listeners:
+    - name: tls
+      hostname: tls.example.com
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tls-protocol-conflict
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: ListenerSet
+      name: tls-protocol-conflict
+      sectionName: tls
+  hostnames:
+    - tls.example.com
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          port: 443
