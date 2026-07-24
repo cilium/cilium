@@ -35,6 +35,7 @@ import (
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/shortener"
 )
 
@@ -109,6 +110,7 @@ func Test_Conformance(t *testing.T) {
 		skipCEC              bool
 		wantErr              bool
 		hostNetwork          bool
+		nodeLabelSelector    metav1.LabelSelector
 	}{
 		{
 			name: "gateway-http-listener-isolation",
@@ -334,12 +336,17 @@ func Test_Conformance(t *testing.T) {
 		{name: "gateway-cross-protocol-same-port-same-hostname", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "cross-protocol-same-port-same-hostname", Namespace: "gateway-conformance-infra"}, wantErr: true}}},
 		{name: "gateway-ns-restricted-same-hostname", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "ns-restricted-same-hostname", Namespace: "gateway-conformance-infra"}}}},
 		{name: "gatewayclassconfig-nodeport", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "nodeport-gateway", Namespace: "gateway-conformance-infra"}}}},
+		// hostNetwork mode tests
 		{name: "hostNetwork-enabled-valid", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-exceed-max-address", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-no-l4-listeners", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-mixed-routes", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-tcp-route", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}, wantErr: true, skipCEC: true}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-udp-route", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "host-networking", Namespace: "gateway-conformance-infra"}, wantErr: true, skipCEC: true}}, hostNetwork: true},
+		{name: "hostNetwork-enabled-nodelabel", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled-nodeselector", Namespace: "gateway-conformance-infra"}, wantErr: false, skipCEC: true}}, hostNetwork: true,
+			nodeLabelSelector: metav1.LabelSelector{MatchLabels: map[string]string{
+				"role": "gateway",
+			}}},
 		// ListenerSet tests
 		{name: "listenerset-default-not-allowed", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "default-not-allowed", Namespace: "gateway-conformance-infra"}},
@@ -439,6 +446,7 @@ func Test_Conformance(t *testing.T) {
 			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.TLSRouteListenerSetIndex, indexers.IndexTLSRouteByListenerSet)
 
 			c := clientBuilder.Build()
+			nodeLabel := &slim_meta_v1.LabelSelector{MatchLabels: tt.nodeLabelSelector.MatchLabels}
 			gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
 				ServiceConfig: translation.ServiceConfig{
 					ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
@@ -447,7 +455,8 @@ func Test_Conformance(t *testing.T) {
 					UseRemoteAddress: true,
 				},
 				HostNetworkConfig: translation.HostNetworkConfig{
-					Enabled: tt.hostNetwork,
+					Enabled:           tt.hostNetwork,
+					NodeLabelSelector: nodeLabel,
 				},
 			})
 
@@ -457,6 +466,7 @@ func Test_Conformance(t *testing.T) {
 				logger:             logger,
 				controllerName:     defaultControllerName,
 				hostNetworkEnabled: tt.hostNetwork,
+				hostNetworkLabel:   tt.nodeLabelSelector,
 			}
 
 			// Reconcile all related HTTPRoute objects
