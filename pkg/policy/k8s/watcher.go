@@ -17,6 +17,7 @@ import (
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -30,9 +31,10 @@ import (
 )
 
 type policyWatcher struct {
-	log                     *slog.Logger
-	config                  *option.DaemonConfig
-	clusterMeshPolicyConfig cmtypes.PolicyConfig
+	log                       *slog.Logger
+	config                    *option.DaemonConfig
+	clusterMeshPolicyConfig   cmtypes.PolicyConfig
+	fqdnPolicyDNSServerConfig fqdnconfig.FQDNPolicyDNSServerConfig
 
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
