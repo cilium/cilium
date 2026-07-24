@@ -19,9 +19,6 @@ func (in *AzureAddress) DeepEqual(other *AzureAddress) bool {
 		return false
 	}
 
-	if in.Subnet != other.Subnet {
-		return false
-	}
 	if in.State != other.State {
 		return false
 	}
@@ -77,10 +74,6 @@ func (in *AzureInterface) DeepEqual(other *AzureInterface) bool {
 	}
 
 	if !in.Gateway.DeepEqual(&other.Gateway) {
-		return false
-	}
-
-	if !in.CIDR.DeepEqual(&other.CIDR) {
 		return false
 	}
 

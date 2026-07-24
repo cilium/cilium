@@ -55,13 +55,6 @@ type AzureAddress struct {
 	// +optional
 	IP iputil.Addr `json:"ip,omitzero"`
 
-	// Subnet is the subnet the address belongs to.
-	//
-	// Deprecated: use AzureInterface.Subnet.ID. Populated as a mirror for one
-	// release so external consumers of CiliumNode.Status.Azure can migrate.
-	// TODO(https://github.com/cilium/cilium/issues/46074): remove once the migration window closes.
-	Subnet string `json:"subnet,omitempty"`
-
 	// State is the provisioning state of the address
 	State string `json:"state,omitempty"`
 }
@@ -128,15 +121,6 @@ type AzureInterface struct {
 	//
 	// +optional
 	Gateway iputil.Addr `json:"gateway"`
-
-	// CIDR is the range that the interface belongs to.
-	//
-	// Deprecated: use Subnet.CIDR. Retained for one release so agent/operator
-	// rolling upgrades work in either order.
-	// TODO(https://github.com/cilium/cilium/issues/46074): remove once the migration window closes.
-	//
-	// +optional
-	CIDR iputil.Prefix `json:"cidr,omitzero"`
 
 	// vmssName is the name of the virtual machine scale set. This field is
 	// set by extractIDs()
