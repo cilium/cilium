@@ -84,3 +84,17 @@ status:
     type: InternalIP
   - address: kind-worker
     type: Hostname
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: kind-worker3
+spec:
+  podCIDR: 10.244.2.0/24
+  podCIDRs:
+  - 10.244.2.0/24
+  - fd00:10:244:2::/64
+status:
+  addresses:
+  - address: kind-worker3
+    type: Hostname
