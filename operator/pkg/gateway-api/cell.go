@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
@@ -171,12 +172,17 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	cecTranslator := translation.NewCECTranslator(cfg)
 
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, cfg)
+	var nodeLabelSelector v1.LabelSelector
+	if cfg.HostNetworkConfig.NodeLabelSelector != nil {
+		nodeLabelSelector = v1.LabelSelector{MatchLabels: cfg.HostNetworkConfig.NodeLabelSelector.MatchLabels}
+	}
 
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
 		gatewayAPITranslator,
 		params.Logger,
 		installedKinds,
+		nodeLabelSelector,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -269,12 +275,12 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 
 // registerReconcilers registers Gateway API reconcilers to the controller-runtime library manager.
 // optionalKinds are previously autodetected based on what CRDs are present in the cluster.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind, hostNetworkLabel v1.LabelSelector) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger),
-		newGatewayReconciler(mgr, translator, logger, installedCRDs),
+		newGatewayReconciler(mgr, translator, logger, installedCRDs, hostNetworkLabel),
 		newGammaReconciler(mgr, translator, logger),
 		newGatewayClassConfigReconciler(mgr, logger),
 	}

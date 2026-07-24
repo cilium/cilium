@@ -27,6 +27,7 @@ import (
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func Test_Conformance(t *testing.T) {
@@ -65,6 +66,7 @@ func Test_Conformance(t *testing.T) {
 		disableServiceImport bool
 		wantErr              bool
 		hostNetwork          bool
+		nodeLabelSelector    metav1.LabelSelector
 	}{
 		{
 			name: "gateway-http-listener-isolation",
@@ -212,8 +214,13 @@ func Test_Conformance(t *testing.T) {
 		{name: "tlsroute-mixed-protocol-listeners", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-mixed", Namespace: "gateway-conformance-infra"}},
 		}},
+		// hostNetwork mode tests
 		{name: "hostNetwork-enabled-valid", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
 		{name: "hostNetwork-enabled-exceed-max-address", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled", Namespace: "gateway-conformance-infra"}}}, hostNetwork: true},
+		{name: "hostNetwork-enabled-nodelabel", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "hostnetwork-enabled-nodeselector", Namespace: "gateway-conformance-infra"}, wantErr: false}}, hostNetwork: true,
+			nodeLabelSelector: metav1.LabelSelector{MatchLabels: map[string]string{
+				"role": "gateway",
+			}}},
 		{name: "gatewayclassconfig-nodeport", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "nodeport-gateway", Namespace: "gateway-conformance-infra"}}}},
 	}
 
@@ -246,6 +253,7 @@ func Test_Conformance(t *testing.T) {
 					clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, gatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
 
 					c := clientBuilder.Build()
+					nodeLabel := &slim_meta_v1.LabelSelector{MatchLabels: tt.nodeLabelSelector.MatchLabels}
 					if tt.hostNetwork {
 						gatewayAPITranslator = gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
 							ServiceConfig: translation.ServiceConfig{
@@ -255,14 +263,16 @@ func Test_Conformance(t *testing.T) {
 								UseRemoteAddress: true,
 							},
 							HostNetworkConfig: translation.HostNetworkConfig{
-								Enabled: true,
+								Enabled:           true,
+								NodeLabelSelector: nodeLabel,
 							},
 						})
 					}
 					r := &gatewayReconciler{
-						Client:     c,
-						translator: gatewayAPITranslator,
-						logger:     logger,
+						Client:           c,
+						translator:       gatewayAPITranslator,
+						logger:           logger,
+						hostNetworkLabel: tt.nodeLabelSelector,
 					}
 
 					// Reconcile all related HTTPRoute objects
