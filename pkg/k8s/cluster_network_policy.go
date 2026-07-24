@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -228,12 +229,31 @@ func actionToVerdict(action policyv1alpha2.ClusterNetworkPolicyRuleAction) types
 	}
 }
 
+type parseCNPConfig struct {
+	fqdn fqdnconfig.FQDNPolicyDNSServerConfig
+}
+
+type ParseClusterNetworkPolicyOption func(*parseCNPConfig)
+
+func WithFQDNPolicyDNSServerConfig(cfg fqdnconfig.FQDNPolicyDNSServerConfig) ParseClusterNetworkPolicyOption {
+	return func(c *parseCNPConfig) {
+		c.fqdn = cfg
+	}
+}
+
 // ParseClusterNetworkPolicy parses a k8s ClusterNetworkPolicy. Returns a list of
 // Cilium policy rules that can be added, along with an error if there was an
 // error sanitizing the rules.
-func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *policyv1alpha2.ClusterNetworkPolicy) (types.PolicyEntries, error) {
+func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *policyv1alpha2.ClusterNetworkPolicy, opts ...ParseClusterNetworkPolicyOption) (types.PolicyEntries, error) {
 	if cnp == nil {
 		return nil, errors.New("cannot parse ClusterNetworkPolicy because it is nil")
+	}
+
+	cfg := &parseCNPConfig{
+		fqdn: fqdnconfig.DefaultFQDNPolicyDNSServerConfig,
+	}
+	for _, opt := range opts {
+		opt(cfg)
 	}
 
 	ingresses := types.PolicyEntries{}
@@ -327,22 +347,18 @@ func ParseClusterNetworkPolicy(logger *slog.Logger, clusterName string, cnp *pol
 					egress.L3 = l3
 					// To allow FQDNs, we need to explicitly add an additional L3 and L4 selector
 					// that allows DNS requests for the specified FQDNs.
-					dnsEgress := &types.PolicyEntry{
-						Ingress: false,
-						Verdict: types.Allow,
-						// TODO: Make this configurable
-						L3: types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("k8s-app=kube-dns"))),
-						L4: api.PortRules{{
-							Ports: []api.PortProtocol{
-								{Port: "dns"},
-								{Port: "dns-tcp"},
-							},
-							Rules: &api.L7Rules{DNS: dnsL4},
-						}},
-						Priority: priority,
-						Tier:     tier,
+					dnsL3, dnsL4Rules := cfg.fqdn.DNSSelectors(dnsL4)
+					if len(dnsL3) > 0 {
+						dnsEgress := &types.PolicyEntry{
+							Ingress:  false,
+							Verdict:  types.Allow,
+							L3:       dnsL3,
+							L4:       dnsL4Rules,
+							Priority: priority,
+							Tier:     tier,
+						}
+						toRules = append(toRules, dnsEgress)
 					}
-					toRules = append(toRules, dnsEgress)
 				default:
 					// If no destination endpoint can be identified, fail closed.
 					// For "Accept" rules, "fail closed" means: "treat the rule as matching no
