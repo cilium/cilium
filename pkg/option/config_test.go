@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/util"
@@ -521,7 +520,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 				EnableIPv6Masquerade:  true,
 				RoutingMode:           RoutingModeNative,
 				IPAM:                  ipamOption.IPAMAzure,
-				IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
+				IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.127.64.0/18"),
 				EnableIPv4:            true,
 			},
 			wantErr: false,
@@ -589,7 +588,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 				EnableIPv6Masquerade:  true,
 				RoutingMode:           RoutingModeHybrid,
 				IPAM:                  ipamOption.IPAMAzure,
-				IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
+				IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.127.64.0/18"),
 				EnableIPv4:            true,
 			},
 			wantErr: false,
@@ -632,7 +631,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 				EnableIPv4Masquerade:  true,
 				EnableIPv6Masquerade:  true,
 				RoutingMode:           RoutingModeNative,
-				IPv6NativeRoutingCIDR: cidr.MustParseCIDR("fd00::/120"),
+				IPv6NativeRoutingCIDR: netip.MustParsePrefix("fd00::/120"),
 				EnableIPv6:            true,
 			},
 			wantErr: false,
@@ -684,7 +683,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 				EnableIPv4Masquerade:  true,
 				EnableIPv6Masquerade:  true,
 				RoutingMode:           RoutingModeHybrid,
-				IPv6NativeRoutingCIDR: cidr.MustParseCIDR("fd00::/120"),
+				IPv6NativeRoutingCIDR: netip.MustParsePrefix("fd00::/120"),
 				EnableIPv6:            true,
 			},
 			wantErr: false,
