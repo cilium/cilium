@@ -276,15 +276,14 @@ func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR netip.Prefix, second
 func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNodeStore) bool {
 	if primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode); primaryCIDR.IsValid() {
 		allCIDRs := append([]netip.Prefix{primaryCIDR}, secondaryCIDRs...)
-		if nativeCIDR := n.conf.IPv4NativeRoutingCIDR; nativeCIDR != nil {
-			native, ok := netipx.FromStdIPNet(nativeCIDR.IPNet)
+		if nativeCIDR := n.conf.IPv4NativeRoutingCIDR; nativeCIDR.IsValid() {
 			found := false
 			for _, vpcCIDR := range allCIDRs {
 				// Accept the configured native routing CIDR as long as it
 				// overlaps one of the VPC CIDRs, i.e. it is a VPC CIDR, a
 				// subnet of one (e.g. a single availability-zone subnet, used
 				// to masquerade cross-subnet traffic), or a supernet of one.
-				if !ok || !ip.LaminarCIDRsOverlap(native, vpcCIDR) {
+				if !ip.LaminarCIDRsOverlap(nativeCIDR, vpcCIDR) {
 					n.logger.Info(
 						"Native routing CIDR does not overlap VPC CIDR, trying next",
 						logfields.VPCCIDR, vpcCIDR,
@@ -729,10 +728,8 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 					result.CIDRs = append(result.CIDRs, p)
 				}
 				// Add manually configured Native Routing CIDR
-				if a.conf.IPv4NativeRoutingCIDR != nil {
-					if p, ok := netipx.FromStdIPNet(a.conf.IPv4NativeRoutingCIDR.IPNet); ok {
-						result.CIDRs = append(result.CIDRs, p)
-					}
+				if a.conf.IPv4NativeRoutingCIDR.IsValid() {
+					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR)
 				}
 				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
 				// Note that the resulting ip rules will not be dynamically regenerated if the

@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -342,7 +341,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 	t.Run("native routing CIDR is appended", func(t *testing.T) {
 		confWithNative := &option.DaemonConfig{
 			EnableIPv4:            true,
-			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.0.0.0/8"),
+			IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.0.0.0/8"),
 		}
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, confWithNative, nil)
 		require.NoError(t, err)
@@ -351,7 +350,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 
 	t.Run("IPv4 native routing CIDR is not appended when IPv4 is disabled", func(t *testing.T) {
 		confWithNative := &option.DaemonConfig{
-			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.0.0.0/8"),
+			IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.0.0.0/8"),
 		}
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, confWithNative, nil)
 		require.NoError(t, err)
@@ -414,7 +413,7 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 	t.Run("IPv6 native routing CIDR is appended", func(t *testing.T) {
 		confWithNative := &option.DaemonConfig{
 			EnableIPv6:            true,
-			IPv6NativeRoutingCIDR: cidr.MustParseCIDR("2001:db8::/64"),
+			IPv6NativeRoutingCIDR: netip.MustParsePrefix("2001:db8::/64"),
 		}
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, confWithNative, nil)
 		require.NoError(t, err)
@@ -423,7 +422,7 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 
 	t.Run("IPv6 native routing CIDR is not appended when IPv6 is disabled", func(t *testing.T) {
 		confWithNative := &option.DaemonConfig{
-			IPv6NativeRoutingCIDR: cidr.MustParseCIDR("2001:db8::/64"),
+			IPv6NativeRoutingCIDR: netip.MustParsePrefix("2001:db8::/64"),
 		}
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, confWithNative, nil)
 		require.NoError(t, err)
@@ -790,7 +789,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 
 		primaryCIDR := netip.MustParsePrefix("10.0.0.0/16")
 		conf := &option.DaemonConfig{
-			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.0.0.0/8"),
+			IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.0.0.0/8"),
 		}
 		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
 
@@ -810,7 +809,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 
 		primaryCIDR := netip.MustParsePrefix("192.168.0.0/16")
 		conf := &option.DaemonConfig{
-			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("192.168.64.0/19"),
+			IPv4NativeRoutingCIDR: netip.MustParsePrefix("192.168.64.0/19"),
 		}
 		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
 
