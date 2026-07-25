@@ -9130,6 +9130,26 @@ func (m *validateOpModifyVpcEndpoint) HandleInitialize(ctx context.Context, in m
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyVpcEndpointPayerResponsibility struct {
+}
+
+func (*validateOpModifyVpcEndpointPayerResponsibility) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyVpcEndpointPayerResponsibility) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyVpcEndpointPayerResponsibilityInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyVpcEndpointPayerResponsibilityInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyVpcEndpointServiceConfiguration struct {
 }
 
@@ -12572,6 +12592,10 @@ func addOpModifyVpcEndpointConnectionNotificationValidationMiddleware(stack *mid
 
 func addOpModifyVpcEndpointValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyVpcEndpoint{}, middleware.After)
+}
+
+func addOpModifyVpcEndpointPayerResponsibilityValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyVpcEndpointPayerResponsibility{}, middleware.After)
 }
 
 func addOpModifyVpcEndpointServiceConfigurationValidationMiddleware(stack *middleware.Stack) error {
@@ -21537,6 +21561,27 @@ func validateOpModifyVpcEndpointInput(v *ModifyVpcEndpointInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "ModifyVpcEndpointInput"}
 	if v.VpcEndpointId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("VpcEndpointId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpModifyVpcEndpointPayerResponsibilityInput(v *ModifyVpcEndpointPayerResponsibilityInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyVpcEndpointPayerResponsibilityInput"}
+	if v.VpcEndpointId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpcEndpointId"))
+	}
+	if len(v.PayerResponsibility) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("PayerResponsibility"))
+	}
+	if len(v.Scope) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("Scope"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

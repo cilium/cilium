@@ -19,7 +19,7 @@ import (
 // CommunityGalleryImageVersionsClient contains the methods for the CommunityGalleryImageVersions group.
 // Don't use this type directly, use NewCommunityGalleryImageVersionsClient() instead.
 //
-// Generated from API version 2025-03-03
+// Generated from API version 2025-12-03
 type CommunityGalleryImageVersionsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -100,7 +100,7 @@ func (client *CommunityGalleryImageVersionsClient) getCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20250303)
+	reqQP.Set("api-version", version20251203)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -168,7 +168,7 @@ func (client *CommunityGalleryImageVersionsClient) listCreateRequest(ctx context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20250303)
+	reqQP.Set("api-version", version20251203)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

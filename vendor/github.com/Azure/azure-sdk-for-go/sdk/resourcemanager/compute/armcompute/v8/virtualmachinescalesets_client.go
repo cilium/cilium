@@ -876,7 +876,7 @@ func (client *VirtualMachineScaleSetsClient) listAllHandleResponse(resp *http.Re
 }
 
 // NewListByLocationPager - Gets all the VM scale sets under the specified subscription for the specified location.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - options - VirtualMachineScaleSetsClientListByLocationOptions contains the optional parameters for the VirtualMachineScaleSetsClient.NewListByLocationPager
 //     method.
 func (client *VirtualMachineScaleSetsClient) NewListByLocationPager(location string, options *VirtualMachineScaleSetsClientListByLocationOptions) *runtime.Pager[VirtualMachineScaleSetsClientListByLocationResponse] {

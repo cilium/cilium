@@ -153,15 +153,18 @@ var comparableTypes = []*cel.Type{
 //	].sortBy(e, e.score).map(e, e.name)
 //	== ["bar", "foo", "baz"]
 func Lists(options ...ListsOption) cel.EnvOption {
-	l := &listsLib{version: math.MaxUint32}
+	l := &listsLib{version: math.MaxUint32, maxRangeSize: defaultMaxRangeSize}
 	for _, o := range options {
 		l = o(l)
 	}
 	return cel.Lib(l)
 }
 
+const defaultMaxRangeSize = 1_000_000
+
 type listsLib struct {
-	version uint32
+	version      uint32
+	maxRangeSize int64
 }
 
 // LibraryName implements the SingletonLibrary interface method.
@@ -184,6 +187,16 @@ type ListsOption func(*listsLib) *listsLib
 func ListsVersion(version uint32) ListsOption {
 	return func(lib *listsLib) *listsLib {
 		lib.version = version
+		return lib
+	}
+}
+
+// ListsMaxRangeSize sets the maximum number of elements lists.range() will
+// allocate. If not set, the default is 10,000,000. Setting this to zero
+// disables the limit (not recommended).
+func ListsMaxRangeSize(size int64) ListsOption {
+	return func(lib *listsLib) *listsLib {
+		lib.maxRangeSize = size
 		return lib
 	}
 }
@@ -309,11 +322,12 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 			)...,
 		))
 
+		maxRange := lib.maxRangeSize
 		opts = append(opts, cel.Function("lists.range",
 			cel.Overload("lists_range",
 				[]*cel.Type{cel.IntType}, cel.ListType(cel.IntType),
 				cel.UnaryBinding(func(n ref.Val) ref.Val {
-					result, err := genRange(n.(types.Int))
+					result, err := genRange(n.(types.Int), maxRange)
 					if err != nil {
 						return types.WrapErr(err)
 					}
@@ -403,8 +417,14 @@ func (lib *listsLib) ProgramOptions() []cel.ProgramOption {
 	return opts
 }
 
-func genRange(n types.Int) (ref.Val, error) {
-	var newList []ref.Val
+func genRange(n types.Int, maxSize int64) (ref.Val, error) {
+	if n < 0 {
+		return nil, fmt.Errorf("lists.range: size must be non-negative, got %d", n)
+	}
+	if maxSize > 0 && int64(n) > maxSize {
+		return nil, fmt.Errorf("lists.range: size %d exceeds maximum allowed (%d)", n, maxSize)
+	}
+	newList := make([]ref.Val, 0, n)
 	for i := types.Int(0); i < n; i++ {
 		newList = append(newList, i)
 	}
@@ -759,6 +779,9 @@ func trackListSelfCompare(l traits.Lister) *uint64 {
 // trackAllocatingListCall computes costs as a function of the size of the result list with a baseline cost
 // for the call dispatch and the associated list allocation.
 func trackAllocatingListCall(costFactor float64, size uint64) *uint64 {
+	if costFactor < 0.0 {
+		costFactor = 1.0
+	}
 	cost := safeAdd(uint64(float64(size)*costFactor), callCost, common.ListCreateBaseCost)
 	return &cost
 }

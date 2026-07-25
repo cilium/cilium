@@ -2,13 +2,8 @@ version: "2"
 linters:
   enable:
     - misspell
+    - modernize
     - revive
-  settings:
-    revive:
-      rules:
-        - name: unused-parameter
-          severity: warning
-          disabled: true
   exclusions:
     generated: lax
     presets:
