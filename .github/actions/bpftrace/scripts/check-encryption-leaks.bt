@@ -396,16 +396,21 @@ kprobe:tcp_close
 // Ignore messages with the source address equal to a CiliumInternalIP (IPSec only).
 // In CI we don't test the `--use-cilium-internal-ip-for-ipsec` flag: in that case,
 // we'd need to rework this CiliumInternalIP condition.
+// Also ignore messages sent by the DNS proxy on behalf of the node. This assumes
+// that DNS proxy is in transparent mode (it is the default unless CNI chaining mode
+// is enabled). CI currently does not use this script in scenarios with CNI chaining.
 kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 {
   $sk = ((struct sock *) arg0);
   if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
+    $src_is_pod = (bswap($sk->__sk_common.skc_rcv_saddr) & MASK4) == CIDR4;
+
     $src_is_internal =
         $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($1)) ||
         $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($3)) ||
         $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($5));
 
-    if (!(str($8) == "ipsec" && $src_is_internal)) {
+    if ($src_is_pod && !(str($8) == "ipsec" && $src_is_internal)) {
       @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP] = 1;
       @trace_sk[$sk] = true;
       @sanity[TYPE_PROXY_DNS_IP4] = true;
@@ -417,16 +422,21 @@ kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 // Ignore messages with the source address equal to a CiliumInternalIP (IPSec only).
 // In CI we don't test the `--use-cilium-internal-ip-for-ipsec` flag: in that case,
 // we'd need to rework this CiliumInternalIP condition.
+// Also ignore messages sent by the DNS proxy on behalf of the node. This assumes
+// that DNS proxy is in transparent mode (it is the default unless CNI chaining mode
+// is enabled). CI currently does not use this script in scenarios with CNI chaining.
 kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 {
   $sk = ((struct sock *) arg0);
   if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
+    $src_is_pod = bswap($sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr16[0]) == CIDR6;
+
     $src_is_internal =
         $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($2)) ||
         $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($4)) ||
         $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($6));
 
-    if (!(str($8) == "ipsec" && $src_is_internal)) {
+    if ($src_is_pod && !(str($8) == "ipsec" && $src_is_internal)) {
       @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = 1;
       @trace_sk[$sk] = true;
       @sanity[TYPE_PROXY_DNS_IP6] = true;
