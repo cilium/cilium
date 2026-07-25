@@ -77,6 +77,14 @@ message Entry {
         This is meant to prevent unnecessary effort spent on generating SVIDs of types,
         which are unlikely to be needed.*/
         bool disable_x509_svid_prefetch = 1;
+
+        /** Flag indicating whether SPIRE should include a unique JTI (JWT ID) claim
+        in JWT-SVIDs issued for this entry. When set, each JWT-SVID minted for this
+        entry contains a freshly generated UUID in the `jti` claim, and the agent
+        bypasses its JWT-SVID cache so every request yields a new token. This
+        supports use cases that require per-token uniqueness, such as replay
+        protection or auditing. */
+        bool jwt_svid_include_jti = 2;
     }
     optional AdditionalAttributes additional_attributes = 16;
 }

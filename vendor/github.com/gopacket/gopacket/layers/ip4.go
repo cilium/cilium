@@ -139,6 +139,14 @@ func (ip *IPv4) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeO
 			bytes[curLocation] = opt.OptionType
 			bytes[curLocation+1] = opt.OptionLength
 
+			// the type and length bytes occupy two octets, so a non-trivial
+			// option must declare a length of at least 2. without this guard
+			// opt.OptionLength-2 underflows below and the copy slices a
+			// reversed range, panicking with "slice bounds out of range".
+			if opt.OptionLength < 2 {
+				return fmt.Errorf("invalid IP option type %v length %d, must be greater than 2", opt.OptionType, opt.OptionLength)
+			}
+
 			// sanity checking to protect us from buffer overrun
 			if len(opt.OptionData) > int(opt.OptionLength-2) {
 				return errors.New("option length is smaller than length of option data")

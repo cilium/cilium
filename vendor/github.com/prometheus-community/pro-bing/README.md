@@ -139,7 +139,7 @@ This library also provides support for HTTP probing.
 Here is a trivial example:
 
 ```go
-httpCaller := probing.NewHttpCaller("https://www.google.com",
+httpCaller := probing.NewHTTPCaller("https://www.google.com",
     probing.WithHTTPCallerCallFrequency(time.Second),
     probing.WithHTTPCallerOnResp(func(suite *probing.TraceSuite, info *probing.HTTPCallInfo) {
         fmt.Printf("got resp, status code: %d, latency: %s\n",

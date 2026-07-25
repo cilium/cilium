@@ -1742,6 +1742,9 @@ type DiskRestorePointProperties struct {
 	// READ-ONLY; Replication state of disk restore point when source resource is from a different region.
 	ReplicationState *string
 
+	// READ-ONLY; The state of snapshot which determines the access availability of the snapshot.
+	SnapshotAccessState *SnapshotAccessState
+
 	// READ-ONLY; arm id of source disk or source disk restore point.
 	SourceResourceID *string
 
@@ -1781,6 +1784,9 @@ type DiskSecurityProfile struct {
 
 	// Specifies the SecurityType of the VM. Applicable for OS disks only.
 	SecurityType *DiskSecurityTypes
+
+	// READ-ONLY; Indicates the version of Confidential VM for the resource.
+	ConfidentialVMVersion *ConfidentialVMVersion
 }
 
 // DiskUpdate - Disk update resource.
@@ -3394,6 +3400,44 @@ type ImageUpdate struct {
 type ImageVersionSecurityProfile struct {
 	// Contains UEFI settings for the image version.
 	UefiSettings *GalleryImageVersionUefiSettings
+}
+
+// ImmutabilityPolicy - The immutability policy currently applied to a snapshot.
+type ImmutabilityPolicy struct {
+	// READ-ONLY; The immutability duration for the snapshot, in number of days.
+	ImmutabilityDurationDays *int32
+
+	// READ-ONLY; Indicates whether the immutability policy has expired.
+	IsPolicyExpired *bool
+
+	// READ-ONLY; The time when the immutability policy will expire on the snapshot.
+	PolicyExpirationTime *time.Time
+
+	// READ-ONLY; The time when the immutability policy was set on the snapshot.
+	PolicyStartTime *time.Time
+
+	// READ-ONLY; The type of the immutability policy.
+	Type *ImmutabilityPolicyType
+}
+
+// ImmutabilityPolicyData - Data used for updating the immutability policy of a snapshot.
+type ImmutabilityPolicyData struct {
+	// REQUIRED; The immutability duration for the snapshot, in number of days.
+	ImmutabilityDurationDays *int32
+
+	// REQUIRED; The type of the immutability policy. 'Unlocked' allows the policy to be modified by privileged users; 'Locked'
+	// prevents reduction of the immutability duration but allows extension of the lock period.
+	Type *ImmutabilityPolicyType
+}
+
+// ImmutabilityPolicyLockData - Data used for locking the immutability policy of a snapshot.
+type ImmutabilityPolicyLockData struct {
+	// REQUIRED; The immutability duration for the snapshot, in number of days.
+	ImmutabilityDurationDays *int32
+
+	// REQUIRED; The type of the immutability policy. 'Unlocked' allows the policy to be modified by privileged users; 'Locked'
+	// prevents reduction of the immutability duration but allows extension of the lock period.
+	Type *ImmutabilityPolicyType
 }
 
 // InnerError - Inner error details.
@@ -5764,6 +5808,10 @@ type SnapshotProperties struct {
 
 	// READ-ONLY; The state of the snapshot.
 	DiskState *DiskState
+
+	// READ-ONLY; The immutability policy currently applied to this snapshot. Present only when an immutability policy has been
+	// configured.
+	ImmutabilityPolicy *ImmutabilityPolicy
 
 	// READ-ONLY; Incremental snapshots for a disk share an incremental snapshot family id. The Get Page Range Diff API can only
 	// be called on incremental snapshots with the same family id.

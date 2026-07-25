@@ -436,6 +436,15 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	return ast, nil
 }
 
+// configuredExpressionSizeLimit returns the effective expression size code point limit.
+// A zero value means "use the parser default".
+func (e *Env) configuredExpressionSizeLimit() int {
+	if l := e.limits[limitCodePointSize]; l != 0 {
+		return l
+	}
+	return 100_000
+}
+
 // Compile combines the Parse and Check phases CEL program compilation to produce an Ast and
 // associated issues.
 //
@@ -445,7 +454,11 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 //
 // Note, for parse-only uses of CEL use Parse.
 func (e *Env) Compile(txt string) (*Ast, *Issues) {
-	return e.CompileSource(common.NewTextSource(txt))
+	src, err := common.NewTextSourceWithLimit(txt, e.configuredExpressionSizeLimit())
+	if err != nil {
+		return nil, ErrorAsIssues(err)
+	}
+	return e.CompileSource(src)
 }
 
 // CompileSource combines the Parse and Check phases CEL program compilation to produce an Ast and
@@ -650,7 +663,10 @@ func (e *Env) Validators() []ASTValidator {
 // This form of Parse creates a Source value for the input `txt` and forwards to the
 // ParseSource method.
 func (e *Env) Parse(txt string) (*Ast, *Issues) {
-	src := common.NewTextSource(txt)
+	src, err := common.NewTextSourceWithLimit(txt, e.configuredExpressionSizeLimit())
+	if err != nil {
+		return nil, ErrorAsIssues(err)
+	}
 	return e.ParseSource(src)
 }
 

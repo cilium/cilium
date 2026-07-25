@@ -44,7 +44,7 @@ func NewLogAnalyticsClient(subscriptionID string, credential azcore.TokenCredent
 // BeginExportRequestRateByInterval - Export logs that show Api requests made by this subscription in the given time window
 // to show throttling activities.
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - parameters - Parameters supplied to the LogAnalytics getRequestRateByInterval Api.
 //   - options - LogAnalyticsClientBeginExportRequestRateByIntervalOptions contains the optional parameters for the LogAnalyticsClient.BeginExportRequestRateByInterval
 //     method.
@@ -118,7 +118,7 @@ func (client *LogAnalyticsClient) exportRequestRateByIntervalCreateRequest(ctx c
 // BeginExportThrottledRequests - Export logs that show total throttled Api requests for this subscription in the given time
 // window.
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - parameters - The request body
 //   - options - LogAnalyticsClientBeginExportThrottledRequestsOptions contains the optional parameters for the LogAnalyticsClient.BeginExportThrottledRequests
 //     method.

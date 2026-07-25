@@ -127,7 +127,7 @@ func (client *VirtualMachineImagesEdgeZoneClient) getHandleResponse(resp *http.R
 
 // List - Gets a list of all virtual machine image versions for the specified location, edge zone, publisher, offer, and SKU.
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - edgeZone - The name of the edge zone.
 //   - publisherName - A valid image publisher.
 //   - offer - A valid image publisher offer.
@@ -214,7 +214,7 @@ func (client *VirtualMachineImagesEdgeZoneClient) listHandleResponse(resp *http.
 
 // ListOffers - Gets a list of virtual machine image offers for the specified location, edge zone and publisher.
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - edgeZone - The name of the edge zone.
 //   - publisherName - A valid image publisher.
 //   - options - VirtualMachineImagesEdgeZoneClientListOffersOptions contains the optional parameters for the VirtualMachineImagesEdgeZoneClient.ListOffers
@@ -282,7 +282,7 @@ func (client *VirtualMachineImagesEdgeZoneClient) listOffersHandleResponse(resp 
 
 // ListPublishers - Gets a list of virtual machine image publishers for the specified Azure location and edge zone.
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - edgeZone - The name of the edge zone.
 //   - options - VirtualMachineImagesEdgeZoneClientListPublishersOptions contains the optional parameters for the VirtualMachineImagesEdgeZoneClient.ListPublishers
 //     method.
@@ -345,7 +345,7 @@ func (client *VirtualMachineImagesEdgeZoneClient) listPublishersHandleResponse(r
 
 // ListSKUs - Gets a list of virtual machine image SKUs for the specified location, edge zone, publisher, and offer.
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - edgeZone - The name of the edge zone.
 //   - publisherName - A valid image publisher.
 //   - offer - A valid image publisher offer.

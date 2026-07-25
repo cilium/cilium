@@ -43,7 +43,7 @@ func NewUsageClient(subscriptionID string, credential azcore.TokenCredential, op
 
 // NewListPager - Gets, for the specified location, the current compute resource usage information as well as the limits for
 // compute resources under the subscription.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - options - UsageClientListOptions contains the optional parameters for the UsageClient.NewListPager method.
 func (client *UsageClient) NewListPager(location string, options *UsageClientListOptions) *runtime.Pager[UsageClientListResponse] {
 	return runtime.NewPager(runtime.PagingHandler[UsageClientListResponse]{

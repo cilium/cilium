@@ -1032,7 +1032,7 @@ func (client *VirtualMachinesClient) listAvailableSizesHandleResponse(resp *http
 }
 
 // NewListByLocationPager - Gets all the virtual machines under the specified subscription for the specified location.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - options - VirtualMachinesClientListByLocationOptions contains the optional parameters for the VirtualMachinesClient.NewListByLocationPager
 //     method.
 func (client *VirtualMachinesClient) NewListByLocationPager(location string, options *VirtualMachinesClientListByLocationOptions) *runtime.Pager[VirtualMachinesClientListByLocationResponse] {

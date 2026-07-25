@@ -456,6 +456,14 @@ func CustomDecorator(dec interpreter.InterpretableDecorator) ProgramOption {
 	}
 }
 
+// CustomDecoratorV2 appends an InterpreterDecoratorV2 to the program.
+func CustomDecoratorV2(dec interpreter.InterpretableDecoratorV2) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.plannerOptions = append(p.plannerOptions, interpreter.CustomDecoratorV2(dec))
+		return p, nil
+	}
+}
+
 // Functions adds function overloads that extend or override the set of CEL built-ins.
 //
 // Deprecated: use Function() instead to declare the function, its overload signatures,

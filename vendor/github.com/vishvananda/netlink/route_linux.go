@@ -780,11 +780,20 @@ func (v *Via) Family() int {
 
 func (v *Via) Encode() ([]byte, error) {
 	buf := &bytes.Buffer{}
+
 	err := binary.Write(buf, native, uint16(v.AddrFamily))
 	if err != nil {
 		return nil, err
 	}
-	err = binary.Write(buf, native, v.Addr)
+	addr := v.Addr
+	if v.AddrFamily == nl.FAMILY_V4 {
+		ipv4 := addr.To4()
+		if ipv4 == nil {
+			return nil, fmt.Errorf("invalid IPv4 address in Via struct")
+		}
+		addr = ipv4
+	}
+	err = binary.Write(buf, native, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -929,7 +938,12 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 		} else {
 			dstData = route.Dst.IP.To16()
 		}
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_DST, dstData))
+		shouldSkipDst := (route.Type == unix.RTN_UNREACHABLE ||
+			route.Type == unix.RTN_BLACKHOLE ||
+			route.Type == unix.RTN_PROHIBIT) && (dstLen == 0)
+		if !shouldSkipDst {
+			rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_DST, dstData))
+		}
 	} else if route.MPLSDst != nil {
 		family = nl.FAMILY_MPLS
 		msg.Dst_len = uint8(20)
