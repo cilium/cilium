@@ -20,6 +20,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -58,6 +59,7 @@ type CachingIdentityAllocator struct {
 	// IdentityAllocator is an allocator for security identities from the
 	// kvstore.
 	IdentityAllocator *allocator.Allocator
+	clusterInfo       cmtypes.ClusterInfo
 
 	// globalIdentityAllocatorInitialized is closed whenever the global identity
 	// allocator is initialized.
@@ -108,6 +110,7 @@ type CachingIdentityAllocator struct {
 }
 
 type AllocatorConfig struct {
+	ClusterInfo              cmtypes.ClusterInfo
 	EnableOperatorManageCIDs bool
 	Timeout                  time.Duration
 	SyncInterval             time.Duration
@@ -117,6 +120,7 @@ type AllocatorConfig struct {
 // NewTestAllocatorConfig returns an AllocatorConfig initialized for testing purposes.
 func NewTestAllocatorConfig() AllocatorConfig {
 	return AllocatorConfig{
+		ClusterInfo:              cmtypes.DefaultClusterInfo,
 		EnableOperatorManageCIDs: false,
 		Timeout:                  5 * time.Second,
 		SyncInterval:             1 * time.Hour,
@@ -217,14 +221,14 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	m.logger.Info("Initializing identity allocator")
 
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
+	minID := idpool.ID(identity.GetMinimalAllocationIdentity(m.clusterInfo.ID))
+	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(m.clusterInfo.ID))
 
 	m.logger.Info(
 		"Allocating identities between range",
 		logfields.Min, minID,
 		logfields.Max, maxID,
-		logfields.ClusterID, option.Config.ClusterID,
+		logfields.ClusterID, m.clusterInfo.ID,
 	)
 
 	// In the case of the allocator being closed, we need to create a new events channel
@@ -305,7 +309,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
-			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
+			allocator.WithPrefixMask(idpool.ID(m.clusterInfo.ID << identity.GetClusterIDShift())),
 		}
 		if m.operatorIDManagement {
 			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
@@ -382,6 +386,7 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 
 	m := &CachingIdentityAllocator{
 		logger:                             logger,
+		clusterInfo:                        config.ClusterInfo,
 		globalIdentityAllocatorInitialized: make(chan struct{}),
 		owner:                              owner,
 		identitiesPath:                     IdentitiesPath,

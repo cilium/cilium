@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -72,7 +73,8 @@ type identityAllocatorParams struct {
 
 	IdentityHandlers []identity.UpdateIdentities `group:"identity-handlers"`
 
-	Config config
+	ClusterInfo cmtypes.ClusterInfo
+	Config      config
 }
 
 type identityAllocatorOut struct {
@@ -120,6 +122,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 		)
 
 		allocatorConfig := cache.AllocatorConfig{
+			ClusterInfo:              params.ClusterInfo,
 			EnableOperatorManageCIDs: isOperatorManageCIDsEnabled,
 			Timeout:                  params.Config.IdentityAllocationTimeout,
 			SyncInterval:             params.Config.IdentityAllocationSyncInterval,
