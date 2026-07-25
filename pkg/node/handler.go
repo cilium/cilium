@@ -4,7 +4,7 @@
 package node
 
 import (
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -47,7 +47,7 @@ type IDHandler interface {
 	GetNodeIP(uint16) string
 
 	// GetNodeID gets the node ID for the given node IP. If none is found, exists is false.
-	GetNodeID(nodeIP net.IP) (nodeID uint16, exists bool)
+	GetNodeID(nodeIP netip.Addr) (nodeID uint16, exists bool)
 
 	// DumpNodeIDs returns all node IDs and their associated IP addresses.
 	DumpNodeIDs() []*models.NodeID
