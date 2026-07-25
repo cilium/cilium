@@ -4,7 +4,7 @@
 package fake
 
 import (
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
@@ -16,7 +16,7 @@ type Handler struct {
 	Nodes map[string]types.Node
 }
 
-func (n *Handler) GetNodeID(_ net.IP) (uint16, bool) {
+func (n *Handler) GetNodeID(_ netip.Addr) (uint16, bool) {
 	return 0, true
 }
 
