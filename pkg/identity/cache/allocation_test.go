@@ -47,6 +47,7 @@ var (
 
 func testAllocatorConfig(enableOperatorManageCIDs bool, maxAttempts int) AllocatorConfig {
 	return AllocatorConfig{
+		ClusterInfo:              cmtypes.DefaultClusterInfo,
 		EnableOperatorManageCIDs: enableOperatorManageCIDs,
 		Timeout:                  5 * time.Second,
 		SyncInterval:             1 * time.Hour,
