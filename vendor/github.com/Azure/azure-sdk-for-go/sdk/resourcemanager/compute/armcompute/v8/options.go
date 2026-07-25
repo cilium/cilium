@@ -1023,6 +1023,20 @@ type SharedGalleryImagesClientListOptions struct {
 	SharedTo *SharedToValues
 }
 
+// SharedGalleryInvitesClientBeginGallerySharingAcceptOptions contains the optional parameters for the SharedGalleryInvitesClient.BeginGallerySharingAccept
+// method.
+type SharedGalleryInvitesClientBeginGallerySharingAcceptOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// SharedGalleryInvitesClientBeginGallerySharingRejectOptions contains the optional parameters for the SharedGalleryInvitesClient.BeginGallerySharingReject
+// method.
+type SharedGalleryInvitesClientBeginGallerySharingRejectOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
 // SnapshotsClientBeginCreateOrUpdateOptions contains the optional parameters for the SnapshotsClient.BeginCreateOrUpdate
 // method.
 type SnapshotsClientBeginCreateOrUpdateOptions struct {
@@ -1044,6 +1058,20 @@ type SnapshotsClientBeginGrantAccessOptions struct {
 
 // SnapshotsClientBeginRevokeAccessOptions contains the optional parameters for the SnapshotsClient.BeginRevokeAccess method.
 type SnapshotsClientBeginRevokeAccessOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// SnapshotsClientBeginUpdateImmutabilityPolicyLockOptions contains the optional parameters for the SnapshotsClient.BeginUpdateImmutabilityPolicyLock
+// method.
+type SnapshotsClientBeginUpdateImmutabilityPolicyLockOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// SnapshotsClientBeginUpdateImmutabilityPolicyOptions contains the optional parameters for the SnapshotsClient.BeginUpdateImmutabilityPolicy
+// method.
+type SnapshotsClientBeginUpdateImmutabilityPolicyOptions struct {
 	// Resumes the long-running operation from the provided token.
 	ResumeToken string
 }
@@ -1074,6 +1102,20 @@ type SnapshotsClientListOptions struct {
 // method.
 type SoftDeletedResourceClientListByArtifactNameOptions struct {
 	// placeholder for future optional parameters
+}
+
+// TenantLevelSharedGalleryInvitesClientBeginTenantLevelGallerySharingAcceptOptions contains the optional parameters for the
+// TenantLevelSharedGalleryInvitesClient.BeginTenantLevelGallerySharingAccept method.
+type TenantLevelSharedGalleryInvitesClientBeginTenantLevelGallerySharingAcceptOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// TenantLevelSharedGalleryInvitesClientBeginTenantLevelGallerySharingRejectOptions contains the optional parameters for the
+// TenantLevelSharedGalleryInvitesClient.BeginTenantLevelGallerySharingReject method.
+type TenantLevelSharedGalleryInvitesClientBeginTenantLevelGallerySharingRejectOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
 }
 
 // UsageClientListOptions contains the optional parameters for the UsageClient.NewListPager method.

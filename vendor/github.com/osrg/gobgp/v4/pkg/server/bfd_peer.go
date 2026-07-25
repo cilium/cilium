@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	api "github.com/osrg/gobgp/v4/api"
@@ -37,10 +38,11 @@ type bfdPeerStats struct {
 }
 
 type bfdPeer struct {
-	peerState   peerState
-	logger      *slog.Logger
-	peerAddress netip.Addr
-	peerPort    int
+	peerState     peerState
+	logger        *slog.Logger
+	peerAddress   netip.Addr
+	peerPort      int
+	bindInterface string
 
 	udpClient *net.UDPConn
 
@@ -65,17 +67,18 @@ type bfdPeer struct {
 	stats bfdPeerStats
 }
 
-func NewBfdPeer(ps peerState, logger *slog.Logger, peerAddress netip.Addr, config oc.BfdConfig) *bfdPeer {
+func NewBfdPeer(ps peerState, logger *slog.Logger, peerAddress netip.Addr, config oc.BfdConfig, bindInterface string) *bfdPeer {
 	peerPort := int(config.Port)
 	if peerPort == 0 {
 		peerPort = BfdServerPort
 	}
 
 	p := &bfdPeer{
-		peerState:   ps,
-		logger:      logger,
-		peerAddress: peerAddress,
-		peerPort:    peerPort,
+		peerState:     ps,
+		logger:        logger,
+		peerAddress:   peerAddress,
+		peerPort:      peerPort,
+		bindInterface: bindInterface,
 
 		myDiscriminator: randomBFDMyDiscriminator(),
 		multiplier:      defaultMultiplier,
@@ -206,7 +209,19 @@ func (p *bfdPeer) startClient() {
 	remoteAddress := p.remoteUDPAddr()
 
 	var err error
-	p.udpClient, err = net.DialUDP("udp", localAddress, remoteAddress)
+
+	dialer := net.Dialer{
+		LocalAddr: localAddress,
+		Control: func(network, address string, c syscall.RawConn) error {
+			if p.bindInterface != "" {
+				return netutils.SetBindToDevSockopt(c, p.bindInterface)
+			}
+
+			return nil
+		},
+	}
+
+	conn, err := dialer.Dial("udp", remoteAddress.String())
 	if err != nil {
 		p.logger.Warn("Can't dial UDP",
 			slog.String("Topic", "bfd"),
@@ -218,6 +233,21 @@ func (p *bfdPeer) startClient() {
 
 		return
 	}
+
+	udpConn, ok := conn.(*net.UDPConn)
+	if !ok {
+		p.logger.Warn("Can't dial UDP",
+			slog.String("Topic", "bfd"),
+			slog.String("Peer", p.peerAddress.String()),
+			slog.String("LocalAddress", localAddress.String()),
+			slog.String("RemoteAddress", remoteAddress.String()),
+			slog.Any("Error", "connection is not a UDP connection"),
+		)
+
+		return
+	}
+
+	p.udpClient = udpConn
 
 	// https://datatracker.ietf.org/doc/html/rfc5881
 	//   If BFD authentication is not in use on a session, all BFD Control

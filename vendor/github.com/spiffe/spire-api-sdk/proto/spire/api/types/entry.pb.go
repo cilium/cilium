@@ -399,8 +399,15 @@ type Entry_AdditionalAttributes struct {
 	// This is meant to prevent unnecessary effort spent on generating SVIDs of types,
 	// which are unlikely to be needed.
 	DisableX509SvidPrefetch bool `protobuf:"varint,1,opt,name=disable_x509_svid_prefetch,json=disableX509SvidPrefetch,proto3" json:"disable_x509_svid_prefetch,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// * Flag indicating whether SPIRE should include a unique JTI (JWT ID) claim
+	// in JWT-SVIDs issued for this entry. When set, each JWT-SVID minted for this
+	// entry contains a freshly generated UUID in the `jti` claim, and the agent
+	// bypasses its JWT-SVID cache so every request yields a new token. This
+	// supports use cases that require per-token uniqueness, such as replay
+	// protection or auditing.
+	JwtSvidIncludeJti bool `protobuf:"varint,2,opt,name=jwt_svid_include_jti,json=jwtSvidIncludeJti,proto3" json:"jwt_svid_include_jti,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Entry_AdditionalAttributes) Reset() {
@@ -440,11 +447,18 @@ func (x *Entry_AdditionalAttributes) GetDisableX509SvidPrefetch() bool {
 	return false
 }
 
+func (x *Entry_AdditionalAttributes) GetJwtSvidIncludeJti() bool {
+	if x != nil {
+		return x.JwtSvidIncludeJti
+	}
+	return false
+}
+
 var File_spire_api_types_entry_proto protoreflect.FileDescriptor
 
 const file_spire_api_types_entry_proto_rawDesc = "" +
 	"\n" +
-	"\x1bspire/api/types/entry.proto\x12\x0fspire.api.types\x1a\x1espire/api/types/selector.proto\x1a\x1espire/api/types/spiffeid.proto\"\xf0\x05\n" +
+	"\x1bspire/api/types/entry.proto\x12\x0fspire.api.types\x1a\x1espire/api/types/selector.proto\x1a\x1espire/api/types/spiffeid.proto\"\xa2\x06\n" +
 	"\x05Entry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\tspiffe_id\x18\x02 \x01(\v2\x19.spire.api.types.SPIFFEIDR\bspiffeId\x126\n" +
@@ -468,9 +482,10 @@ const file_spire_api_types_entry_proto_rawDesc = "" +
 	"\x04hint\x18\x0e \x01(\tR\x04hint\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x0f \x01(\x03R\tcreatedAt\x12e\n" +
-	"\x15additional_attributes\x18\x10 \x01(\v2+.spire.api.types.Entry.AdditionalAttributesH\x00R\x14additionalAttributes\x88\x01\x01\x1aS\n" +
+	"\x15additional_attributes\x18\x10 \x01(\v2+.spire.api.types.Entry.AdditionalAttributesH\x00R\x14additionalAttributes\x88\x01\x01\x1a\x84\x01\n" +
 	"\x14AdditionalAttributes\x12;\n" +
-	"\x1adisable_x509_svid_prefetch\x18\x01 \x01(\bR\x17disableX509SvidPrefetchB\x18\n" +
+	"\x1adisable_x509_svid_prefetch\x18\x01 \x01(\bR\x17disableX509SvidPrefetch\x12/\n" +
+	"\x14jwt_svid_include_jti\x18\x02 \x01(\bR\x11jwtSvidIncludeJtiB\x18\n" +
 	"\x16_additional_attributes\"\xf2\x03\n" +
 	"\tEntryMask\x12\x1b\n" +
 	"\tspiffe_id\x18\x02 \x01(\bR\bspiffeId\x12\x1b\n" +

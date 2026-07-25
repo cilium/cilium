@@ -1,5 +1,30 @@
 # Release History
 
+## 8.2.0 (2026-07-15)
+### Features Added
+
+- New value `RollingUpgradeStatusCodeRollingBack` added to enum type `RollingUpgradeStatusCode`
+- New value `UpgradeStateRollingBack` added to enum type `UpgradeState`
+- New enum type `ConfidentialVMVersion` with values `ConfidentialVMVersionV1`, `ConfidentialVMVersionV2`
+- New enum type `ImmutabilityPolicyType` with values `ImmutabilityPolicyTypeLocked`, `ImmutabilityPolicyTypeUnlocked`
+- New function `*ClientFactory.NewSharedGalleryInvitesClient() *SharedGalleryInvitesClient`
+- New function `*ClientFactory.NewTenantLevelSharedGalleryInvitesClient() *TenantLevelSharedGalleryInvitesClient`
+- New function `NewSharedGalleryInvitesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*SharedGalleryInvitesClient, error)`
+- New function `*SharedGalleryInvitesClient.BeginGallerySharingAccept(ctx context.Context, location string, sharedGallerySubscriptionID string, sharedGalleryName string, options *SharedGalleryInvitesClientBeginGallerySharingAcceptOptions) (*runtime.Poller[SharedGalleryInvitesClientGallerySharingAcceptResponse], error)`
+- New function `*SharedGalleryInvitesClient.BeginGallerySharingReject(ctx context.Context, location string, sharedGallerySubscriptionID string, sharedGalleryName string, options *SharedGalleryInvitesClientBeginGallerySharingRejectOptions) (*runtime.Poller[SharedGalleryInvitesClientGallerySharingRejectResponse], error)`
+- New function `*SnapshotsClient.BeginUpdateImmutabilityPolicy(ctx context.Context, resourceGroupName string, snapshotName string, immutabilityPolicyData ImmutabilityPolicyData, options *SnapshotsClientBeginUpdateImmutabilityPolicyOptions) (*runtime.Poller[SnapshotsClientUpdateImmutabilityPolicyResponse], error)`
+- New function `*SnapshotsClient.BeginUpdateImmutabilityPolicyLock(ctx context.Context, resourceGroupName string, snapshotName string, immutabilityPolicyData ImmutabilityPolicyLockData, options *SnapshotsClientBeginUpdateImmutabilityPolicyLockOptions) (*runtime.Poller[SnapshotsClientUpdateImmutabilityPolicyLockResponse], error)`
+- New function `NewTenantLevelSharedGalleryInvitesClient(credential azcore.TokenCredential, options *arm.ClientOptions) (*TenantLevelSharedGalleryInvitesClient, error)`
+- New function `*TenantLevelSharedGalleryInvitesClient.BeginTenantLevelGallerySharingAccept(ctx context.Context, location string, sharedGallerySubscriptionID string, sharedGalleryName string, options *TenantLevelSharedGalleryInvitesClientBeginTenantLevelGallerySharingAcceptOptions) (*runtime.Poller[TenantLevelSharedGalleryInvitesClientTenantLevelGallerySharingAcceptResponse], error)`
+- New function `*TenantLevelSharedGalleryInvitesClient.BeginTenantLevelGallerySharingReject(ctx context.Context, location string, sharedGallerySubscriptionID string, sharedGalleryName string, options *TenantLevelSharedGalleryInvitesClientBeginTenantLevelGallerySharingRejectOptions) (*runtime.Poller[TenantLevelSharedGalleryInvitesClientTenantLevelGallerySharingRejectResponse], error)`
+- New struct `ImmutabilityPolicy`
+- New struct `ImmutabilityPolicyData`
+- New struct `ImmutabilityPolicyLockData`
+- New field `SnapshotAccessState` in struct `DiskRestorePointProperties`
+- New field `ConfidentialVMVersion` in struct `DiskSecurityProfile`
+- New field `ImmutabilityPolicy` in struct `SnapshotProperties`
+
+
 ## 8.1.0 (2026-06-17)
 ### Features Added
 

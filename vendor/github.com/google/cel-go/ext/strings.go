@@ -663,15 +663,19 @@ func indexOf(str, substr string) (int64, error) {
 }
 
 func indexOfOffset(str, substr string, offset int64) (int64, error) {
-	if substr == "" {
-		return offset, nil
-	}
 	off := int(offset)
-	runes := []rune(str)
-	subrunes := []rune(substr)
 	if off < 0 {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
+	runes := []rune(str)
+	if substr == "" {
+		// The empty string matches at the search offset, clamped to the end of the string.
+		if off > len(runes) {
+			return int64(len(runes)), nil
+		}
+		return offset, nil
+	}
+	subrunes := []rune(substr)
 	// If the offset exceeds the length, return -1 rather than error.
 	if off >= len(runes) {
 		return -1, nil
@@ -704,15 +708,19 @@ func lastIndexOf(str, substr string) (int64, error) {
 }
 
 func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
-	if substr == "" {
-		return offset, nil
-	}
 	off := int(offset)
-	runes := []rune(str)
-	subrunes := []rune(substr)
 	if off < 0 {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
+	runes := []rune(str)
+	if substr == "" {
+		// The empty string matches at the search offset, clamped to the end of the string.
+		if off > len(runes) {
+			return int64(len(runes)), nil
+		}
+		return offset, nil
+	}
+	subrunes := []rune(substr)
 	// If the offset is far greater than the length return -1
 	if off >= len(runes) {
 		return -1, nil

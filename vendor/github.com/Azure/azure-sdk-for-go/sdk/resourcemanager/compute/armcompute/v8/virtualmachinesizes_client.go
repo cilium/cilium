@@ -42,7 +42,7 @@ func NewVirtualMachineSizesClient(subscriptionID string, credential azcore.Token
 }
 
 // NewListPager - This API is deprecated. Use [Resources Skus](https://docs.microsoft.com/rest/api/compute/resourceskus/list)
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - options - VirtualMachineSizesClientListOptions contains the optional parameters for the VirtualMachineSizesClient.NewListPager
 //     method.
 func (client *VirtualMachineSizesClient) NewListPager(location string, options *VirtualMachineSizesClientListOptions) *runtime.Pager[VirtualMachineSizesClientListResponse] {

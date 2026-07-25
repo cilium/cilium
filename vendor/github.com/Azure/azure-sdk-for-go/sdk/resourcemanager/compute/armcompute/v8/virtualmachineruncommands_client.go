@@ -335,7 +335,7 @@ func (client *VirtualMachineRunCommandsClient) getByVirtualMachineHandleResponse
 }
 
 // NewListPager - Lists all available run commands for a subscription in a location.
-//   - location - The location name.
+//   - location - The name of the Azure region.
 //   - options - VirtualMachineRunCommandsClientListOptions contains the optional parameters for the VirtualMachineRunCommandsClient.NewListPager
 //     method.
 func (client *VirtualMachineRunCommandsClient) NewListPager(location string, options *VirtualMachineRunCommandsClientListOptions) *runtime.Pager[VirtualMachineRunCommandsClientListResponse] {

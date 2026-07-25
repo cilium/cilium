@@ -975,6 +975,16 @@ type SharedGalleryImagesClientListResponse struct {
 	SharedGalleryImageList
 }
 
+// SharedGalleryInvitesClientGallerySharingAcceptResponse contains the response from method SharedGalleryInvitesClient.BeginGallerySharingAccept.
+type SharedGalleryInvitesClientGallerySharingAcceptResponse struct {
+	// placeholder for future response values
+}
+
+// SharedGalleryInvitesClientGallerySharingRejectResponse contains the response from method SharedGalleryInvitesClient.BeginGallerySharingReject.
+type SharedGalleryInvitesClientGallerySharingRejectResponse struct {
+	// placeholder for future response values
+}
+
 // SnapshotsClientCreateOrUpdateResponse contains the response from method SnapshotsClient.BeginCreateOrUpdate.
 type SnapshotsClientCreateOrUpdateResponse struct {
 	// Snapshot resource.
@@ -1015,6 +1025,18 @@ type SnapshotsClientRevokeAccessResponse struct {
 	// placeholder for future response values
 }
 
+// SnapshotsClientUpdateImmutabilityPolicyLockResponse contains the response from method SnapshotsClient.BeginUpdateImmutabilityPolicyLock.
+type SnapshotsClientUpdateImmutabilityPolicyLockResponse struct {
+	// Snapshot resource.
+	Snapshot
+}
+
+// SnapshotsClientUpdateImmutabilityPolicyResponse contains the response from method SnapshotsClient.BeginUpdateImmutabilityPolicy.
+type SnapshotsClientUpdateImmutabilityPolicyResponse struct {
+	// Snapshot resource.
+	Snapshot
+}
+
 // SnapshotsClientUpdateResponse contains the response from method SnapshotsClient.BeginUpdate.
 type SnapshotsClientUpdateResponse struct {
 	// Snapshot resource.
@@ -1025,6 +1047,16 @@ type SnapshotsClientUpdateResponse struct {
 type SoftDeletedResourceClientListByArtifactNameResponse struct {
 	// The List Soft-deleted Resources operation response.
 	GallerySoftDeletedResourceList
+}
+
+// TenantLevelSharedGalleryInvitesClientTenantLevelGallerySharingAcceptResponse contains the response from method TenantLevelSharedGalleryInvitesClient.BeginTenantLevelGallerySharingAccept.
+type TenantLevelSharedGalleryInvitesClientTenantLevelGallerySharingAcceptResponse struct {
+	// placeholder for future response values
+}
+
+// TenantLevelSharedGalleryInvitesClientTenantLevelGallerySharingRejectResponse contains the response from method TenantLevelSharedGalleryInvitesClient.BeginTenantLevelGallerySharingReject.
+type TenantLevelSharedGalleryInvitesClientTenantLevelGallerySharingRejectResponse struct {
+	// placeholder for future response values
 }
 
 // UsageClientListResponse contains the response from method UsageClient.NewListPager.
