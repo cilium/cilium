@@ -872,7 +872,7 @@ github.com/go-openapi/jsonreference/internal
 # github.com/go-openapi/loads v0.25.0
 ## explicit; go 1.25.0
 github.com/go-openapi/loads
-# github.com/go-openapi/runtime v0.32.5
+# github.com/go-openapi/runtime v0.32.6
 ## explicit; go 1.25.0
 github.com/go-openapi/runtime
 github.com/go-openapi/runtime/client
@@ -936,7 +936,7 @@ github.com/go-openapi/swag/typeutils
 # github.com/go-openapi/swag/yamlutils v0.27.3
 ## explicit; go 1.25.0
 github.com/go-openapi/swag/yamlutils
-# github.com/go-openapi/validate v0.26.0
+# github.com/go-openapi/validate v0.26.1
 ## explicit; go 1.25.0
 github.com/go-openapi/validate
 # github.com/go-task/slim-sprig/v3 v3.0.0
