@@ -6,7 +6,7 @@ package xds
 import (
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 )
 
@@ -35,7 +35,7 @@ func EnvoyNodeIdToIP(nodeId string) (string, error) {
 
 	ip := parts[1]
 
-	if net.ParseIP(ip) == nil {
+	if _, err := netip.ParseAddr(ip); err != nil {
 		return "", fmt.Errorf("nodeId contains an invalid node IP address: %s", nodeId)
 	}
 
