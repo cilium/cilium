@@ -169,6 +169,7 @@ func newLocalNodeConfig(
 	}
 
 	return config.Config{
+		ClusterID:                    localNode.ClusterID,
 		NodeIPv4:                     ip.AddrFromIP(localNode.GetNodeIP(false)),
 		NodeIPv6:                     ip.AddrFromIP(localNode.GetNodeIP(true)),
 		CiliumInternalIPv4:           ip.AddrFromIP(localNode.GetCiliumInternalIP(false)),
