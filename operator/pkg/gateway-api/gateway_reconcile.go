@@ -1100,8 +1100,8 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 
 	var addresses []gatewayv1.GatewayStatusAddress
 	// Check the svc type
-	switch svcType := svc.Spec.Type; svcType {
-	case "NodePort":
+	switch svc.Spec.Type {
+	case corev1.ServiceTypeNodePort:
 		// NodePort service gets as many Node
 		// IP addresses as we can fit into Status
 		nodes := &corev1.NodeList{}
@@ -1137,7 +1137,7 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 				Value: ipAddress.String(),
 			})
 		}
-	case "LoadBalancer":
+	case corev1.ServiceTypeLoadBalancer:
 		if len(svc.Status.LoadBalancer.Ingress) == 0 {
 			// Potential loadbalancer service isn't ready yet. No need to report as an error, because
 			// reconciliation should be triggered when the loadbalancer services gets updated.
@@ -2124,7 +2124,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 	scopedLog.Debug("Updating BackendTLSPolicy statuses for Gateway", policies, len(btlspMap))
 
 	currentGatewayRef := gatewayv1.ParentReference{
-		Group:     ptr.To[gatewayv1.Group]("gateway.networking.k8s.io"),
+		Group:     ptr.To[gatewayv1.Group](gatewayv1.GroupName),
 		Kind:      ptr.To[gatewayv1.Kind]("Gateway"),
 		Namespace: (*gatewayv1.Namespace)(&gatewayName.Namespace),
 		Name:      gatewayv1.ObjectName(gatewayName.Name),

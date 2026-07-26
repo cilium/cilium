@@ -53,7 +53,7 @@ func EnqueueRequestForNodes(c client.Client, logger *slog.Logger, owningGatewayL
 			}
 			// if the service owned by the gateway is a nodeport, add to map of UID
 			for _, svc := range svcList.Items {
-				if svc.Spec.Type == "NodePort" {
+				if svc.Spec.Type == corev1.ServiceTypeNodePort {
 					svcMap[string(svc.GetOwnerReferences()[0].UID)] = struct{}{}
 				}
 			}
