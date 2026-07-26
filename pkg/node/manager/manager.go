@@ -136,6 +136,9 @@ type manager struct {
 	// conf is the configuration of the caller passed in via NewManager.
 	// This field is immutable after NewManager()
 	conf *option.DaemonConfig
+	// clusterInfo is the local cluster information passed in via NewManager.
+	// This field is immutable after NewManager()
+	clusterInfo cmtypes.ClusterInfo
 
 	underlay tunnel.UnderlayProtocol
 
@@ -260,6 +263,7 @@ func NewNodeMetrics() *nodeMetrics {
 func New(
 	logger *slog.Logger,
 	c *option.DaemonConfig,
+	clusterInfo cmtypes.ClusterInfo,
 	tunnelConf tunnel.Config,
 	ipCache IPCache,
 	ipsetMgr ipset.Manager,
@@ -281,6 +285,7 @@ func New(
 		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
 		restoredNodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                   c,
+		clusterInfo:            clusterInfo,
 		underlay:               tunnelConf.UnderlayProtocol(),
 		controllerManager:      controller.NewManager(),
 		nodeHandlers:           map[node.Handler]struct{}{},
@@ -720,7 +725,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		}
 
 		endpointFlags := ipcacheTypes.EndpointFlags{}
-		if n.Cluster != m.conf.ClusterName {
+		if n.Cluster != m.clusterInfo.Name {
 			endpointFlags.SetRemoteCluster(true)
 		}
 
@@ -1003,7 +1008,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		}
 
 		oldEndpointFlags := ipcacheTypes.EndpointFlags{}
-		if oldNode.Cluster != m.conf.ClusterName {
+		if oldNode.Cluster != m.clusterInfo.Name {
 			oldEndpointFlags.SetRemoteCluster(true)
 		}
 
@@ -1204,7 +1209,7 @@ func (m *manager) pruneClusterNodes() {
 
 	toDelete := make([]*nodeTypes.Node, 0, len(m.restoredNodes))
 	for _, n := range m.restoredNodes {
-		if n.Cluster == m.conf.ClusterName {
+		if n.Cluster == m.clusterInfo.Name {
 			toDelete = append(toDelete, n)
 		}
 	}
@@ -1250,7 +1255,7 @@ func (m *manager) pruneMeshedNodes() {
 
 	toDelete := make([]*nodeTypes.Node, 0, len(m.restoredNodes))
 	for _, n := range m.restoredNodes {
-		if n.Cluster != m.conf.ClusterName {
+		if n.Cluster != m.clusterInfo.Name {
 			toDelete = append(toDelete, n)
 		}
 	}
