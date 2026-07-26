@@ -86,6 +86,7 @@ type infraIPAllocator struct {
 type ipamAllocator interface {
 	AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error)
 	AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (result *ipam.AllocationResult, err error)
+	AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (result *ipam.AllocationResult, err error)
 	ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool)
 	ReleaseIP(ip netip.Addr, pool ipam.Pool) error
 }
@@ -220,6 +221,53 @@ func (r *infraIPAllocator) reallocateOldRouterIPs(fromK8s, fromFS net.IP) (resul
 	return result
 }
 
+func (r *infraIPAllocator) allocateNextFromPool(ctx context.Context, family ipam.Family, owner string) (*ipam.AllocationResult, error) {
+	result, err := r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(family, owner, ipam.PoolDefault())
+	if err == nil {
+		return result, nil
+	}
+
+	var poolErr *ipam.ErrPoolNotReadyYet
+	if !errors.As(err, &poolErr) {
+		return nil, err
+	}
+
+	// The pool is not yet provisioned by the operator. Fall back to
+	// AllocateNextFamily which triggers an upstream K8s sync to request
+	// pool provisioning, then retry until the pool becomes available.
+	bo := wait.Backoff{
+		Duration: 500 * time.Millisecond,
+		Factor:   1.5,
+		Jitter:   0.1,
+		Steps:    20,
+	}
+
+	var lastErr error
+	err = wait.ExponentialBackoffWithContext(ctx, bo, func(ctx context.Context) (bool, error) {
+		var allocErr error
+		result, allocErr = r.ipAllocator.AllocateNextFamily(family, owner, ipam.PoolDefault())
+		if allocErr == nil {
+			return true, nil
+		}
+
+		var poolErr *ipam.ErrPoolNotReadyYet
+		if errors.As(allocErr, &poolErr) {
+			lastErr = allocErr
+			return false, nil
+		}
+
+		return true, allocErr
+	})
+
+	if err != nil {
+		if lastErr != nil {
+			return nil, fmt.Errorf("timed out allocating IP: %w", lastErr)
+		}
+		return nil, fmt.Errorf("unable to allocate next IP: %w", err)
+	}
+	return result, nil
+}
+
 func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error {
 	bo := wait.Backoff{
 		Duration: 250 * time.Millisecond,
@@ -262,7 +310,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 	if result == nil {
 		primaryAddr, _ := netip.AddrFromSlice(family.PrimaryExternal())
 		family := ipam.DeriveFamily(primaryAddr.Unmap())
-		result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault())
+		result, err = r.allocateNextFromPool(ctx, family, "router")
 		if err != nil {
 			return nil, fmt.Errorf("unable to allocate router IP for family %s: %w", family, err)
 		}
@@ -345,7 +393,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 	return net.IP(result.IP.AsSlice()).To16(), nil
 }
 
-func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP netip.Addr, oldV6HealthIP netip.Addr) error {
+func (r *infraIPAllocator) allocateHealthIPs(ctx context.Context, oldV4HealthIP netip.Addr, oldV6HealthIP netip.Addr) error {
 	if !r.daemonConfig.EnableHealthChecking || !r.daemonConfig.EnableEndpointHealthChecking {
 		return nil
 	}
@@ -366,7 +414,7 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP netip.Addr, oldV6Heal
 			}
 		}
 		if !healthIPv4.IsValid() {
-			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health", ipam.PoolDefault())
+			result, err = r.allocateNextFromPool(ctx, ipam.IPv4, "health")
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPv4: %w, see https://cilium.link/ipam-range-full", err)
 			}
@@ -409,7 +457,7 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP netip.Addr, oldV6Heal
 			}
 		}
 		if !healthIPv6.IsValid() {
-			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault())
+			result, err = r.allocateNextFromPool(ctx, ipam.IPv6, "health")
 			if err != nil {
 				if healthIPv4.IsValid() {
 					r.ipAllocator.ReleaseIP(healthIPv4, ipam.PoolDefault())
@@ -449,7 +497,7 @@ func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressI
 		// Allocate a fresh IP if not restored, or the reallocation of the restored
 		// IP failed
 		if result == nil {
-			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress", ipam.PoolDefault())
+			result, err = r.allocateNextFromPool(ctx, ipam.IPv4, "ingress")
 			if err != nil {
 				return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
 			}
@@ -515,7 +563,7 @@ func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressI
 		// Allocate a fresh IP if not restored, or the reallocation of the restored
 		// IP failed
 		if result == nil {
-			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault())
+			result, err = r.allocateNextFromPool(ctx, ipam.IPv6, "ingress")
 			if err != nil {
 				if ingressIPv4 != nil {
 					r.ipAllocator.ReleaseIP(iputil.AddrFromIP(ingressIPv4), ipam.PoolDefault())
@@ -565,7 +613,7 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context) error {
 		return fmt.Errorf("failed to allocate ingress IPs: %w", err)
 	}
 
-	if err := r.allocateHealthIPs(localNode.IPv4HealthIP.Addr, localNode.IPv6HealthIP.Addr); err != nil {
+	if err := r.allocateHealthIPs(ctx, localNode.IPv4HealthIP.Addr, localNode.IPv6HealthIP.Addr); err != nil {
 		return fmt.Errorf("failed to allocate health IPs: %w", err)
 	}
 

@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -20,7 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
+	nodeaddressing "github.com/cilium/cilium/pkg/node/fake"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -114,6 +118,10 @@ func (m *mockIPAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Fami
 	return nil, nil
 }
 
+func (m *mockIPAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (result *ipam.AllocationResult, err error) {
+	return nil, nil
+}
+
 func (m *mockIPAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
 
 func (m *mockIPAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
@@ -121,6 +129,40 @@ func (m *mockIPAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
 }
 
 var _ ipamAllocator = &mockIPAllocator{}
+
+type retryMockAllocator struct {
+	failCount int32        // how many ErrPoolNotReadyYet to return before succeeding
+	attempts  atomic.Int32 // total allocation attempts made
+	resultIP  netip.Addr   // IP to return on success
+}
+
+func (m *retryMockAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return &ipam.AllocationResult{IP: ip}, nil
+}
+
+func (m *retryMockAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	n := m.attempts.Add(1)
+	if n <= m.failCount {
+		return nil, &ipam.ErrPoolNotReadyYet{}
+	}
+	return &ipam.AllocationResult{IP: m.resultIP}, nil
+}
+
+func (m *retryMockAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	n := m.attempts.Add(1)
+	if n <= m.failCount {
+		return nil, &ipam.ErrPoolNotReadyYet{}
+	}
+	return &ipam.AllocationResult{IP: m.resultIP}, nil
+}
+
+func (m *retryMockAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *retryMockAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	return nil
+}
+
+var _ ipamAllocator = &retryMockAllocator{}
 
 func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 	infraIPAllocator := &infraIPAllocator{
@@ -170,6 +212,161 @@ func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, invalidFromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromK8sAddr)
+}
+
+func TestDaemon_allocateNextFromPool_Retries(t *testing.T) {
+	resultIP := netip.MustParseAddr("10.0.0.5")
+
+	mock := &retryMockAllocator{
+		failCount: 3,
+		resultIP:  resultIP,
+	}
+
+	infra := &infraIPAllocator{
+		logger:      hivetest.Logger(t),
+		ipAllocator: mock,
+	}
+
+	ctx := t.Context()
+	result, err := infra.allocateNextFromPool(ctx, ipam.IPv4, "router")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, resultIP, result.IP)
+
+	assert.Equal(t, int32(4), mock.attempts.Load())
+}
+
+func TestDaemon_allocateNextFromPool_NonPoolError_StopsImmediately(t *testing.T) {
+	nonPoolMock := &nonPoolErrAllocator{}
+	infra := &infraIPAllocator{
+		logger:      hivetest.Logger(t),
+		ipAllocator: nonPoolMock,
+	}
+
+	ctx := t.Context()
+	_, err := infra.allocateNextFromPool(ctx, ipam.IPv4, "router")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "something unrelated went wrong")
+	assert.Equal(t, int32(1), nonPoolMock.attempts.Load())
+}
+
+func TestDaemon_allocateNextFromPool_NonPoolErrorInBackoff_StopsImmediately(t *testing.T) {
+	mock := &nonPoolErrorAfterRetryAllocator{}
+	infra := &infraIPAllocator{
+		logger:      hivetest.Logger(t),
+		ipAllocator: mock,
+	}
+
+	ctx := t.Context()
+	_, err := infra.allocateNextFromPool(ctx, ipam.IPv4, "router")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "something unrelated went wrong")
+	assert.Equal(t, int32(1), mock.poolNotReady.Load())
+	assert.Equal(t, int32(1), mock.allocateCalls.Load())
+}
+
+func TestDaemon_reallocateRouterIPs_PoolNotReady(t *testing.T) {
+	resultIP := netip.MustParseAddr("10.0.0.5")
+
+	mock := &retryMockAllocator{
+		failCount: 2,
+		resultIP:  resultIP,
+	}
+
+	origDefaultPool := option.Config.IPAMDefaultIPPool
+	option.Config.IPAMDefaultIPPool = "default"
+	defer func() { option.Config.IPAMDefaultIPPool = origDefaultPool }()
+
+	infra := &infraIPAllocator{
+		logger:         hivetest.Logger(t),
+		ipAllocator:    mock,
+		daemonConfig:   &option.DaemonConfig{IPAM: ipamOption.IPAMMultiPool},
+		nodeAddressing: nodeaddressing.NewIPv4OnlyAddressing(),
+	}
+
+	ctx := t.Context()
+	family := nodeaddressing.NewIPv4OnlyAddressing().IPv4()
+
+	ip, err := infra.reallocateRouterIPs(ctx, family, nil, nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, ip)
+	assert.Equal(t, net.IP(resultIP.AsSlice()).To16(), ip)
+
+	assert.Equal(t, int32(3), mock.attempts.Load())
+}
+
+func TestDaemon_reallocateRouterIPs_NonPoolError_Fatal(t *testing.T) {
+	origDefaultPool := option.Config.IPAMDefaultIPPool
+	option.Config.IPAMDefaultIPPool = "default"
+	defer func() { option.Config.IPAMDefaultIPPool = origDefaultPool }()
+
+	infra := &infraIPAllocator{
+		logger:         hivetest.Logger(t),
+		ipAllocator:    &nonPoolErrAllocator{},
+		daemonConfig:   &option.DaemonConfig{IPAM: ipamOption.IPAMMultiPool},
+		nodeAddressing: nodeaddressing.NewIPv4OnlyAddressing(),
+	}
+
+	ctx := t.Context()
+	family := nodeaddressing.NewIPv4OnlyAddressing().IPv4()
+
+	_, err := infra.reallocateRouterIPs(ctx, family, nil, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to allocate router IP")
+}
+
+type nonPoolErrAllocator struct {
+	attempts atomic.Int32
+}
+
+func (m *nonPoolErrAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return &ipam.AllocationResult{IP: ip}, nil
+}
+
+func (m *nonPoolErrAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	m.attempts.Add(1)
+	return nil, fmt.Errorf("something unrelated went wrong")
+}
+
+func (m *nonPoolErrAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	m.attempts.Add(1)
+	return nil, fmt.Errorf("something unrelated went wrong")
+}
+
+func (m *nonPoolErrAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *nonPoolErrAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	return nil
+}
+
+type nonPoolErrorAfterRetryAllocator struct {
+	poolNotReady  atomic.Int32
+	allocateCalls atomic.Int32
+}
+
+func (m *nonPoolErrorAfterRetryAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return &ipam.AllocationResult{IP: ip}, nil
+}
+
+func (m *nonPoolErrorAfterRetryAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	m.poolNotReady.Add(1)
+	return nil, &ipam.ErrPoolNotReadyYet{}
+}
+
+func (m *nonPoolErrorAfterRetryAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	m.allocateCalls.Add(1)
+	return nil, fmt.Errorf("something unrelated went wrong")
+}
+
+func (m *nonPoolErrorAfterRetryAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *nonPoolErrorAfterRetryAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	return nil
 }
 
 func TestPrivilegedRemoveOldRouterState(t *testing.T) {
