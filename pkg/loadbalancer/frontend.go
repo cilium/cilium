@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -167,15 +166,12 @@ func (fe *Frontend) ToModel() *models.Service {
 			HealthCheckNodePort: svc.HealthCheckNodePort,
 			Name:                svc.Name.Name(),
 			Namespace:           svc.Name.Namespace(),
+			Cluster:             svc.Name.Cluster(),
 		},
 	}
 
 	if fe.RedirectTo != nil {
 		spec.Flags.Type = string(SVCTypeLocalRedirect)
-	}
-
-	if svc.Name.Cluster() != option.Config.ClusterName {
-		spec.Flags.Cluster = svc.Name.Cluster()
 	}
 
 	backendModel := func(be *Backend) *models.BackendAddress {
