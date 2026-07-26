@@ -15,6 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -228,9 +229,9 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 	// pkg/allocator/cache
 	//
 	// FIXME: add options to handle clustermesh with this constructor parameter:
-	//    allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
+	//    allocator.WithPrefixMask(idpool.ID(clusterID<<identity.ClusterIDShift)))
+	minID := idpool.ID(identity.GetMinimalAllocationIdentity(cmtypes.DefaultClusterInfo.ID))
+	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(cmtypes.DefaultClusterInfo.ID))
 	crdAllocator, err = allocator.NewAllocator(log, &cacheKey.GlobalIdentity{}, crdBackend, allocator.WithMax(maxID), allocator.WithMin(minID))
 	if err != nil {
 		logging.Fatal(log, "Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs", logfields.Error, err)
