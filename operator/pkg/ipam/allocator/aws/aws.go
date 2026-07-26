@@ -17,9 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/aws/api"
 	"github.com/cilium/cilium/pkg/aws/ipam"
 	"github.com/cilium/cilium/pkg/aws/metadata"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -27,6 +27,7 @@ var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-aws"}
 
 // AllocatorAWS is an implementation of IPAM allocator interface for AWS ENI
 type AllocatorAWS struct {
+	ClusterInfo                  cmtypes.ClusterInfo
 	AWSReleaseExcessIPs          bool
 	ExcessIPReleaseDelay         int
 	AWSEnablePrefixDelegation    bool
@@ -60,7 +61,7 @@ func (a *AllocatorAWS) initENIGarbageCollectionTags(ctx context.Context, cfg aws
 	}
 
 	// Use cilium cluster name if available
-	if clusterName := option.Config.ClusterName; clusterName != defaults.ClusterName {
+	if clusterName := a.ClusterInfo.Name; clusterName != defaults.ClusterName {
 		eniTags[defaults.ENIGarbageCollectionTagClusterName] = clusterName
 		return eniTags
 	}

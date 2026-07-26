@@ -15,6 +15,7 @@ import (
 	allocatorTypes "github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/aws"
 	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -85,6 +86,7 @@ type awsParams struct {
 	Clientset          k8sClient.Clientset
 	AWSMetrics         *aws.Metrics
 	IPAMMetrics        *ipamMetrics.Metrics
+	ClusterInfo        cmtypes.ClusterInfo
 	DaemonCfg          *option.DaemonConfig
 	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
 
@@ -94,6 +96,7 @@ type awsParams struct {
 
 func startAWSAllocator(p awsParams) {
 	alloc := &aws.AllocatorAWS{
+		ClusterInfo:                  p.ClusterInfo,
 		AWSReleaseExcessIPs:          p.AwsCfg.AWSReleaseExcessIPs,
 		ExcessIPReleaseDelay:         p.AwsCfg.ExcessIPReleaseDelay,
 		AWSEnablePrefixDelegation:    p.AwsCfg.AWSEnablePrefixDelegation,
