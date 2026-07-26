@@ -31,7 +31,7 @@ func NodeConfig(lnc *Config) Node {
 		node.RouterIPv6.Addr = lnc.CiliumInternalIPv6.As16()
 	}
 
-	node.ClusterID = option.Config.ClusterID
+	node.ClusterID = lnc.ClusterID
 	node.MonitorAggregation = uint8(option.Config.Opts.GetValue(option.MonitorAggregation))
 	node.TracePayloadLen = uint32(option.Config.TracePayloadlen)
 	node.TracePayloadLenOverlay = uint32(option.Config.TracePayloadlenOverlay)
