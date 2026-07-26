@@ -984,12 +984,11 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 	}
 }
 
-func log(format string, a ...any) {
-	// TODO (ajs): make logger configurable
-	fmt.Fprintf(os.Stdout, format+"\n", a...)
-}
-
 func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]any, error) {
+	log := func(format string, a ...any) {
+		fmt.Fprintf(params.Writer, format+"\n", a...)
+	}
+
 	helmVals := map[string]any{
 		"clustermesh": map[string]any{
 			"useAPIServer": true,
