@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // Configure a generous timeout to prevent flakes when running in a noisy CI environment.
@@ -364,9 +363,6 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 }
 
 func TestWorkqueueSyncStoreMetrics(t *testing.T) {
-	defer func(name string) {
-		option.Config.ClusterName = name
-	}(option.Config.ClusterName)
 	st, me := GetFactory(t)
 	require.True(t, me.KVStoreSyncQueueSize.IsEnabled())
 	require.True(t, me.KVStoreInitialSyncCompleted.IsEnabled())
