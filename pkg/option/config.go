@@ -511,9 +511,10 @@ const (
 	// and is 2/3 of the full CT size as a heuristic
 	NATMapEntriesGlobalDefault = int((CTMapEntriesGlobalTCPDefault + CTMapEntriesGlobalAnyDefault) * 2 / 3)
 
-	// SockRevNATMapEntriesDefault holds the default size of the SockRev NAT map
-	// and is the same size of CTMapEntriesGlobalAnyDefault as a heuristic given
-	// that sock rev NAT is mostly used for UDP and getpeername only.
+	// SockRevNATMapEntriesDefault holds the default size of the SockRev NAT map.
+	// Keep at CTMapEntriesGlobalAnyDefault during dual-write phase to ensure sufficient
+	// capacity for rollbacks and unconnected UDP.
+	// TODO: Reduce default size once connected sockets rely solely on sk_storage.
 	SockRevNATMapEntriesDefault = CTMapEntriesGlobalAnyDefault
 
 	// MapEntriesGlobalDynamicSizeRatioName is the name of the option to

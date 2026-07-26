@@ -68,8 +68,10 @@ add_type(struct debug_capture_msg);
 #include "lib/sock.h"
 add_type(struct ipv4_revnat_tuple);
 add_type(struct ipv4_revnat_entry);
+add_type(struct ipv4_sk_storage_entry);
 add_type(struct ipv6_revnat_tuple);
 add_type(struct ipv6_revnat_entry);
+add_type(struct ipv6_sk_storage_entry);
 
 add_type(struct ipv4_frag_id);
 add_type(struct ipv4_frag_l4ports);

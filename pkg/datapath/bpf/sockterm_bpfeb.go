@@ -28,6 +28,16 @@ type SockTermIpv4RevnatTuple struct {
 	Pad     uint16
 }
 
+type SockTermIpv4SkStorageEntry struct {
+	_              structs.HostLayout
+	Address        uint32
+	Port           uint16
+	RevNatIndex    uint16
+	BackendAddress uint32
+	BackendPort    uint16
+	Pad            uint16
+}
+
 type SockTermIpv6RevnatEntry struct {
 	_       structs.HostLayout
 	Address struct {
@@ -50,6 +60,22 @@ type SockTermIpv6RevnatTuple struct {
 	_    [4]byte
 }
 
+type SockTermIpv6SkStorageEntry struct {
+	_       structs.HostLayout
+	Address struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+	Port           uint16
+	RevNatIndex    uint16
+	BackendAddress struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+	BackendPort uint16
+	Pad         uint16
+}
+
 type SockTermSockTermFilter struct {
 	_       structs.HostLayout
 	Address struct {
@@ -69,7 +95,9 @@ type SockTermSockTermFilter struct {
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
 	SockTermMapCiliumLb4ReverseSk   = "cilium_lb4_reverse_sk"
+	SockTermMapCiliumLb4ReverseSkSt = "cilium_lb4_reverse_sk_st"
 	SockTermMapCiliumLb6ReverseSk   = "cilium_lb6_reverse_sk"
+	SockTermMapCiliumLb6ReverseSkSt = "cilium_lb6_reverse_sk_st"
 	SockTermProgCilSockTcpDestroyV4 = "cil_sock_tcp_destroy_v4"
 	SockTermProgCilSockTcpDestroyV6 = "cil_sock_tcp_destroy_v6"
 	SockTermProgCilSockUdpDestroyV4 = "cil_sock_udp_destroy_v4"
@@ -129,8 +157,10 @@ type SockTermProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type SockTermMapSpecs struct {
-	CiliumLb4ReverseSk *ebpf.MapSpec `ebpf:"cilium_lb4_reverse_sk"`
-	CiliumLb6ReverseSk *ebpf.MapSpec `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb4ReverseSk   *ebpf.MapSpec `ebpf:"cilium_lb4_reverse_sk"`
+	CiliumLb4ReverseSkSt *ebpf.MapSpec `ebpf:"cilium_lb4_reverse_sk_st"`
+	CiliumLb6ReverseSk   *ebpf.MapSpec `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb6ReverseSkSt *ebpf.MapSpec `ebpf:"cilium_lb6_reverse_sk_st"`
 }
 
 // SockTermVariableSpecs contains global variables before they are loaded into the kernel.
@@ -160,14 +190,18 @@ func (o *SockTermObjects) Close() error {
 //
 // It can be passed to LoadSockTermObjects or ebpf.CollectionSpec.LoadAndAssign.
 type SockTermMaps struct {
-	CiliumLb4ReverseSk *ebpf.Map `ebpf:"cilium_lb4_reverse_sk"`
-	CiliumLb6ReverseSk *ebpf.Map `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb4ReverseSk   *ebpf.Map `ebpf:"cilium_lb4_reverse_sk"`
+	CiliumLb4ReverseSkSt *ebpf.Map `ebpf:"cilium_lb4_reverse_sk_st"`
+	CiliumLb6ReverseSk   *ebpf.Map `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb6ReverseSkSt *ebpf.Map `ebpf:"cilium_lb6_reverse_sk_st"`
 }
 
 func (m *SockTermMaps) Close() error {
 	return _SockTermClose(
 		m.CiliumLb4ReverseSk,
+		m.CiliumLb4ReverseSkSt,
 		m.CiliumLb6ReverseSk,
+		m.CiliumLb6ReverseSkSt,
 	)
 }
 
