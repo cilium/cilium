@@ -33,7 +33,7 @@ type FlattenOpts struct {
 	RemoveUnused    bool              // When true, remove unused parameters, responses and definitions after expansion/flattening
 	ContinueOnError bool              // Continue when spec expansion issues are found
 	KeepNames       bool              // Do not attempt to jsonify names from references when flattening
-	ManglerOpts     []mangling.Option // Options for the name mangler used to jsonify names
+	ManglerOpts     []mangling.Option `json:"-"` // Options for the name mangler used to jsonify names
 
 	// PathLoaderWithOptions injects the document loader used to resolve remote and relative $ref
 	// while flattening or expanding the specification. It matches the option-aware loader signature
@@ -43,7 +43,7 @@ type FlattenOpts struct {
 	// confined loader — for example one built with loading.WithRoot (to confine local reads) and
 	// loading.WithHTTPClient (to restrict remote fetches), or a restricted loader from
 	// go-openapi/loads. Left nil, the spec package default (unsandboxed) loader is used.
-	PathLoaderWithOptions func(string, ...loading.Option) (json.RawMessage, error)
+	PathLoaderWithOptions func(string, ...loading.Option) (json.RawMessage, error) `json:"-"`
 
 	/* Extra keys */
 	_ struct{} // require keys
