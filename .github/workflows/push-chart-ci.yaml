@@ -36,7 +36,7 @@ jobs:
       chart-version: ${{ steps.get-version.outputs.chart_version }}
     steps:
     - name: Checkout GitHub main
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ github.event.repository.default_branch }}
         persist-credentials: false
@@ -55,7 +55,7 @@ jobs:
     # Warning: since this is a privileged workflow, subsequent workflow job
     # steps must take care not to execute untrusted code.
     - name: Checkout Source Code (NOT TRUSTED)
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
         ref: ${{ inputs.checkout_ref }}
@@ -79,7 +79,7 @@ jobs:
     needs: setup-charts
     steps:
     - name: Checkout GitHub Actions definitions
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
         ref: ${{ github.event.repository.default_branch }}
@@ -91,7 +91,7 @@ jobs:
     # Warning: since this is a privileged workflow, subsequent workflow job
     # steps must take care not to execute untrusted code.
     - name: Checkout Feature Branch Code (NOT TRUSTED)
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
         ref: ${{ inputs.checkout_ref }}
@@ -146,7 +146,7 @@ jobs:
       - push-charts
     steps:
     - name: Checkout GitHub Actions definitions
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
         ref: ${{ github.event.repository.default_branch }}
