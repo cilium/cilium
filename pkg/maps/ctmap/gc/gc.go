@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -68,6 +69,7 @@ type parameters struct {
 	JobGroup                job.Group
 	Logger                  *slog.Logger
 	Config                  config
+	ClusterInfo             cmtypes.ClusterInfo
 	DB                      *statedb.DB
 	NodeAddrs               statedb.Table[tables.NodeAddress]
 	DaemonConfig            *option.DaemonConfig
@@ -93,8 +95,9 @@ func (r config) Flags(flags *pflag.FlagSet) {
 }
 
 type GC struct {
-	logger *slog.Logger
-	config config
+	logger      *slog.Logger
+	config      config
+	clusterInfo cmtypes.ClusterInfo
 
 	ipv4 bool
 	ipv6 bool
@@ -128,8 +131,9 @@ type GC struct {
 
 func newGC(params parameters) *GC {
 	gc := &GC{
-		logger: params.Logger,
-		config: params.Config,
+		logger:      params.Logger,
+		config:      params.Config,
+		clusterInfo: params.ClusterInfo,
 
 		ipv4: params.DaemonConfig.EnableIPv4,
 		ipv6: params.DaemonConfig.EnableIPv6,
@@ -508,7 +512,7 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 					logfields.IngressAlive, stats.IngressAlive,
 					logfields.EgressAlive, stats.EgressAlive,
 					logfields.Family, stats.Family,
-					logfields.ClusterID, cmp.Or(stats.ClusterID, option.Config.ClusterID),
+					logfields.ClusterID, cmp.Or(stats.ClusterID, gc.clusterInfo.ID),
 					logfields.Duration, time.Since(startTime),
 				)
 			}
