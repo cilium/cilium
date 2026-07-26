@@ -849,7 +849,7 @@ github.com/go-logr/stdr
 # github.com/go-logr/zapr v1.3.0
 ## explicit; go 1.18
 github.com/go-logr/zapr
-# github.com/go-openapi/analysis v0.25.4
+# github.com/go-openapi/analysis v0.25.5
 ## explicit; go 1.25.0
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal/debug
@@ -869,7 +869,7 @@ github.com/go-openapi/jsonpointer/jsonname
 ## explicit; go 1.25.0
 github.com/go-openapi/jsonreference
 github.com/go-openapi/jsonreference/internal
-# github.com/go-openapi/loads v0.24.2
+# github.com/go-openapi/loads v0.25.0
 ## explicit; go 1.25.0
 github.com/go-openapi/loads
 # github.com/go-openapi/runtime v0.32.5

@@ -575,7 +575,7 @@ func stripOAIGenForRef(opts *FlattenOpts, k string, r *newRef) (bool, error) {
 	}
 
 	// rewrite other parents to point to first parent
-	if len(pr) > 1 {
+	if len(pr) > 1 { //nolint:nestif // should be refactored at a later time
 		for _, p := range pr[1:] {
 			replacingRef := spec.MustCreateRef(pr[0])
 
