@@ -42,7 +42,7 @@ require (
 	github.com/go-logr/logr v1.4.4
 	github.com/go-openapi/errors v0.22.8
 	github.com/go-openapi/loads v0.25.0
-	github.com/go-openapi/runtime v0.32.5
+	github.com/go-openapi/runtime v0.32.6
 	github.com/go-openapi/spec v0.22.9
 	github.com/go-openapi/strfmt v0.27.0
 	github.com/go-openapi/swag v0.27.3
@@ -50,7 +50,7 @@ require (
 	github.com/go-openapi/swag/conv v0.27.3
 	github.com/go-openapi/swag/jsonutils v0.27.3
 	github.com/go-openapi/swag/typeutils v0.27.3
-	github.com/go-openapi/validate v0.26.0
+	github.com/go-openapi/validate v0.26.1
 	github.com/google/cel-go v0.29.2
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-github/v88 v88.0.0
