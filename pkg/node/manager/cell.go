@@ -85,6 +85,7 @@ type NodeManager interface {
 func newAllNodeManager(in struct {
 	cell.In
 	Logger         *slog.Logger
+	ClusterInfo    cmtypes.ClusterInfo
 	TunnelConf     tunnel.Config
 	Lifecycle      cell.Lifecycle
 	IPCache        *ipcache.IPCache
@@ -99,7 +100,7 @@ func newAllNodeManager(in struct {
 	LocalNodeStore *node.LocalNodeStore
 },
 ) (NodeManager, error) {
-	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, in.LocalNodeStore)
+	mngr, err := New(in.Logger, option.Config, in.ClusterInfo, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, in.LocalNodeStore)
 	if err != nil {
 		return nil, err
 	}
