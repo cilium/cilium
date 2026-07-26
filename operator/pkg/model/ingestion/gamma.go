@@ -145,7 +145,7 @@ func toGammaHTTPRoutes(
 			} else {
 				// Otherwise, we find ones where appProtocol is http
 				for _, port := range parentSvc.Spec.Ports {
-					if port.Protocol == "" || port.Protocol == "TCP" {
+					if port.Protocol == "" || port.Protocol == corev1.ProtocolTCP {
 						// This is a little suspect, but we should only be using ones where AppProtocol is http
 						// _apparently_
 						if (port.AppProtocol == nil) || (port.AppProtocol != nil && *port.AppProtocol != "http") {
@@ -289,7 +289,7 @@ func toGammaGRPCRoutes(
 			} else {
 				// Otherwise, we find ones where appProtocol is grpc
 				for _, port := range parentSvc.Spec.Ports {
-					if port.Protocol == "" || port.Protocol == "TCP" {
+					if port.Protocol == "" || port.Protocol == corev1.ProtocolTCP {
 						// This is a little suspect, but we should only be using ones where AppProtocol is grpc
 						// _apparently_
 						if (port.AppProtocol == nil) || (port.AppProtocol != nil && *port.AppProtocol != "grpc") {

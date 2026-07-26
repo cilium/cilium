@@ -925,9 +925,9 @@ func (ct *ConnectivityTest) detectSingleNode(ctx context.Context) error {
 	for _, n := range nodes.Items {
 		for _, t := range n.Spec.Taints {
 			switch {
-			case (t.Key == "node-role.kubernetes.io/master" && t.Effect == "NoSchedule"):
+			case (t.Key == "node-role.kubernetes.io/master" && t.Effect == slimcorev1.TaintEffectNoSchedule):
 				numWorkerNodes--
-			case (t.Key == "node-role.kubernetes.io/control-plane" && t.Effect == "NoSchedule"):
+			case (t.Key == "node-role.kubernetes.io/control-plane" && t.Effect == slimcorev1.TaintEffectNoSchedule):
 				numWorkerNodes--
 			}
 		}

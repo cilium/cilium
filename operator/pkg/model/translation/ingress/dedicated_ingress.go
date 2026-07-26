@@ -93,7 +93,7 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 		ports = []corev1.ServicePort{
 			{
 				Name:     "https",
-				Protocol: "TCP",
+				Protocol: corev1.ProtocolTCP,
 				Port:     443,
 			},
 		}
@@ -101,12 +101,12 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 		ports = []corev1.ServicePort{
 			{
 				Name:     "http",
-				Protocol: "TCP",
+				Protocol: corev1.ProtocolTCP,
 				Port:     80,
 			},
 			{
 				Name:     "https",
-				Protocol: "TCP",
+				Protocol: corev1.ProtocolTCP,
 				Port:     443,
 			},
 		}
