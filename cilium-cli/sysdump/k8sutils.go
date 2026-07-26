@@ -148,7 +148,7 @@ func (c *Collector) ensureExecTarget(ctx context.Context, pod *corev1.Pod, conta
 			return false, err
 		}
 		for _, condition := range targetPod.Status.Conditions {
-			if condition.Type == corev1.ContainersReady && condition.Status == "True" {
+			if condition.Type == corev1.ContainersReady && condition.Status == corev1.ConditionTrue {
 				return true, nil
 			}
 		}
