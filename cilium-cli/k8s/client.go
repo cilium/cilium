@@ -682,7 +682,7 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 
 	if context, ok := c.RawConfig.Contexts[c.ContextName()]; ok {
 		if cluster, ok := c.RawConfig.Clusters[context.Cluster]; ok {
-			if strings.HasSuffix(cluster.Server, "eks.amazonaws.com") {
+			if strings.Contains(cluster.Server, ".eks-cluster.") || strings.Contains(cluster.Server, ".eks.") {
 				f.Kind = KindEKS
 				return f
 			} else if strings.HasSuffix(cluster.Server, "azmk8s.io:443") {
