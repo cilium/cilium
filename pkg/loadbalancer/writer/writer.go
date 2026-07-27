@@ -4,12 +4,14 @@
 package writer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"iter"
 	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 	"text/tabwriter"
 
 	"github.com/cilium/hive/cell"
@@ -165,6 +167,26 @@ func (w *Writer) RegisterInitializer(name string) (complete func(WriteTxn)) {
 		compBE(wtxn.WriteTxn)
 		compSVC(wtxn.WriteTxn)
 	}
+}
+
+// WaitForInitializers blocks until either the context is cancelled or all load
+// balancing tables(Services, Backends, Frontends) are initialized.
+func (w *Writer) WaitForInitializers(ctx context.Context) (err error) {
+	tbls := []statedb.TableMeta{w.Frontends(), w.Backends(), w.Services()}
+	wg := sync.WaitGroup{}
+
+	for _, tbl := range tbls {
+		wg.Go(func() {
+			_, initDone := tbl.Initialized(w.ReadTxn())
+			select {
+			case <-ctx.Done():
+			case <-initDone:
+			}
+		})
+	}
+
+	wg.Wait()
+	return ctx.Err()
 }
 
 // Services returns the service table for reading.
