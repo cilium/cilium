@@ -162,7 +162,7 @@ use Cilium's :ref:`lb_ipam` together with L2 announcements.
 Create an IP pool within the private subnet and a ``CiliumL2AnnouncementPolicy``
 scoped to a node in the target datacenter. Because Hetzner private networks are
 L2 within a DC, ARP announcements from a node in ``fsn1`` will be visible to
-all other hosts in the same subnet within that DC—including traffic arriving
+all other hosts in the same subnet within that DC. This includes traffic arriving
 via a VPN gateway:
 
 .. code-block:: yaml
