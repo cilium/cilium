@@ -44,6 +44,12 @@ type XDSServer interface {
 	// to undo the removal.
 	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) AckingResourceMutatorRevertFunc
 
+	// InitializeEnvoyResources seeds the xDS cache with the given resources. Unlike
+	// UpsertEnvoyResources/UpdateEnvoyResources, it does not wait for any Envoy ACK/NACK and
+	// does not ack any proxy ports. It is meant to be used once at startup to populate the
+	// cache with the last known resources before the reconciler takes over.
+	InitializeEnvoyResources(ctx context.Context, resources Resources) error
+
 	// UpsertEnvoyResources inserts or updates Envoy resources (listeners, routes, clusters,
 	// endpoints, secrets) in the xDS cache, from where they will be delivered to Envoy via
 	// xDS streaming gRPC. The completion is signaled on 'wg'.

@@ -2570,6 +2570,34 @@ func TestUpdateNetworkPolicyLegacyACKUsesNodeIP(t *testing.T) {
 	require.NoError(t, revert())
 }
 
+func TestInitializeEnvoyResources(t *testing.T) {
+	xdsServer := newTestXDSServer(t)
+
+	err := xdsServer.InitializeEnvoyResources(t.Context(), DEFAULT_RESOURCES)
+	require.NoError(t, err)
+
+	listeners := xdsServer.resourceConfig[ListenerTypeURL].Source.GetResources(ListenerTypeURL, 0, nil)
+	require.Len(t, listeners.VersionedResources, 1)
+	require.Equal(t, "listener1", listeners.VersionedResources[0].Name)
+
+	clusters := xdsServer.resourceConfig[ClusterTypeURL].Source.GetResources(ClusterTypeURL, 0, nil)
+	require.Len(t, clusters.VersionedResources, 1)
+	require.Equal(t, "cluster1", clusters.VersionedResources[0].Name)
+
+	secrets := xdsServer.resourceConfig[SecretTypeURL].Source.GetResources(SecretTypeURL, 0, nil)
+	require.Len(t, secrets.VersionedResources, 1)
+	require.Equal(t, "secret1", secrets.VersionedResources[0].Name)
+
+	routes := xdsServer.resourceConfig[RouteTypeURL].Source.GetResources(RouteTypeURL, 0, nil)
+	require.Len(t, routes.VersionedResources, 1)
+	require.Equal(t, "routeConfig1", routes.VersionedResources[0].Name)
+
+	// Endpoints are keyed by ClusterName rather than the map key used in xds.Resources.
+	endpoints := xdsServer.resourceConfig[EndpointTypeURL].Source.GetResources(EndpointTypeURL, 0, nil)
+	require.Len(t, endpoints.VersionedResources, 1)
+	require.Equal(t, "cluster1", endpoints.VersionedResources[0].Name)
+}
+
 func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.Repository, *identity.Identity, *policy.EndpointPolicy) {
 	logger := hivetest.Logger(t)
 	localIdentity := identity.NewIdentity(9001, labels.LabelArray{

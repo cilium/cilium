@@ -162,6 +162,10 @@ func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resour
 	panic("unimplemented")
 }
 
+func (r *fakeXdsServer) InitializeEnvoyResources(ctx context.Context, resources xds.Resources) error {
+	panic("unimplemented")
+}
+
 func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
 	panic("unimplemented")
 }

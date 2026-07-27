@@ -349,6 +349,35 @@ func TestRemoveListener(t *testing.T) {
 	require.Empty(t, resources.Listeners)
 }
 
+func TestADSInitializeEnvoyResources(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	config := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 30 * time.Second,
+	}
+	cache := xdsnew.NewCache(logger, true)
+
+	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	ctx := context.Background()
+
+	err := server.InitializeEnvoyResources(ctx, DEFAULT_RESOURCES)
+	assert.NoError(t, err)
+
+	resources := cache.GetAllResources(localNodeID)
+	require.Len(t, resources.Listeners, 1)
+	require.NotNil(t, resources.Listeners["listener1"])
+	require.Len(t, resources.Clusters, 1)
+	require.NotNil(t, resources.Clusters["cluster1"])
+	require.Len(t, resources.Secrets, 1)
+	require.NotNil(t, resources.Secrets["secret1"])
+	require.Len(t, resources.Routes, 1)
+	require.NotNil(t, resources.Routes["routeConfig1"])
+	require.Len(t, resources.Endpoints, 1)
+	require.NotNil(t, resources.Endpoints["endpoint1"])
+	require.Len(t, resources.NetworkPolicies, 1)
+	require.NotNil(t, resources.NetworkPolicies["40"])
+}
+
 // TestUpsertEnvoyResources verifies that Envoy resources can be upserted
 func TestUpsertEnvoyResources(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))

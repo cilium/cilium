@@ -439,6 +439,10 @@ func (*fakeXdsServer) AddListener(ctx context.Context, name string, kind policy.
 	panic("unimplemented")
 }
 
+func (*fakeXdsServer) InitializeEnvoyResources(ctx context.Context, resources xds.Resources) error {
+	panic("unimplemented")
+}
+
 func (*fakeXdsServer) AddAdminListener(ctx context.Context, port uint16, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }

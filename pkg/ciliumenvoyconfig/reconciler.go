@@ -313,6 +313,7 @@ func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
 }
 
 type resourceMutator interface {
+	InitializeEnvoyResources(ctx context.Context, resources xds.Resources) error
 	DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error
 	UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error
 }

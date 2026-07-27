@@ -454,6 +454,14 @@ func indentLines(s string) string {
 	return strings.ReplaceAll(s, "\n", "\n  ")
 }
 
+// InitializeEnvoyResources implements resourceMutator.
+func (f *fakeEnvoySyncerAndPolicyTrigger) InitializeEnvoyResources(ctx context.Context, res xds.Resources) error {
+	f.Lock()
+	defer f.Unlock()
+	f.store.update(&res)
+	return nil
+}
+
 // DeleteResources implements envoySyncer.
 func (f *fakeEnvoySyncerAndPolicyTrigger) DeleteEnvoyResources(ctx context.Context, res xds.Resources, waitGroup *completion.WaitGroup) error {
 	f.Lock()

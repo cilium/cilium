@@ -23,6 +23,10 @@ type waitGroupResourceMutator struct {
 	gotWaitGroup atomic.Bool
 }
 
+func (m *waitGroupResourceMutator) InitializeEnvoyResources(_ context.Context, _ xds.Resources) error {
+	return nil
+}
+
 func (m *waitGroupResourceMutator) DeleteEnvoyResources(context.Context, xds.Resources, *completion.WaitGroup) error {
 	return nil
 }

@@ -832,6 +832,28 @@ func (s *xdsServer) RemoveAllNetworkPolicies() {
 	s.networkPolicyCache.Clear(NetworkPolicyTypeURL)
 }
 
+func (s *xdsServer) InitializeEnvoyResources(ctx context.Context, resources xds.Resources) error {
+	s.logger.Debug("Initializing envoy resources",
+		logfields.Resource, resources.DebugInfo())
+
+	for _, r := range resources.Secrets {
+		s.upsertSecret(r.Name, r, nil)
+	}
+	for _, r := range resources.Endpoints {
+		s.upsertEndpoint(r.ClusterName, r, nil)
+	}
+	for _, r := range resources.Clusters {
+		s.upsertCluster(r.Name, r, nil)
+	}
+	for _, r := range resources.Routes {
+		s.upsertRoute(r.Name, r, nil)
+	}
+	for _, r := range resources.Listeners {
+		s.upsertListener(r.Name, r, nil, nil)
+	}
+	return nil
+}
+
 func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
 	s.logger.Debug("UpsertEnvoyResources: Upserting Envoy Resources",
 		logfields.Resource, resources.DebugInfo())
