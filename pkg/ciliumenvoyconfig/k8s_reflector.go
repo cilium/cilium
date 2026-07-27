@@ -189,6 +189,9 @@ func registerCECK8sReflector(
 		return cec, true
 	}
 
+	// Waits for port allocator state to be restored before processing CEC resources.
+	portAllocatorRestoreWait := p.portAllocator.RestoreComplete()
+
 	// CiliumEnvoyConfig reflection
 	err := k8s.RegisterReflector(
 		g,
@@ -205,7 +208,8 @@ func registerCECK8sReflector(
 					func(cec *CEC) bool { return cec.Name.Namespace != "" },
 				)
 			},
-			CRDSync: crdSync,
+			CRDSync:  crdSync,
+			InitWait: portAllocatorRestoreWait,
 		},
 	)
 	if err != nil {
@@ -228,7 +232,8 @@ func registerCECK8sReflector(
 					func(cec *CEC) bool { return cec.Name.Namespace == "" },
 				)
 			},
-			CRDSync: crdSync,
+			CRDSync:  crdSync,
+			InitWait: portAllocatorRestoreWait,
 		},
 	)
 }

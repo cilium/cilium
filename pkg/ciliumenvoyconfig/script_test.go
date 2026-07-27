@@ -507,6 +507,13 @@ type staticPortAllocator struct {
 	log *slog.Logger
 }
 
+// RestoreComplete implements PortAllocator
+func (s staticPortAllocator) RestoreComplete() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 // AckProxyPort implements PortAllocator.
 func (s staticPortAllocator) AckProxyPortWithReference(ctx context.Context, name string) error {
 	s.log.Info("AckProxyPort", logfields.Listener, name)
