@@ -4,6 +4,7 @@
 package gateway_api
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -15,13 +16,16 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -33,45 +37,37 @@ import (
 	"github.com/cilium/cilium/pkg/shortener"
 )
 
-var (
-	gatewayv1APIVersion = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
-	gatewayTypeMeta     = metav1.TypeMeta{
-		Kind:       "Gateway",
-		APIVersion: gatewayv1APIVersion,
+func typeMetaInterceptor(scheme *runtime.Scheme) interceptor.Funcs {
+	setTypeMeta := func(obj runtime.Object) error {
+		if _, isCEC := obj.(*ciliumv2.CiliumEnvoyConfig); isCEC {
+			return nil
+		}
+		gvks, _, err := scheme.ObjectKinds(obj)
+		if err != nil {
+			return err
+		}
+		obj.GetObjectKind().SetGroupVersionKind(gvks[0])
+		return nil
 	}
-	httpRouteTypeMeta = metav1.TypeMeta{
-		Kind:       "HTTPRoute",
-		APIVersion: gatewayv1APIVersion,
+
+	return interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if err := c.Get(ctx, key, obj, opts...); err != nil {
+				return err
+			}
+			return setTypeMeta(obj)
+		},
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if err := c.List(ctx, list, opts...); err != nil {
+				return err
+			}
+			if err := setTypeMeta(list); err != nil {
+				return err
+			}
+			return meta.EachListItem(list, setTypeMeta)
+		},
 	}
-	grpcRouteTypeMeta = metav1.TypeMeta{
-		Kind:       "GRPCRoute",
-		APIVersion: gatewayv1APIVersion,
-	}
-	tlsRouteTypeMeta = metav1.TypeMeta{
-		Kind:       "TLSRoute",
-		APIVersion: gatewayv1APIVersion,
-	}
-	backendTLSPolicyTypeMeta = metav1.TypeMeta{
-		Kind:       "BackendTLSPolicy",
-		APIVersion: gatewayv1APIVersion,
-	}
-	tcpRouteTypeMeta = metav1.TypeMeta{
-		Kind:       "TCPRoute",
-		APIVersion: gatewayv1APIVersion,
-	}
-	udpRouteTypeMeta = metav1.TypeMeta{
-		Kind:       "UDPRoute",
-		APIVersion: gatewayv1APIVersion,
-	}
-	listenerSetTypeMeta = metav1.TypeMeta{
-		Kind:       "ListenerSet",
-		APIVersion: gatewayv1APIVersion,
-	}
-	endpointSliceTypeMeta = metav1.TypeMeta{
-		Kind:       "EndpointSlice",
-		APIVersion: discoveryv1.SchemeGroupVersion.String(),
-	}
-)
+}
 
 func Test_Conformance(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
@@ -387,18 +383,6 @@ func Test_Conformance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			base := readInputDir(t, "testdata/gateway/base")
 			input := readInputDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name))
-			clientBuilder := fake.NewClientBuilder().
-				WithObjects(append(base, input...)...).
-				WithStatusSubresource(&corev1.Service{}).
-				WithStatusSubresource(&corev1.Namespace{}).
-				WithStatusSubresource(&gatewayv1.GRPCRoute{}).
-				WithStatusSubresource(&gatewayv1.HTTPRoute{}).
-				WithStatusSubresource(&gatewayv1.TLSRoute{}).
-				WithStatusSubresource(&gatewayv1.Gateway{}).
-				WithStatusSubresource(&gatewayv1.GatewayClass{}).
-				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{}).
-				WithStatusSubresource(&gatewayv1.ListenerSet{})
-
 			disabledKinds := map[string]bool{
 				helpers.ServiceImportKind: tt.disableServiceImport,
 				helpers.TCPRouteKind:      tt.disableTCPRoute,
@@ -411,7 +395,20 @@ func Test_Conformance(t *testing.T) {
 				}
 				optionalKinds = append(optionalKinds, k)
 			}
-			clientBuilder.WithScheme(helpers.TestScheme(optionalKinds))
+			scheme := helpers.TestScheme(optionalKinds)
+			clientBuilder := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(append(base, input...)...).
+				WithStatusSubresource(&corev1.Service{}).
+				WithStatusSubresource(&corev1.Namespace{}).
+				WithStatusSubresource(&gatewayv1.GRPCRoute{}).
+				WithStatusSubresource(&gatewayv1.HTTPRoute{}).
+				WithStatusSubresource(&gatewayv1.TLSRoute{}).
+				WithStatusSubresource(&gatewayv1.Gateway{}).
+				WithStatusSubresource(&gatewayv1.GatewayClass{}).
+				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{}).
+				WithStatusSubresource(&gatewayv1.ListenerSet{}).
+				WithInterceptorFuncs(typeMetaInterceptor(scheme))
 
 			// Add any required indexes here
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
@@ -498,9 +495,6 @@ func Test_Conformance(t *testing.T) {
 				// Checking the output for Gateway
 				actualGateway := &gatewayv1.Gateway{}
 				err = c.Get(t.Context(), gwDetail.FullName, actualGateway)
-				// TODO(youngnick): controller-runtime has broken something with the fake client
-				// Bypass for now
-				actualGateway.TypeMeta = gatewayTypeMeta
 				require.NoError(t, err)
 				expectedGateway := &gatewayv1.Gateway{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
@@ -530,7 +524,6 @@ func Test_Conformance(t *testing.T) {
 			for _, eps := range epsList.Items {
 				actualEPS := &discoveryv1.EndpointSlice{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&eps), actualEPS)
-				actualEPS.TypeMeta = endpointSliceTypeMeta
 				require.NoError(t, err, "error getting EndpointSlice %s/%s: %v", eps.Namespace, eps.Name, err)
 				expectedEPS := &discoveryv1.EndpointSlice{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/endpointslice-%s.yaml", tt.name, eps.Name), expectedEPS)
@@ -541,9 +534,6 @@ func Test_Conformance(t *testing.T) {
 			for _, hr := range hrList.Items {
 				actualHR := &gatewayv1.HTTPRoute{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
-				// TODO(youngnick): controller-runtime has broken something with the fake client
-				// Bypass for now
-				actualHR.TypeMeta = httpRouteTypeMeta
 				require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
 				expectedHR := &gatewayv1.HTTPRoute{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
@@ -553,7 +543,6 @@ func Test_Conformance(t *testing.T) {
 			for _, tlsr := range tlsrList.Items {
 				actualTLSR := &gatewayv1.TLSRoute{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
-				actualTLSR.TypeMeta = tlsRouteTypeMeta
 				require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
 				expectedTLSR := &gatewayv1.TLSRoute{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
@@ -563,7 +552,6 @@ func Test_Conformance(t *testing.T) {
 			for _, grpcr := range grpcrList.Items {
 				actualGRPCR := &gatewayv1.GRPCRoute{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
-				actualGRPCR.TypeMeta = grpcRouteTypeMeta
 				require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
 				expectedGRPCR := &gatewayv1.GRPCRoute{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
@@ -573,7 +561,6 @@ func Test_Conformance(t *testing.T) {
 			for _, btlsp := range btlspList.Items {
 				actualBTLSP := &gatewayv1.BackendTLSPolicy{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&btlsp), actualBTLSP)
-				actualBTLSP.TypeMeta = backendTLSPolicyTypeMeta
 				require.NoError(t, err, "error getting BackendTLSPolicy %s/%s: %v", btlsp.Namespace, btlsp.Name, err)
 				expectedBTLSP := &gatewayv1.BackendTLSPolicy{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", tt.name, btlsp.Name), expectedBTLSP)
@@ -583,7 +570,6 @@ func Test_Conformance(t *testing.T) {
 			for _, tcpr := range tcprList.Items {
 				actualTCPR := &gatewayv1.TCPRoute{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tcpr), actualTCPR)
-				actualTCPR.TypeMeta = tcpRouteTypeMeta
 				require.NoError(t, err, "error getting TCPRoute %s/%s: %v", tcpr.Namespace, tcpr.Name, err)
 				expectedTCPR := &gatewayv1.TCPRoute{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tcproute-%s.yaml", tt.name, tcpr.Name), expectedTCPR)
@@ -593,7 +579,6 @@ func Test_Conformance(t *testing.T) {
 			for _, udpr := range udprList.Items {
 				actualUDPR := &gatewayv1.UDPRoute{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&udpr), actualUDPR)
-				actualUDPR.TypeMeta = udpRouteTypeMeta
 				require.NoError(t, err, "error getting UDPRoute %s/%s: %v", udpr.Namespace, udpr.Name, err)
 				expectedUDPR := &gatewayv1.UDPRoute{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/udproute-%s.yaml", tt.name, udpr.Name), expectedUDPR)
@@ -606,7 +591,6 @@ func Test_Conformance(t *testing.T) {
 			for _, ls := range lsList.Items {
 				actualLS := &gatewayv1.ListenerSet{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&ls), actualLS)
-				actualLS.TypeMeta = listenerSetTypeMeta
 				require.NoError(t, err, "error getting ListenerSet %s/%s: %v", ls.Namespace, ls.Name, err)
 				expectedLS := &gatewayv1.ListenerSet{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/listenerset-%s.yaml", tt.name, ls.Name), expectedLS)
