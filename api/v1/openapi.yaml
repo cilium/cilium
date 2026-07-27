@@ -1706,6 +1706,25 @@ definitions:
   Address:
     description: IP address
     type: string
+    x-go-type:
+      type: Addr
+      import:
+        package: "github.com/cilium/cilium/pkg/ip"
+        alias: iputil
+      hints:
+        kind: primitive
+        noValidation: true
+  CIDR:
+    description: IP address prefix (CIDR)
+    type: string
+    x-go-type:
+      type: Prefix
+      import:
+        package: "github.com/cilium/cilium/pkg/ip"
+        alias: iputil
+      hints:
+        kind: primitive
+        noValidation: true
   ClusterNodesResponse:
     properties:
       self:
