@@ -262,6 +262,10 @@ generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and ser
 		-f api/v1/openapi.yaml \
 		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
+	@# go-swagger always emits omitempty, which is a no-op on the struct types
+	@# iputil.Addr and iputil.Prefix: a zero value would be marshalled as ""
+	@# instead of being omitted. omitzero is the appropriate annotation for those.
+	$(QUIET)$(SED) -i -E '/[[:space:]]\*?iputil\.(Addr|Prefix)[[:space:]]+`json:/s/,omitempty"`$$/,omitzero"`/' ./api/v1/models/*.go
 	@# sort goimports automatically
 	$(QUIET)$(GO) tool golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
 
@@ -280,6 +284,8 @@ generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client
 		-f api/v1/health/openapi.yaml \
 		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
+	@# rewrite omitempty to omitzero on iputil fields, see generate-api
+	$(QUIET)$(SED) -i -E '/[[:space:]]\*?iputil\.(Addr|Prefix)[[:space:]]+`json:/s/,omitempty"`$$/,omitzero"`/' ./api/v1/health/models/*.go
 	@# sort goimports automatically
 	$(QUIET)$(GO) tool golang.org/x/tools/cmd/goimports -w ./api/v1/health
 
@@ -298,6 +304,8 @@ generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator 
 		-f api/v1/operator/openapi.yaml \
 		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
+	@# rewrite omitempty to omitzero on iputil fields, see generate-api
+	$(QUIET)$(SED) -i -E '/[[:space:]]\*?iputil\.(Addr|Prefix)[[:space:]]+`json:/s/,omitempty"`$$/,omitzero"`/' ./api/v1/operator/models/*.go
 	@# sort goimports automatically
 	$(QUIET)$(GO) tool golang.org/x/tools/cmd/goimports -w ./api/v1/operator
 
@@ -316,6 +324,8 @@ generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremes
 		-f api/v1/kvstoremesh/openapi.yaml \
 		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
+	@# rewrite omitempty to omitzero on iputil fields, see generate-api
+	$(QUIET)$(SED) -i -E '/[[:space:]]\*?iputil\.(Addr|Prefix)[[:space:]]+`json:/s/,omitempty"`$$/,omitzero"`/' ./api/v1/kvstoremesh/models/*.go
 	@# sort goimports automatically
 	$(QUIET)$(GO) tool golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
 

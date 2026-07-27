@@ -1443,7 +1443,18 @@ func init() {
   "definitions": {
     "Address": {
       "description": "IP address",
-      "type": "string"
+      "type": "string",
+      "x-go-type": {
+        "hints": {
+          "kind": "primitive",
+          "noValidation": true
+        },
+        "import": {
+          "alias": "iputil",
+          "package": "github.com/cilium/cilium/pkg/ip"
+        },
+        "type": "Addr"
+      }
     },
     "AddressPair": {
       "description": "Addressing information of an endpoint",
@@ -2022,6 +2033,21 @@ func init() {
           "description": "BGP local preference value to be set on the matched route",
           "type": "integer"
         }
+      }
+    },
+    "CIDR": {
+      "description": "IP address prefix (CIDR)",
+      "type": "string",
+      "x-go-type": {
+        "hints": {
+          "kind": "primitive",
+          "noValidation": true
+        },
+        "import": {
+          "alias": "iputil",
+          "package": "github.com/cilium/cilium/pkg/ip"
+        },
+        "type": "Prefix"
       }
     },
     "CIDRList": {
@@ -6788,7 +6814,18 @@ func init() {
   "definitions": {
     "Address": {
       "description": "IP address",
-      "type": "string"
+      "type": "string",
+      "x-go-type": {
+        "hints": {
+          "kind": "primitive",
+          "noValidation": true
+        },
+        "import": {
+          "alias": "iputil",
+          "package": "github.com/cilium/cilium/pkg/ip"
+        },
+        "type": "Addr"
+      }
     },
     "AddressPair": {
       "description": "Addressing information of an endpoint",
@@ -7367,6 +7404,21 @@ func init() {
           "description": "BGP local preference value to be set on the matched route",
           "type": "integer"
         }
+      }
+    },
+    "CIDR": {
+      "description": "IP address prefix (CIDR)",
+      "type": "string",
+      "x-go-type": {
+        "hints": {
+          "kind": "primitive",
+          "noValidation": true
+        },
+        "import": {
+          "alias": "iputil",
+          "package": "github.com/cilium/cilium/pkg/ip"
+        },
+        "type": "Prefix"
       }
     },
     "CIDRList": {
