@@ -288,6 +288,9 @@ exclude:
   - k8s-version: "1.29"
     focus: "f05-agent-policy-multi-node-2"
 
+  - k8s-version: "1.29"
+    focus: "f06-agent-policy-basic"
+
   # These tests require an external node which is only available on
   # "net-next". So there's no point on running them.
   - k8s-version: "1.29"
