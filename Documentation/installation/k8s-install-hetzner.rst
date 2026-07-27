@@ -122,8 +122,9 @@ With this configuration:
 Multi-Datacenter Clusters
 --------------------------
 
-Hetzner private networks are **L2 within a single datacenter** and **L3-routed
-between datacenters** (``fsn1`` ↔ ``nbg1`` ↔ ``hel1``). ``auto-direct-node-routes``
+Hetzner private networks provide directy L2 connectivity within a single datacenter and are L3-routed
+between datacenters (``fsn1`` ↔ ``nbg1`` ↔ ``hel1``).
+``auto-direct-node-routes``
 installs direct host routes between nodes and relies on L2 ARP for next-hop
 resolution. Nodes in different DCs cannot resolve each other via ARP across
 the L3 boundary.
