@@ -553,7 +553,7 @@ func newConnDisruptCNPForL7Traffic(ns string) *ciliumv2.CiliumNetworkPolicy {
 		},
 	}
 
-	ports := []policyapi.PortRule{{
+	httpPortRule := policyapi.PortRule{
 		Ports: []policyapi.PortProtocol{{
 			Protocol: policyapi.ProtoTCP,
 			Port:     "8000",
@@ -564,7 +564,15 @@ func newConnDisruptCNPForL7Traffic(ns string) *ciliumv2.CiliumNetworkPolicy {
 				Method: "GET",
 			}},
 		},
-	}}
+	}
+
+	// Required in egress rule for DNS lookups(eg. for service names).
+	dnsPortRule := policyapi.PortRule{
+		Ports: []policyapi.PortProtocol{
+			{Protocol: policyapi.ProtoUDP, Port: "53"},
+			{Protocol: policyapi.ProtoTCP, Port: "53"},
+		},
+	}
 
 	return &ciliumv2.CiliumNetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
@@ -580,7 +588,15 @@ func newConnDisruptCNPForL7Traffic(ns string) *ciliumv2.CiliumNetworkPolicy {
 						policyapi.EntityCluster,
 					},
 				},
-				ToPorts: ports,
+				ToPorts: []policyapi.PortRule{httpPortRule},
+			}},
+			Egress: []policyapi.EgressRule{{
+				EgressCommonRule: policyapi.EgressCommonRule{
+					ToEntities: policyapi.EntitySlice{
+						policyapi.EntityCluster,
+					},
+				},
+				ToPorts: []policyapi.PortRule{httpPortRule, dnsPortRule},
 			}},
 		},
 	}
