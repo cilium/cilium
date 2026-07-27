@@ -1945,4 +1945,6 @@ const (
 	PodUID = "podUID"
 
 	ClaimUID = "claimUID"
+
+	PendingInitializers = "pendingInitializers"
 )
