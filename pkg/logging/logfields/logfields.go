@@ -1937,4 +1937,6 @@ const (
 	CiliumDatapathPluginAttachmentPolicy = "datapathPluginAttachmentPolicy"
 
 	CiliumDatapathPluginVersion = "datapathPluginVersion"
+
+	PendingInitializers = "pendingInitializers"
 )
