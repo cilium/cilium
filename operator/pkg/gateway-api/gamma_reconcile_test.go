@@ -36,10 +36,6 @@ var (
 	serviceKeyEcho   = types.NamespacedName{Namespace: "gateway-conformance-mesh", Name: "echo"}
 	serviceKeyEchoV1 = types.NamespacedName{Namespace: "gateway-conformance-mesh", Name: "echo-v1"}
 	serviceKeyEchoV2 = types.NamespacedName{Namespace: "gateway-conformance-mesh", Name: "echo-v2"}
-	serviceTypeMeta  = metav1.TypeMeta{
-		Kind:       "Service",
-		APIVersion: corev1.SchemeGroupVersion.Version,
-	}
 )
 
 func Test_gammaReconciler_Reconcile(t *testing.T) {
@@ -89,14 +85,16 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					base := readInputDir(t, "testdata/gamma/base")
 					input := readInputDir(t, fmt.Sprintf("testdata/gamma/%s/input", tt.name))
 
+					scheme := testScheme()
 					c := fake.NewClientBuilder().
-						WithScheme(testScheme()).
+						WithScheme(scheme).
 						WithObjects(append(base, input...)...).
 						WithIndex(&gatewayv1.HTTPRoute{}, gammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService).
 						WithIndex(&gatewayv1.GRPCRoute{}, gammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService).
 						WithStatusSubresource(&corev1.Service{}).
 						WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 						WithStatusSubresource(&gatewayv1.GRPCRoute{}).
+						WithInterceptorFuncs(typeMetaInterceptor(scheme)).
 						Build()
 
 					r := &gammaReconciler{
@@ -127,13 +125,11 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/service-%s.yaml", tt.name, serviceKey.Name), expectedService)
 					actualService := &corev1.Service{}
 					err = c.Get(t.Context(), serviceKey, actualService)
-					actualService.TypeMeta = serviceTypeMeta
 					require.NoError(t, err)
 
 					for _, hr := range filterHTTPRouteList {
 						actualHR := &gatewayv1.HTTPRoute{}
 						err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
-						actualHR.TypeMeta = httpRouteTypeMeta
 						require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
 						expectedHR := &gatewayv1.HTTPRoute{}
 						readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
@@ -143,7 +139,6 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					for _, grpcr := range filterGRPCRouteList {
 						actualGRPCR := &gatewayv1.GRPCRoute{}
 						err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
-						actualGRPCR.TypeMeta = grpcRouteTypeMeta
 						require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
 						expectedGRPCR := &gatewayv1.GRPCRoute{}
 						readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
