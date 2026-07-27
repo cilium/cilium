@@ -57,7 +57,8 @@ returned.
 Pod IPs (e.g. ``10.42.0.0/16``) are not registered server prefixes. If
 ``ipv4-native-routing-cidr`` is set to the full private-network CIDR
 (e.g. ``10.0.0.0/8``), Cilium will not masquerade pod traffic destined for
-non-cluster hosts in that network, causing timeouts on those connections.
+non-cluster hosts in that network, causing timeouts on connections from
+Pod IPs towards IPs in the full private network CIDR range.
 
 .. caution::
 
