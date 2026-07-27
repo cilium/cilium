@@ -61,6 +61,18 @@ type CTEntry struct {
 	LastRxReport uint32
 }
 
+// CTTimeoutConfig is generated from the BPF C type ct_timeout_config.
+type CTTimeoutConfig struct {
+	_                        structs.HostLayout
+	ConnectionLifetimeTCP    uint32
+	ConnectionLifetimeNonTCP uint32
+	ServiceLifetimeTCP       uint32
+	ServiceLifetimeNonTCP    uint32
+	ServiceCloseRebalance    uint32
+	SYNTimeout               uint32
+	CloseTimeout             uint32
+}
+
 // DebugCaptureMsg is generated from the BPF C type debug_capture_msg.
 type DebugCaptureMsg struct {
 	_          structs.HostLayout

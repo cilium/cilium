@@ -52,6 +52,8 @@ SNAT
 SPI
 SPort
 SRv6
+SYN
+TCP
 TCP4
 TCP6
 V4Addr
