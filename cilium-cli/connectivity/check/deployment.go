@@ -1180,6 +1180,30 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			allTargets := map[string]string{
 				"svc": fmt.Sprintf("%s.%s.svc.cluster.local.", testConnDisruptL7TrafficServiceName, ct.params.TestNamespace),
 			}
+
+			if ct.Features[features.L7LoadBalancer].Enabled {
+				l7LBServiceName := fmt.Sprintf("%s-lb", testConnDisruptL7TrafficServiceName)
+				for _, client := range ct.Clients() {
+					_, err := client.GetService(ctx, ct.params.TestNamespace, l7LBServiceName, metav1.GetOptions{})
+					if err != nil {
+						ct.Logf("✨ [%s] Deploying %s service...", client.ClusterName(), l7LBServiceName)
+
+						svc := newService(l7LBServiceName, map[string]string{"app": testConnDisruptServerL7TrafficAppLabel}, nil, "http", 8000, ct.Params().ServiceType)
+						svc.ObjectMeta.Annotations = map[string]string{
+							"service.cilium.io/global": "true",
+							"service.cilium.io/lb-l7":  "enabled",
+						}
+
+						_, err = client.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+						if err != nil {
+							return fmt.Errorf("unable to create service %s: %w", l7LBServiceName, err)
+						}
+					}
+				}
+
+				allTargets["lb-svc"] = fmt.Sprintf("%s.%s.svc.cluster.local.", l7LBServiceName, ct.params.TestNamespace)
+			}
+
 			serverPods, err := ct.clients.src.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: fmt.Sprintf("app=%s", testConnDisruptServerL7TrafficAppLabel)})
 			if err != nil {
 				return err
@@ -2763,6 +2787,7 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptL7TrafficServiceName, metav1.DeleteOptions{})
+	_ = client.DeleteService(ctx, ct.params.TestNamespace, fmt.Sprintf("%s-lb", testConnDisruptL7TrafficServiceName), metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptEgressGatewayServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptCNPName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficCNPName, metav1.DeleteOptions{})
