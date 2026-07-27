@@ -619,6 +619,9 @@ func (in *Masquerading) DeepCopyInto(out *Masquerading) {
 		*out = new(MasqueradingEnabledProtocols)
 		**out = **in
 	}
+	in.SnatExclusionCidr.DeepCopyInto(&out.SnatExclusionCidr)
+	in.SnatExclusionCidrV4.DeepCopyInto(&out.SnatExclusionCidrV4)
+	in.SnatExclusionCidrV6.DeepCopyInto(&out.SnatExclusionCidrV6)
 	return
 }
 

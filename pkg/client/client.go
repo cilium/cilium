@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 )
 
 type Client struct {
@@ -542,6 +543,14 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			return "Disabled"
 		}
 
+		// An unset prefix formats as "invalid Prefix", print nothing instead.
+		prefix := func(p iputil.Prefix) string {
+			if !p.IsValid() {
+				return ""
+			}
+			return p.String()
+		}
+
 		if sr.Masquerading.EnabledProtocols == nil {
 			status = enabled(sr.Masquerading.Enabled)
 		} else if !sr.Masquerading.EnabledProtocols.IPv4 && !sr.Masquerading.EnabledProtocols.IPv6 {
@@ -564,8 +573,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 					status += fmt.Sprintf(
 						"\t[%s]\t%s %s",
 						devStr.String(),
-						sr.Masquerading.SnatExclusionCidrV4,
-						sr.Masquerading.SnatExclusionCidrV6,
+						prefix(sr.Masquerading.SnatExclusionCidrV4),
+						prefix(sr.Masquerading.SnatExclusionCidrV6),
 					)
 				}
 

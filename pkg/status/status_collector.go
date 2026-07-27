@@ -21,6 +21,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/identity"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -138,23 +139,23 @@ func (d *statusCollector) getMasqueradingStatus(ctx context.Context) (*models.Ma
 	}
 
 	if d.statusParams.DaemonConfig.EnableIPv4 {
-		// SnatExclusionCidr is the legacy field, continue to provide
-		// it for the time being
-		addr := localNode.RemoteSNATDstAddrExclusionCIDRv4()
-		if addr == nil {
+		prefix := localNode.RemoteSNATDstAddrExclusionCIDRv4()
+		if !prefix.IsValid() {
 			return s, errors.New("no local node v4 CIDR")
 		}
 
-		s.SnatExclusionCidr = addr.String()
-		s.SnatExclusionCidrV4 = addr.String()
+		// SnatExclusionCidr is the legacy field, continue to provide
+		// it for the time being
+		s.SnatExclusionCidr = iputil.PrefixFrom(prefix)
+		s.SnatExclusionCidrV4 = iputil.PrefixFrom(prefix)
 	}
 
 	if d.statusParams.DaemonConfig.EnableIPv6 {
-		addr := localNode.RemoteSNATDstAddrExclusionCIDRv6()
-		if addr == nil {
+		prefix := localNode.RemoteSNATDstAddrExclusionCIDRv6()
+		if !prefix.IsValid() {
 			return s, errors.New("no local node v6 CIDR")
 		}
-		s.SnatExclusionCidrV6 = addr.String()
+		s.SnatExclusionCidrV6 = iputil.PrefixFrom(prefix)
 	}
 
 	if d.statusParams.DaemonConfig.EnableBPFMasquerade {
