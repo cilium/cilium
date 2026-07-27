@@ -19,6 +19,14 @@ func NodeConfig(lnc *Config) Node {
 	node.CiliumNetIfIndex = lnc.CiliumNetIfIndex
 	node.CiliumNetMAC.Addr = lnc.CiliumNetMAC.As6()
 
+	node.CTConnectionLifetimeTCP = uint32(option.Config.CTMapEntriesTimeoutTCP.Seconds())
+	node.CTConnectionLifetimeNonTCP = uint32(option.Config.CTMapEntriesTimeoutAny.Seconds())
+	node.CTServiceLifetimeTCP = uint32(option.Config.CTMapEntriesTimeoutSVCTCP.Seconds())
+	node.CTServiceLifetimeNonTCP = uint32(option.Config.CTMapEntriesTimeoutSVCAny.Seconds())
+	node.CTServiceCloseRebalance = uint32(option.Config.CTMapEntriesTimeoutSVCTCPGrace.Seconds())
+	node.CTSYNTimeout = uint32(option.Config.CTMapEntriesTimeoutSYN.Seconds())
+	node.CTCloseTimeout = uint32(option.Config.CTMapEntriesTimeoutFIN.Seconds())
+
 	if lnc.ServiceLoopbackIPv4.IsValid() {
 		node.ServiceLoopbackIPv4.Addr = lnc.ServiceLoopbackIPv4.As4()
 	}

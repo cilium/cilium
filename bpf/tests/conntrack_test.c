@@ -119,10 +119,10 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == TRACE_PAYLOAD_LEN);
-		assert(timeout_in(entry, CT_SYN_TIMEOUT));
+		assert(timeout_in(entry, CONFIG(ct_syn_timeout)));
 
 		/* Second packet with the same flags is not monitored; it does reset
-		 * lifetime back to CT_SYN_TIMEOUT.
+		 * lifetime back to ct_syn_timeout.
 		 */
 		advance_time();
 		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
@@ -130,7 +130,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == 0);
-		assert(timeout_in(entry, CT_SYN_TIMEOUT));
+		assert(timeout_in(entry, CONFIG(ct_syn_timeout)));
 
 		/* Subsequent non-SYN packets result in a default TCP lifetime */
 		advance_time();
@@ -140,7 +140,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == 0);
-		assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
+		assert(timeout_in(entry, CONFIG(ct_connection_lifetime_tcp)));
 
 		/* Monitor if the connection is closing on one side */
 		advance_time();
@@ -150,7 +150,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == TRACE_PAYLOAD_LEN);
-		assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
+		assert(timeout_in(entry, CONFIG(ct_connection_lifetime_tcp)));
 
 		/* This doesn't automatically trigger monitor for subsequent packets */
 		advance_time();
@@ -160,11 +160,11 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == 0);
-		assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
+		assert(timeout_in(entry, CONFIG(ct_connection_lifetime_tcp)));
 
 		/* Monitor if the connection is closing on the other side. This
 		 * second FIN on the other side will reset lifetime to
-		 * CT_CLOSE_TIMEOUT.
+		 * ct_close_timeout.
 		 */
 		advance_time();
 		seen_flags.value |= TCP_FLAG_FIN;
@@ -173,7 +173,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == TRACE_PAYLOAD_LEN);
-		assert(timeout_in(entry, CT_CLOSE_TIMEOUT));
+		assert(timeout_in(entry, CONFIG(ct_close_timeout)));
 
 		/* This doesn't automatically trigger monitor for subsequent packets */
 		advance_time();
@@ -184,7 +184,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == 0);
-		assert(timeout_in(entry, CT_CLOSE_TIMEOUT - 1));
+		assert(timeout_in(entry, CONFIG(ct_close_timeout) - 1));
 
 		/* A connection is reopened due to a newly seen SYN.*/
 		advance_time();
@@ -195,7 +195,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_NEW);
 		assert(monitor == TRACE_PAYLOAD_LEN);
-		assert(timeout_in(entry, CT_SYN_TIMEOUT));
+		assert(timeout_in(entry, CONFIG(ct_syn_timeout)));
 
 		/* Label connection as new if the tuple wasn't previously tracked */
 		tuple.saddr = 123;
@@ -245,10 +245,10 @@ int svc_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_SVC, &ct_state, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == TRACE_PAYLOAD_LEN);
-		assert(timeout_in(entry, CT_SYN_TIMEOUT));
+		assert(timeout_in(entry, CONFIG(ct_syn_timeout)));
 
 		/* Second packet with the same flags is not monitored; it does reset
-		 * lifetime back to CT_SYN_TIMEOUT.
+		 * lifetime back to ct_syn_timeout.
 		 */
 		advance_time();
 		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
@@ -256,7 +256,7 @@ int svc_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_SVC, &ct_state, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == 0);
-		assert(timeout_in(entry, CT_SYN_TIMEOUT));
+		assert(timeout_in(entry, CONFIG(ct_syn_timeout)));
 
 		/* Subsequent non-SYN packets result in a default SVC TCP lifetime */
 		advance_time();
@@ -266,7 +266,7 @@ int svc_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_SVC, &ct_state, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == 0);
-		assert(timeout_in(entry, CT_SERVICE_LIFETIME_TCP));
+		assert(timeout_in(entry, CONFIG(ct_service_lifetime_tcp)));
 
 		/* Monitor & lower lifetime if the connection is closing on just one side */
 		advance_time();
@@ -276,7 +276,7 @@ int svc_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_SVC, &ct_state, true, seen_flags, &monitor);
 		assert(res == CT_ESTABLISHED);
 		assert(monitor == TRACE_PAYLOAD_LEN);
-		assert(timeout_in(entry, CT_CLOSE_TIMEOUT));
+		assert(timeout_in(entry, CONFIG(ct_close_timeout)));
 
 		/* Label connection as new if the tuple wasn't previously tracked */
 		tuple.saddr = 456;
