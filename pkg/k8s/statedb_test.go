@@ -611,6 +611,71 @@ func TestStateDBReflectorShared(t *testing.T) {
 	require.Equal(t, "shared-2", slimObjs[1].Status)
 }
 
+func TestStateDBReflectorInitWait(t *testing.T) {
+	var (
+		db    *statedb.DB
+		table statedb.Table[*testObject]
+	)
+
+	initWaitCh := make(chan struct{})
+	obj := &testObject{
+		PartialObjectMetadata: metav1.PartialObjectMetadata{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "obj1",
+			},
+		},
+	}
+	lw := testutils.NewFakeListerWatcher(obj.DeepCopy())
+
+	hive := hive.New(
+		cell.ProvidePrivate(
+			func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+				return k8s.ReflectorConfig[*testObject]{
+					Name:           "test",
+					Table:          tbl,
+					BufferSize:     10,
+					BufferWaitTime: 10 * time.Millisecond,
+					ListerWatcher:  lw,
+					InitWait:       initWaitCh,
+				}
+			},
+			newTestTable,
+		),
+		cell.Invoke(
+			k8s.RegisterReflector[*testObject],
+			func(db_ *statedb.DB, tbl statedb.RWTable[*testObject]) {
+				db = db_
+				table = tbl
+			},
+		),
+	)
+
+	logger := hivetest.Logger(t)
+	require.NoError(t, hive.Start(logger, context.TODO()), "hive.Start")
+
+	_, initWatch := table.Initialized(db.ReadTxn())
+	select {
+	case <-initWatch:
+		t.Fatal("Table unexpectedly initialized while InitWait is blocked")
+	case <-time.After(time.Second):
+	}
+
+	close(initWaitCh)
+
+	select {
+	case <-initWatch:
+	case <-time.After(time.Second):
+		t.Fatal("Table not initialized after InitWait completed")
+	}
+
+	iter := table.All(db.ReadTxn())
+	objs := statedb.Collect(iter)
+	require.Len(t, objs, 1)
+	require.Equal(t, "obj1", objs[0].Name)
+
+	require.NoError(t, hive.Stop(logger, context.TODO()), "hive.Stop")
+}
+
 func TestStateDBReflector_jobName(t *testing.T) {
 	db := statedb.New()
 	tbl, _ := statedb.NewTable(
