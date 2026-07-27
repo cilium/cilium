@@ -100,7 +100,7 @@ Or as a Helm values file:
     k8sServicePort: 6443
     routingMode: native
     autoDirectNodeRoutes: true
-    # Set to pod CIDR only — NOT the full Hetzner private network CIDR.
+    # Set to Pod CIDR only, NOT the full Hetzner private network CIDR.
     # Hetzner uRPF silently drops packets with unregistered source IPs;
     # pod IPs are not registered, so they must be masqueraded to the node IP
     # for traffic leaving the cluster's pod CIDR.
