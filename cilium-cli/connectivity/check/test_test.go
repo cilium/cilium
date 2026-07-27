@@ -4,7 +4,6 @@
 package check
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,9 +47,8 @@ func TestWithFeatureRequirements(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			test := Test{requirements: tc.requirements}
-			if got := test.WithFeatureRequirements(tc.in...); !reflect.DeepEqual(got.requirements, tc.want) {
-				t.Errorf("WithFeatureRequirements() = %v, want %v", got.requirements, tc.want)
-			}
+			got := test.WithFeatureRequirements(tc.in...)
+			assert.Equal(t, tc.want, got.requirements)
 		})
 	}
 }
