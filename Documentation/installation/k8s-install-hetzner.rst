@@ -49,10 +49,9 @@ Hetzner Cloud private networks implement `unicast reverse path forwarding
 (uRPF)
 <https://docs.hetzner.com/networking/networks/faq/#why-do-packets-with-source-ips-not-related-to-the-server-get-dropped>`_
 at the virtual network gateway. The gateway validates every packet's source IP
-against the IP prefixes *registered to the originating server* (assigned IPs,
+against the IP prefixes registered to the originating server (assigned IPs,
 alias IPs, or routes designating the server as a gateway). Packets with an
-unrecognised source IP are **silently dropped**—no ICMP unreachable is
-returned.
+unrecognised source IP are silently dropped.
 
 Pod IPs (e.g. ``10.42.0.0/16``) are not registered server prefixes. If
 ``ipv4-native-routing-cidr`` is set to the full private-network CIDR
