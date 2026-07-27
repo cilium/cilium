@@ -1,0 +1,288 @@
+#! --lb-test-fault-probability=0.0
+# This is similar to the ingress.txtar test but derived from the 'ci-ingress' e2e test.
+# It's catching a regression where CEC controller did not recompute the backends on
+# changes (https://github.com/cilium/statedb/pull/90).
+
+hive/start
+
+k8s/add cec-headless.yaml
+
+# Add service "details-headless" which has the prefix of "details-headless-endpoint-slices"
+k8s/add svc-details-headless.yaml
+k8s/add eps-details-headless-endpoint-slice.yaml
+k8s/add eps-details-headless.yaml
+
+# Wait a bit before adding the service "details-headless-endpoint-slices". The bug caused
+# CEC controller not to process this due to the wrong StateDB watch channel.
+# The wait needs to be higher than the wait duration in the [cecController.processLoop].
+sleep 200ms
+k8s/add svc-headless-endpoint-slice.yaml
+
+# We should now see the details-headless-endpoint-slice endpoint.
+db/cmp envoy-resources envoy-resources.table
+
+#####
+
+-- envoy-resources.table --
+Name                                                       Status  Endpoints
+backendsync:default/details-headless                       Done    default/details-headless:9080: 10.244.1.80
+backendsync:default/details-headless-endpoint-slice        Done    default/details-headless-endpoint-slice:9082: 10.244.1.80
+cec:default/cilium-ingress-default-basic-ingress-headless  Done
+
+-- cec-headless.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  generation: 1
+  labels:
+    cilium.io/use-original-source-address: "false"
+  name: cilium-ingress-default-basic-ingress-headless
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: basic-ingress-headless
+    uid: 4ae15c1a-6d76-4eff-a0ca-0bd9d02c4b5a
+  resourceVersion: "1117"
+  uid: c7feae1e-2047-46bd-80bd-042b577cd39e
+spec:
+  backendServices:
+  - name: details-headless
+    namespace: default
+    number:
+    - "9080"
+  - name: details-headless-endpoint-slice
+    namespace: default
+    number:
+    - "9082"
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    filterChains:
+    - filterChainMatch:
+        transportProtocol: raw_buffer
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig:
+            cidrRanges:
+            - addressPrefix: 10.0.0.0
+              prefixLen: 8
+            - addressPrefix: 172.16.0.0
+              prefixLen: 12
+            - addressPrefix: 192.168.0.0
+              prefixLen: 16
+            - addressPrefix: 127.0.0.1
+              prefixLen: 32
+          rds:
+            routeConfigName: listener-insecure
+          statPrefix: listener-insecure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+    listenerFilters:
+    - name: envoy.filters.listener.tls_inspector
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    name: listener
+    socketOptions:
+    - description: Enable TCP keep-alive (default to enabled)
+      intValue: "1"
+      level: "1"
+      name: "9"
+    - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+      intValue: "10"
+      level: "6"
+      name: "4"
+    - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+      intValue: "5"
+      level: "6"
+      name: "5"
+    - description: TCP keep-alive probe max failures.
+      intValue: "10"
+      level: "6"
+      name: "6"
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-insecure
+    virtualHosts:
+    - domains:
+      - '*'
+      name: '*'
+      routes:
+      - match:
+          pathSeparatedPrefix: /details/1
+        route:
+          cluster: default:details-headless:9080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          pathSeparatedPrefix: /details/2
+        route:
+          cluster: default:details-headless-endpoint-slice:9082
+          maxStreamDuration:
+            maxStreamDuration: 0s
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/details-headless-endpoint-slice:9082
+    name: default:details-headless-endpoint-slice:9082
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/details-headless:9080
+    name: default:details-headless:9080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+
+-- svc-details-headless.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"details-headless","namespace":"default"},"spec":{"clusterIP":"None","ipFamilies":["IPv4"],"ipFamilyPolicy":"SingleStack","ports":[{"name":"http","port":9080,"protocol":"TCP","targetPort":9080}]}}
+  creationTimestamp: "2025-06-26T10:12:37Z"
+  name: details-headless
+  namespace: default
+  resourceVersion: "1105"
+  uid: 6def11a3-3c22-4ec9-9f89-b31d2faf736d
+spec:
+  clusterIP: None
+  clusterIPs:
+  - None
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9080
+    protocol: TCP
+    targetPort: 9080
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- svc-headless-endpoint-slice.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"details-headless-endpoint-slice","namespace":"default"},"spec":{"clusterIP":"None","ipFamilies":["IPv4"],"ipFamilyPolicy":"SingleStack","ports":[{"name":"http","port":9082,"protocol":"TCP","targetPort":9080}]}}
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  name: details-headless-endpoint-slice
+  namespace: default
+  resourceVersion: "1108"
+  uid: f5104ca4-3f5b-49c9-900c-f38d7c058d85
+spec:
+  clusterIP: None
+  clusterIPs:
+  - None
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9082
+    protocol: TCP
+    targetPort: 9080
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- eps-details-headless-endpoint-slice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.80
+  conditions: {}
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"addressType":"IPv4","apiVersion":"discovery.k8s.io/v1","endpoints":[{"addresses":["10.244.1.80"]}],"kind":"EndpointSlice","metadata":{"annotations":{},"labels":{"kubernetes.io/service-name":"details-headless-endpoint-slice"},"name":"details-headless-endpoint-slice","namespace":"default"},"ports":[{"name":"http","port":9080,"protocol":"TCP"}]}
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  generation: 1
+  labels:
+    kubernetes.io/service-name: details-headless-endpoint-slice
+  name: details-headless-endpoint-slice
+  namespace: default
+  resourceVersion: "1107"
+  uid: bd38984e-66a0-40ce-9731-91a43383d37f
+ports:
+- name: http
+  port: 9080
+  protocol: TCP
+
+-- eps-details-headless.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.80
+  conditions:
+    ready: true
+metadata:
+  creationTimestamp: "2025-06-26T10:12:38Z"
+  generateName: details-headless-
+  generation: 1
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslicemirroring-controller.k8s.io
+    kubernetes.io/service-name: details-headless
+  name: details-headless-tq5vk
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Endpoints
+    name: details-headless
+    uid: c20e86f1-012c-46f2-9a35-ed648f0922a5
+  resourceVersion: "1106"
+  uid: 42ee8e8b-1f9e-4992-85a2-373b9c12d7c1
+ports:
+- name: http
+  port: 9080
+  protocol: TCP

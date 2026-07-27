@@ -1,0 +1,108 @@
+- metadata:
+    creationTimestamp: null
+    name: specific-host-matches-listener-specific-host
+    namespace: gateway-conformance-infra
+  spec:
+    hostnames:
+    - non.matching.com
+    - '*.nonmatchingwildcard.io'
+    - very.specific.com
+    parentRefs:
+    - name: httproute-hostname-intersection
+      namespace: gateway-conformance-infra
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      matches:
+      - path:
+          type: PathPrefix
+          value: /s1
+  status:
+    parents: null
+- metadata:
+    creationTimestamp: null
+    name: specific-host-matches-listener-wildcard-host
+    namespace: gateway-conformance-infra
+  spec:
+    hostnames:
+    - non.matching.com
+    - wildcard.io
+    - foo.wildcard.io
+    - bar.wildcard.io
+    - foo.bar.wildcard.io
+    parentRefs:
+    - name: httproute-hostname-intersection
+      namespace: gateway-conformance-infra
+    rules:
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+      matches:
+      - path:
+          type: PathPrefix
+          value: /s2
+  status:
+    parents: null
+- metadata:
+    creationTimestamp: null
+    name: wildcard-host-matches-listener-specific-host
+    namespace: gateway-conformance-infra
+  spec:
+    hostnames:
+    - non.matching.com
+    - '*.specific.com'
+    parentRefs:
+    - name: httproute-hostname-intersection
+      namespace: gateway-conformance-infra
+    rules:
+    - backendRefs:
+      - name: infra-backend-v3
+        port: 8080
+      matches:
+      - path:
+          type: PathPrefix
+          value: /s3
+  status:
+    parents: null
+- metadata:
+    creationTimestamp: null
+    name: wildcard-host-matches-listener-wildcard-host
+    namespace: gateway-conformance-infra
+  spec:
+    hostnames:
+    - '*.anotherwildcard.io'
+    parentRefs:
+    - name: httproute-hostname-intersection
+      namespace: gateway-conformance-infra
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      matches:
+      - path:
+          type: PathPrefix
+          value: /s4
+  status:
+    parents: null
+- metadata:
+    creationTimestamp: null
+    name: no-intersecting-hosts
+    namespace: gateway-conformance-infra
+  spec:
+    hostnames:
+    - specific.but.wrong.com
+    - wildcard.io
+    parentRefs:
+    - name: httproute-hostname-intersection
+      namespace: gateway-conformance-infra
+    rules:
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+      matches:
+      - path:
+          type: PathPrefix
+          value: /s5
+  status:
+    parents: null

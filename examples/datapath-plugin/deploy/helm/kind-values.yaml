@@ -1,0 +1,3 @@
+image:
+  override: "localhost:5000/cilium/datapath-plugin:local"
+  pullPolicy: Never

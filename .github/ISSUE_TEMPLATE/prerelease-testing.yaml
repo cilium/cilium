@@ -1,0 +1,108 @@
+name: Prerelease Testing
+description: Report a Prerelease Testing activity
+labels: ["kind/community-report", "kind/prerelease-testing"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this prerelease testing report! This report is for tracking all contributions as part of the prerelease testing initiative. If you found a new bug while testing, please file a separate bug report if you are able. If you any questions, please try the [prerelease-testing slack channel](https://slack.cilium.io) first.
+
+        **Important**: For security related issues: We strongly encourage you to report security vulnerabilities to the private security mailing list: security@cilium.io - first, before disclosing them in any public forums.
+  - type: dropdown
+    attributes:
+      label: Test Category
+      description: What category of test best describes your testing?
+      multiple: false
+      options:
+        - Documentation
+        - New Feature
+        - Regression Testing
+        - Feature Interaction
+        - Performance Testing
+        - Other
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: what-was-tested
+    attributes:
+      label: Test Details
+      description: Describe what you tested with enough detail for someone to reproduce your results.
+      placeholder: |
+        1. In this environment...
+        2. With this config...
+        3. Tested this feature...
+        4. Resulting in error...
+        5. Run '...'
+        6. See error...
+      value: "I tested a Cilium feature"
+    validations:
+      required: true
+  - type: textarea
+    id: how-long
+    attributes:
+      label: Time
+      description: How long did it take you to test?
+      placeholder: |
+        The test took 1 hour
+      value: "It took 1 hour to attempt this test"
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Test Status
+      description: Were you able to complete the test successfully?
+      multiple: false
+      options:
+        - "Success: Test completed without issue"
+        - "Incomplete: Ran out of time"
+        - "Failure: Reproducible bug encountered/filed"
+        - "Unknown: Something went wrong, but not sure what"
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: cilium-version
+    attributes:
+      label: Cilium Version
+      description: What version of the software was running when you discovered this issue? (run `cilium version`)
+    validations:
+      required: true
+  - type: textarea
+    id: kernel-version
+    attributes:
+      label: Kernel Version
+      description: Which kernel version was Cilium running on? (run `uname -a`)
+    validations:
+      required: true
+  - type: textarea
+    id: k8s-version
+    attributes:
+      label: Kubernetes Version
+      description: Which Kubernetes version are you running? (run `kubectl version`)
+    validations:
+      required: true
+  - type: textarea
+    id: related-issues
+    attributes:
+      label: Related GitHub Issues
+      description: |
+        Please provide references to any existing or new GitHub issues that are related to your testing effort.
+    validations:
+      required: false
+  - type: textarea
+    id: other-feedback
+    attributes:
+      label: Other Feedback
+      description: |
+        Please provide any additional information concerning the testing effort here.
+    validations:
+      required: false
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/cilium/cilium/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

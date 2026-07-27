@@ -1,0 +1,29 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-udproute
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: udp
+      port: 5353
+      protocol: UDP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: UDPRoute
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-backend
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: udp-backend
+  ports:
+    - protocol: UDP
+      port: 5353
+      targetPort: 5353

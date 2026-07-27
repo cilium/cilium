@@ -1,0 +1,55 @@
+{{$scenario := .scenario}}
+
+{{$namespaces := .namespaces}}
+{{$tuningSet := .tuningSet}}
+
+{{$deploymentsPerNamespace := .deploymentsPerNamespace}}
+{{$clientInstancesPerDeployment := .clientInstancesPerDeployment}}
+
+{{$requestProcessingDuration := DefaultParam .requestProcessingDuration 0}}
+
+steps:
+- name: Start measurement for perf clients ({{$scenario}})
+  measurements:
+  - identifier: WaitForFinishedJobs
+    method: WaitForFinishedJobs
+    params:
+      action: start
+      labelSelector: app.kubernetes.io/name=http-perf-client
+
+- name: Start perf client Jobs ({{$scenario}})
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$deploymentsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: http-perf-client
+      objectTemplatePath: ./manifests/perf-client.yaml
+      templateFillMap:
+        scenario: {{$scenario}}
+        instances: {{$clientInstancesPerDeployment}}
+        requestProcessingDuration: {{$requestProcessingDuration}}
+
+- name: Wait for Perf Clients to finish ({{$scenario}})
+  measurements:
+  - identifier: WaitForFinishedJobs
+    method: WaitForFinishedJobs
+    params:
+      action: gather
+      labelSelector: app.kubernetes.io/name=http-perf-client
+
+- name: Clean up perf clients ({{$scenario}})
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: http-perf-client
+      objectTemplatePath: ./manifests/perf-client.yaml
+      templateFillMap:
+        scenario: {{$scenario}}
+        instances: {{$clientInstancesPerDeployment}}

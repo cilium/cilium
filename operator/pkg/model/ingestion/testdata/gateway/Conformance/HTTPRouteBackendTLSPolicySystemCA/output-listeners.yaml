@@ -1,0 +1,22 @@
+- hostname: "*"
+  name: http
+  port: 80
+  routes:
+    - backends:
+        - TLS:
+            SNI: abc.example.com
+          name: backendtlspolicy-test
+          namespace: gateway-conformance-infra
+          port:
+            port: 443
+      hostnames:
+        - abc.example.com
+      path_match:
+        exact: /backendtlspolicy
+      timeout: {}
+  sources:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: same-namespace
+      namespace: gateway-conformance-infra
+      version: v1

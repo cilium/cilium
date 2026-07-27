@@ -1,0 +1,100 @@
+- hostname: exact-path-rules
+  name: ing-path-rules-random-namespace-exact-path-rules
+  port: 80
+  routes:
+  - backends:
+    - name: foo-exact
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      exact: /foo
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: path-rules
+    namespace: random-namespace
+    version: v1
+- hostname: mixed-path-rules
+  name: ing-path-rules-random-namespace-mixed-path-rules
+  port: 80
+  routes:
+  - backends:
+    - name: foo-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      prefix: /foo
+    timeout: {}
+  - backends:
+    - name: foo-exact
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      exact: /foo
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: path-rules
+    namespace: random-namespace
+    version: v1
+- hostname: prefix-path-rules
+  name: ing-path-rules-random-namespace-prefix-path-rules
+  port: 80
+  routes:
+  - backends:
+    - name: foo-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      prefix: /foo
+    timeout: {}
+  - backends:
+    - name: aaa-slash-bbb-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      prefix: /aaa/bbb
+    timeout: {}
+  - backends:
+    - name: aaa-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      prefix: /aaa
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: path-rules
+    namespace: random-namespace
+    version: v1
+- hostname: trailing-slash-path-rules
+  name: ing-path-rules-random-namespace-trailing-slash-path-rules
+  port: 80
+  routes:
+  - backends:
+    - name: aaa-slash-bbb-slash-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      prefix: /aaa/bbb/
+    timeout: {}
+  - backends:
+    - name: foo-slash-exact
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      exact: /foo/
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: path-rules
+    namespace: random-namespace
+    version: v1

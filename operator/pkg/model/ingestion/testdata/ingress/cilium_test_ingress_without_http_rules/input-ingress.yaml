@@ -1,0 +1,14 @@
+metadata:
+  creationTimestamp: null
+  name: host-rules
+  namespace: random-namespace
+spec:
+  rules:
+  - host: '*.foo.com'
+  - host: foo.bar.com
+  tls:
+  - hosts:
+    - foo.bar.com
+    secretName: conformance-tls
+status:
+  loadBalancer: {}

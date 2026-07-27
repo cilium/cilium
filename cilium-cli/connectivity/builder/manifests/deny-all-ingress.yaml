@@ -1,0 +1,8 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "all-ingress-deny"
+spec:
+  endpointSelector: {}
+  ingress:
+    - {}

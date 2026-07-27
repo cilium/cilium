@@ -1,0 +1,24 @@
+- hostname: "*"
+  name: listener-empty-hostname
+  port: 443
+  routes:
+    - backends:
+        - name: tls-backend
+          namespace: gateway-conformance-infra
+          port:
+            port: 443
+      hostnames:
+        - abc.example.com
+    - backends:
+        - name: tls-backend-2
+          namespace: gateway-conformance-infra
+          port:
+            port: 443
+      hostnames:
+        - "*.com"
+  sources:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gw-tlsroute-empty-hostname-x-4
+      namespace: gateway-conformance-infra
+      version: v1

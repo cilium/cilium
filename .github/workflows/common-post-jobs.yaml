@@ -1,0 +1,87 @@
+name: Common Post Jobs
+
+on:
+  workflow_call:
+    inputs:
+      context-ref:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+      success:
+        required: true
+        type: boolean
+      merge-artifacts:
+        description: "Whether to merge and upload cilium-junits-*/features-tested-* artifacts. Set to false for workflows that run no tests and produce no such artifacts (e.g. pure lint jobs)."
+        required: false
+        type: boolean
+        default: true
+      merge-junits:
+        description: "Whether to merge and upload cilium-junits-* artifacts. Set to false for workflows that do not run cilium connectivity test and therefore produce no JUnit report (e.g. kubectl-wait smoke tests)."
+        required: false
+        type: boolean
+        default: true
+      merge-features:
+        description: "Whether to merge and upload features-tested-* artifacts. Set to false for workflows that do not collect feature status and therefore produce no such artifact (e.g. perf tests)."
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+  statuses: write
+
+jobs:
+  merge-upload:
+    if: ${{ always() && inputs.merge-artifacts }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Merge JUnits
+        if: ${{ inputs.merge-junits }}
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge Features tested
+        if: ${{ inputs.merge-features }}
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        with:
+          name: features-tested
+          pattern: features-tested-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          separate-directories: true
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Set final commit status
+        uses: cilium/cilium/.github/actions/set-commit-status@main # main
+        with:
+          sha: ${{ inputs.sha }}
+          status: ${{ inputs.success && 'success' || 'failure' }}
+
+  fail-workflow:
+    if: ${{ inputs.success == false }}
+    name: Fail job if result is failure
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail job if result is failure
+        # Besides reporting in the commit SHA if the test was or not successful,
+        # we should also report it in the workflow itself. This will allow to
+        # store the failure rate of the workflow on OpenSearch, instead of
+        # marking it as successful.
+        run: |
+          echo "::error::Workflow failed because one or more jobs failed"
+          exit 1

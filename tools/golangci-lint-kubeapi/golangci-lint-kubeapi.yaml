@@ -1,0 +1,38 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+  issues-exit-code: 1
+  tests: true
+  timeout: 60m
+
+linters:
+  default: none
+  enable:
+    - kubeapilinter
+
+  settings:
+    custom:
+      kubeapilinter:
+        type: module
+        description: Kube API Linter lints Kube like APIs based on API conventions
+        settings:
+          linters:
+            disable:
+              - "*"
+            enable:
+              - optionalorrequired
+              - duplicatemarkers
+          lintersConfig:
+            optionalorrequired:
+              preferredOptionalMarker: "kubebuilder:validation:Optional"
+              preferredRequiredMarker: "kubebuilder:validation:Required"
+
+  exclusions:
+    rules:
+      - linters:
+          - kubeapilinter
+        path-except: pkg/k8s/apis/cilium\.io/(v2|v2alpha1)/.*types\.go
+      - linters:
+          - kubeapilinter
+        path: pkg/k8s/apis/cilium\.io/(v2|v2alpha1)/.*types\.go
+        text: deepequal-gen

@@ -1,0 +1,24 @@
+layout:
+  application:
+    - name: facade
+      source: asset:clientFacade
+      target: "{{ joinFilePath .Target .ClientPackage }}"
+      file_name: "{{ .Name }}_client.go"
+      skip_format: true
+  operations:
+    - name: parameters
+      source: asset:clientParameter
+      target: "{{ joinFilePath .Target .ClientPackage .Package }}"
+      file_name: "{{ (snakize (pascalize .Name)) }}_parameters.go"
+      skip_format: true
+    - name: responses
+      source: asset:clientResponse
+      target: "{{ joinFilePath .Target .ClientPackage .Package }}"
+      file_name: "{{ (snakize (pascalize .Name)) }}_responses.go"
+      skip_format: true
+  operation_groups:
+    - name: client
+      source: asset:clientClient
+      target: "{{ joinFilePath .Target .ClientPackage .Name }}"
+      file_name: "{{ (snakize (pascalize .Name)) }}_client.go"
+      skip_format: true

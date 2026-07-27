@@ -1,0 +1,9 @@
+include: list(include('includeItem'))
+---
+includeItem:
+  version: str()
+  location: str()
+  index: int()
+  disabled: bool(required=False)
+  preview: bool(required=False)
+  default: bool(required=False)

@@ -1,0 +1,13 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-egress-specific-namespace-ccnp
+spec:
+  endpointSelector:
+    matchLabels:
+      io.kubernetes.pod.namespace: "cilium-test-ccnp1"
+      kind: ccnp
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: "cilium-test-ccnp2"

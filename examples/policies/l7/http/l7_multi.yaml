@@ -1,0 +1,32 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "fancyrule"
+specs:
+  - endpointSelector:
+      matchLabels:
+        app: service
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          env: prod
+      toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/public"
+  - endpointSelector:
+      matchLabels:
+        env: prod
+    egress:
+    - toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "POST"
+            host: "^external-service.org$"

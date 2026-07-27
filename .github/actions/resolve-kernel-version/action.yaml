@@ -1,0 +1,21 @@
+name: 'Resolve Kernel Version'
+description: 'Resolves short kernel version to full timestamped version'
+inputs:
+  kernel:
+    description: 'Short kernel version (e.g., 5.10, 6.1, rhel8.10)'
+    required: true
+outputs:
+  full:
+    description: 'Full kernel version with timestamp'
+    value: ${{ steps.resolve.outputs.full }}
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve full kernel version
+      id: resolve
+      shell: bash
+      run: |
+        KERNEL_MAP=$(yq -o=json .github/actions/e2e/kernel-versions.yml)
+        FULL_KERNEL=$(echo "${KERNEL_MAP}" | jq -r --arg k "${{ inputs.kernel }}" '.kernels[$k] // $k')
+        echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
+

@@ -1,0 +1,17 @@
+# The toFQDNs section relies on DNS introspection being performed by
+# the client-egress-only-dns policy.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-fqdns-{{trimSuffix .ExternalTarget "."}}
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+    toFQDNs:
+    - matchName: "{{.ExternalTarget}}"

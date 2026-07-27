@@ -1,0 +1,91 @@
+- metadata:
+    creationTimestamp: null
+    name: infra-backend-v1
+    namespace: gateway-conformance-infra
+  spec:
+    ports:
+    - port: 8080
+      protocol: tcp
+      targetPort: 3000
+    selector:
+      app: infra-backend-v1
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: infra-backend-v2
+    namespace: gateway-conformance-infra
+  spec:
+    ports:
+    - port: 8080
+      protocol: tcp
+      targetPort: 3000
+    selector:
+      app: infra-backend-v2
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: infra-backend-v3
+    namespace: gateway-conformance-infra
+  spec:
+    ports:
+    - port: 8080
+      protocol: tcp
+      targetPort: 3000
+    selector:
+      app: infra-backend-v3
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: app-backend-v1
+    namespace: gateway-conformance-app-backend
+  spec:
+    ports:
+    - port: 8080
+      protocol: tcp
+      targetPort: 3000
+    selector:
+      app: app-backend-v1
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: app-backend-v2
+    namespace: gateway-conformance-app-backend
+  spec:
+    ports:
+    - port: 8080
+      protocol: tcp
+      targetPort: 3000
+    selector:
+      app: app-backend-v2
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: web-backend
+    namespace: gateway-conformance-web-backend
+  spec:
+    ports:
+    - port: 8080
+      protocol: tcp
+      targetPort: 3000
+    selector:
+      app: web-backend
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: tls-backend
+    namespace: gateway-conformance-infra
+  spec:
+    ports:
+    - port: 443
+      protocol: tcp
+      targetPort: 8443
+    selector:
+      app: tls-backend
+  status:
+    loadBalancer: {}

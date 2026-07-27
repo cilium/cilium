@@ -1,0 +1,60 @@
+#! --config-sources=[{"kind":"cilium-node-config","namespace":"kube-system","name":"foo"}]
+
+# Test the reflection of the CiliumNodeConfig
+hive/start
+
+# Add cilium-config with keys foo and baz
+k8s/add cilium-node-config.yaml
+db/cmp cilium-configs configs1.table
+
+# Removing it removes all keys from the "cilium-config" source
+k8s/delete cilium-node-config.yaml
+
+# Table should be empty now
+* db/empty cilium-configs
+
+# Add the entries back
+k8s/add cilium-node-config.yaml
+db/cmp cilium-configs configs1.table
+
+# Update baz=quux to baz=baz
+replace 'quux' 'baz' cilium-node-config.yaml
+replace 'quux' 'baz' configs1.table
+k8s/update cilium-node-config.yaml
+db/cmp cilium-configs configs1.table
+
+# Remove the 'baz' key
+sed '^\s+baz:.*' '' cilium-node-config.yaml
+k8s/update cilium-node-config.yaml
+db/cmp cilium-configs configs2.table
+
+# Cleanup
+k8s/delete cilium-node-config.yaml
+
+# Table should be empty now
+* db/empty cilium-configs
+
+####
+
+-- configs1.table --
+Key   Source      Priority   Value
+baz   foo         1          quux
+foo   foo         1          bar
+
+-- configs2.table --
+Key   Source      Priority   Value
+foo   foo         1          bar
+
+-- cilium-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNodeConfig
+metadata:
+  namespace: kube-system
+  name: foo
+spec:
+  nodeSelector:
+    matchLabels:
+      foo: "bar"
+  defaults:
+    foo: bar
+    baz: quux

@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "global-deny-test-k8s2"
+spec:
+  endpointSelector:
+    matchLabels:
+      zgroup: test-k8s2
+  ingress:
+  - fromEntities:
+    - cluster

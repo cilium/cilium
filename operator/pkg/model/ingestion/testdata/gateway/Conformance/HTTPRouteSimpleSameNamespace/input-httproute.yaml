@@ -1,0 +1,13 @@
+- metadata:
+    creationTimestamp: null
+    name: gateway-conformance-infra-test
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+  status:
+    parents: null

@@ -1,0 +1,36 @@
+metadata:
+  creationTimestamp: null
+  name: httproute-listener-hostname-matching
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: bar.com
+    name: listener-1
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: foo.bar.com
+    name: listener-2
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: '*.bar.com'
+    name: listener-3
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: '*.foo.com'
+    name: listener-4
+    port: 80
+    protocol: HTTP
+status: {}

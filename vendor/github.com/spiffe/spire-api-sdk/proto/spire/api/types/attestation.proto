@@ -1,0 +1,12 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+message AttestationData {
+    // The type of attestation data. This is typically the name of the plugin
+    // that produced that data.
+    string type = 1;
+
+    // The attestation data payload.
+    bytes payload = 2;
+}

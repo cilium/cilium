@@ -1,0 +1,87 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-multiple-listeners
+  namespace: gateway-conformance-infra 
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    name: http-permisive
+    port: 8080
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: match-label
+    name: http-restrictive
+    port: 80
+    protocol: HTTP
+status:
+  conditions:
+  - lastTransitionTime: "2025-12-03T18:49:35Z"
+    message: Gateway successfully scheduled
+    observedGeneration: 0
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: "2025-12-03T21:06:47Z"
+    message: Gateway waiting for address
+    reason: AddressNotAssigned
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: "2025-12-03T21:06:47Z"
+      message: Resolved Refs
+      observedGeneration: 0
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    - lastTransitionTime: "2025-12-03T21:06:47Z"
+      message: Listener Accepted
+      observedGeneration: 0
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-12-03T21:06:47Z"
+      message: Address not ready yet
+      reason: Pending
+      status: "False"
+      type: Programmed
+    name: http-permisive
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0 
+    conditions:
+    - lastTransitionTime: "2025-12-03T21:06:47Z"
+      message: Resolved Refs
+      observedGeneration: 0
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    - lastTransitionTime: "2025-12-03T21:06:47Z"
+      message: Listener Accepted
+      observedGeneration: 0
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-12-03T21:06:47Z"
+      message: Address not ready yet
+      reason: Pending
+      status: "False"
+      type: Programmed
+    name: http-restrictive
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute

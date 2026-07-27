@@ -1,0 +1,20 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l7-rule"
+spec:
+  endpointSelector:
+    matchLabels:
+      id: web-server
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        id: goodclient
+    toPorts:
+    - ports:
+      - port: '8181'
+        protocol: TCP
+      rules:
+        http:
+        - method: GET
+          path: "/public"

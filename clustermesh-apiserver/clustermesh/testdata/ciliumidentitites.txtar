@@ -1,0 +1,124 @@
+#! --cluster-id=3 --cluster-name=cluster3
+
+hive/start
+
+# Add two namespaces
+k8s/add namespace-1.yaml namespace-2.yaml
+
+# Add two CiliumIdentities
+k8s/add identity-1.yaml identity-2.yaml
+
+# Assert that the synced key gets created. We compare on the key only as the
+# value is the timestamp at which synchronization completed
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster3/cilium/state/identities/v1$' synced.actual
+
+# Wait for synchronization
+kvstore/list -o plain cilium/state/identities identities-1+2.actual
+* cmp identities-1+2.actual identities-1+2.expected
+
+# Update one of the CiliumIdentities
+cp identity-1.yaml identity-1-v2.yaml
+replace 'baz' 'fred' identity-1-v2.yaml
+k8s/update identity-1-v2.yaml
+
+# Wait for synchronization
+kvstore/list -o plain cilium/state/identities identities-1+2-v2.actual
+* cmp identities-1+2-v2.actual identities-1+2-v2.expected
+
+# Add one more CiliumIdentity
+cp identity-1.yaml identity-3.yaml
+replace '196915' '214794' identity-3.yaml
+k8s/add identity-3.yaml
+
+# Wait for synchronization
+kvstore/list -o plain cilium/state/identities identities-1+2+3.actual
+* cmp identities-1+2+3.actual identities-1+2+3.expected
+
+# Delete one of the CiliumIdentities
+k8s/delete identity-2.yaml
+
+# Wait for synchronization
+kvstore/list -o plain cilium/state/identities identities-1+3.actual
+* cmp identities-1+3.actual identities-1+3.expected
+
+# Annotate namespace-2 as non-global
+k8s/update namespace-2-annotated.yaml
+
+# Wait for synchronization. No identities should remain synced
+kvstore/list -o plain cilium/state/identities identities-empty.actual
+* empty identities-empty.actual
+
+# Add namespace-2 back as global
+k8s/update namespace-2.yaml
+
+# Wait for synchronization. identity-1 and identity-3 should be synced again
+kvstore/list -o plain cilium/state/identities identities-1+3.actual
+* cmp identities-1+3.actual identities-1+3.expected
+
+# ---
+
+-- namespace-1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foo
+
+-- namespace-2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
+
+-- namespace-2-annotated.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
+  annotations:
+    clustermesh.cilium.io/global: "false"
+
+-- identity-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumIdentity
+metadata:
+  name: "196915"
+  labels:
+    io.kubernetes.pod.namespace: bar
+security-labels:
+  k8s:app: baz
+  k8s:io.cilium.k8s.policy.cluster: cluster3
+  k8s:io.kubernetes.pod.namespace: bar
+
+-- identity-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumIdentity
+metadata:
+  name: "199472"
+security-labels:
+  k8s:app: baz
+  k8s:io.cilium.k8s.policy.cluster: cluster3
+  k8s:io.kubernetes.pod.namespace: foo
+
+-- identities-1+2.expected --
+# cilium/state/identities/v1/id/196915
+k8s:app=baz;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=bar;
+# cilium/state/identities/v1/id/199472
+k8s:app=baz;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=foo;
+-- identities-1+2-v2.expected --
+# cilium/state/identities/v1/id/196915
+k8s:app=fred;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=bar;
+# cilium/state/identities/v1/id/199472
+k8s:app=baz;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=foo;
+-- identities-1+2+3.expected --
+# cilium/state/identities/v1/id/196915
+k8s:app=fred;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=bar;
+# cilium/state/identities/v1/id/199472
+k8s:app=baz;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=foo;
+# cilium/state/identities/v1/id/214794
+k8s:app=baz;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=bar;
+-- identities-1+3.expected --
+# cilium/state/identities/v1/id/196915
+k8s:app=fred;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=bar;
+# cilium/state/identities/v1/id/214794
+k8s:app=baz;k8s:io.cilium.k8s.policy.cluster=cluster3;k8s:io.kubernetes.pod.namespace=bar;

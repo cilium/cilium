@@ -1,0 +1,21 @@
+#helm-reference .wy-table-responsive table td {
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+#helm-reference .wy-table-responsive table td:nth-child(1) {
+    max-width: 240px;
+}
+
+#helm-reference .wy-table-responsive table td:nth-child(2) {
+    max-width: 320px;
+}
+
+#helm-reference table td .pre {
+    white-space: pre-wrap;
+}
+
+#helm-reference table {
+    width: 100%;
+    table-layout: fixed;
+}

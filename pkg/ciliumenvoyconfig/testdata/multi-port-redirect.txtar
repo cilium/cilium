@@ -1,0 +1,136 @@
+# Test handling of CiliumEnvoyConfig with multiple proxy redirects to different
+# ports on the same service. This validates the fix for the bug where the second
+# ServiceListener entry for the same service would overwrite the first, leaving
+# one port without an L7 redirect in the BPF LB map.
+#
+# Scenario: A Gateway with two listeners (HTTP on port 80, HTTPS on port 443)
+# targeting the same backend service. Each listener should produce a separate
+# ProxyRedirect entry, and both frontends should get L7 proxy redirection.
+
+hive start
+
+# Set up the service and endpoints
+k8s/add service.yaml endpointslice.yaml
+
+# Validate initial state (no proxy redirect yet)
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Add the CiliumEnvoyConfig with two service entries for the same service,
+# each targeting a different port.
+k8s/add cec.yaml
+db/cmp ciliumenvoyconfigs cec.table
+
+# Both ports should now have proxy redirects.
+db/cmp services services_redirected.table
+
+# Check BPF maps. Port 80 gets proxy port 1000, port 443 gets proxy port 2000.
+lb/maps-dump lbmaps.out
+* grep '10.96.50.104:80/TCP.*L7Proxy=1000' lbmaps.out
+* grep '10.96.50.104:443/TCP.*L7Proxy=2000' lbmaps.out
+
+# Remove the CEC and verify redirects are cleared.
+k8s/delete cec.yaml
+db/cmp services services.table
+
+# ---------------------------------------------
+
+-- services.table --
+Name          Flags
+test/gateway
+
+-- services_redirected.table --
+Name          Flags
+test/gateway  ProxyRedirects=[1000 (ports: [80]), 2000 (ports: [443])]
+
+-- frontends.table --
+Address                Type       ServiceName   PortName  Status  Backends
+10.96.50.104:80/TCP    ClusterIP  test/gateway  http      Done    10.244.1.1:8080/TCP
+10.96.50.104:443/TCP   ClusterIP  test/gateway  https     Done    10.244.1.1:8443/TCP
+
+-- cec.table --
+Name                   Services
+test/gateway-cec       test/gateway, test/gateway
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: gateway-cec
+  namespace: test
+spec:
+  services:
+    - name: gateway
+      namespace: test
+      listener: http-listener
+      ports:
+      - 80
+    - name: gateway
+      namespace: test
+      listener: https-listener
+      ports:
+      - 443
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: http-listener
+      address:
+        socket_address:
+          address: 127.0.0.1
+          port_value: 1000
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: https-listener
+      address:
+        socket_address:
+          address: 127.0.0.1
+          port_value: 2000
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: test
+  uid: b59fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app: gateway
+  type: ClusterIP
+status: {}
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: gateway
+  name: gateway-eps1
+  namespace: test
+  uid: e1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+- name: https
+  port: 8443
+  protocol: TCP

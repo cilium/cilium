@@ -1,0 +1,15 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "deny-egress-example"
+spec:
+  endpointSelector:
+    matchLabels:
+      role: frontend
+  egress:
+  - toEntities:
+    - all
+  egressDeny:
+  - toEndpoints:
+    - matchLabels:
+        role: backend

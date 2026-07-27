@@ -1,0 +1,29 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: udp-gateway-invalid-cross-namespace-backend-ref
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: udp
+      protocol: UDP
+      port: 5300
+      allowedRoutes:
+        kinds:
+          - kind: UDPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: UDPRoute
+metadata:
+  name: udp-route-invalid-cross-namespace-backend-ref
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: udp-gateway-invalid-cross-namespace-backend-ref
+      sectionName: udp
+  rules:
+    - backendRefs:
+        - name: udp-echo-no-reference-grant
+          namespace: gateway-conformance-app-backend
+          port: 8080

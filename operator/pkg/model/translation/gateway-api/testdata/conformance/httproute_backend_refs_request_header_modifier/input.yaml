@@ -1,0 +1,183 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      request_header_filter:
+        headers_to_set:
+        - name: X-Header-Set
+          value: set-overwrites-values
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      exact: /set
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      request_header_filter:
+        headers_to_add:
+        - name: X-Header-Add
+          value: add-appends-values
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      exact: /add
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      request_header_filter:
+        headers_to_remove:
+        - X-Header-Remove
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      exact: /remove
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      request_header_filter:
+        headers_to_add:
+        - name: X-Header-Add-1
+          value: header-add-1
+        - name: X-Header-Add-2
+          value: header-add-2
+        - name: X-Header-Add-3
+          value: header-add-3
+        headers_to_remove:
+        - X-Header-Remove-1
+        - X-Header-Remove-2
+        headers_to_set:
+        - name: X-Header-Set-1
+          value: header-set-1
+        - name: X-Header-Set-2
+          value: header-set-2
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      exact: /multiple
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      request_header_filter:
+        headers_to_add:
+        - name: X-Header-Add-1
+          value: header-add-1
+        - name: X-Header-Add-1-2
+          value: header-add-1-2
+        headers_to_remove:
+        - X-Header-Remove-1-1
+        - X-Header-Remove-1-2
+        headers_to_set:
+        - name: X-Header-Set-1
+          value: header-set-1
+        - name: X-Header-Set-1-2
+          value: header-set-1-2
+    - name: gateway-conformance-infra:infra-backend-v2:8080
+      request_header_filter:
+        headers_to_add:
+        - name: X-Header-Add-2
+          value: header-add-2
+        headers_to_remove:
+        - X-Header-Remove-2
+        headers_to_set:
+        - name: X-Header-Set-2
+          value: header-set-2
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+      weight: 50
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+      weight: 50
+    path_match:
+      exact: /multiple-backends
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v2:8080
+      request_header_filter:
+        headers_to_add:
+        - name: X-Header-Add-2
+          value: header-add-2
+        headers_to_remove:
+        - X-Header-Remove-2
+        headers_to_set:
+        - name: X-Header-Set-2
+          value: header-set-2
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+      weight: 50
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+      weight: 50
+    path_match:
+      exact: /multiple-backends-some-missing
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v2:8080
+      request_header_filter:
+        headers_to_add:
+        - name: X-Header-Add-2
+          value: header-add-2
+        headers_to_remove:
+        - X-Header-Remove-2
+        headers_to_set:
+        - name: X-Header-Set-2
+          value: header-set-2
+    - name: gateway-conformance-infra:infra-backend-v3:8080
+      request_header_filter:
+        headers_to_add:
+        - name: X-Header-Add-3
+          value: header-add-3
+        headers_to_remove:
+        - X-Header-Remove-3
+        headers_to_set:
+        - name: X-Header-Set-3
+          value: header-set-3
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+      weight: 10
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+      weight: 20
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+      weight: 70
+    path_match:
+      exact: /multiple-backends-two-filters
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1

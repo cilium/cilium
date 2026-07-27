@@ -1,0 +1,231 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package ipam
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"maps"
+	"net/netip"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
+	"github.com/cilium/cilium/pkg/azure/types"
+
+	// Register the Azure resource-ID parser. This is the canonical place
+	// for Azure-IPAM-enabled binaries to wire in pkg/azure/types' parser
+	// so AzureInterface.SetID() can populate the VMSS/VM/RG fields.
+	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+// AzureAPI is the API surface used of the Azure API.
+type AzureAPI interface {
+	GetSubnetsByIDs(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.SubnetMap, error)
+	AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error
+	AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
+	AssignPublicIPAddressesVM(ctx context.Context, instanceID string, publicIpTags ipamTypes.Tags) (netip.Addr, error)
+	AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vmssName string, publicIpTags ipamTypes.Tags) (netip.Addr, error)
+	ListAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.Interface, error)
+	ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.InstanceMap
+	ListVMNetworkInterfaces(ctx context.Context, instanceID string) ([]*armnetwork.Interface, error)
+	ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.Instance
+}
+
+// InstancesManager maintains the list of instances. It must be kept up to date
+// by calling Resync() regularly.
+type InstancesManager struct {
+	logger *slog.Logger
+	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
+	resyncLock lock.RWMutex
+
+	// usePrimary mirrors the --azure-use-primary-address operator flag; when
+	// true, each NIC's primary IP is exposed to the allocatable pool.
+	usePrimary bool
+
+	// mutex protects the fields below
+	mutex     lock.RWMutex
+	instances *ipamTypes.InstanceMap
+	subnets   ipamTypes.SubnetMap
+	api       AzureAPI
+}
+
+// NewInstancesManager returns a new instances manager
+func NewInstancesManager(logger *slog.Logger, api AzureAPI, usePrimary bool) *InstancesManager {
+	return &InstancesManager{
+		logger:     logger.With(subsysLogAttr...),
+		instances:  ipamTypes.NewInstanceMap(),
+		api:        api,
+		usePrimary: usePrimary,
+	}
+}
+
+// CreateNode is called on discovery of a new node
+func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *nodemanager.Node) nodemanager.NodeOperations {
+	return &Node{manager: m, node: n}
+}
+
+// HasInstance returns whether the instance is in instances
+func (m *InstancesManager) HasInstance(instanceID string) bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.instances.Exists(instanceID)
+}
+
+// GetPoolQuota returns the number of available IPs in all IP pools
+func (m *InstancesManager) GetPoolQuota() (quota ipamTypes.PoolQuotaMap) {
+	m.mutex.RLock()
+	pool := ipamTypes.PoolQuotaMap{}
+	for subnetID, subnet := range m.subnets {
+		pool[ipamTypes.PoolID(subnetID)] = ipamTypes.PoolQuota{
+			AvailableIPs: subnet.AvailableAddresses,
+		}
+	}
+	m.mutex.RUnlock()
+	return pool
+}
+
+// Resync fetches the list of instances and subnets and updates the local
+// cache in the instanceManager. It returns the time when the resync has
+// started or an error if it did not complete.
+func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
+	// Full API resync should block the instance incremental resync from all nodes.
+	m.resyncLock.Lock()
+	defer m.resyncLock.Unlock()
+	return m.resyncInstances(ctx)
+}
+
+// resyncInstance only resyncs a given instance
+func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string) (time.Time, error) {
+	resyncStart := time.Now()
+
+	// Fetch network interfaces once from Azure API
+	networkInterfaces, err := m.api.ListVMNetworkInterfaces(ctx, instanceID)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("synchronize Azure instance %s interface list: %w", instanceID, err)
+	}
+
+	// Parse with empty subnets to discover which subnets are actually in use
+	instance := m.api.ParseInterfacesIntoInstance(networkInterfaces, ipamTypes.SubnetMap{})
+	instanceMap := ipamTypes.NewInstanceMap()
+	instanceMap.UpdateInstance(instanceID, instance)
+	nodeSubnetIDs := m.extractSubnetIDs(instanceMap)
+
+	// Query targeted subnets
+	subnets, err := m.api.GetSubnetsByIDs(ctx, nodeSubnetIDs)
+	if err != nil {
+		m.logger.Warn("Unable to synchronize Azure subnets list for instance",
+			logfields.Error, err,
+			logfields.InstanceID, instanceID,
+		)
+		// Continue with empty subnets map rather than failing completely
+		subnets = ipamTypes.SubnetMap{}
+	}
+
+	// Re-parse the same network interface data with subnet details to populate
+	// CIDR and gateway info without making another Azure API call
+	if len(subnets) > 0 {
+		instance = m.api.ParseInterfacesIntoInstance(networkInterfaces, subnets)
+	}
+
+	m.logger.Info(
+		"Synchronized Azure IPAM information for the corresponding instance using targeted subnet discovery",
+		logfields.InstanceID, instanceID,
+		logfields.NumSubnets, len(subnets),
+		logfields.TargetedSubnets, len(nodeSubnetIDs),
+	)
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.instances.UpdateInstance(instanceID, instance)
+	if m.subnets == nil {
+		m.subnets = ipamTypes.SubnetMap{}
+	}
+	maps.Copy(m.subnets, subnets)
+
+	return resyncStart, nil
+}
+
+// extractSubnetIDs extracts unique subnet IDs from node network interfaces
+func (m *InstancesManager) extractSubnetIDs(instances *ipamTypes.InstanceMap) []string {
+	subnetIDs := sets.New[string]()
+
+	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+		if azIface, ok := iface.(*types.AzureInterface); ok && azIface.Subnet.ID != "" {
+			subnetIDs.Insert(azIface.Subnet.ID)
+		}
+		return nil
+	})
+
+	return subnetIDs.UnsortedList()
+}
+
+// resyncInstances performs a full sync of all instances using three-phase strategy
+// Optimization: Fetches network interfaces once from Azure, then parses them twice
+func (m *InstancesManager) resyncInstances(ctx context.Context) (time.Time, error) {
+	resyncStart := time.Now()
+
+	// Phase 1: Fetch network interfaces once from Azure API
+	networkInterfaces, err := m.api.ListAllNetworkInterfaces(ctx)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("fetch Azure network interfaces: %w", err)
+	}
+
+	// Phase 2: Parse with empty subnets to discover which subnets are actually in use
+	// This parsing is fast (in-memory operation, no Azure API call)
+	instances := m.api.ParseInterfacesIntoInstanceMap(networkInterfaces, ipamTypes.SubnetMap{})
+
+	// Extract subnet IDs from the instances we found
+	subnetIDs := m.extractSubnetIDs(instances)
+
+	// Phase 3: Query only the specific subnets that are actually used
+	subnets, err := m.api.GetSubnetsByIDs(ctx, subnetIDs)
+	if err != nil {
+		m.logger.Warn("Unable to synchronize Azure subnets list", logfields.Error, err)
+		// Continue with empty subnets map rather than failing completely
+		subnets = ipamTypes.SubnetMap{}
+	}
+
+	// Phase 4: Re-parse the SAME network interface data with subnet details
+	// This populates CIDR and gateway info without making another Azure API call
+	if len(subnets) > 0 {
+		instances = m.api.ParseInterfacesIntoInstanceMap(networkInterfaces, subnets)
+	}
+
+	m.logger.Info(
+		"Synchronized Azure IPAM information using targeted subnet discovery",
+		logfields.NumInstances, instances.NumInstances(),
+		logfields.NumSubnets, len(subnets),
+		logfields.TargetedSubnets, len(subnetIDs),
+	)
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.instances = instances
+	m.subnets = subnets
+
+	return resyncStart, nil
+}
+
+func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
+	// Instance incremental resync from different nodes should be executed in parallel,
+	// but must block the full API resync.
+	m.resyncLock.RLock()
+	defer m.resyncLock.RUnlock()
+	return m.resyncInstance(ctx, instanceID)
+}
+
+// DeleteInstance delete instance from m.instances
+func (m *InstancesManager) DeleteInstance(instanceID string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.instances.Delete(instanceID)
+}

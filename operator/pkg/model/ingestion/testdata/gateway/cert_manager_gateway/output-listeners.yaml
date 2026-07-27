@@ -1,0 +1,32 @@
+- hostname: "*.example.com"
+  name: http
+  port: 80
+  routes:
+    - backends:
+        - TLS: null
+          name: echo-a-internal
+          namespace: default
+          port:
+            port: 8080
+      hostnames:
+        - specific.example.com
+      path_match: {}
+      timeout: {}
+  sources:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: echo-a
+      namespace: default
+      version: v1
+- hostname: "specific.example.com"
+  name: https
+  port: 443
+  sources:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: echo-a
+      namespace: default
+      version: v1
+  tls:
+    - name: specific-example-com
+      namespace: default

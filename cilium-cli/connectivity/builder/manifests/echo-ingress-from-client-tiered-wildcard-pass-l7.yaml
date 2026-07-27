@@ -1,0 +1,67 @@
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: echo-ingress-from-client-tiered-wildcard-pass-l7
+spec:
+# Always allow readiness probes
+  tier: Admin
+  priority: 0
+  subject:
+    pods:
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: "{{.TestNamespace}}"
+      podSelector:
+        matchLabels:
+          kind: echo
+  ingress:
+  - action: Accept
+    from:
+    - pods:
+        podSelector:
+          matchExpressions:
+          - { key: "reserved:host", operator: Exists }
+  - action: Accept
+    from:
+    - pods:
+        podSelector: {}
+    protocols:
+    - udp:
+        destinationPort:
+          number: 53
+    - tcp:
+        destinationPort:
+          number: 53
+  - action: Pass
+    from:
+    - pods:
+        namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: "{{.TestNamespace}}"        
+        podSelector:
+          matchLabels:
+            name: client
+          matchExpressions:
+          - { key: io.cilium.k8s.policy.cluster, operator: Exists }
+  - action: Deny
+    from:
+    - namespaces: {}
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: echo-ingress-from-client-tiered-wildcard-pass-l7
+  namespace: "{{.TestNamespace}}"
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  - fromEntities: ["all"]
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: "TCP"
+      rules:
+        http:
+        - method: GET

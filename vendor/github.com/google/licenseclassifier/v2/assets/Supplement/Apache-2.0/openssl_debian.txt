@@ -1,0 +1,3 @@
+Files: debian/*
+Copyright: Christoph Martin, Kurt Roeckx, Sebastian Andrzej Siewior
+License: Apache-2.0

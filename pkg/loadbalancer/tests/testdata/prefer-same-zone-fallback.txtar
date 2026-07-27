@@ -1,0 +1,105 @@
+#! --enable-service-topology --lb-test-fault-probability=0.0
+#
+# Test PreferSameZone fallback: when zone backends are incompatible,
+# we should fall back to out-of-zone backends.
+
+# Set the node zone label before starting
+test/set-node-labels topology.kubernetes.io/zone=foo
+
+# Start and wait for watchers
+hive start
+
+# Add the service with trafficDistribution=PreferSameZone
+k8s/add service.yaml
+
+# Add endpoints:
+# 10.244.1.1 in zone foo, but with wrong port name.
+# 10.244.2.1 in zone bar (remote), with correct port name.
+k8s/add endpointslice-wrong-port.yaml endpointslice-remote.yaml
+
+# We expect to fall back to the remote backend because the local one has the wrong port.
+# If the bug is present, it will commit to zone routing and find no backends,
+# resulting in an empty frontends table or failure to match.
+db/cmp frontends frontends-remote.table
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameZone
+
+-- frontends-remote.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.2.1:80/TCP
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+  trafficDistribution: PreferSameZone
+
+-- endpointslice-wrong-port.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: node-local
+  zone: foo
+  hints:
+    forZones:
+    - name: foo
+ports:
+- name: wrong-port
+  port: 80
+  protocol: TCP
+
+-- endpointslice-remote.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: node-remote
+  zone: bar
+  hints:
+    forZones:
+    - name: bar
+ports:
+- name: http
+  port: 80
+  protocol: TCP

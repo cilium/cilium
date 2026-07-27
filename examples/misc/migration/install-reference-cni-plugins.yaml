@@ -1,0 +1,63 @@
+## This is used in the flannel migration example
+## It is not otherwise needed
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: install-cni-plugins
+  namespace: kube-system
+  labels:
+    tier: node
+    app: install-cni-plugins
+spec:
+  selector:
+    matchLabels:
+      app: install-cni-plugins
+  template:
+    metadata:
+      labels:
+        tier: node
+        app: install-cni-plugins
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      initContainers:
+      - name: install-cni-plugins
+        image: quay.io/casey_callendrello/cni-plugins:v1.1.0-38-gac86731
+        command:
+        - sh
+        args:
+        - -c
+        - "cp /cni/* /opt/cni/bin/"
+        volumeMounts:
+        - name: cni-plugin
+          mountPath: /opt/cni/bin
+      containers:
+      - name: idle
+        image: busybox
+        command:
+        - sleep
+        args:
+        - 5d
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "5Mi"
+          limits:
+            cpu: "100m"
+            memory: "10Mi"
+      volumes:
+      - name: cni-plugin
+        hostPath:
+          path: /opt/cni/bin

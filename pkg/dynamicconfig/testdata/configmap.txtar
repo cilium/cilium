@@ -1,0 +1,60 @@
+# Test the reflection of the cilium-config ConfigMap
+
+hive/start
+
+# Add cilium-config with keys foo and baz
+k8s/add cilium-config.yaml
+db/cmp cilium-configs configs1.table
+
+# Removing it removes all keys from the "cilium-config" source
+k8s/delete cilium-config.yaml
+
+# Table should be empty now
+* db/empty cilium-configs
+
+# Add the entries back
+k8s/add cilium-config.yaml
+db/cmp cilium-configs configs1.table
+
+# Update baz=quux to baz=baz
+replace 'quux' 'baz' cilium-config.yaml
+replace 'quux' 'baz' configs1.table
+k8s/update cilium-config.yaml
+db/cmp cilium-configs configs1.table
+
+# Remove the 'baz' key
+sed '^\s+baz:.*' '' cilium-config.yaml
+k8s/update cilium-config.yaml
+db/cmp cilium-configs configs2.table
+
+# Cleanup
+k8s/delete cilium-config.yaml
+
+# Table should be empty now
+* db/empty cilium-configs
+
+####
+
+-- configs1.table --
+Key   Source          Priority   Value
+baz   cilium-config   1          quux
+foo   cilium-config   1          bar
+
+-- configs2.table --
+Key   Source          Priority   Value
+foo   cilium-config   1          bar
+
+-- cilium-config.yaml --
+# Produced with:
+# kubectl get -n kube-system configmaps/cilium-config -o yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: cilium-config
+  namespace: kube-system
+data:
+  foo: bar
+  baz: quux
+ 

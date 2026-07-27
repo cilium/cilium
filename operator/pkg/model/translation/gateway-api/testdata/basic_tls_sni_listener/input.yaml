@@ -1,0 +1,18 @@
+tls_passthrough:
+- hostname: '*'
+  name: prod-web-gw
+  port: 443
+  routes:
+  - backends:
+    - name: my-service
+      namespace: default
+      port:
+        port: 8080
+    hostnames:
+    - foo.com
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1

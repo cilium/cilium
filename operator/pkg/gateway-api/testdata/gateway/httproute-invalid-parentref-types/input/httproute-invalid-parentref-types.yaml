@@ -1,0 +1,85 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-parentref-invalid-kind
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+      group: "someothergroup"
+      kind: SomeKind
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /invalid-kind
+      backendRefs:
+        - name: infra-backend-v1
+          kind: Service
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-parentref-gamma-only
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+      group: ""
+      kind: Service
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /gamma-only
+      backendRefs:
+        - name: infra-backend-v1
+          kind: Service
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: partial-valid-parentref-and-gamma-same-name
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+      group: ""
+      kind: Service
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /partial-invalid-same-name
+      backendRefs:
+        - name: infra-backend-v1
+          kind: Service
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: partial-valid-parentref-and-other-gateway
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+    - name: other-gateway
+      namespace: gateway-conformance-infra
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /partial-invalid-other-gateway
+      backendRefs:
+        - name: infra-backend-v1
+          kind: Service
+          port: 8080

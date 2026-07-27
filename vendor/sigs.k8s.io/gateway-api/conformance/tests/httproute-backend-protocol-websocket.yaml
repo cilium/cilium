@@ -1,0 +1,18 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backend-protocol-ws
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    # This points to a Service with the following ServicePort
+    # - name: third-port
+    #   appProtocol: kubernetes.io/ws
+    #   protocol: TCP
+    #   port: 8082
+    #   targetPort: 3000
+    - name: infra-backend-v1
+      port: 8082

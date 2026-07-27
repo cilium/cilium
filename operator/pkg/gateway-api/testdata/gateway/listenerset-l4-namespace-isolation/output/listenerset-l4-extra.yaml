@@ -1,0 +1,82 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: l4-extra
+  namespace: l4-listenerset-ns
+  resourceVersion: "1000"
+spec:
+  listeners:
+  - allowedRoutes:
+      kinds:
+      - kind: TCPRoute
+      namespaces:
+        from: Same
+    name: tcp-extra
+    port: 4000
+    protocol: TCP
+  - allowedRoutes:
+      kinds:
+      - kind: UDPRoute
+      namespaces:
+        from: Same
+    name: udp-extra
+    port: 4001
+    protocol: UDP
+  parentRef:
+    name: l4-namespace-isolation
+    namespace: gateway-conformance-infra
+status:
+  conditions:
+  - lastTransitionTime: "2026-06-12T01:24:17Z"
+    message: ListenerSet is accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: "2026-06-12T01:24:17Z"
+    message: ListenerSet is programmed
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Listener Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    name: tcp-extra
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TCPRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Resolved Refs
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Listener Accepted
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-06-12T01:24:17Z"
+      message: Listener Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    name: udp-extra
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: UDPRoute

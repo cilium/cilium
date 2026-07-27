@@ -1,0 +1,66 @@
+- hostname: "*"
+  name: http
+  port: 80
+  routes:
+    - backends:
+        - TLS: null
+          name: backendtlspolicy-conflicted-without-section-name-test
+          namespace: gateway-conformance-infra
+          port:
+            port: 443
+      hostnames:
+        - abc.example.com
+      path_match:
+        exact: /backendtlspolicy-conflicted-without-section-name
+      timeout: {}
+    - backends:
+        - TLS: null
+          name: backendtlspolicy-conflicted-with-section-name-test
+          namespace: gateway-conformance-infra
+          port:
+            port: 443
+      hostnames:
+        - abc.example.com
+      path_match:
+        exact: /backendtlspolicy-conflicted-with-section-name
+      timeout: {}
+    - backends:
+        - TLS:
+            CACertRef:
+              kind: ConfigMap
+              name: tls-checks-ca-certificate
+              namespace: gateway-conformance-infra
+              version: v1
+            SNI: other.example.com
+          name: backendtlspolicy-not-conflicted-test
+          namespace: gateway-conformance-infra
+          port:
+            port: 443
+      hostnames:
+        - abc.example.com
+      path_match:
+        exact: /backendtlspolicy-not-conflicted-with-section-name
+      timeout: {}
+    - backends:
+        - TLS:
+            CACertRef:
+              kind: ConfigMap
+              name: tls-checks-ca-certificate
+              namespace: gateway-conformance-infra
+              version: v1
+            SNI: abc.example.com
+          name: backendtlspolicy-not-conflicted-test
+          namespace: gateway-conformance-infra
+          port:
+            port: 8443
+      hostnames:
+        - abc.example.com
+      path_match:
+        exact: /backendtlspolicy-not-conflicted-without-section-name
+      timeout: {}
+  sources:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: same-namespace
+      namespace: gateway-conformance-infra
+      version: v1

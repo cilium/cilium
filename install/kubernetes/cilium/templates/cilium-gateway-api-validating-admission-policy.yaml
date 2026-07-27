@@ -1,0 +1,44 @@
+{{- if .Values.gatewayAPI.enabled -}}
+{{- if ( or (eq (.Values.gatewayAPI.gatewayClass.create | toString) "true") (and (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1/GatewayClass") (eq (.Values.gatewayAPI.gatewayClass.create | toString) "auto"))) }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: gateway.cilium.io
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["gateway.networking.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["gateways"]
+  validations:
+    - expression: "object.spec.gatewayClassName != 'cilium' ||
+        (has(object.spec.listeners)) &&
+        object.spec.listeners.filter(e, has(e.tls) && has(e.tls.mode) && e.tls.mode == 'Terminate').all(e, e.tls.certificateRefs.size() == 1)"
+      message: "cilium GatewayClass requires exactly one certificateRef per listener when tls.mode is Terminate."
+      reason: Invalid
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: gateway.cilium.io
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  policyName: gateway.cilium.io
+  validationActions: [Deny]
+  matchResources:
+    resourceRules:
+      - apiGroups: ["gateway.networking.k8s.io"]
+        apiVersions: ["v1"]
+        resources: ["gateways"]
+        operations: ["CREATE", "UPDATE"]
+{{- end}}
+{{- end}}

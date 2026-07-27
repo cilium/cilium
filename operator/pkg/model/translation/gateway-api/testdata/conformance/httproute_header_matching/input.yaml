@@ -1,0 +1,91 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - key: version
+      match:
+        exact: one
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - key: version
+      match:
+        exact: two
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - key: version
+      match:
+        exact: two
+    - key: color
+      match:
+        exact: orange
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - key: color
+      match:
+        exact: blue
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - key: color
+      match:
+        exact: green
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - key: color
+      match:
+        exact: red
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - key: color
+      match:
+        exact: yellow
+    path_match: {}
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1

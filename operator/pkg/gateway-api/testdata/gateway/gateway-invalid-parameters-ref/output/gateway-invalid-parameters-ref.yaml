@@ -1,0 +1,30 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: gateway-invalid-parameters-ref
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: "cilium"
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+  infrastructure:
+    parametersRef:
+      group: invalid.io
+      kind: InvalidParameters
+      name: invalid
+status:
+  conditions:
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: 'Invalid Gateway parameters: spec.infrastructure.parametersRef is not supported'
+      reason: InvalidParameters
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Waiting for Accepted condition to be True
+      reason: Pending
+      status: "Unknown"
+      type: Programmed

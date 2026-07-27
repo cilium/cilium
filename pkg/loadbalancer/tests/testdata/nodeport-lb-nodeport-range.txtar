@@ -1,0 +1,182 @@
+#! --lb-test-fault-probability=0.0
+# Regression test for issue #44730: writer-level guard preventing LoadBalancer/ExternalIP
+# frontends from using a node address in the NodePort range.
+#
+# When a LoadBalancer service is assigned a node IP as its external IP (e.g. via
+# Node-IPAM or k3s/RKE2 L2 ServiceLB) AND the service port falls in the NodePort
+# range, NodePort expansion would be suppressed at that address. After the LB is
+# removed, the NodePort service would become unreachable for ~30 min (one prune cycle).
+#
+# This test verifies that the writer rejects the conflicting LoadBalancer frontend,
+# keeping the NodePort entry intact throughout.
+
+# Add a node address. This same IP will be attempted as the LoadBalancer external IP.
+db/insert node-addresses addrv4.yaml
+db/cmp node-addresses nodeaddrs.table
+
+hive start
+
+# Add a NodePort service. The NodePort 30781 will be expanded to 1.1.1.1:30781/TCP.
+k8s/add nodeport-service.yaml nodeport-endpointslice.yaml
+* db/cmp frontends frontends_nodeport.table
+
+# Verify initial BPF state: 1.1.1.1:30781/TCP must be FLAGS=NodePort.
+lb/maps-dump lbmaps.actual
+grep '1.1.1.1:30781.*FLAGS=NodePort' lbmaps.actual
+
+# Add a LoadBalancer service with external IP 1.1.1.1 and port 30781 (NodePort range).
+# The writer must skip the LoadBalancer frontend at 1.1.1.1:30781/TCP to avoid
+# suppressing NodePort expansion at that address.
+k8s/add lb-service.yaml lb-endpointslice.yaml
+
+# Wait for the lb service's ClusterIP frontend to appear; the LoadBalancer frontend
+# at 1.1.1.1:30781/TCP must NOT appear (it was rejected by the writer guard).
+* db/cmp frontends frontends_with_lb.table
+
+# 1.1.1.1:30781/TCP must still be NodePort, not overwritten by the LoadBalancer.
+lb/maps-dump lbmaps.actual
+grep 'FLAGS=NodePort$' lbmaps.actual
+! grep '1.1.1.1:30781.*FLAGS=LoadBalancer' lbmaps.actual
+
+# Delete the LoadBalancer service. The NodePort entry at 1.1.1.1:30781/TCP must
+# remain immediately — no ~30-minute prune gap.
+k8s/delete lb-service.yaml lb-endpointslice.yaml
+* db/cmp frontends frontends_nodeport.table
+
+lb/maps-dump lbmaps.actual
+grep 'FLAGS=NodePort$' lbmaps.actual
+
+# Cleanup
+k8s/delete nodeport-service.yaml nodeport-endpointslice.yaml
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: eth0
+
+-- nodeaddrs.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    eth0
+
+-- frontends_nodeport.table --
+Address               Type        ServiceName   PortName   Backends            Status
+0.0.0.0:30781/TCP     NodePort    test/echo     http       10.244.1.1:80/TCP   Done
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP   Done
+
+-- frontends_with_lb.table --
+Address                Type        ServiceName   PortName   Backends              Status
+0.0.0.0:30781/TCP      NodePort    test/echo     http       10.244.1.1:80/TCP     Done
+10.96.50.104:80/TCP    ClusterIP   test/echo     http       10.244.1.1:80/TCP     Done
+10.96.50.201:30781/TCP ClusterIP   test/lb       http       10.244.1.2:30781/TCP  Done
+
+-- nodeport-service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}
+
+-- nodeport-endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- lb-service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: lb
+  namespace: test
+  resourceVersion: "742"
+  uid: b49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.201
+  clusterIPs:
+  - 10.96.50.201
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 30781
+    protocol: TCP
+    targetPort: 30781
+  selector:
+    name: lb
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 1.1.1.1
+
+-- lb-endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: lb
+  name: lb-kvlm2
+  namespace: test
+  uid: e1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 30781
+  protocol: TCP
+

@@ -1,0 +1,25 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: UDPRoute
+metadata:
+  name: udp-route
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: host-networking
+      namespace: gateway-conformance-infra
+  rules:
+    - backendRefs:
+        - name: udp-backend-host-networking
+          port: 22
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: host-networking
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: udp
+      port: 22
+      protocol: UDP

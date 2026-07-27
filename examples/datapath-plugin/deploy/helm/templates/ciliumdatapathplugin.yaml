@@ -1,0 +1,8 @@
+apiVersion: cilium.io/v2alpha1
+kind: CiliumDatapathPlugin
+metadata:
+  name: example
+spec:
+  attachmentPolicy: Always
+  version: 0.0.1
+

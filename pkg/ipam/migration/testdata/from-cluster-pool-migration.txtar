@@ -1,0 +1,307 @@
+# Validate agent-side migration from cluster-pool to multi-pool IPAM.
+#
+# The CiliumNode is already migrated by the operator before the agent starts:
+# it has an allocated CIDR in spec.ipam.pools.allocated and no requests yet.
+
+k8s/add default-pool.yaml
+k8s/add migrated-cilium-node.yaml
+
+hive start
+
+# Simulate the startup IPAM sequence of the daemon, including endpoints restoration
+# with endpoints coming from the previous cluster-pool IPAM mode
+ipam/start
+ipam/restore-endpoint 10.0.0.2 restored-endpoint-1
+ipam/restore-endpoint fd00::2 restored-endpoint-1
+ipam/restore-endpoint 10.0.0.3 restored-endpoint-2
+ipam/restore-endpoint fd00::3 restored-endpoint-2
+ipam/restore-endpoint 10.0.0.4 restored-endpoint-3
+ipam/restore-endpoint fd00::4 restored-endpoint-3
+ipam/restore-finished
+
+# Wait for the agent to sync the restored endpoints demand to the CiliumNode.
+k8s/get cilium.io.v2.ciliumnodes test-node -o actual.yaml
+* cmp expected-cilium-node.yaml actual.yaml
+
+# Simulate CNI ADD calls for new pods. The restored endpoints plus six new pod
+# allocations increase the default pool demand from 16 to 24.
+ipam/allocate pod-1
+ipam/allocate pod-2
+ipam/allocate pod-3
+ipam/allocate pod-4
+ipam/allocate pod-5
+ipam/allocate pod-6
+
+# Wait for the agent to sync the increased demand to the CiliumNode.
+k8s/get cilium.io.v2.ciliumnodes test-node -o actual-after-pods.yaml
+* cmp expected-after-pods-cilium-node.yaml actual-after-pods.yaml
+
+# Simulate the operator fulfilling the increased demand with another CIDR.
+k8s/update operator-expanded-cilium-node.yaml
+
+# Validate that the newly allocated CIDR is present in the CiliumNode.
+k8s/get cilium.io.v2.ciliumnodes test-node -o actual-after-operator.yaml
+* cmp expected-after-operator-cilium-node.yaml actual-after-operator.yaml
+
+# Continue allocating pod IPs after the operator handed out the second /28 and /124.
+# The sixth allocation in this block requires the newly allocated CIDR (the
+# /28 and /124 CIDRs give the agent 14 available addresses since the first and the
+# last one are not allowed).
+ipam/allocate post-operator-pod-1
+ipam/allocate post-operator-pod-2
+ipam/allocate post-operator-pod-3
+ipam/allocate post-operator-pod-4
+ipam/allocate post-operator-pod-5
+
+# Wait until the IPAM manager has observed the additional CIDR.
+* ipam/allocate post-operator-pod-6
+
+# Keep allocating to prove demand still increases after the new CIDR is used.
+ipam/allocate post-operator-pod-7
+ipam/allocate post-operator-pod-8
+
+# Wait for the agent to sync the post-operator pod allocations.
+k8s/get cilium.io.v2.ciliumnodes test-node -o actual-after-more-pods.yaml
+* cmp expected-after-more-pods-cilium-node.yaml actual-after-more-pods.yaml
+
+# Validate multi-pool internal status.
+ipam/dump actual-ipam-dump.json
+cmp expected-ipam-dump.json actual-ipam-dump.json
+
+hive stop
+
+-- migrated-cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+  labels:
+    kubernetes.io/hostname: test-node
+spec:
+  ipam:
+    pools:
+      allocated:
+      - pool: default
+        cidrs:
+        - 10.0.0.0/28
+        - fd00::/124
+      requested: []
+-- default-pool.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: default
+spec:
+  ipv4:
+    cidrs:
+    - 10.0.0.0/16
+    maskSize: 28
+  ipv6:
+    cidrs:
+    - fd00::/112
+    maskSize: 124
+-- expected-cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node
+  name: test-node
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.0.0.0/28
+        - fd00::/124
+        pool: default
+      requested:
+      - needed:
+          ipv4-addrs: 16
+          ipv6-addrs: 16
+        pool: default
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- expected-after-pods-cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node
+  name: test-node
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.0.0.0/28
+        - fd00::/124
+        pool: default
+      requested:
+      - needed:
+          ipv4-addrs: 24
+          ipv6-addrs: 24
+        pool: default
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- operator-expanded-cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+  labels:
+    kubernetes.io/hostname: test-node
+spec:
+  ipam:
+    pools:
+      allocated:
+      - pool: default
+        cidrs:
+        - 10.0.0.0/28
+        - 10.0.0.16/28
+        - fd00::/124
+        - fd00::10/124
+      requested:
+      - pool: default
+        needed:
+          ipv4-addrs: 24
+          ipv6-addrs: 24
+-- expected-after-operator-cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node
+  name: test-node
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.0.0.0/28
+        - 10.0.0.16/28
+        - fd00::/124
+        - fd00::10/124
+        pool: default
+      requested:
+      - needed:
+          ipv4-addrs: 24
+          ipv6-addrs: 24
+        pool: default
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- expected-after-more-pods-cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node
+  name: test-node
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools:
+      allocated:
+      - cidrs:
+        - 10.0.0.0/28
+        - 10.0.0.16/28
+        - fd00::/124
+        - fd00::10/124
+        pool: default
+      requested:
+      - needed:
+          ipv4-addrs: 32
+          ipv6-addrs: 32
+        pool: default
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- expected-ipam-dump.json --
+{
+  "ipv4": {
+    "pools": {
+      "default": 17
+    },
+    "owners": [
+      "pod-1",
+      "pod-2",
+      "pod-3",
+      "pod-4",
+      "pod-5",
+      "pod-6",
+      "post-operator-pod-1",
+      "post-operator-pod-2",
+      "post-operator-pod-3",
+      "post-operator-pod-4",
+      "post-operator-pod-5",
+      "post-operator-pod-6",
+      "post-operator-pod-7",
+      "post-operator-pod-8",
+      "restored-endpoint-1",
+      "restored-endpoint-2",
+      "restored-endpoint-3"
+    ]
+  },
+  "ipv6": {
+    "pools": {
+      "default": 17
+    },
+    "owners": [
+      "pod-1",
+      "pod-2",
+      "pod-3",
+      "pod-4",
+      "pod-5",
+      "pod-6",
+      "post-operator-pod-1",
+      "post-operator-pod-2",
+      "post-operator-pod-3",
+      "post-operator-pod-4",
+      "post-operator-pod-5",
+      "post-operator-pod-6",
+      "post-operator-pod-7",
+      "post-operator-pod-8",
+      "restored-endpoint-1",
+      "restored-endpoint-2",
+      "restored-endpoint-3"
+    ]
+  }
+}

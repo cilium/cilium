@@ -1,0 +1,49 @@
+name: Failing Test
+description: Report test failures in Cilium CI jobs
+title: "CI: "
+labels: ["area/CI", "ci/flake"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a CI test failure! Please fill out the fields below so we can track and fix flaky or broken tests.
+  - type: input
+    id: test-name
+    attributes:
+      label: Test Name
+      description: Name of the failing test.
+      placeholder: "e.g. K8sDatapathServicesTest/..."
+    validations:
+      required: true
+  - type: textarea
+    id: test-output
+    attributes:
+      label: Test Failure Output
+      description: Copy-paste the output of the test failure.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: ci-link
+    attributes:
+      label: CI Build Link
+      description: Link to the CI build where the test failure occurred.
+      placeholder: "https://github.com/cilium/cilium/actions/runs/..."
+    validations:
+      required: true
+  - type: textarea
+    id: relevant-logs
+    attributes:
+      label: Relevant Log Output
+      description: Include any additional log output that may be relevant (to ease GitHub searches).
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: sysdump
+    attributes:
+      label: Sysdump / Zip File
+      description: Upload the zip file generated from the test failure.
+      placeholder: Drag and drop the zip file here.
+    validations:
+      required: false

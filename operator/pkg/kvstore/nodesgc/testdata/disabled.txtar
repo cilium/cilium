@@ -1,0 +1,42 @@
+#! --cluster-name=foo --synchronize-k8s-nodes=false
+
+# Initialize the kvstore state with a bunch of nodes.
+kvstore/update cilium/state/nodes/v1/foo/node-1 node-1.json
+kvstore/update cilium/state/nodes/v1/foo/node-2 node-2.json
+kvstore/update cilium/state/nodes/v1/foo/node-3 node-3.json
+
+# Initialize the kubernetes state with a bunch of CiliumNodes.
+k8s/add cilium-node-1.yaml
+
+hive/start
+
+# Wait for a little bit for things to settle.
+sleep 500ms
+
+# Assert that nothing got touched, as GC is disabled.
+kvstore/list --keys-only cilium/state/nodes keys.actual
+cmp keys.actual keys.expected
+
+###
+
+-- node-1.json --
+{ "cluster": "foo", "name": "node-1" }
+
+-- node-2.json --
+{ "cluster": "foo", "name": "node-2" }
+
+-- node-3.json --
+{ "cluster": "foo", "name": "node-3" }
+
+
+-- cilium-node-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-1
+
+
+-- keys.expected --
+# cilium/state/nodes/v1/foo/node-1
+# cilium/state/nodes/v1/foo/node-2
+# cilium/state/nodes/v1/foo/node-3

@@ -1,0 +1,197 @@
+name: Create EKS nodegroup
+description: Create EKS nodegroup
+inputs:
+  cluster_name:
+    description: ''
+    required: true
+  region:
+    description: ''
+    required: true
+  owner:
+    description: ''
+    required: true
+  version:
+    description: ''
+    required: false
+    default: ''
+  spot:
+    description: ''
+    required: false
+    default: 'true'
+  node_groups_override:
+    description: 'Full "managedNodeGroups" YAML block to create node groups'
+    required: false
+    default: ''
+  timeout:
+    description: 'eksctl create nodegroup timeout (e.g. 15m). If empty, no --timeout flag is passed.'
+    required: false
+    default: ''
+  nodes_without_cilium:
+    description: 'How many nodes will not run Cilium'
+    required: false
+    default: 0
+  az_cluster:
+    description: 'Availability zone of nodes belonging to the cluster'
+    required: false
+  az_external:
+    description: 'Availability zone of nodes without Cilium'
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Create nodegroup details
+      if: ${{ inputs.node_groups_override == '' }}
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.az_external }}" ]; then
+          SUBNET_IDS=$(aws eks describe-cluster \
+            --name ${{ inputs.cluster_name }} \
+            --region ${{ inputs.region }} \
+            --query 'cluster.resourcesVpcConfig.subnetIds' \
+            --output text)
+          SUBNET=$(aws ec2 describe-subnets \
+            --region ${{ inputs.region }} \
+            --subnet-ids $SUBNET_IDS \
+            --filters "Name=availability-zone,Values=${{ inputs.az_external }}" \
+            --query 'Subnets[0].SubnetId' \
+            --output text)
+        fi
+
+        cat <<EOF > nodegroup-details.yaml
+        managedNodeGroups:
+        - name: ng-amd64
+          instanceTypes:
+           - t3a.medium
+        EOF
+        if [ -n "${{ inputs.az_cluster }}" ]; then
+          cat <<EOF >> nodegroup-details.yaml
+          availabilityZones:
+          - ${{ inputs.az_cluster }}
+        EOF
+        fi
+        cat <<EOF >> nodegroup-details.yaml
+          desiredCapacity: 2
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 25
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+        - name: ng-amd64-external
+          instanceTypes:
+           - t3a.medium
+          desiredCapacity: ${{ inputs.nodes_without_cilium }}
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 25
+        EOF
+        if [ -n "${{ inputs.az_external }}" ]; then
+          cat <<EOF >> nodegroup-details.yaml
+          subnets:
+           - $SUBNET
+        EOF
+        fi
+        cat <<EOF >> nodegroup-details.yaml
+          taints:
+           - key: "cilium.io/no-schedule"
+             value: "true"
+             effect: "NoSchedule"
+          labels:
+            cilium.io/no-schedule: "true"
+          # Manually inject a dummy CNI configuration to let the Kubelet turn
+          # ready. This is necessary as otherwise the node creation would
+          # never complete, given that Cilium is intentionally not scheduled
+          # on these nodes.
+          preBootstrapCommands:
+           - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
+        - name: ng-arm64
+          instanceTypes:
+           - t4g.medium
+        EOF
+        if [ -n "${{ inputs.az_cluster }}" ]; then
+          cat <<EOF >> nodegroup-details.yaml
+          availabilityZones:
+          - ${{ inputs.az_cluster }}
+        EOF
+        fi
+        cat <<EOF >> nodegroup-details.yaml
+          desiredCapacity: 1
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 25
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+        EOF
+
+    - name: Create nodegroup details from provided configuration
+      if: ${{ inputs.node_groups_override != '' }}
+      shell: bash
+      run: |
+        cat <<EOF > nodegroup-details.yaml
+        ${{ inputs.node_groups_override }}
+        EOF
+
+        if [ "$(yq 'has("managedNodeGroups")' nodegroup-details.yaml)" != "true" ] \
+          || [ "$(yq '.managedNodeGroups | length' nodegroup-details.yaml)" == "0" ]; then
+          echo "node_groups_override must contain a non-empty 'managedNodeGroups' array"
+          exit 1
+        fi
+
+    - name: Create EKS nodegroup
+      shell: bash
+      run: |
+        cat <<EOF > eks-nodegroups.yaml
+        apiVersion: eksctl.io/v1alpha5
+        kind: ClusterConfig
+
+        metadata:
+          name: ${{ inputs.cluster_name }}
+          region: ${{ inputs.region }}
+          version: "${{ inputs.version }}"
+          tags:
+           usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
+           owner: "${{ inputs.owner }}"
+
+        EOF
+
+        cat ./nodegroup-details.yaml >> ./eks-nodegroups.yaml
+
+        TIMEOUT_ARG=""
+        if [ -n "${{ inputs.timeout }}" ]; then
+          TIMEOUT_ARG="--timeout=${{ inputs.timeout }}"
+        fi
+
+        eksctl create nodegroup -f ./eks-nodegroups.yaml ${TIMEOUT_ARG}
+
+    - name: Dump nodegroup CloudFormation failure events
+      if: failure()
+      shell: bash
+      run: |
+        # When a managed nodegroup fails to create, eksctl only prints
+        # "waiter state transitioned to Failure" and exits, so the actual
+        # cause (capacity, subnet, IAM, bootstrap) never reaches the logs.
+        # Dump the failed CloudFormation resource events, which carry the
+        # ResourceStatusReason, so the next occurrence is diagnosable.
+        STACKS=$(aws cloudformation list-stacks \
+          --region ${{ inputs.region }} \
+          --query "StackSummaries[?starts_with(StackName, 'eksctl-${{ inputs.cluster_name }}-nodegroup-')].StackName" \
+          --output text 2>/dev/null || true)
+        if [ -z "$STACKS" ]; then
+          echo "No eksctl nodegroup stacks found for cluster ${{ inputs.cluster_name }}."
+          exit 0
+        fi
+        for stack in $STACKS; do
+          echo "::group::CloudFormation failure events for $stack"
+          aws cloudformation describe-stack-events \
+            --region ${{ inputs.region }} \
+            --stack-name "$stack" \
+            --query "StackEvents[?contains(ResourceStatus, 'FAILED')].{Time:Timestamp,Resource:LogicalResourceId,Type:ResourceType,Status:ResourceStatus,Reason:ResourceStatusReason}" \
+            --output table 2>&1 || true
+          echo "::endgroup::"
+        done

@@ -1,0 +1,180 @@
+
+# Test history against the state inserted in [cmd_test.go].
+health/history --output=history
+cmp history.expected.txt history
+
+# From here on test the 'health' command with direct modifications
+# to health table.
+# Health not OK as there's a non-closed degraded entry
+! health/ok 
+db/insert health allok.yaml
+
+# Should be all ok
+* health/ok
+
+db/insert health degraded.yaml
+
+# Adding degraded module should fail
+!* health/ok
+
+db/insert health module1.yaml
+
+# Check output
+health --output=out
+sed ' \(.*\)' '' out
+cmp all.expected.txt out
+
+health --output=out agent.m0
+sed ' \(.*\)' '' out
+cmp m0.expected.txt out
+
+health --output=out --match=c1 agent.m0
+sed ' \(.*\)' '' out
+cmp m0.c1.expected.txt out
+
+health --output=out --levels=degraded 
+sed ' \(.*\)' '' out
+cmp degraded.expected.txt out
+
+health --output=out --levels=degraded,stopped
+sed ' \(.*\)' '' out
+cmp degraded-stopped.expected.txt out
+
+# Inserting a new root will show two trees
+db/insert health foo.yaml
+health --output=out
+sed ' \(.*\)' '' out
+cmp foo.expected.txt out
+
+-- allok.yaml --
+id:
+    module:
+        - agent
+        - m2
+    component:
+        - degraded
+level: OK
+message: ok
+error: ""
+lastok: 2025-04-01T21:28:00.000000000-07:00
+updated: 2025-04-01T21:28:00.000000000-07:00
+stopped: 0001-01-01T00:00:00Z
+final: ""
+count: 1
+-- degraded.yaml --
+id:
+    module:
+        - agent
+        - m0
+    component:
+        - c1
+level: Degraded 
+message: no! 
+error: "err"
+lastok: 2025-04-01T21:28:00.000000000-07:00
+updated: 2025-04-01T21:28:00.000000000-07:00
+stopped: 0001-01-01T00:00:00Z
+final: ""
+count: 1
+-- degraded.txt --
+agent
+└── m0
+    ├── c0                                          [OK] ok (2m27s, x1)
+    └── c1                                          [DEGRADED] no! (2m27s, x1)
+
+-- ok.yaml --
+agent
+└── m0
+    └── c0                                          [OK] ok (3m14s, x1)
+-- module1.yaml --
+id:
+    module:
+        - agent
+        - m1
+    component:
+        - c1
+level: OK
+message: yay
+error: ""
+lastok: 2025-04-01T21:28:00.000000000-07:00
+updated: 2025-04-01T21:28:00.000000000-07:00
+stopped: 0001-01-01T00:00:00Z
+final: ""
+count: 1
+
+-- foo.yaml --
+id:
+    module:
+        - foo
+    component:
+        - c1
+level: OK 
+message: yay 
+error: ""
+lastok: 2025-04-01T21:28:00.000000000-07:00
+updated: 2025-04-01T21:28:00.000000000-07:00
+stopped: 0001-01-01T00:00:00Z
+final: ""
+count: 1
+
+-- all.expected.txt --
+Modules Health:	Stopped(1) Degraded(1) OK(3)
+agent
+├── m0
+│   ├── c0                                          [OK] ok
+│   └── c1                                          [DEGRADED] no!
+├── m1
+│   └── c1                                          [OK] yay
+├── m2
+│   └── degraded                                    [OK] ok
+└── m4
+    └── stopped                                     [STOPPED] ok
+
+-- m0.expected.txt --
+Modules Health:	Stopped(0) Degraded(1) OK(1)
+agent
+└── m0
+    ├── c0                                          [OK] ok
+    └── c1                                          [DEGRADED] no!
+
+-- m0.c1.expected.txt --
+Modules Health:	Stopped(0) Degraded(1) OK(0)
+agent
+└── m0
+    └── c1                                          [DEGRADED] no!
+
+-- degraded.expected.txt --
+Modules Health:	Stopped(0) Degraded(1) OK(0)
+agent
+└── m0
+    └── c1                                          [DEGRADED] no!
+
+-- degraded-stopped.expected.txt --
+Modules Health:	Stopped(1) Degraded(1) OK(0)
+agent
+├── m0
+│   └── c1                                          [DEGRADED] no!
+└── m4
+    └── stopped                                     [STOPPED] ok
+
+-- foo.expected.txt --
+Modules Health:	Stopped(1) Degraded(1) OK(4)
+agent
+├── m0
+│   ├── c0                                          [OK] ok
+│   └── c1                                          [DEGRADED] no!
+├── m1
+│   └── c1                                          [OK] yay
+├── m2
+│   └── degraded                                    [OK] ok
+└── m4
+    └── stopped                                     [STOPPED] ok
+foo
+└── c1                                          [OK] yay
+
+-- history.expected.txt --
+1970-01-01T00:00:01Z | Degraded         | agent.m2.degraded-closed: broken | err2
+1970-01-01T00:00:01Z | Closed(Degraded) | agent.m2.degraded-closed: broken | err2
+1970-01-01T00:00:01Z | Degraded         | agent.m2.degraded: broken | err2
+1970-01-01T00:00:01Z | Closed(OK)       | agent.m3.done: finished
+1970-01-01T00:00:01Z | Stopped          | agent.m4.stopped: now stopped

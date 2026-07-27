@@ -1,0 +1,33 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: serviceimport
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /serviceimport
+      backendRefs:
+        - name: serviceimport-backend
+          namespace: gateway-conformance-infra
+          group: multicluster.x-k8s.io
+          kind: ServiceImport
+          port: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: serviceimport-backend
+  namespace: gateway-conformance-infra
+spec:
+  ports:
+    - name: first-port
+      protocol: TCP
+      port: 8080
+      targetPort: 3000

@@ -1,0 +1,145 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    https://docs.cilium.io
+
+.. _argocd_issues:
+
+********************************************
+Troubleshooting Cilium deployed with Argo CD
+********************************************
+
+There have been reports from users hitting issues with Argo CD. This documentation 
+page outlines some of the known issues and their solutions.
+
+Argo CD deletes Cilium custom resources
+=======================================
+
+When deploying Cilium with Argo CD, some users have reported that Cilium-generated custom resources disappear,
+causing the following issues:
+
+- ``ciliumid`` not found (:gh-issue:`17614`)
+
+Solution
+--------
+
+To prevent this issue, declare resource exclusions in the Argo CD ``ConfigMap`` by following `these instructions <https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#resource-exclusioninclusion>`__.
+
+Here is an example snippet:
+
+.. code-block:: yaml
+
+    resource.exclusions: |
+     - apiGroups:
+         - cilium.io
+       kinds:
+         - CiliumIdentity
+       clusters:
+         - "*"
+
+Argo CD show resources permanently out-of-sync
+==============================================
+
+- Argo CD Out-of-sync issues for hubble-generate-certs (:gh-issue:`14550`)
+- Out-of-sync issues for Cilium using Argo CD (:gh-issue:`18298`)
+
+Solution
+--------
+
+You may pick one of the following approaches.
+
+The ``argocd.argoproj.io/compare-options: IgnoreExtraneous`` annotation can be added to resources, which use non-idempotent helm generators to avoid this issue.
+The helm value ``nonIdempotentAnnotations`` is available for the purpose and can be set in your values file.
+
+.. code-block:: yaml
+
+    nonIdempotentAnnotations:
+      argocd.argoproj.io/compare-options: IgnoreExtraneous
+
+Exclusions can be set in your Argo CD application definition to avoid getting “out of sync” when certificates get regenerated.
+The example below is for Hubble, similar secrets exist however for clustermesh as well. They are all labeled with ``cilium.io/helm-template-non-idempotent: "true"``.
+
+.. code-block:: yaml
+
+    ignoreDifferences:
+      - group: ""
+        kind: ConfigMap
+        name: hubble-ca-cert
+        jsonPointers:
+        - /data/ca.crt
+      - group: ""
+        kind: Secret
+        name: hubble-relay-client-certs
+        jsonPointers:
+        - /data/ca.crt
+        - /data/tls.crt
+        - /data/tls.key
+      - group: ""
+        kind: Secret
+        name: hubble-server-certs
+        jsonPointers:
+        - /data/ca.crt
+        - /data/tls.crt
+        - /data/tls.key
+
+
+.. note::
+    After applying the above configurations, for the settings to take effect, you will need to restart the Argo CD deployments.
+
+Helm template with serviceMonitor enabled fails
+===============================================
+
+Some users have reported that when they install Cilium using Argo CD and run ``helm template`` with ``serviceMonitor`` enabled, it fails.
+It fails because Argo CD CLI doesn't pass the ``--api-versions`` flag to Helm upon deployment.
+
+Solution
+--------
+
+This `pull request <https://github.com/argoproj/argo-cd/pull/8371>`__ fixed this issue in Argo CD's `v2.3.0 release <https://github.com/argoproj/argo-cd/releases/tag/v2.3.0>`__.
+Upgrade your Argo CD and check if ``helm template`` with ``serviceMonitor`` enabled still fails.
+
+.. note::
+
+    When using ``helm template``, it is highly recommended you set
+    ``--kube-version`` and ``--api-versions`` with the values matching your
+    target Kubernetes cluster. Helm charts such as Cilium's often conditionally
+    enable certain Kubernetes features based on their availability (beta vs
+    stable) on the target cluster.
+
+    By specifying ``--api-versions=monitoring.coreos.com/v1`` you should be
+    able to pass validation with ``helm template``.
+
+If you have an issue with Argo CD that's not outlined above, check this `list
+of Argo CD related issues on GitHub
+<https://github.com/cilium/cilium/issues?q=is%3Aissue+argocd>`__.
+If you can't find an issue that relates to yours, create one and/or seek help
+on `Cilium Slack`_.
+
+Application chart for Cilium deployed to Talos Linux fails with: field not declared in schema
+=============================================================================================
+
+When deploying Cilium to Talos Linux with ArgoCD, some users have reported
+issues due to Talos Security configuration. ArgoCD may fail to deploy the
+application with the message::
+
+    Failed to compare desired state to live state: failed to calculate diff:
+    error calculating structured merge diff: error building typed value from live
+    resource: .spec.template.spec.securityContext.appArmorProfile: field not
+    declared in schema
+
+Solution
+--------
+
+Add option ``ServerSideApply=true`` to list ``syncPolicy.syncOptions`` for the Application.
+
+.. code-block:: yaml
+
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    spec:
+      syncPolicy:
+        syncOptions:
+        - ServerSideApply=true
+
+Visit the `ArgoCD documentation <https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#server-side-apply>`__ for further details.

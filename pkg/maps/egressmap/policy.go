@@ -1,0 +1,589 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package egressmap
+
+import (
+	"fmt"
+	"log/slog"
+	"net/netip"
+	"unsafe"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
+	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/types"
+)
+
+const (
+	PolicyMapName4   = "cilium_egress_gw_policy_v4"
+	PolicyMapName4V2 = "cilium_egress_gw_policy_v4_v2"
+	PolicyMapName6   = "cilium_egress_gw_policy_v6"
+	// PolicyStaticPrefixBits4 represents the size in bits of the static
+	// prefix part of an egress policy key (i.e. the source IP).
+	PolicyStaticPrefixBits4 = uint32(unsafe.Sizeof(types.IPv4{}) * 8)
+	PolicyStaticPrefixBits6 = uint32(unsafe.Sizeof(types.IPv6{}) * 8)
+)
+
+// EgressPolicyKey4 is the key of an egress policy map.
+type EgressPolicyKey4 struct {
+	// PrefixLen is full 32 bits of SourceIP + DestCIDR's mask bits
+	PrefixLen uint32 `align:"lpm_key"`
+
+	SourceIP types.IPv4 `align:"saddr"`
+	DestCIDR types.IPv4 `align:"daddr"`
+}
+
+// EgressPolicyVal4 is the value of an egress policy map.
+type EgressPolicyVal4 struct {
+	EgressIP  types.IPv4 `align:"egress_ip"`
+	GatewayIP types.IPv4 `align:"gateway_ip"`
+}
+
+type EgressPolicyVal4V2 struct {
+	EgressIP      types.IPv4 `align:"egress_ip"`
+	GatewayIP     types.IPv4 `align:"gateway_ip"`
+	Reserved      [3]uint32  `align:"reserved"`
+	EgressIfindex uint32     `align:"egress_ifindex"`
+	Reserved2     uint32     `align:"reserved2"`
+}
+
+// EgressPolicyKey6 is the key of an egress policy map.
+type EgressPolicyKey6 struct {
+	// PrefixLen is full 32 bits of SourceIP + DestCIDR's mask bits
+	PrefixLen uint32 `align:"lpm_key"`
+
+	SourceIP types.IPv6 `align:"saddr"`
+	DestCIDR types.IPv6 `align:"daddr"`
+}
+
+// EgressPolicyVal6 is the value of an egress policy map.
+type EgressPolicyVal6 struct {
+	EgressIP      types.IPv6 `align:"egress_ip"`
+	GatewayIP     types.IPv4 `align:"gateway_ip"`
+	Reserved      [3]uint32  `align:"reserved"`
+	EgressIfindex uint32     `align:"egress_ifindex"`
+	Reserved2     uint32     `align:"reserved2"`
+}
+
+type PolicyConfig struct {
+	// EgressGatewayPolicyMapMax is the maximum number of entries
+	// allowed in the BPF egress gateway policy map.
+	EgressGatewayPolicyMapMax int
+}
+
+var DefaultPolicyConfig = PolicyConfig{
+	EgressGatewayPolicyMapMax: 1 << 14,
+}
+
+func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
+	flags.Int("egress-gateway-policy-map-max", def.EgressGatewayPolicyMapMax, "Maximum number of entries in egress gateway policy map")
+}
+
+// PolicyMap4 is used to communicate ipv4 EGW policies to the datapath.
+type PolicyMap4 interface {
+	Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error)
+	Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP netip.Addr, gatewayIP netip.Addr) error
+	Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error
+	IterateWithCallback(EgressPolicyIterateCallback) error
+}
+type PolicyMap4V2 interface {
+	Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4V2, error)
+	Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP netip.Addr, gatewayIP netip.Addr, egressIfindex uint32) error
+	Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error
+	IterateWithCallback(EgressPolicyIterateCallbackV2) error
+}
+
+// PolicyMap6 is used to communicate ipv6 EGW policies to the datapath.
+type PolicyMap6 interface {
+	Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal6, error)
+	Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP netip.Addr, gatewayIP netip.Addr, egressIfindex uint32) error
+	Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error
+	IterateWithCallback(EgressPolicyIterateCallback6) error
+}
+
+// policyMap is the internal representation of an egress policy map.
+type policyMap4 struct {
+	m *bpf.Map
+}
+
+type policyMap4V2 struct {
+	m *bpf.Map
+}
+
+type policyMap6 struct {
+	m *bpf.Map
+}
+
+func createPolicyMapFromDaemonConfig(in struct {
+	cell.In
+
+	Lifecycle cell.Lifecycle
+	*option.DaemonConfig
+	PolicyConfig
+	MetricsRegistry *metrics.Registry
+}) (out struct {
+	cell.Out
+
+	IPv4Map   bpf.MapOut[PolicyMap4]
+	IPv4MapV2 bpf.MapOut[PolicyMap4V2]
+	IPv6Map   bpf.MapOut[PolicyMap6]
+	defines.NodeOut
+}) {
+	out.NodeDefines = map[string]string{
+		"EGRESS_POLICY_MAP_SIZE": fmt.Sprint(in.EgressGatewayPolicyMapMax),
+	}
+
+	if !in.EnableEgressGateway {
+		return
+	}
+
+	if in.EnableIPv4 {
+		out.IPv4Map = bpf.NewMapOut(PolicyMap4(createPolicyMap4(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName)))
+		out.IPv4MapV2 = bpf.NewMapOut(PolicyMap4V2(createPolicyMap4V2(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName)))
+	}
+
+	if in.EnableIPv6 {
+		out.IPv6Map = bpf.NewMapOut(PolicyMap6(createPolicyMap6(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName)))
+	}
+
+	return
+}
+
+// CreatePrivatePolicyMap4 creates an unpinned IPv4 policy map.
+//
+// Useful for testing.
+func CreatePrivatePolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) PolicyMap4 {
+	return createPolicyMap4(lc, registry, cfg, ebpf.PinNone)
+}
+
+func CreatePrivatePolicyMap4V2(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) PolicyMap4V2 {
+	return createPolicyMap4V2(lc, registry, cfg, ebpf.PinNone)
+}
+
+// CreatePrivatePolicyMap6 creates an unpinned IPv6 policy map.
+//
+// Useful for testing.
+func CreatePrivatePolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) PolicyMap6 {
+	return createPolicyMap6(lc, registry, cfg, ebpf.PinNone)
+}
+
+func createPolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *policyMap4 {
+	m := bpf.NewMap(
+		PolicyMapName4,
+		ebpf.LPMTrie,
+		&EgressPolicyKey4{},
+		&EgressPolicyVal4{},
+		cfg.EgressGatewayPolicyMapMax,
+		unix.BPF_F_RDONLY_PROG,
+	).WithPressureMetric(registry)
+
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			switch pinning {
+			case ebpf.PinNone:
+				return m.CreateUnpinned()
+			case ebpf.PinByName:
+				return m.OpenOrCreate()
+			}
+			return fmt.Errorf("received unexpected pin type: %d", pinning)
+		},
+		OnStop: func(cell.HookContext) error {
+			return m.Close()
+		},
+	})
+
+	return &policyMap4{m}
+}
+
+func createPolicyMap4V2(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *policyMap4V2 {
+	m := bpf.NewMap(
+		PolicyMapName4V2,
+		ebpf.LPMTrie,
+		&EgressPolicyKey4{},
+		&EgressPolicyVal4V2{},
+		cfg.EgressGatewayPolicyMapMax,
+		unix.BPF_F_RDONLY_PROG,
+	).WithPressureMetric(registry)
+
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			switch pinning {
+			case ebpf.PinNone:
+				return m.CreateUnpinned()
+			case ebpf.PinByName:
+				return m.OpenOrCreate()
+			}
+			return fmt.Errorf("received unexpected pin type: %d", pinning)
+		},
+		OnStop: func(cell.HookContext) error {
+			return m.Close()
+		},
+	})
+
+	return &policyMap4V2{m}
+}
+
+func createPolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *policyMap6 {
+	m := bpf.NewMap(
+		PolicyMapName6,
+		ebpf.LPMTrie,
+		&EgressPolicyKey6{},
+		&EgressPolicyVal6{},
+		cfg.EgressGatewayPolicyMapMax,
+		unix.BPF_F_RDONLY_PROG,
+	).WithPressureMetric(registry)
+
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			switch pinning {
+			case ebpf.PinNone:
+				return m.CreateUnpinned()
+			case ebpf.PinByName:
+				return m.OpenOrCreate()
+			}
+			return fmt.Errorf("received unexpected pin type: %d", pinning)
+		},
+		OnStop: func(cell.HookContext) error {
+			return m.Close()
+		},
+	})
+
+	return &policyMap6{m}
+}
+
+// OpenPinnedPolicyMap4 opens an existing pinned IPv4 policy map.
+func OpenPinnedPolicyMap4(logger *slog.Logger) (PolicyMap4, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName4), &EgressPolicyKey4{}, &EgressPolicyVal4{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &policyMap4{m}, nil
+}
+
+func OpenPinnedPolicyMap4V2(logger *slog.Logger) (PolicyMap4V2, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName4V2), &EgressPolicyKey4{}, &EgressPolicyVal4V2{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &policyMap4V2{m}, nil
+}
+
+// OpenPinnedPolicyMap6 opens an existing pinned IPv6 policy map.
+func OpenPinnedPolicyMap6(logger *slog.Logger) (PolicyMap6, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName6), &EgressPolicyKey6{}, &EgressPolicyVal6{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &policyMap6{m}, nil
+}
+
+// NewEgressPolicyKey4 returns a new EgressPolicyKey4 object representing the
+// (source IP, destination CIDR) tuple.
+func NewEgressPolicyKey4(sourceIP netip.Addr, destPrefix netip.Prefix) EgressPolicyKey4 {
+	key := EgressPolicyKey4{}
+
+	ones := destPrefix.Bits()
+	key.SourceIP.FromAddr(sourceIP)
+	key.DestCIDR.FromAddr(destPrefix.Addr())
+	key.PrefixLen = PolicyStaticPrefixBits4 + uint32(ones)
+
+	return key
+}
+
+// NewEgressPolicyVal4 returns a new EgressPolicyVal4 object representing for
+// the given egress IP and gateway IPs
+func NewEgressPolicyVal4(egressIP, gatewayIP netip.Addr) EgressPolicyVal4 {
+	val := EgressPolicyVal4{}
+
+	val.EgressIP.FromAddr(egressIP)
+	val.GatewayIP.FromAddr(gatewayIP)
+
+	return val
+}
+
+func NewEgressPolicyVal4V2(egressIP, gatewayIP netip.Addr, egressIfindex uint32) EgressPolicyVal4V2 {
+	val := EgressPolicyVal4V2{}
+
+	val.EgressIP.FromAddr(egressIP)
+	val.GatewayIP.FromAddr(gatewayIP)
+	val.EgressIfindex = egressIfindex
+
+	return val
+}
+
+// String returns the string representation of an egress policy key.
+func (k *EgressPolicyKey4) String() string {
+	return fmt.Sprintf("%s %s/%d", k.SourceIP, k.DestCIDR, k.PrefixLen-PolicyStaticPrefixBits4)
+}
+
+// New returns an egress policy key
+func (k *EgressPolicyKey4) New() bpf.MapKey { return &EgressPolicyKey4{} }
+
+// Match returns true if the sourceIP and destCIDR parameters match the egress
+// policy key.
+func (k *EgressPolicyKey4) Match(sourceIP netip.Addr, destCIDR netip.Prefix) bool {
+	return k.GetSourceIP() == sourceIP &&
+		k.GetDestCIDR() == destCIDR
+}
+
+// GetSourceIP returns the egress policy key's source IP.
+func (k *EgressPolicyKey4) GetSourceIP() netip.Addr {
+	return k.SourceIP.Addr()
+}
+
+// GetDestCIDR returns the egress policy key's destination CIDR.
+func (k *EgressPolicyKey4) GetDestCIDR() netip.Prefix {
+	return netip.PrefixFrom(k.DestCIDR.Addr(), int(k.PrefixLen-PolicyStaticPrefixBits4))
+}
+
+// New returns an egress policy value
+func (v *EgressPolicyVal4) New() bpf.MapValue { return &EgressPolicyVal4{} }
+
+func (v *EgressPolicyVal4V2) New() bpf.MapValue { return &EgressPolicyVal4V2{} }
+
+// Match returns true if the egressIP and gatewayIP parameters match the egress
+// policy value.
+func (v *EgressPolicyVal4) Match(egressIP, gatewayIP netip.Addr) bool {
+	return v.GetEgressAddr() == egressIP &&
+		v.GetGatewayAddr() == gatewayIP
+}
+
+func (v *EgressPolicyVal4V2) Match(egressIP, gatewayIP netip.Addr, egressIfindex uint32) bool {
+	return v.GetEgressAddr() == egressIP &&
+		v.GetGatewayAddr() == gatewayIP &&
+		v.EgressIfindex == egressIfindex
+}
+
+// GetEgressIP returns the egress policy value's egress IP.
+func (v *EgressPolicyVal4) GetEgressAddr() netip.Addr {
+	return v.EgressIP.Addr()
+}
+
+func (v *EgressPolicyVal4V2) GetEgressAddr() netip.Addr {
+	return v.EgressIP.Addr()
+}
+
+// GetGatewayIP returns the egress policy value's gateway IP.
+func (v *EgressPolicyVal4) GetGatewayAddr() netip.Addr {
+	return v.GatewayIP.Addr()
+}
+
+func (v *EgressPolicyVal4V2) GetGatewayAddr() netip.Addr {
+	return v.GatewayIP.Addr()
+}
+
+// String returns the string representation of an egress policy value.
+func (v *EgressPolicyVal4) String() string {
+	return fmt.Sprintf("%s %s", v.GetGatewayAddr(), v.GetEgressAddr())
+}
+
+func (v *EgressPolicyVal4V2) String() string {
+	return fmt.Sprintf("%s %s %d", v.GetGatewayAddr(), v.GetEgressAddr(), v.EgressIfindex)
+}
+
+// Lookup returns the egress policy object associated with the provided (source
+// IP, destination CIDR) tuple.
+func (m *policyMap4) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error) {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
+	val, err := m.m.Lookup(&key)
+	if err != nil {
+		return nil, err
+	}
+
+	return val.(*EgressPolicyVal4), err
+}
+
+func (m *policyMap4V2) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4V2, error) {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
+	val, err := m.m.Lookup(&key)
+	if err != nil {
+		return nil, err
+	}
+
+	return val.(*EgressPolicyVal4V2), err
+}
+
+// Update updates the (sourceIP, destCIDR) egress policy entry with the provided
+// egress and gateway IPs.
+func (m *policyMap4) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
+	val := NewEgressPolicyVal4(egressIP, gatewayIP)
+
+	return m.m.Update(&key, &val)
+}
+
+func (m *policyMap4V2) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr, egressIfindex uint32) error {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
+	val := NewEgressPolicyVal4V2(egressIP, gatewayIP, egressIfindex)
+
+	return m.m.Update(&key, &val)
+}
+
+// Delete deletes the (sourceIP, destCIDR) egress policy entry.
+func (m *policyMap4) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
+
+	return m.m.Delete(&key)
+}
+
+func (m *policyMap4V2) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
+
+	return m.m.Delete(&key)
+}
+
+// EgressPolicyIterateCallback represents the signature of the callback function
+// expected by the IterateWithCallback method, which in turn is used to iterate
+// all the keys/values of an egress policy map.
+type EgressPolicyIterateCallback func(*EgressPolicyKey4, *EgressPolicyVal4)
+type EgressPolicyIterateCallbackV2 func(*EgressPolicyKey4, *EgressPolicyVal4V2)
+
+// IterateWithCallback iterates through all the keys/values of an egress policy
+// map, passing each key/value pair to the cb callback.
+func (m *policyMap4) IterateWithCallback(cb EgressPolicyIterateCallback) error {
+	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*EgressPolicyKey4)
+		value := v.(*EgressPolicyVal4)
+
+		cb(key, value)
+	})
+}
+
+func (m *policyMap4V2) IterateWithCallback(cb EgressPolicyIterateCallbackV2) error {
+	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*EgressPolicyKey4)
+		value := v.(*EgressPolicyVal4V2)
+
+		cb(key, value)
+	})
+}
+
+// NewEgressPolicyKey6 returns a new EgressPolicyKey6 object representing the
+// (source IP, destination CIDR) tuple.
+func NewEgressPolicyKey6(sourceIP netip.Addr, destPrefix netip.Prefix) EgressPolicyKey6 {
+	key := EgressPolicyKey6{}
+
+	ones := destPrefix.Bits()
+	key.SourceIP.FromAddr(sourceIP)
+	key.DestCIDR.FromAddr(destPrefix.Addr())
+	key.PrefixLen = PolicyStaticPrefixBits6 + uint32(ones)
+
+	return key
+}
+
+// NewEgressPolicyVal6 returns a new EgressPolicyVal6 object representing for
+// the given egress IP and gateway IPs
+func NewEgressPolicyVal6(egressIP, gatewayIP netip.Addr, egressIfindex uint32) EgressPolicyVal6 {
+	val := EgressPolicyVal6{}
+
+	val.EgressIP.FromAddr(egressIP)
+	val.GatewayIP.FromAddr(gatewayIP)
+	val.EgressIfindex = egressIfindex
+
+	return val
+}
+
+// String returns the string representation of an egress policy key.
+func (k *EgressPolicyKey6) String() string {
+	return fmt.Sprintf("%s %s/%d", k.SourceIP, k.DestCIDR, k.PrefixLen-PolicyStaticPrefixBits6)
+}
+
+// New returns an egress policy key
+func (k *EgressPolicyKey6) New() bpf.MapKey { return &EgressPolicyKey6{} }
+
+// Match returns true if the sourceIP and destCIDR parameters match the egress
+// policy key.
+func (k *EgressPolicyKey6) Match(sourceIP netip.Addr, destCIDR netip.Prefix) bool {
+	return k.GetSourceIP() == sourceIP &&
+		k.GetDestCIDR() == destCIDR
+}
+
+// GetSourceIP returns the egress policy key's source IP.
+func (k *EgressPolicyKey6) GetSourceIP() netip.Addr {
+	return k.SourceIP.Addr()
+}
+
+// GetDestCIDR returns the egress policy key's destination CIDR.
+func (k *EgressPolicyKey6) GetDestCIDR() netip.Prefix {
+	return netip.PrefixFrom(k.DestCIDR.Addr(), int(k.PrefixLen-PolicyStaticPrefixBits6))
+}
+
+// New returns an egress policy value
+func (v *EgressPolicyVal6) New() bpf.MapValue { return &EgressPolicyVal6{} }
+
+// Match returns true if the egressIP and gatewayIP parameters match the egress
+// policy value.
+func (v *EgressPolicyVal6) Match(egressIP, gatewayIP netip.Addr, egressIfindex uint32) bool {
+	return v.GetEgressAddr() == egressIP &&
+		v.GetGatewayAddr() == gatewayIP &&
+		v.EgressIfindex == egressIfindex
+}
+
+// GetEgressIP returns the egress policy value's egress IP.
+func (v *EgressPolicyVal6) GetEgressAddr() netip.Addr {
+	return v.EgressIP.Addr()
+}
+
+// GetGatewayIP returns the egress policy value's gateway IP.
+func (v *EgressPolicyVal6) GetGatewayAddr() netip.Addr {
+	return v.GatewayIP.Addr()
+}
+
+// String returns the string representation of an egress policy value.
+func (v *EgressPolicyVal6) String() string {
+	return fmt.Sprintf("%s %s %d", v.GetGatewayAddr(), v.GetEgressAddr(), v.EgressIfindex)
+}
+
+// Lookup returns the egress policy object associated with the provided (source
+// IP, destination CIDR) tuple.
+func (m *policyMap6) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal6, error) {
+	key := NewEgressPolicyKey6(sourceIP, destCIDR)
+	val, err := m.m.Lookup(&key)
+	if err != nil {
+		return nil, err
+	}
+
+	return val.(*EgressPolicyVal6), err
+}
+
+// Update updates the (sourceIP, destCIDR) egress policy entry with the provided
+// egress and gateway IPs.
+func (m *policyMap6) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr, egressIfindex uint32) error {
+	key := NewEgressPolicyKey6(sourceIP, destCIDR)
+	val := NewEgressPolicyVal6(egressIP, gatewayIP, egressIfindex)
+
+	return m.m.Update(&key, &val)
+}
+
+// Delete deletes the (sourceIP, destCIDR) egress policy entry.
+func (m *policyMap6) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
+	key := NewEgressPolicyKey6(sourceIP, destCIDR)
+
+	return m.m.Delete(&key)
+}
+
+// EgressPolicyIterateCallback6 represents the signature of the callback function
+// expected by the IterateWithCallback method, which in turn is used to iterate
+// all the keys/values of an egress policy map.
+type EgressPolicyIterateCallback6 func(*EgressPolicyKey6, *EgressPolicyVal6)
+
+// IterateWithCallback iterates through all the keys/values of an egress policy
+// map, passing each key/value pair to the cb callback.
+func (m *policyMap6) IterateWithCallback(cb EgressPolicyIterateCallback6) error {
+	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*EgressPolicyKey6)
+		value := v.(*EgressPolicyVal6)
+
+		cb(key, value)
+	})
+}

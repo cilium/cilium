@@ -1,0 +1,13 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-all-egress
+spec:
+  endpointSelector: {}
+  egress:
+  - toEndpoints:
+    - matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
+  - toCIDR:
+    - 0.0.0.0/0
+    - ::/0

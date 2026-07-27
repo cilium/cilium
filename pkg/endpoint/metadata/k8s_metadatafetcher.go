@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package metadata
+
+import (
+	"errors"
+	"log/slog"
+
+	"github.com/cilium/statedb"
+	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/k8s"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+var ErrPodStoreOutdated = errors.New("pod store outdated")
+
+type EndpointMetadataFetcher interface {
+	FetchK8sMetadataForEndpoint(nsName, podName, uid string, isNew bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error)
+
+	FetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error)
+}
+
+type cachedEndpointMetadataFetcher struct {
+	logger     *slog.Logger
+	config     *option.DaemonConfig
+	db         *statedb.DB
+	pods       statedb.Table[k8sTables.LocalPod]
+	namespaces statedb.Table[k8sTables.Namespace]
+}
+
+func NewEndpointMetadataFetcher(logger *slog.Logger, config *option.DaemonConfig, db *statedb.DB, pods statedb.Table[k8sTables.LocalPod], namespaces statedb.Table[k8sTables.Namespace]) EndpointMetadataFetcher {
+	return &cachedEndpointMetadataFetcher{
+		logger:     logger,
+		config:     config,
+		db:         db,
+		pods:       pods,
+		namespaces: namespaces,
+	}
+}
+
+func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpoint(nsName, podName, uid string, newPod bool) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+	p, err := cemf.getPod(nsName, podName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if isPodStoreOutdatedForUID(uid, p) {
+		return nil, nil, ErrPodStoreOutdated
+	}
+
+	metadata, err := cemf.FetchK8sMetadataForEndpointFromPod(p)
+
+	// set the named ports identity label on new (non-restored) endpoints
+	if err == nil && newPod {
+		for _, lbl := range k8s.NamedPortsIdentityLabels(metadata.NamedPorts) {
+			metadata.IdentityLabels[lbl.Key] = lbl
+		}
+	}
+
+	return p, metadata, err
+}
+
+// isPodStoreOutdatedForUID returns true when CNI uid disagrees with the store pod uid such
+// that ErrPodStoreOutdated applies. Mirror pods (static pods; corev1.MirrorPodAnnotationKey) are exempt.
+func isPodStoreOutdatedForUID(uid string, pod *slim_corev1.Pod) bool {
+	if uid == "" || uid == string(pod.GetUID()) {
+		return false
+	}
+	_, mirrorPod := pod.GetAnnotations()[corev1.MirrorPodAnnotationKey]
+	return !mirrorPod
+}
+
+func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
+	ns, err := cemf.fetchNamespace(p.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	namedPorts, lbls := k8s.GetPodMetadata(cemf.logger, ns, p)
+	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
+	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
+	return &endpoint.K8sMetadata{
+		NamedPorts:           namedPorts,
+		IdentityLabels:       identityLabels,
+		InfoLabels:           infoLabels,
+		NamespaceAnnotations: ns.Annotations,
+	}, nil
+}
+
+func (cemf *cachedEndpointMetadataFetcher) fetchNamespace(nsName string) (k8sTables.Namespace, error) {
+	// If network policies are disabled, labels are not needed, the namespace
+	// watcher is not running, and a namespace containing only the name is returned.
+	if !option.NetworkPolicyEnabled(cemf.config) {
+		return k8sTables.Namespace{
+			Name: nsName,
+		}, nil
+	}
+	return cemf.getNamespace(nsName)
+}
+
+func (cemf *cachedEndpointMetadataFetcher) getPod(namespace, name string) (*slim_corev1.Pod, error) {
+	_, initWatch := cemf.pods.Initialized(cemf.db.ReadTxn())
+	<-initWatch
+
+	pod, _, found := cemf.pods.Get(cemf.db.ReadTxn(), k8sTables.PodByName(namespace, name))
+	if !found {
+		return nil, k8sErrors.NewNotFound(schema.GroupResource{
+			Group:    "core",
+			Resource: "pod",
+		}, name)
+	}
+	return pod.Pod, nil
+}
+
+func (cemf *cachedEndpointMetadataFetcher) getNamespace(namespace string) (k8sTables.Namespace, error) {
+	_, initWatch := cemf.namespaces.Initialized(cemf.db.ReadTxn())
+	<-initWatch
+
+	ns, _, found := cemf.namespaces.Get(cemf.db.ReadTxn(), k8sTables.NamespaceIndex.Query(namespace))
+	if !found {
+		return k8sTables.Namespace{}, k8sErrors.NewNotFound(schema.GroupResource{
+			Group:    "core",
+			Resource: "namespace",
+		}, namespace)
+	}
+	return ns, nil
+}

@@ -1,0 +1,16 @@
+l4:
+- name: prod-udp-gw
+  port: 53
+  protocol: UDP
+  routes:
+  - backends:
+    - name: my-dns
+      namespace: default
+      port:
+        port: 5353
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1

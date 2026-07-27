@@ -1,0 +1,165 @@
+#! --lb-test-fault-probability=0.0 --bpf-lb-enable-wildcard-entries=false
+
+# Add some node addresses
+db/insert node-addresses addrv4.yaml
+db/cmp node-addresses nodeaddrs.table
+
+# Start the test application
+hive start
+
+# Add the endpoints and service
+k8s/add service.yaml eps.yaml
+
+# Verify statedb
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# Check BPF maps. This should NOT contain wildcards.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# Cleanup.
+k8s/delete service.yaml eps.yaml
+
+# Everything should now be empty
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- nodeaddrs.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    test
+
+-- services.table --
+Name                Source   PortNames            TrafficPolicy   Flags
+test/echo-default   k8s      http=80, https=443   Cluster
+
+-- frontends.table --
+Address                Type           ServiceName         PortName   Backends                                   RedirectTo   Status
+0.0.0.0:30780/TCP      NodePort       test/echo-default   http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
+0.0.0.0:30781/TCP      NodePort       test/echo-default   https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
+10.96.50.101:80/TCP    ClusterIP      test/echo-default   http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
+10.96.50.101:443/TCP   ClusterIP      test/echo-default   https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
+172.16.1.1:80/TCP      LoadBalancer   test/echo-default   http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
+172.16.1.1:443/TCP     LoadBalancer   test/echo-default   https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
+
+-- backends.table --
+Service             Address               Source   Priority   State    PortNames   NodeName
+test/echo-default   10.244.1.11:80/TCP    k8s      4          active   http        nodeport-worker1
+test/echo-default   10.244.1.11:443/TCP   k8s      4          active   https       nodeport-worker1
+test/echo-default   10.244.1.12:80/TCP    k8s      4          active   http        nodeport-worker2
+test/echo-default   10.244.1.12:443/TCP   k8s      4          active   https       nodeport-worker2
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.11:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.12:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.11:443/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.12:443/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30780
+REV: ID=2 ADDR=1.1.1.1:30780
+REV: ID=3 ADDR=0.0.0.0:30781
+REV: ID=4 ADDR=1.1.1.1:30781
+REV: ID=5 ADDR=10.96.50.101:80
+REV: ID=6 ADDR=10.96.50.101:443
+REV: ID=7 ADDR=172.16.1.1:80
+REV: ID=8 ADDR=172.16.1.1:443
+SVC: ID=1 ADDR=0.0.0.0:30780/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30780/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30780/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=2 ADDR=1.1.1.1:30780/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30780/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30780/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=5 ADDR=10.96.50.101:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=10.96.50.101:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=10.96.50.101:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=10.96.50.101:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=10.96.50.101:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=10.96.50.101:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=7 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=7 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=8 ADDR=172.16.1.1:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=8 ADDR=172.16.1.1:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=8 ADDR=172.16.1.1:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo-default
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49a
+spec:
+  clusterIP: 10.96.50.101
+  clusterIPs:
+  - 10.96.50.101
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30780
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30781
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- eps.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-default
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-default
+  name: echo-kvlm1
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd7a
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.11
+  nodeName: nodeport-worker1
+- addresses:
+  - 10.244.1.12
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP

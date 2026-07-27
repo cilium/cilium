@@ -1,0 +1,44 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: redirect-host-and-status
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /hostname-redirect
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        statusCode: 301
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /host-and-status
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace
