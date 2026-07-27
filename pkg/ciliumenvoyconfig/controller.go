@@ -7,9 +7,11 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"log/slog"
 	"maps"
 	"slices"
 	"strconv"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -27,6 +29,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
@@ -36,6 +39,7 @@ type cecControllerParams struct {
 	cell.In
 
 	DB             *statedb.DB
+	Logger         *slog.Logger
 	JobGroup       job.Group
 	ExpConfig      loadbalancer.Config
 	DaemonConfig   *option.DaemonConfig
@@ -114,6 +118,27 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 		featureMetrics: c.FeatureMetrics,
 	}
 
+	initWg := sync.WaitGroup{}
+	waitCtx, waitCancel := context.WithTimeout(ctx, maxSyncWaitTime)
+	defer waitCancel()
+
+	initWg.Go(func() {
+		// Wait for load balancing tables like services, frontends and backends to be initialized.
+		if err := c.Writer.WaitForInitializers(waitCtx); err != nil {
+			c.Logger.Warn("Failed to wait for loadbalancing initializers", logfields.Error, err)
+		}
+	})
+	initWg.Go(func() {
+		_, initDone := c.CECs.Initialized(c.DB.ReadTxn())
+		select {
+		case <-waitCtx.Done():
+			c.Logger.Warn("Failed to wait for CEC table", logfields.Error, waitCtx.Err())
+		case <-initDone:
+		}
+	})
+	initWg.Wait()
+
+	c.Logger.Debug("CEC and loadbalancing tables initialized, starting processing loop")
 	for {
 		t0 := time.Now()
 
