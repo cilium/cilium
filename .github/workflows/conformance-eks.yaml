@@ -578,14 +578,38 @@ jobs:
         run: |
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
-          # Quarantine egress-gateway-excluded-cidrs on non-PD legs (issue
-          # 47530): remove it from the gating run here and run it tolerated
-          # below. The PD legs run it inline and gate on it.
+          # Tests quarantined on the legs without prefix delegation. On those
+          # legs a node attaches several secondary ENIs and pod IPs spread over
+          # them, which these tests do not cope with:
+          #
+          #   north-south-loadbalancing-with-l7-policy: the outside-to-nodeport
+          #     reply egresses a secondary ENI while carrying the primary ENI's
+          #     source IP, so the VPC source/destination check drops it and the
+          #     client times out (curl 28). Issue 47391.
+          #   egress-gateway-excluded-cidrs: excluded-CIDR traffic is correctly
+          #     masqueraded to the owning secondary ENI's primary IP, but the
+          #     test asserts the node HostIP. Issue 47530.
+          #
+          # They are removed from the gating run below and re-run together in a
+          # single tolerated step, so they keep running and collecting artifacts
+          # without failing the workflow. The prefix-delegation legs keep pod
+          # IPs on the primary ENI, so they run and gate on them as usual. To
+          # quarantine another test add it to this list; to re-arm one, drop it.
+          QUARANTINED_TESTS=(
+            north-south-loadbalancing-with-l7-policy
+            egress-gateway-excluded-cidrs
+          )
+
+          QUARANTINED=""
           if [[ "${{ matrix.aws-eni-pd }}" != "true" ]]; then
-            CONNECTIVITY_TEST_DEFAULTS+=" --test '!egress-gateway-excluded-cidrs'"
+            for test in "${QUARANTINED_TESTS[@]}"; do
+              CONNECTIVITY_TEST_DEFAULTS+=" --test '!${test}'"
+              QUARANTINED+="${QUARANTINED:+,}${test}"
+            done
           fi
 
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo "quarantined_tests=${QUARANTINED}" >> $GITHUB_OUTPUT
 
       - name: Check that AWS leftover iptables chains have been removed
         run: |
@@ -610,24 +634,33 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
-      # Tolerated re-run of the quarantined egress-gateway-excluded-cidrs test
-      # on non-PD legs (issue 47530): it still runs and uploads a JUnit report,
-      # but its failure does not fail the workflow.
-      - name: Run quarantined test egress-gateway-excluded-cidrs (${{ join(matrix.*, ', ') }})
+      # Re-run the tests quarantined above (see the quarantine list in the job
+      # variables step) in one tolerated step, so they keep running and
+      # uploading a JUnit report while their failures do not fail the workflow.
+      - name: Run quarantined tests (${{ join(matrix.*, ', ') }})
         id: run-tests-quarantined
-        if: ${{ matrix.aws-eni-pd != true }}
+        if: ${{ steps.vars-conn.outputs.quarantined_tests != '' }}
         continue-on-error: true
+        env:
+          QUARANTINED_TESTS: ${{ steps.vars-conn.outputs.quarantined_tests }}
         run: |
-          cilium connectivity test ${{ steps.e2e_config.outputs.test_flags }} \
-          --test 'egress-gateway-excluded-cidrs' \
+          TEST_FLAGS=""
+          for test in ${QUARANTINED_TESTS//,/ }; do
+            TEST_FLAGS+=" --test ${test}"
+          done
+
+          # shellcheck disable=SC2086
+          cilium connectivity test ${{ steps.e2e_config.outputs.test_flags }} ${TEST_FLAGS} \
           --test-concurrency=${{ env.test_concurrency }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - quarantined.xml" \
-          --junit-property github_job_step="Run quarantined test egress-gateway-excluded-cidrs (${{ join(matrix.*, ', ') }})"
+          --junit-property github_job_step="Run quarantined tests (${{ join(matrix.*, ', ') }})"
 
-      - name: Warn on quarantined egress-gateway-excluded-cidrs failure (${{ join(matrix.*, ', ') }})
+      - name: Warn on quarantined test failure (${{ join(matrix.*, ', ') }})
         if: ${{ always() && steps.run-tests-quarantined.outcome == 'failure' }}
+        env:
+          QUARANTINED_TESTS: ${{ steps.vars-conn.outputs.quarantined_tests }}
         run: |
-          echo "::warning title=Test quarantined::egress-gateway-excluded-cidrs failed on this leg (${{ join(matrix.*, ', ') }}) but is quarantined, so it did not fail the workflow. Without prefix delegation a client pod may be masqueraded to a secondary ENI's primary IP rather than the node HostIP the test asserts. Investigate the failure above; remove the quarantine once the test oracle is fixed."
+          echo "::warning title=Test quarantined::One of the quarantined tests (${QUARANTINED_TESTS}) failed on this leg (${{ join(matrix.*, ', ') }}) but is quarantined, so it did not fail the workflow. These tests do not cope with pod IPs spread over secondary ENIs, which happens without prefix delegation. Investigate the failure above; remove a test from the quarantine list once its issue is fixed."
 
       - name: Features tested
         if: ${{ always() && steps.install-cilium.outcome == 'success' }}
