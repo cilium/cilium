@@ -89,6 +89,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 			t.Node.DebugLB = true
 			t.EnableConntrackAccounting = true
 		}),
+		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
 	)
 	return b
 }
@@ -123,6 +124,7 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
 		}),
+		Increment(func(t *config.BPFWireguard, v bool) { t.Node.EnableEndpointRoutes = v }),
 	)
 	return b
 }
