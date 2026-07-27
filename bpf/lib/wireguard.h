@@ -111,7 +111,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		if (src_sec_identity == UNKNOWN_ID) {
 			src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 			if (!src)
-				return CTX_ACT_OK;
+				return DROP_UNKNOWN_TARGET;
 
 			src_sec_identity = src->sec_identity;
 		}
@@ -127,7 +127,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		if (src_sec_identity == UNKNOWN_ID) {
 			src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 			if (!src)
-				return CTX_ACT_OK;
+				return DROP_UNKNOWN_TARGET;
 
 			src_sec_identity = src->sec_identity;
 		}
