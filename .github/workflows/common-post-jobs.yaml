@@ -27,28 +27,22 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.context-ref }}
-          persist-credentials: false
-
       - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merge JUnits
-        uses: ./.github/actions/merge-artifacts
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
         with:
           name: cilium-junits
           pattern: cilium-junits-*
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merge Features tested
-        uses: ./.github/actions/merge-artifacts
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
         with:
           name: features-tested
           pattern: features-tested-*
