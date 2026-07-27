@@ -570,6 +570,13 @@ jobs:
         run: |
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
+          # Quarantine egress-gateway-excluded-cidrs on non-PD legs (issue
+          # 47530): remove it from the gating run here and run it tolerated
+          # below. The PD legs run it inline and gate on it.
+          if [[ "${{ matrix.aws-eni-pd }}" != "true" ]]; then
+            CONNECTIVITY_TEST_DEFAULTS+=" --test '!egress-gateway-excluded-cidrs'"
+          fi
+
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Check that AWS leftover iptables chains have been removed
