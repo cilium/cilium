@@ -68,15 +68,25 @@ type cecControllerParams struct {
 //			       XDS Server
 type cecController struct {
 	cecControllerParams
+
+	initialized func(statedb.WriteTxn)
 }
 
 func registerCECController(params cecControllerParams) {
 	if !params.DaemonConfig.EnableL7Proxy || !params.DaemonConfig.EnableEnvoyConfig {
 		return
 	}
+
+	// Register an initializer on EnvoyResources table, this is completed once initial
+	// CEC resources are processed.
+	wtxn := params.DB.WriteTxn(params.EnvoyResources)
+	envoyResourcesInitialized := params.EnvoyResources.RegisterInitializer(wtxn, "CECController")
+	wtxn.Commit()
 	c := &cecController{
 		cecControllerParams: params,
+		initialized:         envoyResourcesInitialized,
 	}
+
 	params.JobGroup.Add(job.OneShot("controller", c.processLoop))
 }
 
@@ -168,6 +178,13 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 		//     Resources.Endpoints: backendsToLoadAssignments(backends),
 		//   }
 		backendProcessor.process(wtxn, closedWatches, allWatches)
+
+		// Indicate that initial resource processing is complete.
+		if c.initialized != nil {
+			c.Logger.Debug("CEC envoy resources table initialized")
+			c.initialized(wtxn)
+			c.initialized = nil
+		}
 
 		// Commit the new desired envoy resources. The changes will be picked up by the
 		// reconciler and pushed to Envoy.
