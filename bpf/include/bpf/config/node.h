@@ -105,3 +105,31 @@ NODE_CONFIG(__u8, monitor_aggregation, "Level of aggregation for monitor events"
 
 NODE_CONFIG(union v4addr, ipv4_inter_cluster_snat,
 	    "Node IPv4 address used as the source for inter-cluster SNAT")
+
+struct ct_timeout_config {
+	/* Lifetime of non-service TCP conntrack entries in seconds. */
+	__u32 connection_lifetime_tcp;
+	/* Lifetime of non-service non-TCP conntrack entries in seconds. */
+	__u32 connection_lifetime_non_tcp;
+	/* Lifetime of TCP service conntrack entries in seconds. */
+	__u32 service_lifetime_tcp;
+	/* Lifetime of non-TCP service conntrack entries in seconds. */
+	__u32 service_lifetime_non_tcp;
+	/* Grace period before a closed TCP service connection may be rebalanced, in seconds. */
+	__u32 service_close_rebalance;
+	/* Lifetime of TCP conntrack entries that have only seen SYN packets, in seconds. */
+	__u32 syn_timeout;
+	/* Lifetime of closed TCP conntrack entries in seconds. */
+	__u32 close_timeout;
+};
+
+NODE_CONFIG(struct ct_timeout_config, ct_timeouts, "Conntrack timeout configuration")
+ASSIGN_CONFIG(struct ct_timeout_config, ct_timeouts, {
+	.connection_lifetime_tcp = 21600,
+	.connection_lifetime_non_tcp = 60,
+	.service_lifetime_tcp = 21600,
+	.service_lifetime_non_tcp = 60,
+	.service_close_rebalance = 30,
+	.syn_timeout = 60,
+	.close_timeout = 10,
+})
