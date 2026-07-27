@@ -108,7 +108,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
 	warningLogExceptions := []logMatcher{cantEnableJIT, podCIDRUnavailable,
 		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
-		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
+		legacyBGPFeature, etcdTimeout, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
 		hubbleQueueFull, reflectPanic, svcNotFound, gobgpv3Warnings, gobgpNotification, gobgpNoMatchingWithdrawPath,
@@ -134,6 +134,10 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 
 	if ciliumVersion.LT(semver.MustParse("1.19.0")) {
 		warningLogExceptions = append(warningLogExceptions, kvstoreNodesGCWarn)
+	}
+
+	if ciliumVersion.LT(semver.MustParse("1.21.0")) {
+		warningLogExceptions = append(warningLogExceptions, endpointRestoreFailed)
 	}
 
 	for _, exception := range extraExceptions {
