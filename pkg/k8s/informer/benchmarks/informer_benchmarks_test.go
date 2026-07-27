@@ -430,7 +430,9 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 				UpdateFunc: func(oldObj, newObj any) {
 					if oldK8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), oldObj); oldK8sNP != nil {
 						if newK8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), newObj); newK8sNP != nil {
-							if reflect.DeepEqual(oldK8sNP, newK8sNP) {
+							// Not a test assertion: this mirrors the event
+							// deduplication that real informer handlers do.
+							if reflect.DeepEqual(oldK8sNP, newK8sNP) { //nolint:forbidigo
 								return
 							}
 						}
