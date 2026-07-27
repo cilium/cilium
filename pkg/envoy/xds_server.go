@@ -833,33 +833,9 @@ func (s *xdsServer) RemoveAllNetworkPolicies() {
 }
 
 func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
-	if option.Config.Debug {
-		msg := ""
-		sep := ""
-		if len(resources.Listeners) > 0 {
-			msg += fmt.Sprintf("%d listeners", len(resources.Listeners))
-			sep = ", "
-		}
-		if len(resources.Routes) > 0 {
-			msg += fmt.Sprintf("%s%d routes", sep, len(resources.Routes))
-			sep = ", "
-		}
-		if len(resources.Clusters) > 0 {
-			msg += fmt.Sprintf("%s%d clusters", sep, len(resources.Clusters))
-			sep = ", "
-		}
-		if len(resources.Endpoints) > 0 {
-			msg += fmt.Sprintf("%s%d endpoints", sep, len(resources.Endpoints))
-			sep = ", "
-		}
-		if len(resources.Secrets) > 0 {
-			msg += fmt.Sprintf("%s%d secrets", sep, len(resources.Secrets))
-		}
+	s.logger.Debug("UpsertEnvoyResources: Upserting Envoy Resources",
+		logfields.Resource, resources.DebugInfo())
 
-		s.logger.Debug("UpsertEnvoyResources: Upserting Envoy Resources",
-			logfields.Resource, msg,
-		)
-	}
 	var wg *completion.WaitGroup
 	// Listener config may fail if it refers to a cluster that has not been added yet, so we
 	// must wait for Envoy to ACK cluster config before adding Listeners to be sure Listener
