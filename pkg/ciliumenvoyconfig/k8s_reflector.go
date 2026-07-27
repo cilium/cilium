@@ -4,6 +4,7 @@
 package ciliumenvoyconfig
 
 import (
+	"context"
 	"iter"
 	"log/slog"
 	"strconv"
@@ -189,6 +190,16 @@ func registerCECK8sReflector(
 		return cec, true
 	}
 
+	// Waits for port allocator state to be restored before processing CEC resources.
+	portAllocatorRestoreWait := func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-p.portAllocator.RestoreComplete():
+		}
+		return nil
+	}
+
 	// CiliumEnvoyConfig reflection
 	err := k8s.RegisterReflector(
 		g,
@@ -205,7 +216,8 @@ func registerCECK8sReflector(
 					func(cec *CEC) bool { return cec.Name.Namespace != "" },
 				)
 			},
-			CRDSync: crdSync,
+			CRDSync:  crdSync,
+			InitWait: portAllocatorRestoreWait,
 		},
 	)
 	if err != nil {
@@ -228,7 +240,8 @@ func registerCECK8sReflector(
 					func(cec *CEC) bool { return cec.Name.Namespace == "" },
 				)
 			},
-			CRDSync: crdSync,
+			CRDSync:  crdSync,
+			InitWait: portAllocatorRestoreWait,
 		},
 	)
 }
