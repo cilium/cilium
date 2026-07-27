@@ -17,7 +17,7 @@ lb4_clusterip = (
 lb4_clusterip_post_dnat = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_ext_one, dst=v4_pod_one) /
-    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    TCP(sport=tcp_src_two, dport=tcp_dst_one) /
     Raw("S"*1)
 )
 
