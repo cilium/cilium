@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -642,7 +642,7 @@ func (a *Action) matchFlowRequirements(flows flowsSet, req *filters.FlowSetRequi
 func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSetRequirement) {
 	srcIP := a.src.Address(a.ipFam)
 	dstIP := a.dst.Address(a.ipFam)
-	if dstIP != "" && net.ParseIP(dstIP) == nil {
+	if _, err := netip.ParseAddr(dstIP); dstIP != "" && err != nil {
 		// dstIP is not an IP address, assume it is a domain name
 		dstIP = ""
 	}
@@ -806,7 +806,7 @@ func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequi
 
 	srcIP := a.src.Address(a.ipFam)
 	dstIP := a.dst.Address(a.ipFam)
-	if dstIP != "" && net.ParseIP(dstIP) == nil {
+	if _, err := netip.ParseAddr(dstIP); dstIP != "" && err != nil {
 		// dstIP is not an IP address, assume it is a domain name
 		dstIP = ""
 	}
