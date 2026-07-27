@@ -149,6 +149,10 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.26.5
+      - name: Install Scapy (trace_diff_pkts.py)
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends python3-scapy
       - name: Install tparse and go-junit-report
         timeout-minutes: 15
         run: |
