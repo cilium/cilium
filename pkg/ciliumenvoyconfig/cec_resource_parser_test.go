@@ -56,6 +56,12 @@ func NewMockPortAllocator() *MockPortAllocator {
 	}
 }
 
+func (m *MockPortAllocator) RestoreComplete() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
