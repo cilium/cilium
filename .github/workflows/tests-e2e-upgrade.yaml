@@ -535,10 +535,15 @@ jobs:
             cilium encrypt create-key --auth-algo ${{ matrix.key-one }}
           fi
 
+          EXTRA_INSTALL_ARGS="\
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id \
+            --set envoy.idleTimeoutDurationSeconds=3" # Set proxy idle timeout to a low value so that connections teardown for L7 traffic testing doesn't pollute validation during a later step.
+
           if ${{ steps.vars.outputs.skip_upgrade != 'true' }}; then
-            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${EXTRA_INSTALL_ARGS}
           else
-            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${EXTRA_INSTALL_ARGS}
           fi
 
           cilium status --wait --interactive=false --wait-duration=10m
@@ -546,6 +551,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
           mkdir -p cilium-junits
+          echo "extra_args=${EXTRA_INSTALL_ARGS}" >> $GITHUB_OUTPUT
 
       - name: Install node local DNS
         timeout-minutes: 3
@@ -591,8 +597,7 @@ jobs:
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }} \
-            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            ${{ steps.install-cilium.outputs.extra_args }}
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -702,8 +707,7 @@ jobs:
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }} \
-            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            ${{ steps.install-cilium.outputs.extra_args }}
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
