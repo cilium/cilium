@@ -8,7 +8,7 @@ package types
 // from pkg/azure/types/azureid (which uses the Azure SDK) so that pkg/azure/types
 // itself does not transitively pull the Azure SDK into every consumer of
 // CiliumNode (which embeds AzureSpec). Non-Azure binaries leave this stub in
-// place; they never call extractIDs() on real Azure resource IDs.
+// place.
 var resourceIDParser = func(_ string) (resourceGroup, vmssName, vmID string) {
 	return "", "", ""
 }

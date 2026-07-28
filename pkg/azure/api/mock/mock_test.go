@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/azure/types"
-	// Register the Azure resource-ID parser so AzureInterface.SetID() can
-	// populate VMSS/VM/RG fields used by AssignPrivateIpAddressesVMSS lookup.
+	// Register the Azure resource-ID parser so AzureInterface.GetVMID()
+	// resolves, which the AssignPrivateIpAddressesVMSS lookup compares against.
 	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
@@ -36,7 +36,7 @@ func TestMock(t *testing.T) {
 	ifaceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11"
 	instances = ipamTypes.NewInstanceMap()
 	resource := &types.AzureInterface{Name: "eth0"}
-	resource.SetID(ifaceID)
+	resource.ID = ifaceID
 	instances.Update("vm1", resource.DeepCopy())
 	api.UpdateInstances(instances)
 	nics, err = api.ListAllNetworkInterfaces(t.Context())
@@ -68,7 +68,7 @@ func TestMock(t *testing.T) {
 	vmIfaceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Network/networkInterfaces/vm22-if"
 	vmInstances := ipamTypes.NewInstanceMap()
 	resource = &types.AzureInterface{Name: "eth0"}
-	resource.SetID(vmIfaceID)
+	resource.ID = vmIfaceID
 	vmInstances.Update("vm2", resource.DeepCopy())
 	require.NoError(t, err)
 	require.Equal(t, 1, vmInstances.NumInstances())

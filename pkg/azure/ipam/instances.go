@@ -16,9 +16,8 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/azure/types"
 
-	// Register the Azure resource-ID parser. This is the canonical place
-	// for Azure-IPAM-enabled binaries to wire in pkg/azure/types' parser
-	// so AzureInterface.SetID() can populate the VMSS/VM/RG fields.
+	// Registers the Azure resource-ID parser used by AzureInterface's VMSS/VM
+	// getters.
 	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
