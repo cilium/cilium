@@ -185,6 +185,10 @@ type CollectionOptions struct {
 	// ProgramPatches transform the instructions in a program after
 	// reachability pruning.
 	ProgramPatches map[string]func(asm.Instructions) (asm.Instructions, error)
+
+	// CollectionPatches transform the CollectionSpec structure (maps, programs, BTF tags)
+	// after LoadCollection makes its internal copy, before reachability pruning.
+	CollectionPatches []func(*ebpf.CollectionSpec) error
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -252,6 +256,12 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if err := applyConstants(spec, opts.Constants); err != nil {
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
+	}
+
+	for _, patch := range opts.CollectionPatches {
+		if err := patch(spec); err != nil {
+			return nil, nil, fmt.Errorf("applying collection patches: %w", err)
+		}
 	}
 
 	reach, err := computeReachability(spec)
