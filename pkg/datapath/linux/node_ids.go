@@ -161,33 +161,63 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 // deallocateIDForNode deallocates the node ID for the given node, if it was allocated.
 func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) error {
 	var errs error
-	nodeIPs := make(map[string]bool)
-	nodeID := n.getNodeIDForNode(oldNode)
+	nodeIPs := sets.New[string]()
+	nodeIPsInUse := sets.New[string]()
+	nodeIDs := sets.New[uint16]()
 
-	// Check that all node IDs of the node had the same node ID.
-	for _, addr := range oldNode.IPAddresses {
-		nodeIPs[addr.IP.String()] = true
-		id := n.nodeIDsByIPs[addr.IP.String()]
-		if nodeID != id {
-			n.log.Error("Found two node IDs for the same node",
-				logfields.First, id,
-				logfields.Second, nodeID,
-				logfields.NodeName, oldNode.Name,
-				logfields.IPAddr, addr.IP,
-			)
-			errs = errors.Join(errs, fmt.Errorf("found two node IDs (%d and %d) for the same node", id, nodeID))
+	for _, node := range n.nodes {
+		for _, addr := range node.IPAddresses {
+			nodeIPsInUse.Insert(addr.IP.String())
 		}
 	}
 
-	errs = errors.Join(n.deallocateNodeIDLocked(nodeID, nodeIPs, oldNode.Name))
+	// Check that all node IDs of the node had the same node ID.
+	var expectedNodeID uint16
+	for _, addr := range oldNode.IPAddresses {
+		ip := addr.IP.String()
+		// A stale delete event may contain an IP that has since been reused.
+		if nodeIPsInUse.Has(ip) {
+			continue
+		}
+
+		nodeIPs.Insert(ip)
+		id := n.nodeIDsByIPs[ip]
+		if id == uint16(idpool.NoID) {
+			continue
+		}
+		if expectedNodeID == uint16(idpool.NoID) {
+			expectedNodeID = id
+		} else if expectedNodeID != id {
+			n.log.Error("Found two node IDs for the same node",
+				logfields.First, id,
+				logfields.Second, expectedNodeID,
+				logfields.NodeName, oldNode.Name,
+				logfields.IPAddr, addr.IP,
+			)
+		}
+		nodeIDs.Insert(id)
+	}
+
+	for nodeID := range nodeIDs {
+		errs = errors.Join(errs, n.deallocateNodeIDLocked(nodeID, nodeIPs, nodeIPsInUse, oldNode.Name))
+	}
 	return errs
 }
 
-func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[string]bool, nodeName string) error {
+func (n *linuxNodeHandler) deallocateNodeIDLocked(
+	nodeID uint16,
+	nodeIPs sets.Set[string],
+	nodeIPsInUse sets.Set[string],
+	nodeName string,
+) error {
 	var errs error
 	for ip := range n.nodeIPsByIDs[nodeID] {
+		if nodeIPsInUse.Has(ip) {
+			continue
+		}
+
 		// Check that only IPs of this node had this node ID.
-		if _, isIPOfOldNode := nodeIPs[ip]; !isIPOfOldNode {
+		if !nodeIPs.Has(ip) {
 			n.log.Error("Found a foreign IP address with the ID of the current node",
 				logfields.NodeName, nodeName,
 				logfields.IPAddr, ip,
@@ -201,7 +231,12 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[str
 				logfields.NodeID, nodeID,
 				logfields.IPAddr, ip,
 			)
+			errs = errors.Join(errs, fmt.Errorf("failed to unmap node IP %s from node ID %d: %w", ip, nodeID, err))
 		}
+	}
+
+	if n.nodeIPsByIDs[nodeID].Len() != 0 {
+		return errs
 	}
 
 	if !n.nodeIDs.Insert(idpool.ID(nodeID)) {
