@@ -221,13 +221,6 @@ func (r *infraIPAllocator) reallocateOldRouterIPs(fromK8s, fromFS net.IP) (resul
 }
 
 func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error {
-	bo := wait.Backoff{
-		Duration: 250 * time.Millisecond,
-		Factor:   2,
-		Jitter:   0.2,
-		Steps:    5,
-	}
-
 	findENIByMAC := func(ctx context.Context) (bool, error) {
 		links, err := safenetlink.LinkList()
 		if err != nil {
@@ -246,7 +239,7 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error
 		return false, nil
 	}
 
-	return wait.ExponentialBackoffWithContext(ctx, bo, findENIByMAC)
+	return wait.PollUntilContextTimeout(ctx, time.Second, 150*time.Second, true, findENIByMAC)
 }
 
 func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.AddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
