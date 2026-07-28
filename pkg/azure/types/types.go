@@ -81,6 +81,10 @@ type AzureSubnet struct {
 	CIDR iputil.Prefix `json:"cidr,omitzero"`
 }
 
+// Every field must be exported and JSON-serialized; see
+// TestAzureStatusHasNoUnserializedState. Kept out of the doc comment so it
+// stays out of the generated CRD description.
+
 // AzureInterface represents an Azure Interface
 type AzureInterface struct {
 	// ID is the identifier
@@ -137,27 +141,10 @@ type AzureInterface struct {
 	//
 	// +optional
 	CIDR iputil.Prefix `json:"cidr,omitzero"`
-
-	// vmssName is the name of the virtual machine scale set. This field is
-	// set by extractIDs()
-	vmssName string `json:"-"`
-
-	// vmID is the ID of the virtual machine
-	vmID string `json:"-"`
-
-	// resourceGroup is the resource group the interface belongs to
-	resourceGroup string `json:"-"`
 }
 
 func (a *AzureInterface) DeepCopyInterface() types.Interface {
 	return a.DeepCopy()
-}
-
-// SetID sets the Azure interface ID, as well as extracting other fields from
-// the ID itself.
-func (a *AzureInterface) SetID(id string) {
-	a.ID = id
-	a.extractIDs()
 }
 
 // InterfaceID returns the identifier of the interface
@@ -165,25 +152,20 @@ func (a *AzureInterface) InterfaceID() string {
 	return a.ID
 }
 
-// extractIDs extracts resource group name, VMSS name, and VM ID from the
-// network interface Azure resource ID. The actual implementation is build-tag
-// gated so the Azure SDK is only pulled in by builds that need it (see
-// extract_ids.go).
-func (a *AzureInterface) extractIDs() {
-	a.resourceGroup, a.vmssName, a.vmID = parseAzureResourceID(a.ID)
-}
-
 // GetResourceGroup returns the resource group the interface belongs to
 func (a *AzureInterface) GetResourceGroup() string {
-	return a.resourceGroup
+	resourceGroup, _, _ := parseAzureResourceID(a.ID)
+	return resourceGroup
 }
 
 // GetVMScaleSetName returns the VM scale set name the interface belongs to
 func (a *AzureInterface) GetVMScaleSetName() string {
-	return a.vmssName
+	_, vmssName, _ := parseAzureResourceID(a.ID)
+	return vmssName
 }
 
 // GetVMID returns the VM ID the interface belongs to
 func (a *AzureInterface) GetVMID() string {
-	return a.vmID
+	_, _, vmID := parseAzureResourceID(a.ID)
+	return vmID
 }
