@@ -26,14 +26,13 @@ type SignalType uint32
 const (
 	// SignalNatFillUp denotes potential congestion on the NAT table
 	SignalNatFillUp SignalType = iota
-	// SignalCTFillUp denotes potential congestion on the CT table
-	SignalCTFillUp
+	Unused
 	SignalTypeMax
 )
 
 var signalName = [SignalTypeMax]string{
 	SignalNatFillUp: "nat_fill_up",
-	SignalCTFillUp:  "ct_fill_up",
+	Unused:          "unused",
 }
 
 // SignalHandler parses signal data from the perf message via a reader.
