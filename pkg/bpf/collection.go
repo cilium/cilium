@@ -55,10 +55,10 @@ func IsTailCall(prog *ebpf.ProgramSpec) bool {
 	return strings.HasSuffix(prog.SectionName, "/tail")
 }
 
-// tailCallSlot returns the tail call slot for the given program, which must be
+// TailCallSlot returns the tail call slot for the given program, which must be
 // marked with the __declare_tail() annotation. The slot is the index in the
 // calls map that the program will be called from.
-func tailCallSlot(prog *ebpf.ProgramSpec) (uint32, error) {
+func TailCallSlot(prog *ebpf.ProgramSpec) (uint32, error) {
 	if !IsTailCall(prog) {
 		return 0, fmt.Errorf("program %s is not a tail call", prog.Name)
 	}
@@ -97,7 +97,7 @@ func resolveTailCalls(spec *ebpf.CollectionSpec) error {
 			continue
 		}
 
-		slot, err := tailCallSlot(prog)
+		slot, err := TailCallSlot(prog)
 		if err != nil {
 			return fmt.Errorf("getting tail call slot: %w", err)
 		}

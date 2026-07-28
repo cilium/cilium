@@ -47,7 +47,7 @@ func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
 			continue
 		}
 
-		slot, err := tailCallSlot(r.prog)
+		slot, err := TailCallSlot(r.prog)
 		if err != nil {
 			return nil, err
 		}
