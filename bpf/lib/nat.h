@@ -47,6 +47,10 @@ DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
 # define ENABLE_SNAT_ICMPV4 1
 #endif
 
+#if defined(ENABLE_MASQUERADE_IPV6)
+# define ENABLE_SNAT_ICMPV6 1
+#endif
+
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
 	NAT_DIR_INGRESS = TUPLE_F_IN,
@@ -1834,6 +1838,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	return __snat_v6_needs_masquerade(ctx, &args->tuple, fraginfo, l4_off, &args->target);
 }
 
+#ifdef ENABLE_SNAT_ICMPV6
 static __always_inline __maybe_unused int
 snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			      struct ipv6_nat_entry **state)
@@ -1913,6 +1918,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 				       &tuple.saddr, &(*state)->to_saddr, IPV6_DADDR_OFF,
 				       tuple.sport, (*state)->to_sport, port_off);
 }
+#endif /* ENABLE_SNAT_ICMPV6 */
 
 static __always_inline int
 __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
@@ -1992,6 +1998,7 @@ snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
 			return NAT_PUNT_TO_STACK;
 
 		break;
+#ifdef ENABLE_SNAT_ICMPV6
 	case IPPROTO_ICMPV6: {
 		struct icmp6hdr icmp6hdr __align_stack_8;
 
@@ -2044,6 +2051,7 @@ nat_icmp_v6:
 		}
 		break;
 	}
+#endif /* ENABLE_SNAT_ICMPV6 */
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
@@ -2052,6 +2060,7 @@ nat_icmp_v6:
 			     port_off, &args->trace, ext_err);
 }
 
+#ifdef ENABLE_SNAT_ICMPV6
 static __always_inline __maybe_unused int
 snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       __u32 inner_l3_off,
@@ -2138,6 +2147,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       &tuple.daddr, &(*state)->to_daddr, IPV6_SADDR_OFF,
 				       tuple.dport, (*state)->to_dport, port_off);
 }
+#endif /* ENABLE_SNAT_ICMPV6 */
 
 static __always_inline __maybe_unused int
 snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
@@ -2145,13 +2155,13 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 {
 	struct ipv6_nat_entry *state = NULL;
 	struct ipv6_ct_tuple tuple = {};
-	__u32 off, inner_l3_off;
 	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__be16 to_dport = 0;
 	__u16 port_off = 0;
 	int ret, hdrlen;
+	__u32 off;
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
 
@@ -2184,8 +2194,10 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 			return NAT_PUNT_TO_STACK;
 
 		break;
+#ifdef ENABLE_SNAT_ICMPV6
 	case IPPROTO_ICMPV6: {
 		struct icmp6hdr icmp6hdr __align_stack_8;
+		__u32 inner_l3_off;
 
 		if (ipfrag_is_fragment(fraginfo))
 			return DROP_INVALID;
@@ -2219,6 +2231,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		}
 		break;
 	}
+#endif /* ENABLE_SNAT_ICMPV6 */
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
@@ -2230,7 +2243,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	/* Skip port rewrite for ICMPV6_PKT_TOOBIG by passing old_port == new_port == 0. */
 	to_dport = state->to_dport;
 
-rewrite:
+rewrite: __maybe_unused
 	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN,
 				       ipfrag_has_l4_header(fraginfo), off,
 				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
