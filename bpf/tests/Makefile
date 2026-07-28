@@ -27,7 +27,7 @@ SCAPY_CORE := $(wildcard $(ROOT_DIR)/bpf/tests/scapy/*.py)
 SCAPY_HDR := $(ROOT_DIR)/bpf/tests/output/scapy_bytes.h
 
 
-.PHONY: all clean run
+.PHONY: all clean
 
 ALL_TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 
