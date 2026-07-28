@@ -14,7 +14,7 @@ notes carefully below to understand what to do during upgrade.
   in a future version. Consider using :ref:`encryption_ztunnel` instead, and
   please provide feedback on whether this alternative feature addresses your
   use cases.
-* Envoy Go Extensions (proxylib) was removed after deprecation in Cilium 1.16.
+* Envoy Go Extensions (proxylib) was removed after deprecation in Cilium 1.18.
   If you have ``CiliumNetworkPolicy`` or ``CiliumClusterwideNetworkPolicy``
   network policies with the section ``.spec.ingress[].toPorts[].rules`` or
   ``.spec.egress[].toPorts[].rules``, with the sub-field ``kafka``, ``l7`` or
