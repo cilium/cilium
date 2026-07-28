@@ -731,17 +731,25 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 	if newConfig.EnableIPSec {
 		// For the ENI ipam mode on EKS, this will be the interface that
 		// the router (cilium_host) IP is associated to.
-		if (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) &&
-			len(option.Config.IPv4PodSubnets) == 0 {
+		if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure {
 			if info := node.GetRouterInfo(); info != nil {
 				cidrs := info.GetCIDRs()
-				var ipv4PodSubnets []*cidr.CIDR
+				var ipv4PodSubnets, ipv6PodSubnets []*cidr.CIDR
 				for _, c := range cidrs {
 					if c.IP.To4() != nil {
 						ipv4PodSubnets = append(ipv4PodSubnets, cidr.NewCIDR(&c))
+					} else {
+						ipv6PodSubnets = append(ipv6PodSubnets, cidr.NewCIDR(&c))
 					}
 				}
-				n.nodeConfig.IPv4PodSubnets = ipv4PodSubnets
+				// Only derive the pod subnets which have not been explicitly
+				// configured.
+				if len(option.Config.IPv4PodSubnets) == 0 {
+					n.nodeConfig.IPv4PodSubnets = ipv4PodSubnets
+				}
+				if len(option.Config.IPv6PodSubnets) == 0 {
+					n.nodeConfig.IPv6PodSubnets = ipv6PodSubnets
+				}
 			}
 		}
 
