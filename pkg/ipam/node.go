@@ -328,7 +328,7 @@ func getPendingPodCount(nodeName string) (int, error) {
 	}
 	for _, pod := range values {
 		p := pod.(*v1.Pod)
-		if p.Status.Phase == v1.PodPending {
+		if p.Status.Phase == v1.PodPending && !p.Spec.HostNetwork {
 			pendingPods++
 		}
 	}
