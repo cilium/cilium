@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
-	"net"
+	"net/netip"
 	"os"
 	"slices"
 	"sort"
@@ -418,7 +418,7 @@ func newSkipLBMapCommand(m lbmaps.SkipLBMap) hive.ScriptCmdsOut {
 				var out []string
 
 				for key := range m.AllLB4() {
-					addr := net.IP(key.Address[:])
+					addr := netip.AddrFrom4(key.Address)
 					out = append(out, fmt.Sprintf("COOKIE=%d IP=%s PORT=%d\n",
 						key.NetnsCookie,
 						addr,
@@ -426,7 +426,7 @@ func newSkipLBMapCommand(m lbmaps.SkipLBMap) hive.ScriptCmdsOut {
 					))
 				}
 				for key := range m.AllLB6() {
-					addr := net.IP(key.Address[:])
+					addr := netip.AddrFrom16(key.Address)
 					out = append(out, fmt.Sprintf("COOKIE=%d IP=%s PORT=%d\n",
 						key.NetnsCookie,
 						addr,
