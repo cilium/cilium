@@ -378,7 +378,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
 		ri, riv6 := h.infraIPAllocator.GetHealthEndpointRouting()
-		if healthIP.Is6() {
+		if healthIP.To4() == nil {
 			ri = riv6
 		}
 		if ri == nil {
