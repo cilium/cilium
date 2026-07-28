@@ -16,7 +16,7 @@ import (
 
 // removeUnusedTailcalls removes tail calls that are not reachable from
 // entrypoint programs.
-func removeUnusedTailcalls(spec *ebpf.CollectionSpec, reach reachables, logger *slog.Logger) error {
+func removeUnusedTailcalls(spec *ebpf.CollectionSpec, reach reachables, keep *set.Set[string], logger *slog.Logger) error {
 	if reach == nil {
 		return fmt.Errorf("reachability information is required")
 	}
@@ -31,7 +31,7 @@ func removeUnusedTailcalls(spec *ebpf.CollectionSpec, reach reachables, logger *
 		return fmt.Errorf("getting live programs: %w", err)
 	}
 
-	deleteUnused(spec, live, logger)
+	deleteUnused(spec, live, keep, logger)
 
 	return nil
 }
@@ -149,14 +149,14 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 }
 
 // deleteUnused removes unreferenced tail calls from the CollectionSpec.
-func deleteUnused(spec *ebpf.CollectionSpec, live *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) {
+func deleteUnused(spec *ebpf.CollectionSpec, live *set.Set[*ebpf.ProgramSpec], keep *set.Set[string], logger *slog.Logger) {
 	var deleted []string
 	for name, prog := range spec.Programs {
 		if !IsTailCall(prog) {
 			continue
 		}
 
-		if live.Has(prog) {
+		if live.Has(prog) || (keep != nil && keep.Has(name)) {
 			continue
 		}
 
