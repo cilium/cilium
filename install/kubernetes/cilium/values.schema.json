@@ -5574,6 +5574,9 @@
             "intervalSeconds": {
               "type": "integer"
             },
+            "observeOnly": {
+              "type": "boolean"
+            },
             "restart": {
               "type": "boolean"
             },
