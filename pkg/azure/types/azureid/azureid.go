@@ -9,8 +9,8 @@
 // pkg/azure/types via CiliumNode's AzureSpec).
 //
 // On import, this package registers Parse with pkg/azure/types so that
-// AzureInterface.SetID() can extract the resource group, VMSS name, and VM ID
-// from a network interface resource ID.
+// AzureInterface's GetResourceGroup(), GetVMScaleSetName(), and GetVMID() can
+// derive their values from the network interface resource ID.
 package azureid
 
 import (
