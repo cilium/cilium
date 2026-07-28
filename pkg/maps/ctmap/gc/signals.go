@@ -10,7 +10,7 @@ import (
 )
 
 // SignalData holds the IP address family type BPF program sent along with
-// the SignalNatFillUp and SignalCTFillUp signals.
+// the SignalNatFillUp signal.
 type SignalData uint32
 
 const (
@@ -45,7 +45,7 @@ func newSignalHandler(sm signal.SignalManager) (SignalHandler, error) {
 		manager: sm,
 	}
 
-	err := sm.RegisterHandler(signal.ChannelHandler(handler.signals), signal.SignalCTFillUp, signal.SignalNatFillUp)
+	err := sm.RegisterHandler(signal.ChannelHandler(handler.signals), signal.SignalNatFillUp)
 	if err != nil {
 		return SignalHandler{}, fmt.Errorf("failed to set up signal channel for CT & NAT fill-up events: %w", err)
 	}
@@ -58,9 +58,9 @@ func (sh *SignalHandler) Signals() <-chan SignalData {
 }
 
 func (sh *SignalHandler) MuteSignals() error {
-	return sh.manager.MuteSignals(signal.SignalCTFillUp, signal.SignalNatFillUp)
+	return sh.manager.MuteSignals(signal.SignalNatFillUp)
 }
 
 func (sh *SignalHandler) UnmuteSignals() error {
-	return sh.manager.UnmuteSignals(signal.SignalCTFillUp, signal.SignalNatFillUp)
+	return sh.manager.UnmuteSignals(signal.SignalNatFillUp)
 }
