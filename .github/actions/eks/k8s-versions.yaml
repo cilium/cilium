@@ -1,4 +1,11 @@
 # List of k8s version for EKS tests
+#
+# The "default" entry is the only one pull requests run, so it is kept without
+# prefix delegation: eni.awsEnablePrefixDelegation defaults to false, so that is
+# the ENI behaviour every user gets unless they opt in.
+#
+# When adding a new EKS version, mark it as the default and move aws-eni-pd to
+# the second to last version, so that only that one enables prefix delegation.
 ---
 include:
   - version: "1.33"
@@ -9,4 +16,3 @@ include:
   - version: "1.35"
     region: us-west-2
     default: true
-    aws-eni-pd: true
