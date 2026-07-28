@@ -32,6 +32,22 @@ const (
 	callsMap = "cilium_calls"
 )
 
+// CallsMapSpec returns the cilium_calls MapSpec from the given collection spec, or nil if not found.
+func CallsMapSpec(coll *ebpf.CollectionSpec) *ebpf.MapSpec {
+	if coll == nil {
+		return nil
+	}
+	return coll.Maps[callsMap]
+}
+
+// CallsMap returns the cilium_calls Map from the given collection, or nil if not found.
+func CallsMap(coll *ebpf.Collection) *ebpf.Map {
+	if coll == nil {
+		return nil
+	}
+	return coll.Maps[callsMap]
+}
+
 // checkUnspecifiedPrograms returns an error if any of the programs in the spec
 // are of the UnspecifiedProgram type.
 func checkUnspecifiedPrograms(spec *ebpf.CollectionSpec) error {
