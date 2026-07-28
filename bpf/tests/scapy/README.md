@@ -68,10 +68,21 @@ index 3f9303e46e..6193bf9200 100644
 
 </details>
 
-Do a run `make run` and recover the trace:
+Start monitoring the `trace_pipe`:
 
 ```
-~/dev/cilium/bpf/tests$ cat output/trace_pipe.log | grep test
+sudo cat /sys/kernel/tracing/trace_pipe | grep test
+```
+
+From the repository root, run the BPF test in another terminal:
+
+```
+make run_bpf_tests BPF_TEST=tc_l2_announcement6
+```
+
+Recover the packet trace:
+
+```
 [...]
            <...>-2084557 [003] b..11 146984.634298: bpf_trace_printk: tc_l2_announcement6.c:98 test: pkt_hex Ether[3333ff000001deadbeefdeef86dd6000000000203a4020010000000000000000000000000001fd1000000000000000000000000000018700000040000000fd1000000000000000000000000000010101deadbeefdeef]
 ```
