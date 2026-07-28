@@ -156,10 +156,11 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 		return fmt.Errorf("invalid interface object")
 	}
 
-	if iface.GetVMScaleSetName() == "" {
+	vmss := iface.GetVMScaleSetName()
+	if vmss == "" {
 		return n.manager.api.AssignPrivateIpAddressesVM(ctx, string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
 	} else {
-		return n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.GetVMID(), iface.GetVMScaleSetName(), string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
+		return n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.GetVMID(), vmss, string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
 	}
 }
 

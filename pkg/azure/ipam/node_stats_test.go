@@ -54,7 +54,7 @@ func newCapacityTestInterface(name, id, primaryIP string, secondaryIPs ...string
 		Addresses:     addrs,
 		State:         types.StateSucceeded,
 	}
-	iface.SetID(id)
+	iface.ID = id
 	return iface
 }
 

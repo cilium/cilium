@@ -325,7 +325,7 @@ func parseInterface(logger *slog.Logger, iface *armnetwork.Interface, subnets ip
 	}
 
 	if iface.ID != nil {
-		i.SetID(*iface.ID)
+		i.ID = *iface.ID
 	}
 
 	if iface.Name != nil {

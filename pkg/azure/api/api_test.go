@@ -12,8 +12,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	// Required so SetID() resolves the Azure resource-ID parser.
-	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
@@ -156,6 +154,7 @@ func TestParseInterface(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, got := parseInterface(hivetest.Logger(t), tt.iface, tt.subnets, tt.usePrimary)
 			require.NotNil(t, got)
+			require.Equal(t, ifaceID, got.ID)
 			require.Equal(t, tt.expectedIP, got.IP)
 			require.Equal(t, tt.expectedSubnetID, got.Subnet.ID)
 			require.Equal(t, tt.expectedCIDR, got.Subnet.CIDR)
