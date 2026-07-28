@@ -41,6 +41,7 @@ var Cell = cell.Module(
 		ciliumNetworkDriverConfigResource,
 		resourceClaimResource,
 		podResource,
+		NewDeviceTable,
 	),
 	cell.Invoke(registerNetworkDriver),
 )
@@ -75,6 +76,7 @@ type networkDriverParams struct {
 	DaemonCfg      *option.DaemonConfig
 	DB             *statedb.DB
 	LocalNodeStore *node.LocalNodeStore
+	DeviceTable    statedb.RWTable[*Device]
 }
 
 func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, cfg NetworkDriverConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
@@ -143,7 +145,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		kubeClient:     params.ClientSet,
 		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
 		configCRD:      params.Configs,
-		allocations:    make(map[kube_types.UID]map[kube_types.UID][]allocation),
+		deviceTable:    params.DeviceTable,
 		podNetns:       make(map[kube_types.UID]string),
 		db:             params.DB,
 		localNodeStore: params.LocalNodeStore,
