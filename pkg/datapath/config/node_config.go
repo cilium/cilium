@@ -18,6 +18,10 @@ type Node struct {
 	CTConnectionLifetimeNonTCP uint32 `config:"ct_connection_lifetime_non_tcp"`
 	// Lifetime of non-service TCP conntrack entries in seconds.
 	CTConnectionLifetimeTCP uint32 `config:"ct_connection_lifetime_tcp"`
+	// TCP flags that trigger conntrack monitor reports.
+	CTReportFlags uint8 `config:"ct_report_flags"`
+	// Interval between aggregated monitor reports in seconds.
+	CTReportInterval uint32 `config:"ct_report_interval"`
 	// Lifetime of TCP conntrack entries that have only seen SYN packets, in
 	// seconds.
 	CTSYNTimeout uint32 `config:"ct_syn_timeout"`
@@ -109,7 +113,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0xa, 0x3c, 0x5460, 0x3c, 0x1e, 0x3c, 0x5460, 0x0,
+	return &Node{0xa, 0x3c, 0x5460, 0xff, 0x5, 0x3c, 0x1e, 0x3c, 0x5460, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

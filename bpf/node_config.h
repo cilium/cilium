@@ -16,11 +16,6 @@
 
 #define LRU_MEM_FLAVOR 0
 
-#define CT_REPORT_INTERVAL		5
-#ifndef CT_REPORT_FLAGS
-# define CT_REPORT_FLAGS		0xff
-#endif
-
 #ifdef ENABLE_IPV4
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_ENCRYPT_IFACE 0xfffff50a

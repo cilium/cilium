@@ -40,6 +40,11 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		Increment(func(t *config.BPFLXC, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableEndpointRoutes = v }),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
+		Increment(func(t *config.BPFLXC, synOnly bool) {
+			if synOnly {
+				t.Node.CTReportFlags = uint8(option.TCP_SYN)
+			}
+		}),
 	)
 	return b
 }
@@ -73,6 +78,11 @@ func baseHostPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFHost, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFHost, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFHost, synOnly bool) {
+			if synOnly {
+				t.Node.CTReportFlags = uint8(option.TCP_SYN)
+			}
+		}),
 	)
 	return b
 }
@@ -90,6 +100,11 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 			t.EnableConntrackAccounting = true
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFOverlay, synOnly bool) {
+			if synOnly {
+				t.Node.CTReportFlags = uint8(option.TCP_SYN)
+			}
+		}),
 	)
 	return b
 }
@@ -107,6 +122,11 @@ func baseSockPermutations() *loadPermutationBuilder {
 			t.EnableIPv6Fragments = true
 		}),
 		IncrementOrPermute(func(t *config.BPFSock, v bool) { t.EnableLRP = v }),
+		Increment(func(t *config.BPFSock, synOnly bool) {
+			if synOnly {
+				t.Node.CTReportFlags = uint8(option.TCP_SYN)
+			}
+		}),
 	)
 	return b
 }
@@ -125,6 +145,11 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 			t.EnableIPv6Fragments = true
 		}),
 		Increment(func(t *config.BPFWireguard, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFWireguard, synOnly bool) {
+			if synOnly {
+				t.Node.CTReportFlags = uint8(option.TCP_SYN)
+			}
+		}),
 	)
 	return b
 }
@@ -144,6 +169,11 @@ func baseXDPPermutations() *loadPermutationBuilder {
 			t.EnableIPv6Fragments = true
 		}),
 		Increment(func(t *config.BPFXDP, v bool) { t.EnableXDPPrefilter = v }),
+		Increment(func(t *config.BPFXDP, synOnly bool) {
+			if synOnly {
+				t.Node.CTReportFlags = uint8(option.TCP_SYN)
+			}
+		}),
 	)
 	return b
 }

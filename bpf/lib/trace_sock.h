@@ -92,7 +92,7 @@ parse_protocol(__u32 l4_proto) {
  * - lowest/low (1/2): suppress reverse-direction (recv) socket traces
  * - medium/max (3/4): only emit connect-initiated traces
  *
- * When aggregation is enabled (>=1), rate limiting aligns to CT_REPORT_INTERVAL.
+ * When aggregation is enabled (>=1), rate limiting aligns to ct_report_interval.
  */
 static __always_inline bool
 emit_trace_sock_notify(enum xlate_point xlate_point, bool is_connect)
@@ -127,18 +127,18 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 		.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
 	};
 	struct ratelimit_settings settings = {
-		.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
+		.topup_interval_ns = CONFIG(ct_report_interval) * NSEC_PER_SEC,
 	};
 
 	if (!emit_trace_sock_notify(xlate_point, is_connect))
 		return;
 
 	/* Rate limit socket traces when monitor aggregation is enabled.
-	 * Uses CT_REPORT_INTERVAL as the time bucket for aggregation to
+	 * Uses ct_report_interval as the time bucket for aggregation to
 	 * align with monitor aggregation timing.
 	 */
 	if (CONFIG(monitor_aggregation) != TRACE_SOCK_AGGREGATE_NONE) {
-		/* One token per CT_REPORT_INTERVAL with no burst to align with
+		/* One token per ct_report_interval with no burst to align with
 		 * monitor aggregation semantics ("~1 per interval").
 		 */
 		settings.bucket_size = 1;
@@ -171,18 +171,18 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 		.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
 	};
 	struct ratelimit_settings settings = {
-		.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
+		.topup_interval_ns = CONFIG(ct_report_interval) * NSEC_PER_SEC,
 	};
 
 	if (!emit_trace_sock_notify(xlate_point, is_connect))
 		return;
 
 	/* Rate limit socket traces when monitor aggregation is enabled.
-	 * Uses CT_REPORT_INTERVAL as the time bucket for aggregation to
+	 * Uses ct_report_interval as the time bucket for aggregation to
 	 * align with monitor aggregation timing.
 	 */
 	if (CONFIG(monitor_aggregation) != TRACE_SOCK_AGGREGATE_NONE) {
-		/* One token per CT_REPORT_INTERVAL with no burst to align with
+		/* One token per ct_report_interval with no burst to align with
 		 * monitor aggregation semantics ("~1 per interval").
 		 */
 		settings.bucket_size = 1;
