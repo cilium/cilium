@@ -557,6 +557,32 @@ func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressI
 
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6IngressIP = net.IP(result.IP.AsSlice()).To16() })
 		r.logger.Debug("Allocated IPv6 Ingress address", logfields.IPAddr, result.IP)
+
+		// In ENI mode, we require the gateway, CIDRs, and the
+		// ENI MAC addr in order to set up rules and routes on the local node to
+		// direct ingress traffic out of the ENIs.
+		if r.daemonConfig.IPAM == ipamOption.IPAMENI {
+			if ingressRouting, err := r.parseRoutingInfo(result); err != nil {
+				r.logger.Warn("Unable to allocate ingress information for ENI", logfields.Error, err)
+			} else {
+				// The ingress IP may sit on a different ENI than the router IP, so
+				// wait for its ENI to show up before configuring routes and rules,
+				// to avoid netlink failing to find the ifindex by its MAC.
+				if err := r.waitForENI(ctx, result.PrimaryMAC); err != nil {
+					r.logger.Error("Unable to find ENI netlink interface, this will likely lead to an error in configuring the ingress routes and rules",
+						logfields.MACAddr, result.PrimaryMAC,
+					)
+				}
+
+				if err := ingressRouting.Configure(
+					result.IP,
+					r.mtuManager.GetDeviceMTU(),
+					false,
+				); err != nil {
+					r.logger.Warn("Error while configuring ingress IP rules and routes.", logfields.Error, err)
+				}
+			}
+		}
 	}
 
 	return nil
