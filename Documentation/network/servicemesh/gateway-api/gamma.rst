@@ -71,4 +71,17 @@ Cilium supports GAMMA for the following resources (see
 Cilium currently does not support "consumer" Routes (HTTPRoute or GRPCRoute), and
 so does not support the ``MeshConsumerRoute`` feature of the Mesh conformance profile.
 
+.. note::
+
+   During workload termination or rolling updates, Hubble may report
+   ``DROP_EP_NOT_READY`` events for GAMMA traffic. An Envoy upstream TCP
+   connection can outlive the source endpoint whose traffic created it. After
+   Cilium removes that endpoint's policy program, packets that close the
+   remaining connection can be dropped.
+
+   These events are generally harmless when they are limited to closing TCP
+   connections and application requests continue to succeed. Drops that affect
+   new connections or coincide with request failures should be separately
+   investigated.
+
 .. include:: installation.rst
