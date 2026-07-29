@@ -15,6 +15,7 @@
 #include "dbg.h"
 #include "l4.h"
 #include "ipfrag.h"
+#include "auxvars.h"
 
 /* Traffic is allowed/dropped based on user-defined policies. */
 DECLARE_CONFIG(bool, enable_extended_ip_protocols, "Pass traffic with extended IP protocols")
@@ -1070,6 +1071,9 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 	}
 }
 
+DEFINE_AUX(struct ct_entry, ct_create6_entry);
+DEFINE_AUX(struct ipv6_ct_tuple, ct_create6_tuple);
+
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
@@ -1077,43 +1081,48 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 				      const struct ct_state *ct_state, __s8 *ext_err)
 {
 	/* Create entry in original direction */
-	struct ct_entry entry = { };
+	struct ct_entry *entry = AUX(ct_create6_entry);
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
+	memset(entry, 0, sizeof(*entry));
+
 	if (ct_state)
-		ct_create_fill_entry(&entry, ct_state, dir);
+		ct_create_fill_entry(entry, ct_state, dir);
 
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
-	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
+	ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
-	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index,
-		    entry.src_sec_id, 0);
+	cilium_dbg3(ctx, DBG_CT_CREATED6, entry->rev_nat_index,
+		    entry->src_sec_id, 0);
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
-		struct ipv6_ct_tuple icmp_tuple __align_stack_8 = {
+		struct ipv6_ct_tuple *icmp_tuple = AUX(ct_create6_tuple);
+
+		memset(icmp_tuple, 0, sizeof(*icmp_tuple));
+		*icmp_tuple = (struct ipv6_ct_tuple) {
 			.nexthdr = IPPROTO_ICMPV6,
 			.sport = 0,
 			.dport = 0,
 			.flags = tuple->flags | TUPLE_F_RELATED,
 		};
 
-		ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
-		ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
+		ipv6_addr_copy(&icmp_tuple->daddr, &tuple->daddr);
+		ipv6_addr_copy(&icmp_tuple->saddr, &tuple->saddr);
 
-		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
+		err = map_update_elem(map_related, icmp_tuple, entry, 0);
 		if (unlikely(err < 0))
 			goto drop_err;
 	}
 
 #ifdef CONNTRACK_ACCOUNTING
-	entry.packets = 1;
-	entry.bytes = ctx_full_len(ctx);
+	entry->packets = 1;
+	entry->bytes = ctx_full_len(ctx);
 #endif
 
-	err = map_update_elem(map_main, tuple, &entry, 0);
+	err = map_update_elem(map_main, tuple, entry, 0);
 	if (unlikely(err < 0))
 		goto drop_err;
 
@@ -1125,6 +1134,9 @@ drop_err:
 	return DROP_CT_CREATE_FAILED;
 }
 
+DEFINE_AUX(struct ct_entry, ct_create4_entry);
+DEFINE_AUX(struct ipv4_ct_tuple, ct_create4_tuple);
+
 static __always_inline int ct_create4(const void *map_main,
 				      const void *map_related,
 				      struct ipv4_ct_tuple *tuple,
@@ -1133,23 +1145,28 @@ static __always_inline int ct_create4(const void *map_main,
 				      __s8 *ext_err)
 {
 	/* Create entry in original direction */
-	struct ct_entry entry = { };
+	struct ct_entry *entry = AUX(ct_create4_entry);
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
+	memset(entry, 0, sizeof(*entry));
+
 	if (ct_state)
-		ct_create_fill_entry(&entry, ct_state, dir);
+		ct_create_fill_entry(entry, ct_state, dir);
 
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
-	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
+	ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
-	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
-		    entry.src_sec_id, 0);
+	cilium_dbg3(ctx, DBG_CT_CREATED4, entry->rev_nat_index,
+		    entry->src_sec_id, 0);
 
 	if (map_related != NULL) {
 		/* Create an ICMP entry to relate errors */
-		struct ipv4_ct_tuple icmp_tuple = {
+		struct ipv4_ct_tuple *icmp_tuple = AUX(ct_create4_tuple);
+
+		memset(icmp_tuple, 0, sizeof(*icmp_tuple));
+		*icmp_tuple = (struct ipv4_ct_tuple) {
 			.daddr = tuple->daddr,
 			.saddr = tuple->saddr,
 			.nexthdr = IPPROTO_ICMP,
@@ -1158,21 +1175,21 @@ static __always_inline int ct_create4(const void *map_main,
 			.flags = tuple->flags | TUPLE_F_RELATED,
 		};
 
-		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
+		err = map_update_elem(map_related, icmp_tuple, entry, 0);
 		if (unlikely(err < 0))
 			goto drop_err;
 	}
 
 #ifdef CONNTRACK_ACCOUNTING
-	entry.packets = 1;
-	entry.bytes = ctx_full_len(ctx);
+	entry->packets = 1;
+	entry->bytes = ctx_full_len(ctx);
 #endif
 
 	/* Previous map update succeeded, we could delete it in case
 	 * the below throws an error, but we might as well just let
 	 * it time out.
 	 */
-	err = map_update_elem(map_main, tuple, &entry, 0);
+	err = map_update_elem(map_main, tuple, entry, 0);
 	if (unlikely(err < 0))
 		goto drop_err;
 
