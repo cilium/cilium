@@ -22,6 +22,10 @@ struct {
 	__uint(max_entries, POLICY_PROG_MAP_SIZE);
 } cilium_egresscall_policy __section_maps_btf;
 
+/* Tail call into the egress policy check logic of the specified endpoint.
+ * Callers of this function are expected to set L7-LB metadata via the
+ * l7lb_set_metadata() helper first.
+ */
 static __always_inline __must_check int
 tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 {

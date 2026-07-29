@@ -2554,8 +2554,8 @@ out:
  * endpoint.  Previously, the packet has come from the same endpoint,
  * but was redirected to a L7 LB.
  *
- * This program will be tail called from bpf_host for packets sent by
- * a L7 LB.
+ * This program will be tail called from bpf_host or bpf_lxc for packets
+ * sent by a L7 LB. We expect the caller to set L7-LB metadata.
  */
 __section_entry
 int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
@@ -2570,8 +2570,6 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
-
-	l7lb_set_metadata(ctx, 0);
 
 	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
 	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, UNKNOWN_ID,
@@ -2638,6 +2636,8 @@ int cil_to_container(struct __ctx_buff *ctx)
 		__u16 lxc_id = get_epid(ctx);
 
 		ctx->mark = 0;
+		l7lb_set_metadata(ctx, L7LB_DIR_TO_CONTAINER);
+
 		ret = tail_call_egress_policy(ctx, lxc_id);
 		return send_drop_notify(ctx, lxc_id, sec_label, LXC_ID,
 					ret, METRIC_INGRESS);
