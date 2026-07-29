@@ -88,9 +88,9 @@ jobs:
           tag=${GITHUB_REF##*/}
           echo tag=$tag >> $GITHUB_OUTPUT
           if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
-            echo image_tags=${{ github.repository_owner }}/${{ matrix.name }}:$tag,${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:$tag >> $GITHUB_OUTPUT
+            echo image_tags=${{ github.repository_owner }}/${{ matrix.name }}:$tag,${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:$tag,${{ github.repository_owner }}/${{ matrix.name }}:stable,${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:stable >> $GITHUB_OUTPUT
           else
-            echo image_tags=${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:$tag >> $GITHUB_OUTPUT
+            echo image_tags=${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:$tag,${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:stable >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout Source Code
@@ -153,8 +153,10 @@ jobs:
           echo "" >> image-digest/${{ matrix.name }}.txt
           if [ "${{ env.PUSH_TO_DOCKERHUB }}" == "true" ]; then
             echo "\`${{ env.BACKUP_REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+            echo "\`${{ env.BACKUP_REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}:stable@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           fi
           echo "\`${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.name }}:stable@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
