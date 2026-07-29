@@ -43,28 +43,33 @@ func testNode(ips ...string) *nodeTypes.Node {
 // node IDs are actually in use.
 func TestNodeIDLeakOnSharedRouterIP(t *testing.T) {
 	const routerIP = "169.254.2.1"
+	const nodeAIP = "10.0.0.1"
+	const nodeBIP = "10.0.0.2"
+	const firstNodeID = uint16(1) // first ID handed out by a pool starting at 1
+	const lastNodeID = uint16(2)  // the pool's only other ID (see newTestNodeIDHandler below)
 
 	// Only 2 IDs available: this makes exhaustion trivially observable.
 	n := newTestNodeIDHandler(t, 1, 2)
 
 	// Node A gets a node ID for its own IP plus the shared router IP.
-	nodeA := testNode("10.0.0.1", routerIP)
+	nodeA := testNode(nodeAIP, routerIP)
 	idA, err := n.allocateIDForNode(nil, nodeA)
 	require.NoError(t, err)
+	require.Equal(t, firstNodeID, idA)
 
 	// Node B's IP gets an ID first on its own (e.g. via the ipcache path
 	// mentioned in allocateIDForNode's doc comment, before the full Node
 	// object with the router IP is processed). This consumes the pool's
 	// last remaining ID.
-	nodeBPartial := testNode("10.0.0.2")
+	nodeBPartial := testNode(nodeBIP)
 	idB, err := n.allocateIDForNode(nil, nodeBPartial)
 	require.NoError(t, err)
-	require.NotEqual(t, idA, idB, "node A and B must not share an ID at this point")
+	require.Equal(t, lastNodeID, idB, "node B's own IP should get the last available ID")
 
 	// Now the full node B event arrives, including the shared router IP,
 	// which already has id A's ID. This is the inconsistent-mapping case:
 	// node B's own IP has idB, but the router IP resolves to idA.
-	nodeBFull := testNode("10.0.0.2", routerIP)
+	nodeBFull := testNode(nodeBIP, routerIP)
 	newIDB, err := n.allocateIDForNode(nil, nodeBFull)
 
 	// The recovery path unmaps node B's stale mapping and allocates a fresh
@@ -72,10 +77,9 @@ func TestNodeIDLeakOnSharedRouterIP(t *testing.T) {
 	// exhausted by the now-orphaned original idB, even though there are
 	// only 2 IDs in the entire pool and node A is still using one of them.
 	require.NoError(t, err, "re-allocating node B's ID should succeed: the orphaned ID must have been freed")
-	require.NotEqual(t, uint16(0), newIDB)
+	require.Equal(t, lastNodeID, newIDB)
 
 	// Sanity check: node A's mapping must be completely unaffected.
-	got, ok := n.nodeIDsByIPs["10.0.0.1"]
-	require.True(t, ok)
-	require.Equal(t, idA, got)
+	require.Equal(t, idA, n.nodeIDsByIPs[nodeAIP])
+	require.Equal(t, idB, n.nodeIDsByIPs[nodeBIP])
 }
