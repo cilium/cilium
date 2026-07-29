@@ -145,6 +145,13 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	if err != nil {
 		return err
 	}
+
+	wtxn = l2a.params.StateDB.WriteTxn(l2a.params.Frontends)
+	frontendChangeIter, err := l2a.params.Frontends.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		return err
+	}
 	// Wait for services to initialize
 	_, servicesInitialized := l2a.params.Services.Initialized(l2a.params.StateDB.ReadTxn())
 	select {
@@ -196,11 +203,22 @@ loop:
 			}
 		}
 
+		frontendChanges, frontendWatch := frontendChangeIter.Next(l2a.params.StateDB.ReadTxn())
+		for event := range frontendChanges {
+			if err := l2a.processFrontendEvent(event); err != nil {
+				l2a.params.Logger.Warn("Error processing frontend event",
+					logfields.Error, err,
+				)
+			}
+		}
+
 		select {
 		case <-ctx.Done():
 			break loop
 
 		case <-svcWatch:
+
+		case <-frontendWatch:
 
 		case event, more := <-policyChan:
 			// resource closed, shutting down
@@ -440,6 +458,16 @@ func (l2a *L2Announcer) processSvcEvent(event statedb.Change[*loadbalancer.Servi
 	}
 
 	return err
+}
+
+func (l2a *L2Announcer) processFrontendEvent(event statedb.Change[*loadbalancer.Frontend]) error {
+	name := event.Object.ServiceName
+	txn := l2a.params.StateDB.ReadTxn()
+	svc, _, found := l2a.params.Services.Get(txn, loadbalancer.ServiceByName(name))
+	if found {
+		return l2a.upsertSvc(svc)
+	}
+	return l2a.delSvc(types.NamespacedName{Namespace: name.Namespace(), Name: name.Name()})
 }
 
 func policyKey(policy *cilium_api_v2alpha1.CiliumL2AnnouncementPolicy) types.NamespacedName {
