@@ -68,6 +68,30 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 		},
 	})
 
+	cecTranslatorWithProxy := translation.NewCECTranslator(translation.Config{
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: true,
+		},
+		ListenerConfig: translation.ListenerConfig{
+			UseProxyProtocol:         true,
+			StreamIdleTimeoutSeconds: 300,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: 60,
+		},
+		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+			UseRemoteAddress: true,
+		},
+	})
+	proxyProtocolTranslator := gatewayApiTranslation.NewTranslator(cecTranslatorWithProxy, translation.Config{
+		ServiceConfig: translation.ServiceConfig{
+			ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+		},
+		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+			UseRemoteAddress: true,
+		},
+	})
+
 	tests := []struct {
 		name       string
 		serviceKey []types.NamespacedName
@@ -173,4 +197,40 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 			}
 		})
 	}
+
+	// Regression test for #47500.
+	t.Run("proxy-protocol-not-injected", func(t *testing.T) {
+		serviceKey := serviceKeyEcho
+
+		base := readInputDir(t, "testdata/gamma/base")
+		input := readInputDir(t, "testdata/gamma/mesh-basic/input")
+
+		c := fake.NewClientBuilder().
+			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			WithObjects(append(base, input...)...).
+			WithIndex(&gatewayv1.HTTPRoute{}, indexers.GammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService).
+			WithIndex(&gatewayv1.GRPCRoute{}, indexers.GammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService).
+			WithStatusSubresource(&corev1.Service{}).
+			WithStatusSubresource(&gatewayv1.HTTPRoute{}).
+			WithStatusSubresource(&gatewayv1.GRPCRoute{}).
+			Build()
+
+		r := &gammaReconciler{
+			Client:         c,
+			translator:     proxyProtocolTranslator,
+			logger:         logger,
+			controllerName: defaultControllerName,
+		}
+
+		result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: serviceKey})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		actualCEC := &ciliumv2.CiliumEnvoyConfig{}
+		err = c.Get(t.Context(), serviceKey, actualCEC)
+		require.NoError(t, err)
+		expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
+		readOutput(t, "testdata/gamma/mesh-basic/output/cec-echo.yaml", expectedCEC)
+		require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
+	})
 }

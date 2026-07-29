@@ -553,7 +553,12 @@ func (i *cecTranslator) listenerMutatorsForPorts(m *model.Model, ports []uint32)
 			defaultTCPKeepAliveProbeIntervalInSeconds,
 			defaultTCPKeepAliveMaxFailures),
 	}
-	if i.Config.ListenerConfig.UseProxyProtocol {
+	// PROXY protocol headers are injected by the load balancer on north-south Gateway paths.
+	// GAMMA (Service-parented) traffic is pod-to-pod and never carries them; applying the
+	// filter would cause Envoy to RST every connection. GAMMA and non-GAMMA listeners are
+	// never mixed in one model (separate reconcilers), so shouldUseOriginalSourceAddress is
+	// a safe proxy for the GAMMA check here.
+	if i.Config.ListenerConfig.UseProxyProtocol && !i.shouldUseOriginalSourceAddress(m) {
 		res = append(res, withProxyProtocol())
 	}
 
