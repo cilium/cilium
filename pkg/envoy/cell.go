@@ -92,7 +92,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			envoySocketDir:                GetSocketDir(option.Config.RunDir),
 			proxyGID:                      int(params.EnvoyProxyConfig.ProxyGID),
 			httpRequestTimeout:            int(params.EnvoyProxyConfig.HTTPRequestTimeout),
-			httpIdleTimeout:               params.EnvoyProxyConfig.ProxyIdleTimeoutSeconds,
+			httpIdleTimeout:               int(params.EnvoyProxyConfig.HTTPIdleTimeout),
 			httpMaxGRPCTimeout:            int(params.EnvoyProxyConfig.HTTPMaxGRPCTimeout),
 			httpRetryCount:                int(params.EnvoyProxyConfig.HTTPRetryCount),
 			httpRetryTimeout:              int(params.EnvoyProxyConfig.HTTPRetryTimeout),
