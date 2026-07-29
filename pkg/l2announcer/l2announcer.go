@@ -194,18 +194,20 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 
 loop:
 	for {
-		svcChanges, svcWatch := svcChangeIter.Next(l2a.params.StateDB.ReadTxn())
+		rtxn := l2a.params.StateDB.ReadTxn()
+
+		svcChanges, svcWatch := svcChangeIter.Next(rtxn)
 		for event := range svcChanges {
-			if err := l2a.processSvcEvent(event); err != nil {
+			if err := l2a.processSvcEvent(rtxn, event); err != nil {
 				l2a.params.Logger.Warn("Error processing service event",
 					logfields.Error, err,
 				)
 			}
 		}
 
-		frontendChanges, frontendWatch := frontendChangeIter.Next(l2a.params.StateDB.ReadTxn())
+		frontendChanges, frontendWatch := frontendChangeIter.Next(rtxn)
 		for event := range frontendChanges {
-			if err := l2a.processFrontendEvent(event); err != nil {
+			if err := l2a.processFrontendEvent(rtxn, event); err != nil {
 				l2a.params.Logger.Warn("Error processing frontend event",
 					logfields.Error, err,
 				)
@@ -252,7 +254,7 @@ loop:
 			}
 
 		case <-watchDevices:
-			devices, watchDevices = tables.SelectedDevices(l2a.params.Devices, l2a.params.StateDB.ReadTxn())
+			devices, watchDevices = tables.SelectedDevices(l2a.params.Devices, rtxn)
 			deviceNames := tables.DeviceNames(devices)
 
 			if slices.Equal(l2a.devices, deviceNames) {
@@ -341,11 +343,9 @@ func (l2a *L2Announcer) processPolicyEvent(ctx context.Context, event resource.E
 	return err
 }
 
-func (l2a *L2Announcer) upsertSvc(svc *loadbalancer.Service) error {
-	txn := l2a.params.StateDB.ReadTxn()
-
+func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Service) error {
 	// Lookup associated frontends
-	fes := l2a.params.Frontends.List(txn, loadbalancer.FrontendByServiceName(svc.Name))
+	fes := l2a.params.Frontends.List(rtxn, loadbalancer.FrontendByServiceName(svc.Name))
 	var lbAddresses, externalAddresses []netip.Addr
 	for fe := range fes {
 		if fe.Type == loadbalancer.SVCTypeExternalIPs {
@@ -443,10 +443,10 @@ func (l2a *L2Announcer) delSvc(key types.NamespacedName) error {
 	return nil
 }
 
-func (l2a *L2Announcer) processSvcEvent(event statedb.Change[*loadbalancer.Service]) error {
+func (l2a *L2Announcer) processSvcEvent(rtxn statedb.ReadTxn, event statedb.Change[*loadbalancer.Service]) error {
 	var err error
 	if !event.Deleted {
-		err = l2a.upsertSvc(event.Object)
+		err = l2a.upsertSvc(rtxn, event.Object)
 		if err != nil {
 			err = fmt.Errorf("upsert service: %w", err)
 		}
@@ -460,12 +460,11 @@ func (l2a *L2Announcer) processSvcEvent(event statedb.Change[*loadbalancer.Servi
 	return err
 }
 
-func (l2a *L2Announcer) processFrontendEvent(event statedb.Change[*loadbalancer.Frontend]) error {
+func (l2a *L2Announcer) processFrontendEvent(rtxn statedb.ReadTxn, event statedb.Change[*loadbalancer.Frontend]) error {
 	name := event.Object.ServiceName
-	txn := l2a.params.StateDB.ReadTxn()
-	svc, _, found := l2a.params.Services.Get(txn, loadbalancer.ServiceByName(name))
+	svc, _, found := l2a.params.Services.Get(rtxn, loadbalancer.ServiceByName(name))
 	if found {
-		return l2a.upsertSvc(svc)
+		return l2a.upsertSvc(rtxn, svc)
 	}
 	return l2a.delSvc(types.NamespacedName{Namespace: name.Namespace(), Name: name.Name()})
 }
