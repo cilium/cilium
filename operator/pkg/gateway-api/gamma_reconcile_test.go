@@ -198,7 +198,6 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 		})
 	}
 
-	// Regression test for #47500.
 	t.Run("proxy-protocol-not-injected", func(t *testing.T) {
 		serviceKey := serviceKeyEcho
 

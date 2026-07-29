@@ -376,10 +376,6 @@ func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 	require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 }
 
-// TestSharedIngressTranslator_getListenerProxy_GammaNotInjected verifies that when
-// UseProxyProtocol is true, GAMMA (Service-parented) listeners do not receive the
-// proxy_protocol listener filter. Pod-to-pod traffic never carries PROXY protocol
-// headers; injecting the filter causes Envoy to RST every connection.
 func TestSharedIngressTranslator_getListenerProxy_GammaNotInjected(t *testing.T) {
 	i := &cecTranslator{
 		Config: Config{
