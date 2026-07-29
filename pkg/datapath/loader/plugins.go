@@ -377,11 +377,10 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 		return nil, err
 	}
 
-	instrumentCollectionRequests, programPatches, err := hooksSpec.instrumentCollection(spec)
+	instrumentCollectionRequests, err := hooksSpec.instrumentCollection(spec, opts)
 	if err != nil {
 		return nil, fmt.Errorf("instrumenting collection: %w", err)
 	}
-	opts.ProgramPatches = programPatches
 
 	for plugin, req := range instrumentCollectionRequests {
 		prepareHooksResp := responses[plugin]
@@ -674,11 +673,11 @@ func (hs *hooksSpec) hook(target string, hookType datapathplugins.HookType) *plu
 // requires instrumentation. It doesn't patch program instructions directly.
 // Patching is instead deferred until after reachability analysis and pruning
 // happen.
-func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*datapathplugins.InstrumentCollectionRequest, map[string]func(asm.Instructions) (asm.Instructions, error), error) {
+func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, opts *bpf.CollectionOptions) (map[string]*datapathplugins.InstrumentCollectionRequest, error) {
 	var err error
 
 	hooks := make(map[string]*datapathplugins.InstrumentCollectionRequest)
-	programPatches := make(map[string]func(asm.Instructions) (asm.Instructions, error))
+	opts.ProgramPatches = make(map[string]func(asm.Instructions) (asm.Instructions, error))
 
 	for hookTarget, hookTypes := range hs.hooks {
 		pre, sortErr := hookTypes[datapathplugins.HookType_PRE].sort()
@@ -693,16 +692,14 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 
 			continue
 		}
-		patch, patchErr := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, hooks)
-		if patchErr != nil {
+		if patchErr := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, hooks, opts); patchErr != nil {
 			err = errors.Join(err, fmt.Errorf("instrumenting %s: %w", hookTarget, patchErr))
 
 			continue
 		}
-		programPatches[hookTarget] = patch
 	}
 
-	return hooks, programPatches, err
+	return hooks, err
 }
 
 // instrumentProgram generates a program patcher that prepends a dispatcher that
@@ -754,11 +751,11 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 //	    volatile int ret = RET_PROCEED;
 //	    return ret;
 //	}
-func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest) (func(asm.Instructions) (asm.Instructions, error), error) {
+func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, opts *bpf.CollectionOptions) error {
 	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
 	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
 	if !hasFuncProto {
-		return nil, fmt.Errorf("unable to extract function BTF info for target program")
+		return fmt.Errorf("unable to extract function BTF info for target program")
 	}
 
 	var prologue asm.Instructions
@@ -850,9 +847,11 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 		epilogue = append(epilogue, freplaceSubProg(hookName, &postHookProto, ps)...)
 	}
 
-	return func(insns asm.Instructions) (asm.Instructions, error) {
+	opts.ProgramPatches[ps.Name] = func(insns asm.Instructions) (asm.Instructions, error) {
 		return append(prologue, append(insns, epilogue...)...), nil
-	}, nil
+	}
+
+	return nil
 }
 
 func freplaceSubProg(name string, funcProto *btf.FuncProto, ps *ebpf.ProgramSpec) asm.Instructions {
