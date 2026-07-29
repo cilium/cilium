@@ -784,31 +784,53 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		t.Fatal(err)
 	}
 
-	// Traffic matching an egress gateway policy and an excluded CIDR should leave the cluster masqueraded with the
-	// node IP where the pod is running rather than with the egress IP(pod to external service)
+	// Excluded-CIDR traffic must NOT exit with the egress gateway's egress IP; that would mean
+	// the exclusion failed and the packet was masqueraded by the gateway. Any other source IP
+	// (pod's own IP, owning ENI primary IP, node host IP) is acceptable; which one appears
+	// depends on ipv4NativeRoutingCIDR width relative to the destination subnet.
+	eniMode := false
+	if status, ok := ct.Feature(features.CiliumIPAMMode); ok && status.Mode == "eni" {
+		eniMode = true
+	}
+
 	i := 0
 	for _, client := range ct.ClientPods() {
 		for _, externalEcho := range ct.ExternalEchoPods() {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
-				hostIP, _ := netip.ParseAddr(client.Pod.Status.HostIP)
+				// In ENI mode pods are assigned their own routable ENI IPs, so traffic bypassing
+				// the gateway exits with the pod IP rather than the node host IP.
+				expectedIP, _ := netip.ParseAddr(client.Pod.Status.HostIP)
+				if eniMode {
+					expectedIP, _ = netip.ParseAddr(client.Pod.Status.PodIP)
+				}
 				if ipFam == features.IPFamilyV6 {
 					if !ipv6Enabled {
 						return
 					}
-					for _, addr := range client.Pod.Status.HostIPs {
-						ip, err := netip.ParseAddr(addr.IP)
-						if err == nil && ip.Unmap().Is6() {
-							hostIP = ip
-							break
+					if eniMode {
+						for _, addr := range client.Pod.Status.PodIPs {
+							parsed, err := netip.ParseAddr(addr.IP)
+							if err == nil && parsed.Unmap().Is6() {
+								expectedIP = parsed
+								break
+							}
+						}
+					} else {
+						for _, addr := range client.Pod.Status.HostIPs {
+							parsed, err := netip.ParseAddr(addr.IP)
+							if err == nil && parsed.Unmap().Is6() {
+								expectedIP = parsed
+								break
+							}
 						}
 					}
 				}
 
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
-					validateEgressGatewayClientIP(a, hostIP)
+					validateEgressGatewayClientIP(a, expectedIP)
 				})
 			})
 			i++
