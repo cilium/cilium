@@ -849,6 +849,59 @@ func TestPolicySelection(t *testing.T) {
 	})
 }
 
+func TestFrontendUpdateSelectsPreviouslyIgnoredService(t *testing.T) {
+	fix := newFixture(t)
+
+	policy := bluePolicy()
+	policy.Spec.LoadBalancerIPs = true
+	policy.Spec.ExternalIPs = false
+	fix.fakePolicyStore.slice = []*v2alpha1.CiliumL2AnnouncementPolicy{policy}
+
+	node := blueNode()
+	err := fix.announcer.processLocalNodeEvent(context.Background(), resource.Event[*v2.CiliumNode]{
+		Kind:   resource.Upsert,
+		Key:    resource.NewKey(node),
+		Object: node,
+		Done:   func(error) {},
+	})
+	require.NoError(t, err)
+
+	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
+		Kind:   resource.Upsert,
+		Key:    resource.NewKey(policy),
+		Object: policy,
+		Done:   func(error) {},
+	})
+	require.NoError(t, err)
+
+	svc, fe := blueService()
+	fe.Type = loadbalancer.SVCTypeLoadBalancer
+
+	wtxn := fix.stateDB.WriteTxn(fix.svcs)
+	fix.svcs.Insert(wtxn, svc)
+	wtxn.Commit()
+
+	err = fix.announcer.processSvcEvent(statedb.Change[*loadbalancer.Service]{
+		Deleted: false,
+		Object:  svc,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, fix.announcer.selectedServices)
+
+	wtxn = fix.stateDB.WriteTxn(fix.fes)
+	fix.fes.Insert(wtxn, fe)
+	wtxn.Commit()
+
+	err = fix.announcer.processFrontendEvent(statedb.Change[*loadbalancer.Frontend]{
+		Deleted: false,
+		Object:  fe,
+	})
+	require.NoError(t, err)
+
+	assert.Len(t, fix.announcer.selectedServices, 1)
+	assert.Contains(t, fix.announcer.selectedServices, serviceKey(svc))
+}
+
 // Test that when the selected IP types in the policy changes, that proxy neighbor table is updated properly.
 func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 	fix := baseUpdateSetup(t)
