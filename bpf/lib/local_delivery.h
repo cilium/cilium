@@ -10,6 +10,7 @@
 #include "l3.h"
 #include "proxy.h"
 #include "token_bucket.h"
+#include "l7lb.h"
 
 DECLARE_CONFIG(bool, enable_netkit, "Use netkit devices for pods")
 
@@ -61,6 +62,12 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 }
 
 static __always_inline bool
+need_redirect_peer(struct __ctx_buff *ctx)
+{
+	return (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0);
+}
+
+static __always_inline bool
 should_redirect_peer(struct __ctx_buff *ctx, bool from_host)
 {
 	/* We should only do a redirect_peer() if BPF Host Routing is enabled,
@@ -88,7 +95,7 @@ should_redirect_peer(struct __ctx_buff *ctx, bool from_host)
 	 */
 	return CONFIG(enable_bpf_host_routing) &&
 	       !from_host &&
-	       (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0);
+	       need_redirect_peer(ctx);
 }
 
 static __always_inline int redirect_ep(struct __ctx_buff *ctx,
@@ -145,6 +152,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	       const struct endpoint_info *ep, __u8 direction, bool from_host,
 	       bool from_tunnel, __u32 cluster_id)
 {
+	bool use_redirect = true;
 	bool use_redirect_peer;
 
 #ifdef LOCAL_DELIVERY_METRICS
@@ -183,7 +191,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	     * ingress (ingress_ifindex > 0); there we must enforce at the source
 	     * here instead.
 	     */
-	    (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0)) {
+	    need_redirect_peer(ctx)) {
 		set_identity_mark(ctx, seclabel, magic);
 
 # if !defined(ENABLE_NODEPORT)
@@ -204,7 +212,10 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	}
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
-	local_delivery_fill_meta(ctx, seclabel, true, use_redirect_peer,
+	if (!need_redirect_peer(ctx))
+		use_redirect = !is_from_l7lb_direction(ctx, L7LB_DIR_TO_CONTAINER);
+
+	local_delivery_fill_meta(ctx, seclabel, use_redirect, use_redirect_peer,
 				 from_host, from_tunnel, cluster_id);
 	return tail_call_policy(ctx, ep->lxc_id);
 }
