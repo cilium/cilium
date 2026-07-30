@@ -66,9 +66,10 @@ type IdentityPolicyComputer struct {
 	repo      policy.PolicyRepository
 	idmanager identitymanager.IDManager
 
-	reqsMu  lock.Mutex
-	reqs    []computeRequest
-	trigger chan struct{}
+	reqsMu   lock.Mutex
+	reqs     []computeRequest
+	advances []advanceRequest
+	trigger  chan struct{}
 }
 
 type Params struct {

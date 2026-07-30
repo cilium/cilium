@@ -216,6 +216,126 @@ func TestBulkRecompute(t *testing.T) {
 	require.NotNil(t, ws)
 }
 
+// An identity that a policy update does not select keeps its committed policy,
+// but must still have its revision advanced to the update's revision. Otherwise
+// an endpoint exposed after the importer snapshotted the endpoint list has no
+// way to tell that its policy is already current, and realizes a pre-import
+// revision until the next unrelated update or periodic regeneration.
+func TestUpdatePolicyAdvancesUnaffectedIdentities(t *testing.T) {
+	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
+
+	_, _, computer, idmgr := fixture(t)
+
+	affected := computeFor(t, computer, idmgr, identity.NumericIdentity(51))
+	unaffected := computeFor(t, computer, idmgr, identity.NumericIdentity(52))
+
+	// The importer passes the repository revision the update started from,
+	// which is the revision the committed policies are current at.
+	before, _, _, found := computer.GetIdentityPolicyByIdentity(unaffected)
+	require.True(t, found)
+	fromRev := before.CurrentAtRevision
+	toRev := fromRev + 1
+
+	computer.UpdatePolicy(set.NewSet(affected.ID), fromRev, toRev)
+
+	// The unaffected identity is not recomputed, so only the advance can mark
+	// it current at toRev.
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		obj, _, _, found := computer.GetIdentityPolicyByIdentity(unaffected)
+		assert.True(c, found)
+		assert.GreaterOrEqual(c, obj.CurrentAtRevision, toRev)
+	}, time.Second, time.Millisecond, "unaffected identity never became current at revision %d", toRev)
+
+	// It must be marked current without being recomputed: the committed policy
+	// is still the very same object.
+	obj, _, _, found := computer.GetIdentityPolicyByIdentity(unaffected)
+	require.True(t, found)
+	require.NotNil(t, obj.NewPolicy)
+	require.Same(t, before.NewPolicy, obj.NewPolicy,
+		"unaffected identity was recomputed, not just advanced")
+	// An advance must leave the revision it was computed at alone.
+	require.Equal(t, before.Revision, obj.Revision)
+}
+
+// Carrying a policy forward must never satisfy a request to recompute it.
+//
+// Revision (computed-at) is what processRequests uses to decide whether a
+// requested computation has already run. CurrentAtRevision is only a statement
+// about the committed policy still being valid, so deciding on it instead would
+// close a request that no computation ever served, leaving the policy stale with
+// nothing left to re-trigger it.
+func TestAdvanceDoesNotSatisfyRecompute(t *testing.T) {
+	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
+
+	_, _, computer, idmgr := fixture(t)
+
+	carried := computeFor(t, computer, idmgr, identity.NumericIdentity(71))
+	other := computeFor(t, computer, idmgr, identity.NumericIdentity(72))
+
+	before, _, _, found := computer.GetIdentityPolicyByIdentity(carried)
+	require.True(t, found)
+	base := before.CurrentAtRevision
+
+	// Carry `carried` forward without recomputing it.
+	toRev := base + 1
+	computer.UpdatePolicy(set.NewSet(other.ID), base, toRev)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		obj, _, _, found := computer.GetIdentityPolicyByIdentity(carried)
+		assert.True(c, found)
+		assert.Equal(c, toRev, obj.CurrentAtRevision)
+	}, time.Second, time.Millisecond)
+
+	// Now ask for a recomputation at the revision it was carried forward to. A
+	// computation must actually run, even though CurrentAtRevision already
+	// reports that revision.
+	done, err := computer.RecomputeIdentityPolicy(carried, toRev)
+	require.NoError(t, err)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("recomputation request never completed")
+	}
+
+	// OldPolicy is only set when a computation ran and replaced a committed
+	// policy, so it is the oracle for "this was recomputed, not carried".
+	obj, _, _, found := computer.GetIdentityPolicyByIdentity(carried)
+	require.True(t, found)
+	require.NotNil(t, obj.OldPolicy,
+		"requested recomputation was skipped because the policy had been carried forward")
+	require.GreaterOrEqual(t, obj.Revision, before.Revision)
+}
+
+// A late-delivered update for an older revision range must not drag an
+// identity's revision backwards.
+func TestUpdatePolicyAdvanceDoesNotRegress(t *testing.T) {
+	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
+
+	_, _, computer, idmgr := fixture(t)
+
+	other := computeFor(t, computer, idmgr, identity.NumericIdentity(61))
+	ahead := computeFor(t, computer, idmgr, identity.NumericIdentity(62))
+
+	before, _, _, found := computer.GetIdentityPolicyByIdentity(ahead)
+	require.True(t, found)
+	base := before.CurrentAtRevision
+
+	// Carry `ahead` forward twice, then replay the first update.
+	computer.UpdatePolicy(set.NewSet(other.ID), base, base+1)
+	computer.UpdatePolicy(set.NewSet(other.ID), base+1, base+2)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		obj, _, _, found := computer.GetIdentityPolicyByIdentity(ahead)
+		assert.True(c, found)
+		assert.Equal(c, base+2, obj.CurrentAtRevision)
+	}, time.Second, time.Millisecond)
+
+	computer.UpdatePolicy(set.NewSet(other.ID), base, base+1)
+
+	require.Never(t, func() bool {
+		obj, _, _, found := computer.GetIdentityPolicyByIdentity(ahead)
+		return found && obj.CurrentAtRevision < base+2
+	}, 100*time.Millisecond, 10*time.Millisecond, "revision regressed below %d", base+2)
+}
+
 func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager) {
 	t.Helper()
 
