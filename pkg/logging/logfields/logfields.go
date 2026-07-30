@@ -1697,6 +1697,10 @@ const (
 
 	PolicyRevisionRepo = "policyRevisionRepo"
 
+	// PolicyRevisionCurrentAt is the highest repository revision a computed
+	// policy is known to be correct for.
+	PolicyRevisionCurrentAt = "policyRevisionCurrentAt"
+
 	PolicyChanged = "policyChanged"
 
 	CEPUIDOld = "old-" + CEPUID

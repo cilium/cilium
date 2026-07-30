@@ -312,8 +312,8 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	fetcher := &supersedeFetcher{
 		PolicyRecomputer: f.polComputer,
 		results: []compute.Result{
-			{NewPolicy: detached, Revision: rev},
-			{NewPolicy: live, Revision: rev},
+			{NewPolicy: detached, Revision: rev, CurrentAtRevision: rev},
+			{NewPolicy: live, Revision: rev, CurrentAtRevision: rev},
 		},
 		watch: make(chan struct{}),
 	}
