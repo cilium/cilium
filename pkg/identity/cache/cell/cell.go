@@ -4,7 +4,6 @@
 package identitycachecell
 
 import (
-	"cmp"
 	"context"
 	"log/slog"
 	"net"
@@ -114,13 +113,12 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	var idAlloc CachingIdentityAllocator
 
 	if option.NetworkPolicyEnabled(option.Config) {
-		isOperatorManageCIDsEnabled := cmp.Or(
-			params.Config.IdentityManagementMode == option.IdentityManagementModeOperator,
-			params.Config.IdentityManagementMode == option.IdentityManagementModeBoth,
-		)
+		// In "both" mode the agent keeps allocating, so only "operator"
+		// delegates. The operator manages CIDs in both modes.
+		delegateCIDsToOperator := params.Config.IdentityManagementMode == option.IdentityManagementModeOperator
 
 		allocatorConfig := cache.AllocatorConfig{
-			EnableOperatorManageCIDs: isOperatorManageCIDsEnabled,
+			EnableOperatorManageCIDs: delegateCIDsToOperator,
 			Timeout:                  params.Config.IdentityAllocationTimeout,
 			SyncInterval:             params.Config.IdentityAllocationSyncInterval,
 		}
