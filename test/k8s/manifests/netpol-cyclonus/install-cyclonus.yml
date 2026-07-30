@@ -9,19 +9,32 @@ spec:
     spec:
       restartPolicy: Never
       containers:
+        # The JUnit file lives on an emptyDir that is only reachable through an
+        # exec into the container, and exec is rejected once the pod has
+        # terminated, so print the file between two sentinels and let the
+        # harness cut it back out of the log. exit $rc keeps the container exit
+        # code intact so a crash or a panic stays visible.
         - command:
-            - ./cyclonus
-            - generate
-            - --exclude=
-            - --include=upstream-e2e
-            - --perturbation-wait-seconds=20
-            - --retries=7
-            - --noisy=true
-            - --ignore-loopback=true
-            - --cleanup-namespaces=false
-            - --server-port=80
-            - --server-protocol=tcp
-            - --junit-results-file=/results/cyclonus-results.xml
+            - /bin/sh
+            - -c
+            - |
+              ./cyclonus generate \
+                --exclude= \
+                --include=upstream-e2e \
+                --perturbation-wait-seconds=20 \
+                --retries=7 \
+                --noisy=true \
+                --ignore-loopback=true \
+                --cleanup-namespaces=false \
+                --server-port=80 \
+                --server-protocol=tcp \
+                --junit-results-file=/results/cyclonus-results.xml
+              rc=$?
+              echo "===== BEGIN CYCLONUS JUNIT XML ====="
+              cat /results/cyclonus-results.xml 2>/dev/null || echo "(cyclonus produced no JUnit results file)"
+              echo
+              echo "===== END CYCLONUS JUNIT XML ====="
+              exit $rc
           name: cyclonus
           imagePullPolicy: IfNotPresent
           image: docker.io/mfenwick100/cyclonus:v0.5.6@sha256:f8da1d12837a85ada5d039725c89634f89ac30630e30f50ef17d745150294d26
