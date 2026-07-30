@@ -2098,9 +2098,14 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 			return fmt.Errorf("failure during GRPCRoute checks: %w", err)
 		}
 
-		if cond, invalid := i.ValidateMatchRegexps(); invalid {
-			for _, parent := range grpcr.Status.Parents {
-				i.SetParentCondition(parent.ParentRef, cond)
+		for _, validate := range []func() (metav1.Condition, bool){
+			i.ValidateHeaderModifier,
+			i.ValidateMatchRegexps,
+		} {
+			if cond, invalid := validate(); invalid {
+				for _, parent := range grpcr.Status.Parents {
+					i.SetParentCondition(parent.ParentRef, cond)
+				}
 			}
 		}
 

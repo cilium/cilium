@@ -175,6 +175,22 @@ func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferen
 	})
 }
 
+func (g *GRPCRouteInput) ValidateHeaderModifier() (metav1.Condition, bool) {
+	for _, rule := range g.GRPCRoute.Spec.Rules {
+		for _, f := range rule.Filters {
+			if f.Type == gatewayv1.GRPCRouteFilterRequestHeaderModifier {
+				for _, set := range f.RequestHeaderModifier.Set {
+					if set.Name == "Host" {
+						return invalidHeaderModifierCondition(set.Name), true
+					}
+				}
+			}
+		}
+	}
+
+	return metav1.Condition{}, false
+}
+
 func (g *GRPCRouteInput) ValidateMatchRegexps() (metav1.Condition, bool) {
 	for _, rule := range g.GRPCRoute.Spec.Rules {
 		for _, match := range rule.Matches {

@@ -66,7 +66,7 @@ func TestHTTPRouteValidateHeaderModifier(t *testing.T) {
 				assert.Equal(t, string(gatewayv1.RouteConditionAccepted), cond.Type)
 				assert.Equal(t, metav1.ConditionFalse, cond.Status)
 				assert.Equal(t, string(gatewayv1.RouteReasonUnsupportedValue), cond.Reason)
-				assert.Equal(t, `Invalid HTTPRoute header modifier: "Host" header is not supported; use URLRewrite.hostname instead`, cond.Message)
+				assert.Equal(t, `Invalid header modifier: "Host" header is not supported`, cond.Message)
 			}
 		})
 	}
