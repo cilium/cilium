@@ -44,6 +44,61 @@ type TranslationInputs struct {
 	ServiceImports         []mcsapiv1beta1.ServiceImport
 }
 
+// The Gateway-level filters only select Routes with an accepted parent belonging
+// to the Gateway or one of its attached ListenerSets. Listener-specific policy
+// and hostname checks happen during model ingestion, where the parent source is
+// known and the correct listener can be evaluated.
+
+func (r *TranslationInputs) AttachedHTTPRoutes(gw *gatewayv1.Gateway) []gatewayv1.HTTPRoute {
+	var filtered []gatewayv1.HTTPRoute
+	for _, route := range r.HTTPRoutes {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *TranslationInputs) AttachedGRPCRoutes(gw *gatewayv1.Gateway) []gatewayv1.GRPCRoute {
+	var filtered []gatewayv1.GRPCRoute
+	for _, route := range r.GRPCRoutes {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *TranslationInputs) AttachedTLSRoutes(gw *gatewayv1.Gateway) []gatewayv1.TLSRoute {
+	var filtered []gatewayv1.TLSRoute
+	for _, route := range r.TLSRoutes {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *TranslationInputs) AttachedTCPRoutes(gw *gatewayv1.Gateway) []gatewayv1.TCPRoute {
+	var filtered []gatewayv1.TCPRoute
+	for _, route := range r.TCPRoutes {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *TranslationInputs) AttachedUDPRoutes(gw *gatewayv1.Gateway) []gatewayv1.UDPRoute {
+	var filtered []gatewayv1.UDPRoute
+	for _, route := range r.UDPRoutes {
+		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
 type TranslationInputLoaderConfig struct {
 	IncludeTCPRoutes      bool
 	IncludeUDPRoutes      bool
