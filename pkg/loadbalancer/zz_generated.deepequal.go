@@ -120,6 +120,12 @@ func (in *Config) DeepEqual(other *Config) bool {
 	if in.NodePortMax != other.NodePortMax {
 		return false
 	}
+	if in.NodePortMinNATExt != other.NodePortMinNATExt {
+		return false
+	}
+	if in.NodePortMaxNATExt != other.NodePortMaxNATExt {
+		return false
+	}
 
 	return true
 }
@@ -334,6 +340,23 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	}
 	if ((in.NodePortRange != nil) && (other.NodePortRange != nil)) || ((in.NodePortRange == nil) != (other.NodePortRange == nil)) {
 		in, other := &in.NodePortRange, &other.NodePortRange
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.NodePortNATRangeExt != nil) && (other.NodePortNATRangeExt != nil)) || ((in.NodePortNATRangeExt == nil) != (other.NodePortNATRangeExt == nil)) {
+		in, other := &in.NodePortNATRangeExt, &other.NodePortNATRangeExt
 		if other == nil {
 			return false
 		}
