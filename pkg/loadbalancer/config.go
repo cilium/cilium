@@ -4,7 +4,6 @@
 package loadbalancer
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -55,6 +54,9 @@ const (
 
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
+
+	// NodePortNATRangeExtName defines a custom extended range of ephemeral ports for masquerading
+	NodePortNATRangeExtName = "node-port-nat-range-ext"
 
 	LBAlgorithmName = "bpf-lb-algorithm"
 
@@ -107,6 +109,9 @@ const (
 
 	// NodePortMaxDefault is the maximum port to listen for NodePort requests
 	NodePortMaxDefault = 32767
+
+	// PrivilegedPortMaxDefault is the the maximum  privileged port
+	PrivilegedPortMaxDefault = 1023
 )
 
 const (
@@ -172,6 +177,9 @@ type UserConfig struct {
 
 	// NodePortRange is the minimum and maximum ports to use for NodePort
 	NodePortRange []string
+
+	// NodePortNATRangeExt is the extended range of ephemeral ports for masquerading
+	NodePortNATRangeExt []string `mapstructure:"node-port-nat-range-ext"`
 
 	// LBMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
@@ -282,6 +290,12 @@ type Config struct {
 
 	// NodePortMax is the maximum port address for the NodePort range
 	NodePortMax uint16
+
+	// NodePortMinNATExt is the minimum port address for the extended masquerade port range
+	NodePortMinNATExt uint16
+
+	// NodePortMaxNATExt is the maximum port address for the extended masquerade port range
+	NodePortMaxNATExt uint16
 }
 
 func (c *Config) LoadBalancerUsesDSR() bool {
@@ -323,6 +337,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.StringSlice(NodePortRange, []string{fmt.Sprintf("%d", NodePortMinDefault), fmt.Sprintf("%d", NodePortMaxDefault)}, "Set the min/max NodePort port range")
 
+	flags.StringSlice(NodePortNATRangeExtName, nil, "Extended port range for BPF masquerade (e.g. 1024,29999)")
+
 	flags.String(LBAlgorithmName, def.LBAlgorithm, "BPF load balancing algorithm (\"random\", \"maglev\")")
 
 	flags.Bool(LoadBalancerModeAnnotationName, false, "Enable service-level annotation for configuring BPF load balancing mode")
@@ -356,6 +372,28 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(EnableWildcardEntries, def.EnableWildcardEntries, "Enable service load balancer wildcard entries.")
 	flags.MarkHidden(EnableWildcardEntries)
+}
+
+// parsePortRange parses a "min,max" port range.
+func parsePortRange(portRange []string) (uint16, uint16, error) {
+	if len(portRange) == 1 {
+		portRange = strings.Split(portRange[0], ",")
+	}
+	if len(portRange) != 2 {
+		return 0, 0, fmt.Errorf("unable to parse min/max port range")
+	}
+	min, err := strconv.ParseUint(portRange[0], 10, 16)
+	if err != nil {
+		return 0, 0, fmt.Errorf("unable to parse min port value: %w", err)
+	}
+	max, err := strconv.ParseUint(portRange[1], 10, 16)
+	if err != nil {
+		return 0, 0, fmt.Errorf("unable to parse max port value: %w", err)
+	}
+	if max <= min {
+		return 0, 0, fmt.Errorf("max port value, %d, is less than or equal to min port value, %d", max, min)
+	}
+	return uint16(min), uint16(max), nil
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -421,31 +459,28 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 
 	cfg.NodePortMin = NodePortMinDefault
 	cfg.NodePortMax = NodePortMaxDefault
-	nodePortRange := cfg.NodePortRange
-	// When passed via configmap, we might not get a slice but single
-	// string instead, so split it if needed.
-	if len(nodePortRange) == 1 {
-		nodePortRange = strings.Split(nodePortRange[0], ",")
+	if len(cfg.NodePortRange) > 0 {
+		min, max, err := parsePortRange(cfg.NodePortRange)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse NodePort range: %w", err)
+		}
+		cfg.NodePortMin = min
+		cfg.NodePortMax = max
 	}
-	switch len(nodePortRange) {
-	case 0:
-		// Use the defaults
-	case 2:
-		min, err := strconv.ParseUint(nodePortRange[0], 10, 16)
+
+	if len(cfg.NodePortNATRangeExt) > 0 {
+		extMin, extMax, err := parsePortRange(cfg.NodePortNATRangeExt)
 		if err != nil {
-			return Config{}, fmt.Errorf("Unable to parse min port value for NodePort range: %w", err)
+			return Config{}, fmt.Errorf("parse extended NodePort NAT range: %w", err)
 		}
-		cfg.NodePortMin = uint16(min)
-		max, err := strconv.ParseUint(nodePortRange[1], 10, 16)
-		if err != nil {
-			return Config{}, fmt.Errorf("Unable to parse max port value for NodePort range: %w", err)
+		if extMin <= PrivilegedPortMaxDefault {
+			return Config{}, fmt.Errorf("extended NodePort NAT range must not overlap with privileged port range")
 		}
-		cfg.NodePortMax = uint16(max)
-		if cfg.NodePortMax <= cfg.NodePortMin {
-			return Config{}, errors.New("NodePort range min port must be smaller than max port")
+		if extMax >= cfg.NodePortMin {
+			return Config{}, fmt.Errorf("extended NodePort NAT range must not overlap with NodePort range")
 		}
-	default:
-		return Config{}, fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
+		cfg.NodePortMinNATExt = extMin
+		cfg.NodePortMaxNATExt = extMax
 	}
 
 	if cfg.LBAlgorithm != LBAlgorithmRandom &&
