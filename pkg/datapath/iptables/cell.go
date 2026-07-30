@@ -101,7 +101,6 @@ type SharedConfig struct {
 
 	EnableIPv4                  bool
 	EnableIPv6                  bool
-	EnableXTSocketFallback      bool
 	EnableBPFTProxy             bool
 	InstallNoConntrackIptRules  bool
 	EnableEndpointRoutes        bool
