@@ -105,3 +105,82 @@ func TestNewConfig_NodePortRange(t *testing.T) {
 		})
 	}
 }
+
+func TestNewConfig_NodePortNATRangeExt(t *testing.T) {
+	type want struct {
+		wantMin uint16
+		wantMax uint16
+		wantErr bool
+	}
+	tests := []struct {
+		name     string
+		want     want
+		extRange []string
+	}{
+		{
+			name: "NodePortNATRangeExt valid slice",
+			want: want{
+				wantMin: 1024,
+				wantMax: 29999,
+				wantErr: false,
+			},
+			extRange: []string{"1024", "29999"},
+		},
+		{
+			name: "NodePortNATRangeExt valid comma-separated string",
+			want: want{
+				wantMin: 1024,
+				wantMax: 29999,
+				wantErr: false,
+			},
+			extRange: []string{"1024,29999"},
+		},
+		{
+			name: "NodePortNATRangeExt min in privileged port range (< 1024)",
+			want: want{
+				wantErr: true,
+			},
+			extRange: []string{"512", "29999"},
+		},
+		{
+			name: "NodePortNATRangeExt min >= max",
+			want: want{
+				wantErr: true,
+			},
+			extRange: []string{"20000", "10000"},
+		},
+		{
+			name: "NodePortNATRangeExt overlaps with NodePort range",
+			want: want{
+				wantErr: true,
+			},
+			extRange: []string{"1024", "30000"},
+		},
+		{
+			name: "NodePortNATRangeExt empty uses defaults (0, 0)",
+			want: want{
+				wantMin: 0,
+				wantMax: 0,
+				wantErr: false,
+			},
+			extRange: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
+			ucfg := DefaultUserConfig
+			ucfg.NodePortNATRangeExt = tt.extRange
+			cfg, err := NewConfig(log, ucfg, &option.DaemonConfig{})
+
+			if tt.want.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want.wantMin, cfg.NodePortMinNATExt, "ext min mismatch")
+				assert.Equal(t, tt.want.wantMax, cfg.NodePortMaxNATExt, "ext max mismatch")
+			}
+		})
+	}
+}

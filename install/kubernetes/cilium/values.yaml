@@ -2658,6 +2658,9 @@ nodePort:
   # -- Enable dynamic source IP resolution for SNAT via linux's routing table.
   # The kernel must support this feature.
   enableDynamicSourceLookup: false
+  # -- (string) Configure an extended range of ephemeral ports for BPF masquerade (e.g. "1024,29999")
+  # @default -- `""`
+  extendedNATPortRange: ""
 # policyAuditMode: false
 
 # -- The agent can be put into one of the three policy enforcement modes:
