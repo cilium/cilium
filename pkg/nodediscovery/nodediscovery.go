@@ -475,7 +475,9 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 				nodeResource.Spec.ENI.DisablePrefixDelegation = c.ENI.DisablePrefixDelegation
 			}
 
-			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
+			if c.ENI.DeleteOnTermination != nil {
+				nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
+			}
 		}
 
 		nodeResource.Spec.InstanceID = info.InstanceID
