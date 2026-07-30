@@ -126,9 +126,10 @@ var (
 func TestNewADSServer(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
-		envoySocketDir:       t.TempDir(),
-		policyRestoreTimeout: 30 * time.Second,
-		metrics:              nil,
+		envoySocketDir:        t.TempDir(),
+		policyRestoreTimeout:  30 * time.Second,
+		envoyAccessLogEnabled: true,
+		metrics:               nil,
 	}
 
 	server := newADSServer(logger, nil, nil, config, nil, nil)
@@ -138,6 +139,21 @@ func TestNewADSServer(t *testing.T) {
 	require.NotNil(t, &server.cache)
 	assert.NotEmpty(t, server.socketPath)
 	assert.NotEmpty(t, server.accessLogPath)
+}
+
+func TestNewADSServerAccessLogDisabled(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	config := xdsServerConfig{
+		envoySocketDir:        t.TempDir(),
+		policyRestoreTimeout:  30 * time.Second,
+		envoyAccessLogEnabled: false,
+	}
+
+	server := newADSServer(logger, nil, nil, config, nil, nil)
+
+	require.NotNil(t, server)
+	assert.NotEmpty(t, server.socketPath)
+	assert.Empty(t, server.accessLogPath)
 }
 
 func TestAddListener(t *testing.T) {
