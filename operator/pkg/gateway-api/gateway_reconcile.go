@@ -2017,9 +2017,10 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 
 		// Route-specific checks will go in here separately if required.
 
-		// Validate the HTTPRoute header name
-		if err := i.ValidateHeaderModifier(); err != nil {
-			return r.handleHTTPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, hr)
+		if cond, invalid := i.ValidateHeaderModifier(); invalid {
+			for _, parent := range hr.Status.Parents {
+				i.SetParentCondition(parent.ParentRef, cond)
+			}
 		}
 
 		if cond, invalid := i.ValidateMatchRegexps(); invalid {
