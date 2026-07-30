@@ -2012,7 +2012,7 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, hr.Spec.ParentRefs, hr.Namespace); err != nil {
-			return r.handleHTTPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, hr)
+			return fmt.Errorf("failure during HTTPRoute checks: %w", err)
 		}
 
 		// Route-specific checks will go in here separately if required.
@@ -2059,7 +2059,7 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, tlsr.Spec.ParentRefs, tlsr.Namespace); err != nil {
-			return r.handleTLSRouteReconcileErrorWithStatus(ctx, scopedLog, err, tlsr, &original)
+			return fmt.Errorf("failure during TLSRoute checks: %w", err)
 		}
 
 		// Route-specific checks will go in here separately if required.
@@ -2095,7 +2095,7 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, grpcr.Spec.ParentRefs, grpcr.Namespace); err != nil {
-			return r.handleGRPCRouteReconcileErrorWithStatus(ctx, scopedLog, err, grpcr, &original)
+			return fmt.Errorf("failure during GRPCRoute checks: %w", err)
 		}
 
 		if cond, invalid := i.ValidateMatchRegexps(); invalid {
@@ -2404,7 +2404,7 @@ func (r *gatewayReconciler) setTCPRouteStatuses(scopedLog *slog.Logger, ctx cont
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, tcpr.Spec.ParentRefs, tcpr.Namespace); err != nil {
-			return r.handleTCPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, tcpr)
+			return fmt.Errorf("failure during TCPRoute checks: %w", err)
 		}
 
 		// TODO: warn in TCPRoute when conditions for weight are not met.
@@ -2436,7 +2436,7 @@ func (r *gatewayReconciler) setUDPRouteStatuses(scopedLog *slog.Logger, ctx cont
 		}
 
 		if err := r.runCommonRouteChecks(ctx, i, udpr.Spec.ParentRefs, udpr.Namespace); err != nil {
-			return r.handleUDPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, udpr)
+			return fmt.Errorf("failure during UDPRoute checks: %w", err)
 		}
 
 		// TODO: warn in UDPRoute when conditions for weight are not met.
@@ -2451,13 +2451,6 @@ func (r *gatewayReconciler) setUDPRouteStatuses(scopedLog *slog.Logger, ctx cont
 	return nil
 }
 
-func (r *gatewayReconciler) handleHTTPRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) error {
-	if err := r.updateHTTPRouteStatus(ctx, scopedLog, original, modified); err != nil {
-		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
-	}
-	return nil
-}
-
 func (r *gatewayReconciler) updateHTTPRouteStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1.HTTPRoute, new *gatewayv1.HTTPRoute) error {
 	oldStatus := original.Status.DeepCopy()
 	newStatus := new.Status.DeepCopy()
@@ -2467,27 +2460,6 @@ func (r *gatewayReconciler) updateHTTPRouteStatus(ctx context.Context, scopedLog
 	}
 	scopedLog.DebugContext(ctx, "Updating HTTPRoute status", httpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
-}
-
-func (r *gatewayReconciler) handleTLSRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.TLSRoute, modified *gatewayv1.TLSRoute) error {
-	if err := r.updateTLSRouteStatus(ctx, scopedLog, original, modified); err != nil {
-		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
-	}
-	return nil
-}
-
-func (r *gatewayReconciler) handleTCPRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.TCPRoute, modified *gatewayv1.TCPRoute) error {
-	if err := r.updateTCPRouteStatus(ctx, scopedLog, original, modified); err != nil {
-		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
-	}
-	return nil
-}
-
-func (r *gatewayReconciler) handleUDPRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.UDPRoute, modified *gatewayv1.UDPRoute) error {
-	if err := r.updateUDPRouteStatus(ctx, scopedLog, original, modified); err != nil {
-		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
-	}
-	return nil
 }
 
 func (r *gatewayReconciler) updateTLSRouteStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1.TLSRoute, new *gatewayv1.TLSRoute) error {
@@ -2521,13 +2493,6 @@ func (r *gatewayReconciler) updateUDPRouteStatus(ctx context.Context, scopedLog 
 	}
 	scopedLog.Debug("Updating UDPRoute status", udpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
-}
-
-func (r *gatewayReconciler) handleGRPCRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.GRPCRoute, modified *gatewayv1.GRPCRoute) error {
-	if err := r.updateGRPCRouteStatus(ctx, scopedLog, original, modified); err != nil {
-		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
-	}
-	return nil
 }
 
 func (r *gatewayReconciler) updateGRPCRouteStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1.GRPCRoute, new *gatewayv1.GRPCRoute) error {
