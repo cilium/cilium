@@ -176,9 +176,13 @@ jobs:
             normal_tag="${normal_tag},${floating_normal_tag}"
           fi
 
-          if [[ "${{ github.event_name }}" == 'merge_group' || "${{ github.event_name }}" == 'push' ]]; then
-            # Don't build race and unstripped images for merge_group or push events.
+          if [[ "${{ github.event_name }}" == 'merge_group' ]]; then
+            # Don't build race images for merge_group events.
             race_tag=""
+          fi
+
+          if [[ "${{ github.event_name }}" == 'merge_group' || "${{ github.event_name }}" == 'push' ]]; then
+            # Don't build unstripped images for merge_group or push events.
             unstripped_tag=""
           fi
 
