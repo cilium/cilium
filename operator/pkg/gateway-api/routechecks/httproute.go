@@ -174,20 +174,29 @@ func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 	return refs
 }
 
-// Validates the HTTPRoute header
-func (r *HTTPRouteInput) ValidateHeaderModifier() error {
+func invalidHeaderModifierCondition(headerName gatewayv1.HTTPHeaderName) metav1.Condition {
+	return metav1.Condition{
+		Type:    string(gatewayv1.RouteConditionAccepted),
+		Status:  metav1.ConditionFalse,
+		Reason:  string(gatewayv1.RouteReasonUnsupportedValue),
+		Message: fmt.Sprintf("Invalid HTTPRoute header modifier: %q header is not supported; use URLRewrite.hostname instead", headerName),
+	}
+}
+
+// Validates the HTTPRoute header modifiers.
+func (r *HTTPRouteInput) ValidateHeaderModifier() (metav1.Condition, bool) {
 	for _, backendref := range r.HTTPRoute.Spec.Rules {
 		for _, f := range backendref.Filters {
 			if f.Type == gatewayv1.HTTPRouteFilterRequestHeaderModifier {
 				for _, set := range f.RequestHeaderModifier.Set {
 					if set.Name == "Host" {
-						return fmt.Errorf("Invalid HTTPRoute header: %q", set.Name)
+						return invalidHeaderModifierCondition(set.Name), true
 					}
 				}
 			}
 		}
 	}
-	return nil
+	return metav1.Condition{}, false
 }
 
 func invalidRegexCondition(field string, err error) metav1.Condition {
