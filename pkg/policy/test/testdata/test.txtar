@@ -46,6 +46,20 @@ stdout health.+1
 stdout ${id1}.+3
 stdout ${id2}.+3
 
+# An endpoint created now reuses ${id1}, which another live endpoint already
+# holds, so the identity manager notifies no observer and nothing schedules a
+# computation for it. It must still realize revision 4.
+endpoint/create ${id1} ${id1_labels}
+endpoint/wait-for-policy-revision 4
+
+# It got there without being recomputed: Revision is unchanged above, while
+# CurrentAtRevision carried it to the new repo revision.
+db/show --columns Identity,CurrentAtRevision policy-computations
+stdout host.+4
+stdout health.+4
+stdout ${id1}.+4
+stdout ${id2}.+4
+
 -- policy.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
