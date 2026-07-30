@@ -100,7 +100,9 @@ func mutate(ctx context.Context, in nodediscovery.ENIMutateInputs, nodeResource 
 		if c.ENI.DisablePrefixDelegation != nil {
 			nodeResource.Spec.ENI.DisablePrefixDelegation = c.ENI.DisablePrefixDelegation
 		}
-		nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
+		if c.ENI.DeleteOnTermination != nil {
+			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
+		}
 	}
 
 	nodeResource.Spec.InstanceID = info.InstanceID
