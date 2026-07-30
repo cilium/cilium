@@ -4,6 +4,7 @@
 package dropeventemitter
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -85,6 +88,21 @@ func TestL4protocolToString(t *testing.T) {
 			assert.Equal(t, str, tt.expect)
 		})
 	}
+}
+
+func TestProcessFlowRateLimitChargedOnlyToEvents(t *testing.T) {
+	e := &dropEventEmitter{
+		reasons:     []flowpb.DropReason{flowpb.DropReason_POLICY_DENIED},
+		rateLimiter: rate.NewLimiter(time.Second, 1),
+	}
+
+	forwarded := &flowpb.Flow{Verdict: flowpb.Verdict_FORWARDED}
+	for range 100 {
+		assert.NoError(t, e.ProcessFlow(context.Background(), forwarded))
+	}
+
+	assert.True(t, e.rateLimiter.Allow(),
+		"flows that cannot become events must not consume the rate limit budget")
 }
 
 func TestProcessFlow(t *testing.T) {
